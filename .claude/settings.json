@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(*)"
+    ]
+  },
+  "effortLevel": "high",
+  "enabledPlugins": {
+    "skill-creator@claude-plugins-official": true
+  }
+}
