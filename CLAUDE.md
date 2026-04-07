@@ -1,8 +1,8 @@
-# GMAO Desktop — Instructions Claude Code
+# DÉDALE — Instructions Claude Code
 
 ## Projet
 
-Application de GMAO (Gestion de Maintenance Assistée par Ordinateur) desktop.
+Application DÉDALE — GMAO (Gestion de Maintenance Assistée par Ordinateur) desktop.
 Mono-utilisateur, full local, aucun serveur distant.
 Stack : Tauri v2 (Rust) + React + TypeScript + Tailwind + shadcn/ui + SQLite.
 

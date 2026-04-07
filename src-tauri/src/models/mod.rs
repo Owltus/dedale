@@ -1,0 +1,15 @@
+pub mod contrats;
+pub mod dashboard;
+pub mod demandes;
+pub mod documents;
+pub mod equipements;
+pub mod gammes;
+pub mod modeles_equipements;
+pub mod modeles_operations;
+pub mod images;
+pub mod localisations;
+pub mod ordres_travail;
+pub mod prestataires;
+pub mod referentiels;
+pub mod techniciens;
+pub mod transversaux;

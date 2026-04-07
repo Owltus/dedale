@@ -16,6 +16,20 @@ paths:
 - Ne jamais supprimer les data-attributes (`data-slot`, `data-state`) des composants shadcn/ui
 - Toujours forwarder `ref` avec `React.forwardRef` quand on wrap un composant shadcn/ui
 
+## Select — OBLIGATOIRE
+
+- **TOUJOURS** passer la prop `items` au composant `<Select>` quand les valeurs sont des IDs numériques
+- Sans `items`, le `SelectValue` affiche l'ID brut au lieu du label
+- Pattern obligatoire :
+```tsx
+<Select
+  value={id ? String(id) : undefined}
+  items={Object.fromEntries(data.map(d => [String(d.id), d.label]))}
+  onValueChange={(v) => setId(Number(v))}
+>
+```
+- **JAMAIS** de `<Select>` sans `items=` si la value est un ID numérique
+
 ## Formulaires
 
 - Utiliser le pattern shadcn/ui complet : `<FormField>` + `<FormItem>` + `<FormLabel>` + `<FormControl>` + `<FormMessage>`
