@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { Handshake, Plus } from "lucide-react";
+import { ContratStatusBadge } from "@/components/shared/StatusBadge";
+import { cn } from "@/lib/utils";
 import { CardList } from "@/components/shared/CardList";
 import { ImagePicker } from "@/components/shared/ImagePicker";
 import { PageHeader } from "@/components/layout";
@@ -13,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { prestataireSchema, type PrestataireFormData } from "@/lib/schemas/prestataires";
 import { usePrestataires, useCreatePrestataire } from "@/hooks/use-prestataires";
+import { useContrats } from "@/hooks/use-contrats";
+import { getContratInfo } from "@/lib/utils/contrat-info";
 import type { Prestataire } from "@/lib/types/prestataires";
 
 function filterPrestataire(r: Prestataire, q: string): boolean {
@@ -26,7 +30,20 @@ function filterPrestataire(r: Prestataire, q: string): boolean {
 
 export function PrestatairesList() {
   const { data: prestataires = [] } = usePrestataires();
+  const { data: allContrats = [] } = useContrats();
   const createPrestataire = useCreatePrestataire();
+
+  // Contrats actifs (non archivés) groupés par prestataire
+  const contratsByPrestataire = useMemo(() => {
+    const map = new Map<number, typeof allContrats>();
+    for (const c of allContrats) {
+      if (c.est_archive) continue;
+      const list = map.get(c.id_prestataire) ?? [];
+      list.push(c);
+      map.set(c.id_prestataire, list);
+    }
+    return map;
+  }, [allContrats]);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const form = useForm<PrestataireFormData>({
@@ -67,14 +84,33 @@ export function PrestatairesList() {
         emptyDescription="Créez un prestataire pour gérer vos contrats."
         renderContent={(r) => (
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
-              {r.libelle}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {[r.ville, r.telephone].filter(Boolean).join(" · ") || "\u00A0"}
-            </p>
+            <p className="text-sm font-medium truncate">{r.libelle}</p>
+            {r.description && <p className="text-xs text-muted-foreground truncate">{r.description}</p>}
           </div>
         )}
+        renderRight={(r) => {
+          const contrats = contratsByPrestataire.get(r.id_prestataire) ?? [];
+          if (contrats.length === 0) return <p className="text-xs text-muted-foreground whitespace-nowrap">Aucun contrat</p>;
+          return (
+            <div className="flex flex-col items-end gap-1.5">
+              {contrats.map((c) => {
+                const cInfo = getContratInfo(c);
+                return (
+                  <div key={c.id_contrat} className="flex flex-col items-end">
+                    <ContratStatusBadge statut={cInfo.statut} />
+                    {cInfo.alerte && (
+                      <p className={cn("text-[10px] mt-0.5",
+                        cInfo.alerteType === "danger" ? "text-red-600 dark:text-red-400"
+                        : cInfo.alerteType === "warning" ? "text-amber-600 dark:text-amber-400"
+                        : "text-blue-600 dark:text-blue-400"
+                      )}>{cInfo.alerte}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        }}
       />
 
       <CrudDialog

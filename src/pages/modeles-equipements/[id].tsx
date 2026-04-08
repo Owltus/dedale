@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Blocks, Pencil, Plus, Trash2 } from "lucide-react";
+import { Blocks, Pencil, Plus, Trash2, X } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ModelesOutletContext } from "@/pages/modeles/index";
 import { HeaderButton } from "@/components/shared/HeaderButton";
@@ -60,8 +60,13 @@ export function ModelesEquipementsDetail() {
   const [formType, setFormType] = useState<string>("texte");
   const [formUnite, setFormUnite] = useState("");
   const [formObligatoire, setFormObligatoire] = useState(false);
-  const [formValeurs, setFormValeurs] = useState("");
+  const keyCounter = useRef(0);
+  const makeEntry = (value = "") => ({ key: keyCounter.current++, value });
+  const [formValeurs, setFormValeurs] = useState(() => [makeEntry()]);
   const [formDefaut, setFormDefaut] = useState("");
+
+  // Valeurs nettoyées (dédupliquées, trimées, sans vides) — utilisé par le Select et le submit
+  const trimmedValeurs = useMemo(() => [...new Set(formValeurs.map(v => v.value.trim()).filter(Boolean))], [formValeurs]);
 
   const catItems = Object.fromEntries(categories.map((c) => [String(c.id_categorie), c.nom_categorie]));
 
@@ -87,7 +92,7 @@ export function ModelesEquipementsDetail() {
 
   const openCreateChamp = () => {
     setEditingId(null);
-    setFormNom(""); setFormType("texte"); setFormUnite(""); setFormObligatoire(false); setFormValeurs(""); setFormDefaut("");
+    setFormNom(""); setFormType("texte"); setFormUnite(""); setFormObligatoire(false); setFormValeurs([makeEntry()]); setFormDefaut("");
     setDialogOpen(true);
   };
 
@@ -97,7 +102,7 @@ export function ModelesEquipementsDetail() {
     setFormType(c.type_champ);
     setFormUnite(c.unite ?? "");
     setFormObligatoire(c.est_obligatoire === 1);
-    setFormValeurs(c.valeurs_possibles ?? "");
+    setFormValeurs(c.valeurs_possibles ? c.valeurs_possibles.split("|").map(v => makeEntry(v)) : [makeEntry()]);
     setFormDefaut(c.valeur_defaut ?? "");
     setDialogOpen(true);
   };
@@ -112,7 +117,7 @@ export function ModelesEquipementsDetail() {
       unite: (formType === "nombre" && formUnite.trim()) ? formUnite.trim() : null,
       est_obligatoire: formObligatoire ? 1 : 0,
       ordre: editingId ? champs.find(c => c.id_champ === editingId)?.ordre ?? champs.length : champs.length,
-      valeurs_possibles: (formType === "liste" && formValeurs.trim()) ? formValeurs.trim() : null,
+      valeurs_possibles: formType === "liste" ? (trimmedValeurs.join("|") || null) : null,
       valeur_defaut: formDefaut.trim() || null,
     };
 
@@ -221,9 +226,33 @@ export function ModelesEquipementsDetail() {
             )}
             {formType === "liste" && (
               <div className="space-y-2">
-                <Label htmlFor="valeurs">Valeurs possibles</Label>
-                <Input id="valeurs" value={formValeurs} onChange={(e) => setFormValeurs(e.target.value)} placeholder="Optique|Thermique|Mixte" />
-                <p className="text-xs text-muted-foreground">Séparez les valeurs par le caractère |</p>
+                <Label>Valeurs possibles</Label>
+                <div className="space-y-2">
+                  {formValeurs.map((entry, i) => (
+                    <div key={entry.key} className="flex items-center gap-2">
+                      <Input
+                        value={entry.value}
+                        onChange={(e) => setFormValeurs(prev => prev.map((v, j) => j === i ? { ...v, value: e.target.value } : v))}
+                        placeholder={`Valeur ${i + 1}`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && entry.value.trim()) { e.preventDefault(); setFormValeurs(prev => [...prev, makeEntry()]); }
+                        }}
+                      />
+                      {formValeurs.length > 1 && (
+                        <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => {
+                          setFormValeurs(prev => prev.filter((_, j) => j !== i));
+                          if (formDefaut === entry.value.trim()) setFormDefaut("");
+                        }}>
+                          <X className="size-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setFormValeurs(prev => [...prev, makeEntry()])}>
+                  <Plus className="size-3.5" />
+                  Ajouter une valeur
+                </Button>
               </div>
             )}
             <div className="space-y-2">
@@ -233,12 +262,12 @@ export function ModelesEquipementsDetail() {
                   <Switch id="valeur_defaut" checked={formDefaut === "1"} onCheckedChange={(v) => setFormDefaut(v ? "1" : "0")} />
                   <span className="text-sm">{formDefaut === "1" ? "Oui" : "Non"}</span>
                 </div>
-              ) : formType === "liste" && formValeurs.trim() ? (
-                <Select value={formDefaut || "empty"} items={{ empty: "— Aucune —", ...Object.fromEntries(formValeurs.split("|").filter(Boolean).map((o) => [o, o])) }} onValueChange={(v) => setFormDefaut(!v || v === "empty" ? "" : v)}>
+              ) : formType === "liste" && trimmedValeurs.length > 0 ? (
+                <Select value={formDefaut || "empty"} items={{ empty: "— Aucune —", ...Object.fromEntries(trimmedValeurs.map(v => [v, v])) }} onValueChange={(v) => setFormDefaut(!v || v === "empty" ? "" : v)}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="empty">— Aucune —</SelectItem>
-                    {formValeurs.split("|").filter(Boolean).map((opt) => (
+                    {trimmedValeurs.map((opt) => (
                       <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                     ))}
                   </SelectContent>

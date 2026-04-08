@@ -27,7 +27,7 @@ import { CrudDialog } from "@/components/shared/CrudDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { prestataireSchema, type PrestataireFormData } from "@/lib/schemas/prestataires";
-import { contratSchema, type ContratFormData } from "@/lib/schemas/contrats";
+import { contratSchema, TYPE_DETERMINE, TYPE_TACITE, TYPE_INDETERMINE, type ContratFormData } from "@/lib/schemas/contrats";
 import { ContratTypeFields, contratCreateDefaults } from "@/components/shared/contrat-dialog-helpers";
 import type { ContratListItem } from "@/lib/types/contrats";
 import { getContratInfo } from "@/lib/utils/contrat-info";
@@ -90,7 +90,7 @@ function ContratCard({ contrat: c, onSelect, onEdit, onDelete, onResilier, onAve
   const isTerminal = cInfo.statut === "Archivé" || cInfo.statut === "Résilié" || cInfo.statut === "Terminé";
   // Les contrats archivés acceptent encore les documents (le SQL ne bloque pas documents_lies)
   const isDocReadonly = cInfo.statut === "Résilié" || cInfo.statut === "Terminé";
-  const hasDelais = c.duree_cycle_mois != null || c.delai_preavis_jours != null || c.fenetre_resiliation_jours != null;
+
   const [confirmUnlink, setConfirmUnlink] = useState<number | null>(null);
   const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<number | null>(null);
 
@@ -175,38 +175,50 @@ function ContratCard({ contrat: c, onSelect, onEdit, onDelete, onResilier, onAve
 
         <Separator />
 
-        {/* Grille d'informations */}
-        <div className="grid grid-cols-3 gap-x-6 gap-y-3 text-sm">
-          <div>
+        {/* Informations — réparties uniformément selon le type */}
+        <div className="flex text-sm">
+          <div className="flex-1 text-center">
             <p className="text-xs text-muted-foreground">Début</p>
             <p className="font-medium">{formatDate(c.date_debut)}</p>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Fin</p>
-            <p className="font-medium">{formatDate(c.date_fin)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Signature</p>
-            <p className="font-medium">{formatDate(c.date_signature)}</p>
-          </div>
-          {hasDelais && (
+          {c.id_type_contrat === TYPE_DETERMINE && (
+            <div className="flex-1 text-center">
+              <p className="text-xs text-muted-foreground">Fin</p>
+              <p className="font-medium">{formatDate(c.date_fin)}</p>
+            </div>
+          )}
+          {c.date_signature && (
+            <div className="flex-1 text-center">
+              <p className="text-xs text-muted-foreground">Signature</p>
+              <p className="font-medium">{formatDate(c.date_signature)}</p>
+            </div>
+          )}
+          {c.id_type_contrat === TYPE_TACITE && (
             <>
-              <div>
+              <div className="flex-1 text-center">
                 <p className="text-xs text-muted-foreground">Cycle</p>
-                <p className="font-medium">{c.duree_cycle_mois ? `${c.duree_cycle_mois} mois` : "—"}</p>
+                <p className="font-medium">{c.duree_cycle_mois} mois</p>
               </div>
-              <div>
+              <div className="flex-1 text-center">
                 <p className="text-xs text-muted-foreground">Préavis</p>
                 <p className="font-medium">{c.delai_preavis_jours ? `${c.delai_preavis_jours} j` : "—"}</p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Fenêtre résil.</p>
-                <p className="font-medium">{c.fenetre_resiliation_jours ? `${c.fenetre_resiliation_jours} j` : "—"}</p>
-              </div>
+              {c.fenetre_resiliation_jours && (
+                <div className="flex-1 text-center">
+                  <p className="text-xs text-muted-foreground">Fenêtre résil.</p>
+                  <p className="font-medium">{c.fenetre_resiliation_jours} j</p>
+                </div>
+              )}
             </>
           )}
+          {c.id_type_contrat === TYPE_INDETERMINE && c.delai_preavis_jours && (
+            <div className="flex-1 text-center">
+              <p className="text-xs text-muted-foreground">Préavis</p>
+              <p className="font-medium">{c.delai_preavis_jours} j</p>
+            </div>
+          )}
           {c.date_resiliation && (
-            <div>
+            <div className="flex-1 text-center">
               <p className="text-xs text-muted-foreground">Résilié le</p>
               <p className="font-medium text-destructive">{formatDate(c.date_resiliation)}</p>
             </div>

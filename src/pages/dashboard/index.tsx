@@ -6,11 +6,11 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, CheckCircle, ClipboardList, Wrench } from "lucide-react";
+import { AlertTriangle, CheckCircle, ClipboardList, FileText, Handshake, Wrench } from "lucide-react";
 import { useDashboard } from "@/hooks/use-dashboard";
-import { OtStatusBadge, DiStatusBadge } from "@/components/shared/StatusBadge";
+import { OtStatusBadge, DiStatusBadge, ContratStatusBadge } from "@/components/shared/StatusBadge";
 import { formatDate } from "@/lib/utils/format";
-import type { OtDashboardItem, DiDashboardItem } from "@/lib/types/dashboard";
+import type { OtDashboardItem, DiDashboardItem, ContratDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
 
 function filterOt(ot: OtDashboardItem, q: string): boolean {
   return ot.nom_gamme.toLowerCase().includes(q) || ot.nom_prestataire?.toLowerCase().includes(q) || false;
@@ -18,6 +18,14 @@ function filterOt(ot: OtDashboardItem, q: string): boolean {
 
 function filterDi(di: DiDashboardItem, q: string): boolean {
   return di.libelle_constat.toLowerCase().includes(q) || false;
+}
+
+function filterContrat(c: ContratDashboardItem, q: string): boolean {
+  return c.reference.toLowerCase().includes(q) || c.nom_prestataire.toLowerCase().includes(q) || false;
+}
+
+function filterDocument(d: DocumentDashboardItem, q: string): boolean {
+  return d.nom_original.toLowerCase().includes(q) || d.nom_type.toLowerCase().includes(q) || false;
 }
 
 function renderOtContent(ot: OtDashboardItem) {
@@ -97,7 +105,7 @@ export function Dashboard() {
         <StatCard label="Contrats à risque" value={data.nb_contrats_a_risque} variant="destructive" />
       </div>
 
-      {/* Listes : OT + DI */}
+      {/* Listes : 2x2 grid */}
       <div className="grid grid-cols-2 gap-6 max-h-[50vh]">
         <CardList
           data={data.prochains_ot}
@@ -117,7 +125,7 @@ export function Dashboard() {
           getHref={(di) => `/demandes/${di.id_di}`}
           filterFn={filterDi}
           icon={<ClipboardList className="size-5 text-muted-foreground" />}
-          title="Dernières DI"
+          title="Demandes d'intervention"
           showSearch={false}
           emptyTitle="Aucune demande"
           renderContent={(di) => (
@@ -132,22 +140,51 @@ export function Dashboard() {
         />
       </div>
 
-      {/* OT en retard */}
-      {data.ot_en_retard.length > 0 && (
+      <div className="grid grid-cols-2 gap-6 max-h-[50vh]">
         <CardList
-          className="max-h-[50vh]"
-          data={data.ot_en_retard}
-          getKey={(ot) => ot.id_ordre_travail}
-          getHref={(ot) => `/ordres-travail/${ot.id_ordre_travail}`}
-          filterFn={filterOt}
-          icon={<Wrench className="size-5 text-muted-foreground" />}
-          title={`OT en retard (${data.ot_en_retard.length})`}
+          data={data.contrats_dashboard}
+          getKey={(c) => c.id_contrat}
+          getHref={(c) => `/prestataires?contrat=${c.id_contrat}`}
+          filterFn={filterContrat}
+          icon={<Handshake className="size-5 text-muted-foreground" />}
+          title="Contrats"
           showSearch={false}
-          emptyTitle=""
-          renderContent={renderOtContent}
-          renderRight={renderOtRight}
+          emptyTitle="Aucun contrat"
+          renderContent={(c) => (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{c.reference}</p>
+              <p className="text-xs text-muted-foreground truncate">{c.nom_prestataire}</p>
+            </div>
+          )}
+          renderRight={(c) => (
+            <div className="flex flex-col items-center gap-1 w-28 shrink-0">
+              <ContratStatusBadge statut={c.statut} />
+              <span className="text-xs text-muted-foreground">
+                {c.date_fin ? formatDate(c.date_fin) : c.duree_cycle_mois ? `Cycle ${c.duree_cycle_mois} mois` : "Indéterminé"}
+              </span>
+            </div>
+          )}
         />
-      )}
+        <CardList
+          data={data.derniers_documents}
+          getKey={(d) => d.id_document}
+          getHref={(d) => `/documents?doc=${d.id_document}`}
+          filterFn={filterDocument}
+          icon={<FileText className="size-5 text-muted-foreground" />}
+          title="Documents récents"
+          showSearch={false}
+          emptyTitle="Aucun document"
+          renderContent={(d) => (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{d.nom_original}</p>
+              <p className="text-xs text-muted-foreground truncate">{d.nom_type}</p>
+            </div>
+          )}
+          renderRight={(d) => (
+            <span className="text-xs text-muted-foreground shrink-0">{formatDate(d.date_upload)}</span>
+          )}
+        />
+      </div>
 
       {/* Onboarding */}
       {showOnboarding && (

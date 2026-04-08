@@ -40,6 +40,8 @@ pub struct DashboardData {
     pub prochains_ot: Vec<OtDashboardItem>,
     pub dernieres_di: Vec<DiDashboardItem>,
     pub ot_en_retard: Vec<OtDashboardItem>,
+    pub contrats_dashboard: Vec<ContratDashboardItem>,
+    pub derniers_documents: Vec<DocumentDashboardItem>,
     // Onboarding
     pub has_etablissement: bool,
     pub has_localisations: bool,
@@ -68,6 +70,27 @@ pub struct DiDashboardItem {
     pub libelle_constat: String,
     pub date_constat: String,
     pub id_statut_di: i64,
+}
+
+/// Contrat simplifié pour le dashboard
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContratDashboardItem {
+    pub id_contrat: i64,
+    pub reference: String,
+    pub nom_prestataire: String,
+    pub date_debut: String,
+    pub date_fin: Option<String>,
+    pub duree_cycle_mois: Option<i64>,
+    pub statut: String,
+}
+
+/// Document récent pour le dashboard
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DocumentDashboardItem {
+    pub id_document: i64,
+    pub nom_original: String,
+    pub nom_type: String,
+    pub date_upload: String,
 }
 
 /// Événement planning (OT dans le calendrier)

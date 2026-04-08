@@ -152,6 +152,59 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
+    // Tableau : contrats actifs triés par date d'échéance la plus proche
+    // WHERE filtre déjà archivé et résilié — seuls 3 statuts possibles : À venir, Expiré, Actif
+    let mut stmt7 = conn.prepare_cached(
+        "SELECT c.id_contrat, c.reference, p.libelle, c.date_debut, c.date_fin, \
+         c.duree_cycle_mois \
+         FROM contrats c \
+         JOIN prestataires p ON c.id_prestataire = p.id_prestataire \
+         WHERE c.est_archive = 0 AND c.date_resiliation IS NULL \
+         ORDER BY \
+           CASE WHEN c.date_fin IS NULL THEN 1 ELSE 0 END, \
+           c.date_fin ASC \
+         LIMIT 10"
+    ).map_err(|e| e.to_string())?;
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let contrats_dashboard = stmt7.query_map([], |row| {
+        let date_debut: String = row.get(3)?;
+        let date_fin: Option<String> = row.get(4)?;
+        let statut = if date_debut > today {
+            "À venir".to_string()
+        } else if let Some(ref fin) = date_fin {
+            if fin.as_str() < today.as_str() { "Expiré".to_string() } else { "Actif".to_string() }
+        } else {
+            "Actif".to_string()
+        };
+        Ok(ContratDashboardItem {
+            id_contrat: row.get(0)?,
+            reference: row.get(1)?,
+            nom_prestataire: row.get(2)?,
+            date_debut,
+            date_fin,
+            duree_cycle_mois: row.get(5)?,
+            statut,
+        })
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+    // Tableau : 10 derniers documents ajoutés
+    let mut stmt8 = conn.prepare_cached(
+        "SELECT d.id_document, d.nom_original, td.nom, d.date_upload \
+         FROM documents d \
+         JOIN types_documents td ON d.id_type_document = td.id_type_document \
+         ORDER BY d.date_upload DESC LIMIT 10"
+    ).map_err(|e| e.to_string())?;
+    let derniers_documents = stmt8.query_map([], |row| {
+        Ok(DocumentDashboardItem {
+            id_document: row.get(0)?,
+            nom_original: row.get(1)?,
+            nom_type: row.get(2)?,
+            date_upload: row.get(3)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
     // Flags d'onboarding
     let has_etablissement: bool = conn.query_row(
         "SELECT COUNT(*) FROM etablissements", [], |row| row.get::<_, i64>(0),
@@ -186,6 +239,8 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
         prochains_ot,
         dernieres_di,
         ot_en_retard,
+        contrats_dashboard,
+        derniers_documents,
         has_etablissement,
         has_localisations,
         has_equipements,

@@ -34,6 +34,23 @@ export interface DiDashboardItem {
   id_statut_di: number;
 }
 
+export interface ContratDashboardItem {
+  id_contrat: number;
+  reference: string;
+  nom_prestataire: string;
+  date_debut: string;
+  date_fin: string | null;
+  duree_cycle_mois: number | null;
+  statut: string;
+}
+
+export interface DocumentDashboardItem {
+  id_document: number;
+  nom_original: string;
+  nom_type: string;
+  date_upload: string;
+}
+
 export interface DashboardData {
   nb_ot_en_retard: number;
   nb_ot_cette_semaine: number;
@@ -45,6 +62,8 @@ export interface DashboardData {
   prochains_ot: OtDashboardItem[];
   dernieres_di: DiDashboardItem[];
   ot_en_retard: OtDashboardItem[];
+  contrats_dashboard: ContratDashboardItem[];
+  derniers_documents: DocumentDashboardItem[];
   has_etablissement: boolean;
   has_localisations: boolean;
   has_equipements: boolean;
