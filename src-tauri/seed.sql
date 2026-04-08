@@ -914,29 +914,29 @@ UPDATE operations_execution SET id_statut_operation = 5 WHERE id_ordre_travail =
 -- =========================================================================
 
 -- DI 1 : BAES défaillant cage escalier E1 — résolue
-INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('BAES cage escalier E1 défaillant', 'Le BAES de la cage escalier E1 ne s''allume plus lors des tests hebdomadaires. Voyant de charge éteint.', '2026-01-20');
+INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
+VALUES (2, 'BAES cage escalier E1 défaillant', 'Le BAES de la cage escalier E1 ne s''allume plus lors des tests hebdomadaires. Voyant de charge éteint.', '2026-01-20');
 INSERT INTO di_localisations (id_di, id_local) VALUES (1, 14);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (1, 2);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Batterie remplacée, test de fonctionnement OK.', date_resolution = '2026-01-23' WHERE id_di = 1;
 
 -- DI 2 : Fuite d''eau sous la CTA N°1 — résolue
-INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('Fuite d''eau sous la CTA N°1', 'Flaque d''eau constatée sous la CTA N°1 dans le local technique CVC. Possible fuite du bac à condensats.', '2026-02-10');
+INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
+VALUES (3, 'Fuite d''eau sous la CTA N°1', 'Flaque d''eau constatée sous la CTA N°1 dans le local technique CVC. Possible fuite du bac à condensats.', '2026-02-10');
 INSERT INTO di_localisations (id_di, id_local) VALUES (2, 1);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (2, 6);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Bac à condensats percé, remplacé par ThermoServ lors de l''entretien trimestriel.', date_resolution = '2026-02-15' WHERE id_di = 2;
 
 -- DI 3 : Bruit anormal ascenseur — résolue
-INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('Bruit anormal ascenseur', 'Bruit métallique lors de l''arrêt en cabine au RDC. Signalé par plusieurs clients.', '2026-03-08');
+INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
+VALUES (4, 'Bruit anormal ascenseur', 'Bruit métallique lors de l''arrêt en cabine au RDC. Signalé par plusieurs clients.', '2026-03-08');
 INSERT INTO di_localisations (id_di, id_local) VALUES (3, 6);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (3, 12);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Patins de guidage usés, remplacés par TK Elevator.', date_resolution = '2026-03-12' WHERE id_di = 3;
 
 -- DI 4 : Extincteur cuisine périmé — résolue puis réouverte
-INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('Extincteur cuisine périmé', 'L''extincteur CO2 de la cuisine affiche une date de péremption dépassée (12/2025). Non conforme.', '2026-03-15');
+INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
+VALUES (2, 'Extincteur cuisine périmé', 'L''extincteur CO2 de la cuisine affiche une date de péremption dépassée (12/2025). Non conforme.', '2026-03-15');
 INSERT INTO di_localisations (id_di, id_local) VALUES (4, 8);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (4, 1);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Extincteur remplacé provisoirement par un modèle de prêt.', date_resolution = '2026-03-18' WHERE id_di = 4;
@@ -953,14 +953,14 @@ VALUES ('Odeur de brûlé parking souterrain', 'Odeur de brûlé signalée par l
 INSERT INTO di_localisations (id_di, id_local) VALUES (6, 3);
 
 -- DI 7 : Pression RIA hall insuffisante — ouverte
-INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('Pression RIA hall insuffisante', 'Lors du contrôle visuel, la pression au manomètre du RIA du hall semble faible. À vérifier avec le contrôle annuel.', '2026-04-02');
+INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
+VALUES (2, 'Pression RIA hall insuffisante', 'Lors du contrôle visuel, la pression au manomètre du RIA du hall semble faible. À vérifier avec le contrôle annuel.', '2026-04-02');
 INSERT INTO di_localisations (id_di, id_local) VALUES (7, 6);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (7, 4);
 
 -- DI 8 : Température chambres E3 trop basse — résolue
-INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('Température chambres E3 trop basse', 'Plusieurs clients de l''étage 3 se plaignent de températures trop basses dans les chambres malgré le chauffage activé.', '2026-02-01');
+INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
+VALUES (3, 'Température chambres E3 trop basse', 'Plusieurs clients de l''étage 3 se plaignent de températures trop basses dans les chambres malgré le chauffage activé.', '2026-02-01');
 INSERT INTO di_localisations (id_di, id_local) VALUES (8, 18);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Vanne 3 voies du circuit E3 bloquée en position fermée. Débloquée et réglée.', date_resolution = '2026-02-06' WHERE id_di = 8;
 

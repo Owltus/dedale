@@ -20,6 +20,7 @@ import { useDemandes, useCreateDemande, useCreateDemandeFromModele, useLinkDiLoc
 import { useEquipementsByLocal, useEquipementsByLocalAndFamille, useLocalisationFilterByFamille } from "@/hooks/use-localisations";
 import { useEquipements } from "@/hooks/use-equipements";
 import { useModelesDi } from "@/hooks/use-referentiels";
+import { usePrestataires } from "@/hooks/use-prestataires";
 import { formatDate } from "@/lib/utils/format";
 import type { DiListItem } from "@/lib/types/demandes";
 
@@ -31,6 +32,7 @@ export function DemandesList() {
   const navigate = useNavigate();
   const { data: demandes = [] } = useDemandes();
   const { data: modelesDi = [] } = useModelesDi();
+  const { data: prestataires = [] } = usePrestataires();
   const createMutation = useCreateDemande();
   const createFromModele = useCreateDemandeFromModele();
   const linkLocalisation = useLinkDiLocalisation();
@@ -67,11 +69,11 @@ export function DemandesList() {
 
   const form = useForm({
     resolver: zodResolver(diCreateSchema),
-    defaultValues: { libelle_constat: "", description_constat: "", date_constat: new Date().toISOString().split("T")[0], description_resolution_suggeree: "" },
+    defaultValues: { id_prestataire: null, libelle_constat: "", description_constat: "", date_constat: new Date().toISOString().split("T")[0], description_resolution_suggeree: "" },
   });
 
   const openCreate = () => {
-    form.reset({ libelle_constat: "", description_constat: "", date_constat: new Date().toISOString().split("T")[0], description_resolution_suggeree: "" });
+    form.reset({ id_prestataire: null, libelle_constat: "", description_constat: "", date_constat: new Date().toISOString().split("T")[0], description_resolution_suggeree: "" });
     setSelectedLocal(null);
     setSelectedEquipement(null);
     setSelectedModeleId(null);
@@ -169,6 +171,21 @@ export function DemandesList() {
           <Label>Description du constat *</Label>
           <Textarea {...form.register("description_constat")} />
           {form.formState.errors.description_constat && <p className="text-sm text-destructive">{String(form.formState.errors.description_constat.message)}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label>Prestataire</Label>
+          <Select
+            value={form.watch("id_prestataire") ? String(form.watch("id_prestataire")) : undefined}
+            items={Object.fromEntries(prestataires.filter(p => p.id_prestataire !== 1).map(p => [String(p.id_prestataire), p.libelle]))}
+            onValueChange={(v) => form.setValue("id_prestataire", v ? Number(v) : null)}
+          >
+            <SelectTrigger className="w-full"><SelectValue placeholder="— Aucun (optionnel) —" /></SelectTrigger>
+            <SelectContent>
+              {prestataires.filter(p => p.id_prestataire !== 1).map(p => (
+                <SelectItem key={p.id_prestataire} value={String(p.id_prestataire)}>{p.libelle}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label>Date du constat *</Label>

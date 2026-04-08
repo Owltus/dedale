@@ -214,13 +214,6 @@ npm run tauri dev
 
 L'application s'ouvre automatiquement. La base SQLite est creee au premier lancement dans `%APPDATA%/com.dedale.app/` (Windows).
 
-#### Donnees de test (optionnel)
-
-```bash
-# Fermer l'application avant de lancer
-python seed.py
-```
-
 ### Build de production
 
 ```bash
@@ -254,8 +247,7 @@ src-tauri/                    # Backend Rust
 │   ├── models/               # Structs serde (1 fichier/domaine)
 │   ├── db.rs                 # Connexion SQLite + PRAGMAs
 │   └── lib.rs                # Registre des modules
-├── schema.sql                # Schema complet (~30 tables, ~40 triggers)
-└── seed.sql                  # Donnees de test
+└── schema.sql                # Schema complet (~30 tables, ~40 triggers)
 ```
 
 ---

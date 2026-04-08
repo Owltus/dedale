@@ -11,24 +11,25 @@ use crate::models::demandes::{
 // ── Colonnes et helpers ──
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Colonnes SELECT complètes pour une demande d'intervention (10 colonnes)
-const DI_COLS: &str = "id_di, id_statut_di, libelle_constat, description_constat, \
+/// Colonnes SELECT complètes pour une demande d'intervention (11 colonnes)
+const DI_COLS: &str = "id_di, id_statut_di, id_prestataire, libelle_constat, description_constat, \
      date_constat, description_resolution, date_resolution, \
      description_resolution_suggeree, date_creation, date_modification";
 
-/// Construit une DemandeIntervention à partir d'une ligne de résultat (10 colonnes)
+/// Construit une DemandeIntervention à partir d'une ligne de résultat (11 colonnes)
 fn row_to_di(row: &rusqlite::Row) -> rusqlite::Result<DemandeIntervention> {
     Ok(DemandeIntervention {
         id_di: row.get(0)?,
         id_statut_di: row.get(1)?,
-        libelle_constat: row.get(2)?,
-        description_constat: row.get(3)?,
-        date_constat: row.get(4)?,
-        description_resolution: row.get(5)?,
-        date_resolution: row.get(6)?,
-        description_resolution_suggeree: row.get(7)?,
-        date_creation: row.get(8)?,
-        date_modification: row.get(9)?,
+        id_prestataire: row.get(2)?,
+        libelle_constat: row.get(3)?,
+        description_constat: row.get(4)?,
+        date_constat: row.get(5)?,
+        description_resolution: row.get(6)?,
+        date_resolution: row.get(7)?,
+        description_resolution_suggeree: row.get(8)?,
+        date_creation: row.get(9)?,
+        date_modification: row.get(10)?,
     })
 }
 
@@ -83,10 +84,11 @@ pub fn create_demande(
     let conn = db.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO demandes_intervention \
-         (libelle_constat, description_constat, date_constat, \
+         (id_prestataire, libelle_constat, description_constat, date_constat, \
           description_resolution_suggeree) \
-         VALUES (?1, ?2, ?3, ?4)",
+         VALUES (?1, ?2, ?3, ?4, ?5)",
         params![
+            input.id_prestataire,
             input.libelle_constat,
             input.description_constat,
             input.date_constat,
@@ -117,6 +119,10 @@ pub fn update_demande(
     let mut sets: Vec<String> = Vec::new();
     let mut values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
+    if let Some(ref v) = input.id_prestataire {
+        sets.push(format!("id_prestataire = ?{}", values.len() + 1));
+        values.push(Box::new(*v));
+    }
     if let Some(ref v) = input.libelle_constat {
         sets.push(format!("libelle_constat = ?{}", values.len() + 1));
         values.push(Box::new(v.clone()));

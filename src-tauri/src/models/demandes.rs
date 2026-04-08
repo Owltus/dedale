@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct DemandeIntervention {
     pub id_di: i64,
     pub id_statut_di: i64,
+    pub id_prestataire: Option<i64>,
     pub libelle_constat: String,
     pub description_constat: String,
     pub date_constat: String,
@@ -26,6 +27,7 @@ pub struct DiListItem {
 
 #[derive(Debug, Deserialize)]
 pub struct DiCreateInput {
+    pub id_prestataire: Option<i64>,
     pub libelle_constat: String,
     pub description_constat: String,
     pub date_constat: Option<String>,
@@ -34,6 +36,7 @@ pub struct DiCreateInput {
 
 #[derive(Debug, Deserialize)]
 pub struct DiUpdateInput {
+    pub id_prestataire: Option<Option<i64>>,
     pub libelle_constat: Option<String>,
     pub description_constat: Option<String>,
     pub date_constat: Option<String>,

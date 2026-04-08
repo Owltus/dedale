@@ -230,6 +230,7 @@ CREATE TABLE statuts_di (
 CREATE TABLE demandes_intervention (
     id_di                          INTEGER PRIMARY KEY AUTOINCREMENT,
     id_statut_di                   INTEGER NOT NULL DEFAULT 1,  -- AJOUT v10
+    id_prestataire                 INTEGER,  -- prestataire assigné (optionnel)
     libelle_constat                TEXT NOT NULL,
     description_constat            TEXT NOT NULL,
     date_constat                   TEXT NOT NULL DEFAULT CURRENT_DATE,
@@ -239,6 +240,7 @@ CREATE TABLE demandes_intervention (
     date_creation                  TEXT DEFAULT CURRENT_TIMESTAMP,
     date_modification              TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_statut_di) REFERENCES statuts_di(id_statut_di) ON DELETE RESTRICT,
+    FOREIGN KEY (id_prestataire) REFERENCES prestataires(id_prestataire) ON DELETE SET NULL,
     -- AJOUT v12 : textes non vides
     CHECK (LENGTH(TRIM(libelle_constat)) > 0),
     CHECK (LENGTH(TRIM(description_constat)) > 0)
@@ -1114,6 +1116,7 @@ CREATE INDEX idx_modeles_di_creation ON modeles_di(date_creation);
 
 -- Demandes d'intervention
 CREATE INDEX idx_di_statut_di          ON demandes_intervention(id_statut_di);  -- AJOUT v10
+CREATE INDEX idx_di_prestataire        ON demandes_intervention(id_prestataire);
 CREATE INDEX idx_di_dates              ON demandes_intervention(date_constat, date_resolution);
 CREATE INDEX idx_di_statut             ON demandes_intervention(date_resolution);
 CREATE INDEX idx_di_gammes_di          ON di_gammes(id_di);

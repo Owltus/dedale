@@ -23,6 +23,7 @@ import { useDocumentsForEntity } from "@/hooks/use-documents";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDemande, useDeleteDemande, useDiLocalisations, useLinkDiLocalisation, useUnlinkDiLocalisation, useDiEquipements, useLinkDiEquipement, useUnlinkDiEquipement, useResoudreDemande, useReouvrirDemande, useRepasserOuverteDemande } from "@/hooks/use-demandes";
 import { useLocalisationsTree, useEquipementsByLocal } from "@/hooks/use-localisations";
+import { usePrestataires } from "@/hooks/use-prestataires";
 import { getStatutDi } from "@/lib/utils/statuts";
 import { formatDate } from "@/lib/utils/format";
 
@@ -33,6 +34,7 @@ export function DemandesDetail() {
   const { data: di, isLoading } = useDemande(diId);
   const { data: docs = [] } = useDocumentsForEntity("di", diId);
   const deleteDi = useDeleteDemande();
+  const { data: prestataires = [] } = usePrestataires();
   const { data: linkedLocalIds = [] } = useDiLocalisations(diId);
   const { data: linkedEquipements = [] } = useDiEquipements(diId);
   const { data: treeNodes = [] } = useLocalisationsTree();
@@ -157,6 +159,7 @@ export function DemandesDetail() {
       <InfoCard items={[
         { label: "Date du constat", value: formatDate(di.date_constat) },
         di.date_resolution ? { label: "Date résolution", value: formatDate(di.date_resolution) } : null,
+        { label: "Prestataire", value: di.id_prestataire ? prestataires.find(p => p.id_prestataire === di.id_prestataire)?.libelle ?? null : null },
       ]} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col min-h-0">
@@ -273,7 +276,7 @@ export function DemandesDetail() {
 
         <TabsContent value="documents" className="mt-2 flex flex-1 flex-col overflow-y-auto no-scrollbar min-h-0">
           <DocumentsLies entityType="di" entityId={diId} inputId="di-doc-upload" hideAddButton
-            namingContext={{ objet: di.libelle_constat, date: di.date_resolution ?? di.date_constat }} />
+            namingContext={{ prestataire: prestataires.find(p => p.id_prestataire === di.id_prestataire)?.libelle, objet: di.libelle_constat, date: di.date_resolution ?? di.date_constat }} />
         </TabsContent>
       </Tabs>
 

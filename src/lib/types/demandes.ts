@@ -3,6 +3,7 @@
 export interface DemandeIntervention {
   id_di: number;
   id_statut_di: number;
+  id_prestataire: number | null;
   libelle_constat: string;
   description_constat: string;
   date_constat: string;
