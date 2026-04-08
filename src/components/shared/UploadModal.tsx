@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDocuments } from "@/hooks/use-documents";
 import { useTypesDocuments } from "@/hooks/use-referentiels";
-import { formatBytes } from "@/lib/utils/format";
+import { formatBytes, stripExtension, suggestDocumentName, type NamingContext } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import { fileToBase64, readDroppedFiles } from "./DropZone";
 import { DocumentIcon } from "./DocumentIcon";
@@ -23,6 +23,7 @@ import { ACCEPTED_FORMATS } from "@/lib/schemas/documents";
 interface PendingFile {
   id: number;
   name: string;
+  ext: string;
   base64: string;
   idTypeDocument: number;
 }
@@ -41,13 +42,15 @@ interface UploadModalProps {
   linkExisting?: LinkExistingConfig;
   /** Type de document par défaut (override le premier type de la liste) */
   defaultTypeId?: number;
+  /** Contexte de la page pour le nommage automatique */
+  namingContext?: NamingContext;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 // ── UploadModal — composant unifié upload + liaison ──
 // ════════════════════════════════════════════════════════════════════════════
 
-export function UploadModal({ open, onOpenChange, onUpload, initialFiles, linkExisting, defaultTypeId: defaultTypeProp }: UploadModalProps) {
+export function UploadModal({ open, onOpenChange, onUpload, initialFiles, linkExisting, defaultTypeId: defaultTypeProp, namingContext }: UploadModalProps) {
   const { data: typesDoc = [] } = useTypesDocuments();
   const defaultTypeId = useMemo(() => defaultTypeProp ?? typesDoc[0]?.id_type_document ?? 0, [defaultTypeProp, typesDoc]);
   const typeItems = useMemo(
@@ -62,16 +65,23 @@ export function UploadModal({ open, onOpenChange, onUpload, initialFiles, linkEx
   const pendingIdRef = useRef(0);
   const [modalDragging, setModalDragging] = useState(false);
 
+  // Résout le nom suggéré pour un type donné (undefined si pas de contexte)
+  const suggestName = useCallback((typeId: number) => {
+    if (!namingContext) return undefined;
+    const typeName = typesDoc.find((t) => t.id_type_document === typeId)?.nom;
+    return suggestDocumentName(typeName, namingContext);
+  }, [namingContext, typesDoc]);
+
   // ── Ajouter des fichiers au pending ──
   const makePendingFiles = useCallback((entries: { name: string; base64: string }[], typeId: number) => {
-    const newFiles: PendingFile[] = entries.map((f) => ({
-      id: ++pendingIdRef.current,
-      name: f.name,
-      base64: f.base64,
-      idTypeDocument: typeId,
-    }));
+    const newFiles: PendingFile[] = entries.map((f) => {
+      const dot = f.name.lastIndexOf(".");
+      const ext = dot > 0 ? f.name.slice(dot) : "";
+      const name = suggestName(typeId) ?? (dot > 0 ? f.name.slice(0, dot) : f.name);
+      return { id: ++pendingIdRef.current, name, ext, base64: f.base64, idTypeDocument: typeId };
+    });
     setPendingFiles((prev) => [...prev, ...newFiles]);
-  }, []);
+  }, [suggestName]);
 
   // Refs stables pour lire les valeurs dans l'effet sans les mettre en dépendance
   const defaultTypeIdRef = useRef(defaultTypeId);
@@ -150,7 +160,10 @@ export function UploadModal({ open, onOpenChange, onUpload, initialFiles, linkEx
   // ── Type global ──
   const applyGlobalType = (typeId: number) => {
     setGlobalType(typeId);
-    setPendingFiles((prev) => prev.map((f) => ({ ...f, idTypeDocument: typeId })));
+    const suggested = suggestName(typeId);
+    setPendingFiles((prev) => prev.map((f) => ({
+      ...f, idTypeDocument: typeId, ...(suggested ? { name: suggested } : {}),
+    })));
   };
 
   // ── Envoyer tous les fichiers ──
@@ -162,7 +175,7 @@ export function UploadModal({ open, onOpenChange, onUpload, initialFiles, linkEx
     }
     if (pendingFiles.length === 0) return;
     onUpload(pendingFiles.map((f) => ({
-      name: f.name.trim(),
+      name: `${f.name.trim()}${f.ext}`,
       base64: f.base64,
       idTypeDocument: f.idTypeDocument,
     })));
@@ -231,7 +244,11 @@ export function UploadModal({ open, onOpenChange, onUpload, initialFiles, linkEx
                 <Select
                   value={f.idTypeDocument ? String(f.idTypeDocument) : undefined}
                   items={typeItems}
-                  onValueChange={(v) => updatePending(f.id, { idTypeDocument: Number(v) })}
+                  onValueChange={(v) => {
+                    const typeId = Number(v);
+                    const suggested = suggestName(typeId);
+                    updatePending(f.id, { idTypeDocument: typeId, ...(suggested ? { name: suggested } : {}) });
+                  }}
                 >
                   <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Type *" /></SelectTrigger>
                   <SelectContent>
@@ -367,7 +384,7 @@ function LinkExistingTab({ linkedDocIds, onLink, onClose }: LinkExistingTabProps
               </div>
               <DocumentIcon fileName={doc.nom_original} className="size-4 shrink-0 text-muted-foreground" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm truncate">{doc.nom_original}</p>
+                <p className="text-sm truncate">{stripExtension(doc.nom_original)}</p>
                 <p className="text-xs text-muted-foreground truncate">
                   {doc.nom_type} · {formatBytes(doc.taille_octets)}
                 </p>

@@ -29,18 +29,16 @@ export function Sidebar() {
     >
       {/* En-tête */}
       <div className={cn(
-        "flex flex-col shrink-0 overflow-hidden transition-all duration-300",
-        collapsed ? "items-center px-1 py-3" : "px-4 pt-5 pb-4"
+        "flex shrink-0 items-center overflow-hidden transition-all duration-300",
+        collapsed ? "justify-center px-1 py-3" : "gap-2.5 px-4 pt-5 pb-4"
       )}>
-        <div className="flex items-center gap-2.5">
-          <LogoIcon className="size-8 shrink-0" />
-          <div className={cn(
-            "flex flex-col overflow-hidden transition-all duration-300",
-            collapsed ? "opacity-0 max-w-0" : "opacity-100 max-w-40"
-          )}>
-            <span className="text-lg font-bold whitespace-nowrap leading-tight">DÉDALE</span>
-            <span className="text-xs text-muted-foreground whitespace-nowrap">Gestion de Maintenance</span>
-          </div>
+        <LogoIcon className={cn("shrink-0 transition-all duration-300", collapsed ? "size-7" : "size-8")} />
+        <div className={cn(
+          "flex flex-col overflow-hidden transition-all duration-300",
+          collapsed ? "opacity-0 max-w-0" : "opacity-100 max-w-40"
+        )}>
+          <span className="text-lg font-bold whitespace-nowrap leading-tight">DÉDALE</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Gestion de Maintenance</span>
         </div>
       </div>
 

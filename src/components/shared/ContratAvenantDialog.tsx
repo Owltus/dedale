@@ -7,18 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { avenantSchema } from "@/lib/schemas/contrats";
 import type { Contrat } from "@/lib/types/contrats";
-import type { Prestataire } from "@/lib/types/prestataires";
 import type { TypeContrat } from "@/lib/types/referentiels";
-import { contratDefaults, SelectField, ContratTypeFields } from "./contrat-dialog-helpers";
+import { contratDefaults, ContratTypeFields, SelectField } from "./contrat-dialog-helpers";
 
 interface AvenantDialogProps {
   open: boolean; onOpenChange: (v: boolean) => void; contrat: Contrat;
-  prestataires: Prestataire[]; typesContrats: TypeContrat[];
+  prestataireLabel: string; typesContrats: TypeContrat[];
   onSubmit: (data: unknown) => Promise<void>; isLoading: boolean;
 }
 
 /// Dialogue de création d'un avenant (pré-rempli depuis le contrat courant)
-export function AvenantContratDialog({ open, onOpenChange, contrat, prestataires, typesContrats, onSubmit, isLoading }: AvenantDialogProps) {
+export function AvenantContratDialog({ open, onOpenChange, contrat, prestataireLabel, typesContrats, onSubmit, isLoading }: AvenantDialogProps) {
   const defaults = () => ({
     id_contrat_parent: contrat.id_contrat, objet_avenant: "",
     ...contratDefaults(contrat),
@@ -30,7 +29,6 @@ export function AvenantContratDialog({ open, onOpenChange, contrat, prestataires
   });
   useEffect(() => { if (open) form.reset(defaults()); }, [open, contrat, form]);
 
-  const prestOpts = prestataires.filter(p => p.id_prestataire !== 1).map(p => ({ key: p.id_prestataire, value: p.id_prestataire, label: p.libelle }));
   const typeOpts = typesContrats.map(t => ({ key: t.id_type_contrat, value: t.id_type_contrat, label: t.libelle }));
   const e = form.formState.errors;
 
@@ -44,8 +42,10 @@ export function AvenantContratDialog({ open, onOpenChange, contrat, prestataires
             <Input {...form.register("objet_avenant")} placeholder="Ex: Prolongation 1 an" />
             {e.objet_avenant && <p className="text-sm text-destructive">{String(e.objet_avenant.message)}</p>}
           </div>
-          <SelectField id="av-prest" label="Prestataire *" value={form.watch("id_prestataire")}
-            options={prestOpts} onChange={v => form.setValue("id_prestataire", v)} error={e.id_prestataire ? String(e.id_prestataire.message) : undefined} />
+          <div className="space-y-2">
+            <Label>Prestataire</Label>
+            <Input value={prestataireLabel} disabled />
+          </div>
           <SelectField id="av-type" label="Type *" value={form.watch("id_type_contrat")}
             options={typeOpts} onChange={v => form.setValue("id_type_contrat", v)} error={e.id_type_contrat ? String(e.id_type_contrat.message) : undefined} />
           <ContratTypeFields form={form} />

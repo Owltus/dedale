@@ -13,6 +13,34 @@ export function formatDateTime(dateStr: string | null | undefined): string {
   return format(new Date(dateStr), "dd/MM/yyyy HH:mm", { locale: fr });
 }
 
+/// Retourne le nom de fichier sans son extension
+export function stripExtension(filename: string): string {
+  const lastDot = filename.lastIndexOf(".");
+  return lastDot > 0 ? filename.slice(0, lastDot) : filename;
+}
+
+/// Contexte de nommage passé à l'UploadModal pour générer un nom suggéré
+export interface NamingContext {
+  prestataire?: string;
+  objet?: string;
+  /** Date ISO (YYYY-MM-DD) — si fournie, affichée en dd/MM/yyyy au lieu de l'année */
+  date?: string;
+}
+
+/// Génère un nom de document suggéré : [Type] - [Prestataire] - [Objet] - [Date ou Année]
+export function suggestDocumentName(typeName: string | undefined, ctx?: NamingContext): string {
+  const parts: string[] = [];
+  if (typeName) parts.push(typeName);
+  if (ctx?.prestataire) parts.push(ctx.prestataire);
+  if (ctx?.objet) parts.push(ctx.objet);
+  if (ctx?.date) {
+    parts.push(formatDate(ctx.date));
+  } else {
+    parts.push(String(new Date().getFullYear()));
+  }
+  return parts.join(" - ");
+}
+
 /// Formate une taille en octets de façon lisible
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 o";

@@ -10,6 +10,7 @@ import { HeaderButton } from "@/components/shared/HeaderButton";
 import { InfoCard } from "@/components/shared/InfoCard";
 import { OtList } from "@/components/shared/OtList";
 import { DocumentsLies } from "@/components/shared/DocumentsLies";
+import { useDocumentsForEntity } from "@/hooks/use-documents";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImagePicker } from "@/components/shared/ImagePicker";
 import { CrudDialog } from "@/components/shared/CrudDialog";
@@ -33,6 +34,7 @@ export function TechnicienDetail() {
 
   const { data: technicien } = useTechnicien(technicienId);
   const { data: ots = [] } = useOtByTechnicien(technicienId);
+  const { data: docs = [] } = useDocumentsForEntity("techniciens", technicienId);
   const { data: postes = [] } = usePostes();
   const updateTechnicien = useUpdateTechnicien();
   const deleteTechnicien = useDeleteTechnicien();
@@ -96,7 +98,7 @@ export function TechnicienDetail() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col min-h-0">
         <TabsList className="w-full shrink-0">
           <TabsTrigger value="ordres-travail" className="flex-1">Ordres de travail ({ots.length})</TabsTrigger>
-          <TabsTrigger value="documents" className="flex-1">Documents</TabsTrigger>
+          <TabsTrigger value="documents" className="flex-1">Documents ({docs.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ordres-travail" className="mt-2 flex flex-1 flex-col min-h-0">
@@ -108,7 +110,8 @@ export function TechnicienDetail() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-2 flex flex-1 flex-col overflow-y-auto no-scrollbar min-h-0">
-          <DocumentsLies entityType="techniciens" entityId={technicienId} inputId="tech-doc-upload" hideAddButton />
+          <DocumentsLies entityType="techniciens" entityId={technicienId} inputId="tech-doc-upload" hideAddButton
+            namingContext={{}} />
         </TabsContent>
       </Tabs>
 

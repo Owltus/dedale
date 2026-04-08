@@ -22,7 +22,7 @@ import {
   useDownloadDocument, useUpdateDocument, useReplaceDocumentFile,
 } from "@/hooks/use-documents";
 import { useTypesDocuments } from "@/hooks/use-referentiels";
-import { formatDate, formatBytes } from "@/lib/utils/format";
+import { formatDate, formatBytes, stripExtension } from "@/lib/utils/format";
 import { fileToBase64 } from "@/components/shared/DropZone";
 import { DocumentEditDialog } from "./DocumentEditDialog";
 import { DocumentPreviewDialog, type PreviewableDoc } from "./DocumentPreviewDialog";
@@ -128,7 +128,7 @@ export function Documents() {
           emptyDescription="Ajoutez des documents ou glissez-deposez des fichiers ici."
           renderContent={(doc) => (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{doc.nom_original}</p>
+              <p className="text-sm font-medium truncate">{stripExtension(doc.nom_original)}</p>
               <p className="text-xs text-muted-foreground truncate">
                 {doc.nom_type} · {formatBytes(doc.taille_octets)} · {formatDate(doc.date_upload)}
                 {doc.nb_liaisons > 0 && <Badge variant="default" className="ml-2">{doc.nb_liaisons} lien{doc.nb_liaisons > 1 ? "s" : ""}</Badge>}

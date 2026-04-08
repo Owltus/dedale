@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { HeaderButton } from "@/components/shared/HeaderButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DocumentsLies } from "@/components/shared/DocumentsLies";
+import { useDocumentsForEntity } from "@/hooks/use-documents";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { InfoCard } from "@/components/shared/InfoCard";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,6 +31,7 @@ export function OrdresTravailDetail() {
   const deleteOt = useDeleteOrdreTravail();
   const updateOpExec = useUpdateOperationExecution();
   const { data: techniciens = [] } = useTechniciens();
+  const { data: docs = [] } = useDocumentsForEntity("ordres_travail", otId);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeTab, setActiveTab] = useState("operations");
   const [editOpen, setEditOpen] = useState(false);
@@ -127,7 +129,7 @@ export function OrdresTravailDetail() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col min-h-0">
         <TabsList className="w-full shrink-0">
           <TabsTrigger value="operations" className="flex-1">Opérations ({operations.length})</TabsTrigger>
-          <TabsTrigger value="documents" className="flex-1">Documents</TabsTrigger>
+          <TabsTrigger value="documents" className="flex-1">Documents ({docs.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="operations" className="mt-2 flex flex-1 flex-col min-h-0">
@@ -135,7 +137,8 @@ export function OrdresTravailDetail() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-2 flex flex-1 flex-col overflow-y-auto no-scrollbar min-h-0">
-          <DocumentsLies entityType="ordres_travail" entityId={otId} inputId="ot-doc-upload" hideAddButton />
+          <DocumentsLies entityType="ordres_travail" entityId={otId} inputId="ot-doc-upload" hideAddButton
+            namingContext={{ prestataire: ot.nom_prestataire ?? undefined, objet: ot.nom_gamme, date: ot.date_cloture ?? ot.date_prevue }} />
         </TabsContent>
       </Tabs>
 

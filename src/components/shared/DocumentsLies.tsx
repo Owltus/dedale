@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useDocumentsForEntity, useDeleteDocument } from "@/hooks/use-documents";
 import { useInvokeMutation } from "@/hooks/useInvoke";
-import { formatDate, formatBytes } from "@/lib/utils/format";
+import { formatDate, formatBytes, stripExtension, type NamingContext } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import { DropZone } from "./DropZone";
 import { DocumentIcon } from "./DocumentIcon";
@@ -19,6 +19,7 @@ interface DocumentsLiesProps {
   readonly?: boolean;
   inputId?: string;
   hideAddButton?: boolean;
+  namingContext?: NamingContext;
 }
 
 const ENTITY_COMMANDS: Record<string, { link: string; unlink: string; paramName: string }> = {
@@ -33,7 +34,7 @@ const ENTITY_COMMANDS: Record<string, { link: string; unlink: string; paramName:
 };
 
 /// Documents liés — drag & drop + bouton d'ajout + UploadModal unifié
-export function DocumentsLies({ entityType, entityId, readonly = false, inputId, hideAddButton = false }: DocumentsLiesProps) {
+export function DocumentsLies({ entityType, entityId, readonly = false, inputId, hideAddButton = false, namingContext }: DocumentsLiesProps) {
   const { data = [] } = useDocumentsForEntity(entityType, entityId);
   const qc = useQueryClient();
   const { enqueue } = useUploadQueue();
@@ -136,7 +137,7 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
                 </div>
                 <div className="flex flex-1 items-center justify-between gap-6 px-4 py-3 min-w-0">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{doc.nom_original}</p>
+                    <p className="text-sm font-medium truncate">{stripExtension(doc.nom_original)}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {doc.source ? `${doc.source} · ` : ""}{doc.nom_type} · {formatBytes(doc.taille_octets)} · {formatDate(doc.date_liaison)}
                     </p>
@@ -187,6 +188,7 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
               linkedDocIds: data.map((d) => d.id_document),
               onLink: linkExistingDocuments,
             }}
+            namingContext={namingContext}
           />
           <ConfirmDialog
             open={deleteId !== null}

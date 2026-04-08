@@ -197,12 +197,22 @@ pub async fn upload_document(
     fs::write(&file_path, &processed.bytes)
         .map_err(|e| format!("Impossible d'écrire le fichier : {}", e))?;
 
+    // Adapter le nom original si le format a changé (ex: .png → .webp)
+    let display_name = if processed.storage_ext != "pdf" {
+        match input.nom_original.rfind('.') {
+            Some(pos) => format!("{}.{}", &input.nom_original[..pos], processed.storage_ext),
+            None => format!("{}.{}", input.nom_original, processed.storage_ext),
+        }
+    } else {
+        input.nom_original.clone()
+    };
+
     // Insérer les métadonnées en base
     let conn = db.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO documents (nom_original, hash_sha256, nom_fichier, taille_octets, id_type_document) \
          VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![input.nom_original, processed.hash, nom_fichier, processed.taille, input.id_type_document],
+        params![display_name, processed.hash, nom_fichier, processed.taille, input.id_type_document],
     )
     .map_err(|e| e.to_string())?;
 

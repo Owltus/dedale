@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DocumentsLies } from "@/components/shared/DocumentsLies";
+import { useDocumentsForEntity } from "@/hooks/use-documents";
 import { InfoCard } from "@/components/shared/InfoCard";
 import { CardList } from "@/components/shared/CardList";
 import { ActionButtons } from "@/components/shared/ActionButtons";
@@ -67,6 +68,7 @@ export function GammesDetail() {
   const { data: prestataires = [] } = usePrestataires();
   const { data: periodicites = [] } = usePeriodicites();
   const { data: gammeEquipements = [] } = useGammeEquipements(gammeId);
+  const { data: docs = [] } = useDocumentsForEntity("gammes", gammeId);
   const { data: allEquipements = [] } = useEquipements();
   const linkGammeEquipement = useLinkGammeEquipement();
   const linkGammeEquipementsBatch = useLinkGammeEquipementsBatch();
@@ -237,7 +239,7 @@ export function GammesDetail() {
           <TabsTrigger value="operations" className="flex-1">Opérations spécifiques ({operations.length})</TabsTrigger>
           <TabsTrigger value="modeles" className="flex-1">Opérations modèle ({linkedTypes.length})</TabsTrigger>
           <TabsTrigger value="equipements" className="flex-1">Équipements ({gammeEquipements.length})</TabsTrigger>
-          <TabsTrigger value="documents" className="flex-1">Documents</TabsTrigger>
+          <TabsTrigger value="documents" className="flex-1">Documents ({docs.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="operations" className="mt-2 flex flex-1 flex-col min-h-0">
@@ -326,7 +328,8 @@ export function GammesDetail() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-2 flex flex-1 flex-col overflow-y-auto no-scrollbar min-h-0">
-          <DocumentsLies entityType="gammes" entityId={gammeId} inputId="gamme-doc-upload" hideAddButton />
+          <DocumentsLies entityType="gammes" entityId={gammeId} inputId="gamme-doc-upload" hideAddButton
+            namingContext={{ prestataire: prestataires.find(p => p.id_prestataire === gamme?.id_prestataire)?.libelle, objet: gamme?.nom_gamme }} />
         </TabsContent>
       </Tabs>
 

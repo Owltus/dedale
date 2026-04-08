@@ -19,6 +19,7 @@ import { CrudDialog } from "@/components/shared/CrudDialog";
 import { diResolutionSchema, type DiResolutionFormData } from "@/lib/schemas/demandes";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DocumentsLies } from "@/components/shared/DocumentsLies";
+import { useDocumentsForEntity } from "@/hooks/use-documents";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDemande, useDeleteDemande, useDiLocalisations, useLinkDiLocalisation, useUnlinkDiLocalisation, useDiEquipements, useLinkDiEquipement, useUnlinkDiEquipement, useResoudreDemande, useReouvrirDemande, useRepasserOuverteDemande } from "@/hooks/use-demandes";
 import { useLocalisationsTree, useEquipementsByLocal } from "@/hooks/use-localisations";
@@ -30,6 +31,7 @@ export function DemandesDetail() {
   const { id } = useParams<{ id: string }>();
   const diId = Number(id);
   const { data: di, isLoading } = useDemande(diId);
+  const { data: docs = [] } = useDocumentsForEntity("di", diId);
   const deleteDi = useDeleteDemande();
   const { data: linkedLocalIds = [] } = useDiLocalisations(diId);
   const { data: linkedEquipements = [] } = useDiEquipements(diId);
@@ -160,7 +162,7 @@ export function DemandesDetail() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col min-h-0">
         <TabsList className="w-full shrink-0">
           <TabsTrigger value="detail" className="flex-1">Détail</TabsTrigger>
-          <TabsTrigger value="documents" className="flex-1">Documents</TabsTrigger>
+          <TabsTrigger value="documents" className="flex-1">Documents ({docs.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="detail" className="mt-2 flex flex-1 flex-col gap-3 overflow-y-auto no-scrollbar min-h-0">
@@ -270,7 +272,8 @@ export function DemandesDetail() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-2 flex flex-1 flex-col overflow-y-auto no-scrollbar min-h-0">
-          <DocumentsLies entityType="di" entityId={diId} inputId="di-doc-upload" hideAddButton />
+          <DocumentsLies entityType="di" entityId={diId} inputId="di-doc-upload" hideAddButton
+            namingContext={{ objet: di.libelle_constat, date: di.date_resolution ?? di.date_constat }} />
         </TabsContent>
       </Tabs>
 

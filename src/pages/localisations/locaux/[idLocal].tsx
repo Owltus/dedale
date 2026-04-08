@@ -13,6 +13,7 @@ import { EquipementList } from "@/components/shared/EquipementList";
 import { GammeList } from "@/components/shared/GammeList";
 import { OtList } from "@/components/shared/OtList";
 import { DocumentsLies } from "@/components/shared/DocumentsLies";
+import { useDocumentsForEntity } from "@/hooks/use-documents";
 import { ImagePicker } from "@/components/shared/ImagePicker";
 import { CrudDialog } from "@/components/shared/CrudDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -36,6 +37,7 @@ export function LocalDetail() {
   const { data: equipements = [] } = useEquipementsByLocal(localId);
   const { data: gammes = [] } = useGammesByLocal(localId);
   const { data: ots = [] } = useOtByLocal(localId);
+  const { data: docs = [] } = useDocumentsForEntity("localisations", localId);
   const updateLocal = useUpdateLocal();
   const deleteLocal = useDeleteLocal();
 
@@ -101,7 +103,7 @@ export function LocalDetail() {
           <TabsTrigger value="equipements" className="flex-1">Équipements ({equipements.length})</TabsTrigger>
           <TabsTrigger value="gammes" className="flex-1">Gammes ({gammes.length})</TabsTrigger>
           <TabsTrigger value="ordres-travail" className="flex-1">Ordres de travail ({ots.length})</TabsTrigger>
-          <TabsTrigger value="documents" className="flex-1">Documents</TabsTrigger>
+          <TabsTrigger value="documents" className="flex-1">Documents ({docs.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="equipements" className="mt-2 flex flex-1 flex-col min-h-0">
@@ -129,7 +131,8 @@ export function LocalDetail() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-2 flex flex-1 flex-col overflow-y-auto no-scrollbar min-h-0">
-          <DocumentsLies entityType="localisations" entityId={localId} inputId="local-doc-upload" hideAddButton />
+          <DocumentsLies entityType="localisations" entityId={localId} inputId="local-doc-upload" hideAddButton
+            namingContext={{ objet: local?.nom }} />
         </TabsContent>
       </Tabs>
 

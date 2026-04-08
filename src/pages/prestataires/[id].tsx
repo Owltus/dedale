@@ -34,10 +34,9 @@ import { getContratInfo } from "@/lib/utils/contrat-info";
 import { usePrestataire, useUpdatePrestataire, useDeletePrestataire } from "@/hooks/use-prestataires";
 import {
   useContrats, useContrat, useCreateContrat, useUpdateContrat, useDeleteContrat,
-  useResilierContrat, useCreateAvenant, useContratVersions,
+  useResilierContrat, useCreateAvenant,
 } from "@/hooks/use-contrats";
 import { useTypesContrats, useTypesDocuments } from "@/hooks/use-referentiels";
-import { usePrestataires } from "@/hooks/use-prestataires";
 import { useGammes } from "@/hooks/use-gammes";
 import { useOrdresTravail } from "@/hooks/use-ordres-travail";
 import { OtList } from "@/components/shared/OtList";
@@ -52,7 +51,7 @@ import { useInvokeMutation } from "@/hooks/useInvoke";
 import { useQueryClient } from "@tanstack/react-query";
 import { ContratStatusBadge } from "@/components/shared/StatusBadge";
 import { DocumentPreviewDialog, type PreviewableDoc } from "@/pages/documents/DocumentPreviewDialog";
-import { formatDate } from "@/lib/utils/format";
+import { formatDate, stripExtension } from "@/lib/utils/format";
 
 function progressColor(p: number): string {
   if (p > 0.9) return "bg-red-500";
@@ -89,12 +88,16 @@ function ContratCard({ contrat: c, onSelect, onEdit, onDelete, onResilier, onAve
     { onSettled: () => qcLocal.invalidateQueries({ queryKey: ["documents"] }) },
   );
   const isTerminal = cInfo.statut === "Archivé" || cInfo.statut === "Résilié" || cInfo.statut === "Terminé";
+  // Les contrats archivés acceptent encore les documents (le SQL ne bloque pas documents_lies)
+  const isDocReadonly = cInfo.statut === "Résilié" || cInfo.statut === "Terminé";
   const hasDelais = c.duree_cycle_mois != null || c.delai_preavis_jours != null || c.fenetre_resiliation_jours != null;
+  const [confirmUnlink, setConfirmUnlink] = useState<number | null>(null);
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<number | null>(null);
 
   return (
-    <DropZone onFilesDropped={onDropFiles} disabled={isTerminal} className={cn(
+    <DropZone onFilesDropped={onDropFiles} disabled={isDocReadonly} className={cn(
       "rounded-lg border p-4 space-y-3 transition-all",
-      c.est_archive && "opacity-50"
+      c.est_archive && "border-dashed border-muted-foreground/30 bg-muted/30 opacity-60"
     )}>
       <div onClick={onSelect} className="space-y-3">
         {/* En-tête : type + alerte + statut + actions */}
@@ -112,30 +115,36 @@ function ContratCard({ contrat: c, onSelect, onEdit, onDelete, onResilier, onAve
             <ActionButtons
               onEdit={!isTerminal ? onEdit : undefined}
               onDelete={onDelete}
-              extra={!isTerminal ? (
+              extra={
                 <>
-                  <Tooltip>
-                    <TooltipTrigger render={<Button variant="ghost" size="icon" className="size-7" onClick={(e) => { e.stopPropagation(); onAddDocument(); }} />}>
-                      <FileUp className="size-3.5" />
-                    </TooltipTrigger>
-                    <TooltipContent>Ajouter un document</TooltipContent>
-                  </Tooltip>
-                  {cInfo.statut !== "Résilié" && (
+                  {!isDocReadonly && (
                     <Tooltip>
-                      <TooltipTrigger render={<Button variant="ghost" size="icon" className="size-7" onClick={(e) => { e.stopPropagation(); onResilier(); }} />}>
-                        <Ban className="size-3.5 text-destructive" />
+                      <TooltipTrigger render={<Button variant="ghost" size="icon" className="size-7" onClick={(e) => { e.stopPropagation(); onAddDocument(); }} />}>
+                        <FileUp className="size-3.5" />
                       </TooltipTrigger>
-                      <TooltipContent>Résilier</TooltipContent>
+                      <TooltipContent>Ajouter un document</TooltipContent>
                     </Tooltip>
                   )}
-                  <Tooltip>
-                    <TooltipTrigger render={<Button variant="ghost" size="icon" className="size-7" onClick={(e) => { e.stopPropagation(); onAvenant(); }} />}>
-                      <GitBranchPlus className="size-3.5" />
-                    </TooltipTrigger>
-                    <TooltipContent>Créer un avenant</TooltipContent>
-                  </Tooltip>
+                  {!isTerminal && (
+                    <>
+                      {cInfo.statut !== "Résilié" && (
+                        <Tooltip>
+                          <TooltipTrigger render={<Button variant="ghost" size="icon" className="size-7" onClick={(e) => { e.stopPropagation(); onResilier(); }} />}>
+                            <Ban className="size-3.5 text-destructive" />
+                          </TooltipTrigger>
+                          <TooltipContent>Résilier</TooltipContent>
+                        </Tooltip>
+                      )}
+                      <Tooltip>
+                        <TooltipTrigger render={<Button variant="ghost" size="icon" className="size-7" onClick={(e) => { e.stopPropagation(); onAvenant(); }} />}>
+                          <GitBranchPlus className="size-3.5" />
+                        </TooltipTrigger>
+                        <TooltipContent>Créer un avenant</TooltipContent>
+                      </Tooltip>
+                    </>
+                  )}
                 </>
-              ) : undefined}
+              }
             />
           </div>
         </div>
@@ -154,7 +163,7 @@ function ContratCard({ contrat: c, onSelect, onEdit, onDelete, onResilier, onAve
         {/* Description dynamique + barre de progression */}
         <div className="space-y-1.5">
           <p className="text-sm text-muted-foreground leading-relaxed">{cInfo.texte}</p>
-          {cInfo.progression != null && (
+          {cInfo.progression != null && !c.est_archive && (
             <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
               <div
                 className={cn("h-full rounded-full transition-all", progressColor(cInfo.progression))}
@@ -232,24 +241,18 @@ function ContratCard({ contrat: c, onSelect, onEdit, onDelete, onResilier, onAve
                     }}
                   >
                     <DocumentIcon fileName={doc.nom_original} className="size-3.5 shrink-0" />
-                    <span className="truncate">{doc.nom_original}</span>
+                    <span className="truncate">{stripExtension(doc.nom_original)}</span>
                   </button>
                   <div className="flex items-center gap-0.5 shrink-0">
                     <Button variant="ghost" size="icon" className="size-5" title="Délier" onClick={(e) => {
                       e.stopPropagation();
-                      unlinkDoc.mutateAsync({ idDocument: doc.id_document, idContrat: c.id_contrat }).then(
-                        () => toast.success("Document délié"),
-                        (err) => toast.error(String(err)),
-                      );
+                      setConfirmUnlink(doc.id_document);
                     }}>
                       <Unlink2 className="size-3" />
                     </Button>
                     <Button variant="ghost" size="icon" className="size-5 text-destructive" title="Supprimer" onClick={(e) => {
                       e.stopPropagation();
-                      deleteDoc.mutateAsync({ id: doc.id_document }).then(
-                        () => toast.success("Document supprimé"),
-                        (err) => toast.error(String(err)),
-                      );
+                      setConfirmDeleteDoc(doc.id_document);
                     }}>
                       <Trash2 className="size-3" />
                     </Button>
@@ -260,6 +263,38 @@ function ContratCard({ contrat: c, onSelect, onEdit, onDelete, onResilier, onAve
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmUnlink !== null}
+        onOpenChange={(open) => { if (!open) setConfirmUnlink(null); }}
+        title="Délier le document"
+        description="Ce document ne sera plus associé à ce contrat, mais restera disponible dans la bibliothèque."
+        confirmLabel="Délier"
+        onConfirm={async () => {
+          if (confirmUnlink === null) return;
+          try {
+            await unlinkDoc.mutateAsync({ idDocument: confirmUnlink, idContrat: c.id_contrat });
+            toast.success("Document délié");
+          } catch (e) { toast.error(String(e)); }
+          setConfirmUnlink(null);
+        }}
+      />
+      <ConfirmDialog
+        open={confirmDeleteDoc !== null}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteDoc(null); }}
+        title="Supprimer le document"
+        description="Le document sera définitivement supprimé. Cette action est irréversible."
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={async () => {
+          if (confirmDeleteDoc === null) return;
+          try {
+            await deleteDoc.mutateAsync({ id: confirmDeleteDoc });
+            toast.success("Document supprimé");
+          } catch (e) { toast.error(String(e)); }
+          setConfirmDeleteDoc(null);
+        }}
+      />
     </DropZone>
   );
 }
@@ -283,7 +318,7 @@ export function PrestatairesDetail() {
   const gammes = allGammes.filter((g) => g.nom_prestataire === prestataire?.libelle);
   const { data: allOt = [] } = useOrdresTravail();
   const ots = allOt.filter((ot) => ot.nom_prestataire === prestataire?.libelle);
-  const { data: prestataires = [] } = usePrestataires();
+  const { data: prestDocs = [] } = useDocumentsForEntity("prestataires", prestataireId);
   const { data: typesContrats = [] } = useTypesContrats();
   const createContrat = useCreateContrat();
   const updateContrat = useUpdateContrat();
@@ -302,6 +337,7 @@ export function PrestatairesDetail() {
   const [resilierOpen, setResilierOpen] = useState(false);
   const [avenantOpen, setAvenantOpen] = useState(false);
   const [docContratId, setDocContratId] = useState<number | null>(null);
+  const { data: docContratDocs = [] } = useDocumentsForEntity("contrats", docContratId ?? 0);
   const [docDialogOpen, setDocDialogOpen] = useState(false);
   const [droppedFilesForContrat, setDroppedFilesForContrat] = useState<{ name: string; base64: string }[]>();
   const [previewDoc, setPreviewDoc] = useState<PreviewableDoc | null>(null);
@@ -343,9 +379,19 @@ export function PrestatairesDetail() {
     });
   }, [docContratId, enqueue, linkDocContrat]);
 
+  const linkExistingToContrat = useCallback(async (ids: number[]) => {
+    if (!docContratId) return;
+    const results = await Promise.allSettled(
+      ids.map((idDocument) => linkDocContrat.mutateAsync({ idDocument, idContrat: docContratId })),
+    );
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    const ko = results.filter((r) => r.status === "rejected").length;
+    if (ko > 0) toast.error(`${ko} liaison${ko > 1 ? "s" : ""} échouée${ko > 1 ? "s" : ""}`);
+    if (ok > 0) toast.success(`${ok} document${ok > 1 ? "s" : ""} lié${ok > 1 ? "s" : ""}`);
+  }, [docContratId, linkDocContrat]);
+
   // Contrat sélectionné pour les dialogs
   const { data: selectedContrat } = useContrat(selectedContratId ?? 0);
-  const { data: versions = [] } = useContratVersions(selectedContratId ?? 0);
 
   // Formulaires
   const prestForm = useForm<PrestataireFormData>({
@@ -405,9 +451,6 @@ export function PrestatairesDetail() {
             {activeTab === "contrats" && (
               <HeaderButton icon={<Plus className="size-4" />} label="Nouveau contrat" onClick={openCreateContrat} />
             )}
-            {activeTab === "documents" && (
-              <HeaderButton icon={<FileUp className="size-4" />} label="Ajouter un document" onClick={() => document.getElementById("prest-doc-upload")?.click()} />
-            )}
             <HeaderButton icon={<Pencil className="size-4" />} label="Modifier le prestataire" onClick={openEditPrest} />
             {!isInternal && (
               <HeaderButton icon={<Trash2 className="size-4" />} label="Supprimer" onClick={() => setDeletePrestOpen(true)} variant="destructive" />
@@ -432,7 +475,7 @@ export function PrestatairesDetail() {
           <TabsTrigger value="contrats" className="flex-1">Contrats ({contrats.length})</TabsTrigger>
           <TabsTrigger value="gammes" className="flex-1">Gammes ({gammes.length})</TabsTrigger>
           <TabsTrigger value="ordres-travail" className="flex-1">Ordres de travail ({ots.length})</TabsTrigger>
-          <TabsTrigger value="documents" className="flex-1">Documents</TabsTrigger>
+          <TabsTrigger value="documents" className="flex-1">Documents ({prestDocs.length})</TabsTrigger>
         </TabsList>
 
         {/* Onglet Contrats */}
@@ -459,23 +502,6 @@ export function PrestatairesDetail() {
                 />
               ))}
 
-              {/* Versions du contrat sélectionné */}
-              {selectedContratId && versions.length > 1 && (
-                <div className="rounded-md border p-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Versions du contrat #{selectedContratId}</p>
-                  <div className="space-y-1">
-                    {versions.map((v) => (
-                      <div key={v.id_contrat} className="flex items-center justify-between text-xs">
-                        <span className="font-medium">{v.reference} {v.objet_avenant && `— ${v.objet_avenant}`}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">{formatDate(v.date_debut)} — {formatDate(v.date_fin)}</span>
-                          <ContratStatusBadge statut={v.statut} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
           </div>
@@ -501,7 +527,7 @@ export function PrestatairesDetail() {
 
         {/* Onglet Documents */}
         <TabsContent value="documents" className="mt-2 flex flex-1 flex-col overflow-y-auto no-scrollbar min-h-0">
-          <DocumentsLies entityType="prestataires" entityId={prestataireId} inputId="prest-doc-upload" hideAddButton />
+          <DocumentsLies entityType="prestataires" entityId={prestataireId} readonly />
         </TabsContent>
       </Tabs>
 
@@ -559,7 +585,7 @@ export function PrestatairesDetail() {
         <>
           <EditContratDialog
             open={editContratOpen} onOpenChange={setEditContratOpen}
-            contrat={selectedContrat} prestataires={prestataires} typesContrats={typesContrats}
+            contrat={selectedContrat} prestataireLabel={prestataire.libelle} typesContrats={typesContrats}
             onSubmit={async (data) => {
               try {
                 await updateContrat.mutateAsync({ id: selectedContrat.id_contrat, input: data as Record<string, unknown> });
@@ -582,7 +608,7 @@ export function PrestatairesDetail() {
           />
           <AvenantContratDialog
             open={avenantOpen} onOpenChange={setAvenantOpen}
-            contrat={selectedContrat} prestataires={prestataires} typesContrats={typesContrats}
+            contrat={selectedContrat} prestataireLabel={prestataire.libelle} typesContrats={typesContrats}
             onSubmit={async (data) => {
               try {
                 await createAvenant.mutateAsync({ input: data as Record<string, unknown> });
@@ -647,6 +673,14 @@ export function PrestatairesDetail() {
         onUpload={handleContratDocUpload}
         initialFiles={droppedFilesForContrat}
         defaultTypeId={contratTypeId}
+        linkExisting={{
+          linkedDocIds: docContratDocs.map((d) => d.id_document),
+          onLink: linkExistingToContrat,
+        }}
+        namingContext={{
+          prestataire: prestataire?.libelle,
+          objet: contrats.find(c => c.id_contrat === docContratId)?.reference,
+        }}
       />
     </div>
   );

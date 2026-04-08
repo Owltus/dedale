@@ -12,6 +12,7 @@ import { InfoCard } from "@/components/shared/InfoCard";
 import { OtList } from "@/components/shared/OtList";
 import { GammeList } from "@/components/shared/GammeList";
 import { DocumentsLies } from "@/components/shared/DocumentsLies";
+import { useDocumentsForEntity } from "@/hooks/use-documents";
 import { ImagePicker } from "@/components/shared/ImagePicker";
 import { CrudDialog } from "@/components/shared/CrudDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -45,6 +46,7 @@ export function EquipementDetail() {
   const { data: ots = [] } = useOtByEquipement(equipementId);
   const { data: gammes = [] } = useEquipementGammes(equipementId);
   const { data: valeursChamps = [] } = useValeursEquipement(equipementId);
+  const { data: docs = [] } = useDocumentsForEntity("equipements", equipementId);
   const updateEquipement = useUpdateEquipement();
   const deleteEquipement = useDeleteEquipement();
   const saveValeurs = useSaveValeursEquipement();
@@ -159,7 +161,7 @@ export function EquipementDetail() {
         <TabsList className="w-full shrink-0">
           <TabsTrigger value="gammes" className="flex-1">Gammes ({gammes.length})</TabsTrigger>
           <TabsTrigger value="ordres-travail" className="flex-1">Ordres de travail ({ots.length})</TabsTrigger>
-          <TabsTrigger value="documents" className="flex-1">Documents</TabsTrigger>
+          <TabsTrigger value="documents" className="flex-1">Documents ({docs.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="gammes" className="mt-2 flex flex-1 flex-col min-h-0">
@@ -179,7 +181,8 @@ export function EquipementDetail() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-2 flex flex-1 flex-col min-h-0">
-          <DocumentsLies entityType="equipements" entityId={equipementId} inputId="equip-doc-upload" hideAddButton />
+          <DocumentsLies entityType="equipements" entityId={equipementId} inputId="equip-doc-upload" hideAddButton
+            namingContext={{ objet: equipement?.nom_affichage }} />
         </TabsContent>
       </Tabs>
 
