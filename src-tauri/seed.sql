@@ -14,54 +14,160 @@ PRAGMA foreign_keys = ON;
 INSERT INTO batiments (nom, description) VALUES
     ('Hôtel Okko Nantes', 'Bâtiment principal — 15 bis rue de Strasbourg, 44000 Nantes');
 
--- Niveaux (id_batiment = 1)
+-- Niveaux (id_batiment = 1) — 8 niveaux, données plans AURA Architectes
 INSERT INTO niveaux (nom, description, id_batiment) VALUES
-    ('Sous-sol',  'Niveau technique, parking',          1),
-    ('RDC',       'Accueil, restauration, club',        1),
-    ('Étage 1',   'Chambres 101 à 120',                 1),
-    ('Étage 2',   'Chambres 201 à 220',                 1),
-    ('Étage 3',   'Chambres 301 à 315, suites',         1),
-    ('Toiture',   'Terrasse technique, locaux machines', 1);
+    ('Sous-Sol',  'Stationnement, locaux techniques — 416,80 m²',  1),  -- id 1
+    ('RDC',       'Club, accueil, bien-être — 342,39 m²',          1),  -- id 2
+    ('Étage 1',   '13 chambres (102-114), locaux techniques',      1),  -- id 3
+    ('Étage 2',   '13 chambres (201-213), service',                1),  -- id 4
+    ('Étage 3',   '14 chambres (301-315), service',                1),  -- id 5
+    ('Étage 4',   '14 chambres (401-415), service',                1),  -- id 6
+    ('Étage 5',   '14 chambres (501-515), bureau technique',       1),  -- id 7
+    ('Étage 6',   '11 chambres (621-631), service',                1);  -- id 8
 
--- Locaux Sous-sol (id_niveau = 1)
+-- Locaux Sous-Sol (id_niveau = 1) — plan MAR 102
 INSERT INTO locaux (nom, description, surface, id_niveau) VALUES
-    ('Local technique CVC',   'CTA, PAC, chaudière, VMC',        85.0,  1),
-    ('Local électrique',      'TGBT, groupe électrogène',         32.0,  1),
-    ('Parking',               'Parking souterrain 25 places',    620.0,  1),
-    ('Réserve',               'Stockage matériel et produits',    28.0,  1),
-    ('Local poubelles',       'Zone de tri et collecte déchets',  18.0,  1);
+    ('Stationnement',     'Emplacements + circulation véhicules',  390.00, 1),  -- id 1
+    ('Escalier C',        'Cage d''escalier principale',             5.30, 1),  -- id 2
+    ('SAS Sous-Sol',      'SAS d''accès sous-sol',                   7.60, 1),  -- id 3
+    ('Dégagement SS',     'Circulation sous-sol',                    5.20, 1),  -- id 4
+    ('Local Opérateur',   'Local technique opérateur télécom',       3.40, 1),  -- id 5
+    ('Local Surpresseur', 'Surpresseur réseau eau',                  5.30, 1);  -- id 6
 
--- Locaux RDC (id_niveau = 2)
+-- Locaux RDC (id_niveau = 2) — plan MAR 103
 INSERT INTO locaux (nom, description, surface, id_niveau) VALUES
-    ('Hall / Réception',  'Accueil clients, bagagerie',       120.0, 2),
-    ('Restaurant',        'Espace restauration 80 couverts',  145.0, 2),
-    ('Cuisine',           'Cuisine professionnelle',           65.0, 2),
-    ('Salon Club',        'Espace détente et coworking',       95.0, 2),
-    ('Sanitaires RDC',    'WC et vestiaires',                  22.0, 2),
-    ('Bureau direction',  'Bureau du directeur',               18.0, 2);
+    ('Club',                  'Espace principal — restauration et détente', 172.97, 2),  -- id 7
+    ('Hall d''entrée',        'Accueil clients',                             22.07, 2),  -- id 8
+    ('Accueil - Back Office', 'Bureau réception',                             8.19, 2),  -- id 9
+    ('Bureau Directeur',      'Bureau du directeur d''exploitation',          8.40, 2),  -- id 10
+    ('Bagagerie',             'Stockage bagages clients',                     4.22, 2),  -- id 11
+    ('Cuisine Club',          'Cuisine du Club',                             15.00, 2),  -- id 12
+    ('Chaufferie',            'Chaufferie — CTA, PAC, chaudière',            16.76, 2),  -- id 13
+    ('Local poubelle',        'Zone de tri et collecte déchets',              8.73, 2),  -- id 14
+    ('Lingerie Sale',         'Linge sale en attente de traitement',          5.23, 2),  -- id 15
+    ('Lingerie Propre',       'Stockage linge propre',                        7.12, 2),  -- id 16
+    ('Quai de livraison',     'Dégagement et quai de livraison',             16.46, 2),  -- id 17
+    ('SAS d''entrée',         'SAS d''entrée principal',                      7.39, 2),  -- id 18
+    ('Salle de sports',       'Espace fitness clients',                      24.89, 2),  -- id 19
+    ('Vestiaire - Sauna',     'Vestiaire et sauna',                          13.57, 2),  -- id 20
+    ('Sanitaires RDC',        'Sanitaires du rez-de-chaussée',               11.39, 2);  -- id 21
 
--- Locaux Étage 1 (id_niveau = 3)
+-- Locaux Étage 1 (id_niveau = 3) — plan MAR 104 — 13 chambres + locaux
 INSERT INTO locaux (nom, description, surface, id_niveau) VALUES
-    ('Couloir chambres E1',  'Desserte chambres étage 1',       45.0, 3),
-    ('Local ménage E1',      'Stockage produits et matériel',   12.0, 3),
-    ('Cage escalier E1',     'Escalier principal',              15.0, 3);
+    ('Chambre 102', 'Confort — côté rue',   19.07, 3),  -- id 22
+    ('Chambre 104', 'Standard — côté rue',  16.57, 3),  -- id 23
+    ('Chambre 106', 'Standard — côté rue',  16.57, 3),  -- id 24
+    ('Chambre 108', 'Standard — côté rue',  16.57, 3),  -- id 25
+    ('Chambre 110', 'Standard — côté rue',  16.57, 3),  -- id 26
+    ('Chambre 112', 'Standard — côté rue',  16.57, 3),  -- id 27
+    ('Chambre 114', 'Standard — côté rue',  16.57, 3),  -- id 28
+    ('Chambre 103', 'Standard — côté cour', 17.60, 3),  -- id 29
+    ('Chambre 105', 'Confort — côté cour',  19.00, 3),  -- id 30
+    ('Chambre 107', 'Standard — côté cour', 16.52, 3),  -- id 31
+    ('Chambre 109', 'Standard — côté cour', 16.52, 3),  -- id 32
+    ('Chambre 111', 'Standard — côté cour', 16.52, 3),  -- id 33
+    ('Chambre 113', 'Standard — côté cour', 16.52, 3),  -- id 34
+    ('LOCAL TGBT',        'Tableau général basse tension',       10.95, 3),  -- id 35
+    ('LOCAL VDI',         'Voix données images',                  6.34, 3),  -- id 36
+    ('Vestiaire Hommes',  'Vestiaire personnel masculin',         5.30, 3),  -- id 37
+    ('Réserve Club',      'Réserve du Club',                      5.60, 3),  -- id 38
+    ('Dégagement E1',     'Circulation étage 1',                 40.25, 3);  -- id 39
 
--- Locaux Étage 2 (id_niveau = 4)
+-- Locaux Étage 2 (id_niveau = 4) — plan MAR 105 — 13 chambres + locaux
 INSERT INTO locaux (nom, description, surface, id_niveau) VALUES
-    ('Couloir chambres E2',  'Desserte chambres étage 2',       45.0, 4),
-    ('Local ménage E2',      'Stockage produits et matériel',   12.0, 4),
-    ('Cage escalier E2',     'Escalier principal',              15.0, 4);
+    ('Chambre 201', 'Confort — côté rue',   17.80, 4),  -- id 40
+    ('Chambre 202', 'Confort — côté rue',   19.57, 4),  -- id 41
+    ('Chambre 204', 'Standard — côté rue',  16.57, 4),  -- id 42
+    ('Chambre 206', 'Standard — côté rue',  16.57, 4),  -- id 43
+    ('Chambre 208', 'Standard — côté rue',  16.57, 4),  -- id 44
+    ('Chambre 210', 'Standard — côté rue',  16.57, 4),  -- id 45
+    ('Chambre 212', 'Standard — côté rue',  16.57, 4),  -- id 46
+    ('Chambre 203', 'Standard — côté cour', 17.60, 4),  -- id 47
+    ('Chambre 205', 'Confort — côté cour',  19.00, 4),  -- id 48
+    ('Chambre 207', 'Standard — côté cour', 16.52, 4),  -- id 49
+    ('Chambre 209', 'Standard — côté cour', 16.52, 4),  -- id 50
+    ('Chambre 211', 'Standard — côté cour', 16.52, 4),  -- id 51
+    ('Chambre 213', 'Standard — côté cour', 16.52, 4),  -- id 52
+    ('Vestiaire Femmes',  'Vestiaire personnel féminin',          5.50, 4),  -- id 53
+    ('Stock Linge',       'Stock linge propre étage',              5.60, 4),  -- id 54
+    ('Dégagement E2',     'Circulation étage 2',                  40.25, 4);  -- id 55
 
--- Locaux Étage 3 (id_niveau = 5)
+-- Locaux Étage 3 (id_niveau = 5) — plan MAR 106 — 14 chambres + locaux
 INSERT INTO locaux (nom, description, surface, id_niveau) VALUES
-    ('Couloir chambres E3',  'Desserte chambres et suites',     40.0, 5),
-    ('Local ménage E3',      'Stockage produits et matériel',   12.0, 5),
-    ('Cage escalier E3',     'Escalier principal',              15.0, 5);
+    ('Chambre 301', 'Confort — côté rue',   17.80, 5),  -- id 56
+    ('Chambre 302', 'PMR — côté rue',       19.07, 5),  -- id 57
+    ('Chambre 304', 'Standard — côté rue',  16.57, 5),  -- id 58
+    ('Chambre 306', 'Standard — côté rue',  16.57, 5),  -- id 59
+    ('Chambre 308', 'Standard — côté rue',  16.57, 5),  -- id 60
+    ('Chambre 310', 'Standard — côté rue',  16.57, 5),  -- id 61
+    ('Chambre 312', 'Standard — côté rue',  16.57, 5),  -- id 62
+    ('Chambre 303', 'Standard — côté cour', 17.60, 5),  -- id 63
+    ('Chambre 305', 'Confort — côté cour',  19.00, 5),  -- id 64
+    ('Chambre 307', 'Standard — côté cour', 16.52, 5),  -- id 65
+    ('Chambre 309', 'Standard — côté cour', 16.52, 5),  -- id 66
+    ('Chambre 311', 'Standard — côté cour', 16.52, 5),  -- id 67
+    ('Chambre 313', 'Standard — côté cour', 16.52, 5),  -- id 68
+    ('Chambre 315', 'Standard — côté cour', 16.52, 5),  -- id 69
+    ('Vestiaire ménage',  'Vestiaire personnel ménage / laverie', 5.50, 5),  -- id 70
+    ('Stock Hébergement', 'Stock hébergement',                     5.60, 5),  -- id 71
+    ('Dégagement E3',     'Circulation étage 3',                  40.25, 5);  -- id 72
 
--- Locaux Toiture (id_niveau = 6)
+-- Locaux Étage 4 (id_niveau = 6) — plan MAR 107 — 14 chambres + locaux
 INSERT INTO locaux (nom, description, surface, id_niveau) VALUES
-    ('Toiture terrasse',     'Accès technique toiture',         180.0, 6),
-    ('Local machinerie',     'Machinerie ascenseur, antennes',   25.0, 6);
+    ('Chambre 401', 'Confort — côté rue',   17.80, 6),  -- id 73
+    ('Chambre 402', 'PMR — côté rue',       19.07, 6),  -- id 74
+    ('Chambre 404', 'Standard — côté rue',  16.57, 6),  -- id 75
+    ('Chambre 406', 'Standard — côté rue',  16.57, 6),  -- id 76
+    ('Chambre 408', 'Standard — côté rue',  16.57, 6),  -- id 77
+    ('Chambre 410', 'Standard — côté rue',  16.57, 6),  -- id 78
+    ('Chambre 412', 'Standard — côté rue',  16.57, 6),  -- id 79
+    ('Chambre 403', 'Standard — côté cour', 17.60, 6),  -- id 80
+    ('Chambre 405', 'Confort — côté cour',  19.00, 6),  -- id 81
+    ('Chambre 407', 'Standard — côté cour', 16.52, 6),  -- id 82
+    ('Chambre 409', 'Standard — côté cour', 16.52, 6),  -- id 83
+    ('Chambre 411', 'Standard — côté cour', 16.52, 6),  -- id 84
+    ('Chambre 413', 'Standard — côté cour', 16.52, 6),  -- id 85
+    ('Chambre 415', 'Standard — côté cour', 16.52, 6),  -- id 86
+    ('Local Gouvernante', 'Bureau de la gouvernante',              5.50, 6),  -- id 87
+    ('Stock Lingerie',    'Stock lingerie étage',                  5.60, 6),  -- id 88
+    ('Dégagement E4',     'Circulation étage 4',                  40.25, 6);  -- id 89
+
+-- Locaux Étage 5 (id_niveau = 7) — plan MAR 108 — 14 chambres + locaux
+INSERT INTO locaux (nom, description, surface, id_niveau) VALUES
+    ('Chambre 501', 'Confort — côté rue',   17.80, 7),  -- id 90
+    ('Chambre 502', 'PMR — côté rue',       19.07, 7),  -- id 91
+    ('Chambre 504', 'Standard — côté rue',  16.57, 7),  -- id 92
+    ('Chambre 506', 'Standard — côté rue',  16.57, 7),  -- id 93
+    ('Chambre 508', 'Standard — côté rue',  16.57, 7),  -- id 94
+    ('Chambre 510', 'Standard — côté rue',  16.57, 7),  -- id 95
+    ('Chambre 512', 'Standard — côté rue',  16.57, 7),  -- id 96
+    ('Chambre 503', 'Premium — côté cour',  18.90, 7),  -- id 97
+    ('Chambre 505', 'Confort — côté cour',  15.97, 7),  -- id 98
+    ('Chambre 507', 'Standard — côté cour', 16.52, 7),  -- id 99
+    ('Chambre 509', 'Standard — côté cour', 16.52, 7),  -- id 100
+    ('Chambre 511', 'Standard — côté cour', 16.52, 7),  -- id 101
+    ('Chambre 513', 'Standard — côté cour', 16.52, 7),  -- id 102
+    ('Chambre 515', 'Standard — côté cour', 16.52, 7),  -- id 103
+    ('Bureau Technique',  'Bureau du responsable technique',       5.50, 7),  -- id 104
+    ('Dégagement E5',     'Circulation étage 5',                  40.25, 7);  -- id 105
+
+-- Locaux Étage 6 (id_niveau = 8) — plan MAR 109 — 11 chambres + locaux
+INSERT INTO locaux (nom, description, surface, id_niveau) VALUES
+    ('Chambre 621', 'Standard — côté rue',  14.40, 8),  -- id 106
+    ('Chambre 622', 'Premium — côté rue',   16.90, 8),  -- id 107
+    ('Chambre 623', 'Standard — côté rue',  14.70, 8),  -- id 108
+    ('Chambre 624', 'Standard — côté rue',  14.70, 8),  -- id 109
+    ('Chambre 626', 'Standard — côté rue',  14.70, 8),  -- id 110
+    ('Chambre 628', 'Standard — côté rue',  14.70, 8),  -- id 111
+    ('Chambre 630', 'Standard — côté rue',  14.70, 8),  -- id 112
+    ('Chambre 631', 'Standard — côté rue',  14.70, 8),  -- id 113
+    ('Chambre 625', 'Premium — côté cour',  16.20, 8),  -- id 114
+    ('Chambre 627', 'Premium — côté cour',  16.40, 8),  -- id 115
+    ('Chambre 629', 'Premium — côté cour',  16.40, 8),  -- id 116
+    ('Salle de repos',    'Salle de repos personnel',             10.50, 8),  -- id 117
+    ('Local repassage',   'Local repassage linge',                 6.20, 8),  -- id 118
+    ('Lingerie E6',       'Lingerie étage 6',                      4.20, 8),  -- id 119
+    ('Dégagement E6',     'Circulation étage 6',                  43.23, 8);  -- id 120
 
 -- =========================================================================
 -- PHASE 2 : TECHNICIENS
@@ -250,57 +356,57 @@ INSERT INTO familles_equipements (nom_famille, description, id_domaine, id_model
 
 -- Extincteurs (famille 1) — répartis sur plusieurs locaux/niveaux
 INSERT INTO equipements (nom_affichage, id_famille, id_local) VALUES
-    ('Extincteur eau 6L #01', 1, 6),   -- id 1, Hall
-    ('Extincteur eau 6L #02', 1, 7),   -- id 2, Restaurant
-    ('Extincteur eau 6L #03', 1, 12),  -- id 3, Couloir E1
-    ('Extincteur CO2 2kg #01', 1, 8),  -- id 4, Cuisine
-    ('Extincteur CO2 2kg #02', 1, 2),  -- id 5, Local élec
-    ('Extincteur eau 6L #04', 1, 9);   -- id 6, Salon Club
+    ('Extincteur eau 6L #01', 1, 8),   -- id 1, Hall d'entrée
+    ('Extincteur eau 6L #02', 1, 7),   -- id 2, Club
+    ('Extincteur eau 6L #03', 1, 39),  -- id 3, Dégagement E1
+    ('Extincteur CO2 2kg #01', 1, 12), -- id 4, Cuisine Club
+    ('Extincteur CO2 2kg #02', 1, 35), -- id 5, LOCAL TGBT
+    ('Extincteur eau 6L #04', 1, 7);   -- id 6, Club
 
 -- BAES (famille 2)
 INSERT INTO equipements (nom_affichage, id_famille, id_local) VALUES
-    ('BAES Cage escalier E1', 2, 14),  -- id 7
-    ('BAES Couloir E1',       2, 12),  -- id 8
-    ('BAES Hall',             2, 6),   -- id 9
-    ('BAES Restaurant',       2, 7);   -- id 10
+    ('BAES Escalier C',       2, 2),   -- id 7, Escalier C
+    ('BAES Dégagement E1',    2, 39),  -- id 8, Dégagement E1
+    ('BAES Hall',             2, 8),   -- id 9, Hall d'entrée
+    ('BAES Club',             2, 7);   -- id 10, Club
 
 -- RIA (famille 3)
 INSERT INTO equipements (nom_affichage, id_famille, id_local) VALUES
-    ('RIA Hall',              3, 6),   -- id 11
-    ('RIA Couloir E1',        3, 12);  -- id 12
+    ('RIA Hall',              3, 8),   -- id 11, Hall d'entrée
+    ('RIA Dégagement E1',     3, 39);  -- id 12, Dégagement E1
 
 -- Colonne sèche (famille 4)
 INSERT INTO equipements (nom_affichage, commentaires, id_famille, id_local) VALUES
-    ('Colonne sèche principale', 'Raccord pompiers en façade', 4, 14);  -- id 13
+    ('Colonne sèche principale', 'Raccord pompiers en façade', 4, 18);  -- id 13, SAS d'entrée
 
 -- CTA (famille 5)
 INSERT INTO equipements (nom_affichage, id_famille, id_local, date_mise_en_service) VALUES
-    ('CTA N°1 — Hall & Restaurant', 5, 1, '2020-06-15'),  -- id 14
-    ('CTA N°2 — Chambres',          5, 1, '2020-06-15');   -- id 15
+    ('CTA N°1 — Hall & Club', 5, 13, '2020-06-15'),  -- id 14, Chaufferie
+    ('CTA N°2 — Chambres',    5, 13, '2020-06-15');   -- id 15, Chaufferie
 
 -- PAC (famille 6)
 INSERT INTO equipements (nom_affichage, id_famille, id_local, date_mise_en_service) VALUES
-    ('PAC réversible', 6, 1, '2020-06-15');  -- id 16
+    ('PAC réversible', 6, 13, '2020-06-15');  -- id 16, Chaufferie
 
 -- VMC (famille 7)
 INSERT INTO equipements (nom_affichage, id_famille, id_local) VALUES
-    ('VMC Double flux', 7, 1);  -- id 17
+    ('VMC Double flux', 7, 13);  -- id 17, Chaufferie
 
 -- TGBT (famille 8)
 INSERT INTO equipements (nom_affichage, id_famille, id_local, date_mise_en_service) VALUES
-    ('TGBT Principal', 8, 2, '2020-03-01');  -- id 18
+    ('TGBT Principal', 8, 35, '2020-03-01');  -- id 18, LOCAL TGBT
 
 -- Groupe électrogène (famille 9)
 INSERT INTO equipements (nom_affichage, id_famille, id_local, date_mise_en_service) VALUES
-    ('Groupe électrogène', 9, 2, '2020-03-01');  -- id 19
+    ('Groupe électrogène', 9, 35, '2020-03-01');  -- id 19, LOCAL TGBT
 
 -- Chaudière (famille 10)
 INSERT INTO equipements (nom_affichage, id_famille, id_local, date_mise_en_service) VALUES
-    ('Chaudière gaz', 10, 1, '2020-06-15');  -- id 20
+    ('Chaudière gaz', 10, 13, '2020-06-15');  -- id 20, Chaufferie
 
 -- Ascenseur (famille 11)
 INSERT INTO equipements (nom_affichage, id_famille, id_local, date_mise_en_service) VALUES
-    ('Ascenseur principal', 11, 6, '2020-03-01');  -- id 21
+    ('Ascenseur principal', 11, 8, '2020-03-01');  -- id 21, Hall d'entrée
 
 -- =========================================================================
 -- PHASE 5b : VALEURS DYNAMIQUES (anciens champs fixes → valeurs_equipements)
@@ -462,7 +568,7 @@ INSERT INTO gammes (nom_gamme, description, est_reglementaire, id_periodicite, i
     ('Contrôle BAES semestriel',    'Contrôle réglementaire autonomie 1h des BAES',                1, 8, 2, 2),
     ('Vérification RIA',            'Contrôle annuel réglementaire des RIA',                       1, 9, 3, 2),
     ('Contrôle colonnes sèches',    'Vérification annuelle des colonnes sèches',                   1, 9, 4, 2),
-    ('Entretien CTA N°1',           'Maintenance trimestrielle CTA Hall & Restaurant',             0, 6, 5, 3),
+    ('Entretien CTA N°1',           'Maintenance trimestrielle CTA Hall & Club',                   0, 6, 5, 3),
     ('Entretien CTA N°2',           'Maintenance trimestrielle CTA Chambres',                      0, 6, 5, 3),
     ('Révision PAC',                'Révision semestrielle pompe à chaleur réversible',            0, 8, 6, 3),
     ('Vérification TGBT',           'Contrôle semestriel du tableau général basse tension',        0, 8, 8, 1),
@@ -913,61 +1019,61 @@ UPDATE operations_execution SET id_statut_operation = 5 WHERE id_ordre_travail =
 -- Le trigger force id_statut_di = 1 à la création
 -- =========================================================================
 
--- DI 1 : BAES défaillant cage escalier E1 — résolue
+-- DI 1 : BAES défaillant escalier C — résolue
 INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
-VALUES (2, 'BAES cage escalier E1 défaillant', 'Le BAES de la cage escalier E1 ne s''allume plus lors des tests hebdomadaires. Voyant de charge éteint.', '2026-01-20');
-INSERT INTO di_localisations (id_di, id_local) VALUES (1, 14);
+VALUES (2, 'BAES escalier C défaillant', 'Le BAES de l''escalier C ne s''allume plus lors des tests hebdomadaires. Voyant de charge éteint.', '2026-01-20');
+INSERT INTO di_localisations (id_di, id_local) VALUES (1, 2);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (1, 2);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Batterie remplacée, test de fonctionnement OK.', date_resolution = '2026-01-23' WHERE id_di = 1;
 
 -- DI 2 : Fuite d''eau sous la CTA N°1 — résolue
 INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
-VALUES (3, 'Fuite d''eau sous la CTA N°1', 'Flaque d''eau constatée sous la CTA N°1 dans le local technique CVC. Possible fuite du bac à condensats.', '2026-02-10');
-INSERT INTO di_localisations (id_di, id_local) VALUES (2, 1);
+VALUES (3, 'Fuite d''eau sous la CTA N°1', 'Flaque d''eau constatée sous la CTA N°1 dans la chaufferie. Possible fuite du bac à condensats.', '2026-02-10');
+INSERT INTO di_localisations (id_di, id_local) VALUES (2, 13);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (2, 6);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Bac à condensats percé, remplacé par ThermoServ lors de l''entretien trimestriel.', date_resolution = '2026-02-15' WHERE id_di = 2;
 
 -- DI 3 : Bruit anormal ascenseur — résolue
 INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
 VALUES (4, 'Bruit anormal ascenseur', 'Bruit métallique lors de l''arrêt en cabine au RDC. Signalé par plusieurs clients.', '2026-03-08');
-INSERT INTO di_localisations (id_di, id_local) VALUES (3, 6);
+INSERT INTO di_localisations (id_di, id_local) VALUES (3, 8);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (3, 12);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Patins de guidage usés, remplacés par TK Elevator.', date_resolution = '2026-03-12' WHERE id_di = 3;
 
 -- DI 4 : Extincteur cuisine périmé — résolue puis réouverte
 INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
 VALUES (2, 'Extincteur cuisine périmé', 'L''extincteur CO2 de la cuisine affiche une date de péremption dépassée (12/2025). Non conforme.', '2026-03-15');
-INSERT INTO di_localisations (id_di, id_local) VALUES (4, 8);
+INSERT INTO di_localisations (id_di, id_local) VALUES (4, 12);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (4, 1);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Extincteur remplacé provisoirement par un modèle de prêt.', date_resolution = '2026-03-18' WHERE id_di = 4;
 UPDATE demandes_intervention SET id_statut_di = 3 WHERE id_di = 4;
 
--- DI 5 : Disjonction répétée local ménage E2 — ouverte
+-- DI 5 : Disjonction répétée stock linge E2 — ouverte
 INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('Disjonction répétée local ménage E2', 'Le disjoncteur du local ménage E2 saute régulièrement lorsque l''aspirateur industriel est branché. Vérifier le circuit.', '2026-03-25');
-INSERT INTO di_localisations (id_di, id_local) VALUES (5, 16);
+VALUES ('Disjonction répétée stock linge E2', 'Le disjoncteur du local stock linge E2 saute régulièrement lorsque l''aspirateur industriel est branché. Vérifier le circuit.', '2026-03-25');
+INSERT INTO di_localisations (id_di, id_local) VALUES (5, 54);
 
 -- DI 6 : Odeur de brûlé parking souterrain — ouverte
 INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('Odeur de brûlé parking souterrain', 'Odeur de brûlé signalée par le personnel au niveau du parking souterrain, côté local électrique. À investiguer en urgence.', '2026-04-01');
-INSERT INTO di_localisations (id_di, id_local) VALUES (6, 3);
+VALUES ('Odeur de brûlé parking souterrain', 'Odeur de brûlé signalée par le personnel au niveau du stationnement sous-sol, côté local opérateur. À investiguer en urgence.', '2026-04-01');
+INSERT INTO di_localisations (id_di, id_local) VALUES (6, 1);
 
 -- DI 7 : Pression RIA hall insuffisante — ouverte
 INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
 VALUES (2, 'Pression RIA hall insuffisante', 'Lors du contrôle visuel, la pression au manomètre du RIA du hall semble faible. À vérifier avec le contrôle annuel.', '2026-04-02');
-INSERT INTO di_localisations (id_di, id_local) VALUES (7, 6);
+INSERT INTO di_localisations (id_di, id_local) VALUES (7, 8);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (7, 4);
 
 -- DI 8 : Température chambres E3 trop basse — résolue
 INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
 VALUES (3, 'Température chambres E3 trop basse', 'Plusieurs clients de l''étage 3 se plaignent de températures trop basses dans les chambres malgré le chauffage activé.', '2026-02-01');
-INSERT INTO di_localisations (id_di, id_local) VALUES (8, 18);
+INSERT INTO di_localisations (id_di, id_local) VALUES (8, 72);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Vanne 3 voies du circuit E3 bloquée en position fermée. Débloquée et réglée.', date_resolution = '2026-02-06' WHERE id_di = 8;
 
 -- DI 9 : Ventilation faible sanitaires RDC — ouverte
 INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
 VALUES ('Ventilation faible sanitaires RDC', 'Débit d''air très faible dans les sanitaires du RDC. Buée persistante et odeurs. Possible encrassement gaines VMC.', '2026-03-30');
-INSERT INTO di_localisations (id_di, id_local) VALUES (9, 10);
+INSERT INTO di_localisations (id_di, id_local) VALUES (9, 21);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (9, 13);
 
 -- =========================================================================

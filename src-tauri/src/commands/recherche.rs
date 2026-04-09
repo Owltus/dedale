@@ -23,7 +23,7 @@ pub fn recherche_globale(
     let mut stmt = conn.prepare_cached(
         "SELECT 'OT' as entity_type, id_ordre_travail as entity_id, \
                 nom_gamme as label, nom_localisation as sublabel \
-         FROM ordres_travail WHERE nom_gamme LIKE ?1 ESCAPE '\\' \
+         FROM ordres_travail WHERE id_statut_ot IN (1, 2, 5) AND nom_gamme LIKE ?1 ESCAPE '\\' \
          UNION ALL \
          SELECT 'Gamme', id_gamme, nom_gamme, \
                 (SELECT nom_famille FROM familles_gammes WHERE id_famille_gamme = g.id_famille_gamme) \

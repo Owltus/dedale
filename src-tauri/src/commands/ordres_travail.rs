@@ -187,6 +187,13 @@ pub fn get_ot_by_gamme(db: State<DbPool>, id_gamme: i64) -> Result<Vec<OtListIte
     super::helpers::ot_list::query_ot_list(&conn, "WHERE ot.id_gamme = ?1", Some(id_gamme))
 }
 
+/// Récupère les OT par liste d'IDs (planning : cellule multi-OT)
+#[tauri::command]
+pub fn get_ot_by_ids(db: State<DbPool>, ids: Vec<i64>) -> Result<Vec<OtListItem>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    super::helpers::ot_list::query_ot_list_by_ids(&conn, &ids)
+}
+
 /// Récupère le détail complet d'un OT (OT + opérations + OT suivant)
 #[tauri::command]
 pub fn get_ordre_travail(db: State<DbPool>, id: i64) -> Result<OrdreDetailComplet, String> {

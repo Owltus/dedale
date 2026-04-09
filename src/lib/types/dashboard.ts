@@ -79,8 +79,11 @@ export interface PlanningEvent {
   nom_gamme: string;
   nom_famille: string | null;
   date_prevue: string;
+  date_debut: string | null;
+  date_cloture: string | null;
   id_statut_ot: number;
   id_priorite: number;
   est_reglementaire: number;
   nom_prestataire: string | null;
+  jours_periodicite: number;
 }

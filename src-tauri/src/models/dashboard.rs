@@ -101,8 +101,11 @@ pub struct PlanningEvent {
     pub nom_gamme: String,
     pub nom_famille: Option<String>,
     pub date_prevue: String,
+    pub date_debut: Option<String>,
+    pub date_cloture: Option<String>,
     pub id_statut_ot: i64,
     pub id_priorite: i64,
     pub est_reglementaire: i64,
     pub nom_prestataire: Option<String>,
+    pub jours_periodicite: i64,
 }

@@ -1,4 +1,4 @@
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, params, params_from_iter};
 
 use crate::models::ordres_travail::OtListItem;
 
@@ -73,5 +73,21 @@ pub fn query_ot_list(
         None => stmt.query_map([], row_to_ot_list_item),
     }
     .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+/// Récupère les OT par liste d'IDs (pour le planning multi-OT par cellule)
+pub fn query_ot_list_by_ids(
+    conn: &Connection,
+    ids: &[i64],
+) -> Result<Vec<OtListItem>, String> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let placeholders: String = (1..=ids.len()).map(|i| format!("?{}", i)).collect::<Vec<_>>().join(", ");
+    let sql = format!("{} WHERE ot.id_ordre_travail IN ({}) {}", OT_LIST_SELECT, placeholders, OT_LIST_ORDER);
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(params_from_iter(ids.iter()), row_to_ot_list_item)
+        .map_err(|e| e.to_string())?;
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }

@@ -94,15 +94,17 @@ export function CardList<T>({
 
   return (
     <div className={cn("flex flex-1 flex-col rounded-md border min-h-0", className)}>
-      <div className="border-b bg-background px-3 h-12 flex items-center justify-between gap-3 shrink-0">
-        {title ? <span className={cn("text-sm font-medium shrink-0", !showTitle && "invisible")}>{title}</span> : <span />}
-        <div className="flex items-center gap-2 ml-auto h-8">
-          {extraToolbar}
-          <div className={cn(!showSearch && "invisible")}>
-            <SearchInput value={search} onChange={setSearch} placeholder="Rechercher..." />
+      {(showTitle || showSearch || extraToolbar) && (
+        <div className="border-b bg-background px-3 h-12 flex items-center justify-between gap-3 shrink-0">
+          {title ? <span className={cn("text-sm font-medium shrink-0", !showTitle && "invisible")}>{title}</span> : <span />}
+          <div className="flex items-center gap-2 ml-auto h-8">
+            {extraToolbar}
+            <div className={cn(!showSearch && "invisible")}>
+              <SearchInput value={search} onChange={setSearch} placeholder="Rechercher..." />
+            </div>
           </div>
         </div>
-      </div>
+      )}
       <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar min-h-0">
         <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
           {virtualizer.getVirtualItems().map((virtualRow) => {

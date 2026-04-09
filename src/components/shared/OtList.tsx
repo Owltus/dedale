@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { FileText, Wrench } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { OtGammeCell } from "./OtGammeCell";
 import { OtStatusBadge } from "./StatusBadge";
 import { DateRangePicker } from "./DateRangePicker";
@@ -80,10 +79,9 @@ export function OtList({ data, emptyTitle = "Aucun ordre de travail", emptyDescr
       emptyDescription={emptyDescription}
       showTitle={showTitle}
       showSearch={showSearch}
-      extraToolbar={
-        <div className={cn(!showDateRange && "invisible")}>
-          <DateRangePicker from={dateRange.from} to={dateRange.to} onSelect={setDateRange} />
-        </div>
+      extraToolbar={showDateRange
+        ? <DateRangePicker from={dateRange.from} to={dateRange.to} onSelect={setDateRange} />
+        : undefined
       }
       renderContent={(ot) => (
         <>

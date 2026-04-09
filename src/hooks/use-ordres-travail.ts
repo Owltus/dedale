@@ -27,6 +27,13 @@ export function useOtByGamme(idGamme: number) {
   });
 }
 
+export function useOtByIds(ids: number[]) {
+  return useInvokeQuery<OtListItem[]>("get_ot_by_ids", { ids }, {
+    queryKey: [...otKeys.all, "ids", ids] as const,
+    enabled: ids.length > 0,
+  });
+}
+
 export function useOrdreTravail(id: number) {
   return useInvokeQuery<OrdreDetailComplet>("get_ordre_travail", { id }, { queryKey: otKeys.detail(id), enabled: !!id });
 }
