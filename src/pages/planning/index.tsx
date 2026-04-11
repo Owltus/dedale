@@ -1,15 +1,16 @@
-import { Fragment, useState, useMemo, useEffect, useRef } from "react";
+import { Fragment, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronsLeft, ChevronsRight, Focus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { HeaderButton } from "@/components/shared/HeaderButton";
 import { OtList } from "@/components/shared/OtList";
 import { usePlanningAnnee } from "@/hooks/use-dashboard";
 import { useOtByIds } from "@/hooks/use-ordres-travail";
+import { getStatutOt } from "@/lib/utils/statuts";
 import {
   getISOWeekDate, dateToWeekInfo, getEffectiveDate,
   buildWeeksYearHeaders, buildWeeksMonthHeaders, computeGlissantWeeks,
@@ -20,6 +21,7 @@ import {
 } from "./helpers";
 
 const SEPARATOR_STYLE = { width: 2, minWidth: 2, maxWidth: 2, padding: 0 };
+const CELL_STYLE = { width: CELL_SIZE, minWidth: CELL_SIZE, maxWidth: CELL_SIZE, height: CELL_SIZE };
 
 export function Planning() {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -28,12 +30,27 @@ export function Planning() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [visibleCount, setVisibleCount] = useState(26);
   const [wrapperWidth, setWrapperWidth] = useState(0);
-  const [hoverWeek, setHoverWeek] = useState<string | null>(null);
-  const [hoverFamily, setHoverFamily] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef(0);
+  const colStyleRef = useRef<HTMLStyleElement | null>(null);
+
+  // ── Highlight colonne (pur DOM, zéro re-render) ──
+
+  useEffect(() => {
+    const style = document.createElement("style");
+    document.head.appendChild(style);
+    colStyleRef.current = style;
+    return () => { document.head.removeChild(style); };
+  }, []);
+
+  const highlightCol = useCallback((weekKey: string) => {
+    if (colStyleRef.current) colStyleRef.current.textContent = `td[data-week="${weekKey}"][data-empty]{background-color:color-mix(in oklch,var(--color-muted) 40%,transparent)}`;
+  }, []);
+  const clearColHighlight = useCallback(() => {
+    if (colStyleRef.current) colStyleRef.current.textContent = "";
+  }, []);
 
   const { isoWeek: currentWeek, isoYear: currentISOYear } = getISOWeekDate(new Date());
   const todayStr = new Date().toISOString().split("T")[0]!;
@@ -194,41 +211,50 @@ export function Planning() {
     if (cell.events.length === 1) navigate(`/ordres-travail/${cell.events[0]!.id_ordre_travail}`);
     else setSelectedIds(cell.events.map((e) => e.id_ordre_travail));
   };
-  const handleMouseEnter = (wk: string, f: string) => { setHoverWeek(wk); setHoverFamily(f); };
-  const handleMouseLeave = () => { setHoverWeek(null); setHoverFamily(null); };
+
+  // ── Raccourcis clavier ──
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement) return;
+    if (e.key === "ArrowLeft") { e.preventDefault(); setWeekOffset((o) => o - 13); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); setWeekOffset((o) => o + 13); }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   // ── Dimensions ──
 
   const exactLabelW = Math.max(160, wrapperWidth - visibleCount * CELL_SIZE);
-  const cellStyle = { width: CELL_SIZE, minWidth: CELL_SIZE, maxWidth: CELL_SIZE, height: CELL_SIZE };
   const labelStyle = { width: exactLabelW, minWidth: exactLabelW, maxWidth: exactLabelW, height: CELL_SIZE };
 
   return (
+    <TooltipProvider delay={300}>
     <div className="flex h-full flex-col p-4 gap-3 min-h-0 min-w-0">
-      <PageHeader title="Planning" />
+      <PageHeader title="Planning">
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Recherche..."
+              className="h-8 w-48 pl-7 text-xs" />
+          </div>
+          <HeaderButton icon={<Focus className="size-4" />} label="Focus 12 semaines"
+            onClick={() => setFocused((f) => !f)} variant={focused ? "default" : "outline"} />
+          <HeaderButton icon={<ChevronsLeft className="size-4" />} label="Trimestre précédent" onClick={goBack} />
+          <button type="button" onClick={goToday}
+            className="text-sm font-bold tabular-nums min-w-40 text-center hover:text-primary transition-colors cursor-pointer">
+            {periodLabel}
+          </button>
+          <HeaderButton icon={<ChevronsRight className="size-4" />} label="Trimestre suivant" onClick={goForward} />
+        </div>
+      </PageHeader>
 
       <div className="flex-1 flex flex-col min-h-0 min-w-0 rounded-md border overflow-hidden">
-        <TooltipProvider delay={300}>
-          <div className="flex items-center gap-2 px-3 py-2 border-b bg-background shrink-0">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filtrer..."
-                className="h-8 w-36 pl-7 text-xs" />
-            </div>
-            <HeaderButton icon={<Focus className="size-4" />} label="Focus 12 semaines"
-              onClick={() => setFocused((f) => !f)} variant={focused ? "default" : "outline"} />
-            <div className="flex-1" />
-            <HeaderButton icon={<ChevronsLeft className="size-4" />} label="Trimestre précédent" onClick={goBack} />
-            <button type="button" onClick={goToday}
-              className="text-sm font-bold tabular-nums min-w-40 text-center hover:text-primary transition-colors cursor-pointer">
-              {periodLabel}
-            </button>
-            <HeaderButton icon={<ChevronsRight className="size-4" />} label="Trimestre suivant" onClick={goForward} />
-          </div>
-        </TooltipProvider>
 
         <div ref={wrapperRef} className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
-          onMouseLeave={handleMouseLeave}>
+          onMouseLeave={clearColHighlight}>
           <table className="border-separate border-spacing-0">
             <thead className="sticky top-0 z-20 bg-background">
               <tr>
@@ -257,7 +283,7 @@ export function Planning() {
               </tr>
               <tr>
                 {displayWeeks.map((w) => (
-                  <th key={w.key} style={cellStyle}
+                  <th key={w.key} style={CELL_STYLE}
                     className={cn("text-center text-[8px] py-0.5 border-b bg-background",
                       w.key === currentWeekKey ? "text-primary font-bold border-x-2 border-x-blue-500 bg-primary/10" : "text-muted-foreground/50 border-r",
                     )}>{w.week}</th>
@@ -277,15 +303,14 @@ export function Planning() {
                       return (
                         <Fragment key={w.key}>{sep}
                           <td className={cn("p-0 bg-muted/60", isCurr && "border-x-2 border-x-blue-500")}
-                            style={{ ...cellStyle, height: 4 }} />
+                            style={{ ...CELL_STYLE, height: 4 }} />
                         </Fragment>
                       );
                     })}
                   </tr>
                 )}
-                <tr>
-                  <td className={cn("sticky left-0 z-30 border-b border-r px-2 py-0 shadow-[2px_0_4px_rgba(0,0,0,0.05)] transition-colors",
-                    hoverFamily === famille ? "bg-muted" : "bg-background")}
+                <tr className="group/row">
+                  <td className="sticky left-0 z-30 border-b border-r px-2 py-0 shadow-[2px_0_4px_rgba(0,0,0,0.05)] bg-background group-hover/row:bg-muted"
                     style={labelStyle}>
                     <div onClick={() => { const id = allFamilies.familyIdMap.get(famille); if (id) navigate(`/gammes/familles/${id}`); }}
                       className={cn("flex items-center h-full min-w-0", allFamilies.familyIdMap.has(famille) && "cursor-pointer hover:text-primary")}>
@@ -295,35 +320,46 @@ export function Planning() {
                   {displayWeeks.map((w) => {
                     const cell = cellLookup.get(famille)?.get(w.key);
                     const isCurr = w.key === currentWeekKey;
-                    const isHovered = (hoverWeek === w.key || hoverFamily === famille) && !(hoverWeek === w.key && hoverFamily === famille);
                     const sep = yearBoundaryKeys.has(w.key)
                       ? <td key={`sep-${w.key}`} className="bg-muted-foreground/30" style={SEPARATOR_STYLE} />
                       : null;
                     if (!cell) {
                       return (
                         <Fragment key={w.key}>{sep}
-                          <td style={cellStyle}
-                            onMouseEnter={() => handleMouseEnter(w.key, famille)}
-                            className={cn("border-b border-r p-0 transition-colors",
+                          <td style={CELL_STYLE} data-week={w.key} data-empty=""
+                            onMouseEnter={() => highlightCol(w.key)}
+                            className={cn("border-b border-r p-0 group-hover/row:bg-muted/40",
                               isCurr && "border-x-2 border-x-blue-500",
-                              isHovered && "bg-muted",
                             )} />
                         </Fragment>
                       );
                     }
                     const priority = getCellPriority(cell.events, todayStr);
+                    const tipLines = cell.events.slice(0, 4).map((ot) =>
+                      `${ot.nom_gamme} · ${getStatutOt(ot.id_statut_ot).label}`,
+                    );
+                    if (cell.events.length > 4) tipLines.push(`+${cell.events.length - 4} autre(s)`);
                     return (
                       <Fragment key={w.key}>{sep}
-                        <td style={cellStyle}
-                          onClick={() => handleCellClick(cell)}
-                          onMouseEnter={() => handleMouseEnter(w.key, famille)}
-                          className={cn("border-b p-0 cursor-pointer text-center",
-                            priorityColor(priority),
-                            cell.reglementaire && "outline outline-[2.5px] -outline-offset-[2.5px] outline-yellow-400",
-                            isCurr && "border-x-2 border-x-blue-500",
-                          )}>
-                          {cell.events.length > 1 && <span className="text-[11px] font-bold leading-none text-white drop-shadow-sm">{cell.events.length}</span>}
-                        </td>
+                        <Tooltip>
+                          <TooltipTrigger render={
+                            <td style={CELL_STYLE} data-week={w.key}
+                              onClick={() => handleCellClick(cell)}
+                              onMouseEnter={() => highlightCol(w.key)}
+                              className={cn("border-b p-0 cursor-pointer text-center",
+                                priorityColor(priority),
+                                cell.reglementaire && "outline outline-[2.5px] -outline-offset-[2.5px] outline-yellow-400",
+                                isCurr && "border-x-2 border-x-blue-500",
+                              )}>
+                              {cell.events.length > 1 && <span className="text-[11px] font-bold leading-none text-white drop-shadow-sm">{cell.events.length}</span>}
+                            </td>
+                          } />
+                          <TooltipContent side="top" className="max-w-xs">
+                            <div className="flex flex-col gap-0.5">
+                              {tipLines.map((line, i) => <span key={i}>{line}</span>)}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
                       </Fragment>
                     );
                   })}
@@ -346,5 +382,6 @@ export function Planning() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }
