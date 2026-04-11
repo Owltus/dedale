@@ -7,8 +7,14 @@ const PLANNING_SELECT: &str = "\
     SELECT ot.id_ordre_travail, ot.id_gamme, ot.nom_gamme, ot.nom_famille, \
            ot.date_prevue, ot.date_debut, ot.date_cloture, \
            ot.id_statut_ot, ot.id_priorite, ot.est_reglementaire, \
-           ot.nom_prestataire, ot.jours_periodicite \
-    FROM ordres_travail ot";
+           ot.nom_prestataire, ot.jours_periodicite, \
+           ot.est_automatique, \
+           COALESCE(dg.nom_domaine, 'Autre') AS nom_domaine, \
+           fg.id_famille_gamme \
+    FROM ordres_travail ot \
+    LEFT JOIN gammes g ON ot.id_gamme = g.id_gamme \
+    LEFT JOIN familles_gammes fg ON g.id_famille_gamme = fg.id_famille_gamme \
+    LEFT JOIN domaines_gammes dg ON fg.id_domaine_gamme = dg.id_domaine_gamme";
 
 const PLANNING_ORDER: &str = "ORDER BY ot.date_prevue ASC";
 
@@ -26,6 +32,9 @@ fn row_to_planning_event(row: &rusqlite::Row) -> rusqlite::Result<PlanningEvent>
         est_reglementaire: row.get(9)?,
         nom_prestataire: row.get(10)?,
         jours_periodicite: row.get(11)?,
+        est_automatique: row.get(12)?,
+        nom_domaine: row.get(13)?,
+        id_famille_gamme: row.get(14)?,
     })
 }
 

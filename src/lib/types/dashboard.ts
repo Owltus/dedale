@@ -86,4 +86,7 @@ export interface PlanningEvent {
   est_reglementaire: number;
   nom_prestataire: string | null;
   jours_periodicite: number;
+  est_automatique: number;
+  nom_domaine: string;
+  id_famille_gamme: number | null;
 }

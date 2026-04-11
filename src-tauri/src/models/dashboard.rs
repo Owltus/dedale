@@ -108,4 +108,7 @@ pub struct PlanningEvent {
     pub est_reglementaire: i64,
     pub nom_prestataire: Option<String>,
     pub jours_periodicite: i64,
+    pub est_automatique: i64,
+    pub nom_domaine: String,
+    pub id_famille_gamme: Option<i64>,
 }

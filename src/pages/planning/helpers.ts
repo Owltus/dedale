@@ -12,12 +12,6 @@ export function getISOWeekDate(date: Date): { isoYear: number; isoWeek: number }
   return { isoYear, isoWeek };
 }
 
-export function getISOWeeksInYear(year: number): number {
-  const jan1Day = new Date(Date.UTC(year, 0, 1)).getUTCDay();
-  const dec31Day = new Date(Date.UTC(year, 11, 31)).getUTCDay();
-  return (jan1Day === 4 || dec31Day === 4) ? 53 : 52;
-}
-
 export function getMondayOfISOWeek(year: number, week: number): Date {
   const jan4 = new Date(Date.UTC(year, 0, 4));
   const jan4Day = jan4.getUTCDay() || 7;
@@ -46,31 +40,41 @@ export function getEffectiveDate(ot: PlanningEvent): string {
 
 // ── En-têtes mois ──
 
-const MONTH_LABELS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
+const MONTH_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
+const MONTH_FULL = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
-export function buildYearMonthHeaders(year: number): Array<{ label: string; span: number }> {
-  const totalWeeks = getISOWeeksInYear(year);
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  const jan4Day = jan4.getUTCDay() || 7;
-  const w1Monday = new Date(Date.UTC(year, 0, 4 - jan4Day + 1));
-  const headers: Array<{ label: string; span: number }> = [];
-  let prevMonth = -1;
-  for (let w = 1; w <= totalWeeks; w++) {
-    const thursday = new Date(w1Monday);
-    thursday.setUTCDate(thursday.getUTCDate() + (w - 1) * 7 + 3);
-    const month = thursday.getUTCMonth();
-    if (month !== prevMonth) {
-      headers.push({ label: MONTH_LABELS[month]!, span: 1 });
-      prevMonth = month;
-    } else {
-      headers[headers.length - 1]!.span++;
-    }
+/** Label mois adapté à la place disponible */
+export function monthLabel(monthIndex: number, span: number): string {
+  if (span >= 4) return MONTH_FULL[monthIndex]!;
+  if (span >= 2) return MONTH_SHORT[monthIndex]!;
+  return MONTH_SHORT[monthIndex]!.charAt(0);
+}
+
+/** Label année adapté à la place disponible */
+export function yearLabel(year: number, span: number): string {
+  if (span >= 3) return String(year);
+  return String(year).slice(-2);
+}
+
+export interface HeaderSpan {
+  value: number; // année ou index mois
+  span: number;
+}
+
+/** En-têtes années pour une liste de semaines */
+export function buildWeeksYearHeaders(weeks: WeekInfo[]): Array<HeaderSpan> {
+  const headers: Array<HeaderSpan> = [];
+  let prev = -1;
+  for (const w of weeks) {
+    if (w.year !== prev) { headers.push({ value: w.year, span: 1 }); prev = w.year; }
+    else { headers[headers.length - 1]!.span++; }
   }
   return headers;
 }
 
-export function buildWeeksMonthHeaders(weeks: WeekInfo[]): Array<{ label: string; span: number }> {
-  const headers: Array<{ label: string; span: number }> = [];
+/** En-têtes mois pour une liste de semaines */
+export function buildWeeksMonthHeaders(weeks: WeekInfo[]): Array<HeaderSpan> {
+  const headers: Array<HeaderSpan> = [];
   let prevKey = "";
   for (const w of weeks) {
     const monday = getMondayOfISOWeek(w.year, w.week);
@@ -78,12 +82,8 @@ export function buildWeeksMonthHeaders(weeks: WeekInfo[]): Array<{ label: string
     thursday.setUTCDate(thursday.getUTCDate() + 3);
     const month = thursday.getUTCMonth();
     const key = `${thursday.getUTCFullYear()}-${month}`;
-    if (key !== prevKey) {
-      headers.push({ label: MONTH_LABELS[month]!, span: 1 });
-      prevKey = key;
-    } else {
-      headers[headers.length - 1]!.span++;
-    }
+    if (key !== prevKey) { headers.push({ value: month, span: 1 }); prevKey = key; }
+    else { headers[headers.length - 1]!.span++; }
   }
   return headers;
 }
@@ -111,48 +111,52 @@ export function computeGlissantWeeks(
 const STATUT_PLANIFIE = 1;
 const STATUT_EN_COURS = 2;
 const STATUT_CLOTURE = 3;
+const STATUT_ANNULE = 4;
 const STATUT_REOUVERT = 5;
-const NEAR_FUTURE_WEEKS = 4;
 
-// ── Couleurs par priorité (PRD) ──
+// ── Couleurs par priorité (alignées sur statuts.ts) ──
+// 1 Rouge  — En retard (date dépassée)
+// 2 Orange — Réouvert (cohérent badge orange)
+// 3 Bleu   — En cours (cohérent badge bleu)
+// 4 Vert   — Clôturé (cohérent badge vert)
+// 5 Jaune  — Annulé (cohérent badge jaune)
+// 6 Violet — Planifié manuellement (cohérent badge violet)
+// 7 Gris   — Programmé automatiquement (cohérent badge outline)
 
 const PRIORITY_COLORS = [
   "",
-  "bg-red-500",     // 1 — Retard ou réouvert
-  "bg-cyan-500",    // 2 — En cours
-  "bg-yellow-500",  // 3 — Cette semaine
-  "bg-orange-400",  // 4 — Prochaines semaines
-  "bg-green-500",   // 5 — Clôturé
-  "bg-slate-400",   // 6 — Programmé / planifié lointain
+  "bg-red-500",     // 1 — En retard
+  "bg-orange-500",  // 2 — Réouvert
+  "bg-blue-500",    // 3 — En cours
+  "bg-green-500",   // 4 — Clôturé
+  "bg-yellow-500",  // 5 — Annulé
+  "bg-violet-500",  // 6 — Planifié
+  "bg-slate-400",   // 7 — Programmé
 ];
 
 export function getOtPriority(
-  ot: PlanningEvent, todayStr: string, currentWeek: number, currentYear: number, weekInfo: WeekInfo,
+  ot: PlanningEvent, todayStr: string,
 ): number {
-  if (ot.id_statut_ot === STATUT_REOUVERT) return 1;
   const isLate = ot.date_prevue < todayStr && [STATUT_PLANIFIE, STATUT_EN_COURS].includes(ot.id_statut_ot);
   if (isLate) return 1;
-  if (ot.id_statut_ot === STATUT_EN_COURS) return 2;
+  if (ot.id_statut_ot === STATUT_REOUVERT) return 2;
+  if (ot.id_statut_ot === STATUT_EN_COURS) return 3;
+  if (ot.id_statut_ot === STATUT_CLOTURE) return 4;
+  if (ot.id_statut_ot === STATUT_ANNULE) return 5;
   if (ot.id_statut_ot === STATUT_PLANIFIE) {
-    if (weekInfo.year === currentYear && weekInfo.week === currentWeek) return 3;
-    // Différence absolue en semaines pour gérer le croisement d'années
-    const weekDiff = (weekInfo.year - currentYear) * 52 + weekInfo.week - currentWeek;
-    if (weekDiff > 0 && weekDiff <= NEAR_FUTURE_WEEKS) return 4;
+    return ot.est_automatique ? 7 : 6;
   }
-  if (ot.id_statut_ot === STATUT_CLOTURE) return 5;
-  return 6;
+  return 7;
 }
 
 export function priorityColor(priority: number): string {
   return PRIORITY_COLORS[priority] ?? "bg-slate-400";
 }
 
-export function getCellPriority(
-  events: PlanningEvent[], todayStr: string, currentWeek: number, currentYear: number, weekInfo: WeekInfo,
-): number {
-  let best = 7;
+export function getCellPriority(events: PlanningEvent[], todayStr: string): number {
+  let best = 8;
   for (const ot of events) {
-    const p = getOtPriority(ot, todayStr, currentWeek, currentYear, weekInfo);
+    const p = getOtPriority(ot, todayStr);
     if (p < best) best = p;
   }
   return best;
@@ -166,12 +170,12 @@ export interface CellData {
 }
 
 export const CELL_SIZE = 24;
-export const CELL_STEP = CELL_SIZE + 1; // cellule + 1px bordure
-export const LABEL_COL = 160;
-const SAFETY_MARGIN = 30;
+const LABEL_COL = 160;
 const MIN_VISIBLE = 10;
-const MAX_VISIBLE = 52;
+const MAX_VISIBLE = 156; // ~3 ans sur écran très large
 
+/** Nombre de cellules 24×24 complètes qui tiennent */
 export function computeVisibleWeeks(containerWidth: number): number {
-  return Math.min(MAX_VISIBLE, Math.max(MIN_VISIBLE, Math.floor((containerWidth - LABEL_COL - SAFETY_MARGIN) / CELL_STEP)));
+  const available = containerWidth - LABEL_COL;
+  return Math.min(MAX_VISIBLE, Math.max(MIN_VISIBLE, Math.floor(available / CELL_SIZE)));
 }

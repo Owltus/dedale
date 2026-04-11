@@ -16,7 +16,7 @@ export function RootLayout() {
         <UploadQueueProvider>
           <div className="flex h-screen overflow-hidden bg-background">
             <Sidebar />
-            <main className="flex flex-1 flex-col min-h-0">
+            <main className="flex flex-1 flex-col min-h-0 min-w-0">
               <ErrorBoundary>
                 <Suspense
                   fallback={
@@ -25,7 +25,7 @@ export function RootLayout() {
                     </div>
                   }
                 >
-                  <div className="flex flex-1 flex-col min-h-0 overflow-y-auto" data-slot="page-scroll">
+                  <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-y-auto overflow-x-hidden" data-slot="page-scroll">
                     <Outlet />
                   </div>
                 </Suspense>

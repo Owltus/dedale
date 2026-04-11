@@ -8,10 +8,8 @@ const FALLBACK: StatutConfig = { label: "Inconnu", variant: "outline" };
 
 // Statuts OT (ordres de travail)
 export const STATUTS_OT: Record<number, StatutConfig> = {
-  1: { label: "Planifié", variant: "outline" },
-  // Alias utilisé côté frontend pour les OT automatiques au statut 1
-  // (est_automatique = 1) — pas un vrai statut DB
-  11: { label: "Programmé", variant: "outline", className: "border-violet-400 text-violet-700 dark:border-violet-600 dark:text-violet-400" },
+  1: { label: "Planifié", variant: "outline", className: "border-violet-400 text-violet-700 dark:border-violet-600 dark:text-violet-400" },
+  11: { label: "Programmé", variant: "outline" },
   // Alias utilisé côté frontend pour les OT en retard (est_en_retard = 1)
   // — pas un vrai statut DB
   12: { label: "En retard", variant: "outline", className: "border-red-400 text-red-700 dark:border-red-600 dark:text-red-400" },
