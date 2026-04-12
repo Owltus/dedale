@@ -135,9 +135,10 @@ const PRIORITY_COLORS = [
 ];
 
 export function getOtPriority(
-  ot: PlanningEvent, todayStr: string,
+  ot: PlanningEvent, weekStartStr: string,
 ): number {
-  const isLate = ot.date_prevue < todayStr && [STATUT_PLANIFIE, STATUT_EN_COURS].includes(ot.id_statut_ot);
+  // En retard = semaine ISO de l'OT strictement passée (on a toute la semaine pour intervenir)
+  const isLate = ot.date_prevue < weekStartStr && [STATUT_PLANIFIE, STATUT_EN_COURS].includes(ot.id_statut_ot);
   if (isLate) return 1;
   if (ot.id_statut_ot === STATUT_REOUVERT) return 2;
   if (ot.id_statut_ot === STATUT_EN_COURS) return 3;
@@ -153,10 +154,10 @@ export function priorityColor(priority: number): string {
   return PRIORITY_COLORS[priority] ?? "bg-slate-400";
 }
 
-export function getCellPriority(events: PlanningEvent[], todayStr: string): number {
+export function getCellPriority(events: PlanningEvent[], weekStartStr: string): number {
   let best = 8;
   for (const ot of events) {
-    const p = getOtPriority(ot, todayStr);
+    const p = getOtPriority(ot, weekStartStr);
     if (p < best) best = p;
   }
   return best;

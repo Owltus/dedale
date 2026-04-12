@@ -6,6 +6,9 @@ interface StatutConfig {
 
 const FALLBACK: StatutConfig = { label: "Inconnu", variant: "outline" };
 
+/** Animation pulsation pour les statuts "Réouvert(e)" */
+export const ANIMATE_HEARTBEAT = "animate-[heartbeat_1.8s_ease-in-out_infinite]";
+
 // Statuts OT (ordres de travail)
 export const STATUTS_OT: Record<number, StatutConfig> = {
   1: { label: "Planifié", variant: "outline", className: "border-violet-400 text-violet-700 dark:border-violet-600 dark:text-violet-400" },
@@ -21,7 +24,7 @@ export const STATUTS_OT: Record<number, StatutConfig> = {
   2: { label: "En cours", variant: "outline", className: "border-blue-400 text-blue-700 dark:border-blue-600 dark:text-blue-400" },
   3: { label: "Clôturé", variant: "outline", className: "border-green-400 text-green-700 dark:border-green-600 dark:text-green-400" },
   4: { label: "Annulé", variant: "outline", className: "border-yellow-400 text-yellow-700 dark:border-yellow-600 dark:text-yellow-400" },
-  5: { label: "Réouvert", variant: "outline", className: "border-orange-400 text-orange-700 dark:border-orange-600 dark:text-orange-400 animate-[heartbeat_1.8s_ease-in-out_infinite]" },
+  5: { label: "Réouvert", variant: "outline", className: `border-orange-400 text-orange-700 dark:border-orange-600 dark:text-orange-400 ${ANIMATE_HEARTBEAT}` },
 };
 
 // Statuts opérations d'exécution
@@ -37,7 +40,7 @@ export const STATUTS_OPERATION: Record<number, StatutConfig> = {
 export const STATUTS_DI: Record<number, StatutConfig> = {
   1: { label: "Ouverte", variant: "default" },
   2: { label: "Résolue", variant: "secondary", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-  3: { label: "Réouverte", variant: "outline", className: "border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-400" },
+  3: { label: "Réouverte", variant: "outline", className: `border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-400 ${ANIMATE_HEARTBEAT}` },
 };
 
 // Priorités
@@ -94,7 +97,7 @@ export const STATUTS_GAMME: Record<number, StatutConfig> = {
   4: { label: "Semaine prochaine", variant: "outline", className: "border-amber-400 text-amber-700 dark:border-amber-600 dark:text-amber-400" },
   5: { label: "Ce mois-ci", variant: "outline", className: "border-teal-400 text-teal-700 dark:border-teal-600 dark:text-teal-400" },
   6: { label: "En retard", variant: "outline", className: "border-red-400 text-red-700 dark:border-red-600 dark:text-red-400" },
-  7: { label: "Réouvert", variant: "outline", className: "border-orange-400 text-orange-700 dark:border-orange-600 dark:text-orange-400 animate-[heartbeat_1.8s_ease-in-out_infinite]" },
+  7: { label: "Réouvert", variant: "outline", className: `border-orange-400 text-orange-700 dark:border-orange-600 dark:text-orange-400 ${ANIMATE_HEARTBEAT}` },
   8: { label: "Non assignée", variant: "outline" },
   9: { label: "Inactive", variant: "outline", className: "line-through opacity-60" },
 };

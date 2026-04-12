@@ -10,9 +10,9 @@ import { HeaderButton } from "@/components/shared/HeaderButton";
 import { OtList } from "@/components/shared/OtList";
 import { usePlanningAnnee } from "@/hooks/use-dashboard";
 import { useOtByIds } from "@/hooks/use-ordres-travail";
-import { getStatutOt } from "@/lib/utils/statuts";
+import { getStatutOt, ANIMATE_HEARTBEAT } from "@/lib/utils/statuts";
 import {
-  getISOWeekDate, dateToWeekInfo, getEffectiveDate,
+  getISOWeekDate, getMondayOfISOWeek, dateToWeekInfo, getEffectiveDate,
   buildWeeksYearHeaders, buildWeeksMonthHeaders, computeGlissantWeeks,
   getCellPriority, priorityColor, computeVisibleWeeks,
   yearLabel, monthLabel,
@@ -52,9 +52,15 @@ export function Planning() {
     if (colStyleRef.current) colStyleRef.current.textContent = "";
   }, []);
 
-  const { isoWeek: currentWeek, isoYear: currentISOYear } = getISOWeekDate(new Date());
-  const todayStr = new Date().toISOString().split("T")[0]!;
-  const currentWeekKey = `${currentISOYear}-${currentWeek}`;
+  const { currentWeek, currentISOYear, weekStartStr, currentWeekKey } = useMemo(() => {
+    const { isoWeek, isoYear } = getISOWeekDate(new Date());
+    return {
+      currentWeek: isoWeek,
+      currentISOYear: isoYear,
+      weekStartStr: getMondayOfISOWeek(isoYear, isoWeek).toISOString().split("T")[0]!,
+      currentWeekKey: `${isoYear}-${isoWeek}`,
+    };
+  }, []);
 
   // ── Mesure conteneur ──
 
@@ -334,7 +340,7 @@ export function Planning() {
                         </Fragment>
                       );
                     }
-                    const priority = getCellPriority(cell.events, todayStr);
+                    const priority = getCellPriority(cell.events, weekStartStr);
                     const tipLines = cell.events.slice(0, 4).map((ot) =>
                       `${ot.nom_gamme} · ${getStatutOt(ot.id_statut_ot).label}`,
                     );
@@ -348,6 +354,7 @@ export function Planning() {
                               onMouseEnter={() => highlightCol(w.key)}
                               className={cn("border-b p-0 cursor-pointer text-center",
                                 priorityColor(priority),
+                                priority === 2 && ANIMATE_HEARTBEAT,
                                 cell.reglementaire && "outline outline-[2.5px] -outline-offset-[2.5px] outline-yellow-400",
                                 isCurr && "border-x-2 border-x-blue-500",
                               )}>
