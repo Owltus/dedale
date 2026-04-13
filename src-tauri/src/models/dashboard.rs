@@ -95,6 +95,18 @@ pub struct ContratDashboardItem {
     pub id_image_prestataire: Option<i64>,
 }
 
+/// Événement contrat pour la timeline dashboard
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContratTimelineEvent {
+    pub id_contrat: i64,
+    pub reference: String,
+    pub nom_prestataire: String,
+    pub type_evenement: String,
+    pub date_evenement: String,
+    pub jours_restants: i64,
+    pub description: String,
+}
+
 /// Document récent pour le dashboard
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentDashboardItem {

@@ -5,21 +5,18 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, CheckCircle, ClipboardList, FileText, Handshake } from "lucide-react";
+import { AlertTriangle, CheckCircle, ClipboardList, FileText } from "lucide-react";
 import { OtDonutChart, statutsToSegments } from "./OtDonutChart";
 import { GammeSunburst } from "./GammeSunburst";
 import { PlanningChart } from "./PlanningChart";
+import { ContratsTimeline } from "./ContratsTimeline";
 import { useDashboard } from "@/hooks/use-dashboard";
-import { DiStatusBadge, ContratStatusBadge } from "@/components/shared/StatusBadge";
+import { DiStatusBadge } from "@/components/shared/StatusBadge";
 import { stripExtension } from "@/lib/utils/format";
-import type { DiDashboardItem, ContratDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
+import type { DiDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
 
 function filterDi(di: DiDashboardItem, q: string): boolean {
   return di.libelle_constat.toLowerCase().includes(q);
-}
-
-function filterContrat(c: ContratDashboardItem, q: string): boolean {
-  return c.reference.toLowerCase().includes(q) || c.nom_prestataire.toLowerCase().includes(q);
 }
 
 function filterDocument(d: DocumentDashboardItem, q: string): boolean {
@@ -88,8 +85,11 @@ export function Dashboard() {
         <PlanningChart />
       </div>
 
-      {/* Listes : grille 3 colonnes qui remplit tout l'espace restant */}
-      <div className="flex-1 grid grid-cols-3 gap-4 min-h-0">
+      {/* Timeline contrats */}
+      <ContratsTimeline />
+
+      {/* Listes : grille 2 colonnes qui remplit tout l'espace restant */}
+      <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
         <CardList
           data={data.dernieres_di}
           getKey={(di) => di.id_di}
@@ -105,24 +105,6 @@ export function Dashboard() {
           )}
           renderRight={(di) => (
             <DiStatusBadge id={di.id_statut_di} className="h-4 text-[10px] px-1.5" />
-          )}
-        />
-        <CardList
-          data={data.contrats_dashboard}
-          getKey={(c) => c.id_contrat}
-          getHref={(c) => `/prestataires?contrat=${c.id_contrat}`}
-          getImageId={(c) => c.id_image_prestataire}
-          filterFn={filterContrat}
-          icon={<Handshake className="size-5 text-muted-foreground" />}
-          title="Contrats"
-          showSearch={false}
-          compact
-          emptyTitle="Aucun contrat"
-          renderContent={(c) => (
-            <p className="flex-1 text-[11px] leading-tight truncate">{c.reference}</p>
-          )}
-          renderRight={(c) => (
-            <ContratStatusBadge statut={c.statut} className="h-4 text-[10px] px-1.5" />
           )}
         />
         <CardList

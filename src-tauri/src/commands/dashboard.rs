@@ -340,3 +340,138 @@ pub fn get_donut_ot(db: State<DbPool>, categorie: String) -> Result<Vec<OtListIt
 
     query_ot_list(&conn, &where_clause, None)
 }
+
+/// Avance une date par pas de N mois jusqu'à dépasser today
+fn advance_to_current_cycle(start: chrono::NaiveDate, months: u32, today: chrono::NaiveDate) -> chrono::NaiveDate {
+    let mut d = start;
+    while d < today {
+        if let Some(next) = d.checked_add_months(chrono::Months::new(months)) {
+            d = next;
+        } else {
+            break;
+        }
+    }
+    d
+}
+
+/// Événements contrats pour la timeline
+#[tauri::command]
+pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEvent>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    let today = chrono::Local::now().date_naive();
+    let mut events: Vec<ContratTimelineEvent> = Vec::new();
+
+    let mut stmt = conn.prepare_cached(
+        "SELECT c.id_contrat, c.reference, p.libelle, \
+         tc.libelle, c.date_debut, c.date_fin, c.duree_cycle_mois, \
+         c.delai_preavis_jours, c.fenetre_resiliation_jours, \
+         c.date_resiliation \
+         FROM contrats c \
+         JOIN prestataires p ON c.id_prestataire = p.id_prestataire \
+         JOIN types_contrats tc ON c.id_type_contrat = tc.id_type_contrat \
+         WHERE c.est_archive = 0 AND c.id_prestataire != 1"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, String>(4)?,
+            row.get::<_, Option<String>>(5)?,
+            row.get::<_, Option<i64>>(6)?,
+            row.get::<_, Option<i64>>(7)?,
+            row.get::<_, Option<i64>>(8)?,
+            row.get::<_, Option<String>>(9)?,
+        ))
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+    for (id, reference, prestataire, type_label, date_debut_str,
+         date_fin_str, cycle_mois, preavis, fenetre, resil) in rows
+    {
+        let Ok(date_debut) = chrono::NaiveDate::parse_from_str(&date_debut_str, "%Y-%m-%d") else { continue };
+        let date_fin = date_fin_str.as_deref()
+            .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+        let preavis_j = preavis.unwrap_or(30);
+
+        // Résiliation notifiée → afficher la date de fin effective
+        if let Some(ref r) = resil {
+            if let Ok(d) = chrono::NaiveDate::parse_from_str(r, "%Y-%m-%d") {
+                if d >= today {
+                    events.push(ContratTimelineEvent {
+                        id_contrat: id, reference: reference.clone(),
+                        nom_prestataire: prestataire.clone(),
+                        type_evenement: "resiliation".into(),
+                        date_evenement: r.clone(),
+                        jours_restants: (d - today).num_days(),
+                        description: format!("Fin effective — {type_label}"),
+                    });
+                }
+                continue;
+            }
+        }
+
+        // Contrat tacite ou déterminé avec cycle → calculer la prochaine échéance de cycle
+        if let Some(cm) = cycle_mois {
+            let base = date_fin.unwrap_or_else(|| {
+                date_debut.checked_add_months(chrono::Months::new(cm as u32)).unwrap_or(date_debut)
+            });
+            let next = advance_to_current_cycle(base, cm as u32, today);
+            let jours = (next - today).num_days();
+
+            // Renouvellement
+            events.push(ContratTimelineEvent {
+                id_contrat: id, reference: reference.clone(),
+                nom_prestataire: prestataire.clone(),
+                type_evenement: "reconduction".into(),
+                date_evenement: next.format("%Y-%m-%d").to_string(),
+                jours_restants: jours,
+                description: format!("Renouvellement — {type_label}"),
+            });
+
+            // Fenêtre de résiliation (si applicable)
+            if let Some(f) = fenetre {
+                let debut_fenetre = next - chrono::Duration::days(f);
+                let fin_fenetre = next - chrono::Duration::days(preavis_j);
+                if today >= debut_fenetre && today <= fin_fenetre {
+                    events.push(ContratTimelineEvent {
+                        id_contrat: id, reference: reference.clone(),
+                        nom_prestataire: prestataire.clone(),
+                        type_evenement: "fenetre".into(),
+                        date_evenement: fin_fenetre.format("%Y-%m-%d").to_string(),
+                        jours_restants: (fin_fenetre - today).num_days(),
+                        description: format!("Fenêtre ouverte — {type_label}"),
+                    });
+                } else if debut_fenetre > today {
+                    events.push(ContratTimelineEvent {
+                        id_contrat: id, reference: reference.clone(),
+                        nom_prestataire: prestataire.clone(),
+                        type_evenement: "fenetre".into(),
+                        date_evenement: debut_fenetre.format("%Y-%m-%d").to_string(),
+                        jours_restants: (debut_fenetre - today).num_days(),
+                        description: format!("Ouverture fenêtre — {type_label}"),
+                    });
+                }
+            }
+            continue;
+        }
+
+        // Contrat déterminé sans cycle → échéance simple
+        if let Some(fin) = date_fin {
+            if fin >= today {
+                events.push(ContratTimelineEvent {
+                    id_contrat: id, reference, nom_prestataire: prestataire,
+                    type_evenement: "echeance".into(),
+                    date_evenement: fin.format("%Y-%m-%d").to_string(),
+                    jours_restants: (fin - today).num_days(),
+                    description: format!("Échéance — {type_label}"),
+                });
+            }
+        }
+    }
+
+    events.sort_by_key(|e| e.jours_restants);
+    Ok(events)
+}

@@ -1,5 +1,5 @@
 import { useInvokeQuery } from "./useInvoke";
-import type { DashboardData, PlanningEvent, SunburstGamme } from "@/lib/types/dashboard";
+import type { DashboardData, PlanningEvent, SunburstGamme, ContratTimelineEvent } from "@/lib/types/dashboard";
 import type { OtListItem } from "@/lib/types/ordres-travail";
 
 export const dashboardKeys = {
@@ -25,6 +25,10 @@ export function useDonutOt(categorie: string) {
     queryKey: ["donut-ot", categorie],
     enabled: !!categorie,
   });
+}
+
+export function useContratsTimeline() {
+  return useInvokeQuery<ContratTimelineEvent[]>("get_contrats_timeline", undefined, { queryKey: ["contrats-timeline"] });
 }
 
 export function useSunburstGammes() {

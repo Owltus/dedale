@@ -46,6 +46,16 @@ export interface ContratDashboardItem {
   id_image_prestataire: number | null;
 }
 
+export interface ContratTimelineEvent {
+  id_contrat: number;
+  reference: string;
+  nom_prestataire: string;
+  type_evenement: string;
+  date_evenement: string;
+  jours_restants: number;
+  description: string;
+}
+
 export interface DocumentDashboardItem {
   id_document: number;
   nom_original: string;

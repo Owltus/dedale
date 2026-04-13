@@ -272,6 +272,7 @@ pub fn run() {
             commands::dashboard::get_dashboard_data,
             commands::dashboard::get_sunburst_gammes,
             commands::dashboard::get_donut_ot,
+            commands::dashboard::get_contrats_timeline,
             // Planning
             commands::planning::get_planning_mois,
             commands::planning::get_planning_semaine,
