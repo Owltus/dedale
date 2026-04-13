@@ -1,5 +1,6 @@
 import { useInvokeQuery } from "./useInvoke";
-import type { DashboardData, PlanningEvent } from "@/lib/types/dashboard";
+import type { DashboardData, PlanningEvent, SunburstGamme } from "@/lib/types/dashboard";
+import type { OtListItem } from "@/lib/types/ordres-travail";
 
 export const dashboardKeys = {
   data: ["dashboard"] as const,
@@ -17,6 +18,17 @@ export function usePlanningMois(annee: number, mois: number) {
 
 export function usePlanningSemaine(dateDebut: string) {
   return useInvokeQuery<PlanningEvent[]>("get_planning_semaine", { date_debut: dateDebut }, { queryKey: dashboardKeys.semaine(dateDebut), enabled: !!dateDebut });
+}
+
+export function useDonutOt(categorie: string) {
+  return useInvokeQuery<OtListItem[]>("get_donut_ot", { categorie }, {
+    queryKey: ["donut-ot", categorie],
+    enabled: !!categorie,
+  });
+}
+
+export function useSunburstGammes() {
+  return useInvokeQuery<SunburstGamme[]>("get_sunburst_gammes", undefined, { queryKey: ["sunburst-gammes"] });
 }
 
 export function usePlanningAnnee(annee: number) {

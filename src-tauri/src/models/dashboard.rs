@@ -24,12 +24,21 @@ pub struct OtAlerte {
     pub date_debut: Option<String>,
 }
 
+/// Compteur OT par statut d'affichage (pour le donut)
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OtParStatut {
+    pub id_statut: i64,
+    pub nombre: i64,
+}
+
 /// Données complètes du dashboard
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DashboardData {
-    // KPIs
+    // Donut OT
     pub nb_ot_en_retard: i64,
-    pub nb_ot_cette_semaine: i64,
+    pub ot_cette_semaine: Vec<OtParStatut>,
+    pub nb_ot_en_cours: i64,
+    // KPIs
     pub nb_di_ouvertes: i64,
     pub nb_contrats_a_risque: i64,
     // Alertes
@@ -61,6 +70,7 @@ pub struct OtDashboardItem {
     pub id_statut_ot: i64,
     pub id_priorite: i64,
     pub nom_prestataire: Option<String>,
+    pub id_image: Option<i64>,
 }
 
 /// DI simplifiée pour le dashboard
@@ -82,6 +92,7 @@ pub struct ContratDashboardItem {
     pub date_fin: Option<String>,
     pub duree_cycle_mois: Option<i64>,
     pub statut: String,
+    pub id_image_prestataire: Option<i64>,
 }
 
 /// Document récent pour le dashboard
@@ -91,6 +102,24 @@ pub struct DocumentDashboardItem {
     pub nom_original: String,
     pub nom_type: String,
     pub date_upload: String,
+}
+
+/// Gamme pour le sunburst dashboard
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SunburstGamme {
+    pub id_domaine_gamme: i64,
+    pub nom_domaine: String,
+    pub id_famille_gamme: i64,
+    pub nom_famille: String,
+    pub id_gamme: i64,
+    pub nom_gamme: String,
+    pub est_active: i64,
+    pub nb_ot_total: i64,
+    pub nb_ot_en_retard: i64,
+    pub nb_ot_reouvert: i64,
+    pub nb_ot_en_cours: i64,
+    pub prochaine_date: Option<String>,
+    pub jours_periodicite: i64,
 }
 
 /// Événement planning (OT dans le calendrier)

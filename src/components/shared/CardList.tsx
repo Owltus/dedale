@@ -39,6 +39,7 @@ interface CardListProps<T> {
   emptyDescription?: string;
   showTitle?: boolean;
   showSearch?: boolean;
+  compact?: boolean;
   className?: string;
   cardClassName?: (item: T) => string | undefined;
   extraToolbar?: ReactNode;
@@ -61,6 +62,7 @@ export function CardList<T>({
   emptyDescription,
   showTitle = true,
   showSearch = true,
+  compact = false,
   className,
   cardClassName,
   extraToolbar,
@@ -74,14 +76,18 @@ export function CardList<T>({
     return data.filter((item) => filterFn(item, search.toLowerCase()));
   }, [data, search, filterFn]);
 
+  const layout = compact
+    ? { estimateSize: 28, gap: 2, pad: 2, rowH: "h-[26px]", icon: "w-7 [&_svg]:size-3.5 [&_svg]:stroke-[1.5]", content: "gap-2 px-2 py-0.5" }
+    : { estimateSize: 58, gap: 8, pad: 8, rowH: "",          icon: "w-16 [&_svg]:size-10 [&_svg]:stroke-1",    content: "gap-6 px-4 py-3" };
+
   const virtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 58,
+    estimateSize: () => layout.estimateSize,
     overscan: 10,
-    gap: 8,
-    paddingStart: 8,
-    paddingEnd: 8,
+    gap: layout.gap,
+    paddingStart: layout.pad,
+    paddingEnd: layout.pad,
   });
 
   if (data.length === 0) {
@@ -95,8 +101,8 @@ export function CardList<T>({
   return (
     <div className={cn("flex flex-1 flex-col rounded-md border min-h-0", className)}>
       {(showTitle || showSearch || extraToolbar) && (
-        <div className="border-b bg-background px-3 h-12 flex items-center justify-between gap-3 shrink-0">
-          {title ? <span className={cn("text-sm font-medium shrink-0", !showTitle && "invisible")}>{title}</span> : <span />}
+        <div className={cn("border-b bg-background px-3 flex items-center justify-between gap-3 shrink-0", compact ? "h-7" : "h-12")}>
+          {title ? <span className={cn("font-medium shrink-0", compact ? "text-[11px]" : "text-sm", !showTitle && "invisible")}>{title}</span> : <span />}
           <div className="flex items-center gap-2 ml-auto h-8">
             {extraToolbar}
             <div className={cn(!showSearch && "invisible")}>
@@ -120,16 +126,23 @@ export function CardList<T>({
                 <div
                   className={cn(
                     "flex items-stretch rounded-lg border overflow-hidden",
+                    layout.rowH,
                     (getHref || onItemClick) && "cursor-pointer hover:bg-muted/30",
                     "transition-colors",
                     cardClassName?.(item)
                   )}
                   onClick={getHref ? () => navigate(getHref(item)) : onItemClick ? () => onItemClick(item) : undefined}
                 >
-                  <div className="flex w-16 shrink-0 items-center justify-center bg-muted border-r overflow-hidden [&_svg]:size-10 [&_svg]:stroke-1">
+                  <div className={cn(
+                    "flex shrink-0 items-center justify-center bg-muted border-r overflow-hidden",
+                    layout.icon
+                  )}>
                     <CardItemIcon imageId={getImageId?.(item)} fallback={getIcon?.(item) ?? icon} />
                   </div>
-                  <div className="flex flex-1 items-center justify-between gap-6 px-4 py-3 min-w-0">
+                  <div className={cn(
+                    "flex flex-1 items-center justify-between min-w-0",
+                    layout.content
+                  )}>
                     {renderContent(item)}
                     {renderRight?.(item)}
                   </div>

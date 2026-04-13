@@ -270,6 +270,8 @@ pub fn run() {
             commands::documents::unlink_document_technicien,
             // Dashboard
             commands::dashboard::get_dashboard_data,
+            commands::dashboard::get_sunburst_gammes,
+            commands::dashboard::get_donut_ot,
             // Planning
             commands::planning::get_planning_mois,
             commands::planning::get_planning_semaine,

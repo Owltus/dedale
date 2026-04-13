@@ -1,49 +1,29 @@
 import { useNavigate, Link } from "react-router-dom";
 import { PageHeader } from "@/components/layout";
-import { StatCard } from "@/components/shared/StatCard";
 import { CardList } from "@/components/shared/CardList";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, CheckCircle, ClipboardList, FileText, Handshake, Wrench } from "lucide-react";
+import { AlertTriangle, CheckCircle, ClipboardList, FileText, Handshake } from "lucide-react";
+import { OtDonutChart, statutsToSegments } from "./OtDonutChart";
+import { GammeSunburst } from "./GammeSunburst";
+import { PlanningChart } from "./PlanningChart";
 import { useDashboard } from "@/hooks/use-dashboard";
-import { OtStatusBadge, DiStatusBadge, ContratStatusBadge } from "@/components/shared/StatusBadge";
-import { formatDate } from "@/lib/utils/format";
-import type { OtDashboardItem, DiDashboardItem, ContratDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
-
-function filterOt(ot: OtDashboardItem, q: string): boolean {
-  return ot.nom_gamme.toLowerCase().includes(q) || ot.nom_prestataire?.toLowerCase().includes(q) || false;
-}
+import { DiStatusBadge, ContratStatusBadge } from "@/components/shared/StatusBadge";
+import { stripExtension } from "@/lib/utils/format";
+import type { DiDashboardItem, ContratDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
 
 function filterDi(di: DiDashboardItem, q: string): boolean {
-  return di.libelle_constat.toLowerCase().includes(q) || false;
+  return di.libelle_constat.toLowerCase().includes(q);
 }
 
 function filterContrat(c: ContratDashboardItem, q: string): boolean {
-  return c.reference.toLowerCase().includes(q) || c.nom_prestataire.toLowerCase().includes(q) || false;
+  return c.reference.toLowerCase().includes(q) || c.nom_prestataire.toLowerCase().includes(q);
 }
 
 function filterDocument(d: DocumentDashboardItem, q: string): boolean {
-  return d.nom_original.toLowerCase().includes(q) || d.nom_type.toLowerCase().includes(q) || false;
-}
-
-function renderOtContent(ot: OtDashboardItem) {
-  return (
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium truncate">{ot.nom_gamme}</p>
-      <p className="text-xs text-muted-foreground truncate">{ot.nom_prestataire ?? "\u00A0"}</p>
-    </div>
-  );
-}
-
-function renderOtRight(ot: OtDashboardItem) {
-  return (
-    <div className="flex flex-col items-center gap-1 w-28 shrink-0">
-      <OtStatusBadge id={ot.id_statut_ot} />
-      <span className="text-xs text-muted-foreground">{formatDate(ot.date_prevue)}</span>
-    </div>
-  );
+  return d.nom_original.toLowerCase().includes(q) || d.nom_type.toLowerCase().includes(q);
 }
 
 const ONBOARDING_STEPS = [
@@ -68,12 +48,12 @@ export function Dashboard() {
   const showOnboarding = !data.has_ot;
 
   return (
-    <div className="flex flex-1 flex-col p-6 space-y-6 overflow-y-auto no-scrollbar">
+    <div className="flex flex-1 flex-col p-6 gap-4 overflow-hidden">
       <PageHeader title="Tableau de bord" />
 
       {/* Alertes proactives */}
       {(data.contrats_expirant_30j.length > 0 || data.gammes_regl_sans_ot.length > 0 || data.ot_stagnants.length > 0) && (
-        <div className="space-y-2">
+        <div className="space-y-1.5 shrink-0">
           {data.contrats_expirant_30j.length > 0 && (
             <Alert variant="destructive">
               <AlertTriangle className="size-4" />
@@ -97,28 +77,19 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-4 gap-4">
-        <StatCard label="OT en retard" value={data.nb_ot_en_retard} variant="destructive" />
-        <StatCard label="OT cette semaine" value={data.nb_ot_cette_semaine} variant="warning" />
-        <StatCard label="DI ouvertes" value={data.nb_di_ouvertes} />
-        <StatCard label="Contrats à risque" value={data.nb_contrats_a_risque} variant="destructive" />
+      {/* Graphiques + KPIs */}
+      <div className="flex gap-3 shrink-0">
+        <OtDonutChart groups={[
+          { label: "En retard", categorie: "en_retard", segments: [{ label: "En retard", value: data.nb_ot_en_retard, color: "hsl(0, 65%, 50%)" }] },
+          { label: "Cette semaine", categorie: "cette_semaine", segments: statutsToSegments(data.ot_cette_semaine) },
+          { label: "En cours", categorie: "en_cours", segments: [{ label: "En cours", value: data.nb_ot_en_cours, color: "hsl(215, 70%, 52%)" }] },
+        ]} />
+        <GammeSunburst />
+        <PlanningChart />
       </div>
 
-      {/* Listes : 2x2 grid */}
-      <div className="grid grid-cols-2 gap-6 max-h-[50vh]">
-        <CardList
-          data={data.prochains_ot}
-          getKey={(ot) => ot.id_ordre_travail}
-          getHref={(ot) => `/ordres-travail/${ot.id_ordre_travail}`}
-          filterFn={filterOt}
-          icon={<Wrench className="size-5 text-muted-foreground" />}
-          title="Prochains OT"
-          showSearch={false}
-          emptyTitle="Aucun OT planifié"
-          renderContent={renderOtContent}
-          renderRight={renderOtRight}
-        />
+      {/* Listes : grille 3 colonnes qui remplit tout l'espace restant */}
+      <div className="flex-1 grid grid-cols-3 gap-4 min-h-0">
         <CardList
           data={data.dernieres_di}
           getKey={(di) => di.id_di}
@@ -127,42 +98,31 @@ export function Dashboard() {
           icon={<ClipboardList className="size-5 text-muted-foreground" />}
           title="Demandes d'intervention"
           showSearch={false}
+          compact
           emptyTitle="Aucune demande"
           renderContent={(di) => (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{di.libelle_constat}</p>
-              <p className="text-xs text-muted-foreground truncate">{formatDate(di.date_constat)}</p>
-            </div>
+            <p className="flex-1 text-[11px] leading-tight truncate">{di.libelle_constat}</p>
           )}
           renderRight={(di) => (
-            <DiStatusBadge id={di.id_statut_di} />
+            <DiStatusBadge id={di.id_statut_di} className="h-4 text-[10px] px-1.5" />
           )}
         />
-      </div>
-
-      <div className="grid grid-cols-2 gap-6 max-h-[50vh]">
         <CardList
           data={data.contrats_dashboard}
           getKey={(c) => c.id_contrat}
           getHref={(c) => `/prestataires?contrat=${c.id_contrat}`}
+          getImageId={(c) => c.id_image_prestataire}
           filterFn={filterContrat}
           icon={<Handshake className="size-5 text-muted-foreground" />}
           title="Contrats"
           showSearch={false}
+          compact
           emptyTitle="Aucun contrat"
           renderContent={(c) => (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{c.reference}</p>
-              <p className="text-xs text-muted-foreground truncate">{c.nom_prestataire}</p>
-            </div>
+            <p className="flex-1 text-[11px] leading-tight truncate">{c.reference}</p>
           )}
           renderRight={(c) => (
-            <div className="flex flex-col items-center gap-1 w-28 shrink-0">
-              <ContratStatusBadge statut={c.statut} />
-              <span className="text-xs text-muted-foreground">
-                {c.date_fin ? formatDate(c.date_fin) : c.duree_cycle_mois ? `Cycle ${c.duree_cycle_mois} mois` : "Indéterminé"}
-              </span>
-            </div>
+            <ContratStatusBadge statut={c.statut} className="h-4 text-[10px] px-1.5" />
           )}
         />
         <CardList
@@ -173,34 +133,29 @@ export function Dashboard() {
           icon={<FileText className="size-5 text-muted-foreground" />}
           title="Documents récents"
           showSearch={false}
+          compact
           emptyTitle="Aucun document"
           renderContent={(d) => (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{d.nom_original}</p>
-              <p className="text-xs text-muted-foreground truncate">{d.nom_type}</p>
-            </div>
-          )}
-          renderRight={(d) => (
-            <span className="text-xs text-muted-foreground shrink-0">{formatDate(d.date_upload)}</span>
+            <p className="flex-1 text-[11px] leading-tight truncate">{stripExtension(d.nom_original)}</p>
           )}
         />
       </div>
 
       {/* Onboarding */}
       {showOnboarding && (
-        <Card>
-          <CardHeader><CardTitle>Premiers pas</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+        <Card className="shrink-0">
+          <CardHeader className="py-3"><CardTitle>Premiers pas</CardTitle></CardHeader>
+          <CardContent className="pb-3">
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
               {ONBOARDING_STEPS.map((step, i) => (
-                <div key={step.key} className="flex items-center gap-3">
+                <div key={step.key} className="flex items-center gap-2">
                   {data[step.key] ? (
-                    <CheckCircle className="size-5 text-green-600" />
+                    <CheckCircle className="size-4 text-green-600" />
                   ) : (
-                    <span className="flex size-5 items-center justify-center rounded-full border text-xs">{i + 1}</span>
+                    <span className="flex size-4 items-center justify-center rounded-full border text-[10px]">{i + 1}</span>
                   )}
                   <Link to={step.path} className="text-sm hover:underline">{step.label}</Link>
-                  {data[step.key] && <Badge variant="secondary">Fait</Badge>}
+                  {data[step.key] && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Fait</Badge>}
                 </div>
               ))}
             </div>

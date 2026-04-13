@@ -1,44 +1,55 @@
 use tauri::State;
 use crate::db::DbPool;
 use crate::models::dashboard::*;
+use crate::models::ordres_travail::OtListItem;
+use crate::commands::helpers::ot_list::query_ot_list;
+
+/// Lundi de la semaine ISO courante en SQL
+/// '+1 day' évite le bug SQLite où weekday 1 renvoie today quand today=lundi
+const LUNDI_COURANT: &str = "date('now', '+1 day', 'weekday 1', '-7 days')";
+const LUNDI_PROCHAIN: &str = "date('now', '+1 day', 'weekday 1')";
 
 /// Récupère toutes les données du tableau de bord en une seule commande
 #[tauri::command]
 pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
 
-    // KPI 1 : OT en retard
+    // Donut : OT en retard (avant le lundi de la semaine ISO courante)
     let nb_ot_en_retard: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM ordres_travail \
-         WHERE date_prevue < date('now') AND id_statut_ot IN (1, 2, 5)",
+        &format!("SELECT COUNT(*) FROM ordres_travail \
+         WHERE date_prevue < {LUNDI_COURANT} \
+         AND id_statut_ot IN (1, 5)"),
         [],
         |row| row.get(0),
     ).map_err(|e| e.to_string())?;
 
-    // KPI 2 : OT cette semaine
-    let nb_ot_cette_semaine: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM ordres_travail \
-         WHERE date_prevue BETWEEN date('now') AND date('now', '+7 days') \
-         AND id_statut_ot IN (1, 2, 5)",
+    // Donut : OT cette semaine ISO par statut (prévus, démarrés ou clôturés cette semaine)
+    let mut stmt_cs = conn.prepare_cached(
+        &format!("SELECT CASE WHEN id_statut_ot = 1 AND est_automatique = 1 THEN 11 ELSE id_statut_ot END, \
+         COUNT(*) FROM ordres_travail \
+         WHERE (date_prevue >= {LUNDI_COURANT} AND date_prevue < {LUNDI_PROCHAIN}) \
+            OR (date_debut >= {LUNDI_COURANT} AND date_debut < {LUNDI_PROCHAIN}) \
+            OR (date_cloture >= {LUNDI_COURANT} AND date_cloture < {LUNDI_PROCHAIN}) \
+         GROUP BY 1 ORDER BY 1"),
+    ).map_err(|e| e.to_string())?;
+    let ot_cette_semaine = stmt_cs.query_map([], |row| {
+        Ok(OtParStatut { id_statut: row.get(0)?, nombre: row.get(1)? })
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
+    // Donut : OT en cours hors semaine courante (évite le doublon avec « cette semaine »)
+    let nb_ot_en_cours: i64 = conn.query_row(
+        &format!("SELECT COUNT(*) FROM ordres_travail \
+         WHERE id_statut_ot = 2 \
+         AND (date_prevue < {LUNDI_COURANT} OR date_prevue >= {LUNDI_PROCHAIN})"),
         [],
         |row| row.get(0),
     ).map_err(|e| e.to_string())?;
 
-    // KPI 3 : DI ouvertes
+    // KPI : DI ouvertes
     let nb_di_ouvertes: i64 = conn.query_row(
         "SELECT COUNT(*) FROM demandes_intervention \
          WHERE id_statut_di IN (1, 3)",
-        [],
-        |row| row.get(0),
-    ).map_err(|e| e.to_string())?;
-
-    // KPI 4 : Contrats à risque (expirant dans 30 jours)
-    let nb_contrats_a_risque: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM contrats \
-         WHERE est_archive = 0 AND date_resiliation IS NULL \
-         AND date_fin IS NOT NULL \
-         AND date_fin <= date('now', '+30 days') \
-         AND date_fin >= date('now')",
         [],
         |row| row.get(0),
     ).map_err(|e| e.to_string())?;
@@ -100,7 +111,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
 
     // Tableau : 10 prochains OT
     let mut stmt4 = conn.prepare_cached(
-        "SELECT id_ordre_travail, nom_gamme, date_prevue, id_statut_ot, id_priorite, nom_prestataire \
+        "SELECT id_ordre_travail, nom_gamme, date_prevue, id_statut_ot, id_priorite, nom_prestataire, id_image \
          FROM ordres_travail \
          WHERE id_statut_ot NOT IN (3, 4) AND date_prevue >= date('now') \
          ORDER BY date_prevue ASC LIMIT 10"
@@ -113,6 +124,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
             id_statut_ot: row.get(3)?,
             id_priorite: row.get(4)?,
             nom_prestataire: row.get(5)?,
+            id_image: row.get(6)?,
         })
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
@@ -135,7 +147,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
 
     // Tableau : OT en retard
     let mut stmt6 = conn.prepare_cached(
-        "SELECT id_ordre_travail, nom_gamme, date_prevue, id_statut_ot, id_priorite, nom_prestataire \
+        "SELECT id_ordre_travail, nom_gamme, date_prevue, id_statut_ot, id_priorite, nom_prestataire, id_image \
          FROM ordres_travail \
          WHERE date_prevue < date('now') AND id_statut_ot IN (1, 2, 5) \
          ORDER BY date_prevue ASC"
@@ -148,6 +160,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
             id_statut_ot: row.get(3)?,
             id_priorite: row.get(4)?,
             nom_prestataire: row.get(5)?,
+            id_image: row.get(6)?,
         })
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
@@ -156,7 +169,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     // WHERE filtre déjà archivé et résilié — seuls 3 statuts possibles : À venir, Expiré, Actif
     let mut stmt7 = conn.prepare_cached(
         "SELECT c.id_contrat, c.reference, p.libelle, c.date_debut, c.date_fin, \
-         c.duree_cycle_mois \
+         c.duree_cycle_mois, p.id_image \
          FROM contrats c \
          JOIN prestataires p ON c.id_prestataire = p.id_prestataire \
          WHERE c.est_archive = 0 AND c.date_resiliation IS NULL \
@@ -184,6 +197,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
             date_fin,
             duree_cycle_mois: row.get(5)?,
             statut,
+            id_image_prestataire: row.get(6)?,
         })
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
@@ -230,9 +244,10 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
 
     Ok(DashboardData {
         nb_ot_en_retard,
-        nb_ot_cette_semaine,
+        ot_cette_semaine,
+        nb_ot_en_cours,
         nb_di_ouvertes,
-        nb_contrats_a_risque,
+        nb_contrats_a_risque: contrats_expirant_30j.len() as i64,
         contrats_expirant_30j,
         gammes_regl_sans_ot,
         ot_stagnants,
@@ -249,4 +264,79 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
         has_gammes,
         has_ot,
     })
+}
+
+/// Données hiérarchiques domaine → famille → gamme pour le sunburst
+#[tauri::command]
+pub fn get_sunburst_gammes(db: State<DbPool>) -> Result<Vec<SunburstGamme>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare_cached(
+        &format!(
+        "SELECT dg.id_domaine_gamme, dg.nom_domaine, fg.id_famille_gamme, fg.nom_famille, \
+         g.id_gamme, g.nom_gamme, g.est_active, \
+         COALESCE(agg.nb_total, 0), \
+         COALESCE(agg.nb_retard, 0), \
+         COALESCE(agg.nb_reouvert, 0), \
+         COALESCE(agg.nb_en_cours, 0), \
+         agg.prochaine_date, \
+         p.jours_periodicite \
+         FROM gammes g \
+         JOIN familles_gammes fg ON g.id_famille_gamme = fg.id_famille_gamme \
+         JOIN domaines_gammes dg ON fg.id_domaine_gamme = dg.id_domaine_gamme \
+         JOIN periodicites p ON g.id_periodicite = p.id_periodicite \
+         LEFT JOIN ( \
+             SELECT id_gamme, \
+               COUNT(*) AS nb_total, \
+               SUM(CASE WHEN date_prevue < {LUNDI_COURANT} AND id_statut_ot IN (1, 5) THEN 1 ELSE 0 END) AS nb_retard, \
+               SUM(CASE WHEN id_statut_ot = 5 THEN 1 ELSE 0 END) AS nb_reouvert, \
+               SUM(CASE WHEN id_statut_ot = 2 THEN 1 ELSE 0 END) AS nb_en_cours, \
+               MIN(CASE WHEN id_statut_ot IN (1, 2, 5) AND date_prevue >= {LUNDI_COURANT} THEN date_prevue END) AS prochaine_date \
+             FROM ordres_travail \
+             WHERE id_statut_ot NOT IN (3, 4) \
+             GROUP BY id_gamme \
+         ) agg ON agg.id_gamme = g.id_gamme \
+         ORDER BY dg.nom_domaine, fg.nom_famille, g.nom_gamme")
+    ).map_err(|e| e.to_string())?;
+    let result = stmt.query_map([], |row| {
+        Ok(SunburstGamme {
+            id_domaine_gamme: row.get(0)?,
+            nom_domaine: row.get(1)?,
+            id_famille_gamme: row.get(2)?,
+            nom_famille: row.get(3)?,
+            id_gamme: row.get(4)?,
+            nom_gamme: row.get(5)?,
+            est_active: row.get(6)?,
+            nb_ot_total: row.get(7)?,
+            nb_ot_en_retard: row.get(8)?,
+            nb_ot_reouvert: row.get(9)?,
+            nb_ot_en_cours: row.get(10)?,
+            prochaine_date: row.get(11)?,
+            jours_periodicite: row.get(12)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    Ok(result)
+}
+
+/// OT du donut par catégorie : "en_retard", "cette_semaine", "en_cours"
+#[tauri::command]
+pub fn get_donut_ot(db: State<DbPool>, categorie: String) -> Result<Vec<OtListItem>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    let where_clause = match categorie.as_str() {
+        "en_retard" => format!(
+            "WHERE ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 5)"
+        ),
+        "cette_semaine" => format!(
+            "WHERE (ot.date_prevue >= {LUNDI_COURANT} AND ot.date_prevue < {LUNDI_PROCHAIN}) \
+             OR (ot.date_debut >= {LUNDI_COURANT} AND ot.date_debut < {LUNDI_PROCHAIN}) \
+             OR (ot.date_cloture >= {LUNDI_COURANT} AND ot.date_cloture < {LUNDI_PROCHAIN})"
+        ),
+        "en_cours" => format!(
+            "WHERE ot.id_statut_ot = 2 \
+             AND (ot.date_prevue < {LUNDI_COURANT} OR ot.date_prevue >= {LUNDI_PROCHAIN})"
+        ),
+        _ => return Err(format!("Catégorie inconnue : {}", categorie)),
+    };
+
+    query_ot_list(&conn, &where_clause, None)
 }

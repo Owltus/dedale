@@ -25,6 +25,7 @@ export interface OtDashboardItem {
   id_statut_ot: number;
   id_priorite: number;
   nom_prestataire: string | null;
+  id_image: number | null;
 }
 
 export interface DiDashboardItem {
@@ -42,6 +43,7 @@ export interface ContratDashboardItem {
   date_fin: string | null;
   duree_cycle_mois: number | null;
   statut: string;
+  id_image_prestataire: number | null;
 }
 
 export interface DocumentDashboardItem {
@@ -51,9 +53,15 @@ export interface DocumentDashboardItem {
   date_upload: string;
 }
 
+export interface OtParStatut {
+  id_statut: number;
+  nombre: number;
+}
+
 export interface DashboardData {
   nb_ot_en_retard: number;
-  nb_ot_cette_semaine: number;
+  ot_cette_semaine: OtParStatut[];
+  nb_ot_en_cours: number;
   nb_di_ouvertes: number;
   nb_contrats_a_risque: number;
   contrats_expirant_30j: ContratAlerte[];
@@ -71,6 +79,22 @@ export interface DashboardData {
   has_contrats: boolean;
   has_gammes: boolean;
   has_ot: boolean;
+}
+
+export interface SunburstGamme {
+  id_domaine_gamme: number;
+  nom_domaine: string;
+  id_famille_gamme: number;
+  nom_famille: string;
+  id_gamme: number;
+  nom_gamme: string;
+  est_active: number;
+  nb_ot_total: number;
+  nb_ot_en_retard: number;
+  nb_ot_reouvert: number;
+  nb_ot_en_cours: number;
+  prochaine_date: string | null;
+  jours_periodicite: number;
 }
 
 export interface PlanningEvent {

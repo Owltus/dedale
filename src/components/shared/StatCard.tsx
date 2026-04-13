@@ -18,13 +18,11 @@ const VARIANT_CLASSES = {
 /// Carte KPI avec label, valeur et variante de couleur
 export function StatCard({ label, value, variant = "default", icon, className }: StatCardProps) {
   return (
-    <Card className={cn(className)}>
-      <CardContent className="flex items-center gap-4 p-4">
+    <Card className={cn("py-0 gap-0", className)}>
+      <CardContent className="flex items-center gap-2 px-3 py-1.5">
         {icon && <div className="text-muted-foreground">{icon}</div>}
-        <div>
-          <p className={cn("text-2xl font-bold", VARIANT_CLASSES[variant])}>{value}</p>
-          <p className="text-sm text-muted-foreground">{label}</p>
-        </div>
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className={cn("text-sm font-semibold ml-auto", VARIANT_CLASSES[variant])}>{value}</p>
       </CardContent>
     </Card>
   );
