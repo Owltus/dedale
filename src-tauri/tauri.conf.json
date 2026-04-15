@@ -15,6 +15,8 @@
         "title": "DÉDALE",
         "width": 1280,
         "height": 800,
+        "minWidth": 480,
+        "minHeight": 270,
         "resizable": true,
         "fullscreen": false
       }

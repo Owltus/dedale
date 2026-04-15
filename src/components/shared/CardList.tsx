@@ -40,6 +40,7 @@ interface CardListProps<T> {
   showTitle?: boolean;
   showSearch?: boolean;
   compact?: boolean;
+  rowHeight?: number;
   className?: string;
   cardClassName?: (item: T) => string | undefined;
   extraToolbar?: ReactNode;
@@ -63,6 +64,7 @@ export function CardList<T>({
   showTitle = true,
   showSearch = true,
   compact = false,
+  rowHeight,
   className,
   cardClassName,
   extraToolbar,
@@ -77,8 +79,10 @@ export function CardList<T>({
   }, [data, search, filterFn]);
 
   const layout = compact
-    ? { estimateSize: 28, gap: 2, pad: 2, rowH: "h-[26px]", icon: "w-7 [&_svg]:size-3.5 [&_svg]:stroke-[1.5]", content: "gap-2 px-2 py-0.5" }
-    : { estimateSize: 58, gap: 8, pad: 8, rowH: "",          icon: "w-16 [&_svg]:size-10 [&_svg]:stroke-1",    content: "gap-6 px-4 py-3" };
+    ? { estimateSize: rowHeight ?? 28, gap: 2, pad: 2, icon: "w-7 [&_svg]:size-3.5 [&_svg]:stroke-[1.5]", content: "gap-2 px-2 py-0.5" }
+    : { estimateSize: 58, gap: 8, pad: 8, icon: "w-16 [&_svg]:size-10 [&_svg]:stroke-1",    content: "gap-6 px-4 py-3" };
+  const rowStyle = compact && rowHeight ? { height: rowHeight } : undefined;
+  const rowClass = compact && !rowHeight ? "h-[26px]" : "";
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
@@ -126,11 +130,12 @@ export function CardList<T>({
                 <div
                   className={cn(
                     "flex items-stretch rounded-lg border overflow-hidden",
-                    layout.rowH,
+                    rowClass,
                     (getHref || onItemClick) && "cursor-pointer hover:bg-muted/30",
                     "transition-colors",
                     cardClassName?.(item)
                   )}
+                  style={rowStyle}
                   onClick={getHref ? () => navigate(getHref(item)) : onItemClick ? () => onItemClick(item) : undefined}
                 >
                   <div className={cn(

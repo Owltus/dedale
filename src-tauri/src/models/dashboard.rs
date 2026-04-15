@@ -51,6 +51,7 @@ pub struct DashboardData {
     pub ot_en_retard: Vec<OtDashboardItem>,
     pub contrats_dashboard: Vec<ContratDashboardItem>,
     pub derniers_documents: Vec<DocumentDashboardItem>,
+    pub ot_regl_sans_doc: Vec<OtDashboardItem>,
     // Onboarding
     pub has_etablissement: bool,
     pub has_localisations: bool,
@@ -126,6 +127,7 @@ pub struct SunburstGamme {
     pub id_gamme: i64,
     pub nom_gamme: String,
     pub est_active: i64,
+    pub est_reglementaire: i64,
     pub nb_ot_total: i64,
     pub nb_ot_en_retard: i64,
     pub nb_ot_reouvert: i64,

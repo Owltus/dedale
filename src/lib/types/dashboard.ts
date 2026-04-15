@@ -82,6 +82,7 @@ export interface DashboardData {
   ot_en_retard: OtDashboardItem[];
   contrats_dashboard: ContratDashboardItem[];
   derniers_documents: DocumentDashboardItem[];
+  ot_regl_sans_doc: OtDashboardItem[];
   has_etablissement: boolean;
   has_localisations: boolean;
   has_equipements: boolean;
@@ -99,6 +100,7 @@ export interface SunburstGamme {
   id_gamme: number;
   nom_gamme: string;
   est_active: number;
+  est_reglementaire: number;
   nb_ot_total: number;
   nb_ot_en_retard: number;
   nb_ot_reouvert: number;

@@ -9,6 +9,18 @@ use crate::commands::helpers::ot_list::query_ot_list;
 const LUNDI_COURANT: &str = "date('now', '+1 day', 'weekday 1', '-7 days')";
 const LUNDI_PROCHAIN: &str = "date('now', '+1 day', 'weekday 1')";
 
+fn map_ot_dashboard_row(row: &rusqlite::Row) -> rusqlite::Result<OtDashboardItem> {
+    Ok(OtDashboardItem {
+        id_ordre_travail: row.get(0)?,
+        nom_gamme: row.get(1)?,
+        date_prevue: row.get(2)?,
+        id_statut_ot: row.get(3)?,
+        id_priorite: row.get(4)?,
+        nom_prestataire: row.get(5)?,
+        id_image: row.get(6)?,
+    })
+}
+
 /// Récupère toutes les données du tableau de bord en une seule commande
 #[tauri::command]
 pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
@@ -116,17 +128,8 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
          WHERE id_statut_ot NOT IN (3, 4) AND date_prevue >= date('now') \
          ORDER BY date_prevue ASC LIMIT 10"
     ).map_err(|e| e.to_string())?;
-    let prochains_ot = stmt4.query_map([], |row| {
-        Ok(OtDashboardItem {
-            id_ordre_travail: row.get(0)?,
-            nom_gamme: row.get(1)?,
-            date_prevue: row.get(2)?,
-            id_statut_ot: row.get(3)?,
-            id_priorite: row.get(4)?,
-            nom_prestataire: row.get(5)?,
-            id_image: row.get(6)?,
-        })
-    }).map_err(|e| e.to_string())?
+    let prochains_ot = stmt4.query_map([], map_ot_dashboard_row)
+    .map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
     // Tableau : 10 dernières DI
@@ -152,17 +155,8 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
          WHERE date_prevue < date('now') AND id_statut_ot IN (1, 2, 5) \
          ORDER BY date_prevue ASC"
     ).map_err(|e| e.to_string())?;
-    let ot_en_retard = stmt6.query_map([], |row| {
-        Ok(OtDashboardItem {
-            id_ordre_travail: row.get(0)?,
-            nom_gamme: row.get(1)?,
-            date_prevue: row.get(2)?,
-            id_statut_ot: row.get(3)?,
-            id_priorite: row.get(4)?,
-            nom_prestataire: row.get(5)?,
-            id_image: row.get(6)?,
-        })
-    }).map_err(|e| e.to_string())?
+    let ot_en_retard = stmt6.query_map([], map_ot_dashboard_row)
+    .map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
     // Tableau : contrats actifs triés par date d'échéance la plus proche
@@ -219,6 +213,23 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
+    // OT réglementaires clôturés sans document (vérifie le statut actuel de la gamme)
+    let mut stmt_regl = conn.prepare_cached(
+        "SELECT ot.id_ordre_travail, ot.nom_gamme, ot.date_prevue, ot.id_statut_ot, ot.id_priorite, ot.nom_prestataire, ot.id_image \
+         FROM ordres_travail ot \
+         JOIN gammes g ON ot.id_gamme = g.id_gamme \
+         WHERE g.est_reglementaire = 1 AND g.est_active = 1 \
+         AND ot.id_statut_ot = 3 \
+         AND NOT EXISTS ( \
+             SELECT 1 FROM documents_ordres_travail dot \
+             WHERE dot.id_ordre_travail = ot.id_ordre_travail \
+         ) \
+         ORDER BY ot.date_cloture ASC"
+    ).map_err(|e| e.to_string())?;
+    let ot_regl_sans_doc = stmt_regl.query_map([], map_ot_dashboard_row)
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+
     // Flags d'onboarding
     let has_etablissement: bool = conn.query_row(
         "SELECT COUNT(*) FROM etablissements", [], |row| row.get::<_, i64>(0),
@@ -256,6 +267,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
         ot_en_retard,
         contrats_dashboard,
         derniers_documents,
+        ot_regl_sans_doc,
         has_etablissement,
         has_localisations,
         has_equipements,
@@ -273,7 +285,7 @@ pub fn get_sunburst_gammes(db: State<DbPool>) -> Result<Vec<SunburstGamme>, Stri
     let mut stmt = conn.prepare_cached(
         &format!(
         "SELECT dg.id_domaine_gamme, dg.nom_domaine, fg.id_famille_gamme, fg.nom_famille, \
-         g.id_gamme, g.nom_gamme, g.est_active, \
+         g.id_gamme, g.nom_gamme, g.est_active, g.est_reglementaire, \
          COALESCE(agg.nb_total, 0), \
          COALESCE(agg.nb_retard, 0), \
          COALESCE(agg.nb_reouvert, 0), \
@@ -306,12 +318,13 @@ pub fn get_sunburst_gammes(db: State<DbPool>) -> Result<Vec<SunburstGamme>, Stri
             id_gamme: row.get(4)?,
             nom_gamme: row.get(5)?,
             est_active: row.get(6)?,
-            nb_ot_total: row.get(7)?,
-            nb_ot_en_retard: row.get(8)?,
-            nb_ot_reouvert: row.get(9)?,
-            nb_ot_en_cours: row.get(10)?,
-            prochaine_date: row.get(11)?,
-            jours_periodicite: row.get(12)?,
+            est_reglementaire: row.get(7)?,
+            nb_ot_total: row.get(8)?,
+            nb_ot_en_retard: row.get(9)?,
+            nb_ot_reouvert: row.get(10)?,
+            nb_ot_en_cours: row.get(11)?,
+            prochaine_date: row.get(12)?,
+            jours_periodicite: row.get(13)?,
         })
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;

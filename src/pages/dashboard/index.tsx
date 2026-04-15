@@ -1,4 +1,5 @@
 import { useNavigate, Link } from "react-router-dom";
+import { useRef, useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout";
 import { CardList } from "@/components/shared/CardList";
 import { Alert } from "@/components/ui/alert";
@@ -11,17 +12,29 @@ import { GammeSunburst } from "./GammeSunburst";
 import { PlanningChart } from "./PlanningChart";
 import { ContratsTimeline } from "./ContratsTimeline";
 import { useDashboard } from "@/hooks/use-dashboard";
-import { DiStatusBadge } from "@/components/shared/StatusBadge";
+import { DiStatusBadge, OtStatusBadge } from "@/components/shared/StatusBadge";
 import { stripExtension } from "@/lib/utils/format";
-import type { DiDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
+import type { DiDashboardItem, OtDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
 
 function filterDi(di: DiDashboardItem, q: string): boolean {
   return di.libelle_constat.toLowerCase().includes(q);
 }
 
+function filterOtDoc(ot: OtDashboardItem, q: string): boolean {
+  return ot.nom_gamme.toLowerCase().includes(q) || !!ot.nom_prestataire?.toLowerCase().includes(q);
+}
+
 function filterDocument(d: DocumentDashboardItem, q: string): boolean {
   return d.nom_original.toLowerCase().includes(q) || d.nom_type.toLowerCase().includes(q);
 }
+
+// Constantes layout listes compactes (doivent rester en sync avec CardList compact)
+const ROW_BASE = 26;
+const ROW_GAP = 2;
+const ROW_PAD = 2;
+const ROW_MIN = ROW_BASE + ROW_GAP;
+const HEADER_H = 28;
+const MAX_ROW_H = ROW_BASE * 1.3;
 
 const ONBOARDING_STEPS = [
   { label: "Établissement", path: "/parametres", key: "has_etablissement" as const },
@@ -37,12 +50,40 @@ const ONBOARDING_STEPS = [
 export function Dashboard() {
   const navigate = useNavigate();
   const { data, isLoading } = useDashboard();
+  const listRef = useRef<HTMLDivElement>(null);
+  const [containerH, setContainerH] = useState(0);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const measure = () => {
+      const h = el.clientHeight;
+      setContainerH((prev) => Math.abs(prev - h) < 2 ? prev : h);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   if (isLoading || !data) {
     return <div className="p-6"><p className="text-sm text-muted-foreground">Chargement du tableau de bord...</p></div>;
   }
 
   const showOnboarding = !data.has_ot;
+
+  // Nombre max de données entre les deux listes
+  const dataCount = Math.max(
+    data.dernieres_di.length,
+    data.ot_regl_sans_doc.length > 0 ? data.ot_regl_sans_doc.length : data.derniers_documents.length,
+  );
+
+  const available = containerH > HEADER_H ? containerH - HEADER_H : 0;
+  const fittable = Math.max(1, Math.floor(available / ROW_MIN));
+  const maxItems = Math.min(fittable, dataCount);
+  const usable = available - 2 * ROW_PAD;
+  const rawRowH = maxItems > 0 ? (usable - (maxItems - 1) * ROW_GAP) / maxItems : ROW_BASE;
+  const dynamicRowH = Math.floor(Math.min(MAX_ROW_H, Math.max(ROW_BASE, rawRowH)));
 
   return (
     <div className="flex flex-1 flex-col p-6 gap-4 overflow-hidden">
@@ -74,24 +115,24 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Graphiques + KPIs */}
-      <div className="flex gap-3 shrink-0">
+      {/* Graphiques */}
+      <div className="flex gap-3 shrink-0 h-[30vh]">
         <OtDonutChart groups={[
           { label: "En retard", categorie: "en_retard", segments: [{ label: "En retard", value: data.nb_ot_en_retard, color: "hsl(0, 65%, 50%)" }] },
           { label: "Cette semaine", categorie: "cette_semaine", segments: statutsToSegments(data.ot_cette_semaine) },
           { label: "En cours", categorie: "en_cours", segments: [{ label: "En cours", value: data.nb_ot_en_cours, color: "hsl(215, 70%, 52%)" }] },
         ]} />
-        <GammeSunburst />
         <PlanningChart />
+        <GammeSunburst />
       </div>
 
       {/* Timeline contrats */}
       <ContratsTimeline />
 
-      {/* Listes : grille 2 colonnes qui remplit tout l'espace restant */}
-      <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+      {/* Listes */}
+      <div ref={listRef} className="flex-1 grid grid-cols-2 gap-4 min-h-0 overflow-hidden">
         <CardList
-          data={data.dernieres_di}
+          data={data.dernieres_di.slice(0, maxItems)}
           getKey={(di) => di.id_di}
           getHref={(di) => `/demandes/${di.id_di}`}
           filterFn={filterDi}
@@ -99,6 +140,7 @@ export function Dashboard() {
           title="Demandes d'intervention"
           showSearch={false}
           compact
+          rowHeight={dynamicRowH}
           emptyTitle="Aucune demande"
           renderContent={(di) => (
             <p className="flex-1 text-[11px] leading-tight truncate">{di.libelle_constat}</p>
@@ -107,20 +149,43 @@ export function Dashboard() {
             <DiStatusBadge id={di.id_statut_di} className="h-4 text-[10px] px-1.5" />
           )}
         />
-        <CardList
-          data={data.derniers_documents}
-          getKey={(d) => d.id_document}
-          getHref={(d) => `/documents?doc=${d.id_document}`}
-          filterFn={filterDocument}
-          icon={<FileText className="size-5 text-muted-foreground" />}
-          title="Documents récents"
-          showSearch={false}
-          compact
-          emptyTitle="Aucun document"
-          renderContent={(d) => (
-            <p className="flex-1 text-[11px] leading-tight truncate">{stripExtension(d.nom_original)}</p>
-          )}
-        />
+        {data.ot_regl_sans_doc.length > 0 ? (
+          <CardList
+            data={data.ot_regl_sans_doc.slice(0, maxItems)}
+            getKey={(ot) => ot.id_ordre_travail}
+            getHref={(ot) => `/ordres-travail/${ot.id_ordre_travail}`}
+            getImageId={(ot) => ot.id_image}
+            filterFn={filterOtDoc}
+            icon={<AlertTriangle className="size-5 text-destructive" />}
+            title="Documents manquants"
+            showSearch={false}
+            compact
+            rowHeight={dynamicRowH}
+            emptyTitle="Aucun document manquant"
+            renderContent={(ot) => (
+              <p className="flex-1 text-[11px] leading-tight truncate">{ot.nom_gamme}</p>
+            )}
+            renderRight={(ot) => (
+              <OtStatusBadge id={ot.id_statut_ot} className="h-4 text-[10px] px-1.5" />
+            )}
+          />
+        ) : (
+          <CardList
+            data={data.derniers_documents.slice(0, maxItems)}
+            getKey={(d) => d.id_document}
+            getHref={(d) => `/documents?doc=${d.id_document}`}
+            filterFn={filterDocument}
+            icon={<FileText className="size-5 text-muted-foreground" />}
+            title="Documents récents"
+            showSearch={false}
+            compact
+            rowHeight={dynamicRowH}
+            emptyTitle="Aucun document"
+            renderContent={(d) => (
+              <p className="flex-1 text-[11px] leading-tight truncate">{stripExtension(d.nom_original)}</p>
+            )}
+          />
+        )}
       </div>
 
       {/* Onboarding */}

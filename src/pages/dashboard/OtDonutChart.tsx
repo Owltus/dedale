@@ -142,10 +142,10 @@ export function OtDonutChart({ groups }: OtDonutChartProps) {
 
   return (
     <>
-      <Card className="shrink-0 py-0 gap-0">
-        <CardContent className="p-1">
+      <Card className="py-0 gap-0 grow-0 shrink-0 basis-1/5 min-w-36 flex flex-col">
+        <CardContent className="p-1 flex flex-col flex-1 min-h-0">
           <p className="text-[11px] font-medium text-muted-foreground text-center pt-1">Ordres de travail</p>
-          <div className="size-64 relative">
+          <div className="flex-1 min-h-0 relative">
             <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="size-full">
               {arcs.map((arc, i) => (
                 <path

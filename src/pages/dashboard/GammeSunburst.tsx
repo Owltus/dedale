@@ -80,6 +80,8 @@ interface ArcDef {
   tooltip: string;
   opacity: number;
   href: string;
+  reglementaire: boolean;
+  domainIdx: number;
 }
 
 function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number } {
@@ -125,6 +127,8 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number 
       tooltip: `${domName} (${gammeCount} gammes)`,
       opacity: 1,
       href: `/gammes/domaines/${dom.id}`,
+      reglementaire: false,
+      domainIdx: di,
     });
 
     let famAngle = angle;
@@ -139,6 +143,8 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number 
         tooltip: `${famName} (${fam.gammes.length} gammes)`,
         opacity: 1,
         href: `/gammes/familles/${fam.id}`,
+        reglementaire: false,
+        domainIdx: di,
       });
 
       const gammeDataSpan = famDataSpan / fam.gammes.length;
@@ -153,9 +159,11 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number 
         arcs.push({
           path: ringArc(RINGS[2]!, gamAngle, gamAngle + gammeDataSpan),
           color: levelColor(hue, 2),
-          tooltip: `${g.nom_gamme} — ${statutLabel}`,
+          tooltip: `${g.nom_gamme} — ${statutLabel}${g.est_reglementaire ? " ⚖" : ""}`,
           opacity: isValid ? 1 : 0.3,
           href: `/gammes/${g.id_gamme}`,
+          reglementaire: !!g.est_reglementaire,
+          domainIdx: di,
         });
         gamAngle += gammeDataSpan + (gi < fam.gammes.length - 1 ? GAP : 0);
       }
@@ -182,24 +190,32 @@ export function GammeSunburst() {
   if (!data || data.length === 0) return null;
 
   return (
-    <Card className="shrink-0 py-0 gap-0">
+    <Card className="py-0 gap-0 grow-0 shrink-0 basis-1/5 min-w-36 flex flex-col">
       <p className="text-[11px] font-medium text-muted-foreground text-center pt-1 px-1">Complétion gammes</p>
-      <div className="size-64 relative p-1">
+      <div className="flex-1 min-h-0 relative p-1">
         <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="size-full">
+          <defs>
+            {DOMAIN_HUES.map((hue, i) => (
+              <pattern key={i} id={`regl-${i}`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="6" stroke={levelColor(hue, 0)} strokeWidth="2" opacity="0.7" />
+              </pattern>
+            ))}
+          </defs>
           <text x={CX} y={CY} textAnchor="middle" dominantBaseline="central"
             className="fill-foreground text-[36px] font-semibold">{pct}%</text>
           {arcs.map((arc, i) => (
-            <path
-              key={i}
-              d={arc.path}
-              fill={arc.color}
-              opacity={arc.opacity}
+            <g key={i}
               className="hover:opacity-100 cursor-pointer"
               onClick={() => navigate(arc.href)}
               onMouseEnter={(e) => setTooltip({ text: arc.tooltip, cx: e.clientX, cy: e.clientY })}
               onMouseMove={(e) => setTooltip((t) => t ? { ...t, cx: e.clientX, cy: e.clientY } : null)}
               onMouseLeave={() => setTooltip(null)}
-            />
+            >
+              <path d={arc.path} fill={arc.color} opacity={arc.opacity} />
+              {arc.reglementaire && (
+                <path d={arc.path} fill={`url(#regl-${arc.domainIdx})`} />
+              )}
+            </g>
           ))}
         </svg>
         {tooltip && (
