@@ -3,8 +3,8 @@ use tauri::State;
 
 use crate::db::DbPool;
 use crate::models::ordres_travail::{
-    OpExecUpdateInput, OperationExecution, OrdreDetailComplet, OrdreTravail, OtCreateInput,
-    OtListItem, OtSuivant, OtUpdateInput,
+    OpExecBatchItem, OpExecUpdateInput, OperationExecution, OrdreDetailComplet, OrdreTravail,
+    OtCreateInput, OtListItem, OtSuivant, OtUpdateInput,
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -280,7 +280,7 @@ pub fn update_ordre_travail(
         "UPDATE ordres_travail SET \
          date_prevue = COALESCE(?1, date_prevue), \
          id_priorite = COALESCE(?2, id_priorite), \
-         id_technicien = ?3, \
+         id_technicien = COALESCE(?3, id_technicien), \
          commentaires = ?4 \
          WHERE id_ordre_travail = ?5",
         params![input.date_prevue, input.id_priorite, input.id_technicien, input.commentaires, id],
@@ -418,5 +418,84 @@ pub fn bulk_terminer_operations(
     }
 
     // Re-requêter le détail complet (le trigger a peut-être auto-clôturé l'OT)
+    fetch_ot_detail(&conn, id_ot)
+}
+
+/// Applique un lot de mises à jour d'opérations en transaction unique.
+/// Toutes les opérations doivent appartenir au même OT.
+/// Le trigger gestion_statut_ot peut auto-clôturer au milieu du batch — comportement accepté
+/// (la transaction est atomique, l'état final est cohérent).
+#[tauri::command]
+pub fn bulk_update_operations(
+    db: State<DbPool>,
+    items: Vec<OpExecBatchItem>,
+) -> Result<OrdreDetailComplet, String> {
+    if items.is_empty() {
+        return Err("Aucune opération fournie".to_string());
+    }
+
+    let conn = db.lock().map_err(|e| e.to_string())?;
+
+    // Vérification en une seule requête : toutes les ops doivent exister et partager le même OT
+    let placeholders = std::iter::repeat("?").take(items.len()).collect::<Vec<_>>().join(",");
+    let sql = format!(
+        "SELECT COUNT(*), COUNT(DISTINCT id_ordre_travail), MIN(id_ordre_travail) \
+         FROM operations_execution WHERE id_operation_execution IN ({})",
+        placeholders
+    );
+    let op_ids: Vec<i64> = items.iter().map(|i| i.id_operation_execution).collect();
+    let params_refs: Vec<&dyn rusqlite::ToSql> = op_ids.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+    let (found, distinct_ots, id_ot): (i64, i64, Option<i64>) = conn
+        .query_row(&sql, rusqlite::params_from_iter(params_refs.iter()), |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })
+        .map_err(|e| e.to_string())?;
+
+    if found < items.len() as i64 {
+        return Err("Une ou plusieurs opérations sont introuvables".to_string());
+    }
+    if distinct_ots > 1 {
+        return Err("Les opérations n'appartiennent pas toutes au même ordre de travail".to_string());
+    }
+    let id_ot = id_ot.ok_or_else(|| "Impossible de déterminer l'OT parent".to_string())?;
+
+    conn.execute_batch("BEGIN IMMEDIATE")
+        .map_err(|e| format!("Erreur début transaction : {}", e))?;
+
+    let result = (|| -> Result<(), String> {
+        for item in &items {
+            conn.execute(
+                "UPDATE operations_execution SET \
+                 id_statut_operation = ?1, \
+                 valeur_mesuree = ?2, \
+                 est_conforme = ?3, \
+                 date_execution = ?4, \
+                 commentaires = ?5 \
+                 WHERE id_operation_execution = ?6",
+                params![
+                    item.input.id_statut_operation,
+                    item.input.valeur_mesuree,
+                    item.input.est_conforme,
+                    item.input.date_execution,
+                    item.input.commentaires,
+                    item.id_operation_execution,
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => {
+            conn.execute_batch("COMMIT")
+                .map_err(|e| format!("Erreur commit : {}", e))?;
+        }
+        Err(e) => {
+            let _ = conn.execute_batch("ROLLBACK");
+            return Err(e);
+        }
+    }
+
     fetch_ot_detail(&conn, id_ot)
 }

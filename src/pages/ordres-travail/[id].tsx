@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useBlocker, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Ban, Check, FileUp, Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout";
@@ -12,14 +12,16 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { InfoCard } from "@/components/shared/InfoCard";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  useOrdreTravail, useUpdateStatutOt, useUpdateOrdreTravail, useDeleteOrdreTravail, useUpdateOperationExecution,
+  useOrdreTravail, useUpdateStatutOt, useUpdateOrdreTravail, useDeleteOrdreTravail,
+  useBulkUpdateOperations,
 } from "@/hooks/use-ordres-travail";
 import { useTechniciens } from "@/hooks/use-techniciens";
 import { getStatutOt } from "@/lib/utils/statuts";
 import { formatDate } from "@/lib/utils/format";
 import type { OtEditFormData } from "@/lib/schemas/ordres-travail";
+import type { OpExecBatchItem } from "@/lib/types/ordres-travail";
 import { OtEditDialog } from "./OtEditDialog";
-import { OtOperationsTable } from "./OtOperationsTable";
+import { OtOperationsTable, type OpDraftChanges } from "./OtOperationsTable";
 
 export function OrdresTravailDetail() {
   const { id } = useParams<{ id: string }>();
@@ -29,12 +31,62 @@ export function OrdresTravailDetail() {
   const updateStatut = useUpdateStatutOt();
   const updateOt = useUpdateOrdreTravail();
   const deleteOt = useDeleteOrdreTravail();
-  const updateOpExec = useUpdateOperationExecution();
+  const bulkUpdate = useBulkUpdateOperations();
   const { data: techniciens = [] } = useTechniciens();
   const { data: docs = [] } = useDocumentsForEntity("ordres_travail", otId);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeTab, setActiveTab] = useState("operations");
   const [editOpen, setEditOpen] = useState(false);
+  const [draftChanges, setDraftChanges] = useState<OpDraftChanges>(new Map());
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+
+  const isDirty = draftChanges.size > 0;
+
+  // Bloque la navigation React Router tant qu'il y a des modifications non enregistrées
+  const blocker = useBlocker(isDirty);
+
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      setConfirmDiscardOpen(true);
+    }
+  }, [blocker.state]);
+
+  // Bloque la fermeture de la fenêtre / rechargement natif
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  const handleDiscardConfirm = useCallback(() => {
+    setDraftChanges(new Map());
+    setConfirmDiscardOpen(false);
+    if (blocker.state === "blocked") blocker.proceed();
+  }, [blocker]);
+
+  const handleDiscardCancel = useCallback(() => {
+    setConfirmDiscardOpen(false);
+    if (blocker.state === "blocked") blocker.reset();
+  }, [blocker]);
+
+  const infoItems = useMemo(() => {
+    if (!data) return [];
+    const ot = data.ordre_travail;
+    return [
+      { label: "Prestataire", value: ot.nom_prestataire },
+      { label: "Localisation", value: ot.nom_localisation },
+      { label: "Périodicité", value: ot.libelle_periodicite },
+      { label: "Technicien", value: ot.nom_technicien },
+      { label: "Date prévue", value: formatDate(ot.date_prevue) },
+      { label: "Date début", value: formatDate(ot.date_debut) },
+      { label: "Date clôture", value: formatDate(ot.date_cloture) },
+      { label: "Équipement", value: ot.nom_equipement },
+    ];
+  }, [data]);
 
   if (isLoading) return <div className="p-6"><p className="text-sm text-muted-foreground">Chargement...</p></div>;
   if (!data) return <div className="p-6"><p className="text-sm text-destructive">OT non trouvé.</p></div>;
@@ -42,6 +94,7 @@ export function OrdresTravailDetail() {
   const { ordre_travail: ot, operations } = data;
   const statutCfg = getStatutOt(ot.id_statut_ot);
   const isTerminal = ot.id_statut_ot === 3 || ot.id_statut_ot === 4;
+  const isActif = [1, 2, 5].includes(ot.id_statut_ot);
   const allOpsDone = operations.length > 0 && operations.every(o => [3, 4, 5].includes(o.id_statut_operation));
 
   const handleTransition = async (target: number) => {
@@ -69,6 +122,35 @@ export function OrdresTravailDetail() {
     }
   };
 
+  const handleSaveDraft = async () => {
+    if (!isDirty) return;
+    const opsById = new Map(operations.map((o) => [o.id_operation_execution, o]));
+    const items: OpExecBatchItem[] = Array.from(draftChanges.entries()).map(([opId, patch]) => {
+      const source = opsById.get(opId);
+      return {
+        id_operation_execution: opId,
+        input: {
+          id_statut_operation: patch.id_statut_operation ?? source?.id_statut_operation ?? 1,
+          valeur_mesuree: patch.valeur_mesuree !== undefined ? patch.valeur_mesuree : (source?.valeur_mesuree ?? null),
+          est_conforme: patch.est_conforme !== undefined ? patch.est_conforme : (source?.est_conforme ?? null),
+          date_execution: patch.date_execution !== undefined ? patch.date_execution : (source?.date_execution ?? null),
+          commentaires: patch.commentaires !== undefined ? patch.commentaires : (source?.commentaires ?? null),
+        },
+      };
+    });
+    try {
+      await bulkUpdate.mutateAsync({ items } as never);
+      toast.success(`${items.length} modification(s) enregistrée(s)`);
+      setDraftChanges(new Map());
+    } catch (e) {
+      toast.error(String(e));
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    setDraftChanges(new Map());
+  };
+
   return (
     <div className="flex h-full flex-col p-4 gap-3 overflow-hidden">
       <PageHeader title={`#${ot.id_ordre_travail} — ${ot.nom_gamme}`}>
@@ -80,13 +162,29 @@ export function OrdresTravailDetail() {
             {activeTab === "operations" && (
               <>
                 {!isTerminal && (
-                  <HeaderButton icon={<Pencil className="size-4" />} label="Modifier" onClick={() => setEditOpen(true)} />
+                  <HeaderButton
+                    icon={<Pencil className="size-4" />}
+                    label={isDirty ? "Enregistrer les modifications d'opérations d'abord" : "Modifier"}
+                    onClick={() => setEditOpen(true)}
+                    disabled={isDirty}
+                  />
                 )}
-                {[1, 2, 5].includes(ot.id_statut_ot) && (
-                  <HeaderButton icon={<Ban className="size-4" />} label="Annuler" onClick={() => handleTransition(4)} variant="destructive" disabled={updateStatut.isPending} />
+                {isActif && (
+                  <HeaderButton
+                    icon={<Ban className="size-4" />}
+                    label="Annuler l'OT"
+                    onClick={() => handleTransition(4)}
+                    variant="destructive"
+                    disabled={isDirty || updateStatut.isPending}
+                  />
                 )}
                 {ot.id_statut_ot === 5 && (
-                  <HeaderButton icon={<Check className="size-4" />} label={allOpsDone ? "Clôturer" : "Clôturer (toutes les opérations doivent être terminées)"} onClick={() => handleTransition(3)} disabled={updateStatut.isPending || !allOpsDone} />
+                  <HeaderButton
+                    icon={<Check className="size-4" />}
+                    label={allOpsDone ? "Clôturer" : "Clôturer (toutes les opérations doivent être terminées)"}
+                    onClick={() => handleTransition(3)}
+                    disabled={updateStatut.isPending || !allOpsDone || isDirty}
+                  />
                 )}
                 {ot.id_statut_ot === 3 && (
                   <HeaderButton icon={<RotateCcw className="size-4" />} label="Réouvrir" onClick={() => handleTransition(5)} disabled={updateStatut.isPending} />
@@ -107,16 +205,7 @@ export function OrdresTravailDetail() {
         </div>
       </PageHeader>
 
-      <InfoCard imageId={ot.id_image} items={[
-        { label: "Prestataire", value: ot.nom_prestataire },
-        { label: "Localisation", value: ot.nom_localisation },
-        { label: "Périodicité", value: ot.libelle_periodicite },
-        { label: "Technicien", value: ot.nom_technicien },
-        { label: "Date prévue", value: formatDate(ot.date_prevue) },
-        { label: "Date début", value: formatDate(ot.date_debut) },
-        { label: "Date clôture", value: formatDate(ot.date_cloture) },
-        { label: "Équipement", value: ot.nom_equipement },
-      ]} />
+      <InfoCard imageId={ot.id_image} items={infoItems} />
 
       {ot.commentaires && (
         <Card className="shrink-0">
@@ -133,7 +222,15 @@ export function OrdresTravailDetail() {
         </TabsList>
 
         <TabsContent value="operations" className="mt-2 flex flex-1 flex-col min-h-0">
-          <OtOperationsTable operations={operations} isTerminal={isTerminal} updateOpExec={updateOpExec} />
+          <OtOperationsTable
+            operations={operations}
+            isTerminal={isTerminal}
+            draftChanges={draftChanges}
+            onDraftChange={setDraftChanges}
+            onSaveDraft={handleSaveDraft}
+            onDiscardDraft={handleDiscardDraft}
+            isSaving={bulkUpdate.isPending}
+          />
         </TabsContent>
 
         <TabsContent value="documents" className="mt-2 flex flex-1 flex-col overflow-y-auto no-scrollbar min-h-0">
@@ -165,6 +262,17 @@ export function OrdresTravailDetail() {
           } catch (e) { toast.error(String(e)); }
           setConfirmDelete(false);
         }}
+      />
+
+      <ConfirmDialog
+        open={confirmDiscardOpen}
+        onOpenChange={(open) => { if (!open) handleDiscardCancel(); }}
+        title="Modifications non enregistrées"
+        description={`${draftChanges.size} modification(s) en cours sur les opérations. Quitter sans enregistrer ?`}
+        confirmLabel="Quitter sans enregistrer"
+        cancelLabel="Rester"
+        variant="destructive"
+        onConfirm={handleDiscardConfirm}
       />
     </div>
   );

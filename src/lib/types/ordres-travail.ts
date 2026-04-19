@@ -78,3 +78,14 @@ export interface OrdreDetailComplet {
   operations: OperationExecution[];
   ot_suivant: OtSuivant | null;
 }
+
+export interface OpExecBatchItem {
+  id_operation_execution: number;
+  input: {
+    id_statut_operation: number;
+    valeur_mesuree: number | null;
+    est_conforme: number | null;
+    date_execution: string | null;
+    commentaires: string | null;
+  };
+}

@@ -112,6 +112,13 @@ pub struct OpExecUpdateInput {
     pub commentaires: Option<String>,
 }
 
+/// Élément d'un batch de mises à jour d'opérations (transaction unique)
+#[derive(Debug, Deserialize)]
+pub struct OpExecBatchItem {
+    pub id_operation_execution: i64,
+    pub input: OpExecUpdateInput,
+}
+
 /// OT suivant (pour warning réouverture)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OtSuivant {

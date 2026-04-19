@@ -222,6 +222,7 @@ pub fn run() {
             commands::ordres_travail::update_ordre_travail,
             commands::ordres_travail::update_operation_execution,
             commands::ordres_travail::bulk_terminer_operations,
+            commands::ordres_travail::bulk_update_operations,
             // Demandes d'intervention
             commands::demandes::get_demandes,
             commands::demandes::get_demande,

@@ -2106,6 +2106,31 @@ BEGIN
       );
 END;
 
+-- Calcul automatique de est_conforme en fonction des seuils et de la valeur mesurée.
+-- Règles :
+--   - valeur_mesuree NULL                     → est_conforme = NULL (rien à évaluer)
+--   - aucun seuil renseigné                   → est_conforme = NULL (pas d'exigence)
+--   - seuil_min défini et valeur < seuil_min  → est_conforme = 0 (non conforme)
+--   - seuil_max défini et valeur > seuil_max  → est_conforme = 0 (non conforme)
+--   - sinon                                    → est_conforme = 1 (conforme)
+-- Trigger AFTER UPDATE sur valeur_mesuree — non récursif car l'UPDATE cible une colonne
+-- différente (est_conforme), et recursive_triggers est désactivé (voir PRAGMAs).
+DROP TRIGGER IF EXISTS auto_calcul_conformite;
+CREATE TRIGGER auto_calcul_conformite
+AFTER UPDATE OF valeur_mesuree ON operations_execution
+FOR EACH ROW
+BEGIN
+    UPDATE operations_execution
+    SET est_conforme = CASE
+        WHEN NEW.valeur_mesuree IS NULL THEN NULL
+        WHEN NEW.seuil_minimum IS NULL AND NEW.seuil_maximum IS NULL THEN NULL
+        WHEN NEW.seuil_minimum IS NOT NULL AND NEW.valeur_mesuree < NEW.seuil_minimum THEN 0
+        WHEN NEW.seuil_maximum IS NOT NULL AND NEW.valeur_mesuree > NEW.seuil_maximum THEN 0
+        ELSE 1
+    END
+    WHERE id_operation_execution = NEW.id_operation_execution;
+END;
+
 
 --------------------------------------------------------------------------------
 -- 4.6 VALIDATION CHRONOLOGIQUE ET REPROGRAMMATION
@@ -2209,6 +2234,7 @@ BEGIN
       AND date_cloture IS NOT NULL;
 
     -- Réouvert → Clôturé : recalcul des dates depuis les opérations
+    -- AND date_cloture IS NULL : ne pas écraser une date fournie explicitement par l'application
     UPDATE ordres_travail
     SET
         date_debut = (
@@ -2226,18 +2252,19 @@ BEGIN
     WHERE id_ordre_travail = NEW.id_ordre_travail
       AND OLD.id_statut_ot = 5
       AND NEW.id_statut_ot = 3
+      AND date_cloture IS NULL
       AND EXISTS (
           SELECT 1 FROM operations_execution
           WHERE id_ordre_travail = NEW.id_ordre_travail
             AND date_execution IS NOT NULL
       );
 
-    -- Clôturé (pas depuis Réouvert) : date_cloture = today
+    -- Clôturé : date_cloture = today en dernier recours (fallback)
+    -- Couvre : transitions 1/2→3 ET cas 5→3 sans ops datées (sinon date_cloture resterait NULL)
     UPDATE ordres_travail
     SET date_cloture = date('now')
     WHERE id_ordre_travail = NEW.id_ordre_travail
       AND NEW.id_statut_ot = 3
-      AND OLD.id_statut_ot != 5
       AND date_cloture IS NULL;
 
     -- Annulé : date_cloture = MAX(date_execution) ou today

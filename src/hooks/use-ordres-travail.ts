@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useInvokeQuery, useInvokeMutation } from "./useInvoke";
-import type { OtListItem, OrdreDetailComplet } from "@/lib/types/ordres-travail";
+import type { OtListItem, OrdreDetailComplet, OpExecBatchItem } from "@/lib/types/ordres-travail";
 
 export const otKeys = {
   all: ["ordres-travail"] as const,
@@ -82,6 +82,14 @@ export function useBulkTerminerOperations() {
   const qc = useQueryClient();
   return useInvokeMutation<OrdreDetailComplet, { ids: number[]; dateExecution: string }>(
     "bulk_terminer_operations",
+    { onSettled: () => qc.invalidateQueries({ queryKey: otKeys.all }) }
+  );
+}
+
+export function useBulkUpdateOperations() {
+  const qc = useQueryClient();
+  return useInvokeMutation<OrdreDetailComplet, { items: OpExecBatchItem[] }>(
+    "bulk_update_operations",
     { onSettled: () => qc.invalidateQueries({ queryKey: otKeys.all }) }
   );
 }

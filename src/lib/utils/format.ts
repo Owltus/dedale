@@ -7,6 +7,11 @@ export function formatDate(dateStr: string | null | undefined): string {
   return format(new Date(dateStr), "dd/MM/yyyy", { locale: fr });
 }
 
+/// Date du jour au format ISO (YYYY-MM-DD) — valeur par défaut des inputs type="date"
+export function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 /// Formate une date avec l'heure (dd/MM/yyyy HH:mm)
 export function formatDateTime(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
