@@ -2166,7 +2166,8 @@ BEGIN
         date_prevue, est_automatique,
         -- NOT NULL : valeurs temporaires, écrasées par creation_ot_complet
         nom_gamme, est_reglementaire,
-        libelle_periodicite, jours_periodicite, periodicite_jours_valides
+        libelle_periodicite, jours_periodicite, periodicite_jours_valides,
+        id_technicien
     )
     SELECT
         NEW.id_gamme,
@@ -2182,7 +2183,21 @@ BEGIN
         g.est_reglementaire,
         p.libelle,
         p.jours_periodicite,
-        p.jours_valide
+        p.jours_valide,
+        -- Technicien hérité uniquement si le nouveau prestataire est interne (=1)
+        -- ET si le technicien existant est toujours actif. Sans la vérif est_actif,
+        -- validation_technicien_actif_insert bloquerait l'INSERT et romprait la chaîne
+        -- de maintenance silencieusement.
+        CASE
+            WHEN g.id_prestataire = 1
+                 AND NEW.id_technicien IS NOT NULL
+                 AND EXISTS (
+                     SELECT 1 FROM techniciens t
+                     WHERE t.id_technicien = NEW.id_technicien AND t.est_actif = 1
+                 )
+            THEN NEW.id_technicien
+            ELSE NULL
+        END
     FROM gammes g
     JOIN periodicites p ON g.id_periodicite = p.id_periodicite
     WHERE g.id_gamme = NEW.id_gamme

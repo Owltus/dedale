@@ -10,7 +10,8 @@ Stack : Tauri v2 (Rust) + React + TypeScript + Tailwind + shadcn/ui + SQLite.
 
 - PRD-STACK.md — Stack technique et conventions
 - PRD-FRONTEND.md — Structure DOM, vues, composants, workflows (62k chars)
-- schema.sql — Schéma SQLite complet (~30 tables, ~40 triggers, 138k chars)
+- src-tauri/migrations/001_initial_schema.sql — Schéma SQLite baseline (~30 tables, ~40 triggers)
+- src-tauri/migrations/NNN_*.sql — Migrations incrémentales (voir section Migrations)
 - plan/00-INDEX.md — Plan d'implémentation en 13 phases
 
 ## Commandes
@@ -77,5 +78,29 @@ src-tauri/src/             # Backend Rust
 ### SQLite
 - **Le schéma existe déjà** — ne pas le modifier sans raison
 - Les structs Rust doivent refléter le schéma existant
-- PRAGMAs obligatoires à chaque connexion (voir schema.sql lignes 5-12)
+- PRAGMAs obligatoires à chaque connexion (voir `src-tauri/src/db.rs::apply_pragmas`)
 - **NE JAMAIS activer `recursive_triggers`**
+
+## Migrations SQL
+
+Toute évolution du schéma passe par un nouveau fichier dans `src-tauri/migrations/`. Le dossier est embarqué dans le binaire (crate `include_dir`) et traité au boot par `db.rs::run_migrations`.
+
+### Règles strictes
+
+- **Nommage** : `NNN_description_courte.sql` où `NNN` est un entier séquentiel à 3 chiffres (`001`, `002`, …). Un trou dans la numérotation fait refuser le boot.
+- **Immutabilité** : une fois un fichier distribué (commité et poussé), on ne le modifie plus. Corriger = créer une nouvelle migration qui `DROP … CREATE …` l'objet concerné.
+- **Baseline** : `001_initial_schema.sql` = schéma complet installé sur les postes neufs. Les bases créées avant l'introduction du système de migration sont détectées via la présence de `types_erp` et marquées comme « 001 appliquée » sans ré-exécution.
+- **Idempotence pratique** : chaque migration doit pouvoir s'exécuter sur la baseline courante. Pour un trigger : `DROP TRIGGER IF EXISTS nom; CREATE TRIGGER nom …`. Pour une colonne ajoutée : `ALTER TABLE … ADD COLUMN …`.
+- **Transaction par migration** : `db.rs` wrap chaque fichier dans `BEGIN IMMEDIATE` / `COMMIT`. Échec ⇒ `ROLLBACK` + refus de démarrer.
+- **Backup automatique** : un fichier `dedale.db.backup-YYYYMMDD-HHMMSS` est créé avant d'appliquer une ou plusieurs migrations sur une base existante.
+
+### Workflow côté dev
+
+1. Créer `src-tauri/migrations/NNN_description.sql` (numéro suivant).
+2. Écrire le SQL (`DROP IF EXISTS` + `CREATE`, ou `ALTER TABLE`, etc.).
+3. Relancer `npm run tauri dev` — la migration s'applique automatiquement sur la base locale.
+4. **Ne jamais** éditer une migration précédente. Ne jamais renuméroter.
+
+### Table de suivi
+
+`schema_migrations (version INTEGER PK, name TEXT, applied_at TEXT)` — créée automatiquement, stocke l'historique appliqué.
