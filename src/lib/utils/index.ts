@@ -1,4 +1,4 @@
-export { formatDate, formatDateTime, formatBytes, formatDuration } from "./format";
+export { formatDate, formatDateShort, formatDateTime, formatBytes, formatDuration } from "./format";
 export {
   STATUTS_OT,
   STATUTS_OPERATION,

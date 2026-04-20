@@ -132,12 +132,21 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     .map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
-    // Tableau : 10 dernières DI
-    let mut stmt5 = conn.prepare_cached(
+    // DI actives : tri ASC pour prioriser les plus anciennes ; sinon DESC pour l'historique récent.
+    let sql_di = if nb_di_ouvertes > 0 {
         "SELECT id_di, libelle_constat, date_constat, id_statut_di \
          FROM demandes_intervention \
-         ORDER BY date_creation DESC LIMIT 10"
-    ).map_err(|e| e.to_string())?;
+         WHERE id_statut_di IN (1, 3) \
+         ORDER BY date_constat ASC, id_di ASC \
+         LIMIT 10"
+    } else {
+        "SELECT id_di, libelle_constat, date_constat, id_statut_di \
+         FROM demandes_intervention \
+         WHERE id_statut_di = 2 \
+         ORDER BY date_creation DESC \
+         LIMIT 10"
+    };
+    let mut stmt5 = conn.prepare_cached(sql_di).map_err(|e| e.to_string())?;
     let dernieres_di = stmt5.query_map([], |row| {
         Ok(DiDashboardItem {
             id_di: row.get(0)?,

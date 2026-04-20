@@ -6,14 +6,14 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, CheckCircle, ClipboardList, FileText } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle, FileText } from "lucide-react";
 import { OtDonutChart, statutsToSegments } from "./OtDonutChart";
 import { GammeSunburst } from "./GammeSunburst";
 import { PlanningChart } from "./PlanningChart";
 import { ContratsTimeline } from "./ContratsTimeline";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { DiStatusBadge, OtStatusBadge } from "@/components/shared/StatusBadge";
-import { stripExtension } from "@/lib/utils/format";
+import { formatDateShort, stripExtension } from "@/lib/utils/format";
 import type { DiDashboardItem, OtDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
 
 function filterDi(di: DiDashboardItem, q: string): boolean {
@@ -71,6 +71,7 @@ export function Dashboard() {
   }
 
   const showOnboarding = !data.has_ot;
+  const diActive = data.nb_di_ouvertes > 0;
 
   // Nombre max de données entre les deux listes
   const dataCount = Math.max(
@@ -136,14 +137,21 @@ export function Dashboard() {
           getKey={(di) => di.id_di}
           getHref={(di) => `/demandes/${di.id_di}`}
           filterFn={filterDi}
-          icon={<ClipboardList className="size-5 text-muted-foreground" />}
-          title="Demandes d'intervention"
+          icon={<AlertCircle className="size-5 text-muted-foreground" />}
+          title={diActive ? "Demandes à traiter" : "Dernières demandes résolues"}
           showSearch={false}
           compact
           rowHeight={dynamicRowH}
-          emptyTitle="Aucune demande"
+          emptyTitle={diActive ? "Aucune demande en attente" : "Aucune demande d'intervention"}
           renderContent={(di) => (
-            <p className="flex-1 text-[11px] leading-tight truncate">{di.libelle_constat}</p>
+            <p className="flex-1 text-[11px] leading-tight truncate">
+              {diActive && (
+                <span className="mr-1.5 text-muted-foreground tabular-nums">
+                  {formatDateShort(di.date_constat)}
+                </span>
+              )}
+              {di.libelle_constat}
+            </p>
           )}
           renderRight={(di) => (
             <DiStatusBadge id={di.id_statut_di} className="h-4 text-[10px] px-1.5" />

@@ -7,6 +7,12 @@ export function formatDate(dateStr: string | null | undefined): string {
   return format(new Date(dateStr), "dd/MM/yyyy", { locale: fr });
 }
 
+/// Version courte sans l'année (dd/MM) — pour les libellés compacts
+export function formatDateShort(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  return format(new Date(dateStr), "dd/MM", { locale: fr });
+}
+
 /// Date du jour au format ISO (YYYY-MM-DD) — valeur par défaut des inputs type="date"
 export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
