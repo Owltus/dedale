@@ -1,4 +1,5 @@
 import { Fragment, useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useTemporalNavigation } from "@/hooks/useTemporalNavigation";
 import { useNavigate } from "react-router-dom";
 import { ChevronsLeft, ChevronsRight, Focus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,7 +25,7 @@ const SEPARATOR_STYLE = { width: 2, minWidth: 2, maxWidth: 2, padding: 0 };
 const CELL_STYLE = { width: CELL_SIZE, minWidth: CELL_SIZE, maxWidth: CELL_SIZE, height: CELL_SIZE };
 
 export function Planning() {
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [weekOffset, setWeekOffset] = useTemporalNavigation({ step: 13 });
   const [search, setSearch] = useState("");
   const [focused, setFocused] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -217,19 +218,6 @@ export function Planning() {
     if (cell.events.length === 1) navigate(`/ordres-travail/${cell.events[0]!.id_ordre_travail}`);
     else setSelectedIds(cell.events.map((e) => e.id_ordre_travail));
   };
-
-  // ── Raccourcis clavier ──
-
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement) return;
-    if (e.key === "ArrowLeft") { e.preventDefault(); setWeekOffset((o) => o - 13); }
-    else if (e.key === "ArrowRight") { e.preventDefault(); setWeekOffset((o) => o + 13); }
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
 
   // ── Dimensions ──
 

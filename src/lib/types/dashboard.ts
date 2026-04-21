@@ -46,14 +46,17 @@ export interface ContratDashboardItem {
   id_image_prestataire: number | null;
 }
 
+export type ContratEventType = "debut" | "fenetre" | "reconduction" | "echeance" | "resiliation";
+
 export interface ContratTimelineEvent {
   id_contrat: number;
   reference: string;
   nom_prestataire: string;
-  type_evenement: string;
+  type_evenement: ContratEventType;
   date_evenement: string;
   jours_restants: number;
   description: string;
+  duree_jours: number | null;
 }
 
 export interface DocumentDashboardItem {

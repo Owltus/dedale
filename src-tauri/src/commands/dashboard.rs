@@ -376,6 +376,12 @@ fn advance_to_current_cycle(start: chrono::NaiveDate, months: u32, today: chrono
     d
 }
 
+/// Horizon de la timeline contrats. Les contrats tacites se reconduisent sans
+/// fin tant qu'ils ne sont pas résiliés, donc on projette très loin de chaque
+/// côté pour couvrir la navigation clavier (←/→) depuis le dashboard.
+const TIMELINE_PAST_DAYS: i64 = 3_650;   // 10 ans passé (créations, cycles, etc.)
+const TIMELINE_FUTURE_DAYS: i64 = 3_650; // 10 ans futur (projection tacite infinie en pratique)
+
 /// Événements contrats pour la timeline
 #[tauri::command]
 pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEvent>, String> {
@@ -387,11 +393,11 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
         "SELECT c.id_contrat, c.reference, p.libelle, \
          tc.libelle, c.date_debut, c.date_fin, c.duree_cycle_mois, \
          c.delai_preavis_jours, c.fenetre_resiliation_jours, \
-         c.date_resiliation \
+         c.date_resiliation, c.date_notification \
          FROM contrats c \
          JOIN prestataires p ON c.id_prestataire = p.id_prestataire \
          JOIN types_contrats tc ON c.id_type_contrat = tc.id_type_contrat \
-         WHERE c.est_archive = 0 AND c.id_prestataire != 1"
+         WHERE c.est_archive = 0"
     ).map_err(|e| e.to_string())?;
 
     let rows = stmt.query_map([], |row| {
@@ -406,92 +412,169 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
             row.get::<_, Option<i64>>(7)?,
             row.get::<_, Option<i64>>(8)?,
             row.get::<_, Option<String>>(9)?,
+            row.get::<_, Option<String>>(10)?,
         ))
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
+    let past_cutoff = today - chrono::Duration::days(TIMELINE_PAST_DAYS);
+    let future_cutoff = today + chrono::Duration::days(TIMELINE_FUTURE_DAYS);
+    let in_horizon = |d: chrono::NaiveDate| d >= past_cutoff && d <= future_cutoff;
+
     for (id, reference, prestataire, type_label, date_debut_str,
-         date_fin_str, cycle_mois, preavis, fenetre, resil) in rows
+         date_fin_str, cycle_mois, preavis, fenetre, resil, notif) in rows
     {
         let Ok(date_debut) = chrono::NaiveDate::parse_from_str(&date_debut_str, "%Y-%m-%d") else { continue };
         let date_fin = date_fin_str.as_deref()
             .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
         let preavis_j = preavis.unwrap_or(30);
 
-        // Résiliation notifiée → afficher la date de fin effective
-        if let Some(ref r) = resil {
-            if let Ok(d) = chrono::NaiveDate::parse_from_str(r, "%Y-%m-%d") {
-                if d >= today {
-                    events.push(ContratTimelineEvent {
-                        id_contrat: id, reference: reference.clone(),
-                        nom_prestataire: prestataire.clone(),
-                        type_evenement: "resiliation".into(),
-                        date_evenement: r.clone(),
-                        jours_restants: (d - today).num_days(),
-                        description: format!("Fin effective — {type_label}"),
-                    });
-                }
-                continue;
-            }
+        // Fin effective du contrat si elle est déjà connue (résiliation déclarée,
+        // ou notification envoyée qui terminera le contrat à notif + préavis).
+        // Sert à borner les projections futures : on n'émet rien au-delà.
+        let fin_effective: Option<chrono::NaiveDate> = resil.as_deref()
+            .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+            .or_else(|| notif.as_deref()
+                .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+                .map(|n| n + chrono::Duration::days(preavis_j)));
+
+        // Début de contrat (pour tous les contrats, si la date tombe dans l'horizon)
+        if in_horizon(date_debut) {
+            events.push(ContratTimelineEvent {
+                id_contrat: id, reference: reference.clone(),
+                nom_prestataire: prestataire.clone(),
+                type_evenement: "debut".into(),
+                date_evenement: date_debut.format("%Y-%m-%d").to_string(),
+                jours_restants: (date_debut - today).num_days(),
+                description: format!("Début de contrat — {type_label}"),
+                duree_jours: None,
+            });
         }
 
-        // Contrat tacite ou déterminé avec cycle → calculer la prochaine échéance de cycle
+        // Si la fin effective est déjà connue, on émet le marqueur de fin et on arrête
+        // là (pas de projection de reconduction au-delà). Note : pour les contrats
+        // simplement notifiés mais pas encore résiliés, la fin = notif + préavis.
+        if let Some(fin_eff) = fin_effective {
+            if in_horizon(fin_eff) {
+                let desc = if resil.is_some() {
+                    format!("Fin effective — {type_label}")
+                } else {
+                    format!("Préavis en cours — {type_label}")
+                };
+                events.push(ContratTimelineEvent {
+                    id_contrat: id, reference: reference.clone(),
+                    nom_prestataire: prestataire.clone(),
+                    type_evenement: "resiliation".into(),
+                    date_evenement: fin_eff.format("%Y-%m-%d").to_string(),
+                    jours_restants: (fin_eff - today).num_days(),
+                    description: desc,
+                    duree_jours: None,
+                });
+            }
+            continue;
+        }
+
+        // Contrat tacite ou déterminé avec cycle → émettre toutes les occurrences
+        // tombant dans l'horizon [past_cutoff, future_cutoff]
         if let Some(cm) = cycle_mois {
             let base = date_fin.unwrap_or_else(|| {
                 date_debut.checked_add_months(chrono::Months::new(cm as u32)).unwrap_or(date_debut)
             });
-            let next = advance_to_current_cycle(base, cm as u32, today);
-            let jours = (next - today).num_days();
+            let current = advance_to_current_cycle(base, cm as u32, today);
 
-            // Renouvellement
-            events.push(ContratTimelineEvent {
-                id_contrat: id, reference: reference.clone(),
-                nom_prestataire: prestataire.clone(),
-                type_evenement: "reconduction".into(),
-                date_evenement: next.format("%Y-%m-%d").to_string(),
-                jours_restants: jours,
-                description: format!("Renouvellement — {type_label}"),
-            });
+            // Plancher métier : un contrat ne peut pas se renouveler avant son
+            // premier cycle achevé. La première reconduction possible est donc
+            // date_debut + cycle_mois.
+            let earliest_renewal = date_debut
+                .checked_add_months(chrono::Months::new(cm as u32))
+                .unwrap_or(date_debut);
 
-            // Fenêtre de résiliation (si applicable)
-            if let Some(f) = fenetre {
-                let debut_fenetre = next - chrono::Duration::days(f);
-                let fin_fenetre = next - chrono::Duration::days(preavis_j);
-                if today >= debut_fenetre && today <= fin_fenetre {
+            // Reculer depuis le cycle courant tant qu'on reste dans l'horizon passé
+            // ET qu'on ne franchit pas le plancher du premier renouvellement.
+            let mut first = current;
+            while let Some(p) = first.checked_sub_months(chrono::Months::new(cm as u32)) {
+                if p < past_cutoff || p < earliest_renewal { break; }
+                first = p;
+            }
+
+            // Avancer depuis `first` et collecter toutes les occurrences visibles
+            let mut occurrences: Vec<chrono::NaiveDate> = Vec::new();
+            let mut d = first;
+            while d <= future_cutoff {
+                if d >= past_cutoff && d >= earliest_renewal { occurrences.push(d); }
+                match d.checked_add_months(chrono::Months::new(cm as u32)) {
+                    Some(next) => d = next,
+                    None => break,
+                }
+            }
+
+            // Échéance initiale : fin ferme du contrat (date_fin) si elle tombe dans l'horizon
+            // et qu'elle ne coïncide pas avec une occurrence déjà émise.
+            if let Some(fin) = date_fin {
+                if in_horizon(fin) && !occurrences.contains(&fin) {
                     events.push(ContratTimelineEvent {
                         id_contrat: id, reference: reference.clone(),
                         nom_prestataire: prestataire.clone(),
-                        type_evenement: "fenetre".into(),
-                        date_evenement: fin_fenetre.format("%Y-%m-%d").to_string(),
-                        jours_restants: (fin_fenetre - today).num_days(),
-                        description: format!("Fenêtre ouverte — {type_label}"),
+                        type_evenement: "echeance".into(),
+                        date_evenement: fin.format("%Y-%m-%d").to_string(),
+                        jours_restants: (fin - today).num_days(),
+                        description: format!("Échéance initiale — {type_label}"),
+                        duree_jours: None,
                     });
-                } else if debut_fenetre > today {
-                    events.push(ContratTimelineEvent {
-                        id_contrat: id, reference: reference.clone(),
-                        nom_prestataire: prestataire.clone(),
-                        type_evenement: "fenetre".into(),
-                        date_evenement: debut_fenetre.format("%Y-%m-%d").to_string(),
-                        jours_restants: (debut_fenetre - today).num_days(),
-                        description: format!("Ouverture fenêtre — {type_label}"),
-                    });
+                }
+            }
+
+            for occ in occurrences {
+                // Ignorer les renouvellements trop éloignés dans le futur
+                if !in_horizon(occ) { continue; }
+
+                events.push(ContratTimelineEvent {
+                    id_contrat: id, reference: reference.clone(),
+                    nom_prestataire: prestataire.clone(),
+                    type_evenement: "reconduction".into(),
+                    date_evenement: occ.format("%Y-%m-%d").to_string(),
+                    jours_restants: (occ - today).num_days(),
+                    description: format!("Renouvellement — {type_label}"),
+                    duree_jours: None,
+                });
+
+                // Fenêtre de résiliation : même définition que la page prestataire
+                // (src/lib/utils/contrat-info.ts) — derniers `f` jours du cycle,
+                // jusqu'à la veille du renouvellement. Le préavis ne diminue pas la fenêtre.
+                if let Some(f) = fenetre {
+                    let fin_cycle = occ - chrono::Duration::days(1);
+                    let debut_fenetre = fin_cycle - chrono::Duration::days(f - 1);
+                    if fin_cycle >= past_cutoff && debut_fenetre <= future_cutoff && fin_cycle > debut_fenetre {
+                        events.push(ContratTimelineEvent {
+                            id_contrat: id, reference: reference.clone(),
+                            nom_prestataire: prestataire.clone(),
+                            type_evenement: "fenetre".into(),
+                            date_evenement: debut_fenetre.format("%Y-%m-%d").to_string(),
+                            jours_restants: (debut_fenetre - today).num_days(),
+                            description: format!("Fenêtre de résiliation — {type_label}"),
+                            duree_jours: Some((fin_cycle - debut_fenetre).num_days()),
+                        });
+                    }
                 }
             }
             continue;
         }
 
-        // Contrat déterminé sans cycle → échéance simple
+        // Contrat déterminé sans cycle → échéance simple (passée ou à venir)
         if let Some(fin) = date_fin {
-            if fin >= today {
+            if in_horizon(fin) {
                 events.push(ContratTimelineEvent {
                     id_contrat: id, reference, nom_prestataire: prestataire,
                     type_evenement: "echeance".into(),
                     date_evenement: fin.format("%Y-%m-%d").to_string(),
                     jours_restants: (fin - today).num_days(),
                     description: format!("Échéance — {type_label}"),
+                    duree_jours: None,
                 });
             }
         }
+        // Contrat indéterminé (ni cycle, ni date_fin) : seul le marqueur `debut`
+        // (émis plus haut) reste ; pas de projection artificielle.
     }
 
     events.sort_by_key(|e| e.jours_restants);

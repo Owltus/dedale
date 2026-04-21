@@ -97,6 +97,8 @@ pub struct ContratDashboardItem {
 }
 
 /// Événement contrat pour la timeline dashboard
+/// `duree_jours` > 0 signifie une période (ex: fenêtre de résiliation) — l'événement
+/// s'étend de `date_evenement` à `date_evenement + duree_jours`. `None` = date ponctuelle.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContratTimelineEvent {
     pub id_contrat: i64,
@@ -106,6 +108,7 @@ pub struct ContratTimelineEvent {
     pub date_evenement: String,
     pub jours_restants: i64,
     pub description: String,
+    pub duree_jours: Option<i64>,
 }
 
 /// Document récent pour le dashboard

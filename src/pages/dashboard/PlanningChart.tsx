@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend,
-  type ActiveElement, type ChartEvent,
+  type ActiveElement, type ChartEvent, type Plugin,
 } from "chart.js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -38,7 +38,12 @@ function resolveColor(cssVar: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
 }
 
-export function PlanningChart() {
+interface PlanningChartProps {
+  /// Décalage en semaines par rapport à la semaine courante (piloté au clavier depuis le Dashboard)
+  weekOffset?: number;
+}
+
+export function PlanningChart({ weekOffset = 0 }: PlanningChartProps = {}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const weekOtIdsRef = useRef<Map<string, number[]>>(new Map());
   const [weekCount, setWeekCount] = useState(13);
@@ -61,7 +66,7 @@ export function PlanningChart() {
     return () => ro.disconnect();
   }, []);
 
-  const displayWeeks = useMemo(() => computeGlissantWeeks(currentISOYear, currentWeek, 0, weekCount), [currentISOYear, currentWeek, weekCount]);
+  const displayWeeks = useMemo(() => computeGlissantWeeks(currentISOYear, currentWeek, weekOffset, weekCount), [currentISOYear, currentWeek, weekOffset, weekCount]);
 
   const years = useMemo(() => [...new Set(displayWeeks.map((w) => w.year))].sort(), [displayWeeks]);
   const { data: eventsA = [] } = usePlanningAnnee(years[0] ?? currentISOYear);
@@ -78,6 +83,24 @@ export function PlanningChart() {
     }
     return result;
   }, [eventsA, eventsB, years]);
+
+  // Bandes année visibles : même filigrane que sur ContratsTimeline, suit le weekOffset
+  const yearBands = useMemo(() => {
+    if (displayWeeks.length === 0) return [];
+    const bands: { year: number; startIdx: number; endIdx: number }[] = [];
+    let start = 0;
+    let currentYear = displayWeeks[0]!.year;
+    for (let i = 1; i <= displayWeeks.length; i++) {
+      const y = displayWeeks[i]?.year;
+      if (y !== currentYear) {
+        bands.push({ year: currentYear, startIdx: start, endIdx: i - 1 });
+        if (y === undefined) break;
+        start = i;
+        currentYear = y;
+      }
+    }
+    return bands;
+  }, [displayWeeks]);
 
   // Agrégation unique : chart data + index OT par semaine
   const chartData = useMemo(() => {
@@ -149,6 +172,36 @@ export function PlanningChart() {
     };
   }, [displayWeeks, currentWeek, currentISOYear]);
 
+  // Ref mise à jour à chaque changement : permet au plugin (stable) de lire
+  // les bandes année les plus récentes sans être recréé à chaque render.
+  const yearBandsRef = useRef(yearBands);
+  useEffect(() => { yearBandsRef.current = yearBands; }, [yearBands]);
+
+  // Plugin filigrane année : stable, lit les données courantes via la ref.
+  const yearWatermarkPlugin = useMemo<Plugin<"bar">>(() => ({
+    id: "year-watermark",
+    beforeDatasetsDraw(chart) {
+      const xScale = chart.scales.x;
+      const bands = yearBandsRef.current;
+      if (!xScale || bands.length === 0) return;
+      const { ctx, chartArea } = chart;
+      const centerY = (chartArea.top + chartArea.bottom) / 2;
+      const height = chartArea.bottom - chartArea.top;
+      const fontSize = Math.max(18, Math.min(48, Math.round(height * 0.55)));
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `700 ${fontSize}px sans-serif`;
+      ctx.fillStyle = "rgba(100, 116, 139, 0.12)";
+      for (const band of bands) {
+        const xStart = xScale.getPixelForValue(band.startIdx);
+        const xEnd = xScale.getPixelForValue(band.endIdx);
+        ctx.fillText(String(band.year), (xStart + xEnd) / 2, centerY);
+      }
+      ctx.restore();
+    },
+  }), []);
+
   const { data: modalOts = [] } = useOtByIds(selectedIds);
 
   // Label dérivé (pas de state séparé)
@@ -168,7 +221,7 @@ export function PlanningChart() {
         <CardContent className="flex flex-col flex-1 p-2 min-h-0">
           <p className="text-[11px] font-medium text-muted-foreground text-center">Planning ordres de travail</p>
           <div ref={containerRef} className="flex-1 min-h-0">
-            <Bar data={chartData} options={options} />
+            <Bar data={chartData} options={options} plugins={[yearWatermarkPlugin]} />
           </div>
         </CardContent>
       </Card>

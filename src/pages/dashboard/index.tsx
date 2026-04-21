@@ -2,6 +2,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout";
 import { CardList } from "@/components/shared/CardList";
+import { useTemporalNavigation } from "@/hooks/useTemporalNavigation";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,12 +47,18 @@ const ONBOARDING_STEPS = [
   { label: "Premier OT", path: "/ordres-travail", key: "has_ot" as const },
 ];
 
+// Pas de décalage par ←/→ : 13 semaines (même valeur que la page Planning)
+const NAV_STEP_WEEKS = 13;
+
 /// Dashboard — Tableau de bord synthétique
 export function Dashboard() {
   const navigate = useNavigate();
   const { data, isLoading } = useDashboard();
   const listRef = useRef<HTMLDivElement>(null);
   const [containerH, setContainerH] = useState(0);
+
+  // Décalage temporel partagé entre PlanningChart et ContratsTimeline
+  const [weekOffset] = useTemporalNavigation({ step: NAV_STEP_WEEKS, allowReset: true });
 
   useEffect(() => {
     const el = listRef.current;
@@ -123,12 +130,12 @@ export function Dashboard() {
           { label: "Cette semaine", categorie: "cette_semaine", segments: statutsToSegments(data.ot_cette_semaine) },
           { label: "En cours", categorie: "en_cours", segments: [{ label: "En cours", value: data.nb_ot_en_cours, color: "hsl(215, 70%, 52%)" }] },
         ]} />
-        <PlanningChart />
+        <PlanningChart weekOffset={weekOffset} />
         <GammeSunburst />
       </div>
 
       {/* Timeline contrats */}
-      <ContratsTimeline />
+      <ContratsTimeline offsetDays={weekOffset * 7} />
 
       {/* Listes */}
       <div ref={listRef} className="flex-1 grid grid-cols-2 gap-4 min-h-0 overflow-hidden">
