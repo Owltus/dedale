@@ -50,6 +50,7 @@ export type ContratEventType = "debut" | "fenetre" | "reconduction" | "echeance"
 
 export interface ContratTimelineEvent {
   id_contrat: number;
+  id_prestataire: number;
   reference: string;
   nom_prestataire: string;
   type_evenement: ContratEventType;

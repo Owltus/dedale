@@ -231,7 +231,7 @@ export function PlanningChart({ weekOffset = 0 }: PlanningChartProps = {}) {
             <DialogTitle>{selectedLabel}</DialogTitle>
             <DialogDescription>Cliquez sur un OT pour voir son détail</DialogDescription>
           </DialogHeader>
-          <div className="flex-1 min-h-0 overflow-hidden px-3 pb-3">
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-3 pb-3">
             <OtList data={modalOts} showTitle={false} showSearch={false} showDateRange={false} />
           </div>
         </DialogContent>

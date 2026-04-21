@@ -30,6 +30,7 @@ export function GammeEditDialog({ open, onOpenChange, gamme, periodicites, prest
       id_periodicite: gamme.id_periodicite,
       id_prestataire: gamme.id_prestataire,
       est_reglementaire: gamme.est_reglementaire,
+      est_active: gamme.est_active,
       id_image: gamme.id_image,
     },
   });
@@ -43,6 +44,7 @@ export function GammeEditDialog({ open, onOpenChange, gamme, periodicites, prest
         id_periodicite: gamme.id_periodicite,
         id_prestataire: gamme.id_prestataire,
         est_reglementaire: gamme.est_reglementaire,
+        est_active: gamme.est_active,
         id_image: gamme.id_image,
       });
     }
@@ -89,6 +91,10 @@ export function GammeEditDialog({ open, onOpenChange, gamme, periodicites, prest
           <div className="flex items-center gap-2">
             <Switch checked={form.watch("est_reglementaire") === 1} onCheckedChange={(v) => form.setValue("est_reglementaire", v ? 1 : 0)} />
             <Label>Réglementaire</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={form.watch("est_active") === 1} onCheckedChange={(v) => form.setValue("est_active", v ? 1 : 0)} />
+            <Label>Active</Label>
           </div>
         </div>
       </div>

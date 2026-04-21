@@ -92,7 +92,7 @@ function DonutModal({ categorie, onClose }: { categorie: string; onClose: () => 
           <DialogTitle>{CATEGORIE_TITLES[categorie] ?? "Ordres de travail"}</DialogTitle>
           <DialogDescription>{data.length} ordre(s) de travail</DialogDescription>
         </DialogHeader>
-        <div className="flex-1 min-h-0 overflow-hidden px-3 pb-3">
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-3 pb-3">
           <OtList data={data} showTitle={false} showSearch={false} showDateRange={false} />
         </div>
       </DialogContent>

@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { useSunburstGammes } from "@/hooks/use-dashboard";
 import { computeAggregateStatutId, STATUTS_GAMME } from "@/lib/utils/statuts";
 import type { SunburstGamme } from "@/lib/types/dashboard";
@@ -175,11 +177,60 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number 
   return { arcs, validCount };
 }
 
+interface SunburstRenderProps {
+  arcs: ArcDef[];
+  pct: number;
+  pctSize: number;
+  onPctClick?: () => void;
+}
+
+function SunburstRender({ arcs, pct, pctSize, onPctClick }: SunburstRenderProps) {
+  const navigate = useNavigate();
+  const [tooltip, setTooltip] = useState<{ text: string; cx: number; cy: number } | null>(null);
+
+  return (
+    <>
+      <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="size-full">
+        <defs>
+          {DOMAIN_HUES.map((hue, i) => (
+            <pattern key={i} id={`regl-${i}`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="6" stroke={levelColor(hue, 0)} strokeWidth="2" opacity="0.7" />
+            </pattern>
+          ))}
+        </defs>
+        <text x={CX} y={CY} textAnchor="middle" dominantBaseline="central"
+          onClick={onPctClick}
+          className={cn("fill-foreground font-semibold", onPctClick && "cursor-pointer hover:opacity-80")}
+          style={{ fontSize: pctSize }}>{pct}%</text>
+        {arcs.map((arc, i) => (
+          <g key={i}
+            className="hover:opacity-100 cursor-pointer"
+            onClick={() => navigate(arc.href)}
+            onMouseEnter={(e) => setTooltip({ text: arc.tooltip, cx: e.clientX, cy: e.clientY })}
+            onMouseMove={(e) => setTooltip((t) => t ? { ...t, cx: e.clientX, cy: e.clientY } : null)}
+            onMouseLeave={() => setTooltip(null)}
+          >
+            <path d={arc.path} fill={arc.color} opacity={arc.opacity} />
+            {arc.reglementaire && (
+              <path d={arc.path} fill={`url(#regl-${arc.domainIdx})`} />
+            )}
+          </g>
+        ))}
+      </svg>
+      {tooltip && (
+        <div className="fixed pointer-events-none bg-popover text-popover-foreground border rounded px-2 py-1 text-xs shadow-md whitespace-nowrap z-50"
+          style={{ left: tooltip.cx + 8, top: tooltip.cy - 32 }}>
+          {tooltip.text}
+        </div>
+      )}
+    </>
+  );
+}
+
 /// Graphique sunburst domaine → famille → gamme
 export function GammeSunburst() {
   const { data } = useSunburstGammes();
-  const navigate = useNavigate();
-  const [tooltip, setTooltip] = useState<{ text: string; cx: number; cy: number } | null>(null);
+  const [open, setOpen] = useState(false);
 
   const { arcs, pct } = useMemo(() => {
     if (!data || data.length === 0) return { arcs: [], pct: 0 };
@@ -190,41 +241,23 @@ export function GammeSunburst() {
   if (!data || data.length === 0) return null;
 
   return (
-    <Card className="py-0 gap-0 grow-0 shrink-0 basis-1/5 min-w-36 flex flex-col">
-      <p className="text-[11px] font-medium text-muted-foreground text-center pt-1 px-1">Complétion gammes</p>
-      <div className="flex-1 min-h-0 relative p-1">
-        <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="size-full">
-          <defs>
-            {DOMAIN_HUES.map((hue, i) => (
-              <pattern key={i} id={`regl-${i}`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                <line x1="0" y1="0" x2="0" y2="6" stroke={levelColor(hue, 0)} strokeWidth="2" opacity="0.7" />
-              </pattern>
-            ))}
-          </defs>
-          <text x={CX} y={CY} textAnchor="middle" dominantBaseline="central"
-            className="fill-foreground text-[36px] font-semibold">{pct}%</text>
-          {arcs.map((arc, i) => (
-            <g key={i}
-              className="hover:opacity-100 cursor-pointer"
-              onClick={() => navigate(arc.href)}
-              onMouseEnter={(e) => setTooltip({ text: arc.tooltip, cx: e.clientX, cy: e.clientY })}
-              onMouseMove={(e) => setTooltip((t) => t ? { ...t, cx: e.clientX, cy: e.clientY } : null)}
-              onMouseLeave={() => setTooltip(null)}
-            >
-              <path d={arc.path} fill={arc.color} opacity={arc.opacity} />
-              {arc.reglementaire && (
-                <path d={arc.path} fill={`url(#regl-${arc.domainIdx})`} />
-              )}
-            </g>
-          ))}
-        </svg>
-        {tooltip && (
-          <div className="fixed pointer-events-none bg-popover text-popover-foreground border rounded px-2 py-1 text-xs shadow-md whitespace-nowrap z-50"
-            style={{ left: tooltip.cx + 8, top: tooltip.cy - 32 }}>
-            {tooltip.text}
+    <>
+      <Card className="py-0 gap-0 grow-0 shrink-0 basis-1/5 min-w-36 flex flex-col">
+        <p className="text-[11px] font-medium text-muted-foreground text-center pt-1 px-1">Complétion gammes</p>
+        <div className="flex-1 min-h-0 relative p-1">
+          <SunburstRender arcs={arcs} pct={pct} pctSize={24} onPctClick={() => setOpen(true)} />
+        </div>
+      </Card>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="w-[90vw] max-w-[90vw] sm:max-w-[90vw] h-[90vh] max-h-[90vh] flex flex-col gap-2">
+          <DialogHeader>
+            <DialogTitle>Complétion gammes</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 relative">
+            <SunburstRender arcs={arcs} pct={pct} pctSize={38} />
           </div>
-        )}
-      </div>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

@@ -549,13 +549,14 @@ pub fn get_gamme(db: State<DbPool>, id: i64) -> Result<Gamme, String> {
 pub fn create_gamme(db: State<DbPool>, input: GammeInput) -> Result<Gamme, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO gammes (nom_gamme, description, est_reglementaire, \
+        "INSERT INTO gammes (nom_gamme, description, est_reglementaire, est_active, \
          id_periodicite, id_famille_gamme, id_prestataire, id_image) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
             input.nom_gamme,
             input.description,
             input.est_reglementaire,
+            input.est_active,
             input.id_periodicite,
             input.id_famille_gamme,
             input.id_prestataire,
@@ -583,13 +584,14 @@ pub fn update_gamme(
     let conn = db.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE gammes SET nom_gamme = ?1, description = ?2, est_reglementaire = ?3, \
-         id_periodicite = ?4, id_famille_gamme = ?5, \
-         id_prestataire = ?6, id_image = ?7 \
-         WHERE id_gamme = ?8",
+         est_active = ?4, id_periodicite = ?5, id_famille_gamme = ?6, \
+         id_prestataire = ?7, id_image = ?8 \
+         WHERE id_gamme = ?9",
         params![
             input.nom_gamme,
             input.description,
             input.est_reglementaire,
+            input.est_active,
             input.id_periodicite,
             input.id_famille_gamme,
             input.id_prestataire,

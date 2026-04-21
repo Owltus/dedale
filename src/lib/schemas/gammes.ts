@@ -24,7 +24,8 @@ export type FamilleGammeFormData = z.infer<typeof familleGammeSchema>;
 export const gammeSchema = z.object({
   nom_gamme: z.string().trim().min(1, "Le nom est requis"),
   description: optionalText,
-  est_reglementaire: z.coerce.number().min(0).max(1).default(0),
+  est_reglementaire: z.coerce.number().int().min(0).max(1).default(0),
+  est_active: z.coerce.number().int().min(0).max(1).default(1),
   id_periodicite: z.coerce.number().int().positive("La périodicité est requise"),
   id_famille_gamme: z.coerce.number().int().positive("La famille est requise"),
   id_prestataire: z.coerce.number().int().positive().default(1),
@@ -51,7 +52,8 @@ export const gammeEditSchema = z.object({
   description: optionalText,
   id_periodicite: z.coerce.number().int().min(1, "La périodicité est requise"),
   id_prestataire: z.coerce.number().int().default(1),
-  est_reglementaire: z.coerce.number().min(0).max(1).default(0),
+  est_reglementaire: z.coerce.number().int().min(0).max(1).default(0),
+  est_active: z.coerce.number().int().min(0).max(1).default(1),
   id_image: z.number().nullable().default(null),
 });
 export type GammeEditFormData = z.infer<typeof gammeEditSchema>;

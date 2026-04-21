@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
+import { buildGammeBreadcrumb } from "@/lib/utils/breadcrumbs";
 import { toast } from "sonner";
 import { BookOpen, Cpu, FileUp, LayersPlus, Link, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -97,13 +98,7 @@ export function GammesDetail() {
   const [confirmDeleteGamme, setConfirmDeleteGamme] = useState(false);
   const [equipDialogOpen, setEquipDialogOpen] = useState(false);
 
-  // Breadcrumb
-  useSetBreadcrumbTrail(domaine && famille && gamme ? [
-    { label: "Gammes", path: "/gammes" },
-    { label: domaine.nom_domaine, path: `/gammes/domaines/${famille.id_domaine_gamme}` },
-    { label: famille.nom_famille, path: `/gammes/familles/${gamme.id_famille_gamme}` },
-    { label: gamme.nom_gamme, path: `/gammes/${id}` },
-  ] : []);
+  useSetBreadcrumbTrail(domaine && famille && gamme ? buildGammeBreadcrumb(domaine, famille, gamme) : []);
 
   // ── Opérations CRUD ──
 

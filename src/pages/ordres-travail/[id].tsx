@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBlocker, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Ban, Check, FileUp, Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
-import { PageHeader } from "@/components/layout";
+import { PageHeader, useSetBreadcrumbTrail } from "@/components/layout";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HeaderButton } from "@/components/shared/HeaderButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,8 +15,10 @@ import {
   useOrdreTravail, useUpdateStatutOt, useUpdateOrdreTravail, useDeleteOrdreTravail,
   useBulkUpdateOperations,
 } from "@/hooks/use-ordres-travail";
+import { useGamme, useFamilleGamme, useDomaineGamme } from "@/hooks/use-gammes";
 import { useTechniciens } from "@/hooks/use-techniciens";
 import { getStatutOt } from "@/lib/utils/statuts";
+import { buildGammeBreadcrumb } from "@/lib/utils/breadcrumbs";
 import { formatDate } from "@/lib/utils/format";
 import type { OtEditFormData } from "@/lib/schemas/ordres-travail";
 import type { OpExecBatchItem } from "@/lib/types/ordres-travail";
@@ -34,6 +36,14 @@ export function OrdresTravailDetail() {
   const bulkUpdate = useBulkUpdateOperations();
   const { data: techniciens = [] } = useTechniciens();
   const { data: docs = [] } = useDocumentsForEntity("ordres_travail", otId);
+  const { data: gamme } = useGamme(data?.ordre_travail.id_gamme ?? 0);
+  const { data: famille } = useFamilleGamme(gamme?.id_famille_gamme ?? 0);
+  const { data: domaine } = useDomaineGamme(famille?.id_domaine_gamme ?? 0);
+
+  useSetBreadcrumbTrail(gamme && famille && domaine ? [
+    ...buildGammeBreadcrumb(domaine, famille, gamme),
+    { label: `#${otId}`, path: `/ordres-travail/${otId}` },
+  ] : []);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeTab, setActiveTab] = useState("operations");
   const [editOpen, setEditOpen] = useState(false);

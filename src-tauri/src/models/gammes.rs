@@ -97,6 +97,7 @@ pub struct GammeInput {
     pub nom_gamme: String,
     pub description: Option<String>,
     pub est_reglementaire: i64,
+    pub est_active: i64,
     pub id_periodicite: i64,
     pub id_famille_gamme: i64,
     pub id_prestataire: i64,

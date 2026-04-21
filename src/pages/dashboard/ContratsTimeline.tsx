@@ -50,11 +50,12 @@ const COLOR_DEBUT   = "hsl(150, 55%, 42%)";  // vert — création de contrat
 
 // ─── Dimensions ─────────────────────────────────────────────────────────
 const PAD_X = 32;
-const AXIS_Y = 58;
-const LANE_GAP = 14;
+const AXIS_Y = 77;
+const LANE_GAP = 19;
 const MAX_STACK = 3;
+const LANE_MIN_GAP_FRAC = 0.025;
 const MONTH_LABEL_Y = AXIS_Y + 14;
-const SVG_H = AXIS_Y + 24;
+const SVG_H = AXIS_Y + 32;
 
 // Types retenus pour l'affichage (les autres servent uniquement au calcul)
 const DEADLINE_TYPES = new Set(["reconduction", "echeance", "resiliation", "debut"]);
@@ -158,7 +159,7 @@ function buildMarkers(allEvents: ContratTimelineEvent[], h: Horizon, fenetresOuv
     .filter((e) => e.jours_restants >= minJours && e.jours_restants <= maxJours)
     .sort((a, b) => a.jours_restants - b.jours_restants);
 
-  const stacks: number[][] = [];
+  const stacks: number[][] = Array.from({ length: MAX_STACK }, () => []);
   const markers: Marker[] = [];
 
   for (const evt of sorted) {
@@ -182,15 +183,18 @@ function buildMarkers(allEvents: ContratTimelineEvent[], h: Horizon, fenetresOuv
       color = COLOR_FUTUR;
     }
 
-    // Empilement en cas de chevauchement horizontal serré
-    const minGap = 0.025;
-    let lane = 0;
-    for (; lane < MAX_STACK; lane++) {
-      const col = stacks[lane];
-      const last = col && col.length > 0 ? col[col.length - 1]! : undefined;
-      if (last === undefined || frac > last + minGap) break;
+    // Fallback indispensable quand aucune lane n'est libre : sans ça la boucle
+    // sortait avec lane = MAX_STACK et le point finissait à y négatif (clipé).
+    let lane = -1;
+    let fallbackLane = 0;
+    let fallbackLast = Infinity;
+    for (let li = 0; li < MAX_STACK; li++) {
+      const col = stacks[li]!;
+      const last = col.length > 0 ? col[col.length - 1]! : -Infinity;
+      if (frac > last + LANE_MIN_GAP_FRAC) { lane = li; break; }
+      if (last < fallbackLast) { fallbackLast = last; fallbackLane = li; }
     }
-    if (!stacks[lane]) stacks[lane] = [];
+    if (lane === -1) lane = fallbackLane;
     stacks[lane]!.push(frac);
 
     markers.push({ evt, frac, color, shape, inFenetre, lane });
@@ -291,7 +295,7 @@ export function ContratsTimeline({ offsetDays = 0 }: ContratsTimelineProps = {})
                 return (
                   <g key={i}
                     className="cursor-pointer"
-                    onClick={() => navigate(`/prestataires?contrat=${mk.evt.id_contrat}`)}
+                    onClick={() => navigate(`/prestataires/${mk.evt.id_prestataire}`)}
                     onMouseEnter={(e) => setTooltip({ evt: mk.evt, inFenetre: mk.inFenetre, cx: e.clientX, cy: e.clientY })}
                     onMouseMove={(e) => setTooltip((t) => t ? { ...t, cx: e.clientX, cy: e.clientY } : null)}
                     onMouseLeave={() => setTooltip(null)}

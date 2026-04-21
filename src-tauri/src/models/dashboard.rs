@@ -102,6 +102,7 @@ pub struct ContratDashboardItem {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContratTimelineEvent {
     pub id_contrat: i64,
+    pub id_prestataire: i64,
     pub reference: String,
     pub nom_prestataire: String,
     pub type_evenement: String,

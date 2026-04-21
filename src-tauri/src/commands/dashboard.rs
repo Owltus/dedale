@@ -390,7 +390,7 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
     let mut events: Vec<ContratTimelineEvent> = Vec::new();
 
     let mut stmt = conn.prepare_cached(
-        "SELECT c.id_contrat, c.reference, p.libelle, \
+        "SELECT c.id_contrat, c.id_prestataire, c.reference, p.libelle, \
          tc.libelle, c.date_debut, c.date_fin, c.duree_cycle_mois, \
          c.delai_preavis_jours, c.fenetre_resiliation_jours, \
          c.date_resiliation, c.date_notification \
@@ -403,16 +403,17 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
     let rows = stmt.query_map([], |row| {
         Ok((
             row.get::<_, i64>(0)?,
-            row.get::<_, String>(1)?,
+            row.get::<_, i64>(1)?,
             row.get::<_, String>(2)?,
             row.get::<_, String>(3)?,
             row.get::<_, String>(4)?,
-            row.get::<_, Option<String>>(5)?,
-            row.get::<_, Option<i64>>(6)?,
+            row.get::<_, String>(5)?,
+            row.get::<_, Option<String>>(6)?,
             row.get::<_, Option<i64>>(7)?,
             row.get::<_, Option<i64>>(8)?,
-            row.get::<_, Option<String>>(9)?,
+            row.get::<_, Option<i64>>(9)?,
             row.get::<_, Option<String>>(10)?,
+            row.get::<_, Option<String>>(11)?,
         ))
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
@@ -421,7 +422,7 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
     let future_cutoff = today + chrono::Duration::days(TIMELINE_FUTURE_DAYS);
     let in_horizon = |d: chrono::NaiveDate| d >= past_cutoff && d <= future_cutoff;
 
-    for (id, reference, prestataire, type_label, date_debut_str,
+    for (id, id_prestataire, reference, prestataire, type_label, date_debut_str,
          date_fin_str, cycle_mois, preavis, fenetre, resil, notif) in rows
     {
         let Ok(date_debut) = chrono::NaiveDate::parse_from_str(&date_debut_str, "%Y-%m-%d") else { continue };
@@ -441,7 +442,7 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
         // Début de contrat (pour tous les contrats, si la date tombe dans l'horizon)
         if in_horizon(date_debut) {
             events.push(ContratTimelineEvent {
-                id_contrat: id, reference: reference.clone(),
+                id_contrat: id, id_prestataire, reference: reference.clone(),
                 nom_prestataire: prestataire.clone(),
                 type_evenement: "debut".into(),
                 date_evenement: date_debut.format("%Y-%m-%d").to_string(),
@@ -462,7 +463,7 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
                     format!("Préavis en cours — {type_label}")
                 };
                 events.push(ContratTimelineEvent {
-                    id_contrat: id, reference: reference.clone(),
+                    id_contrat: id, id_prestataire, reference: reference.clone(),
                     nom_prestataire: prestataire.clone(),
                     type_evenement: "resiliation".into(),
                     date_evenement: fin_eff.format("%Y-%m-%d").to_string(),
@@ -513,7 +514,7 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
             if let Some(fin) = date_fin {
                 if in_horizon(fin) && !occurrences.contains(&fin) {
                     events.push(ContratTimelineEvent {
-                        id_contrat: id, reference: reference.clone(),
+                        id_contrat: id, id_prestataire, reference: reference.clone(),
                         nom_prestataire: prestataire.clone(),
                         type_evenement: "echeance".into(),
                         date_evenement: fin.format("%Y-%m-%d").to_string(),
@@ -529,7 +530,7 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
                 if !in_horizon(occ) { continue; }
 
                 events.push(ContratTimelineEvent {
-                    id_contrat: id, reference: reference.clone(),
+                    id_contrat: id, id_prestataire, reference: reference.clone(),
                     nom_prestataire: prestataire.clone(),
                     type_evenement: "reconduction".into(),
                     date_evenement: occ.format("%Y-%m-%d").to_string(),
@@ -546,7 +547,7 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
                     let debut_fenetre = fin_cycle - chrono::Duration::days(f - 1);
                     if fin_cycle >= past_cutoff && debut_fenetre <= future_cutoff && fin_cycle > debut_fenetre {
                         events.push(ContratTimelineEvent {
-                            id_contrat: id, reference: reference.clone(),
+                            id_contrat: id, id_prestataire, reference: reference.clone(),
                             nom_prestataire: prestataire.clone(),
                             type_evenement: "fenetre".into(),
                             date_evenement: debut_fenetre.format("%Y-%m-%d").to_string(),
@@ -564,7 +565,7 @@ pub fn get_contrats_timeline(db: State<DbPool>) -> Result<Vec<ContratTimelineEve
         if let Some(fin) = date_fin {
             if in_horizon(fin) {
                 events.push(ContratTimelineEvent {
-                    id_contrat: id, reference, nom_prestataire: prestataire,
+                    id_contrat: id, id_prestataire, reference, nom_prestataire: prestataire,
                     type_evenement: "echeance".into(),
                     date_evenement: fin.format("%Y-%m-%d").to_string(),
                     jours_restants: (fin - today).num_days(),
