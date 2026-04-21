@@ -1,10 +1,8 @@
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout";
 import { CardList } from "@/components/shared/CardList";
 import { useTemporalNavigation } from "@/hooks/useTemporalNavigation";
-import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, AlertTriangle, CheckCircle, FileText } from "lucide-react";
@@ -52,7 +50,6 @@ const NAV_STEP_WEEKS = 13;
 
 /// Dashboard — Tableau de bord synthétique
 export function Dashboard() {
-  const navigate = useNavigate();
   const { data, isLoading } = useDashboard();
   const listRef = useRef<HTMLDivElement>(null);
   const [containerH, setContainerH] = useState(0);
@@ -96,32 +93,6 @@ export function Dashboard() {
   return (
     <div className="flex flex-1 flex-col p-6 gap-4 overflow-hidden">
       <PageHeader title="Tableau de bord" />
-
-      {/* Alertes proactives */}
-      {(data.contrats_expirant_30j.length > 0 || data.gammes_regl_sans_ot.length > 0 || data.ot_stagnants.length > 0) && (
-        <div className="space-y-1.5 shrink-0">
-          {data.contrats_expirant_30j.length > 0 && (
-            <Alert variant="destructive">
-              <AlertTriangle className="size-4" />
-              <span className="ml-2">{data.contrats_expirant_30j.length} contrat(s) expirent dans les 30 prochains jours</span>
-              <Button variant="link" size="sm" className="ml-2" onClick={() => navigate("/contrats")}>Voir</Button>
-            </Alert>
-          )}
-          {data.gammes_regl_sans_ot.length > 0 && (
-            <Alert>
-              <AlertTriangle className="size-4" />
-              <span className="ml-2">{data.gammes_regl_sans_ot.length} gamme(s) réglementaire(s) sans OT planifié</span>
-              <Button variant="link" size="sm" className="ml-2" onClick={() => navigate("/gammes")}>Voir</Button>
-            </Alert>
-          )}
-          {data.ot_stagnants.length > 0 && (
-            <Alert>
-              <AlertTriangle className="size-4" />
-              <span className="ml-2">{data.ot_stagnants.length} OT en cours depuis plus de 30 jours</span>
-            </Alert>
-          )}
-        </div>
-      )}
 
       {/* Graphiques */}
       <div className="flex gap-3 shrink-0 h-[30vh]">

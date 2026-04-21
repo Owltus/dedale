@@ -255,7 +255,10 @@ export function ContratsTimeline({ offsetDays = 0 }: ContratsTimelineProps = {})
               {/* Grille mois légère */}
               {monthTicks.map((t, i) => (
                 <line key={`grid-${i}`} x1={xOf(t.frac)} y1={4} x2={xOf(t.frac)} y2={AXIS_Y}
-                  stroke="currentColor" className="text-muted-foreground/10" strokeWidth={1} />
+                  stroke={t.isYear ? "white" : "currentColor"}
+                  className={t.isYear ? undefined : "text-muted-foreground/10"}
+                  opacity={t.isYear ? 0.5 : undefined}
+                  strokeWidth={t.isYear ? 1.5 : 1} />
               ))}
 
               {/* Axe */}
