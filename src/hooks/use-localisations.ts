@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useInvokeQuery, useInvokeMutation } from "./useInvoke";
 import type { Batiment, Niveau, Local, LocalisationTreeNode, LocalisationFilter } from "@/lib/types/localisations";
@@ -126,6 +127,21 @@ export function useLocal(id: number) {
     { id },
     { queryKey: localisationKeys.local(id), enabled: !!id },
   );
+}
+
+// Résout un id_local en triplet {id_batiment, id_niveau, id_local} sans dépendre des listes
+// cascadées filtrées — seul moyen d'éviter la race entre effets au mount.
+export function useLocalisationFromLocal(idLocal: number | null) {
+  const { data: local } = useLocal(idLocal ?? 0);
+  const { data: niveau } = useNiveau(local?.id_niveau ?? 0);
+  return useMemo(() => {
+    if (!local || !niveau) return null;
+    return {
+      id_batiment: niveau.id_batiment,
+      id_niveau: niveau.id_niveau,
+      id_local: local.id_local,
+    };
+  }, [local, niveau]);
 }
 
 export function useCreateLocal() {

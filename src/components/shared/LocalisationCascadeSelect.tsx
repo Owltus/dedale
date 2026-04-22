@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useBatiments, useNiveaux, useLocaux } from "@/hooks/use-localisations";
+import { useBatiments, useNiveaux, useLocaux, useLocalisationFromLocal } from "@/hooks/use-localisations";
 
 interface LocalisationCascadeSelectProps {
   value: number | null;
@@ -16,50 +16,68 @@ export function LocalisationCascadeSelect({ value, onChange, labels, filter }: L
   const { data: batimentsAll = [] } = useBatiments();
   const [selectedBatiment, setSelectedBatiment] = useState<number | null>(null);
   const [selectedNiveau, setSelectedNiveau] = useState<number | null>(null);
-  const [initialized, setInitialized] = useState(false);
 
-  const { data: niveauxAll = [] } = useNiveaux(selectedBatiment ?? undefined);
-  const { data: locauxAll = [] } = useLocaux(selectedNiveau ?? undefined);
+  // Fetch unique de toutes les localisations puis filtrage client-side.
+  // Évite les changements de queryKey en cours de cascade qui créent des gaps
+  // où `data = undefined` le temps qu'une nouvelle fetch aboutisse.
+  const { data: niveauxAll = [] } = useNiveaux();
+  const { data: locauxAll = [] } = useLocaux();
 
-  // Filtrage par famille si un filtre est fourni
+  // Résolution directe du triplet {bâtiment, niveau, local} à partir de la value,
+  // indépendante des listes cascadées — évite la race entre effets au chargement.
+  const resolved = useLocalisationFromLocal(value);
+
+  // Cascade : on filtre d'abord par la sélection courante, puis par le filtre famille éventuel
+  const niveauxPourBatiment = selectedBatiment
+    ? niveauxAll.filter(n => n.id_batiment === selectedBatiment)
+    : niveauxAll;
+  const locauxPourNiveau = selectedNiveau
+    ? locauxAll.filter(l => l.id_niveau === selectedNiveau)
+    : locauxAll;
+
   const batiments = filter ? batimentsAll.filter(b => filter.batiments.includes(b.id_batiment)) : batimentsAll;
-  const niveaux = filter ? niveauxAll.filter(n => filter.niveaux.includes(n.id_niveau)) : niveauxAll;
-  const locaux = filter ? locauxAll.filter(l => filter.locaux.includes(l.id_local)) : locauxAll;
+  const niveaux = filter ? niveauxPourBatiment.filter(n => filter.niveaux.includes(n.id_niveau)) : niveauxPourBatiment;
+  const locaux = filter ? locauxPourNiveau.filter(l => filter.locaux.includes(l.id_local)) : locauxPourNiveau;
 
   const multiBatiments = batiments.length > 1;
   const labelBatiment = labels?.batiment ?? "Bâtiment";
   const labelNiveau = labels?.niveau ?? "Niveau";
   const labelLocal = labels?.local ?? "Local";
 
+  // Auto-sélection du bâtiment unique (cas création sans value fournie)
   useEffect(() => {
     if (batiments.length === 1 && !selectedBatiment && batiments[0]) {
       setSelectedBatiment(batiments[0].id_batiment);
     }
   }, [batiments, selectedBatiment]);
 
+  // `internalClear` distingue un value=null venant d'un handler (cascade modifiée par user,
+  // sélection interne déjà à jour) d'un value=null externe (parent qui reset, reset complet requis).
+  const lastSyncedValue = useRef<number | null>(null);
+  const internalClear = useRef(false);
   useEffect(() => {
-    if (initialized || !value || locaux.length === 0 || niveaux.length === 0) return;
-    const local = locaux.find((l) => l.id_local === value);
-    if (local) {
-      const niveau = niveaux.find((n) => n.id_niveau === local.id_niveau);
-      if (niveau) {
-        setSelectedBatiment(niveau.id_batiment);
-        setSelectedNiveau(niveau.id_niveau);
-        setInitialized(true);
+    if (value === null) {
+      if (internalClear.current) {
+        internalClear.current = false;
+        lastSyncedValue.current = null;
+        return;
       }
+      if (lastSyncedValue.current !== null) {
+        if (batiments.length > 1) setSelectedBatiment(null);
+        setSelectedNiveau(null);
+        lastSyncedValue.current = null;
+      }
+      return;
     }
-  }, [value, locaux, niveaux, initialized]);
-
-  useEffect(() => {
-    if (value === null && initialized) {
-      setInitialized(false);
-      if (batiments.length > 1) setSelectedBatiment(null);
-      setSelectedNiveau(null);
-    }
-  }, [value, initialized, batiments.length]);
+    if (!resolved || resolved.id_local !== value || lastSyncedValue.current === value) return;
+    setSelectedBatiment(resolved.id_batiment);
+    setSelectedNiveau(resolved.id_niveau);
+    lastSyncedValue.current = value;
+  }, [value, resolved, batiments.length]);
 
   const handleBatimentChange = (v: string | null) => {
     const id = v ? Number(v) : null;
+    internalClear.current = true;
     setSelectedBatiment(id);
     setSelectedNiveau(null);
     onChange(null);
@@ -67,6 +85,7 @@ export function LocalisationCascadeSelect({ value, onChange, labels, filter }: L
 
   const handleNiveauChange = (v: string | null) => {
     const id = v ? Number(v) : null;
+    internalClear.current = true;
     setSelectedNiveau(id);
     onChange(null);
   };
@@ -78,7 +97,7 @@ export function LocalisationCascadeSelect({ value, onChange, labels, filter }: L
         {multiBatiments && (
           <div className="space-y-2">
             <Label>{labelBatiment}</Label>
-            <Select value={selectedBatiment ? String(selectedBatiment) : undefined} items={Object.fromEntries(batiments.map(b => [String(b.id_batiment), b.nom]))} onValueChange={handleBatimentChange}>
+            <Select value={selectedBatiment ? String(selectedBatiment) : ""} items={Object.fromEntries(batiments.map(b => [String(b.id_batiment), b.nom]))} onValueChange={handleBatimentChange}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={`— ${labelBatiment} —`} />
               </SelectTrigger>
@@ -92,7 +111,7 @@ export function LocalisationCascadeSelect({ value, onChange, labels, filter }: L
         )}
         <div className="space-y-2">
           <Label>{labelNiveau}</Label>
-          <Select value={selectedNiveau ? String(selectedNiveau) : undefined} items={Object.fromEntries(niveaux.map(n => [String(n.id_niveau), n.nom]))} onValueChange={handleNiveauChange} disabled={!selectedBatiment}>
+          <Select value={selectedNiveau ? String(selectedNiveau) : ""} items={Object.fromEntries(niveaux.map(n => [String(n.id_niveau), n.nom]))} onValueChange={handleNiveauChange} disabled={!selectedBatiment}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder={`— ${labelNiveau} —`} />
             </SelectTrigger>
@@ -105,7 +124,7 @@ export function LocalisationCascadeSelect({ value, onChange, labels, filter }: L
         </div>
         <div className="space-y-2">
           <Label>{labelLocal}</Label>
-          <Select value={value ? String(value) : undefined} items={Object.fromEntries(locaux.map(l => [String(l.id_local), l.nom]))} onValueChange={(v) => onChange(v ? Number(v) : null)} disabled={!selectedNiveau}>
+          <Select value={value ? String(value) : ""} items={Object.fromEntries(locaux.map(l => [String(l.id_local), l.nom]))} onValueChange={(v) => onChange(v ? Number(v) : null)} disabled={!selectedNiveau}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder={`— ${labelLocal} —`} />
             </SelectTrigger>
@@ -127,7 +146,7 @@ export function LocalisationCascadeSelect({ value, onChange, labels, filter }: L
       <div className="space-y-2">
         <div className="grid grid-cols-2 gap-2">
           {multiBatiments && (
-            <Select value={selectedBatiment ? String(selectedBatiment) : undefined} items={Object.fromEntries(batiments.map(b => [String(b.id_batiment), b.nom]))} onValueChange={handleBatimentChange}>
+            <Select value={selectedBatiment ? String(selectedBatiment) : ""} items={Object.fromEntries(batiments.map(b => [String(b.id_batiment), b.nom]))} onValueChange={handleBatimentChange}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="— Bâtiment —" />
               </SelectTrigger>
@@ -139,7 +158,7 @@ export function LocalisationCascadeSelect({ value, onChange, labels, filter }: L
             </Select>
           )}
 
-          <Select value={selectedNiveau ? String(selectedNiveau) : undefined} items={Object.fromEntries(niveaux.map(n => [String(n.id_niveau), n.nom]))} onValueChange={handleNiveauChange} disabled={!selectedBatiment}>
+          <Select value={selectedNiveau ? String(selectedNiveau) : ""} items={Object.fromEntries(niveaux.map(n => [String(n.id_niveau), n.nom]))} onValueChange={handleNiveauChange} disabled={!selectedBatiment}>
             <SelectTrigger className={multiBatiments ? "w-full" : "w-full col-span-2"}>
               <SelectValue placeholder="— Niveau —" />
             </SelectTrigger>
@@ -151,7 +170,7 @@ export function LocalisationCascadeSelect({ value, onChange, labels, filter }: L
           </Select>
         </div>
 
-        <Select value={value ? String(value) : undefined} items={Object.fromEntries(locaux.map(l => [String(l.id_local), l.nom]))} onValueChange={(v) => onChange(v ? Number(v) : null)} disabled={!selectedNiveau}>
+        <Select value={value ? String(value) : ""} items={Object.fromEntries(locaux.map(l => [String(l.id_local), l.nom]))} onValueChange={(v) => onChange(v ? Number(v) : null)} disabled={!selectedNiveau}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="— Local —" />
           </SelectTrigger>

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { FileUp, Pencil, Trash2 } from "lucide-react";
@@ -75,8 +75,10 @@ export function EquipementDetail() {
     { label: equipement.nom_affichage, path: `/equipements/${id}` },
   ] : []);
 
-  const openEdit = () => {
-    if (!equipement) return;
+  // Reset déclenché par l'ouverture du Dialog, pas par le handler : sinon les subscribers
+  // enfants (Controller sur id_local) peuvent mount avant que RHF ait propagé la value.
+  useEffect(() => {
+    if (!editOpen || !equipement) return;
     form.reset({
       nom_affichage: equipement.nom_affichage,
       date_mise_en_service: equipement.date_mise_en_service ?? "",
@@ -92,6 +94,10 @@ export function EquipementDetail() {
       values[vc.id_champ] = vc.valeur ?? "";
     }
     setCaracValues(values);
+  }, [editOpen, equipement, valeursChamps, form]);
+
+  const openEdit = () => {
+    if (!equipement) return;
     setEditOpen(true);
   };
 
@@ -209,10 +215,16 @@ export function EquipementDetail() {
               )}
             </div>
             <div className="space-y-3">
-              <LocalisationCascadeSelect
-                value={form.watch("id_local") ?? null}
-                onChange={(v) => form.setValue("id_local", v)}
-                labels={{ batiment: "Bâtiment", niveau: "Niveau", local: "Local" }}
+              <Controller
+                control={form.control}
+                name="id_local"
+                render={({ field }) => (
+                  <LocalisationCascadeSelect
+                    value={field.value ?? null}
+                    onChange={(v) => field.onChange(v)}
+                    labels={{ batiment: "Bâtiment", niveau: "Niveau", local: "Local" }}
+                  />
+                )}
               />
             </div>
             <div className="space-y-3">
