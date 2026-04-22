@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { Sidebar } from "./Sidebar";
+import { Titlebar } from "./Titlebar";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { BreadcrumbProvider } from "./BreadcrumbContext";
 import { CommandPalette } from "@/components/shared/CommandPalette";
@@ -17,6 +18,7 @@ export function RootLayout() {
           <div className="flex h-screen overflow-hidden bg-background">
             <Sidebar />
             <main className="flex flex-1 flex-col min-h-0 min-w-0">
+              <Titlebar />
               <ErrorBoundary>
                 <Suspense
                   fallback={

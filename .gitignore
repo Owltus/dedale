@@ -27,3 +27,7 @@ Thumbs.db
 # Dev tools
 seed.py
 src-tauri/seed.sql
+migrate_gmao.py
+migrate_gmao.md
+migrate_gmao_rapports.json
+triggers_system.sql

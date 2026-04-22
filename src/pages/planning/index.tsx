@@ -250,9 +250,9 @@ export function Planning() {
         <div ref={wrapperRef} className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
           onMouseLeave={clearColHighlight}>
           <table className="border-separate border-spacing-0">
-            <thead className="sticky top-0 z-20 bg-background">
+            <thead className="sticky top-0 z-40 bg-background">
               <tr>
-                <th className="sticky left-0 z-40 bg-background border-b border-r p-0" style={{ ...labelStyle, height: undefined }} rowSpan={3} />
+                <th className="sticky left-0 z-50 bg-background border-b border-r p-0" style={{ ...labelStyle, height: undefined }} rowSpan={3} />
                 {yearHeaders.map((y, i) => (
                   <Fragment key={`y-${i}`}>
                     {i > 0 && <th rowSpan={3} className="bg-muted-foreground/30" style={SEPARATOR_STYLE} />}
