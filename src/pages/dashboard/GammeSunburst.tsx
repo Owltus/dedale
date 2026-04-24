@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useSunburstGammes } from "@/hooks/use-dashboard";
-import { computeAggregateStatutId, STATUTS_GAMME } from "@/lib/utils/statuts";
+import { ANIMATE_HEARTBEAT, computeAggregateStatutId, STATUTS_GAMME } from "@/lib/utils/statuts";
 import type { SunburstGamme } from "@/lib/types/dashboard";
 
 // ── SVG constants ──
@@ -84,10 +84,19 @@ interface ArcDef {
   href: string;
   reglementaire: boolean;
   domainIdx: number;
+  animate: boolean;
 }
 
-function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number } {
-  if (data.length === 0) return { arcs: [], validCount: 0 };
+// Le statut 6 (Retard) reste à opacité 1 car il pulse via ANIMATE_HEARTBEAT :
+// le multiplier par 0.3 rendrait la pulsation quasi invisible (0.3 × 0.35 ≈ 0.1).
+function gammeOpacity(sid: number): number {
+  if (sid === 9) return 0.15;
+  if (sid === 2 || sid === 7 || sid === 8) return 0.3;
+  return 1;
+}
+
+function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; aJourCount: number; totalActives: number } {
+  if (data.length === 0) return { arcs: [], aJourCount: 0, totalActives: 0 };
 
   // Grouper par domaine (avec id) → famille (avec id) → gammes
   const domains = new Map<string, { id: number; families: Map<string, { id: number; gammes: SunburstGamme[] }> }>();
@@ -109,7 +118,8 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number 
   const totalGaps = domainCount * GAP + totalFamCount * GAP + Math.max(0, totalGammeCount - totalFamCount) * GAP;
   const available = 360 - totalGaps;
   const arcs: ArcDef[] = [];
-  let validCount = 0;
+  let aJourCount = 0;
+  let totalActives = 0;
 
   let angle = 0;
   let di = 0;
@@ -131,6 +141,7 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number 
       href: `/gammes/domaines/${dom.id}`,
       reglementaire: false,
       domainIdx: di,
+      animate: false,
     });
 
     let famAngle = angle;
@@ -147,6 +158,7 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number 
         href: `/gammes/familles/${fam.id}`,
         reglementaire: false,
         domainIdx: di,
+        animate: false,
       });
 
       const gammeDataSpan = famDataSpan / fam.gammes.length;
@@ -154,18 +166,19 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number 
       for (let gi = 0; gi < fam.gammes.length; gi++) {
         const g = fam.gammes[gi]!;
         const sid = gammeStatutId(g);
-        const isValid = sid === 1;
-        if (isValid) validCount++;
+        if (sid !== 9) totalActives++;
+        if (sid === 1) aJourCount++;
         const statutLabel = STATUTS_GAMME[sid]?.label ?? "Inconnu";
 
         arcs.push({
           path: ringArc(RINGS[2]!, gamAngle, gamAngle + gammeDataSpan),
           color: levelColor(hue, 2),
           tooltip: `${g.nom_gamme} — ${statutLabel}${g.est_reglementaire ? " ⚖" : ""}`,
-          opacity: isValid ? 1 : 0.3,
+          opacity: gammeOpacity(sid),
           href: `/gammes/${g.id_gamme}`,
           reglementaire: !!g.est_reglementaire,
           domainIdx: di,
+          animate: sid === 6,
         });
         gamAngle += gammeDataSpan + (gi < fam.gammes.length - 1 ? GAP : 0);
       }
@@ -174,7 +187,7 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; validCount: number 
     angle += domSpan + GAP;
     di++;
   }
-  return { arcs, validCount };
+  return { arcs, aJourCount, totalActives };
 }
 
 interface SunburstRenderProps {
@@ -204,7 +217,7 @@ function SunburstRender({ arcs, pct, pctSize, onPctClick }: SunburstRenderProps)
           style={{ fontSize: pctSize }}>{pct}%</text>
         {arcs.map((arc, i) => (
           <g key={i}
-            className="hover:opacity-100 cursor-pointer"
+            className={cn("hover:opacity-100 cursor-pointer", arc.animate && ANIMATE_HEARTBEAT)}
             onClick={() => navigate(arc.href)}
             onMouseEnter={(e) => setTooltip({ text: arc.tooltip, cx: e.clientX, cy: e.clientY })}
             onMouseMove={(e) => setTooltip((t) => t ? { ...t, cx: e.clientX, cy: e.clientY } : null)}
@@ -235,7 +248,10 @@ export function GammeSunburst() {
   const { arcs, pct } = useMemo(() => {
     if (!data || data.length === 0) return { arcs: [], pct: 0 };
     const result = buildArcs(data);
-    return { arcs: result.arcs, pct: Math.round((result.validCount / data.length) * 100) };
+    const pct = result.totalActives > 0
+      ? Math.round((result.aJourCount / result.totalActives) * 100)
+      : 0;
+    return { arcs: result.arcs, pct };
   }, [data]);
 
   if (!data || data.length === 0) return null;

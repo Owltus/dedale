@@ -35,13 +35,15 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
         |row| row.get(0),
     ).map_err(|e| e.to_string())?;
 
-    // Donut : OT cette semaine ISO par statut (prévus, démarrés ou clôturés cette semaine)
+    // Donut : OT cette semaine ISO par statut (prévus ou clôturés cette semaine).
+    // Les OT en cours (statut 2) sont exclus : ils appartiennent au groupe « En cours »
+    // pour éviter qu'un même OT apparaisse dans deux groupes du donut.
     let mut stmt_cs = conn.prepare_cached(
         &format!("SELECT CASE WHEN id_statut_ot = 1 AND est_automatique = 1 THEN 11 ELSE id_statut_ot END, \
          COUNT(*) FROM ordres_travail \
-         WHERE (date_prevue >= {LUNDI_COURANT} AND date_prevue < {LUNDI_PROCHAIN}) \
-            OR (date_debut >= {LUNDI_COURANT} AND date_debut < {LUNDI_PROCHAIN}) \
-            OR (date_cloture >= {LUNDI_COURANT} AND date_cloture < {LUNDI_PROCHAIN}) \
+         WHERE id_statut_ot != 2 \
+         AND ((date_prevue >= {LUNDI_COURANT} AND date_prevue < {LUNDI_PROCHAIN}) \
+            OR (date_cloture >= {LUNDI_COURANT} AND date_cloture < {LUNDI_PROCHAIN})) \
          GROUP BY 1 ORDER BY 1"),
     ).map_err(|e| e.to_string())?;
     let ot_cette_semaine = stmt_cs.query_map([], |row| {
@@ -49,11 +51,10 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
-    // Donut : OT en cours hors semaine courante (évite le doublon avec « cette semaine »)
+    // Donut : tous les OT en cours. Plus besoin de filtre sur les dates,
+    // la requête « cette semaine » exclut déjà le statut 2.
     let nb_ot_en_cours: i64 = conn.query_row(
-        &format!("SELECT COUNT(*) FROM ordres_travail \
-         WHERE id_statut_ot = 2 \
-         AND (date_prevue < {LUNDI_COURANT} OR date_prevue >= {LUNDI_PROCHAIN})"),
+        "SELECT COUNT(*) FROM ordres_travail WHERE id_statut_ot = 2",
         [],
         |row| row.get(0),
     ).map_err(|e| e.to_string())?;
@@ -349,14 +350,11 @@ pub fn get_donut_ot(db: State<DbPool>, categorie: String) -> Result<Vec<OtListIt
             "WHERE ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 5)"
         ),
         "cette_semaine" => format!(
-            "WHERE (ot.date_prevue >= {LUNDI_COURANT} AND ot.date_prevue < {LUNDI_PROCHAIN}) \
-             OR (ot.date_debut >= {LUNDI_COURANT} AND ot.date_debut < {LUNDI_PROCHAIN}) \
-             OR (ot.date_cloture >= {LUNDI_COURANT} AND ot.date_cloture < {LUNDI_PROCHAIN})"
+            "WHERE ot.id_statut_ot != 2 \
+             AND ((ot.date_prevue >= {LUNDI_COURANT} AND ot.date_prevue < {LUNDI_PROCHAIN}) \
+                OR (ot.date_cloture >= {LUNDI_COURANT} AND ot.date_cloture < {LUNDI_PROCHAIN}))"
         ),
-        "en_cours" => format!(
-            "WHERE ot.id_statut_ot = 2 \
-             AND (ot.date_prevue < {LUNDI_COURANT} OR ot.date_prevue >= {LUNDI_PROCHAIN})"
-        ),
+        "en_cours" => "WHERE ot.id_statut_ot = 2".to_string(),
         _ => return Err(format!("Catégorie inconnue : {}", categorie)),
     };
 

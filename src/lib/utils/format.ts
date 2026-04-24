@@ -13,6 +13,12 @@ export function formatDateShort(dateStr: string | null | undefined): string {
   return format(new Date(dateStr), "dd/MM", { locale: fr });
 }
 
+/// Ex. "24/04/2026 (17)" — semaine ISO 8601 (lundi → dimanche)
+export function formatDateWithWeek(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  return format(new Date(dateStr), "dd/MM/yyyy '('II')'", { locale: fr });
+}
+
 /// Date du jour au format ISO (YYYY-MM-DD) — valeur par défaut des inputs type="date"
 export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);

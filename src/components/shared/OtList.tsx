@@ -4,7 +4,7 @@ import { OtGammeCell } from "./OtGammeCell";
 import { OtStatusBadge } from "./StatusBadge";
 import { DateRangePicker } from "./DateRangePicker";
 import { CardList } from "./CardList";
-import { formatDate } from "@/lib/utils/format";
+import { formatDateWithWeek } from "@/lib/utils/format";
 import type { OtListItem } from "@/lib/types/ordres-travail";
 
 /// Calcule l'ID de statut effectif à afficher selon la cascade de proximité
@@ -95,12 +95,12 @@ export function OtList({ data, emptyTitle = "Aucun ordre de travail", emptyDescr
         </>
       )}
       renderRight={(ot) => (
-        <div className="flex flex-col items-center gap-1 w-28 shrink-0">
+        <div className="flex flex-col items-center gap-1 w-32 shrink-0">
           <OtStatusBadge id={getEffectiveStatutId(ot)} />
           <span className="text-xs text-muted-foreground">
             {[3, 4].includes(ot.id_statut_ot)
-              ? formatDate(ot.date_cloture)
-              : formatDate(ot.date_prevue)}
+              ? formatDateWithWeek(ot.date_cloture)
+              : formatDateWithWeek(ot.date_prevue)}
           </span>
         </div>
       )}

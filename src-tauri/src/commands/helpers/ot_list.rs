@@ -22,7 +22,9 @@ const OT_LIST_SELECT: &str = "\
      WHERE dot.id_ordre_travail = ot.id_ordre_travail) AS nb_documents \
     FROM ordres_travail ot";
 
-/// Tri par priorité métier : Réouvert > Retard > En cours > Planifié > Autres
+/// Tri par priorité métier : Réouvert > Retard > En cours > Planifié > Autres.
+/// Dans chaque groupe : statuts actifs triés par date_prevue ASC (urgence),
+/// statuts terminaux (Clos/Annulé) triés par date_cloture DESC (récence).
 const OT_LIST_ORDER: &str = "\
     ORDER BY \
       CASE \
@@ -32,6 +34,7 @@ const OT_LIST_ORDER: &str = "\
         WHEN ot.id_statut_ot = 1 THEN 4 \
         ELSE 5 \
       END, \
+      CASE WHEN ot.id_statut_ot IN (3, 4) THEN ot.date_cloture END DESC, \
       ot.date_prevue ASC";
 
 /// Construit un OtListItem depuis une ligne SQL (16 colonnes)
