@@ -50,7 +50,7 @@ import { useDocumentsForEntity, useDownloadDocument } from "@/hooks/use-document
 import { useInvokeMutation } from "@/hooks/useInvoke";
 import { useQueryClient } from "@tanstack/react-query";
 import { ContratStatusBadge } from "@/components/shared/StatusBadge";
-import { DocumentPreviewDialog, type PreviewableDoc } from "@/pages/documents/DocumentPreviewDialog";
+import { DocumentPreviewDialog, type PreviewableDoc } from "@/components/shared/DocumentPreviewDialog";
 import { formatDate, stripExtension } from "@/lib/utils/format";
 
 function progressColor(p: number): string {

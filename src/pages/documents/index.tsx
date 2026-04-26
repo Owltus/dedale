@@ -1,7 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
 import { Download, FileText, Plus } from "lucide-react";
 import { DocumentIcon } from "@/components/shared/DocumentIcon";
 import { PageHeader } from "@/components/layout";
@@ -13,19 +11,20 @@ import { DropZone } from "@/components/shared/DropZone";
 import { ActionButtons } from "@/components/shared/ActionButtons";
 import { UploadModal } from "@/components/shared/UploadModal";
 import { useUploadQueue } from "@/components/shared/UploadQueue";
+import { DocumentPreviewDialog, type PreviewableDoc } from "@/components/shared/DocumentPreviewDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { DocumentListItem } from "@/lib/types/documents";
 import type { DocumentEditFormData } from "@/lib/schemas/documents";
 import {
   useDocuments, useDeleteDocument,
-  useDownloadDocument, useUpdateDocument, useReplaceDocumentFile,
+  useUpdateDocument, useReplaceDocumentFile,
+  useSaveDocumentToDisk, useDocumentPreview,
 } from "@/hooks/use-documents";
 import { useTypesDocuments } from "@/hooks/use-referentiels";
 import { formatDate, formatBytes, stripExtension } from "@/lib/utils/format";
 import { fileToBase64 } from "@/components/shared/DropZone";
 import { DocumentEditDialog } from "./DocumentEditDialog";
-import { DocumentPreviewDialog, type PreviewableDoc } from "./DocumentPreviewDialog";
 
 function filterDocument(doc: DocumentListItem, q: string): boolean {
   return doc.nom_original.toLowerCase().includes(q) || doc.nom_type.toLowerCase().includes(q);
@@ -36,17 +35,16 @@ export function Documents() {
   const { data: typesDoc = [] } = useTypesDocuments();
   const { enqueue } = useUploadQueue();
   const deleteMutation = useDeleteDocument();
-  const downloadMutation = useDownloadDocument();
   const updateMutation = useUpdateDocument();
   const replaceMutation = useReplaceDocumentFile();
+  const saveToDisk = useSaveDocumentToDisk();
+  const { previewDoc, previewData, openPreview, closePreview } = useDocumentPreview();
 
   // ── Dialog states ──
   const [uploadOpen, setUploadOpen] = useState(false);
   const [droppedFiles, setDroppedFiles] = useState<{ name: string; base64: string }[]>();
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editDoc, setEditDoc] = useState<DocumentListItem | null>(null);
-  const [previewDoc, setPreviewDoc] = useState<PreviewableDoc | null>(null);
-  const [previewData, setPreviewData] = useState<string | null>(null);
 
   const typeItems = useMemo(
     () => Object.fromEntries(typesDoc.map((t) => [String(t.id_type_document), t.nom])),
@@ -62,22 +60,7 @@ export function Documents() {
     }
   }, [uploadOpen]);
 
-  const handleDownload = async (doc: PreviewableDoc) => {
-    try {
-      const destination = await save({ defaultPath: doc.nom_original, title: "Enregistrer le document" });
-      if (!destination) return;
-      await invoke("save_document_to", { id: doc.id_document, destination });
-      toast.success("Document enregistre");
-    } catch (err) { toast.error(`Telechargement echoue : ${String(err)}`); }
-  };
-
-  const handlePreview = async (doc: PreviewableDoc) => {
-    try {
-      const base64 = await downloadMutation.mutateAsync({ id: doc.id_document });
-      setPreviewData(base64);
-      setPreviewDoc(doc);
-    } catch { /* gere */ }
-  };
+  const handleDownload = (doc: PreviewableDoc) => saveToDisk(doc);
 
   const handleEdit = async (data: DocumentEditFormData, replaceFile: File | null) => {
     if (!editDoc) return;
@@ -119,7 +102,7 @@ export function Documents() {
         <CardList
           data={documents}
           getKey={(doc) => doc.id_document}
-          onItemClick={handlePreview}
+          onItemClick={openPreview}
           filterFn={filterDocument}
           icon={<FileText className="size-5 text-muted-foreground" />}
           getIcon={(doc) => <DocumentIcon fileName={doc.nom_original} />}
@@ -167,7 +150,7 @@ export function Documents() {
       <DocumentPreviewDialog
         doc={previewDoc}
         previewData={previewData}
-        onClose={() => { setPreviewDoc(null); setPreviewData(null); }}
+        onClose={closePreview}
         onDownload={handleDownload}
       />
 

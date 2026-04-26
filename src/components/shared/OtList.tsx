@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { FileText, Wrench } from "lucide-react";
+import { Wrench } from "lucide-react";
 import { OtGammeCell } from "./OtGammeCell";
 import { OtStatusBadge } from "./StatusBadge";
 import { DateRangePicker } from "./DateRangePicker";
 import { CardList } from "./CardList";
+import { OtDocumentsButton } from "./OtDocumentsButton";
 import { formatDateWithWeek } from "@/lib/utils/format";
 import type { OtListItem } from "@/lib/types/ordres-travail";
 
@@ -90,7 +91,7 @@ export function OtList({ data, emptyTitle = "Aucun ordre de travail", emptyDescr
             <p className="text-xs text-muted-foreground truncate">{ot.description_gamme ?? "\u00A0"}</p>
           </div>
           {ot.nb_documents > 0 && (
-            <FileText className="size-8 shrink-0 text-violet-500 dark:text-violet-400" strokeWidth={1.2} />
+            <OtDocumentsButton idOrdreTravail={ot.id_ordre_travail} nbDocuments={ot.nb_documents} />
           )}
         </>
       )}

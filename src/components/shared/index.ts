@@ -7,4 +7,5 @@ export { ConfirmDialog } from "./ConfirmDialog";
 export { DateRangePicker } from "./DateRangePicker";
 export { SelectSearch } from "./SelectSearch";
 export { DocumentsLies } from "./DocumentsLies";
+export { DocumentPreviewDialog, type PreviewableDoc } from "./DocumentPreviewDialog";
 export { CommandPalette } from "./CommandPalette";

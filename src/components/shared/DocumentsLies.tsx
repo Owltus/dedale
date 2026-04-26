@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { FileUp, Trash2, Unlink2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { useDocumentsForEntity, useDeleteDocument } from "@/hooks/use-documents";
+import { useDocumentsForEntity, useDeleteDocument, useDocumentPreview, useSaveDocumentToDisk } from "@/hooks/use-documents";
 import { useInvokeMutation } from "@/hooks/useInvoke";
 import { formatDate, formatBytes, stripExtension, type NamingContext } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { DocumentIcon } from "./DocumentIcon";
 import { UploadModal } from "./UploadModal";
 import { useUploadQueue } from "./UploadQueue";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { DocumentPreviewDialog } from "./DocumentPreviewDialog";
 
 interface DocumentsLiesProps {
   entityType: "prestataires" | "ordres_travail" | "gammes" | "contrats" | "di" | "localisations" | "equipements" | "techniciens";
@@ -39,6 +40,8 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
   const qc = useQueryClient();
   const { enqueue } = useUploadQueue();
   const deleteMutation = useDeleteDocument();
+  const { previewDoc, previewData, openPreview, closePreview } = useDocumentPreview();
+  const saveToDisk = useSaveDocumentToDisk();
   const cmds = ENTITY_COMMANDS[entityType];
   const [dialogOpen, setDialogOpen] = useState(false);
   const [droppedFiles, setDroppedFiles] = useState<{ name: string; base64: string }[]>();
@@ -130,7 +133,11 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
             {data.map((doc) => (
               <div
                 key={doc.id_document}
-                className="flex items-stretch rounded-lg border overflow-hidden hover:bg-muted/30 transition-colors"
+                role="button"
+                tabIndex={0}
+                onClick={() => openPreview(doc)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void openPreview(doc); } }}
+                className="flex items-stretch rounded-lg border overflow-hidden hover:bg-muted/30 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <div className="flex aspect-square shrink-0 items-center justify-center bg-muted border-r [&_svg]:size-10 [&_svg]:stroke-1">
                   <DocumentIcon fileName={doc.nom_original} />
@@ -143,7 +150,7 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
                     </p>
                   </div>
                   {!readonly && !doc.source && (
-                    <div className="flex shrink-0 gap-1">
+                    <div className="flex shrink-0 gap-1" onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="size-7" title="Délier"
                         onClick={() => handleUnlink(doc.id_document)}>
                         <Unlink2 className="size-3.5" />
@@ -200,6 +207,13 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
           />
         </>
       )}
+
+      <DocumentPreviewDialog
+        doc={previewDoc}
+        previewData={previewData}
+        onClose={closePreview}
+        onDownload={saveToDisk}
+      />
     </div>
   );
 }
