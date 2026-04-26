@@ -195,6 +195,7 @@ pub fn run() {
             commands::gammes::update_gamme,
             commands::gammes::delete_gamme,
             commands::gammes::toggle_gamme_active,
+            commands::gammes::sync_image_to_ots,
             // Opérations
             commands::gammes::get_operations,
             commands::gammes::create_operation,

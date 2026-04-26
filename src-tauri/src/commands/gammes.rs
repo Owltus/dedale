@@ -620,6 +620,21 @@ pub fn delete_gamme(db: State<DbPool>, id: i64) -> Result<(), String> {
     Ok(())
 }
 
+/// Re-synchronise l'image courante de la gamme sur tous ses OT. Retourne le nombre d'OT mis à jour.
+#[tauri::command]
+pub fn sync_image_to_ots(db: State<DbPool>, id_gamme: i64) -> Result<i64, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    let updated = conn
+        .execute(
+            "UPDATE ordres_travail \
+             SET id_image = (SELECT id_image FROM gammes WHERE id_gamme = ?1) \
+             WHERE id_gamme = ?1",
+            params![id_gamme],
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(updated as i64)
+}
+
 /// Active ou désactive une gamme et retourne l'objet complet
 /// Le trigger protège la désactivation si des OT actifs existent
 #[tauri::command]

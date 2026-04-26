@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { buildGammeBreadcrumb } from "@/lib/utils/breadcrumbs";
 import { toast } from "sonner";
-import { BookOpen, Cpu, FileUp, LayersPlus, Link, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Cpu, FileUp, Images, LayersPlus, Link, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader, useSetBreadcrumbTrail } from "@/components/layout";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,7 +23,7 @@ import { InfoCard } from "@/components/shared/InfoCard";
 import { CardList } from "@/components/shared/CardList";
 import { ActionButtons } from "@/components/shared/ActionButtons";
 import type { Operation } from "@/lib/types/gammes";
-import { useGamme, useUpdateGamme, useDeleteGamme, useOperations, useCreateOperation, useUpdateOperation, useDeleteOperation, useGammeModeles, useLinkModeleOperation, useUnlinkModeleOperation, useFamilleGamme, useDomaineGamme, useGammeEquipements, useLinkGammeEquipement, useLinkGammeEquipementsBatch, useUnlinkGammeEquipement } from "@/hooks/use-gammes";
+import { useGamme, useUpdateGamme, useDeleteGamme, useOperations, useCreateOperation, useUpdateOperation, useDeleteOperation, useGammeModeles, useLinkModeleOperation, useUnlinkModeleOperation, useFamilleGamme, useDomaineGamme, useGammeEquipements, useLinkGammeEquipement, useLinkGammeEquipementsBatch, useUnlinkGammeEquipement, useSyncImageToOts } from "@/hooks/use-gammes";
 import { usePrestataires } from "@/hooks/use-prestataires";
 import { usePeriodicites } from "@/hooks/use-referentiels";
 import { useEquipements } from "@/hooks/use-equipements";
@@ -86,6 +86,7 @@ export function GammesDetail() {
   const updateOp = useUpdateOperation();
   const deleteOp = useDeleteOperation();
   const createOt = useCreateOrdreTravail();
+  const syncImageToOts = useSyncImageToOts();
 
   // State
   const [activeTab, setActiveTab] = useState("ot");
@@ -97,6 +98,7 @@ export function GammesDetail() {
   const [editGammeOpen, setEditGammeOpen] = useState(false);
   const [confirmDeleteGamme, setConfirmDeleteGamme] = useState(false);
   const [equipDialogOpen, setEquipDialogOpen] = useState(false);
+  const [syncImageOpen, setSyncImageOpen] = useState(false);
 
   useSetBreadcrumbTrail(domaine && famille && gamme ? buildGammeBreadcrumb(domaine, famille, gamme) : []);
 
@@ -206,6 +208,7 @@ export function GammesDetail() {
             {activeTab === "documents" && (
               <HeaderButton icon={<FileUp className="size-4" />} label="Ajouter un document" onClick={() => document.getElementById("gamme-doc-upload")?.click()} />
             )}
+            <HeaderButton icon={<Images className="size-4" />} label="Synchroniser l'image sur tous les OT" onClick={() => setSyncImageOpen(true)} disabled={ots.length === 0} />
             <HeaderButton icon={<Pencil className="size-4" />} label="Modifier" onClick={() => setEditGammeOpen(true)} />
             <HeaderButton icon={<Trash2 className="size-4" />} label="Supprimer" onClick={() => setConfirmDeleteGamme(true)} variant="destructive" />
           </TooltipProvider>
@@ -452,6 +455,25 @@ export function GammesDetail() {
             navigate(`/gammes/familles/${gamme.id_famille_gamme}`);
           } catch (e) { toast.error(String(e)); }
           setConfirmDeleteGamme(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={syncImageOpen}
+        onOpenChange={setSyncImageOpen}
+        title="Synchroniser l'image sur tous les OT"
+        description={
+          gamme.id_image
+            ? `L'image de la gamme remplacera celle des ${ots.length} ordres de travail liés.`
+            : `Les ${ots.length} ordres de travail liés n'auront plus d'image (la gamme n'en a pas).`
+        }
+        confirmLabel="Synchroniser"
+        onConfirm={async () => {
+          try {
+            const n = await syncImageToOts.mutateAsync({ idGamme: gammeId } as never);
+            toast.success(`Image synchronisée sur ${n} OT`);
+          } catch (e) { toast.error(String(e)); }
+          setSyncImageOpen(false);
         }}
       />
 

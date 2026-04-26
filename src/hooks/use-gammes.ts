@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useInvokeQuery, useInvokeMutation } from "./useInvoke";
+import { otKeys } from "./use-ordres-travail";
 import type { DomaineGamme, DomaineGammeListItem, FamilleGamme, FamilleGammeListItem, Gamme, GammeListItem, Operation } from "@/lib/types/gammes";
 import type { Equipement } from "@/lib/types/equipements";
 
@@ -161,6 +162,17 @@ export function useToggleGammeActive() {
   return useInvokeMutation<Gamme, { id: number; estActive: number }>(
     "toggle_gamme_active",
     { onSettled: () => qc.invalidateQueries({ queryKey: gammeKeys.all }) }
+  );
+}
+
+export function useSyncImageToOts() {
+  const qc = useQueryClient();
+  return useInvokeMutation<number, { idGamme: number }>(
+    "sync_image_to_ots",
+    { onSettled: () => {
+      qc.invalidateQueries({ queryKey: otKeys.all });
+      qc.invalidateQueries({ queryKey: gammeKeys.all });
+    } }
   );
 }
 
