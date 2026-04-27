@@ -11,9 +11,10 @@ import type { z } from "zod";
  * ce qui permet d'utiliser useForm<FormData> sans cast inline.
  */
  
+/* eslint-disable @typescript-eslint/no-explicit-any -- Zod v4 z.coerce a Input=unknown, le any est nécessaire pour la compatibilité avec useForm<OutputType> */
 export function typedResolver<TOutput extends FieldValues>(
   schema: z.ZodType<TOutput, any>,
 ): Resolver<TOutput> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return zodResolver(schema as any) as Resolver<TOutput>;
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */

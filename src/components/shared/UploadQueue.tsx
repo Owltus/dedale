@@ -128,7 +128,7 @@ export function UploadQueueProvider({ children }: { children: ReactNode }) {
       else toast.warning(msg);
       setItems([]);
     }
-  }, [totalCount, pendingCount, doneCount, errorCount, currentItem?.id]);
+  }, [totalCount, pendingCount, doneCount, errorCount, currentItem?.id, currentItem?.name]);
 
   return (
     <UploadQueueContext.Provider value={{ enqueue, pendingCount }}>

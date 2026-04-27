@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,16 +18,16 @@ interface AvenantDialogProps {
 
 /// Dialogue de création d'un avenant (pré-rempli depuis le contrat courant)
 export function AvenantContratDialog({ open, onOpenChange, contrat, prestataireLabel, typesContrats, onSubmit, isLoading }: AvenantDialogProps) {
-  const defaults = () => ({
+  const defaults = useCallback(() => ({
     id_contrat_parent: contrat.id_contrat, objet_avenant: "",
     ...contratDefaults(contrat),
     date_debut: contrat.date_fin ?? contrat.date_debut, date_fin: "", date_signature: "",
-  });
+  }), [contrat]);
   const form = useForm({
     resolver: typedResolver(avenantSchema),
     defaultValues: defaults(),
   });
-  useEffect(() => { if (open) form.reset(defaults()); }, [open, contrat, form]);
+  useEffect(() => { if (open) form.reset(defaults()); }, [open, defaults, form]);
 
   const typeOpts = typesContrats.map(t => ({ key: t.id_type_contrat, value: t.id_type_contrat, label: t.libelle }));
   const e = form.formState.errors;
