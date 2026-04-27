@@ -1,6 +1,6 @@
 use include_dir::{include_dir, Dir};
 use rusqlite::Connection;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::{fs, io};
 
@@ -18,6 +18,214 @@ const LEGACY_MARKER_TABLE: &str = "types_erp";
 
 /// Pool de connexion SQLite — wrappé dans un Mutex standard (pas tokio)
 pub type DbPool = Mutex<Connection>;
+
+/// Retourne la version maximale de schéma embarquée dans le binaire (la plus récente
+/// qu'on sait gérer). Utilisée pour rejeter une sauvegarde issue d'une version plus
+/// récente de l'application — on ne charge jamais un schéma qu'on ne connaît pas.
+pub fn embedded_schema_version() -> Result<i64, String> {
+    let migrations = load_migrations()?;
+    Ok(migrations.last().map(|m| m.version).unwrap_or(0))
+}
+
+/// Préfixe utilisé pour les copies de sauvegarde créées avant un restore
+const PRE_RESTORE_DB_PREFIX: &str = "dedale.db.backup-pre-restore-";
+const PRE_RESTORE_DOCS_PREFIX: &str = "documents.pre-restore-";
+/// Préfixe utilisé pour les copies créées avant l'application d'une migration SQL
+const PRE_MIGRATION_DB_PREFIX: &str = "dedale.db.backup-pre-migration-";
+/// Nombre de copies à conserver pour chaque famille (les plus récentes)
+const PRE_RESTORE_KEEP: usize = 3;
+const PRE_MIGRATION_KEEP: usize = 3;
+/// Marqueur déposé après une restauration réussie — consommé par le frontend
+pub const RESTORE_MARKER_NAME: &str = ".last-restore-marker";
+
+/// Liste les fichiers/dossiers d'un répertoire dont le nom commence par `prefix`,
+/// triés du plus récent au plus ancien (mtime), et supprime tous ceux au-delà
+/// du `keep` premier(s). Échec silencieux : la rotation ne doit pas casser le boot.
+fn prune_old_pre_restore(app_data_dir: &Path, prefix: &str, keep: usize) {
+    let Ok(entries) = fs::read_dir(app_data_dir) else { return };
+    let mut matches: Vec<(PathBuf, std::time::SystemTime)> = entries
+        .flatten()
+        .filter_map(|e| {
+            let path = e.path();
+            let name = path.file_name()?.to_string_lossy().to_string();
+            if !name.starts_with(prefix) {
+                return None;
+            }
+            let mtime = e.metadata().ok()?.modified().ok()?;
+            Some((path, mtime))
+        })
+        .collect();
+    matches.sort_by(|a, b| b.1.cmp(&a.1));
+    for (path, _) in matches.into_iter().skip(keep) {
+        if path.is_dir() {
+            let _ = fs::remove_dir_all(&path);
+        } else {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
+
+/// Au boot, balaye une fois `app_data_dir` pour supprimer :
+/// - les snapshots VACUUM INTO orphelins (`.dedale-backup-tmp-*.db`) laissés
+///   par un crash entre la création du temp et son nettoyage dans `backup_create`
+/// - les anciens backups pré-migration legacy au format `dedale.db.backup-YYYYMMDD-HHMMSS`
+///   (sans sous-préfixe), désormais remplacés par `dedale.db.backup-pre-migration-…`
+///   qui bénéficie d'une rotation
+///
+/// Un seul `read_dir` au lieu de deux pour ne pas peser sur le démarrage.
+/// Conservateur sur les legacy : on ne touche pas aux préfixes connus
+/// (`backup-manual-…`, `backup-pre-restore-…`, `backup-pre-migration-…`).
+pub fn cleanup_stale_files_at_boot(app_data_dir: &Path) {
+    let Ok(entries) = fs::read_dir(app_data_dir) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(n) => n,
+            None => continue,
+        };
+
+        // Cas 1 : snapshot temporaire orphelin (le .db ET ses compagnons WAL/SHM
+        // que SQLite Online Backup crée quand la source est en mode WAL)
+        if name.starts_with(".dedale-backup-tmp-")
+            && (name.ends_with(".db") || name.ends_with(".db-wal") || name.ends_with(".db-shm"))
+        {
+            let _ = fs::remove_file(&path);
+            continue;
+        }
+
+        // Cas 2 : backup pré-migration legacy (sans sous-préfixe explicite)
+        if let Some(suffix) = name.strip_prefix("dedale.db.backup-") {
+            if suffix.starts_with("manual-")
+                || suffix.starts_with("pre-restore-")
+                || suffix.starts_with("pre-migration-")
+            {
+                continue;
+            }
+            // Forme YYYYMMDD-HHMMSS (15 chars, '-' en [8], le reste numérique)
+            let bytes = suffix.as_bytes();
+            if bytes.len() != 15 || bytes[8] != b'-' {
+                continue;
+            }
+            let all_digits = bytes
+                .iter()
+                .enumerate()
+                .all(|(i, b)| if i == 8 { true } else { b.is_ascii_digit() });
+            if all_digits {
+                let _ = fs::remove_file(&path);
+            }
+        }
+    }
+}
+
+/// Si un dossier `pending-restore/` est présent dans `app_data_dir`, applique le swap
+/// AVANT toute ouverture de la base : la connexion SQLite n'est pas encore créée,
+/// donc le fichier n'est pas verrouillé.
+///
+/// Stratégie atomique : on **renomme** la DB courante en `.replaced` au lieu de la
+/// supprimer, on copie ensuite la nouvelle DB en place, et on supprime `.replaced`
+/// uniquement si la copie a réussi. En cas d'échec en cours de route, on restaure
+/// `.replaced` → DB courante pour garantir un boot dans tous les cas.
+///
+/// Les filets de sécurité (`dedale.db.backup-pre-restore-…`, `documents.pre-restore-…`)
+/// sont conservés en plus, avec rotation à `PRE_RESTORE_KEEP` exemplaires les plus récents.
+pub fn apply_pending_restore(app_data_dir: &Path) -> Result<(), String> {
+    let pending = app_data_dir.join("pending-restore");
+    if !pending.exists() {
+        return Ok(());
+    }
+
+    let pending_db = pending.join("dedale.db");
+    if !pending_db.exists() {
+        let _ = fs::remove_dir_all(&pending);
+        log::warn!("pending-restore présent sans dedale.db — ignoré");
+        return Ok(());
+    }
+
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let current_db = app_data_dir.join("dedale.db");
+    let current_wal = app_data_dir.join("dedale.db-wal");
+    let current_shm = app_data_dir.join("dedale.db-shm");
+
+    // Étape 1 : mettre l'ancienne DB de côté via rename (rapide, atomique sur
+    // même volume). Sert à la fois de filet de rollback en cas d'échec du swap
+    // ET, en cas de succès, de source pour créer le filet pré-restore horodaté.
+    let replaced_db = app_data_dir.join("dedale.db.replaced");
+    let _ = fs::remove_file(&replaced_db); // résidu d'un crash précédent
+    let had_current = current_db.exists();
+    if had_current {
+        fs::rename(&current_db, &replaced_db)
+            .map_err(|e| format!("Mise de côté de l'ancienne DB : {}", e))?;
+    }
+
+    // Les journaux WAL/SHM appartenaient à l'ancienne DB — on les écarte
+    // après la mise à l'écart (sinon en cas d'échec et rollback, on aurait
+    // un dedale.db restauré sans son WAL).
+    let _ = fs::remove_file(&current_wal);
+    let _ = fs::remove_file(&current_shm);
+
+    // Étape 2 : copier (pas rename — fonctionne cross-volume) la nouvelle DB en place
+    if let Err(e) = fs::copy(&pending_db, &current_db) {
+        // Rollback : remettre l'ancienne en place pour ne pas laisser le user sans DB
+        if had_current {
+            let _ = fs::rename(&replaced_db, &current_db);
+        }
+        return Err(format!("Restauration de dedale.db : {}", e));
+    }
+
+    // Étape 3 : la nouvelle DB est en place. On essaye de transformer `.replaced`
+    // en filet pré-restore horodaté (rename = quasi-instantané). Si ce rename
+    // échoue, on garde quand même `.replaced` comme dernier filet — il sera
+    // visible au prochain boot et l'utilisateur pourra le récupérer manuellement.
+    if had_current {
+        let safety = app_data_dir.join(format!("{}{}", PRE_RESTORE_DB_PREFIX, stamp));
+        if let Err(e) = fs::rename(&replaced_db, &safety) {
+            log::warn!(
+                "Création du filet pré-restore échouée ({}). L'ancienne DB est conservée sous {}.",
+                e,
+                replaced_db.display()
+            );
+        }
+    }
+
+    // Documents : même logique de mise à l'écart puis swap
+    let pending_docs = pending.join("documents");
+    let current_docs = app_data_dir.join("documents");
+    if pending_docs.exists() {
+        let archived = if current_docs.exists() {
+            let target = app_data_dir.join(format!("{}{}", PRE_RESTORE_DOCS_PREFIX, stamp));
+            match fs::rename(&current_docs, &target) {
+                Ok(_) => Some(target),
+                Err(e) => {
+                    log::warn!("Archivage documents pré-restore échoué : {} — suppression brute", e);
+                    let _ = fs::remove_dir_all(&current_docs);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        if let Err(e) = fs::rename(&pending_docs, &current_docs) {
+            // Tenter de restaurer l'ancien si on l'avait juste archivé
+            if let Some(arch) = archived.as_ref() {
+                let _ = fs::rename(arch, &current_docs);
+            }
+            return Err(format!("Restauration du dossier documents : {}", e));
+        }
+    }
+
+    // Marqueur consommé par le frontend pour afficher un toast post-restore
+    let _ = fs::write(app_data_dir.join(RESTORE_MARKER_NAME), &stamp);
+
+    fs::remove_dir_all(&pending)
+        .map_err(|e| format!("Nettoyage pending-restore : {}", e))?;
+
+    // Rotation : ne garder que les N plus récents filets pour éviter la pollution
+    prune_old_pre_restore(app_data_dir, PRE_RESTORE_DB_PREFIX, PRE_RESTORE_KEEP);
+    prune_old_pre_restore(app_data_dir, PRE_RESTORE_DOCS_PREFIX, PRE_RESTORE_KEEP);
+
+    Ok(())
+}
 
 /// Initialise la connexion SQLite : PRAGMAs puis application des migrations manquantes.
 pub fn init_database(app_data_dir: PathBuf) -> Result<DbPool, String> {
@@ -214,16 +422,16 @@ fn apply_single_migration(conn: &Connection, m: &Migration) -> Result<(), String
     }
 }
 
-/// Copie la base vers un fichier horodaté `dedale.db.backup-YYYYMMDD-HHMMSS`.
+/// Copie la base vers un fichier horodaté `dedale.db.backup-pre-migration-YYYYMMDD-HHMMSS`.
 /// Retourne silencieusement en cas d'échec — un backup raté ne doit pas bloquer le boot.
+/// Une rotation est appliquée par l'appelant pour ne pas accumuler indéfiniment.
 fn backup_database(db_path: &std::path::Path) {
     let Some(parent) = db_path.parent() else { return };
-    let Some(filename) = db_path.file_name().and_then(|n| n.to_str()) else { return };
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
-    let target = parent.join(format!("{}.backup-{}", filename, stamp));
+    let target = parent.join(format!("{}{}", PRE_MIGRATION_DB_PREFIX, stamp));
     if let Err(e) = fs::copy(db_path, &target) {
         if e.kind() != io::ErrorKind::NotFound {
-            eprintln!("Backup pré-migration échoué : {}", e);
+            log::warn!("Backup pré-migration échoué : {}", e);
         }
     }
 }
@@ -250,6 +458,10 @@ fn run_migrations(conn: &Connection, db_path: &std::path::Path) -> Result<(), St
     // Backup uniquement quand on va appliquer quelque chose sur une base existante
     if db_path.exists() {
         backup_database(db_path);
+        // Rotation immédiate pour ne pas accumuler indéfiniment les pré-migration
+        if let Some(parent) = db_path.parent() {
+            prune_old_pre_restore(parent, PRE_MIGRATION_DB_PREFIX, PRE_MIGRATION_KEEP);
+        }
     }
 
     for m in pending {

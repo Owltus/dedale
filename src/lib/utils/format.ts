@@ -70,6 +70,15 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(i > 0 ? 1 : 0)} ${units[i] ?? "o"}`;
 }
 
+/// Nombre de jours écoulés depuis une date ISO (RFC3339 ou "YYYY-MM-DD HH:MM:SS").
+/// null si l'entrée est manquante ou non parsable. Arrondi inférieur.
+export function daysSince(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const parsed = new Date(iso.replace(" ", "T"));
+  if (isNaN(parsed.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 86_400_000));
+}
+
 /// Formate une durée en jours en texte lisible
 export function formatDuration(days: number): string {
   if (days < 1) return "< 1 jour";

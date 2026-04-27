@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -14,6 +15,9 @@ interface ConfirmDialogProps {
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
+  /// Contenu additionnel inséré entre la description et les boutons —
+  /// utile pour afficher un résumé structuré (liste de stats, etc.)
+  children?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "destructive" | "default";
@@ -27,6 +31,7 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
+  children,
   confirmLabel = "Supprimer",
   cancelLabel = "Annuler",
   variant = "destructive",
@@ -40,6 +45,7 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction

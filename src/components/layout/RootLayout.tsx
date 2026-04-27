@@ -8,6 +8,8 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { BreadcrumbProvider } from "./BreadcrumbContext";
 import { CommandPalette } from "@/components/shared/CommandPalette";
 import { UploadQueueProvider } from "@/components/shared/UploadQueue";
+import { BackupSessionProvider } from "@/components/shared/BackupSessionProvider";
+import { BootNotices } from "./BootNotices";
 
 /// Layout racine : sidebar fixe + zone principale + toaster + file d'upload
 export function RootLayout() {
@@ -15,6 +17,7 @@ export function RootLayout() {
     <ThemeProvider attribute="class" defaultTheme="system" storageKey="dedale-theme">
       <BreadcrumbProvider>
         <UploadQueueProvider>
+        <BackupSessionProvider>
           <div className="flex h-screen overflow-hidden bg-background">
             <Sidebar />
             <main className="flex flex-1 flex-col min-h-0 min-w-0">
@@ -36,6 +39,8 @@ export function RootLayout() {
           </div>
           <Toaster />
           <CommandPalette />
+          <BootNotices />
+        </BackupSessionProvider>
         </UploadQueueProvider>
       </BreadcrumbProvider>
     </ThemeProvider>

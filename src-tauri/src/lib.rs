@@ -14,6 +14,15 @@ pub fn run() {
                 .app_data_dir()
                 .expect("Impossible de résoudre le répertoire de données");
 
+            // Appliquer une éventuelle restauration en attente AVANT d'ouvrir la DB
+            // (la connexion SQLite n'existe pas encore, donc le fichier n'est pas verrouillé)
+            db::apply_pending_restore(&app_data_dir)
+                .expect("Échec de l'application d'une sauvegarde restaurée");
+
+            // Nettoyer en une seule passe : snapshots VACUUM orphelins +
+            // backups pré-migration legacy (anciens fichiers sans rotation)
+            db::cleanup_stale_files_at_boot(&app_data_dir);
+
             // Initialiser la base de données
             let db_pool = db::init_database(app_data_dir.clone())
                 .expect("Erreur fatale lors de l'initialisation de la base de données");
@@ -30,14 +39,26 @@ pub fn run() {
             // Enregistrer le pool dans le state Tauri
             app.manage(db_pool);
 
-            // Plugin log en mode debug uniquement
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            // Plugin log : en debug → stdout + niveau Info ; en release → fichier
+            // dans LogDir, niveau Warn (les avertissements de boot et de
+            // restauration doivent rester traçables sans stdout)
+            let log_builder = if cfg!(debug_assertions) {
+                tauri_plugin_log::Builder::default()
+                    .target(tauri_plugin_log::Target::new(
+                        tauri_plugin_log::TargetKind::Stdout,
+                    ))
+                    .target(tauri_plugin_log::Target::new(
+                        tauri_plugin_log::TargetKind::Webview,
+                    ))
+                    .level(log::LevelFilter::Info)
+            } else {
+                tauri_plugin_log::Builder::default()
+                    .target(tauri_plugin_log::Target::new(
+                        tauri_plugin_log::TargetKind::LogDir { file_name: None },
+                    ))
+                    .level(log::LevelFilter::Warn)
+            };
+            app.handle().plugin(log_builder.build())?;
 
             Ok(())
         })
@@ -286,6 +307,15 @@ pub fn run() {
             commands::export::export_csv_equipements,
             commands::export::export_csv_gammes,
             commands::export::get_export_ot,
+            // Sauvegarde / Restauration
+            commands::backup::backup_create,
+            commands::backup::backup_inspect,
+            commands::backup::backup_restore,
+            commands::backup::get_derniere_sauvegarde,
+            commands::backup::list_pre_restore_backups,
+            commands::backup::restore_pre_restore,
+            commands::backup::consume_restore_flag,
+            commands::backup::open_app_data_dir,
         ])
         .run(tauri::generate_context!())
         .expect("Erreur au lancement de l'application");

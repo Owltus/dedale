@@ -1,4 +1,5 @@
 pub mod helpers;
+pub mod backup;
 pub mod contrats;
 pub mod dashboard;
 pub mod demandes;
