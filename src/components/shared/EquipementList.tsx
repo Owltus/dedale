@@ -11,7 +11,6 @@ function getEquipementStatutId(e: EquipementListItem): number {
     nbRetard: e.nb_ot_en_retard,
     nbEnCours: e.nb_ot_en_cours,
     prochaineDate: e.prochaine_date,
-    joursPeriodicite: e.jours_periodicite_min ?? 0,
   });
 }
 

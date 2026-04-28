@@ -1,3 +1,5 @@
+import { addDays, endOfMonth, endOfWeek, isBefore, startOfDay } from "date-fns";
+
 interface StatutConfig {
   label: string;
   variant: "default" | "secondary" | "destructive" | "outline";
@@ -5,6 +7,9 @@ interface StatutConfig {
 }
 
 const FALLBACK: StatutConfig = { label: "Inconnu", variant: "outline" };
+
+/// IDs des statuts agrégés produits par computeAggregateStatutId.
+export type StatutGammeId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 /** Animation pulsation pour les statuts "Réouvert(e)" */
 export const ANIMATE_HEARTBEAT = "animate-[heartbeat_1.8s_ease-in-out_infinite]";
@@ -116,25 +121,28 @@ export function getStatutFamilleGamme(id: number): StatutConfig {
   return STATUTS_FAMILLE_GAMME[id] ?? FALLBACK;
 }
 
-/// Calcule le statut de proximité temporelle d'un prochain OT planifié.
-/// Retourne 3 (cette semaine), 4 (semaine prochaine), 5 (ce mois-ci), ou null.
-export function getProximiteStatutId(
-  prochaineDate: string,
-  joursPeriodicite: number,
-): 3 | 4 | 5 | null {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const next = new Date(prochaineDate);
-  next.setHours(0, 0, 0, 0);
-  const diff = Math.ceil((next.getTime() - today.getTime()) / 86_400_000);
-  if (diff <= 7 && joursPeriodicite >= 30) return 3;
-  if (diff > 7 && diff <= 14 && joursPeriodicite >= 30) return 4;
-  if (diff > 14 && diff <= 30 && joursPeriodicite >= 60) return 5;
+/// Statut de proximité d'un prochain OT planifié — logique CALENDAIRE :
+///   • 3 Cette semaine     → ≤ dimanche en cours
+///   • 4 Semaine prochaine → dans la semaine calendaire suivante (lun→dim)
+///   • 5 Ce mois-ci        → avant la fin du mois en cours
+///   • null                → plus lointain (cascade tombe sur Validé)
+/// Une gamme hebdomadaire clôturée mardi voit son prochain OT tomber en
+/// "Semaine prochaine" et passer brièvement par Validé sur le sunburst.
+export function getProximiteStatutId(prochaineDate: string): 3 | 4 | 5 | null {
+  const today = startOfDay(new Date());
+  const next = startOfDay(new Date(prochaineDate));
+  if (isBefore(next, today)) return null;
+
+  const eow = endOfWeek(today, { weekStartsOn: 1 });
+  if (next <= eow) return 3;
+  if (next <= endOfWeek(addDays(today, 7), { weekStartsOn: 1 })) return 4;
+  if (next <= endOfMonth(today)) return 5;
   return null;
 }
 
-/// Calcule le statut agrégé pour un conteneur (domaine, famille) ou un item (gamme, équipement).
-/// Cascade de priorité : inactif → vide → réouvert → retard → en cours → sans OT → proximité → validé.
+/// Statut agrégé d'un conteneur (domaine, famille) ou item (gamme, équipement).
+/// Cascade : inactif → vide → retard → réouvert → en cours → sans OT → proximité → validé.
+/// Le retard est prioritaire sur la réouverture (manquement direct vs retravail).
 export function computeAggregateStatutId(input: {
   isEmpty?: boolean;
   allInactive?: boolean;
@@ -143,16 +151,15 @@ export function computeAggregateStatutId(input: {
   nbRetard: number;
   nbEnCours: number;
   prochaineDate: string | null;
-  joursPeriodicite: number;
-}): number {
+}): StatutGammeId {
   if (input.allInactive) return 9;
   if (input.isEmpty) return 8;
-  if (input.nbReouvert > 0) return 7;
   if (input.nbRetard > 0) return 6;
+  if (input.nbReouvert > 0) return 7;
   if (input.nbEnCours > 0) return 2;
   if (input.hasUnassigned) return 8;
   if (input.prochaineDate) {
-    const p = getProximiteStatutId(input.prochaineDate, input.joursPeriodicite);
+    const p = getProximiteStatutId(input.prochaineDate);
     if (p) return p;
   }
   return 1;

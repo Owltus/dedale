@@ -13,7 +13,6 @@ function getFamilleStatutId(f: FamilleGammeListItem): number {
     nbRetard: f.nb_ot_en_retard,
     nbEnCours: f.nb_ot_en_cours,
     prochaineDate: f.prochaine_date,
-    joursPeriodicite: f.jours_periodicite_min ?? 0,
   });
 }
 

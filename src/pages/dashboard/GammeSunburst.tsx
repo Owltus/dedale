@@ -49,7 +49,6 @@ function gammeStatutId(g: SunburstGamme): number {
     nbRetard: g.nb_ot_en_retard,
     nbEnCours: g.nb_ot_en_cours,
     prochaineDate: g.prochaine_date,
-    joursPeriodicite: g.jours_periodicite,
   });
 }
 
@@ -87,16 +86,21 @@ interface ArcDef {
   animate: boolean;
 }
 
-// Le statut 6 (Retard) reste à opacité 1 car il pulse via ANIMATE_HEARTBEAT :
-// le multiplier par 0.3 rendrait la pulsation quasi invisible (0.3 × 0.35 ≈ 0.1).
+// Groupes sémantiques de statuts gammes utilisés pour le rendu du sunburst.
+// Validé / Semaine prochaine / Ce mois-ci → pleine couleur (implicite).
+const STATUT_HORS_PERIMETRE = new Set([8, 9]); // Non assignée, Inactive
+const STATUT_OT_INVALIDE    = new Set([6, 7]); // En retard, Réouvert (pulsent)
+const STATUT_A_TRAITER      = new Set([2, 3]); // En cours, Cette semaine
+
 function gammeOpacity(sid: number): number {
-  if (sid === 9) return 0.15;
-  if (sid === 2 || sid === 7 || sid === 8) return 0.3;
+  if (STATUT_HORS_PERIMETRE.has(sid)) return 0.05;
+  if (STATUT_OT_INVALIDE.has(sid)) return 0.4;
+  if (STATUT_A_TRAITER.has(sid)) return 0.3;
   return 1;
 }
 
-function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; aJourCount: number; totalActives: number } {
-  if (data.length === 0) return { arcs: [], aJourCount: 0, totalActives: 0 };
+function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; aJourCount: number; totalGammes: number } {
+  if (data.length === 0) return { arcs: [], aJourCount: 0, totalGammes: 0 };
 
   // Grouper par domaine (avec id) → famille (avec id) → gammes
   const domains = new Map<string, { id: number; families: Map<string, { id: number; gammes: SunburstGamme[] }> }>();
@@ -119,7 +123,10 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; aJourCount: number;
   const available = 360 - totalGaps;
   const arcs: ArcDef[] = [];
   let aJourCount = 0;
-  let totalActives = 0;
+  // Le dénominateur du % central inclut TOUTES les gammes (actives ET inactives) :
+  // une gamme inactive est une gamme qu'on ne maintient plus, c'est un manque
+  // de complétion qu'il faut visualiser dans le ratio global.
+  let totalGammes = 0;
 
   let angle = 0;
   let di = 0;
@@ -166,7 +173,7 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; aJourCount: number;
       for (let gi = 0; gi < fam.gammes.length; gi++) {
         const g = fam.gammes[gi]!;
         const sid = gammeStatutId(g);
-        if (sid !== 9) totalActives++;
+        totalGammes++;
         if (sid === 1) aJourCount++;
         const statutLabel = STATUTS_GAMME[sid]?.label ?? "Inconnu";
 
@@ -178,7 +185,7 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; aJourCount: number;
           href: `/gammes/${g.id_gamme}`,
           reglementaire: !!g.est_reglementaire,
           domainIdx: di,
-          animate: sid === 6,
+          animate: STATUT_OT_INVALIDE.has(sid),
         });
         gamAngle += gammeDataSpan + (gi < fam.gammes.length - 1 ? GAP : 0);
       }
@@ -187,7 +194,7 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; aJourCount: number;
     angle += domSpan + GAP;
     di++;
   }
-  return { arcs, aJourCount, totalActives };
+  return { arcs, aJourCount, totalGammes };
 }
 
 interface SunburstRenderProps {
@@ -248,8 +255,8 @@ export function GammeSunburst() {
   const { arcs, pct } = useMemo(() => {
     if (!data || data.length === 0) return { arcs: [], pct: 0 };
     const result = buildArcs(data);
-    const pct = result.totalActives > 0
-      ? Math.round((result.aJourCount / result.totalActives) * 100)
+    const pct = result.totalGammes > 0
+      ? Math.round((result.aJourCount / result.totalGammes) * 100)
       : 0;
     return { arcs: result.arcs, pct };
   }, [data]);

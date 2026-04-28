@@ -12,7 +12,6 @@ function getGammeStatutId(g: GammeListItem): number {
     nbRetard: g.nb_ot_en_retard,
     nbEnCours: g.nb_ot_en_cours,
     prochaineDate: g.prochaine_date,
-    joursPeriodicite: g.jours_periodicite,
   });
 }
 

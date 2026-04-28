@@ -13,7 +13,6 @@ function getDomaineStatutId(d: DomaineGammeListItem): number {
     nbRetard: d.nb_ot_en_retard,
     nbEnCours: d.nb_ot_en_cours,
     prochaineDate: d.prochaine_date,
-    joursPeriodicite: d.jours_periodicite_min ?? 0,
   });
 }
 
