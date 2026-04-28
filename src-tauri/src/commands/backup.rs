@@ -788,8 +788,28 @@ fn backup_restore_blocking(app: &AppHandle, zip_path: String) -> Result<(), Stri
         return Err(e);
     }
 
-    // Tout est validé. Redémarrage immédiat — au boot, db.rs détectera
-    // pending-restore/ et fera le swap sur fichiers fermés.
+    // Tout est validé. En prod : redémarrage immédiat (apply_pending_restore au
+    // boot fera le swap). En dev : on demande un redémarrage manuel.
+    finalize_restore_or_request_manual_restart(app)
+}
+
+/// En production, redémarre l'application : `apply_pending_restore` au boot
+/// suivant fera le swap des fichiers et l'app reprend sur la base restaurée.
+///
+/// En mode développement (`npm run tauri dev`), `app.restart()` désynchronise
+/// le tauri-cli (qui orchestre Vite + le binaire) : le webview redémarre mais
+/// tape sur `localhost:1420` avant que Vite ne soit prêt et tombe sur
+/// `chrome-error://chromewebdata/`. On demande donc à l'utilisateur de relancer
+/// manuellement — `pending-restore/` est déjà préparé et sera appliqué au
+/// prochain démarrage.
+fn finalize_restore_or_request_manual_restart(app: &AppHandle) -> Result<(), String> {
+    if cfg!(debug_assertions) {
+        return Err(
+            "Mode développement : la restauration est prête. Fermez et relancez l'application \
+             manuellement pour l'appliquer (limitation connue de `tauri dev` avec `app.restart()`)."
+                .to_string(),
+        );
+    }
     app.restart();
 }
 
@@ -915,7 +935,7 @@ fn restore_pre_restore_blocking(app: &AppHandle, stamp: String) -> Result<(), St
             .map_err(|e| format!("Copie des documents pré-restore : {}", e))?;
     }
 
-    app.restart();
+    finalize_restore_or_request_manual_restart(app)
 }
 
 /// Copie récursive d'un dossier — équivalent shell `cp -r`. La crate std n'offre

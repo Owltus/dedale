@@ -4,7 +4,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { router } from "./router";
+import { setupVitePreloadErrorHandler } from "@/lib/setup/handle-preload-error";
 import "./index.css";
+
+setupVitePreloadErrorHandler();
 
 const queryClient = new QueryClient({
   defaultOptions: {
