@@ -1,12 +1,21 @@
+import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useInvokeQuery, useInvokeMutation } from "./useInvoke";
-import type { OtListItem, OrdreDetailComplet, OpExecBatchItem } from "@/lib/types/ordres-travail";
+import type {
+  HistoriquePoint,
+  OtListItem,
+  OrdreDetailComplet,
+  OpExecBatchItem,
+  OperationHistorique,
+} from "@/lib/types/ordres-travail";
 
 export const otKeys = {
   all: ["ordres-travail"] as const,
   lists: () => [...otKeys.all, "list"] as const,
   byGamme: (idGamme: number) => [...otKeys.all, "gamme", idGamme] as const,
   detail: (id: number) => [...otKeys.all, "detail", id] as const,
+  historique: (id: number, limit: number) =>
+    [...otKeys.all, "detail", id, "historique", limit] as const,
 };
 
 export function useOrdresTravail() {
@@ -36,6 +45,23 @@ export function useOtByIds(ids: number[]) {
 
 export function useOrdreTravail(id: number) {
   return useInvokeQuery<OrdreDetailComplet>("get_ordre_travail", { id }, { queryKey: otKeys.detail(id), enabled: !!id });
+}
+
+/**
+ * Historique des relevés des opérations mesure de l'OT, indexé par id_operation_execution.
+ * `enabled` permet d'éviter la requête quand on sait qu'il n'y a aucune opération mesure.
+ */
+export function useOperationsHistorique(idOt: number, enabled = true, limit = 6) {
+  const { data, ...rest } = useInvokeQuery<OperationHistorique[]>(
+    "get_operations_historique",
+    { idOt, limit },
+    { queryKey: otKeys.historique(idOt, limit), enabled: !!idOt && enabled }
+  );
+  const byOp = useMemo<Map<number, HistoriquePoint[]>>(
+    () => new Map((data ?? []).map((h) => [h.id_operation_execution, h.points])),
+    [data]
+  );
+  return { ...rest, data: byOp };
 }
 
 export function useCreateOrdreTravail() {

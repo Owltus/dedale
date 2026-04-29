@@ -89,3 +89,18 @@ export interface OpExecBatchItem {
     commentaires: string | null;
   };
 }
+
+/** Un relevé antérieur d'une mesure, sur un autre OT de la même opération mère */
+export interface HistoriquePoint {
+  id_ordre_travail: number;
+  date_execution: string | null;
+  date_prevue: string;
+  valeur_mesuree: number | null;
+  est_conforme: number | null;
+}
+
+/** Historique des relevés d'une opération mesure (triés du plus récent au plus ancien) */
+export interface OperationHistorique {
+  id_operation_execution: number;
+  points: HistoriquePoint[];
+}

@@ -3,8 +3,8 @@ use tauri::State;
 
 use crate::db::DbPool;
 use crate::models::ordres_travail::{
-    OpExecBatchItem, OpExecUpdateInput, OperationExecution, OrdreDetailComplet, OrdreTravail,
-    OtCreateInput, OtListItem, OtSuivant, OtUpdateInput,
+    HistoriquePoint, OpExecBatchItem, OpExecUpdateInput, OperationExecution, OperationHistorique,
+    OrdreDetailComplet, OrdreTravail, OtCreateInput, OtListItem, OtSuivant, OtUpdateInput,
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -199,6 +199,80 @@ pub fn get_ot_by_ids(db: State<DbPool>, ids: Vec<i64>) -> Result<Vec<OtListItem>
 pub fn get_ordre_travail(db: State<DbPool>, id: i64) -> Result<OrdreDetailComplet, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
     fetch_ot_detail(&conn, id)
+}
+
+/// Récupère l'historique des relevés pour les opérations mesure d'un OT.
+/// Retourne, pour chaque opération mesure du OT courant, la liste des `limit`
+/// derniers relevés sur d'autres OT issus de la même opération mère
+/// (jointure sur `id_type_source` + `id_source`). Triés du plus récent au plus ancien.
+#[tauri::command]
+pub fn get_operations_historique(
+    db: State<DbPool>,
+    id_ot: i64,
+    limit: i64,
+) -> Result<Vec<OperationHistorique>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+
+    // Identifier les opérations mesure du OT courant (présence de seuils ou unité)
+    let mut stmt_ops = conn
+        .prepare_cached(
+            "SELECT id_operation_execution, id_type_source, id_source \
+             FROM operations_execution \
+             WHERE id_ordre_travail = ?1 \
+             AND (seuil_minimum IS NOT NULL OR seuil_maximum IS NOT NULL OR unite_symbole IS NOT NULL)",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let ops: Vec<(i64, i64, i64)> = stmt_ops
+        .query_map(params![id_ot], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
+
+    // Pour chaque opération mesure, récupérer les N derniers relevés (autres OT, valeur non nulle)
+    let mut stmt_hist = conn
+        .prepare_cached(
+            "SELECT oe.id_ordre_travail, oe.date_execution, ot.date_prevue, \
+                    oe.valeur_mesuree, oe.est_conforme \
+             FROM operations_execution oe \
+             JOIN ordres_travail ot ON oe.id_ordre_travail = ot.id_ordre_travail \
+             WHERE oe.id_type_source = ?1 \
+             AND oe.id_source = ?2 \
+             AND oe.id_ordre_travail != ?3 \
+             AND oe.valeur_mesuree IS NOT NULL \
+             ORDER BY COALESCE(oe.date_execution, ot.date_prevue) DESC \
+             LIMIT ?4",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let mut result = Vec::with_capacity(ops.len());
+    for (id_op_exec, id_type_source, id_source) in ops {
+        let points: Vec<HistoriquePoint> = stmt_hist
+            .query_map(
+                params![id_type_source, id_source, id_ot, limit],
+                |row| {
+                    Ok(HistoriquePoint {
+                        id_ordre_travail: row.get(0)?,
+                        date_execution: row.get(1)?,
+                        date_prevue: row.get(2)?,
+                        valeur_mesuree: row.get(3)?,
+                        est_conforme: row.get(4)?,
+                    })
+                },
+            )
+            .map_err(|e| e.to_string())?
+            .collect::<Result<_, _>>()
+            .map_err(|e| e.to_string())?;
+
+        result.push(OperationHistorique {
+            id_operation_execution: id_op_exec,
+            points,
+        });
+    }
+
+    Ok(result)
 }
 
 /// Crée un OT — INSERT avec les colonnes NOT NULL pré-remplies depuis la gamme.

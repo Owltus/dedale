@@ -238,6 +238,7 @@ pub fn run() {
             commands::ordres_travail::get_ot_by_famille,
             commands::ordres_travail::get_ot_by_ids,
             commands::ordres_travail::get_ordre_travail,
+            commands::ordres_travail::get_operations_historique,
             commands::ordres_travail::create_ordre_travail,
             commands::ordres_travail::delete_ordre_travail,
             commands::ordres_travail::update_statut_ot,

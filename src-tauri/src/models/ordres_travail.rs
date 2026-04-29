@@ -133,3 +133,21 @@ pub struct OrdreDetailComplet {
     pub operations: Vec<OperationExecution>,
     pub ot_suivant: Option<OtSuivant>,
 }
+
+/// Un point d'historique : un relevé de mesure sur un OT antérieur
+#[derive(Debug, Serialize)]
+pub struct HistoriquePoint {
+    pub id_ordre_travail: i64,
+    pub date_execution: Option<String>,
+    pub date_prevue: String,
+    pub valeur_mesuree: Option<f64>,
+    pub est_conforme: Option<i64>,
+}
+
+/// Historique des relevés pour une opération mesure du OT courant
+/// (issus d'autres OT de la même gamme, triés du plus récent au plus ancien)
+#[derive(Debug, Serialize)]
+pub struct OperationHistorique {
+    pub id_operation_execution: i64,
+    pub points: Vec<HistoriquePoint>,
+}

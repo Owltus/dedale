@@ -13,7 +13,7 @@ import { InfoCard } from "@/components/shared/InfoCard";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   useOrdreTravail, useUpdateStatutOt, useUpdateOrdreTravail, useDeleteOrdreTravail,
-  useBulkUpdateOperations,
+  useBulkUpdateOperations, useOperationsHistorique,
 } from "@/hooks/use-ordres-travail";
 import { useGamme, useFamilleGamme, useDomaineGamme } from "@/hooks/use-gammes";
 import { useTechniciens } from "@/hooks/use-techniciens";
@@ -22,6 +22,7 @@ import { buildGammeBreadcrumb } from "@/lib/utils/breadcrumbs";
 import { formatDate } from "@/lib/utils/format";
 import type { OtEditFormData } from "@/lib/schemas/ordres-travail";
 import type { OpExecBatchItem } from "@/lib/types/ordres-travail";
+import { isMesureOp } from "@/lib/utils/operations";
 import { OtEditDialog } from "./OtEditDialog";
 import { OtOperationsTable, type OpDraftChanges } from "./OtOperationsTable";
 
@@ -36,6 +37,11 @@ export function OrdresTravailDetail() {
   const bulkUpdate = useBulkUpdateOperations();
   const { data: techniciens = [] } = useTechniciens();
   const { data: docs = [] } = useDocumentsForEntity("ordres_travail", otId);
+  const hasMesureOp = useMemo(
+    () => (data?.operations ?? []).some(isMesureOp),
+    [data?.operations]
+  );
+  const { data: historiqueByOp } = useOperationsHistorique(otId, hasMesureOp);
   const { data: gamme } = useGamme(data?.ordre_travail.id_gamme ?? 0);
   const { data: famille } = useFamilleGamme(gamme?.id_famille_gamme ?? 0);
   const { data: domaine } = useDomaineGamme(famille?.id_domaine_gamme ?? 0);
@@ -240,6 +246,7 @@ export function OrdresTravailDetail() {
             onSaveDraft={handleSaveDraft}
             onDiscardDraft={handleDiscardDraft}
             isSaving={bulkUpdate.isPending}
+            historiqueByOp={historiqueByOp}
           />
         </TabsContent>
 

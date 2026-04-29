@@ -58,6 +58,17 @@ export function suggestDocumentName(typeName: string | undefined, ctx?: NamingCo
   return parts.join(" - ");
 }
 
+/// Formatage compact d'un nombre — entiers tels quels, décimaux 1-2 chiffres selon l'ordre de grandeur.
+export function formatNumber(n: number): string {
+  if (Number.isInteger(n)) return n.toString();
+  return n.toFixed(Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : 2);
+}
+
+/// Formate un Δ (variation) avec son signe explicite : `+12`, `-3.5`.
+export function formatDelta(n: number): string {
+  return (n > 0 ? "+" : "") + formatNumber(n);
+}
+
 /// Formate une taille en octets de façon lisible
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 o";

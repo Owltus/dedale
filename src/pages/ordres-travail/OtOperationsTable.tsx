@@ -10,9 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { OperationExecution } from "@/lib/types/ordres-travail";
+import type { HistoriquePoint, OperationExecution } from "@/lib/types/ordres-travail";
 import { getStatutOperation, STATUTS_OPERATION } from "@/lib/utils/statuts";
 import { formatDate, todayIso } from "@/lib/utils/format";
+import { isMesureOp } from "@/lib/utils/operations";
+import { MesureCell } from "./MesureCell";
 
 // IDs sélectionnables côté utilisateur (statut 4 « Annulée » est réservé au système)
 const OP_STATUT_IDS: readonly number[] = [1, 2, 3, 5];
@@ -59,6 +61,8 @@ export interface OtOperationsTableProps {
   onSaveDraft: () => void;
   onDiscardDraft: () => void;
   isSaving?: boolean;
+  /** Map id_operation_execution → historique des derniers relevés (autres OT, même opération mère) */
+  historiqueByOp?: Map<number, HistoriquePoint[]>;
 }
 
 /** Fusionne l'état serveur avec les modifications locales en brouillon. */
@@ -75,6 +79,7 @@ export function OtOperationsTable({
   onSaveDraft,
   onDiscardDraft,
   isSaving = false,
+  historiqueByOp,
 }: OtOperationsTableProps) {
   // Ajoute ou met à jour un patch dans le brouillon
   const patchDraft = (opId: number, patch: OpDraftPatch) => {
@@ -113,7 +118,7 @@ export function OtOperationsTable({
   const handleDoubleClick = (op: OperationExecution) => {
     const merged = mergeOp(op, draftChanges.get(op.id_operation_execution));
     if (isTerminal || merged.id_statut_operation === 4) return;
-    const hasMesure = merged.seuil_minimum !== null || merged.seuil_maximum !== null;
+    const hasMesure = isMesureOp(merged);
 
     if (merged.id_statut_operation === 3) {
       // Double-clic sur une op Terminée : reset complet en un geste (raccourci expert)
@@ -162,11 +167,7 @@ export function OtOperationsTable({
 
   const isDirty = draftChanges.size > 0;
 
-  // Afficher la colonne Mesure seulement si au moins une opération est quantitative
-  const anyHasMesure = useMemo(
-    () => operations.some((op) => op.seuil_minimum !== null || op.seuil_maximum !== null),
-    [operations]
-  );
+  const anyHasMesure = useMemo(() => operations.some(isMesureOp), [operations]);
 
   return (
     <div className="flex flex-1 flex-col rounded-md border min-h-0 overflow-hidden">
@@ -175,17 +176,16 @@ export function OtOperationsTable({
           <thead className="sticky top-0 z-10">
             <tr className="border-b bg-background">
               <th className="px-3 py-2 text-left font-medium">Opération</th>
-              <th className="px-3 py-2 text-left font-medium w-32">Statut</th>
-              {anyHasMesure && <th className="px-3 py-2 text-left font-medium w-28">Mesure</th>}
-              {anyHasMesure && <th className="px-3 py-2 text-left font-medium w-32">Conformité</th>}
-              <th className="px-3 py-2 text-left font-medium w-36">Date</th>
+              {anyHasMesure && <th className="px-3 py-2 text-center font-medium w-44">Mesure</th>}
+              <th className="px-3 py-2 text-center font-medium w-36">Date</th>
+              <th className="px-3 py-2 text-center font-medium w-32">Statut</th>
             </tr>
           </thead>
           <tbody>
             {mergedOperations.map((op) => {
               const cfg = getStatutOperation(op.id_statut_operation);
               const disabled = isTerminal || op.id_statut_operation === 4;
-              const hasMesure = op.seuil_minimum !== null || op.seuil_maximum !== null;
+              const hasMesure = isMesureOp(op);
               return (
                 <tr
                   key={op.id_operation_execution}
@@ -196,7 +196,33 @@ export function OtOperationsTable({
                     <div>{op.nom_operation}</div>
                     <div className="text-xs text-muted-foreground">{op.type_operation}</div>
                   </td>
-                  <td className="px-3 py-1">
+                  {anyHasMesure && (
+                    <td className="px-3 py-1 text-center">
+                      <MesureCell
+                        op={op}
+                        history={historiqueByOp?.get(op.id_operation_execution) ?? []}
+                        editable={hasMesure && !disabled}
+                        onMesureChange={(v) => handleMesureChange(op, v)}
+                      />
+                    </td>
+                  )}
+                  <td className="px-3 py-1 text-center">
+                    {disabled ? (
+                      <span className="text-muted-foreground">{formatDate(op.date_execution)}</span>
+                    ) : (
+                      <Input
+                        key={`${op.id_operation_execution}-date-${op.date_execution}`}
+                        type="date"
+                        className="h-8 w-full text-center"
+                        defaultValue={op.date_execution ?? ""}
+                        onBlur={(e) => {
+                          const v = e.target.value || null;
+                          if (v !== op.date_execution) handleDateChange(op, v);
+                        }}
+                      />
+                    )}
+                  </td>
+                  <td className="px-3 py-1 text-center">
                     {disabled ? (
                       <Badge variant={cfg.variant} className={cfg.className}>{cfg.label}</Badge>
                     ) : (
@@ -212,54 +238,6 @@ export function OtOperationsTable({
                           ))}
                         </SelectContent>
                       </Select>
-                    )}
-                  </td>
-                  {anyHasMesure && (
-                    <td className="px-3 py-1">
-                      {hasMesure && !disabled ? (
-                        <Input
-                          key={`${op.id_operation_execution}-${op.valeur_mesuree}`}
-                          type="number"
-                          step="any"
-                          className="h-8 w-full"
-                          placeholder={op.seuil_minimum !== null && op.seuil_maximum !== null
-                            ? `${op.seuil_minimum}–${op.seuil_maximum}`
-                            : ""}
-                          defaultValue={op.valeur_mesuree ?? ""}
-                          onBlur={(e) => handleMesureChange(op, e.target.value)}
-                        />
-                      ) : hasMesure ? (
-                        <span>{op.valeur_mesuree !== null ? `${op.valeur_mesuree} ${op.unite_symbole ?? ""}` : "—"}</span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  )}
-                  {anyHasMesure && (
-                    <td className="px-3 py-1">
-                      {op.est_conforme === null ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : op.est_conforme === 1 ? (
-                        <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Conforme</Badge>
-                      ) : (
-                        <Badge variant="destructive">Non conforme</Badge>
-                      )}
-                    </td>
-                  )}
-                  <td className="px-3 py-1">
-                    {disabled ? (
-                      <span className="text-muted-foreground">{formatDate(op.date_execution)}</span>
-                    ) : (
-                      <Input
-                        key={`${op.id_operation_execution}-date-${op.date_execution}`}
-                        type="date"
-                        className="h-8 w-full"
-                        defaultValue={op.date_execution ?? ""}
-                        onBlur={(e) => {
-                          const v = e.target.value || null;
-                          if (v !== op.date_execution) handleDateChange(op, v);
-                        }}
-                      />
                     )}
                   </td>
                 </tr>
