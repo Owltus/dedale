@@ -31,15 +31,18 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
         |row| row.get(0),
     ).map_err(|e| e.to_string())?;
 
-    // Donut : OT cette semaine ISO par statut (prévus ou clôturés cette semaine).
-    // Les OT en cours (statut 2) sont exclus : ils appartiennent au groupe « En cours »
-    // pour éviter qu'un même OT apparaisse dans deux groupes du donut.
+    // Donut : OT cette semaine ISO par statut.
+    // Critère par statut pour éviter qu'une date_cloture résiduelle (anomalie de
+    // données ou trigger non joué) ne fasse remonter un OT actif avec une
+    // date_prevue ancienne :
+    //   - statut 1/5 (Planifié/Réouvert) : à faire cette semaine ⇒ date_prevue
+    //   - statut 3/4 (Clôturé/Annulé)    : terminé cette semaine ⇒ date_cloture
+    // Statut 2 (En cours) appartient au groupe « En cours » du donut.
     let mut stmt_cs = conn.prepare_cached(
         &format!("SELECT CASE WHEN id_statut_ot = 1 AND est_automatique = 1 THEN 11 ELSE id_statut_ot END, \
          COUNT(*) FROM ordres_travail \
-         WHERE id_statut_ot != 2 \
-         AND ((date_prevue >= {LUNDI_COURANT} AND date_prevue < {LUNDI_PROCHAIN}) \
-            OR (date_cloture >= {LUNDI_COURANT} AND date_cloture < {LUNDI_PROCHAIN})) \
+         WHERE (id_statut_ot IN (1, 5) AND date_prevue >= {LUNDI_COURANT} AND date_prevue < {LUNDI_PROCHAIN}) \
+            OR (id_statut_ot IN (3, 4) AND date_cloture >= {LUNDI_COURANT} AND date_cloture < {LUNDI_PROCHAIN}) \
          GROUP BY 1 ORDER BY 1"),
     ).map_err(|e| e.to_string())?;
     let ot_cette_semaine = stmt_cs.query_map([], |row| {
@@ -337,7 +340,10 @@ pub fn get_sunburst_gammes(db: State<DbPool>) -> Result<Vec<SunburstGamme>, Stri
     Ok(result)
 }
 
-/// OT du donut par catégorie : "en_retard", "cette_semaine", "en_cours"
+/// OT du donut par catégorie : "en_retard", "cette_semaine", "en_cours".
+/// Les WHERE doivent rester synchrones avec les COUNT par statut de
+/// `get_dashboard_data` (le WHY de la sélection « cette_semaine » est
+/// documenté au-dessus de `stmt_cs`).
 #[tauri::command]
 pub fn get_donut_ot(db: State<DbPool>, categorie: String) -> Result<Vec<OtListItem>, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
@@ -346,9 +352,8 @@ pub fn get_donut_ot(db: State<DbPool>, categorie: String) -> Result<Vec<OtListIt
             "WHERE ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 5)"
         ),
         "cette_semaine" => format!(
-            "WHERE ot.id_statut_ot != 2 \
-             AND ((ot.date_prevue >= {LUNDI_COURANT} AND ot.date_prevue < {LUNDI_PROCHAIN}) \
-                OR (ot.date_cloture >= {LUNDI_COURANT} AND ot.date_cloture < {LUNDI_PROCHAIN}))"
+            "WHERE (ot.id_statut_ot IN (1, 5) AND ot.date_prevue >= {LUNDI_COURANT} AND ot.date_prevue < {LUNDI_PROCHAIN}) \
+                OR (ot.id_statut_ot IN (3, 4) AND ot.date_cloture >= {LUNDI_COURANT} AND ot.date_cloture < {LUNDI_PROCHAIN})"
         ),
         "en_cours" => "WHERE ot.id_statut_ot = 2".to_string(),
         _ => return Err(format!("Catégorie inconnue : {}", categorie)),
