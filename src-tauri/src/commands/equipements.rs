@@ -1,6 +1,7 @@
 use rusqlite::params;
 use tauri::State;
 
+use crate::commands::helpers::sql_dates::LUNDI_COURANT;
 use crate::db::DbPool;
 use crate::models::equipements::{
     Domaine, DomaineInput, DomaineEquipListItem, Equipement, EquipementInput,
@@ -109,7 +110,7 @@ pub fn get_domaines_equip_list(db: State<DbPool>) -> Result<Vec<DomaineEquipList
     let conn = db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare_cached(
-            "SELECT d.id_domaine, d.nom_domaine, d.description, d.id_image, \
+            &format!("SELECT d.id_domaine, d.nom_domaine, d.description, d.id_image, \
              (SELECT COUNT(*) FROM familles_equipements f WHERE f.id_domaine = d.id_domaine) AS nb_familles, \
              (SELECT COUNT(*) FROM equipements e JOIN familles_equipements f ON e.id_famille = f.id_famille \
               WHERE f.id_domaine = d.id_domaine AND e.est_actif = 0) AS nb_equipements_inactifs, \
@@ -120,7 +121,7 @@ pub fn get_domaines_equip_list(db: State<DbPool>) -> Result<Vec<DomaineEquipList
               JOIN equipements e ON ge.id_equipement = e.id_equipement \
               JOIN familles_equipements f ON e.id_famille = f.id_famille \
               WHERE f.id_domaine = d.id_domaine \
-              AND ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
+              AND ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes_equipements ge ON ot.id_gamme = ge.id_gamme \
               JOIN equipements e ON ge.id_equipement = e.id_equipement \
@@ -142,7 +143,7 @@ pub fn get_domaines_equip_list(db: State<DbPool>) -> Result<Vec<DomaineEquipList
               JOIN equipements e ON ge.id_equipement = e.id_equipement \
               JOIN familles_equipements f ON e.id_famille = f.id_famille \
               WHERE f.id_domaine = d.id_domaine AND g.est_active = 1) AS jours_periodicite_min \
-             FROM domaines_equipements d ORDER BY d.nom_domaine",
+             FROM domaines_equipements d ORDER BY d.nom_domaine"),
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
@@ -172,7 +173,7 @@ pub fn get_familles_equip_list(db: State<DbPool>, id_domaine: i64) -> Result<Vec
     let conn = db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare_cached(
-            "SELECT f.id_famille, f.nom_famille, f.description, f.id_image, \
+            &format!("SELECT f.id_famille, f.nom_famille, f.description, f.id_image, \
              me.nom_modele, \
              (SELECT COUNT(*) FROM equipements e WHERE e.id_famille = f.id_famille) AS nb_equipements, \
              (SELECT COUNT(*) FROM equipements e WHERE e.id_famille = f.id_famille AND e.est_actif = 0) AS nb_equipements_inactifs, \
@@ -180,7 +181,7 @@ pub fn get_familles_equip_list(db: State<DbPool>, id_domaine: i64) -> Result<Vec
               JOIN gammes_equipements ge ON ot.id_gamme = ge.id_gamme \
               JOIN equipements e ON ge.id_equipement = e.id_equipement \
               WHERE e.id_famille = f.id_famille \
-              AND ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
+              AND ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes_equipements ge ON ot.id_gamme = ge.id_gamme \
               JOIN equipements e ON ge.id_equipement = e.id_equipement \
@@ -200,7 +201,7 @@ pub fn get_familles_equip_list(db: State<DbPool>, id_domaine: i64) -> Result<Vec
               WHERE e.id_famille = f.id_famille AND g.est_active = 1) AS jours_periodicite_min \
              FROM familles_equipements f \
              LEFT JOIN modeles_equipements me ON f.id_modele_equipement = me.id_modele_equipement \
-             WHERE f.id_domaine = ?1 ORDER BY f.nom_famille",
+             WHERE f.id_domaine = ?1 ORDER BY f.nom_famille"),
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
@@ -230,11 +231,11 @@ pub fn get_equipements_list(db: State<DbPool>, id_famille: i64) -> Result<Vec<Eq
     let conn = db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare_cached(
-            "SELECT e.id_equipement, e.nom_affichage, e.commentaires, e.est_actif, e.id_image, \
+            &format!("SELECT e.id_equipement, e.nom_affichage, e.commentaires, e.est_actif, e.id_image, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes_equipements ge ON ot.id_gamme = ge.id_gamme \
               WHERE ge.id_equipement = e.id_equipement \
-              AND ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
+              AND ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes_equipements ge ON ot.id_gamme = ge.id_gamme \
               WHERE ge.id_equipement = e.id_equipement AND ot.id_statut_ot = 5) AS nb_ot_reouvert, \
@@ -248,7 +249,7 @@ pub fn get_equipements_list(db: State<DbPool>, id_famille: i64) -> Result<Vec<Eq
               JOIN periodicites p ON g.id_periodicite = p.id_periodicite \
               JOIN gammes_equipements ge ON g.id_gamme = ge.id_gamme \
               WHERE ge.id_equipement = e.id_equipement AND g.est_active = 1) AS jours_periodicite_min \
-             FROM equipements e WHERE e.id_famille = ?1 ORDER BY e.nom_affichage",
+             FROM equipements e WHERE e.id_famille = ?1 ORDER BY e.nom_affichage"),
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt

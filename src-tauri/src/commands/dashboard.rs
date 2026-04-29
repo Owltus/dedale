@@ -3,11 +3,7 @@ use crate::db::DbPool;
 use crate::models::dashboard::*;
 use crate::models::ordres_travail::OtListItem;
 use crate::commands::helpers::ot_list::query_ot_list;
-
-/// Lundi de la semaine ISO courante en SQL
-/// '+1 day' évite le bug SQLite où weekday 1 renvoie today quand today=lundi
-const LUNDI_COURANT: &str = "date('now', '+1 day', 'weekday 1', '-7 days')";
-const LUNDI_PROCHAIN: &str = "date('now', '+1 day', 'weekday 1')";
+use crate::commands::helpers::sql_dates::{LUNDI_COURANT, LUNDI_PROCHAIN};
 
 fn map_ot_dashboard_row(row: &rusqlite::Row) -> rusqlite::Result<OtDashboardItem> {
     Ok(OtDashboardItem {
@@ -160,10 +156,10 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
 
     // Tableau : OT en retard
     let mut stmt6 = conn.prepare_cached(
-        "SELECT id_ordre_travail, nom_gamme, date_prevue, id_statut_ot, id_priorite, nom_prestataire, id_image \
+        &format!("SELECT id_ordre_travail, nom_gamme, date_prevue, id_statut_ot, id_priorite, nom_prestataire, id_image \
          FROM ordres_travail \
-         WHERE date_prevue < date('now') AND id_statut_ot IN (1, 2, 5) \
-         ORDER BY date_prevue ASC"
+         WHERE date_prevue < {LUNDI_COURANT} AND id_statut_ot IN (1, 2, 5) \
+         ORDER BY date_prevue ASC")
     ).map_err(|e| e.to_string())?;
     let ot_en_retard = stmt6.query_map([], map_ot_dashboard_row)
     .map_err(|e| e.to_string())?

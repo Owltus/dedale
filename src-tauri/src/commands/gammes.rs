@@ -1,6 +1,7 @@
 use rusqlite::params;
 use tauri::State;
 
+use crate::commands::helpers::sql_dates::LUNDI_COURANT;
 use crate::db::DbPool;
 use crate::models::equipements::Equipement;
 use crate::models::gammes::{
@@ -91,7 +92,7 @@ pub fn get_domaines_gammes_list(db: State<DbPool>) -> Result<Vec<DomaineGammeLis
     let conn = db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare_cached(
-            "SELECT dg.id_domaine_gamme, dg.nom_domaine, dg.description, dg.id_image, \
+            &format!("SELECT dg.id_domaine_gamme, dg.nom_domaine, dg.description, dg.id_image, \
              (SELECT COUNT(*) FROM familles_gammes fg WHERE fg.id_domaine_gamme = dg.id_domaine_gamme) AS nb_familles, \
              (SELECT COUNT(*) FROM gammes g \
               JOIN familles_gammes fg ON g.id_famille_gamme = fg.id_famille_gamme \
@@ -102,17 +103,17 @@ pub fn get_domaines_gammes_list(db: State<DbPool>) -> Result<Vec<DomaineGammeLis
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes g ON ot.id_gamme = g.id_gamme \
               JOIN familles_gammes fg ON g.id_famille_gamme = fg.id_famille_gamme \
-              WHERE fg.id_domaine_gamme = dg.id_domaine_gamme \
-              AND ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
+              WHERE fg.id_domaine_gamme = dg.id_domaine_gamme AND g.est_active = 1 \
+              AND ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes g ON ot.id_gamme = g.id_gamme \
               JOIN familles_gammes fg ON g.id_famille_gamme = fg.id_famille_gamme \
-              WHERE fg.id_domaine_gamme = dg.id_domaine_gamme \
+              WHERE fg.id_domaine_gamme = dg.id_domaine_gamme AND g.est_active = 1 \
               AND ot.id_statut_ot = 5) AS nb_ot_reouvert, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes g ON ot.id_gamme = g.id_gamme \
               JOIN familles_gammes fg ON g.id_famille_gamme = fg.id_famille_gamme \
-              WHERE fg.id_domaine_gamme = dg.id_domaine_gamme \
+              WHERE fg.id_domaine_gamme = dg.id_domaine_gamme AND g.est_active = 1 \
               AND ot.id_statut_ot = 2) AS nb_ot_en_cours, \
              (SELECT COUNT(*) FROM gammes g \
               JOIN familles_gammes fg ON g.id_famille_gamme = fg.id_famille_gamme \
@@ -121,14 +122,14 @@ pub fn get_domaines_gammes_list(db: State<DbPool>) -> Result<Vec<DomaineGammeLis
              (SELECT MIN(ot.date_prevue) FROM ordres_travail ot \
               JOIN gammes g ON ot.id_gamme = g.id_gamme \
               JOIN familles_gammes fg ON g.id_famille_gamme = fg.id_famille_gamme \
-              WHERE fg.id_domaine_gamme = dg.id_domaine_gamme \
+              WHERE fg.id_domaine_gamme = dg.id_domaine_gamme AND g.est_active = 1 \
               AND ot.id_statut_ot = 1) AS prochaine_date, \
              (SELECT MIN(p.jours_periodicite) FROM gammes g \
               JOIN periodicites p ON g.id_periodicite = p.id_periodicite \
               JOIN familles_gammes fg ON g.id_famille_gamme = fg.id_famille_gamme \
               WHERE fg.id_domaine_gamme = dg.id_domaine_gamme AND g.est_active = 1) AS jours_periodicite_min \
              FROM domaines_gammes dg \
-             ORDER BY dg.nom_domaine",
+             ORDER BY dg.nom_domaine"),
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
@@ -303,28 +304,28 @@ pub fn get_familles_gammes_list(
     let conn = db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare_cached(
-            "SELECT fg.id_famille_gamme, fg.nom_famille, fg.description, fg.id_image, \
+            &format!("SELECT fg.id_famille_gamme, fg.nom_famille, fg.description, fg.id_image, \
              (SELECT COUNT(*) FROM gammes g WHERE g.id_famille_gamme = fg.id_famille_gamme) AS nb_gammes, \
              (SELECT COUNT(*) FROM gammes g WHERE g.id_famille_gamme = fg.id_famille_gamme \
               AND g.est_active = 0) AS nb_gammes_inactives, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes g ON ot.id_gamme = g.id_gamme \
-              WHERE g.id_famille_gamme = fg.id_famille_gamme \
-              AND ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
+              WHERE g.id_famille_gamme = fg.id_famille_gamme AND g.est_active = 1 \
+              AND ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes g ON ot.id_gamme = g.id_gamme \
-              WHERE g.id_famille_gamme = fg.id_famille_gamme \
+              WHERE g.id_famille_gamme = fg.id_famille_gamme AND g.est_active = 1 \
               AND ot.id_statut_ot = 5) AS nb_ot_reouvert, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes g ON ot.id_gamme = g.id_gamme \
-              WHERE g.id_famille_gamme = fg.id_famille_gamme \
+              WHERE g.id_famille_gamme = fg.id_famille_gamme AND g.est_active = 1 \
               AND ot.id_statut_ot = 2) AS nb_ot_en_cours, \
              (SELECT COUNT(*) FROM gammes g WHERE g.id_famille_gamme = fg.id_famille_gamme \
               AND g.est_active = 1 \
               AND NOT EXISTS (SELECT 1 FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme)) AS nb_ot_sans_ot, \
              (SELECT MIN(ot.date_prevue) FROM ordres_travail ot \
               JOIN gammes g ON ot.id_gamme = g.id_gamme \
-              WHERE g.id_famille_gamme = fg.id_famille_gamme \
+              WHERE g.id_famille_gamme = fg.id_famille_gamme AND g.est_active = 1 \
               AND ot.id_statut_ot = 1) AS prochaine_date, \
              (SELECT MIN(p.jours_periodicite) FROM gammes g \
               JOIN periodicites p ON g.id_periodicite = p.id_periodicite \
@@ -332,7 +333,7 @@ pub fn get_familles_gammes_list(
               AND g.est_active = 1) AS jours_periodicite_min \
              FROM familles_gammes fg \
              WHERE fg.id_domaine_gamme = ?1 \
-             ORDER BY fg.nom_famille",
+             ORDER BY fg.nom_famille"),
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
@@ -470,13 +471,13 @@ pub fn get_gammes(
 ) -> Result<Vec<GammeListItem>, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
 
-    let base_sql = "SELECT g.id_gamme, g.nom_gamme, g.est_reglementaire, g.est_active, \
+    let base_sql = format!("SELECT g.id_gamme, g.nom_gamme, g.est_reglementaire, g.est_active, \
              fg.nom_famille, p.libelle AS libelle_periodicite, \
              pr.libelle AS nom_prestataire, g.description, g.id_image, \
              (SELECT COUNT(*) FROM documents_gammes dg WHERE dg.id_gamme = g.id_gamme) AS nb_documents, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme) AS nb_ot_total, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme \
-              AND ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
+              AND ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme \
               AND ot.id_statut_ot = 5) AS nb_ot_reouvert, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme \
@@ -487,7 +488,7 @@ pub fn get_gammes(
              FROM gammes g \
              JOIN familles_gammes fg ON g.id_famille_gamme = fg.id_famille_gamme \
              JOIN periodicites p ON g.id_periodicite = p.id_periodicite \
-             JOIN prestataires pr ON g.id_prestataire = pr.id_prestataire";
+             JOIN prestataires pr ON g.id_prestataire = pr.id_prestataire");
 
     let row_mapper = |row: &rusqlite::Row| -> rusqlite::Result<GammeListItem> {
         Ok(GammeListItem {
@@ -910,13 +911,13 @@ pub fn get_equipement_gammes(
     let conn = db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare_cached(
-            "SELECT g.id_gamme, g.nom_gamme, g.est_reglementaire, g.est_active, \
+            &format!("SELECT g.id_gamme, g.nom_gamme, g.est_reglementaire, g.est_active, \
              fg.nom_famille, p.libelle AS libelle_periodicite, \
              pr.libelle AS nom_prestataire, g.description, g.id_image, \
              (SELECT COUNT(*) FROM documents_gammes dg WHERE dg.id_gamme = g.id_gamme) AS nb_documents, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme) AS nb_ot_total, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme \
-              AND ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
+              AND ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme \
               AND ot.id_statut_ot = 5) AS nb_ot_reouvert, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme \
@@ -930,7 +931,7 @@ pub fn get_equipement_gammes(
              JOIN prestataires pr ON g.id_prestataire = pr.id_prestataire \
              JOIN gammes_equipements ge ON g.id_gamme = ge.id_gamme \
              WHERE ge.id_equipement = ?1 \
-             ORDER BY g.nom_gamme",
+             ORDER BY g.nom_gamme"),
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt

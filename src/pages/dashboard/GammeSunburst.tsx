@@ -88,9 +88,10 @@ interface ArcDef {
 
 // Groupes sémantiques de statuts gammes utilisés pour le rendu du sunburst.
 // Validé / Semaine prochaine / Ce mois-ci → pleine couleur (implicite).
-const STATUT_HORS_PERIMETRE = new Set([8, 9]); // Non assignée, Inactive
-const STATUT_OT_INVALIDE    = new Set([6, 7]); // En retard, Réouvert (pulsent)
-const STATUT_A_TRAITER      = new Set([2, 3]); // En cours, Cette semaine
+const STATUT_HORS_PERIMETRE = new Set([8, 9]);    // Non assignée, Inactive
+const STATUT_OT_INVALIDE    = new Set([6, 7]);    // En retard, Réouvert (pulsent)
+const STATUT_A_TRAITER      = new Set([2, 3]);    // En cours, Cette semaine
+const STATUT_A_JOUR         = new Set([1, 4, 5, 10]); // Numérateur du % : Validé, Sem pro, Ce mois, Mois pro
 
 function gammeOpacity(sid: number): number {
   if (STATUT_HORS_PERIMETRE.has(sid)) return 0.05;
@@ -174,7 +175,7 @@ function buildArcs(data: SunburstGamme[]): { arcs: ArcDef[]; aJourCount: number;
         const g = fam.gammes[gi]!;
         const sid = gammeStatutId(g);
         totalGammes++;
-        if (sid === 1) aJourCount++;
+        if (STATUT_A_JOUR.has(sid)) aJourCount++;
         const statutLabel = STATUTS_GAMME[sid]?.label ?? "Inconnu";
 
         arcs.push({

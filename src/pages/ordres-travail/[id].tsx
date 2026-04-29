@@ -17,7 +17,7 @@ import {
 } from "@/hooks/use-ordres-travail";
 import { useGamme, useFamilleGamme, useDomaineGamme } from "@/hooks/use-gammes";
 import { useTechniciens } from "@/hooks/use-techniciens";
-import { getStatutOt } from "@/lib/utils/statuts";
+import { getEffectiveOtStatutId, getStatutOt } from "@/lib/utils/statuts";
 import { buildGammeBreadcrumb } from "@/lib/utils/breadcrumbs";
 import { formatDate } from "@/lib/utils/format";
 import type { OtEditFormData } from "@/lib/schemas/ordres-travail";
@@ -102,7 +102,7 @@ export function OrdresTravailDetail() {
   if (!data) return <div className="p-6"><p className="text-sm text-destructive">OT non trouvé.</p></div>;
 
   const { ordre_travail: ot, operations } = data;
-  const statutCfg = getStatutOt(ot.id_statut_ot);
+  const statutCfg = getStatutOt(getEffectiveOtStatutId(ot));
   const isTerminal = ot.id_statut_ot === 3 || ot.id_statut_ot === 4;
   const isActif = [1, 2, 5].includes(ot.id_statut_ot);
   const allOpsDone = operations.length > 0 && operations.every(o => [3, 4, 5].includes(o.id_statut_operation));

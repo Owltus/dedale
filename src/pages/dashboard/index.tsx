@@ -12,6 +12,7 @@ import { PlanningChart } from "./PlanningChart";
 import { ContratsTimeline } from "./ContratsTimeline";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { DiStatusBadge, OtStatusBadge } from "@/components/shared/StatusBadge";
+import { getEffectiveOtStatutId } from "@/lib/utils/statuts";
 import { formatDateShort, stripExtension } from "@/lib/utils/format";
 import type { DiDashboardItem, OtDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
 
@@ -152,7 +153,7 @@ export function Dashboard() {
               <p className="flex-1 text-[11px] leading-tight truncate">{ot.nom_gamme}</p>
             )}
             renderRight={(ot) => (
-              <OtStatusBadge id={ot.id_statut_ot} className="h-4 text-[10px] px-1.5" />
+              <OtStatusBadge id={getEffectiveOtStatutId(ot)} className="h-4 text-[10px] px-1.5" />
             )}
           />
         ) : (

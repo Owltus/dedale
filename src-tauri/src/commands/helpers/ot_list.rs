@@ -2,7 +2,9 @@ use rusqlite::{Connection, params, params_from_iter};
 
 use crate::models::ordres_travail::OtListItem;
 
-/// Colonnes SELECT pour les listes d'OT enrichies (progression, retard, nb documents)
+/// Colonnes SELECT pour les listes d'OT enrichies (progression, retard, nb documents).
+/// Les bornes de semaine sont inlinées (concat! ne supporte pas les const externes) ;
+/// elles doivent rester synchrones avec helpers::sql_dates::LUNDI_COURANT.
 const OT_LIST_SELECT: &str = "\
     SELECT ot.id_ordre_travail, ot.nom_gamme, ot.description_gamme, ot.date_prevue, ot.date_cloture, ot.id_statut_ot, \
     ot.id_priorite, ot.nom_prestataire, ot.est_reglementaire, ot.nom_localisation, ot.est_automatique, ot.jours_periodicite, \
@@ -16,7 +18,7 @@ const OT_LIST_SELECT: &str = "\
                 WHERE oe2.id_ordre_travail = ot.id_ordre_travail), 0) * 100 \
       , 0) \
     , 0) AS progression, \
-    CASE WHEN ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2, 5) \
+    CASE WHEN ot.date_prevue < date('now', '-6 days', 'weekday 1') AND ot.id_statut_ot IN (1, 2, 5) \
          THEN 1 ELSE 0 END AS est_en_retard, \
     (SELECT COUNT(*) FROM documents_ordres_travail dot \
      WHERE dot.id_ordre_travail = ot.id_ordre_travail) AS nb_documents \
@@ -29,7 +31,7 @@ const OT_LIST_ORDER: &str = "\
     ORDER BY \
       CASE \
         WHEN ot.id_statut_ot = 5 THEN 1 \
-        WHEN ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2) THEN 2 \
+        WHEN ot.date_prevue < date('now', '-6 days', 'weekday 1') AND ot.id_statut_ot IN (1, 2) THEN 2 \
         WHEN ot.id_statut_ot = 2 THEN 3 \
         WHEN ot.id_statut_ot = 1 THEN 4 \
         ELSE 5 \

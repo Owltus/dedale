@@ -11,7 +11,7 @@ import { HeaderButton } from "@/components/shared/HeaderButton";
 import { OtList } from "@/components/shared/OtList";
 import { usePlanningAnnee } from "@/hooks/use-dashboard";
 import { useOtByIds } from "@/hooks/use-ordres-travail";
-import { getStatutOt, ANIMATE_HEARTBEAT } from "@/lib/utils/statuts";
+import { getEffectiveOtStatutId, getStatutOt, ANIMATE_HEARTBEAT } from "@/lib/utils/statuts";
 import {
   getISOWeekDate, getMondayOfISOWeek, dateToWeekInfo, getEffectiveDate,
   buildWeeksYearHeaders, buildWeeksMonthHeaders, computeGlissantWeeks,
@@ -330,7 +330,7 @@ export function Planning() {
                     }
                     const priority = getCellPriority(cell.events, weekStartStr);
                     const tipLines = cell.events.slice(0, 4).map((ot) =>
-                      `${ot.nom_gamme} · ${getStatutOt(ot.id_statut_ot).label}`,
+                      `${ot.nom_gamme} · ${getStatutOt(getEffectiveOtStatutId(ot)).label}`,
                     );
                     if (cell.events.length > 4) tipLines.push(`+${cell.events.length - 4} autre(s)`);
                     return (

@@ -1,4 +1,4 @@
-import { addDays, endOfMonth, endOfWeek, isBefore, startOfDay } from "date-fns";
+import { addWeeks, differenceInCalendarDays, isSameISOWeek, startOfDay, startOfWeek } from "date-fns";
 
 interface StatutConfig {
   label: string;
@@ -9,7 +9,7 @@ interface StatutConfig {
 const FALLBACK: StatutConfig = { label: "Inconnu", variant: "outline" };
 
 /// IDs des statuts agrégés produits par computeAggregateStatutId.
-export type StatutGammeId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type StatutGammeId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
 /** Animation pulsation pour les statuts "Réouvert(e)" */
 export const ANIMATE_HEARTBEAT = "animate-[heartbeat_1.8s_ease-in-out_infinite]";
@@ -25,7 +25,7 @@ export const STATUTS_OT: Record<number, StatutConfig> = {
   13: { label: "Cette semaine", variant: "outline", className: "border-orange-400 text-orange-700 dark:border-orange-600 dark:text-orange-400" },
   14: { label: "Semaine prochaine", variant: "outline", className: "border-amber-400 text-amber-700 dark:border-amber-600 dark:text-amber-400" },
   15: { label: "Ce mois-ci", variant: "outline", className: "border-teal-400 text-teal-700 dark:border-teal-600 dark:text-teal-400" },
-  16: { label: "Cette année", variant: "outline", className: "border-indigo-400 text-indigo-700 dark:border-indigo-600 dark:text-indigo-400" },
+  16: { label: "Mois prochain", variant: "outline", className: "border-indigo-400 text-indigo-700 dark:border-indigo-600 dark:text-indigo-400" },
   2: { label: "En cours", variant: "outline", className: "border-blue-400 text-blue-700 dark:border-blue-600 dark:text-blue-400" },
   3: { label: "Clôturé", variant: "outline", className: "border-green-400 text-green-700 dark:border-green-600 dark:text-green-400" },
   4: { label: "Annulé", variant: "outline", className: "border-yellow-400 text-yellow-700 dark:border-yellow-600 dark:text-yellow-400" },
@@ -105,6 +105,7 @@ export const STATUTS_GAMME: Record<number, StatutConfig> = {
   7: { label: "Réouvert", variant: "outline", className: `border-orange-400 text-orange-700 dark:border-orange-600 dark:text-orange-400 ${ANIMATE_HEARTBEAT}` },
   8: { label: "Non assignée", variant: "outline" },
   9: { label: "Inactive", variant: "outline", className: "line-through opacity-60" },
+  10: { label: "Mois prochain", variant: "outline", className: "border-indigo-400 text-indigo-700 dark:border-indigo-600 dark:text-indigo-400" },
 };
 
 /// Retourne la config du statut gamme, avec fallback
@@ -121,23 +122,107 @@ export function getStatutFamilleGamme(id: number): StatutConfig {
   return STATUTS_FAMILLE_GAMME[id] ?? FALLBACK;
 }
 
-/// Statut de proximité d'un prochain OT planifié — logique CALENDAIRE :
-///   • 3 Cette semaine     → ≤ dimanche en cours
-///   • 4 Semaine prochaine → dans la semaine calendaire suivante (lun→dim)
-///   • 5 Ce mois-ci        → avant la fin du mois en cours
-///   • null                → plus lointain (cascade tombe sur Validé)
-/// Une gamme hebdomadaire clôturée mardi voit son prochain OT tomber en
-/// "Semaine prochaine" et passer brièvement par Validé sur le sunburst.
-export function getProximiteStatutId(prochaineDate: string): 3 | 4 | 5 | null {
+export type ProximiteWindow =
+  | "cette_semaine"
+  | "semaine_prochaine"
+  | "ce_mois"
+  | "mois_prochain"
+  | null;
+
+/// Fenêtre temporelle d'une date prévue — cascade calendaire pure.
+///   • Cette semaine ISO     → date dans la même semaine ISO que today
+///                              (y compris jours déjà passés mais ≥ lundi)
+///   • Semaine prochaine ISO → date dans la semaine ISO suivante
+///   • Ce mois               → 0 ≤ distance ≤ 30 jours
+///   • Mois prochain         → 30 < distance ≤ 60 jours
+///   • null                  → date strictement antérieure au lundi de la
+///                              semaine en cours (gérée par le retard amont)
+///                              OU plus lointaine que les fenêtres ci-dessus
+export function getProximiteWindow(prochaineDate: string): ProximiteWindow {
   const today = startOfDay(new Date());
   const next = startOfDay(new Date(prochaineDate));
-  if (isBefore(next, today)) return null;
-
-  const eow = endOfWeek(today, { weekStartsOn: 1 });
-  if (next <= eow) return 3;
-  if (next <= endOfWeek(addDays(today, 7), { weekStartsOn: 1 })) return 4;
-  if (next <= endOfMonth(today)) return 5;
+  // Cette semaine ISO en premier : un OT prévu lundi qu'on consulte mardi de
+  // la même semaine doit rester "Cette semaine" (distance négative mais même
+  // semaine ISO). Le retard est filtré en amont par getEffectiveOtStatutId.
+  if (isSameISOWeek(next, today)) return "cette_semaine";
+  const distance = differenceInCalendarDays(next, today);
+  if (distance < 0) return null;
+  if (isSameISOWeek(next, addWeeks(today, 1))) return "semaine_prochaine";
+  if (distance <= 30) return "ce_mois";
+  if (distance <= 60) return "mois_prochain";
   return null;
+}
+
+/// Mapping jours_periodicite → jours_valide.
+/// Doit rester synchronisé avec les seeds de la table SQL `periodicites`
+/// (voir `src-tauri/migrations/001_initial_schema.sql`, INSERT periodicites).
+/// jours_valide = période de grâce après laquelle un OT entre dans sa fenêtre
+/// de pertinence d'affichage : tant que distance > jours_valide, l'OT reste
+/// "Programmé / Planifié" ; au-delà, cascade Ce mois / Mois prochain.
+const JOURS_VALIDE_PAR_PERIODICITE: Record<number, number> = {
+  7: 5,        // Hebdomadaire
+  14: 10,      // Bihebdomadaire
+  30: 25,      // Mensuel
+  42: 32,      // Sesquimestriel
+  60: 45,      // Bimestriel
+  90: 60,      // Trimestriel
+  120: 90,     // Quadrimestriel
+  180: 120,    // Semestriel
+  365: 270,    // Annuel
+  730: 540,    // Biennale
+  1095: 730,   // Triennal
+  1460: 1080,  // Quadriennal
+  1825: 1200,  // Quinquennal
+  3650: 2920,  // Décennal
+};
+
+function getJoursValide(joursPeriodicite: number): number {
+  return JOURS_VALIDE_PAR_PERIODICITE[joursPeriodicite] ?? Math.floor(joursPeriodicite * 0.8);
+}
+
+/// Statut effectif à afficher pour un OT — source de vérité unique partagée par
+/// la liste OT, la page détail, le dashboard et le planning.
+///
+/// Cascade :
+///   1. Statuts terminaux/spéciaux (En cours / Clôturé / Annulé / Réouvert) → tels quels
+///   2. Retard (date < lundi de la semaine ISO courante) → 12
+///   3. Cette semaine ISO → 13 (toujours, dès que la date est dans la semaine en cours)
+///   4. Semaine prochaine ISO → 14 (idem, fenêtre calendaire pure)
+///   5. Période de grâce : distance > jours_valide → fallback (gamme encore "valide")
+///   6. Ce mois (≤ 30 j) → 15
+///   7. Mois prochain (30 < distance ≤ 60 j) → 16
+///   8. Sinon → 11 Programmé (auto) ou 1 Planifié (manuel)
+export function getEffectiveOtStatutId(ot: {
+  id_statut_ot: number;
+  date_prevue: string;
+  est_automatique?: number;
+  jours_periodicite?: number;
+}): number {
+  if (ot.id_statut_ot !== 1) return ot.id_statut_ot;
+
+  const today = startOfDay(new Date());
+  const next = startOfDay(new Date(ot.date_prevue));
+  const lundiCourant = startOfWeek(today, { weekStartsOn: 1 });
+  if (next < lundiCourant) return 12;
+
+  const w = getProximiteWindow(ot.date_prevue);
+  // Cette semaine / Semaine prochaine : fenêtre calendaire absolue, pas de grâce.
+  if (w === "cette_semaine") return 13;
+  if (w === "semaine_prochaine") return 14;
+
+  const fallback = ot.est_automatique === 1 ? 11 : 1;
+
+  // Au-delà : grâce pour les statuts "Ce mois / Mois prochain".
+  // Si la distance dépasse la période de validité de la gamme, on reste neutre
+  // (Programmé / Planifié) — l'OT n'est pas encore dans sa fenêtre de pertinence.
+  if (ot.jours_periodicite != null) {
+    const distance = differenceInCalendarDays(next, today);
+    if (distance > getJoursValide(ot.jours_periodicite)) return fallback;
+  }
+
+  if (w === "ce_mois") return 15;
+  if (w === "mois_prochain") return 16;
+  return fallback;
 }
 
 /// Statut agrégé d'un conteneur (domaine, famille) ou item (gamme, équipement).
@@ -159,8 +244,11 @@ export function computeAggregateStatutId(input: {
   if (input.nbEnCours > 0) return 2;
   if (input.hasUnassigned) return 8;
   if (input.prochaineDate) {
-    const p = getProximiteStatutId(input.prochaineDate);
-    if (p) return p;
+    const w = getProximiteWindow(input.prochaineDate);
+    if (w === "cette_semaine") return 3;
+    if (w === "semaine_prochaine") return 4;
+    if (w === "ce_mois") return 5;
+    if (w === "mois_prochain") return 10;
   }
   return 1;
 }

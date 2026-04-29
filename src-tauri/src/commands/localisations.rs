@@ -1,6 +1,7 @@
 use rusqlite::params;
 use tauri::State;
 
+use crate::commands::helpers::sql_dates::LUNDI_COURANT;
 use crate::db::DbPool;
 use crate::models::equipements::{EquipementListItem, EquipementSelectItem};
 use crate::models::gammes::GammeListItem;
@@ -306,11 +307,11 @@ pub fn get_equipements_by_local(
     let conn = db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare_cached(
-            "SELECT e.id_equipement, e.nom_affichage, e.commentaires, e.est_actif, e.id_image, \
+            &format!("SELECT e.id_equipement, e.nom_affichage, e.commentaires, e.est_actif, e.id_image, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes_equipements ge ON ot.id_gamme = ge.id_gamme \
               WHERE ge.id_equipement = e.id_equipement \
-              AND ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
+              AND ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
              (SELECT COUNT(*) FROM ordres_travail ot \
               JOIN gammes_equipements ge ON ot.id_gamme = ge.id_gamme \
               WHERE ge.id_equipement = e.id_equipement AND ot.id_statut_ot = 5) AS nb_ot_reouvert, \
@@ -324,7 +325,7 @@ pub fn get_equipements_by_local(
               JOIN periodicites p ON g.id_periodicite = p.id_periodicite \
               JOIN gammes_equipements ge ON g.id_gamme = ge.id_gamme \
               WHERE ge.id_equipement = e.id_equipement AND g.est_active = 1) AS jours_periodicite_min \
-             FROM equipements e WHERE e.id_local = ?1 ORDER BY e.nom_affichage",
+             FROM equipements e WHERE e.id_local = ?1 ORDER BY e.nom_affichage"),
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
@@ -419,13 +420,13 @@ pub fn get_gammes_by_local(
     let conn = db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare_cached(
-            "SELECT g.id_gamme, g.nom_gamme, g.est_reglementaire, g.est_active, \
+            &format!("SELECT g.id_gamme, g.nom_gamme, g.est_reglementaire, g.est_active, \
              fg.nom_famille, p.libelle AS libelle_periodicite, \
              pr.libelle AS nom_prestataire, g.description, g.id_image, \
              (SELECT COUNT(*) FROM documents_gammes dg WHERE dg.id_gamme = g.id_gamme) AS nb_documents, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme) AS nb_ot_total, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme \
-              AND ot.date_prevue < date('now') AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
+              AND ot.date_prevue < {LUNDI_COURANT} AND ot.id_statut_ot IN (1, 2, 5)) AS nb_ot_en_retard, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme \
               AND ot.id_statut_ot = 5) AS nb_ot_reouvert, \
              (SELECT COUNT(*) FROM ordres_travail ot WHERE ot.id_gamme = g.id_gamme \
@@ -438,7 +439,7 @@ pub fn get_gammes_by_local(
              JOIN periodicites p ON g.id_periodicite = p.id_periodicite \
              JOIN prestataires pr ON g.id_prestataire = pr.id_prestataire \
              WHERE g.id_local_calc = ?1 \
-             ORDER BY g.nom_gamme",
+             ORDER BY g.nom_gamme"),
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
