@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Tooltip,
@@ -20,6 +21,22 @@ function formatPlaceholder(min: number | null, max: number | null): string {
   return "";
 }
 
+/// Trouve le relevé immédiatement antérieur à `currentDate` dans un historique trié DESC.
+/// Si l'OT courant n'a pas encore de date d'exécution, fallback sur le 1er relevé valide
+/// (= le plus récent absolu).
+function findPreviousReleve(
+  history: HistoriquePoint[],
+  currentDate: string | null,
+): HistoriquePoint | null {
+  if (!currentDate) {
+    return history.find((p) => p.valeur_mesuree !== null) ?? null;
+  }
+  return history.find((p) => {
+    if (p.valeur_mesuree === null) return false;
+    return (p.date_execution ?? p.date_prevue) < currentDate;
+  }) ?? null;
+}
+
 interface MesureCellProps {
   op: OperationExecution;
   history: HistoriquePoint[];
@@ -27,19 +44,30 @@ interface MesureCellProps {
   onMesureChange: (rawValue: string) => void;
 }
 
-export function MesureCell({ op, history, editable, onMesureChange }: MesureCellProps) {
+export const MesureCell = memo(function MesureCell({
+  op,
+  history,
+  editable,
+  onMesureChange,
+}: MesureCellProps) {
+  // Détection cumulative basée sur les valeurs réelles (current + historique).
+  const seriesValues = useMemo(
+    () =>
+      [op.valeur_mesuree, ...history.map((p) => p.valeur_mesuree)]
+        .filter((v): v is number => v !== null)
+        .reverse(),
+    [op.valeur_mesuree, history],
+  );
+
   if (!isMesureOp(op)) {
     return <span className="text-muted-foreground">—</span>;
   }
 
   const unit = op.unite_symbole ?? "";
-  // L'historique est trié DESC et filtré valeur_mesuree IS NOT NULL côté SQL.
-  const previous = history[0] ?? null;
-  // Détection cumulative basée sur les valeurs réelles (current + historique).
-  const seriesValues = [
-    op.valeur_mesuree,
-    ...history.map((p) => p.valeur_mesuree),
-  ].filter((v): v is number => v !== null).reverse();
+  // Le relevé "précédent" pour comparer = celui IMMÉDIATEMENT antérieur à l'OT courant
+  // (pas le plus récent absolu — sinon, sur un OT du passé, on comparerait à un relevé
+  // futur, ce qui n'a aucun sens et déclenche une fausse détection "nouveau compteur").
+  const previous = findPreviousReleve(history, op.date_execution);
   const isCounter = isCounterUnit(seriesValues, op.unite_symbole);
 
   const hasSeuils = op.seuil_minimum !== null || op.seuil_maximum !== null;
@@ -70,16 +98,45 @@ export function MesureCell({ op, history, editable, onMesureChange }: MesureCell
         </span>
       )}
 
-      {isCounter && op.valeur_mesuree !== null && previous && previous.valeur_mesuree !== null && (
-        <Tooltip>
-          <TooltipTrigger render={<span className="text-xs text-muted-foreground cursor-help" />}>
-            {formatDelta(op.valeur_mesuree - previous.valeur_mesuree)} {unit}
-          </TooltipTrigger>
-          <TooltipContent>
-            Consommation depuis le relevé précédent
-          </TooltipContent>
-        </Tooltip>
+      {isCounter && op.valeur_mesuree !== null && previous?.valeur_mesuree !== null && previous?.valeur_mesuree !== undefined && (
+        <CounterDelta
+          current={op.valeur_mesuree}
+          previous={previous.valeur_mesuree}
+          unit={unit}
+        />
       )}
     </div>
+  );
+});
+
+interface CounterDeltaProps {
+  current: number;
+  previous: number;
+  unit: string;
+}
+
+/// Affiche soit la consommation (Δ ≥ 0), soit un texte de remplacement de compteur (Δ < 0).
+/// Un Δ négatif sur un cumulatif est physiquement impossible : c'est la signature d'un
+/// remplacement physique du compteur (l'index du nouveau démarre plus bas que l'ancien).
+function CounterDelta({ current, previous, unit }: CounterDeltaProps) {
+  const delta = current - previous;
+  const isReplacement = delta < 0;
+  const label = isReplacement
+    ? "⟳ nouveau compteur"
+    : `${formatDelta(delta)} ${unit}`;
+  const tooltip = isReplacement
+    ? `Index passé de ${formatNumber(previous)} à ${formatNumber(current)} ${unit} — remplacement détecté`
+    : "Consommation depuis le relevé précédent";
+  const colorClass = isReplacement
+    ? "text-amber-600 dark:text-amber-400"
+    : "text-muted-foreground";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span className={cn("text-xs cursor-help", colorClass)} />}>
+        {label}
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
   );
 }

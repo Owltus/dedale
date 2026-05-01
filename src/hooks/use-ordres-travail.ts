@@ -23,7 +23,7 @@ export const otKeys = {
   lists: () => [...otKeys.all, "list"] as const,
   byGamme: (idGamme: number) => [...otKeys.all, "gamme", idGamme] as const,
   detail: (id: number) => [...otKeys.all, "detail", id] as const,
-  historique: (id: number, limit: number) =>
+  historique: (id: number, limit: number | "all") =>
     [...otKeys.all, "detail", id, "historique", limit] as const,
 };
 
@@ -59,12 +59,16 @@ export function useOrdreTravail(id: number) {
 /**
  * Historique des relevés des opérations mesure de l'OT, indexé par id_operation_execution.
  * `enabled` permet d'éviter la requête quand on sait qu'il n'y a aucune opération mesure.
+ *
+ * `limit = null` (par défaut) charge TOUT l'historique. Indispensable pour MesureCell
+ * qui doit trouver le précédent chronologique d'un OT — un OT du passé n'est pas dans
+ * les "N plus récents", il faut donc l'historique complet pour le chercher.
  */
-export function useOperationsHistorique(idOt: number, enabled = true, limit = 6) {
+export function useOperationsHistorique(idOt: number, enabled = true, limit: number | null = null) {
   const { data, ...rest } = useInvokeQuery<OperationHistorique[]>(
     "get_operations_historique",
     { idOt, limit },
-    { queryKey: otKeys.historique(idOt, limit), enabled: !!idOt && enabled }
+    { queryKey: otKeys.historique(idOt, limit ?? "all"), enabled: !!idOt && enabled }
   );
   const byOp = useMemo<Map<number, HistoriquePoint[]>>(
     () => new Map((data ?? []).map((h) => [h.id_operation_execution, h.points])),

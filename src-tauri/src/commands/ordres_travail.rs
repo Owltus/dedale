@@ -202,14 +202,18 @@ pub fn get_ordre_travail(db: State<DbPool>, id: i64) -> Result<OrdreDetailComple
 }
 
 /// Récupère l'historique des relevés pour les opérations mesure d'un OT.
-/// Retourne, pour chaque opération mesure du OT courant, la liste des `limit`
-/// derniers relevés sur d'autres OT issus de la même opération mère
-/// (jointure sur `id_type_source` + `id_source`). Triés du plus récent au plus ancien.
+/// Retourne, pour chaque opération mesure du OT courant, la liste des relevés sur
+/// d'autres OT issus de la même opération mère (jointure sur `id_type_source` +
+/// `id_source`), triés du plus récent au plus ancien.
+///
+/// `limit` : `Some(n)` → ne retourne que les n plus récents. `None` → tout l'historique.
+/// Le frontend a souvent besoin de tout (ex: trouver le précédent chronologique d'un
+/// OT du passé), un LIMIT trop petit le prive des points antérieurs au OT courant.
 #[tauri::command]
 pub fn get_operations_historique(
     db: State<DbPool>,
     id_ot: i64,
-    limit: i64,
+    limit: Option<i64>,
 ) -> Result<Vec<OperationHistorique>, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
 
@@ -231,27 +235,26 @@ pub fn get_operations_historique(
         .collect::<Result<_, _>>()
         .map_err(|e| e.to_string())?;
 
-    // Pour chaque opération mesure, récupérer les N derniers relevés (autres OT, valeur non nulle)
-    let mut stmt_hist = conn
-        .prepare_cached(
-            "SELECT oe.id_ordre_travail, oe.date_execution, ot.date_prevue, \
-                    oe.valeur_mesuree, oe.est_conforme \
-             FROM operations_execution oe \
-             JOIN ordres_travail ot ON oe.id_ordre_travail = ot.id_ordre_travail \
-             WHERE oe.id_type_source = ?1 \
-             AND oe.id_source = ?2 \
-             AND oe.id_ordre_travail != ?3 \
-             AND oe.valeur_mesuree IS NOT NULL \
-             ORDER BY COALESCE(oe.date_execution, ot.date_prevue) DESC \
-             LIMIT ?4",
-        )
-        .map_err(|e| e.to_string())?;
+    // Une seule requête, branchement LIMIT optionnel (-1 = pas de limite en SQLite).
+    let sql = "SELECT oe.id_ordre_travail, oe.date_execution, ot.date_prevue, \
+                       oe.valeur_mesuree, oe.est_conforme \
+                FROM operations_execution oe \
+                JOIN ordres_travail ot ON oe.id_ordre_travail = ot.id_ordre_travail \
+                WHERE oe.id_type_source = ?1 \
+                AND oe.id_source = ?2 \
+                AND oe.id_ordre_travail != ?3 \
+                AND oe.valeur_mesuree IS NOT NULL \
+                ORDER BY COALESCE(oe.date_execution, ot.date_prevue) DESC \
+                LIMIT ?4";
+    let mut stmt_hist = conn.prepare_cached(sql).map_err(|e| e.to_string())?;
+
+    let effective_limit: i64 = limit.unwrap_or(-1);
 
     let mut result = Vec::with_capacity(ops.len());
     for (id_op_exec, id_type_source, id_source) in ops {
         let points: Vec<HistoriquePoint> = stmt_hist
             .query_map(
-                params![id_type_source, id_source, id_ot, limit],
+                params![id_type_source, id_source, id_ot, effective_limit],
                 |row| {
                     Ok(HistoriquePoint {
                         id_ordre_travail: row.get(0)?,
