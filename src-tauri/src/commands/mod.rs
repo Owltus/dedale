@@ -16,5 +16,6 @@ pub mod planning;
 pub mod prestataires;
 pub mod recherche;
 pub mod referentiels;
+pub mod releves;
 pub mod system;
 pub mod techniciens;

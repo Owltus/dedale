@@ -246,6 +246,9 @@ pub fn run() {
             commands::ordres_travail::update_operation_execution,
             commands::ordres_travail::bulk_terminer_operations,
             commands::ordres_travail::bulk_update_operations,
+            // Relevés (visualisation transverse des opérations mesure)
+            commands::releves::get_gammes_avec_releves,
+            commands::releves::get_releves_by_gamme,
             // Demandes d'intervention
             commands::demandes::get_demandes,
             commands::demandes::get_demande,

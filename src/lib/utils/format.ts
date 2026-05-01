@@ -24,6 +24,23 @@ export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/// Formate une date pour l'axe X d'un graphique de relevés, selon la périodicité de la gamme :
+/// - ≤ 14 jours (hebdo, bihebdo)         → "avr S17"
+/// - 15-60 jours (mensuel à bimestriel)  → "avril 2026"
+/// - 61-180 jours (trimestriel/semestriel) → "T2 2026"
+/// - > 180 jours (annuel et +)           → "2026"
+export function formatChartDate(dateStr: string | null | undefined, joursPeriodicite: number): string {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (joursPeriodicite <= 14) return format(date, "MMM 'S'II", { locale: fr });
+  if (joursPeriodicite <= 60) return format(date, "MMMM yyyy", { locale: fr });
+  if (joursPeriodicite <= 180) {
+    const trimestre = Math.floor(date.getMonth() / 3) + 1;
+    return `T${trimestre} ${date.getFullYear()}`;
+  }
+  return format(date, "yyyy", { locale: fr });
+}
+
 /// Formate une date avec l'heure (dd/MM/yyyy HH:mm)
 export function formatDateTime(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";

@@ -32,10 +32,15 @@ export function MesureCell({ op, history, editable, onMesureChange }: MesureCell
     return <span className="text-muted-foreground">—</span>;
   }
 
-  const isCounter = isCounterUnit(op.unite_symbole);
   const unit = op.unite_symbole ?? "";
   // L'historique est trié DESC et filtré valeur_mesuree IS NOT NULL côté SQL.
   const previous = history[0] ?? null;
+  // Détection cumulative basée sur les valeurs réelles (current + historique).
+  const seriesValues = [
+    op.valeur_mesuree,
+    ...history.map((p) => p.valeur_mesuree),
+  ].filter((v): v is number => v !== null).reverse();
+  const isCounter = isCounterUnit(seriesValues, op.unite_symbole);
 
   const hasSeuils = op.seuil_minimum !== null || op.seuil_maximum !== null;
   const conformiteColor =

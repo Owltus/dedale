@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useInvokeQuery, useInvokeMutation } from "./useInvoke";
+import { relevesKeys } from "./use-releves";
 import type {
   HistoriquePoint,
   OtListItem,
@@ -8,6 +9,14 @@ import type {
   OpExecBatchItem,
   OperationHistorique,
 } from "@/lib/types/ordres-travail";
+
+/// Toute mutation qui touche `operations_execution` ou `ordres_travail` doit invalider :
+/// - les requêtes OT (listes, détails, historiques)
+/// - les requêtes Relevés (la page Relevés agrège les mêmes données)
+function invalidateOtAndReleves(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: otKeys.all });
+  qc.invalidateQueries({ queryKey: relevesKeys.all });
+}
 
 export const otKeys = {
   all: ["ordres-travail"] as const,
@@ -68,7 +77,7 @@ export function useCreateOrdreTravail() {
   const qc = useQueryClient();
   return useInvokeMutation<OrdreDetailComplet, { input: Record<string, unknown> }>(
     "create_ordre_travail",
-    { onSettled: () => qc.invalidateQueries({ queryKey: otKeys.all }) }
+    { onSettled: () => invalidateOtAndReleves(qc) }
   );
 }
 
@@ -76,7 +85,7 @@ export function useDeleteOrdreTravail() {
   const qc = useQueryClient();
   return useInvokeMutation<null, { id: number }>(
     "delete_ordre_travail",
-    { onSettled: () => qc.invalidateQueries({ queryKey: otKeys.all }) }
+    { onSettled: () => invalidateOtAndReleves(qc) }
   );
 }
 
@@ -84,7 +93,7 @@ export function useUpdateStatutOt() {
   const qc = useQueryClient();
   return useInvokeMutation<OrdreDetailComplet, { id: number; nouveauStatut: number }>(
     "update_statut_ot",
-    { onSettled: () => qc.invalidateQueries({ queryKey: otKeys.all }) }
+    { onSettled: () => invalidateOtAndReleves(qc) }
   );
 }
 
@@ -92,7 +101,7 @@ export function useUpdateOrdreTravail() {
   const qc = useQueryClient();
   return useInvokeMutation<OrdreDetailComplet, { id: number; input: Record<string, unknown> }>(
     "update_ordre_travail",
-    { onSettled: () => qc.invalidateQueries({ queryKey: otKeys.all }) }
+    { onSettled: () => invalidateOtAndReleves(qc) }
   );
 }
 
@@ -100,7 +109,7 @@ export function useUpdateOperationExecution() {
   const qc = useQueryClient();
   return useInvokeMutation<OrdreDetailComplet, { id: number; input: Record<string, unknown> }>(
     "update_operation_execution",
-    { onSettled: () => qc.invalidateQueries({ queryKey: otKeys.all }) }
+    { onSettled: () => invalidateOtAndReleves(qc) }
   );
 }
 
@@ -108,7 +117,7 @@ export function useBulkTerminerOperations() {
   const qc = useQueryClient();
   return useInvokeMutation<OrdreDetailComplet, { ids: number[]; dateExecution: string }>(
     "bulk_terminer_operations",
-    { onSettled: () => qc.invalidateQueries({ queryKey: otKeys.all }) }
+    { onSettled: () => invalidateOtAndReleves(qc) }
   );
 }
 
@@ -116,6 +125,6 @@ export function useBulkUpdateOperations() {
   const qc = useQueryClient();
   return useInvokeMutation<OrdreDetailComplet, { items: OpExecBatchItem[] }>(
     "bulk_update_operations",
-    { onSettled: () => qc.invalidateQueries({ queryKey: otKeys.all }) }
+    { onSettled: () => invalidateOtAndReleves(qc) }
   );
 }

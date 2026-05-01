@@ -14,6 +14,7 @@ import {
   Users,
   FolderOpen,
   Layers,
+  LineChart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Gammes", path: "/gammes", icon: Wrench },
       { label: "Ordres de travail", path: "/ordres-travail", icon: ClipboardList },
       { label: "Demandes d'intervention", path: "/demandes", icon: MessageSquare },
+      { label: "Relevés", path: "/releves", icon: LineChart },
       { label: "Documents", path: "/documents", icon: FolderOpen },
     ],
   },
