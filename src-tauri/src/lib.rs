@@ -272,6 +272,7 @@ pub fn run() {
             commands::documents::upload_document,
             commands::documents::get_documents,
             commands::documents::get_documents_for_entity,
+            commands::documents::get_document_liaisons,
             commands::documents::get_documents_prestataire_agregat,
             commands::documents::download_document,
             commands::documents::save_document_to,

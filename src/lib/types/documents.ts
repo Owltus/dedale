@@ -39,3 +39,24 @@ export interface DocumentLie {
   commentaire: string | null;
   source: string | null;
 }
+
+export type DocumentEntityType =
+  | "prestataires"
+  | "ordres_travail"
+  | "gammes"
+  | "contrats"
+  | "di"
+  | "localisations"
+  | "equipements"
+  | "techniciens";
+
+/// Une liaison d'un document vers une entité (vue inverse de DocumentLie)
+export interface DocumentLiaison {
+  entity_type: DocumentEntityType;
+  entity_id: number;
+  label: string;
+  sublabel: string | null;
+  /// Pour les contrats : id_prestataire (cible de navigation)
+  parent_id: number | null;
+  date_liaison: string;
+}

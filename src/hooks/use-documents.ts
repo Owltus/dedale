@@ -4,12 +4,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { useInvokeQuery, useInvokeMutation } from "./useInvoke";
-import type { Document, DocumentAggrege, DocumentListItem, DocumentLie } from "@/lib/types/documents";
+import type { Document, DocumentAggrege, DocumentListItem, DocumentLie, DocumentLiaison } from "@/lib/types/documents";
 import type { PreviewableDoc } from "@/components/shared/DocumentPreviewDialog";
 
 export const documentKeys = {
   all: ["documents"] as const,
   entity: (type: string, id: number) => ["documents", "entity", type, id] as const,
+  liaisons: (idDocument: number) => ["documents", "liaisons", idDocument] as const,
 };
 
 export function useDocumentsPrestataire(idPrestataire: number) {
@@ -37,6 +38,21 @@ export function useDocumentsForEntity(entityType: string, entityId: number) {
     "get_documents_for_entity",
     { entityType, entityId },
     { queryKey: documentKeys.entity(entityType, entityId), enabled: !!entityId }
+  );
+}
+
+/// Liste les entités auxquelles un document est lié (tous types confondus).
+/// staleTime long : les liaisons changent rarement et les mutations link_/unlink_
+/// invalident déjà la racine ["documents"], ce qui couvre cette clé.
+export function useDocumentLiaisons(idDocument: number, options?: { enabled?: boolean }) {
+  return useInvokeQuery<DocumentLiaison[]>(
+    "get_document_liaisons",
+    { idDocument },
+    {
+      queryKey: documentKeys.liaisons(idDocument),
+      enabled: !!idDocument && (options?.enabled ?? true),
+      staleTime: 5 * 60 * 1000,
+    }
   );
 }
 

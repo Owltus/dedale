@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use tauri::{Manager, State};
 
 use crate::db::DbPool;
-use crate::models::documents::{Document, DocumentAggrege, DocumentLie, DocumentListItem, DocumentUploadInput};
+use crate::models::documents::{Document, DocumentAggrege, DocumentLiaison, DocumentLie, DocumentListItem, DocumentUploadInput};
 
 // ════════════════════════════════════════════════════════════════════════════
 // ── Utilitaire : résoudre le répertoire de stockage des documents ──
@@ -311,6 +311,90 @@ pub fn get_documents_for_entity(
                 date_liaison: row.get(5)?,
                 commentaire: row.get(6)?,
                 source: row.get(7)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+/// Récupère, pour un document donné, toutes les entités auxquelles il est lié (8 types confondus).
+/// Utilisé par la page Documents pour permettre la navigation depuis le compteur de liaisons.
+#[tauri::command]
+pub fn get_document_liaisons(
+    db: State<DbPool>,
+    id_document: i64,
+) -> Result<Vec<DocumentLiaison>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare_cached(
+            "SELECT 'prestataires' AS entity_type, p.id_prestataire AS entity_id, \
+                    p.libelle AS label, NULL AS sublabel, NULL AS parent_id, \
+                    dp.date_liaison \
+             FROM documents_prestataires dp \
+             JOIN prestataires p ON p.id_prestataire = dp.id_prestataire \
+             WHERE dp.id_document = ?1 \
+             UNION ALL \
+             SELECT 'ordres_travail', ot.id_ordre_travail, \
+                    'OT #' || ot.id_ordre_travail || ' — ' || ot.nom_gamme, \
+                    ot.description_gamme, NULL, dot.date_liaison \
+             FROM documents_ordres_travail dot \
+             JOIN ordres_travail ot ON ot.id_ordre_travail = dot.id_ordre_travail \
+             WHERE dot.id_document = ?1 \
+             UNION ALL \
+             SELECT 'gammes', g.id_gamme, g.nom_gamme, g.description, NULL, dg.date_liaison \
+             FROM documents_gammes dg \
+             JOIN gammes g ON g.id_gamme = dg.id_gamme \
+             WHERE dg.id_document = ?1 \
+             UNION ALL \
+             SELECT 'contrats', c.id_contrat, \
+                    c.reference || ' (' || p.libelle || ')', \
+                    NULL, c.id_prestataire, dc.date_liaison \
+             FROM documents_contrats dc \
+             JOIN contrats c ON c.id_contrat = dc.id_contrat \
+             JOIN prestataires p ON p.id_prestataire = c.id_prestataire \
+             WHERE dc.id_document = ?1 \
+             UNION ALL \
+             SELECT 'di', di.id_di, \
+                    'DI #' || di.id_di || ' — ' || di.libelle_constat, \
+                    NULL, NULL, ddi.date_liaison \
+             FROM documents_di ddi \
+             JOIN demandes_intervention di ON di.id_di = ddi.id_di \
+             WHERE ddi.id_document = ?1 \
+             UNION ALL \
+             SELECT 'localisations', l.id_local, l.nom, \
+                    b.nom || ' › ' || n.nom, NULL, dl.date_liaison \
+             FROM documents_localisations dl \
+             JOIN locaux l ON l.id_local = dl.id_local \
+             JOIN niveaux n ON n.id_niveau = l.id_niveau \
+             JOIN batiments b ON b.id_batiment = n.id_batiment \
+             WHERE dl.id_document = ?1 \
+             UNION ALL \
+             SELECT 'equipements', e.id_equipement, e.nom_affichage, l.nom, \
+                    NULL, de.date_liaison \
+             FROM documents_equipements de \
+             JOIN equipements e ON e.id_equipement = de.id_equipement \
+             LEFT JOIN locaux l ON l.id_local = e.id_local \
+             WHERE de.id_document = ?1 \
+             UNION ALL \
+             SELECT 'techniciens', t.id_technicien, \
+                    t.prenom || ' ' || t.nom, NULL, NULL, dt.date_liaison \
+             FROM documents_techniciens dt \
+             JOIN techniciens t ON t.id_technicien = dt.id_technicien \
+             WHERE dt.id_document = ?1 \
+             ORDER BY date_liaison DESC, entity_type",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let rows = stmt
+        .query_map(params![id_document], |row| {
+            Ok(DocumentLiaison {
+                entity_type: row.get(0)?,
+                entity_id: row.get(1)?,
+                label: row.get(2)?,
+                sublabel: row.get(3)?,
+                parent_id: row.get(4)?,
+                date_liaison: row.get(5)?,
             })
         })
         .map_err(|e| e.to_string())?;

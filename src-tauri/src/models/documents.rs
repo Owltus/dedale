@@ -55,3 +55,16 @@ pub struct DocumentUploadInput {
     pub data_base64: String,
     pub id_type_document: i64,
 }
+
+/// Liaison d'un document vers une entité (utilisé dans la page Documents)
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DocumentLiaison {
+    /// "prestataires" | "ordres_travail" | "gammes" | "contrats" | "di" | "localisations" | "equipements" | "techniciens"
+    pub entity_type: String,
+    pub entity_id: i64,
+    pub label: String,
+    pub sublabel: Option<String>,
+    /// Pour les contrats : id_prestataire (cible de navigation)
+    pub parent_id: Option<i64>,
+    pub date_liaison: String,
+}

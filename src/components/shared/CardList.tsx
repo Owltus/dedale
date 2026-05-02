@@ -32,6 +32,7 @@ interface CardListProps<T> {
   filterFn: (item: T, query: string) => boolean;
   icon: ReactNode;
   getIcon?: (item: T) => ReactNode;
+  getIconOverlay?: (item: T) => ReactNode;
   renderContent: (item: T) => ReactNode;
   renderRight?: (item: T) => ReactNode;
   title?: string;
@@ -56,6 +57,7 @@ export function CardList<T>({
   filterFn,
   icon,
   getIcon,
+  getIconOverlay,
   renderContent,
   renderRight,
   title,
@@ -139,10 +141,15 @@ export function CardList<T>({
                   onClick={getHref ? () => navigate(getHref(item)) : onItemClick ? () => onItemClick(item) : undefined}
                 >
                   <div className={cn(
-                    "flex shrink-0 items-center justify-center bg-muted border-r overflow-hidden",
+                    "relative flex shrink-0 items-center justify-center bg-muted border-r overflow-hidden",
                     layout.icon
                   )}>
                     <CardItemIcon imageId={getImageId?.(item)} fallback={getIcon?.(item) ?? icon} />
+                    {getIconOverlay && (
+                      <div className="absolute top-1 right-1 z-10">
+                        {getIconOverlay(item)}
+                      </div>
+                    )}
                   </div>
                   <div className={cn(
                     "flex flex-1 items-center justify-between min-w-0",
