@@ -27,6 +27,7 @@ interface BarChartRelevesProps {
   /** `delta` = Δ entre relevés successifs (compteurs) ; `raw` = valeur brute. */
   mode: BarMode;
   onPointClick: (idOt: number) => void;
+  /** Hauteur fixe en pixels. Si omis, le composant occupe 100 % de la hauteur du parent. */
   height?: number;
   /** Formatage des labels de l'axe X. Par défaut : `formatDateShort`. */
   formatLabel?: (iso: string) => string;
@@ -174,7 +175,7 @@ export function BarChartReleves({
   unite,
   mode,
   onPointClick,
-  height = 220,
+  height,
   formatLabel = formatDateShort,
   extraDates = [],
 }: BarChartRelevesProps) {
@@ -263,14 +264,16 @@ export function BarChartReleves({
       },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-        y: { ticks: { font: { size: 10 } }, beginAtZero: true, grace: "10%" },
+        y: { ticks: { display: false }, beginAtZero: true, grace: "10%" },
       },
     }),
     [unite, isSingle, mode, barsByDataset, onPointClick],
   );
 
+  // Si height fourni → div avec hauteur fixe.
+  // Sinon → 100 % du parent (le parent doit avoir une hauteur définie via flex/grid).
   return (
-    <div style={{ height }}>
+    <div style={height ? { height } : { height: "100%", minHeight: 0 }}>
       <Bar data={data} options={options} plugins={[yearWatermarkPlugin]} />
     </div>
   );

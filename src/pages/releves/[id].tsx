@@ -1,14 +1,21 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { PageHeader, useSetBreadcrumbTrail } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { HeaderButton } from "@/components/shared/HeaderButton";
 import { LineChartTimeSeries, type ChartSeries } from "@/components/shared/LineChartTimeSeries";
 import { BarChartReleves } from "@/components/shared/BarChartReleves";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useElementWidth } from "@/hooks/useElementWidth";
 import { useRelevesByGamme, useGammesAvecReleves } from "@/hooks/use-releves";
 import { useTemporalNavigation } from "@/hooks/useTemporalNavigation";
 import type { OperationReleves } from "@/lib/types/releves";
+import { cn } from "@/lib/utils";
 import { addDaysIso, buildJalons } from "@/lib/utils/cadence";
 import { formatChartDate } from "@/lib/utils/format";
 import { inferChartKind, type ChartKind } from "@/lib/utils/unites";
@@ -17,6 +24,10 @@ import { inferChartKind, type ChartKind } from "@/lib/utils/unites";
 const POINT_WIDTH = 56;
 const MIN_POINTS = 5;
 const MAX_POINTS = 80;
+/// Mode "année" : fenêtre fixe d'1 an, navigation par pas d'1 an.
+const FENETRE_ANNUELLE_JOURS = 365;
+
+type ViewMode = "mois" | "annee";
 
 export function RelevesDetail() {
   const { id } = useParams<{ id: string }>();
@@ -33,36 +44,70 @@ export function RelevesDetail() {
     [gammes, idGamme],
   );
 
-  // Nombre de points qui rentrent à l'écran, calé sur la périodicité de la gamme.
+  const [viewMode, setViewMode] = useState<ViewMode>("mois");
+
+  // On charge tout l'historique : le filtrage temporel est entièrement géré côté front.
+  const { data: operations = [], isLoading } = useRelevesByGamme(idGamme, null);
+
   const visiblePointCount = useMemo(
     () => Math.max(MIN_POINTS, Math.min(MAX_POINTS, Math.floor(chartsWidth / POINT_WIDTH))),
     [chartsWidth],
   );
   const joursPeriodicite = gamme?.jours_periodicite ?? 30;
-  const fenetreJours = visiblePointCount * joursPeriodicite;
-  // Pas clavier = 1/3 de la fenêtre visible (cohérent avec l'effet « page »).
-  const navStepDays = Math.max(1, Math.floor(fenetreJours / 3));
+  const maxDateIso = useMemo(() => computeMaxDate(operations), [operations]);
+
+  // Profil de vue : centralise les valeurs qui dépendent de viewMode pour éviter
+  // les branchements éparpillés dans le reste du composant.
+  const cfg = useMemo(() => {
+    if (viewMode === "annee") {
+      return {
+        fenetreJours: FENETRE_ANNUELLE_JOURS,
+        navStepDays: FENETRE_ANNUELLE_JOURS,
+        jalonStepJours: 30, // 12 jalons mensuels sur l'année
+        prevLabel: "Année précédente",
+        nextLabel: "Année suivante",
+      };
+    }
+    const fenetre = visiblePointCount * joursPeriodicite;
+    return {
+      fenetreJours: fenetre,
+      navStepDays: Math.max(1, Math.floor(fenetre / 3)),
+      jalonStepJours: joursPeriodicite,
+      prevLabel: "Période précédente",
+      nextLabel: "Période suivante",
+    };
+  }, [viewMode, visiblePointCount, joursPeriodicite]);
 
   const [offsetDays, setOffsetDays] = useTemporalNavigation({
-    step: navStepDays,
+    step: cfg.navStepDays,
     allowReset: true,
   });
 
-  // On charge tout l'historique : le filtrage temporel est entièrement géré côté front
-  // par la fenêtre adaptative + navigation clavier.
-  const { data: operations = [], isLoading } = useRelevesByGamme(idGamme, null);
+  // Bug évité : si on bascule de mode avec un offset non multiple du nouveau step,
+  // on dériverait. Reset systématique pour repartir de la fin de l'historique.
+  const switchViewMode = (next: ViewMode) => {
+    if (next === viewMode) return;
+    setOffsetDays(0);
+    setViewMode(next);
+  };
 
-  // Borne de fin = date du dernier relevé observé + offset clavier.
-  // Borne de début = endIso − fenetreJours.
-  const { startIso, endIso } = useMemo(
-    () => computeWindowBounds(operations, fenetreJours, offsetDays),
-    [operations, fenetreJours, offsetDays],
-  );
+  // Mode mois : fenêtre glissante (endIso = max relevé + offset).
+  // Mode année : année calendaire complète (1er janv → 31 déc), offset = ±N années.
+  const { startIso, endIso } = useMemo(() => {
+    if (viewMode === "annee") {
+      const ancre = maxDateIso ?? new Date().toISOString().slice(0, 10);
+      const yearOffset = Math.round(offsetDays / FENETRE_ANNUELLE_JOURS);
+      const targetYear = Number(ancre.slice(0, 4)) + yearOffset;
+      return { startIso: `${targetYear}-01-01`, endIso: `${targetYear}-12-31` };
+    }
+    const ancre = maxDateIso ?? new Date().toISOString().slice(0, 10);
+    const end = addDaysIso(ancre, offsetDays);
+    return { startIso: addDaysIso(end, -cfg.fenetreJours), endIso: end };
+  }, [maxDateIso, cfg.fenetreJours, offsetDays, viewMode]);
 
-  // Jalons artificiels pour étoffer l'axe X même sans relevés dans la fenêtre.
   const jalons = useMemo(
-    () => buildJalons(startIso, endIso, joursPeriodicite),
-    [startIso, endIso, joursPeriodicite],
+    () => buildJalons(startIso, endIso, cfg.jalonStepJours),
+    [startIso, endIso, cfg.jalonStepJours],
   );
 
   // On passe les opérations COMPLÈTES (pas filtrées) aux composants chart : ils en ont
@@ -70,11 +115,11 @@ export function RelevesDetail() {
   // filtrent naturellement à l'affichage en n'affichant que les buckets dans `extraDates`.
   const groupesParUnite = useMemo(() => groupByUniteAll(operations), [operations]);
 
-  // Format des labels axe X dépendant de la périodicité de la gamme
-  const formatLabel = useMemo(() => {
-    const jours = gamme?.jours_periodicite ?? 30;
-    return (iso: string) => formatChartDate(iso, jours);
-  }, [gamme?.jours_periodicite]);
+  // Format axe X — sans année (l'année est affichée séparément en filigrane).
+  const formatLabel = useMemo(
+    () => (iso: string) => formatChartDate(iso, cfg.jalonStepJours, false),
+    [cfg.jalonStepJours],
+  );
 
   useSetBreadcrumbTrail(
     gamme
@@ -87,22 +132,57 @@ export function RelevesDetail() {
 
   const title = gamme ? `Relevés — ${gamme.nom_gamme}` : "Relevés";
 
+  // Label de la période visible — formaté selon le mode de vue.
+  const periodeLabel = useMemo(() => {
+    if (!startIso || !endIso) return "—";
+    if (viewMode === "annee") return String(new Date(endIso).getUTCFullYear());
+    return `${format(new Date(startIso), "MMM yyyy", { locale: fr })} → ${format(new Date(endIso), "MMM yyyy", { locale: fr })}`;
+  }, [startIso, endIso, viewMode]);
+
   return (
     <div className="flex h-full flex-col p-4 gap-3 overflow-hidden">
       <PageHeader title={title}>
-        {offsetDays !== 0 && (
-          <button
-            type="button"
-            onClick={() => setOffsetDays(0)}
-            className="text-xs text-muted-foreground hover:text-foreground"
-            title="Revenir à la fin de l'historique (Home / Échap)"
-          >
-            {offsetDays > 0 ? `+${offsetDays}j` : `${offsetDays}j`} · réinitialiser
-          </button>
-        )}
+        <TooltipProvider delay={300}>
+          <div className="flex items-center gap-2">
+            <Tabs value={viewMode} onValueChange={(v) => switchViewMode(v as ViewMode)}>
+              <TabsList>
+                <TabsTrigger value="mois">Mois</TabsTrigger>
+                <TabsTrigger value="annee">Année</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <HeaderButton
+              icon={<ChevronsLeft className="size-4" />}
+              label={cfg.prevLabel}
+              onClick={() => setOffsetDays((o) => o - cfg.navStepDays)}
+            />
+            <button
+              type="button"
+              onClick={() => setOffsetDays(0)}
+              className="text-sm font-bold tabular-nums min-w-44 text-center hover:text-primary transition-colors cursor-pointer"
+              title="Revenir aux dernières données (Home / Échap)"
+            >
+              {periodeLabel}
+            </button>
+            <HeaderButton
+              icon={<ChevronsRight className="size-4" />}
+              label={cfg.nextLabel}
+              onClick={() => setOffsetDays((o) => o + cfg.navStepDays)}
+            />
+          </div>
+        </TooltipProvider>
       </PageHeader>
 
-      <div ref={chartsContainerRef} className="flex-1 overflow-y-auto no-scrollbar min-h-0">
+      <div
+        ref={chartsContainerRef}
+        className={cn(
+          "flex-1 min-h-0",
+          // ≤ 2 graphes : flex column, chaque graphe occupe l'espace restant (50/50 si 2)
+          // > 2 graphes : grid avec scroll, hauteur fixe par graphe
+          groupesParUnite.length <= 2
+            ? "flex flex-col gap-4 overflow-hidden"
+            : "overflow-y-auto no-scrollbar",
+        )}
+      >
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Chargement…</p>
         ) : groupesParUnite.length === 0 ? (
@@ -110,57 +190,31 @@ export function RelevesDetail() {
             title="Aucun relevé sur cette période"
             description={offsetDays !== 0 ? "Appuyez sur Échap pour revenir à l'historique récent." : undefined}
           />
+        ) : groupesParUnite.length <= 2 ? (
+          // 1 ou 2 graphes : pleine hauteur partagée équitablement, pas de scroll
+          groupesParUnite.map((g) => (
+            <ChartCard
+              key={`${g.unite}-${g.kind}`}
+              groupe={g}
+              jalons={jalons}
+              formatLabel={formatLabel}
+              onPointClick={(idOt) => navigate(`/ordres-travail/${idOt}`)}
+              fillParent
+            />
+          ))
         ) : (
+          // 3+ graphes : grid avec hauteur fixe, scroll vertical
           <div className="grid grid-cols-1 gap-4">
-            {groupesParUnite.map(({ unite, kind, series, totalPoints, totalResets, titre }) => {
-              const onPointClick = (idOt: number) => navigate(`/ordres-travail/${idOt}`);
-              return (
-                <Card key={`${unite}-${kind}`}>
-                  <CardContent className="p-3">
-                    <div className="flex items-baseline justify-between gap-2 mb-2">
-                      <h3 className="font-medium truncate">{titre}</h3>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {totalPoints} relevé{totalPoints > 1 ? "s" : ""} · {unite}
-                        {kind === "bar-delta" && " · consommation par période"}
-                        {totalResets > 0 && ` · ${totalResets} changement${totalResets > 1 ? "s" : ""} de compteur`}
-                      </span>
-                    </div>
-                    {kind === "line" && (
-                      <LineChartTimeSeries
-                        series={series}
-                        unite={unite}
-                        onPointClick={onPointClick}
-                        height={360}
-                        formatLabel={formatLabel}
-                        extraDates={jalons}
-                      />
-                    )}
-                    {kind === "bar-delta" && (
-                      <BarChartReleves
-                        series={series}
-                        unite={unite}
-                        mode="delta"
-                        onPointClick={onPointClick}
-                        height={360}
-                        formatLabel={formatLabel}
-                        extraDates={jalons}
-                      />
-                    )}
-                    {kind === "bar-raw" && (
-                      <BarChartReleves
-                        series={series}
-                        unite={unite}
-                        mode="raw"
-                        onPointClick={onPointClick}
-                        height={360}
-                        formatLabel={formatLabel}
-                        extraDates={jalons}
-                      />
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {groupesParUnite.map((g) => (
+              <ChartCard
+                key={`${g.unite}-${g.kind}`}
+                groupe={g}
+                jalons={jalons}
+                formatLabel={formatLabel}
+                onPointClick={(idOt) => navigate(`/ordres-travail/${idOt}`)}
+                fixedHeight={360}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -180,26 +234,79 @@ interface GroupeUnite {
   titre: string;
 }
 
-/**
- * Calcule les bornes [startIso, endIso] de la fenêtre visible.
- * `endIso` = max(date_releve) + offsetDays (ou aujourd'hui si pas de données).
- * `startIso` = endIso − fenetreJours.
- */
-function computeWindowBounds(
-  operations: OperationReleves[],
-  fenetreJours: number,
-  offsetDays: number,
-): { startIso: string; endIso: string } {
+interface ChartCardProps {
+  groupe: GroupeUnite;
+  jalons: string[];
+  formatLabel: (iso: string) => string;
+  onPointClick: (idOt: number) => void;
+  /// Mode "fluide" : la carte occupe l'espace disponible du parent (`flex-1`) et le graphe
+  /// remplit ce qui reste après le titre. Utilisé quand 1 ou 2 graphes seulement.
+  fillParent?: boolean;
+  /// Mode "scroll" : hauteur fixe en pixels, utilisé quand 3+ graphes.
+  fixedHeight?: number;
+}
+
+function ChartCard({ groupe, jalons, formatLabel, onPointClick, fillParent, fixedHeight }: ChartCardProps) {
+  const { unite, kind, series, totalPoints, totalResets, titre } = groupe;
+  return (
+    <Card className={cn(fillParent && "flex flex-1 flex-col min-h-0")}>
+      <CardContent className={cn("p-3", fillParent && "flex flex-1 flex-col min-h-0")}>
+        <div className="flex items-baseline justify-between gap-2 mb-2 shrink-0">
+          <h3 className="font-medium truncate">{titre}</h3>
+          <span className="text-xs text-muted-foreground shrink-0">
+            {totalPoints} relevé{totalPoints > 1 ? "s" : ""} · {unite}
+            {kind === "bar-delta" && " · consommation par période"}
+            {totalResets > 0 && ` · ${totalResets} changement${totalResets > 1 ? "s" : ""} de compteur`}
+          </span>
+        </div>
+        <div className={cn(fillParent && "flex-1 min-h-0")}>
+          {kind === "line" && (
+            <LineChartTimeSeries
+              series={series}
+              unite={unite}
+              onPointClick={onPointClick}
+              height={fixedHeight}
+              formatLabel={formatLabel}
+              extraDates={jalons}
+            />
+          )}
+          {kind === "bar-delta" && (
+            <BarChartReleves
+              series={series}
+              unite={unite}
+              mode="delta"
+              onPointClick={onPointClick}
+              height={fixedHeight}
+              formatLabel={formatLabel}
+              extraDates={jalons}
+            />
+          )}
+          {kind === "bar-raw" && (
+            <BarChartReleves
+              series={series}
+              unite={unite}
+              mode="raw"
+              onPointClick={onPointClick}
+              height={fixedHeight}
+              formatLabel={formatLabel}
+              extraDates={jalons}
+            />
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/// Date ISO du relevé le plus récent dans toutes les opérations, ou null si vide.
+function computeMaxDate(operations: OperationReleves[]): string | null {
   let maxDate = "";
   for (const op of operations) {
     for (const p of op.points) {
       if (p.date_releve > maxDate) maxDate = p.date_releve;
     }
   }
-  const ancre = maxDate || new Date().toISOString().slice(0, 10);
-  const endIso = addDaysIso(ancre, offsetDays);
-  const startIso = addDaysIso(endIso, -fenetreJours);
-  return { startIso, endIso };
+  return maxDate || null;
 }
 
 /**
@@ -252,3 +359,4 @@ function groupByUniteAll(operations: OperationReleves[]): GroupeUnite[] {
     titre: ops.length === 1 ? ops[0]!.nom_operation : `${ops.length} opérations · ${unite}`,
   }));
 }
+

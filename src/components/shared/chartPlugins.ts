@@ -29,32 +29,41 @@ export function computeYearBands(isoDates: string[]): YearBand[] {
 }
 
 /**
- * Plugin Chart.js qui dessine l'année en gros filigrane derrière les datasets,
- * au centre de chaque bande année. Lit les bandes via une ref pour rester
- * stable (recréation = perte de perf et flicker).
+ * Plugin Chart.js qui dessine l'année en gros filigrane par-dessus les datasets,
+ * au centre de chaque bande année. Lisibilité assurée par un **contour blanc**
+ * autour du texte foncé : reste lisible quelle que soit la couleur des barres
+ * sous-jacentes, sans envahir visuellement le graphique.
  */
 export function makeYearWatermarkPlugin(
   bandsRef: MutableRefObject<YearBand[]>,
 ): Plugin<"bar" | "line"> {
   return {
     id: "year-watermark",
-    beforeDatasetsDraw(chart) {
+    afterDraw(chart) {
       const xScale = chart.scales.x;
       const bands = bandsRef.current;
       if (!xScale || bands.length === 0) return;
       const { ctx, chartArea } = chart;
       const centerY = (chartArea.top + chartArea.bottom) / 2;
       const height = chartArea.bottom - chartArea.top;
-      const fontSize = Math.max(18, Math.min(64, Math.round(height * 0.45)));
+      const fontSize = Math.max(20, Math.min(72, Math.round(height * 0.5)));
+
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = `700 ${fontSize}px sans-serif`;
-      ctx.fillStyle = "rgba(100, 116, 139, 0.12)";
+      ctx.lineJoin = "round";
+      ctx.fillStyle = "rgba(100, 116, 139, 0.55)"; // slate-500 discret
+      ctx.strokeStyle = "rgba(51, 65, 85, 0.4)"; // slate-700 fin
+      ctx.lineWidth = 1;
+
       for (const band of bands) {
         const xStart = xScale.getPixelForValue(band.startIdx);
         const xEnd = xScale.getPixelForValue(band.endIdx);
-        ctx.fillText(String(band.year), (xStart + xEnd) / 2, centerY);
+        const cx = (xStart + xEnd) / 2;
+        const text = String(band.year);
+        ctx.fillText(text, cx, centerY);
+        ctx.strokeText(text, cx, centerY);
       }
       ctx.restore();
     },

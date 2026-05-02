@@ -24,19 +24,33 @@ export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/// Formate une date pour l'axe X d'un graphique de relevés, selon la périodicité de la gamme :
-/// - ≤ 14 jours (hebdo, bihebdo)         → "avr S17"
-/// - 15-60 jours (mensuel à bimestriel)  → "avril 2026"
-/// - 61-180 jours (trimestriel/semestriel) → "T2 2026"
-/// - > 180 jours (annuel et +)           → "2026"
-export function formatChartDate(dateStr: string | null | undefined, joursPeriodicite: number): string {
+/// Formate une date pour l'axe X d'un graphique de relevés, selon la périodicité de la gamme.
+/// `includeYear` : si false, on omet l'année (utile sur les bar charts qui affichent
+/// l'année séparément en filigrane).
+/// - ≤ 14 jours (hebdo, bihebdo)         → "avr S17 2026" / "avr S17"
+/// - 15-60 jours (mensuel à bimestriel)  → "avril 2026" / "avril"
+/// - 61-180 jours (trimestriel/semestriel) → "T2 2026" / "T2"
+/// - > 180 jours (annuel et +)           → "2026" (l'année reste, c'est l'unité)
+export function formatChartDate(
+  dateStr: string | null | undefined,
+  joursPeriodicite: number,
+  includeYear = true,
+): string {
   if (!dateStr) return "—";
   const date = new Date(dateStr);
-  if (joursPeriodicite <= 14) return format(date, "MMM 'S'II", { locale: fr });
-  if (joursPeriodicite <= 60) return format(date, "MMMM yyyy", { locale: fr });
+  if (joursPeriodicite <= 14) {
+    return includeYear
+      ? format(date, "MMM 'S'II yyyy", { locale: fr })
+      : format(date, "MMM 'S'II", { locale: fr });
+  }
+  if (joursPeriodicite <= 60) {
+    return includeYear
+      ? format(date, "MMMM yyyy", { locale: fr })
+      : format(date, "MMMM", { locale: fr });
+  }
   if (joursPeriodicite <= 180) {
     const trimestre = Math.floor(date.getMonth() / 3) + 1;
-    return `T${trimestre} ${date.getFullYear()}`;
+    return includeYear ? `T${trimestre} ${date.getFullYear()}` : `T${trimestre}`;
   }
   return format(date, "yyyy", { locale: fr });
 }

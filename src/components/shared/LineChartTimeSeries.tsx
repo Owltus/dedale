@@ -39,6 +39,8 @@ interface LineChartTimeSeriesProps {
   series: ChartSeries[];
   unite: string | null;
   onPointClick: (idOt: number) => void;
+  /** Hauteur fixe en pixels. Si omis, le composant occupe 100 % de la hauteur du parent —
+   *  utile pour les layouts flex où le graphe doit s'étirer (ex: 1 ou 2 graphes par page). */
   height?: number;
   /** Formatage des labels de l'axe X. Par défaut : `formatDateShort`. */
   formatLabel?: (iso: string) => string;
@@ -127,7 +129,7 @@ export function LineChartTimeSeries({
   series,
   unite,
   onPointClick,
-  height = 220,
+  height,
   formatLabel = formatDateShort,
   extraDates = [],
 }: LineChartTimeSeriesProps) {
@@ -260,14 +262,16 @@ export function LineChartTimeSeries({
       },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-        y: { ticks: { font: { size: 10 } }, grace: "10%" },
+        y: { ticks: { display: false }, grace: "10%" },
       },
     }),
     [unite, isSingle, mainPointsByDataset, onPointClick],
   );
 
+  // Si height fourni → div avec hauteur fixe.
+  // Sinon → 100 % du parent (le parent doit avoir une hauteur définie via flex/grid).
   return (
-    <div style={{ height }}>
+    <div style={height ? { height } : { height: "100%", minHeight: 0 }}>
       <Line data={data} options={options} plugins={[yearWatermarkPlugin]} />
     </div>
   );
