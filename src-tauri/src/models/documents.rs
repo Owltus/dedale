@@ -37,17 +37,6 @@ pub struct DocumentLie {
     pub source: Option<String>,
 }
 
-/// Document agrégé avec source (pour vue prestataire)
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DocumentAggrege {
-    pub id_document: i64,
-    pub nom_original: String,
-    pub taille_octets: i64,
-    pub nom_type: String,
-    pub date_upload: Option<String>,
-    pub source: String,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct DocumentUploadInput {
     pub nom_original: String,

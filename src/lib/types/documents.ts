@@ -20,15 +20,6 @@ export interface DocumentListItem {
   nb_liaisons: number;
 }
 
-export interface DocumentAggrege {
-  id_document: number;
-  nom_original: string;
-  taille_octets: number;
-  nom_type: string;
-  date_upload: string | null;
-  source: string;
-}
-
 export interface DocumentLie {
   id_document: number;
   nom_original: string;

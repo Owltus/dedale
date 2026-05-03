@@ -273,7 +273,6 @@ pub fn run() {
             commands::documents::get_documents,
             commands::documents::get_documents_for_entity,
             commands::documents::get_document_liaisons,
-            commands::documents::get_documents_prestataire_agregat,
             commands::documents::download_document,
             commands::documents::save_document_to,
             commands::documents::delete_document,
@@ -293,7 +292,6 @@ pub fn run() {
             commands::documents::unlink_document_localisation,
             commands::documents::link_document_equipement,
             commands::documents::unlink_document_equipement,
-            commands::documents::get_documents_equipement_agregat,
             commands::documents::link_document_technicien,
             commands::documents::unlink_document_technicien,
             // Dashboard

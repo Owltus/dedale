@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { useInvokeQuery, useInvokeMutation } from "./useInvoke";
-import type { Document, DocumentAggrege, DocumentListItem, DocumentLie, DocumentLiaison } from "@/lib/types/documents";
+import type { Document, DocumentListItem, DocumentLie, DocumentLiaison } from "@/lib/types/documents";
 import type { PreviewableDoc } from "@/components/shared/DocumentPreviewDialog";
 
 export const documentKeys = {
@@ -12,22 +12,6 @@ export const documentKeys = {
   entity: (type: string, id: number) => ["documents", "entity", type, id] as const,
   liaisons: (idDocument: number) => ["documents", "liaisons", idDocument] as const,
 };
-
-export function useDocumentsPrestataire(idPrestataire: number) {
-  return useInvokeQuery<DocumentAggrege[]>(
-    "get_documents_prestataire_agregat",
-    { idPrestataire },
-    { queryKey: [...documentKeys.all, "prestataire", idPrestataire] as const, enabled: !!idPrestataire },
-  );
-}
-
-export function useDocumentsEquipement(idEquipement: number) {
-  return useInvokeQuery<DocumentAggrege[]>(
-    "get_documents_equipement_agregat",
-    { idEquipement },
-    { queryKey: [...documentKeys.all, "equipement", idEquipement] as const, enabled: !!idEquipement },
-  );
-}
 
 export function useDocuments() {
   return useInvokeQuery<DocumentListItem[]>("get_documents", undefined, { queryKey: documentKeys.all });

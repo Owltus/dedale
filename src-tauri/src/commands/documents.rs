@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use tauri::{Manager, State};
 
 use crate::db::DbPool;
-use crate::models::documents::{Document, DocumentAggrege, DocumentLiaison, DocumentLie, DocumentListItem, DocumentUploadInput};
+use crate::models::documents::{Document, DocumentLiaison, DocumentLie, DocumentListItem, DocumentUploadInput};
 
 // ════════════════════════════════════════════════════════════════════════════
 // ── Utilitaire : résoudre le répertoire de stockage des documents ──
@@ -271,14 +271,10 @@ pub fn get_documents_for_entity(
 ) -> Result<Vec<DocumentLie>, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
 
-    // Cas spécial équipements : documents directs + hérités gammes/OT
-    if entity_type == "equipements" {
-        return get_documents_equipement_complet(&conn, entity_id);
-    }
-
-    // Déterminer la table de liaison et la colonne FK selon le type d'entité
     let (table, col) = match entity_type.as_str() {
-        "prestataires" => ("documents_prestataires", "id_prestataire"),
+        // Prestataires et équipements agrègent leurs liaisons directes + héritées (gammes/OT/...)
+        "equipements" => return get_documents_equipement_complet(&conn, entity_id),
+        "prestataires" => return get_documents_prestataire_complet(&conn, entity_id),
         "ordres_travail" => ("documents_ordres_travail", "id_ordre_travail"),
         "gammes" => ("documents_gammes", "id_gamme"),
         "contrats" => ("documents_contrats", "id_contrat"),
@@ -452,43 +448,72 @@ fn get_documents_equipement_complet(conn: &rusqlite::Connection, id_equipement: 
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
-/// Récupère tous les documents liés à un prestataire : directs + gammes + OT
-#[tauri::command]
-pub fn get_documents_prestataire_agregat(
-    db: State<DbPool>,
-    id_prestataire: i64,
-) -> Result<Vec<DocumentAggrege>, String> {
-    let conn = db.lock().map_err(|e| e.to_string())?;
+/// Documents d'un prestataire : directs (source=null) + gammes/OT/contrats/DI (source='...')
+fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire: i64) -> Result<Vec<DocumentLie>, String> {
+    // Note : on wrap l'UNION ALL dans une sous-query — sinon SQLite refuse de résoudre
+    // l'alias `source` dans une expression (`source IS NULL`) après un UNION ALL.
     let mut stmt = conn
         .prepare_cached(
-            "SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, d.date_upload, 'Gamme : ' || g.nom_gamme AS source \
+            "SELECT id_document, nom_original, taille_octets, nom_type, \
+                    date_upload, date_liaison, commentaire, source FROM ( \
+             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom AS nom_type, \
+                    d.date_upload, j.date_liaison, j.commentaire, NULL AS source \
+             FROM documents_prestataires j \
+             JOIN documents d ON d.id_document = j.id_document \
+             JOIN types_documents td ON td.id_type_document = d.id_type_document \
+             WHERE j.id_prestataire = ?1 \
+             UNION ALL \
+             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+                    d.date_upload, dg.date_liaison, NULL, 'Gamme : ' || g.nom_gamme \
              FROM documents_gammes dg \
              JOIN documents d ON d.id_document = dg.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
              JOIN gammes g ON dg.id_gamme = g.id_gamme \
              WHERE g.id_prestataire = ?1 \
              UNION ALL \
-             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, d.date_upload, 'OT : ' || ot.nom_gamme AS source \
+             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+                    d.date_upload, dot.date_liaison, NULL, 'OT : ' || ot.nom_gamme \
              FROM documents_ordres_travail dot \
              JOIN documents d ON d.id_document = dot.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
              JOIN ordres_travail ot ON dot.id_ordre_travail = ot.id_ordre_travail \
              WHERE ot.id_prestataire = ?1 \
-             ORDER BY source, d.nom_original",
+             UNION ALL \
+             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+                    d.date_upload, dc.date_liaison, NULL, 'Contrat : ' || c.reference \
+             FROM documents_contrats dc \
+             JOIN documents d ON d.id_document = dc.id_document \
+             JOIN types_documents td ON td.id_type_document = d.id_type_document \
+             JOIN contrats c ON dc.id_contrat = c.id_contrat \
+             WHERE c.id_prestataire = ?1 \
+             UNION ALL \
+             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+                    d.date_upload, dd.date_liaison, NULL, 'DI : ' || di.libelle_constat \
+             FROM documents_di dd \
+             JOIN documents d ON d.id_document = dd.id_document \
+             JOIN types_documents td ON td.id_type_document = d.id_type_document \
+             JOIN demandes_intervention di ON dd.id_di = di.id_di \
+             WHERE di.id_prestataire = ?1 \
+             ) \
+             ORDER BY source IS NULL DESC, source, nom_original",
         )
         .map_err(|e| e.to_string())?;
+
     let rows = stmt
         .query_map(params![id_prestataire], |row| {
-            Ok(DocumentAggrege {
+            Ok(DocumentLie {
                 id_document: row.get(0)?,
                 nom_original: row.get(1)?,
                 taille_octets: row.get(2)?,
                 nom_type: row.get(3)?,
                 date_upload: row.get(4)?,
-                source: row.get(5)?,
+                date_liaison: row.get(5)?,
+                commentaire: row.get(6)?,
+                source: row.get(7)?,
             })
         })
         .map_err(|e| e.to_string())?;
+
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
@@ -869,50 +894,6 @@ pub fn unlink_document_equipement(
 ) -> Result<(), String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
     unlink_document_from(&conn, "documents_equipements", "id_equipement", id_document, id_equipement)
-}
-
-/// Récupère les documents agrégés pour un équipement : gammes liées + OT liés
-#[tauri::command]
-pub fn get_documents_equipement_agregat(
-    db: State<DbPool>,
-    id_equipement: i64,
-) -> Result<Vec<DocumentAggrege>, String> {
-    let conn = db.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare_cached(
-            "SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, d.date_upload, \
-                    'Gamme : ' || g.nom_gamme AS source \
-             FROM documents_gammes dg \
-             JOIN documents d ON d.id_document = dg.id_document \
-             JOIN types_documents td ON td.id_type_document = d.id_type_document \
-             JOIN gammes g ON dg.id_gamme = g.id_gamme \
-             JOIN gammes_equipements ge ON ge.id_gamme = g.id_gamme \
-             WHERE ge.id_equipement = ?1 \
-             UNION ALL \
-             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, d.date_upload, \
-                    'OT : ' || ot.nom_gamme AS source \
-             FROM documents_ordres_travail dot \
-             JOIN documents d ON d.id_document = dot.id_document \
-             JOIN types_documents td ON td.id_type_document = d.id_type_document \
-             JOIN ordres_travail ot ON dot.id_ordre_travail = ot.id_ordre_travail \
-             JOIN gammes_equipements ge ON ge.id_gamme = ot.id_gamme \
-             WHERE ge.id_equipement = ?1 \
-             ORDER BY source, d.nom_original",
-        )
-        .map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map(params![id_equipement], |row| {
-            Ok(DocumentAggrege {
-                id_document: row.get(0)?,
-                nom_original: row.get(1)?,
-                taille_octets: row.get(2)?,
-                nom_type: row.get(3)?,
-                date_upload: row.get(4)?,
-                source: row.get(5)?,
-            })
-        })
-        .map_err(|e| e.to_string())?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
 // ── Techniciens ──
