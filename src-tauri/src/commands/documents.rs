@@ -400,9 +400,13 @@ pub fn get_document_liaisons(
 
 /// Documents d'un équipement : directs (source=null) + gammes + OT (source='Gamme : ...' / 'OT : ...')
 fn get_documents_equipement_complet(conn: &rusqlite::Connection, id_equipement: i64) -> Result<Vec<DocumentLie>, String> {
+    // Note : on wrap l'UNION ALL dans une sous-query — sinon SQLite refuse de résoudre
+    // l'alias `source` dans une expression (`source IS NULL`) après un UNION ALL.
     let mut stmt = conn
         .prepare_cached(
-            "SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+            "SELECT id_document, nom_original, taille_octets, nom_type, \
+                    date_upload, date_liaison, commentaire, source FROM ( \
+             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom AS nom_type, \
                     d.date_upload, j.date_liaison, j.commentaire, NULL AS source \
              FROM documents_equipements j \
              JOIN documents d ON d.id_document = j.id_document \
@@ -426,7 +430,8 @@ fn get_documents_equipement_complet(conn: &rusqlite::Connection, id_equipement: 
              JOIN ordres_travail ot ON dot.id_ordre_travail = ot.id_ordre_travail \
              JOIN gammes_equipements ge ON ge.id_gamme = ot.id_gamme \
              WHERE ge.id_equipement = ?1 \
-             ORDER BY source IS NULL DESC, source, d.nom_original",
+             ) \
+             ORDER BY source IS NULL DESC, source, nom_original",
         )
         .map_err(|e| e.to_string())?;
 
