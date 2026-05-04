@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { OtList } from "@/components/shared/OtList";
+import { HoverTooltip } from "@/components/shared/HoverTooltip";
+import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 import { useDonutOt } from "@/hooks/use-dashboard";
 import { STATUTS_OT } from "@/lib/utils/statuts";
 
@@ -102,7 +104,7 @@ function DonutModal({ categorie, onClose }: { categorie: string; onClose: () => 
 
 /// Graphique en anneau SVG avec gaps entre groupes, sous-segments collés
 export function OtDonutChart({ groups }: OtDonutChartProps) {
-  const [tooltip, setTooltip] = useState<{ text: string; cx: number; cy: number } | null>(null);
+  const { tooltip, show, move, hide } = useHoverTooltip<string>();
   const [openCategorie, setOpenCategorie] = useState<string | null>(null);
 
   const nonEmpty = useMemo(() => groups.filter((g) => g.segments.some((s) => s.value > 0)), [groups]);
@@ -154,19 +156,18 @@ export function OtDonutChart({ groups }: OtDonutChartProps) {
                   fill={arc.color}
                   className="transition-opacity hover:opacity-80 cursor-pointer"
                   onClick={() => setOpenCategorie(arc.categorie)}
-                  onMouseEnter={(e) => setTooltip({ text: arc.tooltip, cx: e.clientX, cy: e.clientY })}
-                  onMouseMove={(e) => setTooltip((t) => t ? { ...t, cx: e.clientX, cy: e.clientY } : null)}
-                  onMouseLeave={() => setTooltip(null)}
+                  onMouseEnter={show(arc.tooltip)}
+                  onMouseMove={move}
+                  onMouseLeave={hide}
                 />
               ))}
               <text x={CX} y={CY} textAnchor="middle" dominantBaseline="central"
                 className="fill-foreground text-[48px] font-semibold">{todo}</text>
             </svg>
             {tooltip && (
-              <div className="fixed pointer-events-none bg-popover text-popover-foreground border rounded px-2 py-1 text-xs shadow-md whitespace-nowrap z-50"
-                style={{ left: tooltip.cx + 8, top: tooltip.cy - 32 }}>
-                {tooltip.text}
-              </div>
+              <HoverTooltip cx={tooltip.cx} cy={tooltip.cy} className="whitespace-nowrap">
+                {tooltip.data}
+              </HoverTooltip>
             )}
           </div>
         </CardContent>

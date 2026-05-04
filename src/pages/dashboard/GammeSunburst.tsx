@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { HoverTooltip } from "@/components/shared/HoverTooltip";
+import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 import { cn } from "@/lib/utils";
 import { useSunburstGammes } from "@/hooks/use-dashboard";
 import { ANIMATE_HEARTBEAT, computeAggregateStatutId, STATUTS_GAMME } from "@/lib/utils/statuts";
@@ -207,7 +209,7 @@ interface SunburstRenderProps {
 
 function SunburstRender({ arcs, pct, pctSize, onPctClick }: SunburstRenderProps) {
   const navigate = useNavigate();
-  const [tooltip, setTooltip] = useState<{ text: string; cx: number; cy: number } | null>(null);
+  const { tooltip, show, move, hide } = useHoverTooltip<string>();
 
   return (
     <>
@@ -227,9 +229,9 @@ function SunburstRender({ arcs, pct, pctSize, onPctClick }: SunburstRenderProps)
           <g key={i}
             className={cn("hover:opacity-100 cursor-pointer", arc.animate && ANIMATE_HEARTBEAT)}
             onClick={() => navigate(arc.href)}
-            onMouseEnter={(e) => setTooltip({ text: arc.tooltip, cx: e.clientX, cy: e.clientY })}
-            onMouseMove={(e) => setTooltip((t) => t ? { ...t, cx: e.clientX, cy: e.clientY } : null)}
-            onMouseLeave={() => setTooltip(null)}
+            onMouseEnter={show(arc.tooltip)}
+            onMouseMove={move}
+            onMouseLeave={hide}
           >
             <path d={arc.path} fill={arc.color} opacity={arc.opacity} />
             {arc.reglementaire && (
@@ -239,10 +241,9 @@ function SunburstRender({ arcs, pct, pctSize, onPctClick }: SunburstRenderProps)
         ))}
       </svg>
       {tooltip && (
-        <div className="fixed pointer-events-none bg-popover text-popover-foreground border rounded px-2 py-1 text-xs shadow-md whitespace-nowrap z-50"
-          style={{ left: tooltip.cx + 8, top: tooltip.cy - 32 }}>
-          {tooltip.text}
-        </div>
+        <HoverTooltip cx={tooltip.cx} cy={tooltip.cy} className="whitespace-nowrap">
+          {tooltip.data}
+        </HoverTooltip>
       )}
     </>
   );

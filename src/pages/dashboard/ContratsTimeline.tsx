@@ -1,7 +1,8 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
+import { HoverTooltip } from "@/components/shared/HoverTooltip";
+import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 import { useContratsTimeline } from "@/hooks/use-dashboard";
 import { formatDate } from "@/lib/utils/format";
 import { MONTH_SHORT } from "../planning/helpers";
@@ -212,7 +213,7 @@ export function ContratsTimeline({ offsetDays = 0 }: ContratsTimelineProps = {})
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(600);
-  const [tooltip, setTooltip] = useState<{ evt: ContratTimelineEvent; inFenetre: boolean; cx: number; cy: number } | null>(null);
+  const { tooltip, show, move, hide } = useHoverTooltip<{ evt: ContratTimelineEvent; inFenetre: boolean }>();
 
   useEffect(() => {
     const el = containerRef.current;
@@ -296,9 +297,9 @@ export function ContratsTimeline({ offsetDays = 0 }: ContratsTimelineProps = {})
                   <g key={i}
                     className="cursor-pointer"
                     onClick={() => navigate(`/prestataires/${mk.evt.id_prestataire}`)}
-                    onMouseEnter={(e) => setTooltip({ evt: mk.evt, inFenetre: mk.inFenetre, cx: e.clientX, cy: e.clientY })}
-                    onMouseMove={(e) => setTooltip((t) => t ? { ...t, cx: e.clientX, cy: e.clientY } : null)}
-                    onMouseLeave={() => setTooltip(null)}
+                    onMouseEnter={show({ evt: mk.evt, inFenetre: mk.inFenetre })}
+                    onMouseMove={move}
+                    onMouseLeave={hide}
                   >
                     {/* Tige vers l'axe */}
                     <line x1={x} y1={y + 4} x2={x} y2={AXIS_Y - 1}
@@ -323,19 +324,17 @@ export function ContratsTimeline({ offsetDays = 0 }: ContratsTimelineProps = {})
             </svg>
           )}
 
-          {tooltip && createPortal(
-            <div className="fixed pointer-events-none bg-popover text-popover-foreground border rounded px-2 py-1.5 text-xs shadow-md whitespace-nowrap z-50"
-              style={{ left: tooltip.cx + 16, top: tooltip.cy - 60 }}>
-              <p className="font-semibold">{tooltip.evt.nom_prestataire}</p>
-              {tooltip.inFenetre && (
+          {tooltip && (
+            <HoverTooltip cx={tooltip.cx} cy={tooltip.cy} className="whitespace-nowrap py-1.5">
+              <p className="font-semibold">{tooltip.data.evt.nom_prestataire}</p>
+              {tooltip.data.inFenetre && (
                 <p className="font-medium" style={{ color: COLOR_FENETRE }}>Fenêtre de résiliation ouverte</p>
               )}
-              <p>{tooltip.evt.description}</p>
+              <p>{tooltip.data.evt.description}</p>
               <p className="text-muted-foreground">
-                {formatDate(tooltip.evt.date_evenement)} — {tooltip.evt.jours_restants >= 0 ? `dans ${tooltip.evt.jours_restants}j` : `il y a ${-tooltip.evt.jours_restants}j`}
+                {formatDate(tooltip.data.evt.date_evenement)} — {tooltip.data.evt.jours_restants >= 0 ? `dans ${tooltip.data.evt.jours_restants}j` : `il y a ${-tooltip.data.evt.jours_restants}j`}
               </p>
-            </div>,
-            document.body,
+            </HoverTooltip>
           )}
         </div>
       </CardContent>
