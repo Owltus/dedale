@@ -1,25 +1,40 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { typedResolver } from "@/lib/utils/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CrudDialog } from "@/components/shared/CrudDialog";
 import { ACCEPTED_FORMATS, documentEditSchema, type DocumentEditFormData } from "@/lib/schemas/documents";
-import type { DocumentListItem } from "@/lib/types/documents";
-import type { TypeDocument } from "@/lib/types/referentiels";
+import { useUpdateDocument, useReplaceDocumentFile } from "@/hooks/use-documents";
+import { useTypesDocuments } from "@/hooks/use-referentiels";
+import { fileToBase64 } from "@/components/shared/DropZone";
 import { formatBytes } from "@/lib/utils/format";
 
-interface DocumentEditDialogProps {
-  doc: DocumentListItem | null;
-  onOpenChange: (open: boolean) => void;
-  typesDoc: TypeDocument[];
-  typeItems: Record<string, string>;
-  onSubmit: (data: DocumentEditFormData, replaceFile: File | null) => Promise<void>;
+export interface EditableDoc {
+  id_document: number;
+  nom_original: string;
+  id_type_document: number;
 }
 
-export function DocumentEditDialog({ doc, onOpenChange, typesDoc, typeItems, onSubmit }: DocumentEditDialogProps) {
+interface DocumentEditDialogProps {
+  doc: EditableDoc | null;
+  onClose: () => void;
+}
+
+/// Dialog d'édition d'un document — réutilisable depuis la page Documents
+/// et depuis le composant DocumentsLies (équipements, gammes, OT, etc.).
+export function DocumentEditDialog({ doc, onClose }: DocumentEditDialogProps) {
+  const { data: typesDoc = [] } = useTypesDocuments();
+  const updateMutation = useUpdateDocument();
+  const replaceMutation = useReplaceDocumentFile();
   const [replaceFile, setReplaceFile] = useState<File | null>(null);
+
+  const typeItems = useMemo(
+    () => Object.fromEntries(typesDoc.map((t) => [String(t.id_type_document), t.nom])),
+    [typesDoc],
+  );
 
   const form = useForm({
     resolver: typedResolver(documentEditSchema),
@@ -38,13 +53,29 @@ export function DocumentEditDialog({ doc, onOpenChange, typesDoc, typeItems, onS
   }, [doc, form]);
 
   const handleSubmit = form.handleSubmit(async (data) => {
-    await onSubmit(data as DocumentEditFormData, replaceFile);
+    if (!doc) return;
+    const typed = data as DocumentEditFormData;
+    try {
+      if (typed.nom_original !== doc.nom_original || typed.id_type_document !== doc.id_type_document) {
+        await updateMutation.mutateAsync({
+          id: doc.id_document,
+          nom_original: typed.nom_original,
+          id_type_document: typed.id_type_document,
+        });
+      }
+      if (replaceFile) {
+        const base64 = await fileToBase64(replaceFile);
+        await replaceMutation.mutateAsync({ id: doc.id_document, data_base64: base64 });
+      }
+      toast.success("Document modifié");
+      onClose();
+    } catch { /* géré par les mutations */ }
   });
 
   return (
     <CrudDialog
       open={doc !== null}
-      onOpenChange={(open) => { if (!open) onOpenChange(false); }}
+      onOpenChange={(open) => { if (!open) onClose(); }}
       title="Modifier le document"
       onSubmit={handleSubmit}
       submitLabel="Enregistrer"

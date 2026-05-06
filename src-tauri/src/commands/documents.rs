@@ -285,7 +285,7 @@ pub fn get_documents_for_entity(
     };
 
     let sql = format!(
-        "SELECT d.id_document, d.nom_original, d.taille_octets, td.nom AS nom_type, \
+        "SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom AS nom_type, \
                 d.date_upload, j.date_liaison, j.commentaire, NULL AS source \
          FROM {} j \
          JOIN documents d ON d.id_document = j.id_document \
@@ -297,21 +297,26 @@ pub fn get_documents_for_entity(
 
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(params![entity_id], |row| {
-            Ok(DocumentLie {
-                id_document: row.get(0)?,
-                nom_original: row.get(1)?,
-                taille_octets: row.get(2)?,
-                nom_type: row.get(3)?,
-                date_upload: row.get(4)?,
-                date_liaison: row.get(5)?,
-                commentaire: row.get(6)?,
-                source: row.get(7)?,
-            })
-        })
+        .query_map(params![entity_id], map_document_lie)
         .map_err(|e| e.to_string())?;
 
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+/// Mapping commun row → DocumentLie. Utilise les noms de colonnes pour rester
+/// robuste aux ajouts/réordonnancements de SELECT.
+fn map_document_lie(row: &rusqlite::Row) -> rusqlite::Result<DocumentLie> {
+    Ok(DocumentLie {
+        id_document: row.get("id_document")?,
+        nom_original: row.get("nom_original")?,
+        taille_octets: row.get("taille_octets")?,
+        id_type_document: row.get("id_type_document")?,
+        nom_type: row.get("nom_type")?,
+        date_upload: row.get("date_upload")?,
+        date_liaison: row.get("date_liaison")?,
+        commentaire: row.get("commentaire")?,
+        source: row.get("source")?,
+    })
 }
 
 /// Récupère, pour un document donné, toutes les entités auxquelles il est lié (8 types confondus).
@@ -404,16 +409,16 @@ fn get_documents_equipement_complet(conn: &rusqlite::Connection, id_equipement: 
     // l'alias `source` dans une expression (`source IS NULL`) après un UNION ALL.
     let mut stmt = conn
         .prepare_cached(
-            "SELECT id_document, nom_original, taille_octets, nom_type, \
+            "SELECT id_document, nom_original, taille_octets, id_type_document, nom_type, \
                     date_upload, date_liaison, commentaire, source FROM ( \
-             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom AS nom_type, \
+             SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom AS nom_type, \
                     d.date_upload, j.date_liaison, j.commentaire, NULL AS source \
              FROM documents_equipements j \
              JOIN documents d ON d.id_document = j.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
              WHERE j.id_equipement = ?1 \
              UNION ALL \
-             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+             SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
                     d.date_upload, dg.date_liaison, NULL, 'Gamme : ' || g.nom_gamme \
              FROM documents_gammes dg \
              JOIN documents d ON d.id_document = dg.id_document \
@@ -422,7 +427,7 @@ fn get_documents_equipement_complet(conn: &rusqlite::Connection, id_equipement: 
              JOIN gammes_equipements ge ON ge.id_gamme = g.id_gamme \
              WHERE ge.id_equipement = ?1 \
              UNION ALL \
-             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+             SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
                     d.date_upload, dot.date_liaison, NULL, 'OT : ' || ot.nom_gamme \
              FROM documents_ordres_travail dot \
              JOIN documents d ON d.id_document = dot.id_document \
@@ -436,18 +441,7 @@ fn get_documents_equipement_complet(conn: &rusqlite::Connection, id_equipement: 
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
-        .query_map(params![id_equipement], |row| {
-            Ok(DocumentLie {
-                id_document: row.get(0)?,
-                nom_original: row.get(1)?,
-                taille_octets: row.get(2)?,
-                nom_type: row.get(3)?,
-                date_upload: row.get(4)?,
-                date_liaison: row.get(5)?,
-                commentaire: row.get(6)?,
-                source: row.get(7)?,
-            })
-        })
+        .query_map(params![id_equipement], map_document_lie)
         .map_err(|e| e.to_string())?;
 
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
@@ -459,16 +453,16 @@ fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire
     // l'alias `source` dans une expression (`source IS NULL`) après un UNION ALL.
     let mut stmt = conn
         .prepare_cached(
-            "SELECT id_document, nom_original, taille_octets, nom_type, \
+            "SELECT id_document, nom_original, taille_octets, id_type_document, nom_type, \
                     date_upload, date_liaison, commentaire, source FROM ( \
-             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom AS nom_type, \
+             SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom AS nom_type, \
                     d.date_upload, j.date_liaison, j.commentaire, NULL AS source \
              FROM documents_prestataires j \
              JOIN documents d ON d.id_document = j.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
              WHERE j.id_prestataire = ?1 \
              UNION ALL \
-             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+             SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
                     d.date_upload, dg.date_liaison, NULL, 'Gamme : ' || g.nom_gamme \
              FROM documents_gammes dg \
              JOIN documents d ON d.id_document = dg.id_document \
@@ -476,7 +470,7 @@ fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire
              JOIN gammes g ON dg.id_gamme = g.id_gamme \
              WHERE g.id_prestataire = ?1 \
              UNION ALL \
-             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+             SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
                     d.date_upload, dot.date_liaison, NULL, 'OT : ' || ot.nom_gamme \
              FROM documents_ordres_travail dot \
              JOIN documents d ON d.id_document = dot.id_document \
@@ -484,7 +478,7 @@ fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire
              JOIN ordres_travail ot ON dot.id_ordre_travail = ot.id_ordre_travail \
              WHERE ot.id_prestataire = ?1 \
              UNION ALL \
-             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+             SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
                     d.date_upload, dc.date_liaison, NULL, 'Contrat : ' || c.reference \
              FROM documents_contrats dc \
              JOIN documents d ON d.id_document = dc.id_document \
@@ -492,7 +486,7 @@ fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire
              JOIN contrats c ON dc.id_contrat = c.id_contrat \
              WHERE c.id_prestataire = ?1 \
              UNION ALL \
-             SELECT d.id_document, d.nom_original, d.taille_octets, td.nom, \
+             SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
                     d.date_upload, dd.date_liaison, NULL, 'DI : ' || di.libelle_constat \
              FROM documents_di dd \
              JOIN documents d ON d.id_document = dd.id_document \
@@ -505,18 +499,7 @@ fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
-        .query_map(params![id_prestataire], |row| {
-            Ok(DocumentLie {
-                id_document: row.get(0)?,
-                nom_original: row.get(1)?,
-                taille_octets: row.get(2)?,
-                nom_type: row.get(3)?,
-                date_upload: row.get(4)?,
-                date_liaison: row.get(5)?,
-                commentaire: row.get(6)?,
-                source: row.get(7)?,
-            })
-        })
+        .query_map(params![id_prestataire], map_document_lie)
         .map_err(|e| e.to_string())?;
 
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())

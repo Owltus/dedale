@@ -24,6 +24,7 @@ export interface DocumentLie {
   id_document: number;
   nom_original: string;
   taille_octets: number;
+  id_type_document: number;
   nom_type: string;
   date_upload: string | null;
   date_liaison: string | null;

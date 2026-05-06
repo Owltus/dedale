@@ -29,6 +29,7 @@ pub struct DocumentLie {
     pub id_document: i64,
     pub nom_original: String,
     pub taille_octets: i64,
+    pub id_type_document: i64,
     pub nom_type: String,
     pub date_upload: Option<String>,
     pub date_liaison: Option<String>,

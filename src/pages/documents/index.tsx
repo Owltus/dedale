@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Download, FileText, Plus } from "lucide-react";
 import { DocumentIcon } from "@/components/shared/DocumentIcon";
@@ -13,18 +13,14 @@ import { UploadModal } from "@/components/shared/UploadModal";
 import { useUploadQueue } from "@/components/shared/UploadQueue";
 import { DocumentPreviewDialog, type PreviewableDoc } from "@/components/shared/DocumentPreviewDialog";
 import { DocumentLiaisonsButton } from "@/components/shared/DocumentLiaisonsButton";
+import { DocumentEditDialog } from "@/components/shared/DocumentEditDialog";
 import { Button } from "@/components/ui/button";
 import type { DocumentListItem } from "@/lib/types/documents";
-import type { DocumentEditFormData } from "@/lib/schemas/documents";
 import {
   useDocuments, useDeleteDocument,
-  useUpdateDocument, useReplaceDocumentFile,
   useSaveDocumentToDisk, useDocumentPreview,
 } from "@/hooks/use-documents";
-import { useTypesDocuments } from "@/hooks/use-referentiels";
 import { formatDate, formatBytes, stripExtension } from "@/lib/utils/format";
-import { fileToBase64 } from "@/components/shared/DropZone";
-import { DocumentEditDialog } from "./DocumentEditDialog";
 
 function filterDocument(doc: DocumentListItem, q: string): boolean {
   return doc.nom_original.toLowerCase().includes(q) || doc.nom_type.toLowerCase().includes(q);
@@ -32,11 +28,8 @@ function filterDocument(doc: DocumentListItem, q: string): boolean {
 
 export function Documents() {
   const { data: documents = [] } = useDocuments();
-  const { data: typesDoc = [] } = useTypesDocuments();
   const { enqueue } = useUploadQueue();
   const deleteMutation = useDeleteDocument();
-  const updateMutation = useUpdateDocument();
-  const replaceMutation = useReplaceDocumentFile();
   const saveToDisk = useSaveDocumentToDisk();
   const { previewDoc, previewData, openPreview, closePreview } = useDocumentPreview();
 
@@ -45,11 +38,6 @@ export function Documents() {
   const [droppedFiles, setDroppedFiles] = useState<{ name: string; base64: string }[]>();
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editDoc, setEditDoc] = useState<DocumentListItem | null>(null);
-
-  const typeItems = useMemo(
-    () => Object.fromEntries(typesDoc.map((t) => [String(t.id_type_document), t.nom])),
-    [typesDoc],
-  );
 
   // ── Handlers ──
 
@@ -61,21 +49,6 @@ export function Documents() {
   }, [uploadOpen]);
 
   const handleDownload = (doc: PreviewableDoc) => saveToDisk(doc);
-
-  const handleEdit = async (data: DocumentEditFormData, replaceFile: File | null) => {
-    if (!editDoc) return;
-    try {
-      if (data.nom_original !== editDoc.nom_original || data.id_type_document !== editDoc.id_type_document) {
-        await updateMutation.mutateAsync({ id: editDoc.id_document, nom_original: data.nom_original, id_type_document: data.id_type_document });
-      }
-      if (replaceFile) {
-        const base64 = await fileToBase64(replaceFile);
-        await replaceMutation.mutateAsync({ id: editDoc.id_document, data_base64: base64 });
-      }
-      toast.success("Document modifie");
-      setEditDoc(null);
-    } catch { /* gere */ }
-  };
 
   const handleDelete = async () => {
     if (deleteId === null) return;
@@ -141,13 +114,7 @@ export function Documents() {
         initialFiles={droppedFiles}
       />
 
-      <DocumentEditDialog
-        doc={editDoc}
-        onOpenChange={() => setEditDoc(null)}
-        typesDoc={typesDoc}
-        typeItems={typeItems}
-        onSubmit={handleEdit}
-      />
+      <DocumentEditDialog doc={editDoc} onClose={() => setEditDoc(null)} />
 
       <DocumentPreviewDialog
         doc={previewDoc}

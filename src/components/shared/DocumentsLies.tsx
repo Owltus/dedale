@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { FileUp, Trash2, Unlink2 } from "lucide-react";
+import { FileUp, Pencil, Trash2, Unlink2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useDocumentsForEntity, useDeleteDocument, useDocumentPreview, useSaveDocumentToDisk } from "@/hooks/use-documents";
@@ -13,6 +13,7 @@ import { UploadModal } from "./UploadModal";
 import { useUploadQueue } from "./UploadQueue";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DocumentPreviewDialog } from "./DocumentPreviewDialog";
+import { DocumentEditDialog, type EditableDoc } from "./DocumentEditDialog";
 
 interface DocumentsLiesProps {
   entityType: "prestataires" | "ordres_travail" | "gammes" | "contrats" | "di" | "localisations" | "equipements" | "techniciens";
@@ -46,6 +47,8 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
   const [dialogOpen, setDialogOpen] = useState(false);
   const [droppedFiles, setDroppedFiles] = useState<{ name: string; base64: string }[]>();
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [unlinkId, setUnlinkId] = useState<number | null>(null);
+  const [editDoc, setEditDoc] = useState<EditableDoc | null>(null);
 
   const linkMutation = useInvokeMutation<null, Record<string, unknown>>(
     cmds?.link ?? "",
@@ -57,11 +60,12 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
     { onSettled: () => qc.invalidateQueries({ queryKey: ["documents"] }) }
   );
 
-  const handleUnlink = async (idDocument: number) => {
-    if (!cmds) return;
+  const handleUnlink = async () => {
+    if (!cmds || unlinkId === null) return;
     try {
-      await unlinkMutation.mutateAsync({ idDocument, [cmds.paramName]: entityId });
+      await unlinkMutation.mutateAsync({ idDocument: unlinkId, [cmds.paramName]: entityId });
       toast.success("Lien supprimé — le fichier reste disponible dans Documents");
+      setUnlinkId(null);
     } catch { /* géré */ }
   };
 
@@ -149,18 +153,22 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
                       {doc.source ? `${doc.source} · ` : ""}{doc.nom_type} · {formatBytes(doc.taille_octets)} · {formatDate(doc.date_liaison)}
                     </p>
                   </div>
-                  {!readonly && !doc.source && (
-                    <div className="flex shrink-0 gap-1" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex shrink-0 gap-1" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="size-7" title="Modifier"
+                      onClick={() => setEditDoc(doc)}>
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    {!readonly && !doc.source && (
                       <Button variant="ghost" size="icon" className="size-7" title="Délier"
-                        onClick={() => handleUnlink(doc.id_document)}>
+                        onClick={() => setUnlinkId(doc.id_document)}>
                         <Unlink2 className="size-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="size-7 text-destructive" title="Supprimer"
-                        onClick={() => setDeleteId(doc.id_document)}>
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </div>
-                  )}
+                    )}
+                    <Button variant="ghost" size="icon" className="size-7 text-destructive" title="Supprimer"
+                      onClick={() => setDeleteId(doc.id_document)}>
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -185,28 +193,36 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
       </DropZone>
 
       {!readonly && (
-        <>
-          <UploadModal
-            open={dialogOpen}
-            onOpenChange={(v) => { setDialogOpen(v); if (!v) setDroppedFiles(undefined); }}
-            onUpload={handleUpload}
-            initialFiles={droppedFiles}
-            linkExisting={{
-              linkedDocIds: data.map((d) => d.id_document),
-              onLink: linkExistingDocuments,
-            }}
-            namingContext={namingContext}
-          />
-          <ConfirmDialog
-            open={deleteId !== null}
-            onOpenChange={(open) => !open && setDeleteId(null)}
-            title="Supprimer le document"
-            description="Le fichier sera supprimé définitivement de l'application, pas seulement détaché de cette fiche."
-            onConfirm={handleDelete}
-            isLoading={deleteMutation.isPending}
-          />
-        </>
+        <UploadModal
+          open={dialogOpen}
+          onOpenChange={(v) => { setDialogOpen(v); if (!v) setDroppedFiles(undefined); }}
+          onUpload={handleUpload}
+          initialFiles={droppedFiles}
+          linkExisting={{
+            linkedDocIds: data.map((d) => d.id_document),
+            onLink: linkExistingDocuments,
+          }}
+          namingContext={namingContext}
+        />
       )}
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Supprimer le document"
+        description="Le fichier sera supprimé définitivement de l'application, pas seulement détaché de cette fiche."
+        onConfirm={handleDelete}
+        isLoading={deleteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={unlinkId !== null}
+        onOpenChange={(open) => !open && setUnlinkId(null)}
+        title="Délier le document"
+        description="Le lien entre ce document et cette fiche sera supprimé. Le fichier restera disponible dans Documents."
+        onConfirm={handleUnlink}
+        isLoading={unlinkMutation.isPending}
+      />
 
       <DocumentPreviewDialog
         doc={previewDoc}
@@ -214,6 +230,8 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
         onClose={closePreview}
         onDownload={saveToDisk}
       />
+
+      <DocumentEditDialog doc={editDoc} onClose={() => setEditDoc(null)} />
     </div>
   );
 }
