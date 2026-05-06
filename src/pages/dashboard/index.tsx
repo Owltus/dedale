@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useRef, useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { PageHeader } from "@/components/layout";
 import { CardList } from "@/components/shared/CardList";
 import { useTemporalNavigation } from "@/hooks/useTemporalNavigation";
@@ -52,14 +52,13 @@ const NAV_STEP_WEEKS = 13;
 /// Dashboard — Tableau de bord synthétique
 export function Dashboard() {
   const { data, isLoading } = useDashboard();
-  const listRef = useRef<HTMLDivElement>(null);
   const [containerH, setContainerH] = useState(0);
 
   // Décalage temporel partagé entre PlanningChart et ContratsTimeline
   const [weekOffset] = useTemporalNavigation({ step: NAV_STEP_WEEKS, allowReset: true });
 
-  useEffect(() => {
-    const el = listRef.current;
+  // Ref callback (et non useEffect) car le conteneur n'est monté qu'après l'early-return de chargement.
+  const listRef = useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
     const measure = () => {
       const h = el.clientHeight;
