@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { OtList } from "@/components/shared/OtList";
 import { usePlanningAnnee } from "@/hooks/use-dashboard";
 import { useOtByIds } from "@/hooks/use-ordres-travail";
+import { OT_PRIORITY_FILL } from "@/lib/utils/colors";
 import {
   getISOWeekDate, getMondayOfISOWeek, dateToWeekInfo, getEffectiveDate,
   getOtPriority, computeGlissantWeeks,
@@ -18,12 +19,6 @@ import type { PlanningEvent } from "@/lib/types/dashboard";
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 const PRIORITIES = [7, 6, 5, 4, 3, 2, 1] as const;
-
-const P_COLOR: Record<number, string> = {
-  1: "hsl(0, 65%, 50%)",   2: "hsl(30, 75%, 52%)",  3: "hsl(215, 70%, 52%)",
-  4: "hsl(150, 65%, 42%)",  5: "hsl(50, 70%, 48%)",  6: "hsl(265, 65%, 55%)",
-  7: "hsl(215, 20%, 55%)",
-};
 
 const P_LABEL: Record<number, string> = {
   1: "En retard", 2: "Réouvert", 3: "En cours",
@@ -125,7 +120,7 @@ export function PlanningChart({ weekOffset = 0 }: PlanningChartProps = {}) {
       datasets: PRIORITIES.map((p) => ({
         label: P_LABEL[p]!,
         data: displayWeeks.map((w) => counts.get(w.key)?.[p] ?? 0),
-        backgroundColor: P_COLOR[p]!,
+        backgroundColor: OT_PRIORITY_FILL[p]!,
         borderRadius: 2,
       })),
     };

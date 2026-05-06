@@ -6,17 +6,7 @@ import { HoverTooltip } from "@/components/shared/HoverTooltip";
 import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 import { useDonutOt } from "@/hooks/use-dashboard";
 import { STATUTS_OT } from "@/lib/utils/statuts";
-
-// ── Couleurs HSL par statut (même style que le sunburst) ──
-
-const STATUT_FILL: Record<number, string> = {
-  1:  "hsl(265, 65%, 55%)", // Planifié — violet
-  2:  "hsl(215, 70%, 52%)", // En cours — bleu
-  3:  "hsl(150, 65%, 42%)", // Clôturé — émeraude
-  4:  "hsl(50, 70%, 48%)",  // Annulé — ocre
-  5:  "hsl(30, 75%, 52%)",  // Réouvert — orange
-  11: "hsl(215, 20%, 55%)", // Programmé — gris bleuté
-};
+import { OT_STATUT_FILL } from "@/lib/utils/colors";
 
 // ── SVG constants ──
 
@@ -182,6 +172,6 @@ export function statutsToSegments(data: { id_statut: number; nombre: number }[])
   return data.map((d) => ({
     label: STATUTS_OT[d.id_statut]?.label ?? "Inconnu",
     value: d.nombre,
-    color: STATUT_FILL[d.id_statut] ?? "#94a3b8",
+    color: OT_STATUT_FILL[d.id_statut] ?? "#94a3b8",
   }));
 }

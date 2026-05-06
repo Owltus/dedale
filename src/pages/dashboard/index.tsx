@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, AlertTriangle, CheckCircle, FileText } from "lucide-react";
 import { OtDonutChart, statutsToSegments } from "./OtDonutChart";
+import { OT_PRIORITY_FILL } from "@/lib/utils/colors";
 import { GammeSunburst } from "./GammeSunburst";
 import { PlanningChart } from "./PlanningChart";
 import { ContratsTimeline } from "./ContratsTimeline";
@@ -97,9 +98,9 @@ export function Dashboard() {
       {/* Graphiques */}
       <div className="flex gap-3 shrink-0 h-[30vh]">
         <OtDonutChart groups={[
-          { label: "En retard", categorie: "en_retard", segments: [{ label: "En retard", value: data.nb_ot_en_retard, color: "hsl(0, 65%, 50%)" }] },
+          { label: "En retard", categorie: "en_retard", segments: [{ label: "En retard", value: data.nb_ot_en_retard, color: OT_PRIORITY_FILL[1]! }] },
           { label: "Cette semaine", categorie: "cette_semaine", segments: statutsToSegments(data.ot_cette_semaine) },
-          { label: "En cours", categorie: "en_cours", segments: [{ label: "En cours", value: data.nb_ot_en_cours, color: "hsl(215, 70%, 52%)" }] },
+          { label: "En cours", categorie: "en_cours", segments: [{ label: "En cours", value: data.nb_ot_en_cours, color: OT_PRIORITY_FILL[3]! }] },
         ]} />
         <PlanningChart weekOffset={weekOffset} />
         <GammeSunburst />

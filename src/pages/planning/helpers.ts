@@ -1,3 +1,4 @@
+import { OT_PRIORITY_FILL } from "@/lib/utils/colors";
 import type { PlanningEvent } from "@/lib/types/dashboard";
 
 // ── Semaines ISO 8601 (norme FR) ──
@@ -114,26 +115,6 @@ const STATUT_CLOTURE = 3;
 const STATUT_ANNULE = 4;
 const STATUT_REOUVERT = 5;
 
-// ── Couleurs par priorité (alignées sur statuts.ts) ──
-// 1 Rouge  — En retard (date dépassée)
-// 2 Orange — Réouvert (cohérent badge orange)
-// 3 Bleu   — En cours (cohérent badge bleu)
-// 4 Vert   — Clôturé (cohérent badge vert)
-// 5 Jaune  — Annulé (cohérent badge jaune)
-// 6 Violet — Planifié manuellement (cohérent badge violet)
-// 7 Gris   — Programmé automatiquement (cohérent badge outline)
-
-const PRIORITY_COLORS = [
-  "",
-  "bg-red-500",     // 1 — En retard
-  "bg-orange-500",  // 2 — Réouvert
-  "bg-blue-500",    // 3 — En cours
-  "bg-green-500",   // 4 — Clôturé
-  "bg-yellow-500",  // 5 — Annulé
-  "bg-violet-500",  // 6 — Planifié
-  "bg-slate-400",   // 7 — Programmé
-];
-
 export function getOtPriority(
   ot: PlanningEvent, weekStartStr: string,
 ): number {
@@ -151,7 +132,7 @@ export function getOtPriority(
 }
 
 export function priorityColor(priority: number): string {
-  return PRIORITY_COLORS[priority] ?? "bg-slate-400";
+  return OT_PRIORITY_FILL[priority] ?? OT_PRIORITY_FILL[7]!;
 }
 
 export function getCellPriority(events: PlanningEvent[], weekStartStr: string): number {

@@ -337,11 +337,10 @@ export function Planning() {
                       <Fragment key={w.key}>{sep}
                         <Tooltip>
                           <TooltipTrigger render={
-                            <td style={CELL_STYLE} data-week={w.key}
+                            <td style={{ ...CELL_STYLE, backgroundColor: priorityColor(priority) }} data-week={w.key}
                               onClick={() => handleCellClick(cell)}
                               onMouseEnter={() => highlightCol(w.key)}
                               className={cn("border-b p-0 cursor-pointer text-center",
-                                priorityColor(priority),
                                 priority === 2 && ANIMATE_HEARTBEAT,
                                 cell.reglementaire && "outline outline-[2.5px] -outline-offset-[2.5px] outline-yellow-400",
                                 isCurr && "border-x-2 border-x-blue-500",
