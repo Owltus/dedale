@@ -4,7 +4,6 @@ import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { Handshake, Plus } from "lucide-react";
 import { ContratStatusBadge } from "@/components/shared/StatusBadge";
-import { cn } from "@/lib/utils";
 import { CardList } from "@/components/shared/CardList";
 import { ImagePicker } from "@/components/shared/ImagePicker";
 import { PageHeader } from "@/components/layout";
@@ -33,13 +32,14 @@ export function PrestatairesList() {
   const { data: allContrats = [] } = useContrats();
   const createPrestataire = useCreatePrestataire();
 
-  // Contrats actifs (non archivés) groupés par prestataire
+  // Contrats actifs (non archivés) groupés par prestataire, avec leur info dérivée
+  // précalculée pour éviter les recalculs de dates à chaque render de ligne.
   const contratsByPrestataire = useMemo(() => {
-    const map = new Map<number, typeof allContrats>();
+    const map = new Map<number, { id_contrat: number; info: ReturnType<typeof getContratInfo> }[]>();
     for (const c of allContrats) {
       if (c.est_archive) continue;
       const list = map.get(c.id_prestataire) ?? [];
-      list.push(c);
+      list.push({ id_contrat: c.id_contrat, info: getContratInfo(c) });
       map.set(c.id_prestataire, list);
     }
     return map;
@@ -92,22 +92,15 @@ export function PrestatairesList() {
           const contrats = contratsByPrestataire.get(r.id_prestataire) ?? [];
           if (contrats.length === 0) return <p className="text-xs text-muted-foreground whitespace-nowrap">Aucun contrat</p>;
           return (
-            <div className="flex flex-col items-end gap-1.5">
-              {contrats.map((c) => {
-                const cInfo = getContratInfo(c);
-                return (
-                  <div key={c.id_contrat} className="flex flex-col items-end">
-                    <ContratStatusBadge statut={cInfo.statut} />
-                    {cInfo.alerte && (
-                      <p className={cn("text-[10px] mt-0.5",
-                        cInfo.alerteType === "danger" ? "text-red-600 dark:text-red-400"
-                        : cInfo.alerteType === "warning" ? "text-amber-600 dark:text-amber-400"
-                        : "text-blue-600 dark:text-blue-400"
-                      )}>{cInfo.alerte}</p>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="flex flex-col items-center gap-2 w-36 shrink-0">
+              {contrats.map(({ id_contrat, info }) => (
+                <ContratStatusBadge
+                  key={id_contrat}
+                  statut={info.statut}
+                  sousStatut={info.sousStatut}
+                  criticite={info.criticite}
+                />
+              ))}
             </div>
           );
         }}

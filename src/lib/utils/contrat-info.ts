@@ -56,11 +56,15 @@ export type AlerteType = "info" | "warning" | "danger";
 
 export interface ContratInfo {
   statut: StatutContrat;
+  /// Sous-statut qualitatif (ex. "Échéance imminente", "Tacite") — null pour les statuts terminaux
+  sousStatut: string | null;
+  /// Tonalité du sous-statut — null = neutre (couleur du statut)
+  criticite: AlerteType | null;
   /// Texte pédagogique décrivant la situation du contrat
   texte: string;
   /// Progression 0–1 (null si non applicable)
   progression: number | null;
-  /// Message d'alerte contextuel court
+  /// Message d'alerte chiffré (jours/mois) — pour la card détail uniquement
   alerte: string | null;
   alerteType: AlerteType | null;
 }
@@ -73,8 +77,10 @@ function info(
   progression: number | null = null,
   alerte: string | null = null,
   alerteType: AlerteType | null = null,
+  sousStatut: string | null = null,
+  criticite: AlerteType | null = null,
 ): ContratInfo {
-  return { statut, texte, progression, alerte, alerteType };
+  return { statut, sousStatut, criticite, texte, progression, alerte, alerteType };
 }
 
 // ── Logique principale ──
@@ -124,10 +130,14 @@ function infoSigne(c: ContratListItem, now: string): ContratInfo {
   const sig = c.date_signature
     ? `Ce contrat a été signé le ${fmtLong(c.date_signature)}.`
     : "Ce contrat est en attente d'activation.";
-  const alerte = joursAvant <= 7 ? `Activation dans ${joursAvant} j` : null;
+  const imminent = joursAvant <= 7;
+  const alerte = imminent ? `Activation dans ${joursAvant} j` : null;
+  const sousStatut = imminent ? "Activation imminente" : null;
+  const criticite: AlerteType | null = imminent ? "info" : null;
+
   return info("Signé",
     `${sig} Il entrera en vigueur le ${fmtLong(c.date_debut)}, soit dans ${formatDuree(joursAvant)}.`,
-    null, alerte, alerte ? "info" : null);
+    null, alerte, alerte ? "info" : null, sousStatut, criticite);
 }
 
 // ── Préavis ──
@@ -146,8 +156,11 @@ function infoPreavis(c: ContratListItem, now: string): ContratInfo {
     texte += ` La cessation est prévue le ${fmtLong(cessation)}, au terme du délai de préavis de ${c.delai_preavis_jours} jours.`;
   }
 
-  const alerte = joursRestants != null && joursRestants <= 14 ? `Cessation dans ${joursRestants} j` : null;
-  return info("Préavis", texte, prog, alerte, alerte ? "warning" : null);
+  const imminent = joursRestants != null && joursRestants <= 14;
+  const alerte = imminent ? `Cessation dans ${joursRestants} j` : null;
+  const sousStatut = imminent ? "Cessation imminente" : null;
+  const criticite: AlerteType | null = imminent ? "warning" : null;
+  return info("Préavis", texte, prog, alerte, criticite, sousStatut, criticite);
 }
 
 // ── Durée déterminée ──
@@ -170,7 +183,14 @@ function infoDetermine(c: ContratListItem, duree: string, joursEcoules: number):
 
   const alerte = joursRestants <= 30 ? `Expire dans ${joursRestants} j` : joursRestants <= 90 ? `Expire dans ${formatDuree(joursRestants)}` : null;
   const alerteType: AlerteType | null = joursRestants <= 30 ? "danger" : joursRestants <= 90 ? "warning" : null;
-  return info("Actif", texte, prog, alerte, alerteType);
+
+  let sousStatut: string;
+  let criticite: AlerteType | null;
+  if (joursRestants <= 30) { sousStatut = "Échéance imminente"; criticite = "danger"; }
+  else if (joursRestants <= 90) { sousStatut = "Échéance proche"; criticite = "warning"; }
+  else { sousStatut = "Déterminé"; criticite = null; }
+
+  return info("Actif", texte, prog, alerte, alerteType, sousStatut, criticite);
 }
 
 // ── Indéterminé ──
@@ -180,7 +200,7 @@ function infoIndetermine(c: ContratListItem, duree: string): ContratInfo {
   if (c.delai_preavis_jours) {
     texte += ` Il peut être résilié à tout moment en respectant un préavis de ${c.delai_preavis_jours} jours.`;
   }
-  return info("Actif", texte);
+  return info("Actif", texte, null, null, null, "Indéterminé", null);
 }
 
 // ── Tacite reconduction ──
@@ -191,7 +211,7 @@ function infoTacite(c: ContratListItem, duree: string, joursEcoules: number, now
     if (c.delai_preavis_jours) {
       texte += ` Pour résilier, un préavis de ${c.delai_preavis_jours} jours est nécessaire.`;
     }
-    return info("Actif", texte);
+    return info("Actif", texte, null, null, null, "Tacite", null);
   }
 
   const joursCycle = c.duree_cycle_mois * 30.44;
@@ -206,8 +226,11 @@ function infoTacite(c: ContratListItem, duree: string, joursEcoules: number, now
   let texte = `Ce contrat se renouvelle automatiquement tous les ${c.duree_cycle_mois} mois. `;
   texte += `Il est actif depuis ${duree} et entre dans son ${ordinal(cycleActuel)} cycle. `;
 
+  // Surchargés ci-dessous selon la phase du cycle (fenêtre / renouvellement)
   let alerte: string | null = null;
   let alerteType: AlerteType | null = null;
+  let sousStatut = "Tacite";
+  let criticite: AlerteType | null = null;
 
   if (c.fenetre_resiliation_jours) {
     const debutFenetre = ajouterJours(dateFinCycle, -(c.fenetre_resiliation_jours - 1));
@@ -216,6 +239,8 @@ function infoTacite(c: ContratListItem, duree: string, joursEcoules: number, now
       texte += `La fenêtre de résiliation est actuellement ouverte, du ${fmtLong(debutFenetre)} au ${fmtLong(dateFinCycle)}. C'est le moment de notifier si vous souhaitez résilier.`;
       alerte = `Fenêtre ouverte — ${joursAvantFinCycle} j restants`;
       alerteType = "warning";
+      sousStatut = "Fenêtre ouverte";
+      criticite = "warning";
     } else if (debutFenetre > now) {
       const joursAvantFenetre = diffJours(now, debutFenetre);
       texte += `Pour résilier, il faudra attendre la fenêtre du ${fmtLong(debutFenetre)} au ${fmtLong(dateFinCycle)}`;
@@ -226,6 +251,8 @@ function infoTacite(c: ContratListItem, duree: string, joursEcoules: number, now
       if (joursAvantFenetre <= 30) {
         alerte = `Fenêtre dans ${joursAvantFenetre} j`;
         alerteType = "info";
+        sousStatut = "Fenêtre proche";
+        criticite = "info";
       }
     }
   } else if (c.delai_preavis_jours) {
@@ -235,7 +262,9 @@ function infoTacite(c: ContratListItem, duree: string, joursEcoules: number, now
   if (!alerte && joursAvantFinCycle <= 30) {
     alerte = `Renouvellement dans ${joursAvantFinCycle} j`;
     alerteType = "info";
+    sousStatut = "Renouvellement proche";
+    criticite = "info";
   }
 
-  return info("Actif", texte, prog, alerte, alerteType);
+  return info("Actif", texte, prog, alerte, alerteType, sousStatut, criticite);
 }

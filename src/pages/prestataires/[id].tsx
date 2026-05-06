@@ -111,7 +111,7 @@ function ContratCard({ contrat: c, onSelect, onEdit, onDelete, onResilier, onAve
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <ContratStatusBadge statut={cInfo.statut} />
+            <ContratStatusBadge statut={cInfo.statut} sousStatut={cInfo.sousStatut} criticite={cInfo.criticite} />
             <ActionButtons
               onEdit={!isTerminal ? onEdit : undefined}
               onDelete={onDelete}
