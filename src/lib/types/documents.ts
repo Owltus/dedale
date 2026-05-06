@@ -8,6 +8,7 @@ export interface Document {
   taille_octets: number;
   id_type_document: number;
   date_upload: string | null;
+  extension: string;
 }
 
 export interface DocumentListItem {
@@ -18,6 +19,7 @@ export interface DocumentListItem {
   nom_type: string;
   date_upload: string | null;
   nb_liaisons: number;
+  extension: string;
 }
 
 export interface DocumentLie {
@@ -30,6 +32,7 @@ export interface DocumentLie {
   date_liaison: string | null;
   commentaire: string | null;
   source: string | null;
+  extension: string;
 }
 
 export type DocumentEntityType =

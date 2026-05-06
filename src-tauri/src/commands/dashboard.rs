@@ -207,7 +207,8 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
 
     // Tableau : 10 derniers documents ajoutés
     let mut stmt8 = conn.prepare_cached(
-        "SELECT d.id_document, d.nom_original, td.nom, d.date_upload \
+        "SELECT d.id_document, d.nom_original, td.nom, d.date_upload, \
+                LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) AS extension \
          FROM documents d \
          JOIN types_documents td ON d.id_type_document = td.id_type_document \
          ORDER BY d.date_upload DESC LIMIT 10"
@@ -218,6 +219,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
             nom_original: row.get(1)?,
             nom_type: row.get(2)?,
             date_upload: row.get(3)?,
+            extension: row.get(4)?,
         })
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;

@@ -13,7 +13,7 @@ import { ContratsTimeline } from "./ContratsTimeline";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { DiStatusBadge, OtStatusBadge } from "@/components/shared/StatusBadge";
 import { getEffectiveOtStatutId } from "@/lib/utils/statuts";
-import { formatDateShort, stripExtension } from "@/lib/utils/format";
+import { formatDateShort } from "@/lib/utils/format";
 import type { DiDashboardItem, OtDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
 
 function filterDi(di: DiDashboardItem, q: string): boolean {
@@ -168,7 +168,7 @@ export function Dashboard() {
             rowHeight={dynamicRowH}
             emptyTitle="Aucun document"
             renderContent={(d) => (
-              <p className="flex-1 text-[11px] leading-tight truncate">{stripExtension(d.nom_original)}</p>
+              <p className="flex-1 text-[11px] leading-tight truncate">{d.nom_original}</p>
             )}
           />
         )}

@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { ALLOWED_EXTENSIONS } from "@/lib/schemas/documents";
 
 /// Formate une date ISO en format français lisible (dd/MM/yyyy)
 export function formatDate(dateStr: string | null | undefined): string {
@@ -61,10 +62,20 @@ export function formatDateTime(dateStr: string | null | undefined): string {
   return format(new Date(dateStr), "dd/MM/yyyy HH:mm", { locale: fr });
 }
 
-/// Retourne le nom de fichier sans son extension
-export function stripExtension(filename: string): string {
+/// Retire l'extension UNIQUEMENT si c'est une extension connue (insensible à
+/// la casse) — préserve les noms type `Rapport v1.2` qui ne sont pas une
+/// extension de fichier.
+export function stripKnownExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");
-  return lastDot > 0 ? filename.slice(0, lastDot) : filename;
+  if (lastDot <= 0) return filename;
+  const ext = filename.slice(lastDot + 1).toLowerCase();
+  return (ALLOWED_EXTENSIONS as readonly string[]).includes(ext) ? filename.slice(0, lastDot) : filename;
+}
+
+/// Reconstitue le nom de fichier complet (alias humain + extension réelle)
+/// — utilisé pour la suggestion de sauvegarde sur disque.
+export function formatDocumentFilename(nomOriginal: string, extension: string | null | undefined): string {
+  return extension ? `${nomOriginal}.${extension}` : nomOriginal;
 }
 
 /// Contexte de nommage passé à l'UploadModal pour générer un nom suggéré

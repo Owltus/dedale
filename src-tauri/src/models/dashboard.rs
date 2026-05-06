@@ -119,6 +119,7 @@ pub struct DocumentDashboardItem {
     pub nom_original: String,
     pub nom_type: String,
     pub date_upload: String,
+    pub extension: String,
 }
 
 /// Gamme pour le sunburst dashboard

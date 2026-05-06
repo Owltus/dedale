@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useInvokeQuery, useInvokeMutation } from "./useInvoke";
 import type { Document, DocumentListItem, DocumentLie, DocumentLiaison } from "@/lib/types/documents";
 import type { PreviewableDoc } from "@/components/shared/DocumentPreviewDialog";
+import { formatDocumentFilename } from "@/lib/utils/format";
 
 export const documentKeys = {
   all: ["documents"] as const,
@@ -104,9 +105,10 @@ export function useDocumentPreview() {
 }
 
 export function useSaveDocumentToDisk() {
-  return useCallback(async (doc: { id_document: number; nom_original: string }) => {
+  return useCallback(async (doc: { id_document: number; nom_original: string; extension: string }) => {
     try {
-      const destination = await save({ defaultPath: doc.nom_original, title: "Enregistrer le document" });
+      const defaultPath = formatDocumentFilename(doc.nom_original, doc.extension);
+      const destination = await save({ defaultPath, title: "Enregistrer le document" });
       if (!destination) return;
       await invoke("save_document_to", { id: doc.id_document, destination });
       toast.success("Document enregistré");

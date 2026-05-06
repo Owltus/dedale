@@ -9,6 +9,7 @@ pub struct Document {
     pub taille_octets: i64,
     pub id_type_document: i64,
     pub date_upload: Option<String>,
+    pub extension: String,
 }
 
 /// Version liste avec nombre de liaisons
@@ -21,6 +22,7 @@ pub struct DocumentListItem {
     pub nom_type: String,
     pub date_upload: Option<String>,
     pub nb_liaisons: i64,
+    pub extension: String,
 }
 
 /// Document lié à une entité (utilisé dans le composant DocumentsLies)
@@ -36,6 +38,7 @@ pub struct DocumentLie {
     pub commentaire: Option<String>,
     /// Source du document : null = direct, "Gamme : X" ou "OT : Y" = hérité
     pub source: Option<String>,
+    pub extension: String,
 }
 
 #[derive(Debug, Deserialize)]

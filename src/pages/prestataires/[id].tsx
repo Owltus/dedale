@@ -51,7 +51,7 @@ import { useInvokeMutation } from "@/hooks/useInvoke";
 import { useQueryClient } from "@tanstack/react-query";
 import { ContratStatusBadge } from "@/components/shared/StatusBadge";
 import { DocumentPreviewDialog, type PreviewableDoc } from "@/components/shared/DocumentPreviewDialog";
-import { formatDate, stripExtension } from "@/lib/utils/format";
+import { formatDate, formatDocumentFilename } from "@/lib/utils/format";
 
 function progressColor(p: number): string {
   if (p > 0.9) return "bg-red-500";
@@ -252,8 +252,8 @@ function ContratCard({ contrat: c, onSelect, onEdit, onDelete, onResilier, onAve
                       onPreviewDoc(doc);
                     }}
                   >
-                    <DocumentIcon fileName={doc.nom_original} className="size-3.5 shrink-0" />
-                    <span className="truncate">{stripExtension(doc.nom_original)}</span>
+                    <DocumentIcon extension={doc.extension} className="size-3.5 shrink-0" />
+                    <span className="truncate">{doc.nom_original}</span>
                   </button>
                   <div className="flex items-center gap-0.5 shrink-0">
                     <Button variant="ghost" size="icon" className="size-5" title="Délier" onClick={(e) => {
@@ -366,7 +366,8 @@ export function PrestatairesDetail() {
   };
   const handleDownload = async (doc: PreviewableDoc) => {
     try {
-      const destination = await save({ defaultPath: doc.nom_original, title: "Enregistrer le document" });
+      const defaultPath = formatDocumentFilename(doc.nom_original, doc.extension);
+      const destination = await save({ defaultPath, title: "Enregistrer le document" });
       if (!destination) return;
       await invoke("save_document_to", { id: doc.id_document, destination });
       toast.success("Document enregistré");

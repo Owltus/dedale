@@ -7,7 +7,7 @@ import {
   useSaveDocumentToDisk,
 } from "@/hooks/use-documents";
 import type { DocumentLie } from "@/lib/types/documents";
-import { formatBytes, formatDate, stripExtension } from "@/lib/utils/format";
+import { formatBytes, formatDate } from "@/lib/utils/format";
 import { CardList } from "./CardList";
 import { DocumentIcon } from "./DocumentIcon";
 import { DocumentPreviewDialog } from "./DocumentPreviewDialog";
@@ -89,12 +89,12 @@ export function OtDocumentsButton({ idOrdreTravail, nbDocuments }: OtDocumentsBu
               onItemClick={handlePickDoc}
               filterFn={filterDocument}
               icon={<FileText className="size-5 text-muted-foreground" />}
-              getIcon={(d) => <DocumentIcon fileName={d.nom_original} />}
+              getIcon={(d) => <DocumentIcon extension={d.extension} />}
               showTitle={false}
               showSearch={false}
               renderContent={(d) => (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{stripExtension(d.nom_original)}</p>
+                  <p className="text-sm font-medium truncate">{d.nom_original}</p>
                   <p className="text-xs text-muted-foreground truncate">
                     {d.source ? `${d.source} · ` : ""}{d.nom_type} · {formatBytes(d.taille_octets)} · {formatDate(d.date_liaison)}
                   </p>

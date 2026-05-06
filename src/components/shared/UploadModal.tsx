@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDocuments } from "@/hooks/use-documents";
 import { useTypesDocuments } from "@/hooks/use-referentiels";
-import { formatBytes, stripExtension, suggestDocumentName, type NamingContext } from "@/lib/utils/format";
+import { formatBytes, suggestDocumentName, type NamingContext } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import { fileToBase64, readDroppedFiles } from "./DropZone";
 import { DocumentIcon } from "./DocumentIcon";
@@ -382,9 +382,9 @@ function LinkExistingTab({ linkedDocIds, onLink, onClose }: LinkExistingTabProps
               <div className="flex size-5 shrink-0 items-center justify-center rounded border">
                 {isSelected && <Check className="size-3.5 text-primary" />}
               </div>
-              <DocumentIcon fileName={doc.nom_original} className="size-4 shrink-0 text-muted-foreground" />
+              <DocumentIcon extension={doc.extension} className="size-4 shrink-0 text-muted-foreground" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm truncate">{stripExtension(doc.nom_original)}</p>
+                <p className="text-sm truncate">{doc.nom_original}</p>
                 <p className="text-xs text-muted-foreground truncate">
                   {doc.nom_type} · {formatBytes(doc.taille_octets)}
                 </p>

@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getDocumentFileType } from "@/lib/schemas/documents";
-import { formatBytes, stripExtension } from "@/lib/utils/format";
+import { formatBytes } from "@/lib/utils/format";
 
 export interface PreviewableDoc {
   id_document: number;
   nom_original: string;
   taille_octets: number;
+  extension: string;
 }
 
 interface DocumentPreviewDialogProps {
@@ -27,7 +28,7 @@ function base64ToBlobUrl(base64: string, mime: string): string {
 }
 
 export function DocumentPreviewDialog({ doc, previewData, onClose, onDownload }: DocumentPreviewDialogProps) {
-  const previewType = doc ? getDocumentFileType(doc.nom_original) : null;
+  const previewType = doc ? getDocumentFileType(doc.extension) : null;
   const mime = previewType === "pdf" ? "application/pdf" : "image/webp";
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
@@ -47,7 +48,7 @@ export function DocumentPreviewDialog({ doc, previewData, onClose, onDownload }:
       <DialogContent className="!max-w-[90vw] !w-[90vw] !h-[85vh] flex flex-col !p-0 !gap-0" showCloseButton>
         <DialogHeader className="px-4 pt-4 pb-2">
           <div className="flex items-center gap-3">
-            <DialogTitle>{doc ? stripExtension(doc.nom_original) : ""}</DialogTitle>
+            <DialogTitle>{doc?.nom_original ?? ""}</DialogTitle>
             {doc && <Badge variant="secondary">{formatBytes(doc.taille_octets)}</Badge>}
           </div>
         </DialogHeader>

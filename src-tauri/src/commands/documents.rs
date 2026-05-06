@@ -100,7 +100,8 @@ fn process_file(bytes: &[u8], ext: &str) -> Result<(Vec<u8>, String), String> {
 fn fetch_document(conn: &rusqlite::Connection, id: i64) -> Result<Document, String> {
     conn.query_row(
         "SELECT id_document, nom_original, hash_sha256, nom_fichier, taille_octets, \
-                id_type_document, date_upload \
+                id_type_document, date_upload, \
+                LOWER(SUBSTR(nom_fichier, INSTR(nom_fichier, '.') + 1)) AS extension \
          FROM documents WHERE id_document = ?1",
         params![id],
         |row| {
@@ -112,6 +113,7 @@ fn fetch_document(conn: &rusqlite::Connection, id: i64) -> Result<Document, Stri
                 taille_octets: row.get(4)?,
                 id_type_document: row.get(5)?,
                 date_upload: row.get(6)?,
+                extension: row.get(7)?,
             })
         },
     )
@@ -197,14 +199,12 @@ pub async fn upload_document(
     fs::write(&file_path, &processed.bytes)
         .map_err(|e| format!("Impossible d'écrire le fichier : {}", e))?;
 
-    // Adapter le nom original si le format a changé (ex: .png → .webp)
-    let display_name = if processed.storage_ext != "pdf" {
-        match input.nom_original.rfind('.') {
-            Some(pos) => format!("{}.{}", &input.nom_original[..pos], processed.storage_ext),
-            None => format!("{}.{}", input.nom_original, processed.storage_ext),
-        }
-    } else {
-        input.nom_original.clone()
+    // Retirer l'extension du nom : `nom_original` est un alias humain pur,
+    // l'extension réelle est portée par `nom_fichier` (et exposée via le champ
+    // virtuel `extension` dans les SELECT).
+    let display_name = match input.nom_original.rfind('.') {
+        Some(pos) => input.nom_original[..pos].to_string(),
+        None => input.nom_original.clone(),
     };
 
     // Insérer les métadonnées en base
@@ -237,7 +237,8 @@ pub fn get_documents(db: State<DbPool>) -> Result<Vec<DocumentListItem>, String>
                         (SELECT COUNT(*) FROM documents_localisations dl WHERE dl.id_document = d.id_document) + \
                         (SELECT COUNT(*) FROM documents_equipements de WHERE de.id_document = d.id_document) + \
                         (SELECT COUNT(*) FROM documents_techniciens dt WHERE dt.id_document = d.id_document) \
-                    ) AS nb_liaisons \
+                    ) AS nb_liaisons, \
+                    LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) AS extension \
              FROM documents d \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
              ORDER BY d.date_upload DESC",
@@ -254,6 +255,7 @@ pub fn get_documents(db: State<DbPool>) -> Result<Vec<DocumentListItem>, String>
                 nom_type: row.get(4)?,
                 date_upload: row.get(5)?,
                 nb_liaisons: row.get(6)?,
+                extension: row.get(7)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -286,7 +288,8 @@ pub fn get_documents_for_entity(
 
     let sql = format!(
         "SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom AS nom_type, \
-                d.date_upload, j.date_liaison, j.commentaire, NULL AS source \
+                d.date_upload, j.date_liaison, j.commentaire, NULL AS source, \
+                LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) AS extension \
          FROM {} j \
          JOIN documents d ON d.id_document = j.id_document \
          JOIN types_documents td ON td.id_type_document = d.id_type_document \
@@ -316,6 +319,7 @@ fn map_document_lie(row: &rusqlite::Row) -> rusqlite::Result<DocumentLie> {
         date_liaison: row.get("date_liaison")?,
         commentaire: row.get("commentaire")?,
         source: row.get("source")?,
+        extension: row.get("extension")?,
     })
 }
 
@@ -410,16 +414,18 @@ fn get_documents_equipement_complet(conn: &rusqlite::Connection, id_equipement: 
     let mut stmt = conn
         .prepare_cached(
             "SELECT id_document, nom_original, taille_octets, id_type_document, nom_type, \
-                    date_upload, date_liaison, commentaire, source FROM ( \
+                    date_upload, date_liaison, commentaire, source, extension FROM ( \
              SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom AS nom_type, \
-                    d.date_upload, j.date_liaison, j.commentaire, NULL AS source \
+                    d.date_upload, j.date_liaison, j.commentaire, NULL AS source, \
+                    LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) AS extension \
              FROM documents_equipements j \
              JOIN documents d ON d.id_document = j.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
              WHERE j.id_equipement = ?1 \
              UNION ALL \
              SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
-                    d.date_upload, dg.date_liaison, NULL, 'Gamme : ' || g.nom_gamme \
+                    d.date_upload, dg.date_liaison, NULL, 'Gamme : ' || g.nom_gamme, \
+                    LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) \
              FROM documents_gammes dg \
              JOIN documents d ON d.id_document = dg.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
@@ -428,7 +434,8 @@ fn get_documents_equipement_complet(conn: &rusqlite::Connection, id_equipement: 
              WHERE ge.id_equipement = ?1 \
              UNION ALL \
              SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
-                    d.date_upload, dot.date_liaison, NULL, 'OT : ' || ot.nom_gamme \
+                    d.date_upload, dot.date_liaison, NULL, 'OT : ' || ot.nom_gamme, \
+                    LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) \
              FROM documents_ordres_travail dot \
              JOIN documents d ON d.id_document = dot.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
@@ -454,16 +461,18 @@ fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire
     let mut stmt = conn
         .prepare_cached(
             "SELECT id_document, nom_original, taille_octets, id_type_document, nom_type, \
-                    date_upload, date_liaison, commentaire, source FROM ( \
+                    date_upload, date_liaison, commentaire, source, extension FROM ( \
              SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom AS nom_type, \
-                    d.date_upload, j.date_liaison, j.commentaire, NULL AS source \
+                    d.date_upload, j.date_liaison, j.commentaire, NULL AS source, \
+                    LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) AS extension \
              FROM documents_prestataires j \
              JOIN documents d ON d.id_document = j.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
              WHERE j.id_prestataire = ?1 \
              UNION ALL \
              SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
-                    d.date_upload, dg.date_liaison, NULL, 'Gamme : ' || g.nom_gamme \
+                    d.date_upload, dg.date_liaison, NULL, 'Gamme : ' || g.nom_gamme, \
+                    LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) \
              FROM documents_gammes dg \
              JOIN documents d ON d.id_document = dg.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
@@ -471,7 +480,8 @@ fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire
              WHERE g.id_prestataire = ?1 \
              UNION ALL \
              SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
-                    d.date_upload, dot.date_liaison, NULL, 'OT : ' || ot.nom_gamme \
+                    d.date_upload, dot.date_liaison, NULL, 'OT : ' || ot.nom_gamme, \
+                    LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) \
              FROM documents_ordres_travail dot \
              JOIN documents d ON d.id_document = dot.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
@@ -479,7 +489,8 @@ fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire
              WHERE ot.id_prestataire = ?1 \
              UNION ALL \
              SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
-                    d.date_upload, dc.date_liaison, NULL, 'Contrat : ' || c.reference \
+                    d.date_upload, dc.date_liaison, NULL, 'Contrat : ' || c.reference, \
+                    LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) \
              FROM documents_contrats dc \
              JOIN documents d ON d.id_document = dc.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
@@ -487,7 +498,8 @@ fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire
              WHERE c.id_prestataire = ?1 \
              UNION ALL \
              SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
-                    d.date_upload, dd.date_liaison, NULL, 'DI : ' || di.libelle_constat \
+                    d.date_upload, dd.date_liaison, NULL, 'DI : ' || di.libelle_constat, \
+                    LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) \
              FROM documents_di dd \
              JOIN documents d ON d.id_document = dd.id_document \
              JOIN types_documents td ON td.id_type_document = d.id_type_document \
@@ -642,19 +654,20 @@ pub async fn replace_document_file(
     id: i64,
     data_base64: String,
 ) -> Result<Document, String> {
-    // Récupérer l'ancien document
-    let (old_nom_fichier, old_nom_original): (String, String) = {
+    // Récupérer le nom_fichier de l'ancien document pour donner un indice
+    // d'extension à `process_upload` (`nom_original` est désormais sans extension).
+    let old_nom_fichier: String = {
         let conn = db.lock().map_err(|e| e.to_string())?;
         conn.query_row(
-            "SELECT nom_fichier, nom_original FROM documents WHERE id_document = ?1",
+            "SELECT nom_fichier FROM documents WHERE id_document = ?1",
             params![id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| row.get(0),
         )
         .map_err(|e| format!("Document introuvable (id={}) : {}", id, e))?
     };
 
     // Travail lourd dans un thread séparé
-    let nom = old_nom_original.clone();
+    let nom = old_nom_fichier.clone();
     let processed = tauri::async_runtime::spawn_blocking(move || process_upload(&data_base64, &nom))
         .await
         .map_err(|e| format!("Erreur interne : {}", e))??;

@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useDocumentsForEntity, useDeleteDocument, useDocumentPreview, useSaveDocumentToDisk } from "@/hooks/use-documents";
 import { useInvokeMutation } from "@/hooks/useInvoke";
-import { formatDate, formatBytes, stripExtension, type NamingContext } from "@/lib/utils/format";
+import { formatDate, formatBytes, type NamingContext } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import { DropZone } from "./DropZone";
 import { DocumentIcon } from "./DocumentIcon";
@@ -144,11 +144,11 @@ export function DocumentsLies({ entityType, entityId, readonly = false, inputId,
                 className="flex items-stretch rounded-lg border overflow-hidden hover:bg-muted/30 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <div className="flex aspect-square shrink-0 items-center justify-center bg-muted border-r [&_svg]:size-10 [&_svg]:stroke-1">
-                  <DocumentIcon fileName={doc.nom_original} />
+                  <DocumentIcon extension={doc.extension} />
                 </div>
                 <div className="flex flex-1 items-center justify-between gap-6 px-4 py-3 min-w-0">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{stripExtension(doc.nom_original)}</p>
+                    <p className="text-sm font-medium truncate">{doc.nom_original}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {doc.source ? `${doc.source} · ` : ""}{doc.nom_type} · {formatBytes(doc.taille_octets)} · {formatDate(doc.date_liaison)}
                     </p>

@@ -2,7 +2,7 @@ import { FileImage } from "lucide-react";
 import { getDocumentFileType } from "@/lib/schemas/documents";
 
 interface DocumentIconProps {
-  fileName: string;
+  extension: string;
   className?: string;
 }
 
@@ -18,8 +18,8 @@ function FilePdf({ className }: { className?: string }) {
 }
 
 /// Icône contextuelle : image ou PDF selon l'extension du fichier
-export function DocumentIcon({ fileName, className = "size-5 text-muted-foreground" }: DocumentIconProps) {
-  const type = getDocumentFileType(fileName);
+export function DocumentIcon({ extension, className = "size-5 text-muted-foreground" }: DocumentIconProps) {
+  const type = getDocumentFileType(extension);
   if (type === "image") return <FileImage className={className} />;
   return <FilePdf className={className} />;
 }

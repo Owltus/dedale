@@ -10,12 +10,13 @@ import { ACCEPTED_FORMATS, documentEditSchema, type DocumentEditFormData } from 
 import { useUpdateDocument, useReplaceDocumentFile } from "@/hooks/use-documents";
 import { useTypesDocuments } from "@/hooks/use-referentiels";
 import { fileToBase64 } from "@/components/shared/DropZone";
-import { formatBytes } from "@/lib/utils/format";
+import { formatBytes, stripKnownExtension } from "@/lib/utils/format";
 
 export interface EditableDoc {
   id_document: number;
   nom_original: string;
   id_type_document: number;
+  extension: string;
 }
 
 interface DocumentEditDialogProps {
@@ -55,11 +56,14 @@ export function DocumentEditDialog({ doc, onClose }: DocumentEditDialogProps) {
   const handleSubmit = form.handleSubmit(async (data) => {
     if (!doc) return;
     const typed = data as DocumentEditFormData;
+    // Stripping silencieux : tolère que l'utilisateur tape "facture.pdf" par
+    // habitude — on enlève l'extension reconnue avant l'enregistrement.
+    const cleanName = stripKnownExtension(typed.nom_original.trim());
     try {
-      if (typed.nom_original !== doc.nom_original || typed.id_type_document !== doc.id_type_document) {
+      if (cleanName !== doc.nom_original || typed.id_type_document !== doc.id_type_document) {
         await updateMutation.mutateAsync({
           id: doc.id_document,
-          nom_original: typed.nom_original,
+          nom_original: cleanName,
           id_type_document: typed.id_type_document,
         });
       }

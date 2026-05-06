@@ -20,7 +20,7 @@ import {
   useDocuments, useDeleteDocument,
   useSaveDocumentToDisk, useDocumentPreview,
 } from "@/hooks/use-documents";
-import { formatDate, formatBytes, stripExtension } from "@/lib/utils/format";
+import { formatDate, formatBytes } from "@/lib/utils/format";
 
 function filterDocument(doc: DocumentListItem, q: string): boolean {
   return doc.nom_original.toLowerCase().includes(q) || doc.nom_type.toLowerCase().includes(q);
@@ -78,7 +78,7 @@ export function Documents() {
           onItemClick={openPreview}
           filterFn={filterDocument}
           icon={<FileText className="size-5 text-muted-foreground" />}
-          getIcon={(doc) => <DocumentIcon fileName={doc.nom_original} />}
+          getIcon={(doc) => <DocumentIcon extension={doc.extension} />}
           title="Documents"
           emptyTitle="Aucun document"
           emptyDescription="Ajoutez des documents ou glissez-deposez des fichiers ici."
@@ -87,7 +87,7 @@ export function Documents() {
           )}
           renderContent={(doc) => (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{stripExtension(doc.nom_original)}</p>
+              <p className="text-sm font-medium truncate">{doc.nom_original}</p>
               <p className="text-xs text-muted-foreground truncate">
                 {doc.nom_type} · {formatBytes(doc.taille_octets)} · {formatDate(doc.date_upload)}
               </p>
