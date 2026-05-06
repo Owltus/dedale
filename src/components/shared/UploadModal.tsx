@@ -278,7 +278,7 @@ export function UploadModal({ open, onOpenChange, onUpload, initialFiles, linkEx
       <DialogContent className="!max-w-xl">
         <DialogHeader><DialogTitle>Ajouter des documents</DialogTitle></DialogHeader>
         {linkExisting ? (
-          <Tabs defaultValue="upload" className="flex flex-col">
+          <Tabs defaultValue="upload" className="flex flex-col min-w-0">
             <TabsList className="w-full">
               <TabsTrigger value="upload" className="flex-1 gap-1.5">
                 <FileUp className="size-3.5" /> Nouveau fichier
@@ -287,10 +287,10 @@ export function UploadModal({ open, onOpenChange, onUpload, initialFiles, linkEx
                 <Link className="size-3.5" /> Lier un existant
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="upload" className="mt-4">
+            <TabsContent value="upload" className="mt-4 min-w-0">
               {uploadContent}
             </TabsContent>
-            <TabsContent value="link" className="mt-4">
+            <TabsContent value="link" className="mt-4 min-w-0">
               <LinkExistingTab
                 linkedDocIds={linkExisting.linkedDocIds}
                 onLink={linkExisting.onLink}
@@ -352,7 +352,7 @@ function LinkExistingTab({ linkedDocIds, onLink, onClose }: LinkExistingTabProps
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 min-w-0">
       <div className="relative">
         <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
         <Input
@@ -363,7 +363,7 @@ function LinkExistingTab({ linkedDocIds, onLink, onClose }: LinkExistingTabProps
         />
       </div>
 
-      <div className="flex flex-col gap-1 max-h-64 overflow-y-auto no-scrollbar">
+      <div className="flex flex-col gap-1 max-h-64 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar">
         {filtered.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-6">Aucun document disponible</p>
         )}
@@ -374,7 +374,7 @@ function LinkExistingTab({ linkedDocIds, onLink, onClose }: LinkExistingTabProps
               key={doc.id_document}
               type="button"
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-left transition-colors",
+                "flex items-center gap-3 rounded-md px-3 py-2 text-left transition-colors w-full min-w-0",
                 isSelected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted border border-transparent",
               )}
               onClick={() => toggleSelect(doc.id_document)}
