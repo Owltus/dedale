@@ -109,7 +109,7 @@ pub fn get_export_ot(db: State<DbPool>, id: i64) -> Result<OtExportData, String>
     let conn = db.lock().map_err(|e| e.to_string())?;
     conn.query_row(
         "SELECT id_ordre_travail, nom_gamme, date_prevue, id_statut_ot, \
-                nom_prestataire, nom_localisation, nom_famille, nom_technicien, commentaires \
+                nom_prestataire, nom_localisation, nom_famille, commentaires \
          FROM ordres_travail WHERE id_ordre_travail = ?1",
         params![id],
         |row| Ok(OtExportData {
@@ -120,8 +120,7 @@ pub fn get_export_ot(db: State<DbPool>, id: i64) -> Result<OtExportData, String>
             nom_prestataire: row.get(4)?,
             nom_localisation: row.get(5)?,
             nom_famille: row.get(6)?,
-            nom_technicien: row.get(7)?,
-            commentaires: row.get(8)?,
+            commentaires: row.get(7)?,
         }),
     ).map_err(|e| e.to_string())
 }

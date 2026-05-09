@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, Cpu, FileText, FileWarning, Link2, ListChecks, MapPin, User, Wrench, type LucideIcon } from "lucide-react";
+import { Building2, Cpu, FileText, FileWarning, Link2, ListChecks, MapPin, Wrench, type LucideIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useDocumentLiaisons } from "@/hooks/use-documents";
@@ -30,7 +30,6 @@ const ENTITY_META: Record<DocumentEntityType, EntityMeta> = {
   contrats:       { icon: FileText,    label: "Contrat",          href: (l) => `/prestataires/${l.parent_id}` },
   di:             { icon: FileWarning, label: "Demande",          href: (l) => `/demandes/${l.entity_id}` },
   localisations:  { icon: MapPin,      label: "Local",            href: (l) => `/localisations/locaux/${l.entity_id}` },
-  techniciens:    { icon: User,        label: "Technicien",       href: (l) => `/techniciens/${l.entity_id}` },
 };
 
 /// Badge dot cliquable affichant le compteur de liaisons d'un document.

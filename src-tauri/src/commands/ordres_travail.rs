@@ -11,7 +11,7 @@ use crate::models::ordres_travail::{
 // ── Constantes SQL ──
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Colonnes SELECT pour ordres_travail (27 colonnes — tout sauf les colonnes internes)
+/// Colonnes SELECT pour ordres_travail (24 colonnes)
 const OT_COLS: &str = "\
     id_ordre_travail, nom_gamme, description_gamme, est_reglementaire, \
     nom_localisation, nom_famille, nom_prestataire, \
@@ -19,8 +19,7 @@ const OT_COLS: &str = "\
     libelle_periodicite, jours_periodicite, periodicite_jours_valides, \
     id_image, date_prevue, est_automatique, \
     date_debut, date_cloture, commentaires, \
-    id_di, id_technicien, nom_technicien, \
-    nom_poste, nom_equipement, \
+    id_di, nom_equipement, \
     date_creation, date_modification";
 
 /// Colonnes SELECT pour operations_execution (16 colonnes)
@@ -35,7 +34,7 @@ const OP_EXEC_COLS: &str = "\
 // ── Helpers de mapping Row → Struct ──
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Construit un OrdreTravail complet à partir d'une ligne (27 colonnes)
+/// Construit un OrdreTravail complet à partir d'une ligne (24 colonnes)
 fn row_to_ot(row: &rusqlite::Row) -> rusqlite::Result<OrdreTravail> {
     Ok(OrdreTravail {
         id_ordre_travail: row.get(0)?,
@@ -59,12 +58,9 @@ fn row_to_ot(row: &rusqlite::Row) -> rusqlite::Result<OrdreTravail> {
         date_cloture: row.get(18)?,
         commentaires: row.get(19)?,
         id_di: row.get(20)?,
-        id_technicien: row.get(21)?,
-        nom_technicien: row.get(22)?,
-        nom_poste: row.get(23)?,
-        nom_equipement: row.get(24)?,
-        date_creation: row.get(25)?,
-        date_modification: row.get(26)?,
+        nom_equipement: row.get(21)?,
+        date_creation: row.get(22)?,
+        date_modification: row.get(23)?,
     })
 }
 
@@ -290,11 +286,11 @@ pub fn create_ordre_travail(
     let conn = db.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO ordres_travail \
-         (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, id_di, commentaires, \
+         (id_gamme, id_prestataire, date_prevue, id_priorite, id_di, commentaires, \
           nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides) \
          VALUES (?1, \
                  (SELECT id_prestataire FROM gammes WHERE id_gamme = ?1), \
-                 ?2, ?3, ?4, ?5, ?6, \
+                 ?2, ?3, ?4, ?5, \
                  (SELECT nom_gamme FROM gammes WHERE id_gamme = ?1), \
                  (SELECT est_reglementaire FROM gammes WHERE id_gamme = ?1), \
                  '', 0, 0)",
@@ -302,7 +298,6 @@ pub fn create_ordre_travail(
             input.id_gamme,
             input.date_prevue,
             input.id_priorite,
-            input.id_technicien,
             input.id_di,
             input.commentaires,
         ],
@@ -332,7 +327,6 @@ pub fn update_statut_ot(
     fetch_ot_detail(&conn, id)
 }
 
-/// Met à jour les champs éditables d'un OT actif (priorité, technicien, commentaires).
 /// Supprime un OT et ses opérations d'exécution (CASCADE)
 #[tauri::command]
 pub fn delete_ordre_travail(db: State<DbPool>, id: i64) -> Result<(), String> {
@@ -345,6 +339,7 @@ pub fn delete_ordre_travail(db: State<DbPool>, id: i64) -> Result<(), String> {
     Ok(())
 }
 
+/// Met à jour les champs éditables d'un OT actif (priorité, date prévue, commentaires).
 /// Utilise COALESCE pour ne modifier que les champs fournis.
 #[tauri::command]
 pub fn update_ordre_travail(
@@ -357,10 +352,9 @@ pub fn update_ordre_travail(
         "UPDATE ordres_travail SET \
          date_prevue = COALESCE(?1, date_prevue), \
          id_priorite = COALESCE(?2, id_priorite), \
-         id_technicien = COALESCE(?3, id_technicien), \
-         commentaires = ?4 \
-         WHERE id_ordre_travail = ?5",
-        params![input.date_prevue, input.id_priorite, input.id_technicien, input.commentaires, id],
+         commentaires = ?3 \
+         WHERE id_ordre_travail = ?4",
+        params![input.date_prevue, input.id_priorite, input.commentaires, id],
     )
     .map_err(|e| e.to_string())?;
     // Re-requêter le détail complet

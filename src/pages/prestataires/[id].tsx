@@ -4,8 +4,6 @@ import { useForm } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
 import { Ban, FileUp, GitBranchPlus, Pencil, Plus, Trash2, Unlink2 } from "lucide-react";
 import { PageHeader } from "@/components/layout";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -46,12 +44,12 @@ import { DocumentIcon } from "@/components/shared/DocumentIcon";
 import { DropZone } from "@/components/shared/DropZone";
 import { UploadModal } from "@/components/shared/UploadModal";
 import { useUploadQueue } from "@/components/shared/UploadQueue";
-import { useDocumentsForEntity, useDownloadDocument } from "@/hooks/use-documents";
+import { useDocumentsForEntity, useDownloadDocument, useSaveDocumentToDisk } from "@/hooks/use-documents";
 import { useInvokeMutation } from "@/hooks/useInvoke";
 import { useQueryClient } from "@tanstack/react-query";
 import { ContratStatusBadge } from "@/components/shared/StatusBadge";
 import { DocumentPreviewDialog, type PreviewableDoc } from "@/components/shared/DocumentPreviewDialog";
-import { formatDate, formatDocumentFilename } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
 
 function progressColor(p: number): string {
   if (p > 0.9) return "bg-red-500";
@@ -364,15 +362,7 @@ export function PrestatairesDetail() {
       setPreviewDoc(doc);
     } catch { /* géré */ }
   };
-  const handleDownload = async (doc: PreviewableDoc) => {
-    try {
-      const defaultPath = formatDocumentFilename(doc.nom_original, doc.extension);
-      const destination = await save({ defaultPath, title: "Enregistrer le document" });
-      if (!destination) return;
-      await invoke("save_document_to", { id: doc.id_document, destination });
-      toast.success("Document enregistré");
-    } catch (err) { toast.error(String(err)); }
-  };
+  const handleDownload = useSaveDocumentToDisk();
 
   // Upload documents contrat
   const qc = useQueryClient();

@@ -31,7 +31,6 @@ Application mono-utilisateur, offline, desktop. Aucune authentification, aucun s
 │  │ Localisations      │  │                                  ││
 │  │ Prestataires       │  │                                  ││
 │  │ Contrats           │  │                                  ││
-│  │ Techniciens        │  │                                  ││
 │  │ Documents          │  │                                  ││
 │  │                    │  │                                  ││
 │  │ ── Système ──      │  │                                  ││
@@ -42,7 +41,7 @@ Application mono-utilisateur, offline, desktop. Aucune authentification, aucun s
 
 La sidebar est groupée en 3 sections :
 - **Opérationnel** : les vues du quotidien (dashboard, planning, OT, DI)
-- **Référentiels** : les entités de configuration (gammes, équipements, localisations, prestataires, contrats, techniciens, documents)
+- **Référentiels** : les entités de configuration (gammes, équipements, localisations, prestataires, contrats, documents)
 - **Système** : paramètres
 
 ### Recherche globale (`Ctrl+K`)
@@ -90,7 +89,6 @@ Command palette accessible depuis n'importe quelle page via `Ctrl+K`. Recherche 
 | `/prestataires/:id` | Détail prestataire | Fiche prestataire + contrats liés |
 | `/contrats` | Liste contrats | Tous les contrats |
 | `/contrats/:id` | Détail contrat | Fiche contrat + chaîne avenants |
-| `/techniciens` | Liste techniciens | Personnel interne |
 | `/demandes` | Liste DI | Demandes d'intervention |
 | `/demandes/:id` | Détail DI | Fiche DI + gammes/localisations liées |
 | `/documents` | Liste documents | Tous les documents uploadés |
@@ -344,17 +342,11 @@ Vue calendrier des OT. Le responsable maintenance pense en semaines et en mois, 
       </DescriptionList>
     </Card>
 
-    <!-- Colonne 2 : Assignation -->
-    <Card titre="Assignation">
+    <!-- Colonne 2 : Prestataire -->
+    <Card titre="Prestataire">
       <DescriptionList>
         <Item label="Prestataire"    valeur={nom_prestataire} />
-        <Item label="Technicien"     valeur={nom_technicien} />
-        <Item label="Poste"          valeur={nom_poste} />
       </DescriptionList>
-      <!-- Sélecteur technicien (si OT interne, prestataire_id == 1, statut actif) -->
-      {id_prestataire == 1 && statut NOT IN (3,4) &&
-        <Select label="Assigner un technicien" options={techniciens_actifs} />
-      }
     </Card>
 
     <!-- Colonne 3 : Dates & Suivi -->
@@ -493,11 +485,6 @@ Le backend déclenche des actions automatiques via les triggers SQLite. Le front
     />
     <DatePicker label="Date prévue *" defaut={today} />
     <Select label="Priorité" options={priorites_ot} defaut="Normale" />
-    <Select
-      label="Technicien"
-      options={techniciens_actifs}     <!-- techniciens WHERE est_actif = 1 -->
-      visible_si={gamme.id_prestataire == 1}   <!-- Seulement si OT interne -->
-    />
     <SelectSearch
       label="DI liée"
       options={di_ouvertes}            <!-- DI WHERE statut IN (1, 3) -->
@@ -540,8 +527,6 @@ Le backend déclenche des actions automatiques via les triggers SQLite. Le front
 - `Gamme inactive ou inexistante`
 - `Gamme sans opérations exécutables`
 - `Gamme réglementaire sans contrat valide`
-- `Technicien inactif`
-- `Technicien interne sur OT externe`
 
 ---
 
@@ -1174,54 +1159,7 @@ Navigation hiérarchique : **Domaines techniques → Familles → Équipements**
 
 ---
 
-## 9. Techniciens
-
-### 9.1 Liste (`/techniciens`)
-
-```
-<Page>
-  <PageHeader titre="Techniciens">
-    <Button>+ Ajouter un technicien</Button>
-  </PageHeader>
-
-  <Toolbar>
-    <FilterSelect label="Poste" options={postes} />
-    <FilterToggle label="Actifs uniquement" defaut={true} />
-  </Toolbar>
-
-  <DataTable
-    colonnes={[
-      { champ: "nom_complet",  label: "Nom" },
-      { champ: "poste",        label: "Poste" },
-      { champ: "telephone",    label: "Téléphone" },
-      { champ: "email",        label: "Email" },
-      { champ: "est_actif",    label: "Actif", rendu: <Switch /> },
-      { champ: "nb_ot_actifs", label: "OT en cours" },
-    ]}
-  />
-</Page>
-```
-
-### 9.2 Formulaire technicien
-
-```
-<Dialog titre="Technicien">
-  <Input label="Nom *" />
-  <Input label="Prénom *" />
-  <Select label="Poste" options={postes} optionnel />
-  <Input label="Téléphone" />
-  <Input label="Email" type="email" />
-  <Switch label="Actif" defaut={true} />
-</Dialog>
-```
-
-**Erreurs attendues** :
-- Suppression : `Ce technicien est assigné à des OT actifs`
-- Désactivation : pas d'erreur DB, mais l'UI devrait avertir si des OT actifs existent
-
----
-
-## 10. Demandes d'intervention (DI)
+## 9. Demandes d'intervention (DI)
 
 ### 10.1 Liste (`/demandes`)
 
@@ -1514,7 +1452,6 @@ Même pattern pour : types_documents, types_di, unites, postes, types_operations
 | `unites` | `symbole` | RESTRICT si opérations liées |
 | `periodicites` | `jours_periodicite`, `jours_valide`, `tolerance_jours` | RESTRICT si gammes liées |
 | `types_operations` | `necessite_seuils` (switch) | RESTRICT si opérations liées |
-| `postes` | — | SET NULL sur techniciens |
 
 ### 12.4 Modèles de DI
 
@@ -1629,8 +1566,6 @@ Les erreurs renvoyées par les triggers SQLite (via `RAISE(ABORT, ...)`) sont af
 Messages clés à intercepter et afficher clairement :
 - `Modification interdite : OT terminé`
 - `Gamme réglementaire sans contrat valide`
-- `Technicien inactif`
-- `Technicien interne sur OT externe`
 - `Cycle détecté dans la hiérarchie des localisations`
 - `Suppression impossible : des documents utilisent ce type`
 - `Ce contrat est archivé`
@@ -1640,7 +1575,6 @@ Messages clés à intercepter et afficher clairement :
 - `Résurrection impossible : gamme réglementaire sans contrat valide`
 - `Désactivation impossible : des OT actifs existent encore pour cette gamme`
 - `Suppression impossible : ce prestataire a des contrats actifs`
-- `Suppression impossible : ce technicien est assigné à des OT actifs`
 - `Passage en réglementaire impossible : des OT actifs existent avec un prestataire externe sans contrat valide`
 
 ---
@@ -1694,7 +1628,6 @@ L'application doit permettre l'export de données pour les besoins métier (comm
 │ ☐ ...                                  │
 │                                         │
 │ Commentaires : _________________________│
-│ Technicien : ___________________________│
 │ Date : _________________________________│
 │ Signature : ____________________________│
 └─────────────────────────────────────────┘
@@ -1750,7 +1683,7 @@ Toutes les validations frontend miroir les CHECK contraintes SQLite :
 6. **Loading states** : chaque requête TanStack Query affiche un skeleton pendant le chargement
 7. **Optimistic updates** : les changements de statut (OT, opérations, DI) sont appliqués immédiatement côté UI, avec rollback en cas d'erreur trigger. Le rollback : le badge revient à l'état précédent + toast d'erreur rouge avec le message du trigger.
 8. **Notifications système** : les actions automatiques des triggers (auto-clôture, reprogrammation, cascade annulation, bascule prestataire, propagation) sont signalées par un toast informatif (voir section 2.3).
-9. **Propagation visible** : quand l'utilisateur modifie une gamme, un prestataire, un technicien, une localisation, une famille, un équipement, ou une gamme type, un toast indique `"{n} OT actif(s) mis à jour"` si des OT ont été affectés par la propagation.
+9. **Propagation visible** : quand l'utilisateur modifie une gamme, un prestataire, une localisation, une famille, un équipement, ou une gamme type, un toast indique `"{n} OT actif(s) mis à jour"` si des OT ont été affectés par la propagation.
 10. **Avenants contrats** : lors de la création d'un avenant, l'utilisateur est averti que (a) le contrat parent sera archivé, (b) les gammes liées au parent ne sont PAS automatiquement reportées — il doit les lier manuellement au nouvel avenant.
 
 ---

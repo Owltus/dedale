@@ -16,7 +16,6 @@ import {
   useBulkUpdateOperations, useOperationsHistorique,
 } from "@/hooks/use-ordres-travail";
 import { useGamme, useFamilleGamme, useDomaineGamme } from "@/hooks/use-gammes";
-import { useTechniciens } from "@/hooks/use-techniciens";
 import { getEffectiveOtStatutId, getStatutOt } from "@/lib/utils/statuts";
 import { buildGammeBreadcrumb } from "@/lib/utils/breadcrumbs";
 import { formatDate } from "@/lib/utils/format";
@@ -35,7 +34,6 @@ export function OrdresTravailDetail() {
   const updateOt = useUpdateOrdreTravail();
   const deleteOt = useDeleteOrdreTravail();
   const bulkUpdate = useBulkUpdateOperations();
-  const { data: techniciens = [] } = useTechniciens();
   const { data: docs = [] } = useDocumentsForEntity("ordres_travail", otId);
   const hasMesureOp = useMemo(
     () => (data?.operations ?? []).some(isMesureOp),
@@ -96,7 +94,6 @@ export function OrdresTravailDetail() {
       { label: "Prestataire", value: ot.nom_prestataire },
       { label: "Localisation", value: ot.nom_localisation },
       { label: "Périodicité", value: ot.libelle_periodicite },
-      { label: "Technicien", value: ot.nom_technicien },
       { label: "Date prévue", value: formatDate(ot.date_prevue) },
       { label: "Date début", value: formatDate(ot.date_debut) },
       { label: "Date clôture", value: formatDate(ot.date_cloture) },
@@ -127,7 +124,6 @@ export function OrdresTravailDetail() {
         input: {
           date_prevue: input.date_prevue,
           id_priorite: input.id_priorite,
-          id_technicien: input.id_technicien,
           commentaires: input.commentaires ?? null,
         },
       } as never);
@@ -260,7 +256,6 @@ export function OrdresTravailDetail() {
         open={editOpen}
         onOpenChange={setEditOpen}
         ot={ot}
-        techniciens={techniciens}
         onSubmit={onSubmitEdit}
       />
 

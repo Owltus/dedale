@@ -29,7 +29,6 @@ import { usePeriodicites } from "@/hooks/use-referentiels";
 import { useEquipements } from "@/hooks/use-equipements";
 import { useModelesOperations } from "@/hooks/use-modeles-operations";
 import { useOtByGamme, useCreateOrdreTravail } from "@/hooks/use-ordres-travail";
-import { useTechniciens } from "@/hooks/use-techniciens";
 import { useTypesOperations, useUnites } from "@/hooks/use-referentiels";
 import { otCreateSchema } from "@/lib/schemas/ordres-travail";
 import type { GammeEditFormData } from "@/lib/schemas/gammes";
@@ -63,7 +62,6 @@ export function GammesDetail() {
   const { data: ots = [] } = useOtByGamme(gammeId);
   const { data: famille } = useFamilleGamme(gamme?.id_famille_gamme ?? 0);
   const { data: domaine } = useDomaineGamme(famille?.id_domaine_gamme ?? 0);
-  const { data: techniciens = [] } = useTechniciens();
   const { data: typesOps = [] } = useTypesOperations();
   const { data: unites = [] } = useUnites();
   const { data: prestataires = [] } = usePrestataires();
@@ -164,11 +162,11 @@ export function GammesDetail() {
 
   const otForm = useForm({
     resolver: typedResolver(otCreateSchema),
-    defaultValues: { id_gamme: gammeId, date_prevue: "", id_priorite: 3, id_technicien: null, id_di: null, commentaires: "" },
+    defaultValues: { id_gamme: gammeId, date_prevue: "", id_priorite: 3, id_di: null, commentaires: "" },
   });
 
   const openCreateOt = () => {
-    otForm.reset({ id_gamme: gammeId, date_prevue: "", id_priorite: 3, id_technicien: null, id_di: null, commentaires: "" });
+    otForm.reset({ id_gamme: gammeId, date_prevue: "", id_priorite: 3, id_di: null, commentaires: "" });
     setOtDialogOpen(true);
   };
 
@@ -412,15 +410,6 @@ export function GammesDetail() {
               <SelectItem value="2">Haute</SelectItem>
               <SelectItem value="3">Normale</SelectItem>
               <SelectItem value="4">Basse</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="id_technicien">Technicien</Label>
-          <Select value={otForm.watch("id_technicien") ? String(otForm.watch("id_technicien")) : undefined} items={Object.fromEntries(techniciens.map(t => [String(t.id_technicien), `${t.nom} ${t.prenom}`]))} onValueChange={(v) => otForm.setValue("id_technicien", v ? Number(v) : null)}>
-            <SelectTrigger className="w-full"><SelectValue placeholder="— Aucun —" /></SelectTrigger>
-            <SelectContent>
-              {techniciens.map((t) => <SelectItem key={t.id_technicien} value={String(t.id_technicien)}>{t.nom} {t.prenom}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

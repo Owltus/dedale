@@ -52,7 +52,7 @@ pub struct DocumentUploadInput {
 /// Liaison d'un document vers une entité (utilisé dans la page Documents)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentLiaison {
-    /// "prestataires" | "ordres_travail" | "gammes" | "contrats" | "di" | "localisations" | "equipements" | "techniciens"
+    /// "prestataires" | "ordres_travail" | "gammes" | "contrats" | "di" | "localisations" | "equipements"
     pub entity_type: String,
     pub entity_id: i64,
     pub label: String,

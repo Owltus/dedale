@@ -42,8 +42,7 @@ export type DocumentEntityType =
   | "contrats"
   | "di"
   | "localisations"
-  | "equipements"
-  | "techniciens";
+  | "equipements";
 
 /// Une liaison d'un document vers une entité (vue inverse de DocumentLie)
 export interface DocumentLiaison {

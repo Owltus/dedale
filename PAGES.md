@@ -30,8 +30,6 @@
 ├── /prestataires                    Liste prestataires           ← PrestatairesList()        prestataires/index.tsx
 │   └── /prestataires/:id            Détail prestataire           ← PrestatairesDetail()      prestataires/[id].tsx
 │
-├── /techniciens                     Liste techniciens            ← Techniciens()             techniciens/index.tsx
-│
 ├── /demandes                        Liste DI                     ← DemandesList()            demandes/index.tsx
 │   └── /demandes/:id                Détail DI                    ← DemandesDetail()          demandes/[id].tsx
 │
@@ -64,7 +62,6 @@
 | `/localisations/niveaux/:id` | `pages/localisations/niveaux/[idNiveau].tsx` | Locaux d'un niveau |
 | `/prestataires` | `pages/prestataires/index.tsx` | Liste prestataires |
 | `/prestataires/:id` | `pages/prestataires/[id].tsx` | Détail prestataire |
-| `/techniciens` | `pages/techniciens/index.tsx` | Liste techniciens |
 | `/demandes` | `pages/demandes/index.tsx` | Liste DI |
 | `/demandes/:id` | `pages/demandes/[id].tsx` | Détail DI |
 | `/documents` | `pages/documents/index.tsx` | Liste documents |

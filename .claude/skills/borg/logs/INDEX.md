@@ -27,3 +27,8 @@
 | [BORG-2026-04-04-002](BORG-2026-04-04-002-migration-v17.md) | 2026-04-04 | Migration v17 champs dynamiques | 4/4 | 1 CRITIQUE corrigee, 0 HAUTE, 0 MOYENNE, 2 BASSES corrigees | 2 corrections (selecteur modele + commentaire colonnes) |
 | [BORG-2026-04-04-003](BORG-2026-04-04-003-audit-select-items.md) | 2026-04-04 | Audit Select items | 3/3 | 0 faille residuelle — 38/38 Select conformes dans 20 fichiers | 3 corrections pre-audit + regle ajoutee |
 | [BORG-2026-04-19-001](BORG-2026-04-19-001-cloture-ot.md) | 2026-04-19 | Workflow cloture OT | 5/5 | 1 CRITIQUE (date_cloture NULL Reouvert→Cloture sans ops datees), 4 HAUTES, 4 MOYENNES, 1 BASSE — 2 faux positifs elimines par Six-de-Neuf | Diagnostic uniquement (demande explicite utilisateur) |
+| [BORG-2026-04-27-001](BORG-2026-04-27-001-backup-freeze.md) | 2026-04-27 | Backup freeze (deja indexe ailleurs) | — | — | — |
+| [BORG-2026-04-28-001](BORG-2026-04-28-001-statuts-gammes.md) | 2026-04-28 | Statuts gammes cascade | 4+1 | Plusieurs corrections appliquees | EXÉCUTION |
+| [BORG-2026-04-29-001](BORG-2026-04-29-001-page-releves.md) | 2026-04-29 | Audit pre-implementation page Releves | 5/5 | 0 CRITIQUE, recommandations architecturales | Diagnostic uniquement |
+| [BORG-2026-05-01-001](BORG-2026-05-01-001-mesurecell-delta.md) | 2026-05-01 | MesureCell logique Delta | 3 | 1 HAUTE confirmee + 1 par contradicteur | Diagnostic uniquement |
+| [BORG-2026-05-09-001](BORG-2026-05-09-001-fusion-suppression-techniciens.md) | 2026-05-09 | Audit post-fusion + suppression techniciens | 5/5 | 3 CRITIQUES (seed.sql, table brut, invoke nu), 2 HAUTES, 2 MOYENNES, 2 BASSES — 4 faux positifs elimines | Diagnostic uniquement |

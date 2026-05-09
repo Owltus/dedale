@@ -33,7 +33,6 @@
   - [Equipements](#equipements)
   - [Localisations](#localisations)
   - [Prestataires et contrats](#prestataires-et-contrats)
-  - [Techniciens](#techniciens)
   - [Documents](#documents)
   - [Parametres](#parametres)
   - [Fonctions transversales](#fonctions-transversales)
@@ -91,7 +90,7 @@ L'application fonctionne entierement en local avec une base SQLite embarquee —
 ### Ordres de travail
 
 - **Liste** : vue par cartes avec recherche, filtres par date, statut, priorite, presence de documents
-- **Detail** : fiche complete (prestataire, localisation, periodicite, technicien, dates, equipements)
+- **Detail** : fiche complete (prestataire, localisation, periodicite, dates, equipements)
 - **Operations** : suivi operation par operation avec type, seuils, valeurs mesurees, conformite
   - Action groupee "tout completer"
   - Workflow : En attente → En cours → Termine / Non applicable
@@ -155,14 +154,6 @@ L'application fonctionne entierement en local avec une base SQLite embarquee —
   - Documents lies par contrat
   - Barre de progression visuelle du cycle de vie
 
-### Techniciens
-
-- Liste avec recherche et filtres
-- Fiche : nom, contact, poste, statut actif/inactif
-- Affectation a des postes
-- OT assignes
-- Image et documents lies
-
 ### Documents
 
 - **Systeme documentaire unifie** : les documents peuvent etre rattaches a toute entite (OT, gamme, prestataire, contrat, DI, equipement, localisation)
@@ -183,7 +174,7 @@ L'application fonctionne entierement en local avec une base SQLite embarquee —
 | **Recherche globale** | Palette de commandes (Ctrl+K) cherchant dans toutes les entites |
 | **Export CSV** | Export des OT, equipements et gammes au format CSV |
 | **Theme clair / sombre** | Bascule automatique ou manuelle |
-| **Snapshots** | Les OT capturent l'etat du prestataire, technicien et localisation a la creation |
+| **Snapshots** | Les OT capturent l'etat du prestataire et de la localisation a la creation |
 | **Validation reglementaire** | Blocage de creation d'OT pour les gammes reglementaires sans contrat actif |
 | **Reprogrammation auto** | Generation automatique du prochain OT a la cloture du precedent |
 | **Fil d'Ariane** | Navigation contextuelle sur toutes les pages |

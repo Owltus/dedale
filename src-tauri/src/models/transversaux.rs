@@ -20,6 +20,5 @@ pub struct OtExportData {
     pub nom_prestataire: Option<String>,
     pub nom_localisation: Option<String>,
     pub nom_famille: Option<String>,
-    pub nom_technicien: Option<String>,
     pub commentaires: Option<String>,
 }

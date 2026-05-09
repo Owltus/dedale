@@ -235,8 +235,7 @@ pub fn get_documents(db: State<DbPool>) -> Result<Vec<DocumentListItem>, String>
                         (SELECT COUNT(*) FROM documents_contrats dc WHERE dc.id_document = d.id_document) + \
                         (SELECT COUNT(*) FROM documents_di ddi WHERE ddi.id_document = d.id_document) + \
                         (SELECT COUNT(*) FROM documents_localisations dl WHERE dl.id_document = d.id_document) + \
-                        (SELECT COUNT(*) FROM documents_equipements de WHERE de.id_document = d.id_document) + \
-                        (SELECT COUNT(*) FROM documents_techniciens dt WHERE dt.id_document = d.id_document) \
+                        (SELECT COUNT(*) FROM documents_equipements de WHERE de.id_document = d.id_document) \
                     ) AS nb_liaisons, \
                     LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) AS extension \
              FROM documents d \
@@ -282,7 +281,6 @@ pub fn get_documents_for_entity(
         "contrats" => ("documents_contrats", "id_contrat"),
         "di" => ("documents_di", "id_di"),
         "localisations" => ("documents_localisations", "id_local"),
-        "techniciens" => ("documents_techniciens", "id_technicien"),
         _ => return Err(format!("Type d'entité inconnu : {}", entity_type)),
     };
 
@@ -381,12 +379,6 @@ pub fn get_document_liaisons(
              JOIN equipements e ON e.id_equipement = de.id_equipement \
              LEFT JOIN locaux l ON l.id_local = e.id_local \
              WHERE de.id_document = ?1 \
-             UNION ALL \
-             SELECT 'techniciens', t.id_technicien, \
-                    t.prenom || ' ' || t.nom, NULL, NULL, dt.date_liaison \
-             FROM documents_techniciens dt \
-             JOIN techniciens t ON t.id_technicien = dt.id_technicien \
-             WHERE dt.id_document = ?1 \
              ORDER BY date_liaison DESC, entity_type",
         )
         .map_err(|e| e.to_string())?;
@@ -895,24 +887,6 @@ pub fn unlink_document_equipement(
 ) -> Result<(), String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
     unlink_document_from(&conn, "documents_equipements", "id_equipement", id_document, id_equipement)
-}
-
-// ── Techniciens ──
-
-#[tauri::command]
-pub fn link_document_technicien(
-    db: State<DbPool>, id_document: i64, id_technicien: i64, commentaire: Option<String>,
-) -> Result<(), String> {
-    let conn = db.lock().map_err(|e| e.to_string())?;
-    link_document_to(&conn, "documents_techniciens", "id_technicien", id_document, id_technicien, commentaire)
-}
-
-#[tauri::command]
-pub fn unlink_document_technicien(
-    db: State<DbPool>, id_document: i64, id_technicien: i64,
-) -> Result<(), String> {
-    let conn = db.lock().map_err(|e| e.to_string())?;
-    unlink_document_from(&conn, "documents_techniciens", "id_technicien", id_document, id_technicien)
 }
 
 // ════════════════════════════════════════════════════════════════════════════

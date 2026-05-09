@@ -10,7 +10,6 @@ export const otCreateSchema = z.object({
   id_gamme: z.coerce.number().int().positive("La gamme est requise"),
   date_prevue: z.string().trim().min(1, "La date prévue est requise"),
   id_priorite: z.coerce.number().int().positive().default(3),
-  id_technicien: z.coerce.number().int().positive().nullable().optional().transform(v => v ?? null),
   id_di: z.coerce.number().int().positive().nullable().optional().transform(v => v ?? null),
   commentaires: optionalText,
 });
@@ -19,7 +18,6 @@ export type OtCreateFormData = z.infer<typeof otCreateSchema>;
 export const otEditSchema = z.object({
   date_prevue: z.string().min(1, "La date est requise"),
   id_priorite: z.coerce.number().int(),
-  id_technicien: z.coerce.number().int().nullable().default(null),
   commentaires: optionalText,
 });
 export type OtEditFormData = z.infer<typeof otEditSchema>;

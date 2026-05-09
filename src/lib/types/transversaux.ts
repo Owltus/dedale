@@ -16,6 +16,5 @@ export interface OtExportData {
   nom_prestataire: string | null;
   nom_localisation: string | null;
   nom_famille: string | null;
-  nom_technicien: string | null;
   commentaires: string | null;
 }

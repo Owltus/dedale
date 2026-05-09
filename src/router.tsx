@@ -11,7 +11,6 @@ export const ROUTE_LABELS: Record<string, string> = {
   "/equipements": "Équipements",
   "/localisations": "Localisations",
   "/prestataires": "Prestataires",
-  "/techniciens": "Techniciens",
   "/demandes": "Demandes d'intervention",
   "/documents": "Documents",
   "/releves": "Relevés",
@@ -99,12 +98,6 @@ const PrestatairesList = lazy(() =>
 const PrestatairesDetail = lazy(() =>
   import("@/pages/prestataires/[id]").then((m) => ({ default: m.PrestatairesDetail }))
 );
-const Techniciens = lazy(() =>
-  import("@/pages/techniciens/index").then((m) => ({ default: m.Techniciens }))
-);
-const TechnicienDetail = lazy(() =>
-  import("@/pages/techniciens/[id]").then((m) => ({ default: m.TechnicienDetail }))
-);
 const DemandesList = lazy(() =>
   import("@/pages/demandes/index").then((m) => ({ default: m.DemandesList }))
 );
@@ -164,8 +157,6 @@ export const router = createBrowserRouter([
       { path: "localisations/locaux/:idLocal", element: <LocalDetail /> },
       { path: "prestataires", element: <PrestatairesList /> },
       { path: "prestataires/:id", element: <PrestatairesDetail /> },
-      { path: "techniciens", element: <Techniciens /> },
-      { path: "techniciens/:id", element: <TechnicienDetail /> },
       { path: "demandes", element: <DemandesList /> },
       { path: "demandes/:id", element: <DemandesDetail /> },
       { path: "releves", element: <RelevesList /> },

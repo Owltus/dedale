@@ -6,7 +6,6 @@ import type {
   Periodicite,
   TypeOperation,
   TypeDocument,
-  Poste,
   TypeErp,
   CategorieErp,
   Etablissement,
@@ -24,7 +23,6 @@ export const referentielKeys = {
   periodicites: ["periodicites"] as const,
   typesOperations: ["types_operations"] as const,
   typesDocuments: ["types_documents"] as const,
-  postes: ["postes"] as const,
   modelesDi: ["modeles_di"] as const,
   modeleDi: (id: number) => ["modeles_di", id] as const,
   typesErp: ["types_erp"] as const,
@@ -70,15 +68,6 @@ export function useTypesOperations() {
 export function useTypesDocuments() {
   return useInvokeQuery<TypeDocument[]>("get_types_documents", undefined, {
     queryKey: referentielKeys.typesDocuments,
-    staleTime: Infinity,
-  });
-}
-
-// ── Postes ──────────────────────────────────────────────────────────────────
-// Lecture de tous les postes
-export function usePostes() {
-  return useInvokeQuery<Poste[]>("get_postes", undefined, {
-    queryKey: referentielKeys.postes,
     staleTime: Infinity,
   });
 }

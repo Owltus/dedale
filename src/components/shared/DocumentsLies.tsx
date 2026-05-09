@@ -14,9 +14,10 @@ import { useUploadQueue } from "./UploadQueue";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DocumentPreviewDialog } from "./DocumentPreviewDialog";
 import { DocumentEditDialog, type EditableDoc } from "./DocumentEditDialog";
+import type { DocumentEntityType } from "@/lib/types/documents";
 
 interface DocumentsLiesProps {
-  entityType: "prestataires" | "ordres_travail" | "gammes" | "contrats" | "di" | "localisations" | "equipements" | "techniciens";
+  entityType: DocumentEntityType;
   entityId: number;
   readonly?: boolean;
   inputId?: string;
@@ -24,7 +25,7 @@ interface DocumentsLiesProps {
   namingContext?: NamingContext;
 }
 
-const ENTITY_COMMANDS: Record<string, { link: string; unlink: string; paramName: string }> = {
+const ENTITY_COMMANDS: Record<DocumentEntityType, { link: string; unlink: string; paramName: string }> = {
   prestataires: { link: "link_document_prestataire", unlink: "unlink_document_prestataire", paramName: "idPrestataire" },
   ordres_travail: { link: "link_document_ordre_travail", unlink: "unlink_document_ordre_travail", paramName: "idOrdreTravail" },
   gammes: { link: "link_document_gamme", unlink: "unlink_document_gamme", paramName: "idGamme" },
@@ -32,7 +33,6 @@ const ENTITY_COMMANDS: Record<string, { link: string; unlink: string; paramName:
   di: { link: "link_document_di", unlink: "unlink_document_di", paramName: "idDi" },
   localisations: { link: "link_document_localisation", unlink: "unlink_document_localisation", paramName: "idLocalisation" },
   equipements: { link: "link_document_equipement", unlink: "unlink_document_equipement", paramName: "idEquipement" },
-  techniciens: { link: "link_document_technicien", unlink: "unlink_document_technicien", paramName: "idTechnicien" },
 };
 
 /// Documents liés — drag & drop + bouton d'ajout + UploadModal unifié

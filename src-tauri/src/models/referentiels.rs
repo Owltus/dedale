@@ -51,15 +51,6 @@ pub struct TypeContrat {
     pub description: Option<String>,
 }
 
-// ── Postes ──
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Poste {
-    pub id_poste: i64,
-    pub libelle: String,
-    pub description: String,
-}
-
 // ── Types ERP (lecture seule) ──
 
 #[derive(Debug, Serialize, Deserialize)]

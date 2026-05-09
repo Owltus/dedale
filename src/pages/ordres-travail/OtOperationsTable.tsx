@@ -10,6 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { HistoriquePoint, OperationExecution } from "@/lib/types/ordres-travail";
 import { getStatutOperation, STATUTS_OPERATION } from "@/lib/utils/statuts";
 import { formatDate, todayIso } from "@/lib/utils/format";
@@ -172,41 +180,41 @@ export function OtOperationsTable({
   return (
     <div className="flex flex-1 flex-col rounded-md border min-h-0 overflow-hidden">
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 z-10">
-            <tr className="border-b bg-background">
-              <th className="px-3 py-2 text-left font-medium">Opération</th>
-              {anyHasMesure && <th className="px-3 py-2 text-center font-medium w-44">Mesure</th>}
-              <th className="px-3 py-2 text-center font-medium w-36">Date</th>
-              <th className="px-3 py-2 text-center font-medium w-32">Statut</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-background">
+            <TableRow>
+              <TableHead className="px-3 py-2">Opération</TableHead>
+              {anyHasMesure && <TableHead className="px-3 py-2 text-center w-44">Mesure</TableHead>}
+              <TableHead className="px-3 py-2 text-center w-36">Date</TableHead>
+              <TableHead className="px-3 py-2 text-center w-32">Statut</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {mergedOperations.map((op) => {
               const cfg = getStatutOperation(op.id_statut_operation);
               const disabled = isTerminal || op.id_statut_operation === 4;
               const hasMesure = isMesureOp(op);
               return (
-                <tr
+                <TableRow
                   key={op.id_operation_execution}
-                  className={`border-b ${rowBg(op.id_statut_operation)} ${!disabled && (!hasMesure || op.id_statut_operation === 3) ? "cursor-pointer" : ""}`}
+                  className={`${rowBg(op.id_statut_operation)} ${!disabled && (!hasMesure || op.id_statut_operation === 3) ? "cursor-pointer" : ""}`}
                   onDoubleClick={() => handleDoubleClick(op)}
                 >
-                  <td className="px-3 py-2">
+                  <TableCell className="px-3 py-2 whitespace-normal">
                     <div>{op.nom_operation}</div>
                     <div className="text-xs text-muted-foreground">{op.type_operation}</div>
-                  </td>
+                  </TableCell>
                   {anyHasMesure && (
-                    <td className="px-3 py-1 text-center">
+                    <TableCell className="px-3 py-1 text-center">
                       <MesureCell
                         op={op}
                         history={historiqueByOp?.get(op.id_operation_execution) ?? []}
                         editable={hasMesure && !disabled}
                         onMesureChange={(v) => handleMesureChange(op, v)}
                       />
-                    </td>
+                    </TableCell>
                   )}
-                  <td className="px-3 py-1 text-center">
+                  <TableCell className="px-3 py-1 text-center">
                     {disabled ? (
                       <span className="text-muted-foreground">{formatDate(op.date_execution)}</span>
                     ) : (
@@ -221,8 +229,8 @@ export function OtOperationsTable({
                         }}
                       />
                     )}
-                  </td>
-                  <td className="px-3 py-1 text-center">
+                  </TableCell>
+                  <TableCell className="px-3 py-1 text-center">
                     {disabled ? (
                       <Badge variant={cfg.variant} className={cfg.className}>{cfg.label}</Badge>
                     ) : (
@@ -239,17 +247,17 @@ export function OtOperationsTable({
                         </SelectContent>
                       </Select>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
-        <div className="flex flex-1 items-center justify-center">
-          {operations.length === 0 && (
+          </TableBody>
+        </Table>
+        {operations.length === 0 && (
+          <div className="flex flex-1 items-center justify-center">
             <p className="text-sm text-muted-foreground">Aucune opération</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       {isDirty && (
         <div className="flex items-center justify-end gap-2 border-t bg-primary/5 px-3 py-2 shrink-0">

@@ -22,9 +22,6 @@ export interface OrdreTravail {
   date_cloture: string | null;
   commentaires: string | null;
   id_di: number | null;
-  id_technicien: number | null;
-  nom_technicien: string | null;
-  nom_poste: string | null;
   nom_equipement: string | null;
   date_creation: string | null;
   date_modification: string | null;

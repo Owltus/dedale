@@ -12,5 +12,4 @@ pub mod ordres_travail;
 pub mod prestataires;
 pub mod referentiels;
 pub mod releves;
-pub mod techniciens;
 pub mod transversaux;

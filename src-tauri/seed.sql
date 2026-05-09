@@ -170,15 +170,7 @@ INSERT INTO locaux (nom, description, surface, id_niveau) VALUES
     ('Dégagement E6',     'Circulation étage 6',                  43.23, 8);  -- id 120
 
 -- =========================================================================
--- PHASE 2 : TECHNICIENS
--- =========================================================================
-
-INSERT INTO techniciens (nom, prenom, telephone, email, id_poste, est_actif) VALUES
-    ('Martin',  'Pierre', '0600000001', 'p.martin@okkohotels.com',  1, 1),
-    ('Dupont',  'Lucas',  '0600000002', 'l.dupont@okkohotels.com',  2, 1);
-
--- =========================================================================
--- PHASE 3 : PRESTATAIRES EXTERNES
+-- PHASE 2 : PRESTATAIRES EXTERNES
 -- =========================================================================
 -- id=1 "Mon Entreprise" existe déjà. On met à jour ses infos.
 
@@ -799,154 +791,154 @@ INSERT INTO gamme_modeles (id_gamme, id_modele_operation) VALUES
 -- =========================================================================
 
 -- OT 1 : Suivi BAES semaine 1 (janvier)
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 2, g.id_prestataire, '2026-01-05', 3, 2, 'Suivi BAES semaine 1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 2;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 2, g.id_prestataire, '2026-01-05', 3, 'Suivi BAES semaine 1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 2;
 
 -- OT 2 : Test GE janvier
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 10, g.id_prestataire, '2026-01-08', 3, 2, 'Test GE janvier', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 10, g.id_prestataire, '2026-01-08', 3, 'Test GE janvier', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
 
 -- OT 3 : Suivi BAES semaine 2
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 2, g.id_prestataire, '2026-01-12', 3, 2, 'Suivi BAES semaine 2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 2;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 2, g.id_prestataire, '2026-01-12', 3, 'Suivi BAES semaine 2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 2;
 
 -- OT 4 : Maintenance ascenseur janvier (externe TK Elevator)
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 12, g.id_prestataire, '2026-01-15', 3, NULL, 'Maintenance ascenseur janvier', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 12, g.id_prestataire, '2026-01-15', 3, 'Maintenance ascenseur janvier', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
 
 -- OT 5 : Suivi BAES semaine 3
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 2, g.id_prestataire, '2026-01-19', 3, 2, 'Suivi BAES semaine 3', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 2;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 2, g.id_prestataire, '2026-01-19', 3, 'Suivi BAES semaine 3', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 2;
 
 -- OT 6 : Suivi BAES semaine 4
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 2, g.id_prestataire, '2026-01-26', 3, 2, 'Suivi BAES semaine 4', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 2;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 2, g.id_prestataire, '2026-01-26', 3, 'Suivi BAES semaine 4', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 2;
 
 -- OT 7 : Test GE février
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 10, g.id_prestataire, '2026-02-05', 3, 2, 'Test GE février', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 10, g.id_prestataire, '2026-02-05', 3, 'Test GE février', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
 
 -- OT 8 : Maintenance ascenseur février
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 12, g.id_prestataire, '2026-02-12', 3, NULL, 'Maintenance ascenseur février', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 12, g.id_prestataire, '2026-02-12', 3, 'Maintenance ascenseur février', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
 
 -- OT 9 : Entretien CTA N°1 — T1
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 6, g.id_prestataire, '2026-02-15', 3, NULL, 'Entretien CTA N°1 — T1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 6;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 6, g.id_prestataire, '2026-02-15', 3, 'Entretien CTA N°1 — T1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 6;
 
 -- OT 10 : Entretien CTA N°2 — T1
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 7, g.id_prestataire, '2026-02-16', 3, NULL, 'Entretien CTA N°2 — T1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 7;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 7, g.id_prestataire, '2026-02-16', 3, 'Entretien CTA N°2 — T1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 7;
 
--- OT 11 : Vérification TGBT — S1 (haute priorité, technicien interne)
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 9, g.id_prestataire, '2026-03-01', 2, 1, 'Vérification TGBT — S1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 9;
+-- OT 11 : Vérification TGBT — S1 (haute priorité, équipe interne)
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 9, g.id_prestataire, '2026-03-01', 2, 'Vérification TGBT — S1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 9;
 
 -- OT 12 : Test GE mars
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 10, g.id_prestataire, '2026-03-05', 3, 2, 'Test GE mars', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 10, g.id_prestataire, '2026-03-05', 3, 'Test GE mars', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
 
 -- OT 13 : Maintenance ascenseur mars (sera réouvert)
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 12, g.id_prestataire, '2026-03-12', 3, NULL, 'Maintenance ascenseur mars', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 12, g.id_prestataire, '2026-03-12', 3, 'Maintenance ascenseur mars', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
 
 -- OT 14 : Révision PAC — S1
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 8, g.id_prestataire, '2026-03-15', 3, NULL, 'Révision PAC — S1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 8;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 8, g.id_prestataire, '2026-03-15', 3, 'Révision PAC — S1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 8;
 
 -- OT 15 : Nettoyage VMC — reporté (sera annulé)
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 13, g.id_prestataire, '2026-03-20', 3, NULL, 'Nettoyage VMC — reporté', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 13;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 13, g.id_prestataire, '2026-03-20', 3, 'Nettoyage VMC — reporté', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 13;
 
 -- OT 16 : Suivi BAES en retard (reste planifié, date passée)
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 2, g.id_prestataire, '2026-03-23', 3, 2, 'Suivi BAES en retard', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 2;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 2, g.id_prestataire, '2026-03-23', 3, 'Suivi BAES en retard', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 2;
 
 -- OT 17 : Test GE en retard (reste planifié, date passée)
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 10, g.id_prestataire, '2026-03-28', 3, 2, 'Test GE en retard', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 10, g.id_prestataire, '2026-03-28', 3, 'Test GE en retard', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
 
 -- OT 18 : Contrôle extincteurs annuel 2026 (haute priorité)
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 1, g.id_prestataire, '2026-04-01', 2, NULL, 'Contrôle extincteurs annuel 2026', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 1;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 1, g.id_prestataire, '2026-04-01', 2, 'Contrôle extincteurs annuel 2026', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 1;
 
 -- OT 19 : Vérification RIA annuel 2026 (haute priorité)
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 4, g.id_prestataire, '2026-04-02', 2, NULL, 'Vérification RIA annuel 2026', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 4;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 4, g.id_prestataire, '2026-04-02', 2, 'Vérification RIA annuel 2026', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 4;
 
 -- OT 20 : Maintenance ascenseur avril
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 12, g.id_prestataire, '2026-04-03', 3, NULL, 'Maintenance ascenseur avril', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 12, g.id_prestataire, '2026-04-03', 3, 'Maintenance ascenseur avril', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
 
 -- OT 21-37 : OT futurs (planifiés, pas encore exécutés)
 
 -- OT 21 : Contrôle colonnes sèches annuel
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 5, g.id_prestataire, '2026-04-10', 3, NULL, 'Contrôle colonnes sèches annuel', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 5;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 5, g.id_prestataire, '2026-04-10', 3, 'Contrôle colonnes sèches annuel', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 5;
 
 -- OT 22 : Contrôle BAES semestriel — S1
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 3, g.id_prestataire, '2026-04-15', 3, NULL, 'Contrôle BAES semestriel — S1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 3;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 3, g.id_prestataire, '2026-04-15', 3, 'Contrôle BAES semestriel — S1', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 3;
 
 -- OT 23 : Test GE mai
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 10, g.id_prestataire, '2026-05-05', 3, 2, 'Test GE mai', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 10, g.id_prestataire, '2026-05-05', 3, 'Test GE mai', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
 
 -- OT 24 : Maintenance ascenseur mai
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 12, g.id_prestataire, '2026-05-07', 3, NULL, 'Maintenance ascenseur mai', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 12, g.id_prestataire, '2026-05-07', 3, 'Maintenance ascenseur mai', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
 
 -- OT 25 : Entretien CTA N°1 — T2
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 6, g.id_prestataire, '2026-05-15', 3, NULL, 'Entretien CTA N°1 — T2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 6;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 6, g.id_prestataire, '2026-05-15', 3, 'Entretien CTA N°1 — T2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 6;
 
 -- OT 26 : Entretien CTA N°2 — T2
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 7, g.id_prestataire, '2026-05-16', 3, NULL, 'Entretien CTA N°2 — T2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 7;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 7, g.id_prestataire, '2026-05-16', 3, 'Entretien CTA N°2 — T2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 7;
 
 -- OT 27 : Test GE juin
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 10, g.id_prestataire, '2026-06-05', 3, 2, 'Test GE juin', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 10, g.id_prestataire, '2026-06-05', 3, 'Test GE juin', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 10;
 
 -- OT 28 : Maintenance ascenseur juin
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 12, g.id_prestataire, '2026-06-11', 3, NULL, 'Maintenance ascenseur juin', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 12, g.id_prestataire, '2026-06-11', 3, 'Maintenance ascenseur juin', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 12;
 
 -- OT 29 : Entretien CTA N°1 — T3
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 6, g.id_prestataire, '2026-08-15', 3, NULL, 'Entretien CTA N°1 — T3', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 6;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 6, g.id_prestataire, '2026-08-15', 3, 'Entretien CTA N°1 — T3', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 6;
 
 -- OT 30 : Entretien CTA N°2 — T3
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 7, g.id_prestataire, '2026-08-16', 3, NULL, 'Entretien CTA N°2 — T3', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 7;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 7, g.id_prestataire, '2026-08-16', 3, 'Entretien CTA N°2 — T3', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 7;
 
 -- OT 31 : Révision PAC — S2
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 8, g.id_prestataire, '2026-09-15', 3, NULL, 'Révision PAC — S2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 8;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 8, g.id_prestataire, '2026-09-15', 3, 'Révision PAC — S2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 8;
 
 -- OT 32 : Vérification TGBT — S2
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 9, g.id_prestataire, '2026-09-01', 2, 1, 'Vérification TGBT — S2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 9;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 9, g.id_prestataire, '2026-09-01', 2, 'Vérification TGBT — S2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 9;
 
 -- OT 33 : Contrôle BAES semestriel — S2
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 3, g.id_prestataire, '2026-10-15', 3, NULL, 'Contrôle BAES semestriel — S2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 3;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 3, g.id_prestataire, '2026-10-15', 3, 'Contrôle BAES semestriel — S2', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 3;
 
 -- OT 34 : Détartrage chaudière annuel
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 11, g.id_prestataire, '2026-10-20', 3, NULL, 'Détartrage chaudière annuel', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 11;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 11, g.id_prestataire, '2026-10-20', 3, 'Détartrage chaudière annuel', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 11;
 
 -- OT 35 : Nettoyage VMC annuel
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 13, g.id_prestataire, '2026-11-10', 3, NULL, 'Nettoyage VMC annuel', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 13;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 13, g.id_prestataire, '2026-11-10', 3, 'Nettoyage VMC annuel', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 13;
 
 -- OT 36 : Entretien CTA N°1 — T4
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 6, g.id_prestataire, '2026-11-15', 3, NULL, 'Entretien CTA N°1 — T4', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 6;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 6, g.id_prestataire, '2026-11-15', 3, 'Entretien CTA N°1 — T4', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 6;
 
 -- OT 37 : Entretien CTA N°2 — T4
-INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, id_technicien, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
-SELECT 7, g.id_prestataire, '2026-11-16', 3, NULL, 'Entretien CTA N°2 — T4', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 7;
+INSERT INTO ordres_travail (id_gamme, id_prestataire, date_prevue, id_priorite, commentaires, nom_gamme, est_reglementaire, libelle_periodicite, jours_periodicite, periodicite_jours_valides)
+SELECT 7, g.id_prestataire, '2026-11-16', 3, 'Entretien CTA N°2 — T4', g.nom_gamme, g.est_reglementaire, p.libelle, p.jours_periodicite, p.jours_valide FROM gammes g JOIN periodicites p ON g.id_periodicite = p.id_periodicite WHERE g.id_gamme = 7;
 
 -- =========================================================================
 -- PHASE 12 : CLÔTURE / ANNULATION / RÉOUVERTURE DES OT PASSÉS

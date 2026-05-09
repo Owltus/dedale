@@ -36,12 +36,6 @@ export interface TypeContrat {
   description: string | null;
 }
 
-export interface Poste {
-  id_poste: number;
-  libelle: string;
-  description: string;
-}
-
 export interface TypeErp {
   id_type_erp: number;
   code: string;

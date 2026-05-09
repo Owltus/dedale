@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { useInvokeQuery, useInvokeMutation } from "./useInvoke";
@@ -105,17 +104,18 @@ export function useDocumentPreview() {
 }
 
 export function useSaveDocumentToDisk() {
+  const saveToDisk = useInvokeMutation<null, { id: number; destination: string }>("save_document_to");
   return useCallback(async (doc: { id_document: number; nom_original: string; extension: string }) => {
     try {
       const defaultPath = formatDocumentFilename(doc.nom_original, doc.extension);
       const destination = await save({ defaultPath, title: "Enregistrer le document" });
       if (!destination) return;
-      await invoke("save_document_to", { id: doc.id_document, destination });
+      await saveToDisk.mutateAsync({ id: doc.id_document, destination });
       toast.success("Document enregistré");
     } catch (err) {
       toast.error(`Téléchargement échoué : ${String(err)}`);
     }
-  }, []);
+  }, [saveToDisk]);
 }
 
 

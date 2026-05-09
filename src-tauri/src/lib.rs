@@ -71,7 +71,6 @@ pub fn run() {
             commands::referentiels::get_periodicites,
             commands::referentiels::get_types_operations,
             commands::referentiels::get_types_documents,
-            commands::referentiels::get_postes,
             // Référentiels — Modèles de DI
             commands::referentiels::get_modele_di,
             commands::referentiels::get_modeles_di,
@@ -141,13 +140,6 @@ pub fn run() {
             commands::equipements::update_equipement,
             commands::equipements::delete_equipement,
             commands::equipements::get_ot_by_equipement,
-            // Techniciens
-            commands::techniciens::get_techniciens,
-            commands::techniciens::get_technicien,
-            commands::techniciens::create_technicien,
-            commands::techniciens::update_technicien,
-            commands::techniciens::delete_technicien,
-            commands::techniciens::get_ot_by_technicien,
             // Prestataires
             commands::prestataires::get_prestataires,
             commands::prestataires::get_prestataire,
@@ -292,8 +284,6 @@ pub fn run() {
             commands::documents::unlink_document_localisation,
             commands::documents::link_document_equipement,
             commands::documents::unlink_document_equipement,
-            commands::documents::link_document_technicien,
-            commands::documents::unlink_document_technicien,
             // Dashboard
             commands::dashboard::get_dashboard_data,
             commands::dashboard::get_sunburst_gammes,

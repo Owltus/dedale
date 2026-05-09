@@ -31,9 +31,6 @@ pub struct OrdreTravail {
     pub commentaires: Option<String>,
     // Liaisons optionnelles
     pub id_di: Option<i64>,
-    pub id_technicien: Option<i64>,
-    pub nom_technicien: Option<String>,
-    pub nom_poste: Option<String>,
     pub nom_equipement: Option<String>,
     // Dates techniques
     pub date_creation: Option<String>,
@@ -88,7 +85,6 @@ pub struct OtCreateInput {
     pub id_gamme: i64,
     pub date_prevue: String,
     pub id_priorite: i64,
-    pub id_technicien: Option<i64>,
     pub id_di: Option<i64>,
     pub commentaires: Option<String>,
 }
@@ -98,7 +94,6 @@ pub struct OtCreateInput {
 pub struct OtUpdateInput {
     pub date_prevue: Option<String>,
     pub id_priorite: Option<i64>,
-    pub id_technicien: Option<i64>,
     pub commentaires: Option<String>,
 }
 

@@ -18,4 +18,3 @@ pub mod recherche;
 pub mod referentiels;
 pub mod releves;
 pub mod system;
-pub mod techniciens;

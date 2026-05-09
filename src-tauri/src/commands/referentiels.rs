@@ -4,7 +4,7 @@ use tauri::State;
 use crate::db::DbPool;
 use crate::models::referentiels::{
     CategorieErp, Etablissement, EtablissementInput, ModeleDi, ModeleDiDetail, ModeleDiInput,
-    Periodicite, Poste, PrioriteOt, StatutDi, StatutOt, TypeContrat,
+    Periodicite, PrioriteOt, StatutDi, StatutOt, TypeContrat,
     TypeDocument, TypeErp, TypeOperation, Unite,
 };
 
@@ -109,29 +109,6 @@ pub fn get_types_documents(db: State<DbPool>) -> Result<Vec<TypeDocument>, Strin
                 nom: row.get(1)?,
                 description: row.get(2)?,
                 est_systeme: row.get(3)?,
-            })
-        })
-        .map_err(|e| e.to_string())?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// ── Postes (lecture seule) ──
-// ════════════════════════════════════════════════════════════════════════════
-
-/// Récupère tous les postes
-#[tauri::command]
-pub fn get_postes(db: State<DbPool>) -> Result<Vec<Poste>, String> {
-    let conn = db.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare_cached("SELECT id_poste, libelle, description FROM postes ORDER BY libelle")
-        .map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok(Poste {
-                id_poste: row.get(0)?,
-                libelle: row.get(1)?,
-                description: row.get(2)?,
             })
         })
         .map_err(|e| e.to_string())?;

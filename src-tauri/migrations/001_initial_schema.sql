@@ -1,6 +1,6 @@
 -- =========================================================================
--- MANTIS - SYSTÈME DE GESTION DE MAINTENANCE ASSISTÉE PAR ORDINATEUR
--- Base de données SQLite - Script d'initialisation complet
+-- DÉDALE - SYSTÈME DE GESTION DE MAINTENANCE ASSISTÉE PAR ORDINATEUR
+-- Base de données SQLite - Schéma initial (baseline)
 -- =========================================================================
 -- IMPORTANT : PRAGMAs à activer à CHAQUE connexion (côté Tauri/Rust) :
 --   PRAGMA foreign_keys = ON;           -- Obligatoire : active les FK
@@ -10,9 +10,10 @@
 --   PRAGMA synchronous = NORMAL;        -- Sûr avec WAL, plus rapide que FULL
 --   PRAGMA temp_store = MEMORY;         -- Tables temporaires en RAM
 --   PRAGMA mmap_size = 268435456;       -- Memory-mapped I/O 256 Mo (accélère les lectures)
--- NE PAS activer : PRAGMA recursive_triggers (voir note ligne 69)
+-- NE PAS activer : PRAGMA recursive_triggers
+--   (les triggers date_modification reposent sur son absence)
 
--- Ce fichier regroupe :
+-- Structure du fichier :
 --   1. Schéma (CREATE TABLE)
 --   2. Données de référence (INSERT)
 --   3. Index de performance
@@ -23,97 +24,9 @@
 --   - DATETIME → horodatage technique / audit (date_creation, date_modification…)
 --   - Statuts OT 3 (Clôturé) et 4 (Annulé) = IMMUTABLES (sauf réouverture 3→5)
 --   - Nommage 100% français, terminologie GMAO (NF EN 13306)
+--   - Booléens stockés en INTEGER (0/1) — STRICT mode ne supporte pas BOOLEAN
+--   - Statut opération 4 (Annulée) = SYSTÈME UNIQUEMENT, jamais sélectionnable manuellement
 
--- Corrections appliquées (v2) :
---   - ordres_travail.id_gamme_modele renommé en id_gamme (FK vers gammes directement)
---   - ordres_travail.nom_prestataire ajouté (snapshot figé comme nom_technicien)
---   - id_prestataire est maintenant un snapshot figé à la création
---   - validation_contrat_creation (BEFORE INSERT) remplace validation_contrat_ot_preventif
---     avec logique gamme réglementaire → RAISE / non réglementaire → bascule interne
---   - validation_prestataire_temporel supprimé (redondant, snapshot figé)
---   - creation_ot_complet : résolution + snapshot prestataire intégrés
---   - gestion_statut_ot étape 4 : COALESCE pour date_cloture si ops sans date
---   - propagation_periodicite_vers_ot : restreint aux OT statut 1 uniquement
---   - reinitialisation_resurrection : renumérotation correcte des étapes
---   - a_propagation_gamme_vers_ot : propagation id_prestataire supprimée (snapshot figé)
---   - protection_ot_terminaux : nom_prestataire ajouté à la blacklist
---
--- Corrections appliquées (v3) :
---   - types_documents : ajout colonne est_systeme, description rendue NOT NULL
---   - Données de référence types_documents : réduit à 3 types système universels
---     (Attestation, Rapport, Contrat) — les types sectoriels sont à créer par le client
---   - Trigger protection_suppression_type_document ajouté (section 4.2) :
---     bloque la suppression d'un type utilisé avec message de reclassification explicite
---
--- Corrections appliquées (v6) :
---   - contrats : ajout id_contrat_parent (versioning), est_archive, objet_avenant
---   - Trigger archivage_contrat_parent : archive automatiquement le parent
---     quand une nouvelle version est créée (id_contrat_parent renseigné)
---   - Trigger protection_contrat_archive : bloque toute modification
---     d'un contrat archivé — figé comme un OT clôturé
---   - Index idx_contrats_parent ajouté
---   - Pas de montant financier, pas de références formelles, 1 contrat = 1 prestataire
---   - Table postes ajoutée (id_poste, libelle, description)
---   - techniciens : ajout id_poste (FK vers postes)
---   - ordres_travail : ajout nom_poste (snapshot figé, renseigné uniquement si interne)
---   - creation_ot_complet : snapshot nom_poste conditionnel (interne uniquement)
---   - sync_snapshot_technicien_ot : snapshot nom_poste mis à jour avec le technicien
---   - propagation_renommage_technicien : propogation nom_poste si poste change
---   - Trigger validation_technicien_interne_uniquement ajouté :
---     bloque l'assignation d'un technicien à un OT externe (prestataire != 1)
---   - protection_ot_terminaux : nom_poste ajouté à la blacklist
---   - Données de référence : 4 postes par défaut insérés
---   - statuts_operations : ajout statut 5 'Non applicable' (choix utilisateur, ne bloque pas clôture)
---   - statuts_operations : 'Annulée' (id=4) = SYSTÈME UNIQUEMENT, jamais sélectionnable manuellement
---   - operations_execution CHECK : statut 5 autorisé sans date_execution (comme statut 4)
---   - Trigger protection_statut_annulee_manuel ajouté : bloque toute tentative manuelle
---     de passer une opération en Annulée — réservé aux cascades système
---   - gestion_statut_ot : statut 5 traité comme statut 4 pour la clôture (ne bloque pas)
---   - reinitialisation_resurrection : statut 5 préservé (choix utilisateur, pas réinitialisé)
---   - nettoyage_dates_coherentes : annulation OT ne touche pas les ops en statut 5
---
--- Corrections appliquées (v11) :
---   - reprogrammation_auto : ajout filtre id_statut_ot NOT IN (3, 4) dans la condition
---     de vérification d'OT futur. Sans ce filtre, un OT annulé avec une date future
---     bloquait silencieusement la chaîne de reprogrammation.
---   - validation_transitions_manuelles : clôture manuelle (→3) bloquée si des opérations
---     sont encore en attente (1) ou en cours (2). Pour sauter un OT, utiliser l'annulation.
---   - Trigger protection_passage_reglementaire ajouté : bloque le passage
---     est_reglementaire 0→1 si des OT actifs existent avec un prestataire externe
---     sans contrat valide.
---   - protection_ot_terminaux : id_image aligné sur id_di/id_technicien
---     (autorise SET NULL, permet de supprimer des images obsolètes).
---   - Trigger validation_statut_initial_di ajouté : force id_statut_di=1 à l'INSERT.
---     Sans cela, on pouvait créer une DI directement en statut Résolue (2).
---   - Trigger protection_id_gamme_ot ajouté : bloque toute modification de
---     id_gamme sur les OT (la gamme est figée à la création, les opérations
---     et snapshots en dépendent).
---
--- Corrections appliquées (v16) :
---   - Modèles d'équipement : tables modeles_equipements, champs_modele, valeurs_equipements
---   - familles_equipements : ajout id_modele_equipement (FK optionnelle, ON DELETE SET NULL)
---   - Index : idx_champs_modele, idx_valeurs_equipement, idx_valeurs_champ, idx_familles_modele
---   - Trigger : maj_date_modification_modele_equipement
---
--- Corrections appliquées (v13) :
---   - Découplage gammes/équipements : les gammes ont désormais leur propre hiérarchie
---     de classification (domaines_gammes, familles_gammes) indépendante des équipements.
---   - domaines_techniques renommé en domaines_equipements (table existante, FK mises à jour)
---   - Nouvelles tables : domaines_gammes, familles_gammes, gammes_equipements (liaison N↔N)
---   - gammes : id_famille remplacé par id_famille_gamme (FK → familles_gammes),
---     id_equipement supprimé (remplacé par la table de liaison gammes_equipements)
---   - ordres_travail : nom_famille résolu depuis familles_gammes, nom_equipement rempli
---     uniquement si exactement 1 équipement lié via gammes_equipements
---   - 6 triggers majeurs réécrits : creation_ot_complet, a_propagation_gamme_vers_ot,
---     propagation_renommage_famille (→ familles_gammes), propagation_equipement_vers_ot,
---     reinitialisation_resurrection
---   - Nouveaux index : idx_gammes_famille_gamme, idx_gammes_equipements_gamme,
---     idx_gammes_equipements_equip, idx_familles_gammes_domaine,
---     idx_domaines_gammes_image, idx_familles_gammes_image
-
--- Attention : les triggers date_modification fonctionnent car
--- PRAGMA recursive_triggers est OFF par défaut en SQLite.
--- Ne JAMAIS activer recursive_triggers sans réécrire ces triggers.
 -- ATTENTION MAINTENANCE : protection_ot_terminaux utilise une approche BLACKLIST.
 -- Toute nouvelle colonne ajoutée à ordres_travail doit être explicitement
 -- ajoutée à ce trigger si elle doit être protégée sur les OT terminaux.
@@ -380,16 +293,6 @@ CREATE TABLE documents_equipements (
     UNIQUE(id_document, id_equipement)
 ) STRICT;
 
-CREATE TABLE documents_techniciens (
-    id_liaison       INTEGER PRIMARY KEY,
-    id_document      INTEGER NOT NULL,
-    id_technicien    INTEGER NOT NULL,
-    date_liaison     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    commentaire      TEXT,
-    FOREIGN KEY (id_document)    REFERENCES documents(id_document)       ON DELETE CASCADE,
-    FOREIGN KEY (id_technicien)  REFERENCES techniciens(id_technicien)   ON DELETE CASCADE,
-    UNIQUE(id_document, id_technicien)
-) STRICT;
 
 
 -- =========================================================================
@@ -410,28 +313,6 @@ CREATE TABLE prestataires (
     -- AJOUT v12 : validations autonomes
     CHECK (code_postal IS NULL OR (LENGTH(code_postal) = 5 AND code_postal GLOB '[0-9][0-9][0-9][0-9][0-9]')),
     CHECK (email IS NULL OR email LIKE '%_@_%.__%')
-) STRICT;
-
-CREATE TABLE postes (
-    id_poste    INTEGER PRIMARY KEY,
-    libelle     TEXT NOT NULL UNIQUE,
-    description TEXT NOT NULL
-) STRICT;
-
-CREATE TABLE techniciens (
-    id_technicien INTEGER PRIMARY KEY AUTOINCREMENT,
-    nom           TEXT NOT NULL,
-    prenom        TEXT NOT NULL,
-    telephone     TEXT,
-    email         TEXT,
-    id_poste      INTEGER,
-    est_actif     INTEGER NOT NULL DEFAULT 1,
-    id_image      INTEGER,
-    date_creation TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_poste)  REFERENCES postes(id_poste) ON DELETE SET NULL,
-    FOREIGN KEY (id_image)  REFERENCES images(id_image) ON DELETE SET NULL,
-    CHECK (est_actif IN (0, 1)),
-    CHECK (email IS NULL OR email LIKE '%_@_%.__%')  -- AJOUT v12
 ) STRICT;
 
 CREATE TABLE types_contrats (
@@ -828,9 +709,6 @@ CREATE TABLE ordres_travail (
 
     -- Liaisons optionnelles
     id_di                      INTEGER,
-    id_technicien              INTEGER,
-    nom_technicien             TEXT,
-    nom_poste                  TEXT,            -- snapshot figé, renseigné uniquement si intervention interne
     nom_equipement             TEXT,
 
     date_creation              TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -844,7 +722,6 @@ CREATE TABLE ordres_travail (
     FOREIGN KEY (id_priorite)     REFERENCES priorites_ot(id_priorite)      ON DELETE RESTRICT,
     FOREIGN KEY (id_image)        REFERENCES images(id_image)               ON DELETE SET NULL,
     FOREIGN KEY (id_di)           REFERENCES demandes_intervention(id_di)   ON DELETE SET NULL,
-    FOREIGN KEY (id_technicien)   REFERENCES techniciens(id_technicien)     ON DELETE SET NULL,
     CHECK (est_automatique IN (0, 1)),
     CHECK (est_reglementaire IN (0, 1)),
     CHECK (date_debut IS NULL OR date_cloture IS NULL OR date_debut <= date_cloture)
@@ -876,6 +753,14 @@ CREATE TABLE operations_execution (
         OR (id_statut_operation IN (2, 3) AND date_execution IS NOT NULL)
         OR (id_statut_operation IN (4, 5))  -- Annulée (système) / Non applicable (utilisateur) : date optionnelle
     )
+) STRICT;
+
+-- Table clé/valeur pour les paramètres système qui n'ont pas leur table dédiée.
+-- Cas d'usage actuel : date ISO-8601 de la dernière sauvegarde manuelle réussie,
+-- pour afficher un badge de fraîcheur dans l'onglet Paramètres → Sauvegarde.
+CREATE TABLE parametres_systeme (
+    cle    TEXT PRIMARY KEY,
+    valeur TEXT NOT NULL
 ) STRICT;
 
 
@@ -997,17 +882,7 @@ INSERT INTO contrats (id_prestataire, id_type_contrat, reference, date_signature
 VALUES (1, 3, 'Maintenance interne', '2024-11-28', '2024-12-01', 60, 'Contrat du responsable technique');
 
 --------------------------------------------------------------------------------
--- 2.8 Postes + Technicien par défaut
---------------------------------------------------------------------------------
-INSERT INTO postes (libelle, description) VALUES
-    ('Responsable Technique',  'Responsable de la maintenance et de la conformité réglementaire'),
-    ('Technicien de Maintenance', 'Réalise les interventions et contrôles terrain'),
-    ('Agent de Sécurité',      'Responsable des vérifications liées à la sécurité incendie et des ERP'),
-    ('Chargé d''Exploitation', 'Supervise l''exploitation technique du site');
-
-
---------------------------------------------------------------------------------
--- 2.9 Statuts, priorités
+-- 2.8 Statuts, priorités
 --------------------------------------------------------------------------------
 -- Statuts opérations :
 -- 1=En attente, 2=En cours, 3=Terminée → statuts UTILISATEUR
@@ -1053,7 +928,6 @@ CREATE INDEX idx_ot_image             ON ordres_travail(id_image);
 CREATE INDEX idx_ot_priorite          ON ordres_travail(id_priorite);
 CREATE INDEX idx_ot_date_cloture      ON ordres_travail(date_cloture);
 CREATE INDEX idx_ot_gamme_statut_date ON ordres_travail(id_gamme, id_statut_ot, date_prevue);
-CREATE INDEX idx_ot_technicien        ON ordres_travail(id_technicien);
 CREATE INDEX idx_ot_di                ON ordres_travail(id_di);
 
 -- Opérations d'exécution
@@ -1063,6 +937,14 @@ CREATE INDEX idx_ops_exec_conformite       ON operations_execution(est_conforme,
 -- SUPPRIMÉ v7 : idx_ops_exec_source — redondant avec idx_ops_exec_source_composite
 CREATE INDEX idx_ops_exec_source_composite ON operations_execution(id_type_source, id_source, id_ordre_travail);
 CREATE INDEX idx_ops_exec_ordre_statut     ON operations_execution(id_ordre_travail, id_statut_operation);
+
+-- Index partiel pour la page Relevés : ne couvre que les opérations dont
+-- une mesure a effectivement été saisie (unite_symbole NOT NULL = type mesure,
+-- valeur_mesuree NOT NULL = saisie effectuée). Évite un full-scan quand on
+-- cherche les relevés historiques d'une gamme.
+CREATE INDEX idx_ops_exec_mesures_saisies
+    ON operations_execution (id_ordre_travail, id_type_source, id_source)
+    WHERE unite_symbole IS NOT NULL AND valeur_mesuree IS NOT NULL;
 
 -- Contrats
 CREATE INDEX idx_contrats_prestataire ON contrats(id_prestataire);
@@ -1148,10 +1030,6 @@ CREATE INDEX idx_batiments_image       ON batiments(id_image);
 
 -- Prestataires
 CREATE INDEX idx_prestataires_image ON prestataires(id_image);
-
--- Techniciens
-CREATE INDEX idx_techniciens_poste ON techniciens(id_poste);
-CREATE INDEX idx_techniciens_image ON techniciens(id_image);
 
 -- Établissements — AJOUT v7 : FK sans index
 CREATE INDEX idx_etablissements_type_erp      ON etablissements(id_type_erp);
@@ -1248,11 +1126,8 @@ WHEN OLD.id_statut_ot IN (3, 4)
         OR OLD.date_prevue         IS NOT NEW.date_prevue
         OR OLD.est_automatique     IS NOT NEW.est_automatique
         OR OLD.id_priorite         IS NOT NEW.id_priorite
-        OR (OLD.id_image IS NOT NEW.id_image AND NEW.id_image IS NOT NULL)  -- CORRIGÉ v11 : autorise SET NULL (comme id_di et id_technicien)
+        OR (OLD.id_image IS NOT NEW.id_image AND NEW.id_image IS NOT NULL)
         OR (OLD.id_di IS NOT NEW.id_di AND NEW.id_di IS NOT NULL)
-        OR (OLD.id_technicien IS NOT NEW.id_technicien AND NEW.id_technicien IS NOT NULL)
-        OR OLD.nom_technicien      IS NOT NEW.nom_technicien
-        OR OLD.nom_poste           IS NOT NEW.nom_poste          -- AJOUT v5
         OR OLD.nom_equipement      IS NOT NEW.nom_equipement
     )
 BEGIN
@@ -1373,62 +1248,6 @@ END;
 -- Protection : 'Annulée' (id=4) est réservé au système.
 -- L'utilisateur doit utiliser 'Non applicable' (id=5) pour écarter manuellement une opération.
 -- Exception autorisée : cascade système lors de l'annulation d'un OT.
--- Validation : un technicien interne ne peut être assigné qu'à un OT interne.
--- Les OT externes (prestataire != 1) sont réalisés par l'entreprise externe —
--- le nom du technicien externe n'est pas géré dans cette base.
-DROP TRIGGER IF EXISTS validation_technicien_interne_uniquement;
-CREATE TRIGGER validation_technicien_interne_uniquement
-BEFORE UPDATE OF id_technicien ON ordres_travail
-FOR EACH ROW
-WHEN NEW.id_technicien IS NOT NULL
-  AND NEW.id_prestataire != 1
-BEGIN
-    SELECT RAISE(ABORT,
-        'Assignation impossible : un technicien interne ne peut être assigné à un OT externe. Le prestataire externe gère ses propres intervenants.'
-    );
-END;
-
--- AJOUT v10 : validation INSERT — complète le trigger UPDATE ci-dessus
--- Sans ce trigger, un INSERT d'OT externe avec id_technicien renseigné passe.
-DROP TRIGGER IF EXISTS validation_technicien_interne_insert;
-CREATE TRIGGER validation_technicien_interne_insert
-BEFORE INSERT ON ordres_travail
-FOR EACH ROW
-WHEN NEW.id_technicien IS NOT NULL
-  AND NEW.id_prestataire != 1
-BEGIN
-    SELECT RAISE(ABORT,
-        'Assignation impossible : un technicien interne ne peut être assigné à un OT externe. Le prestataire externe gère ses propres intervenants.'
-    );
-END;
-
--- AJOUT v12 : un technicien inactif (est_actif=0) ne peut pas être assigné à un OT.
--- L'inactivation = le technicien n'est plus disponible. L'application doit d'abord
--- le réactiver ou choisir un autre technicien.
-DROP TRIGGER IF EXISTS validation_technicien_actif_insert;
-CREATE TRIGGER validation_technicien_actif_insert
-BEFORE INSERT ON ordres_travail
-FOR EACH ROW
-WHEN NEW.id_technicien IS NOT NULL
-    AND (SELECT est_actif FROM techniciens WHERE id_technicien = NEW.id_technicien) = 0
-BEGIN
-    SELECT RAISE(ABORT,
-        'Assignation impossible : ce technicien est inactif. Réactivez-le ou choisissez un autre technicien.'
-    );
-END;
-
-DROP TRIGGER IF EXISTS validation_technicien_actif_update;
-CREATE TRIGGER validation_technicien_actif_update
-BEFORE UPDATE OF id_technicien ON ordres_travail
-FOR EACH ROW
-WHEN NEW.id_technicien IS NOT NULL
-    AND OLD.id_technicien IS NOT NEW.id_technicien
-    AND (SELECT est_actif FROM techniciens WHERE id_technicien = NEW.id_technicien) = 0
-BEGIN
-    SELECT RAISE(ABORT,
-        'Assignation impossible : ce technicien est inactif. Réactivez-le ou choisissez un autre technicien.'
-    );
-END;
 
 -- AJOUT v11 : id_gamme est une référence figée à la création.
 -- Le modifier sur un OT actif désynchronise les snapshots et les opérations :
@@ -1863,22 +1682,6 @@ BEGIN
             SELECT g.id_image FROM gammes g WHERE g.id_gamme = NEW.id_gamme
         ),
 
-        -- Technicien + poste (snapshot conditionnel : interne uniquement)
-        nom_technicien = CASE
-            WHEN NEW.id_prestataire = 1
-            THEN (SELECT t.nom || ' ' || t.prenom FROM techniciens t WHERE t.id_technicien = NEW.id_technicien)
-            ELSE NULL
-        END,
-        nom_poste = CASE
-            WHEN NEW.id_prestataire = 1
-            THEN (
-                SELECT p.libelle FROM techniciens t
-                JOIN postes p ON t.id_poste = p.id_poste
-                WHERE t.id_technicien = NEW.id_technicien
-            )
-            ELSE NULL
-        END,
-
         -- MODIFIÉ v17 : nom_affichage au lieu de nom, numero_serie_equipement supprimé
         -- Rempli uniquement si exactement 1 équipement est lié à la gamme, sinon NULL.
         nom_equipement = CASE
@@ -2022,9 +1825,9 @@ WHEN OLD.libelle != NEW.libelle
   OR OLD.jours_periodicite != NEW.jours_periodicite
   OR OLD.jours_valide != NEW.jours_valide
 BEGIN
-    -- CORRIGÉ : restreint aux OT Planifiés (statut 1) uniquement.
+    -- Restreint aux OT Planifiés (statut 1) uniquement.
     -- Un OT En Cours (2) ou Réouvert (5) est en cours d'exécution ;
-    -- modifier sa périodicité sous les pieds du technicien est incohérent.
+    -- modifier sa périodicité en plein milieu serait incohérent.
     -- La prochaine occurrence sera calculée depuis la gamme à jour par reprogrammation_auto.
     UPDATE ordres_travail
     SET
@@ -2166,8 +1969,7 @@ BEGIN
         date_prevue, est_automatique,
         -- NOT NULL : valeurs temporaires, écrasées par creation_ot_complet
         nom_gamme, est_reglementaire,
-        libelle_periodicite, jours_periodicite, periodicite_jours_valides,
-        id_technicien
+        libelle_periodicite, jours_periodicite, periodicite_jours_valides
     )
     SELECT
         NEW.id_gamme,
@@ -2183,21 +1985,7 @@ BEGIN
         g.est_reglementaire,
         p.libelle,
         p.jours_periodicite,
-        p.jours_valide,
-        -- Technicien hérité uniquement si le nouveau prestataire est interne (=1)
-        -- ET si le technicien existant est toujours actif. Sans la vérif est_actif,
-        -- validation_technicien_actif_insert bloquerait l'INSERT et romprait la chaîne
-        -- de maintenance silencieusement.
-        CASE
-            WHEN g.id_prestataire = 1
-                 AND NEW.id_technicien IS NOT NULL
-                 AND EXISTS (
-                     SELECT 1 FROM techniciens t
-                     WHERE t.id_technicien = NEW.id_technicien AND t.est_actif = 1
-                 )
-            THEN NEW.id_technicien
-            ELSE NULL
-        END
+        p.jours_valide
     FROM gammes g
     JOIN periodicites p ON g.id_periodicite = p.id_periodicite
     WHERE g.id_gamme = NEW.id_gamme
@@ -2377,22 +2165,6 @@ BEGIN
         id_image = (
             SELECT g.id_image FROM gammes g WHERE g.id_gamme = NEW.id_gamme
         ),
-        -- CORRIGÉ v10 (W-22) : sous-requête gamme au lieu de NEW.id_prestataire
-        -- NEW.id_prestataire = valeur AVANT resurrection, pas la valeur fraîche de la gamme
-        nom_technicien = CASE
-            WHEN (SELECT g.id_prestataire FROM gammes g WHERE g.id_gamme = NEW.id_gamme) = 1
-            THEN (SELECT t.nom || ' ' || t.prenom FROM techniciens t WHERE t.id_technicien = NEW.id_technicien)
-            ELSE NULL
-        END,
-        nom_poste = CASE
-            WHEN (SELECT g.id_prestataire FROM gammes g WHERE g.id_gamme = NEW.id_gamme) = 1
-            THEN (
-                SELECT p.libelle FROM techniciens t
-                JOIN postes p ON t.id_poste = p.id_poste
-                WHERE t.id_technicien = NEW.id_technicien
-            )
-            ELSE NULL
-        END,
         -- MODIFIÉ v17 : nom_affichage au lieu de nom, numero_serie_equipement supprimé
         -- Rempli uniquement si exactement 1 équipement est lié à la gamme, sinon NULL.
         nom_equipement = CASE
@@ -2510,9 +2282,8 @@ END;
 -- Statuts DI : 1=Ouverte, 2=Résolue, 3=Réouverte
 -- Résolue (2) = immutable sauf réouverture (comme OT Clôturé)
 
--- AJOUT v11 : une DI doit toujours commencer en statut 1 (Ouverte).
--- Sans ce trigger, un INSERT avec id_statut_di=2 ou 3 contourne
--- la machine à états (même pattern que le bug technicien INSERT corrigé en v10).
+-- Une DI doit toujours commencer en statut 1 (Ouverte).
+-- Sans ce trigger, un INSERT avec id_statut_di=2 ou 3 contournerait la machine à états.
 DROP TRIGGER IF EXISTS validation_statut_initial_di;
 CREATE TRIGGER validation_statut_initial_di
 BEFORE INSERT ON demandes_intervention
@@ -2643,12 +2414,6 @@ BEGIN
     UPDATE ordres_travail SET date_modification = CURRENT_TIMESTAMP WHERE id_ordre_travail = NEW.id_ordre_travail;
 END;
 
--- SUPPRIMÉ : validation_prestataire_temporel
--- Raison : id_prestataire est désormais un snapshot figé à la création (comme nom_technicien).
--- Il ne peut plus être modifié manuellement après création.
--- La protection est assurée par protection_ot_terminaux (pour les OT terminaux)
--- et par l'immutabilité de fait du snapshot (aucun chemin de modification normal).
-DROP TRIGGER IF EXISTS validation_prestataire_temporel;
 
 
 --------------------------------------------------------------------------------
@@ -2850,52 +2615,6 @@ BEGIN
             AND oe.id_type_source = 1
             AND oe.id_source = NEW.id_operation
       );
-END;
-
--- G0. Synchronisation snapshot technicien quand id_technicien change sur OT actif
-DROP TRIGGER IF EXISTS sync_snapshot_technicien_ot;
-CREATE TRIGGER sync_snapshot_technicien_ot
-AFTER UPDATE OF id_technicien ON ordres_travail
-FOR EACH ROW
-WHEN OLD.id_technicien IS NOT NEW.id_technicien
-  AND NEW.id_statut_ot NOT IN (3, 4)
-BEGIN
-    UPDATE ordres_travail
-    SET
-        nom_technicien = CASE
-            WHEN NEW.id_prestataire = 1
-            THEN (SELECT t.nom || ' ' || t.prenom FROM techniciens t WHERE t.id_technicien = NEW.id_technicien)
-            ELSE NULL
-        END,
-        nom_poste = CASE
-            WHEN NEW.id_prestataire = 1
-            THEN (
-                SELECT p.libelle FROM techniciens t
-                JOIN postes p ON t.id_poste = p.id_poste
-                WHERE t.id_technicien = NEW.id_technicien
-            )
-            ELSE NULL
-        END
-    WHERE id_ordre_travail = NEW.id_ordre_travail;
-END;
-
--- G. Propagation renommage technicien vers OT actifs
--- Propage aussi nom_poste si le poste du technicien a changé
-DROP TRIGGER IF EXISTS propagation_renommage_technicien;
-CREATE TRIGGER propagation_renommage_technicien
-AFTER UPDATE ON techniciens
-FOR EACH ROW
-WHEN OLD.nom != NEW.nom OR OLD.prenom != NEW.prenom OR OLD.id_poste IS NOT NEW.id_poste
-BEGIN
-    UPDATE ordres_travail
-    SET
-        nom_technicien = NEW.nom || ' ' || NEW.prenom,
-        nom_poste = (
-            SELECT p.libelle FROM postes p WHERE p.id_poste = NEW.id_poste
-        )
-    WHERE id_technicien = NEW.id_technicien
-      AND id_statut_ot NOT IN (3, 4)
-      AND id_prestataire = 1;  -- Propagation uniquement sur OT internes
 END;
 
 -- H. Propagation renommage famille gamme vers OT actifs
@@ -3118,23 +2837,6 @@ BEGIN
     SET nom_prestataire = NEW.libelle
     WHERE id_prestataire = NEW.id_prestataire
       AND id_statut_ot NOT IN (3, 4);
-END;
-
--- L. Protection suppression technicien assigné à un OT actif
--- AJOUT v7 (W-10) : un technicien ne peut pas être supprimé s'il est assigné à un OT actif.
-DROP TRIGGER IF EXISTS protection_suppression_technicien_assigne;
-CREATE TRIGGER protection_suppression_technicien_assigne
-BEFORE DELETE ON techniciens
-FOR EACH ROW
-WHEN EXISTS (
-    SELECT 1 FROM ordres_travail
-    WHERE id_technicien = OLD.id_technicien
-      AND id_statut_ot NOT IN (3, 4)
-)
-BEGIN
-    SELECT RAISE(ABORT,
-        'Suppression impossible : ce technicien est assigné à des OT actifs. Réassignez-le d''abord.'
-    );
 END;
 
 
