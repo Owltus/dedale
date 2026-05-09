@@ -78,15 +78,10 @@ pub fn run() {
             commands::referentiels::update_modele_di,
             commands::referentiels::delete_modele_di,
             // Référentiels — Lecture seule
-            commands::referentiels::get_types_erp,
-            commands::referentiels::get_categories_erp,
             commands::referentiels::get_types_contrats,
             commands::referentiels::get_statuts_ot,
             commands::referentiels::get_statuts_di,
             commands::referentiels::get_priorites_ot,
-            // Établissement
-            commands::referentiels::get_etablissement,
-            commands::referentiels::upsert_etablissement,
             // Images
             commands::images::get_images,
             commands::images::upload_image,

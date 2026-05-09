@@ -16,13 +16,3 @@ export const modeleDiSchema = z.object({
   description_resolution: optionalText,
 });
 export type ModeleDiFormData = z.infer<typeof modeleDiSchema>;
-// ── Établissement ──
-export const etablissementSchema = z.object({
-  nom: z.string().trim().min(1, "Le nom est requis"),
-  id_type_erp: z.coerce.number().int().positive().nullable().optional().transform(v => v ?? null),
-  id_categorie_erp: z.coerce.number().int().positive().nullable().optional().transform(v => v ?? null),
-  adresse: optionalText,
-  code_postal: z.string().regex(/^\d{5}$/, "Le code postal doit contenir 5 chiffres").optional().or(z.literal("")).transform(v => v || null),
-  ville: optionalText,
-});
-export type EtablissementFormData = z.infer<typeof etablissementSchema>;

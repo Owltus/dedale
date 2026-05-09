@@ -242,9 +242,6 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
     // Flags d'onboarding
-    let has_etablissement: bool = conn.query_row(
-        "SELECT COUNT(*) FROM etablissements", [], |row| row.get::<_, i64>(0),
-    ).map_err(|e| e.to_string())? > 0;
     let has_localisations: bool = conn.query_row(
         "SELECT COUNT(*) FROM batiments", [], |row| row.get::<_, i64>(0),
     ).map_err(|e| e.to_string())? > 0;
@@ -279,7 +276,6 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
         contrats_dashboard,
         derniers_documents,
         ot_regl_sans_doc,
-        has_etablissement,
         has_localisations,
         has_equipements,
         has_prestataires,

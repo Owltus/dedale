@@ -107,7 +107,7 @@ export function SauvegardeTab() {
   };
 
   return (
-    <div className="flex flex-col gap-4 max-w-2xl">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-min">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -152,7 +152,7 @@ export function SauvegardeTab() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="md:col-span-2">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <History className="size-4" />
@@ -168,15 +168,15 @@ export function SauvegardeTab() {
               Aucune sauvegarde automatique pour l'instant — elles apparaîtront après votre première restauration.
             </p>
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
               {preRestoreBackups.map((b) => (
                 <li
                   key={b.stamp}
-                  className="flex items-center justify-between rounded-md border bg-card p-3 text-sm"
+                  className="flex items-center justify-between gap-3 rounded-md border bg-card p-3 text-sm"
                 >
-                  <div className="flex flex-col">
-                    <span className="font-medium">{b.created_at}</span>
-                    <span className="text-xs text-muted-foreground">
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-medium truncate">{b.created_at}</span>
+                    <span className="text-xs text-muted-foreground truncate">
                       {formatBytes(b.db_size_bytes)}
                       {b.has_documents ? " — avec documents" : " — sans documents"}
                     </span>
@@ -186,6 +186,7 @@ export function SauvegardeTab() {
                     size="sm"
                     onClick={() => setPreRestoreCandidate(b)}
                     disabled={restorePreRestoreMutation.isPending}
+                    className="shrink-0"
                   >
                     Restaurer
                   </Button>
@@ -341,9 +342,6 @@ interface ManifestSummaryProps {
 function ManifestSummary({ manifest }: ManifestSummaryProps) {
   return (
     <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-md border bg-muted/40 p-3 text-sm">
-      <dt className="text-muted-foreground">Établissement</dt>
-      <dd className="font-medium">{manifest.etablissement_nom ?? "— non renseigné —"}</dd>
-
       <dt className="text-muted-foreground">Date</dt>
       <dd>{formatDateTime(manifest.created_at)}</dd>
 

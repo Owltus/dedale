@@ -11,9 +11,11 @@ static MIGRATIONS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/migrations");
 /// Nom de la table qui trace les migrations déjà appliquées sur la base.
 const MIGRATIONS_TABLE: &str = "schema_migrations";
 
-/// Table présente uniquement sur les bases créées AVANT l'introduction de `schema_migrations`.
-/// Sa présence sert de signal pour bootstrapper l'historique (marquer la baseline 001 appliquée
-/// sans la ré-exécuter, sinon les CREATE TABLE échoueraient sur les tables existantes).
+/// Sentinelle pour détecter les bases créées AVANT l'introduction de `schema_migrations`.
+/// Si cette table existe et que `schema_migrations` est absente, on bootstrappe l'historique
+/// (marquer 001 appliquée sans la ré-exécuter, sinon les CREATE TABLE échoueraient sur les
+/// tables existantes). La table est droppée ensuite par la migration 002 — sans impact sur
+/// la sentinelle, qui n'est consultée qu'avant l'application des migrations.
 const LEGACY_MARKER_TABLE: &str = "types_erp";
 
 /// Pool de connexion SQLite — wrappé dans un Mutex standard (pas tokio)

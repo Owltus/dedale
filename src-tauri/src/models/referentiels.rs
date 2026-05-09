@@ -51,50 +51,6 @@ pub struct TypeContrat {
     pub description: Option<String>,
 }
 
-// ── Types ERP (lecture seule) ──
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TypeErp {
-    pub id_type_erp: i64,
-    pub code: String,
-    pub libelle: String,
-    pub description: Option<String>,
-}
-
-// ── Catégories ERP (lecture seule) ──
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CategorieErp {
-    pub id_categorie_erp: i64,
-    pub libelle: String,
-    pub description: Option<String>,
-}
-
-// ── Établissement (fiche unique) ──
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Etablissement {
-    pub id_etablissement: i64,
-    pub nom: String,
-    pub id_type_erp: Option<i64>,
-    pub id_categorie_erp: Option<i64>,
-    pub adresse: Option<String>,
-    pub code_postal: Option<String>,
-    pub ville: Option<String>,
-    pub date_creation: Option<String>,
-    pub date_modification: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EtablissementInput {
-    pub nom: String,
-    pub id_type_erp: Option<i64>,
-    pub id_categorie_erp: Option<i64>,
-    pub adresse: Option<String>,
-    pub code_postal: Option<String>,
-    pub ville: Option<String>,
-}
-
 // ── Statuts OT (lecture seule) ──
 
 #[derive(Debug, Serialize, Deserialize)]

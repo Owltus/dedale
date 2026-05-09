@@ -41,10 +41,6 @@ pub struct BackupManifest {
     #[serde(default)]
     pub db_sha256: String,
     pub documents_count: i64,
-    /// Nom de l'établissement au moment de la sauvegarde — sert à identifier
-    /// rapidement le contenu d'une archive sans l'ouvrir.
-    #[serde(default)]
-    pub etablissement_nom: Option<String>,
     /// Comptes lus sur le snapshot DB lui-même (donc cohérents avec ce qui
     /// est archivé, contrairement à un comptage à la volée sur la DB courante).
     #[serde(default)]
@@ -209,15 +205,14 @@ fn assert_integrity_ok(conn: &Connection) -> Result<(), String> {
 
 /// Statistiques lues sur un snapshot SQLite ouvert en lecture seule.
 struct SnapshotStats {
-    etablissement_nom: Option<String>,
     ot_count: i64,
     gammes_count: i64,
     equipements_count: i64,
 }
 
-/// Lit les comptes et le nom de l'établissement directement sur le fichier
-/// snapshot — garantit la cohérence avec ce qui sera archivé (pas avec la DB
-/// courante qui peut avoir bougé entre VACUUM INTO et le calcul).
+/// Lit les comptes directement sur le fichier snapshot — garantit la cohérence
+/// avec ce qui sera archivé (pas avec la DB courante qui peut avoir bougé
+/// entre VACUUM INTO et le calcul).
 fn read_snapshot_stats(snapshot_path: &Path) -> Result<SnapshotStats, String> {
     let conn = Connection::open_with_flags(
         snapshot_path,
@@ -225,17 +220,12 @@ fn read_snapshot_stats(snapshot_path: &Path) -> Result<SnapshotStats, String> {
     )
     .map_err(|e| format!("Ouverture du snapshot pour stats : {}", e))?;
 
-    let etablissement_nom: Option<String> = conn
-        .query_row("SELECT nom FROM etablissements LIMIT 1", [], |row| row.get(0))
-        .ok();
-
     fn count(conn: &Connection, table: &str) -> i64 {
         conn.query_row(&format!("SELECT COUNT(*) FROM {}", table), [], |row| row.get::<_, i64>(0))
             .unwrap_or(0)
     }
 
     Ok(SnapshotStats {
-        etablissement_nom,
         ot_count: count(&conn, "ordres_travail"),
         gammes_count: count(&conn, "gammes"),
         equipements_count: count(&conn, "equipements"),
@@ -379,20 +369,8 @@ fn validate_pending_db(pending_db: &Path, embedded_version: i64) -> Result<(), S
         ));
     }
 
-    // 2) marqueur DÉDALE (la table types_erp est présente sur toute base initiale)
-    let has_marker: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='types_erp'",
-            [],
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("Vérification du marqueur DÉDALE : {}", e))?;
-    if has_marker == 0 {
-        return Err("La base extraite ne ressemble pas à une base DÉDALE (table types_erp absente). Restauration refusée.".to_string());
-    }
-
-    // 3) version de schéma cohérente : doit avoir au moins la baseline et ne pas
-    //    excéder ce que cette version de l'application sait gérer.
+    // 2) marqueur DÉDALE — la table schema_migrations existe sur toute base
+    //    DÉDALE moderne et fait aussi office de sentinelle d'identité.
     let has_migrations_table: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_migrations'",
@@ -401,8 +379,11 @@ fn validate_pending_db(pending_db: &Path, embedded_version: i64) -> Result<(), S
         )
         .map_err(|e| format!("Vérification de schema_migrations : {}", e))?;
     if has_migrations_table == 0 {
-        return Err("La base extraite ne contient pas la table schema_migrations. Restauration refusée.".to_string());
+        return Err("La base extraite ne ressemble pas à une base DÉDALE (table schema_migrations absente). Restauration refusée.".to_string());
     }
+
+    // 3) version de schéma cohérente : doit avoir au moins la baseline et ne pas
+    //    excéder ce que cette version de l'application sait gérer.
     let max_version = read_schema_version(&conn)?;
     if max_version < 1 {
         return Err("La base extraite n'a aucune migration appliquée. Restauration refusée.".to_string());
@@ -509,9 +490,9 @@ fn backup_create_blocking(
     // thread blocking dédié (n'impacte pas l'UI ni le pool async).
     snapshot_database(app, &data_dir.join("dedale.db"), &tmp_db)?;
 
-    // 2) Construire le manifest (avec hash du snapshot pour détecter une corruption
-    //    pendant le transfert ou un stockage cloud peu fiable, et stats lues sur
-    //    le snapshot lui-même pour identifier facilement le contenu)
+    // Construire le manifest — hash du snapshot (détection de corruption pendant
+    // transfert / stockage cloud) + stats lues sur le snapshot lui-même (cohérence
+    // avec ce qui sera archivé).
     let db_size = fs::metadata(&tmp_db).map(|m| m.len() as i64).unwrap_or(0);
     let db_sha256 = match sha256_of_file(&tmp_db) {
         Ok(h) => h,
@@ -535,13 +516,12 @@ fn backup_create_blocking(
         db_size_bytes: db_size,
         db_sha256,
         documents_count: count_files_recursive(&docs_dir),
-        etablissement_nom: stats.etablissement_nom,
         ot_count: stats.ot_count,
         gammes_count: stats.gammes_count,
         equipements_count: stats.equipements_count,
     };
 
-    // 3) Écrire le zip
+    // Écrire le zip
     let total_docs = manifest.documents_count;
     let app_for_zip = app.clone();
     let write_result = (|| -> Result<(), String> {

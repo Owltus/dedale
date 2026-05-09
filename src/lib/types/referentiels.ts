@@ -36,31 +36,6 @@ export interface TypeContrat {
   description: string | null;
 }
 
-export interface TypeErp {
-  id_type_erp: number;
-  code: string;
-  libelle: string;
-  description: string | null;
-}
-
-export interface CategorieErp {
-  id_categorie_erp: number;
-  libelle: string;
-  description: string | null;
-}
-
-export interface Etablissement {
-  id_etablissement: number;
-  nom: string;
-  id_type_erp: number | null;
-  id_categorie_erp: number | null;
-  adresse: string | null;
-  code_postal: string | null;
-  ville: string | null;
-  date_creation: string | null;
-  date_modification: string | null;
-}
-
 export interface StatutOt {
   id_statut_ot: number;
   nom_statut: string;

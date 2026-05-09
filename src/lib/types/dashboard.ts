@@ -88,7 +88,6 @@ export interface DashboardData {
   contrats_dashboard: ContratDashboardItem[];
   derniers_documents: DocumentDashboardItem[];
   ot_regl_sans_doc: OtDashboardItem[];
-  has_etablissement: boolean;
   has_localisations: boolean;
   has_equipements: boolean;
   has_prestataires: boolean;

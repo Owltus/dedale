@@ -7,9 +7,6 @@ export interface BackupManifest {
   db_size_bytes: number;
   db_sha256: string;
   documents_count: number;
-  /// Nom de l'établissement au moment de la sauvegarde — facultatif sur les
-  /// archives anciennes créées avant l'enrichissement du manifest.
-  etablissement_nom: string | null;
   ot_count: number;
   gammes_count: number;
   equipements_count: number;

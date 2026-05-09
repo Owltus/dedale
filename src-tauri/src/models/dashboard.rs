@@ -53,7 +53,6 @@ pub struct DashboardData {
     pub derniers_documents: Vec<DocumentDashboardItem>,
     pub ot_regl_sans_doc: Vec<OtDashboardItem>,
     // Onboarding
-    pub has_etablissement: bool,
     pub has_localisations: bool,
     pub has_equipements: bool,
     pub has_prestataires: bool,

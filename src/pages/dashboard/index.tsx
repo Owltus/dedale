@@ -38,7 +38,6 @@ const HEADER_H = 28;
 const MAX_ROW_H = ROW_BASE * 1.3;
 
 const ONBOARDING_STEPS = [
-  { label: "Établissement", path: "/parametres", key: "has_etablissement" as const },
   { label: "Localisations", path: "/localisations", key: "has_localisations" as const },
   { label: "Équipements", path: "/equipements", key: "has_equipements" as const },
   { label: "Prestataires", path: "/prestataires", key: "has_prestataires" as const },

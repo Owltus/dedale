@@ -6,9 +6,6 @@ import type {
   Periodicite,
   TypeOperation,
   TypeDocument,
-  TypeErp,
-  CategorieErp,
-  Etablissement,
   StatutOt,
   StatutDi,
   PrioriteOt,
@@ -25,13 +22,10 @@ export const referentielKeys = {
   typesDocuments: ["types_documents"] as const,
   modelesDi: ["modeles_di"] as const,
   modeleDi: (id: number) => ["modeles_di", id] as const,
-  typesErp: ["types_erp"] as const,
-  categoriesErp: ["categories_erp"] as const,
   typesContrats: ["types_contrats"] as const,
   statutsOt: ["statuts_ot"] as const,
   statutsDi: ["statuts_di"] as const,
   prioritesOt: ["priorites_ot"] as const,
-  etablissement: ["etablissement"] as const,
 };
 
 // ── Unités ──────────────────────────────────────────────────────────────────
@@ -141,24 +135,6 @@ export function useDeleteModeleDi() {
   });
 }
 
-// ── Types ERP (lecture seule) ───────────────────────────────────────────────
-// Lecture de tous les types ERP — données statiques, ne changent jamais
-export function useTypesErp() {
-  return useInvokeQuery<TypeErp[]>("get_types_erp", undefined, {
-    queryKey: referentielKeys.typesErp,
-    staleTime: Infinity,
-  });
-}
-
-// ── Catégories ERP (lecture seule) ──────────────────────────────────────────
-// Lecture de toutes les catégories ERP — données statiques
-export function useCategoriesErp() {
-  return useInvokeQuery<CategorieErp[]>("get_categories_erp", undefined, {
-    queryKey: referentielKeys.categoriesErp,
-    staleTime: Infinity,
-  });
-}
-
 // ── Types de contrats (lecture seule) ───────────────────────────────────────
 // Lecture de tous les types de contrats — données statiques
 export function useTypesContrats() {
@@ -195,33 +171,3 @@ export function usePrioritesOt() {
   });
 }
 
-// ── Établissement ───────────────────────────────────────────────────────────
-// Lecture de l'établissement unique (peut être null si pas encore configuré)
-export function useEtablissement() {
-  return useInvokeQuery<Etablissement | null>(
-    "get_etablissement",
-    undefined,
-    { queryKey: referentielKeys.etablissement, staleTime: Infinity }
-  );
-}
-
-// Création ou mise à jour de l'établissement (upsert)
-export function useUpsertEtablissement() {
-  const qc = useQueryClient();
-  return useInvokeMutation<
-    Etablissement,
-    {
-      input: {
-        nom: string;
-        id_type_erp?: number | null;
-        id_categorie_erp?: number | null;
-        adresse?: string | null;
-        code_postal?: string | null;
-        ville?: string | null;
-      };
-    }
-  >("upsert_etablissement", {
-    onSettled: () =>
-      qc.invalidateQueries({ queryKey: referentielKeys.etablissement }),
-  });
-}

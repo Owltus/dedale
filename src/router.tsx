@@ -15,7 +15,6 @@ export const ROUTE_LABELS: Record<string, string> = {
   "/documents": "Documents",
   "/releves": "Relevés",
   "/parametres": "Paramètres",
-  "/parametres/etablissement": "Établissement",
 };
 
 // Lazy imports des pages
@@ -116,9 +115,6 @@ const Documents = lazy(() =>
 const Parametres = lazy(() =>
   import("@/pages/parametres/index").then((m) => ({ default: m.Parametres }))
 );
-const Etablissement = lazy(() =>
-  import("@/pages/parametres/etablissement").then((m) => ({ default: m.Etablissement }))
-);
 
 export const router = createBrowserRouter([
   {
@@ -163,7 +159,6 @@ export const router = createBrowserRouter([
       { path: "releves/:id", element: <RelevesDetail /> },
       { path: "documents", element: <Documents /> },
       { path: "parametres", element: <Parametres /> },
-      { path: "parametres/etablissement", element: <Etablissement /> },
     ],
   },
 ]);
