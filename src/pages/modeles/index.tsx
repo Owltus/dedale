@@ -2,7 +2,7 @@ import { type ReactNode, useCallback, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout";
-import { useSetBreadcrumbTrail } from "@/components/layout/BreadcrumbContext";
+import { useSetBreadcrumbTrail } from "@/components/layout/breadcrumb-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HeaderButton } from "@/components/shared/HeaderButton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";

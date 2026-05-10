@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -35,6 +35,11 @@ export function GammeEditDialog({ open, onOpenChange, gamme, periodicites, prest
     },
   });
 
+  const [idImage, idPeriodicite, idPrestataire, estReglementaire, estActive] = useWatch({
+    control: form.control,
+    name: ["id_image", "id_periodicite", "id_prestataire", "est_reglementaire", "est_active"],
+  });
+
   // Réinitialiser le formulaire quand la gamme change
   useEffect(() => {
     if (open) {
@@ -60,7 +65,7 @@ export function GammeEditDialog({ open, onOpenChange, gamme, periodicites, prest
       submitLabel="Enregistrer"
     >
       <div className="flex gap-6">
-        <ImagePicker value={form.watch("id_image")} onChange={(v) => form.setValue("id_image", v)} />
+        <ImagePicker value={idImage} onChange={(v) => form.setValue("id_image", v)} />
         <div className="flex-1 space-y-4">
           <div className="space-y-2">
             <Label>Nom *</Label>
@@ -72,7 +77,7 @@ export function GammeEditDialog({ open, onOpenChange, gamme, periodicites, prest
           </div>
           <div className="space-y-2">
             <Label>Périodicité *</Label>
-            <Select value={form.watch("id_periodicite") ? String(form.watch("id_periodicite")) : undefined} items={Object.fromEntries(periodicites.map(p => [String(p.id_periodicite), p.libelle]))} onValueChange={(v) => form.setValue("id_periodicite", Number(v))}>
+            <Select value={idPeriodicite ? String(idPeriodicite) : undefined} items={Object.fromEntries(periodicites.map(p => [String(p.id_periodicite), p.libelle]))} onValueChange={(v) => form.setValue("id_periodicite", Number(v))}>
               <SelectTrigger className="w-full"><SelectValue placeholder="— Sélectionner —" /></SelectTrigger>
               <SelectContent>
                 {periodicites.map((p) => <SelectItem key={p.id_periodicite} value={String(p.id_periodicite)}>{p.libelle}</SelectItem>)}
@@ -81,7 +86,7 @@ export function GammeEditDialog({ open, onOpenChange, gamme, periodicites, prest
           </div>
           <div className="space-y-2">
             <Label>Prestataire *</Label>
-            <Select value={String(form.watch("id_prestataire"))} items={Object.fromEntries(prestataires.map(p => [String(p.id_prestataire), p.libelle]))} onValueChange={(v) => form.setValue("id_prestataire", Number(v))}>
+            <Select value={String(idPrestataire)} items={Object.fromEntries(prestataires.map(p => [String(p.id_prestataire), p.libelle]))} onValueChange={(v) => form.setValue("id_prestataire", Number(v))}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {prestataires.map((p) => <SelectItem key={p.id_prestataire} value={String(p.id_prestataire)}>{p.libelle}</SelectItem>)}
@@ -89,11 +94,11 @@ export function GammeEditDialog({ open, onOpenChange, gamme, periodicites, prest
             </Select>
           </div>
           <div className="flex items-center gap-2">
-            <Switch checked={form.watch("est_reglementaire") === 1} onCheckedChange={(v) => form.setValue("est_reglementaire", v ? 1 : 0)} />
+            <Switch checked={estReglementaire === 1} onCheckedChange={(v) => form.setValue("est_reglementaire", v ? 1 : 0)} />
             <Label>Réglementaire</Label>
           </div>
           <div className="flex items-center gap-2">
-            <Switch checked={form.watch("est_active") === 1} onCheckedChange={(v) => form.setValue("est_active", v ? 1 : 0)} />
+            <Switch checked={estActive === 1} onCheckedChange={(v) => form.setValue("est_active", v ? 1 : 0)} />
             <Label>Active</Label>
           </div>
         </div>

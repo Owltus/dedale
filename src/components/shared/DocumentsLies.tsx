@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { DropZone } from "./DropZone";
 import { DocumentIcon } from "./DocumentIcon";
 import { UploadModal } from "./UploadModal";
-import { useUploadQueue } from "./UploadQueue";
+import { useUploadQueue } from "@/hooks/use-upload-queue";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DocumentPreviewDialog } from "./DocumentPreviewDialog";
 import { DocumentEditDialog, type EditableDoc } from "./DocumentEditDialog";

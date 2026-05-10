@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -83,6 +83,11 @@ export function GammesFamille() {
     },
   });
 
+  const [idImage, idPeriodicite, idPrestataire, estReglementaire] = useWatch({
+    control: form.control,
+    name: ["id_image", "id_periodicite", "id_prestataire", "est_reglementaire"],
+  });
+
   const openCreate = () => {
     form.reset({
       nom_gamme: "", description: "", est_reglementaire: 0,
@@ -138,7 +143,7 @@ export function GammesFamille() {
           </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="flex gap-6">
-              <ImagePicker value={form.watch("id_image") ?? null} onChange={(v) => form.setValue("id_image", v)} />
+              <ImagePicker value={idImage ?? null} onChange={(v) => form.setValue("id_image", v)} />
               <div className="flex-1 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="nom_gamme">Nom *</Label>
@@ -153,7 +158,7 @@ export function GammesFamille() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="id_periodicite">Périodicité *</Label>
-                  <Select value={form.watch("id_periodicite") ? String(form.watch("id_periodicite")) : undefined} onValueChange={(v) => form.setValue("id_periodicite", Number(v))} items={Object.fromEntries(periodicites.map(p => [String(p.id_periodicite), p.libelle]))}>
+                  <Select value={idPeriodicite ? String(idPeriodicite) : undefined} onValueChange={(v) => form.setValue("id_periodicite", Number(v))} items={Object.fromEntries(periodicites.map(p => [String(p.id_periodicite), p.libelle]))}>
                     <SelectTrigger className="w-full"><SelectValue placeholder="— Sélectionner —" /></SelectTrigger>
                     <SelectContent>
                       {periodicites.map((p) => <SelectItem key={p.id_periodicite} value={String(p.id_periodicite)}>{p.libelle}</SelectItem>)}
@@ -162,7 +167,7 @@ export function GammesFamille() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="id_prestataire">Prestataire *</Label>
-                  <Select value={String(form.watch("id_prestataire") ?? 1)} onValueChange={(v) => form.setValue("id_prestataire", Number(v))} items={Object.fromEntries(prestataires.map(p => [String(p.id_prestataire), p.libelle]))}>
+                  <Select value={String(idPrestataire ?? 1)} onValueChange={(v) => form.setValue("id_prestataire", Number(v))} items={Object.fromEntries(prestataires.map(p => [String(p.id_prestataire), p.libelle]))}>
                     <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {prestataires.map((p) => <SelectItem key={p.id_prestataire} value={String(p.id_prestataire)}>{p.libelle}</SelectItem>)}
@@ -170,7 +175,7 @@ export function GammesFamille() {
                   </Select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Switch id="est_reglementaire" checked={form.watch("est_reglementaire") === 1}
+                  <Switch id="est_reglementaire" checked={estReglementaire === 1}
                     onCheckedChange={(v) => form.setValue("est_reglementaire", v ? 1 : 0)} />
                   <Label htmlFor="est_reglementaire">Réglementaire</Label>
                 </div>

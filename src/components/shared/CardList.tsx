@@ -86,6 +86,7 @@ export function CardList<T>({
   const rowStyle = compact && rowHeight ? { height: rowHeight } : undefined;
   const rowClass = compact && !rowHeight ? "h-[26px]" : "";
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- @tanstack/react-virtual non analysable par le compilateur
   const virtualizer = useVirtualizer({
     count: filtered.length,
     getScrollElement: () => scrollRef.current,

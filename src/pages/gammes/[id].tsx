@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { buildGammeBreadcrumb } from "@/lib/utils/breadcrumbs";
 import { toast } from "sonner";
@@ -164,6 +164,8 @@ export function GammesDetail() {
     resolver: typedResolver(otCreateSchema),
     defaultValues: { id_gamme: gammeId, date_prevue: "", id_priorite: 3, id_di: null, commentaires: "" },
   });
+
+  const otPriorite = useWatch({ control: otForm.control, name: "id_priorite" });
 
   const openCreateOt = () => {
     otForm.reset({ id_gamme: gammeId, date_prevue: "", id_priorite: 3, id_di: null, commentaires: "" });
@@ -403,7 +405,7 @@ export function GammesDetail() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="id_priorite">Priorité</Label>
-          <Select value={String(otForm.watch("id_priorite") ?? 3)} items={{ "1": "Critique", "2": "Haute", "3": "Normale", "4": "Basse" }} onValueChange={(v) => otForm.setValue("id_priorite", Number(v))}>
+          <Select value={String(otPriorite ?? 3)} items={{ "1": "Critique", "2": "Haute", "3": "Normale", "4": "Basse" }} onValueChange={(v) => otForm.setValue("id_priorite", Number(v))}>
             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="1">Critique</SelectItem>

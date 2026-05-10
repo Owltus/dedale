@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { FileUp, Pencil, Trash2 } from "lucide-react";
@@ -68,6 +68,9 @@ export function EquipementDetail() {
     },
   });
 
+  const idImage = useWatch({ control: form.control, name: "id_image" });
+  const estActif = useWatch({ control: form.control, name: "est_actif" });
+
   useSetBreadcrumbTrail(domaine && famille && equipement ? [
     { label: "Équipements", path: "/equipements" },
     { label: domaine.nom_domaine, path: `/equipements/domaines/${famille.id_domaine}` },
@@ -93,6 +96,9 @@ export function EquipementDetail() {
     for (const vc of valeursChamps) {
       values[vc.id_champ] = vc.valeur ?? "";
     }
+    // setCaracValues est nécessaire : initialise le state d'édition depuis les
+    // valeurs asynchrones de l'équipement à l'ouverture du dialog.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCaracValues(values);
   }, [editOpen, equipement, valeursChamps, form]);
 
@@ -205,7 +211,7 @@ export function EquipementDetail() {
           </div>
           <div className="grid grid-cols-3 grid-rows-[auto_auto_auto] gap-4">
             <div className="row-span-3 flex items-center justify-center">
-              <ImagePicker value={form.watch("id_image") ?? null} onChange={(v) => form.setValue("id_image", v)} />
+              <ImagePicker value={idImage ?? null} onChange={(v) => form.setValue("id_image", v)} />
             </div>
             <div className="col-span-2 space-y-2">
               <Label htmlFor="nom_affichage">Désignation *</Label>
@@ -246,7 +252,7 @@ export function EquipementDetail() {
                 <Input id="commentaires" {...form.register("commentaires")} />
               </div>
               <div className="flex items-center gap-2 pb-0.5">
-                <Switch id="est_actif" checked={form.watch("est_actif") === 1}
+                <Switch id="est_actif" checked={estActif === 1}
                   onCheckedChange={(checked) => form.setValue("est_actif", checked ? 1 : 0)} />
                 <Label htmlFor="est_actif">Actif</Label>
               </div>

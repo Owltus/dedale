@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { prestataireSchema, type PrestataireFormData } from "@/lib/schemas/prestataires";
 import { contratSchema, TYPE_DETERMINE, TYPE_TACITE, TYPE_INDETERMINE, type ContratFormData } from "@/lib/schemas/contrats";
-import { ContratTypeFields, contratCreateDefaults } from "@/components/shared/contrat-dialog-helpers";
+import { ContratTypeFields } from "@/components/shared/contrat-dialog-helpers";
+import { contratCreateDefaults } from "@/components/shared/contrat-dialog-defaults";
 import type { ContratListItem } from "@/lib/types/contrats";
 import { getContratInfo } from "@/lib/utils/contrat-info";
 import { usePrestataire, useUpdatePrestataire, useDeletePrestataire } from "@/hooks/use-prestataires";
@@ -43,7 +44,7 @@ import { DocumentsLies } from "@/components/shared/DocumentsLies";
 import { DocumentIcon } from "@/components/shared/DocumentIcon";
 import { DropZone } from "@/components/shared/DropZone";
 import { UploadModal } from "@/components/shared/UploadModal";
-import { useUploadQueue } from "@/components/shared/UploadQueue";
+import { useUploadQueue } from "@/hooks/use-upload-queue";
 import { useDocumentsForEntity, useDownloadDocument, useSaveDocumentToDisk } from "@/hooks/use-documents";
 import { useInvokeMutation } from "@/hooks/useInvoke";
 import { useQueryClient } from "@tanstack/react-query";
@@ -407,6 +408,9 @@ export function PrestatairesDetail() {
     defaultValues: contratCreateDefaults(prestataireId),
   });
 
+  const prestImage = useWatch({ control: prestForm.control, name: "id_image" });
+  const contratTypeContrat = useWatch({ control: contratForm.control, name: "id_type_contrat" });
+
   if (isLoading) return <div className="p-4"><p className="text-sm text-muted-foreground">Chargement...</p></div>;
   if (!prestataire) return <div className="p-4"><p className="text-sm text-destructive">Prestataire non trouvé.</p></div>;
 
@@ -542,7 +546,7 @@ export function PrestatairesDetail() {
         onSubmit={prestForm.handleSubmit(onSubmitEditPrest)}
       >
         <div className="flex gap-6">
-          <ImagePicker value={prestForm.watch("id_image") ?? null} onChange={(v) => prestForm.setValue("id_image", v)} />
+          <ImagePicker value={prestImage ?? null} onChange={(v) => prestForm.setValue("id_image", v)} />
           <div className="flex-1 space-y-4">
             <div className="space-y-2">
               <Label>Nom *</Label>
@@ -573,7 +577,7 @@ export function PrestatairesDetail() {
       >
         <div className="space-y-2">
           <Label>Type *</Label>
-          <Select value={contratForm.watch("id_type_contrat") ? String(contratForm.watch("id_type_contrat")) : undefined} items={Object.fromEntries(typesContrats.map(t => [String(t.id_type_contrat), t.libelle]))} onValueChange={(v) => contratForm.setValue("id_type_contrat", Number(v))}>
+          <Select value={contratTypeContrat ? String(contratTypeContrat) : undefined} items={Object.fromEntries(typesContrats.map(t => [String(t.id_type_contrat), t.libelle]))} onValueChange={(v) => contratForm.setValue("id_type_contrat", Number(v))}>
             <SelectTrigger className="w-full"><SelectValue placeholder="— Sélectionner —" /></SelectTrigger>
             <SelectContent>
               {typesContrats.map((t) => <SelectItem key={t.id_type_contrat} value={String(t.id_type_contrat)}>{t.libelle}</SelectItem>)}

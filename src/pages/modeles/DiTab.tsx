@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { FileText } from "lucide-react";
@@ -59,7 +59,8 @@ export function DiTab() {
     } catch (e) { toast.error(String(e)); }
   };
 
-  const watchedFamille = form.watch("id_famille");
+  const watchedFamille = useWatch({ control: form.control, name: "id_famille" });
+  const idEquipement = useWatch({ control: form.control, name: "id_equipement" });
   const { data: equipementsFamille = [] } = useEquipements(watchedFamille ?? undefined);
 
   return (
@@ -109,7 +110,7 @@ export function DiTab() {
             <div className="space-y-2">
               <Label htmlFor="id_famille">Famille d'équipement</Label>
               <Select
-                value={form.watch("id_famille") ? String(form.watch("id_famille")) : undefined}
+                value={watchedFamille ? String(watchedFamille) : undefined}
                 items={Object.fromEntries(familles.map((f) => [String(f.id_famille), f.nom_famille]))}
                 onValueChange={(v) => { form.setValue("id_famille", v ? Number(v) : null); form.setValue("id_equipement", null); }}
               >
@@ -126,7 +127,7 @@ export function DiTab() {
             <div className="space-y-2">
               <Label htmlFor="id_equipement">Équipement précis</Label>
               <Select
-                value={form.watch("id_equipement") ? String(form.watch("id_equipement")) : undefined}
+                value={idEquipement ? String(idEquipement) : undefined}
                 items={Object.fromEntries(equipementsFamille.map((e) => [String(e.id_equipement), e.nom_affichage]))}
                 onValueChange={(v) => form.setValue("id_equipement", v ? Number(v) : null)}
               >

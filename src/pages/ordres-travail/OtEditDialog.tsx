@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,8 @@ export function OtEditDialog({ open, onOpenChange, ot, onSubmit: onSubmitProp }:
       commentaires: ot.commentaires ?? "",
     },
   });
+
+  const idPriorite = useWatch({ control: form.control, name: "id_priorite" });
 
   useEffect(() => {
     if (open) {
@@ -50,7 +52,7 @@ export function OtEditDialog({ open, onOpenChange, ot, onSubmit: onSubmitProp }:
       <div className="space-y-2">
         <Label>Priorité</Label>
         <Select
-          value={String(form.watch("id_priorite"))}
+          value={String(idPriorite)}
           items={{ "1": "Critique", "2": "Haute", "3": "Normale", "4": "Basse" }}
           onValueChange={(v) => form.setValue("id_priorite", Number(v))}
         >

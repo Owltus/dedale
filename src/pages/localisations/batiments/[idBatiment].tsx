@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { CrudDialog } from "@/components/shared/CrudDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { niveauSchema, type NiveauFormData } from "@/lib/schemas/localisations";
 import {
@@ -49,6 +49,8 @@ export function BatimentDetail() {
     resolver: typedResolver(niveauSchema),
     defaultValues: { nom: "", description: "", id_image: null, id_batiment: batimentId },
   });
+
+  const idImage = useWatch({ control: form.control, name: "id_image" });
 
   const openCreate = () => {
     form.reset({ nom: "", description: "", id_image: null, id_batiment: batimentId });
@@ -135,7 +137,7 @@ export function BatimentDetail() {
       >
         <div className="flex gap-6">
           <ImagePicker
-            value={form.watch("id_image") ?? null}
+            value={idImage ?? null}
             onChange={(v) => form.setValue("id_image", v)}
           />
           <div className="flex-1 space-y-4">

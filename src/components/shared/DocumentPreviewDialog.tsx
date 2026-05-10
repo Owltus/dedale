@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,18 +30,19 @@ function base64ToBlobUrl(base64: string, mime: string): string {
 export function DocumentPreviewDialog({ doc, previewData, onClose, onDownload }: DocumentPreviewDialogProps) {
   const previewType = doc ? getDocumentFileType(doc.extension) : null;
   const mime = previewType === "pdf" ? "application/pdf" : "image/webp";
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
-  // Créer/révoquer le blob URL proprement à chaque changement de données
+  // Dérivation directe : le blob URL est calculé à chaque changement de previewData.
+  // Pas de state séparé — useMemo suffit.
+  const blobUrl = useMemo(
+    () => (previewData && previewType ? base64ToBlobUrl(previewData, mime) : null),
+    [previewData, previewType, mime],
+  );
+
+  // Cleanup : révoquer l'URL précédente quand elle change ou au démontage.
   useEffect(() => {
-    if (!previewData || !previewType) {
-      setBlobUrl(null);
-      return;
-    }
-    const url = base64ToBlobUrl(previewData, mime);
-    setBlobUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [previewData, previewType, mime]);
+    if (!blobUrl) return;
+    return () => URL.revokeObjectURL(blobUrl);
+  }, [blobUrl]);
 
   return (
     <Dialog open={doc !== null} onOpenChange={(open) => { if (!open) onClose(); }}>

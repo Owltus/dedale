@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { DoorOpen, Pencil, Plus, Trash2 } from "lucide-react";
@@ -57,6 +57,8 @@ export function NiveauDetail() {
     resolver: typedResolver(localSchema),
     defaultValues: { nom: "", description: "", surface: null, id_image: null, id_niveau: niveauId },
   });
+
+  const idImage = useWatch({ control: form.control, name: "id_image" });
 
   const openCreate = () => {
     setEditingId(null);
@@ -171,7 +173,7 @@ export function NiveauDetail() {
       >
         <div className="flex gap-6">
           <ImagePicker
-            value={form.watch("id_image") ?? null}
+            value={idImage ?? null}
             onChange={(v) => form.setValue("id_image", v)}
           />
           <div className="flex-1 space-y-4">

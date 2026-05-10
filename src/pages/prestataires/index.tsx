@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { Handshake, Plus } from "lucide-react";
@@ -50,6 +50,8 @@ export function PrestatairesList() {
     resolver: typedResolver(prestataireSchema),
     defaultValues: { libelle: "", description: "", adresse: "", code_postal: "", ville: "", telephone: "", email: "", id_image: null },
   });
+
+  const idImage = useWatch({ control: form.control, name: "id_image" });
 
   const openCreate = () => {
     form.reset({ libelle: "", description: "", adresse: "", code_postal: "", ville: "", telephone: "", email: "", id_image: null });
@@ -114,7 +116,7 @@ export function PrestatairesList() {
         submitLabel="Créer"
       >
         <div className="flex gap-6">
-          <ImagePicker value={form.watch("id_image") ?? null} onChange={(v) => form.setValue("id_image", v)} />
+          <ImagePicker value={idImage ?? null} onChange={(v) => form.setValue("id_image", v)} />
           <div className="flex-1 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="libelle">Nom *</Label>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { Building2, Plus } from "lucide-react";
@@ -28,6 +28,8 @@ export function Localisations() {
     resolver: typedResolver(batimentSchema),
     defaultValues: { nom: "", description: "", id_image: null },
   });
+
+  const idImage = useWatch({ control: form.control, name: "id_image" });
 
   const openCreate = () => {
     form.reset({ nom: "", description: "", id_image: null });
@@ -79,7 +81,7 @@ export function Localisations() {
       >
         <div className="flex gap-6">
           <ImagePicker
-            value={form.watch("id_image") ?? null}
+            value={idImage ?? null}
             onChange={(v) => form.setValue("id_image", v)}
           />
           <div className="flex-1 space-y-4">

@@ -228,6 +228,8 @@ export function BarChartReleves({
     yearBandsRef.current = computeYearBands(sortedDates);
   }, [sortedDates]);
 
+  // Le plugin lit la ref via closure ; il est créé une seule fois et reste stable.
+  // eslint-disable-next-line react-hooks/refs -- la ref est seulement capturée, pas lue ici
   const yearWatermarkPlugin = useMemo(() => makeYearWatermarkPlugin(yearBandsRef), []);
 
   const options = useMemo(

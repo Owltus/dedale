@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { typedResolver } from "@/lib/utils/form";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { CrudDialog } from "@/components/shared/CrudDialog";
 import { ACCEPTED_FORMATS, documentEditSchema, type DocumentEditFormData } from "@/lib/schemas/documents";
 import { useUpdateDocument, useReplaceDocumentFile } from "@/hooks/use-documents";
 import { useTypesDocuments } from "@/hooks/use-referentiels";
-import { fileToBase64 } from "@/components/shared/DropZone";
+import { fileToBase64 } from "@/lib/utils/files";
 import { formatBytes, stripKnownExtension } from "@/lib/utils/format";
 
 export interface EditableDoc {
@@ -41,14 +41,17 @@ export function DocumentEditDialog({ doc, onClose }: DocumentEditDialogProps) {
     resolver: typedResolver(documentEditSchema),
     defaultValues: { nom_original: "", id_type_document: 0 },
   });
+  const idTypeDocument = useWatch({ control: form.control, name: "id_type_document" });
 
-  // Réinitialiser le formulaire quand le document change
+  // Réinitialiser le formulaire quand le document change.
+  // setReplaceFile est légitime ici : reset d'un state d'édition lié à la prop async.
   useEffect(() => {
     if (doc) {
       form.reset({
         nom_original: doc.nom_original,
         id_type_document: doc.id_type_document,
       });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setReplaceFile(null);
     }
   }, [doc, form]);
@@ -94,7 +97,7 @@ export function DocumentEditDialog({ doc, onClose }: DocumentEditDialogProps) {
       <div className="space-y-2">
         <Label>Type de document</Label>
         <Select
-          value={String(form.watch("id_type_document"))}
+          value={String(idTypeDocument)}
           items={typeItems}
           onValueChange={(v) => form.setValue("id_type_document", Number(v))}
         >

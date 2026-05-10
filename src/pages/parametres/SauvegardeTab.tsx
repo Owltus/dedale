@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { useBackupSession } from "@/components/shared/BackupSessionProvider";
+import { useBackupSession } from "@/hooks/use-backup-session";
 import {
   useBackupInspect,
   useBackupRestore,

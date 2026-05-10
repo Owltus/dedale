@@ -1,21 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
 import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { RootLayout } from "@/components/layout";
-
-// Labels français pour le breadcrumb
-export const ROUTE_LABELS: Record<string, string> = {
-  "/planning": "Planning",
-  "/ordres-travail": "Ordres de travail",
-  "/gammes": "Gammes",
-  "/modeles": "Modèles",
-  "/equipements": "Équipements",
-  "/localisations": "Localisations",
-  "/prestataires": "Prestataires",
-  "/demandes": "Demandes d'intervention",
-  "/documents": "Documents",
-  "/releves": "Relevés",
-  "/parametres": "Paramètres",
-};
 
 // Lazy imports des pages
 const Dashboard = lazy(() =>

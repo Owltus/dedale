@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -60,7 +60,12 @@ export function OperationDialog({ open, onOpenChange, gammeId, editingOp, typesO
     }
   }, [open, editingOp, gammeId, form]);
 
-  const selectedTypeOp = typesOps.find((t) => t.id_type_operation === Number(form.watch("id_type_operation")));
+  const [idTypeOperation, idUnite, seuilMinimum, seuilMaximum] = useWatch({
+    control: form.control,
+    name: ["id_type_operation", "id_unite", "seuil_minimum", "seuil_maximum"],
+  });
+
+  const selectedTypeOp = typesOps.find((t) => t.id_type_operation === Number(idTypeOperation));
   const showSeuils = selectedTypeOp?.necessite_seuils === 1;
 
   const handleSubmit = (data: Record<string, unknown>) => {
@@ -93,7 +98,7 @@ export function OperationDialog({ open, onOpenChange, gammeId, editingOp, typesO
       </div>
       <div className="space-y-2">
         <Label htmlFor="id_type_operation">Type d'opération *</Label>
-        <Select value={form.watch("id_type_operation") ? String(form.watch("id_type_operation")) : undefined} items={Object.fromEntries(typesOps.map(t => [String(t.id_type_operation), t.libelle]))} onValueChange={(v) => {
+        <Select value={idTypeOperation ? String(idTypeOperation) : undefined} items={Object.fromEntries(typesOps.map(t => [String(t.id_type_operation), t.libelle]))} onValueChange={(v) => {
             const val = Number(v);
             form.setValue("id_type_operation", val);
             const t = typesOps.find((t) => t.id_type_operation === val);
@@ -109,7 +114,7 @@ export function OperationDialog({ open, onOpenChange, gammeId, editingOp, typesO
         <>
           <div className="space-y-2">
             <Label htmlFor="id_unite">Unité *</Label>
-            <Select value={form.watch("id_unite") ? String(form.watch("id_unite")) : undefined} items={Object.fromEntries(unites.map(u => [String(u.id_unite), `${u.nom} (${u.symbole})`]))} onValueChange={(v) => form.setValue("id_unite", v ? Number(v) : null)}>
+            <Select value={idUnite ? String(idUnite) : undefined} items={Object.fromEntries(unites.map(u => [String(u.id_unite), `${u.nom} (${u.symbole})`]))} onValueChange={(v) => form.setValue("id_unite", v ? Number(v) : null)}>
               <SelectTrigger className="w-full"><SelectValue placeholder="— Sélectionner —" /></SelectTrigger>
               <SelectContent>
                 {unites.map((u) => <SelectItem key={u.id_unite} value={String(u.id_unite)}>{u.nom} ({u.symbole})</SelectItem>)}
@@ -119,11 +124,11 @@ export function OperationDialog({ open, onOpenChange, gammeId, editingOp, typesO
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="seuil_minimum">Seuil min</Label>
-              <Input id="seuil_minimum" type="number" step="any" value={form.watch("seuil_minimum") ?? ""} onChange={(e) => form.setValue("seuil_minimum", e.target.value ? Number(e.target.value) : null)} />
+              <Input id="seuil_minimum" type="number" step="any" value={seuilMinimum ?? ""} onChange={(e) => form.setValue("seuil_minimum", e.target.value ? Number(e.target.value) : null)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="seuil_maximum">Seuil max</Label>
-              <Input id="seuil_maximum" type="number" step="any" value={form.watch("seuil_maximum") ?? ""} onChange={(e) => form.setValue("seuil_maximum", e.target.value ? Number(e.target.value) : null)} />
+              <Input id="seuil_maximum" type="number" step="any" value={seuilMaximum ?? ""} onChange={(e) => form.setValue("seuil_maximum", e.target.value ? Number(e.target.value) : null)} />
             </div>
           </div>
         </>

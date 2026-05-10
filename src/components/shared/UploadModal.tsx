@@ -12,7 +12,7 @@ import { useDocuments } from "@/hooks/use-documents";
 import { useTypesDocuments } from "@/hooks/use-referentiels";
 import { formatBytes, suggestDocumentName, type NamingContext } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
-import { fileToBase64, readDroppedFiles } from "./DropZone";
+import { fileToBase64, readDroppedFiles } from "@/lib/utils/files";
 import { DocumentIcon } from "./DocumentIcon";
 import { ACCEPTED_FORMATS } from "@/lib/schemas/documents";
 
@@ -85,9 +85,11 @@ export function UploadModal({ open, onOpenChange, onUpload, initialFiles, linkEx
 
   // Refs stables pour lire les valeurs dans l'effet sans les mettre en dépendance
   const defaultTypeIdRef = useRef(defaultTypeId);
-  defaultTypeIdRef.current = defaultTypeId;
   const initialFilesRef = useRef(initialFiles);
-  initialFilesRef.current = initialFiles;
+  useEffect(() => {
+    defaultTypeIdRef.current = defaultTypeId;
+    initialFilesRef.current = initialFiles;
+  }, [defaultTypeId, initialFiles]);
 
   // Réinitialisation propre à chaque ouverture — ne dépend que de `open`
   useEffect(() => {
@@ -121,7 +123,9 @@ export function UploadModal({ open, onOpenChange, onUpload, initialFiles, linkEx
   }, [makePendingFiles, defaultTypeId]);
 
   const dropHandlerRef = useRef(handleDroppedInModal);
-  dropHandlerRef.current = handleDroppedInModal;
+  useEffect(() => {
+    dropHandlerRef.current = handleDroppedInModal;
+  }, [handleDroppedInModal]);
 
   useEffect(() => {
     if (!open) return;

@@ -1,4 +1,4 @@
-import type { BreadcrumbCrumb } from "@/components/layout/BreadcrumbContext";
+import type { BreadcrumbCrumb } from "@/components/layout/breadcrumb-context";
 import type { DomaineGamme, FamilleGamme, Gamme } from "@/lib/types/gammes";
 
 export function buildGammeBreadcrumb(domaine: DomaineGamme, famille: FamilleGamme, gamme: Gamme): BreadcrumbCrumb[] {

@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { documentKeys } from "@/hooks/use-documents";
+import { UploadQueueContext } from "@/hooks/use-upload-queue";
 
 type UploadStatus = "pending" | "uploading" | "done" | "error";
 
@@ -14,22 +15,6 @@ interface UploadItem {
   status: UploadStatus;
   /** Callback appelé après upload réussi (ex: liaison à une entité) */
   onUploaded?: (idDocument: number) => Promise<void>;
-}
-
-interface UploadQueueContextValue {
-  enqueue: (
-    files: { name: string; base64: string; idTypeDocument: number }[],
-    onUploaded?: (idDocument: number) => Promise<void>,
-  ) => void;
-  pendingCount: number;
-}
-
-const UploadQueueContext = createContext<UploadQueueContextValue | null>(null);
-
-export function useUploadQueue(): UploadQueueContextValue {
-  const ctx = useContext(UploadQueueContext);
-  if (!ctx) throw new Error("useUploadQueue doit être utilisé dans UploadQueueProvider");
-  return ctx;
 }
 
 const TOAST_ID = "upload-queue";

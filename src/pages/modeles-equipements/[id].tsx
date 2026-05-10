@@ -60,9 +60,9 @@ export function ModelesEquipementsDetail() {
   const [formType, setFormType] = useState<string>("texte");
   const [formUnite, setFormUnite] = useState("");
   const [formObligatoire, setFormObligatoire] = useState(false);
-  const keyCounter = useRef(0);
-  const makeEntry = (value = "") => ({ key: keyCounter.current++, value });
-  const [formValeurs, setFormValeurs] = useState(() => [makeEntry()]);
+  const nextKey = useRef(1);
+  const makeEntry = (value = "") => ({ key: nextKey.current++, value });
+  const [formValeurs, setFormValeurs] = useState<{ key: number; value: string }[]>(() => [{ key: 0, value: "" }]);
   const [formDefaut, setFormDefaut] = useState("");
 
   // Valeurs nettoyées (dédupliquées, trimées, sans vides) — utilisé par le Select et le submit

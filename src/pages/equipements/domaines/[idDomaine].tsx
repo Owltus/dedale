@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -48,6 +48,9 @@ export function DomaineDetail() {
     resolver: typedResolver(familleSchema),
     defaultValues: { nom_famille: "", description: "", id_domaine: domaineId, id_image: null, id_modele_equipement: 0 },
   });
+
+  const idImage = useWatch({ control: form.control, name: "id_image" });
+  const idModeleEquipement = useWatch({ control: form.control, name: "id_modele_equipement" });
 
   const openCreate = () => {
     form.reset({ nom_famille: "", description: "", id_domaine: domaineId, id_image: null, id_modele_equipement: 0 });
@@ -108,7 +111,7 @@ export function DomaineDetail() {
         submitLabel="Créer"
       >
         <div className="flex gap-6">
-          <ImagePicker value={form.watch("id_image") ?? null} onChange={(v) => form.setValue("id_image", v)} />
+          <ImagePicker value={idImage ?? null} onChange={(v) => form.setValue("id_image", v)} />
           <div className="flex-1 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="nom_famille">Nom *</Label>
@@ -124,7 +127,7 @@ export function DomaineDetail() {
             <div className="space-y-2">
               <Label>Modèle d'équipement *</Label>
               <Select
-                value={form.watch("id_modele_equipement") ? String(form.watch("id_modele_equipement")) : undefined}
+                value={idModeleEquipement ? String(idModeleEquipement) : undefined}
                 items={Object.fromEntries(modelesEquipements.map(m => [String(m.id_modele_equipement), `${m.nom_modele} (${m.nb_champs} champ${m.nb_champs > 1 ? "s" : ""})`]))}
                 onValueChange={(v) => { if (v) form.setValue("id_modele_equipement", Number(v)); }}
               >

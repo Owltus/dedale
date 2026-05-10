@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { contratSchema } from "@/lib/schemas/contrats";
 import type { Contrat } from "@/lib/types/contrats";
 import type { TypeContrat } from "@/lib/types/referentiels";
-import { contratDefaults, SelectField, ContratTypeFields } from "./contrat-dialog-helpers";
+import { SelectField, ContratTypeFields } from "./contrat-dialog-helpers";
+import { contratDefaults } from "./contrat-dialog-defaults";
 
 interface EditDialogProps {
   open: boolean; onOpenChange: (v: boolean) => void; contrat: Contrat;
@@ -23,6 +24,7 @@ export function EditContratDialog({ open, onOpenChange, contrat, prestataireLabe
     defaultValues: contratDefaults(contrat),
   });
   useEffect(() => { if (open) form.reset(contratDefaults(contrat)); }, [open, contrat, form]);
+  const idTypeContrat = useWatch({ control: form.control, name: "id_type_contrat" });
 
   const typeOpts = typesContrats.map(t => ({ key: t.id_type_contrat, value: t.id_type_contrat, label: t.libelle }));
   const e = form.formState.errors;
@@ -36,7 +38,7 @@ export function EditContratDialog({ open, onOpenChange, contrat, prestataireLabe
             <Label>Prestataire</Label>
             <Input value={prestataireLabel} disabled />
           </div>
-          <SelectField id="edit-type" label="Type *" value={form.watch("id_type_contrat")}
+          <SelectField id="edit-type" label="Type *" value={idTypeContrat}
             options={typeOpts} onChange={v => form.setValue("id_type_contrat", v)} error={e.id_type_contrat ? String(e.id_type_contrat.message) : undefined} />
           <ContratTypeFields form={form} />
           <div className="flex justify-end gap-2 pt-2">

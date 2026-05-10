@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, Cpu, FileText, FileWarning, Link2, ListChecks, MapPin, Wrench, type LucideIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useDocumentLiaisons } from "@/hooks/use-documents";
+import { useLazyAction } from "@/hooks/use-lazy-action";
 import type { DocumentEntityType, DocumentLiaison } from "@/lib/types/documents";
 import { CardList } from "./CardList";
 
@@ -37,28 +38,30 @@ const ENTITY_META: Record<DocumentEntityType, EntityMeta> = {
 /// Lazy fetch : la liste des liaisons n'est chargée qu'au premier clic.
 export function DocumentLiaisonsButton({ idDocument, nbLiaisons }: DocumentLiaisonsButtonProps) {
   const navigate = useNavigate();
-  const [enabled, setEnabled] = useState(false);
-  const [pendingAction, setPendingAction] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [enabled, setEnabled] = useState(false);
 
   const { data: liaisons = [], isFetching } = useDocumentLiaisons(idDocument, { enabled });
 
-  useEffect(() => {
-    if (!pendingAction || !enabled || isFetching) return;
-    setPendingAction(false);
-    if (liaisons.length === 1) {
-      const l = liaisons[0]!;
-      navigate(ENTITY_META[l.entity_type].href(l));
-    } else if (liaisons.length > 1) {
-      setPickerOpen(true);
-    }
-  }, [pendingAction, enabled, isFetching, liaisons, navigate]);
+  const trigger = useLazyAction<DocumentLiaison>({
+    enabled,
+    setEnabled,
+    data: liaisons,
+    isFetching,
+    onResolve: (items) => {
+      if (items.length === 1) {
+        const l = items[0]!;
+        navigate(ENTITY_META[l.entity_type].href(l));
+      } else if (items.length > 1) {
+        setPickerOpen(true);
+      }
+    },
+  });
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    setEnabled(true);
-    setPendingAction(true);
+    trigger();
   };
 
   const handlePickLiaison = (l: DocumentLiaison) => {

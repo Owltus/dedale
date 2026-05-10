@@ -5,8 +5,7 @@ import { OtList } from "@/components/shared/OtList";
 import { HoverTooltip } from "@/components/shared/HoverTooltip";
 import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 import { useDonutOt } from "@/hooks/use-dashboard";
-import { STATUTS_OT } from "@/lib/utils/statuts";
-import { OT_STATUT_FILL } from "@/lib/utils/colors";
+import type { DonutSegment } from "./donut-segments";
 
 // ── SVG constants ──
 
@@ -19,16 +18,10 @@ const GAP_DEG = 8;
 
 // ── Types ──
 
-interface Segment {
-  label: string;
-  value: number;
-  color: string;
-}
-
 interface DonutGroup {
   label: string;
   categorie: string;
-  segments: Segment[];
+  segments: DonutSegment[];
 }
 
 interface OtDonutChartProps {
@@ -165,13 +158,4 @@ export function OtDonutChart({ groups }: OtDonutChartProps) {
       {openCategorie && <DonutModal categorie={openCategorie} onClose={() => setOpenCategorie(null)} />}
     </>
   );
-}
-
-/// Convertit un tableau OtParStatut[] en segments donut avec couleurs
-export function statutsToSegments(data: { id_statut: number; nombre: number }[]): Segment[] {
-  return data.map((d) => ({
-    label: STATUTS_OT[d.id_statut]?.label ?? "Inconnu",
-    value: d.nombre,
-    color: OT_STATUT_FILL[d.id_statut] ?? "#94a3b8",
-  }));
 }

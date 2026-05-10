@@ -52,18 +52,12 @@ export function OrdresTravailDetail() {
   const [activeTab, setActiveTab] = useState("operations");
   const [editOpen, setEditOpen] = useState(false);
   const [draftChanges, setDraftChanges] = useState<OpDraftChanges>(new Map());
-  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
   const isDirty = draftChanges.size > 0;
 
   // Bloque la navigation React Router tant qu'il y a des modifications non enregistrées
   const blocker = useBlocker(isDirty);
-
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      setConfirmDiscardOpen(true);
-    }
-  }, [blocker.state]);
+  const confirmDiscardOpen = blocker.state === "blocked";
 
   // Bloque la fermeture de la fenêtre / rechargement natif
   useEffect(() => {
@@ -78,12 +72,10 @@ export function OrdresTravailDetail() {
 
   const handleDiscardConfirm = useCallback(() => {
     setDraftChanges(new Map());
-    setConfirmDiscardOpen(false);
     if (blocker.state === "blocked") blocker.proceed();
   }, [blocker]);
 
   const handleDiscardCancel = useCallback(() => {
-    setConfirmDiscardOpen(false);
     if (blocker.state === "blocked") blocker.reset();
   }, [blocker]);
 

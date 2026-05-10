@@ -18,7 +18,10 @@ export function SearchInput({
 }: SearchInputProps) {
   const [internal, setInternal] = useState(value);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     setInternal(value);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { AlertCircle, Plus } from "lucide-react";
@@ -60,9 +60,12 @@ export function DemandesList() {
   const { data: equipementsFamille = [] } = useEquipementsByLocalAndFamille(selectedLocal ?? 0, modeleFamilleId ?? 0);
   const equipementsList = modeleFamilleId ? equipementsFamille : equipementsLocal;
 
-  // Auto-remplir le local quand un modèle avec équipement précis est sélectionné
+  // Auto-remplir le local quand un modèle avec équipement précis est sélectionné.
+  // Réagit à l'arrivée async des équipements (autoLocalId résolu après fetch),
+  // donc setState dans effet est légitime ici.
   useEffect(() => {
     if (autoLocalId && modeleEquipementId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedLocal(autoLocalId);
     }
   }, [autoLocalId, modeleEquipementId]);
@@ -71,6 +74,8 @@ export function DemandesList() {
     resolver: zodResolver(diCreateSchema),
     defaultValues: { id_prestataire: null, libelle_constat: "", description_constat: "", date_constat: new Date().toISOString().split("T")[0], description_resolution_suggeree: "" },
   });
+
+  const idPrestataire = useWatch({ control: form.control, name: "id_prestataire" });
 
   const openCreate = () => {
     form.reset({ id_prestataire: null, libelle_constat: "", description_constat: "", date_constat: new Date().toISOString().split("T")[0], description_resolution_suggeree: "" });
@@ -175,7 +180,7 @@ export function DemandesList() {
         <div className="space-y-2">
           <Label>Prestataire</Label>
           <Select
-            value={form.watch("id_prestataire") ? String(form.watch("id_prestataire")) : undefined}
+            value={idPrestataire ? String(idPrestataire) : undefined}
             items={Object.fromEntries(prestataires.filter(p => p.id_prestataire !== 1).map(p => [String(p.id_prestataire), p.libelle]))}
             onValueChange={(v) => form.setValue("id_prestataire", v ? Number(v) : null)}
           >

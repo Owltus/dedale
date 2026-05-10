@@ -1,8 +1,8 @@
 import { Fragment } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
-import { ROUTE_LABELS } from "@/router";
-import { useBreadcrumbLabels, useBreadcrumbTrail } from "./BreadcrumbContext";
+import { ROUTE_LABELS } from "@/lib/constants/route-labels";
+import { useBreadcrumbLabels, useBreadcrumbTrail } from "./breadcrumb-context";
 
 interface PageHeaderProps {
   title: string;

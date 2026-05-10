@@ -6,6 +6,7 @@ import {
   useDocumentsForEntity,
   useSaveDocumentToDisk,
 } from "@/hooks/use-documents";
+import { useLazyAction } from "@/hooks/use-lazy-action";
 import type { DocumentLie } from "@/lib/types/documents";
 import { formatBytes, formatDate } from "@/lib/utils/format";
 import { CardList } from "./CardList";
@@ -22,24 +23,28 @@ interface OtDocumentsButtonProps {
 }
 
 export function OtDocumentsButton({ idOrdreTravail, nbDocuments }: OtDocumentsButtonProps) {
-  const [enabled, setEnabled] = useState(false);
-  const [pendingAction, setPendingAction] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [enabled, setEnabled] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { previewDoc, previewData, openPreview, closePreview } = useDocumentPreview();
+  const saveToDisk = useSaveDocumentToDisk();
 
   const { data: docs = [], isFetching } = useDocumentsForEntity(
     "ordres_travail",
     enabled ? idOrdreTravail : 0,
   );
-  const { previewDoc, previewData, openPreview, closePreview } = useDocumentPreview();
-  const saveToDisk = useSaveDocumentToDisk();
 
-  useEffect(() => {
-    if (!pendingAction || !enabled || isFetching) return;
-    setPendingAction(false);
-    if (docs.length === 1) void openPreview(docs[0]!);
-    else if (docs.length > 1) setPickerOpen(true);
-  }, [pendingAction, enabled, isFetching, docs, openPreview]);
+  const trigger = useLazyAction<DocumentLie>({
+    enabled,
+    setEnabled,
+    data: docs,
+    isFetching,
+    onResolve: (items) => {
+      if (items.length === 1) void openPreview(items[0]!);
+      else if (items.length > 1) setPickerOpen(true);
+    },
+  });
 
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -48,8 +53,7 @@ export function OtDocumentsButton({ idOrdreTravail, nbDocuments }: OtDocumentsBu
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    setEnabled(true);
-    setPendingAction(true);
+    trigger();
   };
 
   // Base UI n'autorise qu'un seul Dialog modal à la fois : on ferme le picker,

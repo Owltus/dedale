@@ -10,7 +10,7 @@ import { CardList } from "@/components/shared/CardList";
 import { DropZone } from "@/components/shared/DropZone";
 import { ActionButtons } from "@/components/shared/ActionButtons";
 import { UploadModal } from "@/components/shared/UploadModal";
-import { useUploadQueue } from "@/components/shared/UploadQueue";
+import { useUploadQueue } from "@/hooks/use-upload-queue";
 import { DocumentPreviewDialog, type PreviewableDoc } from "@/components/shared/DocumentPreviewDialog";
 import { DocumentLiaisonsButton } from "@/components/shared/DocumentLiaisonsButton";
 import { DocumentEditDialog } from "@/components/shared/DocumentEditDialog";

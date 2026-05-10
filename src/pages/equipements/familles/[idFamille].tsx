@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -64,6 +64,9 @@ export function FamilleDetail() {
     resolver: typedResolver(equipementSchema),
     defaultValues: emptyDefaults,
   });
+
+  const idImage = useWatch({ control: form.control, name: "id_image" });
+  const idLocal = useWatch({ control: form.control, name: "id_local" });
 
   const openCreate = () => {
     form.reset(emptyDefaults);
@@ -152,7 +155,7 @@ export function FamilleDetail() {
           </div>
           <div className="grid grid-cols-3 grid-rows-[auto_auto_auto] gap-4">
             <div className="row-span-3 flex items-center justify-center">
-              <ImagePicker value={form.watch("id_image") ?? null} onChange={(v) => form.setValue("id_image", v)} />
+              <ImagePicker value={idImage ?? null} onChange={(v) => form.setValue("id_image", v)} />
             </div>
             <div className="col-span-2 space-y-2">
               <Label htmlFor="nom_affichage">Désignation *</Label>
@@ -163,7 +166,7 @@ export function FamilleDetail() {
             </div>
             <div className="space-y-3">
               <LocalisationCascadeSelect
-                value={form.watch("id_local") ?? null}
+                value={idLocal ?? null}
                 onChange={(v) => form.setValue("id_local", v)}
                 labels={{ batiment: "Bâtiment", niveau: "Niveau", local: "Local" }}
               />

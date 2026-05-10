@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -14,20 +12,11 @@ import { listen } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 import type { BackupInfo, BackupProgress } from "@/lib/types/backup";
 import { formatBytes } from "@/lib/utils/format";
-
-export type BackupSessionResult =
-  | { kind: "success"; info: BackupInfo; at: number }
-  | { kind: "error"; message: string; at: number };
-
-interface BackupSession {
-  progress: BackupProgress | null;
-  isPending: boolean;
-  lastResult: BackupSessionResult | null;
-  start: (destinationPath: string) => Promise<BackupInfo>;
-  dismissResult: () => void;
-}
-
-const Context = createContext<BackupSession | null>(null);
+import {
+  BackupSessionContext,
+  type BackupSession,
+  type BackupSessionResult,
+} from "@/hooks/use-backup-session";
 
 /// Provider qui orchestre la session de backup au niveau de l'app entière.
 /// Monté dans `RootLayout`, il vit indépendamment des navigations entre pages —
@@ -124,13 +113,5 @@ export function BackupSessionProvider({ children }: { children: ReactNode }) {
     [progress, isPending, lastResult, start, dismissResult],
   );
 
-  return <Context.Provider value={value}>{children}</Context.Provider>;
-}
-
-export function useBackupSession(): BackupSession {
-  const ctx = useContext(Context);
-  if (!ctx) {
-    throw new Error("useBackupSession doit être utilisé dans un BackupSessionProvider");
-  }
-  return ctx;
+  return <BackupSessionContext.Provider value={value}>{children}</BackupSessionContext.Provider>;
 }

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -115,6 +115,8 @@ export function ModelesEquipementsList() {
     resolver: typedResolver(categorieModeleSchema),
     defaultValues: { nom_categorie: "", description: "" },
   });
+
+  const idCategorie = useWatch({ control: modeleForm.control, name: "id_categorie" });
 
   // Regroupement par catégorie
   const grouped = useMemo(() => {
@@ -242,7 +244,7 @@ export function ModelesEquipementsList() {
           <div className="space-y-2">
             <Label>Catégorie</Label>
             <Select
-              value={modeleForm.watch("id_categorie") ? String(modeleForm.watch("id_categorie")) : undefined}
+              value={idCategorie ? String(idCategorie) : undefined}
               items={catItems}
               onValueChange={(v) => modeleForm.setValue("id_categorie", v ? Number(v) : null)}
             >

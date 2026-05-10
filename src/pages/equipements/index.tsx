@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -23,6 +23,8 @@ export function Equipements() {
     resolver: typedResolver(domaineSchema),
     defaultValues: { nom_domaine: "", description: "", id_image: null },
   });
+
+  const idImage = useWatch({ control: form.control, name: "id_image" });
 
   const openCreate = () => {
     form.reset({ nom_domaine: "", description: "", id_image: null });
@@ -59,7 +61,7 @@ export function Equipements() {
         submitLabel="Créer"
       >
         <div className="flex gap-6">
-          <ImagePicker value={form.watch("id_image") ?? null} onChange={(v) => form.setValue("id_image", v)} />
+          <ImagePicker value={idImage ?? null} onChange={(v) => form.setValue("id_image", v)} />
           <div className="flex-1 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="nom_domaine">Nom *</Label>

@@ -98,7 +98,7 @@ export function PlanningChart({ weekOffset = 0 }: PlanningChartProps = {}) {
   }, [displayWeeks]);
 
   // Agrégation unique : chart data + index OT par semaine
-  const chartData = useMemo(() => {
+  const { chartData, weekOtIds } = useMemo(() => {
     const weekKeys = new Set(displayWeeks.map((w) => w.key));
     const counts = new Map<string, Record<number, number>>();
     const ids = new Map<string, number[]>();
@@ -113,18 +113,22 @@ export function PlanningChart({ weekOffset = 0 }: PlanningChartProps = {}) {
       ids.get(wi.key)!.push(ot.id_ordre_travail);
     }
 
-    weekOtIdsRef.current = ids;
-
     return {
-      labels: displayWeeks.map((w) => `S${w.week}`),
-      datasets: PRIORITIES.map((p) => ({
-        label: P_LABEL[p]!,
-        data: displayWeeks.map((w) => counts.get(w.key)?.[p] ?? 0),
-        backgroundColor: OT_PRIORITY_FILL[p]!,
-        borderRadius: 2,
-      })),
+      chartData: {
+        labels: displayWeeks.map((w) => `S${w.week}`),
+        datasets: PRIORITIES.map((p) => ({
+          label: P_LABEL[p]!,
+          data: displayWeeks.map((w) => counts.get(w.key)?.[p] ?? 0),
+          backgroundColor: OT_PRIORITY_FILL[p]!,
+          borderRadius: 2,
+        })),
+      },
+      weekOtIds: ids,
     };
   }, [events, displayWeeks, weekStartStr]);
+
+  // Ref synchronisée pour les handlers (onClick lit la valeur la plus récente).
+  useEffect(() => { weekOtIdsRef.current = weekOtIds; }, [weekOtIds]);
 
   // Options stables (ne dépend pas de weekOtIds grâce au ref)
   const options = useMemo(() => {
@@ -203,12 +207,12 @@ export function PlanningChart({ weekOffset = 0 }: PlanningChartProps = {}) {
   const selectedLabel = useMemo(() => {
     if (selectedIds.length === 0) return "";
     for (const w of displayWeeks) {
-      if (weekOtIdsRef.current.get(w.key)?.includes(selectedIds[0]!)) {
+      if (weekOtIds.get(w.key)?.includes(selectedIds[0]!)) {
         return `Semaine ${w.week} (${selectedIds.length} OT)`;
       }
     }
     return `${selectedIds.length} OT`;
-  }, [selectedIds, displayWeeks]);
+  }, [selectedIds, displayWeeks, weekOtIds]);
 
   return (
     <>
