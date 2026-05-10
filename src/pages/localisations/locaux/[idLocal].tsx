@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useRedirectOnError } from "@/hooks/useRedirectOnError";
 import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
@@ -22,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { localSchema, type LocalFormData } from "@/lib/schemas/localisations";
 import {
   useLocal, useNiveau, useBatiment,
-  useUpdateLocal, useDeleteLocal,
+  useUpdateLocal, useDeleteLocal, useDeleteLocalCascade,
   useEquipementsByLocal, useGammesByLocal, useOtByLocal,
 } from "@/hooks/use-localisations";
 
@@ -31,15 +32,17 @@ export function LocalDetail() {
   const { idLocal } = useParams<{ idLocal: string }>();
   const localId = Number(idLocal);
 
-  const { data: local } = useLocal(localId);
+  const { data: local, isError } = useLocal(localId);
   const { data: niveau } = useNiveau(local?.id_niveau ?? 0);
   const { data: batiment } = useBatiment(niveau?.id_batiment ?? 0);
   const { data: equipements = [] } = useEquipementsByLocal(localId);
+  useRedirectOnError(isError, "/localisations");
   const { data: gammes = [] } = useGammesByLocal(localId);
   const { data: ots = [] } = useOtByLocal(localId);
   const { data: docs = [] } = useDocumentsForEntity("localisations", localId);
   const updateLocal = useUpdateLocal();
   const deleteLocal = useDeleteLocal();
+  const deleteLocalCascade = useDeleteLocalCascade();
 
   const [activeTab, setActiveTab] = useState("equipements");
   const [editOpen, setEditOpen] = useState(false);
@@ -172,19 +175,49 @@ export function LocalDetail() {
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title="Supprimer ce local ?"
-        description={`Le local « ${local?.nom} » sera supprimé. Impossible si des équipements y sont rattachés.`}
+        title={`Supprimer le local « ${local?.nom} » ?`}
+        description={(() => {
+          const n = equipements.length;
+          if (n === 0) return "Cette action est définitive.";
+          const s = n > 1 ? "s" : "";
+          return `Cette action est définitive et supprimera également ${n} équipement${s} rattaché${s} à ce local.`;
+        })()}
         confirmLabel="Supprimer"
         variant="destructive"
         onConfirm={async () => {
           try {
-            await deleteLocal.mutateAsync({ id: localId } as never);
+            if (equipements.length === 0) {
+              await deleteLocal.mutateAsync({ id: localId } as never);
+            } else {
+              await deleteLocalCascade.mutateAsync({ id: localId } as never);
+            }
             toast.success("Local supprimé");
             navigate(`/localisations/niveaux/${local?.id_niveau}`);
           } catch (e) { toast.error(String(e)); }
           setConfirmDelete(false);
         }}
-      />
+      >
+        {equipements.length > 0 && (
+          <div className="rounded-md border bg-muted/40 px-3 py-2.5 space-y-3 text-sm">
+            <div>
+              <p className="font-medium text-foreground mb-1.5">
+                Équipements qui seront supprimés ({equipements.length})
+              </p>
+              <ul className="space-y-0.5 max-h-40 overflow-y-auto">
+                {equipements.map((e) => (
+                  <li key={e.id_equipement} className="text-muted-foreground truncate">
+                    • {e.nom_affichage}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="text-xs text-muted-foreground border-t pt-2 space-y-0.5">
+              <p>Les liaisons entre ces équipements et leurs gammes de maintenance seront retirées.</p>
+              <p>Les gammes elles-mêmes et l'historique des ordres de travail terminés sont conservés.</p>
+            </div>
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

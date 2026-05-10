@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useRedirectOnError } from "@/hooks/useRedirectOnError";
 import { toast } from "sonner";
 import { Layers, Pencil, Plus, Trash2 } from "lucide-react";
 import { CardList } from "@/components/shared/CardList";
@@ -32,11 +33,12 @@ export function BatimentDetail() {
   const { idBatiment } = useParams<{ idBatiment: string }>();
   const batimentId = Number(idBatiment);
 
-  const { data: batiment } = useBatiment(batimentId);
+  const { data: batiment, isError } = useBatiment(batimentId);
   const { data: niveaux = [] } = useNiveaux(batimentId);
   const createNiveau = useCreateNiveau();
   const updateBatiment = useUpdateBatiment();
   const deleteBatiment = useDeleteBatiment();
+  useRedirectOnError(isError, "/localisations");
 
   useSetBreadcrumbTrail(batiment ? [
     { label: "Localisations", path: "/localisations" },
@@ -103,7 +105,9 @@ export function BatimentDetail() {
           <TooltipProvider delay={300}>
             <HeaderButton icon={<Plus className="size-4" />} label="Ajouter un niveau" onClick={openCreate} />
             <HeaderButton icon={<Pencil className="size-4" />} label="Modifier le bâtiment" onClick={openEditBatiment} />
-            <HeaderButton icon={<Trash2 className="size-4" />} label="Supprimer le bâtiment" onClick={() => setConfirmDeleteBatiment(true)} variant="destructive" />
+            {niveaux.length === 0 && (
+              <HeaderButton icon={<Trash2 className="size-4" />} label="Supprimer le bâtiment" onClick={() => setConfirmDeleteBatiment(true)} variant="destructive" />
+            )}
           </TooltipProvider>
         </div>
       </PageHeader>
@@ -190,8 +194,8 @@ export function BatimentDetail() {
       <ConfirmDialog
         open={confirmDeleteBatiment}
         onOpenChange={setConfirmDeleteBatiment}
-        title="Supprimer ce bâtiment ?"
-        description={`Le bâtiment « ${batiment?.nom} » sera supprimé. Impossible si des niveaux y sont rattachés.`}
+        title={`Supprimer le bâtiment « ${batiment?.nom} » ?`}
+        description="Cette action est définitive."
         confirmLabel="Supprimer"
         variant="destructive"
         onConfirm={async () => {

@@ -1,4 +1,5 @@
 import { ClipboardList, FileText } from "lucide-react";
+import { ActionButtons } from "./ActionButtons";
 import { GammeStatusBadge } from "./StatusBadge";
 import { computeAggregateStatutId } from "@/lib/utils/statuts";
 import { CardList } from "./CardList";
@@ -31,10 +32,11 @@ interface GammeListProps {
   showTitle?: boolean;
   showSearch?: boolean;
   className?: string;
+  onUnlink?: (g: GammeListItem) => void;
+  unlinkLabel?: string;
 }
 
-/// Liste de gammes affichée sous forme de cartes empilées
-export function GammeList({ data, emptyTitle = "Aucune gamme", emptyDescription, showTitle = true, showSearch = true, className }: GammeListProps) {
+export function GammeList({ data, emptyTitle = "Aucune gamme", emptyDescription, showTitle = true, showSearch = true, className, onUnlink, unlinkLabel = "Retirer" }: GammeListProps) {
   return (
     <CardList
       data={data}
@@ -64,9 +66,12 @@ export function GammeList({ data, emptyTitle = "Aucune gamme", emptyDescription,
         </>
       )}
       renderRight={(g) => (
-        <div className="flex flex-col items-center gap-1 w-28 shrink-0">
-          <GammeStatusBadge id={getGammeStatutId(g)} />
-          <span className="text-xs text-muted-foreground">{g.libelle_periodicite}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-col items-center gap-1 w-28">
+            <GammeStatusBadge id={getGammeStatutId(g)} />
+            <span className="text-xs text-muted-foreground">{g.libelle_periodicite}</span>
+          </div>
+          {onUnlink && <ActionButtons onUnlink={() => onUnlink(g)} unlinkLabel={unlinkLabel} />}
         </div>
       )}
     />

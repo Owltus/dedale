@@ -65,7 +65,11 @@ export function useDeleteBatiment() {
   const qc = useQueryClient();
   return useInvokeMutation<null, { id: number }>(
     "delete_batiment",
-    { onSettled: () => { qc.invalidateQueries({ queryKey: localisationKeys.batiments }); qc.invalidateQueries({ queryKey: localisationKeys.tree() }); } },
+    { onSettled: (_data, _err, vars) => {
+      qc.removeQueries({ queryKey: localisationKeys.batiment(vars.id) });
+      qc.invalidateQueries({ queryKey: localisationKeys.batiments });
+      qc.invalidateQueries({ queryKey: localisationKeys.tree() });
+    } },
   );
 }
 
@@ -107,7 +111,11 @@ export function useDeleteNiveau() {
   const qc = useQueryClient();
   return useInvokeMutation<null, { id: number }>(
     "delete_niveau",
-    { onSettled: () => { qc.invalidateQueries({ queryKey: ["niveaux"] }); qc.invalidateQueries({ queryKey: localisationKeys.tree() }); } },
+    { onSettled: (_data, _err, vars) => {
+      qc.removeQueries({ queryKey: localisationKeys.niveau(vars.id) });
+      qc.invalidateQueries({ queryKey: ["niveaux"] });
+      qc.invalidateQueries({ queryKey: localisationKeys.tree() });
+    } },
   );
 }
 
@@ -164,7 +172,25 @@ export function useDeleteLocal() {
   const qc = useQueryClient();
   return useInvokeMutation<null, { id: number }>(
     "delete_local",
-    { onSettled: () => { qc.invalidateQueries({ queryKey: ["locaux"] }); qc.invalidateQueries({ queryKey: localisationKeys.tree() }); } },
+    { onSettled: (_data, _err, vars) => {
+      qc.removeQueries({ queryKey: localisationKeys.local(vars.id) });
+      qc.invalidateQueries({ queryKey: ["locaux"] });
+      qc.invalidateQueries({ queryKey: localisationKeys.tree() });
+    } },
+  );
+}
+
+export function useDeleteLocalCascade() {
+  const qc = useQueryClient();
+  return useInvokeMutation<null, { id: number }>(
+    "delete_local_cascade",
+    { onSettled: (_data, _err, vars) => {
+      qc.removeQueries({ queryKey: localisationKeys.local(vars.id) });
+      qc.invalidateQueries({ queryKey: ["locaux"] });
+      qc.invalidateQueries({ queryKey: ["equipements"] });
+      qc.invalidateQueries({ queryKey: ["gammes"] });
+      qc.invalidateQueries({ queryKey: localisationKeys.tree() });
+    } },
   );
 }
 

@@ -23,7 +23,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LocalisationCascadeSelect } from "@/components/shared/LocalisationCascadeSelect";
 import { equipementSchema, type EquipementFormData } from "@/lib/schemas/equipements";
 import { useEquipement, useFamille, useDomaine, useOtByEquipement, useUpdateEquipement, useDeleteEquipement } from "@/hooks/use-equipements";
-import { useEquipementGammes } from "@/hooks/use-gammes";
+import { useEquipementGammes, useUnlinkGammeEquipement } from "@/hooks/use-gammes";
+import { useRedirectOnError } from "@/hooks/useRedirectOnError";
+import type { GammeListItem } from "@/lib/types/gammes";
 import { useValeursEquipement, useSaveValeursEquipement } from "@/hooks/use-modeles-equipements";
 import { formatDate } from "@/lib/utils/format";
 import type { ValeurChampEquipement } from "@/lib/types/equipements";
@@ -40,20 +42,23 @@ export function EquipementDetail() {
   const { id } = useParams<{ id: string }>();
   const equipementId = Number(id);
 
-  const { data: equipement } = useEquipement(equipementId);
+  const { data: equipement, isError } = useEquipement(equipementId);
   const { data: famille } = useFamille(equipement?.id_famille ?? 0);
   const { data: domaine } = useDomaine(famille?.id_domaine ?? 0);
   const { data: ots = [] } = useOtByEquipement(equipementId);
+  useRedirectOnError(isError, "/equipements");
   const { data: gammes = [] } = useEquipementGammes(equipementId);
   const { data: valeursChamps = [] } = useValeursEquipement(equipementId);
   const { data: docs = [] } = useDocumentsForEntity("equipements", equipementId);
   const updateEquipement = useUpdateEquipement();
   const deleteEquipement = useDeleteEquipement();
+  const unlinkGamme = useUnlinkGammeEquipement();
   const saveValeurs = useSaveValeursEquipement();
 
   const [activeTab, setActiveTab] = useState("gammes");
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [unlinkTarget, setUnlinkTarget] = useState<GammeListItem | null>(null);
   const [caracValues, setCaracValues] = useState<Record<number, string>>({});
 
   const champsActifs = valeursChamps.filter((vc) => vc.est_archive === 0 || vc.valeur);
@@ -136,7 +141,9 @@ export function EquipementDetail() {
               />
             )}
             <HeaderButton icon={<Pencil className="size-4" />} label="Modifier" onClick={openEdit} />
-            <HeaderButton icon={<Trash2 className="size-4" />} label="Supprimer" onClick={() => setConfirmDelete(true)} variant="destructive" />
+            {gammes.length === 0 && (
+              <HeaderButton icon={<Trash2 className="size-4" />} label="Supprimer" onClick={() => setConfirmDelete(true)} variant="destructive" />
+            )}
           </TooltipProvider>
         </div>
       </PageHeader>
@@ -181,6 +188,8 @@ export function EquipementDetail() {
             data={gammes}
             emptyTitle="Aucune gamme"
             emptyDescription="Liez des gammes à cet équipement pour voir les maintenances associées."
+            onUnlink={(g) => setUnlinkTarget(g)}
+            unlinkLabel="Retirer cette gamme"
           />
         </TabsContent>
 
@@ -306,8 +315,8 @@ export function EquipementDetail() {
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title="Supprimer cet équipement ?"
-        description={`L'équipement « ${equipement?.nom_affichage} » sera supprimé. Impossible si des gammes y sont rattachées.`}
+        title={`Supprimer l'équipement « ${equipement?.nom_affichage} » ?`}
+        description="Cette action est définitive."
         confirmLabel="Supprimer"
         variant="destructive"
         onConfirm={async () => {
@@ -317,6 +326,23 @@ export function EquipementDetail() {
             navigate(`/equipements/familles/${equipement?.id_famille}`);
           } catch (e) { toast.error(String(e)); }
           setConfirmDelete(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!unlinkTarget}
+        onOpenChange={(open) => !open && setUnlinkTarget(null)}
+        title={`Retirer la gamme « ${unlinkTarget?.nom_gamme} » ?`}
+        description="La gamme reste disponible et peut toujours être liée à d'autres équipements."
+        confirmLabel="Retirer"
+        variant="destructive"
+        onConfirm={async () => {
+          if (!unlinkTarget) return;
+          try {
+            await unlinkGamme.mutateAsync({ idGamme: unlinkTarget.id_gamme, idEquipement: equipementId });
+            toast.success("Gamme retirée de l'équipement");
+          } catch (e) { toast.error(String(e)); }
+          setUnlinkTarget(null);
         }}
       />
     </div>

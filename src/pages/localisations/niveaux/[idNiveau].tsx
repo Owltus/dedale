@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useRedirectOnError } from "@/hooks/useRedirectOnError";
 import { useForm, useWatch } from "react-hook-form";
 import { typedResolver } from "@/lib/utils/form";
 import { toast } from "sonner";
@@ -19,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { localSchema, type LocalFormData } from "@/lib/schemas/localisations";
 import {
   useNiveau, useBatiment, useLocaux,
-  useCreateLocal, useUpdateLocal, useDeleteLocal,
+  useCreateLocal, useUpdateLocal,
   useUpdateNiveau, useDeleteNiveau,
 } from "@/hooks/use-localisations";
 import type { Local } from "@/lib/types/localisations";
@@ -33,12 +34,13 @@ export function NiveauDetail() {
   const { idNiveau } = useParams<{ idNiveau: string }>();
   const niveauId = Number(idNiveau);
 
-  const { data: niveau } = useNiveau(niveauId);
+  const { data: niveau, isError } = useNiveau(niveauId);
   const { data: batiment } = useBatiment(niveau?.id_batiment ?? 0);
   const { data: locaux = [] } = useLocaux(niveauId);
+  useRedirectOnError(isError, "/localisations");
+
   const createLocal = useCreateLocal();
   const updateLocal = useUpdateLocal();
-  const deleteLocal = useDeleteLocal();
   const updateNiveau = useUpdateNiveau();
   const deleteNiveau = useDeleteNiveau();
 
@@ -51,7 +53,6 @@ export function NiveauDetail() {
   // Local CRUD
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Local | null>(null);
 
   const form = useForm<LocalFormData>({
     resolver: typedResolver(localSchema),
@@ -83,15 +84,6 @@ export function NiveauDetail() {
       }
       setDialogOpen(false);
     } catch (e) { toast.error(String(e)); }
-  };
-
-  const onDeleteLocal = async () => {
-    if (!deleteTarget) return;
-    try {
-      await deleteLocal.mutateAsync({ id: deleteTarget.id_local } as never);
-      toast.success("Local supprimé");
-    } catch (e) { toast.error(String(e)); }
-    setDeleteTarget(null);
   };
 
   // Niveau edit
@@ -133,7 +125,9 @@ export function NiveauDetail() {
           <TooltipProvider delay={300}>
             <HeaderButton icon={<Plus className="size-4" />} label="Ajouter un local" onClick={openCreate} />
             <HeaderButton icon={<Pencil className="size-4" />} label="Modifier le niveau" onClick={openEditNiveau} />
-            <HeaderButton icon={<Trash2 className="size-4" />} label="Supprimer le niveau" onClick={() => setConfirmDeleteNiveau(true)} variant="destructive" />
+            {locaux.length === 0 && (
+              <HeaderButton icon={<Trash2 className="size-4" />} label="Supprimer le niveau" onClick={() => setConfirmDeleteNiveau(true)} variant="destructive" />
+            )}
           </TooltipProvider>
         </div>
       </PageHeader>
@@ -159,7 +153,6 @@ export function NiveauDetail() {
         renderRight={(r) => (
           <ActionButtons
             onEdit={() => openEdit(r)}
-            onDelete={() => setDeleteTarget(r)}
           />
         )}
       />
@@ -196,14 +189,6 @@ export function NiveauDetail() {
         </div>
       </CrudDialog>
 
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Supprimer le local"
-        description={`Êtes-vous sûr de vouloir supprimer « ${deleteTarget?.nom} » ? Cette action est irréversible.`}
-        onConfirm={onDeleteLocal}
-      />
-
       <Dialog open={editNiveauOpen} onOpenChange={setEditNiveauOpen}>
         <DialogContent>
           <DialogHeader>
@@ -237,8 +222,8 @@ export function NiveauDetail() {
       <ConfirmDialog
         open={confirmDeleteNiveau}
         onOpenChange={setConfirmDeleteNiveau}
-        title="Supprimer ce niveau ?"
-        description={`Le niveau « ${niveau?.nom} » sera supprimé. Impossible si des locaux y sont rattachés.`}
+        title={`Supprimer le niveau « ${niveau?.nom} » ?`}
+        description="Cette action est définitive."
         confirmLabel="Supprimer"
         variant="destructive"
         onConfirm={async () => {

@@ -105,6 +105,7 @@ pub fn run() {
             commands::localisations::create_local,
             commands::localisations::update_local,
             commands::localisations::delete_local,
+            commands::localisations::delete_local_cascade,
             // Arbre localisations (helper dropdowns)
             commands::localisations::get_localisations_tree,
             // Données liées à un local (page détail)

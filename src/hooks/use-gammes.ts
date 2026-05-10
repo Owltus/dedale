@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useInvokeQuery, useInvokeMutation } from "./useInvoke";
 import { otKeys } from "./use-ordres-travail";
+import { equipementKeys } from "./use-equipements";
 import type { DomaineGamme, DomaineGammeListItem, FamilleGamme, FamilleGammeListItem, Gamme, GammeListItem, Operation } from "@/lib/types/gammes";
 import type { Equipement } from "@/lib/types/equipements";
 
@@ -266,7 +267,12 @@ export function useUnlinkGammeEquipement() {
   const qc = useQueryClient();
   return useInvokeMutation<null, { idGamme: number; idEquipement: number }>(
     "unlink_gamme_equipement",
-    { onSettled: () => qc.invalidateQueries({ queryKey: gammeKeys.all }) }
+    {
+      onSettled: (_data, _err, vars) => {
+        qc.invalidateQueries({ queryKey: gammeKeys.equipements(vars.idGamme) });
+        qc.invalidateQueries({ queryKey: equipementKeys.gammesByEquipement(vars.idEquipement) });
+      },
+    }
   );
 }
 
@@ -274,6 +280,6 @@ export function useEquipementGammes(idEquipement: number) {
   return useInvokeQuery<GammeListItem[]>(
     "get_equipement_gammes",
     { idEquipement },
-    { queryKey: ["equipements", "gammes", idEquipement], enabled: !!idEquipement }
+    { queryKey: equipementKeys.gammesByEquipement(idEquipement), enabled: !!idEquipement }
   );
 }

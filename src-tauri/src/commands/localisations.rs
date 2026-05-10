@@ -259,6 +259,26 @@ pub fn delete_local(db: State<DbPool>, id: i64) -> Result<(), String> {
     Ok(())
 }
 
+/// Suppression cascade locale : `gammes_equipements` est en RESTRICT côté équipements,
+/// donc on retire les liaisons manuellement avant le DELETE équipements.
+/// Les autres tables liées (valeurs_equipements, di_*, documents_*) sont en CASCADE SQL.
+#[tauri::command]
+pub fn delete_local_cascade(db: State<DbPool>, id: i64) -> Result<(), String> {
+    let mut conn = db.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    tx.execute(
+        "DELETE FROM gammes_equipements WHERE id_equipement IN (SELECT id_equipement FROM equipements WHERE id_local = ?1)",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM equipements WHERE id_local = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM locaux WHERE id_local = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // ── Helper arbre aplati (pour les dropdowns de localisation) ──
 // ════════════════════════════════════════════════════════════════════════════

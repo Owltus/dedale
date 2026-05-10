@@ -11,6 +11,7 @@ export const equipementKeys = {
   equipements: (idFamille?: number) => idFamille ? ["equipements", { id_famille: idFamille }] as const : ["equipements"] as const,
   equipement: (id: number) => ["equipements", "detail", id] as const,
   otByEquipement: (id: number) => ["equipements", "ot", id] as const,
+  gammesByEquipement: (id: number) => ["equipements", "gammes", id] as const,
 };
 
 // Domaines
@@ -125,7 +126,10 @@ export function useDeleteEquipement() {
   const qc = useQueryClient();
   return useInvokeMutation<null, { id: number }>(
     "delete_equipement",
-    { onSettled: () => {
+    { onSettled: (_data, _err, vars) => {
+      qc.removeQueries({ queryKey: equipementKeys.equipement(vars.id) });
+      qc.removeQueries({ queryKey: equipementKeys.otByEquipement(vars.id) });
+      qc.removeQueries({ queryKey: equipementKeys.gammesByEquipement(vars.id) });
       qc.invalidateQueries({ queryKey: ["equipements"] });
       qc.invalidateQueries({ queryKey: ["gammes"] });
     } }
