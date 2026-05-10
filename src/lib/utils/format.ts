@@ -25,6 +25,17 @@ export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/// Date au format ISO (YYYY-MM-DD) en heure **locale**.
+/// À préférer à `todayIso()` quand la valeur est comparée à une date métier ou
+/// utilisée comme borne de fenêtre temporelle : `toISOString()` étant en UTC,
+/// il peut renvoyer la veille pendant quelques heures après minuit local.
+export function toLocalIsoDate(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /// Formate une date pour l'axe X d'un graphique de relevés, selon la périodicité de la gamme.
 /// `includeYear` : si false, on omet l'année (utile sur les bar charts qui affichent
 /// l'année séparément en filigrane).
