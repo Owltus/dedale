@@ -1,7 +1,7 @@
 import { useInvokeMutation, useInvokeQuery } from "./useInvoke";
 import type {
   BackupManifest,
-  LocalPreRestoreBackup,
+  LocalBackup,
   RestoreInfo,
 } from "@/lib/types/backup";
 
@@ -18,19 +18,13 @@ export function useBackupRestore() {
   return useInvokeMutation<void, { zipPath: string }>("backup_restore");
 }
 
-/// Date ISO de la dernière sauvegarde manuelle réussie (null si jamais)
-export function useDerniereSauvegarde() {
-  return useInvokeQuery<string | null>("get_derniere_sauvegarde");
-}
-
-/// Liste des sauvegardes pré-restore locales (filets créés avant chaque swap)
-export function usePreRestoreBackups() {
-  return useInvokeQuery<LocalPreRestoreBackup[]>("list_pre_restore_backups");
-}
-
-/// Restaure une sauvegarde pré-restore identifiée par son horodatage — l'app redémarre
-export function useRestorePreRestore() {
-  return useInvokeMutation<void, { stamp: string }>("restore_pre_restore");
+/// Liste les sauvegardes locales (.zip) — au plus `LOCAL_BACKUP_KEEP` (3) entrées.
+/// staleTime infini : la liste est invalidée explicitement après chaque création
+/// dans `BackupSessionProvider`, inutile de re-lire les zips à chaque mount.
+export function useLocalBackups() {
+  return useInvokeQuery<LocalBackup[]>("list_local_backups", undefined, {
+    staleTime: Infinity,
+  });
 }
 
 /// Lit et consomme le marqueur de restauration au boot — appelé une seule fois.

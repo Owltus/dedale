@@ -6,7 +6,7 @@ use std::fs;
 use std::io::{self, Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
@@ -24,6 +24,14 @@ const MANIFEST_NAME: &str = "manifest.json";
 const DB_NAME_IN_ZIP: &str = "dedale.db";
 const DOCUMENTS_PREFIX: &str = "documents/";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Sous-dossier où sont stockés les .zip de sauvegardes locales
+const LOCAL_BACKUPS_SUBDIR: &str = "backups";
+/// Préfixe des fichiers de sauvegarde locale (suivi de YYYYMMDD-HHMMSS.zip)
+const LOCAL_BACKUP_PREFIX: &str = "dedale-backup-";
+/// Nombre maximum de sauvegardes locales conservées — au-delà, les plus anciennes
+/// sont supprimées (rotation FIFO basée sur la date de création).
+const LOCAL_BACKUP_KEEP: usize = 3;
 
 // ════════════════════════════════════════════════════════════════════════════
 // ── Modèles ──
@@ -58,19 +66,19 @@ pub struct BackupInfo {
     pub manifest: BackupManifest,
 }
 
-/// Sauvegarde locale automatique (créée par `apply_pending_restore` avant un swap).
-/// Une entrée par horodatage trouvé dans `app_data_dir`.
+/// Sauvegarde locale stockée dans `app_data_dir/backups/`. Une entrée par
+/// fichier .zip détecté. Le manifest est lu depuis le zip pour les métadonnées
+/// (date, comptes, taille DB).
 #[derive(Serialize)]
-pub struct LocalPreRestoreBackup {
+pub struct LocalBackup {
     /// Horodatage YYYYMMDD-HHMMSS extrait du nom du fichier
     pub stamp: String,
-    /// Date au format ISO-8601 reconstruite depuis le stamp
-    pub created_at: String,
-    pub db_path: String,
-    pub db_size_bytes: i64,
-    /// Si un dossier `documents.pre-restore-{stamp}` existe pour le même horodatage
-    pub has_documents: bool,
-    pub documents_path: Option<String>,
+    /// Chemin absolu du fichier .zip — passé tel quel à `backup_restore`
+    pub zip_path: String,
+    /// Taille du .zip sur disque
+    pub size_bytes: i64,
+    /// Manifest extrait du zip (ou None si lecture impossible)
+    pub manifest: Option<BackupManifest>,
 }
 
 /// Info retournée par `consume_restore_flag` quand une restauration vient juste
@@ -448,14 +456,11 @@ fn add_dir_to_zip(
 /// puis en déléguant le travail bloquant à `tauri::async_runtime::spawn_blocking`,
 /// le main thread reste libre de pumper l'event loop et l'UI reste fluide.
 #[tauri::command]
-pub async fn backup_create(
-    app: AppHandle,
-    destination_path: String,
-) -> Result<BackupInfo, String> {
+pub async fn backup_create(app: AppHandle) -> Result<BackupInfo, String> {
     let app_for_blocking = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let state = app_for_blocking.state::<DbPool>();
-        backup_create_blocking(&app_for_blocking, &state, destination_path)
+        backup_create_blocking(&app_for_blocking, &state)
     })
     .await
     .map_err(|e| format!("Erreur d'exécution du backup : {}", e))?
@@ -463,19 +468,23 @@ pub async fn backup_create(
 
 /// Implémentation bloquante de la création de backup — exécutée dans un thread
 /// dédié (`spawn_blocking`) pour ne pas figer le main thread Tauri.
-fn backup_create_blocking(
-    app: &AppHandle,
-    db: &DbPool,
-    destination_path: String,
-) -> Result<BackupInfo, String> {
-    let dest = PathBuf::from(&destination_path);
+///
+/// Le fichier est généré automatiquement dans `app_data_dir/backups/` sous le nom
+/// `dedale-backup-YYYYMMDD-HHMMSS.zip`. Après chaque création réussie, la
+/// rotation supprime les sauvegardes au-delà de `LOCAL_BACKUP_KEEP`.
+fn backup_create_blocking(app: &AppHandle, db: &DbPool) -> Result<BackupInfo, String> {
     let data_dir = app_data(app)?;
     let docs_dir = data_dir.join("documents");
+    let backups_dir = data_dir.join(LOCAL_BACKUPS_SUBDIR);
+    fs::create_dir_all(&backups_dir)
+        .map_err(|e| format!("Création du dossier des sauvegardes : {}", e))?;
+    let backup_stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let dest = backups_dir.join(format!("{}{}.zip", LOCAL_BACKUP_PREFIX, backup_stamp));
 
     emit_progress(app, "snapshot", 0, 0);
 
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S%3f").to_string();
-    let tmp_db = data_dir.join(format!(".dedale-backup-tmp-{}.db", stamp));
+    let tmp_db = data_dir.join(format!("{}{}.db", db::TMP_SNAPSHOT_PREFIX, stamp));
     let _ = fs::remove_file(&tmp_db);
 
     // Vérification d'intégrité + lecture de la version — lock SQLite relâché
@@ -521,16 +530,12 @@ fn backup_create_blocking(
         equipements_count: stats.equipements_count,
     };
 
-    // Écrire le zip
     let total_docs = manifest.documents_count;
     let app_for_zip = app.clone();
     let write_result = (|| -> Result<(), String> {
         let file = fs::File::create(&dest)
             .map_err(|e| format!("Création de l'archive : {}", e))?;
         let mut zip = ZipWriter::new(file);
-
-        // manifest.json + dedale.db : très compressibles (texte / SQL) → Deflate
-        // au niveau adapté au CPU
         let opts = deflate_options();
 
         // manifest.json en premier — pour qu'un inspect ne lise que le début du zip
@@ -541,14 +546,12 @@ fn backup_create_blocking(
         zip.write_all(&manifest_bytes)
             .map_err(|e| e.to_string())?;
 
-        // dedale.db (le snapshot Online Backup)
         zip.start_file(DB_NAME_IN_ZIP, opts)
             .map_err(|e| e.to_string())?;
         let mut f = fs::File::open(&tmp_db)
             .map_err(|e| format!("Ouverture du snapshot : {}", e))?;
         std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
 
-        // Phase 2 — Compression des documents avec throttling temporel
         emit_progress(&app_for_zip, "documents", 0, total_docs);
         if docs_dir.exists() {
             let mut current_doc: i64 = 0;
@@ -567,7 +570,6 @@ fn backup_create_blocking(
             })?;
         }
 
-        // Phase 3 — Finalisation du zip (écriture du Central Directory)
         emit_progress(&app_for_zip, "finalizing", 0, 0);
         zip.finish().map_err(|e| format!("Finalisation du zip : {}", e))?;
         Ok(())
@@ -576,32 +578,21 @@ fn backup_create_blocking(
     // Toujours nettoyer le snapshot temp + ses compagnons WAL/SHM, même en cas d'erreur
     remove_tmp_snapshot(&tmp_db);
     if let Err(e) = write_result {
-        // En cas d'échec d'écriture, on évite de laisser un zip à moitié écrit
         let _ = fs::remove_file(&dest);
-        // Reset de la progression côté frontend pour libérer l'UI
         emit_progress(&app, "idle", 0, 0);
         return Err(e);
     }
 
-    // Phase finale — succès (le frontend remet la barre à zéro côté UI)
     emit_progress(&app, "done", total_docs, total_docs);
 
     let total_size = fs::metadata(&dest).map(|m| m.len() as i64).unwrap_or(0);
 
-    // Trace la date de la dernière sauvegarde réussie pour le badge de fraîcheur.
-    // Échec silencieux : c'est une info de confort, pas critique pour la création.
-    {
-        if let Ok(conn) = db.lock() {
-            let _ = conn.execute(
-                "INSERT INTO parametres_systeme (cle, valeur) VALUES ('derniere_sauvegarde', ?1)
-                 ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur",
-                rusqlite::params![manifest.created_at],
-            );
-        }
-    }
+    // Rotation : ne garder que les N plus récents. Échec silencieux — la
+    // sauvegarde vient d'être créée avec succès, c'est l'info utile.
+    db::prune_old_backups(&backups_dir, LOCAL_BACKUP_PREFIX, Some(".zip"), LOCAL_BACKUP_KEEP);
 
     Ok(BackupInfo {
-        path: destination_path,
+        path: dest.to_string_lossy().to_string(),
         size_bytes: total_size,
         manifest,
     })
@@ -794,11 +785,8 @@ fn finalize_restore_or_request_manual_restart(app: &AppHandle) -> Result<(), Str
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// ── Sauvegardes locales automatiques (pré-restore) ──
+// ── Sauvegardes locales (rotation 3 derniers) ──
 // ════════════════════════════════════════════════════════════════════════════
-
-const PRE_RESTORE_DB_PREFIX: &str = "dedale.db.backup-pre-restore-";
-const PRE_RESTORE_DOCS_PREFIX: &str = "documents.pre-restore-";
 
 /// Reconstruit une date ISO-8601 lisible à partir d'un horodatage `YYYYMMDD-HHMMSS`.
 /// Retourne le stamp brut si le format ne matche pas.
@@ -819,120 +807,51 @@ fn iso_from_stamp(stamp: &str) -> String {
     stamp.to_string()
 }
 
-/// Renvoie la date ISO-8601 de la dernière sauvegarde manuelle réussie, ou None.
+/// Liste les sauvegardes locales (.zip) présentes dans `app_data_dir/backups/`,
+/// triées du plus récent au plus ancien. Pour chaque .zip, le manifest est lu —
+/// si la lecture échoue (zip corrompu, format inconnu), `manifest = None` mais
+/// l'entrée reste listée pour permettre à l'utilisateur de la voir et de la
+/// gérer.
 #[tauri::command]
-pub fn get_derniere_sauvegarde(db: State<DbPool>) -> Result<Option<String>, String> {
-    let conn = db.lock().map_err(|e| e.to_string())?;
-    let result: Option<String> = conn
-        .query_row(
-            "SELECT valeur FROM parametres_systeme WHERE cle = 'derniere_sauvegarde'",
-            [],
-            |row| row.get(0),
-        )
-        .ok();
-    Ok(result)
-}
-
-/// Liste les sauvegardes pré-restore présentes dans `app_data_dir` — ces fichiers
-/// sont créés automatiquement par `apply_pending_restore` avant chaque swap, et
-/// servent de filet en cas de regret. Triées du plus récent au plus ancien.
-#[tauri::command]
-pub fn list_pre_restore_backups(app: AppHandle) -> Result<Vec<LocalPreRestoreBackup>, String> {
+pub fn list_local_backups(app: AppHandle) -> Result<Vec<LocalBackup>, String> {
     let data_dir = app_data(&app)?;
-    let entries = fs::read_dir(&data_dir).map_err(|e| format!("Lecture {} : {}", data_dir.display(), e))?;
+    let backups_dir = data_dir.join(LOCAL_BACKUPS_SUBDIR);
+    if !backups_dir.exists() {
+        return Ok(Vec::new());
+    }
 
-    let mut result: Vec<LocalPreRestoreBackup> = Vec::new();
+    let entries = fs::read_dir(&backups_dir)
+        .map_err(|e| format!("Lecture {} : {}", backups_dir.display(), e))?;
+
+    let mut result: Vec<LocalBackup> = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
         let name = match path.file_name().and_then(|n| n.to_str()) {
             Some(n) => n.to_string(),
             None => continue,
         };
-        let stamp = match name.strip_prefix(PRE_RESTORE_DB_PREFIX) {
+        if !name.ends_with(".zip") {
+            continue;
+        }
+        let stamp_with_ext = match name.strip_prefix(LOCAL_BACKUP_PREFIX) {
             Some(s) => s.to_string(),
             None => continue,
         };
-        let docs = data_dir.join(format!("{}{}", PRE_RESTORE_DOCS_PREFIX, stamp));
-        let has_documents = docs.exists() && docs.is_dir();
-        let db_size = fs::metadata(&path).map(|m| m.len() as i64).unwrap_or(0);
-        result.push(LocalPreRestoreBackup {
-            created_at: iso_from_stamp(&stamp),
+        let stamp = stamp_with_ext.trim_end_matches(".zip").to_string();
+        let zip_path = path.to_string_lossy().to_string();
+        let size_bytes = fs::metadata(&path).map(|m| m.len() as i64).unwrap_or(0);
+        // Lecture best-effort du manifest — un zip illisible n'empêche pas le
+        // listing. L'utilisateur verra l'entrée et pourra décider de la traiter.
+        let manifest = backup_inspect(zip_path.clone()).ok();
+        result.push(LocalBackup {
             stamp,
-            db_path: path.to_string_lossy().to_string(),
-            db_size_bytes: db_size,
-            has_documents,
-            documents_path: if has_documents {
-                Some(docs.to_string_lossy().to_string())
-            } else {
-                None
-            },
+            zip_path,
+            size_bytes,
+            manifest,
         });
     }
     result.sort_by(|a, b| b.stamp.cmp(&a.stamp));
     Ok(result)
-}
-
-/// Restaure une sauvegarde pré-restore identifiée par son horodatage. Place la
-/// DB et le dossier documents (s'il existe) dans `pending-restore/` puis redémarre,
-/// exactement comme `backup_restore` mais sans passer par un zip.
-#[tauri::command]
-pub async fn restore_pre_restore(app: AppHandle, stamp: String) -> Result<(), String> {
-    let app_for_blocking = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        restore_pre_restore_blocking(&app_for_blocking, stamp)
-    })
-    .await
-    .map_err(|e| format!("Erreur d'exécution : {}", e))?
-}
-
-fn restore_pre_restore_blocking(app: &AppHandle, stamp: String) -> Result<(), String> {
-    let data_dir = app_data(app)?;
-    let src_db = data_dir.join(format!("{}{}", PRE_RESTORE_DB_PREFIX, stamp));
-    if !src_db.exists() {
-        return Err(format!("Sauvegarde pré-restore introuvable pour {}", stamp));
-    }
-
-    // Validation préalable de la base avant d'engager le swap
-    let embedded = db::embedded_schema_version()?;
-    validate_pending_db(&src_db, embedded)?;
-
-    let pending = data_dir.join("pending-restore");
-    if let Err(e) = fs::remove_dir_all(&pending) {
-        if e.kind() != io::ErrorKind::NotFound {
-            return Err(format!("Nettoyage pending-restore existant : {}", e));
-        }
-    }
-    fs::create_dir_all(&pending)
-        .map_err(|e| format!("Création pending-restore : {}", e))?;
-
-    fs::copy(&src_db, pending.join("dedale.db"))
-        .map_err(|e| format!("Copie de la DB pré-restore : {}", e))?;
-
-    // Si un dossier documents associé existe, on le copie aussi
-    let src_docs = data_dir.join(format!("{}{}", PRE_RESTORE_DOCS_PREFIX, stamp));
-    if src_docs.exists() && src_docs.is_dir() {
-        copy_dir_recursive(&src_docs, &pending.join("documents"))
-            .map_err(|e| format!("Copie des documents pré-restore : {}", e))?;
-    }
-
-    finalize_restore_or_request_manual_restart(app)
-}
-
-/// Copie récursive d'un dossier — équivalent shell `cp -r`. La crate std n'offre
-/// pas de helper direct ; on évite d'ajouter une dépendance pour si peu.
-fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
-    fs::create_dir_all(dst)?;
-    for entry in fs::read_dir(src)? {
-        let entry = entry?;
-        let from = entry.path();
-        let to = dst.join(entry.file_name());
-        if entry.file_type()?.is_dir() {
-            copy_dir_recursive(&from, &to)?;
-        } else {
-            fs::copy(&from, &to)?;
-        }
-    }
-    Ok(())
 }
 
 /// Lit (et consomme) le marqueur `.last-restore-marker` déposé par
@@ -955,8 +874,8 @@ pub fn consume_restore_flag(app: AppHandle) -> Result<Option<RestoreInfo>, Strin
 }
 
 /// Ouvre le dossier `app_data_dir` dans l'explorateur de fichiers du système.
-/// Utilisé pour permettre à l'utilisateur d'aller copier manuellement un backup
-/// pré-restore sur un disque externe ou de vérifier les fichiers présents.
+/// Permet à l'utilisateur de copier un backup local sur un disque externe ou
+/// d'inspecter les fichiers présents.
 #[tauri::command]
 pub fn open_app_data_dir(app: AppHandle) -> Result<(), String> {
     let data_dir = app_data(&app)?;

@@ -79,20 +79,19 @@ export function BackupSessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const start = useCallback(
-    async (destinationPath: string): Promise<BackupInfo> => {
+    async (): Promise<BackupInfo> => {
       sessionIdRef.current += 1;
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
       setIsPending(true);
       setLastResult(null);
       setProgress(null);
       try {
-        const info = await invoke<BackupInfo>("backup_create", { destinationPath });
+        const info = await invoke<BackupInfo>("backup_create");
         setLastResult({ kind: "success", info, at: Date.now() });
         toast.success(
           `Sauvegarde créée (${formatBytes(info.size_bytes)} — ${info.manifest.documents_count} document${info.manifest.documents_count > 1 ? "s" : ""})`,
         );
-        qc.invalidateQueries({ queryKey: ["get_derniere_sauvegarde"] });
-        qc.invalidateQueries({ queryKey: ["list_pre_restore_backups"] });
+        qc.invalidateQueries({ queryKey: ["list_local_backups"] });
         return info;
       } catch (err) {
         const message = String(err);

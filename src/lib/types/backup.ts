@@ -19,14 +19,13 @@ export interface BackupInfo {
   manifest: BackupManifest;
 }
 
-/// Sauvegarde locale automatique (créée avant chaque restore)
-export interface LocalPreRestoreBackup {
+/// Sauvegarde locale stockée dans `app_data_dir/backups/` (rotation des 3
+/// dernières). Le `manifest` peut être null si le zip est illisible.
+export interface LocalBackup {
   stamp: string;
-  created_at: string;
-  db_path: string;
-  db_size_bytes: number;
-  has_documents: boolean;
-  documents_path: string | null;
+  zip_path: string;
+  size_bytes: number;
+  manifest: BackupManifest | null;
 }
 
 /// Renvoyé par consume_restore_flag quand une restauration vient d'être appliquée

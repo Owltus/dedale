@@ -9,7 +9,7 @@ export interface BackupSession {
   progress: BackupProgress | null;
   isPending: boolean;
   lastResult: BackupSessionResult | null;
-  start: (destinationPath: string) => Promise<BackupInfo>;
+  start: () => Promise<BackupInfo>;
   dismissResult: () => void;
 }
 

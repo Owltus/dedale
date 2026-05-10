@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Database, Download, FolderOpen, History, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -11,21 +10,12 @@ import { useBackupSession } from "@/hooks/use-backup-session";
 import {
   useBackupInspect,
   useBackupRestore,
-  useDerniereSauvegarde,
+  useLocalBackups,
   useOpenAppDataDir,
-  usePreRestoreBackups,
-  useRestorePreRestore,
 } from "@/hooks/use-backup";
 import { cn } from "@/lib/utils";
-import { daysSince, formatBytes, formatDateTime } from "@/lib/utils/format";
-import type { BackupManifest, BackupProgress, LocalPreRestoreBackup } from "@/lib/types/backup";
-
-/// Nom de fichier suggéré : dedale-backup-2026-04-26-1432.zip
-function defaultBackupName(): string {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `dedale-backup-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.zip`;
-}
+import { formatBytes, formatDateTime } from "@/lib/utils/format";
+import type { BackupManifest, BackupProgress, LocalBackup } from "@/lib/types/backup";
 
 interface RestoreCandidate {
   zipPath: string;
@@ -36,28 +26,19 @@ export function SauvegardeTab() {
   const session = useBackupSession();
   const inspectMutation = useBackupInspect();
   const restoreMutation = useBackupRestore();
-  const restorePreRestoreMutation = useRestorePreRestore();
   const openDirMutation = useOpenAppDataDir();
-  const { data: derniereSauvegarde } = useDerniereSauvegarde();
-  const { data: preRestoreBackups = [] } = usePreRestoreBackups();
+  const { data: localBackups = [] } = useLocalBackups();
 
   const [candidate, setCandidate] = useState<RestoreCandidate | null>(null);
-  const [preRestoreCandidate, setPreRestoreCandidate] = useState<LocalPreRestoreBackup | null>(null);
 
   const handleCreate = async () => {
     // Si une session est déjà en cours, on ne relance pas — l'utilisateur voit
     // déjà la barre, le bouton est désactivé. Garde-fou en cas de double clic rapide.
     if (session.isPending) return;
     try {
-      const destination = await save({
-        defaultPath: defaultBackupName(),
-        filters: [{ name: "Archive DÉDALE", extensions: ["zip"] }],
-        title: "Enregistrer la sauvegarde",
-      });
-      if (!destination) return;
       // Le toast et l'invalidation des queries sont gérés dans le provider.
       // Ce composant peut être démonté entre-temps : la session continue.
-      await session.start(destination);
+      await session.start();
     } catch {
       // Erreur déjà reportée par le provider (toast). Pas de re-emission ici.
     }
@@ -78,6 +59,14 @@ export function SauvegardeTab() {
     }
   };
 
+  const handlePickLocal = (b: LocalBackup) => {
+    if (!b.manifest) {
+      toast.error("Cette sauvegarde locale est illisible et ne peut pas être restaurée.");
+      return;
+    }
+    setCandidate({ zipPath: b.zip_path, manifest: b.manifest });
+  };
+
   const handleConfirmRestore = async () => {
     if (!candidate) return;
     try {
@@ -85,16 +74,6 @@ export function SauvegardeTab() {
     } catch (err) {
       toast.error(`Restauration échouée : ${String(err)}`);
       setCandidate(null);
-    }
-  };
-
-  const handleConfirmRestorePreRestore = async () => {
-    if (!preRestoreCandidate) return;
-    try {
-      await restorePreRestoreMutation.mutateAsync({ stamp: preRestoreCandidate.stamp });
-    } catch (err) {
-      toast.error(`Restauration échouée : ${String(err)}`);
-      setPreRestoreCandidate(null);
     }
   };
 
@@ -115,11 +94,10 @@ export function SauvegardeTab() {
             Créer une sauvegarde
           </CardTitle>
           <CardDescription>
-            Génère une archive <code>.zip</code> contenant un instantané de la base de données et de tous les documents liés (PDF, images). À conserver sur un disque externe ou dans le cloud.
+            Génère une archive <code>.zip</code> contenant un instantané de la base de données et de tous les documents liés (PDF, images). La sauvegarde est conservée localement — seules les 3 plus récentes sont gardées, la plus ancienne est supprimée à chaque nouvelle création.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-start gap-3">
-          <FreshnessLine derniereSauvegarde={derniereSauvegarde ?? null} />
           <Button onClick={handleCreate} disabled={session.isPending}>
             <Database className="size-4" />
             {session.isPending ? "Sauvegarde en cours..." : "Créer une sauvegarde"}
@@ -137,7 +115,7 @@ export function SauvegardeTab() {
             Restaurer depuis une archive
           </CardTitle>
           <CardDescription>
-            Remplace intégralement la base et les documents actuels par le contenu d'une archive <code>.zip</code>. Un filet de sécurité (copie de la base actuelle) est créé automatiquement avant l'écrasement. L'application redémarre une fois la restauration terminée.
+            Remplace intégralement la base et les documents actuels par le contenu d'une archive <code>.zip</code> externe (disque, cloud…). L'application redémarre une fois la restauration terminée.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -156,41 +134,26 @@ export function SauvegardeTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <History className="size-4" />
-            Sauvegardes locales automatiques
+            Sauvegardes locales
           </CardTitle>
           <CardDescription>
-            Avant chaque restauration, l'application met de côté une copie de la base et des documents en cours. Les {preRestoreBackups.length > 0 ? "trois" : ""} plus récentes sont conservées comme filet de sécurité.
+            Les 3 sauvegardes les plus récentes sont conservées dans le dossier des données. À chaque nouvelle sauvegarde, la plus ancienne est supprimée.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          {preRestoreBackups.length === 0 ? (
+          {localBackups.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Aucune sauvegarde automatique pour l'instant — elles apparaîtront après votre première restauration.
+              Aucune sauvegarde locale pour l'instant — cliquez sur « Créer une sauvegarde » pour commencer.
             </p>
           ) : (
             <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-              {preRestoreBackups.map((b) => (
-                <li
+              {localBackups.map((b) => (
+                <LocalBackupItem
                   key={b.stamp}
-                  className="flex items-center justify-between gap-3 rounded-md border bg-card p-3 text-sm"
-                >
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-medium truncate">{b.created_at}</span>
-                    <span className="text-xs text-muted-foreground truncate">
-                      {formatBytes(b.db_size_bytes)}
-                      {b.has_documents ? " — avec documents" : " — sans documents"}
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPreRestoreCandidate(b)}
-                    disabled={restorePreRestoreMutation.isPending}
-                    className="shrink-0"
-                  >
-                    Restaurer
-                  </Button>
-                </li>
+                  backup={b}
+                  onRestore={() => handlePickLocal(b)}
+                  isRestoring={restoreMutation.isPending}
+                />
               ))}
             </ul>
           )}
@@ -205,7 +168,7 @@ export function SauvegardeTab() {
         open={candidate !== null}
         onOpenChange={(o) => !o && setCandidate(null)}
         title="Restaurer cette sauvegarde ?"
-        description="Cette opération remplace toutes les données actuelles. Une copie de sécurité est créée automatiquement avant l'écrasement. L'application redémarrera ensuite."
+        description="Cette opération remplace toutes les données actuelles. L'application redémarrera ensuite."
         confirmLabel="Restaurer et redémarrer"
         cancelLabel="Annuler"
         variant="destructive"
@@ -214,23 +177,39 @@ export function SauvegardeTab() {
       >
         {candidate && <ManifestSummary manifest={candidate.manifest} />}
       </ConfirmDialog>
-
-      <ConfirmDialog
-        open={preRestoreCandidate !== null}
-        onOpenChange={(o) => !o && setPreRestoreCandidate(null)}
-        title="Restaurer ce filet de sécurité ?"
-        description={
-          preRestoreCandidate
-            ? `Sauvegarde automatique du ${preRestoreCandidate.created_at}. L'application redémarrera ensuite.`
-            : ""
-        }
-        confirmLabel="Restaurer et redémarrer"
-        cancelLabel="Annuler"
-        variant="destructive"
-        onConfirm={handleConfirmRestorePreRestore}
-        isLoading={restorePreRestoreMutation.isPending}
-      />
     </div>
+  );
+}
+
+interface LocalBackupItemProps {
+  backup: LocalBackup;
+  onRestore: () => void;
+  isRestoring: boolean;
+}
+
+function LocalBackupItem({ backup, onRestore, isRestoring }: LocalBackupItemProps) {
+  const m = backup.manifest;
+  const dateLabel = m ? formatDateTime(m.created_at) : backup.stamp;
+  const detail = m
+    ? `${formatBytes(backup.size_bytes)} — ${m.documents_count.toLocaleString("fr-FR")} document${m.documents_count > 1 ? "s" : ""}`
+    : `${formatBytes(backup.size_bytes)} — manifest illisible`;
+
+  return (
+    <li className="flex items-center justify-between gap-3 rounded-md border bg-card p-3 text-sm">
+      <div className="flex flex-col min-w-0">
+        <span className="font-medium truncate">{dateLabel}</span>
+        <span className="text-xs text-muted-foreground truncate">{detail}</span>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onRestore}
+        disabled={isRestoring || !m}
+        className="shrink-0"
+      >
+        Restaurer
+      </Button>
+    </li>
   );
 }
 
@@ -295,43 +274,6 @@ function computeGlobalProgress(progress: BackupProgress): number {
     return Math.round(range.start + span * ratio);
   }
   return range.start;
-}
-
-interface FreshnessLineProps {
-  derniereSauvegarde: string | null;
-}
-
-function freshnessVariant(days: number): "default" | "secondary" | "destructive" {
-  if (days < 7) return "default";
-  if (days < 30) return "secondary";
-  return "destructive";
-}
-
-function freshnessLabel(days: number): string {
-  if (days === 0) return "aujourd'hui";
-  if (days === 1) return "il y a 1 jour";
-  return `il y a ${days} jours`;
-}
-
-function FreshnessLine({ derniereSauvegarde }: FreshnessLineProps) {
-  const days = daysSince(derniereSauvegarde);
-
-  if (derniereSauvegarde === null || days === null) {
-    return (
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">Dernière sauvegarde :</span>
-        <Badge variant="destructive">jamais</Badge>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">Dernière sauvegarde :</span>
-      <Badge variant={freshnessVariant(days)}>{freshnessLabel(days)}</Badge>
-      <span className="text-xs text-muted-foreground">({formatDateTime(derniereSauvegarde)})</span>
-    </div>
-  );
 }
 
 interface ManifestSummaryProps {

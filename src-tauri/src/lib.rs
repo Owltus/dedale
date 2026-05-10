@@ -299,9 +299,7 @@ pub fn run() {
             commands::backup::backup_create,
             commands::backup::backup_inspect,
             commands::backup::backup_restore,
-            commands::backup::get_derniere_sauvegarde,
-            commands::backup::list_pre_restore_backups,
-            commands::backup::restore_pre_restore,
+            commands::backup::list_local_backups,
             commands::backup::consume_restore_flag,
             commands::backup::open_app_data_dir,
         ])
