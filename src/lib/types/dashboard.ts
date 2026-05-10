@@ -66,6 +66,7 @@ export interface DocumentDashboardItem {
   nom_type: string;
   date_upload: string;
   extension: string;
+  taille_octets: number;
 }
 
 export interface OtParStatut {

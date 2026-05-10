@@ -1,11 +1,12 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useCallback, useState } from "react";
 import { PageHeader } from "@/components/layout";
 import { CardList } from "@/components/shared/CardList";
 import { useTemporalNavigation } from "@/hooks/useTemporalNavigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, AlertTriangle, CheckCircle, FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertCircle, AlertTriangle, CheckCircle, FileText, Wrench } from "lucide-react";
 import { OtDonutChart } from "./OtDonutChart";
 import { statutsToSegments } from "./donut-segments";
 import { OT_PRIORITY_FILL } from "@/lib/utils/colors";
@@ -14,28 +15,31 @@ import { PlanningChart } from "./PlanningChart";
 import { ContratsTimeline } from "./ContratsTimeline";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { DiStatusBadge, OtStatusBadge } from "@/components/shared/StatusBadge";
+import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog";
+import { OtGammeCell } from "@/components/shared/OtGammeCell";
+import { useDocumentPreview, useSaveDocumentToDisk } from "@/hooks/use-documents";
 import { getEffectiveOtStatutId } from "@/lib/utils/statuts";
-import { formatDateShort } from "@/lib/utils/format";
-import type { DiDashboardItem, OtDashboardItem, DocumentDashboardItem } from "@/lib/types/dashboard";
+import { formatDateWithWeek } from "@/lib/utils/format";
+import type { DiDashboardItem, DocumentDashboardItem, OtDashboardItem } from "@/lib/types/dashboard";
 
 function filterDi(di: DiDashboardItem, q: string): boolean {
   return di.libelle_constat.toLowerCase().includes(q);
-}
-
-function filterOtDoc(ot: OtDashboardItem, q: string): boolean {
-  return ot.nom_gamme.toLowerCase().includes(q) || !!ot.nom_prestataire?.toLowerCase().includes(q);
 }
 
 function filterDocument(d: DocumentDashboardItem, q: string): boolean {
   return d.nom_original.toLowerCase().includes(q) || d.nom_type.toLowerCase().includes(q);
 }
 
+function filterOtSansDoc(ot: OtDashboardItem, q: string): boolean {
+  return ot.nom_gamme.toLowerCase().includes(q) || !!ot.nom_prestataire?.toLowerCase().includes(q);
+}
+
 // Constantes layout listes compactes (doivent rester en sync avec CardList compact)
 const ROW_BASE = 26;
 const ROW_GAP = 2;
 const ROW_PAD = 2;
-const ROW_MIN = ROW_BASE + ROW_GAP;
-const HEADER_H = 28;
+const HEADER_H = 28;     // h-7 du header en mode compact
+const CARD_BORDER = 2;   // bordure haut+bas du conteneur `rounded-md border`
 const MAX_ROW_H = ROW_BASE * 1.3;
 
 const ONBOARDING_STEPS = [
@@ -58,6 +62,12 @@ export function Dashboard() {
   // Décalage temporel partagé entre PlanningChart et ContratsTimeline
   const [weekOffset] = useTemporalNavigation({ step: NAV_STEP_WEEKS, allowReset: true });
 
+  const { previewDoc, previewData, openPreview, closePreview } = useDocumentPreview();
+  const saveToDisk = useSaveDocumentToDisk();
+
+  const navigate = useNavigate();
+  const [otSansDocOpen, setOtSansDocOpen] = useState(false);
+
   // Ref callback (et non useEffect) car le conteneur n'est monté qu'après l'early-return de chargement.
   const listRef = useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
@@ -76,19 +86,25 @@ export function Dashboard() {
   }
 
   const showOnboarding = !data.has_ot;
-  const diActive = data.nb_di_ouvertes > 0;
 
-  // Nombre max de données entre les deux listes
-  const dataCount = Math.max(
-    data.dernieres_di.length,
-    data.ot_regl_sans_doc.length > 0 ? data.ot_regl_sans_doc.length : data.derniers_documents.length,
-  );
+  const otSansDocCount = data.ot_regl_sans_doc.length;
+  const leftCount = data.dernieres_di.length;
+  const rightCount = data.derniers_documents.length;
 
-  const available = containerH > HEADER_H ? containerH - HEADER_H : 0;
-  const fittable = Math.max(1, Math.floor(available / ROW_MIN));
-  const maxItems = Math.min(fittable, dataCount);
-  const usable = available - 2 * ROW_PAD;
-  const rawRowH = maxItems > 0 ? (usable - (maxItems - 1) * ROW_GAP) / maxItems : ROW_BASE;
+  const scrollH = Math.max(0, containerH - HEADER_H - CARD_BORDER);
+
+  // Capacité max d'items à hauteur ROW_BASE :
+  //   N * ROW_BASE + (N - 1) * ROW_GAP + 2 * ROW_PAD <= scrollH
+  //   ⇒ N <= (scrollH + ROW_GAP - 2 * ROW_PAD) / (ROW_BASE + ROW_GAP)
+  const fittable = Math.max(1, Math.floor((scrollH + ROW_GAP - 2 * ROW_PAD) / (ROW_BASE + ROW_GAP)));
+  const diMaxItems = Math.min(fittable, leftCount);
+  const rightMaxItems = Math.min(fittable, rightCount);
+
+  // Hauteur de ligne partagée : calée sur la liste qui remplit le plus la carte,
+  // pour rester visuellement homogène entre les deux colonnes.
+  const rowsForHeight = Math.max(1, Math.min(fittable, Math.max(leftCount, rightCount)));
+  const usable = scrollH - 2 * ROW_PAD;
+  const rawRowH = (usable - (rowsForHeight - 1) * ROW_GAP) / rowsForHeight;
   const dynamicRowH = Math.floor(Math.min(MAX_ROW_H, Math.max(ROW_BASE, rawRowH)));
 
   return (
@@ -112,67 +128,49 @@ export function Dashboard() {
       {/* Listes */}
       <div ref={listRef} className="flex-1 grid grid-cols-2 gap-4 min-h-0 overflow-hidden">
         <CardList
-          data={data.dernieres_di.slice(0, maxItems)}
+          data={data.dernieres_di.slice(0, diMaxItems)}
           getKey={(di) => di.id_di}
           getHref={(di) => `/demandes/${di.id_di}`}
           filterFn={filterDi}
           icon={<AlertCircle className="size-5 text-muted-foreground" />}
-          title={diActive ? "Demandes à traiter" : "Dernières demandes résolues"}
+          title="Demandes d'intervention"
           showSearch={false}
           compact
           rowHeight={dynamicRowH}
-          emptyTitle={diActive ? "Aucune demande en attente" : "Aucune demande d'intervention"}
+          emptyTitle="Aucune demande d'intervention"
           renderContent={(di) => (
-            <p className="flex-1 text-[11px] leading-tight truncate">
-              {diActive && (
-                <span className="mr-1.5 text-muted-foreground tabular-nums">
-                  {formatDateShort(di.date_constat)}
-                </span>
-              )}
-              {di.libelle_constat}
-            </p>
+            <p className="flex-1 text-[11px] leading-tight truncate">{di.libelle_constat}</p>
           )}
           renderRight={(di) => (
             <DiStatusBadge id={di.id_statut_di} className="h-4 text-[10px] px-1.5" />
           )}
         />
-        {data.ot_regl_sans_doc.length > 0 ? (
-          <CardList
-            data={data.ot_regl_sans_doc.slice(0, maxItems)}
-            getKey={(ot) => ot.id_ordre_travail}
-            getHref={(ot) => `/ordres-travail/${ot.id_ordre_travail}`}
-            getImageId={(ot) => ot.id_image}
-            filterFn={filterOtDoc}
-            icon={<AlertTriangle className="size-5 text-destructive" />}
-            title="Documents manquants"
-            showSearch={false}
-            compact
-            rowHeight={dynamicRowH}
-            emptyTitle="Aucun document manquant"
-            renderContent={(ot) => (
-              <p className="flex-1 text-[11px] leading-tight truncate">{ot.nom_gamme}</p>
-            )}
-            renderRight={(ot) => (
-              <OtStatusBadge id={getEffectiveOtStatutId(ot)} className="h-4 text-[10px] px-1.5" />
-            )}
-          />
-        ) : (
-          <CardList
-            data={data.derniers_documents.slice(0, maxItems)}
-            getKey={(d) => d.id_document}
-            getHref={(d) => `/documents?doc=${d.id_document}`}
-            filterFn={filterDocument}
-            icon={<FileText className="size-5 text-muted-foreground" />}
-            title="Documents récents"
-            showSearch={false}
-            compact
-            rowHeight={dynamicRowH}
-            emptyTitle="Aucun document"
-            renderContent={(d) => (
-              <p className="flex-1 text-[11px] leading-tight truncate">{d.nom_original}</p>
-            )}
-          />
-        )}
+        <CardList
+          data={data.derniers_documents.slice(0, rightMaxItems)}
+          getKey={(d) => d.id_document}
+          onItemClick={openPreview}
+          filterFn={filterDocument}
+          icon={<FileText className="size-5 text-muted-foreground" />}
+          title="Documents"
+          showSearch={false}
+          compact
+          rowHeight={dynamicRowH}
+          emptyTitle="Aucun document"
+          extraToolbar={otSansDocCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => setOtSansDocOpen(true)}
+              title={`${otSansDocCount} OT réglementaire${otSansDocCount > 1 ? "s" : ""} sans document`}
+              className="flex items-center gap-1 rounded border border-destructive/40 bg-destructive/10 px-1.5 h-5 text-[10px] font-medium text-destructive hover:bg-destructive/20 transition-colors"
+            >
+              <AlertTriangle className="size-3" />
+              <span className="tabular-nums">{otSansDocCount}</span>
+            </button>
+          ) : undefined}
+          renderContent={(d) => (
+            <p className="flex-1 text-[11px] leading-tight truncate">{d.nom_original}</p>
+          )}
+        />
       </div>
 
       {/* Onboarding */}
@@ -196,6 +194,51 @@ export function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      <DocumentPreviewDialog
+        doc={previewDoc}
+        previewData={previewData}
+        onClose={closePreview}
+        onDownload={saveToDisk}
+      />
+
+      <Dialog open={otSansDocOpen} onOpenChange={setOtSansDocOpen}>
+        <DialogContent className="!max-w-2xl !w-[90vw] h-[80vh] flex flex-col !p-0 !gap-0">
+          <DialogHeader className="px-4 pt-4 pb-2 shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-4 text-destructive" />
+              OT réglementaires sans document
+            </DialogTitle>
+          </DialogHeader>
+          <CardList
+            className="mx-4 mb-4"
+            data={data.ot_regl_sans_doc}
+            getKey={(ot) => ot.id_ordre_travail}
+            getImageId={(ot) => ot.id_image}
+            onItemClick={(ot) => {
+              setOtSansDocOpen(false);
+              navigate(`/ordres-travail/${ot.id_ordre_travail}`);
+            }}
+            filterFn={filterOtSansDoc}
+            icon={<Wrench className="size-5 text-muted-foreground" />}
+            showTitle={false}
+            showSearch={false}
+            emptyTitle="Aucun OT sans document"
+            renderContent={(ot) => (
+              <div className="flex-1 min-w-0">
+                <OtGammeCell nomGamme={ot.nom_gamme} />
+                <p className="text-xs text-muted-foreground truncate">{ot.nom_prestataire ?? " "}</p>
+              </div>
+            )}
+            renderRight={(ot) => (
+              <div className="flex flex-col items-center gap-1 w-32 shrink-0">
+                <OtStatusBadge id={getEffectiveOtStatutId(ot)} />
+                <span className="text-xs text-muted-foreground">{formatDateWithWeek(ot.date_prevue)}</span>
+              </div>
+            )}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

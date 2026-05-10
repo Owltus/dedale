@@ -112,9 +112,9 @@ export function CardList<T>({
           {title ? <span className={cn("font-medium shrink-0", compact ? "text-[11px]" : "text-sm", !showTitle && "invisible")}>{title}</span> : <span />}
           <div className="flex items-center gap-2 ml-auto h-8">
             {extraToolbar}
-            <div className={cn(!showSearch && "invisible")}>
+            {showSearch && (
               <SearchInput value={search} onChange={setSearch} placeholder="Rechercher..." />
-            </div>
+            )}
           </div>
         </div>
       )}

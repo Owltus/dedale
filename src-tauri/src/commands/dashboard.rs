@@ -132,21 +132,14 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     .map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
-    // DI actives : tri ASC pour prioriser les plus anciennes ; sinon DESC pour l'historique récent.
-    let sql_di = if nb_di_ouvertes > 0 {
+    // Toutes les DI : actives (statuts 1, 3) d'abord, puis résolues (statut 2),
+    // chaque groupe trié par date de création décroissante.
+    let mut stmt5 = conn.prepare_cached(
         "SELECT id_di, libelle_constat, date_constat, id_statut_di \
          FROM demandes_intervention \
-         WHERE id_statut_di IN (1, 3) \
-         ORDER BY date_constat ASC, id_di ASC \
-         LIMIT 10"
-    } else {
-        "SELECT id_di, libelle_constat, date_constat, id_statut_di \
-         FROM demandes_intervention \
-         WHERE id_statut_di = 2 \
-         ORDER BY date_creation DESC \
-         LIMIT 10"
-    };
-    let mut stmt5 = conn.prepare_cached(sql_di).map_err(|e| e.to_string())?;
+         ORDER BY (id_statut_di = 2), date_creation DESC, id_di DESC \
+         LIMIT 30"
+    ).map_err(|e| e.to_string())?;
     let dernieres_di = stmt5.query_map([], |row| {
         Ok(DiDashboardItem {
             id_di: row.get(0)?,
@@ -205,13 +198,14 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
-    // Tableau : 10 derniers documents ajoutés
+    // Tableau : derniers documents ajoutés (limite haute, le frontend coupe selon la hauteur dispo)
     let mut stmt8 = conn.prepare_cached(
         "SELECT d.id_document, d.nom_original, td.nom, d.date_upload, \
-                LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) AS extension \
+                LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) AS extension, \
+                d.taille_octets \
          FROM documents d \
          JOIN types_documents td ON d.id_type_document = td.id_type_document \
-         ORDER BY d.date_upload DESC LIMIT 10"
+         ORDER BY d.date_upload DESC LIMIT 30"
     ).map_err(|e| e.to_string())?;
     let derniers_documents = stmt8.query_map([], |row| {
         Ok(DocumentDashboardItem {
@@ -220,6 +214,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
             nom_type: row.get(2)?,
             date_upload: row.get(3)?,
             extension: row.get(4)?,
+            taille_octets: row.get(5)?,
         })
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
