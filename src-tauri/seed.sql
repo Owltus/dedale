@@ -1012,59 +1012,59 @@ UPDATE operations_execution SET id_statut_operation = 5 WHERE id_ordre_travail =
 -- =========================================================================
 
 -- DI 1 : BAES défaillant escalier C — résolue
-INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
-VALUES (2, 'BAES escalier C défaillant', 'Le BAES de l''escalier C ne s''allume plus lors des tests hebdomadaires. Voyant de charge éteint.', '2026-01-20');
+INSERT INTO demandes_intervention (id_prestataire, constat, date_constat)
+VALUES (2, 'BAES escalier C défaillant' || char(10) || char(10) || 'Le BAES de l''escalier C ne s''allume plus lors des tests hebdomadaires. Voyant de charge éteint.', '2026-01-20');
 INSERT INTO di_localisations (id_di, id_local) VALUES (1, 2);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (1, 2);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Batterie remplacée, test de fonctionnement OK.', date_resolution = '2026-01-23' WHERE id_di = 1;
 
 -- DI 2 : Fuite d''eau sous la CTA N°1 — résolue
-INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
-VALUES (3, 'Fuite d''eau sous la CTA N°1', 'Flaque d''eau constatée sous la CTA N°1 dans la chaufferie. Possible fuite du bac à condensats.', '2026-02-10');
+INSERT INTO demandes_intervention (id_prestataire, constat, date_constat)
+VALUES (3, 'Fuite d''eau sous la CTA N°1' || char(10) || char(10) || 'Flaque d''eau constatée sous la CTA N°1 dans la chaufferie. Possible fuite du bac à condensats.', '2026-02-10');
 INSERT INTO di_localisations (id_di, id_local) VALUES (2, 13);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (2, 6);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Bac à condensats percé, remplacé par ThermoServ lors de l''entretien trimestriel.', date_resolution = '2026-02-15' WHERE id_di = 2;
 
 -- DI 3 : Bruit anormal ascenseur — résolue
-INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
-VALUES (4, 'Bruit anormal ascenseur', 'Bruit métallique lors de l''arrêt en cabine au RDC. Signalé par plusieurs clients.', '2026-03-08');
+INSERT INTO demandes_intervention (id_prestataire, constat, date_constat)
+VALUES (4, 'Bruit anormal ascenseur' || char(10) || char(10) || 'Bruit métallique lors de l''arrêt en cabine au RDC. Signalé par plusieurs clients.', '2026-03-08');
 INSERT INTO di_localisations (id_di, id_local) VALUES (3, 8);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (3, 12);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Patins de guidage usés, remplacés par TK Elevator.', date_resolution = '2026-03-12' WHERE id_di = 3;
 
 -- DI 4 : Extincteur cuisine périmé — résolue puis réouverte
-INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
-VALUES (2, 'Extincteur cuisine périmé', 'L''extincteur CO2 de la cuisine affiche une date de péremption dépassée (12/2025). Non conforme.', '2026-03-15');
+INSERT INTO demandes_intervention (id_prestataire, constat, date_constat)
+VALUES (2, 'Extincteur cuisine périmé' || char(10) || char(10) || 'L''extincteur CO2 de la cuisine affiche une date de péremption dépassée (12/2025). Non conforme.', '2026-03-15');
 INSERT INTO di_localisations (id_di, id_local) VALUES (4, 12);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (4, 1);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Extincteur remplacé provisoirement par un modèle de prêt.', date_resolution = '2026-03-18' WHERE id_di = 4;
 UPDATE demandes_intervention SET id_statut_di = 3 WHERE id_di = 4;
 
 -- DI 5 : Disjonction répétée stock linge E2 — ouverte
-INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('Disjonction répétée stock linge E2', 'Le disjoncteur du local stock linge E2 saute régulièrement lorsque l''aspirateur industriel est branché. Vérifier le circuit.', '2026-03-25');
+INSERT INTO demandes_intervention (constat, date_constat)
+VALUES ('Disjonction répétée stock linge E2' || char(10) || char(10) || 'Le disjoncteur du local stock linge E2 saute régulièrement lorsque l''aspirateur industriel est branché. Vérifier le circuit.', '2026-03-25');
 INSERT INTO di_localisations (id_di, id_local) VALUES (5, 54);
 
 -- DI 6 : Odeur de brûlé parking souterrain — ouverte
-INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('Odeur de brûlé parking souterrain', 'Odeur de brûlé signalée par le personnel au niveau du stationnement sous-sol, côté local opérateur. À investiguer en urgence.', '2026-04-01');
+INSERT INTO demandes_intervention (constat, date_constat)
+VALUES ('Odeur de brûlé parking souterrain' || char(10) || char(10) || 'Odeur de brûlé signalée par le personnel au niveau du stationnement sous-sol, côté local opérateur. À investiguer en urgence.', '2026-04-01');
 INSERT INTO di_localisations (id_di, id_local) VALUES (6, 1);
 
 -- DI 7 : Pression RIA hall insuffisante — ouverte
-INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
-VALUES (2, 'Pression RIA hall insuffisante', 'Lors du contrôle visuel, la pression au manomètre du RIA du hall semble faible. À vérifier avec le contrôle annuel.', '2026-04-02');
+INSERT INTO demandes_intervention (id_prestataire, constat, date_constat)
+VALUES (2, 'Pression RIA hall insuffisante' || char(10) || char(10) || 'Lors du contrôle visuel, la pression au manomètre du RIA du hall semble faible. À vérifier avec le contrôle annuel.', '2026-04-02');
 INSERT INTO di_localisations (id_di, id_local) VALUES (7, 8);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (7, 4);
 
 -- DI 8 : Température chambres E3 trop basse — résolue
-INSERT INTO demandes_intervention (id_prestataire, libelle_constat, description_constat, date_constat)
-VALUES (3, 'Température chambres E3 trop basse', 'Plusieurs clients de l''étage 3 se plaignent de températures trop basses dans les chambres malgré le chauffage activé.', '2026-02-01');
+INSERT INTO demandes_intervention (id_prestataire, constat, date_constat)
+VALUES (3, 'Température chambres E3 trop basse' || char(10) || char(10) || 'Plusieurs clients de l''étage 3 se plaignent de températures trop basses dans les chambres malgré le chauffage activé.', '2026-02-01');
 INSERT INTO di_localisations (id_di, id_local) VALUES (8, 72);
 UPDATE demandes_intervention SET id_statut_di = 2, description_resolution = 'Vanne 3 voies du circuit E3 bloquée en position fermée. Débloquée et réglée.', date_resolution = '2026-02-06' WHERE id_di = 8;
 
 -- DI 9 : Ventilation faible sanitaires RDC — ouverte
-INSERT INTO demandes_intervention (libelle_constat, description_constat, date_constat)
-VALUES ('Ventilation faible sanitaires RDC', 'Débit d''air très faible dans les sanitaires du RDC. Buée persistante et odeurs. Possible encrassement gaines VMC.', '2026-03-30');
+INSERT INTO demandes_intervention (constat, date_constat)
+VALUES ('Ventilation faible sanitaires RDC' || char(10) || char(10) || 'Débit d''air très faible dans les sanitaires du RDC. Buée persistante et odeurs. Possible encrassement gaines VMC.', '2026-03-30');
 INSERT INTO di_localisations (id_di, id_local) VALUES (9, 21);
 INSERT INTO di_gammes (id_di, id_gamme) VALUES (9, 13);
 
@@ -1100,73 +1100,53 @@ INSERT INTO di_equipements (id_di, id_equipement) VALUES (9, 17);
 -- Familles : 1=Extincteurs, 2=BAES, 3=RIA, 5=CTA, 6=PAC, 11=Ascenseurs
 -- =========================================================================
 
-INSERT INTO modeles_di (nom_modele, description, id_famille, id_equipement, libelle_constat, description_constat, description_resolution) VALUES
+INSERT INTO modeles_di (nom_modele, description, id_famille, id_equipement, constat) VALUES
     ('BAES défaillant',
      'Bloc autonome ne s''allumant plus ou voyant de charge éteint',
      2, NULL,
-     'BAES défaillant',
-     'Le BAES ne s''allume plus lors des tests. Voyant de charge éteint ou clignotant.',
-     'Vérifier la batterie et remplacer si nécessaire. Tester le fonctionnement après remplacement.'),
+     'BAES défaillant' || char(10) || char(10) || 'Le BAES ne s''allume plus lors des tests. Voyant de charge éteint ou clignotant.'),
 
     ('Extincteur CO2 cuisine périmé',
      'Extincteur CO2 de la cuisine dépassé ou non conforme',
      1, 4,
-     'Extincteur CO2 cuisine non conforme',
-     'L''extincteur CO2 de la cuisine présente un défaut (date périmée, pression hors zone verte).',
-     'Remplacer l''extincteur par le prestataire SSI.'),
+     'Extincteur CO2 cuisine non conforme' || char(10) || char(10) || 'L''extincteur CO2 de la cuisine présente un défaut (date périmée, pression hors zone verte).'),
 
     ('Extincteur non conforme',
      'Extincteur périmé, déplombé ou manquant',
      1, NULL,
-     'Extincteur non conforme',
-     'L''extincteur présente un défaut de conformité (date périmée, plombage cassé, pression hors zone verte, ou absent).',
-     'Remplacer l''extincteur ou le faire réviser par le prestataire SSI.'),
+     'Extincteur non conforme' || char(10) || char(10) || 'L''extincteur présente un défaut de conformité (date périmée, plombage cassé, pression hors zone verte, ou absent).'),
 
     ('Pression RIA insuffisante',
      'Manomètre RIA en zone rouge ou aiguille instable',
      3, NULL,
-     'Pression RIA insuffisante',
-     'La pression au manomètre du RIA est en zone rouge ou anormalement basse. Risque de non-conformité réglementaire.',
-     'Vérifier l''alimentation en eau, purger le réseau si nécessaire, faire intervenir le prestataire SSI.'),
+     'Pression RIA insuffisante' || char(10) || char(10) || 'La pression au manomètre du RIA est en zone rouge ou anormalement basse. Risque de non-conformité réglementaire.'),
 
     ('Fuite sur CTA',
      'Fuite d''eau ou de condensats sous une CTA',
      5, NULL,
-     'Fuite constatée sous CTA',
-     'Présence d''eau au sol sous la centrale de traitement d''air. Possible fuite du bac à condensats ou de la tuyauterie.',
-     'Couper l''alimentation eau si nécessaire, vérifier le bac à condensats et la tuyauterie, planifier l''intervention du prestataire CVC.'),
+     'Fuite constatée sous CTA' || char(10) || char(10) || 'Présence d''eau au sol sous la centrale de traitement d''air. Possible fuite du bac à condensats ou de la tuyauterie.'),
 
     ('Problème PAC réversible',
      'Anomalie sur la pompe à chaleur réversible',
      6, 16,
-     'PAC réversible en défaut',
-     'La PAC réversible présente un code défaut ou un fonctionnement anormal (bruit, pas de chauffage/clim).',
-     'Contrôler le fluide frigorigène, vérifier les échangeurs et le compresseur. Faire intervenir ThermoServ si nécessaire.'),
+     'PAC réversible en défaut' || char(10) || char(10) || 'La PAC réversible présente un code défaut ou un fonctionnement anormal (bruit, pas de chauffage/clim).'),
 
     ('Problème température chambres',
      'Température anormale signalée par les clients',
      6, NULL,
-     'Température chambres anormale',
-     'Plaintes de clients concernant une température trop basse ou trop haute dans les chambres. Vérifier le circuit CVC.',
-     'Contrôler les vannes 3 voies, la PAC et le thermostat. Régler ou débloquer si nécessaire.'),
+     'Température chambres anormale' || char(10) || char(10) || 'Plaintes de clients concernant une température trop basse ou trop haute dans les chambres. Vérifier le circuit CVC.'),
 
     ('Bruit anormal ascenseur',
      'Bruit métallique ou vibration signalé en cabine',
      11, 21,
-     'Bruit anormal ascenseur',
-     'Bruit métallique, vibration ou à-coup signalé par les usagers lors du fonctionnement de l''ascenseur.',
-     'Faire intervenir le prestataire ascenseur pour diagnostic. Vérifier patins de guidage et câbles.'),
+     'Bruit anormal ascenseur' || char(10) || char(10) || 'Bruit métallique, vibration ou à-coup signalé par les usagers lors du fonctionnement de l''ascenseur.'),
 
     ('Disjonction répétée',
      'Disjoncteur qui saute de façon récurrente',
      NULL, NULL,
-     'Disjonction répétée',
-     'Le disjoncteur d''un local disjoncte régulièrement, notamment lors de l''utilisation d''appareils haute consommation.',
-     'Vérifier le calibre du disjoncteur, l''état du câblage et la puissance cumulée des équipements branchés.'),
+     'Disjonction répétée' || char(10) || char(10) || 'Le disjoncteur d''un local disjoncte régulièrement, notamment lors de l''utilisation d''appareils haute consommation.'),
 
     ('Odeur suspecte',
      'Odeur de brûlé, de gaz ou chimique',
      NULL, NULL,
-     'Odeur suspecte détectée',
-     'Odeur anormale (brûlé, gaz, chimique) signalée dans un local. Investigation urgente requise.',
-     NULL);
+     'Odeur suspecte détectée' || char(10) || char(10) || 'Odeur anormale (brûlé, gaz, chimique) signalée dans un local. Investigation urgente requise.');

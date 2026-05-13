@@ -1,13 +1,9 @@
 import { z } from "zod";
 
-const optionalText = z.string().optional().transform(v => v?.trim() || undefined);
-
 export const diCreateSchema = z.object({
   id_prestataire: z.number().positive().nullable().optional().transform(v => v ?? null),
-  libelle_constat: z.string().trim().min(1, "Le libelle du constat est requis"),
-  description_constat: z.string().trim().min(1, "La description est requise"),
+  constat: z.string().trim().min(1, "Le constat est requis"),
   date_constat: z.string().trim().min(1, "La date est requise"),
-  description_resolution_suggeree: optionalText,
 });
 export type DiCreateFormData = z.infer<typeof diCreateSchema>;
 

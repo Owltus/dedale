@@ -92,9 +92,7 @@ export function useCreateModeleDi() {
       input: {
         nom_modele: string;
         description?: string;
-        libelle_constat: string;
-        description_constat: string;
-        description_resolution?: string;
+        constat: string;
       };
     }
   >("create_modele_di", {
@@ -113,9 +111,7 @@ export function useUpdateModeleDi() {
       input: {
         nom_modele: string;
         description?: string;
-        libelle_constat: string;
-        description_constat: string;
-        description_resolution?: string;
+        constat: string;
       };
     }
   >("update_modele_di", {

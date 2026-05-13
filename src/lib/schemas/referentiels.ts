@@ -11,8 +11,6 @@ export const modeleDiSchema = z.object({
   description: optionalText,
   id_famille: z.coerce.number().int().positive().nullable().optional().transform(v => v ?? null),
   id_equipement: z.coerce.number().int().positive().nullable().optional().transform(v => v ?? null),
-  libelle_constat: z.string().trim().min(1, "Le libellé du constat est requis"),
-  description_constat: z.string().trim().min(1, "La description du constat est requise"),
-  description_resolution: optionalText,
+  constat: z.string().trim().min(1, "Le constat est requis"),
 });
 export type ModeleDiFormData = z.infer<typeof modeleDiSchema>;

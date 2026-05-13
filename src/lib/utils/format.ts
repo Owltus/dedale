@@ -2,6 +2,17 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ALLOWED_EXTENSIONS } from "@/lib/schemas/documents";
 
+/// Première ligne non vide d'un constat DI, tronquée — utilisé partout où l'on
+/// a besoin d'un titre court (header fiche, liste, dashboard, recherche).
+/// Robuste aux CRLF Windows et aux sauts de ligne en tête.
+export function constatTitle(text: string | null | undefined, maxLen = 80): string {
+  if (!text) return "—";
+  const firstLine = text.split(/\r?\n/).map(l => l.trim()).find(l => l.length > 0);
+  if (!firstLine) return "—";
+  if (firstLine.length <= maxLen) return firstLine;
+  return firstLine.slice(0, maxLen - 1).trimEnd() + "…";
+}
+
 /// Formate une date ISO en format français lisible (dd/MM/yyyy)
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";

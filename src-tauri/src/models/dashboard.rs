@@ -77,7 +77,7 @@ pub struct OtDashboardItem {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiDashboardItem {
     pub id_di: i64,
-    pub libelle_constat: String,
+    pub constat: String,
     pub date_constat: String,
     pub id_statut_di: i64,
 }

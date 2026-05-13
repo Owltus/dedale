@@ -359,7 +359,7 @@ pub fn get_document_liaisons(
              WHERE dc.id_document = ?1 \
              UNION ALL \
              SELECT 'di', di.id_di, \
-                    'DI #' || di.id_di || ' — ' || di.libelle_constat, \
+                    'DI #' || di.id_di || ' — ' || REPLACE(SUBSTR(di.constat, 1, 80), CHAR(10), ' '), \
                     NULL, NULL, ddi.date_liaison \
              FROM documents_di ddi \
              JOIN demandes_intervention di ON di.id_di = ddi.id_di \
@@ -490,7 +490,7 @@ fn get_documents_prestataire_complet(conn: &rusqlite::Connection, id_prestataire
              WHERE c.id_prestataire = ?1 \
              UNION ALL \
              SELECT d.id_document, d.nom_original, d.taille_octets, d.id_type_document, td.nom, \
-                    d.date_upload, dd.date_liaison, NULL, 'DI : ' || di.libelle_constat, \
+                    d.date_upload, dd.date_liaison, NULL, 'DI : ' || REPLACE(SUBSTR(di.constat, 1, 80), CHAR(10), ' '), \
                     LOWER(SUBSTR(d.nom_fichier, INSTR(d.nom_fichier, '.') + 1)) \
              FROM documents_di dd \
              JOIN documents d ON d.id_document = dd.id_document \

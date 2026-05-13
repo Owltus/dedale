@@ -135,7 +135,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     // Toutes les DI : actives (statuts 1, 3) d'abord, puis résolues (statut 2),
     // chaque groupe trié par date de création décroissante.
     let mut stmt5 = conn.prepare_cached(
-        "SELECT id_di, libelle_constat, date_constat, id_statut_di \
+        "SELECT id_di, constat, date_constat, id_statut_di \
          FROM demandes_intervention \
          ORDER BY (id_statut_di = 2), date_creation DESC, id_di DESC \
          LIMIT 30"
@@ -143,7 +143,7 @@ pub fn get_dashboard_data(db: State<DbPool>) -> Result<DashboardData, String> {
     let dernieres_di = stmt5.query_map([], |row| {
         Ok(DiDashboardItem {
             id_di: row.get(0)?,
-            libelle_constat: row.get(1)?,
+            constat: row.get(1)?,
             date_constat: row.get(2)?,
             id_statut_di: row.get(3)?,
         })

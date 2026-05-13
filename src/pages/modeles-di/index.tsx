@@ -13,11 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { modeleDiSchema } from "@/lib/schemas/referentiels";
 import { useModelesDi, useCreateModeleDi } from "@/hooks/use-referentiels";
-import { formatDate } from "@/lib/utils/format";
+import { constatTitle, formatDate } from "@/lib/utils/format";
 import type { ModeleDi } from "@/lib/types/referentiels";
 
 function filterModeleDi(r: ModeleDi, q: string): boolean {
-  return r.nom_modele.toLowerCase().includes(q) || r.libelle_constat.toLowerCase().includes(q) || false;
+  return r.nom_modele.toLowerCase().includes(q) || r.constat.toLowerCase().includes(q) || false;
 }
 
 export function ModelesDiList() {
@@ -30,9 +30,7 @@ export function ModelesDiList() {
     defaultValues: {
       nom_modele: "",
       description: "",
-      libelle_constat: "",
-      description_constat: "",
-      description_resolution: "",
+      constat: "",
     },
   });
 
@@ -40,9 +38,7 @@ export function ModelesDiList() {
     form.reset({
       nom_modele: "",
       description: "",
-      libelle_constat: "",
-      description_constat: "",
-      description_resolution: "",
+      constat: "",
     });
     setDialogOpen(true);
   };
@@ -76,7 +72,7 @@ export function ModelesDiList() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{r.nom_modele}</p>
             <p className="text-xs text-muted-foreground truncate">
-              {r.libelle_constat}
+              {constatTitle(r.constat)}
             </p>
           </div>
         )}
@@ -101,26 +97,15 @@ export function ModelesDiList() {
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Description du modèle</Label>
             <Input id="description" {...form.register("description")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="libelle_constat">Libellé du constat *</Label>
-            <Input id="libelle_constat" {...form.register("libelle_constat")} />
-            {form.formState.errors.libelle_constat && (
-              <p className="text-sm text-destructive">{String(form.formState.errors.libelle_constat.message)}</p>
+            <Label htmlFor="constat">Constat <span className="text-destructive">*</span></Label>
+            <Textarea id="constat" rows={4} {...form.register("constat")} />
+            {form.formState.errors.constat && (
+              <p className="text-sm text-destructive">{String(form.formState.errors.constat.message)}</p>
             )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description_constat">Description du constat *</Label>
-            <Textarea id="description_constat" {...form.register("description_constat")} />
-            {form.formState.errors.description_constat && (
-              <p className="text-sm text-destructive">{String(form.formState.errors.description_constat.message)}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description_resolution">Résolution suggérée</Label>
-            <Textarea id="description_resolution" {...form.register("description_resolution")} />
           </div>
         </div>
       </CrudDialog>

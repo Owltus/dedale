@@ -38,43 +38,7 @@
 -- =========================================================================
 
 --------------------------------------------------------------------------------
--- 1.1 Référentiel ERP (Établissements Recevant du Public)
---------------------------------------------------------------------------------
-CREATE TABLE types_erp (
-    id_type_erp   INTEGER PRIMARY KEY,
-    code          TEXT NOT NULL UNIQUE,
-    libelle       TEXT NOT NULL,
-    description   TEXT
-) STRICT;
-
-CREATE TABLE categories_erp (
-    id_categorie_erp INTEGER PRIMARY KEY,
-    libelle          TEXT NOT NULL UNIQUE,
-    description      TEXT
-) STRICT;
-
-CREATE TABLE etablissements (
-    id_etablissement  INTEGER PRIMARY KEY AUTOINCREMENT,
-    nom               TEXT NOT NULL,
-    id_type_erp       INTEGER,
-    id_categorie_erp  INTEGER,
-    adresse           TEXT,
-    code_postal       TEXT,
-    ville             TEXT,
-    capacite_accueil  INTEGER,
-    surface_m2        REAL,
-    date_creation     TEXT DEFAULT CURRENT_TIMESTAMP,
-    date_modification TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_type_erp)      REFERENCES types_erp(id_type_erp)           ON DELETE RESTRICT,
-    FOREIGN KEY (id_categorie_erp) REFERENCES categories_erp(id_categorie_erp) ON DELETE RESTRICT,
-    -- AJOUT v12 : validations autonomes
-    CHECK (capacite_accueil IS NULL OR capacite_accueil > 0),
-    CHECK (surface_m2 IS NULL OR surface_m2 > 0),
-    CHECK (code_postal IS NULL OR (LENGTH(code_postal) = 5 AND code_postal GLOB '[0-9][0-9][0-9][0-9][0-9]'))
-) STRICT;
-
---------------------------------------------------------------------------------
--- 1.2 Images centralisées (stockage BLOB, icônes WebP)
+-- 1.1 Images centralisées (stockage BLOB, icônes WebP)
 -- Note : adapté pour une application locale offline, pas de serveur de fichiers.
 -- Convient pour des icônes légères (WebP). Ne pas y stocker de photos haute résolution.
 --------------------------------------------------------------------------------
@@ -90,7 +54,7 @@ CREATE TABLE images (
 ) STRICT;
 
 --------------------------------------------------------------------------------
--- 1.3 Unités, périodicités, types d'opérations et sources
+-- 1.2 Unités, périodicités, types d'opérations et sources
 --------------------------------------------------------------------------------
 CREATE TABLE unites (
     id_unite    INTEGER PRIMARY KEY,
@@ -141,22 +105,18 @@ CREATE TABLE statuts_di (
 ) STRICT;
 
 CREATE TABLE demandes_intervention (
-    id_di                          INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_statut_di                   INTEGER NOT NULL DEFAULT 1,  -- AJOUT v10
-    id_prestataire                 INTEGER,  -- prestataire assigné (optionnel)
-    libelle_constat                TEXT NOT NULL,
-    description_constat            TEXT NOT NULL,
-    date_constat                   TEXT NOT NULL DEFAULT CURRENT_DATE,
-    description_resolution         TEXT,
-    date_resolution                TEXT,
-    description_resolution_suggeree TEXT,
-    date_creation                  TEXT DEFAULT CURRENT_TIMESTAMP,
-    date_modification              TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_statut_di) REFERENCES statuts_di(id_statut_di) ON DELETE RESTRICT,
+    id_di                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_statut_di           INTEGER NOT NULL DEFAULT 1,
+    id_prestataire         INTEGER,
+    constat                TEXT NOT NULL,
+    date_constat           TEXT NOT NULL DEFAULT CURRENT_DATE,
+    description_resolution TEXT,
+    date_resolution        TEXT,
+    date_creation          TEXT DEFAULT CURRENT_TIMESTAMP,
+    date_modification      TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_statut_di)   REFERENCES statuts_di(id_statut_di)     ON DELETE RESTRICT,
     FOREIGN KEY (id_prestataire) REFERENCES prestataires(id_prestataire) ON DELETE SET NULL,
-    -- AJOUT v12 : textes non vides
-    CHECK (LENGTH(TRIM(libelle_constat)) > 0),
-    CHECK (LENGTH(TRIM(description_constat)) > 0)
+    CHECK (LENGTH(TRIM(constat)) > 0)
 ) STRICT;
 
 CREATE TABLE di_gammes (
@@ -581,17 +541,16 @@ CREATE TABLE modeles_operations_items (
 ) STRICT;
 
 CREATE TABLE modeles_di (
-    id_modele_di          INTEGER PRIMARY KEY AUTOINCREMENT,
-    nom_modele            TEXT NOT NULL UNIQUE,
-    description           TEXT,
-    id_famille            INTEGER,  -- AJOUT v18 : lien optionnel vers une famille d'équipement
-    id_equipement         INTEGER,  -- AJOUT v18 : lien optionnel vers un équipement précis
-    libelle_constat       TEXT NOT NULL,
-    description_constat   TEXT NOT NULL,
-    description_resolution TEXT,
-    date_creation         TEXT DEFAULT CURRENT_DATE,
-    FOREIGN KEY (id_famille)   REFERENCES familles_equipements(id_famille)    ON DELETE SET NULL,
-    FOREIGN KEY (id_equipement) REFERENCES equipements(id_equipement)         ON DELETE SET NULL
+    id_modele_di    INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom_modele      TEXT NOT NULL UNIQUE,
+    description     TEXT,
+    id_famille      INTEGER,
+    id_equipement   INTEGER,
+    constat         TEXT NOT NULL,
+    date_creation   TEXT DEFAULT CURRENT_DATE,
+    FOREIGN KEY (id_famille)    REFERENCES familles_equipements(id_famille) ON DELETE SET NULL,
+    FOREIGN KEY (id_equipement) REFERENCES equipements(id_equipement)       ON DELETE SET NULL,
+    CHECK (LENGTH(TRIM(constat)) > 0)
 ) STRICT;
 
 
@@ -769,41 +728,7 @@ CREATE TABLE parametres_systeme (
 -- =========================================================================
 
 --------------------------------------------------------------------------------
--- 2.1 Référentiel ERP
---------------------------------------------------------------------------------
-INSERT INTO types_erp (code, libelle) VALUES
-    ('J',   'Structures d''accueil pour personnes âgées ou personnes handicapées'),
-    ('L',   'Salles d''auditions, de conférences, de réunions, de spectacles ou à usage multiple'),
-    ('M',   'Magasins de vente, centres commerciaux'),
-    ('N',   'Restaurants et débits de boisson'),
-    ('O',   'Hôtels et pensions de famille'),
-    ('P',   'Salles de danse et salles de jeux'),
-    ('R',   'Établissements d''éveil, d''enseignement, de formation, centres de vacances, centres de loisirs sans hébergement'),
-    ('S',   'Bibliothèques, centres de documentation'),
-    ('T',   'Salles d''exposition à vocation commerciale'),
-    ('U',   'Établissements de soins'),
-    ('V',   'Établissements de divers cultes'),
-    ('W',   'Administrations, banques, bureaux'),
-    ('X',   'Établissements sportifs couverts'),
-    ('Y',   'Musées'),
-    ('PA',  'Établissements de Plein Air'),
-    ('CTS', 'Chapiteaux, Tentes et Structures toile'),
-    ('SG',  'Structures Gonflables'),
-    ('PS',  'Parcs de Stationnement couverts'),
-    ('OA',  'Hôtels-restaurants d''Altitude'),
-    ('GA',  'Gares Accessibles au public (chemins de fer, téléphériques, remonte-pentes...)'),
-    ('EF',  'Établissements flottants (eaux intérieures)'),
-    ('REF', 'Refuges de montagne');
-
-INSERT INTO categories_erp (libelle, description) VALUES
-    ('1ère catégorie', 'Plus de 1 500 personnes'),
-    ('2ème catégorie', 'De 701 à 1 500 personnes'),
-    ('3ème catégorie', 'De 301 à 700 personnes'),
-    ('4ème catégorie', 'Jusqu''à 300 personnes'),
-    ('5ème catégorie', 'Selon seuil du type d''établissement');
-
---------------------------------------------------------------------------------
--- 2.2 Unités de mesure
+-- 2.1 Unités de mesure
 --------------------------------------------------------------------------------
 INSERT INTO unites (nom, symbole, description) VALUES
     ('Degrés Celsius',   '°C',  'Température'),
@@ -815,7 +740,7 @@ INSERT INTO unites (nom, symbole, description) VALUES
     ('Heure',            'h',   'Durée ou compteur horaire de fonctionnement');
 
 --------------------------------------------------------------------------------
--- 2.3 Périodicités (tolérance intelligente)
+-- 2.2 Périodicités (tolérance intelligente)
 --------------------------------------------------------------------------------
 INSERT INTO periodicites (libelle, description, jours_periodicite, jours_valide, tolerance_jours) VALUES
     ('Hebdomadaire',   'Chaque semaine',       7,    5,    2),
@@ -833,7 +758,7 @@ INSERT INTO periodicites (libelle, description, jours_periodicite, jours_valide,
     ('Décennal',       'Tous les 10 ans',      3650, 2920, 180);
 
 --------------------------------------------------------------------------------
--- 2.4 Types d'opérations, sources, DI
+-- 2.3 Types d'opérations, sources, DI
 --------------------------------------------------------------------------------
 INSERT INTO types_sources (libelle, description) VALUES
     ('Specifique',   'Opération spécifique à une gamme'),
@@ -854,7 +779,7 @@ INSERT INTO statuts_di (id_statut_di, nom_statut, description) VALUES
     (3, 'Réouverte', 'Demande rouverte pour correction ou complément');
 
 --------------------------------------------------------------------------------
--- 2.5 Types de documents
+-- 2.4 Types de documents
 --------------------------------------------------------------------------------
 -- 3 types système universels — valables tous secteurs confondus.
 -- L'utilisateur crée ses propres types (VGP, CERFA, PV, etc.) selon son métier.
@@ -865,7 +790,7 @@ INSERT INTO types_documents (nom, description, est_systeme) VALUES
     ('Contrat',     'Document contractuel ou de prestation de service',                         1);
 
 --------------------------------------------------------------------------------
--- 2.6 Types contractuels
+-- 2.5 Types contractuels
 --------------------------------------------------------------------------------
 INSERT INTO types_contrats (id_type_contrat, libelle, description) VALUES
     (1, 'Déterminé',   'Contrat à durée fixe sans reconduction'),
@@ -873,7 +798,7 @@ INSERT INTO types_contrats (id_type_contrat, libelle, description) VALUES
     (3, 'Indéterminé', 'Contrat sans date de fin, résiliable avec préavis');
 
 --------------------------------------------------------------------------------
--- 2.7 Prestataire interne + contrat système
+-- 2.6 Prestataire interne + contrat système
 --------------------------------------------------------------------------------
 INSERT INTO prestataires (id_prestataire, libelle, description) VALUES
     (1, 'Mon Entreprise', 'Maintenance interne');
@@ -882,7 +807,7 @@ INSERT INTO contrats (id_prestataire, id_type_contrat, reference, date_signature
 VALUES (1, 3, 'Maintenance interne', '2024-11-28', '2024-12-01', 60, 'Contrat du responsable technique');
 
 --------------------------------------------------------------------------------
--- 2.8 Statuts, priorités
+-- 2.7 Statuts, priorités
 --------------------------------------------------------------------------------
 -- Statuts opérations :
 -- 1=En attente, 2=En cours, 3=Terminée → statuts UTILISATEUR
@@ -1030,10 +955,6 @@ CREATE INDEX idx_batiments_image       ON batiments(id_image);
 
 -- Prestataires
 CREATE INDEX idx_prestataires_image ON prestataires(id_image);
-
--- Établissements — AJOUT v7 : FK sans index
-CREATE INDEX idx_etablissements_type_erp      ON etablissements(id_type_erp);
-CREATE INDEX idx_etablissements_categorie_erp ON etablissements(id_categorie_erp);
 
 -- Équipements
 CREATE INDEX idx_equipements_famille      ON equipements(id_famille);
@@ -2255,13 +2176,6 @@ BEGIN
     UPDATE gammes SET date_modification = CURRENT_TIMESTAMP WHERE id_gamme = NEW.id_gamme;
 END;
 
-DROP TRIGGER IF EXISTS maj_date_modification_etablissement;
-CREATE TRIGGER maj_date_modification_etablissement
-AFTER UPDATE ON etablissements FOR EACH ROW
-BEGIN
-    UPDATE etablissements SET date_modification = CURRENT_TIMESTAMP WHERE id_etablissement = NEW.id_etablissement;
-END;
-
 DROP TRIGGER IF EXISTS maj_date_modification_contrat;
 CREATE TRIGGER maj_date_modification_contrat
 AFTER UPDATE ON contrats FOR EACH ROW
@@ -2336,12 +2250,10 @@ FOR EACH ROW
 WHEN OLD.id_statut_di = 2
     AND NEW.id_statut_di != 3  -- sauf réouverture
     AND (
-        OLD.libelle_constat              IS NOT NEW.libelle_constat
-        OR OLD.description_constat       IS NOT NEW.description_constat
-        OR OLD.date_constat              IS NOT NEW.date_constat
-        OR OLD.description_resolution    IS NOT NEW.description_resolution
-        OR OLD.date_resolution           IS NOT NEW.date_resolution
-        OR OLD.description_resolution_suggeree IS NOT NEW.description_resolution_suggeree
+        OLD.constat                   IS NOT NEW.constat
+        OR OLD.date_constat           IS NOT NEW.date_constat
+        OR OLD.description_resolution IS NOT NEW.description_resolution
+        OR OLD.date_resolution        IS NOT NEW.date_resolution
     )
 BEGIN
     SELECT RAISE(ABORT,

@@ -44,8 +44,8 @@ pub fn recherche_globale(
          SELECT 'Local', id_local, nom, description \
          FROM locaux WHERE nom LIKE ?1 ESCAPE '\\' \
          UNION ALL \
-         SELECT 'DI', id_di, libelle_constat, description_constat \
-         FROM demandes_intervention WHERE libelle_constat LIKE ?1 ESCAPE '\\' \
+         SELECT 'DI', id_di, constat, NULL \
+         FROM demandes_intervention WHERE constat LIKE ?1 ESCAPE '\\' \
          LIMIT ?2"
     ).map_err(|e| e.to_string())?;
 

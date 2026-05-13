@@ -61,9 +61,7 @@ export interface ModeleDi {
   description: string | null;
   id_famille: number | null;
   id_equipement: number | null;
-  libelle_constat: string;
-  description_constat: string;
-  description_resolution: string | null;
+  constat: string;
   date_creation: string | null;
 }
 
@@ -75,8 +73,6 @@ export interface ModeleDiDetail {
   nom_famille: string | null;
   id_equipement: number | null;
   nom_equipement: string | null;
-  libelle_constat: string;
-  description_constat: string;
-  description_resolution: string | null;
+  constat: string;
   date_creation: string | null;
 }

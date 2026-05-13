@@ -11,25 +11,23 @@ use crate::models::demandes::{
 // ── Colonnes et helpers ──
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Colonnes SELECT complètes pour une demande d'intervention (11 colonnes)
-const DI_COLS: &str = "id_di, id_statut_di, id_prestataire, libelle_constat, description_constat, \
+/// Colonnes SELECT complètes pour une demande d'intervention (9 colonnes)
+const DI_COLS: &str = "id_di, id_statut_di, id_prestataire, constat, \
      date_constat, description_resolution, date_resolution, \
-     description_resolution_suggeree, date_creation, date_modification";
+     date_creation, date_modification";
 
-/// Construit une DemandeIntervention à partir d'une ligne de résultat (11 colonnes)
+/// Construit une DemandeIntervention à partir d'une ligne de résultat (9 colonnes)
 fn row_to_di(row: &rusqlite::Row) -> rusqlite::Result<DemandeIntervention> {
     Ok(DemandeIntervention {
         id_di: row.get(0)?,
         id_statut_di: row.get(1)?,
         id_prestataire: row.get(2)?,
-        libelle_constat: row.get(3)?,
-        description_constat: row.get(4)?,
-        date_constat: row.get(5)?,
-        description_resolution: row.get(6)?,
-        date_resolution: row.get(7)?,
-        description_resolution_suggeree: row.get(8)?,
-        date_creation: row.get(9)?,
-        date_modification: row.get(10)?,
+        constat: row.get(3)?,
+        date_constat: row.get(4)?,
+        description_resolution: row.get(5)?,
+        date_resolution: row.get(6)?,
+        date_creation: row.get(7)?,
+        date_modification: row.get(8)?,
     })
 }
 
@@ -43,7 +41,7 @@ pub fn get_demandes(db: State<DbPool>) -> Result<Vec<DiListItem>, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare_cached(
-            "SELECT id_di, id_statut_di, libelle_constat, date_constat, date_resolution \
+            "SELECT id_di, id_statut_di, constat, date_constat, date_resolution \
              FROM demandes_intervention \
              ORDER BY date_constat DESC",
         )
@@ -53,7 +51,7 @@ pub fn get_demandes(db: State<DbPool>) -> Result<Vec<DiListItem>, String> {
             Ok(DiListItem {
                 id_di: row.get(0)?,
                 id_statut_di: row.get(1)?,
-                libelle_constat: row.get(2)?,
+                constat: row.get(2)?,
                 date_constat: row.get(3)?,
                 date_resolution: row.get(4)?,
             })
@@ -84,15 +82,12 @@ pub fn create_demande(
     let conn = db.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO demandes_intervention \
-         (id_prestataire, libelle_constat, description_constat, date_constat, \
-          description_resolution_suggeree) \
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+         (id_prestataire, constat, date_constat) \
+         VALUES (?1, ?2, ?3)",
         params![
             input.id_prestataire,
-            input.libelle_constat,
-            input.description_constat,
+            input.constat,
             input.date_constat,
-            input.description_resolution_suggeree,
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -123,20 +118,12 @@ pub fn update_demande(
         sets.push(format!("id_prestataire = ?{}", values.len() + 1));
         values.push(Box::new(*v));
     }
-    if let Some(ref v) = input.libelle_constat {
-        sets.push(format!("libelle_constat = ?{}", values.len() + 1));
-        values.push(Box::new(v.clone()));
-    }
-    if let Some(ref v) = input.description_constat {
-        sets.push(format!("description_constat = ?{}", values.len() + 1));
+    if let Some(ref v) = input.constat {
+        sets.push(format!("constat = ?{}", values.len() + 1));
         values.push(Box::new(v.clone()));
     }
     if let Some(ref v) = input.date_constat {
         sets.push(format!("date_constat = ?{}", values.len() + 1));
-        values.push(Box::new(v.clone()));
-    }
-    if let Some(ref v) = input.description_resolution_suggeree {
-        sets.push(format!("description_resolution_suggeree = ?{}", values.len() + 1));
         values.push(Box::new(v.clone()));
     }
 
@@ -255,8 +242,7 @@ pub fn repasser_ouverte_demande(
 // ── Création depuis un modèle ──
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Crée une DI pré-remplie à partir d'un modèle de DI
-/// Le champ description_resolution du modèle devient description_resolution_suggeree de la DI
+/// Crée une DI pré-remplie à partir d'un modèle de DI (recopie le constat)
 #[tauri::command]
 pub fn create_demande_from_modele(
     db: State<DbPool>,
@@ -264,30 +250,17 @@ pub fn create_demande_from_modele(
 ) -> Result<DemandeIntervention, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
 
-    // Lire le modèle
-    let (libelle_constat, description_constat, description_resolution): (
-        String,
-        String,
-        Option<String>,
-    ) = conn
+    let constat: String = conn
         .query_row(
-            "SELECT libelle_constat, description_constat, description_resolution \
-             FROM modeles_di WHERE id_modele_di = ?1",
+            "SELECT constat FROM modeles_di WHERE id_modele_di = ?1",
             params![id_modele_di],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
 
-    // Créer la DI avec les champs du modèle
     conn.execute(
-        "INSERT INTO demandes_intervention \
-         (libelle_constat, description_constat, description_resolution_suggeree) \
-         VALUES (?1, ?2, ?3)",
-        params![
-            libelle_constat,
-            description_constat,
-            description_resolution,
-        ],
+        "INSERT INTO demandes_intervention (constat) VALUES (?1)",
+        params![constat],
     )
     .map_err(|e| e.to_string())?;
 

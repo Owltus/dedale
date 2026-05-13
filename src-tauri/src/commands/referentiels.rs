@@ -126,16 +126,13 @@ fn map_modele_di(row: &rusqlite::Row) -> rusqlite::Result<ModeleDi> {
         description: row.get(2)?,
         id_famille: row.get(3)?,
         id_equipement: row.get(4)?,
-        libelle_constat: row.get(5)?,
-        description_constat: row.get(6)?,
-        description_resolution: row.get(7)?,
-        date_creation: row.get(8)?,
+        constat: row.get(5)?,
+        date_creation: row.get(6)?,
     })
 }
 
 const MODELE_DI_BASE_SQL: &str = "SELECT id_modele_di, nom_modele, description, \
-    id_famille, id_equipement, libelle_constat, description_constat, description_resolution, \
-    date_creation FROM modeles_di";
+    id_famille, id_equipement, constat, date_creation FROM modeles_di";
 
 /// Récupère tous les modèles de demandes d'intervention
 #[tauri::command]
@@ -158,8 +155,7 @@ pub fn get_modele_di(db: State<DbPool>, id: i64) -> Result<ModeleDiDetail, Strin
         "SELECT m.id_modele_di, m.nom_modele, m.description, \
          m.id_famille, fe.nom_famille, \
          m.id_equipement, e.nom_affichage, \
-         m.libelle_constat, m.description_constat, \
-         m.description_resolution, m.date_creation \
+         m.constat, m.date_creation \
          FROM modeles_di m \
          LEFT JOIN familles_equipements fe ON fe.id_famille = m.id_famille \
          LEFT JOIN equipements e ON e.id_equipement = m.id_equipement \
@@ -174,10 +170,8 @@ pub fn get_modele_di(db: State<DbPool>, id: i64) -> Result<ModeleDiDetail, Strin
                 nom_famille: row.get(4)?,
                 id_equipement: row.get(5)?,
                 nom_equipement: row.get(6)?,
-                libelle_constat: row.get(7)?,
-                description_constat: row.get(8)?,
-                description_resolution: row.get(9)?,
-                date_creation: row.get(10)?,
+                constat: row.get(7)?,
+                date_creation: row.get(8)?,
             })
         },
     )
@@ -189,17 +183,14 @@ pub fn get_modele_di(db: State<DbPool>, id: i64) -> Result<ModeleDiDetail, Strin
 pub fn create_modele_di(db: State<DbPool>, input: ModeleDiInput) -> Result<ModeleDi, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO modeles_di (nom_modele, description, id_famille, id_equipement, \
-         libelle_constat, description_constat, description_resolution) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO modeles_di (nom_modele, description, id_famille, id_equipement, constat) \
+         VALUES (?1, ?2, ?3, ?4, ?5)",
         params![
             input.nom_modele,
             input.description,
             input.id_famille,
             input.id_equipement,
-            input.libelle_constat,
-            input.description_constat,
-            input.description_resolution
+            input.constat,
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -222,16 +213,13 @@ pub fn update_modele_di(
     let conn = db.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE modeles_di SET nom_modele = ?1, description = ?2, \
-         id_famille = ?3, id_equipement = ?4, libelle_constat = ?5, description_constat = ?6, \
-         description_resolution = ?7 WHERE id_modele_di = ?8",
+         id_famille = ?3, id_equipement = ?4, constat = ?5 WHERE id_modele_di = ?6",
         params![
             input.nom_modele,
             input.description,
             input.id_famille,
             input.id_equipement,
-            input.libelle_constat,
-            input.description_constat,
-            input.description_resolution,
+            input.constat,
             id
         ],
     )

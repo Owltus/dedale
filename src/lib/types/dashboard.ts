@@ -30,7 +30,7 @@ export interface OtDashboardItem {
 
 export interface DiDashboardItem {
   id_di: number;
-  libelle_constat: string;
+  constat: string;
   date_constat: string;
   id_statut_di: number;
 }

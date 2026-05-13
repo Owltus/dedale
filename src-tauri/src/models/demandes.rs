@@ -5,12 +5,10 @@ pub struct DemandeIntervention {
     pub id_di: i64,
     pub id_statut_di: i64,
     pub id_prestataire: Option<i64>,
-    pub libelle_constat: String,
-    pub description_constat: String,
+    pub constat: String,
     pub date_constat: String,
     pub description_resolution: Option<String>,
     pub date_resolution: Option<String>,
-    pub description_resolution_suggeree: Option<String>,
     pub date_creation: Option<String>,
     pub date_modification: Option<String>,
 }
@@ -20,7 +18,7 @@ pub struct DemandeIntervention {
 pub struct DiListItem {
     pub id_di: i64,
     pub id_statut_di: i64,
-    pub libelle_constat: String,
+    pub constat: String,
     pub date_constat: String,
     pub date_resolution: Option<String>,
 }
@@ -28,19 +26,15 @@ pub struct DiListItem {
 #[derive(Debug, Deserialize)]
 pub struct DiCreateInput {
     pub id_prestataire: Option<i64>,
-    pub libelle_constat: String,
-    pub description_constat: String,
+    pub constat: String,
     pub date_constat: Option<String>,
-    pub description_resolution_suggeree: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct DiUpdateInput {
     pub id_prestataire: Option<Option<i64>>,
-    pub libelle_constat: Option<String>,
-    pub description_constat: Option<String>,
+    pub constat: Option<String>,
     pub date_constat: Option<String>,
-    pub description_resolution_suggeree: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

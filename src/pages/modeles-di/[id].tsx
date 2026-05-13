@@ -38,9 +38,7 @@ export function ModelesDiDetail() {
   const [formFamille, setFormFamille] = useState<number | null>(null);
   const [formEquipement, setFormEquipement] = useState<number | null>(null);
   const { data: equipementsFamille = [] } = useEquipements(formFamille ?? undefined);
-  const [formLibelleConstat, setFormLibelleConstat] = useState("");
-  const [formDescConstat, setFormDescConstat] = useState("");
-  const [formDescResolution, setFormDescResolution] = useState("");
+  const [formConstat, setFormConstat] = useState("");
 
   const openEdit = () => {
     if (!modele) return;
@@ -48,16 +46,13 @@ export function ModelesDiDetail() {
     setFormDesc(modele.description ?? "");
     setFormFamille(modele.id_famille ?? null);
     setFormEquipement(modele.id_equipement ?? null);
-    setFormLibelleConstat(modele.libelle_constat);
-    setFormDescConstat(modele.description_constat);
-    setFormDescResolution(modele.description_resolution ?? "");
+    setFormConstat(modele.constat);
     setEditOpen(true);
   };
 
   const onSubmitEdit = async () => {
     if (!formNom.trim()) { toast.error("Le nom est requis"); return; }
-    if (!formLibelleConstat.trim()) { toast.error("Le libellé du constat est requis"); return; }
-    if (!formDescConstat.trim()) { toast.error("La description du constat est requise"); return; }
+    if (!formConstat.trim()) { toast.error("Le constat est requis"); return; }
 
     try {
       await updateModele.mutateAsync({
@@ -67,9 +62,7 @@ export function ModelesDiDetail() {
           description: formDesc.trim() || undefined,
           id_famille: formFamille || undefined,
           id_equipement: formEquipement || undefined,
-          libelle_constat: formLibelleConstat.trim(),
-          description_constat: formDescConstat.trim(),
-          description_resolution: formDescResolution.trim() || undefined,
+          constat: formConstat.trim(),
         },
       } as never);
       toast.success("Modèle modifié");
@@ -109,16 +102,8 @@ export function ModelesDiDetail() {
       {/* Constat pré-rempli */}
       <Card className="shrink-0">
         <CardContent className="py-3 px-4 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Libellé du constat</p>
-          <p className="text-sm">{modele.libelle_constat}</p>
-          <p className="text-xs font-medium text-muted-foreground pt-2">Description du constat</p>
-          <p className="text-sm">{modele.description_constat}</p>
-          {modele.description_resolution && (
-            <>
-              <p className="text-xs font-medium text-muted-foreground pt-2">Résolution suggérée</p>
-              <p className="text-sm">{modele.description_resolution}</p>
-            </>
-          )}
+          <p className="text-xs font-medium text-muted-foreground">Constat</p>
+          <p className="text-sm whitespace-pre-wrap">{modele.constat}</p>
         </CardContent>
       </Card>
 
@@ -164,16 +149,8 @@ export function ModelesDiDetail() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="edit_libelle_constat">Libellé du constat *</Label>
-              <Input id="edit_libelle_constat" value={formLibelleConstat} onChange={(e) => setFormLibelleConstat(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit_desc_constat">Description du constat *</Label>
-              <Textarea id="edit_desc_constat" value={formDescConstat} onChange={(e) => setFormDescConstat(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit_resolution">Résolution suggérée</Label>
-              <Textarea id="edit_resolution" value={formDescResolution} onChange={(e) => setFormDescResolution(e.target.value)} />
+              <Label htmlFor="edit_constat">Constat <span className="text-destructive">*</span></Label>
+              <Textarea id="edit_constat" rows={4} value={formConstat} onChange={(e) => setFormConstat(e.target.value)} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Annuler</Button>

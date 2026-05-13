@@ -25,7 +25,7 @@ import { useDemande, useDeleteDemande, useDiLocalisations, useLinkDiLocalisation
 import { useLocalisationsTree, useEquipementsByLocal } from "@/hooks/use-localisations";
 import { usePrestataires } from "@/hooks/use-prestataires";
 import { getStatutDi } from "@/lib/utils/statuts";
-import { formatDate } from "@/lib/utils/format";
+import { constatTitle, formatDate } from "@/lib/utils/format";
 
 export function DemandesDetail() {
   const navigate = useNavigate();
@@ -126,7 +126,7 @@ export function DemandesDetail() {
 
   return (
     <div className="flex h-full flex-col p-4 gap-3 overflow-hidden">
-      <PageHeader title={`DI #${di.id_di} — ${di.libelle_constat}`}>
+      <PageHeader title={`DI #${di.id_di} — ${constatTitle(di.constat)}`}>
         <div className="flex items-center gap-2">
           <span className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium ${statutCfg.className ?? ""}`}>
             {statutCfg.label}
@@ -169,17 +169,11 @@ export function DemandesDetail() {
         </TabsList>
 
         <TabsContent value="detail" className="mt-2 flex flex-1 flex-col gap-3 overflow-y-auto no-scrollbar min-h-0">
-          {/* Description constat */}
+          {/* Constat */}
           <Card className="shrink-0">
             <CardContent className="py-3 px-4 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Description du constat</p>
-              <p className="text-sm">{di.description_constat}</p>
-              {di.description_resolution_suggeree && (
-                <>
-                  <p className="text-xs font-medium text-muted-foreground pt-2">Résolution suggérée</p>
-                  <p className="text-sm">{di.description_resolution_suggeree}</p>
-                </>
-              )}
+              <p className="text-xs font-medium text-muted-foreground">Constat</p>
+              <p className="text-sm whitespace-pre-wrap">{di.constat}</p>
             </CardContent>
           </Card>
 
@@ -276,7 +270,7 @@ export function DemandesDetail() {
 
         <TabsContent value="documents" className="mt-2 flex flex-1 flex-col overflow-y-auto no-scrollbar min-h-0">
           <DocumentsLies entityType="di" entityId={diId} inputId="di-doc-upload" hideAddButton
-            namingContext={{ prestataire: prestataires.find(p => p.id_prestataire === di.id_prestataire)?.libelle, objet: di.libelle_constat, date: di.date_resolution ?? di.date_constat }} />
+            namingContext={{ prestataire: prestataires.find(p => p.id_prestataire === di.id_prestataire)?.libelle, objet: constatTitle(di.constat), date: di.date_resolution ?? di.date_constat }} />
         </TabsContent>
       </Tabs>
 
@@ -304,7 +298,7 @@ export function DemandesDetail() {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title="Supprimer cette demande ?"
-        description={`La demande « ${di.libelle_constat} » sera supprimée définitivement avec toutes ses liaisons.`}
+        description={`La demande « ${constatTitle(di.constat)} » sera supprimée définitivement avec toutes ses liaisons.`}
         confirmLabel="Supprimer"
         variant="destructive"
         onConfirm={async () => {

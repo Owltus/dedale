@@ -19,11 +19,11 @@ import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog
 import { OtGammeCell } from "@/components/shared/OtGammeCell";
 import { useDocumentPreview, useSaveDocumentToDisk } from "@/hooks/use-documents";
 import { getEffectiveOtStatutId } from "@/lib/utils/statuts";
-import { formatDateWithWeek } from "@/lib/utils/format";
+import { constatTitle, formatDateWithWeek } from "@/lib/utils/format";
 import type { DiDashboardItem, DocumentDashboardItem, OtDashboardItem } from "@/lib/types/dashboard";
 
 function filterDi(di: DiDashboardItem, q: string): boolean {
-  return di.libelle_constat.toLowerCase().includes(q);
+  return di.constat.toLowerCase().includes(q);
 }
 
 function filterDocument(d: DocumentDashboardItem, q: string): boolean {
@@ -139,7 +139,7 @@ export function Dashboard() {
           rowHeight={dynamicRowH}
           emptyTitle="Aucune demande d'intervention"
           renderContent={(di) => (
-            <p className="flex-1 text-[11px] leading-tight truncate">{di.libelle_constat}</p>
+            <p className="flex-1 text-[11px] leading-tight truncate">{constatTitle(di.constat)}</p>
           )}
           renderRight={(di) => (
             <DiStatusBadge id={di.id_statut_di} className="h-4 text-[10px] px-1.5" />

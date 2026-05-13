@@ -88,9 +88,7 @@ pub struct ModeleDi {
     pub description: Option<String>,
     pub id_famille: Option<i64>,
     pub id_equipement: Option<i64>,
-    pub libelle_constat: String,
-    pub description_constat: String,
-    pub description_resolution: Option<String>,
+    pub constat: String,
     pub date_creation: Option<String>,
 }
 
@@ -103,9 +101,7 @@ pub struct ModeleDiDetail {
     pub nom_famille: Option<String>,
     pub id_equipement: Option<i64>,
     pub nom_equipement: Option<String>,
-    pub libelle_constat: String,
-    pub description_constat: String,
-    pub description_resolution: Option<String>,
+    pub constat: String,
     pub date_creation: Option<String>,
 }
 
@@ -115,7 +111,5 @@ pub struct ModeleDiInput {
     pub description: Option<String>,
     pub id_famille: Option<i64>,
     pub id_equipement: Option<i64>,
-    pub libelle_constat: String,
-    pub description_constat: String,
-    pub description_resolution: Option<String>,
+    pub constat: String,
 }

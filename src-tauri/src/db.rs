@@ -11,13 +11,6 @@ static MIGRATIONS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/migrations");
 /// Nom de la table qui trace les migrations déjà appliquées sur la base.
 const MIGRATIONS_TABLE: &str = "schema_migrations";
 
-/// Sentinelle pour détecter les bases créées AVANT l'introduction de `schema_migrations`.
-/// Si cette table existe et que `schema_migrations` est absente, on bootstrappe l'historique
-/// (marquer 001 appliquée sans la ré-exécuter, sinon les CREATE TABLE échoueraient sur les
-/// tables existantes). La table est droppée ensuite par la migration 002 — sans impact sur
-/// la sentinelle, qui n'est consultée qu'avant l'application des migrations.
-const LEGACY_MARKER_TABLE: &str = "types_erp";
-
 /// Pool de connexion SQLite — wrappé dans un Mutex standard (pas tokio)
 pub type DbPool = Mutex<Connection>;
 
@@ -346,18 +339,6 @@ fn ensure_migrations_table(conn: &Connection) -> Result<(), String> {
     .map_err(|e| format!("Création de {} échouée : {}", MIGRATIONS_TABLE, e))
 }
 
-/// Détecte si une table existe dans la base.
-fn table_exists(conn: &Connection, name: &str) -> Result<bool, String> {
-    let count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
-            [name],
-            |row| row.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-    Ok(count > 0)
-}
-
 /// Retourne la liste des versions déjà appliquées, triée.
 fn applied_versions(conn: &Connection) -> Result<Vec<i64>, String> {
     let mut stmt = conn
@@ -372,38 +353,18 @@ fn applied_versions(conn: &Connection) -> Result<Vec<i64>, String> {
     rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }
 
-/// Bootstrap des bases pré-existantes créées avant l'introduction du système de migration.
-/// Si la table `types_erp` existe mais que `schema_migrations` est vide, on considère que
-/// la baseline (001) est déjà appliquée et on l'enregistre sans rejouer le SQL.
-fn bootstrap_legacy_if_needed(
-    conn: &Connection,
-    baseline: &Migration,
-) -> Result<bool, String> {
-    let has_legacy = table_exists(conn, LEGACY_MARKER_TABLE)?;
-    let already_tracked: i64 = conn
-        .query_row(
-            &format!("SELECT COUNT(*) FROM {}", MIGRATIONS_TABLE),
-            [],
-            |row| row.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-
-    if has_legacy && already_tracked == 0 {
-        conn.execute(
-            &format!(
-                "INSERT INTO {} (version, name) VALUES (?1, ?2)",
-                MIGRATIONS_TABLE
-            ),
-            rusqlite::params![baseline.version, baseline.name],
-        )
-        .map_err(|e| format!("Bootstrap legacy échoué : {}", e))?;
-        return Ok(true);
-    }
-    Ok(false)
-}
-
 /// Applique une migration dans une transaction. Échec ⇒ ROLLBACK + erreur remontée.
+///
+/// `PRAGMA foreign_keys` est désactivé hors transaction pendant l'application
+/// (pattern officiel SQLite « 12-step ALTER TABLE ») : permet aux migrations qui
+/// recréent une table (DROP + RENAME) de ne pas déclencher les ON DELETE CASCADE
+/// sur les tables filles, et évite que des violations FK préexistantes (héritées
+/// d'anciennes migrations sans contrôle d'intégrité) ne bloquent un COMMIT
+/// légitime via `defer_foreign_keys`.
 fn apply_single_migration(conn: &Connection, m: &Migration) -> Result<(), String> {
+    conn.execute_batch("PRAGMA foreign_keys = OFF;")
+        .map_err(|e| format!("foreign_keys OFF avant migration {} : {}", m.version, e))?;
+
     conn.execute_batch("BEGIN IMMEDIATE;")
         .map_err(|e| format!("BEGIN migration {} : {}", m.version, e))?;
 
@@ -421,7 +382,7 @@ fn apply_single_migration(conn: &Connection, m: &Migration) -> Result<(), String
         Ok(())
     })();
 
-    match result {
+    let final_result = match result {
         Ok(()) => conn
             .execute_batch("COMMIT;")
             .map_err(|e| format!("COMMIT migration {} : {}", m.version, e)),
@@ -429,7 +390,14 @@ fn apply_single_migration(conn: &Connection, m: &Migration) -> Result<(), String
             let _ = conn.execute_batch("ROLLBACK;");
             Err(e)
         }
-    }
+    };
+
+    // Réactivation des FK critique : laisser la base avec FK désactivées casserait
+    // silencieusement toute future opération qui dépend de l'intégrité référentielle.
+    conn.execute_batch("PRAGMA foreign_keys = ON;")
+        .map_err(|e| format!("foreign_keys ON après migration {} : {}", m.version, e))?;
+
+    final_result
 }
 
 /// Copie la base vers un fichier horodaté `dedale.db.backup-pre-migration-YYYYMMDD-HHMMSS`.
@@ -446,14 +414,11 @@ fn backup_database(db_path: &std::path::Path) {
     }
 }
 
-/// Orchestrateur : crée la table de suivi, bootstrap éventuel, puis applique les migrations
-/// manquantes dans l'ordre. Un backup horodaté est créé si au moins une migration doit s'appliquer.
+/// Orchestrateur : crée la table de suivi puis applique les migrations manquantes
+/// dans l'ordre. Un backup horodaté est créé si au moins une migration doit s'appliquer.
 fn run_migrations(conn: &Connection, db_path: &std::path::Path) -> Result<(), String> {
     let migrations = load_migrations()?;
     ensure_migrations_table(conn)?;
-
-    let baseline = &migrations[0];
-    bootstrap_legacy_if_needed(conn, baseline)?;
 
     let applied: std::collections::HashSet<i64> = applied_versions(conn)?.into_iter().collect();
     let pending: Vec<&Migration> = migrations
