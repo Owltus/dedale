@@ -2241,26 +2241,6 @@ BEGIN
     END;
 END;
 
--- Protection DI résolue (immutable sauf réouverture)
--- Approche BLACKLIST comme protection_ot_terminaux
-DROP TRIGGER IF EXISTS protection_di_resolue;
-CREATE TRIGGER protection_di_resolue
-BEFORE UPDATE ON demandes_intervention
-FOR EACH ROW
-WHEN OLD.id_statut_di = 2
-    AND NEW.id_statut_di != 3  -- sauf réouverture
-    AND (
-        OLD.constat                   IS NOT NEW.constat
-        OR OLD.date_constat           IS NOT NEW.date_constat
-        OR OLD.description_resolution IS NOT NEW.description_resolution
-        OR OLD.date_resolution        IS NOT NEW.date_resolution
-    )
-BEGIN
-    SELECT RAISE(ABORT,
-        'Modification interdite : DI résolue. Utilisez la réouverture si une correction est nécessaire.'
-    );
-END;
-
 DROP TRIGGER IF EXISTS maj_date_modification_modele_equipement;
 CREATE TRIGGER maj_date_modification_modele_equipement
 AFTER UPDATE ON modeles_equipements FOR EACH ROW

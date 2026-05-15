@@ -35,6 +35,8 @@ pub struct DiUpdateInput {
     pub id_prestataire: Option<Option<i64>>,
     pub constat: Option<String>,
     pub date_constat: Option<String>,
+    pub description_resolution: Option<Option<String>>,
+    pub date_resolution: Option<Option<String>>,
 }
 
 #[derive(Debug, Deserialize)]

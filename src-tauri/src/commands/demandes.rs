@@ -126,6 +126,14 @@ pub fn update_demande(
         sets.push(format!("date_constat = ?{}", values.len() + 1));
         values.push(Box::new(v.clone()));
     }
+    if let Some(ref v) = input.description_resolution {
+        sets.push(format!("description_resolution = ?{}", values.len() + 1));
+        values.push(Box::new(v.clone()));
+    }
+    if let Some(ref v) = input.date_resolution {
+        sets.push(format!("date_resolution = ?{}", values.len() + 1));
+        values.push(Box::new(v.clone()));
+    }
 
     if sets.is_empty() {
         // Rien à mettre à jour — retourner l'état actuel
