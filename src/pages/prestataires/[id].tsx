@@ -38,8 +38,10 @@ import {
 import { useTypesContrats, useTypesDocuments } from "@/hooks/use-referentiels";
 import { useGammes } from "@/hooks/use-gammes";
 import { useOrdresTravail } from "@/hooks/use-ordres-travail";
+import { useDemandes } from "@/hooks/use-demandes";
 import { OtList } from "@/components/shared/OtList";
 import { GammeList } from "@/components/shared/GammeList";
+import { DiList } from "@/components/shared/DiList";
 import { DocumentsLies } from "@/components/shared/DocumentsLies";
 import { DocumentIcon } from "@/components/shared/DocumentIcon";
 import { DropZone } from "@/components/shared/DropZone";
@@ -329,6 +331,8 @@ export function PrestatairesDetail() {
   const gammes = allGammes.filter((g) => g.nom_prestataire === prestataire?.libelle);
   const { data: allOt = [] } = useOrdresTravail();
   const ots = allOt.filter((ot) => ot.nom_prestataire === prestataire?.libelle);
+  const { data: allDi = [] } = useDemandes();
+  const dis = allDi.filter((di) => di.id_prestataire === prestataireId);
   const { data: prestDocs = [] } = useDocumentsForEntity("prestataires", prestataireId);
   const { data: typesContrats = [] } = useTypesContrats();
   const createContrat = useCreateContrat();
@@ -482,6 +486,7 @@ export function PrestatairesDetail() {
           <TabsTrigger value="contrats" className="flex-1">Contrats ({contrats.length})</TabsTrigger>
           <TabsTrigger value="gammes" className="flex-1">Gammes ({gammes.length})</TabsTrigger>
           <TabsTrigger value="ordres-travail" className="flex-1">Ordres de travail ({ots.length})</TabsTrigger>
+          <TabsTrigger value="demandes" className="flex-1">Interventions ({dis.length})</TabsTrigger>
           <TabsTrigger value="documents" className="flex-1">Documents ({prestDocs.length})</TabsTrigger>
         </TabsList>
 
@@ -529,6 +534,15 @@ export function PrestatairesDetail() {
             data={ots}
             emptyTitle="Aucun ordre de travail"
             emptyDescription="Les OT sont générés via les gammes associées à ce prestataire."
+          />
+        </TabsContent>
+
+        {/* Onglet Interventions */}
+        <TabsContent value="demandes" className="mt-2 flex flex-1 flex-col min-h-0">
+          <DiList
+            data={dis}
+            emptyTitle="Aucune intervention"
+            emptyDescription="Aucune intervention n'est assignée à ce prestataire."
           />
         </TabsContent>
 

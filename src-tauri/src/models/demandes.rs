@@ -18,6 +18,7 @@ pub struct DemandeIntervention {
 pub struct DiListItem {
     pub id_di: i64,
     pub id_statut_di: i64,
+    pub id_prestataire: Option<i64>,
     pub constat: String,
     pub date_constat: String,
     pub date_resolution: Option<String>,

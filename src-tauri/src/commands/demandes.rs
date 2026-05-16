@@ -41,7 +41,7 @@ pub fn get_demandes(db: State<DbPool>) -> Result<Vec<DiListItem>, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare_cached(
-            "SELECT id_di, id_statut_di, constat, date_constat, date_resolution \
+            "SELECT id_di, id_statut_di, id_prestataire, constat, date_constat, date_resolution \
              FROM demandes_intervention \
              ORDER BY date_constat DESC",
         )
@@ -51,9 +51,10 @@ pub fn get_demandes(db: State<DbPool>) -> Result<Vec<DiListItem>, String> {
             Ok(DiListItem {
                 id_di: row.get(0)?,
                 id_statut_di: row.get(1)?,
-                constat: row.get(2)?,
-                date_constat: row.get(3)?,
-                date_resolution: row.get(4)?,
+                id_prestataire: row.get(2)?,
+                constat: row.get(3)?,
+                date_constat: row.get(4)?,
+                date_resolution: row.get(5)?,
             })
         })
         .map_err(|e| e.to_string())?;

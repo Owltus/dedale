@@ -15,6 +15,7 @@ export interface DemandeIntervention {
 export interface DiListItem {
   id_di: number;
   id_statut_di: number;
+  id_prestataire: number | null;
   constat: string;
   date_constat: string;
   date_resolution: string | null;
