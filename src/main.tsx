@@ -4,6 +4,8 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { routeTree } from './routeTree.gen'
 import { AuthProvider, useAuth } from './auth'
+import { ThemeProvider } from './components/theme'
+import { Toaster } from './components/ui/sonner'
 import './index.css'
 
 const queryClient = new QueryClient()
@@ -40,9 +42,12 @@ function InnerApp() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <InnerApp />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <InnerApp />
+        </AuthProvider>
+        <Toaster />
+      </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,
 )

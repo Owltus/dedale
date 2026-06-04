@@ -23,5 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 
-# Documentation interne (le schéma backend a son propre dépôt)
+# Documentation interne (dépôt public) : schéma backend + spec fonctionnelle legacy
 contexte/
+doc-fonctionnelle/
+
+# Scripts de lancement locaux
+dev.bat
+
+# Réglages Claude Code personnels (le settings.json partagé reste versionné)
+.claude/settings.local.json
+
+# Supabase CLI — état local lié au projet
+supabase/.temp/

@@ -1,7 +1,16 @@
 import { useState } from 'react'
-import type { FormEvent } from 'react'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { supabase } from '../lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: ({ context }) => {
@@ -20,84 +29,70 @@ function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  async function handleSubmit() {
     setError(null)
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
     setLoading(false)
     if (error) {
       setError(error.message)
       return
     }
-    navigate({ to: '/' })
+    await navigate({ to: '/' })
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-semibold text-slate-900">Dédale</h1>
-          <p className="mt-1 text-sm text-slate-500">Gestion de maintenance</p>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-1 block text-sm font-medium text-slate-700"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="password"
-              className="mb-1 block text-sm font-medium text-slate-700"
-            >
-              Mot de passe
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-            />
-          </div>
-
-          {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2 font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+    <div className="bg-muted/40 flex min-h-screen items-center justify-center px-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Dédale</CardTitle>
+          <CardDescription>Gestion de maintenance</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              void handleSubmit()
+            }}
+            className="flex flex-col gap-4"
           >
-            {loading ? 'Connexion…' : 'Se connecter'}
-          </button>
-        </form>
-      </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="password">Mot de passe</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            {error && <p className="text-destructive text-sm">{error}</p>}
+
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? 'Connexion…' : 'Se connecter'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -1,0 +1,7 @@
+dist
+src/routeTree.gen.ts
+src/lib/database.types.ts
+package-lock.json
+contexte
+
+supabase

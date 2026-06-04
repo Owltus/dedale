@@ -16,15 +16,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Session restaurée au démarrage (depuis le stockage local).
-    supabase.auth.getSession().then(({ data }) => {
+    void supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setIsLoading(false)
     })
 
     // Connexion / déconnexion / refresh de token.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession)
-    })
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession)
+      },
+    )
 
     return () => sub.subscription.unsubscribe()
   }, [])

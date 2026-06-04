@@ -1,0 +1,78 @@
+import { queryOptions } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+
+export const localisationsQueries = {
+  all: () => ['localisations'] as const,
+
+  /** Bâtiments actifs d'un site. */
+  batiments: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [...localisationsQueries.all(), 'batiments', siteId] as const,
+      enabled: siteId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('batiments')
+          .select('*')
+          .eq('site_id', siteId!)
+          .is('deleted_at', null)
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+    }),
+
+  /** Niveaux actifs d'un bâtiment. */
+  niveaux: (batimentId: string | null) =>
+    queryOptions({
+      queryKey: [...localisationsQueries.all(), 'niveaux', batimentId] as const,
+      enabled: batimentId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('niveaux')
+          .select('*')
+          .eq('batiment_id', batimentId!)
+          .is('deleted_at', null)
+          .order('ordre')
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+    }),
+
+  /** Locaux actifs d'un niveau. */
+  locaux: (niveauId: string | null) =>
+    queryOptions({
+      queryKey: [...localisationsQueries.all(), 'locaux', niveauId] as const,
+      enabled: niveauId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('locaux')
+          .select('*')
+          .eq('niveau_id', niveauId!)
+          .is('deleted_at', null)
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+    }),
+
+  /** Types de locaux actifs (référentiel global), pour le dropdown. */
+  typesLocaux: () =>
+    queryOptions({
+      queryKey: [...localisationsQueries.all(), 'types-locaux'] as const,
+      staleTime: 5 * 60_000,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('types_locaux')
+          .select('*')
+          .eq('actif', true)
+          .order('libelle')
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+    }),
+}

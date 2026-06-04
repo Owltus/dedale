@@ -36,12 +36,12 @@ npm run dev          # http://localhost:5181
 
 ## Scripts
 
-| Commande | Effet |
-|---|---|
-| `npm run dev` | Serveur de développement (port 5181) |
-| `npm run build` | Build de production (`dist/`) |
-| `npm run preview` | Prévisualise le build |
-| `npm run lint` | Analyse ESLint |
+| Commande          | Effet                                |
+| ----------------- | ------------------------------------ |
+| `npm run dev`     | Serveur de développement (port 5181) |
+| `npm run build`   | Build de production (`dist/`)        |
+| `npm run preview` | Prévisualise le build                |
+| `npm run lint`    | Analyse ESLint                       |
 
 ## Structure
 

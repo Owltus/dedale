@@ -7,6 +7,14 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
 
+    /* Strict */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
+    /* Alias d'import @/ -> src/ (paths sans baseUrl en résolution bundler) */
+    "paths": { "@/*": ["./src/*"] },
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
