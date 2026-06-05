@@ -1,7 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { utilisateursQueries } from './queries'
+import { invokeFunction } from './edge'
 import type { InviteFormValues } from './schemas'
+import type { Database } from '@/lib/database.types'
+
+type UserUpdate = Database['public']['Tables']['users']['Update']
 
 /**
  * Invitation d'un nouvel utilisateur via l'Edge Function `invite_user`
@@ -104,4 +108,78 @@ async function edgeErrorMessage(
     }
   }
   return error instanceof Error ? error.message : 'Échec de l’invitation'
+}
+
+/**
+ * Met à jour le profil d'un utilisateur (nom, téléphone ; et role_id si fourni,
+ * réservé admin par le trigger protect_users_sensitive_columns). La RLS limite
+ * un manager à ses subordonnés sur ses sites ; sinon erreur 42501 catchée.
+ */
+export function useUpdateUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: {
+      id: string
+      nom_complet: string
+      telephone: string
+      role_id?: number
+    }) => {
+      const patch: UserUpdate = {
+        nom_complet: p.nom_complet.trim(),
+        telephone: p.telephone.trim() || null,
+      }
+      if (p.role_id !== undefined) patch.role_id = p.role_id
+      // Pas de .select() : la colonne telephone est en SELECT révoqué (RGPD).
+      await supabase.from('users').update(patch).eq('id', p.id).throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: utilisateursQueries.all() }),
+  })
+}
+
+/** Attribue un site à un utilisateur (admin = tous ; manager = ses sites). */
+export function useAssignSite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { userId: string; siteId: string }) => {
+      await supabase
+        .from('user_sites')
+        .insert({ user_id: p.userId, site_id: p.siteId })
+        .throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: utilisateursQueries.all() }),
+  })
+}
+
+/** Retire un site d'un utilisateur. */
+export function useUnassignSite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { userId: string; siteId: string }) => {
+      await supabase
+        .from('user_sites')
+        .delete()
+        .eq('user_id', p.userId)
+        .eq('site_id', p.siteId)
+        .throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: utilisateursQueries.all() }),
+  })
+}
+
+/** Change l'e-mail d'un utilisateur via l'Edge Function (service_role, admin). */
+export function useUpdateUserEmail() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { userId: string; email: string }) => {
+      await invokeFunction('update_user_email', {
+        user_id: p.userId,
+        email: p.email.trim().toLowerCase(),
+      })
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: utilisateursQueries.all() }),
+  })
 }

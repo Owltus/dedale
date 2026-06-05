@@ -55,3 +55,24 @@ export const emptyInvite: InviteFormValues = {
   role: 'technicien',
   site_ids: [],
 }
+
+// Format téléphone aligné sur la contrainte CHECK de public.users
+// (E.164 international + formats nationaux avec espaces/tirets/points).
+const TELEPHONE_RE = /^\+?[0-9][0-9 .-]{4,19}$/
+
+export const profileSchema = z.object({
+  nom_complet: z
+    .string()
+    .trim()
+    .min(1, 'Le nom complet est obligatoire')
+    .max(200),
+  telephone: z.union([
+    z.literal(''),
+    z
+      .string()
+      .trim()
+      .regex(TELEPHONE_RE, 'Téléphone invalide (ex. +33 6 12 34 56 78)'),
+  ]),
+})
+
+export type ProfileFormValues = z.infer<typeof profileSchema>
