@@ -186,31 +186,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
     )
   }
 
-  // (d) Invitation via service_role. Les métadonnées partent dans app_metadata
-  // (non falsifiables par le client) → lues par handle_new_auth_user.
+  // (d) Invitation via service_role. Les infos partent dans `data` (=
+  // user_metadata), que GoTrue pose dès la création de l'utilisateur — et c'est
+  // de là que le trigger handle_new_auth_user les lit (après la migration SQL
+  // qui le fait lire user_metadata, avec app_metadata en priorité s'il existe).
+  // inviteUserByEmail envoie aussi l'e-mail d'invitation.
   const adminClient = createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
+  // URL de l'app vers laquelle revenir après le clic sur le lien d'invitation
+  // (page où la personne définit son mot de passe). Configurable via le secret
+  // APP_URL pour la prod ; défaut = dev local.
+  const appUrl = Deno.env.get('APP_URL') ?? 'http://localhost:5181'
+
   const { data: invited, error: inviteErr } =
     await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: {
-        role,
-        nom_complet,
-        created_by: callerId,
-        site_ids,
-      },
+      data: { role, nom_complet, created_by: callerId, site_ids },
+      redirectTo: `${appUrl}/definir-mot-de-passe`,
     })
 
   if (inviteErr) {
-    // L'erreur peut venir du trigger (cascade/scope sites refusés → la base
-    // rollback la création) ou d'Auth (e-mail déjà invité, etc.). On remonte le
-    // message tel quel : il provient de nos propres validations, pas d'un secret.
-    const status = inviteErr.status && inviteErr.status >= 400 ? inviteErr.status : 400
+    // Peut venir du trigger (cascade/scope sites refusés → rollback) ou d'Auth
+    // (e-mail déjà utilisé, etc.). Message remonté tel quel (nos validations).
+    const status =
+      inviteErr.status && inviteErr.status >= 400 ? inviteErr.status : 400
     return json({ error: inviteErr.message }, status)
   }
 
-  // (e) Succès.
   return json(
     {
       success: true,
