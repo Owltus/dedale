@@ -1,5 +1,13 @@
 import { useNavigate } from '@tanstack/react-router'
-import { Check, LogOut, Monitor, Moon, MoreVertical, Sun } from 'lucide-react'
+import {
+  Check,
+  LogOut,
+  Monitor,
+  Moon,
+  MoreVertical,
+  Sun,
+  UserRound,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -70,6 +78,15 @@ export function UserMenu() {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuItem
+          onSelect={() => {
+            void navigate({ to: '/profil' })
+          }}
+        >
+          <UserRound />
+          Mon profil
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-muted-foreground text-xs">
           Thème
         </DropdownMenuLabel>

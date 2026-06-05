@@ -5,6 +5,21 @@ import { invokeFunction } from './edge'
 export const utilisateursQueries = {
   all: () => ['utilisateurs'] as const,
 
+  /** Profil de l'utilisateur connecté (RLS users_self_select, tous rôles). */
+  me: (userId: string) =>
+    queryOptions({
+      queryKey: [...utilisateursQueries.all(), 'me', userId] as const,
+      queryFn: async () => {
+        const { data } = await supabase
+          .from('users')
+          .select('id, nom_complet, roles(code)')
+          .eq('id', userId)
+          .maybeSingle()
+          .throwOnError()
+        return data
+      },
+    }),
+
   /** Téléphone d'un utilisateur (protégé RGPD : lecture via RPC dédiée). */
   telephone: (userId: string) =>
     queryOptions({

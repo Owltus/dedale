@@ -7,6 +7,7 @@ import { InviteUserDialog } from '@/features/utilisateurs/components/invite-user
 import { UtilisateurDetail } from '@/features/utilisateurs/components/utilisateur-detail'
 import { ROLE_LABELS } from '@/features/utilisateurs/schemas'
 import type { RoleCode } from '@/features/utilisateurs/schemas'
+import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -28,16 +29,21 @@ function roleLabel(code: string | null | undefined): string {
 
 function UtilisateursPage() {
   const { data: role, isPending: rolePending } = useCurrentRole()
+  const { session } = useAuth()
   const canManage = role === 'admin' || role === 'manager'
   const [inviteOpen, setInviteOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const {
-    data: users = [],
+    data: allUsers = [],
     isPending,
     isError,
     refetch,
   } = useQuery({ ...utilisateursQueries.list(), enabled: canManage })
+
+  // On ne se liste jamais soi-même : son propre profil se gère depuis la
+  // sidebar (« Mon profil »).
+  const users = allUsers.filter((u) => u.id !== session?.user.id)
 
   // Garde-fou d'accès : réservé admin/manager.
   if (rolePending) {

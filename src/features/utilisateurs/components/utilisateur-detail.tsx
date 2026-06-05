@@ -1,12 +1,16 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
   Ban,
   CheckCircle2,
+  KeyRound,
+  Lock,
+  Mail,
   Plus,
+  ShieldCheck,
   ShieldOff,
-  Trash2,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { utilisateursQueries } from '../queries'
@@ -21,6 +25,7 @@ import {
 import { ROLE_LABELS, profileSchema } from '../schemas'
 import type { RoleCode } from '../schemas'
 import { sitesQueries } from '@/features/sites/queries'
+import { supabase } from '@/lib/supabase'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
@@ -88,7 +93,9 @@ export function UtilisateurDetail({
     )
   }
 
-  const targetIsSubordinate = SUBORDINATE_ROLES.includes(user.roles?.code ?? '')
+  const targetRole = user.roles?.code ?? ''
+  const targetIsAdmin = targetRole === 'admin'
+  const targetIsSubordinate = SUBORDINATE_ROLES.includes(targetRole)
   const canEdit = isAdmin || (role === 'manager' && targetIsSubordinate)
 
   return (
@@ -97,32 +104,37 @@ export function UtilisateurDetail({
         <ArrowLeft /> Retour aux utilisateurs
       </Button>
 
-      <PageHeader
-        title={user.nom_complet}
-        description={roleLabel(user.roles?.code)}
-        action={
-          <div className="flex items-center gap-2">
-            <Badge variant={user.est_actif ? 'outline' : 'destructive'}>
-              {user.est_actif ? 'Actif' : 'Inactif'}
-            </Badge>
-            {user.anonymized_at && <Badge variant="outline">Anonymisé</Badge>}
-          </div>
-        }
-      />
+      <div className="mx-auto flex max-w-2xl flex-col gap-4">
+        <PageHeader
+          title={user.nom_complet}
+          description={roleLabel(targetRole)}
+          action={
+            <div className="flex items-center gap-2">
+              <Badge variant={user.est_actif ? 'outline' : 'destructive'}>
+                {user.est_actif ? 'Actif' : 'Inactif'}
+              </Badge>
+              {user.anonymized_at && <Badge variant="outline">Anonymisé</Badge>}
+            </div>
+          }
+        />
 
-      <div className="grid items-start gap-4 md:grid-cols-2">
-        <ProfileSection user={user} isAdmin={isAdmin} canEdit={canEdit} />
-        {isAdmin && <EmailSection userId={userId} />}
-        <SitesSection userId={userId} canEdit={canEdit} />
-        {isAdmin && !isSelf && <AccountSection user={user} />}
+        <IdentityCard user={user} isAdmin={isAdmin} canEdit={canEdit} />
+
+        {targetIsAdmin ? (
+          <AdminSitesNotice />
+        ) : (
+          <SitesCard userId={userId} canEdit={canEdit} />
+        )}
+
+        {isAdmin && !isSelf && <AccountCard user={user} />}
       </div>
     </div>
   )
 }
 
-// --- Profil (nom, téléphone, rôle) ---
+// --- Identité : nom, téléphone, rôle, e-mail ---
 
-function ProfileSection({
+function IdentityCard({
   user,
   isAdmin,
   canEdit,
@@ -138,9 +150,16 @@ function ProfileSection({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Profil</CardTitle>
+        <CardTitle>Identité</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-5">
+        {isAdmin && (
+          <>
+            <EmailBlock userId={user.id} />
+            <div className="bg-border h-px" />
+          </>
+        )}
+
         {isPending ? (
           <Skeleton className="h-40 w-full" />
         ) : (
@@ -218,9 +237,9 @@ function ProfileForm({
         error={errors.telephone}
         disabled={!canEdit}
       />
-      {isAdmin && (
-        <div className="grid gap-2">
-          <Label htmlFor="role">Rôle</Label>
+      <div className="grid gap-2">
+        <Label htmlFor="role">Rôle</Label>
+        {isAdmin ? (
           <select
             id="role"
             value={String(roleId)}
@@ -233,8 +252,10 @@ function ProfileForm({
               </option>
             ))}
           </select>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm">{roleLabel(user.roles?.code)}</p>
+        )}
+      </div>
       {canEdit && (
         <Button
           type="submit"
@@ -248,34 +269,25 @@ function ProfileForm({
   )
 }
 
-// --- E-mail (admin) ---
+// --- Bloc e-mail (admin uniquement, dans la carte Identité) ---
 
-function EmailSection({ userId }: { userId: string }) {
+function EmailBlock({ userId }: { userId: string }) {
   const {
     data: email = '',
     isPending,
     isError,
   } = useQuery(utilisateursQueries.email(userId))
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Adresse e-mail</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isPending ? (
-          <Skeleton className="h-24 w-full" />
-        ) : isError ? (
-          <p className="text-muted-foreground text-sm">
-            Lecture de l’e-mail indisponible (l’Edge Function{' '}
-            <code>update_user_email</code> n’est peut-être pas déployée).
-          </p>
-        ) : (
-          <EmailForm key={userId} userId={userId} current={email} />
-        )}
-      </CardContent>
-    </Card>
-  )
+  if (isPending) return <Skeleton className="h-20 w-full" />
+  if (isError) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        Lecture de l’e-mail indisponible (l’Edge Function{' '}
+        <code>update_user_email</code> n’est peut-être pas déployée).
+      </p>
+    )
+  }
+  return <EmailForm key={userId} userId={userId} current={email} />
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -284,6 +296,19 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
   const updateEmail = useUpdateUserEmail()
   const [email, setEmail] = useState(current)
   const [error, setError] = useState<string | null>(null)
+
+  const resetPassword = useMutation({
+    mutationFn: async () => {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(
+        current,
+        {
+          redirectTo: `${window.location.origin}/definir-mot-de-passe`,
+        },
+      )
+      if (err) throw err
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
 
   async function handleSubmit() {
     setError(null)
@@ -300,75 +325,139 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
   }
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit()
-      }}
-      className="flex flex-col gap-3"
-    >
-      <div className="grid gap-2">
-        <Label htmlFor="email">E-mail</Label>
-        <Input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        {error && <p className="text-destructive text-sm">{error}</p>}
-      </div>
-      <Button
-        type="submit"
-        variant="outline"
-        disabled={updateEmail.isPending || email.trim() === current}
-        className="self-start"
+    <div className="flex flex-col gap-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          void handleSubmit()
+        }}
+        className="flex flex-col gap-3"
       >
-        {updateEmail.isPending ? 'Mise à jour…' : 'Changer l’e-mail'}
-      </Button>
-    </form>
+        <div className="grid gap-1">
+          <Label htmlFor="email" className="text-base font-semibold">
+            Adresse e-mail
+          </Label>
+          <p className="text-muted-foreground text-xs">
+            Identifiant de connexion de l’utilisateur.
+          </p>
+        </div>
+        <div className="grid gap-2">
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-11 text-base"
+          />
+          {error && <p className="text-destructive text-sm">{error}</p>}
+        </div>
+        <Button
+          type="submit"
+          variant="outline"
+          disabled={updateEmail.isPending || email.trim() === current}
+          className="self-start"
+        >
+          {updateEmail.isPending ? 'Mise à jour…' : 'Changer l’e-mail'}
+        </Button>
+      </form>
+
+      <div className="bg-border h-px" />
+
+      <div className="flex flex-col gap-2">
+        <Label className="font-medium">Mot de passe</Label>
+        <p className="text-muted-foreground text-xs">
+          Le mot de passe ne peut jamais être lu. Envoie à l’utilisateur un lien
+          pour qu’il définisse un nouveau mot de passe.
+        </p>
+        {resetPassword.isSuccess && (
+          <div className="border-primary/20 bg-primary/5 flex items-start gap-2 rounded-md border p-3 text-sm">
+            <Mail className="text-primary mt-0.5 size-4 shrink-0" />
+            <span>
+              Lien de réinitialisation envoyé à <strong>{current}</strong>.
+            </span>
+          </div>
+        )}
+        <Button
+          variant="outline"
+          disabled={resetPassword.isPending}
+          onClick={() => resetPassword.mutate()}
+          className="self-start"
+        >
+          <KeyRound />
+          {resetPassword.isPending
+            ? 'Envoi…'
+            : resetPassword.isSuccess
+              ? 'Renvoyer le lien'
+              : 'Réinitialiser le mot de passe'}
+        </Button>
+      </div>
+    </div>
   )
 }
 
-// --- Sites attribués ---
+// --- Cible admin : pas d'attribution de sites ---
 
-function SitesSection({
-  userId,
-  canEdit,
-}: {
-  userId: string
-  canEdit: boolean
-}) {
+function AdminSitesNotice() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Accès aux sites</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+          <ShieldCheck className="size-4 shrink-0" />
+          <span>
+            Administrateur : accès à <strong>tous les sites</strong>. Aucune
+            attribution nécessaire.
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// --- Accès aux sites : liste attribuée + dropdown d'ajout ---
+
+function SitesCard({ userId, canEdit }: { userId: string; canEdit: boolean }) {
   const { data: assigned = [], isPending } = useQuery(
     utilisateursQueries.sitesOf(userId),
   )
-  const { data: allSites = [] } = useQuery(sitesQueries.mine())
+  const { data: mySites = [] } = useQuery(sitesQueries.mine())
   const assign = useAssignSite()
   const unassign = useUnassignSite()
-  const [toAdd, setToAdd] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
 
   const assignedIds = new Set(assigned.map((a) => a.site_id))
-  const available = allSites.filter((s) => !assignedIds.has(s.id))
+  const myIds = new Set(mySites.map((s) => s.id))
+  // Sites de l'appelant attribués à la cible : modifiables (croix rouge).
+  const editable = assigned.filter((a) => myIds.has(a.site_id))
+  // Sites attribués hors du périmètre de l'appelant (donnés par un admin) :
+  // affichés en lecture seule, non retirables.
+  const horsPerimetre = assigned.filter((a) => !myIds.has(a.site_id))
+  // Sites de l'appelant pas encore attribués : proposés dans le dropdown.
+  const available = mySites.filter((s) => !assignedIds.has(s.id))
 
-  function handleAssign() {
-    if (!toAdd) return
+  function handleAdd(siteId: string) {
+    if (!siteId) return
+    setBusy(siteId)
     assign.mutate(
-      { userId, siteId: toAdd },
+      { userId, siteId },
       {
-        onSuccess: () => {
-          toast.success('Site attribué')
-          setToAdd('')
-        },
+        onSuccess: () => toast.success('Site ajouté'),
         onError: (e) => toast.error(errorMessage(e)),
+        onSettled: () => setBusy(null),
       },
     )
   }
 
-  function handleUnassign(siteId: string) {
+  function handleRemove(siteId: string) {
+    setBusy(siteId)
     unassign.mutate(
       { userId, siteId },
       {
         onSuccess: () => toast.success('Site retiré'),
         onError: (e) => toast.error(errorMessage(e)),
+        onSettled: () => setBusy(null),
       },
     )
   }
@@ -376,70 +465,85 @@ function SitesSection({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sites attribués</CardTitle>
+        <CardTitle>Accès aux sites</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-4">
         {isPending ? (
-          <Skeleton className="h-20 w-full" />
-        ) : assigned.length === 0 ? (
-          <p className="text-muted-foreground text-sm">Aucun site attribué.</p>
+          <Skeleton className="h-24 w-full" />
         ) : (
-          <ul className="flex flex-col gap-2">
-            {assigned.map((a) => (
-              <li
-                key={a.site_id}
-                className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
-              >
-                <span className="truncate">{a.sites.nom}</span>
-                {canEdit && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Retirer le site"
-                    onClick={() => handleUnassign(a.site_id)}
+          <>
+            {editable.length === 0 && horsPerimetre.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Aucun site attribué.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {editable.map((a) => (
+                  <li
+                    key={a.site_id}
+                    className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
                   >
-                    <Trash2 />
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {canEdit && available.length > 0 && (
-          <div className="flex items-end gap-2">
-            <div className="grid flex-1 gap-2">
-              <Label htmlFor="add-site">Attribuer un site</Label>
-              <select
-                id="add-site"
-                value={toAdd}
-                onChange={(e) => setToAdd(e.target.value)}
-                className={SELECT_CLASS}
-              >
-                <option value="">Choisir un site…</option>
-                {available.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nom}
-                  </option>
+                    <span className="truncate">{a.sites.nom}</span>
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive size-7"
+                        aria-label={`Retirer ${a.sites.nom}`}
+                        disabled={busy === a.site_id}
+                        onClick={() => handleRemove(a.site_id)}
+                      >
+                        <X />
+                      </Button>
+                    )}
+                  </li>
                 ))}
-              </select>
-            </div>
-            <Button
-              onClick={handleAssign}
-              disabled={!toAdd || assign.isPending}
-            >
-              <Plus /> Ajouter
-            </Button>
-          </div>
+                {horsPerimetre.map((a) => (
+                  <li
+                    key={a.site_id}
+                    className="text-muted-foreground flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm"
+                  >
+                    <Lock className="size-3.5 shrink-0" />
+                    <span className="truncate">{a.sites.nom}</span>
+                    <span className="ml-auto text-xs">
+                      hors de votre périmètre
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {canEdit && available.length > 0 && (
+              <div className="grid gap-2">
+                <Label htmlFor="add-site">Ajouter un site</Label>
+                <div className="relative">
+                  <Plus className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+                  <select
+                    id="add-site"
+                    value=""
+                    onChange={(e) => handleAdd(e.target.value)}
+                    className={SELECT_CLASS + ' pl-8'}
+                  >
+                    <option value="">Choisir un site à ajouter…</option>
+                    {available.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nom}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
   )
 }
 
-// --- Compte (admin : activer/désactiver, anonymiser) ---
+// --- Administration du compte (admin, hors soi-même) ---
 
-function AccountSection({ user }: { user: UserRow }) {
+function AccountCard({ user }: { user: UserRow }) {
   const toggle = useToggleActif()
   const anonymize = useAnonymizeUser()
   const [confirmToggle, setConfirmToggle] = useState(false)
@@ -447,27 +551,39 @@ function AccountSection({ user }: { user: UserRow }) {
   const isAnonymized = user.anonymized_at !== null
 
   return (
-    <Card>
+    <Card className="border-destructive/30">
       <CardHeader>
-        <CardTitle>Compte</CardTitle>
+        <CardTitle className="text-destructive flex items-center gap-2">
+          <ShieldOff className="size-4" /> Administration du compte
+        </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={() => setConfirmToggle(true)}>
-          {user.est_actif ? (
-            <>
-              <Ban /> Désactiver
-            </>
-          ) : (
-            <>
-              <CheckCircle2 /> Réactiver
-            </>
-          )}
-        </Button>
-        {!isAnonymized && (
-          <Button variant="ghost" onClick={() => setConfirmAnon(true)}>
-            <ShieldOff /> Anonymiser
+      <CardContent className="flex flex-col gap-3">
+        <p className="text-muted-foreground text-sm">
+          Actions sensibles. La désactivation coupe l’accès immédiatement ;
+          l’anonymisation est irréversible.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setConfirmToggle(true)}>
+            {user.est_actif ? (
+              <>
+                <Ban /> Désactiver
+              </>
+            ) : (
+              <>
+                <CheckCircle2 /> Réactiver
+              </>
+            )}
           </Button>
-        )}
+          {!isAnonymized && (
+            <Button
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setConfirmAnon(true)}
+            >
+              <ShieldOff /> Anonymiser
+            </Button>
+          )}
+        </div>
 
         <ConfirmDialog
           open={confirmToggle}

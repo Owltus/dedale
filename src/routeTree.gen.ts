@@ -17,6 +17,7 @@ import { Route as AppUtilisateursRouteImport } from './routes/_app/utilisateurs'
 import { Route as AppSitesRouteImport } from './routes/_app/sites'
 import { Route as AppRelevesRouteImport } from './routes/_app/releves'
 import { Route as AppRegistreRouteImport } from './routes/_app/registre'
+import { Route as AppProfilRouteImport } from './routes/_app/profil'
 import { Route as AppPrestatairesRouteImport } from './routes/_app/prestataires'
 import { Route as AppPlanningRouteImport } from './routes/_app/planning'
 import { Route as AppOrdresTravailRouteImport } from './routes/_app/ordres-travail'
@@ -65,6 +66,11 @@ const AppRelevesRoute = AppRelevesRouteImport.update({
 const AppRegistreRoute = AppRegistreRouteImport.update({
   id: '/registre',
   path: '/registre',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProfilRoute = AppProfilRouteImport.update({
+  id: '/profil',
+  path: '/profil',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPrestatairesRoute = AppPrestatairesRouteImport.update({
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/ordres-travail': typeof AppOrdresTravailRoute
   '/planning': typeof AppPlanningRoute
   '/prestataires': typeof AppPrestatairesRoute
+  '/profil': typeof AppProfilRoute
   '/registre': typeof AppRegistreRoute
   '/releves': typeof AppRelevesRoute
   '/sites': typeof AppSitesRoute
@@ -150,6 +157,7 @@ export interface FileRoutesByTo {
   '/ordres-travail': typeof AppOrdresTravailRoute
   '/planning': typeof AppPlanningRoute
   '/prestataires': typeof AppPrestatairesRoute
+  '/profil': typeof AppProfilRoute
   '/registre': typeof AppRegistreRoute
   '/releves': typeof AppRelevesRoute
   '/sites': typeof AppSitesRoute
@@ -171,6 +179,7 @@ export interface FileRoutesById {
   '/_app/ordres-travail': typeof AppOrdresTravailRoute
   '/_app/planning': typeof AppPlanningRoute
   '/_app/prestataires': typeof AppPrestatairesRoute
+  '/_app/profil': typeof AppProfilRoute
   '/_app/registre': typeof AppRegistreRoute
   '/_app/releves': typeof AppRelevesRoute
   '/_app/sites': typeof AppSitesRoute
@@ -193,6 +202,7 @@ export interface FileRouteTypes {
     | '/ordres-travail'
     | '/planning'
     | '/prestataires'
+    | '/profil'
     | '/registre'
     | '/releves'
     | '/sites'
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/ordres-travail'
     | '/planning'
     | '/prestataires'
+    | '/profil'
     | '/registre'
     | '/releves'
     | '/sites'
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
     | '/_app/ordres-travail'
     | '/_app/planning'
     | '/_app/prestataires'
+    | '/_app/profil'
     | '/_app/registre'
     | '/_app/releves'
     | '/_app/sites'
@@ -300,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/registre'
       fullPath: '/registre'
       preLoaderRoute: typeof AppRegistreRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/profil': {
+      id: '/_app/profil'
+      path: '/profil'
+      fullPath: '/profil'
+      preLoaderRoute: typeof AppProfilRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/prestataires': {
@@ -386,6 +405,7 @@ interface AppRouteChildren {
   AppOrdresTravailRoute: typeof AppOrdresTravailRoute
   AppPlanningRoute: typeof AppPlanningRoute
   AppPrestatairesRoute: typeof AppPrestatairesRoute
+  AppProfilRoute: typeof AppProfilRoute
   AppRegistreRoute: typeof AppRegistreRoute
   AppRelevesRoute: typeof AppRelevesRoute
   AppSitesRoute: typeof AppSitesRoute
@@ -404,6 +424,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOrdresTravailRoute: AppOrdresTravailRoute,
   AppPlanningRoute: AppPlanningRoute,
   AppPrestatairesRoute: AppPrestatairesRoute,
+  AppProfilRoute: AppProfilRoute,
   AppRegistreRoute: AppRegistreRoute,
   AppRelevesRoute: AppRelevesRoute,
   AppSitesRoute: AppSitesRoute,
