@@ -18,6 +18,8 @@ import { ContratFormDialog } from '@/features/prestataires/components/contrat-fo
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -53,7 +55,7 @@ function PrestatairesPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Prestataires"
           description="Prestataires et contrats par site."
@@ -63,7 +65,7 @@ function PrestatairesPage() {
           title="Sélectionne un site"
           description="Choisis un site pour voir ses prestataires et contrats."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -99,29 +101,29 @@ function PrestatairesContent({
 
   if (isPending) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Prestataires"
           description="Prestataires et contrats par site."
         />
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
+        <div className={cardGrid.compact}>
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-32" />
           ))}
         </div>
-      </div>
+      </PageContainer>
     )
   }
 
   if (isError) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Prestataires"
           description="Prestataires et contrats par site."
         />
         <ErrorState onRetry={() => void refetch()} />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -190,7 +192,7 @@ function PrestatairesList({
   ) : undefined
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Prestataires"
         description="Prestataires (externes et régie interne) et leurs contrats."
@@ -224,7 +226,7 @@ function PrestatairesList({
           description="Aucun prestataire ne correspond à ta recherche."
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
+        <div className={cardGrid.compact}>
           {filtered.map((p) => {
             const nbContrats = counts?.get(p.id) ?? 0
             return (
@@ -306,7 +308,7 @@ function PrestatairesList({
         loading={del.isPending}
         onConfirm={confirmDelete}
       />
-    </div>
+    </PageContainer>
   )
 }
 
@@ -324,7 +326,7 @@ function PrestataireDetail({
   const [editPrestataire, setEditPrestataire] = useState(false)
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <div className="mb-4">
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft /> Retour
@@ -383,7 +385,7 @@ function PrestataireDetail({
           prestataire={prestataire}
         />
       )}
-    </div>
+    </PageContainer>
   )
 }
 

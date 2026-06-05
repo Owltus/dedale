@@ -24,6 +24,8 @@ import { LocalFormDialog } from '@/features/localisations/components/local-form-
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -41,7 +43,7 @@ export const Route = createFileRoute('/_app/localisations')({
   component: LocalisationsPage,
 })
 
-const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4'
+const GRID = cardGrid.compact
 
 function CardSkeletons() {
   return (
@@ -65,7 +67,7 @@ function LocalisationsPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Localisations"
           description="Bâtiments, niveaux et locaux du site."
@@ -75,12 +77,12 @@ function LocalisationsPage() {
           title="Sélectionne un site"
           description="Choisis un site actif pour gérer ses localisations."
         />
-      </div>
+      </PageContainer>
     )
   }
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Localisations"
         description="Bâtiments, niveaux et locaux du site."
@@ -112,7 +114,7 @@ function LocalisationsPage() {
           onOpen={(b) => setBatiment(b)}
         />
       )}
-    </div>
+    </PageContainer>
   )
 }
 

@@ -9,6 +9,7 @@ import { ROLE_LABELS } from '@/features/utilisateurs/schemas'
 import type { RoleCode } from '@/features/utilisateurs/schemas'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -48,21 +49,21 @@ function UtilisateursPage() {
   // Garde-fou d'accès : réservé admin/manager.
   if (rolePending) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <Skeleton className="h-8 w-48" />
-      </div>
+      </PageContainer>
     )
   }
   if (!canManage) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader title="Utilisateurs" />
         <EmptyState
           icon={ShieldOff}
           title="Accès réservé"
           description="Cette page est réservée aux administrateurs et managers."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -82,7 +83,7 @@ function UtilisateursPage() {
   )
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Utilisateurs"
         description="Gère les comptes : profil, rôle, sites attribués, accès."
@@ -140,6 +141,6 @@ function UtilisateursPage() {
         onOpenChange={setInviteOpen}
         callerRole={role}
       />
-    </div>
+    </PageContainer>
   )
 }

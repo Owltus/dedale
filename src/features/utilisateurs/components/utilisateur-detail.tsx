@@ -29,6 +29,7 @@ import { supabase } from '@/lib/supabase'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { TextField } from '@/components/common/text-field'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -77,19 +78,19 @@ export function UtilisateurDetail({
 
   if (isPending) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <Skeleton className="h-8 w-48" />
-      </div>
+      </PageContainer>
     )
   }
   if (!user) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <Button variant="ghost" size="sm" onClick={onBack} className="mb-4">
           <ArrowLeft /> Retour
         </Button>
         <EmptyState title="Utilisateur introuvable" />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -99,7 +100,7 @@ export function UtilisateurDetail({
   const canEdit = isAdmin || (role === 'manager' && targetIsSubordinate)
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <Button variant="ghost" size="sm" onClick={onBack} className="mb-4">
         <ArrowLeft /> Retour aux utilisateurs
       </Button>
@@ -128,7 +129,7 @@ export function UtilisateurDetail({
 
         {isAdmin && !isSelf && <AccountCard user={user} />}
       </div>
-    </div>
+    </PageContainer>
   )
 }
 

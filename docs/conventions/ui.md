@@ -46,22 +46,45 @@ return <Liste items={data} />
 
 ## Cartes en grille
 
-Grille auto-responsive sans breakpoints :
+On utilise le helper `cardGrid` (`src/lib/responsive.ts`) plutôt qu'une grille ad hoc :
 
 ```tsx
-<div className="grid grid-cols-[repeat(auto-fit,minmax(min(18rem,100%),1fr))] gap-4">
+import { cardGrid } from '@/lib/responsive'
+;<div className={cardGrid.default}>
   {items.map((i) => (
     <EntityCard key={i.id} className="min-w-0" {...i} />
   ))}
 </div>
 ```
 
-`min-w-0` sur la carte évite que le texte long casse la grille.
+Densités : `cardGrid.compact` (sites, localisations, prestataires), `cardGrid.default` (cas général), `cardGrid.wide` (cartes riches). `min-w-0` sur la carte évite que le texte long casse la grille.
+
+## Responsive design
+
+**Mobile-first obligatoire.** On part du mobile, puis on agrandit avec des breakpoints (`sm:`, `md:`, `lg:`…). Breakpoints (défauts Tailwind) : `sm` 640 · `md` 768 · `lg` 1024 · `xl` 1280 · `2xl` 1536.
+
+- **Racine de page** : toujours `<PageContainer>` (`src/components/common/page-container.tsx`), jamais un `p-6` nu. Il gère le padding mobile-first (`px-4 sm:px-6 lg:px-8`).
+- **Grilles de cartes** : via `cardGrid` (cf. ci-dessus), jamais une grille fixe `grid-cols-2/3` sans breakpoint.
+- **En-tête** : `PageHeader` se replie déjà en colonne sous `sm` ; pour un en-tête maison, faire pareil (`flex flex-col gap-4 sm:flex-row`).
+- **Navigation** : la sidebar est fixe à partir de `lg` et devient un drawer (`Sheet`) sous `lg`, ouvert par la barre supérieure mobile. Rien à faire dans les pages.
+- **Écrans denses** (tableaux, planning) : envelopper dans `overflow-x-auto` et réduire les largeurs sticky sur mobile (`min-w-32 sm:min-w-48`).
+- **Boutons d'action multiples** : empiler sur mobile (`flex flex-col gap-2 sm:flex-row`).
+
+```tsx
+import { PageContainer } from '@/components/common/page-container'
+import { cardGrid } from '@/lib/responsive'
+;<PageContainer>
+  <PageHeader title="Équipements" action={<Button>Nouvel équipement</Button>} />
+  <div className={cardGrid.default}>{/* … */}</div>
+</PageContainer>
+```
 
 ## À NE PAS FAIRE
 
 - ❌ Coder une couleur en dur au lieu d'un token sémantique.
 - ❌ Oublier `cn()` dans un composant acceptant `className` (les conflits Tailwind ne s'override pas).
 - ❌ Trier les classes Tailwind à la main (Prettier le fait).
+- ❌ Ouvrir une page sur un `<div className="p-6">` nu au lieu de `<PageContainer>`.
+- ❌ Une grille de cartes fixe (`grid-cols-3`) sans breakpoints : utiliser `cardGrid`.
 - ❌ Skeleton générique qui ne ressemble pas au contenu réel.
 - ❌ Spinner plein écran pour chaque liste (préférer les skeletons).

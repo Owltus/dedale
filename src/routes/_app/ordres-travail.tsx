@@ -15,6 +15,8 @@ import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -40,7 +42,7 @@ function OrdresTravailPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Ordres de travail"
           description="Exécution de la maintenance préventive et réglementaire."
@@ -50,7 +52,7 @@ function OrdresTravailPage() {
           title="Sélectionne un site"
           description="Choisis un site pour voir ses ordres de travail."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -81,13 +83,13 @@ function OrdresTravailContent({
 
   if (selectedId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <OtDetail
           otId={selectedId}
           canManage={canManage}
           onBack={() => setSelectedId(null)}
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -110,7 +112,7 @@ function OrdresTravailContent({
     ) : undefined
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Ordres de travail"
         description="Exécution de la maintenance préventive et réglementaire du site."
@@ -118,7 +120,7 @@ function OrdresTravailContent({
       />
 
       {isPending ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-44" />
           ))}
@@ -137,7 +139,7 @@ function OrdresTravailContent({
           action={newButton}
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {ordres.map((ot) => (
             <Card
               key={ot.id}
@@ -216,6 +218,6 @@ function OrdresTravailContent({
         loading={del.isPending}
         onConfirm={confirmDelete}
       />
-    </div>
+    </PageContainer>
   )
 }

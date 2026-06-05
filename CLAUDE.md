@@ -22,7 +22,7 @@ Vite + React 19 + TypeScript · **TanStack** Router (routes file-based) · Query
 | ------------------------------------------------------ | ---------------------------------- |
 | structure, routes, où ranger un fichier, nommage       | `docs/conventions/architecture.md` |
 | lecture/écriture Supabase, TanStack Query, formulaires | `docs/conventions/donnees.md`      |
-| style, couleurs, thème, monter un écran                | `docs/conventions/ui.md`           |
+| style, couleurs, thème, responsive, monter un écran    | `docs/conventions/ui.md`           |
 | créer un composant, un modal, où le mettre             | `docs/conventions/composants.md`   |
 
 Décisions d'archi tranchées : `docs/decisions/`.
@@ -44,6 +44,7 @@ Décisions d'archi tranchées : `docs/decisions/`.
 - **TypeScript strict** ; pas de `any`. Erreurs Supabase **toujours gérées** (`.throwOnError()` + UI).
 - **ESLint strict + Prettier** : ne pas formater ni trier les classes Tailwind à la main.
 - Couleurs : **tokens sémantiques** (`bg-primary`…), jamais en dur. Coller au style du code existant.
+- **Mobile-first** : toute page s'ouvre sur `<PageContainer>`, grilles via `cardGrid` (`src/lib/responsive.ts`). Détails : `docs/conventions/ui.md` → Responsive design.
 
 ## Garde-fous automatiques
 

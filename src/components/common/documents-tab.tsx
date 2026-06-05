@@ -136,40 +136,44 @@ export function DocumentsTab({
           {list.map((doc) => (
             <li
               key={doc.id}
-              className="bg-card flex items-center gap-3 rounded-md border p-3"
+              className="bg-card flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:gap-3"
             >
-              <FileText className="text-muted-foreground size-5 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p
-                  className="truncate text-sm font-medium"
-                  title={doc.nom_original}
-                >
-                  {doc.nom_original}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {formatTaille(doc.taille_octets)} ·{' '}
-                  {formatDate(doc.uploaded_at)}
-                </p>
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <FileText className="text-muted-foreground size-5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="truncate text-sm font-medium"
+                    title={doc.nom_original}
+                  >
+                    {doc.nom_original}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {formatTaille(doc.taille_octets)} ·{' '}
+                    {formatDate(doc.uploaded_at)}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="shrink-0">
+                  {formatMime(doc.mime_type)}
+                </Badge>
               </div>
-              <Badge variant="secondary" className="shrink-0">
-                {formatMime(doc.mime_type)}
-              </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleDownload(doc)}
-              >
-                <Download /> Télécharger
-              </Button>
-              {canManage && (
+              <div className="flex gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={() => setToDetach(doc)}
+                  onClick={() => void handleDownload(doc)}
                 >
-                  <Link2Off /> Détacher
+                  <Download /> Télécharger
                 </Button>
-              )}
+                {canManage && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setToDetach(doc)}
+                  >
+                    <Link2Off /> Détacher
+                  </Button>
+                )}
+              </div>
             </li>
           ))}
         </ul>

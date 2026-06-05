@@ -22,6 +22,8 @@ import { UploadDocumentDialog } from '@/features/documents/components/upload-doc
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -44,7 +46,7 @@ function DocumentsPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Documents"
           description="Bibliothèque documentaire du site."
@@ -54,7 +56,7 @@ function DocumentsPage() {
           title="Sélectionne un site"
           description="Choisis un site pour consulter sa bibliothèque documentaire."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -120,7 +122,7 @@ function DocumentsContent({
   ) : undefined
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Documents"
         description="Bibliothèque documentaire du site (PDF, attestations, rapports…)."
@@ -140,7 +142,7 @@ function DocumentsContent({
       )}
 
       {isPending ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-36" />
           ))}
@@ -165,7 +167,7 @@ function DocumentsContent({
           description="Aucun document ne correspond à ta recherche."
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {filtered.map((doc) => (
             <Card key={doc.id} className="min-w-0">
               <CardHeader>
@@ -249,6 +251,6 @@ function DocumentsContent({
         loading={del.isPending}
         onConfirm={confirmDelete}
       />
-    </div>
+    </PageContainer>
   )
 }

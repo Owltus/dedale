@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Building2 } from 'lucide-react'
 import { useSiteContext } from '@/lib/site-context'
 import { Dashboard } from '@/features/dashboard/components/dashboard'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 
@@ -13,7 +14,7 @@ function HomePage() {
   const { activeSiteId, activeSite } = useSiteContext()
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Tableau de bord"
         description={
@@ -31,6 +32,6 @@ function HomePage() {
           description="Choisis un site pour afficher son tableau de bord."
         />
       )}
-    </div>
+    </PageContainer>
   )
 }

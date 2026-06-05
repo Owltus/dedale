@@ -10,6 +10,7 @@ import type { RoleCode } from '@/features/utilisateurs/schemas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { TextField } from '@/components/common/text-field'
 import { EmptyState } from '@/components/common/empty-state'
@@ -46,7 +47,7 @@ function ProfilPage() {
   })
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <div className="mx-auto flex max-w-xl flex-col gap-4">
         <PageHeader
           title="Mon profil"
@@ -80,7 +81,7 @@ function ProfilPage() {
           </>
         )}
       </div>
-    </div>
+    </PageContainer>
   )
 }
 

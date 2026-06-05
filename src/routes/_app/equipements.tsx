@@ -26,6 +26,8 @@ import { InstancierDialog } from '@/features/equipements/components/instancier-d
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -43,7 +45,7 @@ export const Route = createFileRoute('/_app/equipements')({
   component: EquipementsPage,
 })
 
-const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4'
+const GRID = cardGrid.default
 
 function CardSkeletons() {
   return (
@@ -69,7 +71,7 @@ function EquipementsPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Équipements"
           description="Parc matériel et modèles d’équipement du site."
@@ -79,7 +81,7 @@ function EquipementsPage() {
           title="Sélectionne un site"
           description="Choisis un site actif pour gérer ses équipements."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -95,7 +97,7 @@ function EquipementsPage() {
   }
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Équipements"
         description="Parc matériel et modèles d’équipement du site."
@@ -122,7 +124,7 @@ function EquipementsPage() {
       ) : (
         <ModelesList siteId={activeSiteId} canEdit={canEdit} />
       )}
-    </div>
+    </PageContainer>
   )
 }
 
@@ -342,7 +344,7 @@ function EquipementDetail({
   const specs = readSpecifications(equipement.specifications)
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <Button variant="ghost" size="sm" onClick={onBack} className="mb-4">
         <ArrowLeft /> Retour aux équipements
       </Button>
@@ -424,7 +426,7 @@ function EquipementDetail({
           equipement={equipement}
         />
       )}
-    </div>
+    </PageContainer>
   )
 }
 

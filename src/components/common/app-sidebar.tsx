@@ -84,13 +84,20 @@ const REFERENTIELS: NavItem[] = [
   },
 ]
 
-function NavLink({ item }: { item: NavItem }) {
+function NavLink({
+  item,
+  onNavigate,
+}: {
+  item: NavItem
+  onNavigate?: () => void
+}) {
   const Icon = item.icon
   return (
     <Link
       to={item.to}
       activeOptions={{ exact: item.exact ?? false }}
       activeProps={{ className: 'bg-accent text-accent-foreground' }}
+      onClick={onNavigate}
       className="text-muted-foreground hover:bg-accent hover:text-accent-foreground flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors"
     >
       <Icon className="size-4 shrink-0" />
@@ -103,10 +110,12 @@ function NavGroup({
   title,
   items,
   role,
+  onNavigate,
 }: {
   title: string
   items: NavItem[]
   role: string | null | undefined
+  onNavigate?: () => void
 }) {
   // Tant que le rôle n'est pas chargé, on affiche tout (évite un flash de menu vide).
   const visible = items.filter(
@@ -120,17 +129,22 @@ function NavGroup({
       </p>
       <nav className="flex flex-col gap-0.5">
         {visible.map((item) => (
-          <NavLink key={item.to} item={item} />
+          <NavLink key={item.to} item={item} onNavigate={onNavigate} />
         ))}
       </nav>
     </div>
   )
 }
 
-export function AppSidebar() {
+/**
+ * Contenu interne de la sidebar (logo, sélecteur de site, navigation, menu
+ * utilisateur). Réutilisé tel quel dans l'aside fixe (bureau) et dans le drawer
+ * mobile (Sheet). `onNavigate` est appelé au clic d'un lien pour fermer le drawer.
+ */
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { data: role } = useCurrentRole()
   return (
-    <aside className="bg-card flex h-screen w-60 shrink-0 flex-col border-r">
+    <>
       <div className="flex shrink-0 items-center gap-3 border-b px-5 py-4">
         <img
           src="/logo.svg"
@@ -150,13 +164,32 @@ export function AppSidebar() {
       </div>
 
       <div className="flex-1 overflow-auto py-2">
-        <NavGroup title="Opérationnel" items={OPERATIONNEL} role={role} />
-        <NavGroup title="Référentiels" items={REFERENTIELS} role={role} />
+        <NavGroup
+          title="Opérationnel"
+          items={OPERATIONNEL}
+          role={role}
+          onNavigate={onNavigate}
+        />
+        <NavGroup
+          title="Référentiels"
+          items={REFERENTIELS}
+          role={role}
+          onNavigate={onNavigate}
+        />
       </div>
 
       <div className="shrink-0 border-t p-3">
-        <UserMenu />
+        <UserMenu onNavigate={onNavigate} />
       </div>
+    </>
+  )
+}
+
+/** Sidebar fixe, visible uniquement à partir de lg (bureau). */
+export function AppSidebar() {
+  return (
+    <aside className="bg-card hidden h-screen w-60 shrink-0 flex-col border-r lg:flex">
+      <SidebarContent />
     </aside>
   )
 }

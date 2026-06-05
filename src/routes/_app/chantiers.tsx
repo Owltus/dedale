@@ -13,6 +13,8 @@ import { ChantierDetail } from '@/features/chantiers/components/chantier-detail'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -41,7 +43,7 @@ function ChantiersPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Interventions de chantier"
           description="Travaux ponctuels (hors DI et OT)."
@@ -51,7 +53,7 @@ function ChantiersPage() {
           title="Sélectionne un site"
           description="Choisis un site pour voir ses chantiers."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -84,14 +86,14 @@ function ChantiersContent({
 
   if (selectedId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <ChantierDetail
           chantierId={selectedId}
           siteId={siteId}
           canManage={canManage}
           onBack={() => setSelectedId(null)}
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -113,7 +115,7 @@ function ChantiersContent({
   ) : undefined
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Interventions de chantier"
         description="Travaux ponctuels du site (souvent confiés à un prestataire)."
@@ -121,7 +123,7 @@ function ChantiersContent({
       />
 
       {isPending ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-40" />
           ))}
@@ -140,7 +142,7 @@ function ChantiersContent({
           action={newButton}
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {chantiers.map((c) => (
             <Card
               key={c.id}
@@ -214,6 +216,6 @@ function ChantiersContent({
         loading={del.isPending}
         onConfirm={confirmDelete}
       />
-    </div>
+    </PageContainer>
   )
 }

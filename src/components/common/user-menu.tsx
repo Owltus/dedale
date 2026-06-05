@@ -39,7 +39,7 @@ const ROLE_LABELS: Record<string, string> = {
  * Bloc compte du pied de sidebar : la ligne entière (avatar + email + rôle) est
  * le déclencheur du menu (thème + déconnexion). Pas de bouton imbriqué.
  */
-export function UserMenu() {
+export function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { session } = useAuth()
   const { data: role } = useCurrentRole()
   const { theme, setTheme } = useTheme()
@@ -49,6 +49,7 @@ export function UserMenu() {
   const initials = (email.slice(0, 2) || '??').toUpperCase()
 
   async function handleLogout() {
+    onNavigate?.()
     await supabase.auth.signOut()
     await navigate({ to: '/login' })
   }
@@ -80,6 +81,7 @@ export function UserMenu() {
       <DropdownMenuContent align="end" className="min-w-56">
         <DropdownMenuItem
           onSelect={() => {
+            onNavigate?.()
             void navigate({ to: '/profil' })
           }}
         >

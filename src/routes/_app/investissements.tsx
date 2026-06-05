@@ -12,6 +12,8 @@ import { InvestissementFormDialog } from '@/features/investissements/components/
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -44,7 +46,7 @@ function InvestissementsPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Investissements (CapEx)"
           description="Suivi budgétaire des investissements par site."
@@ -54,7 +56,7 @@ function InvestissementsPage() {
           title="Sélectionne un site"
           description="Choisis un site pour voir ses investissements."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -102,7 +104,7 @@ function InvestissementsContent({
   ) : undefined
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Investissements (CapEx)"
         description="Suivi budgétaire des investissements du site (montant demandé, prévu, réel)."
@@ -110,7 +112,7 @@ function InvestissementsContent({
       />
 
       {isPending ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-44" />
           ))}
@@ -129,7 +131,7 @@ function InvestissementsContent({
           action={newButton}
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {investissements.map((inv) => {
             const ecart =
               inv.montant_prevu !== null && inv.depense_reelle !== null
@@ -232,6 +234,6 @@ function InvestissementsContent({
         loading={del.isPending}
         onConfirm={confirmDelete}
       />
-    </div>
+    </PageContainer>
   )
 }

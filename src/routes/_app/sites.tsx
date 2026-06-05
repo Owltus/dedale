@@ -8,6 +8,8 @@ import { useDeleteSite } from '@/features/sites/mutations'
 import { SiteFormDialog } from '@/features/sites/components/site-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { errorMessage } from '@/lib/form'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -57,7 +59,7 @@ function SitesPage() {
   ) : undefined
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Sites"
         description="Les sites de l'entreprise. Chaque site est cloisonné par la sécurité."
@@ -65,7 +67,7 @@ function SitesPage() {
       />
 
       {isPending ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
+        <div className={cardGrid.compact}>
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-28" />
           ))}
@@ -84,7 +86,7 @@ function SitesPage() {
           action={newButton}
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
+        <div className={cardGrid.compact}>
           {sites.map((site) => (
             <Card key={site.id} className="min-w-0">
               <CardHeader>
@@ -144,6 +146,6 @@ function SitesPage() {
         loading={del.isPending}
         onConfirm={confirmDelete}
       />
-    </div>
+    </PageContainer>
   )
 }

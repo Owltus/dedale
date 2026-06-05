@@ -9,6 +9,8 @@ import { diTitre } from '@/features/demandes/schemas'
 import { statutBadgeVariant, statutLabel } from '@/features/demandes/etat'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -33,7 +35,7 @@ function DemandesPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Demandes d'intervention"
           description="Signalements curatifs du site."
@@ -43,7 +45,7 @@ function DemandesPage() {
           title="Sélectionne un site"
           description="Choisis un site pour voir ses demandes d'intervention."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -90,7 +92,7 @@ function DemandesContent({
   // Vue détail en page (remplace la liste).
   if (selectedId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Demande d'intervention"
           description="Détail du signalement et de sa résolution."
@@ -100,12 +102,12 @@ function DemandesContent({
           canResolve={canResolve}
           onBack={() => setSelectedId(null)}
         />
-      </div>
+      </PageContainer>
     )
   }
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Demandes d'intervention"
         description="Signalements curatifs du site (constat, suivi, résolution)."
@@ -125,7 +127,7 @@ function DemandesContent({
       )}
 
       {isPending ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-32" />
           ))}
@@ -150,7 +152,7 @@ function DemandesContent({
           description="Aucune demande ne correspond à ta recherche."
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {filtered.map((d) => (
             <Card
               key={d.id}
@@ -186,6 +188,6 @@ function DemandesContent({
           siteId={siteId}
         />
       )}
-    </div>
+    </PageContainer>
   )
 }

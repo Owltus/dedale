@@ -6,6 +6,8 @@ import { relevesQueries } from '@/features/releves/queries'
 import type { GammeMesurable } from '@/features/releves/queries'
 import { GammeMesuresDetail } from '@/features/releves/components/gamme-mesures-detail'
 import { useSiteContext } from '@/lib/site-context'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -18,7 +20,7 @@ export const Route = createFileRoute('/_app/releves')({
   component: RelevesPage,
 })
 
-const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4'
+const GRID = cardGrid.default
 
 function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleDateString('fr-FR') : '—'
@@ -33,7 +35,7 @@ function RelevesPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Relevés"
           description="Historique des mesures relevées lors des ordres de travail."
@@ -43,7 +45,7 @@ function RelevesPage() {
           title="Sélectionne un site"
           description="Choisis un site actif pour consulter ses relevés."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -81,7 +83,7 @@ function RelevesList({
   } = useQuery(relevesQueries.gammes(siteId))
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Relevés"
         description="Historique des mesures relevées lors des ordres de travail."
@@ -129,6 +131,6 @@ function RelevesList({
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }

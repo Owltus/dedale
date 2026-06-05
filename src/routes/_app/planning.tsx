@@ -14,6 +14,7 @@ import type { SemaineIso } from '@/features/planning/semaines'
 import { PlanningGrille } from '@/features/planning/components/planning-grille'
 import { CelluleDialog } from '@/features/planning/components/cellule-dialog'
 import { useSiteContext } from '@/lib/site-context'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -31,7 +32,7 @@ function PlanningPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Planning"
           description="Charge prévisionnelle par gamme et par semaine."
@@ -41,7 +42,7 @@ function PlanningPage() {
           title="Sélectionne un site"
           description="Choisis un site pour voir son planning."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -90,7 +91,7 @@ function PlanningContent({ siteId }: { siteId: string }) {
     : ''
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Planning"
         description={`Charge prévisionnelle par gamme sur ${String(NB_SEMAINES)} semaines (à partir de cette semaine).`}
@@ -141,7 +142,7 @@ function PlanningContent({ siteId }: { siteId: string }) {
         titreSemaine={titreSemaine}
         onClose={() => setCellule(null)}
       />
-    </div>
+    </PageContainer>
   )
 }
 

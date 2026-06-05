@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/common/error-state'
 import { EmptyState } from '@/components/common/empty-state'
+import { PageContainer } from '@/components/common/page-container'
 
 interface GammeMesuresDetailProps {
   siteId: string
@@ -50,7 +51,7 @@ export function GammeMesuresDetail({
   const [cible, setCible] = useState<SourceCible | null>(null)
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <Button variant="ghost" size="sm" onClick={onBack} className="mb-4">
         <ArrowLeft /> Retour aux relevés
       </Button>
@@ -102,7 +103,7 @@ export function GammeMesuresDetail({
         uniteSymbole={cible?.uniteSymbole ?? null}
         onClose={() => setCible(null)}
       />
-    </div>
+    </PageContainer>
   )
 }
 

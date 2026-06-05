@@ -29,6 +29,8 @@ import { equipementsQueries } from '@/features/equipements/queries'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -62,7 +64,7 @@ export const Route = createFileRoute('/_app/gammes')({
   component: GammesPage,
 })
 
-const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4'
+const GRID = cardGrid.default
 
 const NATURE_LABEL: Record<GammeRow['nature'], string> = {
   controle_reglementaire: 'Réglementaire',
@@ -89,7 +91,7 @@ function GammesPage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Gammes"
           description="Gammes de maintenance et de contrôle réglementaire du site."
@@ -99,7 +101,7 @@ function GammesPage() {
           title="Sélectionne un site"
           description="Choisis un site actif pour gérer ses gammes."
         />
-      </div>
+      </PageContainer>
     )
   }
 
@@ -184,7 +186,7 @@ function GammesList({
   ) : undefined
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Gammes"
         description="Gammes de maintenance et de contrôle réglementaire du site."
@@ -323,7 +325,7 @@ function GammesList({
         loading={copier.isPending}
         onConfirm={confirmCopy}
       />
-    </div>
+    </PageContainer>
   )
 }
 
@@ -346,7 +348,7 @@ function GammeDetail({
   const [editOpen, setEditOpen] = useState(false)
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <Button variant="ghost" size="sm" onClick={onBack} className="mb-4">
         <ArrowLeft /> Retour aux gammes
       </Button>
@@ -433,7 +435,7 @@ function GammeDetail({
           gamme={gamme}
         />
       )}
-    </div>
+    </PageContainer>
   )
 }
 

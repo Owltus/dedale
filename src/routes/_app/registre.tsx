@@ -27,6 +27,8 @@ import { ObservationLeverDialog } from '@/features/observations/components/obser
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
+import { cardGrid } from '@/lib/responsive'
+import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -54,7 +56,7 @@ function RegistrePage() {
 
   if (!activeSiteId) {
     return (
-      <div className="p-6">
+      <PageContainer>
         <PageHeader
           title="Registre de sécurité"
           description="Observations de conformité et registre de sécurité du site."
@@ -64,12 +66,12 @@ function RegistrePage() {
           title="Sélectionne un site"
           description="Choisis un site pour consulter ses observations et son registre."
         />
-      </div>
+      </PageContainer>
     )
   }
 
   return (
-    <div className="p-6">
+    <PageContainer>
       <PageHeader
         title="Registre de sécurité"
         description="Observations de conformité (contrôles, commission, inspections) et registre du site."
@@ -95,7 +97,7 @@ function RegistrePage() {
       ) : (
         <RegistreTab siteId={activeSiteId} />
       )}
-    </div>
+    </PageContainer>
   )
 }
 
@@ -209,7 +211,7 @@ function ObservationsTab({
       </div>
 
       {isPending ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-44" />
           ))}
@@ -228,7 +230,7 @@ function ObservationsTab({
           action={newButton}
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-4">
+        <div className={cardGrid.default}>
           {observations.map((o) => {
             const enRetard =
               o.statut === 'en_cours' &&
