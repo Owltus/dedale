@@ -1,15 +1,7 @@
 import { useState } from 'react'
 import { motifSchema } from '../schemas'
 import { fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextareaField } from '@/components/common/textarea-field'
 
 interface MotifDialogProps {
@@ -51,47 +43,26 @@ export function MotifDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextareaField
-            id="ot-motif"
-            label="Motif"
-            required
-            rows={4}
-            value={motif}
-            onChange={setMotif}
-            error={error}
-          />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              variant={destructive ? 'destructive' : 'default'}
-              disabled={pending}
-            >
-              {pending ? 'En cours…' : confirmLabel}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={description}
+      onSubmit={() => handleSubmit()}
+      submitLabel={confirmLabel}
+      pendingLabel="En cours…"
+      pending={pending}
+      submitVariant={destructive ? 'destructive' : 'default'}
+    >
+      <TextareaField
+        id="ot-motif"
+        label="Motif"
+        required
+        rows={4}
+        value={motif}
+        onChange={setMotif}
+        error={error}
+      />
+    </FormDialog>
   )
 }

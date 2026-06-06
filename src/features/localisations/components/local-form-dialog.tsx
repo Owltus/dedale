@@ -6,15 +6,7 @@ import type { LocalFormValues } from '../schemas'
 import { useCreateLocal, useUpdateLocal } from '../mutations'
 import { localisationsQueries } from '../queries'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import type { Database } from '@/lib/database.types'
@@ -81,74 +73,52 @@ export function LocalFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {isEdit ? 'Modifier le local' : 'Nouveau local'}
-          </DialogTitle>
-          <DialogDescription>
-            Renseigne les informations du local.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? 'Modifier le local' : 'Nouveau local'}
+      description="Renseigne les informations du local."
+      onSubmit={() => void handleSubmit()}
+      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+      pendingLabel="Enregistrement…"
+      pending={pending}
+    >
+      <TextField
+        label="Nom"
+        value={values.nom}
+        onChange={(v) => set('nom', v)}
+        error={errors.nom}
+        required
+      />
+      <TextField
+        label="Description"
+        value={values.description}
+        onChange={(v) => set('description', v)}
+        error={errors.description}
+      />
+      <div className="grid grid-cols-2 gap-4">
+        <TextField
+          label="Surface (m²)"
+          type="number"
+          inputMode="decimal"
+          value={values.surface_m2}
+          onChange={(v) => set('surface_m2', v)}
+          error={errors.surface_m2}
+        />
+        <SelectField
+          label="Type de local"
+          value={values.type_local_id}
+          onChange={(v) => set('type_local_id', v)}
+          error={errors.type_local_id}
         >
-          <TextField
-            label="Nom"
-            value={values.nom}
-            onChange={(v) => set('nom', v)}
-            error={errors.nom}
-            required
-          />
-          <TextField
-            label="Description"
-            value={values.description}
-            onChange={(v) => set('description', v)}
-            error={errors.description}
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <TextField
-              label="Surface (m²)"
-              type="number"
-              inputMode="decimal"
-              value={values.surface_m2}
-              onChange={(v) => set('surface_m2', v)}
-              error={errors.surface_m2}
-            />
-            <SelectField
-              label="Type de local"
-              value={values.type_local_id}
-              onChange={(v) => set('type_local_id', v)}
-              error={errors.type_local_id}
-            >
-              <option value="">— Aucun —</option>
-              {types.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.libelle}
-                </option>
-              ))}
-            </SelectField>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          <option value="">— Aucun —</option>
+          {types.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.libelle}
+            </option>
+          ))}
+        </SelectField>
+      </div>
+    </FormDialog>
   )
 }

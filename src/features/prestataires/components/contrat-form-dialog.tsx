@@ -6,15 +6,7 @@ import type { ContratFormValues } from '../schemas'
 import { useCreateContrat, useUpdateContrat } from '../mutations'
 import { typesContratsQueries } from '../queries'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import type { Database } from '@/lib/database.types'
@@ -88,88 +80,66 @@ export function ContratFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {isEdit ? 'Modifier le contrat' : 'Nouveau contrat'}
-          </DialogTitle>
-          <DialogDescription>
-            Renseigne les informations du contrat.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextField
-            label="Référence"
-            value={values.reference}
-            onChange={(v) => set('reference', v)}
-            error={errors.reference}
-            required
-          />
-          <SelectField
-            label="Type de contrat"
-            required
-            value={values.type_contrat_id}
-            onChange={(v) => set('type_contrat_id', v)}
-            error={errors.type_contrat_id}
-          >
-            <option value="">— Sélectionner —</option>
-            {types.map((t) => (
-              <option key={t.id} value={String(t.id)}>
-                {t.libelle}
-              </option>
-            ))}
-          </SelectField>
-          <div className="grid grid-cols-2 gap-4">
-            <TextField
-              label="Date de début"
-              type="date"
-              value={values.date_debut}
-              onChange={(v) => set('date_debut', v)}
-              error={errors.date_debut}
-              required
-            />
-            <TextField
-              label="Date de fin"
-              type="date"
-              value={values.date_fin}
-              onChange={(v) => set('date_fin', v)}
-              error={errors.date_fin}
-            />
-          </div>
-          <TextField
-            label="Objet de l'avenant"
-            value={values.objet_avenant}
-            onChange={(v) => set('objet_avenant', v)}
-            error={errors.objet_avenant}
-          />
-          <TextField
-            label="Commentaires"
-            value={values.commentaires}
-            onChange={(v) => set('commentaires', v)}
-            error={errors.commentaires}
-          />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? 'Modifier le contrat' : 'Nouveau contrat'}
+      description="Renseigne les informations du contrat."
+      onSubmit={() => void handleSubmit()}
+      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+      pendingLabel="Enregistrement…"
+      pending={pending}
+    >
+      <TextField
+        label="Référence"
+        value={values.reference}
+        onChange={(v) => set('reference', v)}
+        error={errors.reference}
+        required
+      />
+      <SelectField
+        label="Type de contrat"
+        required
+        value={values.type_contrat_id}
+        onChange={(v) => set('type_contrat_id', v)}
+        error={errors.type_contrat_id}
+      >
+        <option value="">— Sélectionner —</option>
+        {types.map((t) => (
+          <option key={t.id} value={String(t.id)}>
+            {t.libelle}
+          </option>
+        ))}
+      </SelectField>
+      <div className="grid grid-cols-2 gap-4">
+        <TextField
+          label="Date de début"
+          type="date"
+          value={values.date_debut}
+          onChange={(v) => set('date_debut', v)}
+          error={errors.date_debut}
+          required
+        />
+        <TextField
+          label="Date de fin"
+          type="date"
+          value={values.date_fin}
+          onChange={(v) => set('date_fin', v)}
+          error={errors.date_fin}
+        />
+      </div>
+      <TextField
+        label="Objet de l'avenant"
+        value={values.objet_avenant}
+        onChange={(v) => set('objet_avenant', v)}
+        error={errors.objet_avenant}
+      />
+      <TextField
+        label="Commentaires"
+        value={values.commentaires}
+        onChange={(v) => set('commentaires', v)}
+        error={errors.commentaires}
+      />
+    </FormDialog>
   )
 }

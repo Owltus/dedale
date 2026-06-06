@@ -4,15 +4,7 @@ import { compteRenduSchema } from '../schemas'
 import { STATUT_TERMINE } from '../schemas'
 import { useChangeStatutChantier } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextareaField } from '@/components/common/textarea-field'
 
 interface ClotureDialogProps {
@@ -53,45 +45,24 @@ export function ClotureDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Clôturer le chantier</DialogTitle>
-          <DialogDescription>
-            Un compte-rendu est obligatoire pour passer le chantier en « Terminé
-            ».
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextareaField
-            label="Compte-rendu"
-            required
-            rows={5}
-            value={compteRendu}
-            onChange={setCompteRendu}
-            error={error}
-          />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={change.isPending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={change.isPending}>
-              {change.isPending ? 'Clôture…' : 'Clôturer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Clôturer le chantier"
+      description="Un compte-rendu est obligatoire pour passer le chantier en « Terminé »."
+      onSubmit={() => void handleSubmit()}
+      submitLabel="Clôturer"
+      pendingLabel="Clôture…"
+      pending={change.isPending}
+    >
+      <TextareaField
+        label="Compte-rendu"
+        required
+        rows={5}
+        value={compteRendu}
+        onChange={setCompteRendu}
+        error={error}
+      />
+    </FormDialog>
   )
 }

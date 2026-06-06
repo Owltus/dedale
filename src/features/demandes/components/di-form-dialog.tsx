@@ -9,15 +9,7 @@ import { equipementsQueries } from '@/features/equipements/queries'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import { TextareaField } from '@/components/common/textarea-field'
@@ -80,114 +72,92 @@ export function DiFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Nouvelle demande d'intervention</DialogTitle>
-          <DialogDescription>
-            Décris le constat. Le lieu, l'équipement et le prestataire sont
-            optionnels.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Nouvelle demande d'intervention"
+      description="Décris le constat. Le lieu, l'équipement et le prestataire sont optionnels."
+      onSubmit={() => void handleSubmit()}
+      submitLabel="Créer"
+      pendingLabel="Création…"
+      pending={create.isPending}
+    >
+      {modeles.length > 0 && (
+        <SelectField
+          id="di-modele"
+          label="Suggestion rapide"
+          value={modeleId}
+          onChange={applyModele}
         >
-          {modeles.length > 0 && (
-            <SelectField
-              id="di-modele"
-              label="Suggestion rapide"
-              value={modeleId}
-              onChange={applyModele}
-            >
-              <option value="">Aucun modèle</option>
-              {modeles.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.libelle}
-                </option>
-              ))}
-            </SelectField>
-          )}
+          <option value="">Aucun modèle</option>
+          {modeles.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.libelle}
+            </option>
+          ))}
+        </SelectField>
+      )}
 
-          <TextareaField
-            id="di-constat"
-            label="Constat"
-            required
-            rows={4}
-            value={values.constat}
-            onChange={(v) => set('constat', v)}
-            error={errors.constat}
-          />
+      <TextareaField
+        id="di-constat"
+        label="Constat"
+        required
+        rows={4}
+        value={values.constat}
+        onChange={(v) => set('constat', v)}
+        error={errors.constat}
+      />
 
-          <TextField
-            label="Date de constat"
-            type="date"
-            value={values.date_constat}
-            onChange={(v) => set('date_constat', v)}
-            error={errors.date_constat}
-            required
-          />
+      <TextField
+        label="Date de constat"
+        type="date"
+        value={values.date_constat}
+        onChange={(v) => set('date_constat', v)}
+        error={errors.date_constat}
+        required
+      />
 
-          <SelectField
-            id="di-local"
-            label="Localisation"
-            value={values.local_id}
-            onChange={(v) => set('local_id', v)}
-          >
-            <option value="">Aucune</option>
-            {locaux.map((l) => (
-              <option key={l.local_id} value={l.local_id ?? ''}>
-                {l.chemin_court ?? l.local_nom}
-              </option>
-            ))}
-          </SelectField>
+      <SelectField
+        id="di-local"
+        label="Localisation"
+        value={values.local_id}
+        onChange={(v) => set('local_id', v)}
+      >
+        <option value="">Aucune</option>
+        {locaux.map((l) => (
+          <option key={l.local_id} value={l.local_id ?? ''}>
+            {l.chemin_court ?? l.local_nom}
+          </option>
+        ))}
+      </SelectField>
 
-          <SelectField
-            id="di-equipement"
-            label="Équipement"
-            value={values.equipement_id}
-            onChange={(v) => set('equipement_id', v)}
-          >
-            <option value="">Aucun</option>
-            {equipements.map((eq) => (
-              <option key={eq.id} value={eq.id ?? ''}>
-                {eq.nom}
-              </option>
-            ))}
-          </SelectField>
+      <SelectField
+        id="di-equipement"
+        label="Équipement"
+        value={values.equipement_id}
+        onChange={(v) => set('equipement_id', v)}
+      >
+        <option value="">Aucun</option>
+        {equipements.map((eq) => (
+          <option key={eq.id} value={eq.id ?? ''}>
+            {eq.nom}
+          </option>
+        ))}
+      </SelectField>
 
-          <SelectField
-            id="di-prestataire"
-            label="Prestataire"
-            value={values.prestataire_id}
-            onChange={(v) => set('prestataire_id', v)}
-          >
-            <option value="">Aucun</option>
-            {prestataires.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.libelle}
-              </option>
-            ))}
-          </SelectField>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={create.isPending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Création…' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <SelectField
+        id="di-prestataire"
+        label="Prestataire"
+        value={values.prestataire_id}
+        onChange={(v) => set('prestataire_id', v)}
+      >
+        <option value="">Aucun</option>
+        {prestataires.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.libelle}
+          </option>
+        ))}
+      </SelectField>
+    </FormDialog>
   )
 }

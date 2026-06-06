@@ -6,15 +6,7 @@ import type { EquipementFormValues } from '../schemas'
 import { useCreateEquipement, useUpdateEquipement } from '../mutations'
 import { equipementsQueries } from '../queries'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import type { Database } from '@/lib/database.types'
@@ -88,101 +80,79 @@ export function EquipementFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {isEdit ? 'Modifier l’équipement' : 'Nouvel équipement'}
-          </DialogTitle>
-          <DialogDescription>
-            Renseigne les informations de l’équipement.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextField
-            label="Nom"
-            value={values.nom}
-            onChange={(v) => set('nom', v)}
-            error={errors.nom}
-            required
-          />
-          <TextField
-            label="Code inventaire"
-            value={values.code_inventaire}
-            onChange={(v) => set('code_inventaire', v)}
-            error={errors.code_inventaire}
-          />
-          <SelectField
-            label="Catégorie"
-            id="categorie_id"
-            value={values.categorie_id}
-            onChange={(v) => set('categorie_id', v)}
-          >
-            <option value="">— Aucune —</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nom}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField
-            label="Emplacement"
-            required
-            id="local_id"
-            value={values.local_id}
-            onChange={(v) => set('local_id', v)}
-            error={errors.local_id}
-          >
-            <option value="">— Choisir un local —</option>
-            {locaux.map((l) => (
-              <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
-                {l.chemin_court ?? l.local_nom ?? ''}
-              </option>
-            ))}
-          </SelectField>
-          <div className="grid grid-cols-2 gap-4">
-            <TextField
-              label="Mise en service"
-              type="date"
-              value={values.date_mise_en_service}
-              onChange={(v) => set('date_mise_en_service', v)}
-              error={errors.date_mise_en_service}
-            />
-            <TextField
-              label="Fin de garantie"
-              type="date"
-              value={values.date_fin_garantie}
-              onChange={(v) => set('date_fin_garantie', v)}
-              error={errors.date_fin_garantie}
-            />
-          </div>
-          <TextField
-            label="Commentaires"
-            value={values.commentaires}
-            onChange={(v) => set('commentaires', v)}
-            error={errors.commentaires}
-          />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? 'Modifier l’équipement' : 'Nouvel équipement'}
+      description="Renseigne les informations de l’équipement."
+      onSubmit={() => void handleSubmit()}
+      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+      pendingLabel="Enregistrement…"
+      pending={pending}
+    >
+      <TextField
+        label="Nom"
+        value={values.nom}
+        onChange={(v) => set('nom', v)}
+        error={errors.nom}
+        required
+      />
+      <TextField
+        label="Code inventaire"
+        value={values.code_inventaire}
+        onChange={(v) => set('code_inventaire', v)}
+        error={errors.code_inventaire}
+      />
+      <SelectField
+        label="Catégorie"
+        id="categorie_id"
+        value={values.categorie_id}
+        onChange={(v) => set('categorie_id', v)}
+      >
+        <option value="">— Aucune —</option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nom}
+          </option>
+        ))}
+      </SelectField>
+      <SelectField
+        label="Emplacement"
+        required
+        id="local_id"
+        value={values.local_id}
+        onChange={(v) => set('local_id', v)}
+        error={errors.local_id}
+      >
+        <option value="">— Choisir un local —</option>
+        {locaux.map((l) => (
+          <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
+            {l.chemin_court ?? l.local_nom ?? ''}
+          </option>
+        ))}
+      </SelectField>
+      <div className="grid grid-cols-2 gap-4">
+        <TextField
+          label="Mise en service"
+          type="date"
+          value={values.date_mise_en_service}
+          onChange={(v) => set('date_mise_en_service', v)}
+          error={errors.date_mise_en_service}
+        />
+        <TextField
+          label="Fin de garantie"
+          type="date"
+          value={values.date_fin_garantie}
+          onChange={(v) => set('date_fin_garantie', v)}
+          error={errors.date_fin_garantie}
+        />
+      </div>
+      <TextField
+        label="Commentaires"
+        value={values.commentaires}
+        onChange={(v) => set('commentaires', v)}
+        error={errors.commentaires}
+      />
+    </FormDialog>
   )
 }

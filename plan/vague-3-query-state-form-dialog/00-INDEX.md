@@ -29,7 +29,7 @@ la main) ; tout en français ; « le front présente, la base valide ».
 
 - **QueryState = composant unique en render-prop** (pas de variantes
   Grid/List/Table). Signature : `<QueryState query={uneQuery} pending={…}
-  empty={…}>{(data) => …}</QueryState>`. Il gère en interne les 3 états non-data
+empty={…}>{(data) => …}</QueryState>`. Il gère en interne les 3 états non-data
   (pending → le `pending` fourni ; error → `<ErrorState onRetry={refetch}/>` ;
   vide → le `empty` fourni si `data` est un tableau vide) et délègue le rendu des
   données via la render-prop. Le **conteneur/grille reste à la charge de
@@ -75,14 +75,14 @@ la main) ; tout en français ; « le front présente, la base valide ».
 
 ## Phases
 
-| #   | Fichier                                                  | Phase                          | Dépend de | Priorité | Effort | Livrable                                                       | Critique |
-| --- | ------------------------------------------------------- | ------------------------------ | --------- | -------- | ------ | ------------------------------------------------------------- | -------- |
-| 1   | [1-query-state.md](./1-query-state.md)                  | Primitive QueryState + skeletons | —       | P0       | M      | `common/query-state.tsx`, `common/card-skeletons.tsx`         |          |
-| 2   | [2-migration-listes.md](./2-migration-listes.md)        | Migration des écrans liste     | 1         | P1       | L      | ~11 écrans + documents-tab migrés vers QueryState             | ⚠        |
-| 3   | [3-form-dialog.md](./3-form-dialog.md)                  | Coquille FormDialog            | —         | P0       | M      | `common/form-dialog.tsx`                                       |          |
-| 4   | [4-migration-dialogs.md](./4-migration-dialogs.md)      | Migration des dialogs          | 3         | P1       | L      | ~13 form-dialogs + dialogs d'action migrés                    | ⚠        |
-| 5   | [5-doc-conventions.md](./5-doc-conventions.md)          | Documentation des patterns     | 1,3       | P2       | S      | `docs/conventions/composants.md` mis à jour                   |          |
-| 6   | [6-validation-globale.md](./6-validation-globale.md)    | Validation & revue             | toutes    | P0       | M      | tsc/lint/build verts, revue `/code-review`, commits par étape | ⚠        |
+| #   | Fichier                                              | Phase                            | Dépend de | Priorité | Effort | Livrable                                                      | Critique |
+| --- | ---------------------------------------------------- | -------------------------------- | --------- | -------- | ------ | ------------------------------------------------------------- | -------- |
+| 1   | [1-query-state.md](./1-query-state.md)               | Primitive QueryState + skeletons | —         | P0       | M      | `common/query-state.tsx`, `common/card-skeletons.tsx`         |          |
+| 2   | [2-migration-listes.md](./2-migration-listes.md)     | Migration des écrans liste       | 1         | P1       | L      | ~11 écrans + documents-tab migrés vers QueryState             | ⚠        |
+| 3   | [3-form-dialog.md](./3-form-dialog.md)               | Coquille FormDialog              | —         | P0       | M      | `common/form-dialog.tsx`                                      |          |
+| 4   | [4-migration-dialogs.md](./4-migration-dialogs.md)   | Migration des dialogs            | 3         | P1       | L      | ~13 form-dialogs + dialogs d'action migrés                    | ⚠        |
+| 5   | [5-doc-conventions.md](./5-doc-conventions.md)       | Documentation des patterns       | 1,3       | P2       | S      | `docs/conventions/composants.md` mis à jour                   |          |
+| 6   | [6-validation-globale.md](./6-validation-globale.md) | Validation & revue               | toutes    | P0       | M      | tsc/lint/build verts, revue `/code-review`, commits par étape | ⚠        |
 
 ---
 
@@ -110,9 +110,9 @@ docs/conventions/
 
 ## Fichiers impactés (résumé)
 
-| Couche      | Fichiers modifiés                                                      | Fichiers nouveaux                                            |
-| ----------- | --------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Primitives  | —                                                                     | `common/query-state.tsx`, `common/card-skeletons.tsx`, `common/form-dialog.tsx` |
-| Listes      | ~11 routes `_app/*.tsx` + `common/documents-tab.tsx`                  | —                                                           |
-| Dialogs     | ~13 `*-form-dialog.tsx` + dialogs d'action (motif, cloture, di-resolve, observation-lever, ot-create…) | —                          |
-| Doc         | `docs/conventions/composants.md`                                      | —                                                           |
+| Couche     | Fichiers modifiés                                                                                      | Fichiers nouveaux                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Primitives | —                                                                                                      | `common/query-state.tsx`, `common/card-skeletons.tsx`, `common/form-dialog.tsx` |
+| Listes     | ~11 routes `_app/*.tsx` + `common/documents-tab.tsx`                                                   | —                                                                               |
+| Dialogs    | ~13 `*-form-dialog.tsx` + dialogs d'action (motif, cloture, di-resolve, observation-lever, ot-create…) | —                                                                               |
+| Doc        | `docs/conventions/composants.md`                                                                       | —                                                                               |

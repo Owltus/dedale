@@ -7,15 +7,7 @@ import { useCreateInvestissement, useUpdateInvestissement } from '../mutations'
 import { statutsCapexQueries } from '../queries'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import type { Database } from '@/lib/database.types'
@@ -99,96 +91,74 @@ export function InvestissementFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {isEdit ? "Modifier l'investissement" : 'Nouvel investissement'}
-          </DialogTitle>
-          <DialogDescription>
-            Renseigne le suivi budgétaire de l'investissement.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextField
-            label="Libellé"
-            value={values.libelle}
-            onChange={(v) => set('libelle', v)}
-            error={errors.libelle}
-            required
-          />
-          <TextField
-            label="Description"
-            value={values.description}
-            onChange={(v) => set('description', v)}
-            error={errors.description}
-          />
-          <SelectField
-            label="Statut"
-            required
-            value={values.statut_capex_id}
-            onChange={(v) => set('statut_capex_id', v)}
-            error={errors.statut_capex_id}
-          >
-            <option value="">Sélectionne un statut</option>
-            {statuts.map((statut) => (
-              <option key={statut.id} value={String(statut.id)}>
-                {statut.nom}
-              </option>
-            ))}
-          </SelectField>
-          <div className="grid grid-cols-3 gap-4">
-            <TextField
-              label="Montant demandé (€)"
-              inputMode="decimal"
-              value={values.montant_demande}
-              onChange={(v) => set('montant_demande', v)}
-              error={errors.montant_demande}
-            />
-            <TextField
-              label="Montant prévu (€)"
-              inputMode="decimal"
-              value={values.montant_prevu}
-              onChange={(v) => set('montant_prevu', v)}
-              error={errors.montant_prevu}
-            />
-            <TextField
-              label="Dépense réelle (€)"
-              inputMode="decimal"
-              value={values.depense_reelle}
-              onChange={(v) => set('depense_reelle', v)}
-              error={errors.depense_reelle}
-            />
-          </div>
-          <TextField
-            label="Date de demande"
-            type="date"
-            value={values.date_demande}
-            onChange={(v) => set('date_demande', v)}
-            error={errors.date_demande}
-            required
-          />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? "Modifier l'investissement" : 'Nouvel investissement'}
+      description="Renseigne le suivi budgétaire de l'investissement."
+      onSubmit={() => void handleSubmit()}
+      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+      pendingLabel="Enregistrement…"
+      pending={pending}
+    >
+      <TextField
+        label="Libellé"
+        value={values.libelle}
+        onChange={(v) => set('libelle', v)}
+        error={errors.libelle}
+        required
+      />
+      <TextField
+        label="Description"
+        value={values.description}
+        onChange={(v) => set('description', v)}
+        error={errors.description}
+      />
+      <SelectField
+        label="Statut"
+        required
+        value={values.statut_capex_id}
+        onChange={(v) => set('statut_capex_id', v)}
+        error={errors.statut_capex_id}
+      >
+        <option value="">Sélectionne un statut</option>
+        {statuts.map((statut) => (
+          <option key={statut.id} value={String(statut.id)}>
+            {statut.nom}
+          </option>
+        ))}
+      </SelectField>
+      <div className="grid grid-cols-3 gap-4">
+        <TextField
+          label="Montant demandé (€)"
+          inputMode="decimal"
+          value={values.montant_demande}
+          onChange={(v) => set('montant_demande', v)}
+          error={errors.montant_demande}
+        />
+        <TextField
+          label="Montant prévu (€)"
+          inputMode="decimal"
+          value={values.montant_prevu}
+          onChange={(v) => set('montant_prevu', v)}
+          error={errors.montant_prevu}
+        />
+        <TextField
+          label="Dépense réelle (€)"
+          inputMode="decimal"
+          value={values.depense_reelle}
+          onChange={(v) => set('depense_reelle', v)}
+          error={errors.depense_reelle}
+        />
+      </div>
+      <TextField
+        label="Date de demande"
+        type="date"
+        value={values.date_demande}
+        onChange={(v) => set('date_demande', v)}
+        error={errors.date_demande}
+        required
+      />
+    </FormDialog>
   )
 }

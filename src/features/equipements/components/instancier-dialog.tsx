@@ -4,15 +4,7 @@ import { toast } from 'sonner'
 import { useInstancierEquipement } from '../mutations'
 import { equipementsQueries } from '../queries'
 import { errorMessage } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 
@@ -58,54 +50,36 @@ export function InstancierDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Instancier le modèle</DialogTitle>
-          <DialogDescription>
-            {modeleNom
-              ? `Crée un équipement à partir du modèle « ${modeleNom} ». Ses caractéristiques sont copiées.`
-              : 'Crée un équipement à partir du modèle. Ses caractéristiques sont copiées.'}
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <SelectField
-            label="Emplacement"
-            required
-            id="instancier_local"
-            value={localId}
-            onChange={setLocalId}
-            error={error}
-          >
-            <option value="">— Choisir un local —</option>
-            {locaux.map((l) => (
-              <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
-                {l.chemin_court ?? l.local_nom ?? ''}
-              </option>
-            ))}
-          </SelectField>
-          <TextField label="Code inventaire" value={code} onChange={setCode} />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={instancier.isPending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={instancier.isPending}>
-              {instancier.isPending ? 'Création…' : 'Instancier'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Instancier le modèle"
+      description={
+        modeleNom
+          ? `Crée un équipement à partir du modèle « ${modeleNom} ». Ses caractéristiques sont copiées.`
+          : 'Crée un équipement à partir du modèle. Ses caractéristiques sont copiées.'
+      }
+      onSubmit={() => void handleSubmit()}
+      submitLabel="Instancier"
+      pendingLabel="Création…"
+      pending={instancier.isPending}
+    >
+      <SelectField
+        label="Emplacement"
+        required
+        id="instancier_local"
+        value={localId}
+        onChange={setLocalId}
+        error={error}
+      >
+        <option value="">— Choisir un local —</option>
+        {locaux.map((l) => (
+          <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
+            {l.chemin_court ?? l.local_nom ?? ''}
+          </option>
+        ))}
+      </SelectField>
+      <TextField label="Code inventaire" value={code} onChange={setCode} />
+    </FormDialog>
   )
 }

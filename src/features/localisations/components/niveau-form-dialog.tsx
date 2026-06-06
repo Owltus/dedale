@@ -4,15 +4,7 @@ import { emptyNiveau, niveauSchema } from '../schemas'
 import type { NiveauFormValues } from '../schemas'
 import { useCreateNiveau, useUpdateNiveau } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import type { Database } from '@/lib/database.types'
 
@@ -75,59 +67,37 @@ export function NiveauFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {isEdit ? 'Modifier le niveau' : 'Nouveau niveau'}
-          </DialogTitle>
-          <DialogDescription>
-            Renseigne les informations du niveau.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextField
-            label="Nom"
-            value={values.nom}
-            onChange={(v) => set('nom', v)}
-            error={errors.nom}
-            required
-          />
-          <TextField
-            label="Description"
-            value={values.description}
-            onChange={(v) => set('description', v)}
-            error={errors.description}
-          />
-          <TextField
-            label="Ordre"
-            type="number"
-            inputMode="numeric"
-            value={values.ordre}
-            onChange={(v) => set('ordre', v)}
-            error={errors.ordre}
-          />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? 'Modifier le niveau' : 'Nouveau niveau'}
+      description="Renseigne les informations du niveau."
+      onSubmit={() => void handleSubmit()}
+      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+      pendingLabel="Enregistrement…"
+      pending={pending}
+    >
+      <TextField
+        label="Nom"
+        value={values.nom}
+        onChange={(v) => set('nom', v)}
+        error={errors.nom}
+        required
+      />
+      <TextField
+        label="Description"
+        value={values.description}
+        onChange={(v) => set('description', v)}
+        error={errors.description}
+      />
+      <TextField
+        label="Ordre"
+        type="number"
+        inputMode="numeric"
+        value={values.ordre}
+        onChange={(v) => set('ordre', v)}
+        error={errors.ordre}
+      />
+    </FormDialog>
   )
 }

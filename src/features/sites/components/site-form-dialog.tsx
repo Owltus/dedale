@@ -4,15 +4,7 @@ import { emptySite, siteSchema } from '../schemas'
 import type { SiteFormValues } from '../schemas'
 import { useCreateSite, useUpdateSite } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import type { Database } from '@/lib/database.types'
 
@@ -74,65 +66,43 @@ export function SiteFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {isEdit ? 'Modifier le site' : 'Nouveau site'}
-          </DialogTitle>
-          <DialogDescription>
-            Renseigne les informations du site.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextField
-            label="Nom"
-            value={values.nom}
-            onChange={(v) => set('nom', v)}
-            error={errors.nom}
-            required
-          />
-          <TextField
-            label="Adresse"
-            value={values.adresse}
-            onChange={(v) => set('adresse', v)}
-            error={errors.adresse}
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <TextField
-              label="Code postal"
-              value={values.code_postal}
-              onChange={(v) => set('code_postal', v)}
-              error={errors.code_postal}
-            />
-            <TextField
-              label="Ville"
-              value={values.ville}
-              onChange={(v) => set('ville', v)}
-              error={errors.ville}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? 'Modifier le site' : 'Nouveau site'}
+      description="Renseigne les informations du site."
+      onSubmit={() => void handleSubmit()}
+      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+      pendingLabel="Enregistrement…"
+      pending={pending}
+    >
+      <TextField
+        label="Nom"
+        value={values.nom}
+        onChange={(v) => set('nom', v)}
+        error={errors.nom}
+        required
+      />
+      <TextField
+        label="Adresse"
+        value={values.adresse}
+        onChange={(v) => set('adresse', v)}
+        error={errors.adresse}
+      />
+      <div className="grid grid-cols-2 gap-4">
+        <TextField
+          label="Code postal"
+          value={values.code_postal}
+          onChange={(v) => set('code_postal', v)}
+          error={errors.code_postal}
+        />
+        <TextField
+          label="Ville"
+          value={values.ville}
+          onChange={(v) => set('ville', v)}
+          error={errors.ville}
+        />
+      </div>
+    </FormDialog>
   )
 }

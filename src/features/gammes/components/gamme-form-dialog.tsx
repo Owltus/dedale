@@ -8,15 +8,7 @@ import { referentielsQueries } from '../queries'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import { TextareaField } from '@/components/common/textarea-field'
@@ -104,103 +96,79 @@ export function GammeFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {isEdit ? 'Modifier la gamme' : 'Nouvelle gamme'}
-          </DialogTitle>
-          <DialogDescription>
-            Renseigne la nature, la périodicité (semaines ISO) et le prestataire
-            par défaut.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextField
-            label="Nom"
-            value={values.nom}
-            onChange={(v) => set('nom', v)}
-            error={errors.nom}
-            required
-          />
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? 'Modifier la gamme' : 'Nouvelle gamme'}
+      description="Renseigne la nature, la périodicité (semaines ISO) et le prestataire par défaut."
+      onSubmit={() => void handleSubmit()}
+      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+      pendingLabel="Enregistrement…"
+      pending={pending}
+    >
+      <TextField
+        label="Nom"
+        value={values.nom}
+        onChange={(v) => set('nom', v)}
+        error={errors.nom}
+        required
+      />
 
-          <SelectField
-            label="Nature"
-            required
-            id="gamme_nature"
-            value={values.nature}
-            onChange={(v) => set('nature', v as GammeFormValues['nature'])}
-            error={errors.nature}
-          >
-            {gammeNatures.map((n) => (
-              <option key={n} value={n}>
-                {NATURE_LABEL[n]}
-              </option>
-            ))}
-          </SelectField>
+      <SelectField
+        label="Nature"
+        required
+        id="gamme_nature"
+        value={values.nature}
+        onChange={(v) => set('nature', v as GammeFormValues['nature'])}
+        error={errors.nature}
+      >
+        {gammeNatures.map((n) => (
+          <option key={n} value={n}>
+            {NATURE_LABEL[n]}
+          </option>
+        ))}
+      </SelectField>
 
-          <SelectField
-            label="Périodicité"
-            required
-            id="gamme_periodicite"
-            value={values.periodicite_id}
-            onChange={(v) => set('periodicite_id', v)}
-            error={errors.periodicite_id}
-          >
-            <option value="">— Choisir une périodicité —</option>
-            {periodicites.map((p) => (
-              <option key={p.id} value={String(p.id)}>
-                {p.libelle}
-              </option>
-            ))}
-          </SelectField>
+      <SelectField
+        label="Périodicité"
+        required
+        id="gamme_periodicite"
+        value={values.periodicite_id}
+        onChange={(v) => set('periodicite_id', v)}
+        error={errors.periodicite_id}
+      >
+        <option value="">— Choisir une périodicité —</option>
+        {periodicites.map((p) => (
+          <option key={p.id} value={String(p.id)}>
+            {p.libelle}
+          </option>
+        ))}
+      </SelectField>
 
-          <SelectField
-            label="Prestataire par défaut"
-            required
-            id="gamme_prestataire"
-            value={values.prestataire_id}
-            onChange={(v) => set('prestataire_id', v)}
-            error={errors.prestataire_id}
-          >
-            <option value="">— Choisir un prestataire —</option>
-            {prestataires.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.libelle}
-              </option>
-            ))}
-          </SelectField>
+      <SelectField
+        label="Prestataire par défaut"
+        required
+        id="gamme_prestataire"
+        value={values.prestataire_id}
+        onChange={(v) => set('prestataire_id', v)}
+        error={errors.prestataire_id}
+      >
+        <option value="">— Choisir un prestataire —</option>
+        {prestataires.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.libelle}
+          </option>
+        ))}
+      </SelectField>
 
-          <TextareaField
-            label="Description"
-            id="gamme_description"
-            value={values.description}
-            onChange={(v) => set('description', v)}
-            rows={3}
-            error={errors.description}
-          />
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <TextareaField
+        label="Description"
+        id="gamme_description"
+        value={values.description}
+        onChange={(v) => set('description', v)}
+        rows={3}
+        error={errors.description}
+      />
+    </FormDialog>
   )
 }

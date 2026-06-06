@@ -9,15 +9,7 @@ import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { equipementsQueries } from '@/features/equipements/queries'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import { TextareaField } from '@/components/common/textarea-field'
@@ -141,145 +133,121 @@ export function ChantierFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {isEdit ? 'Modifier le chantier' : 'Nouveau chantier'}
-          </DialogTitle>
-          <DialogDescription>
-            Travaux ponctuels (souvent confiés à un prestataire).
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextField
-            label="Titre"
-            value={values.titre}
-            onChange={(v) => set('titre', v)}
-            error={errors.titre}
-            required
-          />
-          <TextareaField
-            label="Description"
-            rows={3}
-            value={values.description}
-            onChange={(v) => set('description', v)}
-            error={errors.description}
-          />
-          <SelectField
-            label="Prestataire"
-            value={values.prestataire_id}
-            onChange={(v) => set('prestataire_id', v)}
-          >
-            <option value="">Aucun</option>
-            {prestataires.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.libelle}
-              </option>
-            ))}
-          </SelectField>
-          <div className="grid grid-cols-3 gap-4">
-            <TextField
-              label="Date de demande"
-              type="date"
-              value={values.date_demande}
-              onChange={(v) => set('date_demande', v)}
-              error={errors.date_demande}
-              required
-            />
-            <TextField
-              label="Date prévue"
-              type="date"
-              value={values.date_prevue}
-              onChange={(v) => set('date_prevue', v)}
-              error={errors.date_prevue}
-            />
-            <TextField
-              label="Date de fin"
-              type="date"
-              value={values.date_fin}
-              onChange={(v) => set('date_fin', v)}
-              error={errors.date_fin}
-            />
-          </div>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? 'Modifier le chantier' : 'Nouveau chantier'}
+      description="Travaux ponctuels (souvent confiés à un prestataire)."
+      onSubmit={() => void handleSubmit()}
+      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+      pendingLabel="Enregistrement…"
+      pending={pending}
+      contentClassName="max-h-[90vh] overflow-y-auto"
+    >
+      <TextField
+        label="Titre"
+        value={values.titre}
+        onChange={(v) => set('titre', v)}
+        error={errors.titre}
+        required
+      />
+      <TextareaField
+        label="Description"
+        rows={3}
+        value={values.description}
+        onChange={(v) => set('description', v)}
+        error={errors.description}
+      />
+      <SelectField
+        label="Prestataire"
+        value={values.prestataire_id}
+        onChange={(v) => set('prestataire_id', v)}
+      >
+        <option value="">Aucun</option>
+        {prestataires.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.libelle}
+          </option>
+        ))}
+      </SelectField>
+      <div className="grid grid-cols-3 gap-4">
+        <TextField
+          label="Date de demande"
+          type="date"
+          value={values.date_demande}
+          onChange={(v) => set('date_demande', v)}
+          error={errors.date_demande}
+          required
+        />
+        <TextField
+          label="Date prévue"
+          type="date"
+          value={values.date_prevue}
+          onChange={(v) => set('date_prevue', v)}
+          error={errors.date_prevue}
+        />
+        <TextField
+          label="Date de fin"
+          type="date"
+          value={values.date_fin}
+          onChange={(v) => set('date_fin', v)}
+          error={errors.date_fin}
+        />
+      </div>
 
-          <div className="grid gap-2">
-            <Label>Locaux concernés</Label>
-            <div className="border-input max-h-40 overflow-y-auto rounded-md border p-2">
-              {locaux.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  Aucun local sur ce site.
-                </p>
-              ) : (
-                locaux.map((l) => (
-                  <label
-                    key={l.local_id}
-                    className="flex items-center gap-2 py-1 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={
-                        l.local_id !== null && localIds.includes(l.local_id)
-                      }
-                      onChange={() =>
-                        l.local_id !== null && toggleLocal(l.local_id)
-                      }
-                    />
-                    <span className="truncate">
-                      {l.chemin_court ?? l.local_nom}
-                    </span>
-                  </label>
-                ))
-              )}
-            </div>
-          </div>
+      <div className="grid gap-2">
+        <Label>Locaux concernés</Label>
+        <div className="border-input max-h-40 overflow-y-auto rounded-md border p-2">
+          {locaux.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              Aucun local sur ce site.
+            </p>
+          ) : (
+            locaux.map((l) => (
+              <label
+                key={l.local_id}
+                className="flex items-center gap-2 py-1 text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={l.local_id !== null && localIds.includes(l.local_id)}
+                  onChange={() =>
+                    l.local_id !== null && toggleLocal(l.local_id)
+                  }
+                />
+                <span className="truncate">
+                  {l.chemin_court ?? l.local_nom}
+                </span>
+              </label>
+            ))
+          )}
+        </div>
+      </div>
 
-          <div className="grid gap-2">
-            <Label>Équipements concernés</Label>
-            <div className="border-input max-h-40 overflow-y-auto rounded-md border p-2">
-              {equipements.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  Aucun équipement sur ce site.
-                </p>
-              ) : (
-                equipements.map((eq) => (
-                  <label
-                    key={eq.id ?? ''}
-                    className="flex items-center gap-2 py-1 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={eq.id !== null && equipementIds.includes(eq.id)}
-                      onChange={() => eq.id !== null && toggleEquipement(eq.id)}
-                    />
-                    <span className="truncate">{eq.nom}</span>
-                  </label>
-                ))
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <div className="grid gap-2">
+        <Label>Équipements concernés</Label>
+        <div className="border-input max-h-40 overflow-y-auto rounded-md border p-2">
+          {equipements.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              Aucun équipement sur ce site.
+            </p>
+          ) : (
+            equipements.map((eq) => (
+              <label
+                key={eq.id ?? ''}
+                className="flex items-center gap-2 py-1 text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={eq.id !== null && equipementIds.includes(eq.id)}
+                  onChange={() => eq.id !== null && toggleEquipement(eq.id)}
+                />
+                <span className="truncate">{eq.nom}</span>
+              </label>
+            ))
+          )}
+        </div>
+      </div>
+    </FormDialog>
   )
 }

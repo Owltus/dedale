@@ -6,15 +6,7 @@ import type { InviteFormValues, RoleCode } from '../schemas'
 import { useInviteUser } from '../mutations'
 import { sitesQueries } from '@/features/sites/queries'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { Label } from '@/components/ui/label'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
@@ -74,97 +66,75 @@ export function InviteUserDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Inviter un utilisateur</DialogTitle>
-          <DialogDescription>
-            Un e-mail d’invitation sera envoyé. Le compte est créé avec le rôle
-            et les sites choisis.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextField
-            label="Adresse e-mail"
-            type="email"
-            value={values.email}
-            onChange={(v) => set('email', v)}
-            error={errors.email}
-            required
-          />
-          <TextField
-            label="Nom complet"
-            value={values.nom_complet}
-            onChange={(v) => set('nom_complet', v)}
-            error={errors.nom_complet}
-            required
-          />
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Inviter un utilisateur"
+      description="Un e-mail d’invitation sera envoyé. Le compte est créé avec le rôle et les sites choisis."
+      onSubmit={() => void handleSubmit()}
+      submitLabel="Inviter"
+      pendingLabel="Envoi…"
+      pending={invite.isPending}
+    >
+      <TextField
+        label="Adresse e-mail"
+        type="email"
+        value={values.email}
+        onChange={(v) => set('email', v)}
+        error={errors.email}
+        required
+      />
+      <TextField
+        label="Nom complet"
+        value={values.nom_complet}
+        onChange={(v) => set('nom_complet', v)}
+        error={errors.nom_complet}
+        required
+      />
 
-          <SelectField
-            label="Rôle"
-            required
-            value={values.role}
-            onChange={(v) => set('role', v as RoleCode)}
-            error={errors.role}
-          >
-            {invitableRoles.map((code) => (
-              <option key={code} value={code}>
-                {ROLE_LABELS[code]}
-              </option>
+      <SelectField
+        label="Rôle"
+        required
+        value={values.role}
+        onChange={(v) => set('role', v as RoleCode)}
+        error={errors.role}
+      >
+        {invitableRoles.map((code) => (
+          <option key={code} value={code}>
+            {ROLE_LABELS[code]}
+          </option>
+        ))}
+      </SelectField>
+
+      <div className="grid gap-2">
+        <Label>Sites</Label>
+        {sites.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            Aucun site disponible.
+          </p>
+        ) : (
+          <div className="border-input flex max-h-44 flex-col gap-1 overflow-y-auto rounded-md border p-2">
+            {sites.map((site) => (
+              <label
+                key={site.id}
+                className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={values.site_ids.includes(site.id)}
+                  onChange={() => toggleSite(site.id)}
+                />
+                <span className="truncate">{site.nom}</span>
+              </label>
             ))}
-          </SelectField>
-
-          <div className="grid gap-2">
-            <Label>Sites</Label>
-            {sites.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                Aucun site disponible.
-              </p>
-            ) : (
-              <div className="border-input flex max-h-44 flex-col gap-1 overflow-y-auto rounded-md border p-2">
-                {sites.map((site) => (
-                  <label
-                    key={site.id}
-                    className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={values.site_ids.includes(site.id)}
-                      onChange={() => toggleSite(site.id)}
-                    />
-                    <span className="truncate">{site.nom}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-            <p className="text-muted-foreground text-xs">
-              {values.role === 'admin'
-                ? 'Un administrateur a accès à tous les sites, le rattachement est facultatif.'
-                : 'Les sites définissent le périmètre visible par l’utilisateur.'}
-            </p>
           </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={invite.isPending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={invite.isPending}>
-              {invite.isPending ? 'Envoi…' : 'Inviter'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        )}
+        <p className="text-muted-foreground text-xs">
+          {values.role === 'admin'
+            ? 'Un administrateur a accès à tous les sites, le rattachement est facultatif.'
+            : 'Les sites définissent le périmètre visible par l’utilisateur.'}
+        </p>
+      </div>
+    </FormDialog>
   )
 }

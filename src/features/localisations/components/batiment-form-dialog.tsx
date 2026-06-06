@@ -4,15 +4,7 @@ import { batimentSchema, emptyBatiment } from '../schemas'
 import type { BatimentFormValues } from '../schemas'
 import { useCreateBatiment, useUpdateBatiment } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import type { Database } from '@/lib/database.types'
 
@@ -77,57 +69,35 @@ export function BatimentFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {isEdit ? 'Modifier le bâtiment' : 'Nouveau bâtiment'}
-          </DialogTitle>
-          <DialogDescription>
-            Renseigne les informations du bâtiment.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextField
-            label="Nom"
-            value={values.nom}
-            onChange={(v) => set('nom', v)}
-            error={errors.nom}
-            required
-          />
-          <TextField
-            label="Description"
-            value={values.description}
-            onChange={(v) => set('description', v)}
-            error={errors.description}
-          />
-          <TextField
-            label="Chemin de l’image"
-            value={values.image_path}
-            onChange={(v) => set('image_path', v)}
-            error={errors.image_path}
-          />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? 'Modifier le bâtiment' : 'Nouveau bâtiment'}
+      description="Renseigne les informations du bâtiment."
+      onSubmit={() => void handleSubmit()}
+      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+      pendingLabel="Enregistrement…"
+      pending={pending}
+    >
+      <TextField
+        label="Nom"
+        value={values.nom}
+        onChange={(v) => set('nom', v)}
+        error={errors.nom}
+        required
+      />
+      <TextField
+        label="Description"
+        value={values.description}
+        onChange={(v) => set('description', v)}
+        error={errors.description}
+      />
+      <TextField
+        label="Chemin de l’image"
+        value={values.image_path}
+        onChange={(v) => set('image_path', v)}
+        error={errors.image_path}
+      />
+    </FormDialog>
   )
 }

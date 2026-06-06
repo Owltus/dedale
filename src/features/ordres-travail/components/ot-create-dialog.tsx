@@ -7,15 +7,7 @@ import { useCreateOt } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 
 interface OtCreateDialogProps {
   open: boolean
@@ -74,72 +66,48 @@ export function OtCreateDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Nouvel ordre de travail</DialogTitle>
-          <DialogDescription>
-            Génère un OT depuis une gamme. Les opérations et les informations
-            figées sont créées automatiquement.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Nouvel ordre de travail"
+      description="Génère un OT depuis une gamme. Les opérations et les informations figées sont créées automatiquement."
+      onSubmit={() => void handleSubmit()}
+      submitLabel="Créer"
+      pendingLabel="Création…"
+      pending={create.isPending}
+    >
+      <div className="grid gap-2">
+        <SelectField
+          label="Gamme"
+          required
+          value={values.gamme_id}
+          onChange={(gamme_id) => setValues((v) => ({ ...v, gamme_id }))}
+          error={errors.gamme_id}
         >
-          <div className="grid gap-2">
-            <SelectField
-              label="Gamme"
-              required
-              value={values.gamme_id}
-              onChange={(gamme_id) => setValues((v) => ({ ...v, gamme_id }))}
-              error={errors.gamme_id}
-            >
-              <option value="">— Sélectionner une gamme —</option>
-              {gammes.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.nom}
-                </option>
-              ))}
-            </SelectField>
-            {gammes.length === 0 && (
-              <p className="text-muted-foreground text-sm">
-                Aucune gamme active sur ce site. Créez d'abord une gamme avec au
-                moins une opération.
-              </p>
-            )}
-          </div>
+          <option value="">— Sélectionner une gamme —</option>
+          {gammes.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.nom}
+            </option>
+          ))}
+        </SelectField>
+        {gammes.length === 0 && (
+          <p className="text-muted-foreground text-sm">
+            Aucune gamme active sur ce site. Créez d'abord une gamme avec au
+            moins une opération.
+          </p>
+        )}
+      </div>
 
-          <TextField
-            id="ot-date"
-            label="Date prévue"
-            type="date"
-            required
-            value={values.date_prevue}
-            onChange={(date_prevue) =>
-              setValues((v) => ({ ...v, date_prevue }))
-            }
-            error={errors.date_prevue}
-          />
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={create.isPending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Création…' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <TextField
+        id="ot-date"
+        label="Date prévue"
+        type="date"
+        required
+        value={values.date_prevue}
+        onChange={(date_prevue) => setValues((v) => ({ ...v, date_prevue }))}
+        error={errors.date_prevue}
+      />
+    </FormDialog>
   )
 }

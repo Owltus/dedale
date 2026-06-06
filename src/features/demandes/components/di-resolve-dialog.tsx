@@ -3,15 +3,7 @@ import { toast } from 'sonner'
 import { diResolutionSchema } from '../schemas'
 import { useResolveDemande } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextareaField } from '@/components/common/textarea-field'
 
 interface DiResolveDialogProps {
@@ -52,46 +44,25 @@ export function DiResolveDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Résoudre la demande</DialogTitle>
-          <DialogDescription>
-            Décris la résolution. La date de résolution est enregistrée
-            automatiquement.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextareaField
-            id="di-resolution"
-            label="Description de résolution"
-            required
-            rows={4}
-            value={description}
-            onChange={setDescription}
-            error={errors.description_resolution}
-          />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={resolve.isPending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={resolve.isPending}>
-              {resolve.isPending ? 'Enregistrement…' : 'Résoudre'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Résoudre la demande"
+      description="Décris la résolution. La date de résolution est enregistrée automatiquement."
+      onSubmit={() => void handleSubmit()}
+      submitLabel="Résoudre"
+      pendingLabel="Enregistrement…"
+      pending={resolve.isPending}
+    >
+      <TextareaField
+        id="di-resolution"
+        label="Description de résolution"
+        required
+        rows={4}
+        value={description}
+        onChange={setDescription}
+        error={errors.description_resolution}
+      />
+    </FormDialog>
   )
 }

@@ -5,15 +5,7 @@ import { typesDocumentsQueries } from '../queries'
 import { ACCEPT_FICHIER, validerFichier } from '../upload'
 import { useAuth } from '@/auth'
 import { errorMessage } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { FormDialog } from '@/components/common/form-dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { SelectField } from '@/components/common/select-field'
@@ -96,57 +88,39 @@ export function UploadDocumentDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <div className="grid gap-2">
-            <Label htmlFor="document-fichier">Fichier *</Label>
-            <Input
-              id="document-fichier"
-              type="file"
-              accept={ACCEPT_FICHIER}
-              onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-          <SelectField
-            label="Type de document"
-            required
-            value={typeId}
-            onChange={setTypeId}
-          >
-            <option value="">Sélectionne un type</option>
-            {types.map((t) => (
-              <option key={t.id} value={String(t.id)}>
-                {t.nom}
-              </option>
-            ))}
-          </SelectField>
-          {error && <p className="text-destructive text-sm">{error}</p>}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={pending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Envoi…' : 'Ajouter'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={description}
+      onSubmit={() => void handleSubmit()}
+      submitLabel="Ajouter"
+      pendingLabel="Envoi…"
+      pending={pending}
+    >
+      <div className="grid gap-2">
+        <Label htmlFor="document-fichier">Fichier *</Label>
+        <Input
+          id="document-fichier"
+          type="file"
+          accept={ACCEPT_FICHIER}
+          onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+        />
+      </div>
+      <SelectField
+        label="Type de document"
+        required
+        value={typeId}
+        onChange={setTypeId}
+      >
+        <option value="">Sélectionne un type</option>
+        {types.map((t) => (
+          <option key={t.id} value={String(t.id)}>
+            {t.nom}
+          </option>
+        ))}
+      </SelectField>
+      {error && <p className="text-destructive text-sm">{error}</p>}
+    </FormDialog>
   )
 }

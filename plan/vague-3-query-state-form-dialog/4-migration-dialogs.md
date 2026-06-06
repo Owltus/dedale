@@ -48,11 +48,26 @@ Avant :
       <DialogTitle>{isEdit ? 'Modifier' : 'Nouveau'}</DialogTitle>
       <DialogDescription>…</DialogDescription>
     </DialogHeader>
-    <form onSubmit={(e) => { e.preventDefault(); void handleSubmit() }} className="flex flex-col gap-4">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        void handleSubmit()
+      }}
+      className="flex flex-col gap-4"
+    >
       {/* champs */}
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>Annuler</Button>
-        <Button type="submit" disabled={pending}>{pending ? 'Enregistrement…' : 'Enregistrer'}</Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onOpenChange(false)}
+          disabled={pending}
+        >
+          Annuler
+        </Button>
+        <Button type="submit" disabled={pending}>
+          {pending ? 'Enregistrement…' : 'Enregistrer'}
+        </Button>
       </DialogFooter>
     </form>
   </DialogContent>
