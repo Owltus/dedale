@@ -19,6 +19,13 @@ export const ROLE_LABELS: Record<RoleCode, string> = {
   demandeur: 'Demandeur',
 }
 
+/** Libellé affiché d'un code de rôle (repli sur le code brut, puis « — »). */
+export function roleLabel(code: string | null | undefined): string {
+  return code && code in ROLE_LABELS
+    ? ROLE_LABELS[code as RoleCode]
+    : (code ?? '—')
+}
+
 /**
  * Cascade de création (alignée avec le trigger handle_new_auth_user) :
  * qui peut créer quels rôles. La source de vérité reste la base ; cette table

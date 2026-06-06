@@ -17,6 +17,7 @@ import { PrestataireFormDialog } from '@/features/prestataires/components/presta
 import { ContratFormDialog } from '@/features/prestataires/components/contrat-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
+import { formatDate } from '@/lib/date'
 import { errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
@@ -36,16 +37,6 @@ type Prestataire = Database['public']['Tables']['prestataires']['Row']
 export const Route = createFileRoute('/_app/prestataires')({
   component: PrestatairesPage,
 })
-
-const dateFormat = new Intl.DateTimeFormat('fr-FR', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-})
-
-function formatDate(value: string | null): string {
-  return value ? dateFormat.format(new Date(value)) : '—'
-}
 
 function PrestatairesPage() {
   const { data: role } = useCurrentRole()

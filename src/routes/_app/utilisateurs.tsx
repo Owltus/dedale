@@ -5,8 +5,7 @@ import { ChevronRight, ShieldOff, UserPlus, Users } from 'lucide-react'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { InviteUserDialog } from '@/features/utilisateurs/components/invite-user-dialog'
 import { UtilisateurDetail } from '@/features/utilisateurs/components/utilisateur-detail'
-import { ROLE_LABELS } from '@/features/utilisateurs/schemas'
-import type { RoleCode } from '@/features/utilisateurs/schemas'
+import { roleLabel } from '@/features/utilisateurs/schemas'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { PageContainer } from '@/components/common/page-container'
@@ -21,12 +20,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 export const Route = createFileRoute('/_app/utilisateurs')({
   component: UtilisateursPage,
 })
-
-function roleLabel(code: string | null | undefined): string {
-  return code && code in ROLE_LABELS
-    ? ROLE_LABELS[code as RoleCode]
-    : (code ?? '—')
-}
 
 function UtilisateursPage() {
   const { data: role, isPending: rolePending } = useCurrentRole()

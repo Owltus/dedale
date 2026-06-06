@@ -14,6 +14,7 @@ import { OtDetail } from '@/features/ordres-travail/components/ot-detail'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
+import { formatDate } from '@/lib/date'
 import { errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
@@ -29,10 +30,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 export const Route = createFileRoute('/_app/ordres-travail')({
   component: OrdresTravailPage,
 })
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('fr-FR')
-}
 
 function OrdresTravailPage() {
   const { data: role } = useCurrentRole()

@@ -12,6 +12,7 @@ import { ChantierFormDialog } from '@/features/chantiers/components/chantier-for
 import { ChantierDetail } from '@/features/chantiers/components/chantier-detail'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
+import { formatDate } from '@/lib/date'
 import { errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
@@ -30,10 +31,6 @@ type Chantier = Database['public']['Tables']['interventions_chantier']['Row']
 export const Route = createFileRoute('/_app/chantiers')({
   component: ChantiersPage,
 })
-
-function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString('fr-FR') : '—'
-}
 
 function ChantiersPage() {
   const { data: role } = useCurrentRole()

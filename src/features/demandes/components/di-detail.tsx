@@ -6,6 +6,7 @@ import { demandesQueries } from '../queries'
 import { useReopenDemande } from '../mutations'
 import { DiResolveDialog } from './di-resolve-dialog'
 import { statutBadgeVariant, statutLabel } from '../etat'
+import { formatDateLong } from '@/lib/date'
 import { errorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,12 +23,6 @@ interface DiDetailProps {
 }
 
 type Tab = 'detail' | 'documents'
-
-const dateFmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' })
-
-function formatDate(value: string | null): string {
-  return value ? dateFmt.format(new Date(value)) : '—'
-}
 
 export function DiDetail({ diId, canResolve, onBack }: DiDetailProps) {
   const {
@@ -143,7 +138,7 @@ export function DiDetail({ diId, canResolve, onBack }: DiDetailProps) {
               <p className="whitespace-pre-wrap">{di.constat}</p>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
                 <dt className="text-muted-foreground">Date de constat</dt>
-                <dd>{formatDate(di.date_constat)}</dd>
+                <dd>{formatDateLong(di.date_constat)}</dd>
                 {localisations.length > 0 && (
                   <>
                     <dt className="text-muted-foreground">Localisations</dt>
@@ -173,7 +168,7 @@ export function DiDetail({ diId, canResolve, onBack }: DiDetailProps) {
                 </p>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
                   <dt className="text-muted-foreground">Date de résolution</dt>
-                  <dd>{formatDate(di.date_resolution)}</dd>
+                  <dd>{formatDateLong(di.date_resolution)}</dd>
                 </dl>
                 {!isResolved && (
                   <p className="text-muted-foreground italic">

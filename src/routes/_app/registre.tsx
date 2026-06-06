@@ -27,6 +27,7 @@ import { ObservationLeverDialog } from '@/features/observations/components/obser
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
+import { formatDate } from '@/lib/date'
 import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -42,10 +43,6 @@ export const Route = createFileRoute('/_app/registre')({
 })
 
 type Tab = 'observations' | 'registre'
-
-function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString('fr-FR') : '—'
-}
 
 function RegistrePage() {
   const { data: role } = useCurrentRole()

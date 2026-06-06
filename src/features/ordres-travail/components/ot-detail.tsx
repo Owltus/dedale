@@ -8,6 +8,7 @@ import { useChangerStatutOt, useReouvrirOt } from '../mutations'
 import { OperationRow } from './operation-row'
 import { MotifDialog } from './motif-dialog'
 import { useAuth } from '@/auth'
+import { formatDate } from '@/lib/date'
 import { errorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,10 +23,6 @@ interface OtDetailProps {
   otId: string
   canManage: boolean
   onBack: () => void
-}
-
-function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString('fr-FR') : '—'
 }
 
 type Onglet = 'operations' | 'documents'

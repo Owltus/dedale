@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { relevesQueries } from '../queries'
+import { formatDate } from '@/lib/date'
 import {
   Dialog,
   DialogContent,
@@ -18,10 +19,6 @@ interface OtSourceDialogProps {
   date: string | null
   uniteSymbole: string | null
   onClose: () => void
-}
-
-function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString('fr-FR') : '—'
 }
 
 const LIBELLES_STATUT: Record<string, string> = {

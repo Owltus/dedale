@@ -6,6 +6,7 @@ import { relevesQueries } from '@/features/releves/queries'
 import type { GammeMesurable } from '@/features/releves/queries'
 import { GammeMesuresDetail } from '@/features/releves/components/gamme-mesures-detail'
 import { useSiteContext } from '@/lib/site-context'
+import { formatDate } from '@/lib/date'
 import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -21,10 +22,6 @@ export const Route = createFileRoute('/_app/releves')({
 })
 
 const GRID = cardGrid.default
-
-function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString('fr-FR') : '—'
-}
 
 function RelevesPage() {
   const { activeSiteId } = useSiteContext()

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Check, LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
+import { roleLabel } from '@/features/utilisateurs/schemas'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useTheme } from '@/components/theme'
@@ -25,14 +26,6 @@ const THEMES = [
   { value: 'dark', label: 'Sombre', icon: Moon },
   { value: 'system', label: 'Auto', icon: Monitor },
 ] as const
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrateur',
-  manager: 'Manager',
-  technicien: 'Technicien',
-  lecteur: 'Lecteur',
-  demandeur: 'Demandeur',
-}
 
 /** Initiales pour l'avatar : depuis le nom (« Jean Dupont » → « JD »), sinon
  *  depuis la partie locale de l'e-mail, avec repli « ?? ». */
@@ -117,7 +110,7 @@ export function UserMenu({
               </p>
               {role && (
                 <p className="text-muted-foreground text-xs">
-                  {ROLE_LABELS[role] ?? role}
+                  {roleLabel(role)}
                 </p>
               )}
             </div>

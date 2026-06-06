@@ -17,26 +17,14 @@ export function useInviteUser() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (values: InviteFormValues): Promise<void> => {
-      const res = await supabase.functions.invoke<{ error?: unknown }>(
-        'invite_user',
-        {
-          body: {
-            email: values.email.trim().toLowerCase(),
-            role: values.role,
-            nom_complet: values.nom_complet.trim(),
-            site_ids: values.site_ids,
-          },
-        },
-      )
-      const data = res.data
-      // supabase.functions.invoke ne throw pas sur un code HTTP >= 400 :
-      // il faut inspecter `error` ET le corps JSON renvoyé par la fonction.
-      if (res.error) {
-        throw new Error(await edgeErrorMessage(res.error, data))
-      }
-      if (data && typeof data === 'object' && 'error' in data) {
-        throw new Error(String(data.error))
-      }
+      // invokeFunction (edge.ts) gère déjà l'inspection de l'erreur HTTP ET du
+      // corps `{ error }`, et lève un message lisible.
+      await invokeFunction('invite_user', {
+        email: values.email.trim().toLowerCase(),
+        role: values.role,
+        nom_complet: values.nom_complet.trim(),
+        site_ids: values.site_ids,
+      })
     },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: utilisateursQueries.all() }),
@@ -81,33 +69,6 @@ export function useAnonymizeUser() {
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: utilisateursQueries.all() }),
   })
-}
-
-/**
- * Extrait un message lisible d'une erreur d'Edge Function. `invoke` enveloppe
- * la réponse HTTP dans un FunctionsHttpError dont le corps porte notre
- * `{ error }` métier — on essaie de le récupérer pour un message clair.
- */
-async function edgeErrorMessage(
-  error: unknown,
-  data: unknown,
-): Promise<string> {
-  if (data && typeof data === 'object' && 'error' in data) {
-    return String(data.error)
-  }
-  // FunctionsHttpError expose .context (la Response) ; on tente d'en lire le JSON.
-  const ctx = (error as { context?: unknown }).context
-  if (ctx instanceof Response) {
-    try {
-      const body: unknown = await ctx.clone().json()
-      if (body && typeof body === 'object' && 'error' in body) {
-        return String(body.error)
-      }
-    } catch {
-      // corps non-JSON : on retombe sur le message générique ci-dessous.
-    }
-  }
-  return error instanceof Error ? error.message : 'Échec de l’invitation'
 }
 
 /**

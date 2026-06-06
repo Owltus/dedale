@@ -9,6 +9,4 @@ export const cardGrid = {
     'grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
   /** Listes standard : gammes, équipements, OT, demandes, chantiers, relevés. */
   default: 'grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
-  /** Listes larges (cartes riches). */
-  wide: 'grid gap-4 grid-cols-1 lg:grid-cols-2',
 } as const

@@ -4,6 +4,7 @@ import {
   variantStatutOt,
 } from '@/features/ordres-travail/schemas'
 import type { PlanningOt } from '@/features/planning/grille'
+import { formatDate } from '@/lib/date'
 import {
   Dialog,
   DialogContent,
@@ -13,10 +14,6 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('fr-FR')
-}
 
 interface CelluleDialogProps {
   /** OT de la cellule cliquée (≥ 1), ou `null` si fermé. */

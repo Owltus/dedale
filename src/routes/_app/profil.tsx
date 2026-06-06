@@ -5,8 +5,7 @@ import { KeyRound, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { useUpdateUser } from '@/features/utilisateurs/mutations'
-import { ROLE_LABELS, profileSchema } from '@/features/utilisateurs/schemas'
-import type { RoleCode } from '@/features/utilisateurs/schemas'
+import { profileSchema, roleLabel } from '@/features/utilisateurs/schemas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
@@ -14,6 +13,7 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { TextField } from '@/components/common/text-field'
 import { EmptyState } from '@/components/common/empty-state'
+import { InfoNote } from '@/components/common/info-note'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -25,12 +25,6 @@ export const Route = createFileRoute('/_app/profil')({
 })
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-function roleLabel(code: string | null | undefined): string {
-  return code && code in ROLE_LABELS
-    ? ROLE_LABELS[code as RoleCode]
-    : (code ?? '—')
-}
 
 function ProfilPage() {
   const { session } = useAuth()
@@ -142,14 +136,11 @@ function EmailBlock({ currentEmail }: { currentEmail: string }) {
         {error && <p className="text-destructive text-sm">{error}</p>}
       </div>
       {sentTo && (
-        <div className="border-primary/20 bg-primary/5 flex items-start gap-2 rounded-md border p-3 text-sm">
-          <Mail className="text-primary mt-0.5 size-4 shrink-0" />
-          <span>
-            Un lien de confirmation a été envoyé à <strong>{sentTo}</strong>.
-            Clique dessus pour valider le changement — ton adresse actuelle
-            reste active tant que ce n’est pas fait.
-          </span>
-        </div>
+        <InfoNote icon={Mail}>
+          Un lien de confirmation a été envoyé à <strong>{sentTo}</strong>.
+          Clique dessus pour valider le changement — ton adresse actuelle reste
+          active tant que ce n’est pas fait.
+        </InfoNote>
       )}
       <Button
         type="submit"
@@ -255,14 +246,10 @@ function SecurityCard({ email }: { email: string }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {sent ? (
-          <div className="border-primary/20 bg-primary/5 flex items-start gap-2 rounded-md border p-3 text-sm">
-            <Mail className="text-primary mt-0.5 size-4 shrink-0" />
-            <span>
-              Un lien de réinitialisation a été envoyé à{' '}
-              <strong>{email}</strong>. Ouvre-le pour définir un nouveau mot de
-              passe.
-            </span>
-          </div>
+          <InfoNote icon={Mail}>
+            Un lien de réinitialisation a été envoyé à <strong>{email}</strong>.
+            Ouvre-le pour définir un nouveau mot de passe.
+          </InfoNote>
         ) : (
           <p className="text-muted-foreground text-sm">
             Reçois un lien par e-mail pour définir un nouveau mot de passe en

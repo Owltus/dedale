@@ -5,6 +5,7 @@ import { relevesQueries } from '../queries'
 import type { MesurePoint, SerieMesure } from '../queries'
 import { MesureChart } from './mesure-chart'
 import { OtSourceDialog } from './ot-source-dialog'
+import { formatDate } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,10 +26,6 @@ interface SourceCible {
   valeur: number
   date: string
   uniteSymbole: string | null
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('fr-FR')
 }
 
 function uniteLabel(serie: SerieMesure): string {

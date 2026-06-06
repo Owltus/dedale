@@ -12,6 +12,7 @@ import {
 } from '../schemas'
 import { ChantierFormDialog } from './chantier-form-dialog'
 import { ClotureDialog } from './cloture-dialog'
+import { formatDate } from '@/lib/date'
 import { errorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -25,10 +26,6 @@ interface ChantierDetailProps {
   siteId: string
   canManage: boolean
   onBack: () => void
-}
-
-function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString('fr-FR') : '—'
 }
 
 export function ChantierDetail({

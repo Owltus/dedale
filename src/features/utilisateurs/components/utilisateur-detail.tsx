@@ -22,13 +22,13 @@ import {
   useUpdateUser,
   useUpdateUserEmail,
 } from '../mutations'
-import { ROLE_LABELS, profileSchema } from '../schemas'
-import type { RoleCode } from '../schemas'
+import { profileSchema, roleLabel } from '../schemas'
 import { sitesQueries } from '@/features/sites/queries'
 import { supabase } from '@/lib/supabase'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
+import { InfoNote } from '@/components/common/info-note'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { TextField } from '@/components/common/text-field'
@@ -54,12 +54,6 @@ const SUBORDINATE_ROLES = ['technicien', 'lecteur', 'demandeur']
 
 const SELECT_CLASS =
   'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]'
-
-function roleLabel(code: string | null | undefined): string {
-  return code && code in ROLE_LABELS
-    ? ROLE_LABELS[code as RoleCode]
-    : (code ?? '—')
-}
 
 export function UtilisateurDetail({
   userId,
@@ -371,12 +365,9 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
           pour qu’il définisse un nouveau mot de passe.
         </p>
         {resetPassword.isSuccess && (
-          <div className="border-primary/20 bg-primary/5 flex items-start gap-2 rounded-md border p-3 text-sm">
-            <Mail className="text-primary mt-0.5 size-4 shrink-0" />
-            <span>
-              Lien de réinitialisation envoyé à <strong>{current}</strong>.
-            </span>
-          </div>
+          <InfoNote icon={Mail}>
+            Lien de réinitialisation envoyé à <strong>{current}</strong>.
+          </InfoNote>
         )}
         <Button
           variant="outline"
