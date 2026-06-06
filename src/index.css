@@ -85,3 +85,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ─── Barres de défilement : fines, discrètes, sans boutons flèches ──────────
+   Approche standard et cross-navigateur (Firefox, Chrome 121+, Edge, Safari
+   récents) : on n'utilise QUE `scrollbar-width` + `scrollbar-color`, sans aucun
+   pseudo-élément `::-webkit-scrollbar*` (qui réactiverait l'ancien moteur WebKit
+   et ses flèches). Piste transparente ; pouce gris léger dérivé du token
+   `--muted-foreground`, donc adapté au thème clair/sombre. Aucune flèche. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 35%, transparent)
+    transparent;
+}

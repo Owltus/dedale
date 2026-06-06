@@ -1,14 +1,8 @@
 import { useNavigate } from '@tanstack/react-router'
-import {
-  Check,
-  LogOut,
-  Monitor,
-  Moon,
-  MoreVertical,
-  Sun,
-  UserRound,
-} from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Check, LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useTheme } from '@/components/theme'
@@ -20,6 +14,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 const THEMES = [
   { value: 'light', label: 'Clair', icon: Sun },
@@ -35,18 +34,49 @@ const ROLE_LABELS: Record<string, string> = {
   demandeur: 'Demandeur',
 }
 
+/** Initiales pour l'avatar : depuis le nom (« Jean Dupont » → « JD »), sinon
+ *  depuis la partie locale de l'e-mail, avec repli « ?? ». */
+function computeInitials(name: string, email: string): string {
+  const parts = name.split(/\s+/).filter(Boolean)
+  if (parts.length > 0) {
+    return parts
+      .slice(0, 2)
+      .map((p) => p.charAt(0))
+      .join('')
+      .toUpperCase()
+  }
+  const local = email.split('@')[0] ?? ''
+  const cleaned = local.replace(/[^a-zA-Z]/g, '').slice(0, 2)
+  return (cleaned.length > 0 ? cleaned : '??').toUpperCase()
+}
+
 /**
- * Bloc compte du pied de sidebar : la ligne entière (avatar + email + rôle) est
- * le déclencheur du menu (thème + déconnexion). Pas de bouton imbriqué.
+ * Bloc compte du pied de sidebar : la ligne entière (avatar + nom + rôle) est le
+ * déclencheur du menu (profil, thème, déconnexion). Pas de bouton imbriqué.
  */
-export function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
+export function UserMenu({
+  onNavigate,
+  iconOnly = false,
+}: {
+  onNavigate?: () => void
+  iconOnly?: boolean
+}) {
   const { session } = useAuth()
   const { data: role } = useCurrentRole()
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
 
   const email = session?.user.email ?? ''
-  const initials = (email.slice(0, 2) || '??').toUpperCase()
+  const userId = session?.user.id ?? ''
+  const { data: me } = useQuery({
+    ...utilisateursQueries.me(userId),
+    enabled: userId !== '',
+  })
+  const name = (me?.nom_complet ?? '').trim()
+  // Texte principal : le nom du compte (repli sur l'e-mail le temps du chargement).
+  const displayName = name || email
+  // Initiales : à partir du nom (« Jean Dupont » → « JD »), sinon de l'e-mail.
+  const initials = computeInitials(name, email)
 
   async function handleLogout() {
     onNavigate?.()
@@ -54,31 +84,52 @@ export function UserMenu({ onNavigate }: { onNavigate?: () => void }) {
     await navigate({ to: '/login' })
   }
 
+  const avatar = (
+    <div className="bg-primary text-primary-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
+      {initials}
+    </div>
+  )
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="hover:bg-accent focus-visible:ring-ring/50 flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors outline-none focus-visible:ring-2"
-        >
-          <div className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium" title={email}>
-              {email}
-            </p>
-            {role && (
-              <p className="text-muted-foreground text-xs">
-                {ROLE_LABELS[role] ?? role}
+      {iconOnly ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger
+              aria-label="Menu du compte"
+              className="hover:bg-accent focus-visible:ring-ring/50 focus-visible:ring-offset-card flex w-full items-center justify-center rounded-md p-1 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            >
+              {avatar}
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="right">{displayName}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="hover:bg-accent focus-visible:ring-ring/50 focus-visible:ring-offset-card flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          >
+            {avatar}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium" title={displayName}>
+                {displayName}
               </p>
-            )}
-          </div>
-          <MoreVertical className="text-muted-foreground size-4 shrink-0" />
-        </button>
-      </DropdownMenuTrigger>
+              {role && (
+                <p className="text-muted-foreground text-xs">
+                  {ROLE_LABELS[role] ?? role}
+                </p>
+              )}
+            </div>
+          </button>
+        </DropdownMenuTrigger>
+      )}
 
-      <DropdownMenuContent align="end" className="min-w-56">
+      <DropdownMenuContent
+        align={iconOnly ? 'start' : 'end'}
+        side={iconOnly ? 'right' : 'bottom'}
+        className="min-w-56"
+      >
         <DropdownMenuItem
           onSelect={() => {
             onNavigate?.()
