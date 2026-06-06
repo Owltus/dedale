@@ -20,12 +20,12 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
-import { ErrorState } from '@/components/common/error-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 import type { Database } from '@/lib/database.types'
 
 type Chantier = Database['public']['Tables']['interventions_chantier']['Row']
@@ -60,12 +60,7 @@ function ChantiersContent({
   siteId: string
   canManage: boolean
 }) {
-  const {
-    data: chantiers = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(chantiersQueries.list(siteId))
+  const query = useQuery(chantiersQueries.list(siteId))
   const { data: statuts = [] } = useQuery(statutsChantierQueries.list())
   const del = useDeleteChantier()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -115,73 +110,71 @@ function ChantiersContent({
         action={newButton}
       />
 
-      {isPending ? (
-        <div className={cardGrid.default}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-40" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : chantiers.length === 0 ? (
-        <EmptyState
-          icon={Hammer}
-          title="Aucun chantier"
-          description={
-            canManage
-              ? 'Crée un premier chantier pour suivre des travaux ponctuels.'
-              : 'Aucun chantier enregistré pour ce site.'
-          }
-          action={newButton}
-        />
-      ) : (
-        <div className={cardGrid.default}>
-          {chantiers.map((c) => (
-            <Card
-              key={c.id}
-              className="hover:bg-accent/40 min-w-0 cursor-pointer transition-colors"
-              onClick={() => setSelectedId(c.id)}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="truncate">{c.titre}</CardTitle>
-                  <Badge variant="secondary" className="shrink-0">
-                    {statutNom.get(c.statut_chantier_id) ?? 'Statut'}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3 text-sm">
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <dt className="text-muted-foreground">Prestataire</dt>
-                  <dd className="truncate text-right">
-                    {c.prestataires?.libelle ?? '—'}
-                  </dd>
-                  <dt className="text-muted-foreground">Demande</dt>
-                  <dd className="text-right">{formatDate(c.date_demande)}</dd>
-                  <dt className="text-muted-foreground">Prévue</dt>
-                  <dd className="text-right">{formatDate(c.date_prevue)}</dd>
-                  <dt className="text-muted-foreground">Fin</dt>
-                  <dd className="text-right">{formatDate(c.date_fin)}</dd>
-                </dl>
-                {canManage && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setToDelete(c)
-                      }}
-                    >
-                      <Trash2 /> Supprimer
-                    </Button>
+      <QueryState
+        query={query}
+        pending={<CardSkeletons count={4} height="h-40" />}
+        empty={
+          <EmptyState
+            icon={Hammer}
+            title="Aucun chantier"
+            description={
+              canManage
+                ? 'Crée un premier chantier pour suivre des travaux ponctuels.'
+                : 'Aucun chantier enregistré pour ce site.'
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(chantiers) => (
+          <div className={cardGrid.default}>
+            {chantiers.map((c) => (
+              <Card
+                key={c.id}
+                className="hover:bg-accent/40 min-w-0 cursor-pointer transition-colors"
+                onClick={() => setSelectedId(c.id)}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="truncate">{c.titre}</CardTitle>
+                    <Badge variant="secondary" className="shrink-0">
+                      {statutNom.get(c.statut_chantier_id) ?? 'Statut'}
+                    </Badge>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3 text-sm">
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <dt className="text-muted-foreground">Prestataire</dt>
+                    <dd className="truncate text-right">
+                      {c.prestataires?.libelle ?? '—'}
+                    </dd>
+                    <dt className="text-muted-foreground">Demande</dt>
+                    <dd className="text-right">{formatDate(c.date_demande)}</dd>
+                    <dt className="text-muted-foreground">Prévue</dt>
+                    <dd className="text-right">{formatDate(c.date_prevue)}</dd>
+                    <dt className="text-muted-foreground">Fin</dt>
+                    <dd className="text-right">{formatDate(c.date_fin)}</dd>
+                  </dl>
+                  {canManage && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setToDelete(c)
+                        }}
+                      >
+                        <Trash2 /> Supprimer
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </QueryState>
 
       {canManage && (
         <ChantierFormDialog

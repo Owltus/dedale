@@ -22,12 +22,12 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
-import { ErrorState } from '@/components/common/error-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 
 export const Route = createFileRoute('/_app/ordres-travail')({
   component: OrdresTravailPage,
@@ -60,12 +60,7 @@ function OrdresTravailContent({
   canManage: boolean
 }) {
   const { session } = useAuth()
-  const {
-    data: ordres = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(ordresTravailQueries.list(siteId))
+  const query = useQuery(ordresTravailQueries.list(siteId))
   const del = useDeleteOt()
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -112,78 +107,78 @@ function OrdresTravailContent({
         action={newButton}
       />
 
-      {isPending ? (
-        <div className={cardGrid.default}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-44" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : ordres.length === 0 ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="Aucun ordre de travail"
-          description={
-            canManage
-              ? 'Génère un OT depuis une gamme pour démarrer l’exécution.'
-              : 'Aucun OT enregistré pour ce site.'
-          }
-          action={newButton}
-        />
-      ) : (
-        <div className={cardGrid.default}>
-          {ordres.map((ot) => (
-            <Card
-              key={ot.id}
-              className="hover:bg-accent/40 min-w-0 cursor-pointer transition-colors"
-              onClick={() => setSelectedId(ot.id)}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="truncate">{ot.nom_gamme}</CardTitle>
-                  <Badge
-                    variant={variantStatutOt(ot.statut)}
-                    className="shrink-0"
-                  >
-                    {LIBELLES_STATUT_OT[ot.statut] ?? ot.statut}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3 text-sm">
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <dt className="text-muted-foreground">Prestataire</dt>
-                  <dd className="truncate text-right">{ot.nom_prestataire}</dd>
-                  <dt className="text-muted-foreground">Équipement</dt>
-                  <dd className="truncate text-right">
-                    {ot.nom_equipement ?? '—'}
-                  </dd>
-                  <dt className="text-muted-foreground">Périodicité</dt>
-                  <dd className="truncate text-right">
-                    {ot.libelle_periodicite}
-                  </dd>
-                  <dt className="text-muted-foreground">Date prévue</dt>
-                  <dd className="text-right">{formatDate(ot.date_prevue)}</dd>
-                </dl>
-                {canManage && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setToDelete({ id: ot.id, nom: ot.nom_gamme })
-                      }}
+      <QueryState
+        query={query}
+        pending={<CardSkeletons count={4} height="h-44" />}
+        empty={
+          <EmptyState
+            icon={ClipboardList}
+            title="Aucun ordre de travail"
+            description={
+              canManage
+                ? 'Génère un OT depuis une gamme pour démarrer l’exécution.'
+                : 'Aucun OT enregistré pour ce site.'
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(ordres) => (
+          <div className={cardGrid.default}>
+            {ordres.map((ot) => (
+              <Card
+                key={ot.id}
+                className="hover:bg-accent/40 min-w-0 cursor-pointer transition-colors"
+                onClick={() => setSelectedId(ot.id)}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="truncate">{ot.nom_gamme}</CardTitle>
+                    <Badge
+                      variant={variantStatutOt(ot.statut)}
+                      className="shrink-0"
                     >
-                      <Trash2 /> Supprimer
-                    </Button>
+                      {LIBELLES_STATUT_OT[ot.statut] ?? ot.statut}
+                    </Badge>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3 text-sm">
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <dt className="text-muted-foreground">Prestataire</dt>
+                    <dd className="truncate text-right">
+                      {ot.nom_prestataire}
+                    </dd>
+                    <dt className="text-muted-foreground">Équipement</dt>
+                    <dd className="truncate text-right">
+                      {ot.nom_equipement ?? '—'}
+                    </dd>
+                    <dt className="text-muted-foreground">Périodicité</dt>
+                    <dd className="truncate text-right">
+                      {ot.libelle_periodicite}
+                    </dd>
+                    <dt className="text-muted-foreground">Date prévue</dt>
+                    <dd className="text-right">{formatDate(ot.date_prevue)}</dd>
+                  </dl>
+                  {canManage && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setToDelete({ id: ot.id, nom: ot.nom_gamme })
+                        }}
+                      >
+                        <Trash2 /> Supprimer
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </QueryState>
 
       {canManage && session && (
         <OtCreateDialog

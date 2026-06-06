@@ -24,6 +24,8 @@ import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -399,12 +401,7 @@ function ContratsSection({
   prestataireId: string
   canManage: boolean
 }) {
-  const {
-    data: contrats = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(contratsQueries.list(siteId, prestataireId))
+  const query = useQuery(contratsQueries.list(siteId, prestataireId))
   const del = useDeleteContrat()
   const [form, setForm] = useState<{
     open: boolean
@@ -436,80 +433,85 @@ function ContratsSection({
         {newButton}
       </div>
 
-      {isPending ? (
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <Skeleton key={i} className="h-20" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : contrats.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Aucun contrat"
-          description={
-            canManage
-              ? 'Ajoute un contrat pour ce prestataire sur le site actif.'
-              : 'Aucun contrat sur le site actif.'
-          }
-          action={newButton}
-        />
-      ) : (
-        <div className="flex flex-col gap-3">
-          {(contrats as ContratRow[]).map((c) => {
-            const etat = etatContrat(c.date_debut, c.date_fin)
-            return (
-              <Card key={c.id} className="min-w-0">
-                <CardContent className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{c.reference}</span>
-                      <Badge variant={etat.variant}>{etat.label}</Badge>
-                      {c.types_contrats && (
-                        <Badge variant="outline">
-                          {c.types_contrats.libelle}
-                        </Badge>
+      <QueryState
+        query={query}
+        pending={
+          <CardSkeletons
+            count={2}
+            height="h-20"
+            container="flex flex-col gap-3"
+          />
+        }
+        empty={
+          <EmptyState
+            icon={FileText}
+            title="Aucun contrat"
+            description={
+              canManage
+                ? 'Ajoute un contrat pour ce prestataire sur le site actif.'
+                : 'Aucun contrat sur le site actif.'
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(contrats) => (
+          <div className="flex flex-col gap-3">
+            {(contrats as ContratRow[]).map((c) => {
+              const etat = etatContrat(c.date_debut, c.date_fin)
+              return (
+                <Card key={c.id} className="min-w-0">
+                  <CardContent className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{c.reference}</span>
+                        <Badge variant={etat.variant}>{etat.label}</Badge>
+                        {c.types_contrats && (
+                          <Badge variant="outline">
+                            {c.types_contrats.libelle}
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-muted-foreground text-sm">
+                        Du {formatDate(c.date_debut)} au{' '}
+                        {formatDate(c.date_fin)}
+                      </span>
+                      {c.objet_avenant && (
+                        <span className="text-muted-foreground text-sm">
+                          Avenant : {c.objet_avenant}
+                        </span>
+                      )}
+                      {c.commentaires && (
+                        <span className="text-muted-foreground text-sm">
+                          {c.commentaires}
+                        </span>
                       )}
                     </div>
-                    <span className="text-muted-foreground text-sm">
-                      Du {formatDate(c.date_debut)} au {formatDate(c.date_fin)}
-                    </span>
-                    {c.objet_avenant && (
-                      <span className="text-muted-foreground text-sm">
-                        Avenant : {c.objet_avenant}
-                      </span>
+                    {canManage && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setForm({ open: true, contrat: c })}
+                        >
+                          <Pencil /> Modifier
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setToDelete(c)}
+                        >
+                          <Trash2 /> Supprimer
+                        </Button>
+                      </div>
                     )}
-                    {c.commentaires && (
-                      <span className="text-muted-foreground text-sm">
-                        {c.commentaires}
-                      </span>
-                    )}
-                  </div>
-                  {canManage && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setForm({ open: true, contrat: c })}
-                      >
-                        <Pencil /> Modifier
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setToDelete(c)}
-                      >
-                        <Trash2 /> Supprimer
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </QueryState>
 
       {canManage && (
         <ContratFormDialog

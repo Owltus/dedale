@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -32,13 +32,13 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
-import { ErrorState } from '@/components/common/error-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
@@ -48,16 +48,6 @@ export const Route = createFileRoute('/_app/equipements')({
 })
 
 const GRID = cardGrid.default
-
-function CardSkeletons() {
-  return (
-    <div className={GRID}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-32" />
-      ))}
-    </div>
-  )
-}
 
 type Tab = 'equipements' | 'modeles'
 
@@ -160,12 +150,7 @@ function EquipementsList({
   canEdit: boolean
   onOpen: (eq: Equipement) => void
 }) {
-  const {
-    data: equipements = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(equipementsQueries.list(siteId))
+  const query = useQuery(equipementsQueries.list(siteId))
   const del = useDeleteEquipement()
   const [search, setSearch] = useState('')
   const [form, setForm] = useState<{ open: boolean; eq: Equipement | null }>({
@@ -173,16 +158,6 @@ function EquipementsList({
     eq: null,
   })
   const [toDelete, setToDelete] = useState<Equipement | null>(null)
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return equipements
-    return equipements.filter(
-      (e) =>
-        (e.nom ?? '').toLowerCase().includes(q) ||
-        (e.code_inventaire ?? '').toLowerCase().includes(q),
-    )
-  }, [equipements, search])
 
   function confirmDelete() {
     if (!toDelete?.id) return
@@ -216,77 +191,92 @@ function EquipementsList({
         {newButton}
       </div>
 
-      {isPending ? (
-        <CardSkeletons />
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : equipements.length === 0 ? (
-        <EmptyState
-          icon={Package}
-          title="Aucun équipement"
-          description={
-            canEdit
-              ? 'Crée le premier équipement de ce site.'
-              : 'Aucun équipement sur ce site.'
+      <QueryState
+        query={query}
+        pending={<CardSkeletons count={6} height="h-32" />}
+        empty={
+          <EmptyState
+            icon={Package}
+            title="Aucun équipement"
+            description={
+              canEdit
+                ? 'Crée le premier équipement de ce site.'
+                : 'Aucun équipement sur ce site.'
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(equipements) => {
+          const q = search.trim().toLowerCase()
+          const filtered = q
+            ? equipements.filter(
+                (e) =>
+                  (e.nom ?? '').toLowerCase().includes(q) ||
+                  (e.code_inventaire ?? '').toLowerCase().includes(q),
+              )
+            : equipements
+          if (filtered.length === 0) {
+            return (
+              <EmptyState
+                icon={Search}
+                title="Aucun résultat"
+                description="Aucun équipement ne correspond à ta recherche."
+              />
+            )
           }
-          action={newButton}
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="Aucun résultat"
-          description="Aucun équipement ne correspond à ta recherche."
-        />
-      ) : (
-        <div className={GRID}>
-          {filtered.map((e) => (
-            <Card key={e.id} className="min-w-0">
-              <CardHeader>
-                <CardTitle className="truncate">{e.nom}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  {e.code_inventaire && (
-                    <Badge variant="secondary">{e.code_inventaire}</Badge>
-                  )}
-                  {e.categorie_nom && (
-                    <Badge variant="outline">
-                      <Tag className="size-3" /> {e.categorie_nom}
-                    </Badge>
-                  )}
-                </div>
-                <span className="flex items-center gap-1 truncate">
-                  <MapPin className="size-3 shrink-0" />
-                  {e.localisation_courte ?? e.local_nom ?? '—'}
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => onOpen(e)}>
-                    <ChevronRight /> Détail
-                  </Button>
-                  {canEdit && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setForm({ open: true, eq: e })}
-                      >
-                        <Pencil /> Modifier
+          return (
+            <div className={GRID}>
+              {filtered.map((e) => (
+                <Card key={e.id} className="min-w-0">
+                  <CardHeader>
+                    <CardTitle className="truncate">{e.nom}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {e.code_inventaire && (
+                        <Badge variant="secondary">{e.code_inventaire}</Badge>
+                      )}
+                      {e.categorie_nom && (
+                        <Badge variant="outline">
+                          <Tag className="size-3" /> {e.categorie_nom}
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="flex items-center gap-1 truncate">
+                      <MapPin className="size-3 shrink-0" />
+                      {e.localisation_courte ?? e.local_nom ?? '—'}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" onClick={() => onOpen(e)}>
+                        <ChevronRight /> Détail
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setToDelete(e)}
-                      >
-                        <Trash2 /> Supprimer
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                      {canEdit && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setForm({ open: true, eq: e })}
+                          >
+                            <Pencil /> Modifier
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setToDelete(e)}
+                          >
+                            <Trash2 /> Supprimer
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
+        }}
+      </QueryState>
 
       {canEdit && (
         <EquipementFormDialog
@@ -469,65 +459,62 @@ function ModelesList({
   siteId: string
   canEdit: boolean
 }) {
-  const {
-    data: modeles = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(modelesEquipementsQueries.list(siteId))
+  const query = useQuery(modelesEquipementsQueries.list(siteId))
   const [instancier, setInstancier] = useState<ModeleRow | null>(null)
 
   return (
     <div className="flex flex-col gap-4">
-      {isPending ? (
-        <CardSkeletons />
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : modeles.length === 0 ? (
-        <EmptyState
-          icon={Boxes}
-          title="Aucun modèle"
-          description="La bibliothèque de modèles d’équipement est vide pour ce site."
-        />
-      ) : (
-        <div className={GRID}>
-          {modeles.map((m) => {
-            const specs = readSpecifications(m.specifications)
-            return (
-              <Card key={m.id} className="min-w-0">
-                <CardHeader>
-                  <CardTitle className="truncate">{m.nom}</CardTitle>
-                </CardHeader>
-                <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={m.site_id ? 'secondary' : 'outline'}>
-                      {m.site_id ? 'Site' : 'Entreprise'}
-                    </Badge>
-                    {m.categories?.nom && (
-                      <Badge variant="outline">
-                        <Tag className="size-3" /> {m.categories.nom}
+      <QueryState
+        query={query}
+        pending={<CardSkeletons count={6} height="h-32" />}
+        empty={
+          <EmptyState
+            icon={Boxes}
+            title="Aucun modèle"
+            description="La bibliothèque de modèles d’équipement est vide pour ce site."
+          />
+        }
+      >
+        {(modeles) => (
+          <div className={GRID}>
+            {modeles.map((m) => {
+              const specs = readSpecifications(m.specifications)
+              return (
+                <Card key={m.id} className="min-w-0">
+                  <CardHeader>
+                    <CardTitle className="truncate">{m.nom}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={m.site_id ? 'secondary' : 'outline'}>
+                        {m.site_id ? 'Site' : 'Entreprise'}
                       </Badge>
-                    )}
-                  </div>
-                  <span className="line-clamp-2 min-h-5">
-                    {m.description ??
-                      (specs.length > 0
-                        ? `${String(specs.length)} caractéristique(s)`
-                        : '—')}
-                  </span>
-                  {canEdit && (
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => setInstancier(m)}>
-                        <CopyPlus /> Instancier
-                      </Button>
+                      {m.categories?.nom && (
+                        <Badge variant="outline">
+                          <Tag className="size-3" /> {m.categories.nom}
+                        </Badge>
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+                    <span className="line-clamp-2 min-h-5">
+                      {m.description ??
+                        (specs.length > 0
+                          ? `${String(specs.length)} caractéristique(s)`
+                          : '—')}
+                    </span>
+                    {canEdit && (
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => setInstancier(m)}>
+                          <CopyPlus /> Instancier
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </QueryState>
 
       {canEdit && (
         <InstancierDialog

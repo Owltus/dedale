@@ -17,13 +17,13 @@ import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
-import { ErrorState } from '@/components/common/error-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -67,12 +67,7 @@ function InvestissementsContent({
   siteId: string
   canManage: boolean
 }) {
-  const {
-    data: investissements = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(investissementsQueries.list(siteId))
+  const query = useQuery(investissementsQueries.list(siteId))
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const del = useDeleteInvestissement()
   const [form, setForm] = useState<{
@@ -108,102 +103,104 @@ function InvestissementsContent({
         action={newButton}
       />
 
-      {isPending ? (
-        <div className={cardGrid.default}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-44" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : investissements.length === 0 ? (
-        <EmptyState
-          icon={Wallet}
-          title="Aucun investissement"
-          description={
-            canManage
-              ? 'Crée un premier investissement pour suivre son budget.'
-              : 'Aucun investissement enregistré pour ce site.'
-          }
-          action={newButton}
-        />
-      ) : (
-        <div className={cardGrid.default}>
-          {investissements.map((inv) => {
-            const ecart =
-              inv.montant_prevu !== null && inv.depense_reelle !== null
-                ? inv.depense_reelle - inv.montant_prevu
-                : null
-            return (
-              <Card key={inv.id} className="min-w-0">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="truncate">{inv.libelle}</CardTitle>
-                    <Badge variant="secondary" className="shrink-0">
-                      {statutNom.get(inv.statut_capex_id) ?? 'Statut'}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3 text-sm">
-                  {inv.description && (
-                    <p className="text-muted-foreground line-clamp-2">
-                      {inv.description}
-                    </p>
-                  )}
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-                    <dt className="text-muted-foreground">Demandé</dt>
-                    <dd className="text-right tabular-nums">
-                      {formatEuros(inv.montant_demande)}
-                    </dd>
-                    <dt className="text-muted-foreground">Prévu</dt>
-                    <dd className="text-right tabular-nums">
-                      {formatEuros(inv.montant_prevu)}
-                    </dd>
-                    <dt className="text-muted-foreground">Réel</dt>
-                    <dd className="text-right tabular-nums">
-                      {formatEuros(inv.depense_reelle)}
-                    </dd>
-                    <dt className="text-muted-foreground">Écart prévu/réel</dt>
-                    <dd
-                      className={
-                        ecart === null
-                          ? 'text-right tabular-nums'
-                          : ecart > 0
-                            ? 'text-destructive text-right tabular-nums'
-                            : 'text-right tabular-nums'
-                      }
-                    >
-                      {ecart === null
-                        ? '—'
-                        : `${ecart > 0 ? '+' : ''}${euros.format(ecart)}`}
-                    </dd>
-                  </dl>
-                  {canManage && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setForm({ open: true, investissement: inv })
+      <QueryState
+        query={query}
+        pending={
+          <CardSkeletons count={4} height="h-44" container={cardGrid.default} />
+        }
+        empty={
+          <EmptyState
+            icon={Wallet}
+            title="Aucun investissement"
+            description={
+              canManage
+                ? 'Crée un premier investissement pour suivre son budget.'
+                : 'Aucun investissement enregistré pour ce site.'
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(investissements) => (
+          <div className={cardGrid.default}>
+            {investissements.map((inv) => {
+              const ecart =
+                inv.montant_prevu !== null && inv.depense_reelle !== null
+                  ? inv.depense_reelle - inv.montant_prevu
+                  : null
+              return (
+                <Card key={inv.id} className="min-w-0">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="truncate">{inv.libelle}</CardTitle>
+                      <Badge variant="secondary" className="shrink-0">
+                        {statutNom.get(inv.statut_capex_id) ?? 'Statut'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-3 text-sm">
+                    {inv.description && (
+                      <p className="text-muted-foreground line-clamp-2">
+                        {inv.description}
+                      </p>
+                    )}
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <dt className="text-muted-foreground">Demandé</dt>
+                      <dd className="text-right tabular-nums">
+                        {formatEuros(inv.montant_demande)}
+                      </dd>
+                      <dt className="text-muted-foreground">Prévu</dt>
+                      <dd className="text-right tabular-nums">
+                        {formatEuros(inv.montant_prevu)}
+                      </dd>
+                      <dt className="text-muted-foreground">Réel</dt>
+                      <dd className="text-right tabular-nums">
+                        {formatEuros(inv.depense_reelle)}
+                      </dd>
+                      <dt className="text-muted-foreground">
+                        Écart prévu/réel
+                      </dt>
+                      <dd
+                        className={
+                          ecart === null
+                            ? 'text-right tabular-nums'
+                            : ecart > 0
+                              ? 'text-destructive text-right tabular-nums'
+                              : 'text-right tabular-nums'
                         }
                       >
-                        <Pencil /> Modifier
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setToDelete(inv)}
-                      >
-                        <Trash2 /> Supprimer
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+                        {ecart === null
+                          ? '—'
+                          : `${ecart > 0 ? '+' : ''}${euros.format(ecart)}`}
+                      </dd>
+                    </dl>
+                    {canManage && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setForm({ open: true, investissement: inv })
+                          }
+                        >
+                          <Pencil /> Modifier
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setToDelete(inv)}
+                        >
+                          <Trash2 /> Supprimer
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </QueryState>
 
       {canManage && (
         <InvestissementFormDialog

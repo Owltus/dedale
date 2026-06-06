@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList, Plus, Search } from 'lucide-react'
@@ -15,12 +15,12 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
-import { ErrorState } from '@/components/common/error-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
 
 export const Route = createFileRoute('/_app/demandes')({
   component: DemandesPage,
@@ -63,21 +63,10 @@ function DemandesContent({
   canCreate: boolean
   canResolve: boolean
 }) {
-  const {
-    data: demandes = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(demandesQueries.list(siteId))
+  const query = useQuery(demandesQueries.list(siteId))
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return demandes
-    return demandes.filter((d) => diTitre(d.constat).toLowerCase().includes(q))
-  }, [demandes, search])
 
   const newButton = canCreate ? (
     <Button onClick={() => setFormOpen(true)}>
@@ -110,7 +99,7 @@ function DemandesContent({
         action={newButton}
       />
 
-      {!isPending && !isError && demandes.length > 0 && (
+      {!query.isPending && !query.isError && query.data.length > 0 && (
         <div className="relative mb-4 max-w-sm">
           <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
           <Input
@@ -122,59 +111,68 @@ function DemandesContent({
         </div>
       )}
 
-      {isPending ? (
-        <div className={cardGrid.default}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : demandes.length === 0 ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="Aucune demande"
-          description={
-            canCreate
-              ? "Crée une première demande d'intervention pour signaler un problème."
-              : "Aucune demande d'intervention pour ce site."
+      <QueryState
+        query={query}
+        pending={<CardSkeletons count={4} height="h-32" />}
+        empty={
+          <EmptyState
+            icon={ClipboardList}
+            title="Aucune demande"
+            description={
+              canCreate
+                ? "Crée une première demande d'intervention pour signaler un problème."
+                : "Aucune demande d'intervention pour ce site."
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(demandes) => {
+          const q = search.trim().toLowerCase()
+          const filtered = q
+            ? demandes.filter((d) =>
+                diTitre(d.constat).toLowerCase().includes(q),
+              )
+            : demandes
+          if (filtered.length === 0) {
+            return (
+              <EmptyState
+                icon={Search}
+                title="Aucun résultat"
+                description="Aucune demande ne correspond à ta recherche."
+              />
+            )
           }
-          action={newButton}
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="Aucun résultat"
-          description="Aucune demande ne correspond à ta recherche."
-        />
-      ) : (
-        <div className={cardGrid.default}>
-          {filtered.map((d) => (
-            <Card
-              key={d.id}
-              className="hover:border-ring min-w-0 cursor-pointer transition-colors"
-              onClick={() => setSelectedId(d.id)}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="line-clamp-2 text-base">
-                    {diTitre(d.constat)}
-                  </CardTitle>
-                  <Badge
-                    variant={statutBadgeVariant(d.statut_di_id)}
-                    className="shrink-0"
-                  >
-                    {statutLabel(d.statut_di_id)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="text-muted-foreground text-sm">
-                <p className="line-clamp-2">{d.constat}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+          return (
+            <div className={cardGrid.default}>
+              {filtered.map((d) => (
+                <Card
+                  key={d.id}
+                  className="hover:border-ring min-w-0 cursor-pointer transition-colors"
+                  onClick={() => setSelectedId(d.id)}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="line-clamp-2 text-base">
+                        {diTitre(d.constat)}
+                      </CardTitle>
+                      <Badge
+                        variant={statutBadgeVariant(d.statut_di_id)}
+                        className="shrink-0"
+                      >
+                        {statutLabel(d.statut_di_id)}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="text-muted-foreground text-sm">
+                    <p className="line-clamp-2">{d.constat}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
+        }}
+      </QueryState>
 
       {canCreate && (
         <DiFormDialog

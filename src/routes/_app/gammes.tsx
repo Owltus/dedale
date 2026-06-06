@@ -35,7 +35,8 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
-import { ErrorState } from '@/components/common/error-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -71,16 +72,6 @@ const GRID = cardGrid.default
 const NATURE_LABEL: Record<GammeRow['nature'], string> = {
   controle_reglementaire: 'Réglementaire',
   maintenance_preventive: 'Maintenance',
-}
-
-function CardSkeletons() {
-  return (
-    <div className={GRID}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-36" />
-      ))}
-    </div>
-  )
 }
 
 function GammesPage() {
@@ -128,12 +119,7 @@ function GammesList({
   canEdit: boolean
   onOpen: (g: GammeRow) => void
 }) {
-  const {
-    data: gammes = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(gammesQueries.list(siteId))
+  const query = useQuery(gammesQueries.list(siteId))
   const del = useDeleteGamme()
   const copier = useCopierGamme()
   const [search, setSearch] = useState('')
@@ -143,12 +129,6 @@ function GammesList({
   })
   const [toDelete, setToDelete] = useState<GammeRow | null>(null)
   const [toCopy, setToCopy] = useState<GammeRow | null>(null)
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return gammes
-    return gammes.filter((g) => g.nom.toLowerCase().includes(q))
-  }, [gammes, search])
 
   function confirmDelete() {
     if (!toDelete) return
@@ -201,83 +181,94 @@ function GammesList({
         </div>
       </div>
 
-      {isPending ? (
-        <CardSkeletons />
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : gammes.length === 0 ? (
-        <EmptyState
-          icon={Wrench}
-          title="Aucune gamme"
-          description={
-            canEdit
-              ? 'Crée la première gamme de ce site.'
-              : 'Aucune gamme sur ce site.'
+      <QueryState
+        query={query}
+        pending={<CardSkeletons count={6} height="h-36" />}
+        empty={
+          <EmptyState
+            icon={Wrench}
+            title="Aucune gamme"
+            description={
+              canEdit
+                ? 'Crée la première gamme de ce site.'
+                : 'Aucune gamme sur ce site.'
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(gammes) => {
+          const q = search.trim().toLowerCase()
+          const filtered = q
+            ? gammes.filter((g) => g.nom.toLowerCase().includes(q))
+            : gammes
+          if (filtered.length === 0) {
+            return (
+              <EmptyState
+                icon={Search}
+                title="Aucun résultat"
+                description="Aucune gamme ne correspond à ta recherche."
+              />
+            )
           }
-          action={newButton}
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="Aucun résultat"
-          description="Aucune gamme ne correspond à ta recherche."
-        />
-      ) : (
-        <div className={GRID}>
-          {filtered.map((g) => (
-            <Card key={g.id} className="min-w-0">
-              <CardHeader>
-                <CardTitle className="truncate">{g.nom}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    variant={
-                      g.nature === 'controle_reglementaire'
-                        ? 'default'
-                        : 'secondary'
-                    }
-                  >
-                    {NATURE_LABEL[g.nature]}
-                  </Badge>
-                  <Badge variant="outline">{g.periodicites.libelle}</Badge>
-                </div>
-                <span className="truncate">{g.prestataires.libelle}</span>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => onOpen(g)}>
-                    <ChevronRight /> Détail
-                  </Button>
-                  {canEdit && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setForm({ open: true, gamme: g })}
+          return (
+            <div className={GRID}>
+              {filtered.map((g) => (
+                <Card key={g.id} className="min-w-0">
+                  <CardHeader>
+                    <CardTitle className="truncate">{g.nom}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant={
+                          g.nature === 'controle_reglementaire'
+                            ? 'default'
+                            : 'secondary'
+                        }
                       >
-                        <Pencil /> Modifier
+                        {NATURE_LABEL[g.nature]}
+                      </Badge>
+                      <Badge variant="outline">{g.periodicites.libelle}</Badge>
+                    </div>
+                    <span className="truncate">{g.prestataires.libelle}</span>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" onClick={() => onOpen(g)}>
+                        <ChevronRight /> Détail
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setToCopy(g)}
-                      >
-                        <Copy /> Dupliquer
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setToDelete(g)}
-                      >
-                        <Trash2 /> Supprimer
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                      {canEdit && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setForm({ open: true, gamme: g })}
+                          >
+                            <Pencil /> Modifier
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setToCopy(g)}
+                          >
+                            <Copy /> Dupliquer
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setToDelete(g)}
+                          >
+                            <Trash2 /> Supprimer
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
+        }}
+      </QueryState>
 
       {canEdit && (
         <GammeFormDialog
@@ -471,12 +462,7 @@ function OperationsTab({
   gammeId: string
   canEdit: boolean
 }) {
-  const {
-    data: operations = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(gammesQueries.operations(gammeId))
+  const query = useQuery(gammesQueries.operations(gammeId))
   const del = useDeleteOperation()
   const [form, setForm] = useState<{ open: boolean; op: OperationRow | null }>({
     open: false,
@@ -505,73 +491,78 @@ function OperationsTab({
     <div className="flex flex-col gap-4">
       {canEdit && <div className="flex justify-end">{newButton}</div>}
 
-      {isPending ? (
-        <Skeleton className="h-40" />
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : operations.length === 0 ? (
-        <EmptyState
-          icon={ListChecks}
-          title="Aucune opération"
-          description={
-            canEdit
-              ? 'Ajoute les opérations qui composent cette gamme.'
-              : 'Cette gamme ne contient pas d’opération.'
-          }
-          action={newButton}
-        />
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {operations.map((op) => (
-            <li
-              key={op.id}
-              className="bg-card flex items-start justify-between gap-3 rounded-md border p-3"
-            >
-              <div className="flex min-w-0 flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground text-xs tabular-nums">
-                    #{op.ordre}
-                  </span>
-                  <span className="truncate font-medium">{op.nom}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <Badge variant="outline">{op.types_operations.libelle}</Badge>
-                  {(op.seuil_minimum !== null || op.seuil_maximum !== null) && (
-                    <span className="text-muted-foreground">
-                      {formatSeuils(op)}
+      <QueryState
+        query={query}
+        pending={<Skeleton className="h-40" />}
+        empty={
+          <EmptyState
+            icon={ListChecks}
+            title="Aucune opération"
+            description={
+              canEdit
+                ? 'Ajoute les opérations qui composent cette gamme.'
+                : 'Cette gamme ne contient pas d’opération.'
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(operations) => (
+          <ul className="flex flex-col gap-2">
+            {operations.map((op) => (
+              <li
+                key={op.id}
+                className="bg-card flex items-start justify-between gap-3 rounded-md border p-3"
+              >
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-xs tabular-nums">
+                      #{op.ordre}
                     </span>
+                    <span className="truncate font-medium">{op.nom}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Badge variant="outline">
+                      {op.types_operations.libelle}
+                    </Badge>
+                    {(op.seuil_minimum !== null ||
+                      op.seuil_maximum !== null) && (
+                      <span className="text-muted-foreground">
+                        {formatSeuils(op)}
+                      </span>
+                    )}
+                  </div>
+                  {op.description && (
+                    <p className="text-muted-foreground text-sm">
+                      {op.description}
+                    </p>
                   )}
                 </div>
-                {op.description && (
-                  <p className="text-muted-foreground text-sm">
-                    {op.description}
-                  </p>
+                {canEdit && (
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setForm({ open: true, op })}
+                      aria-label="Modifier l’opération"
+                    >
+                      <Pencil />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setToDelete(op)}
+                      aria-label="Supprimer l’opération"
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
                 )}
-              </div>
-              {canEdit && (
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setForm({ open: true, op })}
-                    aria-label="Modifier l’opération"
-                  >
-                    <Pencil />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setToDelete(op)}
-                    aria-label="Supprimer l’opération"
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </QueryState>
 
       {canEdit && (
         <OperationFormDialog
@@ -625,19 +616,16 @@ function EquipementsTab({
   gammeId: string
   canEdit: boolean
 }) {
-  const { data: equipements = [] } = useQuery(equipementsQueries.list(siteId))
-  const {
-    data: liesIds = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(gammesQueries.equipementsLies(gammeId))
+  const equipementsQuery = useQuery(equipementsQueries.list(siteId))
+  const liesQuery = useQuery(gammesQueries.equipementsLies(gammeId))
+  const liesIds = liesQuery.data ?? []
   const [linkOpen, setLinkOpen] = useState(false)
 
-  const lies = useMemo(
-    () => equipements.filter((e) => e.id !== null && liesIds.includes(e.id)),
-    [equipements, liesIds],
-  )
+  const lies = useMemo(() => {
+    const equipements = equipementsQuery.data ?? []
+    const ids = liesQuery.data ?? []
+    return equipements.filter((e) => e.id !== null && ids.includes(e.id))
+  }, [equipementsQuery.data, liesQuery.data])
 
   const linkButton = canEdit ? (
     <Button size="sm" onClick={() => setLinkOpen(true)}>
@@ -649,39 +637,39 @@ function EquipementsTab({
     <div className="flex flex-col gap-4">
       {canEdit && <div className="flex justify-end">{linkButton}</div>}
 
-      {isPending ? (
-        <Skeleton className="h-40" />
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : lies.length === 0 ? (
-        <EmptyState
-          icon={Wrench}
-          title="Aucun équipement lié"
-          description={
-            canEdit
-              ? 'Lie les équipements du site concernés par cette gamme.'
-              : 'Aucun équipement n’est lié à cette gamme.'
-          }
-          action={linkButton}
-        />
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {lies.map((e) => (
-            <li
-              key={e.id ?? ''}
-              className="bg-card flex items-center gap-3 rounded-md border p-3 text-sm"
-            >
-              <Wrench className="text-muted-foreground size-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate font-medium">
-                {e.nom}
-              </span>
-              {e.code_inventaire && (
-                <Badge variant="secondary">{e.code_inventaire}</Badge>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      <QueryState query={liesQuery} pending={<Skeleton className="h-40" />}>
+        {() =>
+          lies.length === 0 ? (
+            <EmptyState
+              icon={Wrench}
+              title="Aucun équipement lié"
+              description={
+                canEdit
+                  ? 'Lie les équipements du site concernés par cette gamme.'
+                  : 'Aucun équipement n’est lié à cette gamme.'
+              }
+              action={linkButton}
+            />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {lies.map((e) => (
+                <li
+                  key={e.id ?? ''}
+                  className="bg-card flex items-center gap-3 rounded-md border p-3 text-sm"
+                >
+                  <Wrench className="text-muted-foreground size-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {e.nom}
+                  </span>
+                  {e.code_inventaire && (
+                    <Badge variant="secondary">{e.code_inventaire}</Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </QueryState>
 
       {canEdit && (
         <EquipementsLinkDialog

@@ -21,11 +21,11 @@ import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import * as perm from '@/lib/permissions'
 import { EmptyState } from '@/components/common/empty-state'
-import { ErrorState } from '@/components/common/error-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 
 interface DocumentsTabProps {
   /** Nom de la table de liaison (ex. 'documents_ordres_travail'). */
@@ -52,12 +52,9 @@ export function DocumentsTab({
   const canManage = perm.canManageMetier(role)
   const { activeSiteId } = useSiteContext()
 
-  const {
-    data: documents = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(documentsQueries.byEntity(liaison, parentColumn, parentId))
+  const query = useQuery(
+    documentsQueries.byEntity(liaison, parentColumn, parentId),
+  )
 
   const uploadAttach = useUploadAndAttach()
   const detach = useDetachDocument()
@@ -106,78 +103,80 @@ export function DocumentsTab({
     )
   }
 
-  const list = documents
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">{addButton}</div>
 
-      {isPending ? (
-        <div className="flex flex-col gap-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-14" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : list.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Aucun document rattaché"
-          description={
-            canManage
-              ? 'Rattache un document à cette fiche.'
-              : 'Aucun document rattaché à cette fiche.'
-          }
-          action={addButton}
-        />
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {list.map((doc) => (
-            <li
-              key={doc.id}
-              className="bg-card flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:gap-3"
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <FileText className="text-muted-foreground size-5 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p
-                    className="truncate text-sm font-medium"
-                    title={doc.nom_original}
-                  >
-                    {doc.nom_original}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {formatTaille(doc.taille_octets)} ·{' '}
-                    {formatDate(doc.uploaded_at)}
-                  </p>
+      <QueryState
+        query={query}
+        pending={
+          <CardSkeletons
+            count={3}
+            height="h-14"
+            container="flex flex-col gap-2"
+          />
+        }
+        empty={
+          <EmptyState
+            icon={FileText}
+            title="Aucun document rattaché"
+            description={
+              canManage
+                ? 'Rattache un document à cette fiche.'
+                : 'Aucun document rattaché à cette fiche.'
+            }
+            action={addButton}
+          />
+        }
+      >
+        {(list) => (
+          <ul className="flex flex-col gap-2">
+            {list.map((doc) => (
+              <li
+                key={doc.id}
+                className="bg-card flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:gap-3"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <FileText className="text-muted-foreground size-5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="truncate text-sm font-medium"
+                      title={doc.nom_original}
+                    >
+                      {doc.nom_original}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {formatTaille(doc.taille_octets)} ·{' '}
+                      {formatDate(doc.uploaded_at)}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="shrink-0">
+                    {formatMime(doc.mime_type)}
+                  </Badge>
                 </div>
-                <Badge variant="secondary" className="shrink-0">
-                  {formatMime(doc.mime_type)}
-                </Badge>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void handleDownload(doc)}
-                >
-                  <Download /> Télécharger
-                </Button>
-                {canManage && (
+                <div className="flex gap-2">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    onClick={() => setToDetach(doc)}
+                    onClick={() => void handleDownload(doc)}
                   >
-                    <Link2Off /> Détacher
+                    <Download /> Télécharger
                   </Button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+                  {canManage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setToDetach(doc)}
+                    >
+                      <Link2Off /> Détacher
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </QueryState>
 
       {canManage && (
         <UploadDocumentDialog
