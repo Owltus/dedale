@@ -15,8 +15,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { TextField } from '@/components/common/text-field'
+import { SelectField } from '@/components/common/select-field'
 import type { Database } from '@/lib/database.types'
 
 type Local = Database['public']['Tables']['locaux']['Row']
@@ -120,28 +120,19 @@ export function LocalFormDialog({
               onChange={(v) => set('surface_m2', v)}
               error={errors.surface_m2}
             />
-            <div className="grid gap-2">
-              <Label htmlFor="type_local_id">Type de local</Label>
-              <select
-                id="type_local_id"
-                value={values.type_local_id}
-                onChange={(e) => set('type_local_id', e.target.value)}
-                aria-invalid={errors.type_local_id ? true : undefined}
-                className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 h-9 rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-              >
-                <option value="">— Aucun —</option>
-                {types.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.libelle}
-                  </option>
-                ))}
-              </select>
-              {errors.type_local_id && (
-                <p className="text-destructive text-sm">
-                  {errors.type_local_id}
-                </p>
-              )}
-            </div>
+            <SelectField
+              label="Type de local"
+              value={values.type_local_id}
+              onChange={(v) => set('type_local_id', v)}
+              error={errors.type_local_id}
+            >
+              <option value="">— Aucun —</option>
+              {types.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.libelle}
+                </option>
+              ))}
+            </SelectField>
           </div>
           <DialogFooter>
             <Button

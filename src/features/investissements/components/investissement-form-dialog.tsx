@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { TextField } from '@/components/common/text-field'
-import { Label } from '@/components/ui/label'
+import { SelectField } from '@/components/common/select-field'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -129,28 +129,20 @@ export function InvestissementFormDialog({
             onChange={(v) => set('description', v)}
             error={errors.description}
           />
-          <div className="grid gap-2">
-            <Label htmlFor="statut_capex_id">Statut *</Label>
-            <select
-              id="statut_capex_id"
-              value={values.statut_capex_id}
-              onChange={(e) => set('statut_capex_id', e.target.value)}
-              aria-invalid={errors.statut_capex_id ? true : undefined}
-              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
-            >
-              <option value="">Sélectionne un statut</option>
-              {statuts.map((statut) => (
-                <option key={statut.id} value={String(statut.id)}>
-                  {statut.nom}
-                </option>
-              ))}
-            </select>
-            {errors.statut_capex_id && (
-              <p className="text-destructive text-sm">
-                {errors.statut_capex_id}
-              </p>
-            )}
-          </div>
+          <SelectField
+            label="Statut"
+            required
+            value={values.statut_capex_id}
+            onChange={(v) => set('statut_capex_id', v)}
+            error={errors.statut_capex_id}
+          >
+            <option value="">Sélectionne un statut</option>
+            {statuts.map((statut) => (
+              <option key={statut.id} value={String(statut.id)}>
+                {statut.nom}
+              </option>
+            ))}
+          </SelectField>
           <div className="grid grid-cols-3 gap-4">
             <TextField
               label="Montant demandé (€)"

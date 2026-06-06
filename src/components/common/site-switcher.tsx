@@ -13,6 +13,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Select } from '@/components/ui/select'
 
 /**
  * Sélecteur de site actif (masqué s'il n'y a qu'un seul site accessible).
@@ -67,18 +68,17 @@ export function SiteSwitcher({ iconOnly = false }: { iconOnly?: boolean }) {
 
   return (
     <div className="px-3 pt-3">
-      <select
+      <Select
         value={activeSiteId ?? ''}
         onChange={(e) => setActiveSiteId(e.target.value)}
         aria-label="Site actif"
-        className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
       >
         {sites.map((site) => (
           <option key={site.id} value={site.id}>
             {site.nom}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   )
 }

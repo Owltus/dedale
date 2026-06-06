@@ -6,6 +6,7 @@ import { emptyOtCreate, otCreateSchema } from '../schemas'
 import { useCreateOt } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { TextField } from '@/components/common/text-field'
+import { SelectField } from '@/components/common/select-field'
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 
 interface OtCreateDialogProps {
   open: boolean
@@ -91,15 +91,12 @@ export function OtCreateDialog({
           className="flex flex-col gap-4"
         >
           <div className="grid gap-2">
-            <Label htmlFor="ot-gamme">Gamme *</Label>
-            <select
-              id="ot-gamme"
+            <SelectField
+              label="Gamme"
+              required
               value={values.gamme_id}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, gamme_id: e.target.value }))
-              }
-              aria-invalid={errors.gamme_id ? true : undefined}
-              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
+              onChange={(gamme_id) => setValues((v) => ({ ...v, gamme_id }))}
+              error={errors.gamme_id}
             >
               <option value="">— Sélectionner une gamme —</option>
               {gammes.map((g) => (
@@ -107,10 +104,7 @@ export function OtCreateDialog({
                   {g.nom}
                 </option>
               ))}
-            </select>
-            {errors.gamme_id && (
-              <p className="text-destructive text-sm">{errors.gamme_id}</p>
-            )}
+            </SelectField>
             {gammes.length === 0 && (
               <p className="text-muted-foreground text-sm">
                 Aucune gamme active sur ce site. Créez d'abord une gamme avec au

@@ -34,6 +34,7 @@ import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -123,9 +124,6 @@ function TabButton({
   )
 }
 
-const selectClass =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]'
-
 // --- Onglet Observations ---
 
 function ObservationsTab({
@@ -171,11 +169,11 @@ function ObservationsTab({
             <label className="text-muted-foreground text-xs" htmlFor="f-statut">
               Statut
             </label>
-            <select
+            <Select
               id="f-statut"
               value={statut}
               onChange={(e) => setStatut(e.target.value)}
-              className={selectClass}
+              className="w-auto"
             >
               <option value="">Tous</option>
               {Object.entries(LIBELLES_STATUT).map(([v, l]) => (
@@ -183,17 +181,17 @@ function ObservationsTab({
                   {l}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="grid gap-1">
             <label className="text-muted-foreground text-xs" htmlFor="f-source">
               Source
             </label>
-            <select
+            <Select
               id="f-source"
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              className={selectClass}
+              className="w-auto"
             >
               <option value="">Toutes</option>
               {SOURCES.map((s) => (
@@ -201,7 +199,7 @@ function ObservationsTab({
                   {LIBELLES_SOURCE[s]}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
         {newButton}

@@ -19,16 +19,14 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { TextField } from '@/components/common/text-field'
-import { Label } from '@/components/ui/label'
+import { SelectField } from '@/components/common/select-field'
+import { TextareaField } from '@/components/common/textarea-field'
 
 interface DiFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   siteId: string
 }
-
-const selectClass =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]'
 
 export function DiFormDialog({
   open,
@@ -99,38 +97,30 @@ export function DiFormDialog({
           className="flex flex-col gap-4"
         >
           {modeles.length > 0 && (
-            <div className="grid gap-2">
-              <Label htmlFor="di-modele">Suggestion rapide</Label>
-              <select
-                id="di-modele"
-                value={modeleId}
-                onChange={(e) => applyModele(e.target.value)}
-                className={selectClass}
-              >
-                <option value="">Aucun modèle</option>
-                {modeles.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.libelle}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SelectField
+              id="di-modele"
+              label="Suggestion rapide"
+              value={modeleId}
+              onChange={applyModele}
+            >
+              <option value="">Aucun modèle</option>
+              {modeles.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.libelle}
+                </option>
+              ))}
+            </SelectField>
           )}
 
-          <div className="grid gap-2">
-            <Label htmlFor="di-constat">Constat *</Label>
-            <textarea
-              id="di-constat"
-              value={values.constat}
-              onChange={(e) => set('constat', e.target.value)}
-              aria-invalid={errors.constat ? true : undefined}
-              rows={4}
-              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive min-h-20 rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-[3px]"
-            />
-            {errors.constat && (
-              <p className="text-destructive text-sm">{errors.constat}</p>
-            )}
-          </div>
+          <TextareaField
+            id="di-constat"
+            label="Constat"
+            required
+            rows={4}
+            value={values.constat}
+            onChange={(v) => set('constat', v)}
+            error={errors.constat}
+          />
 
           <TextField
             label="Date de constat"
@@ -141,56 +131,47 @@ export function DiFormDialog({
             required
           />
 
-          <div className="grid gap-2">
-            <Label htmlFor="di-local">Localisation</Label>
-            <select
-              id="di-local"
-              value={values.local_id}
-              onChange={(e) => set('local_id', e.target.value)}
-              className={selectClass}
-            >
-              <option value="">Aucune</option>
-              {locaux.map((l) => (
-                <option key={l.local_id} value={l.local_id ?? ''}>
-                  {l.chemin_court ?? l.local_nom}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            id="di-local"
+            label="Localisation"
+            value={values.local_id}
+            onChange={(v) => set('local_id', v)}
+          >
+            <option value="">Aucune</option>
+            {locaux.map((l) => (
+              <option key={l.local_id} value={l.local_id ?? ''}>
+                {l.chemin_court ?? l.local_nom}
+              </option>
+            ))}
+          </SelectField>
 
-          <div className="grid gap-2">
-            <Label htmlFor="di-equipement">Équipement</Label>
-            <select
-              id="di-equipement"
-              value={values.equipement_id}
-              onChange={(e) => set('equipement_id', e.target.value)}
-              className={selectClass}
-            >
-              <option value="">Aucun</option>
-              {equipements.map((eq) => (
-                <option key={eq.id} value={eq.id ?? ''}>
-                  {eq.nom}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            id="di-equipement"
+            label="Équipement"
+            value={values.equipement_id}
+            onChange={(v) => set('equipement_id', v)}
+          >
+            <option value="">Aucun</option>
+            {equipements.map((eq) => (
+              <option key={eq.id} value={eq.id ?? ''}>
+                {eq.nom}
+              </option>
+            ))}
+          </SelectField>
 
-          <div className="grid gap-2">
-            <Label htmlFor="di-prestataire">Prestataire</Label>
-            <select
-              id="di-prestataire"
-              value={values.prestataire_id}
-              onChange={(e) => set('prestataire_id', e.target.value)}
-              className={selectClass}
-            >
-              <option value="">Aucun</option>
-              {prestataires.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.libelle}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            id="di-prestataire"
+            label="Prestataire"
+            value={values.prestataire_id}
+            onChange={(v) => set('prestataire_id', v)}
+          >
+            <option value="">Aucun</option>
+            {prestataires.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.libelle}
+              </option>
+            ))}
+          </SelectField>
 
           <DialogFooter>
             <Button

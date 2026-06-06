@@ -15,8 +15,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { TextField } from '@/components/common/text-field'
+import { SelectField } from '@/components/common/select-field'
 import type { Database } from '@/lib/database.types'
 
 type Contrat = Database['public']['Tables']['contrats']['Row']
@@ -40,9 +40,6 @@ function initialValues(contrat: Contrat | null | undefined): ContratFormValues {
     commentaires: contrat.commentaires ?? '',
   }
 }
-
-const selectClasses =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px] aria-invalid:border-destructive aria-invalid:ring-destructive/20'
 
 export function ContratFormDialog({
   open,
@@ -115,28 +112,20 @@ export function ContratFormDialog({
             error={errors.reference}
             required
           />
-          <div className="grid gap-2">
-            <Label htmlFor="type_contrat_id">Type de contrat *</Label>
-            <select
-              id="type_contrat_id"
-              value={values.type_contrat_id}
-              onChange={(e) => set('type_contrat_id', e.target.value)}
-              aria-invalid={errors.type_contrat_id ? true : undefined}
-              className={selectClasses}
-            >
-              <option value="">— Sélectionner —</option>
-              {types.map((t) => (
-                <option key={t.id} value={String(t.id)}>
-                  {t.libelle}
-                </option>
-              ))}
-            </select>
-            {errors.type_contrat_id && (
-              <p className="text-destructive text-sm">
-                {errors.type_contrat_id}
-              </p>
-            )}
-          </div>
+          <SelectField
+            label="Type de contrat"
+            required
+            value={values.type_contrat_id}
+            onChange={(v) => set('type_contrat_id', v)}
+            error={errors.type_contrat_id}
+          >
+            <option value="">— Sélectionner —</option>
+            {types.map((t) => (
+              <option key={t.id} value={String(t.id)}>
+                {t.libelle}
+              </option>
+            ))}
+          </SelectField>
           <div className="grid grid-cols-2 gap-4">
             <TextField
               label="Date de début"

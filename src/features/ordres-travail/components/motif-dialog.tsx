@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { TextareaField } from '@/components/common/textarea-field'
 
 interface MotifDialogProps {
   open: boolean
@@ -64,18 +64,15 @@ export function MotifDialog({
           }}
           className="flex flex-col gap-4"
         >
-          <div className="grid gap-2">
-            <Label htmlFor="ot-motif">Motif *</Label>
-            <textarea
-              id="ot-motif"
-              value={motif}
-              onChange={(e) => setMotif(e.target.value)}
-              rows={4}
-              aria-invalid={error ? true : undefined}
-              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive rounded-md border px-2 py-2 text-sm outline-none focus-visible:ring-[3px]"
-            />
-            {error && <p className="text-destructive text-sm">{error}</p>}
-          </div>
+          <TextareaField
+            id="ot-motif"
+            label="Motif"
+            required
+            rows={4}
+            value={motif}
+            onChange={setMotif}
+            error={error}
+          />
           <DialogFooter>
             <Button
               type="button"

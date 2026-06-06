@@ -14,6 +14,7 @@ import type { ObservationCreateValues, ObservationSource } from '../schemas'
 import { useCreateObservation } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { TextField } from '@/components/common/text-field'
+import { SelectField } from '@/components/common/select-field'
 import {
   Dialog,
   DialogContent,
@@ -23,7 +24,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 
 interface ObservationFormDialogProps {
   open: boolean
@@ -31,9 +31,6 @@ interface ObservationFormDialogProps {
   siteId: string
   createdBy: string
 }
-
-const selectClass =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]'
 
 /**
  * Création d'une observation rattachée (optionnellement) à un OT du site.
@@ -98,44 +95,35 @@ export function ObservationFormDialog({
           }}
           className="flex flex-col gap-4"
         >
-          <div className="grid gap-2">
-            <Label htmlFor="obs-source">Source *</Label>
-            <select
-              id="obs-source"
-              value={values.source}
-              onChange={(e) =>
-                set('source', e.target.value as ObservationSource)
-              }
-              className={selectClass}
-            >
-              {SOURCES.map((s) => (
-                <option key={s} value={s}>
-                  {LIBELLES_SOURCE[s]}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            id="obs-source"
+            label="Source"
+            required
+            value={values.source}
+            onChange={(v) => set('source', v as ObservationSource)}
+          >
+            {SOURCES.map((s) => (
+              <option key={s} value={s}>
+                {LIBELLES_SOURCE[s]}
+              </option>
+            ))}
+          </SelectField>
 
-          <div className="grid gap-2">
-            <Label htmlFor="obs-gravite">Gravité *</Label>
-            <select
-              id="obs-gravite"
-              value={values.gravite}
-              onChange={(e) =>
-                set(
-                  'gravite',
-                  e.target.value as ObservationCreateValues['gravite'],
-                )
-              }
-              className={selectClass}
-            >
-              {GRAVITES.map((g) => (
-                <option key={g} value={g}>
-                  {LIBELLES_GRAVITE[g]}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            id="obs-gravite"
+            label="Gravité"
+            required
+            value={values.gravite}
+            onChange={(v) =>
+              set('gravite', v as ObservationCreateValues['gravite'])
+            }
+          >
+            {GRAVITES.map((g) => (
+              <option key={g} value={g}>
+                {LIBELLES_GRAVITE[g]}
+              </option>
+            ))}
+          </SelectField>
 
           <TextField
             id="obs-description"
@@ -155,30 +143,22 @@ export function ObservationFormDialog({
             error={errors.echeance}
           />
 
-          <div className="grid gap-2">
-            <Label htmlFor="obs-ot">
-              Ordre de travail
-              {values.source === 'controle_reglementaire' ? ' *' : ''}
-            </Label>
-            <select
-              id="obs-ot"
-              value={values.ot_id}
-              onChange={(e) => set('ot_id', e.target.value)}
-              aria-invalid={errors.ot_id ? true : undefined}
-              className={selectClass}
-            >
-              <option value="">— Aucun —</option>
-              {ots.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.nom_gamme}
-                  {o.nom_equipement ? ` — ${o.nom_equipement}` : ''}
-                </option>
-              ))}
-            </select>
-            {errors.ot_id && (
-              <p className="text-destructive text-sm">{errors.ot_id}</p>
-            )}
-          </div>
+          <SelectField
+            id="obs-ot"
+            label="Ordre de travail"
+            required={values.source === 'controle_reglementaire'}
+            value={values.ot_id}
+            onChange={(v) => set('ot_id', v)}
+            error={errors.ot_id}
+          >
+            <option value="">— Aucun —</option>
+            {ots.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.nom_gamme}
+                {o.nom_equipement ? ` — ${o.nom_equipement}` : ''}
+              </option>
+            ))}
+          </SelectField>
 
           <DialogFooter>
             <Button

@@ -15,14 +15,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { TextField } from '@/components/common/text-field'
+import { SelectField } from '@/components/common/select-field'
 import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
-
-const SELECT_CLASS =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 h-9 rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]'
 
 interface EquipementFormDialogProps {
   open: boolean
@@ -121,42 +118,34 @@ export function EquipementFormDialog({
             onChange={(v) => set('code_inventaire', v)}
             error={errors.code_inventaire}
           />
-          <div className="grid gap-2">
-            <Label htmlFor="categorie_id">Catégorie</Label>
-            <select
-              id="categorie_id"
-              value={values.categorie_id}
-              onChange={(e) => set('categorie_id', e.target.value)}
-              className={SELECT_CLASS}
-            >
-              <option value="">— Aucune —</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nom}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="local_id">Emplacement *</Label>
-            <select
-              id="local_id"
-              value={values.local_id}
-              onChange={(e) => set('local_id', e.target.value)}
-              aria-invalid={errors.local_id ? true : undefined}
-              className={SELECT_CLASS}
-            >
-              <option value="">— Choisir un local —</option>
-              {locaux.map((l) => (
-                <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
-                  {l.chemin_court ?? l.local_nom ?? ''}
-                </option>
-              ))}
-            </select>
-            {errors.local_id && (
-              <p className="text-destructive text-sm">{errors.local_id}</p>
-            )}
-          </div>
+          <SelectField
+            label="Catégorie"
+            id="categorie_id"
+            value={values.categorie_id}
+            onChange={(v) => set('categorie_id', v)}
+          >
+            <option value="">— Aucune —</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nom}
+              </option>
+            ))}
+          </SelectField>
+          <SelectField
+            label="Emplacement"
+            required
+            id="local_id"
+            value={values.local_id}
+            onChange={(v) => set('local_id', v)}
+            error={errors.local_id}
+          >
+            <option value="">— Choisir un local —</option>
+            {locaux.map((l) => (
+              <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
+                {l.chemin_court ?? l.local_nom ?? ''}
+              </option>
+            ))}
+          </SelectField>
           <div className="grid grid-cols-2 gap-4">
             <TextField
               label="Mise en service"

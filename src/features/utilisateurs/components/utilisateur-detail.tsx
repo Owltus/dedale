@@ -37,6 +37,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -51,9 +52,6 @@ interface UserRow {
 }
 
 const SUBORDINATE_ROLES = ['technicien', 'lecteur', 'demandeur']
-
-const SELECT_CLASS =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]'
 
 export function UtilisateurDetail({
   userId,
@@ -235,18 +233,17 @@ function ProfileForm({
       <div className="grid gap-2">
         <Label htmlFor="role">Rôle</Label>
         {isAdmin ? (
-          <select
+          <Select
             id="role"
             value={String(roleId)}
             onChange={(e) => setRoleId(Number(e.target.value))}
-            className={SELECT_CLASS}
           >
             {roles.map((r) => (
               <option key={r.id} value={String(r.id)}>
                 {roleLabel(r.code)}
               </option>
             ))}
-          </select>
+          </Select>
         ) : (
           <p className="text-sm">{roleLabel(user.roles?.code)}</p>
         )}
@@ -510,11 +507,11 @@ function SitesCard({ userId, canEdit }: { userId: string; canEdit: boolean }) {
                 <Label htmlFor="add-site">Ajouter un site</Label>
                 <div className="relative">
                   <Plus className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-                  <select
+                  <Select
                     id="add-site"
                     value=""
                     onChange={(e) => handleAdd(e.target.value)}
-                    className={SELECT_CLASS + ' pl-8'}
+                    className="pl-8"
                   >
                     <option value="">Choisir un site à ajouter…</option>
                     {available.map((s) => (
@@ -522,7 +519,7 @@ function SitesCard({ userId, canEdit }: { userId: string; canEdit: boolean }) {
                         {s.nom}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
             )}

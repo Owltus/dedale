@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { TextareaField } from '@/components/common/textarea-field'
 
 interface ClotureDialogProps {
   open: boolean
@@ -69,18 +69,14 @@ export function ClotureDialog({
           }}
           className="flex flex-col gap-4"
         >
-          <div className="grid gap-2">
-            <Label htmlFor="compte_rendu">Compte-rendu *</Label>
-            <textarea
-              id="compte_rendu"
-              value={compteRendu}
-              onChange={(e) => setCompteRendu(e.target.value)}
-              rows={5}
-              aria-invalid={error ? true : undefined}
-              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive rounded-md border px-2 py-2 text-sm outline-none focus-visible:ring-[3px]"
-            />
-            {error && <p className="text-destructive text-sm">{error}</p>}
-          </div>
+          <TextareaField
+            label="Compte-rendu"
+            required
+            rows={5}
+            value={compteRendu}
+            onChange={setCompteRendu}
+            error={error}
+          />
           <DialogFooter>
             <Button
               type="button"

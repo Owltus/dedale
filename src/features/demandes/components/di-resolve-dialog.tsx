@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { TextareaField } from '@/components/common/textarea-field'
 
 interface DiResolveDialogProps {
   open: boolean
@@ -68,22 +68,15 @@ export function DiResolveDialog({
           }}
           className="flex flex-col gap-4"
         >
-          <div className="grid gap-2">
-            <Label htmlFor="di-resolution">Description de résolution *</Label>
-            <textarea
-              id="di-resolution"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              aria-invalid={errors.description_resolution ? true : undefined}
-              rows={4}
-              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive min-h-20 rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-[3px]"
-            />
-            {errors.description_resolution && (
-              <p className="text-destructive text-sm">
-                {errors.description_resolution}
-              </p>
-            )}
-          </div>
+          <TextareaField
+            id="di-resolution"
+            label="Description de résolution"
+            required
+            rows={4}
+            value={description}
+            onChange={setDescription}
+            error={errors.description_resolution}
+          />
           <DialogFooter>
             <Button
               type="button"

@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { TextField } from '@/components/common/text-field'
+import { SelectField } from '@/components/common/select-field'
+import { TextareaField } from '@/components/common/textarea-field'
 import { Label } from '@/components/ui/label'
 import type { Database } from '@/lib/database.types'
 
@@ -30,9 +32,6 @@ interface ChantierFormDialogProps {
   siteId: string
   chantier?: Chantier | null
 }
-
-const selectClass =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]'
 
 export function ChantierFormDialog({
   open,
@@ -166,36 +165,25 @@ export function ChantierFormDialog({
             error={errors.titre}
             required
           />
-          <div className="grid gap-2">
-            <Label htmlFor="description">Description</Label>
-            <textarea
-              id="description"
-              value={values.description}
-              onChange={(e) => set('description', e.target.value)}
-              rows={3}
-              aria-invalid={errors.description ? true : undefined}
-              className={selectClass + ' h-auto py-2'}
-            />
-            {errors.description && (
-              <p className="text-destructive text-sm">{errors.description}</p>
-            )}
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="prestataire_id">Prestataire</Label>
-            <select
-              id="prestataire_id"
-              value={values.prestataire_id}
-              onChange={(e) => set('prestataire_id', e.target.value)}
-              className={selectClass}
-            >
-              <option value="">Aucun</option>
-              {prestataires.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.libelle}
-                </option>
-              ))}
-            </select>
-          </div>
+          <TextareaField
+            label="Description"
+            rows={3}
+            value={values.description}
+            onChange={(v) => set('description', v)}
+            error={errors.description}
+          />
+          <SelectField
+            label="Prestataire"
+            value={values.prestataire_id}
+            onChange={(v) => set('prestataire_id', v)}
+          >
+            <option value="">Aucun</option>
+            {prestataires.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.libelle}
+              </option>
+            ))}
+          </SelectField>
           <div className="grid grid-cols-3 gap-4">
             <TextField
               label="Date de demande"

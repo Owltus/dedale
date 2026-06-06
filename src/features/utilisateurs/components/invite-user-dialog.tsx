@@ -17,10 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { TextField } from '@/components/common/text-field'
-
-const SELECT_CLASS =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 h-9 rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]'
-
+import { SelectField } from '@/components/common/select-field'
 interface InviteUserDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -109,25 +106,19 @@ export function InviteUserDialog({
             required
           />
 
-          <div className="grid gap-2">
-            <Label htmlFor="invite_role">Rôle *</Label>
-            <select
-              id="invite_role"
-              value={values.role}
-              onChange={(e) => set('role', e.target.value as RoleCode)}
-              aria-invalid={errors.role ? true : undefined}
-              className={SELECT_CLASS}
-            >
-              {invitableRoles.map((code) => (
-                <option key={code} value={code}>
-                  {ROLE_LABELS[code]}
-                </option>
-              ))}
-            </select>
-            {errors.role && (
-              <p className="text-destructive text-sm">{errors.role}</p>
-            )}
-          </div>
+          <SelectField
+            label="Rôle"
+            required
+            value={values.role}
+            onChange={(v) => set('role', v as RoleCode)}
+            error={errors.role}
+          >
+            {invitableRoles.map((code) => (
+              <option key={code} value={code}>
+                {ROLE_LABELS[code]}
+              </option>
+            ))}
+          </SelectField>
 
           <div className="grid gap-2">
             <Label>Sites</Label>

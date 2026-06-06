@@ -13,11 +13,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { TextField } from '@/components/common/text-field'
-
-const SELECT_CLASS =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 h-9 rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]'
+import { SelectField } from '@/components/common/select-field'
 
 interface InstancierDialogProps {
   open: boolean
@@ -78,24 +75,21 @@ export function InstancierDialog({
           }}
           className="flex flex-col gap-4"
         >
-          <div className="grid gap-2">
-            <Label htmlFor="instancier_local">Emplacement *</Label>
-            <select
-              id="instancier_local"
-              value={localId}
-              onChange={(e) => setLocalId(e.target.value)}
-              aria-invalid={error ? true : undefined}
-              className={SELECT_CLASS}
-            >
-              <option value="">— Choisir un local —</option>
-              {locaux.map((l) => (
-                <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
-                  {l.chemin_court ?? l.local_nom ?? ''}
-                </option>
-              ))}
-            </select>
-            {error && <p className="text-destructive text-sm">{error}</p>}
-          </div>
+          <SelectField
+            label="Emplacement"
+            required
+            id="instancier_local"
+            value={localId}
+            onChange={setLocalId}
+            error={error}
+          >
+            <option value="">— Choisir un local —</option>
+            {locaux.map((l) => (
+              <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
+                {l.chemin_court ?? l.local_nom ?? ''}
+              </option>
+            ))}
+          </SelectField>
           <TextField label="Code inventaire" value={code} onChange={setCode} />
           <DialogFooter>
             <Button

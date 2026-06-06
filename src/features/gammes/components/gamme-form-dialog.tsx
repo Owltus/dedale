@@ -17,14 +17,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { TextField } from '@/components/common/text-field'
+import { SelectField } from '@/components/common/select-field'
+import { TextareaField } from '@/components/common/textarea-field'
 import type { Database } from '@/lib/database.types'
 
 type Gamme = Database['public']['Tables']['gammes']['Row']
-
-const SELECT_CLASS =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 h-9 rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]'
 
 const NATURE_LABEL: Record<(typeof gammeNatures)[number], string> = {
   controle_reglementaire: 'Contrôle réglementaire',
@@ -132,87 +130,61 @@ export function GammeFormDialog({
             required
           />
 
-          <div className="grid gap-2">
-            <Label htmlFor="gamme_nature">Nature *</Label>
-            <select
-              id="gamme_nature"
-              value={values.nature}
-              onChange={(e) =>
-                set('nature', e.target.value as GammeFormValues['nature'])
-              }
-              aria-invalid={errors.nature ? true : undefined}
-              className={SELECT_CLASS}
-            >
-              {gammeNatures.map((n) => (
-                <option key={n} value={n}>
-                  {NATURE_LABEL[n]}
-                </option>
-              ))}
-            </select>
-            {errors.nature && (
-              <p className="text-destructive text-sm">{errors.nature}</p>
-            )}
-          </div>
+          <SelectField
+            label="Nature"
+            required
+            id="gamme_nature"
+            value={values.nature}
+            onChange={(v) => set('nature', v as GammeFormValues['nature'])}
+            error={errors.nature}
+          >
+            {gammeNatures.map((n) => (
+              <option key={n} value={n}>
+                {NATURE_LABEL[n]}
+              </option>
+            ))}
+          </SelectField>
 
-          <div className="grid gap-2">
-            <Label htmlFor="gamme_periodicite">Périodicité *</Label>
-            <select
-              id="gamme_periodicite"
-              value={values.periodicite_id}
-              onChange={(e) => set('periodicite_id', e.target.value)}
-              aria-invalid={errors.periodicite_id ? true : undefined}
-              className={SELECT_CLASS}
-            >
-              <option value="">— Choisir une périodicité —</option>
-              {periodicites.map((p) => (
-                <option key={p.id} value={String(p.id)}>
-                  {p.libelle}
-                </option>
-              ))}
-            </select>
-            {errors.periodicite_id && (
-              <p className="text-destructive text-sm">
-                {errors.periodicite_id}
-              </p>
-            )}
-          </div>
+          <SelectField
+            label="Périodicité"
+            required
+            id="gamme_periodicite"
+            value={values.periodicite_id}
+            onChange={(v) => set('periodicite_id', v)}
+            error={errors.periodicite_id}
+          >
+            <option value="">— Choisir une périodicité —</option>
+            {periodicites.map((p) => (
+              <option key={p.id} value={String(p.id)}>
+                {p.libelle}
+              </option>
+            ))}
+          </SelectField>
 
-          <div className="grid gap-2">
-            <Label htmlFor="gamme_prestataire">Prestataire par défaut *</Label>
-            <select
-              id="gamme_prestataire"
-              value={values.prestataire_id}
-              onChange={(e) => set('prestataire_id', e.target.value)}
-              aria-invalid={errors.prestataire_id ? true : undefined}
-              className={SELECT_CLASS}
-            >
-              <option value="">— Choisir un prestataire —</option>
-              {prestataires.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.libelle}
-                </option>
-              ))}
-            </select>
-            {errors.prestataire_id && (
-              <p className="text-destructive text-sm">
-                {errors.prestataire_id}
-              </p>
-            )}
-          </div>
+          <SelectField
+            label="Prestataire par défaut"
+            required
+            id="gamme_prestataire"
+            value={values.prestataire_id}
+            onChange={(v) => set('prestataire_id', v)}
+            error={errors.prestataire_id}
+          >
+            <option value="">— Choisir un prestataire —</option>
+            {prestataires.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.libelle}
+              </option>
+            ))}
+          </SelectField>
 
-          <div className="grid gap-2">
-            <Label htmlFor="gamme_description">Description</Label>
-            <textarea
-              id="gamme_description"
-              value={values.description}
-              onChange={(e) => set('description', e.target.value)}
-              rows={3}
-              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 rounded-md border px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-            />
-            {errors.description && (
-              <p className="text-destructive text-sm">{errors.description}</p>
-            )}
-          </div>
+          <TextareaField
+            label="Description"
+            id="gamme_description"
+            value={values.description}
+            onChange={(v) => set('description', v)}
+            rows={3}
+            error={errors.description}
+          />
 
           <DialogFooter>
             <Button

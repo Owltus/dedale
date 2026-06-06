@@ -15,14 +15,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { TextField } from '@/components/common/text-field'
+import { SelectField } from '@/components/common/select-field'
+import { TextareaField } from '@/components/common/textarea-field'
 import type { Database } from '@/lib/database.types'
 
 type Operation = Database['public']['Tables']['operations']['Row']
-
-const SELECT_CLASS =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 h-9 rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]'
 
 interface OperationFormDialogProps {
   open: boolean
@@ -139,48 +137,38 @@ export function OperationFormDialog({
               onChange={(v) => set('ordre', v)}
               error={errors.ordre}
             />
-            <div className="grid gap-2">
-              <Label htmlFor="op_type">Type *</Label>
-              <select
-                id="op_type"
-                value={values.type_operation_id}
-                onChange={(e) => set('type_operation_id', e.target.value)}
-                aria-invalid={errors.type_operation_id ? true : undefined}
-                className={SELECT_CLASS}
-              >
-                <option value="">— Choisir un type —</option>
-                {types.map((t) => (
-                  <option key={t.id} value={String(t.id)}>
-                    {t.libelle}
-                  </option>
-                ))}
-              </select>
-              {errors.type_operation_id && (
-                <p className="text-destructive text-sm">
-                  {errors.type_operation_id}
-                </p>
-              )}
-            </div>
+            <SelectField
+              label="Type"
+              required
+              id="op_type"
+              value={values.type_operation_id}
+              onChange={(v) => set('type_operation_id', v)}
+              error={errors.type_operation_id}
+            >
+              <option value="">— Choisir un type —</option>
+              {types.map((t) => (
+                <option key={t.id} value={String(t.id)}>
+                  {t.libelle}
+                </option>
+              ))}
+            </SelectField>
           </div>
 
           {requiresSeuils && (
             <>
-              <div className="grid gap-2">
-                <Label htmlFor="op_unite">Unité</Label>
-                <select
-                  id="op_unite"
-                  value={values.unite_id}
-                  onChange={(e) => set('unite_id', e.target.value)}
-                  className={SELECT_CLASS}
-                >
-                  <option value="">— Aucune —</option>
-                  {unites.map((u) => (
-                    <option key={u.id} value={String(u.id)}>
-                      {u.nom} ({u.symbole})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <SelectField
+                label="Unité"
+                id="op_unite"
+                value={values.unite_id}
+                onChange={(v) => set('unite_id', v)}
+              >
+                <option value="">— Aucune —</option>
+                {unites.map((u) => (
+                  <option key={u.id} value={String(u.id)}>
+                    {u.nom} ({u.symbole})
+                  </option>
+                ))}
+              </SelectField>
               <div className="grid grid-cols-2 gap-4">
                 <TextField
                   label="Seuil minimum"
@@ -200,19 +188,14 @@ export function OperationFormDialog({
             </>
           )}
 
-          <div className="grid gap-2">
-            <Label htmlFor="op_description">Description</Label>
-            <textarea
-              id="op_description"
-              value={values.description}
-              onChange={(e) => set('description', e.target.value)}
-              rows={2}
-              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 rounded-md border px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-            />
-            {errors.description && (
-              <p className="text-destructive text-sm">{errors.description}</p>
-            )}
-          </div>
+          <TextareaField
+            label="Description"
+            id="op_description"
+            value={values.description}
+            onChange={(v) => set('description', v)}
+            rows={2}
+            error={errors.description}
+          />
 
           <DialogFooter>
             <Button

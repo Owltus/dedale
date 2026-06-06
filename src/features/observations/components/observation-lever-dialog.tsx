@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { TextareaField } from '@/components/common/textarea-field'
 
 interface ObservationLeverDialogProps {
   open: boolean
@@ -88,24 +88,16 @@ export function ObservationLeverDialog({
             error={errors.date_levee}
           />
 
-          <div className="grid gap-2">
-            <Label htmlFor="lever-commentaire">Commentaire de levée</Label>
-            <textarea
-              id="lever-commentaire"
-              value={values.commentaire_levee}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, commentaire_levee: e.target.value }))
-              }
-              rows={3}
-              aria-invalid={errors.commentaire_levee ? true : undefined}
-              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive rounded-md border px-2 py-1.5 text-sm outline-none focus-visible:ring-[3px]"
-            />
-            {errors.commentaire_levee && (
-              <p className="text-destructive text-sm">
-                {errors.commentaire_levee}
-              </p>
-            )}
-          </div>
+          <TextareaField
+            id="lever-commentaire"
+            label="Commentaire de levée"
+            rows={3}
+            value={values.commentaire_levee}
+            onChange={(commentaire_levee) =>
+              setValues((v) => ({ ...v, commentaire_levee }))
+            }
+            error={errors.commentaire_levee}
+          />
 
           <DialogFooter>
             <Button

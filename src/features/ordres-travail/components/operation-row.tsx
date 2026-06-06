@@ -6,6 +6,7 @@ import { useUpdateOperationExecution } from '../mutations'
 import { errorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import type { Database } from '@/lib/database.types'
 
@@ -140,11 +141,11 @@ export function OperationRow({
 
         <label className="flex flex-col gap-1 text-xs">
           <span className="text-muted-foreground">Statut</span>
-          <select
+          <Select
             value={statut}
             disabled={readOnly}
             onChange={(e) => setStatut(e.target.value)}
-            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px] disabled:opacity-50"
+            className="w-auto"
           >
             {/* L'éventuel statut « annulee » système reste affiché en lecture. */}
             {!STATUTS_OP_SAISISSABLES.includes(
@@ -155,7 +156,7 @@ export function OperationRow({
                 {LIBELLES_STATUT_OP[s]}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         <label className="flex flex-col gap-1 text-xs">

@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { SelectField } from '@/components/common/select-field'
 
 interface UploadDocumentDialogProps {
   open: boolean
@@ -34,9 +35,6 @@ interface UploadDocumentDialogProps {
   }) => Promise<unknown>
   pending: boolean
 }
-
-const selectClasses =
-  'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]'
 
 /** Dialogue d'upload réutilisable : choix du fichier + type, validation front. */
 export function UploadDocumentDialog({
@@ -120,22 +118,19 @@ export function UploadDocumentDialog({
               onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="document-type">Type de document *</Label>
-            <select
-              id="document-type"
-              value={typeId}
-              onChange={(e) => setTypeId(e.target.value)}
-              className={selectClasses}
-            >
-              <option value="">Sélectionne un type</option>
-              {types.map((t) => (
-                <option key={t.id} value={String(t.id)}>
-                  {t.nom}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SelectField
+            label="Type de document"
+            required
+            value={typeId}
+            onChange={setTypeId}
+          >
+            <option value="">Sélectionne un type</option>
+            {types.map((t) => (
+              <option key={t.id} value={String(t.id)}>
+                {t.nom}
+              </option>
+            ))}
+          </SelectField>
           {error && <p className="text-destructive text-sm">{error}</p>}
           <DialogFooter>
             <Button
