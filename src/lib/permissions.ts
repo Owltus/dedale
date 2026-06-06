@@ -30,7 +30,12 @@ export function canManageAdmin(role: Role): role is 'admin' | 'manager' {
   return !!role && ADMINISTRATIF.includes(role)
 }
 
-/** Signaler une demande d'intervention : tout le monde sauf le lecteur. */
+/**
+ * Signaler une demande d'intervention : tout rôle actif sauf le lecteur.
+ * Un rôle absent (null/undefined — ex. compte désactivé via le kill-switch,
+ * `current_role()` renvoyant NULL) ne peut PAS créer : durcissement volontaire
+ * (le bouton serait de toute façon rejeté par la RLS).
+ */
 export function canCreateDemande(role: Role): boolean {
   return !!role && role !== 'lecteur'
 }

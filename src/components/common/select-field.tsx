@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
@@ -22,7 +23,8 @@ export function SelectField({
   children,
   ...props
 }: SelectFieldProps) {
-  const fieldId = id ?? label
+  const generatedId = useId()
+  const fieldId = id ?? generatedId
   return (
     <div className="grid gap-2">
       <Label htmlFor={fieldId}>

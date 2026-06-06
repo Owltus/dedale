@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type { ComponentProps } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,7 +21,8 @@ export function TextField({
   id,
   ...props
 }: TextFieldProps) {
-  const fieldId = id ?? label
+  const generatedId = useId()
+  const fieldId = id ?? generatedId
   return (
     <div className="grid gap-2">
       <Label htmlFor={fieldId}>
