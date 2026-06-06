@@ -70,6 +70,9 @@ export function EquipementsLinkDialog({
     }
   }
 
+  // Volontairement PAS de <FormDialog> ici : ce dialog n'a pas de <form> (case
+  // à cocher multiple + champ de recherche libre). L'enrober dans le <form> de
+  // FormDialog ferait que « Entrée » dans la recherche déclencherait la mutation.
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

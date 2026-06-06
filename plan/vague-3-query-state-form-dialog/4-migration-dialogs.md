@@ -113,6 +113,15 @@ Règles :
 Si un dialog ne rentre pas proprement (structure trop éloignée, footer multiple,
 contenu hors `<form>`…), le LAISSER tel quel et le signaler plutôt que forcer.
 
+## Exclusions volontaires (tracées)
+
+- `observation-lever-dialog.tsx` : `DialogDescription` en `line-clamp-2`, non
+  exposée par `FormDialog`.
+- `equipements-link-dialog.tsx` : pas de `<form>` (cases à cocher + recherche
+  libre) ; l'enrober dans le `<form>` de `FormDialog` ferait que « Entrée » dans
+  la recherche déclencherait la mutation (changement de comportement). Laissé en
+  `Dialog` brut, avec commentaire dans le fichier.
+
 ## Critère de validation
 
 - `npx tsc -b`, `npx eslint .`, `npx vite build` passent.
