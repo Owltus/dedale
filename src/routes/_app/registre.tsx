@@ -32,6 +32,7 @@ import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
@@ -54,17 +55,12 @@ function RegistrePage() {
 
   if (!activeSiteId) {
     return (
-      <PageContainer>
-        <PageHeader
-          title="Registre de sécurité"
-          description="Observations de conformité et registre de sécurité du site."
-        />
-        <EmptyState
-          icon={ShieldAlert}
-          title="Sélectionne un site"
-          description="Choisis un site pour consulter ses observations et son registre."
-        />
-      </PageContainer>
+      <NoSiteSelected
+        title="Registre de sécurité"
+        description="Observations de conformité et registre de sécurité du site."
+        hint="Choisis un site pour consulter ses observations et son registre."
+        icon={ShieldAlert}
+      />
     )
   }
 

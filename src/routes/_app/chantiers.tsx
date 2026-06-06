@@ -18,6 +18,7 @@ import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -40,17 +41,12 @@ function ChantiersPage() {
 
   if (!activeSiteId) {
     return (
-      <PageContainer>
-        <PageHeader
-          title="Interventions de chantier"
-          description="Travaux ponctuels (hors DI et OT)."
-        />
-        <EmptyState
-          icon={Hammer}
-          title="Sélectionne un site"
-          description="Choisis un site pour voir ses chantiers."
-        />
-      </PageContainer>
+      <NoSiteSelected
+        title="Interventions de chantier"
+        description="Travaux ponctuels (hors DI et OT)."
+        hint="Choisis un site pour voir ses chantiers."
+        icon={Hammer}
+      />
     )
   }
 

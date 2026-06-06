@@ -26,6 +26,7 @@ import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -46,17 +47,12 @@ function DocumentsPage() {
 
   if (!activeSiteId) {
     return (
-      <PageContainer>
-        <PageHeader
-          title="Documents"
-          description="Bibliothèque documentaire du site."
-        />
-        <EmptyState
-          icon={FileText}
-          title="Sélectionne un site"
-          description="Choisis un site pour consulter sa bibliothèque documentaire."
-        />
-      </PageContainer>
+      <NoSiteSelected
+        title="Documents"
+        description="Bibliothèque documentaire du site."
+        hint="Choisis un site pour consulter sa bibliothèque documentaire."
+        icon={FileText}
+      />
     )
   }
 

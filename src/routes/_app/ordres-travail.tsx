@@ -20,6 +20,7 @@ import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -39,17 +40,12 @@ function OrdresTravailPage() {
 
   if (!activeSiteId) {
     return (
-      <PageContainer>
-        <PageHeader
-          title="Ordres de travail"
-          description="Exécution de la maintenance préventive et réglementaire."
-        />
-        <EmptyState
-          icon={ClipboardList}
-          title="Sélectionne un site"
-          description="Choisis un site pour voir ses ordres de travail."
-        />
-      </PageContainer>
+      <NoSiteSelected
+        title="Ordres de travail"
+        description="Exécution de la maintenance préventive et réglementaire."
+        hint="Choisis un site pour voir ses ordres de travail."
+        icon={ClipboardList}
+      />
     )
   }
 

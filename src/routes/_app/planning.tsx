@@ -17,6 +17,7 @@ import { useSiteContext } from '@/lib/site-context'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -32,17 +33,12 @@ function PlanningPage() {
 
   if (!activeSiteId) {
     return (
-      <PageContainer>
-        <PageHeader
-          title="Planning"
-          description="Charge prévisionnelle par gamme et par semaine."
-        />
-        <EmptyState
-          icon={CalendarRange}
-          title="Sélectionne un site"
-          description="Choisis un site pour voir son planning."
-        />
-      </PageContainer>
+      <NoSiteSelected
+        title="Planning"
+        description="Charge prévisionnelle par gamme et par semaine."
+        hint="Choisis un site pour voir son planning."
+        icon={CalendarRange}
+      />
     )
   }
 

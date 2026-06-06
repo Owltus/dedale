@@ -11,6 +11,7 @@ import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -32,17 +33,12 @@ function RelevesPage() {
 
   if (!activeSiteId) {
     return (
-      <PageContainer>
-        <PageHeader
-          title="Relevés"
-          description="Historique des mesures relevées lors des ordres de travail."
-        />
-        <EmptyState
-          icon={Gauge}
-          title="Sélectionne un site"
-          description="Choisis un site actif pour consulter ses relevés."
-        />
-      </PageContainer>
+      <NoSiteSelected
+        title="Relevés"
+        description="Historique des mesures relevées lors des ordres de travail."
+        hint="Choisis un site actif pour consulter ses relevés."
+        icon={Gauge}
+      />
     )
   }
 

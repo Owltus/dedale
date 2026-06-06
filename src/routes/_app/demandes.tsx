@@ -13,6 +13,7 @@ import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -35,17 +36,12 @@ function DemandesPage() {
 
   if (!activeSiteId) {
     return (
-      <PageContainer>
-        <PageHeader
-          title="Demandes d'intervention"
-          description="Signalements curatifs du site."
-        />
-        <EmptyState
-          icon={ClipboardList}
-          title="Sélectionne un site"
-          description="Choisis un site pour voir ses demandes d'intervention."
-        />
-      </PageContainer>
+      <NoSiteSelected
+        title="Demandes d'intervention"
+        description="Signalements curatifs du site."
+        hint="Choisis un site pour voir ses demandes d'intervention."
+        icon={ClipboardList}
+      />
     )
   }
 

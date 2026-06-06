@@ -28,6 +28,7 @@ import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -67,17 +68,12 @@ function LocalisationsPage() {
 
   if (!activeSiteId) {
     return (
-      <PageContainer>
-        <PageHeader
-          title="Localisations"
-          description="Bâtiments, niveaux et locaux du site."
-        />
-        <EmptyState
-          icon={Building2}
-          title="Sélectionne un site"
-          description="Choisis un site actif pour gérer ses localisations."
-        />
-      </PageContainer>
+      <NoSiteSelected
+        title="Localisations"
+        description="Bâtiments, niveaux et locaux du site."
+        hint="Choisis un site actif pour gérer ses localisations."
+        icon={Building2}
+      />
     )
   }
 

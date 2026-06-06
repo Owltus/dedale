@@ -23,6 +23,7 @@ import { cardGrid } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -46,17 +47,12 @@ function PrestatairesPage() {
 
   if (!activeSiteId) {
     return (
-      <PageContainer>
-        <PageHeader
-          title="Prestataires"
-          description="Prestataires et contrats par site."
-        />
-        <EmptyState
-          icon={Truck}
-          title="Sélectionne un site"
-          description="Choisis un site pour voir ses prestataires et contrats."
-        />
-      </PageContainer>
+      <NoSiteSelected
+        title="Prestataires"
+        description="Prestataires et contrats par site."
+        hint="Choisis un site pour voir ses prestataires et contrats."
+        icon={Truck}
+      />
     )
   }
 
