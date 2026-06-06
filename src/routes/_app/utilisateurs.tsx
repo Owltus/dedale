@@ -8,6 +8,7 @@ import { UtilisateurDetail } from '@/features/utilisateurs/components/utilisateu
 import { roleLabel } from '@/features/utilisateurs/schemas'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -24,7 +25,7 @@ export const Route = createFileRoute('/_app/utilisateurs')({
 function UtilisateursPage() {
   const { data: role, isPending: rolePending } = useCurrentRole()
   const { session } = useAuth()
-  const canManage = role === 'admin' || role === 'manager'
+  const canManage = perm.canManageAdmin(role)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 

@@ -15,6 +15,7 @@ import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
 import { errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
+import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -35,8 +36,7 @@ export const Route = createFileRoute('/_app/chantiers')({
 
 function ChantiersPage() {
   const { data: role } = useCurrentRole()
-  const canManage =
-    role === 'admin' || role === 'manager' || role === 'technicien'
+  const canManage = perm.canManageMetier(role)
   const { activeSiteId } = useSiteContext()
 
   if (!activeSiteId) {

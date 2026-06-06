@@ -13,6 +13,7 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
+import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -42,7 +43,7 @@ function formatEuros(value: number | null): string {
 
 function InvestissementsPage() {
   const { data: role } = useCurrentRole()
-  const canManage = role === 'admin' || role === 'manager'
+  const canManage = perm.canManageAdmin(role)
   const { activeSiteId } = useSiteContext()
 
   if (!activeSiteId) {

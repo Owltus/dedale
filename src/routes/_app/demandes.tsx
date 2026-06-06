@@ -10,6 +10,7 @@ import { statutBadgeVariant, statutLabel } from '@/features/demandes/etat'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { cardGrid } from '@/lib/responsive'
+import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -29,10 +30,9 @@ function DemandesPage() {
   const { data: role } = useCurrentRole()
   const { activeSiteId } = useSiteContext()
   // lecteur = lecture seule ; tous les autres rôles peuvent créer une DI (RLS arbitre).
-  const canCreate = role !== undefined && role !== 'lecteur'
+  const canCreate = perm.canCreateDemande(role)
   // Résolution/réouverture : rôles ayant accès opérationnel au site.
-  const canResolve =
-    role === 'admin' || role === 'manager' || role === 'technicien'
+  const canResolve = perm.canResolveDemande(role)
 
   if (!activeSiteId) {
     return (

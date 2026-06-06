@@ -30,6 +30,7 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
+import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -85,8 +86,7 @@ function CardSkeletons() {
 function GammesPage() {
   const { activeSiteId } = useSiteContext()
   const { data: role } = useCurrentRole()
-  const canEdit =
-    role === 'admin' || role === 'manager' || role === 'technicien'
+  const canEdit = perm.canManageMetier(role)
 
   const [selected, setSelected] = useState<GammeRow | null>(null)
 

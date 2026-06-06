@@ -27,6 +27,7 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
+import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -63,8 +64,7 @@ type Tab = 'equipements' | 'modeles'
 function EquipementsPage() {
   const { activeSiteId } = useSiteContext()
   const { data: role } = useCurrentRole()
-  const canEdit =
-    role === 'admin' || role === 'manager' || role === 'technicien'
+  const canEdit = perm.canManageMetier(role)
 
   const [tab, setTab] = useState<Tab>('equipements')
   // Détail équipement en page (pas de route) : équipement sélectionné.

@@ -25,6 +25,7 @@ import {
 import { profileSchema, roleLabel } from '../schemas'
 import { sitesQueries } from '@/features/sites/queries'
 import { supabase } from '@/lib/supabase'
+import * as perm from '@/lib/permissions'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
@@ -51,8 +52,6 @@ interface UserRow {
   roles: { code: string; description: string | null } | null
 }
 
-const SUBORDINATE_ROLES = ['technicien', 'lecteur', 'demandeur']
-
 export function UtilisateurDetail({
   userId,
   onBack,
@@ -61,7 +60,7 @@ export function UtilisateurDetail({
   onBack: () => void
 }) {
   const { data: role } = useCurrentRole()
-  const isAdmin = role === 'admin'
+  const isAdmin = perm.isAdmin(role)
   const { session } = useAuth()
   const isSelf = session?.user.id === userId
 
@@ -87,9 +86,8 @@ export function UtilisateurDetail({
   }
 
   const targetRole = user.roles?.code ?? ''
-  const targetIsAdmin = targetRole === 'admin'
-  const targetIsSubordinate = SUBORDINATE_ROLES.includes(targetRole)
-  const canEdit = isAdmin || (role === 'manager' && targetIsSubordinate)
+  const targetIsAdmin = perm.isAdmin(targetRole)
+  const canEdit = perm.canEditUser(role, targetRole)
 
   return (
     <PageContainer>

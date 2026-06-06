@@ -19,6 +19,7 @@ import { UploadDocumentDialog } from '@/features/documents/components/upload-doc
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import * as perm from '@/lib/permissions'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -48,8 +49,7 @@ export function DocumentsTab({
   parentId,
 }: DocumentsTabProps) {
   const { data: role } = useCurrentRole()
-  const canManage =
-    role === 'admin' || role === 'manager' || role === 'technicien'
+  const canManage = perm.canManageMetier(role)
   const { activeSiteId } = useSiteContext()
 
   const {
