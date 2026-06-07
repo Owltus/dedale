@@ -8,6 +8,32 @@
 
 export type Role = string | null | undefined
 
+/** Codes de rôle applicatifs (stables, cf. table public.roles). */
+export const ROLE_CODES = [
+  'admin',
+  'manager',
+  'technicien',
+  'lecteur',
+  'demandeur',
+] as const
+export type RoleCode = (typeof ROLE_CODES)[number]
+
+/** Libellés affichés pour chaque rôle. */
+export const ROLE_LABELS: Record<RoleCode, string> = {
+  admin: 'Administrateur',
+  manager: 'Manager',
+  technicien: 'Technicien',
+  lecteur: 'Lecteur',
+  demandeur: 'Demandeur',
+}
+
+/** Libellé affiché d'un code de rôle (repli sur le code brut, puis « — »). */
+export function roleLabel(code: Role): string {
+  return code && code in ROLE_LABELS
+    ? ROLE_LABELS[code as RoleCode]
+    : (code ?? '—')
+}
+
 /**
  * Jeux de rôles, source unique réutilisée par les helpers ci-dessous ET par la
  * config de navigation (lib/nav.ts). Typés `readonly string[]` pour que

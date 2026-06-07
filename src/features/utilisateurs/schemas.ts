@@ -1,30 +1,16 @@
 import { z } from 'zod'
+import {
+  ROLE_CODES,
+  ROLE_LABELS,
+  roleLabel,
+  type RoleCode,
+} from '@/lib/permissions'
 
-/** Codes de rôle applicatifs (stables, cf. table public.roles). */
-export const ROLE_CODES = [
-  'admin',
-  'manager',
-  'technicien',
-  'lecteur',
-  'demandeur',
-] as const
-export type RoleCode = (typeof ROLE_CODES)[number]
-
-/** Libellés affichés pour chaque rôle. */
-export const ROLE_LABELS: Record<RoleCode, string> = {
-  admin: 'Administrateur',
-  manager: 'Manager',
-  technicien: 'Technicien',
-  lecteur: 'Lecteur',
-  demandeur: 'Demandeur',
-}
-
-/** Libellé affiché d'un code de rôle (repli sur le code brut, puis « — »). */
-export function roleLabel(code: string | null | undefined): string {
-  return code && code in ROLE_LABELS
-    ? ROLE_LABELS[code as RoleCode]
-    : (code ?? '—')
-}
+// Codes et libellés de rôle : source unique dans lib/permissions (sens de
+// dépendance correct, features → lib). Réexportés ici par commodité pour les
+// consommateurs du domaine utilisateurs.
+export { ROLE_CODES, ROLE_LABELS, roleLabel }
+export type { RoleCode }
 
 /**
  * Cascade de création (alignée avec le trigger handle_new_auth_user) :
