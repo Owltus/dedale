@@ -19,7 +19,7 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
-import { ErrorState } from '@/components/common/error-state'
+import { QueryState } from '@/components/common/query-state'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -61,12 +61,7 @@ function PlanningContent({ siteId }: { siteId: string }) {
     }
   }, [])
 
-  const {
-    data: ots = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(planningQueries.fenetre(siteId, debutIso, finIso))
+  const query = useQuery(planningQueries.fenetre(siteId, debutIso, finIso))
 
   const [recherche, setRecherche] = useState('')
   const [cellule, setCellule] = useState<{
@@ -74,7 +69,9 @@ function PlanningContent({ siteId }: { siteId: string }) {
     semaine: SemaineIso
   } | null>(null)
 
-  const lignes = useMemo(() => construireLignes(ots), [ots])
+  // Dérivation au niveau du composant (impossible d'appeler des hooks dans la
+  // render-prop de QueryState). Garde sur `query.data` pendant le chargement.
+  const lignes = useMemo(() => construireLignes(query.data ?? []), [query.data])
   const lignesFiltrees = useMemo(() => {
     const terme = recherche.trim().toLowerCase()
     if (!terme) return lignes
@@ -92,45 +89,47 @@ function PlanningContent({ siteId }: { siteId: string }) {
         description={`Charge prévisionnelle par gamme sur ${String(NB_SEMAINES)} semaines (à partir de cette semaine).`}
       />
 
-      {isPending ? (
-        <Skeleton className="h-96 w-full" />
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : lignes.length === 0 ? (
-        <EmptyState
-          icon={CalendarRange}
-          title="Aucun ordre de travail planifié"
-          description="Aucun OT n'est prévu sur cette fenêtre de 12 semaines pour ce site."
-        />
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div className="relative max-w-xs">
-            <Search className="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-            <Input
-              value={recherche}
-              onChange={(e) => setRecherche(e.target.value)}
-              placeholder="Filtrer par gamme…"
-              className="pl-8"
-            />
+      <QueryState
+        query={query}
+        pending={<Skeleton className="h-96 w-full" />}
+        empty={
+          <EmptyState
+            icon={CalendarRange}
+            title="Aucun ordre de travail planifié"
+            description="Aucun OT n'est prévu sur cette fenêtre de 12 semaines pour ce site."
+          />
+        }
+      >
+        {() => (
+          <div className="flex flex-col gap-4">
+            <div className="relative max-w-xs">
+              <Search className="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+              <Input
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                placeholder="Filtrer par gamme…"
+                className="pl-8"
+              />
+            </div>
+
+            {lignesFiltrees.length === 0 ? (
+              <EmptyState
+                icon={Search}
+                title="Aucune gamme ne correspond"
+                description="Aucune gamme planifiée ne correspond à cette recherche."
+              />
+            ) : (
+              <PlanningGrille
+                lignes={lignesFiltrees}
+                semaines={semaines}
+                onSelect={(ots, semaine) => setCellule({ ots, semaine })}
+              />
+            )}
+
+            <Legende />
           </div>
-
-          {lignesFiltrees.length === 0 ? (
-            <EmptyState
-              icon={Search}
-              title="Aucune gamme ne correspond"
-              description="Aucune gamme planifiée ne correspond à cette recherche."
-            />
-          ) : (
-            <PlanningGrille
-              lignes={lignesFiltrees}
-              semaines={semaines}
-              onSelect={(ots, semaine) => setCellule({ ots, semaine })}
-            />
-          )}
-
-          <Legende />
-        </div>
-      )}
+        )}
+      </QueryState>
 
       <CelluleDialog
         ots={cellule?.ots ?? null}

@@ -34,7 +34,6 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
-import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { Button } from '@/components/ui/button'
@@ -326,72 +325,72 @@ function ObservationsTab({
 // --- Onglet Registre de sécurité (lecture) ---
 
 function RegistreTab({ siteId }: { siteId: string }) {
-  const {
-    data: lignes = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(observationsQueries.registre(siteId))
-
-  if (isPending) return <Skeleton className="h-64 w-full" />
-  if (isError) return <ErrorState onRetry={() => void refetch()} />
-  if (lignes.length === 0)
-    return (
-      <EmptyState
-        icon={BookOpenCheck}
-        title="Registre vide"
-        description="Les contrôles réglementaires clôturés et les observations du site apparaîtront ici."
-      />
-    )
+  const query = useQuery(observationsQueries.registre(siteId))
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-muted-foreground">
-          <tr className="text-left">
-            <th className="px-3 py-2 font-medium">Date</th>
-            <th className="px-3 py-2 font-medium">Type</th>
-            <th className="px-3 py-2 font-medium">Objet</th>
-            <th className="px-3 py-2 font-medium">Gravité</th>
-            <th className="px-3 py-2 font-medium">Statut</th>
-            <th className="px-3 py-2 font-medium">Échéance</th>
-            <th className="px-3 py-2 font-medium">Intervenant</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lignes.map((l, i) => (
-            <tr key={l.ref_id ?? `ligne-${String(i)}`} className="border-t">
-              <td className="px-3 py-2 whitespace-nowrap">
-                {formatDate(l.date_ligne)}
-              </td>
-              <td className="px-3 py-2">{libelleTypeLigne(l.type_ligne)}</td>
-              <td className="px-3 py-2">{l.objet ?? '—'}</td>
-              <td className="px-3 py-2">
-                {l.gravite ? (
-                  <Badge variant={variantGravite(l.gravite)}>
-                    {LIBELLES_GRAVITE[l.gravite] ?? l.gravite}
-                  </Badge>
-                ) : (
-                  '—'
-                )}
-              </td>
-              <td className="px-3 py-2">
-                {l.statut ? (
-                  <Badge variant={variantStatut(l.statut)}>
-                    {LIBELLES_STATUT[l.statut] ?? l.statut}
-                  </Badge>
-                ) : (
-                  '—'
-                )}
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                {formatDate(l.echeance)}
-              </td>
-              <td className="px-3 py-2">{l.intervenant ?? '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <QueryState
+      query={query}
+      pending={<Skeleton className="h-64 w-full" />}
+      empty={
+        <EmptyState
+          icon={BookOpenCheck}
+          title="Registre vide"
+          description="Les contrôles réglementaires clôturés et les observations du site apparaîtront ici."
+        />
+      }
+    >
+      {(lignes) => (
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-muted-foreground">
+              <tr className="text-left">
+                <th className="px-3 py-2 font-medium">Date</th>
+                <th className="px-3 py-2 font-medium">Type</th>
+                <th className="px-3 py-2 font-medium">Objet</th>
+                <th className="px-3 py-2 font-medium">Gravité</th>
+                <th className="px-3 py-2 font-medium">Statut</th>
+                <th className="px-3 py-2 font-medium">Échéance</th>
+                <th className="px-3 py-2 font-medium">Intervenant</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lignes.map((l, i) => (
+                <tr key={l.ref_id ?? `ligne-${String(i)}`} className="border-t">
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {formatDate(l.date_ligne)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {libelleTypeLigne(l.type_ligne)}
+                  </td>
+                  <td className="px-3 py-2">{l.objet ?? '—'}</td>
+                  <td className="px-3 py-2">
+                    {l.gravite ? (
+                      <Badge variant={variantGravite(l.gravite)}>
+                        {LIBELLES_GRAVITE[l.gravite] ?? l.gravite}
+                      </Badge>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {l.statut ? (
+                      <Badge variant={variantStatut(l.statut)}>
+                        {LIBELLES_STATUT[l.statut] ?? l.statut}
+                      </Badge>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {formatDate(l.echeance)}
+                  </td>
+                  <td className="px-3 py-2">{l.intervenant ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </QueryState>
   )
 }

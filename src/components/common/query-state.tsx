@@ -8,6 +8,8 @@ interface QueryStateProps<T> {
   pending: ReactNode
   /** Rendu quand `data` est un tableau vide (« aucune donnée »). Optionnel. */
   empty?: ReactNode
+  /** Classe transmise à l'ErrorState par défaut (ex. `py-6` dans une carte). */
+  errorClassName?: string
   /** Rendu des données (`data` est garanti défini ici). */
   children: (data: T) => ReactNode
 }
@@ -22,10 +24,17 @@ export function QueryState<T>({
   query,
   pending,
   empty,
+  errorClassName,
   children,
 }: QueryStateProps<T>) {
   if (query.isPending) return <>{pending}</>
-  if (query.isError) return <ErrorState onRetry={() => void query.refetch()} />
+  if (query.isError)
+    return (
+      <ErrorState
+        onRetry={() => void query.refetch()}
+        className={errorClassName}
+      />
+    )
   if (empty && Array.isArray(query.data) && query.data.length === 0) {
     return <>{empty}</>
   }

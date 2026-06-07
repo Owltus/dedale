@@ -1,7 +1,8 @@
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarX2, FileSignature } from 'lucide-react'
-import { ErrorState } from '@/components/common/error-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { EmptyState } from '@/components/common/empty-state'
 import {
   Card,
@@ -11,7 +12,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { formatDate } from '@/lib/date'
 import { dashboardQueries } from '../queries'
 import { joursAvant } from '../stats'
@@ -25,9 +25,7 @@ interface ContratsEcheanceProps {
 
 /** Liste compacte des contrats du site proches de leur date de fin. */
 export function ContratsEcheance({ siteId }: ContratsEcheanceProps) {
-  const { data, isPending, isError, refetch } = useQuery(
-    dashboardQueries.contratsEcheance(siteId),
-  )
+  const query = useQuery(dashboardQueries.contratsEcheance(siteId))
 
   return (
     <Card className="min-w-0">
@@ -38,17 +36,15 @@ export function ContratsEcheance({ siteId }: ContratsEcheanceProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isPending ? (
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-10" />
-            ))}
-          </div>
-        ) : isError ? (
-          <ErrorState onRetry={() => void refetch()} className="py-6" />
-        ) : (
-          <Liste data={data} />
-        )}
+        <QueryState
+          query={query}
+          pending={
+            <CardSkeletons count={3} height="h-10" container="space-y-2" />
+          }
+          errorClassName="py-6"
+        >
+          {(data) => <Liste data={data} />}
+        </QueryState>
       </CardContent>
     </Card>
   )
