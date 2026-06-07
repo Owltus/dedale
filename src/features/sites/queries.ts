@@ -19,7 +19,9 @@ export const sitesQueries = {
       },
     }),
 
-  /** Sites accessibles à l'utilisateur connecté (admin = tous, sinon ses sites). */
+  /** Sites accessibles à l'utilisateur connecté (admin = tous, sinon ses sites).
+   *  `refetchOnWindowFocus: 'always'` : une (ré)affectation de site faite ailleurs
+   *  est prise en compte au retour sur l'onglet (la RPC lit l'état en direct). */
   mine: () =>
     queryOptions({
       queryKey: [...sitesQueries.all(), 'mine'] as const,
@@ -28,5 +30,6 @@ export const sitesQueries = {
         return data
       },
       staleTime: 5 * 60_000,
+      refetchOnWindowFocus: 'always',
     }),
 }

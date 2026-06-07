@@ -3,8 +3,10 @@ import {
   createFileRoute,
   redirect,
   Outlet,
+  useRouter,
   useRouterState,
 } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
 import {
   currentRoleQueryOptions,
@@ -13,6 +15,7 @@ import {
 import { sitesQueries } from '@/features/sites/queries'
 import { SiteProvider, useSiteContext } from '@/lib/site-context'
 import * as perm from '@/lib/permissions'
+import type { Role } from '@/lib/permissions'
 import { AppSidebar, SidebarContent } from '@/components/common/app-sidebar'
 import { MobileHeader } from '@/components/common/mobile-header'
 import { TopBar } from '@/components/common/top-bar'
@@ -92,6 +95,31 @@ function AppLayout() {
 }
 
 /**
+ * Synchronise l'app quand le rôle ou les sites changent à chaud (ex. un admin
+ * réassigne ailleurs ; les requêtes rôle/sites se rafraîchissent au retour sur
+ * l'onglet via refetchOnWindowFocus). On FORCE alors la prise en compte :
+ * invalidation de tout le cache (les données dépendaient des anciens droits) +
+ * rejeu des gardes de route (redirection si l'écran courant n'est plus autorisé).
+ * Aucune boucle : on ne déclenche que sur un vrai changement vs la valeur précédente.
+ */
+function useAccessSync(role: Role, siteIds: string) {
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const prev = useRef<{ role: Role; siteIds: string } | null>(null)
+
+  useEffect(() => {
+    if (prev.current === null) {
+      prev.current = { role, siteIds }
+      return
+    }
+    if (prev.current.role === role && prev.current.siteIds === siteIds) return
+    prev.current = { role, siteIds }
+    void queryClient.invalidateQueries()
+    void router.invalidate()
+  }, [role, siteIds, queryClient, router])
+}
+
+/**
  * Choix du layout selon le rôle et les sites accessibles :
  *  - aucun site assigné (tout rôle SAUF admin) : écran dédié (NoSiteLayout) ;
  *  - demandeur : barre supérieure seule (DemandeurLayout) ;
@@ -102,6 +130,14 @@ function AppLayout() {
 function LayoutSwitch() {
   const { data: role } = useCurrentRole()
   const { sites, isPending } = useSiteContext()
+
+  // Sync à chaud : si le rôle ou les sites changent (réaffectation ailleurs), on
+  // force la prise en compte (cache + gardes de route).
+  const siteIds = sites
+    .map((s) => s.id)
+    .sort()
+    .join(',')
+  useAccessSync(role, siteIds)
 
   if (!perm.isAdmin(role) && !isPending && sites.length === 0) {
     return <NoSiteLayout />
