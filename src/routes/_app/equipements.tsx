@@ -28,6 +28,7 @@ import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
+import { formatDate } from '@/lib/date'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -559,11 +560,4 @@ function formatSpecValue(value: unknown): string {
     return String(value)
   }
   return JSON.stringify(value)
-}
-
-function formatDate(value: string | null | undefined): string | null {
-  if (!value) return null
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return value
-  return d.toLocaleDateString('fr-FR')
 }
