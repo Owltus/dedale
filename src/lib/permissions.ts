@@ -10,7 +10,12 @@ type Role = string | null | undefined
 
 const METIER = ['admin', 'manager', 'technicien']
 const ADMINISTRATIF = ['admin', 'manager']
-/** Rôles qu'un manager peut administrer (hiérarchie). */
+/**
+ * Rôles qu'un manager peut administrer (hiérarchie), pour l'ÉDITION (canEditUser).
+ * Coïncide aujourd'hui avec `CASCADE.manager` (création/invitation, dans
+ * features/utilisateurs/schemas.ts) ; les deux reflètent des règles backend
+ * distinctes (policy UPDATE vs trigger de création) — penser aux deux si l'une évolue.
+ */
 export const SUBORDINATE_ROLES = ['technicien', 'lecteur', 'demandeur']
 
 /** Super-utilisateur (gestion des sites, colonnes sensibles…). */

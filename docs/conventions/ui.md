@@ -40,6 +40,8 @@ return <Liste items={data} />
 
 `EmptyState` et `ErrorState` sont dans `src/components/common/`.
 
+> Cette règle est factorisée dans `common/query-state.tsx` (`QueryState` + `CardSkeletons`) : l'utiliser **par défaut** (cf. [composants.md](./composants.md)). Le pattern manuel ci-dessus ne subsiste que pour les écrans atypiques (registre table, planning, dashboard).
+
 ## Retours utilisateur : toasts Sonner
 
 `import { toast } from 'sonner'` → `toast.success(...)`, `toast.error(...)`, `toast.promise(...)`. Le `<Toaster />` est monté une fois dans `main.tsx`. Toast = feedback transitoire ; une **confirmation destructive** se fait avec un Dialog, pas un toast.
@@ -57,7 +59,7 @@ import { cardGrid } from '@/lib/responsive'
 </div>
 ```
 
-Densités : `cardGrid.compact` (sites, localisations, prestataires), `cardGrid.default` (cas général), `cardGrid.wide` (cartes riches). `min-w-0` sur la carte évite que le texte long casse la grille.
+Densités : `cardGrid.compact` (sites, localisations, prestataires) et `cardGrid.default` (cas général). `min-w-0` sur la carte évite que le texte long casse la grille.
 
 ## Responsive design
 

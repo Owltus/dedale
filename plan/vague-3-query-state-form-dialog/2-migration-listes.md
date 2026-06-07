@@ -21,9 +21,11 @@ les écrans liste standard, sans changer le rendu.
 - `src/routes/_app/localisations.tsx` (3 vues drill-down — au cas par cas)
 - `src/routes/_app/utilisateurs.tsx` (liste + `enabled` — au cas par cas)
 - `src/components/common/documents-tab.tsx`
+- `src/routes/_app/documents.tsx` (route — ajoutée après revue holistique)
+- `src/routes/_app/registre.tsx` → onglet `ObservationsTab` uniquement (grille standard)
 
-Hors périmètre (atypiques) : `registre.tsx` (table + onglets), `planning.tsx`
-(grille custom), `dashboard/*` (mini-listes).
+Hors périmètre (atypiques) : `registre.tsx` → onglet `RegistreTab` (vraie `<table>`),
+`planning.tsx` (grille custom), `dashboard/*` (mini-listes `divide-y`).
 
 ## Travail à réaliser
 

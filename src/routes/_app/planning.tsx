@@ -14,6 +14,7 @@ import type { SemaineIso } from '@/features/planning/semaines'
 import { PlanningGrille } from '@/features/planning/components/planning-grille'
 import { CelluleDialog } from '@/features/planning/components/cellule-dialog'
 import { useSiteContext } from '@/lib/site-context'
+import { formatDate } from '@/lib/date'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -81,9 +82,7 @@ function PlanningContent({ siteId }: { siteId: string }) {
   }, [lignes, recherche])
 
   const titreSemaine = cellule
-    ? `S${String(cellule.semaine.numero)} — semaine du ${cellule.semaine.debut.toLocaleDateString(
-        'fr-FR',
-      )}`
+    ? `S${String(cellule.semaine.numero)} — semaine du ${formatDate(cellule.semaine.debut)}`
     : ''
 
   return (

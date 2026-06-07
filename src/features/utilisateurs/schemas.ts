@@ -30,6 +30,8 @@ export function roleLabel(code: string | null | undefined): string {
  * Cascade de création (alignée avec le trigger handle_new_auth_user) :
  * qui peut créer quels rôles. La source de vérité reste la base ; cette table
  * sert à filtrer le dropdown côté UI.
+ * NB : `manager` coïncide avec `SUBORDINATE_ROLES` de lib/permissions (édition) —
+ * règles backend distinctes, à garder cohérentes si l'une évolue.
  */
 export const CASCADE: Record<RoleCode, readonly RoleCode[]> = {
   admin: ['admin', 'manager', 'technicien', 'lecteur', 'demandeur'],

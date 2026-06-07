@@ -12,29 +12,26 @@ import {
   useUploadDocument,
 } from '@/features/documents/mutations'
 import { getSignedUrl } from '@/features/documents/upload'
-import {
-  formatDate,
-  formatMime,
-  formatTaille,
-} from '@/features/documents/format'
+import { formatMime, formatTaille } from '@/features/documents/format'
 import type { DocumentMeta } from '@/features/documents/format'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
+import { formatDate } from '@/lib/date'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
-import { ErrorState } from '@/components/common/error-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 
 export const Route = createFileRoute('/_app/documents')({
   component: DocumentsPage,
@@ -66,12 +63,7 @@ function DocumentsContent({
   siteId: string
   canManage: boolean
 }) {
-  const {
-    data: documents = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(documentsQueries.list(siteId))
+  const query = useQuery(documentsQueries.list(siteId))
   const { data: types = [] } = useQuery(typesDocumentsQueries.list())
   const upload = useUploadDocument()
   const del = useDeleteDocument()
@@ -84,12 +76,6 @@ function DocumentsContent({
     () => new Map(types.map((t) => [t.id, t.nom])),
     [types],
   )
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return documents
-    return documents.filter((d) => d.nom_original.toLowerCase().includes(q))
-  }, [documents, search])
 
   async function handleDownload(doc: DocumentMeta) {
     try {
@@ -125,7 +111,7 @@ function DocumentsContent({
         action={newButton}
       />
 
-      {!isPending && !isError && documents.length > 0 && (
+      {!query.isPending && !query.isError && query.data.length > 0 && (
         <div className="relative mb-4 max-w-sm">
           <Search className="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
           <Input
@@ -137,86 +123,92 @@ function DocumentsContent({
         </div>
       )}
 
-      {isPending ? (
-        <div className={cardGrid.default}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-36" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : documents.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="Aucun document"
-          description={
-            canManage
-              ? 'Ajoute un premier document à la bibliothèque du site.'
-              : 'Aucun document enregistré pour ce site.'
-          }
-          action={newButton}
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="Aucun résultat"
-          description="Aucun document ne correspond à ta recherche."
-        />
-      ) : (
-        <div className={cardGrid.default}>
-          {filtered.map((doc) => (
-            <Card key={doc.id} className="min-w-0">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle
-                    className="truncate text-base"
-                    title={doc.nom_original}
-                  >
-                    {doc.nom_original}
-                  </CardTitle>
-                  <Badge variant="secondary" className="shrink-0">
-                    {formatMime(doc.mime_type)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3 text-sm">
-                <dl className="text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
-                  <dt>Type</dt>
-                  <dd className="text-foreground text-right">
-                    {typeNom.get(doc.type_document_id) ?? '—'}
-                  </dd>
-                  <dt>Taille</dt>
-                  <dd className="text-foreground text-right tabular-nums">
-                    {formatTaille(doc.taille_octets)}
-                  </dd>
-                  <dt>Ajouté le</dt>
-                  <dd className="text-foreground text-right tabular-nums">
-                    {formatDate(doc.uploaded_at)}
-                  </dd>
-                </dl>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void handleDownload(doc)}
-                  >
-                    <Download /> Télécharger
-                  </Button>
-                  {canManage && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setToDelete(doc)}
-                    >
-                      <Trash2 /> Supprimer
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      <QueryState
+        query={query}
+        pending={<CardSkeletons count={4} height="h-36" />}
+        empty={
+          <EmptyState
+            icon={FileText}
+            title="Aucun document"
+            description={
+              canManage
+                ? 'Ajoute un premier document à la bibliothèque du site.'
+                : 'Aucun document enregistré pour ce site.'
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(documents) => {
+          const q = search.trim().toLowerCase()
+          const filtered = documents.filter((d) =>
+            d.nom_original.toLowerCase().includes(q),
+          )
+          if (filtered.length === 0)
+            return (
+              <EmptyState
+                icon={Search}
+                title="Aucun résultat"
+                description="Aucun document ne correspond à ta recherche."
+              />
+            )
+          return (
+            <div className={cardGrid.default}>
+              {filtered.map((doc) => (
+                <Card key={doc.id} className="min-w-0">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle
+                        className="truncate text-base"
+                        title={doc.nom_original}
+                      >
+                        {doc.nom_original}
+                      </CardTitle>
+                      <Badge variant="secondary" className="shrink-0">
+                        {formatMime(doc.mime_type)}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-3 text-sm">
+                    <dl className="text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
+                      <dt>Type</dt>
+                      <dd className="text-foreground text-right">
+                        {typeNom.get(doc.type_document_id) ?? '—'}
+                      </dd>
+                      <dt>Taille</dt>
+                      <dd className="text-foreground text-right tabular-nums">
+                        {formatTaille(doc.taille_octets)}
+                      </dd>
+                      <dt>Ajouté le</dt>
+                      <dd className="text-foreground text-right tabular-nums">
+                        {formatDate(doc.uploaded_at)}
+                      </dd>
+                    </dl>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleDownload(doc)}
+                      >
+                        <Download /> Télécharger
+                      </Button>
+                      {canManage && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setToDelete(doc)}
+                        >
+                          <Trash2 /> Supprimer
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
+        }}
+      </QueryState>
 
       {canManage && (
         <UploadDocumentDialog

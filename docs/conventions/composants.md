@@ -4,11 +4,11 @@
 
 ## Où mettre quoi
 
-| Type                          | Emplacement                          | Exemple                                                |
-| ----------------------------- | ------------------------------------ | ------------------------------------------------------ |
-| Générique, zéro métier        | `src/components/ui/`                 | `button`, `card`, `dialog` (shadcn)                    |
-| Transverse maison, non métier | `src/components/common/`             | `EmptyState`, `ErrorState`, `PageHeader`, `QueryState`, `FormDialog`, `TextField` |
-| Métier                        | `src/features/<domaine>/components/` | `EquipementCard`, `OtTable`                            |
+| Type                          | Emplacement                          | Exemple                                                                                                         |
+| ----------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Générique, zéro métier        | `src/components/ui/`                 | `button`, `card`, `dialog` (shadcn)                                                                             |
+| Transverse maison, non métier | `src/components/common/`             | `EmptyState`, `ErrorState`, `PageHeader`, `NoSiteSelected`, `QueryState`, `FormDialog`, `TextField`, `InfoNote` |
+| Métier                        | `src/features/<domaine>/components/` | `EquipementCard`, `OtTable`                                                                                     |
 
 Règle : si tu assembles les mêmes `ui/` de la même façon ≥ 2 fois → remonte un composant dans `common/`.
 
@@ -47,6 +47,12 @@ const query = useQuery(xxxQueries.list(siteId))
 - Le **conteneur** (grille/liste) reste dans la render-prop ; le « aucun résultat de recherche » (filtrage client) aussi.
 - `CardSkeletons` (`count` / `height` / `container`) pour les squelettes.
 - Multi-requêtes : `QueryState` pilote la requête liste **principale** ; les lookups restent en `useQuery` à côté.
+
+## Garde « site » et permissions
+
+- `NoSiteSelected` (`common/no-site-selected.tsx`) : écran « sélectionne un site » des pages métier (props `title` / `description` / `hint` / `icon`). Ne pas recopier la garde `if (!activeSiteId)` à la main.
+- Droits par rôle : fonctions pures `lib/permissions.ts` (`isAdmin`, `canManageMetier`, `canManageAdmin`, `canCreateDemande`, `canResolveDemande`, `canEditUser`), lues via `useCurrentRole()` (`import * as perm from '@/lib/permissions'`). Le front ne fait que **refléter** le rôle ; la sécurité reste portée par la RLS. Ne jamais écrire `role === 'admin'` en dur dans un écran.
+- `InfoNote` (`common/info-note.tsx`) : encart d'information (icône + texte).
 
 ## Modals (stratégie « simple d'abord »)
 
@@ -97,6 +103,7 @@ La coquille ne gère que le **visuel** : l'état (`useState`), la validation Zod
 - ❌ Réécrire l'accessibilité d'un modal à la main ; `DialogContent` sans `DialogTitle`.
 - ❌ Recopier le bloc des 4 états ou la coquille d'un dialog de formulaire → `QueryState` / `FormDialog`.
 - ❌ Recopier un `<select>`/`<textarea>` natif stylé → `SelectField` / `TextareaField`.
+- ❌ Recopier la garde « sélectionne un site » → `NoSiteSelected` ; hardcoder un rôle (`role === 'admin'`) → `lib/permissions`.
 - ❌ Mettre de la logique métier dans `components/ui`.
 - ❌ Concaténer des classes conditionnelles à la main au lieu de CVA pour les variantes.
 - ❌ Modifier lourdement un composant `ui` shadcn sans raison (préférer wrapper dans `common/`).

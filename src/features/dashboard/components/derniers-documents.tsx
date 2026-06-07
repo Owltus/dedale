@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatDate, formatMime } from '@/features/documents/format'
+import { formatMime } from '@/features/documents/format'
+import { formatDate } from '@/lib/date'
 import { dashboardQueries } from '../queries'
 
 interface DerniersDocumentsProps {

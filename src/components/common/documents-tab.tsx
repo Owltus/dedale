@@ -9,14 +9,11 @@ import {
   useUploadAndAttach,
 } from '@/features/documents/mutations'
 import { getSignedUrl } from '@/features/documents/upload'
-import {
-  formatDate,
-  formatMime,
-  formatTaille,
-} from '@/features/documents/format'
+import { formatMime, formatTaille } from '@/features/documents/format'
 import type { DocumentMeta } from '@/features/documents/format'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { formatDate } from '@/lib/date'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import * as perm from '@/lib/permissions'

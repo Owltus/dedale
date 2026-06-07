@@ -35,6 +35,8 @@ import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ErrorState } from '@/components/common/error-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -141,12 +143,7 @@ function ObservationsTab({
   // Préchargement des OT pour ne pas bloquer l'ouverture du dialog de création.
   useQuery(otsPourObservationQueries.list(siteId))
 
-  const {
-    data: observations = [],
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(observationsQueries.list(siteId, { statut, source }))
+  const query = useQuery(observationsQueries.list(siteId, { statut, source }))
 
   const newButton =
     canManage && session ? (
@@ -201,104 +198,104 @@ function ObservationsTab({
         {newButton}
       </div>
 
-      {isPending ? (
-        <div className={cardGrid.default}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-44" />
-          ))}
-        </div>
-      ) : isError ? (
-        <ErrorState onRetry={() => void refetch()} />
-      ) : observations.length === 0 ? (
-        <EmptyState
-          icon={ListChecks}
-          title="Aucune observation"
-          description={
-            canManage
-              ? 'Crée une observation pour suivre une réserve de conformité.'
-              : 'Aucune observation enregistrée pour ce site.'
-          }
-          action={newButton}
-        />
-      ) : (
-        <div className={cardGrid.default}>
-          {observations.map((o) => {
-            const enRetard =
-              o.statut === 'en_cours' &&
-              o.echeance !== null &&
-              o.echeance < today
-            return (
-              <Card key={o.id} className="min-w-0">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-sm leading-snug break-words">
-                      {o.description}
-                    </CardTitle>
-                    <Badge
-                      variant={variantStatut(o.statut)}
-                      className="shrink-0"
-                    >
-                      {LIBELLES_STATUT[o.statut] ?? o.statut}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3 text-sm">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant={variantGravite(o.gravite)}>
-                      {LIBELLES_GRAVITE[o.gravite] ?? o.gravite}
-                    </Badge>
-                    <Badge variant="outline">
-                      {LIBELLES_SOURCE[o.source] ?? o.source}
-                    </Badge>
-                    {enRetard && <Badge variant="destructive">En retard</Badge>}
-                  </div>
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-                    <dt className="text-muted-foreground">Échéance</dt>
-                    <dd className="text-right">{formatDate(o.echeance)}</dd>
-                    <dt className="text-muted-foreground">OT lié</dt>
-                    <dd className="truncate text-right">
-                      {o.ordres_travail?.nom_gamme ?? '—'}
-                    </dd>
-                    <dt className="text-muted-foreground">Équipement</dt>
-                    <dd className="truncate text-right">
-                      {o.equipements?.nom ?? '—'}
-                    </dd>
-                    {o.statut === 'levee' && (
-                      <>
-                        <dt className="text-muted-foreground">Levée le</dt>
-                        <dd className="text-right">
-                          {formatDate(o.date_levee)}
-                        </dd>
-                      </>
-                    )}
-                  </dl>
-                  {o.statut === 'levee' && o.commentaire_levee && (
-                    <p className="text-muted-foreground border-l-2 pl-2 text-xs italic">
-                      {o.commentaire_levee}
-                    </p>
-                  )}
-                  {canManage && session && o.statut === 'en_cours' && (
-                    <div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setToLever({
-                            id: o.id,
-                            description: o.description,
-                          })
-                        }
+      <QueryState
+        query={query}
+        pending={<CardSkeletons count={4} height="h-44" />}
+        empty={
+          <EmptyState
+            icon={ListChecks}
+            title="Aucune observation"
+            description={
+              canManage
+                ? 'Crée une observation pour suivre une réserve de conformité.'
+                : 'Aucune observation enregistrée pour ce site.'
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(observations) => (
+          <div className={cardGrid.default}>
+            {observations.map((o) => {
+              const enRetard =
+                o.statut === 'en_cours' &&
+                o.echeance !== null &&
+                o.echeance < today
+              return (
+                <Card key={o.id} className="min-w-0">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-sm leading-snug break-words">
+                        {o.description}
+                      </CardTitle>
+                      <Badge
+                        variant={variantStatut(o.statut)}
+                        className="shrink-0"
                       >
-                        <CheckCircle2 /> Lever
-                      </Button>
+                        {LIBELLES_STATUT[o.statut] ?? o.statut}
+                      </Badge>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-3 text-sm">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant={variantGravite(o.gravite)}>
+                        {LIBELLES_GRAVITE[o.gravite] ?? o.gravite}
+                      </Badge>
+                      <Badge variant="outline">
+                        {LIBELLES_SOURCE[o.source] ?? o.source}
+                      </Badge>
+                      {enRetard && (
+                        <Badge variant="destructive">En retard</Badge>
+                      )}
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <dt className="text-muted-foreground">Échéance</dt>
+                      <dd className="text-right">{formatDate(o.echeance)}</dd>
+                      <dt className="text-muted-foreground">OT lié</dt>
+                      <dd className="truncate text-right">
+                        {o.ordres_travail?.nom_gamme ?? '—'}
+                      </dd>
+                      <dt className="text-muted-foreground">Équipement</dt>
+                      <dd className="truncate text-right">
+                        {o.equipements?.nom ?? '—'}
+                      </dd>
+                      {o.statut === 'levee' && (
+                        <>
+                          <dt className="text-muted-foreground">Levée le</dt>
+                          <dd className="text-right">
+                            {formatDate(o.date_levee)}
+                          </dd>
+                        </>
+                      )}
+                    </dl>
+                    {o.statut === 'levee' && o.commentaire_levee && (
+                      <p className="text-muted-foreground border-l-2 pl-2 text-xs italic">
+                        {o.commentaire_levee}
+                      </p>
+                    )}
+                    {canManage && session && o.statut === 'en_cours' && (
+                      <div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setToLever({
+                              id: o.id,
+                              description: o.description,
+                            })
+                          }
+                        >
+                          <CheckCircle2 /> Lever
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </QueryState>
 
       {canManage && session && (
         <ObservationFormDialog
