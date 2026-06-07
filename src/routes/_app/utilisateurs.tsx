@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, ShieldOff, UserPlus, Users } from 'lucide-react'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
@@ -20,6 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export const Route = createFileRoute('/_app/utilisateurs')({
+  beforeLoad: ({ context }) => requireNav('/utilisateurs', context.queryClient),
   component: UtilisateursPage,
 })
 
@@ -35,7 +37,10 @@ function UtilisateursPage() {
     enabled: canManage,
   })
 
-  // Garde-fou d'accès : réservé admin/manager.
+  // Accès réservé admin/manager. Garde primaire = le beforeLoad de la route
+  // (requireNav redirige les autres rôles avant le rendu) ; ce garde-fou
+  // composant ne sert plus que de filet pour le cas fail-open (rôle non résolu
+  // en amont), où il refuse proprement l'accès.
   if (rolePending) {
     return (
       <PageContainer>

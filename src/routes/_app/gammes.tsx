@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -64,6 +65,7 @@ type OperationRow = Database['public']['Tables']['operations']['Row'] & {
 }
 
 export const Route = createFileRoute('/_app/gammes')({
+  beforeLoad: ({ context }) => requireNav('/gammes', context.queryClient),
   component: GammesPage,
 })
 

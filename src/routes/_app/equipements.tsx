@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -45,6 +46,7 @@ import type { Database } from '@/lib/database.types'
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
 
 export const Route = createFileRoute('/_app/equipements')({
+  beforeLoad: ({ context }) => requireNav('/equipements', context.queryClient),
   component: EquipementsPage,
 })
 

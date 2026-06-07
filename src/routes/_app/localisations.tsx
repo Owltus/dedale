@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import {
   Building,
@@ -42,6 +43,8 @@ type Niveau = Database['public']['Tables']['niveaux']['Row']
 type Local = Database['public']['Tables']['locaux']['Row']
 
 export const Route = createFileRoute('/_app/localisations')({
+  beforeLoad: ({ context }) =>
+    requireNav('/localisations', context.queryClient),
   component: LocalisationsPage,
 })
 

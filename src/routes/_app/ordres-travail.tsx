@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -30,6 +31,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const Route = createFileRoute('/_app/ordres-travail')({
+  beforeLoad: ({ context }) =>
+    requireNav('/ordres-travail', context.queryClient),
   component: OrdresTravailPage,
 })
 

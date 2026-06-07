@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, Gauge, LineChart } from 'lucide-react'
 import { relevesQueries } from '@/features/releves/queries'
@@ -19,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const Route = createFileRoute('/_app/releves')({
+  beforeLoad: ({ context }) => requireNav('/releves', context.queryClient),
   component: RelevesPage,
 })
 

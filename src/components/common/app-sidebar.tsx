@@ -19,6 +19,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { canSeeNav, type NavKey } from '@/lib/nav'
 import { SiteSwitcher } from '@/components/common/site-switcher'
 import { UserMenu } from '@/components/common/user-menu'
 import {
@@ -35,65 +36,37 @@ import { cn } from '@/lib/utils'
 // Le mode tactile évite le rail (un tap ne déclenche pas de tooltip).
 
 interface NavItem {
-  to: string
+  to: NavKey
   label: string
   icon: ComponentType<LucideProps>
   exact?: boolean
-  /** Si défini, l'entrée n'est visible que pour ces rôles. */
-  roles?: string[]
 }
 
-// Rôles « métier » hors demandeur (qui ne voit que ses demandes + l'accueil).
-const METIER = ['admin', 'manager', 'technicien', 'lecteur']
-
+// Visibilité par rôle : pilotée par canSeeNav (lib/nav.ts), source unique
+// partagée avec les gardes de route. Aucun littéral de rôle ici.
 const OPERATIONNEL: NavItem[] = [
   { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
-  { to: '/planning', label: 'Planning', icon: CalendarDays, roles: METIER },
-  { to: '/gammes', label: 'Gammes', icon: ClipboardList, roles: METIER },
-  {
-    to: '/ordres-travail',
-    label: 'Ordres de travail',
-    icon: Wrench,
-    roles: METIER,
-  },
+  { to: '/planning', label: 'Planning', icon: CalendarDays },
+  { to: '/gammes', label: 'Gammes', icon: ClipboardList },
+  { to: '/ordres-travail', label: 'Ordres de travail', icon: Wrench },
   {
     to: '/demandes',
     label: "Demandes d'intervention",
     icon: MessageSquareWarning,
   },
-  { to: '/chantiers', label: 'Chantiers', icon: HardHat, roles: METIER },
-  { to: '/releves', label: 'Relevés', icon: LineChart, roles: METIER },
-  {
-    to: '/registre',
-    label: 'Registre de sécurité',
-    icon: ShieldCheck,
-    roles: METIER,
-  },
-  { to: '/documents', label: 'Documents', icon: FileText, roles: METIER },
-  {
-    to: '/investissements',
-    label: 'Investissements',
-    icon: Banknote,
-    roles: ['admin', 'manager'],
-  },
+  { to: '/chantiers', label: 'Chantiers', icon: HardHat },
+  { to: '/releves', label: 'Relevés', icon: LineChart },
+  { to: '/registre', label: 'Registre de sécurité', icon: ShieldCheck },
+  { to: '/documents', label: 'Documents', icon: FileText },
+  { to: '/investissements', label: 'Investissements', icon: Banknote },
 ]
 
 const REFERENTIELS: NavItem[] = [
-  { to: '/sites', label: 'Sites', icon: Building2, roles: ['admin'] },
-  { to: '/localisations', label: 'Localisations', icon: MapPin, roles: METIER },
-  { to: '/equipements', label: 'Équipements', icon: Boxes, roles: METIER },
-  {
-    to: '/prestataires',
-    label: 'Prestataires',
-    icon: Briefcase,
-    roles: METIER,
-  },
-  {
-    to: '/utilisateurs',
-    label: 'Utilisateurs',
-    icon: Users,
-    roles: ['admin', 'manager'],
-  },
+  { to: '/sites', label: 'Sites', icon: Building2 },
+  { to: '/localisations', label: 'Localisations', icon: MapPin },
+  { to: '/equipements', label: 'Équipements', icon: Boxes },
+  { to: '/prestataires', label: 'Prestataires', icon: Briefcase },
+  { to: '/utilisateurs', label: 'Utilisateurs', icon: Users },
 ]
 
 // Item actif : fond accentué + texte en gras (sans barre verticale).
@@ -154,10 +127,9 @@ function NavGroup({
   touch?: boolean
   onNavigate?: () => void
 }) {
-  // Tant que le rôle n'est pas chargé, on affiche tout (évite un flash de menu vide).
-  const visible = items.filter(
-    (i) => !i.roles || !role || i.roles.includes(role),
-  )
+  // canSeeNav renvoie true tant que le rôle n'est pas chargé (évite un flash de
+  // menu vide) ; il filtre dès que le rôle est connu.
+  const visible = items.filter((i) => canSeeNav(i.to, role))
   if (visible.length === 0) return null
   return (
     <div className={cn('py-2', iconOnly ? 'px-2' : 'px-3')}>

@@ -35,6 +35,7 @@ src/
 
 - Routes dans `src/routes/`, file-based. `routeTree.gen.ts` est **généré** (ne pas éditer/linter).
 - **Garde d'auth dans `beforeLoad`** (avant rendu, pas de flash), via `context.auth.session` → `throw redirect({ to: '/login' })`. Jamais un garde via hook dans le composant.
+- **Garde de rôle dans `beforeLoad`** : `requireNav(navKey, context.queryClient)` (`lib/nav-guard.ts`) résout le rôle via `queryClient.ensureQueryData` puis redirige vers `landingFor(role)` si l'écran ne lui est pas destiné. Même source que la sidebar (`lib/nav.ts`) → une seule vérité. Fail-open si le rôle est indisponible (la RLS reste la sécurité). N'empêche pas la RLS : c'est de l'UX, pas de la sécurité.
 - Après login/logout, `router.invalidate()` pour relancer les gardes.
 - Ne jamais avaler un `redirect` dans un `catch` : `if (isRedirect(err)) throw err`.
 - **Filtres / pagination / onglets = search params** validés Zod (`validateSearch` + `zodValidator`, `fallback()`), jamais un state global ni `window.location`. MAJ avec updater fonctionnel : `search={(prev) => ({ ...prev, page: prev.page + 1 })}`.

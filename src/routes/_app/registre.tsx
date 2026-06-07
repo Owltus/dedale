@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import {
   BookOpenCheck,
@@ -43,6 +44,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export const Route = createFileRoute('/_app/registre')({
+  beforeLoad: ({ context }) => requireNav('/registre', context.queryClient),
   component: RegistrePage,
 })
 

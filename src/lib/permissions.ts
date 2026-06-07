@@ -6,10 +6,32 @@
  * 5 rôles : admin · manager · technicien · lecteur · demandeur.
  */
 
-type Role = string | null | undefined
+export type Role = string | null | undefined
 
-const METIER = ['admin', 'manager', 'technicien']
-const ADMINISTRATIF = ['admin', 'manager']
+/**
+ * Jeux de rôles, source unique réutilisée par les helpers ci-dessous ET par la
+ * config de navigation (lib/nav.ts). Typés `readonly string[]` pour que
+ * `.includes(role)` accepte un `string` (un `as const` exigerait un littéral).
+ */
+/** Rôles « métier » avec capacité d'ÉCRITURE (OT, gammes, équipements, docs…). */
+export const ROLES_METIER: readonly string[] = [
+  'admin',
+  'manager',
+  'technicien',
+]
+/**
+ * Rôles métier + lecteur : périmètre de VISIBILITÉ (lecture) des écrans métier.
+ * À ne pas confondre avec `ROLES_METIER` (écriture, sans lecteur).
+ */
+export const ROLES_METIER_LECTURE: readonly string[] = [
+  ...ROLES_METIER,
+  'lecteur',
+]
+/** Gestion administrative (utilisateurs, investissements). */
+export const ROLES_ADMINISTRATIF: readonly string[] = ['admin', 'manager']
+/** Super-utilisateur (gestion des sites, colonnes sensibles…). */
+export const ROLES_ADMIN: readonly string[] = ['admin']
+
 /**
  * Rôles qu'un manager peut administrer (hiérarchie), pour l'ÉDITION (canEditUser).
  * Coïncide aujourd'hui avec `CASCADE.manager` (création/invitation, dans
@@ -25,14 +47,14 @@ export function isAdmin(role: Role): boolean {
 
 /** Créer / modifier des ressources métier (OT, gammes, équipements, docs…). */
 export function canManageMetier(role: Role): boolean {
-  return !!role && METIER.includes(role)
+  return !!role && ROLES_METIER.includes(role)
 }
 
 /** Gestion administrative (utilisateurs, investissements, prestataires).
  *  Type predicate : permet de narrower le rôle après une garde
  *  `if (!canManageAdmin(role)) return`. */
 export function canManageAdmin(role: Role): role is 'admin' | 'manager' {
-  return !!role && ADMINISTRATIF.includes(role)
+  return !!role && ROLES_ADMINISTRATIF.includes(role)
 }
 
 /**

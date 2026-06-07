@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import { Download, FileText, Plus, Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -34,6 +35,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const Route = createFileRoute('/_app/documents')({
+  beforeLoad: ({ context }) => requireNav('/documents', context.queryClient),
   component: DocumentsPage,
 })
 

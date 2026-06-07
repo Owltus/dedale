@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarRange, Search } from 'lucide-react'
 import { planningQueries } from '@/features/planning/queries'
@@ -24,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export const Route = createFileRoute('/_app/planning')({
+  beforeLoad: ({ context }) => requireNav('/planning', context.queryClient),
   component: PlanningPage,
 })
 

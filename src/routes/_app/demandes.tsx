@@ -23,6 +23,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
 export const Route = createFileRoute('/_app/demandes')({
+  // Pas de requireNav : les demandes sont visibles par tous les rôles (landing
+  // du demandeur). La RLS borne les données visibles.
   component: DemandesPage,
 })
 
