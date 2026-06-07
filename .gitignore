@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# TanStack Router — cache/artefacts de codegen
+.tanstack/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
