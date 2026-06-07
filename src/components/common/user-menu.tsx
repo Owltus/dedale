@@ -20,6 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
 const THEMES = [
   { value: 'light', label: 'Clair', icon: Sun },
@@ -50,9 +51,12 @@ function computeInitials(name: string, email: string): string {
 export function UserMenu({
   onNavigate,
   iconOnly = false,
+  className,
 }: {
   onNavigate?: () => void
   iconOnly?: boolean
+  /** Classe appliquée au déclencheur étendu (ex. largeur dans une top bar). */
+  className?: string
 }) {
   const { session } = useAuth()
   const { data: role } = useCurrentRole()
@@ -101,7 +105,10 @@ export function UserMenu({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="hover:bg-accent focus-visible:ring-ring/50 focus-visible:ring-offset-card flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            className={cn(
+              'hover:bg-accent focus-visible:ring-ring/50 focus-visible:ring-offset-card flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+              className,
+            )}
           >
             {avatar}
             <div className="min-w-0 flex-1">

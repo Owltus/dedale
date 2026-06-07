@@ -20,10 +20,35 @@ import { Select } from '@/components/ui/select'
  * Mode étendu : un `select` pleine largeur. Mode réduit (`iconOnly`) : une icône
  * (avec tooltip du site courant) ouvrant un menu déroulant des sites.
  */
-export function SiteSwitcher({ iconOnly = false }: { iconOnly?: boolean }) {
+export function SiteSwitcher({
+  iconOnly = false,
+  variant = 'sidebar',
+}: {
+  iconOnly?: boolean
+  variant?: 'sidebar' | 'bar'
+}) {
   const { sites, activeSiteId, setActiveSiteId } = useSiteContext()
 
   if (sites.length <= 1) return null
+
+  const siteSelect = (
+    <Select
+      value={activeSiteId ?? ''}
+      onChange={(e) => setActiveSiteId(e.target.value)}
+      aria-label="Site actif"
+    >
+      {sites.map((site) => (
+        <option key={site.id} value={site.id}>
+          {site.nom}
+        </option>
+      ))}
+    </Select>
+  )
+
+  // Variant « bar » : top bar du demandeur (largeur compacte, sans wrapper sidebar).
+  if (variant === 'bar') {
+    return <div className="w-40 sm:w-56">{siteSelect}</div>
+  }
 
   if (iconOnly) {
     const active = sites.find((s) => s.id === activeSiteId)
@@ -66,19 +91,5 @@ export function SiteSwitcher({ iconOnly = false }: { iconOnly?: boolean }) {
     )
   }
 
-  return (
-    <div className="px-3 pt-3">
-      <Select
-        value={activeSiteId ?? ''}
-        onChange={(e) => setActiveSiteId(e.target.value)}
-        aria-label="Site actif"
-      >
-        {sites.map((site) => (
-          <option key={site.id} value={site.id}>
-            {site.nom}
-          </option>
-        ))}
-      </Select>
-    </div>
-  )
+  return <div className="px-3 pt-3">{siteSelect}</div>
 }
