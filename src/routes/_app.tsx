@@ -38,14 +38,16 @@ export const Route = createFileRoute('/_app')({
     }
     // Pré-résout rôle ET sites (mis en cache) pour décider le layout sans flash
     // (demandeur = top bar ; aucun site = écran dédié) et alimenter les gardes
-    // enfants. Fail-open : si indisponible, on retombe sur le layout par défaut.
+    // enfants. Fail-open : si la RPC échoue, on ne bloque pas — LayoutSwitch
+    // choisit selon le rôle chargé (DefaultLayout s'il reste absent). La RLS
+    // demeure la sécurité réelle.
     try {
       await Promise.all([
         context.queryClient.ensureQueryData(currentRoleQueryOptions),
         context.queryClient.ensureQueryData(sitesQueries.mine()),
       ])
     } catch {
-      // rôle/sites indisponibles : layout par défaut
+      // rôle/sites indisponibles : fail-open (cf. ci-dessus)
     }
   },
   component: AppLayout,
@@ -137,6 +139,8 @@ function LayoutSwitch() {
     .map((s) => s.id)
     .sort()
     .join(',')
+  // DOIT rester avant tout early return : sinon un changement de droits à chaud
+  // ne serait plus synchronisé (le hook ne s'exécuterait pas selon le layout rendu).
   useAccessSync(role, siteIds)
 
   if (!perm.isAdmin(role) && !isPending && sites.length === 0) {
@@ -231,11 +235,13 @@ function DemandeurLayout() {
  * de sens sans site). Le bloc compte reste accessible (déconnexion, thème).
  */
 function NoSiteLayout() {
+  const mainRef = useMainFocusRef()
   return (
     <div className="flex h-dvh flex-col">
       <SkipLink />
       <TopBar />
       <main
+        ref={mainRef}
         id="contenu"
         tabIndex={-1}
         className="min-w-0 flex-1 overflow-auto outline-none"

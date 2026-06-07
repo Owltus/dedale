@@ -173,8 +173,8 @@ export function SidebarContent({
   const { data: role } = useCurrentRole()
   return (
     <>
-      {/* En-tête (logo + titre). Masqué dans le drawer mobile : la marque est
-          déjà dans la barre supérieure, donc inutile de la répéter. */}
+      {/* En-tête (logo + titre), bloc borduré indépendant. Masqué dans le drawer
+          mobile : la marque est déjà dans la barre supérieure. */}
       {showHeader &&
         (iconOnly ? (
           <div className="flex h-16 shrink-0 items-center justify-center border-b px-2">
@@ -204,7 +204,9 @@ export function SidebarContent({
           </div>
         ))}
 
-      <SiteSwitcher iconOnly={iconOnly} />
+      {/* Barre de contexte « site actif » : zone bordée distincte sous le header
+          (visible seulement s'il y a plusieurs sites accessibles). */}
+      <SiteSwitcher variant={iconOnly ? 'sidebar-rail' : 'sidebar'} />
 
       <div className="flex-1 overflow-x-hidden overflow-y-auto py-2 [&>div:first-child]:pt-0">
         <NavGroup

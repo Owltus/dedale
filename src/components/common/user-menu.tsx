@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Check, LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
-import { roleLabel } from '@/features/utilisateurs/schemas'
+import { roleLabel } from '@/lib/permissions'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useTheme } from '@/components/theme'
@@ -52,11 +52,14 @@ export function UserMenu({
   onNavigate,
   iconOnly = false,
   className,
+  responsiveText = false,
 }: {
   onNavigate?: () => void
   iconOnly?: boolean
   /** Classe appliquée au déclencheur étendu (ex. largeur dans une top bar). */
   className?: string
+  /** Masque le nom/rôle sous `sm` (top bar mobile : avatar seul). */
+  responsiveText?: boolean
 }) {
   const { session } = useAuth()
   const { data: role } = useCurrentRole()
@@ -111,7 +114,12 @@ export function UserMenu({
             )}
           >
             {avatar}
-            <div className="min-w-0 flex-1">
+            <div
+              className={cn(
+                'min-w-0 flex-1',
+                responsiveText && 'hidden sm:block',
+              )}
+            >
               <p className="truncate text-sm font-medium" title={displayName}>
                 {displayName}
               </p>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { KeyRound, Mail } from 'lucide-react'
+import { Building2, KeyRound, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { useUpdateUser } from '@/features/utilisateurs/mutations'
@@ -9,6 +9,7 @@ import { profileSchema, roleLabel } from '@/features/utilisateurs/schemas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
+import { useSiteContext } from '@/lib/site-context'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { TextField } from '@/components/common/text-field'
@@ -72,6 +73,8 @@ function ProfilPage() {
                 />
               </CardContent>
             </Card>
+
+            <SitesCard />
 
             <SecurityCard email={email} />
           </>
@@ -222,6 +225,38 @@ function ProfilForm({
         {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
       </Button>
     </form>
+  )
+}
+
+// --- Sites attribués (lecture seule) ---
+
+function SitesCard() {
+  const { sites, isPending } = useSiteContext()
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Mes sites</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isPending ? (
+          <Skeleton className="h-10 w-full" />
+        ) : sites.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            Aucun site ne t’est attribué pour le moment. Contacte un
+            administrateur pour obtenir l’accès à un ou plusieurs sites.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {sites.map((site) => (
+              <li key={site.id} className="flex items-center gap-2 text-sm">
+                <Building2 className="text-muted-foreground size-4 shrink-0" />
+                <span className="font-medium">{site.nom}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

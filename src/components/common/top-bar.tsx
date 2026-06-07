@@ -27,10 +27,10 @@ export function TopBar() {
         </div>
       </Link>
 
-      <div className="ml-auto flex min-w-0 items-center gap-2">
-        <SiteSwitcher variant="bar" />
-        <UserMenu className="w-auto max-w-56" />
-      </div>
+      {/* Site courant, juste après la marque (le séparateur est rendu par SiteSwitcher). */}
+      <SiteSwitcher variant="bar" />
+
+      <UserMenu responsiveText className="ml-auto w-auto max-w-56 shrink-0" />
     </header>
   )
 }
