@@ -5,14 +5,19 @@ import {
   Outlet,
   useRouterState,
 } from '@tanstack/react-router'
+import { Building2 } from 'lucide-react'
 import {
   currentRoleQueryOptions,
   useCurrentRole,
 } from '@/hooks/use-current-role'
-import { SiteProvider } from '@/lib/site-context'
+import { sitesQueries } from '@/features/sites/queries'
+import { SiteProvider, useSiteContext } from '@/lib/site-context'
+import * as perm from '@/lib/permissions'
 import { AppSidebar, SidebarContent } from '@/components/common/app-sidebar'
 import { MobileHeader } from '@/components/common/mobile-header'
 import { TopBar } from '@/components/common/top-bar'
+import { PageContainer } from '@/components/common/page-container'
+import { EmptyState } from '@/components/common/empty-state'
 import {
   Sheet,
   SheetContent,
@@ -28,13 +33,16 @@ export const Route = createFileRoute('/_app')({
     if (!context.auth.session) {
       throw redirect({ to: '/login' })
     }
-    // Pré-résout le rôle (mis en cache) pour choisir le layout sans flash
-    // (le demandeur a un layout dédié) et alimenter les gardes enfants
-    // (requireNav). Fail-open : si indisponible, on retombe sur le layout par défaut.
+    // Pré-résout rôle ET sites (mis en cache) pour décider le layout sans flash
+    // (demandeur = top bar ; aucun site = écran dédié) et alimenter les gardes
+    // enfants. Fail-open : si indisponible, on retombe sur le layout par défaut.
     try {
-      await context.queryClient.ensureQueryData(currentRoleQueryOptions)
+      await Promise.all([
+        context.queryClient.ensureQueryData(currentRoleQueryOptions),
+        context.queryClient.ensureQueryData(sitesQueries.mine()),
+      ])
     } catch {
-      // rôle indisponible : layout par défaut (sidebar)
+      // rôle/sites indisponibles : layout par défaut
     }
   },
   component: AppLayout,
@@ -70,14 +78,35 @@ function SkipLink() {
 }
 
 /**
- * Aiguillage de layout selon le rôle. Le rôle est préchargé en `beforeLoad`, donc
- * disponible dès le premier rendu (pas de flash). Le demandeur n'a pas de sidebar :
- * juste une barre supérieure (`DemandeurLayout`) ; les autres rôles gardent la
- * sidebar responsive (`DefaultLayout`).
+ * Providers communs + aiguillage de layout. Rôle et sites sont préchargés en
+ * beforeLoad → disponibles dès le premier rendu (pas de flash).
  */
 function AppLayout() {
+  return (
+    <SiteProvider>
+      <TooltipProvider delayDuration={200}>
+        <LayoutSwitch />
+      </TooltipProvider>
+    </SiteProvider>
+  )
+}
+
+/**
+ * Choix du layout selon le rôle et les sites accessibles :
+ *  - aucun site assigné (tout rôle SAUF admin) : écran dédié (NoSiteLayout) ;
+ *  - demandeur : barre supérieure seule (DemandeurLayout) ;
+ *  - autres rôles : sidebar responsive (DefaultLayout).
+ * L'admin a accès à tous les sites par défaut → jamais d'écran « aucun site »
+ * (il doit pouvoir aller en créer un).
+ */
+function LayoutSwitch() {
   const { data: role } = useCurrentRole()
-  return role === 'demandeur' ? <DemandeurLayout /> : <DefaultLayout />
+  const { sites, isPending } = useSiteContext()
+
+  if (!perm.isAdmin(role) && !isPending && sites.length === 0) {
+    return <NoSiteLayout />
+  }
+  return perm.isDemandeur(role) ? <DemandeurLayout /> : <DefaultLayout />
 }
 
 /**
@@ -100,45 +129,41 @@ function DefaultLayout() {
   const mainRef = useMainFocusRef()
 
   return (
-    <SiteProvider>
-      <TooltipProvider delayDuration={200}>
-        <div className="flex h-dvh">
-          <SkipLink />
+    <div className="flex h-dvh">
+      <SkipLink />
 
-          {/* Sidebar fixe : rail d'icônes (tablette souris) ou pleine (bureau) */}
-          {showFixedSidebar && <AppSidebar iconOnly={iconOnly} />}
+      {/* Sidebar fixe : rail d'icônes (tablette souris) ou pleine (bureau) */}
+      {showFixedSidebar && <AppSidebar iconOnly={iconOnly} />}
 
-          {/* Drawer (mobile + tablette tactile) : sidebar complète en overlay */}
-          <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-            <SheetContent side="left" showCloseButton={false}>
-              <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <SheetDescription className="sr-only">
-                Liens de navigation principale
-              </SheetDescription>
-              <SidebarContent
-                touch
-                showHeader={false}
-                onNavigate={() => setDrawerOpen(false)}
-              />
-            </SheetContent>
-          </Sheet>
+      {/* Drawer (mobile + tablette tactile) : sidebar complète en overlay */}
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <SheetContent side="left" showCloseButton={false}>
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
+          <SheetDescription className="sr-only">
+            Liens de navigation principale
+          </SheetDescription>
+          <SidebarContent
+            touch
+            showHeader={false}
+            onNavigate={() => setDrawerOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
 
-          <div className="flex min-w-0 flex-1 flex-col">
-            {!showFixedSidebar && (
-              <MobileHeader onMenu={() => setDrawerOpen(true)} />
-            )}
-            <main
-              ref={mainRef}
-              id="contenu"
-              tabIndex={-1}
-              className="min-w-0 flex-1 overflow-auto outline-none"
-            >
-              <Outlet />
-            </main>
-          </div>
-        </div>
-      </TooltipProvider>
-    </SiteProvider>
+      <div className="flex min-w-0 flex-1 flex-col">
+        {!showFixedSidebar && (
+          <MobileHeader onMenu={() => setDrawerOpen(true)} />
+        )}
+        <main
+          ref={mainRef}
+          id="contenu"
+          tabIndex={-1}
+          className="min-w-0 flex-1 overflow-auto outline-none"
+        >
+          <Outlet />
+        </main>
+      </div>
+    </div>
   )
 }
 
@@ -149,21 +174,44 @@ function DefaultLayout() {
 function DemandeurLayout() {
   const mainRef = useMainFocusRef()
   return (
-    <SiteProvider>
-      <TooltipProvider delayDuration={200}>
-        <div className="flex h-dvh flex-col">
-          <SkipLink />
-          <TopBar />
-          <main
-            ref={mainRef}
-            id="contenu"
-            tabIndex={-1}
-            className="min-w-0 flex-1 overflow-auto outline-none"
-          >
-            <Outlet />
-          </main>
-        </div>
-      </TooltipProvider>
-    </SiteProvider>
+    <div className="flex h-dvh flex-col">
+      <SkipLink />
+      <TopBar />
+      <main
+        ref={mainRef}
+        id="contenu"
+        tabIndex={-1}
+        className="min-w-0 flex-1 overflow-auto outline-none"
+      >
+        <Outlet />
+      </main>
+    </div>
+  )
+}
+
+/**
+ * Écran « aucun site assigné » : layout barre supérieure + message. Affiché à tout
+ * rôle non-admin dont le compte n'a encore aucun site (la navigation métier n'a pas
+ * de sens sans site). Le bloc compte reste accessible (déconnexion, thème).
+ */
+function NoSiteLayout() {
+  return (
+    <div className="flex h-dvh flex-col">
+      <SkipLink />
+      <TopBar />
+      <main
+        id="contenu"
+        tabIndex={-1}
+        className="min-w-0 flex-1 overflow-auto outline-none"
+      >
+        <PageContainer>
+          <EmptyState
+            icon={Building2}
+            title="Aucun site assigné"
+            description="Aucun site n'a encore été assigné à ton compte. Contacte un administrateur pour qu'il t'attribue l'accès à un ou plusieurs sites."
+          />
+        </PageContainer>
+      </main>
+    </div>
   )
 }

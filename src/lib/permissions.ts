@@ -45,6 +45,11 @@ export function isAdmin(role: Role): boolean {
   return role === 'admin'
 }
 
+/** Demandeur : rôle « externe » (signale des demandes) ; layout dédié (top bar). */
+export function isDemandeur(role: Role): boolean {
+  return role === 'demandeur'
+}
+
 /** Créer / modifier des ressources métier (OT, gammes, équipements, docs…). */
 export function canManageMetier(role: Role): boolean {
   return !!role && ROLES_METIER.includes(role)
