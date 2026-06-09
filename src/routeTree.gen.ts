@@ -28,6 +28,7 @@ import { Route as AppEquipementsRouteImport } from './routes/_app/equipements'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppDemandesRouteImport } from './routes/_app/demandes'
 import { Route as AppChantiersRouteImport } from './routes/_app/chantiers'
+import { Route as AppBibliothequeRouteImport } from './routes/_app/bibliotheque'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -123,11 +124,17 @@ const AppChantiersRoute = AppChantiersRouteImport.update({
   path: '/chantiers',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBibliothequeRoute = AppBibliothequeRouteImport.update({
+  id: '/bibliotheque',
+  path: '/bibliotheque',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
+  '/bibliotheque': typeof AppBibliothequeRoute
   '/chantiers': typeof AppChantiersRoute
   '/demandes': typeof AppDemandesRoute
   '/documents': typeof AppDocumentsRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
+  '/bibliotheque': typeof AppBibliothequeRoute
   '/chantiers': typeof AppChantiersRoute
   '/demandes': typeof AppDemandesRoute
   '/documents': typeof AppDocumentsRoute
@@ -169,6 +177,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
+  '/_app/bibliotheque': typeof AppBibliothequeRoute
   '/_app/chantiers': typeof AppChantiersRoute
   '/_app/demandes': typeof AppDemandesRoute
   '/_app/documents': typeof AppDocumentsRoute
@@ -192,6 +201,7 @@ export interface FileRouteTypes {
     | '/'
     | '/definir-mot-de-passe'
     | '/login'
+    | '/bibliotheque'
     | '/chantiers'
     | '/demandes'
     | '/documents'
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
   to:
     | '/definir-mot-de-passe'
     | '/login'
+    | '/bibliotheque'
     | '/chantiers'
     | '/demandes'
     | '/documents'
@@ -232,6 +243,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/definir-mot-de-passe'
     | '/login'
+    | '/_app/bibliotheque'
     | '/_app/chantiers'
     | '/_app/demandes'
     | '/_app/documents'
@@ -391,10 +403,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChantiersRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/bibliotheque': {
+      id: '/_app/bibliotheque'
+      path: '/bibliotheque'
+      fullPath: '/bibliotheque'
+      preLoaderRoute: typeof AppBibliothequeRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppBibliothequeRoute: typeof AppBibliothequeRoute
   AppChantiersRoute: typeof AppChantiersRoute
   AppDemandesRoute: typeof AppDemandesRoute
   AppDocumentsRoute: typeof AppDocumentsRoute
@@ -414,6 +434,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppBibliothequeRoute: AppBibliothequeRoute,
   AppChantiersRoute: AppChantiersRoute,
   AppDemandesRoute: AppDemandesRoute,
   AppDocumentsRoute: AppDocumentsRoute,

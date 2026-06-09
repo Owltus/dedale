@@ -63,29 +63,11 @@ export const equipementsQueries = {
     }),
 }
 
-export const modelesEquipementsQueries = {
-  all: () => ['modeles_equipements'] as const,
-
-  /**
-   * Modèles d'équipement de la bibliothèque accessibles à l'utilisateur.
-   * Scope entreprise (site_id NULL) ou scope du site actif. La RLS filtre déjà
-   * la visibilité ; on restreint en plus au site courant côté client.
-   */
-  list: (siteId: string | null) =>
-    queryOptions({
-      queryKey: [...modelesEquipementsQueries.all(), 'list', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('modeles_equipements')
-          .select('*, categories(id, nom)')
-          .eq('est_actif', true)
-          .is('deleted_at', null)
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data.filter((m) => m.site_id === null || m.site_id === siteId)
-      },
-      staleTime: 60_000,
-    }),
-}
+// Le catalogue de modèles d'équipements est désormais géré dans la feature
+// dédiée `modeles-equipements`. On ré-exporte ici pour les consommateurs
+// historiques (instanciation depuis l'écran Équipements) sans dupliquer la
+// définition ni la clé de cache.
+export {
+  modelesEquipementsQueries,
+  type ModeleEquipement,
+} from '@/features/modeles-equipements/queries'

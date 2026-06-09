@@ -1,0 +1,57 @@
+import { queryOptions } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+import type { Database } from '@/lib/database.types'
+
+export type ModeleEquipement =
+  Database['public']['Tables']['modeles_equipements']['Row']
+
+export const modelesEquipementsQueries = {
+  all: () => ['modeles_equipements'] as const,
+
+  /**
+   * Modèles ACTIFS visibles, pour l'instanciation depuis l'écran Équipements.
+   * Scope entreprise (site_id NULL) + scope du site actif. La RLS filtre déjà ;
+   * on restreint en plus au site courant côté client.
+   */
+  list: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [...modelesEquipementsQueries.all(), 'list', siteId] as const,
+      enabled: siteId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('modeles_equipements')
+          .select('*, categories(id, nom)')
+          .eq('est_actif', true)
+          .is('deleted_at', null)
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        return data.filter((m) => m.site_id === null || m.site_id === siteId)
+      },
+      staleTime: 60_000,
+    }),
+
+  /**
+   * Catalogue COMPLET (modèles actifs et masqués) pour la gestion en
+   * bibliothèque. Inclut la catégorie liée (jointure) pour l'affichage.
+   */
+  catalogue: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [
+        ...modelesEquipementsQueries.all(),
+        'catalogue',
+        siteId,
+      ] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('modeles_equipements')
+          .select('*, categories(id, nom)')
+          .is('deleted_at', null)
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        return data.filter((m) => m.site_id === null || m.site_id === siteId)
+      },
+      staleTime: 60_000,
+    }),
+}

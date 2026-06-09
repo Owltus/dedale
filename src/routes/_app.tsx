@@ -198,7 +198,7 @@ function DefaultLayout() {
           ref={mainRef}
           id="contenu"
           tabIndex={-1}
-          className="min-w-0 flex-1 overflow-auto outline-none"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none"
         >
           <Outlet />
         </main>
@@ -221,7 +221,7 @@ function DemandeurLayout() {
         ref={mainRef}
         id="contenu"
         tabIndex={-1}
-        className="min-w-0 flex-1 overflow-auto outline-none"
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none"
       >
         <Outlet />
       </main>
@@ -244,7 +244,7 @@ function NoSiteLayout() {
         ref={mainRef}
         id="contenu"
         tabIndex={-1}
-        className="min-w-0 flex-1 overflow-auto outline-none"
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none"
       >
         <PageContainer>
           <EmptyState

@@ -2,6 +2,7 @@ import type { Role } from '@/lib/permissions'
 import {
   ROLES_ADMIN,
   ROLES_ADMINISTRATIF,
+  ROLES_METIER,
   ROLES_METIER_LECTURE,
 } from '@/lib/permissions'
 
@@ -37,6 +38,7 @@ export type NavKey =
   | '/equipements'
   | '/prestataires'
   | '/utilisateurs'
+  | '/bibliotheque'
 
 /**
  * Rôles autorisés à VOIR chaque entrée. `'tous'` = visible par tous les rôles
@@ -59,6 +61,10 @@ const NAV_ROLES: Record<NavKey, readonly string[] | 'tous'> = {
   '/equipements': ROLES_METIER_LECTURE,
   '/prestataires': ROLES_METIER_LECTURE,
   '/utilisateurs': ROLES_ADMINISTRATIF,
+  // Bibliothèque : page unique (catalogue partagé). Visible aux rôles métier
+  // (admin, manager, technicien) — l'outil des techs sur leurs sites ;
+  // lecteur/demandeur exclus. L'écriture entreprise reste admin/manager (RLS).
+  '/bibliotheque': ROLES_METIER,
 }
 
 /**

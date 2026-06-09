@@ -3302,6 +3302,7 @@ export type Database = {
       snapshot_ot_from_gamme: { Args: { p_ot_id: string }; Returns: undefined }
       storage_objet_modifiable: { Args: { p_name: string }; Returns: boolean }
       storage_objet_rattache: { Args: { p_name: string }; Returns: boolean }
+      supprimer_blob_orphelin: { Args: { p_path: string }; Returns: boolean }
     }
     Enums: {
       categorie_scope: "equipement" | "gamme" | "mixte"

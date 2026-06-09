@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import type { LucideProps } from 'lucide-react'
 import {
   Banknote,
+  BookOpen,
   Boxes,
   Briefcase,
   Building2,
@@ -66,6 +67,7 @@ const REFERENTIELS: NavItem[] = [
   { to: '/localisations', label: 'Localisations', icon: MapPin },
   { to: '/equipements', label: 'Équipements', icon: Boxes },
   { to: '/prestataires', label: 'Prestataires', icon: Briefcase },
+  { to: '/bibliotheque', label: 'Bibliothèque', icon: BookOpen },
   { to: '/utilisateurs', label: 'Utilisateurs', icon: Users },
 ]
 
