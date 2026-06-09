@@ -28,12 +28,23 @@ interface CategoryFormDialogProps {
   canEntreprise: boolean
   siteId: string | null
   siteName: string | null
+  /**
+   * Création depuis le + de la page : portée VERROUILLÉE (les catégories sont en
+   * commun) → le sélecteur de portée est masqué. Ignoré en édition.
+   */
+  lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
+  /**
+   * Création MINIMALE (navigation par paliers) : ne garde que Nom + Description
+   * (Type, Parent, État et Portée masqués). Ignoré en édition.
+   */
+  minimal?: boolean
 }
 
 function initialValues(
   categorie: Categorie | null | undefined,
   preset: Preset | undefined,
   canEntreprise: boolean,
+  lockedScope: { portee: 'entreprise' | 'site' } | null | undefined,
 ): CategorieFormValues {
   if (categorie) {
     return {
@@ -47,11 +58,16 @@ function initialValues(
   }
   return {
     ...emptyCategorie,
-    // Un tech ne crée que des catégories de site.
-    portee: canEntreprise ? emptyCategorie.portee : 'site',
+    // Portée verrouillée sur le périmètre de la page si fournie (Catégories =
+    // commun) ; sinon défaut selon le rôle.
+    portee: lockedScope
+      ? lockedScope.portee
+      : canEntreprise
+        ? emptyCategorie.portee
+        : 'site',
     ...(preset?.parent_id ? { parent_id: preset.parent_id } : {}),
     ...(preset?.scope ? { scope: preset.scope } : {}),
-    ...(preset?.portee ? { portee: preset.portee } : {}),
+    ...(preset?.portee && !lockedScope ? { portee: preset.portee } : {}),
   }
 }
 
@@ -87,12 +103,14 @@ export function CategoryFormDialog({
   canEntreprise,
   siteId,
   siteName,
+  lockedScope,
+  minimal,
 }: CategoryFormDialogProps) {
   const isEdit = Boolean(categorie)
   const create = useCreateCategorie()
   const update = useUpdateCategorie()
   const [values, setValues] = useState<CategorieFormValues>(() =>
-    initialValues(categorie, preset, canEntreprise),
+    initialValues(categorie, preset, canEntreprise, lockedScope),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
@@ -104,6 +122,10 @@ export function CategoryFormDialog({
   // Option Entreprise visible si on en a le droit, ou si la valeur courante l'est
   // déjà (lecture d'une entrée entreprise existante).
   const showEntreprise = canEntreprise || values.portee === 'entreprise'
+  // Création depuis le + : la portée vient du périmètre de la page → masquée.
+  const hidePortee = !isEdit && lockedScope != null
+  // Mode minimal (création depuis la navigation) : juste Nom + Description.
+  const compact = minimal === true && !isEdit
 
   function set<K extends keyof CategorieFormValues>(
     key: K,
@@ -128,7 +150,10 @@ export function CategoryFormDialog({
         })
         toast.success('Catégorie modifiée')
       } else {
-        await create.mutateAsync({ values: parsed.data, siteId })
+        await create.mutateAsync({
+          values: parsed.data,
+          siteId: lockedScope ? lockedScope.siteId : siteId,
+        })
         toast.success('Catégorie créée')
       }
       onOpenChange(false)
@@ -142,7 +167,11 @@ export function CategoryFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
-      description="Un domaine est une catégorie racine ; une famille est rattachée à un parent."
+      description={
+        compact
+          ? 'Une catégorie pour ranger tes modèles d’équipement.'
+          : 'Un domaine est une catégorie racine ; une famille est rattachée à un parent.'
+      }
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
@@ -155,53 +184,71 @@ export function CategoryFormDialog({
         error={errors.nom}
         required
       />
-      <div className="grid grid-cols-2 gap-4">
-        <SelectField
-          label="Type"
-          value={values.scope}
-          onChange={(v) => set('scope', v as CategorieFormValues['scope'])}
-          error={errors.scope}
-          required
+      {(!compact || !hidePortee) && (
+        <div
+          className={
+            !compact && !hidePortee ? 'grid grid-cols-2 gap-4' : undefined
+          }
         >
-          {CATEGORIE_SCOPES.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
+          {!compact && (
+            <SelectField
+              label="Type"
+              value={values.scope}
+              onChange={(v) => set('scope', v as CategorieFormValues['scope'])}
+              error={errors.scope}
+              required
+            >
+              {CATEGORIE_SCOPES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </SelectField>
+          )}
+          {!hidePortee && (
+            <SelectField
+              label="Portée"
+              value={values.portee}
+              onChange={(v) =>
+                set('portee', v as CategorieFormValues['portee'])
+              }
+              error={errors.portee}
+              required
+            >
+              {showEntreprise && <option value="entreprise">Commun</option>}
+              {siteId && (
+                <option value="site">{siteName ?? 'Site actif'}</option>
+              )}
+            </SelectField>
+          )}
+        </div>
+      )}
+      {!compact && (
+        <SelectField
+          label="Parent"
+          value={values.parent_id}
+          onChange={(v) => set('parent_id', v)}
+          error={errors.parent_id}
+        >
+          <option value="">— Aucun (domaine racine) —</option>
+          {parentOptions.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nom}
+              {c.site_id === null ? ' (entreprise)' : ''}
             </option>
           ))}
         </SelectField>
+      )}
+      {!compact && (
         <SelectField
-          label="Portée"
-          value={values.portee}
-          onChange={(v) => set('portee', v as CategorieFormValues['portee'])}
-          error={errors.portee}
-          required
+          label="État"
+          value={values.etat}
+          onChange={(v) => set('etat', v as CategorieFormValues['etat'])}
         >
-          {showEntreprise && <option value="entreprise">Commun</option>}
-          {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
+          <option value="actif">Actif</option>
+          <option value="inactif">Masqué</option>
         </SelectField>
-      </div>
-      <SelectField
-        label="Parent"
-        value={values.parent_id}
-        onChange={(v) => set('parent_id', v)}
-        error={errors.parent_id}
-      >
-        <option value="">— Aucun (domaine racine) —</option>
-        {parentOptions.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.nom}
-            {c.site_id === null ? ' (entreprise)' : ''}
-          </option>
-        ))}
-      </SelectField>
-      <SelectField
-        label="État"
-        value={values.etat}
-        onChange={(v) => set('etat', v as CategorieFormValues['etat'])}
-      >
-        <option value="actif">Actif</option>
-        <option value="inactif">Masqué</option>
-      </SelectField>
+      )}
       <TextareaField
         label="Description"
         value={values.description}

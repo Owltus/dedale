@@ -9,8 +9,8 @@ export interface SpecLine {
 export const modeleEquipementSchema = z.object({
   nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
   description: z.string().trim().max(2000),
-  /** '' = aucune catégorie. */
-  categorie_id: z.string(),
+  /** Catégorie de rattachement, OBLIGATOIRE : tout modèle est rangé sous une catégorie. */
+  categorie_id: z.string().min(1, 'La catégorie est obligatoire'),
   /** entreprise = catalogue global (site_id NULL) ; site = catalogue du site actif. */
   portee: z.enum(['entreprise', 'site']),
   /** Activation sans suppression. */

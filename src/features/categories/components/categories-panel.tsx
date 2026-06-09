@@ -37,7 +37,7 @@ export function CategoriesPanel() {
   const canManage = perm.canManageMetier(role)
   const canEntreprise = perm.canManageAdmin(role)
   const { activeSiteId, activeSite } = useSiteContext()
-  const query = useQuery(categoriesQueries.list(activeSiteId))
+  const query = useQuery(categoriesQueries.pool())
   const del = useDeleteCategorie()
 
   const [form, setForm] = useState<FormState>({
@@ -51,7 +51,11 @@ export function CategoriesPanel() {
     () => setForm({ open: true, categorie: null, preset: undefined }),
     [],
   )
-  useTabAddAction(canManage ? handleAdd : null, 'Nouvelle catégorie')
+  // Catalogue COMMUN : la création est réservée aux rôles entreprise. Bouton
+  // visible mais désactivé pour les autres (UX stable, pas de bêtise).
+  useTabAddAction(canManage ? handleAdd : null, 'Nouvelle catégorie', {
+    disabled: !canEntreprise,
+  })
 
   // Mises à jour live entre fenêtres / comptes (Realtime).
   useRealtimeRefresh('categories', categoriesQueries.all())
@@ -87,7 +91,7 @@ export function CategoriesPanel() {
         {(categories) => (
           <CategoryTree
             categories={categories}
-            canManage={canManage}
+            canManage={canEntreprise}
             canManageEntreprise={canEntreprise}
             onEdit={(c) =>
               setForm({ open: true, categorie: c, preset: undefined })
@@ -96,17 +100,7 @@ export function CategoriesPanel() {
               setForm({
                 open: true,
                 categorie: null,
-                preset: {
-                  parent_id: parent.id,
-                  scope: parent.scope,
-                  // Un tech ajoute une sous-catégorie de site, même sous un parent
-                  // entreprise (le backend l'autorise).
-                  portee: canEntreprise
-                    ? parent.site_id === null
-                      ? 'entreprise'
-                      : 'site'
-                    : 'site',
-                },
+                preset: { parent_id: parent.id, scope: parent.scope },
               })
             }
             onDelete={(c) => setToDelete(c)}
@@ -125,6 +119,9 @@ export function CategoriesPanel() {
           canEntreprise={canEntreprise}
           siteId={activeSiteId}
           siteName={activeSite?.nom ?? null}
+          lockedScope={
+            form.categorie ? undefined : { portee: 'entreprise', siteId: null }
+          }
         />
       )}
 

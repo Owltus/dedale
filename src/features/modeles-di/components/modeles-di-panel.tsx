@@ -1,16 +1,19 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FileText, MapPin, Pencil, Trash2 } from 'lucide-react'
+import { FileText, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { modelesDiQueries, type ModeleDi } from '../queries'
 import { useDeleteModeleDi } from '../mutations'
 import { ModeleDiFormDialog } from './modele-di-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
+import { useScope } from '@/hooks/use-scope'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { SCOPE_ALL, scopeMatches } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
+import { ScopeSelect } from '@/components/common/scope-select'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
@@ -20,42 +23,40 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cardGrid } from '@/lib/responsive'
 
-/** Panneau « Modèles de DI » (scope site strict : exige un site actif). */
+/**
+ * Panneau « Modèles de DI ». Scope SITE strict (pas de niveau « Commun ») : le
+ * sélecteur propose « Tout » + chaque site. Le + cible le site sélectionné et
+ * est désactivé sur « Tout » (un modèle de DI appartient à un site précis).
+ */
 export function ModelesDiPanel() {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <EmptyState
-        icon={MapPin}
-        title="Sélectionne un site"
-        description="Les modèles de DI sont rattachés à un site : choisis un site pour les gérer."
-      />
-    )
-  }
-
-  return <ModelesDiListPanel siteId={activeSiteId} canManage={canManage} />
-}
-
-function ModelesDiListPanel({
-  siteId,
-  canManage,
-}: {
-  siteId: string
-  canManage: boolean
-}) {
-  const query = useQuery(modelesDiQueries.list(siteId))
+  const { sites } = useSiteContext()
+  const query = useQuery(modelesDiQueries.pool())
   const del = useDeleteModeleDi()
+  const { scope, setScope } = useScope(false)
+
   const [form, setForm] = useState<{ open: boolean; modele: ModeleDi | null }>({
     open: false,
     modele: null,
   })
   const [toDelete, setToDelete] = useState<ModeleDi | null>(null)
 
+  // Cible d'ajout : le site sélectionné (null sur « Tout » → pas de cible unique).
+  const targetSiteId = scope === SCOPE_ALL ? null : scope
+  const canAdd = canManage && targetSiteId !== null
+
   const handleAdd = useCallback(() => setForm({ open: true, modele: null }), [])
-  useTabAddAction(canManage ? handleAdd : null, 'Nouveau modèle de DI')
+  const scopeControl = useMemo(
+    () => <ScopeSelect value={scope} onChange={setScope} allowCommun={false} />,
+    [scope, setScope],
+  )
+  // Bouton toujours visible pour un rôle métier, mais DÉSACTIVÉ sur « Tout »
+  // (un modèle de DI cible un site précis) → UX stable.
+  useTabAddAction(canManage ? handleAdd : null, 'Nouveau modèle de DI', {
+    disabled: !canAdd,
+    extra: scopeControl,
+  })
 
   // Mises à jour live entre fenêtres / comptes (Realtime).
   useRealtimeRefresh('modeles_di', modelesDiQueries.all())
@@ -82,58 +83,83 @@ function ModelesDiListPanel({
             title="Aucun modèle de DI"
             description={
               canManage
-                ? 'Crée un premier modèle pour pré-remplir les demandes.'
+                ? 'Choisis un site, puis crée un modèle via le bouton + en haut à droite.'
                 : 'Aucun modèle accessible.'
             }
           />
         }
       >
-        {(modeles) => (
-          <div className={cardGrid.default}>
-            {modeles.map((modele) => (
-              <Card key={modele.id} className="min-w-0">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="truncate">{modele.libelle}</CardTitle>
-                    {!modele.est_actif && (
-                      <Badge variant="outline">Masqué</Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="text-muted-foreground flex flex-col gap-2 text-sm">
-                  <span className="line-clamp-3">{modele.constat_modele}</span>
-                  {canManage && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setForm({ open: true, modele })}
-                      >
-                        <Pencil /> Modifier
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setToDelete(modele)}
-                      >
-                        <Trash2 /> Supprimer
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+        {(modeles) => {
+          const visible = modeles.filter((m) => scopeMatches(scope, m.site_id))
+          if (visible.length === 0) {
+            return (
+              <EmptyState
+                icon={FileText}
+                title="Aucun modèle de DI ici"
+                description="Aucun modèle dans ce périmètre pour le moment."
+              />
+            )
+          }
+          return (
+            <div className={cardGrid.default}>
+              {visible.map((modele) => {
+                const siteName =
+                  sites.find((s) => s.id === modele.site_id)?.nom ?? null
+                return (
+                  <Card key={modele.id} className="min-w-0">
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="truncate">
+                          {modele.libelle}
+                        </CardTitle>
+                        <div className="flex shrink-0 gap-1">
+                          {scope === SCOPE_ALL && siteName !== null && (
+                            <Badge variant="outline">{siteName}</Badge>
+                          )}
+                          {!modele.est_actif && (
+                            <Badge variant="outline">Masqué</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="text-muted-foreground flex flex-col gap-2 text-sm">
+                      <span className="line-clamp-3">
+                        {modele.constat_modele}
+                      </span>
+                      {canManage && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setForm({ open: true, modele })}
+                          >
+                            <Pencil /> Modifier
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setToDelete(modele)}
+                          >
+                            <Trash2 /> Supprimer
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )
+        }}
       </QueryState>
 
-      {canManage && (
+      {canManage && targetSiteId !== null && (
         <ModeleDiFormDialog
           key={form.modele?.id ?? 'new'}
           open={form.open}
           onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
           modele={form.modele}
-          siteId={siteId}
+          siteId={targetSiteId}
         />
       )}
 

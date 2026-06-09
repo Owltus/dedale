@@ -54,4 +54,24 @@ export const modelesEquipementsQueries = {
       },
       staleTime: 60_000,
     }),
+
+  /**
+   * Catalogue COMPLET (actifs + masqués) SANS filtre de site : le périmètre est
+   * appliqué côté composant. Inclut la catégorie liée pour l'affichage.
+   */
+  pool: () =>
+    queryOptions({
+      queryKey: [...modelesEquipementsQueries.all(), 'pool'] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('modeles_equipements')
+          .select('*, categories(id, nom)')
+          .is('deleted_at', null)
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+      staleTime: 60_000,
+    }),
 }

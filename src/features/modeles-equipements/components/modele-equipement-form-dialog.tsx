@@ -28,6 +28,21 @@ interface ModeleEquipementFormDialogProps {
   canEntreprise: boolean
   siteId: string | null
   siteName: string | null
+  /**
+   * Création depuis le + de la page : portée VERROUILLÉE sur le périmètre choisi
+   * (le sélecteur de portée est alors masqué). Ignoré en édition.
+   */
+  lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
+  /**
+   * Création dans une catégorie imposée (navigation par paliers) : catégorie
+   * verrouillée → le sélecteur de catégorie est masqué. Ignoré en édition.
+   */
+  lockedCategorieId?: string | null
+  /**
+   * Création MINIMALE : ne garde que Nom + Description (État et caractéristiques
+   * masqués, ajoutables ensuite à l'édition). Ignoré en édition.
+   */
+  minimal?: boolean
 }
 
 // Représentation texte d'une valeur de caractéristique (primitive attendue ;
@@ -62,12 +77,21 @@ function specsToLines(
 function initialValues(
   modele: ModeleEquipement | null | undefined,
   canEntreprise: boolean,
+  lockedScope: { portee: 'entreprise' | 'site' } | null | undefined,
+  lockedCategorieId: string | null | undefined,
 ): ModeleEquipementFormValues {
   if (!modele)
     return {
       ...emptyModeleEquipement,
-      // Un tech ne crée que des modèles de site.
-      portee: canEntreprise ? emptyModeleEquipement.portee : 'site',
+      // Portée verrouillée sur le périmètre de la page si fournie ; sinon défaut
+      // selon le rôle (un tech ne crée que des modèles de site).
+      portee: lockedScope
+        ? lockedScope.portee
+        : canEntreprise
+          ? emptyModeleEquipement.portee
+          : 'site',
+      // Catégorie imposée par la navigation (sinon choisie dans le formulaire).
+      ...(lockedCategorieId ? { categorie_id: lockedCategorieId } : {}),
     }
   return {
     nom: modele.nom,
@@ -87,16 +111,24 @@ export function ModeleEquipementFormDialog({
   canEntreprise,
   siteId,
   siteName,
+  lockedScope,
+  lockedCategorieId,
+  minimal,
 }: ModeleEquipementFormDialogProps) {
   const isEdit = Boolean(modele)
   const create = useCreateModeleEquipement()
   const update = useUpdateModeleEquipement()
   const [values, setValues] = useState<ModeleEquipementFormValues>(() =>
-    initialValues(modele, canEntreprise),
+    initialValues(modele, canEntreprise, lockedScope, lockedCategorieId),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
   const showEntreprise = canEntreprise || values.portee === 'entreprise'
+  // Création depuis le + : portée et/ou catégorie viennent du contexte → masquées.
+  const hidePortee = !isEdit && lockedScope != null
+  const hideCategorie = !isEdit && lockedCategorieId != null
+  // Mode minimal (création depuis la navigation) : juste Nom + Description.
+  const compact = minimal === true && !isEdit
 
   function set<K extends keyof ModeleEquipementFormValues>(
     key: K,
@@ -132,7 +164,10 @@ export function ModeleEquipementFormDialog({
         await update.mutateAsync({ id: modele.id, values: parsed.data, siteId })
         toast.success('Modèle modifié')
       } else {
-        await create.mutateAsync({ values: parsed.data, siteId })
+        await create.mutateAsync({
+          values: parsed.data,
+          siteId: lockedScope ? lockedScope.siteId : siteId,
+        })
         toast.success('Modèle créé')
       }
       onOpenChange(false)
@@ -160,52 +195,71 @@ export function ModeleEquipementFormDialog({
         error={errors.nom}
         required
       />
-      <div className="grid grid-cols-2 gap-4">
-        <SelectField
-          label="Catégorie"
-          value={values.categorie_id}
-          onChange={(v) => set('categorie_id', v)}
-          error={errors.categorie_id}
-        >
-          <option value="">— Aucune —</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          label="Portée"
-          value={values.portee}
-          onChange={(v) =>
-            set('portee', v as ModeleEquipementFormValues['portee'])
+      {(!hideCategorie || !hidePortee) && (
+        <div
+          className={
+            !hideCategorie && !hidePortee ? 'grid grid-cols-2 gap-4' : undefined
           }
-          error={errors.portee}
-          required
         >
-          {showEntreprise && <option value="entreprise">Commun</option>}
-          {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
+          {!hideCategorie && (
+            <SelectField
+              label="Catégorie"
+              value={values.categorie_id}
+              onChange={(v) => set('categorie_id', v)}
+              error={errors.categorie_id}
+              required
+            >
+              <option value="" disabled>
+                — Choisir une catégorie —
+              </option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nom}
+                </option>
+              ))}
+            </SelectField>
+          )}
+          {!hidePortee && (
+            <SelectField
+              label="Portée"
+              value={values.portee}
+              onChange={(v) =>
+                set('portee', v as ModeleEquipementFormValues['portee'])
+              }
+              error={errors.portee}
+              required
+            >
+              {showEntreprise && <option value="entreprise">Commun</option>}
+              {siteId && (
+                <option value="site">{siteName ?? 'Site actif'}</option>
+              )}
+            </SelectField>
+          )}
+        </div>
+      )}
+      {!compact && (
+        <SelectField
+          label="État"
+          value={values.etat}
+          onChange={(v) => set('etat', v as ModeleEquipementFormValues['etat'])}
+        >
+          <option value="actif">Actif</option>
+          <option value="inactif">Masqué</option>
         </SelectField>
-      </div>
-      <SelectField
-        label="État"
-        value={values.etat}
-        onChange={(v) => set('etat', v as ModeleEquipementFormValues['etat'])}
-      >
-        <option value="actif">Actif</option>
-        <option value="inactif">Masqué</option>
-      </SelectField>
+      )}
       <TextareaField
         label="Description"
         value={values.description}
         onChange={(v) => set('description', v)}
         error={errors.description}
       />
-      <SpecificationsEditor
-        value={values.specifications}
-        onChange={(lines) => set('specifications', lines)}
-        error={errors.specifications}
-      />
+      {!compact && (
+        <SpecificationsEditor
+          value={values.specifications}
+          onChange={(lines) => set('specifications', lines)}
+          error={errors.specifications}
+        />
+      )}
     </FormDialog>
   )
 }

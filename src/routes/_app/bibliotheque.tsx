@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireNav } from '@/lib/nav-guard'
+import { ScopeProvider } from '@/components/common/scope-provider'
 import { PageContainer } from '@/components/common/page-container'
 import { Tabs, type TabItem } from '@/components/common/tabs'
 import { CategoriesPanel } from '@/features/categories/components/categories-panel'
@@ -7,6 +8,8 @@ import { ModelesEquipementsPanel } from '@/features/modeles-equipements/componen
 import { GammesTypesPanel } from '@/features/modeles-operations/components/gammes-types-panel'
 import { ModelesDiPanel } from '@/features/modeles-di/components/modeles-di-panel'
 import { MiniaturesPanel } from '@/features/miniatures/components/miniatures-panel'
+import { useCurrentRole } from '@/hooks/use-current-role'
+import * as perm from '@/lib/permissions'
 
 /**
  * Bibliothèque : page unique du catalogue, divisée en onglets. Catalogue
@@ -19,6 +22,12 @@ export const Route = createFileRoute('/_app/bibliotheque')({
 })
 
 function BibliothequePage() {
+  const { data: role } = useCurrentRole()
+  // Les modèles de DI sont à scope SITE strict : sans intérêt pour les rôles
+  // entreprise (admin/manager) qui raisonnent au niveau entreprise. Onglet
+  // réservé aux rôles qui gèrent concrètement un site (technicien).
+  const showDi = !perm.canManageAdmin(role)
+
   const tabs: TabItem[] = [
     {
       id: 'categories',
@@ -32,14 +41,18 @@ function BibliothequePage() {
     },
     {
       id: 'gammes-types',
-      label: 'Gammes-types',
+      label: 'Modèles de gammes',
       content: <GammesTypesPanel />,
     },
-    {
-      id: 'modeles-di',
-      label: 'Modèles de DI',
-      content: <ModelesDiPanel />,
-    },
+    ...(showDi
+      ? [
+          {
+            id: 'modeles-di',
+            label: 'Modèles de DI',
+            content: <ModelesDiPanel />,
+          },
+        ]
+      : []),
     {
       id: 'vignettes',
       label: 'Vignettes',
@@ -49,7 +62,9 @@ function BibliothequePage() {
 
   return (
     <PageContainer fill>
-      <Tabs title="Bibliothèque" items={tabs} />
+      <ScopeProvider>
+        <Tabs title="Bibliothèque" items={tabs} />
+      </ScopeProvider>
     </PageContainer>
   )
 }

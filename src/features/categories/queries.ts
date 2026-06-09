@@ -29,4 +29,25 @@ export const categoriesQueries = {
       },
       staleTime: 60_000,
     }),
+
+  /**
+   * Tout l'accessible (RLS) SANS filtre de site : le périmètre (Tout / Commun /
+   * site) est appliqué côté composant via le sélecteur de la Bibliothèque.
+   */
+  pool: () =>
+    queryOptions({
+      queryKey: [...categoriesQueries.all(), 'pool'] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('categories')
+          .select('*')
+          .is('deleted_at', null)
+          .order('ordre')
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+      staleTime: 60_000,
+    }),
 }

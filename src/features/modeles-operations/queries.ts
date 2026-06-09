@@ -45,4 +45,23 @@ export const modelesOperationsQueries = {
       },
       staleTime: 60_000,
     }),
+
+  /**
+   * Tout l'accessible (RLS) SANS filtre de site : le périmètre (Tout / Commun /
+   * site) est appliqué côté composant.
+   */
+  pool: () =>
+    queryOptions({
+      queryKey: [...modelesOperationsQueries.all(), 'pool'] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('modeles_operations')
+          .select('*')
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+      staleTime: 60_000,
+    }),
 }

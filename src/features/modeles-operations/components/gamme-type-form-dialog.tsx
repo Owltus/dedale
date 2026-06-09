@@ -21,17 +21,28 @@ interface GammeTypeFormDialogProps {
   canEntreprise: boolean
   siteId: string | null
   siteName: string | null
+  /**
+   * Création depuis le + de la page : portée VERROUILLÉE sur le périmètre choisi
+   * (le sélecteur de portée est alors masqué). Ignoré en édition.
+   */
+  lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
 }
 
 function initialValues(
   modele: ModeleOperation | null | undefined,
   canEntreprise: boolean,
+  lockedScope: { portee: 'entreprise' | 'site' } | null | undefined,
 ): ModeleOperationFormValues {
   if (!modele)
     return {
       ...emptyModeleOperation,
-      // Un tech ne crée que des gammes-types de site.
-      portee: canEntreprise ? emptyModeleOperation.portee : 'site',
+      // Portée verrouillée sur le périmètre de la page si fournie ; sinon défaut
+      // selon le rôle (un tech ne crée que des gammes-types de site).
+      portee: lockedScope
+        ? lockedScope.portee
+        : canEntreprise
+          ? emptyModeleOperation.portee
+          : 'site',
     }
   return {
     nom: modele.nom,
@@ -47,16 +58,19 @@ export function GammeTypeFormDialog({
   canEntreprise,
   siteId,
   siteName,
+  lockedScope,
 }: GammeTypeFormDialogProps) {
   const isEdit = Boolean(modele)
   const create = useCreateModeleOperation()
   const update = useUpdateModeleOperation()
   const [values, setValues] = useState<ModeleOperationFormValues>(() =>
-    initialValues(modele, canEntreprise),
+    initialValues(modele, canEntreprise, lockedScope),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
   const showEntreprise = canEntreprise || values.portee === 'entreprise'
+  // Création depuis le + : la portée vient du périmètre de la page → masquée.
+  const hidePortee = !isEdit && lockedScope != null
 
   function set<K extends keyof ModeleOperationFormValues>(
     key: K,
@@ -77,7 +91,10 @@ export function GammeTypeFormDialog({
         await update.mutateAsync({ id: modele.id, values: parsed.data, siteId })
         toast.success('Gamme-type modifiée')
       } else {
-        await create.mutateAsync({ values: parsed.data, siteId })
+        await create.mutateAsync({
+          values: parsed.data,
+          siteId: lockedScope ? lockedScope.siteId : siteId,
+        })
         toast.success('Gamme-type créée')
       }
       onOpenChange(false)
@@ -104,18 +121,20 @@ export function GammeTypeFormDialog({
         error={errors.nom}
         required
       />
-      <SelectField
-        label="Portée"
-        value={values.portee}
-        onChange={(v) =>
-          set('portee', v as ModeleOperationFormValues['portee'])
-        }
-        error={errors.portee}
-        required
-      >
-        {showEntreprise && <option value="entreprise">Commun</option>}
-        {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
-      </SelectField>
+      {!hidePortee && (
+        <SelectField
+          label="Portée"
+          value={values.portee}
+          onChange={(v) =>
+            set('portee', v as ModeleOperationFormValues['portee'])
+          }
+          error={errors.portee}
+          required
+        >
+          {showEntreprise && <option value="entreprise">Commun</option>}
+          {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
+        </SelectField>
+      )}
       <TextareaField
         label="Description"
         value={values.description}

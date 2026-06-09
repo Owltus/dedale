@@ -16,7 +16,8 @@ import {
 
 export interface TabItem {
   id: string
-  label: string
+  /** Libellé du bouton d'onglet (texte ou nœud, ex. libellé sur 2 lignes). */
+  label: ReactNode
   /** Contenu rendu uniquement quand l'onglet est actif (montage paresseux). */
   content: ReactNode
 }
@@ -89,7 +90,7 @@ export function Tabs({ items, defaultTabId, title }: TabsProps) {
                 aria-selected={selected}
                 onClick={() => setActive(tab.id)}
                 className={cn(
-                  'flex-1 cursor-pointer rounded-md px-3 py-1.5 text-center text-sm font-medium transition-colors',
+                  'flex flex-1 cursor-pointer items-center justify-center rounded-md px-3 py-1.5 text-center text-sm font-medium transition-colors',
                   selected
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'bg-muted text-muted-foreground hover:text-foreground',

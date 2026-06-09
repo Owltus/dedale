@@ -8,24 +8,21 @@ import { MiniatureCropDialog, type CropResult } from './miniature-crop-dialog'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
+import { useScope } from '@/hooks/use-scope'
 import { useSiteContext } from '@/lib/site-context'
 import { supabase } from '@/lib/supabase'
 import { errorMessage } from '@/lib/form'
+import { SCOPE_ALL, scopeMatches, scopeTarget } from '@/lib/scope'
 import { cn } from '@/lib/utils'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
+import { ScopeSelect } from '@/components/common/scope-select'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
-
-// Périmètre affiché / cible d'ajout. 'all' = tout, 'entreprise' = pool commun,
-// sinon un id de site.
-const SCOPE_ALL = 'all'
-const SCOPE_COMMUN = 'entreprise'
 
 // Déclenche un téléchargement navigateur d'un blob.
 function downloadBlob(blob: Blob, filename: string) {
@@ -55,7 +52,7 @@ export function MiniaturesPanel() {
   const { session } = useAuth()
   const canManage = perm.canManageMetier(role)
   const canEntreprise = perm.canManageAdmin(role)
-  const { activeSiteId, sites } = useSiteContext()
+  const { sites } = useSiteContext()
   const query = useQuery(miniaturesQueries.pool())
   const upload = useUploadMiniature()
   const del = useDeleteMiniature()
@@ -71,16 +68,12 @@ export function MiniaturesPanel() {
   const [massDeleting, setMassDeleting] = useState(false)
   const [toDelete, setToDelete] = useState<MiniatureWithUrl | null>(null)
 
-  // Périmètre courant (filtre + cible d'ajout). Défaut : Commun pour
-  // admin/manager ; sinon le site actif (choix logique si plusieurs sites).
-  const [scope, setScope] = useState<string>(() =>
-    canEntreprise ? SCOPE_COMMUN : (activeSiteId ?? SCOPE_ALL),
-  )
+  // Périmètre partagé entre les onglets de la Bibliothèque.
+  const { scope, setScope } = useScope()
 
   // Cible d'upload : null = Commun, undefined = « Tout » (ajout impossible),
   // sinon l'id de site sélectionné.
-  const uploadSiteId: string | null | undefined =
-    scope === SCOPE_ALL ? undefined : scope === SCOPE_COMMUN ? null : scope
+  const uploadSiteId = scopeTarget(scope)
   const canAdd =
     canManage &&
     uploadSiteId !== undefined &&
@@ -205,28 +198,18 @@ export function MiniaturesPanel() {
     })
   }
 
-  // Sélecteur de périmètre. Changer de périmètre réinitialise la sélection.
+  // Sélecteur de périmètre (partagé entre onglets). Changer réinitialise la sélection.
   const scopeControl = useMemo(
     () => (
-      <Select
-        aria-label="Périmètre des vignettes"
+      <ScopeSelect
         value={scope}
-        onChange={(e) => {
-          setScope(e.target.value)
+        onChange={(s) => {
+          setScope(s)
           setSelected(new Set())
         }}
-        className="w-auto"
-      >
-        <option value={SCOPE_ALL}>Tout</option>
-        <option value={SCOPE_COMMUN}>Commun</option>
-        {sites.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.nom}
-          </option>
-        ))}
-      </Select>
+      />
     ),
-    [scope, sites],
+    [scope, setScope],
   )
 
   // En-tête : actions de masse (à gauche, séparateur) puis le sélecteur. Le
@@ -365,13 +348,7 @@ export function MiniaturesPanel() {
         }
       >
         {(all) => {
-          const visible = all.filter((m) =>
-            scope === SCOPE_ALL
-              ? true
-              : scope === SCOPE_COMMUN
-                ? m.site_id === null
-                : m.site_id === scope,
-          )
+          const visible = all.filter((m) => scopeMatches(scope, m.site_id))
           if (visible.length === 0) {
             return (
               <EmptyState
