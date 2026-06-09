@@ -1,3 +1,6 @@
+# Sauvegardes générées par backup.ps1 (données + storage sensibles, volumineux)
+backup/
+
 # Logs
 logs
 *.log

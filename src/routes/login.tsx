@@ -50,8 +50,17 @@ function LoginPage() {
     <div className="bg-muted/40 flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Dédale</CardTitle>
-          <CardDescription>Gestion de maintenance</CardDescription>
+          <img
+            src="/logo.svg"
+            alt="Logo Dédale"
+            className="mx-auto mb-4 size-32 shrink-0 dark:invert"
+          />
+          <CardTitle className="text-xl font-bold tracking-wide uppercase">
+            Dédale
+          </CardTitle>
+          <CardDescription className="text-muted-foreground text-xs">
+            Gestion de Maintenance
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form
