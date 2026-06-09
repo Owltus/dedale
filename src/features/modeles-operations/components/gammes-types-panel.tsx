@@ -7,6 +7,7 @@ import { useDeleteModeleOperation } from '../mutations'
 import { GammeTypeFormDialog } from './gamme-type-form-dialog'
 import { OperationItemsEditor } from './operation-items-editor'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import * as perm from '@/lib/permissions'
@@ -48,6 +49,9 @@ export function GammesTypesPanel() {
     selected === null && canManage ? handleAdd : null,
     'Nouvelle gamme-type',
   )
+
+  // Mises à jour live entre fenêtres / comptes (Realtime).
+  useRealtimeRefresh('modeles_operations', modelesOperationsQueries.all())
 
   function confirmDelete() {
     if (!toDelete) return

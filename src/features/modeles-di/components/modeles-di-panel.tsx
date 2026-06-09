@@ -6,6 +6,7 @@ import { modelesDiQueries, type ModeleDi } from '../queries'
 import { useDeleteModeleDi } from '../mutations'
 import { ModeleDiFormDialog } from './modele-di-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import * as perm from '@/lib/permissions'
@@ -55,6 +56,9 @@ function ModelesDiListPanel({
 
   const handleAdd = useCallback(() => setForm({ open: true, modele: null }), [])
   useTabAddAction(canManage ? handleAdd : null, 'Nouveau modèle de DI')
+
+  // Mises à jour live entre fenêtres / comptes (Realtime).
+  useRealtimeRefresh('modeles_di', modelesDiQueries.all())
 
   function confirmDelete() {
     if (!toDelete) return

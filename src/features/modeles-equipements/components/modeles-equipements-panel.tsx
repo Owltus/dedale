@@ -7,6 +7,7 @@ import { useDeleteModeleEquipement } from '../mutations'
 import { ModeleEquipementFormDialog } from './modele-equipement-form-dialog'
 import { categoriesQueries } from '@/features/categories/queries'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import * as perm from '@/lib/permissions'
@@ -56,6 +57,9 @@ export function ModelesEquipementsPanel() {
 
   const handleAdd = useCallback(() => setForm({ open: true, modele: null }), [])
   useTabAddAction(canManage ? handleAdd : null, 'Nouveau modèle')
+
+  // Mises à jour live entre fenêtres / comptes (Realtime).
+  useRealtimeRefresh('modeles_equipements', modelesEquipementsQueries.all())
 
   function confirmDelete() {
     if (!toDelete) return

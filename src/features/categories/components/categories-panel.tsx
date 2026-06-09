@@ -9,6 +9,7 @@ import type { CategorieFormValues } from '../schemas'
 import { CategoryTree } from './category-tree'
 import { CategoryFormDialog } from './category-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import * as perm from '@/lib/permissions'
@@ -51,6 +52,9 @@ export function CategoriesPanel() {
     [],
   )
   useTabAddAction(canManage ? handleAdd : null, 'Nouvelle catégorie')
+
+  // Mises à jour live entre fenêtres / comptes (Realtime).
+  useRealtimeRefresh('categories', categoriesQueries.all())
 
   function confirmDelete() {
     if (!toDelete) return

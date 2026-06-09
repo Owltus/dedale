@@ -7,6 +7,7 @@ import { useDeleteMiniature, useUploadMiniature } from '../mutations'
 import { MiniatureCropDialog, type CropResult } from './miniature-crop-dialog'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { supabase } from '@/lib/supabase'
 import { errorMessage } from '@/lib/form'
@@ -58,6 +59,9 @@ export function MiniaturesPanel() {
   const query = useQuery(miniaturesQueries.pool())
   const upload = useUploadMiniature()
   const del = useDeleteMiniature()
+
+  // Mises à jour live entre fenêtres / comptes (Realtime). Scopé à l'onglet.
+  useRealtimeRefresh('miniatures', miniaturesQueries.all())
 
   const fileInput = useRef<HTMLInputElement>(null)
   const [cropFile, setCropFile] = useState<File | null>(null)
