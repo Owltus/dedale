@@ -6,6 +6,7 @@ import { Tabs, type TabItem } from '@/components/common/tabs'
 import { CategoriesPanel } from '@/features/categories/components/categories-panel'
 import { ModelesEquipementsPanel } from '@/features/modeles-equipements/components/modeles-equipements-panel'
 import { GammesTypesPanel } from '@/features/modeles-operations/components/gammes-types-panel'
+import { GammesBiblioPanel } from '@/features/gammes/components/gammes-biblio-panel'
 import { ModelesDiPanel } from '@/features/modeles-di/components/modeles-di-panel'
 import { MiniaturesPanel } from '@/features/miniatures/components/miniatures-panel'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -43,6 +44,11 @@ function BibliothequePage() {
       id: 'gammes-types',
       label: 'Modèles d’opérations',
       content: <GammesTypesPanel />,
+    },
+    {
+      id: 'gammes',
+      label: 'Gammes',
+      content: <GammesBiblioPanel />,
     },
     ...(showDi
       ? [

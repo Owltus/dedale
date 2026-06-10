@@ -26,6 +26,7 @@ import {
 import { GammeFormDialog } from '@/features/gammes/components/gamme-form-dialog'
 import { OperationFormDialog } from '@/features/gammes/components/operation-form-dialog'
 import { EquipementsLinkDialog } from '@/features/gammes/components/equipements-link-dialog'
+import { GammeModelesSection } from '@/features/gammes/components/gamme-modeles-section'
 import { equipementsQueries } from '@/features/equipements/queries'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
@@ -397,7 +398,11 @@ function GammeDetail({
       </div>
 
       {tab === 'operations' && (
-        <OperationsTab gammeId={gamme.id} canEdit={canEdit} />
+        <OperationsTab
+          gammeId={gamme.id}
+          gammeSiteId={gamme.site_id}
+          canEdit={canEdit}
+        />
       )}
       {tab === 'equipements' && (
         <EquipementsTab siteId={siteId} gammeId={gamme.id} canEdit={canEdit} />
@@ -459,9 +464,11 @@ function TabButton({
 
 function OperationsTab({
   gammeId,
+  gammeSiteId,
   canEdit,
 }: {
   gammeId: string
+  gammeSiteId: string | null
   canEdit: boolean
 }) {
   const query = useQuery(gammesQueries.operations(gammeId))
@@ -565,6 +572,14 @@ function OperationsTab({
           </ul>
         )}
       </QueryState>
+
+      <div className="border-t pt-4">
+        <GammeModelesSection
+          gammeId={gammeId}
+          gammeSiteId={gammeSiteId}
+          canEdit={canEdit}
+        />
+      </div>
 
       {canEdit && (
         <OperationFormDialog

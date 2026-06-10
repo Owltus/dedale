@@ -20,6 +20,8 @@ interface FormDialogProps {
   /** Libellé pendant l'envoi (défaut : submitLabel). */
   pendingLabel?: string
   pending: boolean
+  /** Désactive la validation hors envoi (ex. champ requis sans option possible). */
+  submitDisabled?: boolean
   submitVariant?: 'default' | 'destructive'
   cancelLabel?: string
   /** Classe sur DialogContent (ex. max-h-[90vh] overflow-y-auto). */
@@ -43,6 +45,7 @@ export function FormDialog({
   submitLabel,
   pendingLabel,
   pending,
+  submitDisabled = false,
   submitVariant = 'default',
   cancelLabel = 'Annuler',
   contentClassName,
@@ -72,7 +75,11 @@ export function FormDialog({
             >
               {cancelLabel}
             </Button>
-            <Button type="submit" variant={submitVariant} disabled={pending}>
+            <Button
+              type="submit"
+              variant={submitVariant}
+              disabled={pending || submitDisabled}
+            >
               {pending ? (pendingLabel ?? submitLabel) : submitLabel}
             </Button>
           </DialogFooter>

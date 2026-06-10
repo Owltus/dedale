@@ -2,8 +2,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { gammesQueries } from './queries'
 import {
+  gammeBiblioSchema,
   gammeSchema,
   operationSchema,
+  type GammeBiblioFormValues,
   type GammeFormValues,
   type OperationFormValues,
 } from './schemas'
@@ -15,7 +17,27 @@ function gammePayload(values: GammeFormValues) {
     nature: v.nature,
     periodicite_id: Number(v.periodicite_id),
     prestataire_id: v.prestataire_id,
+    // Sous-catégorie obligatoire (garantie non vide par le schéma).
+    categorie_id: v.categorie_id,
     description: v.description || null,
+  }
+}
+
+// Payload d'une gamme-template de Bibliothèque : ajoute la catégorie (requise)
+// et résout la portée → `site_id` (commun = NULL inviolable, ou un site).
+function gammeBiblioPayload(
+  values: GammeBiblioFormValues,
+  siteId: string | null,
+) {
+  const v = gammeBiblioSchema.parse(values)
+  return {
+    nom: v.nom,
+    nature: v.nature,
+    periodicite_id: Number(v.periodicite_id),
+    prestataire_id: v.prestataire_id,
+    description: v.description || null,
+    categorie_id: v.categorie_id,
+    site_id: v.portee === 'entreprise' ? null : siteId,
   }
 }
 
@@ -79,6 +101,62 @@ export function useDeleteGamme() {
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
         .throwOnError()
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
+  })
+}
+
+// --- Gammes-templates (Bibliothèque) ---
+
+/** Crée une gamme-template (commun ou site) avec sa catégorie obligatoire. */
+export function useCreateGammeBiblio() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      siteId,
+      createdBy,
+      values,
+    }: {
+      siteId: string | null
+      createdBy: string
+      values: GammeBiblioFormValues
+    }) => {
+      const { data } = await supabase
+        .from('gammes')
+        .insert({
+          ...gammeBiblioPayload(values, siteId),
+          created_by: createdBy,
+        })
+        .select('id')
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
+  })
+}
+
+/** Édite une gamme-template (nom, nature, périodicité, prestataire, catégorie, portée). */
+export function useUpdateGammeBiblio() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      siteId,
+      values,
+    }: {
+      id: string
+      siteId: string | null
+      values: GammeBiblioFormValues
+    }) => {
+      const { data } = await supabase
+        .from('gammes')
+        .update(gammeBiblioPayload(values, siteId))
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+      return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
   })
@@ -185,6 +263,63 @@ export function useDeleteOperation() {
   return useMutation({
     mutationFn: async (id: string) => {
       await supabase.from('operations').delete().eq('id', id).throwOnError()
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
+  })
+}
+
+// --- Liaison modèles d'opération (gamme_modeles) ---
+
+/**
+ * Lie en masse des modèles d'opération à une gamme (INSERT `gamme_modeles`).
+ * La PK composite empêche les doublons (filtrés en amont côté UI) ; la RLS et
+ * les triggers (scope, modèle non vide) arbitrent → erreurs à catcher côté UI.
+ */
+export function useLierModelesOperation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      gammeId,
+      modeleIds,
+    }: {
+      gammeId: string
+      modeleIds: string[]
+    }) => {
+      await supabase
+        .from('gamme_modeles')
+        .insert(
+          modeleIds.map((modele_operation_id) => ({
+            gamme_id: gammeId,
+            modele_operation_id,
+          })),
+        )
+        .throwOnError()
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
+  })
+}
+
+/**
+ * Détache un modèle d'opération d'une gamme (DELETE de la seule ligne de
+ * liaison ; le modèle lui-même n'est jamais supprimé). Un trigger peut refuser
+ * (dernière source d'opération d'une gamme préventive active) → erreur à catcher.
+ */
+export function useDelierModeleOperation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      gammeId,
+      modeleId,
+    }: {
+      gammeId: string
+      modeleId: string
+    }) => {
+      await supabase
+        .from('gamme_modeles')
+        .delete()
+        .eq('gamme_id', gammeId)
+        .eq('modele_operation_id', modeleId)
+        .throwOnError()
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
   })

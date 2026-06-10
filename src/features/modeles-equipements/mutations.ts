@@ -10,7 +10,9 @@ function modelePayload(v: ModeleEquipementFormValues, siteId: string | null) {
   return {
     nom: v.nom.trim(),
     description: v.description.trim() || null,
-    categorie_id: v.categorie_id || null,
+    // Catégorie OBLIGATOIRE (NOT NULL côté base) : la validation Zod
+    // (`categorie_id.min(1)`) garantit déjà une valeur non vide.
+    categorie_id: v.categorie_id,
     est_actif: v.etat === 'actif',
     site_id: v.portee === 'entreprise' ? null : siteId,
     specifications: serializeChamps(v.specifications),

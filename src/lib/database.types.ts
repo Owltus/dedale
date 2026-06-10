@@ -1195,7 +1195,7 @@ export type Database = {
       }
       gammes: {
         Row: {
-          categorie_id: string | null
+          categorie_id: string
           copie_depuis_id: string | null
           created_at: string
           created_by: string
@@ -1213,7 +1213,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          categorie_id?: string | null
+          categorie_id: string
           copie_depuis_id?: string | null
           created_at?: string
           created_by: string
@@ -1231,7 +1231,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          categorie_id?: string | null
+          categorie_id?: string
           copie_depuis_id?: string | null
           created_at?: string
           created_by?: string
@@ -1743,7 +1743,7 @@ export type Database = {
       }
       modeles_equipements: {
         Row: {
-          categorie_id: string | null
+          categorie_id: string
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -1757,7 +1757,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          categorie_id?: string | null
+          categorie_id: string
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -1771,7 +1771,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          categorie_id?: string | null
+          categorie_id?: string
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -3130,6 +3130,7 @@ export type Database = {
         Returns: boolean
       }
       can_access_gamme: { Args: { p_gamme_id: string }; Returns: boolean }
+      can_access_gamme_site: { Args: { p_gamme_id: string }; Returns: boolean }
       can_access_local: { Args: { p_local_id: string }; Returns: boolean }
       can_access_prestataire: {
         Args: { p_prestataire_id: string }

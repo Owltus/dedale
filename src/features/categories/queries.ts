@@ -31,6 +31,30 @@ export const categoriesQueries = {
     }),
 
   /**
+   * Une catégorie par son id (libellé pour l'affichage), même inactive : permet
+   * de réinjecter dans un select la valeur réellement assignée à une entité
+   * (ex. une gamme pointant une sous-catégorie masquée). Absence/RLS → `null`
+   * (normal), d'où `.maybeSingle()`.
+   */
+  byId: (id: string | null) =>
+    queryOptions({
+      queryKey: [...categoriesQueries.all(), 'by-id', id] as const,
+      enabled: id !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('categories')
+          .select('id, nom')
+          .eq('id', id!)
+          .is('deleted_at', null)
+          .abortSignal(signal)
+          .maybeSingle()
+          .throwOnError()
+        return data
+      },
+      staleTime: 60_000,
+    }),
+
+  /**
    * Tout l'accessible (RLS) SANS filtre de site : le périmètre (Tout / Commun /
    * site) est appliqué côté composant via le sélecteur de la Bibliothèque.
    */

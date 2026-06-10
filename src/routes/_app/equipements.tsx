@@ -457,7 +457,8 @@ function PlaceholderCard({ title }: { title: string }) {
 // --- Liste des modèles d'équipement ---
 
 type ModeleRow = Database['public']['Tables']['modeles_equipements']['Row'] & {
-  categories: { id: string; nom: string } | null
+  // `modeles_equipements.categorie_id` est NOT NULL → l'embed est toujours présent.
+  categories: { id: string; nom: string }
 }
 
 function ModelesList({
@@ -497,7 +498,7 @@ function ModelesList({
                       <Badge variant={m.site_id ? 'secondary' : 'outline'}>
                         {m.site_id ? 'Site' : 'Entreprise'}
                       </Badge>
-                      {m.categories?.nom && (
+                      {m.categories.nom && (
                         <Badge variant="outline">
                           <Tag className="size-3" /> {m.categories.nom}
                         </Badge>

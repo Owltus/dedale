@@ -5,6 +5,20 @@ import type { Database } from '@/lib/database.types'
 export type ModeleOperation =
   Database['public']['Tables']['modeles_operations']['Row']
 
+/**
+ * Modèle d'opération candidat à l'import dans une gamme, enrichi du nombre
+ * d'items. Permet d'exclure les modèles VIDES côté UI : les lier déclencherait
+ * un trigger `check_violation` (23514) qui ferait échouer l'INSERT groupé
+ * atomique (aucun modèle lié).
+ */
+export interface ModeleOperationImportable {
+  id: string
+  nom: string
+  description: string | null
+  site_id: string | null
+  nbItems: number
+}
+
 export const modelesOperationsQueries = {
   all: () => ['modeles_operations'] as const,
 
@@ -61,6 +75,35 @@ export const modelesOperationsQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
+      },
+      staleTime: 60_000,
+    }),
+
+  /**
+   * Pool des modèles d'opération pour l'IMPORT dans une gamme : comme `pool()`
+   * mais enrichi du nombre d'items (jointure comptée). L'appelant exclut les
+   * modèles vides, non liables (trigger `check_violation`). Query dédiée pour
+   * ne pas alourdir les autres consommateurs de `pool()`.
+   */
+  poolImport: () =>
+    queryOptions({
+      queryKey: [...modelesOperationsQueries.all(), 'pool-import'] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('modeles_operations')
+          .select('id, nom, description, site_id, modeles_operations_items(id)')
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        return data.map(
+          (m): ModeleOperationImportable => ({
+            id: m.id,
+            nom: m.nom,
+            description: m.description,
+            site_id: m.site_id,
+            nbItems: m.modeles_operations_items.length,
+          }),
+        )
       },
       staleTime: 60_000,
     }),

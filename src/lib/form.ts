@@ -19,3 +19,13 @@ export function errorMessage(
 ): string {
   return e instanceof Error ? e.message : fallback
 }
+
+/** Code SQLSTATE d'une erreur Supabase, si disponible. */
+export function pgCode(e: unknown): string | undefined {
+  return e !== null &&
+    typeof e === 'object' &&
+    'code' in e &&
+    typeof e.code === 'string'
+    ? e.code
+    : undefined
+}

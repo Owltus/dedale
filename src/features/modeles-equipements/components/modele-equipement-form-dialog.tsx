@@ -68,7 +68,7 @@ function initialValues(
   return {
     nom: modele.nom,
     description: modele.description ?? '',
-    categorie_id: modele.categorie_id ?? '',
+    categorie_id: modele.categorie_id,
     portee: modele.site_id === null ? 'entreprise' : 'site',
     etat: modele.est_actif ? 'actif' : 'inactif',
     specifications: parseChamps(modele.specifications),

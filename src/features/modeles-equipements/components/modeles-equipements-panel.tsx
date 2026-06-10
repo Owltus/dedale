@@ -85,10 +85,9 @@ export function ModelesEquipementsPanel() {
   // Nombre de modèles par catégorie (compteur des cartes).
   const countByCategory = useMemo(() => {
     const counts = new Map<string, number>()
+    // `categorie_id` est désormais NOT NULL : tout modèle est rangé sous une catégorie.
     for (const m of modeles) {
-      if (m.categorie_id !== null) {
-        counts.set(m.categorie_id, (counts.get(m.categorie_id) ?? 0) + 1)
-      }
+      counts.set(m.categorie_id, (counts.get(m.categorie_id) ?? 0) + 1)
     }
     return counts
   }, [modeles])

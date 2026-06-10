@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { emptyGamme, gammeNatures, gammeSchema } from '../schemas'
 import type { GammeFormValues } from '../schemas'
 import { useCreateGamme, useUpdateGamme } from '../mutations'
-import { referentielsQueries } from '../queries'
+import { gammesQueries, referentielsQueries } from '../queries'
+import type { SousCategorieGamme } from '../queries'
 import { prestatairesQueries } from '@/features/prestataires/queries'
+import { categoriesQueries } from '@/features/categories/queries'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
@@ -35,8 +37,34 @@ function initialValues(gamme: Gamme | null | undefined): GammeFormValues {
     nature: gamme.nature,
     periodicite_id: String(gamme.periodicite_id),
     prestataire_id: gamme.prestataire_id,
+    categorie_id: gamme.categorie_id,
     description: gamme.description ?? '',
   }
+}
+
+/** Sous-catégories regroupées par catégorie racine parente, triées par nom. */
+function groupByParent(
+  sousCategories: SousCategorieGamme[],
+): { parentId: string; parentNom: string; subs: SousCategorieGamme[] }[] {
+  const groups = new Map<
+    string,
+    { parentId: string; parentNom: string; subs: SousCategorieGamme[] }
+  >()
+  for (const sc of sousCategories) {
+    const group = groups.get(sc.parentId) ?? {
+      parentId: sc.parentId,
+      parentNom: sc.parentNom,
+      subs: [],
+    }
+    group.subs.push(sc)
+    groups.set(sc.parentId, group)
+  }
+  return [...groups.values()]
+    .map((g) => ({
+      ...g,
+      subs: [...g.subs].sort((a, b) => a.nom.localeCompare(b.nom)),
+    }))
+    .sort((a, b) => a.parentNom.localeCompare(b.parentNom))
 }
 
 export function GammeFormDialog({
@@ -53,11 +81,39 @@ export function GammeFormDialog({
     referentielsQueries.periodicites(),
   )
   const { data: prestataires = [] } = useQuery(prestatairesQueries.list())
+  const sousCategoriesQuery = useQuery(gammesQueries.sousCategories(siteId))
+  const sousCategories = useMemo(
+    () => sousCategoriesQuery.data ?? [],
+    [sousCategoriesQuery.data],
+  )
   const [values, setValues] = useState<GammeFormValues>(() =>
     initialValues(gamme),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
+
+  // Sous-catégorie réellement assignée (édition) : si elle est masquée (inactive)
+  // elle n'est pas dans la liste → on la lit pour la réinjecter, afin que le
+  // select reflète la valeur réelle de la gamme.
+  const assignedId = gamme?.categorie_id ?? null
+  const assignedMissing =
+    assignedId !== null && !sousCategories.some((sc) => sc.id === assignedId)
+  const { data: assignedCategorie } = useQuery(
+    categoriesQueries.byId(assignedMissing ? assignedId : null),
+  )
+
+  // Impasse : aucune sous-catégorie de gamme dans ce périmètre. La page Gammes
+  // n'en crée pas → on guide vers la Bibliothèque et on bloque la soumission
+  // quand aucune valeur n'est sélectionnable (champ requis).
+  const aucuneSousCategorie =
+    !sousCategoriesQuery.isPending && sousCategories.length === 0
+  const aucuneOption = aucuneSousCategorie && !assignedMissing
+
+  // Sous-catégories regroupées par catégorie racine (affichage en `<optgroup>`).
+  const groupedSousCategories = useMemo(
+    () => groupByParent(sousCategories),
+    [sousCategories],
+  )
 
   function set<K extends keyof GammeFormValues>(
     key: K,
@@ -105,6 +161,7 @@ export function GammeFormDialog({
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
       pending={pending}
+      submitDisabled={aucuneOption}
     >
       <TextField
         label="Nom"
@@ -160,6 +217,39 @@ export function GammeFormDialog({
           </option>
         ))}
       </SelectField>
+
+      <div className="grid gap-2">
+        <SelectField
+          label="Sous-catégorie"
+          required
+          id="gamme_categorie"
+          value={values.categorie_id}
+          onChange={(v) => set('categorie_id', v)}
+          error={errors.categorie_id}
+        >
+          <option value="">— Choisir une sous-catégorie —</option>
+          {assignedMissing && (
+            <option value={assignedId}>
+              {assignedCategorie?.nom ?? 'Sous-catégorie actuelle'} (actuelle)
+            </option>
+          )}
+          {groupedSousCategories.map((group) => (
+            <optgroup key={group.parentId} label={group.parentNom}>
+              {group.subs.map((sc) => (
+                <option key={sc.id} value={sc.id}>
+                  {sc.nom}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </SelectField>
+        {aucuneSousCategorie && (
+          <p className="text-muted-foreground text-sm">
+            Aucune sous-catégorie de gamme dans ce périmètre. Pour en créer, passe
+            par <span className="font-medium">Bibliothèque › Gammes</span>.
+          </p>
+        )}
+      </div>
 
       <TextareaField
         label="Description"
