@@ -8,6 +8,7 @@ import {
 } from '../mutations'
 import type { ModeleEquipement } from '../queries'
 import { SpecificationsEditor } from './specifications-editor'
+import { parseChamps, type Champ } from '@/lib/champs'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
@@ -45,35 +46,6 @@ interface ModeleEquipementFormDialogProps {
   minimal?: boolean
 }
 
-// Représentation texte d'une valeur de caractéristique (primitive attendue ;
-// un objet/tableau éventuel est sérialisé pour rester éditable).
-function specValueToString(valeur: unknown): string {
-  if (valeur == null) return ''
-  if (typeof valeur === 'object') return JSON.stringify(valeur)
-  if (typeof valeur === 'string') return valeur
-  if (typeof valeur === 'number' || typeof valeur === 'boolean') {
-    return String(valeur)
-  }
-  return ''
-}
-
-// Convertit l'objet JSON `specifications` en lignes éditables.
-function specsToLines(
-  specifications: ModeleEquipement['specifications'],
-): ModeleEquipementFormValues['specifications'] {
-  if (
-    specifications &&
-    typeof specifications === 'object' &&
-    !Array.isArray(specifications)
-  ) {
-    return Object.entries(specifications).map(([cle, valeur]) => ({
-      cle,
-      valeur: specValueToString(valeur),
-    }))
-  }
-  return []
-}
-
 function initialValues(
   modele: ModeleEquipement | null | undefined,
   canEntreprise: boolean,
@@ -99,7 +71,7 @@ function initialValues(
     categorie_id: modele.categorie_id ?? '',
     portee: modele.site_id === null ? 'entreprise' : 'site',
     etat: modele.est_actif ? 'actif' : 'inactif',
-    specifications: specsToLines(modele.specifications),
+    specifications: parseChamps(modele.specifications),
   }
 }
 
@@ -138,24 +110,45 @@ export function ModeleEquipementFormDialog({
   }
 
   async function handleSubmit() {
-    const parsed = modeleEquipementSchema.safeParse(values)
+    // Nettoyage des champs : noms/unités trimés, options vides retirées + dédupliquées.
+    const champs: Champ[] = values.specifications.map((c) => ({
+      ...c,
+      cle: c.cle.trim(),
+      unite: c.unite?.trim() ? c.unite.trim() : undefined,
+      options:
+        c.type === 'liste'
+          ? [
+              ...new Set(
+                (c.options ?? []).map((o) => o.trim()).filter((o) => o !== ''),
+              ),
+            ]
+          : undefined,
+    }))
+    const parsed = modeleEquipementSchema.safeParse({
+      ...values,
+      specifications: champs,
+    })
     if (!parsed.success) {
       setErrors(fieldErrors(parsed.error))
       return
     }
-    // Validation fine des caractéristiques : clés non vides et uniques.
-    const lines = values.specifications.filter(
-      (s) => s.cle.trim() !== '' || s.valeur.trim() !== '',
-    )
-    const keys = lines.map((s) => s.cle.trim())
-    if (keys.some((k) => k === '')) {
-      setErrors({
-        specifications: 'Chaque caractéristique doit avoir une clé.',
-      })
+    // Validation fine : noms non vides, uniques, et listes pourvues d'options.
+    const cles = champs.map((c) => c.cle.toLowerCase())
+    if (cles.some((k) => k === '')) {
+      setErrors({ specifications: 'Chaque champ doit avoir un nom.' })
       return
     }
-    if (new Set(keys).size !== keys.length) {
-      setErrors({ specifications: 'Les clés doivent être uniques.' })
+    if (new Set(cles).size !== cles.length) {
+      setErrors({ specifications: 'Les noms de champ doivent être uniques.' })
+      return
+    }
+    const sansOption = champs.find(
+      (c) => c.type === 'liste' && (c.options ?? []).length === 0,
+    )
+    if (sansOption) {
+      setErrors({
+        specifications: `Le champ « ${sansOption.cle} » (liste) doit avoir au moins une option.`,
+      })
       return
     }
     setErrors({})

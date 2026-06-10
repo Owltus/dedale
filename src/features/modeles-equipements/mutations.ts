@@ -2,23 +2,18 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { modelesEquipementsQueries } from './queries'
 import type { ModeleEquipementFormValues } from './schemas'
+import { serializeChamps } from '@/lib/champs'
 
-// Construit le payload base, dont l'objet JSON `specifications` (clés vides
-// ignorées ; en cas de doublon de clé, la dernière l'emporte — l'unicité est
-// validée en amont dans le formulaire).
+// Construit le payload, dont `specifications` au format typé { champs: [...] }
+// (les champs sont nettoyés/validés en amont dans le formulaire).
 function modelePayload(v: ModeleEquipementFormValues, siteId: string | null) {
-  const specifications: Record<string, string> = {}
-  for (const { cle, valeur } of v.specifications) {
-    const k = cle.trim()
-    if (k) specifications[k] = valeur.trim()
-  }
   return {
     nom: v.nom.trim(),
     description: v.description.trim() || null,
     categorie_id: v.categorie_id || null,
     est_actif: v.etat === 'actif',
     site_id: v.portee === 'entreprise' ? null : siteId,
-    specifications,
+    specifications: serializeChamps(v.specifications),
   }
 }
 

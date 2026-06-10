@@ -9,6 +9,9 @@ import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
+import { ChampValeurInput } from '@/components/common/champ-valeur-input'
+import { Label } from '@/components/ui/label'
+import { parseChamps, type ChampValeur } from '@/lib/champs'
 import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
@@ -32,6 +35,7 @@ function initialValues(
     date_mise_en_service: eq.date_mise_en_service ?? '',
     date_fin_garantie: eq.date_fin_garantie ?? '',
     commentaires: eq.commentaires ?? '',
+    specifications: parseChamps(eq.specifications),
   }
 }
 
@@ -57,11 +61,31 @@ export function EquipementFormDialog({
   function set(key: keyof EquipementFormValues, value: string) {
     setValues((v) => ({ ...v, [key]: value }))
   }
+  function setSpecValeur(index: number, valeur: ChampValeur) {
+    setValues((v) => ({
+      ...v,
+      specifications: v.specifications.map((c, i) =>
+        i === index ? { ...c, valeur } : c,
+      ),
+    }))
+  }
 
   async function handleSubmit() {
     const parsed = equipementSchema.safeParse(values)
     if (!parsed.success) {
       setErrors(fieldErrors(parsed.error))
+      return
+    }
+    // Un champ requis vide bloque l'enregistrement.
+    const manquant = parsed.data.specifications.find(
+      (c) =>
+        c.requis &&
+        (c.valeur === null || c.valeur === undefined || c.valeur === ''),
+    )
+    if (manquant) {
+      setErrors({
+        specifications: `Le champ « ${manquant.cle} » est obligatoire.`,
+      })
       return
     }
     setErrors({})
@@ -153,6 +177,22 @@ export function EquipementFormDialog({
         onChange={(v) => set('commentaires', v)}
         error={errors.commentaires}
       />
+      {values.specifications.length > 0 && (
+        <div className="grid gap-3">
+          <Label>Caractéristiques techniques</Label>
+          {values.specifications.map((champ, i) => (
+            <ChampValeurInput
+              key={i}
+              champ={champ}
+              value={champ.valeur ?? null}
+              onChange={(valeur) => setSpecValeur(i, valeur)}
+            />
+          ))}
+          {errors.specifications && (
+            <p className="text-destructive text-sm">{errors.specifications}</p>
+          )}
+        </div>
+      )}
     </FormDialog>
   )
 }

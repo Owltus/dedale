@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { equipementsQueries } from './queries'
 import { equipementSchema, type EquipementFormValues } from './schemas'
+import { serializeChamps } from '@/lib/champs'
 
 function equipementPayload(values: EquipementFormValues) {
   const v = equipementSchema.parse(values)
@@ -13,6 +14,7 @@ function equipementPayload(values: EquipementFormValues) {
     date_mise_en_service: v.date_mise_en_service || null,
     date_fin_garantie: v.date_fin_garantie || null,
     commentaires: v.commentaires || null,
+    specifications: serializeChamps(v.specifications),
   }
 }
 
@@ -20,10 +22,10 @@ export function useCreateEquipement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (values: EquipementFormValues) => {
-      // Création directe : specifications vide, copie_depuis_modele_id null.
+      // Création directe : pas de champs (ils viennent d'un modèle à l'instanciation).
       const { data } = await supabase
         .from('equipements')
-        .insert({ ...equipementPayload(values), specifications: {} })
+        .insert(equipementPayload(values))
         .select('id')
         .single()
         .throwOnError()

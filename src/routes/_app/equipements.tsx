@@ -27,6 +27,7 @@ import { InstancierDialog } from '@/features/equipements/components/instancier-d
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { parseChamps, formatChampValeur } from '@/lib/champs'
 import { cardGrid } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { formatDate } from '@/lib/date'
@@ -330,7 +331,7 @@ function EquipementDetail({
   const equipement =
     list.find((e) => e.id === equipementProp.id) ?? equipementProp
   const [editOpen, setEditOpen] = useState(false)
-  const specs = readSpecifications(equipement.specifications)
+  const specs = parseChamps(equipement.specifications)
 
   return (
     <PageContainer>
@@ -388,10 +389,14 @@ function EquipementDetail({
               </p>
             ) : (
               <dl className="flex flex-col gap-2">
-                {specs.map(([key, value]) => (
-                  <div key={key} className="grid grid-cols-2 gap-2">
-                    <dt className="text-muted-foreground truncate">{key}</dt>
-                    <dd className="font-medium break-words">{value}</dd>
+                {specs.map((champ, i) => (
+                  <div key={i} className="grid grid-cols-2 gap-2">
+                    <dt className="text-muted-foreground truncate">
+                      {champ.cle}
+                    </dt>
+                    <dd className="font-medium break-words">
+                      {formatChampValeur(champ, champ.valeur ?? null)}
+                    </dd>
                   </div>
                 ))}
               </dl>
@@ -481,7 +486,7 @@ function ModelesList({
         {(modeles) => (
           <div className={GRID}>
             {modeles.map((m) => {
-              const specs = readSpecifications(m.specifications)
+              const specs = parseChamps(m.specifications)
               return (
                 <Card key={m.id} className="min-w-0">
                   <CardHeader>
@@ -536,30 +541,3 @@ function ModelesList({
 }
 
 // --- Helpers ---
-
-/** Lit le JSONB specifications comme une liste lisible de paires clé/valeur. */
-function readSpecifications(
-  specifications: Database['public']['Tables']['equipements']['Row']['specifications'],
-): [string, string][] {
-  if (
-    specifications === null ||
-    typeof specifications !== 'object' ||
-    Array.isArray(specifications)
-  ) {
-    return []
-  }
-  const record = specifications as Record<string, unknown>
-  return Object.entries(record).map(([key, value]) => [
-    key,
-    formatSpecValue(value),
-  ])
-}
-
-function formatSpecValue(value: unknown): string {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'string') return value
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
-  }
-  return JSON.stringify(value)
-}

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { champSchema } from '@/lib/champs'
 
 // Date optionnelle saisie en texte (input type=date) : '' → undefined.
 const optionalDate = z
@@ -17,6 +18,8 @@ export const equipementSchema = z.object({
   date_mise_en_service: optionalDate,
   date_fin_garantie: optionalDate,
   commentaires: z.string().trim().max(2000),
+  /** Valeurs des caractéristiques typées (snapshot des champs du modèle). */
+  specifications: z.array(champSchema),
 })
 
 export type EquipementFormValues = z.input<typeof equipementSchema>
@@ -29,4 +32,5 @@ export const emptyEquipement: EquipementFormValues = {
   date_mise_en_service: '',
   date_fin_garantie: '',
   commentaires: '',
+  specifications: [],
 }

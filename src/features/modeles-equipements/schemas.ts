@@ -1,10 +1,5 @@
 import { z } from 'zod'
-
-/** Une caractéristique technique du modèle (paire clé/valeur libre). */
-export interface SpecLine {
-  cle: string
-  valeur: string
-}
+import { champSchema } from '@/lib/champs'
 
 export const modeleEquipementSchema = z.object({
   nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
@@ -15,8 +10,8 @@ export const modeleEquipementSchema = z.object({
   portee: z.enum(['entreprise', 'site']),
   /** Activation sans suppression. */
   etat: z.enum(['actif', 'inactif']),
-  /** Caractéristiques (clés/valeurs libres) ; validées finement à la soumission. */
-  specifications: z.array(z.object({ cle: z.string(), valeur: z.string() })),
+  /** Champs typés (définitions) ; nettoyés/validés finement à la soumission. */
+  specifications: z.array(champSchema),
 })
 
 export type ModeleEquipementFormValues = z.infer<typeof modeleEquipementSchema>
