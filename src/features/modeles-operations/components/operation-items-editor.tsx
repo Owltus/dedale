@@ -30,7 +30,7 @@ interface OperationItemsEditorProps {
   onBack: () => void
 }
 
-/** Détail d'une gamme-type : la liste ordonnée de ses opérations + leur CRUD. */
+/** Détail d'un modèle d’opération : la liste ordonnée de ses opérations + leur CRUD. */
 export function OperationItemsEditor({
   modele,
   canManage,
@@ -91,8 +91,8 @@ export function OperationItemsEditor({
             title="Aucune opération"
             description={
               canManage
-                ? 'Ajoute les opérations qui composeront cette gamme-type.'
-                : 'Cette gamme-type ne contient aucune opération.'
+                ? 'Ajoute les opérations qui composeront ce modèle d’opération.'
+                : 'Ce modèle d’opération ne contient aucune opération.'
             }
           />
         }
@@ -166,7 +166,7 @@ export function OperationItemsEditor({
         title="Supprimer l'opération ?"
         description={
           toDelete
-            ? `« ${toDelete.nom} » sera retirée de la gamme-type.`
+            ? `« ${toDelete.nom} » sera retirée du modèle d’opération.`
             : undefined
         }
         confirmLabel="Supprimer"

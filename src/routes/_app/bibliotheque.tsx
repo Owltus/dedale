@@ -41,7 +41,7 @@ function BibliothequePage() {
     },
     {
       id: 'gammes-types',
-      label: 'Modèles de gammes',
+      label: 'Modèles d’opérations',
       content: <GammesTypesPanel />,
     },
     ...(showDi

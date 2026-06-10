@@ -37,7 +37,7 @@ function initialValues(
     return {
       ...emptyModeleOperation,
       // Portée verrouillée sur le périmètre de la page si fournie ; sinon défaut
-      // selon le rôle (un tech ne crée que des gammes-types de site).
+      // selon le rôle (un tech ne crée que des modèles d’opération de site).
       portee: lockedScope
         ? lockedScope.portee
         : canEntreprise
@@ -89,13 +89,13 @@ export function GammeTypeFormDialog({
     try {
       if (modele) {
         await update.mutateAsync({ id: modele.id, values: parsed.data, siteId })
-        toast.success('Gamme-type modifiée')
+        toast.success('Modèle d’opération modifié')
       } else {
         await create.mutateAsync({
           values: parsed.data,
           siteId: lockedScope ? lockedScope.siteId : siteId,
         })
-        toast.success('Gamme-type créée')
+        toast.success('Modèle d’opération créé')
       }
       onOpenChange(false)
     } catch (e) {
@@ -107,7 +107,9 @@ export function GammeTypeFormDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier la gamme-type' : 'Nouvelle gamme-type'}
+      title={
+        isEdit ? 'Modifier le modèle d’opération' : 'Nouveau modèle d’opération'
+      }
       description="Un modèle d'opérations réutilisable pour composer des gammes."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}

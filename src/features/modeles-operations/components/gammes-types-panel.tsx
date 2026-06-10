@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cardGrid } from '@/lib/responsive'
 
-/** Panneau « Gammes-types » : liste des modèles d'opérations + leurs items. */
+/** Panneau « Modèles d'opérations » : liste des modèles + leurs opérations. */
 export function GammesTypesPanel() {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
@@ -62,7 +62,7 @@ export function GammesTypesPanel() {
       ? (query.data?.find((m) => m.id === selectedId) ?? null)
       : null
 
-  // En vue liste seulement : le + ajoute une gamme-type (la vue détail a son
+  // En vue liste seulement : le + ajoute un modèle d’opération (la vue détail a son
   // propre bouton « Ajouter une opération »).
   const handleAdd = useCallback(() => setForm({ open: true, modele: null }), [])
   const scopeControl = useMemo(
@@ -73,7 +73,7 @@ export function GammesTypesPanel() {
   // le périmètre n'est pas créable (Tout, ou Commun sans le droit) → UX stable.
   useTabAddAction(
     selected === null && canManage ? handleAdd : null,
-    'Nouvelle gamme-type',
+    'Nouveau modèle d’opération',
     {
       disabled: !canAdd,
       extra: selected === null ? scopeControl : undefined,
@@ -87,7 +87,7 @@ export function GammesTypesPanel() {
     if (!toDelete) return
     del.mutate(toDelete.id, {
       onSuccess: () => {
-        toast.success('Gamme-type supprimée')
+        toast.success('Modèle d’opération supprimé')
         setToDelete(null)
       },
       onError: (e) => toast.error(errorMessage(e)),
@@ -95,7 +95,7 @@ export function GammesTypesPanel() {
   }
 
   if (selected) {
-    // Un tech ne gère les opérations que d'une gamme-type de site.
+    // Un tech ne gère les opérations que d'un modèle d’opération de site.
     const canManageItems =
       canManage && (canEntreprise || selected.site_id !== null)
     return (
@@ -128,11 +128,11 @@ export function GammesTypesPanel() {
         empty={
           <EmptyState
             icon={ListChecks}
-            title="Aucune gamme-type"
+            title="Aucun modèle d’opération"
             description={
               canManage
-                ? 'Crée une première gamme-type pour réutiliser des jeux d’opérations.'
-                : 'Aucune gamme-type accessible.'
+                ? 'Crée un premier modèle d’opération pour réutiliser des jeux d’opérations.'
+                : 'Aucun modèle d’opération accessible.'
             }
           />
         }
@@ -143,8 +143,8 @@ export function GammesTypesPanel() {
             return (
               <EmptyState
                 icon={ListChecks}
-                title="Aucune gamme-type ici"
-                description="Aucune gamme-type dans ce périmètre pour le moment."
+                title="Aucun modèle d’opération ici"
+                description="Aucun modèle d’opération dans ce périmètre pour le moment."
               />
             )
           }
@@ -221,10 +221,10 @@ export function GammesTypesPanel() {
         onOpenChange={(open) => {
           if (!open) setToDelete(null)
         }}
-        title="Supprimer la gamme-type ?"
+        title="Supprimer le modèle d’opération ?"
         description={
           toDelete
-            ? `« ${toDelete.nom} » et ses opérations seront supprimées. Action impossible si elle est encore liée à des gammes.`
+            ? `« ${toDelete.nom} » et ses opérations seront supprimées. Action impossible s’il est encore lié à des gammes.`
             : undefined
         }
         confirmLabel="Supprimer"
