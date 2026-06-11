@@ -1208,7 +1208,7 @@ export type Database = {
           nature: Database["public"]["Enums"]["gamme_nature"]
           nom: string
           periodicite_id: number
-          prestataire_id: string
+          prestataire_id: string | null
           site_id: string | null
           updated_at: string
         }
@@ -1226,7 +1226,7 @@ export type Database = {
           nature: Database["public"]["Enums"]["gamme_nature"]
           nom: string
           periodicite_id: number
-          prestataire_id: string
+          prestataire_id?: string | null
           site_id?: string | null
           updated_at?: string
         }
@@ -1244,7 +1244,7 @@ export type Database = {
           nature?: Database["public"]["Enums"]["gamme_nature"]
           nom?: string
           periodicite_id?: number
-          prestataire_id?: string
+          prestataire_id?: string | null
           site_id?: string | null
           updated_at?: string
         }

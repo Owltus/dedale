@@ -234,7 +234,9 @@ function GammesList({
                       </Badge>
                       <Badge variant="outline">{g.periodicites.libelle}</Badge>
                     </div>
-                    <span className="truncate">{g.prestataires.libelle}</span>
+                    <span className="truncate">
+                      {g.prestataires?.libelle ?? ''}
+                    </span>
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" onClick={() => onOpen(g)}>
                         <ChevronRight /> Détail

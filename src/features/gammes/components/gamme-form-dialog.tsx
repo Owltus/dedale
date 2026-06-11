@@ -36,7 +36,9 @@ function initialValues(gamme: Gamme | null | undefined): GammeFormValues {
     nom: gamme.nom,
     nature: gamme.nature,
     periodicite_id: String(gamme.periodicite_id),
-    prestataire_id: gamme.prestataire_id,
+    // Une gamme réelle de site a toujours un prestataire (obligatoire) ; garde-
+    // fou de typage depuis que la colonne est nullable (templates communs).
+    prestataire_id: gamme.prestataire_id ?? '',
     categorie_id: gamme.categorie_id,
     description: gamme.description ?? '',
   }

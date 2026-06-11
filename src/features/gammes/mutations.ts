@@ -34,7 +34,9 @@ function gammeBiblioPayload(
     nom: v.nom,
     nature: v.nature,
     periodicite_id: Number(v.periodicite_id),
-    prestataire_id: v.prestataire_id,
+    // Un template commun n'a PAS de prestataire (il dépend du site, renseigné
+    // après copie) → NULL. Le champ a été retiré du formulaire de template.
+    prestataire_id: v.prestataire_id || null,
     description: v.description || null,
     categorie_id: v.categorie_id,
     site_id: v.portee === 'entreprise' ? null : siteId,

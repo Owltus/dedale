@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -9,7 +9,6 @@ import {
 import type { GammeBiblioFormValues } from '../schemas'
 import { useCreateGammeBiblio, useUpdateGammeBiblio } from '../mutations'
 import { referentielsQueries, type GammeBiblioRow } from '../queries'
-import { prestatairesQueries } from '@/features/prestataires/queries'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
@@ -49,7 +48,9 @@ function initialValues(
       nom: gamme.nom,
       nature: gamme.nature,
       periodicite_id: String(gamme.periodicite_id),
-      prestataire_id: gamme.prestataire_id,
+      // Un template commun n'a pas de prestataire (renseigné après copie sur un
+      // site) : le formulaire ne porte plus ce champ → toujours vide ici.
+      prestataire_id: '',
       description: gamme.description ?? '',
       categorie_id: gamme.categorie_id,
       // Onglet Gammes de la Bibliothèque = COMMUN uniquement (site_id NULL).
@@ -82,7 +83,6 @@ export function GammeBiblioFormDialog({
   const { data: periodicites = [] } = useQuery(
     referentielsQueries.periodicites(),
   )
-  const { data: prestataires = [] } = useQuery(prestatairesQueries.list())
   const [values, setValues] = useState<GammeBiblioFormValues>(() =>
     initialValues(gamme, lockedCategorieId),
   )
@@ -91,14 +91,6 @@ export function GammeBiblioFormDialog({
 
   // Catégorie imposée par la navigation → sélecteur masqué (création).
   const hideCategorie = !isEdit && lockedCategorieId != null
-
-  // Portée commune : un interne est toujours lié à un site (CHECK est_interne =
-  // site_id IS NOT NULL), donc seuls les prestataires communs (site_id NULL)
-  // sont éligibles ; pas de défaut « interne » disponible en commun.
-  const prestataireOptions = useMemo(
-    () => prestataires.filter((p) => p.site_id === null),
-    [prestataires],
-  )
 
   function set<K extends keyof GammeBiblioFormValues>(
     key: K,
@@ -208,22 +200,6 @@ export function GammeBiblioFormDialog({
           ))}
         </SelectField>
       )}
-
-      <SelectField
-        label="Prestataire par défaut"
-        required
-        id="gamme_biblio_prestataire"
-        value={values.prestataire_id}
-        onChange={(v) => set('prestataire_id', v)}
-        error={errors.prestataire_id}
-      >
-        <option value="">— Choisir un prestataire —</option>
-        {prestataireOptions.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.libelle}
-          </option>
-        ))}
-      </SelectField>
 
       <TextareaField
         label="Description"

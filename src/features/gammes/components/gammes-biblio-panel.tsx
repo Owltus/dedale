@@ -23,7 +23,10 @@ import {
 import { GammeBiblioFormDialog } from './gamme-biblio-form-dialog'
 import { OperationFormDialog } from './operation-form-dialog'
 import { GammeModelesSection } from './gamme-modeles-section'
-import { categoriesQueries, type Categorie } from '@/features/categories/queries'
+import {
+  categoriesQueries,
+  type Categorie,
+} from '@/features/categories/queries'
 import { useDeleteCategorie } from '@/features/categories/mutations'
 import { CategoryFormDialog } from '@/features/categories/components/category-form-dialog'
 import type { CategorieFormValues } from '@/features/categories/schemas'
@@ -33,7 +36,7 @@ import { useSiteContext } from '@/lib/site-context'
 import { errorMessage, exportErrorMessage } from '@/lib/form'
 import { sousCategoriesNiveau2 } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
-import { useTabAddAction } from '@/components/common/tab-actions'
+import { useTabAddAction, useTabTitle } from '@/components/common/tab-actions'
 import {
   ExporterVersSiteDialog,
   type ExportOutcome,
@@ -43,11 +46,11 @@ import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ListRow } from '@/components/common/list-row'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cardGrid } from '@/lib/responsive'
+import { listStack } from '@/lib/responsive'
 import type { Database } from '@/lib/database.types'
 
 interface LockedScope {
@@ -118,7 +121,9 @@ export function GammesBiblioPanel() {
     open: boolean
     gamme: GammeBiblioRow | null
   }>({ open: false, gamme: null })
-  const [toDeleteGamme, setToDeleteGamme] = useState<GammeBiblioRow | null>(null)
+  const [toDeleteGamme, setToDeleteGamme] = useState<GammeBiblioRow | null>(
+    null,
+  )
   const [toDeleteCategorie, setToDeleteCategorie] = useState<Categorie | null>(
     null,
   )
@@ -198,23 +203,6 @@ export function GammesBiblioPanel() {
     [gammes, current, depth],
   )
 
-  // Compteurs des cartes (sous-catégories + gammes directes).
-  const childCountByCat = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const c of gammeCats) {
-      if (c.parent_id) counts.set(c.parent_id, (counts.get(c.parent_id) ?? 0) + 1)
-    }
-    return counts
-  }, [gammeCats])
-  const gammeCountByCat = useMemo(() => {
-    const counts = new Map<string, number>()
-    // `gammes.categorie_id` est NOT NULL : chaque gamme compte pour sa catégorie.
-    for (const g of gammes) {
-      counts.set(g.categorie_id, (counts.get(g.categorie_id) ?? 0) + 1)
-    }
-    return counts
-  }, [gammes])
-
   // --- Cibles d'ajout (commun uniquement, réservé aux rôles entreprise) ---
   // Création possible dans la catégorie courante (sous-catégorie au niveau 1,
   // gamme au niveau 2) : tout est commun, seul l'admin/manager édite.
@@ -225,9 +213,6 @@ export function GammesBiblioPanel() {
   // l'arbitre réel des droits sur le site cible).
   function openExportGamme(gamme: GammeBiblioRow) {
     setExportState({ open: true, target: { kind: 'gamme', gamme } })
-  }
-  function openExportSousCategorie(categorie: Categorie) {
-    setExportState({ open: true, target: { kind: 'sousCategorie', categorie } })
   }
 
   async function handleExportConfirm(
@@ -326,9 +311,8 @@ export function GammesBiblioPanel() {
     exportResume = (
       <>
         Les <strong>{nb}</strong> gamme{nb > 1 ? 's' : ''} commune
-        {nb > 1 ? 's' : ''} de{' '}
-        <strong>« {exportTarget.categorie.nom} »</strong> seront copiées sur le
-        site choisi.
+        {nb > 1 ? 's' : ''} de <strong>« {exportTarget.categorie.nom} »</strong>{' '}
+        seront copiées sur le site choisi.
       </>
     )
   }
@@ -352,16 +336,7 @@ export function GammesBiblioPanel() {
     })
   }, [])
 
-  // En-tête : bouton + SEULEMENT à la racine (Nouvelle catégorie commune),
-  // réservé aux rôles entreprise. Dans une catégorie / un détail, la création
-  // passe par des boutons en contexte.
-  const atRoot = openGamme === null && current === null
-  useTabAddAction(
-    atRoot && canEntreprise ? handleAddRootCategory : null,
-    'Nouvelle catégorie',
-  )
-
-  function handleAddSubCategory() {
+  const handleAddSubCategory = useCallback(() => {
     if (current === null) return
     setCategoryForm({
       open: true,
@@ -369,7 +344,168 @@ export function GammesBiblioPanel() {
       preset: { scope: 'gamme', parent_id: current.id },
       lockedScope: COMMUN_LOCK,
     })
-  }
+  }, [current])
+
+  const handleAddGamme = useCallback(() => {
+    setGammeForm({ open: true, gamme: null })
+  }, [])
+
+  // Actions de la barre d'onglet pour la VUE DÉTAIL d'une gamme : on relit la
+  // version FRAÎCHE du cache (nom/champs à jour) avant d'éditer ou d'exporter.
+  const handleEditOpenGamme = useCallback(() => {
+    if (openGamme === null) return
+    const fresh = gammes.find((g) => g.id === openGamme.id) ?? openGamme
+    setGammeForm({ open: true, gamme: fresh })
+  }, [openGamme, gammes])
+
+  const openExportOpenGamme = useCallback(() => {
+    if (openGamme === null) return
+    const fresh = gammes.find((g) => g.id === openGamme.id) ?? openGamme
+    setExportState({ open: true, target: { kind: 'gamme', gamme: fresh } })
+  }, [openGamme, gammes])
+
+  const openExportSousCategorieCurrent = useCallback(() => {
+    if (current === null) return
+    setExportState({
+      open: true,
+      target: { kind: 'sousCategorie', categorie: current },
+    })
+  }, [current])
+
+  // BARRE D'ONGLET = unique point d'entrée des actions, dépendant de la vue
+  // courante (« boutons toujours au même endroit ») :
+  //   • détail d'une gamme  → extra « Copier vers un site » + « Modifier la
+  //     gamme » (aucune création : le + est masqué) ;
+  //   • racine (depth 0)    → + « Nouvelle catégorie » ;
+  //   • catégorie (depth 1) → + « Nouvelle sous-catégorie » ;
+  //   • sous-cat. (depth 2) → + « Nouvelle gamme », et extra « Copier vers un
+  //     site » s'il y a au moins une gamme.
+  // La création n'est proposée qu'aux rôles entreprise ; l'export selon
+  // `canExport`. action / label / extra sont MÉMOÏSÉS (un seul useMemo) pour ne
+  // pas se ré-enregistrer en boucle dans la barre d'onglet.
+  const tabAddConfig = useMemo<{
+    action: (() => void) | null
+    label: string
+    extra?: ReactNode
+  }>(() => {
+    if (openGamme !== null) {
+      const extra =
+        canExport || canEntreprise ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {canExport && (
+              <Button variant="outline" size="sm" onClick={openExportOpenGamme}>
+                <CopyPlus /> Copier vers un site
+              </Button>
+            )}
+            {canEntreprise && (
+              <Button variant="outline" size="sm" onClick={handleEditOpenGamme}>
+                <Pencil /> Modifier la gamme
+              </Button>
+            )}
+          </div>
+        ) : undefined
+      return { action: null, label: 'Modifier la gamme', extra }
+    }
+    if (depth === 0) {
+      return {
+        action: canEntreprise ? handleAddRootCategory : null,
+        label: 'Nouvelle catégorie',
+      }
+    }
+    if (depth === 1) {
+      return {
+        action: canEntreprise ? handleAddSubCategory : null,
+        label: 'Nouvelle sous-catégorie',
+      }
+    }
+    return {
+      action: canEntreprise ? handleAddGamme : null,
+      label: 'Nouvelle gamme',
+      extra:
+        canExport && gammesInCurrent.length > 0 ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openExportSousCategorieCurrent}
+          >
+            <CopyPlus /> Copier vers un site
+          </Button>
+        ) : undefined,
+    }
+  }, [
+    openGamme,
+    depth,
+    canEntreprise,
+    canExport,
+    gammesInCurrent,
+    handleAddRootCategory,
+    handleAddSubCategory,
+    handleAddGamme,
+    handleEditOpenGamme,
+    openExportOpenGamme,
+    openExportSousCategorieCurrent,
+  ])
+
+  useTabAddAction(tabAddConfig.action, tabAddConfig.label, {
+    extra: tabAddConfig.extra,
+  })
+
+  // FIL D'ARIANE = TITRE de la barre d'onglet (remplace le « Bibliothèque » par
+  // défaut). Le segment courant fait office de grand titre ; les ancêtres
+  // (cliquables, atténués) le précèdent, avec un bouton Retour dès qu'on a
+  // quitté la racine. Vue détail : la gamme ouverte devient le titre, sa sous-
+  // catégorie passe en ancêtre. Mémoïsé (contrat de `useTabTitle`).
+  const titleNode = useMemo<ReactNode>(() => {
+    if (openGamme !== null) {
+      const fresh = gammes.find((g) => g.id === openGamme.id) ?? openGamme
+      const ancestors: BreadcrumbAncestor[] = [
+        {
+          key: 'racine',
+          label: 'Catégories',
+          onClick: () => {
+            setOpenGamme(null)
+            setPath([])
+          },
+        },
+        ...validPath.map((c, i) => ({
+          key: c.id,
+          label: c.nom,
+          onClick: () => {
+            setOpenGamme(null)
+            setPath(validPath.slice(0, i + 1))
+          },
+        })),
+      ]
+      return (
+        <TitleBreadcrumb
+          ancestors={ancestors}
+          current={fresh.nom}
+          onBack={() => setOpenGamme(null)}
+        />
+      )
+    }
+    if (depth === 0) {
+      return <TitleBreadcrumb ancestors={[]} current="Catégories" onBack={null} />
+    }
+    const ancestors: BreadcrumbAncestor[] = [
+      { key: 'racine', label: 'Catégories', onClick: () => setPath([]) },
+      ...validPath.slice(0, -1).map((c, i) => ({
+        key: c.id,
+        label: c.nom,
+        onClick: () => setPath(validPath.slice(0, i + 1)),
+      })),
+    ]
+    return (
+      <TitleBreadcrumb
+        ancestors={ancestors}
+        current={current?.nom ?? 'Catégories'}
+        onBack={() => setPath(validPath.slice(0, -1))}
+      />
+    )
+  }, [openGamme, gammes, validPath, current, depth])
+
+  useTabTitle(titleNode)
+
   function handleEditCategory(categorie: Categorie) {
     setCategoryForm({
       open: true,
@@ -443,16 +579,12 @@ export function GammesBiblioPanel() {
     const fresh = gammes.find((g) => g.id === openGamme.id) ?? openGamme
     return (
       <>
-        <GammeBiblioDetail
-          gamme={fresh}
-          canEdit={canEntreprise}
-          onCopy={canExport ? () => openExportGamme(fresh) : undefined}
-          onBack={() => setOpenGamme(null)}
-          onEdit={() => setGammeForm({ open: true, gamme: fresh })}
-        />
+        {/* « Modifier la gamme » / « Copier vers un site » vivent dans la barre
+            d'onglet (cf. tabAddConfig), pour garder les boutons au même endroit. */}
+        <GammeBiblioDetail gamme={fresh} canEdit={canEntreprise} />
         {canEntreprise && (
           <GammeBiblioFormDialog
-            key={`edit-${gammeForm.gamme?.id ?? 'none'}`}
+            key={`edit-${gammeForm.gamme?.id ?? 'none'}-${String(gammeForm.open)}`}
             open={gammeForm.open}
             onOpenChange={(open) => setGammeForm((f) => ({ ...f, open }))}
             gamme={gammeForm.gamme}
@@ -468,83 +600,10 @@ export function GammesBiblioPanel() {
   }
 
   // ----- VUE NAVIGATION (racine ou dans une catégorie) -----
+  // Le fil d'Ariane vit désormais dans le TITRE de la barre d'onglet
+  // (cf. titleNode / useTabTitle), plus dans le contenu.
   return (
     <div className="flex flex-col gap-4">
-      {current !== null && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setPath(validPath.slice(0, -1))}
-          >
-            <ChevronLeft /> Retour
-          </Button>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={() => setPath([])}
-          >
-            Catégories
-          </button>
-          {validPath.map((c, i) => (
-            // `c` provient du chemin validé → nom déjà à jour (donnée fraîche).
-            <span key={c.id} className="flex items-center gap-2">
-              <ChevronRight className="text-muted-foreground size-4" />
-              <button
-                type="button"
-                className={
-                  i === validPath.length - 1
-                    ? 'font-medium'
-                    : 'text-muted-foreground hover:text-foreground'
-                }
-                onClick={() => setPath(validPath.slice(0, i + 1))}
-              >
-                {c.nom}
-              </button>
-            </span>
-          ))}
-          {(depth === 1 || depth === 2) && (
-            <div className="ml-auto flex flex-wrap gap-2">
-              {/* Niveau 1 : on crée des sous-catégories communes (pas de gamme). */}
-              {depth === 1 && canEntreprise && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddSubCategory}
-                >
-                  <Folder /> Sous-catégorie
-                </Button>
-              )}
-              {/* Niveau 2 : profondeur max (gammes-templates, pas de sous-cat.). */}
-              {depth === 2 && (
-                <>
-                  {/* Copie commun → site : sous-catégorie contenant au moins une
-                      gamme. Boucle front sur ses gammes (réservée aux rôles
-                      métier ayant un site accessible). */}
-                  {canExport && gammesInCurrent.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openExportSousCategorie(current)}
-                    >
-                      <CopyPlus /> Copier la sous-catégorie vers un site
-                    </Button>
-                  )}
-                  {canEntreprise && (
-                    <Button
-                      size="sm"
-                      onClick={() => setGammeForm({ open: true, gamme: null })}
-                    >
-                      <Plus /> Nouvelle gamme
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       <QueryState
         query={categoriesQuery}
         pending={<CardSkeletons count={4} />}
@@ -598,123 +657,104 @@ export function GammesBiblioPanel() {
           return (
             <div className="flex flex-col gap-6">
               {childCategories.length > 0 && (
-                <div className={cardGrid.compact}>
-                  {childCategories.map((cat) => {
-                    const subs = childCountByCat.get(cat.id) ?? 0
-                    const nb = gammeCountByCat.get(cat.id) ?? 0
-                    return (
-                      <Card key={cat.id} className="min-w-0">
-                        <CardHeader>
-                          <CardTitle className="truncate">{cat.nom}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {subs > 0 && (
-                              <Badge variant="outline">
-                                {subs} sous-catégorie{subs > 1 ? 's' : ''}
-                              </Badge>
-                            )}
-                            <span>
-                              {nb} gamme{nb > 1 ? 's' : ''}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
+                <div className={listStack}>
+                  {childCategories.map((cat) => (
+                    <ListRow
+                      key={cat.id}
+                      icon={<Folder className="size-5" />}
+                      title={cat.nom}
+                      onClick={() => setPath([...validPath, cat])}
+                      actions={
+                        canEntreprise ? (
+                          <>
                             <Button
-                              size="sm"
-                              onClick={() => setPath([...validPath, cat])}
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Modifier la catégorie"
+                              onClick={() => handleEditCategory(cat)}
                             >
-                              <ChevronRight /> Ouvrir
+                              <Pencil />
                             </Button>
-                            {canEntreprise && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEditCategory(cat)}
-                                >
-                                  <Pencil /> Modifier
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setToDeleteCategorie(cat)}
-                                >
-                                  <Trash2 /> Supprimer
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Supprimer la catégorie"
+                              onClick={() => setToDeleteCategorie(cat)}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </>
+                        ) : undefined
+                      }
+                    />
+                  ))}
                 </div>
               )}
 
               {current !== null && gammesInCurrent.length > 0 && (
-                <div className={cardGrid.default}>
-                  {gammesInCurrent.map((g) => {
-                    return (
-                      <Card key={g.id} className="min-w-0">
-                        <CardHeader>
-                          <CardTitle className="truncate">{g.nom}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge
-                              variant={
-                                g.nature === 'controle_reglementaire'
-                                  ? 'default'
-                                  : 'secondary'
-                              }
-                            >
-                              {NATURE_LABEL[g.nature]}
-                            </Badge>
-                            <Badge variant="outline">
-                              {g.periodicites.libelle}
-                            </Badge>
-                          </div>
-                          <span className="truncate">
-                            {g.prestataires.libelle}
-                          </span>
-                          <div className="flex flex-wrap gap-2">
-                            <Button size="sm" onClick={() => setOpenGamme(g)}>
-                              <ChevronRight /> Détail
-                            </Button>
+                <div className={listStack}>
+                  {gammesInCurrent.map((g) => (
+                    <ListRow
+                      key={g.id}
+                      icon={<Wrench className="size-5" />}
+                      title={g.nom}
+                      badges={
+                        <>
+                          <Badge
+                            variant={
+                              g.nature === 'controle_reglementaire'
+                                ? 'default'
+                                : 'secondary'
+                            }
+                          >
+                            {NATURE_LABEL[g.nature]}
+                          </Badge>
+                          <Badge variant="outline">
+                            {g.periodicites.libelle}
+                          </Badge>
+                        </>
+                      }
+                      onClick={() => setOpenGamme(g)}
+                      actions={
+                        canExport || canEntreprise ? (
+                          <>
                             {canExport && (
                               <Button
-                                variant="outline"
-                                size="sm"
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Copier vers un site"
                                 onClick={() => openExportGamme(g)}
                               >
-                                <CopyPlus /> Copier vers un site
+                                <CopyPlus />
                               </Button>
                             )}
                             {canEntreprise && (
                               <>
                                 <Button
-                                  variant="outline"
-                                  size="sm"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="Modifier la gamme"
                                   onClick={() =>
                                     setGammeForm({ open: true, gamme: g })
                                   }
                                 >
-                                  <Pencil /> Modifier
+                                  <Pencil />
                                 </Button>
                                 <Button
                                   variant="ghost"
-                                  size="sm"
+                                  size="icon"
+                                  aria-label="Supprimer la gamme"
                                   onClick={() => setToDeleteGamme(g)}
                                 >
-                                  <Trash2 /> Supprimer
+                                  <Trash2 />
                                 </Button>
                               </>
                             )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
+                          </>
+                        ) : undefined
+                      }
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -726,9 +766,16 @@ export function GammesBiblioPanel() {
       {canEntreprise && (
         <CategoryFormDialog
           key={
-            categoryForm.categorie
+            // `open` dans la key : le dialog est monté en permanence et son état
+            // initial (scope, portée…) est calculé une seule fois au montage. Sans
+            // ce discriminant, ouvrir le « + » ne recrée pas le composant → il
+            // garderait le scope par défaut (`equipement`) au lieu du preset
+            // (`gamme`). Le remontage à chaque ouverture force `initialValues` à
+            // relire le preset/lockedScope courant.
+            (categoryForm.categorie
               ? `cat-edit-${categoryForm.categorie.id}`
-              : `cat-new-${categoryForm.preset?.parent_id ?? 'root'}`
+              : `cat-new-${categoryForm.preset?.parent_id ?? 'root'}`) +
+            `-${String(categoryForm.open)}`
           }
           open={categoryForm.open}
           onOpenChange={(open) => setCategoryForm((f) => ({ ...f, open }))}
@@ -738,8 +785,17 @@ export function GammesBiblioPanel() {
           canEntreprise
           siteId={null}
           siteName={null}
-          lockedScope={categoryForm.categorie ? undefined : categoryForm.lockedScope}
+          lockedScope={
+            categoryForm.categorie ? undefined : categoryForm.lockedScope
+          }
           minimal
+          // Onglet Gammes : une catégorie est toujours `scope = 'gamme'` et
+          // commune (site_id null). Type et Portée n'ont donc aucun sens ici, ni
+          // en création ni en édition → masqués (valeurs d'origine préservées).
+          hideScope
+          hidePortee
+          // Formulaire épuré (création comme édition) : pas de texte d'aide.
+          hideDescription
         />
       )}
 
@@ -747,7 +803,7 @@ export function GammesBiblioPanel() {
           courante (niveau 2 : une gamme pointe toujours une sous-catégorie). */}
       {canEntreprise && depth === 2 && current !== null && (
         <GammeBiblioFormDialog
-          key={`gamme-${gammeForm.gamme?.id ?? `new-${current.id}`}`}
+          key={`gamme-${gammeForm.gamme?.id ?? `new-${current.id}`}-${String(gammeForm.open)}`}
           open={gammeForm.open}
           onOpenChange={(open) => setGammeForm((f) => ({ ...f, open }))}
           gamme={gammeForm.gamme}
@@ -798,6 +854,70 @@ export function GammesBiblioPanel() {
   )
 }
 
+// ----- Fil d'Ariane rendu comme TITRE de la barre d'onglet -----
+
+interface BreadcrumbAncestor {
+  /** Clé React stable (id de catégorie, ou « racine »). */
+  key: string
+  label: string
+  onClick: () => void
+}
+
+/**
+ * Titre « fil d'Ariane » de la barre d'onglet : le segment COURANT fait office
+ * de grand titre (`text-2xl`), précédé de ses ancêtres cliquables (petits,
+ * atténués, séparés par des chevrons) et, hors racine, d'un bouton Retour.
+ * Tout tronque (`min-w-0` / `truncate`) pour ne jamais déborder sur mobile.
+ * Générique : réutilisable par tout onglet via `useTabTitle`.
+ */
+function TitleBreadcrumb({
+  ancestors,
+  current,
+  onBack,
+}: {
+  ancestors: BreadcrumbAncestor[]
+  current: string
+  onBack: (() => void) | null
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      {onBack !== null && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+          aria-label="Retour"
+          className="shrink-0"
+        >
+          <ChevronLeft />
+        </Button>
+      )}
+      {ancestors.length > 0 && (
+        <nav
+          aria-label="Fil d'Ariane"
+          className="text-muted-foreground flex min-w-0 items-center gap-1 text-sm"
+        >
+          {ancestors.map((a) => (
+            <span key={a.key} className="flex min-w-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={a.onClick}
+                className="hover:text-foreground truncate"
+              >
+                {a.label}
+              </button>
+              <ChevronRight className="size-4 shrink-0" />
+            </span>
+          ))}
+        </nav>
+      )}
+      <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
+        {current}
+      </h1>
+    </div>
+  )
+}
+
 // ----- Détail d'une gamme-template : opérations spécifiques -----
 
 type OperationRow = Database['public']['Tables']['operations']['Row'] & {
@@ -812,17 +932,14 @@ type OperationRow = Database['public']['Tables']['operations']['Row'] & {
 function GammeBiblioDetail({
   gamme,
   canEdit,
-  onCopy,
-  onBack,
-  onEdit,
 }: {
   gamme: GammeBiblioRow
-  /** Édition réservée aux rôles entreprise (admin/manager). */
+  /**
+   * Édition réservée aux rôles entreprise (admin/manager) : pilote l'affichage
+   * des actions sur les opérations. « Modifier la gamme » / « Copier vers un
+   * site » vivent désormais dans la barre d'onglet (cf. GammesBiblioPanel).
+   */
   canEdit: boolean
-  /** Copie commun → site (fourni aux rôles métier ayant un site accessible). */
-  onCopy?: () => void
-  onBack: () => void
-  onEdit: () => void
 }) {
   const query = useQuery(gammesQueries.operations(gamme.id))
   const del = useDeleteOperation()
@@ -843,20 +960,17 @@ function GammeBiblioDetail({
     })
   }
 
-  const newButton =
-    canEdit ? (
-      <Button size="sm" onClick={() => setOpForm({ open: true, op: null })}>
-        <Plus /> Ajouter une opération
-      </Button>
-    ) : undefined
+  const newButton = canEdit ? (
+    <Button size="sm" onClick={() => setOpForm({ open: true, op: null })}>
+      <Plus /> Ajouter une opération
+    </Button>
+  ) : undefined
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Le nom de la gamme et le bouton « Retour » vivent dans le titre de la
+          barre d'onglet (cf. titleNode). Ici, seuls les badges contextuels. */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ChevronLeft /> Retour
-        </Button>
-        <span className="font-medium">{gamme.nom}</span>
         <Badge
           variant={
             gamme.nature === 'controle_reglementaire' ? 'default' : 'secondary'
@@ -866,20 +980,6 @@ function GammeBiblioDetail({
         </Badge>
         {gamme.periodicites && (
           <Badge variant="outline">{gamme.periodicites.libelle}</Badge>
-        )}
-        {(onCopy ?? canEdit) && (
-          <div className="ml-auto flex flex-wrap gap-2">
-            {onCopy && (
-              <Button variant="outline" size="sm" onClick={onCopy}>
-                <CopyPlus /> Copier vers un site
-              </Button>
-            )}
-            {canEdit && (
-              <Button variant="outline" size="sm" onClick={onEdit}>
-                <Pencil /> Modifier la gamme
-              </Button>
-            )}
-          </div>
         )}
       </div>
 
@@ -987,7 +1087,9 @@ function GammeBiblioDetail({
         }}
         title="Supprimer l’opération ?"
         description={
-          toDelete ? `« ${toDelete.nom} » sera définitivement retirée.` : undefined
+          toDelete
+            ? `« ${toDelete.nom} » sera définitivement retirée.`
+            : undefined
         }
         confirmLabel="Supprimer"
         destructive

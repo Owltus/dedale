@@ -36,6 +36,10 @@ export const emptyGamme: GammeFormValues = {
 export const gammeBiblioSchema = gammeSchema.extend({
   categorie_id: z.string().min(1, 'La catégorie est obligatoire'),
   portee: z.enum(['entreprise', 'site']),
+  // Un template commun n'a PAS de prestataire (il dépend du site, renseigné
+  // après copie) : le champ est facultatif ici (autorise '' → NULL en base),
+  // contrairement à la gamme réelle (`gammeSchema`) qui l'exige.
+  prestataire_id: z.string(),
 })
 
 export type GammeBiblioFormValues = z.input<typeof gammeBiblioSchema>

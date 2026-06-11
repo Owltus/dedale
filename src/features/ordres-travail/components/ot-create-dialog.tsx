@@ -53,7 +53,9 @@ export function OtCreateDialog({
         gammeId: gamme.id,
         datePrevue: parsed.data.date_prevue,
         nature: gamme.nature,
-        prestataireId: gamme.prestataire_id,
+        // Gamme réelle de site → prestataire toujours présent (obligatoire) ;
+        // garde-fou de typage depuis que la colonne est nullable (templates).
+        prestataireId: gamme.prestataire_id ?? '',
         nomGamme: gamme.nom,
         libellePeriodicite: gamme.periodicites.libelle,
       })
