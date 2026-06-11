@@ -92,7 +92,9 @@ export function ModelesEquipementsPanel() {
   // Bouton « Copier vers un site » : seulement sur un modèle COMMUN et si
   // l'utilisateur a au moins un site accessible (la RPC reste l'arbitre réel).
   const canExport = canManage && sites.length > 0
-  async function handleExportConfirm(siteCible: string): Promise<ExportOutcome> {
+  async function handleExportConfirm(
+    siteCible: string,
+  ): Promise<ExportOutcome> {
     const modele = exportState.modele
     if (!modele) return { ton: 'echec', message: 'Aucun modèle à copier.' }
     await copierModele.mutateAsync({ sourceModeleId: modele.id, siteCible })
@@ -265,7 +267,9 @@ export function ModelesEquipementsPanel() {
                           <div className="flex shrink-0 items-center gap-2">
                             <Badge
                               variant={
-                                modele.site_id === null ? 'secondary' : 'outline'
+                                modele.site_id === null
+                                  ? 'secondary'
+                                  : 'outline'
                               }
                             >
                               {modele.site_id === null ? 'Commun' : 'Site'}
@@ -370,8 +374,7 @@ export function ModelesEquipementsPanel() {
             resume={
               exportState.modele ? (
                 <>
-                  Le modèle{' '}
-                  <strong>« {exportState.modele.nom} »</strong> (ses
+                  Le modèle <strong>« {exportState.modele.nom} »</strong> (ses
                   caractéristiques comprises) sera copié sur le site choisi.
                 </>
               ) : null
@@ -419,8 +422,17 @@ export function ModelesEquipementsPanel() {
                 return (
                   <Card
                     key={cat.id}
-                    className="min-w-0 cursor-pointer transition-shadow hover:shadow-md"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Ouvrir la catégorie ${cat.nom}`}
+                    className="focus-visible:ring-ring min-w-0 cursor-pointer transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
                     onClick={() => setOpenCategoryId(cat.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setOpenCategoryId(cat.id)
+                      }
+                    }}
                   >
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">
@@ -446,7 +458,7 @@ export function ModelesEquipementsPanel() {
 
       {canManage && (
         <CategoryFormDialog
-          key={`cat-new-${scope}`}
+          key={`cat-new-${scope}-${String(categoryFormOpen)}`}
           open={categoryFormOpen}
           onOpenChange={setCategoryFormOpen}
           categorie={null}

@@ -46,6 +46,17 @@ export function OtCreateDialog({
       return
     }
 
+    // Depuis la migration 007 le prestataire d'une gamme de site est nullable
+    // (une gamme copiée d'un template n'en a pas) : on bloque AVANT l'INSERT
+    // plutôt que d'envoyer un UUID vide et de récolter une erreur Postgres brute.
+    if (!gamme.prestataire_id) {
+      setErrors({
+        gamme_id:
+          'Cette gamme n’a pas de prestataire. Renseigne-le dans la fiche gamme avant de créer un OT.',
+      })
+      return
+    }
+
     try {
       await create.mutateAsync({
         siteId,
@@ -53,9 +64,9 @@ export function OtCreateDialog({
         gammeId: gamme.id,
         datePrevue: parsed.data.date_prevue,
         nature: gamme.nature,
-        // Gamme réelle de site → prestataire toujours présent (obligatoire) ;
-        // garde-fou de typage depuis que la colonne est nullable (templates).
-        prestataireId: gamme.prestataire_id ?? '',
+        // Prestataire garanti non vide par le garde-fou ci-dessus (colonne
+        // nullable depuis que les gammes peuvent être copiées de templates).
+        prestataireId: gamme.prestataire_id,
         nomGamme: gamme.nom,
         libellePeriodicite: gamme.periodicites.libelle,
       })

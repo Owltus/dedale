@@ -61,8 +61,12 @@ export function useUpdateModeleOperation() {
         .throwOnError()
       return data
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() }),
+    onSuccess: () => {
+      // Le renommage d'un modèle se projette dans la section « Modèles
+      // d'opération liés » d'une gamme (namespace `['gammes']`).
+      void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
+      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+    },
   })
 }
 
@@ -136,8 +140,12 @@ export function useCreateOperationItem() {
         .throwOnError()
       return data
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() }),
+    onSuccess: () => {
+      // Le nombre d'items d'un modèle est projeté dans la section « Modèles
+      // d'opération liés » d'une gamme (namespace `['gammes']`).
+      void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
+      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+    },
   })
 }
 
@@ -162,8 +170,12 @@ export function useUpdateOperationItem() {
         .throwOnError()
       return data
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() }),
+    onSuccess: () => {
+      // Le nombre d'items d'un modèle est projeté dans la section « Modèles
+      // d'opération liés » d'une gamme (namespace `['gammes']`).
+      void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
+      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+    },
   })
 }
 
@@ -177,7 +189,11 @@ export function useDeleteOperationItem() {
         .eq('id', id)
         .throwOnError()
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() }),
+    onSuccess: () => {
+      // Le nombre d'items d'un modèle est projeté dans la section « Modèles
+      // d'opération liés » d'une gamme (namespace `['gammes']`).
+      void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
+      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+    },
   })
 }

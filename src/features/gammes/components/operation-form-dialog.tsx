@@ -64,6 +64,22 @@ export function OperationFormDialog({
     setValues((v) => ({ ...v, [key]: value }))
   }
 
+  // Changer de type peut masquer les champs Unité/Seuils. On purge alors leurs
+  // valeurs : un champ masqué ne doit jamais porter de valeur incohérente,
+  // sinon le refine « min ≤ max » (toujours évalué) bloquerait le submit sur un
+  // champ invisible, sans toast ni fermeture (cul-de-sac silencieux).
+  function setType(typeId: string) {
+    const nextType = types.find((t) => String(t.id) === typeId)
+    const nextRequiresSeuils = nextType?.necessite_seuils ?? false
+    setValues((v) => ({
+      ...v,
+      type_operation_id: typeId,
+      unite_id: nextRequiresSeuils ? v.unite_id : '',
+      seuil_minimum: nextRequiresSeuils ? v.seuil_minimum : '',
+      seuil_maximum: nextRequiresSeuils ? v.seuil_maximum : '',
+    }))
+  }
+
   async function handleSubmit() {
     const parsed = operationSchema.safeParse(values)
     if (!parsed.success) {
@@ -126,7 +142,7 @@ export function OperationFormDialog({
           required
           id="op_type"
           value={values.type_operation_id}
-          onChange={(v) => set('type_operation_id', v)}
+          onChange={(v) => setType(v)}
           error={errors.type_operation_id}
         >
           <option value="">— Choisir un type —</option>

@@ -234,9 +234,16 @@ function GammesList({
                       </Badge>
                       <Badge variant="outline">{g.periodicites.libelle}</Badge>
                     </div>
-                    <span className="truncate">
-                      {g.prestataires?.libelle ?? ''}
-                    </span>
+                    {g.prestataires ? (
+                      <span className="truncate">{g.prestataires.libelle}</span>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground w-fit"
+                      >
+                        Prestataire à renseigner
+                      </Badge>
+                    )}
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" onClick={() => onOpen(g)}>
                         <ChevronRight /> Détail
@@ -373,8 +380,12 @@ function GammeDetail({
         {gamme.periodicites && (
           <Badge variant="outline">{gamme.periodicites.libelle}</Badge>
         )}
-        {gamme.prestataires && (
+        {gamme.prestataires ? (
           <Badge variant="outline">{gamme.prestataires.libelle}</Badge>
+        ) : (
+          <Badge variant="outline" className="text-muted-foreground">
+            Prestataire à renseigner
+          </Badge>
         )}
       </div>
 

@@ -153,6 +153,11 @@ export const gammesQueries = {
           )
           .eq('gamme_id', gammeId)
           .order('ordre')
+          // `ordre` est un entier libre (DEFAULT 0) → clés secondaires STABLES
+          // pour un ordre déterministe à `ordre` égal (pas de saut visuel au
+          // refetch/mutation).
+          .order('created_at')
+          .order('id')
           .abortSignal(signal)
           .throwOnError()
         return data

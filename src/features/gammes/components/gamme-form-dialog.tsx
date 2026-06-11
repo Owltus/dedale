@@ -247,8 +247,9 @@ export function GammeFormDialog({
         </SelectField>
         {aucuneSousCategorie && (
           <p className="text-muted-foreground text-sm">
-            Aucune sous-catégorie de gamme dans ce périmètre. Pour en créer, passe
-            par <span className="font-medium">Bibliothèque › Gammes</span>.
+            Aucune sous-catégorie de gamme dans ce périmètre. Pour en créer,
+            passe par <span className="font-medium">Bibliothèque › Gammes</span>
+            .
           </p>
         )}
       </div>

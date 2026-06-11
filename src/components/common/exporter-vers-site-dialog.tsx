@@ -76,9 +76,10 @@ export function ExporterVersSiteDialog({
         toast.success(outcome.message)
         onOpenChange(false)
       } else if (outcome.ton === 'partiel') {
-        // Bilan partiel : on garde le dialog OUVERT. La RPC de copie n'est pas
-        // idempotente → fermer puis relancer recopierait TOUTE la source (doublons
-        // silencieux). On laisse l'utilisateur décider en connaissance de cause.
+        // Bilan partiel : on garde le dialog OUVERT. Relancer recopie TOUTE la
+        // source, mais l'index unique côté base REFUSE les éléments déjà copiés
+        // (même nom déjà présent → 23505 traduit) au lieu de les dupliquer :
+        // seuls les manquants seront ajoutés. On laisse l'utilisateur décider.
         toast.warning(outcome.message)
       } else {
         // Échec total : on garde le dialog ouvert (réessai / autre cible).
@@ -120,9 +121,10 @@ export function ExporterVersSiteDialog({
               ))}
             </SelectField>
             <p className="text-muted-foreground text-sm">
-              La copie est <strong>indépendante</strong> : tu pourras la modifier
-              {siteName ? ` sur « ${siteName} »` : ' sur le site'} sans toucher à
-              l’original commun.
+              La copie est <strong>indépendante</strong> : tu pourras la
+              modifier
+              {siteName ? ` sur « ${siteName} »` : ' sur le site'} sans toucher
+              à l’original commun.
             </p>
           </div>
         )}

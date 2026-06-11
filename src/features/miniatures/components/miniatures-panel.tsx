@@ -301,7 +301,7 @@ export function MiniaturesPanel() {
       return
     }
     if (uploadSiteId === null && !canEntreprise) {
-      toast.error("Tu n'as pas le droit d'ajouter au pool commun.")
+      toast.error('Tu n’as pas le droit d’ajouter au pool commun.')
       return
     }
     try {
@@ -372,9 +372,23 @@ export function MiniaturesPanel() {
                 return (
                   <div
                     key={miniature.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    aria-label={
+                      isSelected
+                        ? 'Désélectionner la vignette'
+                        : 'Sélectionner la vignette'
+                    }
                     onClick={() => toggleSelect(miniature.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        toggleSelect(miniature.id)
+                      }
+                    }}
                     className={cn(
-                      'group relative cursor-pointer overflow-hidden rounded-lg border transition',
+                      'group focus-visible:ring-ring relative cursor-pointer overflow-hidden rounded-lg border transition focus-visible:ring-2 focus-visible:outline-none',
                       isSelected
                         ? 'ring-primary ring-2'
                         : 'hover:ring-ring/40 hover:ring-2',

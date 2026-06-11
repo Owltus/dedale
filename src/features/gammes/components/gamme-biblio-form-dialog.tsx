@@ -1,16 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  emptyGammeBiblio,
-  gammeBiblioSchema,
-  gammeNatures,
-} from '../schemas'
+import { emptyGammeBiblio, gammeBiblioSchema, gammeNatures } from '../schemas'
 import type { GammeBiblioFormValues } from '../schemas'
 import { useCreateGammeBiblio, useUpdateGammeBiblio } from '../mutations'
 import { referentielsQueries, type GammeBiblioRow } from '../queries'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { errorMessage, fieldErrors, pgCode } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
@@ -24,6 +20,23 @@ const NATURE_LABEL: Record<(typeof gammeNatures)[number], string> = {
 interface CategorieOption {
   id: string
   nom: string
+}
+
+/**
+ * Traduit les erreurs Postgres de création/édition d'une gamme-template commune.
+ * Évite tout message technique brut : repli sur `errorMessage` pour le reste.
+ */
+function gammeBiblioErrorMessage(e: unknown): string {
+  const code = pgCode(e)
+  // unique_violation : index `uniq_gammes_entreprise` (homonyme déjà présent).
+  if (code === '23505') {
+    return 'Une gamme-template portant ce nom existe déjà.'
+  }
+  // insufficient_privilege : RLS (hors scope d'écriture).
+  if (code === '42501') {
+    return 'Action non autorisée : vous n’avez pas les droits.'
+  }
+  return errorMessage(e)
 }
 
 interface GammeBiblioFormDialogProps {
@@ -129,7 +142,7 @@ export function GammeBiblioFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(gammeBiblioErrorMessage(e))
     }
   }
 

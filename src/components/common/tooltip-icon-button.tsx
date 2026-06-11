@@ -32,20 +32,33 @@ export function TooltipIconButton({
   disabled,
   type = 'button',
 }: TooltipIconButtonProps) {
+  const button = (
+    <Button
+      type={type}
+      size="icon"
+      variant={variant}
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="shrink-0"
+    >
+      {icon}
+    </Button>
+  )
   return (
     <Tooltip>
+      {/* Bouton désactivé : `pointer-events-none` + attribut natif `disabled`
+          empêchent le TooltipTrigger Radix de s'ouvrir. On enveloppe alors le
+          bouton dans un `<span>` focusable qui porte le déclencheur (survol /
+          focus), pour que l'explication reste visible même désactivé. */}
       <TooltipTrigger asChild>
-        <Button
-          type={type}
-          size="icon"
-          variant={variant}
-          aria-label={label}
-          onClick={onClick}
-          disabled={disabled}
-          className="shrink-0"
-        >
-          {icon}
-        </Button>
+        {disabled ? (
+          <span tabIndex={0} className="inline-flex shrink-0">
+            {button}
+          </span>
+        ) : (
+          button
+        )}
       </TooltipTrigger>
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>

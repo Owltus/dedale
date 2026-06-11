@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { getRouteApi } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
-  ChevronLeft,
   ChevronRight,
   CopyPlus,
   Folder,
@@ -35,6 +35,7 @@ import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage, exportErrorMessage } from '@/lib/form'
 import { sousCategoriesNiveau2 } from '@/lib/scope'
+import { slugify } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction, useTabTitle } from '@/components/common/tab-actions'
 import {
@@ -81,6 +82,44 @@ const NATURE_LABEL: Record<GammeBiblioRow['nature'], string> = {
 // verrouillée (site_id NULL) pour toute création de catégorie/sous-catégorie.
 const COMMUN_LOCK: LockedScope = { portee: 'entreprise', siteId: null }
 
+// API typée de la route SPLAT porteuse du chemin lisible
+// (`/bibliotheque/<onglet>/<cat>/<sous>/<gamme>`, segments slugifiés). Via
+// `getRouteApi` (et non un import du module de route) pour ne PAS inverser la
+// dépendance features → routes : la route reste la seule à connaître la feature.
+const route = getRouteApi('/_app/bibliotheque/$')
+
+/**
+ * Segment d'URL STABLE et UNIQUE PARMI SES FRÈRES d'une catégorie/sous-catégorie/
+ * gamme : son nom slugifié, désambiguïsé en cas de collision entre frères.
+ *
+ * Deux cas de repli sur l'unicité :
+ *  - slug VIDE (nom fait uniquement de caractères hors `[a-z0-9]`, ex. « ### »,
+ *    « ① ») → `''` : ce segment vide disparaîtrait du chemin (`join('/')` +
+ *    `split('/').filter(Boolean)`) et l'élément se résoudrait vers son PARENT.
+ *    On retombe sur l'`id` (toujours non vide et unique) ;
+ *  - COLLISION entre frères (deux éléments de même parent au slug non vide
+ *    identique, ex. « Électricité » / « Electricite » → `electricite`) : sans
+ *    discriminant, la génération produit le même segment pour les deux et la
+ *    résolution (`find`) renvoie toujours le 1er → le 2e devient injoignable.
+ *    On suffixe alors `~<id court>` (le `~` est hors de l'alphabet de `slugify`,
+ *    qui ne garde que `[a-z0-9-]`, donc jamais de confusion slug/discriminant).
+ *
+ * À utiliser À LA FOIS en GÉNÉRATION et en RÉSOLUTION, avec EXACTEMENT le même
+ * ensemble de `siblings` de chaque côté (symétrie) : un segment doit toujours se
+ * relire à l'identique. Slug non vide et sans collision → segment = slug pur.
+ */
+function segOfUnique(
+  obj: { nom: string; id: string },
+  siblings: { nom: string; id: string }[],
+): string {
+  const s = slugify(obj.nom)
+  if (!s) return obj.id
+  const collision = siblings.some(
+    (x) => x.id !== obj.id && slugify(x.nom) === s,
+  )
+  return collision ? `${s}~${obj.id.slice(0, 8)}` : s
+}
+
 /**
  * Panneau « Gammes » de la Bibliothèque : arborescence catégorie/sous-catégorie
  * (scope `gamme`/`mixte`) des gammes-templates COMMUNES (entreprise, `site_id`
@@ -110,9 +149,83 @@ export function GammesBiblioPanel() {
   const delCategorie = useDeleteCategorie()
   const copierGamme = useCopierGamme()
 
-  // Pile de navigation (catégorie → sous-catégorie). Vide = racine.
-  const [path, setPath] = useState<Categorie[]>([])
-  const [openGamme, setOpenGamme] = useState<GammeBiblioRow | null>(null)
+  // NAVIGATION PAR CHEMIN : la descente (catégorie → sous-catégorie → gamme) vit
+  // dans le CHEMIN d'URL en NOMS slugifiés
+  // (`/bibliotheque/gammes/<cat>/<sous>/<gamme>`), plus dans un state ni des
+  // search params. → bouton retour du navigateur step-by-step + liens LISIBLES.
+  // Le 1er segment vaut toujours `gammes` ici (ce panneau n'est rendu que pour
+  // cet onglet) ; on lit les 3 suivants (slugs de cat/sous/gamme).
+  const { _splat } = route.useParams()
+  const navigate = route.useNavigate()
+  const segments = (_splat ?? '').split('/').filter(Boolean)
+  const catSeg = segments[1]
+  const sousSeg = segments[2]
+  const gammeSeg = segments[3]
+
+  // Catégories de gamme COMMUNES (site_id NULL), actives, scope gamme/mixte :
+  // l'onglet ne montre/édite que le périmètre entreprise.
+  const gammeCats = useMemo(
+    () =>
+      (categoriesQuery.data ?? []).filter(
+        (c) =>
+          c.site_id === null &&
+          c.est_actif &&
+          (c.scope === 'gamme' || c.scope === 'mixte'),
+      ),
+    [categoriesQuery.data],
+  )
+  // Gammes-templates COMMUNES uniquement (les gammes de site vivent dans la page
+  // Gammes opérationnelle, pas dans la Bibliothèque).
+  const gammes = useMemo(
+    () => (gammesQuery.data ?? []).filter((g) => g.site_id === null),
+    [gammesQuery.data],
+  )
+
+  // Construit le segment splat (slugs de NOMS) : préfixe `gammes`, puis les
+  // catégories, puis éventuellement la gamme. Source unique des URL du panneau.
+  // Chaque segment est désambiguïsé via `segOfUnique` sur SES frères réels
+  // (mêmes ensembles qu'à la résolution, cf. `validPath`/`openGamme`) :
+  //  - catégorie : ses frères = les catégories de même parent
+  //    (`gammeCats.filter(c => c.parent_id === cat.parent_id)`) — racine si
+  //    `parent_id` null, sinon les enfants de la racine parente ;
+  //  - gamme : ses frères = les gammes de sa sous-catégorie
+  //    (`gammes.filter(g => g.categorie_id === gamme.categorie_id)`).
+  const buildSplat = useCallback(
+    (cats: Categorie[], gamme?: GammeBiblioRow): string => {
+      const parts = [
+        'gammes',
+        ...cats.map((c) =>
+          segOfUnique(
+            c,
+            gammeCats.filter((x) => x.parent_id === c.parent_id),
+          ),
+        ),
+      ]
+      if (gamme !== undefined) {
+        parts.push(
+          segOfUnique(
+            gamme,
+            gammes.filter((g) => g.categorie_id === gamme.categorie_id),
+          ),
+        )
+      }
+      return parts.join('/')
+    },
+    [gammeCats, gammes],
+  )
+
+  // Navigue vers un PRÉFIXE de chemin (sans gamme ouverte), en PUSH (entrée
+  // d'historique) : [] = racine, [cat] = catégorie, [cat, sous] = sous-catégorie.
+  const goToCats = useCallback(
+    (cats: Categorie[]) => {
+      void navigate({
+        to: '/bibliotheque/$',
+        params: { _splat: buildSplat(cats) },
+      })
+    },
+    [navigate, buildSplat],
+  )
+
   const [categoryForm, setCategoryForm] = useState<CategoryFormState>({
     open: false,
     categorie: null,
@@ -139,40 +252,96 @@ export function GammesBiblioPanel() {
       | null
   }>({ open: false, target: null })
 
-  // Catégories de gamme COMMUNES (site_id NULL), actives, scope gamme/mixte :
-  // l'onglet ne montre/édite que le périmètre entreprise.
-  const gammeCats = useMemo(
-    () =>
-      (categoriesQuery.data ?? []).filter(
-        (c) =>
-          c.site_id === null &&
-          c.est_actif &&
-          (c.scope === 'gamme' || c.scope === 'mixte'),
-      ),
-    [categoriesQuery.data],
-  )
-  // Gammes-templates COMMUNES uniquement (les gammes de site vivent dans la page
-  // Gammes opérationnelle, pas dans la Bibliothèque).
-  const gammes = useMemo(
-    () => (gammesQuery.data ?? []).filter((g) => g.site_id === null),
-    [gammesQuery.data],
+  // Chemin de catégories RÉEL d'une gamme, remonté depuis `categorie_id`
+  // (sous-catégorie niv.2 → racine) sur la donnée FRAÎCHE. Sert à GÉNÉRER une URL
+  // cohérente avec la catégorie courante de la gamme — même après un déplacement
+  // realtime — et à dériver le fil d'Ariane d'une gamme ouverte (constat #1).
+  const pathForGamme = useCallback(
+    (g: GammeBiblioRow): Categorie[] => {
+      const sousCat = gammeCats.find((c) => c.id === g.categorie_id)
+      if (!sousCat) return []
+      const racine =
+        sousCat.parent_id !== null
+          ? (gammeCats.find((c) => c.id === sousCat.parent_id) ?? null)
+          : null
+      return racine ? [racine, sousCat] : [sousCat]
+    },
+    [gammeCats],
   )
 
-  // Chemin RESYNCHRONISÉ sur la donnée fraîche : on ne garde que le préfixe dont
-  // chaque catégorie existe encore (suppression / masquage realtime), en
-  // remplaçant chaque entrée par son objet à jour (nom, etc.). Si le dernier
-  // élément du chemin disparaît, le chemin se tronque tout seul jusqu'au dernier
-  // ancêtre présent — sans fantôme ni instantané périmé. La navigation s'appuie
-  // sur ce chemin validé, jamais sur la pile brute (qui peut traîner un fantôme).
+  // Chemin RÉSOLU depuis les SLUGS du chemin, apparié à la donnée FRAÎCHE :
+  // `cat` = racine de gamme (`parent_id` null) dont `segOfUnique === catSeg` ;
+  // `sous` = enfant de `cat` dont `segOfUnique === sousSeg`. La désambiguïsation
+  // s'appuie sur les MÊMES ensembles de frères qu'en génération (`buildSplat`) :
+  // les racines pour `cat`, les enfants de la racine résolue pour `sous` → deux
+  // frères de slug identique (« Électricité »/« Electricite ») restent distincts
+  // et chacun atteignable. Segment introuvable (lien cassé, renommage, masquage
+  // realtime) → on TRONQUE au préfixe valide. La navigation s'appuie sur ce chemin
+  // validé, jamais sur les slugs bruts de l'URL.
   const validPath = useMemo(() => {
     const result: Categorie[] = []
-    for (const c of path) {
-      const fresh = gammeCats.find((gc) => gc.id === c.id)
-      if (!fresh) break
-      result.push(fresh)
-    }
+    if (catSeg === undefined) return result
+    const racines = gammeCats.filter((c) => c.parent_id === null)
+    const racine = racines.find((c) => segOfUnique(c, racines) === catSeg)
+    if (!racine) return result
+    result.push(racine)
+    if (sousSeg === undefined) return result
+    const enfants = gammeCats.filter((c) => c.parent_id === racine.id)
+    const sousCat = enfants.find((c) => segOfUnique(c, enfants) === sousSeg)
+    if (!sousCat) return result
+    result.push(sousCat)
     return result
-  }, [path, gammeCats])
+  }, [catSeg, sousSeg, gammeCats])
+
+  // Gamme ouverte (vue détail), relue dans le pool FRAIS, résolue en DEUX temps :
+  //  1) NOMINAL : la gamme dont `segOfUnique === gammeSeg` (frères = les gammes de
+  //     la sous-catégorie résolue) DANS la sous-catégorie de l'URL.
+  //  2) ROBUSTESSE AU DÉPLACEMENT (realtime, ou édition de la catégorie depuis le
+  //     détail) : si la gamme n'est plus dans cette sous-catégorie, on retombe sur
+  //     une correspondance GLOBALE NON AMBIGUË — une seule gamme commune dont
+  //     `segOfUnique(g, ses frères réels)` vaut `gammeSeg`. Le fil d'Ariane
+  //     (`gammePath`, dérivé de `categorie_id`) suit alors la NOUVELLE catégorie →
+  //     l'URL reste cohérente SANS re-navigation. Ambiguë / introuvable → `null`
+  //     (repli propre vers la vue navigation).
+  const openGamme = useMemo(() => {
+    if (gammeSeg === undefined) return null
+    const sousCat = validPath.length === 2 ? validPath[1] : null
+    if (!sousCat) return null
+    // 1) Résolution nominale dans la sous-catégorie de l'URL.
+    const ici = gammes.filter((g) => g.categorie_id === sousCat.id)
+    const direct = ici.find((g) => segOfUnique(g, ici) === gammeSeg)
+    if (direct) return direct
+    // 2) Gamme déplacée : correspondance globale unique (sinon null).
+    const candidats = gammes.filter(
+      (g) =>
+        segOfUnique(
+          g,
+          gammes.filter((s) => s.categorie_id === g.categorie_id),
+        ) === gammeSeg,
+    )
+    return candidats.length === 1 ? (candidats[0] ?? null) : null
+  }, [gammeSeg, validPath, gammes])
+
+  // ANCÊTRES du fil d'Ariane d'une gamme OUVERTE, dérivés de sa catégorie RÉELLE
+  // (`categorie_id`) et non des slugs bruts (constat #1) : les ancêtres cliquables
+  // ramènent vers la VRAIE sous-catégorie de la gamme, et l'URL reste cohérente
+  // même après un déplacement realtime.
+  const gammePath = useMemo<Categorie[]>(
+    () => (openGamme !== null ? pathForGamme(openGamme) : []),
+    [openGamme, pathForGamme],
+  )
+
+  // Ouvre une gamme (PUSH) : chemin dérivé de sa catégorie RÉELLE + segment du
+  // nom (ou de l'id si le nom slugifie en '', cf. `segOf`).
+  const goToGamme = useCallback(
+    (g: GammeBiblioRow) => {
+      void navigate({
+        to: '/bibliotheque/$',
+        params: { _splat: buildSplat(pathForGamme(g), g) },
+      })
+    },
+    [navigate, buildSplat, pathForGamme],
+  )
   const current: Categorie | null = validPath.at(-1) ?? null
   // Profondeur de navigation, BORNÉE à 2 niveaux (modèle strict
   // Catégorie niv.1 → Sous-catégorie niv.2 → Gammes) :
@@ -273,13 +442,15 @@ export function GammesBiblioPanel() {
     if (reussis === 0) {
       return { ton: 'echec', message: `Aucune gamme copiée${detail}.` }
     }
-    // Partiel : le dialog reste OUVERT. On AVERTIT que relancer recopiera TOUTE
-    // la sous-catégorie (RPC non idempotente) → doublons sur les déjà réussies.
+    // Partiel : le dialog reste OUVERT. Relancer recopie TOUTE la sous-catégorie,
+    // mais l'index unique côté base REFUSE les gammes déjà copiées (même nom déjà
+    // présent → 23505 traduit) au lieu de les dupliquer : seules les manquantes
+    // passeront.
     return {
       ton: 'partiel',
       message: `${String(reussis)}/${String(total)} gammes copiées sur ${surSite} ; ${String(
         total - reussis,
-      )} en échec${detail}. Attention : relancer recopiera TOUTE la sous-catégorie (doublons des copies déjà réussies).`,
+      )} en échec${detail}. Relancer recopie la sous-catégorie : les gammes déjà copiées seront refusées (même nom déjà présent), pas dupliquées.`,
     }
   }
 
@@ -351,19 +522,18 @@ export function GammesBiblioPanel() {
     setGammeForm({ open: true, gamme: null })
   }, [])
 
-  // Actions de la barre d'onglet pour la VUE DÉTAIL d'une gamme : on relit la
-  // version FRAÎCHE du cache (nom/champs à jour) avant d'éditer ou d'exporter.
+  // Actions de la barre d'onglet pour la VUE DÉTAIL d'une gamme. `openGamme` est
+  // DÉJÀ issu de `gammes.find(...)` au rendu courant (donnée FRAÎCHE) : pas de
+  // re-find redondant, on l'utilise directement.
   const handleEditOpenGamme = useCallback(() => {
     if (openGamme === null) return
-    const fresh = gammes.find((g) => g.id === openGamme.id) ?? openGamme
-    setGammeForm({ open: true, gamme: fresh })
-  }, [openGamme, gammes])
+    setGammeForm({ open: true, gamme: openGamme })
+  }, [openGamme])
 
   const openExportOpenGamme = useCallback(() => {
     if (openGamme === null) return
-    const fresh = gammes.find((g) => g.id === openGamme.id) ?? openGamme
-    setExportState({ open: true, target: { kind: 'gamme', gamme: fresh } })
-  }, [openGamme, gammes])
+    setExportState({ open: true, target: { kind: 'gamme', gamme: openGamme } })
+  }, [openGamme])
 
   const openExportSousCategorieCurrent = useCallback(() => {
     if (current === null) return
@@ -455,57 +625,38 @@ export function GammesBiblioPanel() {
 
   // FIL D'ARIANE = TITRE de la barre d'onglet (remplace le « Bibliothèque » par
   // défaut). Le segment courant fait office de grand titre ; les ancêtres
-  // (cliquables, atténués) le précèdent, avec un bouton Retour dès qu'on a
-  // quitté la racine. Vue détail : la gamme ouverte devient le titre, sa sous-
-  // catégorie passe en ancêtre. Mémoïsé (contrat de `useTabTitle`).
+  // (cliquables, atténués, séparés par des chevrons) le précèdent — le chemin
+  // réel des catégories, sans préfixe. Vue détail : la gamme ouverte devient le
+  // titre, sa sous-catégorie passe en ancêtre. Mémoïsé (contrat de `useTabTitle`).
   const titleNode = useMemo<ReactNode>(() => {
     if (openGamme !== null) {
-      const fresh = gammes.find((g) => g.id === openGamme.id) ?? openGamme
-      const ancestors: BreadcrumbAncestor[] = [
-        {
-          key: 'racine',
-          label: 'Catégories',
-          onClick: () => {
-            setOpenGamme(null)
-            setPath([])
-          },
-        },
-        ...validPath.map((c, i) => ({
-          key: c.id,
-          label: c.nom,
-          onClick: () => {
-            setOpenGamme(null)
-            setPath(validPath.slice(0, i + 1))
-          },
-        })),
-      ]
-      return (
-        <TitleBreadcrumb
-          ancestors={ancestors}
-          current={fresh.nom}
-          onBack={() => setOpenGamme(null)}
-        />
-      )
-    }
-    if (depth === 0) {
-      return <TitleBreadcrumb ancestors={[]} current="Catégories" onBack={null} />
-    }
-    const ancestors: BreadcrumbAncestor[] = [
-      { key: 'racine', label: 'Catégories', onClick: () => setPath([]) },
-      ...validPath.slice(0, -1).map((c, i) => ({
+      // `openGamme` est déjà la donnée FRAÎCHE (issu de `gammes.find`) : pas de
+      // re-find. Ancêtres dérivés de la catégorie RÉELLE de la gamme (`gammePath`),
+      // pas du chemin brut de l'URL (constat #1).
+      const ancestors: BreadcrumbAncestor[] = gammePath.map((c, i) => ({
         key: c.id,
         label: c.nom,
-        onClick: () => setPath(validPath.slice(0, i + 1)),
-      })),
-    ]
+        onClick: () => goToCats(gammePath.slice(0, i + 1)),
+      }))
+      return <TitleBreadcrumb ancestors={ancestors} current={openGamme.nom} />
+    }
+    if (depth === 0) {
+      return <TitleBreadcrumb ancestors={[]} current="Gammes" />
+    }
+    const ancestors: BreadcrumbAncestor[] = validPath
+      .slice(0, -1)
+      .map((c, i) => ({
+        key: c.id,
+        label: c.nom,
+        onClick: () => goToCats(validPath.slice(0, i + 1)),
+      }))
     return (
       <TitleBreadcrumb
         ancestors={ancestors}
-        current={current?.nom ?? 'Catégories'}
-        onBack={() => setPath(validPath.slice(0, -1))}
+        current={current?.nom ?? 'Gammes'}
       />
     )
-  }, [openGamme, gammes, validPath, current, depth])
+  }, [openGamme, validPath, gammePath, current, depth, goToCats])
 
   useTabTitle(titleNode)
 
@@ -537,6 +688,14 @@ export function GammesBiblioPanel() {
       onError: (e) => toast.error(errorMessage(e)),
     })
   }
+
+  // La base BLOQUE la suppression d'une catégorie NON VIDE (sous-catégorie ou
+  // gamme vivante). On le pré-calcule depuis le cache (frais) pour adapter le
+  // message et désactiver la confirmation — la base reste l'arbitre réel.
+  const toDeleteCategorieNonVide =
+    toDeleteCategorie !== null &&
+    (gammeCats.some((c) => c.parent_id === toDeleteCategorie.id) ||
+      gammes.some((g) => g.categorie_id === toDeleteCategorie.id))
 
   // Catégories sélectionnables dans le formulaire de gamme (édition) : même
   // portée que la gamme éditée, pour rester cohérent avec la RLS.
@@ -579,12 +738,13 @@ export function GammesBiblioPanel() {
 
   // ----- VUE DÉTAIL : une gamme-template ouverte -----
   if (openGamme !== null) {
-    const fresh = gammes.find((g) => g.id === openGamme.id) ?? openGamme
+    // `openGamme` est déjà la donnée FRAÎCHE (issu de `gammes.find`) : pas de
+    // re-find redondant, on le passe directement au détail.
     return (
       <>
         {/* « Modifier la gamme » / « Copier vers un site » vivent dans la barre
             d'onglet (cf. tabAddConfig), pour garder les boutons au même endroit. */}
-        <GammeBiblioDetail gamme={fresh} canEdit={canEntreprise} />
+        <GammeBiblioDetail gamme={openGamme} canEdit={canEntreprise} />
         {canEntreprise && (
           <GammeBiblioFormDialog
             key={`edit-${gammeForm.gamme?.id ?? 'none'}-${String(gammeForm.open)}`}
@@ -666,7 +826,9 @@ export function GammesBiblioPanel() {
                       key={cat.id}
                       icon={<Folder className="size-5" />}
                       title={cat.nom}
-                      onClick={() => setPath([...validPath, cat])}
+                      // Descendre d'un palier (PUSH) : on ajoute la catégorie au
+                      // chemin courant → `cat` à la racine, `sous` au niveau 1.
+                      onClick={() => goToCats([...validPath, cat])}
                       actions={
                         canEntreprise ? (
                           <>
@@ -701,6 +863,10 @@ export function GammesBiblioPanel() {
                       key={g.id}
                       icon={<Wrench className="size-5" />}
                       title={g.nom}
+                      // Nature + périodicité aussi en sous-titre (toujours
+                      // visible) : les badges sont masqués sous `sm`, le mobile
+                      // n'aurait sinon que le nom (scannabilité).
+                      subtitle={`${NATURE_LABEL[g.nature]} · ${g.periodicites.libelle}`}
                       badges={
                         <>
                           <Badge
@@ -717,7 +883,9 @@ export function GammesBiblioPanel() {
                           </Badge>
                         </>
                       }
-                      onClick={() => setOpenGamme(g)}
+                      // Ouvrir une gamme (PUSH) : chemin dérivé de sa catégorie
+                      // RÉELLE (cohérent même après un déplacement realtime).
+                      onClick={() => goToGamme(g)}
                       actions={
                         canExport || canEntreprise ? (
                           <>
@@ -843,11 +1011,14 @@ export function GammesBiblioPanel() {
         title="Supprimer la catégorie ?"
         description={
           toDeleteCategorie
-            ? `« ${toDeleteCategorie.nom} » sera placée dans la corbeille (récupérable 90 jours).`
+            ? toDeleteCategorieNonVide
+              ? 'Cette catégorie contient des sous-catégories ou des gammes : videz-la d’abord.'
+              : `« ${toDeleteCategorie.nom} » sera placée dans la corbeille (récupérable 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"
         destructive
+        confirmDisabled={toDeleteCategorieNonVide}
         loading={delCategorie.isPending}
         onConfirm={confirmDeleteCategorie}
       />
@@ -869,28 +1040,19 @@ interface BreadcrumbAncestor {
 /**
  * Titre « fil d'Ariane » de la barre d'onglet : le segment COURANT fait office
  * de grand titre (`text-2xl`), précédé de ses ancêtres cliquables (petits,
- * atténués, séparés par des chevrons) et, hors racine, d'un bouton Retour.
- * Tout tronque (`min-w-0` / `truncate`) pour ne jamais déborder sur mobile.
+ * atténués, séparés par des chevrons). Tout tronque (`min-w-0` / `truncate`)
+ * pour ne jamais déborder sur mobile.
  * Générique : réutilisable par tout onglet via `useTabTitle`.
  */
 function TitleBreadcrumb({
   ancestors,
   current,
-  onBack,
 }: {
   ancestors: BreadcrumbAncestor[]
   current: string
-  onBack: (() => void) | null
 }) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1.5">
-      {onBack !== null && (
-        <TooltipIconButton
-          icon={<ChevronLeft />}
-          label="Retour"
-          onClick={onBack}
-        />
-      )}
       {ancestors.length > 0 && (
         <nav
           aria-label="Fil d'Ariane"
@@ -941,6 +1103,11 @@ function GammeBiblioDetail({
   canEdit: boolean
 }) {
   const query = useQuery(gammesQueries.operations(gamme.id))
+  // Opérations en TEMPS RÉEL (comme les liaisons modèles via gamme_modeles) : un
+  // changement table `operations` (autre fenêtre/compte) rafraîchit la liste. Si
+  // `operations` n'est pas dans la publication realtime Supabase, l'abonnement
+  // reste inerte — aucune erreur (cf. `useRealtimeRefresh`).
+  useRealtimeRefresh('operations', gammesQueries.all())
   const del = useDeleteOperation()
   const [opForm, setOpForm] = useState<{
     open: boolean
@@ -967,8 +1134,8 @@ function GammeBiblioDetail({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Le nom de la gamme et le bouton « Retour » vivent dans le titre de la
-          barre d'onglet (cf. titleNode). Ici, seuls les badges contextuels. */}
+      {/* Le nom de la gamme vit dans le titre de la barre d'onglet (fil d'Ariane,
+          cf. titleNode). Ici, seuls les badges contextuels. */}
       <div className="flex flex-wrap items-center gap-2">
         <Badge
           variant={
@@ -986,7 +1153,11 @@ function GammeBiblioDetail({
         <p className="text-muted-foreground text-sm">{gamme.description}</p>
       )}
 
-      {newButton && <div className="flex justify-end">{newButton}</div>}
+      {/* Bouton autonome UNIQUEMENT si la liste est non vide : à vide, c'est
+          l'action de l'EmptyState qui le porte (sinon deux boutons identiques). */}
+      {newButton && (query.data?.length ?? 0) > 0 && (
+        <div className="flex justify-end">{newButton}</div>
+      )}
 
       <QueryState
         query={query}
@@ -1071,7 +1242,10 @@ function GammeBiblioDetail({
 
       {canEdit && (
         <OperationFormDialog
-          key={opForm.op?.id ?? 'new'}
+          // `open` dans la key (calque des autres dialogs) : le dialog reste
+          // monté → sans ce discriminant, champs/erreurs resteraient stale à la
+          // réouverture (ou doublon entre édition et nouvelle opération).
+          key={`op-${opForm.op?.id ?? 'new'}-${String(opForm.open)}`}
           open={opForm.open}
           onOpenChange={(open) => setOpForm((f) => ({ ...f, open }))}
           gammeId={gamme.id}

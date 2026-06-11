@@ -4,11 +4,29 @@ import { CATEGORIE_SCOPES, categorieSchema, emptyCategorie } from '../schemas'
 import type { CategorieFormValues } from '../schemas'
 import { useCreateCategorie, useUpdateCategorie } from '../mutations'
 import type { Categorie } from '../queries'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { errorMessage, fieldErrors, pgCode } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { TextareaField } from '@/components/common/textarea-field'
 import { SelectField } from '@/components/common/select-field'
+
+/**
+ * Traduit les erreurs Postgres de création/édition d'une catégorie (dialog
+ * partagé entre les onglets Catégories, Gammes et Équipement). Évite tout
+ * message technique brut : repli sur `errorMessage` pour le reste.
+ */
+function categorieErrorMessage(e: unknown): string {
+  const code = pgCode(e)
+  // unique_violation : index `uq_categories_nom` (nom déjà pris à cet emplacement).
+  if (code === '23505') {
+    return 'Une catégorie portant ce nom existe déjà à cet emplacement.'
+  }
+  // insufficient_privilege : RLS (hors scope d'écriture).
+  if (code === '42501') {
+    return 'Action non autorisée : vous n’avez pas les droits sur ce périmètre.'
+  }
+  return errorMessage(e)
+}
 
 interface Preset {
   parent_id?: string
@@ -195,7 +213,7 @@ export function CategoryFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(categorieErrorMessage(e))
     }
   }
 

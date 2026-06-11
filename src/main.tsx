@@ -40,7 +40,9 @@ function InnerApp() {
           <p className="text-foreground text-xl font-bold tracking-wide uppercase">
             Dédale
           </p>
-          <p className="text-muted-foreground text-xs">Gestion de Maintenance</p>
+          <p className="text-muted-foreground text-xs">
+            Gestion de Maintenance
+          </p>
         </div>
       </div>
     )

@@ -182,14 +182,14 @@ export function GammesTypesPanel() {
         : !hasLiens
           ? `« ${toDelete.nom} » et ses opérations seront supprimés définitivement (toute liaison résiduelle sera détachée).`
           : nbActives > 0
-          ? `« ${toDelete.nom} » est utilisé par ${String(nbActives)} gamme${
-              nbActives > 1 ? 's' : ''
-            } (${apercuNoms}${resteNoms})${corbeilleNote}. Le détacher de ${
-              nbActives > 1 ? 'ces gammes' : 'cette gamme'
-            } (sans les supprimer) puis le supprimer définitivement ?`
-          : `« ${toDelete.nom} » a ${String(nbCorbeille)} liaison${
-              nbCorbeille > 1 ? 's' : ''
-            } en corbeille à détacher. Le supprimer définitivement ?`
+            ? `« ${toDelete.nom} » est utilisé par ${String(nbActives)} gamme${
+                nbActives > 1 ? 's' : ''
+              } (${apercuNoms}${resteNoms})${corbeilleNote}. Le détacher de ${
+                nbActives > 1 ? 'ces gammes' : 'cette gamme'
+              } (sans les supprimer) puis le supprimer définitivement ?`
+            : `« ${toDelete.nom} » a ${String(nbCorbeille)} liaison${
+                nbCorbeille > 1 ? 's' : ''
+              } en corbeille à détacher. Le supprimer définitivement ?`
 
   return (
     <div className="flex flex-col gap-4">
@@ -226,8 +226,17 @@ export function GammesTypesPanel() {
                 return (
                   <Card
                     key={modele.id}
-                    className="min-w-0 cursor-pointer transition-shadow hover:shadow-md"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Ouvrir le modèle ${modele.nom}`}
+                    className="focus-visible:ring-ring min-w-0 cursor-pointer transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
                     onClick={() => setSelectedId(modele.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedId(modele.id)
+                      }
+                    }}
                   >
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">
@@ -276,7 +285,7 @@ export function GammesTypesPanel() {
 
       {canManage && (
         <GammeTypeFormDialog
-          key={form.modele?.id ?? `new-${scope}`}
+          key={`${form.modele?.id ?? `new-${scope}`}-${String(form.open)}`}
           open={form.open}
           onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
           modele={form.modele}

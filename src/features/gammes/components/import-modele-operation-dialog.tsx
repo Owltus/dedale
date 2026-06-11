@@ -69,6 +69,21 @@ export function ImportModeleOperationDialog({
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
   const [search, setSearch] = useState('')
 
+  // Réinitialise la sélection et la recherche à la transition d'OUVERTURE
+  // (false→true) plutôt que via une `key` liée aux données : un refresh realtime
+  // des liaisons pendant que le dialog est ouvert ne doit pas le remonter ni
+  // perdre la saisie en cours. La liste de candidats reste à jour via son
+  // `useMemo` (qui filtre déjà `liesIds`). Pattern « ajuster l'état au
+  // changement de prop pendant le rendu » (remplace un effet de synchro).
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) {
+      setSelected(new Set())
+      setSearch('')
+    }
+  }
+
   // Candidats = modèles accessibles, NON VIDES, non déjà liés, dans la portée
   // de la gamme.
   const candidates = useMemo(() => {
@@ -110,7 +125,9 @@ export function ImportModeleOperationDialog({
     try {
       await lier.mutateAsync({ gammeId, modeleIds: [...selected] })
       toast.success(
-        selected.size > 1 ? 'Modèles d’opération liés' : 'Modèle d’opération lié',
+        selected.size > 1
+          ? 'Modèles d’opération liés'
+          : 'Modèle d’opération lié',
       )
       onOpenChange(false)
     } catch (e) {

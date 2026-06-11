@@ -29,6 +29,8 @@ import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppDemandesRouteImport } from './routes/_app/demandes'
 import { Route as AppChantiersRouteImport } from './routes/_app/chantiers'
 import { Route as AppBibliothequeRouteImport } from './routes/_app/bibliotheque'
+import { Route as AppBibliothequeIndexRouteImport } from './routes/_app/bibliotheque/index'
+import { Route as AppBibliothequeSplatRouteImport } from './routes/_app/bibliotheque/$'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -129,12 +131,22 @@ const AppBibliothequeRoute = AppBibliothequeRouteImport.update({
   path: '/bibliotheque',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBibliothequeIndexRoute = AppBibliothequeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppBibliothequeRoute,
+} as any)
+const AppBibliothequeSplatRoute = AppBibliothequeSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => AppBibliothequeRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
-  '/bibliotheque': typeof AppBibliothequeRoute
+  '/bibliotheque': typeof AppBibliothequeRouteWithChildren
   '/chantiers': typeof AppChantiersRoute
   '/demandes': typeof AppDemandesRoute
   '/documents': typeof AppDocumentsRoute
@@ -150,11 +162,12 @@ export interface FileRoutesByFullPath {
   '/releves': typeof AppRelevesRoute
   '/sites': typeof AppSitesRoute
   '/utilisateurs': typeof AppUtilisateursRoute
+  '/bibliotheque/$': typeof AppBibliothequeSplatRoute
+  '/bibliotheque/': typeof AppBibliothequeIndexRoute
 }
 export interface FileRoutesByTo {
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
-  '/bibliotheque': typeof AppBibliothequeRoute
   '/chantiers': typeof AppChantiersRoute
   '/demandes': typeof AppDemandesRoute
   '/documents': typeof AppDocumentsRoute
@@ -171,13 +184,15 @@ export interface FileRoutesByTo {
   '/sites': typeof AppSitesRoute
   '/utilisateurs': typeof AppUtilisateursRoute
   '/': typeof AppIndexRoute
+  '/bibliotheque/$': typeof AppBibliothequeSplatRoute
+  '/bibliotheque': typeof AppBibliothequeIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
-  '/_app/bibliotheque': typeof AppBibliothequeRoute
+  '/_app/bibliotheque': typeof AppBibliothequeRouteWithChildren
   '/_app/chantiers': typeof AppChantiersRoute
   '/_app/demandes': typeof AppDemandesRoute
   '/_app/documents': typeof AppDocumentsRoute
@@ -194,6 +209,8 @@ export interface FileRoutesById {
   '/_app/sites': typeof AppSitesRoute
   '/_app/utilisateurs': typeof AppUtilisateursRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/bibliotheque/$': typeof AppBibliothequeSplatRoute
+  '/_app/bibliotheque/': typeof AppBibliothequeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -217,11 +234,12 @@ export interface FileRouteTypes {
     | '/releves'
     | '/sites'
     | '/utilisateurs'
+    | '/bibliotheque/$'
+    | '/bibliotheque/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/definir-mot-de-passe'
     | '/login'
-    | '/bibliotheque'
     | '/chantiers'
     | '/demandes'
     | '/documents'
@@ -238,6 +256,8 @@ export interface FileRouteTypes {
     | '/sites'
     | '/utilisateurs'
     | '/'
+    | '/bibliotheque/$'
+    | '/bibliotheque'
   id:
     | '__root__'
     | '/_app'
@@ -260,6 +280,8 @@ export interface FileRouteTypes {
     | '/_app/sites'
     | '/_app/utilisateurs'
     | '/_app/'
+    | '/_app/bibliotheque/$'
+    | '/_app/bibliotheque/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -410,11 +432,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBibliothequeRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/bibliotheque/': {
+      id: '/_app/bibliotheque/'
+      path: '/'
+      fullPath: '/bibliotheque/'
+      preLoaderRoute: typeof AppBibliothequeIndexRouteImport
+      parentRoute: typeof AppBibliothequeRoute
+    }
+    '/_app/bibliotheque/$': {
+      id: '/_app/bibliotheque/$'
+      path: '/$'
+      fullPath: '/bibliotheque/$'
+      preLoaderRoute: typeof AppBibliothequeSplatRouteImport
+      parentRoute: typeof AppBibliothequeRoute
+    }
   }
 }
 
+interface AppBibliothequeRouteChildren {
+  AppBibliothequeSplatRoute: typeof AppBibliothequeSplatRoute
+  AppBibliothequeIndexRoute: typeof AppBibliothequeIndexRoute
+}
+
+const AppBibliothequeRouteChildren: AppBibliothequeRouteChildren = {
+  AppBibliothequeSplatRoute: AppBibliothequeSplatRoute,
+  AppBibliothequeIndexRoute: AppBibliothequeIndexRoute,
+}
+
+const AppBibliothequeRouteWithChildren = AppBibliothequeRoute._addFileChildren(
+  AppBibliothequeRouteChildren,
+)
+
 interface AppRouteChildren {
-  AppBibliothequeRoute: typeof AppBibliothequeRoute
+  AppBibliothequeRoute: typeof AppBibliothequeRouteWithChildren
   AppChantiersRoute: typeof AppChantiersRoute
   AppDemandesRoute: typeof AppDemandesRoute
   AppDocumentsRoute: typeof AppDocumentsRoute
@@ -434,7 +484,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppBibliothequeRoute: AppBibliothequeRoute,
+  AppBibliothequeRoute: AppBibliothequeRouteWithChildren,
   AppChantiersRoute: AppChantiersRoute,
   AppDemandesRoute: AppDemandesRoute,
   AppDocumentsRoute: AppDocumentsRoute,

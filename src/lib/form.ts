@@ -31,13 +31,23 @@ export function pgCode(e: unknown): string | undefined {
 }
 
 /**
- * Message clair pour une copie commun → site refusée (RPC `copier_*`). Traduit le
- * `42501` (RLS : site cible hors périmètre) au lieu d'afficher le message
+ * Message clair pour une copie commun → site refusée (RPC `copier_*`). Traduit
+ * les codes Postgres remontés par `copier_gamme` au lieu d'afficher le message
  * technique brut de la RPC ; repli sur `errorMessage` pour le reste.
+ * - `42501` : RLS, site cible hors périmètre.
+ * - `23505` : nom de gamme déjà présent sur le site cible (copie déjà faite ?).
+ * - `P0002` : gamme source introuvable (supprimée pendant l'opération).
  */
 export function exportErrorMessage(e: unknown): string {
-  if (pgCode(e) === '42501') {
+  const code = pgCode(e)
+  if (code === '42501') {
     return 'Action non autorisée : vous n’avez pas accès à ce site.'
+  }
+  if (code === '23505') {
+    return 'Une gamme du même nom existe déjà sur ce site (copie déjà effectuée ?).'
+  }
+  if (code === 'P0002') {
+    return 'La gamme source est introuvable ou a été supprimée. Rafraîchis la liste puis réessaie.'
   }
   return errorMessage(e)
 }

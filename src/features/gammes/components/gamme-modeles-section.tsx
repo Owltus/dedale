@@ -90,7 +90,9 @@ export function GammeModelesSection({
           <Layers className="text-muted-foreground size-4" />
           Modèles d’opération liés
         </h3>
-        {importButton}
+        {/* À l'état vide, le bouton n'est rendu que dans l'EmptyState (évite le
+            doublon) ; en en-tête uniquement dès qu'au moins un modèle est lié. */}
+        {lies.length > 0 && importButton}
       </div>
 
       <QueryState
@@ -119,7 +121,9 @@ export function GammeModelesSection({
                 <div className="flex min-w-0 flex-col gap-1">
                   <span className="truncate font-medium">{m.nom}</span>
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <Badge variant={m.site_id === null ? 'secondary' : 'outline'}>
+                    <Badge
+                      variant={m.site_id === null ? 'secondary' : 'outline'}
+                    >
                       {m.site_id === null ? 'Commun' : 'Site'}
                     </Badge>
                     <Badge variant="outline">
@@ -151,7 +155,6 @@ export function GammeModelesSection({
 
       {canEdit && (
         <ImportModeleOperationDialog
-          key={liesIds.join(',')}
           open={importOpen}
           onOpenChange={setImportOpen}
           gammeId={gammeId}
