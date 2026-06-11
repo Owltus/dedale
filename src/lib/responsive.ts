@@ -10,3 +10,11 @@ export const cardGrid = {
   /** Listes standard : gammes, équipements, OT, demandes, chantiers, relevés. */
   default: 'grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
 } as const
+
+/**
+ * Empilement de lignes pleine largeur (cf. `ListRow`), mobile-first. Alternative
+ * dense à `cardGrid` quand on veut des lignes à colonnes alignées (« tableau en
+ * cartes ») plutôt qu'une grille de cartes : chaque ligne occupe toute la
+ * largeur, séparées par un petit interstice.
+ */
+export const listStack = 'flex flex-col gap-2'

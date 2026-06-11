@@ -10,7 +10,9 @@ import {
 } from '@/components/ui/tooltip'
 import {
   TabActionContext,
+  TabTitleContext,
   type TabActionApi,
+  type TabTitleApi,
   type TabAddConfig,
 } from './tab-actions'
 
@@ -40,10 +42,14 @@ interface TabsProps {
 export function Tabs({ items, defaultTabId, title }: TabsProps) {
   const [active, setActive] = useState(defaultTabId ?? items[0]?.id)
   const [addConfig, setAddConfig] = useState<TabAddConfig | null>(null)
+  // Nœud de titre personnalisé fourni par le panneau actif (ex. fil d'Ariane).
+  // `null` → titre par défaut (`title`).
+  const [titleNode, setTitleNode] = useState<ReactNode | null>(null)
   const activeItem = items.find((t) => t.id === active) ?? items[0]
 
-  // API stable transmise aux panneaux pour enregistrer leur action +.
+  // API stable transmise aux panneaux pour enregistrer leur action + / leur titre.
   const [api] = useState<TabActionApi>(() => ({ setAction: setAddConfig }))
+  const [titleApi] = useState<TabTitleApi>(() => ({ setTitle: setTitleNode }))
 
   // Locaux : le narrowing TS sur addConfig.action ne traverse pas le JSX imbriqué.
   const addAction = addConfig?.action ?? null
@@ -55,9 +61,13 @@ export function Tabs({ items, defaultTabId, title }: TabsProps) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 border-b px-4 pt-6 pb-3 sm:px-6 lg:px-8">
         <div className="mb-3 flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+          {titleNode ?? (
+            <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
+              {title}
+            </h1>
+          )}
           {addConfig !== null && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {addExtra}
               {addAction !== null && (
                 <Tooltip>
@@ -104,12 +114,14 @@ export function Tabs({ items, defaultTabId, title }: TabsProps) {
       </div>
 
       <TabActionContext.Provider value={api}>
-        <div
-          role="tabpanel"
-          className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8"
-        >
-          {activeItem?.content}
-        </div>
+        <TabTitleContext.Provider value={titleApi}>
+          <div
+            role="tabpanel"
+            className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8"
+          >
+            {activeItem?.content}
+          </div>
+        </TabTitleContext.Provider>
       </TabActionContext.Provider>
     </div>
   )

@@ -43,3 +43,30 @@ export function useTabAddAction(
     return () => ctx.setAction(null)
   }, [ctx, action, label, disabled, extra])
 }
+
+export interface TabTitleApi {
+  setTitle: (node: ReactNode | null) => void
+}
+
+export const TabTitleContext = createContext<TabTitleApi | null>(null)
+
+/**
+ * Enregistre, pour l'onglet actif, un NŒUD DE TITRE personnalisé (ex. un fil
+ * d'Ariane) rendu à la place du `<h1>` par défaut dans l'en-tête de la barre
+ * d'onglets. `null` (ou hook non appelé) → titre par défaut (la prop `title`
+ * de <Tabs>). Le nœud peut être interactif (boutons cliquables).
+ *
+ * Il doit être STABLE : l'appelant le mémoïse (useMemo) — sinon il se ré-
+ * enregistre à chaque rendu. Même contrat que `useTabAddAction`.
+ *
+ * Contexte/hook volontairement isolés du composant <Tabs> : un module Vite ne
+ * doit pas mélanger composant et non-composant (sinon Fast Refresh casse).
+ */
+export function useTabTitle(node: ReactNode | null) {
+  const ctx = useContext(TabTitleContext)
+  useEffect(() => {
+    if (!ctx) return
+    ctx.setTitle(node)
+    return () => ctx.setTitle(null)
+  }, [ctx, node])
+}
