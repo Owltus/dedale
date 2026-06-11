@@ -47,6 +47,7 @@ import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -393,14 +394,18 @@ export function GammesBiblioPanel() {
         canExport || canEntreprise ? (
           <div className="flex flex-wrap items-center gap-2">
             {canExport && (
-              <Button variant="outline" size="sm" onClick={openExportOpenGamme}>
-                <CopyPlus /> Copier vers un site
-              </Button>
+              <TooltipIconButton
+                icon={<CopyPlus />}
+                label="Copier vers un site"
+                onClick={openExportOpenGamme}
+              />
             )}
             {canEntreprise && (
-              <Button variant="outline" size="sm" onClick={handleEditOpenGamme}>
-                <Pencil /> Modifier la gamme
-              </Button>
+              <TooltipIconButton
+                icon={<Pencil />}
+                label="Modifier la gamme"
+                onClick={handleEditOpenGamme}
+              />
             )}
           </div>
         ) : undefined
@@ -423,13 +428,11 @@ export function GammesBiblioPanel() {
       label: 'Nouvelle gamme',
       extra:
         canExport && gammesInCurrent.length > 0 ? (
-          <Button
-            variant="outline"
-            size="sm"
+          <TooltipIconButton
+            icon={<CopyPlus />}
+            label="Copier vers un site"
             onClick={openExportSousCategorieCurrent}
-          >
-            <CopyPlus /> Copier vers un site
-          </Button>
+          />
         ) : undefined,
     }
   }, [
@@ -882,15 +885,11 @@ function TitleBreadcrumb({
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1.5">
       {onBack !== null && (
-        <Button
-          variant="ghost"
-          size="icon"
+        <TooltipIconButton
+          icon={<ChevronLeft />}
+          label="Retour"
           onClick={onBack}
-          aria-label="Retour"
-          className="shrink-0"
-        >
-          <ChevronLeft />
-        </Button>
+        />
       )}
       {ancestors.length > 0 && (
         <nav

@@ -2,12 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { TooltipIconButton } from './tooltip-icon-button'
 import {
   TabActionContext,
   TabTitleContext,
@@ -70,20 +65,13 @@ export function Tabs({ items, defaultTabId, title }: TabsProps) {
             <div className="flex flex-wrap items-center justify-end gap-2">
               {addExtra}
               {addAction !== null && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      onClick={addAction}
-                      disabled={addDisabled}
-                      aria-label={addLabel}
-                      className="shrink-0"
-                    >
-                      <Plus />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">{addLabel}</TooltipContent>
-                </Tooltip>
+                <TooltipIconButton
+                  icon={<Plus />}
+                  label={addLabel}
+                  onClick={addAction}
+                  disabled={addDisabled}
+                  variant="default"
+                />
               )}
             </div>
           )}
