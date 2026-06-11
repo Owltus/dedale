@@ -176,7 +176,7 @@ export function GammesTypesPanel() {
             onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
             modele={form.modele}
             canEntreprise={canEntreprise}
-            siteId={form.modele?.site_id ?? activeSiteId}
+            siteId={form.modele ? form.modele.site_id : activeSiteId}
             siteName={
               form.modele?.site_id
                 ? (sites.find((s) => s.id === form.modele?.site_id)?.nom ??
@@ -327,7 +327,7 @@ export function GammesTypesPanel() {
           onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
           modele={form.modele}
           canEntreprise={canEntreprise}
-          siteId={form.modele?.site_id ?? activeSiteId}
+          siteId={form.modele ? form.modele.site_id : activeSiteId}
           siteName={
             form.modele?.site_id
               ? (sites.find((s) => s.id === form.modele?.site_id)?.nom ?? null)
