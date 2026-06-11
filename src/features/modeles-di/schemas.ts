@@ -10,6 +10,8 @@ export const modeleDiSchema = z.object({
     .max(5000),
   /** Activation sans suppression. */
   etat: z.enum(['actif', 'inactif']),
+  /** entreprise = catalogue commun (site_id NULL) ; site = modèle du site. */
+  portee: z.enum(['entreprise', 'site']),
 })
 
 export type ModeleDiFormValues = z.infer<typeof modeleDiSchema>
@@ -19,4 +21,5 @@ export const emptyModeleDi: ModeleDiFormValues = {
   description: '',
   constat_modele: '',
   etat: 'actif',
+  portee: 'entreprise',
 }

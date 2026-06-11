@@ -10,7 +10,7 @@ import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
-import { SCOPE_ALL, scopeMatches } from '@/lib/scope'
+import { scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
 import { ScopeSelect } from '@/components/common/scope-select'
@@ -24,17 +24,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cardGrid } from '@/lib/responsive'
 
 /**
- * Panneau « Modèles de DI ». Scope SITE strict (pas de niveau « Commun ») : le
- * sélecteur propose « Tout » + chaque site. Le + cible le site sélectionné et
- * est désactivé sur « Tout » (un modèle de DI appartient à un site précis).
+ * Panneau « Modèles de DI » : liste PLATE (pas de catégories), commun + site.
+ * Le sélecteur propose « Tout » / « Commun » / chaque site. Le + adopte le
+ * périmètre choisi (Commun pour les rôles entreprise, un site pour les rôles
+ * métier) et est désactivé sur « Tout ». La RLS arbitre le reste.
  */
 export function ModelesDiPanel() {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
-  const { sites } = useSiteContext()
+  const canEntreprise = perm.canManageAdmin(role)
+  const { sites, activeSiteId, activeSite } = useSiteContext()
   const query = useQuery(modelesDiQueries.pool())
   const del = useDeleteModeleDi()
-  const { scope, setScope } = useScope(false)
+  const { scope, setScope } = useScope()
 
   const [form, setForm] = useState<{ open: boolean; modele: ModeleDi | null }>({
     open: false,
@@ -42,17 +44,29 @@ export function ModelesDiPanel() {
   })
   const [toDelete, setToDelete] = useState<ModeleDi | null>(null)
 
-  // Cible d'ajout : le site sélectionné (null sur « Tout » → pas de cible unique).
-  const targetSiteId = scope === SCOPE_ALL ? null : scope
-  const canAdd = canManage && targetSiteId !== null
+  // Le + adopte le périmètre choisi : Commun (entreprise) ou un site précis.
+  // Désactivé sur « Tout » ou sur Commun sans le droit entreprise.
+  const targetSiteId = scopeTarget(scope)
+  const canAdd =
+    canManage &&
+    targetSiteId !== undefined &&
+    (targetSiteId !== null || canEntreprise)
+  const lockedScope =
+    targetSiteId === undefined
+      ? null
+      : {
+          portee:
+            targetSiteId === null ? ('entreprise' as const) : ('site' as const),
+          siteId: targetSiteId,
+        }
 
   const handleAdd = useCallback(() => setForm({ open: true, modele: null }), [])
   const scopeControl = useMemo(
-    () => <ScopeSelect value={scope} onChange={setScope} allowCommun={false} />,
+    () => <ScopeSelect value={scope} onChange={setScope} />,
     [scope, setScope],
   )
-  // Bouton toujours visible pour un rôle métier, mais DÉSACTIVÉ sur « Tout »
-  // (un modèle de DI cible un site précis) → UX stable.
+  // Bouton toujours visible pour un rôle métier, mais DÉSACTIVÉ si le périmètre
+  // n'est pas créable (Tout, ou Commun sans le droit) → UX stable.
   useTabAddAction(canManage ? handleAdd : null, 'Nouveau modèle de DI', {
     disabled: !canAdd,
     extra: scopeControl,
@@ -60,6 +74,15 @@ export function ModelesDiPanel() {
 
   // Mises à jour live entre fenêtres / comptes (Realtime).
   useRealtimeRefresh('modeles_di', modelesDiQueries.all())
+
+  // Édition : portée verrouillée (immuable). On affiche le site réel du modèle
+  // édité ; à la création c'est le site actif qui sert d'option « Site ».
+  const editedSiteId =
+    form.modele && form.modele.site_id !== null ? form.modele.site_id : null
+  const dialogSiteId = form.modele ? editedSiteId : activeSiteId
+  const dialogSiteName = form.modele
+    ? (sites.find((s) => s.id === editedSiteId)?.nom ?? null)
+    : (activeSite?.nom ?? null)
 
   function confirmDelete() {
     if (!toDelete) return
@@ -83,7 +106,7 @@ export function ModelesDiPanel() {
             title="Aucun modèle de DI"
             description={
               canManage
-                ? 'Choisis un site, puis crée un modèle via le bouton + en haut à droite.'
+                ? 'Choisis un périmètre, puis crée un modèle via le bouton + en haut à droite.'
                 : 'Aucun modèle accessible.'
             }
           />
@@ -103,6 +126,9 @@ export function ModelesDiPanel() {
           return (
             <div className={cardGrid.default}>
               {visible.map((modele) => {
+                // Commun éditable par les rôles entreprise ; site éditable par
+                // tout rôle métier ayant le site (mirror RLS).
+                const canEditThis = canEntreprise || modele.site_id !== null
                 const siteName =
                   sites.find((s) => s.id === modele.site_id)?.nom ?? null
                 return (
@@ -113,8 +139,12 @@ export function ModelesDiPanel() {
                           {modele.libelle}
                         </CardTitle>
                         <div className="flex shrink-0 gap-1">
-                          {scope === SCOPE_ALL && siteName !== null && (
-                            <Badge variant="outline">{siteName}</Badge>
+                          {modele.site_id === null ? (
+                            <Badge variant="secondary">Commun</Badge>
+                          ) : (
+                            siteName !== null && (
+                              <Badge variant="outline">{siteName}</Badge>
+                            )
                           )}
                           {!modele.est_actif && (
                             <Badge variant="outline">Masqué</Badge>
@@ -126,7 +156,7 @@ export function ModelesDiPanel() {
                       <span className="line-clamp-3">
                         {modele.constat_modele}
                       </span>
-                      {canManage && (
+                      {canManage && canEditThis && (
                         <div className="flex gap-2">
                           <Button
                             variant="outline"
@@ -153,13 +183,16 @@ export function ModelesDiPanel() {
         }}
       </QueryState>
 
-      {canManage && targetSiteId !== null && (
+      {canManage && (
         <ModeleDiFormDialog
-          key={form.modele?.id ?? 'new'}
+          key={`${form.modele?.id ?? `new-${scope}`}-${String(form.open)}`}
           open={form.open}
           onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
           modele={form.modele}
-          siteId={targetSiteId}
+          canEntreprise={canEntreprise}
+          siteId={dialogSiteId}
+          siteName={dialogSiteName}
+          lockedScope={form.modele ? undefined : (lockedScope ?? undefined)}
         />
       )}
 

@@ -98,7 +98,7 @@ export const statutsDiQueries = {
 export const modelesDiQueries = {
   all: () => ['modeles_di'] as const,
 
-  /** Modèles de DI actifs du site actif (suggestions rapides de constat). */
+  /** Modèles actifs commun + site, pour la suggestion à la création d'une DI. */
   list: (siteId: string | null) =>
     queryOptions({
       queryKey: [...modelesDiQueries.all(), 'list', siteId] as const,
@@ -107,7 +107,7 @@ export const modelesDiQueries = {
         const { data } = await supabase
           .from('modeles_di')
           .select('id, libelle, constat_modele')
-          .eq('site_id', siteId!)
+          .or(`site_id.is.null,site_id.eq.${siteId!}`)
           .eq('est_actif', true)
           .order('libelle')
           .abortSignal(signal)

@@ -29,13 +29,11 @@ import { CategoryFormDialog } from '@/features/categories/components/category-fo
 import type { CategorieFormValues } from '@/features/categories/schemas'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { useScope } from '@/hooks/use-scope'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage, exportErrorMessage } from '@/lib/form'
-import { scopeMatches, scopeTarget, sousCategoriesNiveau2 } from '@/lib/scope'
+import { sousCategoriesNiveau2 } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
-import { ScopeSelect } from '@/components/common/scope-select'
 import {
   ExporterVersSiteDialog,
   type ExportOutcome,
@@ -68,7 +66,6 @@ interface CategoryFormState {
   categorie: Categorie | null
   preset?: Preset
   lockedScope: LockedScope | null
-  siteId: string | null
 }
 
 const NATURE_LABEL: Record<GammeBiblioRow['nature'], string> = {
@@ -76,20 +73,29 @@ const NATURE_LABEL: Record<GammeBiblioRow['nature'], string> = {
   maintenance_preventive: 'Maintenance',
 }
 
+// Onglet Gammes de la Bibliothèque = COMMUN uniquement : portée entreprise
+// verrouillée (site_id NULL) pour toute création de catégorie/sous-catégorie.
+const COMMUN_LOCK: LockedScope = { portee: 'entreprise', siteId: null }
+
 /**
  * Panneau « Gammes » de la Bibliothèque : arborescence catégorie/sous-catégorie
- * (scope `gamme`/`mixte`) des gammes-templates communes/site, en navigation par
- * paliers (calque multi-niveaux du panneau « Modèles d'équipements »). Le
- * périmètre (Tout / Commun / site) est porté par le sélecteur partagé ; la RLS
- * arbitre l'écriture.
+ * (scope `gamme`/`mixte`) des gammes-templates COMMUNES (entreprise, `site_id`
+ * NULL), en navigation par paliers (calque multi-niveaux du panneau « Modèles
+ * d'équipements »). Catalogue commun pur, sans notion de site : l'édition est
+ * réservée aux rôles entreprise (admin/manager), les autres rôles métier le
+ * lisent et peuvent seulement « Copier vers un site » (export → gamme réelle,
+ * qui vit dans la page Gammes opérationnelle). La RLS arbitre l'écriture.
  */
 export function GammesBiblioPanel() {
   const { data: role } = useCurrentRole()
-  const canManage = perm.canManageMetier(role)
+  // Onglet COMMUN uniquement : l'ÉDITION (catégories, sous-catégories, gammes-
+  // templates, opérations, liaisons modèles) est réservée aux rôles entreprise
+  // (admin/manager). Les autres rôles métier lisent le catalogue et peuvent
+  // seulement « Copier vers un site » (export commun → site).
   const canEntreprise = perm.canManageAdmin(role)
-  const { scope, setScope } = useScope()
   // `sites` (get_my_sites) : cibles possibles d'une copie commun → site.
-  const { activeSite, sites } = useSiteContext()
+  const { sites } = useSiteContext()
+  const canExport = perm.canManageMetier(role) && sites.length > 0
 
   const gammesQuery = useQuery(gammesQueries.biblioPool())
   const categoriesQuery = useQuery(categoriesQueries.pool())
@@ -107,7 +113,6 @@ export function GammesBiblioPanel() {
     open: false,
     categorie: null,
     lockedScope: null,
-    siteId: null,
   })
   const [gammeForm, setGammeForm] = useState<{
     open: boolean
@@ -128,15 +133,24 @@ export function GammesBiblioPanel() {
       | null
   }>({ open: false, target: null })
 
-  // Catégories de gamme (actives, scope gamme/mixte).
+  // Catégories de gamme COMMUNES (site_id NULL), actives, scope gamme/mixte :
+  // l'onglet ne montre/édite que le périmètre entreprise.
   const gammeCats = useMemo(
     () =>
       (categoriesQuery.data ?? []).filter(
-        (c) => c.est_actif && (c.scope === 'gamme' || c.scope === 'mixte'),
+        (c) =>
+          c.site_id === null &&
+          c.est_actif &&
+          (c.scope === 'gamme' || c.scope === 'mixte'),
       ),
     [categoriesQuery.data],
   )
-  const gammes = useMemo(() => gammesQuery.data ?? [], [gammesQuery.data])
+  // Gammes-templates COMMUNES uniquement (les gammes de site vivent dans la page
+  // Gammes opérationnelle, pas dans la Bibliothèque).
+  const gammes = useMemo(
+    () => (gammesQuery.data ?? []).filter((g) => g.site_id === null),
+    [gammesQuery.data],
+  )
 
   // Chemin RESYNCHRONISÉ sur la donnée fraîche : on ne garde que le préfixe dont
   // chaque catégorie existe encore (suppression / masquage realtime), en
@@ -167,14 +181,12 @@ export function GammesBiblioPanel() {
     if (depth >= 2) return []
     const list =
       current === null
-        ? gammeCats.filter(
-            (c) => c.parent_id === null && scopeMatches(scope, c.site_id),
-          )
+        ? gammeCats.filter((c) => c.parent_id === null)
         : gammeCats.filter((c) => c.parent_id === current.id)
     return [...list].sort(
       (a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom),
     )
-  }, [gammeCats, current, scope, depth])
+  }, [gammeCats, current, depth])
 
   // Gammes-templates rangées dans la sous-catégorie courante : visibles
   // UNIQUEMENT au niveau 2 (une gamme pointe toujours une sous-catégorie niv.2).
@@ -203,34 +215,14 @@ export function GammesBiblioPanel() {
     return counts
   }, [gammes])
 
-  // --- Cibles d'ajout selon le périmètre ---
-  const targetSiteId = scopeTarget(scope)
-  const canAddRootCategory =
-    canManage &&
-    targetSiteId !== undefined &&
-    (targetSiteId !== null || canEntreprise)
-
-  // Inside : créer sous-catégorie/gamme hérite de la portée de la catégorie.
-  const currentLockedScope: LockedScope | null =
-    current === null
-      ? null
-      : {
-          portee: current.site_id === null ? 'entreprise' : 'site',
-          siteId: current.site_id,
-        }
-  const canAddInside =
-    current !== null &&
-    canManage &&
-    (current.site_id !== null || canEntreprise)
-  // Sous-catégorie : seulement au niveau 1 (sous une catégorie racine).
-  // Nouvelle gamme : seulement au niveau 2 (dans une sous-catégorie).
-  const canAddSubCategory = depth === 1 && canAddInside
-  const canAddGamme = depth === 2 && canAddInside
+  // --- Cibles d'ajout (commun uniquement, réservé aux rôles entreprise) ---
+  // Création possible dans la catégorie courante (sous-catégorie au niveau 1,
+  // gamme au niveau 2) : tout est commun, seul l'admin/manager édite.
+  const canAddInside = current !== null && canEntreprise
 
   // --- Export commun → site ---
-  // Bouton « Copier vers un site » : seulement sur un template COMMUN et si
-  // l'utilisateur a au moins un site accessible (la RPC reste l'arbitre réel).
-  const canExport = canManage && sites.length > 0
+  // Bouton « Copier vers un site » : ouvre une vraie gamme de site (la RPC reste
+  // l'arbitre réel des droits sur le site cible).
   function openExportGamme(gamme: GammeBiblioRow) {
     setExportState({ open: true, target: { kind: 'gamme', gamme } })
   }
@@ -254,7 +246,7 @@ export function GammesBiblioPanel() {
       })
       return {
         ton: 'succes',
-        message: `« ${target.gamme.nom} » copiée sur ${surSite}. La copie apparaît dans sa catégorie (badge Site), visible sous le périmètre « Commun » ou « Tout ».`,
+        message: `« ${target.gamme.nom} » copiée sur ${surSite}. Retrouve la gamme dans la page Gammes du site.`,
       }
     }
     // Sous-catégorie commune : boucle front sur SES gammes communes, dérivées du
@@ -281,8 +273,8 @@ export function GammesBiblioPanel() {
       return {
         ton: 'succes',
         message: `${String(total)} gamme${s} copiée${s} sur ${surSite}. ${
-          total > 1 ? 'Les copies apparaissent' : 'La copie apparaît'
-        } dans leur catégorie (badge Site), visible${s} sous le périmètre « Commun » ou « Tout ».`,
+          total > 1 ? 'Retrouve les gammes' : 'Retrouve la gamme'
+        } dans la page Gammes du site.`,
       }
     }
     // Bilan partiel/total : on remonte un message représentatif (1er échec),
@@ -351,35 +343,22 @@ export function GammesBiblioPanel() {
     />
   ) : null
 
-  const scopeControl = useMemo(
-    () => <ScopeSelect value={scope} onChange={setScope} />,
-    [scope, setScope],
-  )
   const handleAddRootCategory = useCallback(() => {
-    const locked: LockedScope | null =
-      targetSiteId === undefined
-        ? null
-        : {
-            portee: targetSiteId === null ? 'entreprise' : 'site',
-            siteId: targetSiteId,
-          }
     setCategoryForm({
       open: true,
       categorie: null,
       preset: { scope: 'gamme' },
-      lockedScope: locked,
-      siteId: locked?.siteId ?? null,
+      lockedScope: COMMUN_LOCK,
     })
-  }, [targetSiteId])
+  }, [])
 
-  // En-tête : bouton + SEULEMENT à la racine (Nouvelle catégorie + sélecteur de
-  // périmètre). Dans une catégorie / un détail, la création passe par des boutons
-  // en contexte.
+  // En-tête : bouton + SEULEMENT à la racine (Nouvelle catégorie commune),
+  // réservé aux rôles entreprise. Dans une catégorie / un détail, la création
+  // passe par des boutons en contexte.
   const atRoot = openGamme === null && current === null
   useTabAddAction(
-    atRoot && canManage ? handleAddRootCategory : null,
+    atRoot && canEntreprise ? handleAddRootCategory : null,
     'Nouvelle catégorie',
-    atRoot ? { disabled: !canAddRootCategory, extra: scopeControl } : undefined,
   )
 
   function handleAddSubCategory() {
@@ -387,13 +366,8 @@ export function GammesBiblioPanel() {
     setCategoryForm({
       open: true,
       categorie: null,
-      preset: {
-        scope: 'gamme',
-        parent_id: current.id,
-        portee: currentLockedScope?.portee,
-      },
-      lockedScope: currentLockedScope,
-      siteId: current.site_id,
+      preset: { scope: 'gamme', parent_id: current.id },
+      lockedScope: COMMUN_LOCK,
     })
   }
   function handleEditCategory(categorie: Categorie) {
@@ -401,7 +375,6 @@ export function GammesBiblioPanel() {
       open: true,
       categorie,
       lockedScope: null,
-      siteId: categorie.site_id,
     })
   }
 
@@ -431,11 +404,10 @@ export function GammesBiblioPanel() {
   const editGammeCategories = useMemo(() => {
     const g = gammeForm.gamme
     if (!g) return []
-    // Mêmes règles EXACTES que `gammesQueries.sousCategories` (helper partagé) :
-    // sous-catégories de niveau 2 (parent = racine accessible) dont le périmètre
-    // est commun (`site_id` NULL) OU le même site que la gamme. `gammeCats` est
-    // déjà restreinte au scope gamme/mixte et aux catégories actives.
-    const valides = sousCategoriesNiveau2(gammeCats, g.site_id).map(
+    // Sous-catégories de niveau 2 COMMUNES (parent = racine commune). `gammeCats`
+    // est déjà restreinte au commun, au scope gamme/mixte et aux catégories
+    // actives ; le helper n'arbitre plus que le niveau 2 (périmètre commun, `null`).
+    const valides = sousCategoriesNiveau2(gammeCats, null).map(
       ({ sous }) => sous,
     )
     // Repli : `gammes.categorie_id` est NOT NULL, donc une gamme pointe toujours
@@ -450,41 +422,35 @@ export function GammesBiblioPanel() {
     return valides
   }, [gammeForm.gamme, gammeCats, categoriesQuery.data])
 
-  // Catégories proposées comme PARENT à l'édition d'une catégorie : restreintes
-  // aux RACINES (`parent_id` nul) de scope gamme/mixte et de portée compatible
-  // (commun, ou le même site que la catégorie éditée). On limite à la racine pour
+  // Catégories proposées comme PARENT à l'édition d'une catégorie : RACINES
+  // (`parent_id` nul) COMMUNES de scope gamme/mixte. On limite à la racine pour
   // rester sur le modèle strict à 2 niveaux — rattacher sous une sous-catégorie
   // créerait un niveau 3 que la base refuse. (Le backend reste le filet pour le
   // cas d'une racine ayant déjà des enfants.)
-  const parentCandidates = useMemo(() => {
-    const edited = categoryForm.categorie
-    return (categoriesQuery.data ?? []).filter((c) => {
-      if (c.parent_id !== null) return false
-      if (c.scope !== 'gamme' && c.scope !== 'mixte') return false
-      if (!edited) return true
-      return c.site_id === null || c.site_id === edited.site_id
-    })
-  }, [categoriesQuery.data, categoryForm.categorie])
+  const parentCandidates = useMemo(
+    () =>
+      (categoriesQuery.data ?? []).filter(
+        (c) =>
+          c.site_id === null &&
+          c.parent_id === null &&
+          (c.scope === 'gamme' || c.scope === 'mixte'),
+      ),
+    [categoriesQuery.data],
+  )
 
   // ----- VUE DÉTAIL : une gamme-template ouverte -----
   if (openGamme !== null) {
     const fresh = gammes.find((g) => g.id === openGamme.id) ?? openGamme
-    const canEditThis = canEntreprise || fresh.site_id !== null
     return (
       <>
         <GammeBiblioDetail
           gamme={fresh}
-          canManage={canManage}
-          canEdit={canEditThis}
-          onCopy={
-            canExport && fresh.site_id === null
-              ? () => openExportGamme(fresh)
-              : undefined
-          }
+          canEdit={canEntreprise}
+          onCopy={canExport ? () => openExportGamme(fresh) : undefined}
           onBack={() => setOpenGamme(null)}
           onEdit={() => setGammeForm({ open: true, gamme: fresh })}
         />
-        {canManage && (
+        {canEntreprise && (
           <GammeBiblioFormDialog
             key={`edit-${gammeForm.gamme?.id ?? 'none'}`}
             open={gammeForm.open}
@@ -494,9 +460,6 @@ export function GammesBiblioPanel() {
               id: c.id,
               nom: c.nom,
             }))}
-            canEntreprise={canEntreprise}
-            siteId={fresh.site_id}
-            siteName={activeSite?.nom ?? null}
           />
         )}
         {exportDialog}
@@ -540,45 +503,41 @@ export function GammesBiblioPanel() {
               </button>
             </span>
           ))}
-          <Badge variant={current.site_id === null ? 'secondary' : 'outline'}>
-            {current.site_id === null ? 'Commun' : 'Site'}
-          </Badge>
-          {canManage && (depth === 1 || depth === 2) && (
+          {(depth === 1 || depth === 2) && (
             <div className="ml-auto flex flex-wrap gap-2">
-              {/* Niveau 1 : on crée des sous-catégories (pas de gamme ici). */}
-              {depth === 1 && (
+              {/* Niveau 1 : on crée des sous-catégories communes (pas de gamme). */}
+              {depth === 1 && canEntreprise && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleAddSubCategory}
-                  disabled={!canAddSubCategory}
                 >
                   <Folder /> Sous-catégorie
                 </Button>
               )}
-              {/* Niveau 2 : on crée des gammes (profondeur max, pas de sous-cat.). */}
+              {/* Niveau 2 : profondeur max (gammes-templates, pas de sous-cat.). */}
               {depth === 2 && (
                 <>
-                  {/* Copie commun → site : sous-catégorie COMMUNE contenant au
-                      moins une gamme commune. Boucle front sur ses gammes. */}
-                  {current.site_id === null &&
-                    canExport &&
-                    gammesInCurrent.some((g) => g.site_id === null) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openExportSousCategorie(current)}
-                      >
-                        <CopyPlus /> Copier la sous-catégorie vers un site
-                      </Button>
-                    )}
-                  <Button
-                    size="sm"
-                    onClick={() => setGammeForm({ open: true, gamme: null })}
-                    disabled={!canAddGamme}
-                  >
-                    <Plus /> Nouvelle gamme
-                  </Button>
+                  {/* Copie commun → site : sous-catégorie contenant au moins une
+                      gamme. Boucle front sur ses gammes (réservée aux rôles
+                      métier ayant un site accessible). */}
+                  {canExport && gammesInCurrent.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openExportSousCategorie(current)}
+                    >
+                      <CopyPlus /> Copier la sous-catégorie vers un site
+                    </Button>
+                  )}
+                  {canEntreprise && (
+                    <Button
+                      size="sm"
+                      onClick={() => setGammeForm({ open: true, gamme: null })}
+                    >
+                      <Plus /> Nouvelle gamme
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -594,9 +553,9 @@ export function GammesBiblioPanel() {
             icon={FolderTree}
             title="Aucune catégorie"
             description={
-              canAddRootCategory
+              canEntreprise
                 ? 'Crée une première catégorie avec le bouton + en haut à droite.'
-                : 'Aucune catégorie accessible.'
+                : 'Aucune catégorie pour le moment.'
             }
           />
         }
@@ -624,7 +583,7 @@ export function GammesBiblioPanel() {
                 }
                 description={
                   current === null
-                    ? 'Aucune catégorie dans ce périmètre pour le moment.'
+                    ? 'Aucune catégorie commune pour le moment.'
                     : depth === 1
                       ? canAddInside
                         ? 'Ajoute une sous-catégorie.'
@@ -643,18 +602,10 @@ export function GammesBiblioPanel() {
                   {childCategories.map((cat) => {
                     const subs = childCountByCat.get(cat.id) ?? 0
                     const nb = gammeCountByCat.get(cat.id) ?? 0
-                    const canEditCat = canEntreprise || cat.site_id !== null
                     return (
                       <Card key={cat.id} className="min-w-0">
                         <CardHeader>
-                          <div className="flex items-start justify-between gap-2">
-                            <CardTitle className="truncate">
-                              {cat.nom}
-                            </CardTitle>
-                            {cat.site_id === null && (
-                              <Badge variant="secondary">Commun</Badge>
-                            )}
-                          </div>
+                          <CardTitle className="truncate">{cat.nom}</CardTitle>
                         </CardHeader>
                         <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
                           <div className="flex flex-wrap items-center gap-2">
@@ -674,7 +625,7 @@ export function GammesBiblioPanel() {
                             >
                               <ChevronRight /> Ouvrir
                             </Button>
-                            {canManage && canEditCat && (
+                            {canEntreprise && (
                               <>
                                 <Button
                                   variant="outline"
@@ -703,16 +654,10 @@ export function GammesBiblioPanel() {
               {current !== null && gammesInCurrent.length > 0 && (
                 <div className={cardGrid.default}>
                   {gammesInCurrent.map((g) => {
-                    const canEditThis = canEntreprise || g.site_id !== null
                     return (
                       <Card key={g.id} className="min-w-0">
                         <CardHeader>
-                          <div className="flex items-start justify-between gap-2">
-                            <CardTitle className="truncate">{g.nom}</CardTitle>
-                            {g.site_id === null && (
-                              <Badge variant="secondary">Commun</Badge>
-                            )}
-                          </div>
+                          <CardTitle className="truncate">{g.nom}</CardTitle>
                         </CardHeader>
                         <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
                           <div className="flex flex-wrap items-center gap-2">
@@ -736,7 +681,7 @@ export function GammesBiblioPanel() {
                             <Button size="sm" onClick={() => setOpenGamme(g)}>
                               <ChevronRight /> Détail
                             </Button>
-                            {canExport && g.site_id === null && (
+                            {canExport && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -745,7 +690,7 @@ export function GammesBiblioPanel() {
                                 <CopyPlus /> Copier vers un site
                               </Button>
                             )}
-                            {canManage && canEditThis && (
+                            {canEntreprise && (
                               <>
                                 <Button
                                   variant="outline"
@@ -777,30 +722,30 @@ export function GammesBiblioPanel() {
         }}
       </QueryState>
 
-      {/* Création / édition de catégorie (scope gamme). */}
-      {canManage && (
+      {/* Création / édition de catégorie commune (scope gamme). */}
+      {canEntreprise && (
         <CategoryFormDialog
           key={
             categoryForm.categorie
-              ? `cat-edit-${categoryForm.categorie.id}-${scope}`
-              : `cat-new-${categoryForm.preset?.parent_id ?? 'root'}-${scope}`
+              ? `cat-edit-${categoryForm.categorie.id}`
+              : `cat-new-${categoryForm.preset?.parent_id ?? 'root'}`
           }
           open={categoryForm.open}
           onOpenChange={(open) => setCategoryForm((f) => ({ ...f, open }))}
           categorie={categoryForm.categorie}
           preset={categoryForm.preset}
           categories={parentCandidates}
-          canEntreprise={canEntreprise}
-          siteId={categoryForm.siteId}
-          siteName={activeSite?.nom ?? null}
+          canEntreprise
+          siteId={null}
+          siteName={null}
           lockedScope={categoryForm.categorie ? undefined : categoryForm.lockedScope}
           minimal
         />
       )}
 
-      {/* Création / édition d'une gamme-template dans la sous-catégorie courante
-          (niveau 2 uniquement : une gamme pointe toujours une sous-catégorie). */}
-      {canManage && depth === 2 && current !== null && (
+      {/* Création / édition d'une gamme-template commune dans la sous-catégorie
+          courante (niveau 2 : une gamme pointe toujours une sous-catégorie). */}
+      {canEntreprise && depth === 2 && current !== null && (
         <GammeBiblioFormDialog
           key={`gamme-${gammeForm.gamme?.id ?? `new-${current.id}`}`}
           open={gammeForm.open}
@@ -810,10 +755,6 @@ export function GammesBiblioPanel() {
             id: c.id,
             nom: c.nom,
           }))}
-          canEntreprise={canEntreprise}
-          siteId={current.site_id}
-          siteName={activeSite?.nom ?? null}
-          lockedScope={gammeForm.gamme ? undefined : currentLockedScope}
           lockedCategorieId={gammeForm.gamme ? undefined : current.id}
         />
       )}
@@ -870,16 +811,15 @@ type OperationRow = Database['public']['Tables']['operations']['Row'] & {
 
 function GammeBiblioDetail({
   gamme,
-  canManage,
   canEdit,
   onCopy,
   onBack,
   onEdit,
 }: {
   gamme: GammeBiblioRow
-  canManage: boolean
+  /** Édition réservée aux rôles entreprise (admin/manager). */
   canEdit: boolean
-  /** Copie commun → site (fourni seulement sur un template commun copiable). */
+  /** Copie commun → site (fourni aux rôles métier ayant un site accessible). */
   onCopy?: () => void
   onBack: () => void
   onEdit: () => void
@@ -904,7 +844,7 @@ function GammeBiblioDetail({
   }
 
   const newButton =
-    canManage && canEdit ? (
+    canEdit ? (
       <Button size="sm" onClick={() => setOpForm({ open: true, op: null })}>
         <Plus /> Ajouter une opération
       </Button>
@@ -917,9 +857,6 @@ function GammeBiblioDetail({
           <ChevronLeft /> Retour
         </Button>
         <span className="font-medium">{gamme.nom}</span>
-        <Badge variant={gamme.site_id === null ? 'secondary' : 'outline'}>
-          {gamme.site_id === null ? 'Commun' : 'Site'}
-        </Badge>
         <Badge
           variant={
             gamme.nature === 'controle_reglementaire' ? 'default' : 'secondary'
@@ -930,14 +867,14 @@ function GammeBiblioDetail({
         {gamme.periodicites && (
           <Badge variant="outline">{gamme.periodicites.libelle}</Badge>
         )}
-        {(onCopy ?? (canManage && canEdit)) && (
+        {(onCopy ?? canEdit) && (
           <div className="ml-auto flex flex-wrap gap-2">
             {onCopy && (
               <Button variant="outline" size="sm" onClick={onCopy}>
                 <CopyPlus /> Copier vers un site
               </Button>
             )}
-            {canManage && canEdit && (
+            {canEdit && (
               <Button variant="outline" size="sm" onClick={onEdit}>
                 <Pencil /> Modifier la gamme
               </Button>
@@ -960,7 +897,7 @@ function GammeBiblioDetail({
             icon={ListChecks}
             title="Aucune opération"
             description={
-              canManage && canEdit
+              canEdit
                 ? 'Ajoute les opérations qui composent cette gamme-template.'
                 : 'Cette gamme-template ne contient pas d’opération.'
             }
@@ -999,7 +936,7 @@ function GammeBiblioDetail({
                     </p>
                   )}
                 </div>
-                {canManage && canEdit && (
+                {canEdit && (
                   <div className="flex shrink-0 gap-1">
                     <Button
                       variant="ghost"
@@ -1029,11 +966,11 @@ function GammeBiblioDetail({
         <GammeModelesSection
           gammeId={gamme.id}
           gammeSiteId={gamme.site_id}
-          canEdit={canManage && canEdit}
+          canEdit={canEdit}
         />
       </div>
 
-      {canManage && canEdit && (
+      {canEdit && (
         <OperationFormDialog
           key={opForm.op?.id ?? 'new'}
           open={opForm.open}

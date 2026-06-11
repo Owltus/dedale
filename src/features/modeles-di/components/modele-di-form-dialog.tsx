@@ -15,19 +15,40 @@ interface ModeleDiFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   modele?: ModeleDi | null
-  /** Site de rattachement (scope site strict). */
-  siteId: string
+  /** Droit de créer/éditer sur le scope entreprise (admin/manager). */
+  canEntreprise: boolean
+  /** Site servant d'option « Site » (création) ou site du modèle édité. */
+  siteId: string | null
+  siteName: string | null
+  /**
+   * Création depuis le + de la page : portée VERROUILLÉE sur le périmètre choisi
+   * (le sélecteur de portée est alors masqué). Ignoré en édition.
+   */
+  lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
 }
 
 function initialValues(
   modele: ModeleDi | null | undefined,
+  canEntreprise: boolean,
+  lockedScope: { portee: 'entreprise' | 'site' } | null | undefined,
 ): ModeleDiFormValues {
-  if (!modele) return emptyModeleDi
+  if (!modele)
+    return {
+      ...emptyModeleDi,
+      // Portée verrouillée sur le périmètre de la page si fournie ; sinon défaut
+      // selon le rôle (un tech ne crée que des modèles de site).
+      portee: lockedScope
+        ? lockedScope.portee
+        : canEntreprise
+          ? emptyModeleDi.portee
+          : 'site',
+    }
   return {
     libelle: modele.libelle,
     description: modele.description ?? '',
     constat_modele: modele.constat_modele,
     etat: modele.est_actif ? 'actif' : 'inactif',
+    portee: modele.site_id === null ? 'entreprise' : 'site',
   }
 }
 
@@ -35,17 +56,23 @@ export function ModeleDiFormDialog({
   open,
   onOpenChange,
   modele,
+  canEntreprise,
   siteId,
+  siteName,
+  lockedScope,
 }: ModeleDiFormDialogProps) {
   const isEdit = Boolean(modele)
   const { session } = useAuth()
   const create = useCreateModeleDi()
   const update = useUpdateModeleDi()
   const [values, setValues] = useState<ModeleDiFormValues>(() =>
-    initialValues(modele),
+    initialValues(modele, canEntreprise, lockedScope),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
+  const showEntreprise = canEntreprise || values.portee === 'entreprise'
+  // Création depuis le + : la portée vient du périmètre de la page → masquée.
+  const hidePortee = !isEdit && lockedScope != null
 
   function set<K extends keyof ModeleDiFormValues>(
     key: K,
@@ -63,6 +90,7 @@ export function ModeleDiFormDialog({
     setErrors({})
     try {
       if (modele) {
+        // Édition : la portée (`site_id`) est immuable → non transmise.
         await update.mutateAsync({ id: modele.id, values: parsed.data })
         toast.success('Modèle modifié')
       } else {
@@ -72,7 +100,7 @@ export function ModeleDiFormDialog({
         }
         await create.mutateAsync({
           values: parsed.data,
-          siteId,
+          siteId: lockedScope ? lockedScope.siteId : siteId,
           createdBy: session.user.id,
         })
         toast.success('Modèle créé')
@@ -101,6 +129,20 @@ export function ModeleDiFormDialog({
         error={errors.libelle}
         required
       />
+      {!hidePortee && (
+        <SelectField
+          label="Portée"
+          value={values.portee}
+          onChange={(v) => set('portee', v as ModeleDiFormValues['portee'])}
+          error={errors.portee}
+          // Immuable après création (trigger backend) → lecture seule en édition.
+          disabled={isEdit}
+          required
+        >
+          {showEntreprise && <option value="entreprise">Commun</option>}
+          {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
+        </SelectField>
+      )}
       <TextareaField
         label="Constat (modèle)"
         value={values.constat_modele}

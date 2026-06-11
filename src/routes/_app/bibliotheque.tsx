@@ -8,8 +8,6 @@ import { GammesTypesPanel } from '@/features/modeles-operations/components/gamme
 import { GammesBiblioPanel } from '@/features/gammes/components/gammes-biblio-panel'
 import { ModelesDiPanel } from '@/features/modeles-di/components/modeles-di-panel'
 import { MiniaturesPanel } from '@/features/miniatures/components/miniatures-panel'
-import { useCurrentRole } from '@/hooks/use-current-role'
-import * as perm from '@/lib/permissions'
 
 /**
  * Bibliothèque : page unique du catalogue, divisée en onglets. Catalogue
@@ -22,12 +20,6 @@ export const Route = createFileRoute('/_app/bibliotheque')({
 })
 
 function BibliothequePage() {
-  const { data: role } = useCurrentRole()
-  // Les modèles de DI sont à scope SITE strict : sans intérêt pour les rôles
-  // entreprise (admin/manager) qui raisonnent au niveau entreprise. Onglet
-  // réservé aux rôles qui gèrent concrètement un site (technicien).
-  const showDi = !perm.canManageAdmin(role)
-
   const tabs: TabItem[] = [
     {
       id: 'modeles-equipements',
@@ -44,15 +36,11 @@ function BibliothequePage() {
       label: 'Gammes',
       content: <GammesBiblioPanel />,
     },
-    ...(showDi
-      ? [
-          {
-            id: 'modeles-di',
-            label: 'Modèles de DI',
-            content: <ModelesDiPanel />,
-          },
-        ]
-      : []),
+    {
+      id: 'modeles-di',
+      label: 'Modèles de DI',
+      content: <ModelesDiPanel />,
+    },
     {
       id: 'vignettes',
       label: 'Vignettes',

@@ -9,9 +9,10 @@ import { SCOPE_ALL } from '@/lib/scope'
  * dans un onglet est conservée quand on change d'onglet.
  *
  * Défaut = le SITE ACTIF — seule valeur qui s'affiche à l'IDENTIQUE sur tous les
- * onglets, y compris les modèles de DI (scope site strict, sans « Commun »). À
- * défaut de site actif (ex. vue multi-sites), on retombe sur « Tout ». « Commun »
- * reste disponible dans la liste (sauf DI), mais n'est jamais le défaut.
+ * onglets, y compris ceux à scope site strict (sans « Commun »). À défaut de site
+ * actif (ex. vue multi-sites), on retombe sur « Tout ». « Commun » reste
+ * disponible dans la liste (sauf onglets à scope site strict), mais n'est jamais
+ * le défaut.
  */
 export function ScopeProvider({ children }: { children: ReactNode }) {
   const { activeSiteId } = useSiteContext()

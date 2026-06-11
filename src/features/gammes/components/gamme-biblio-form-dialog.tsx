@@ -31,17 +31,8 @@ interface GammeBiblioFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   gamme?: GammeBiblioRow | null
-  /** Catégories sélectionnables (scope gamme/mixte du périmètre courant). */
+  /** Sous-catégories communes (niveau 2) sélectionnables. */
   categories: CategorieOption[]
-  /** Droit de créer/éditer sur le scope entreprise (admin/manager). */
-  canEntreprise: boolean
-  siteId: string | null
-  siteName: string | null
-  /**
-   * Création depuis le périmètre courant : portée VERROUILLÉE (sélecteur masqué).
-   * Ignoré en édition (la portée suit alors la gamme).
-   */
-  lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
   /**
    * Création dans une catégorie imposée (navigation) : catégorie verrouillée →
    * le sélecteur de catégorie est masqué. Ignoré en édition.
@@ -51,7 +42,6 @@ interface GammeBiblioFormDialogProps {
 
 function initialValues(
   gamme: GammeBiblioRow | null | undefined,
-  lockedScope: { portee: 'entreprise' | 'site' } | null | undefined,
   lockedCategorieId: string | null | undefined,
 ): GammeBiblioFormValues {
   if (gamme) {
@@ -62,25 +52,27 @@ function initialValues(
       prestataire_id: gamme.prestataire_id,
       description: gamme.description ?? '',
       categorie_id: gamme.categorie_id,
-      portee: gamme.site_id === null ? 'entreprise' : 'site',
+      // Onglet Gammes de la Bibliothèque = COMMUN uniquement (site_id NULL).
+      portee: 'entreprise',
     }
   }
   return {
     ...emptyGammeBiblio,
-    portee: lockedScope ? lockedScope.portee : emptyGammeBiblio.portee,
     ...(lockedCategorieId ? { categorie_id: lockedCategorieId } : {}),
   }
 }
 
+/**
+ * Création / édition d'une gamme-template COMMUNE (portée entreprise, `site_id`
+ * NULL inviolable). L'onglet Gammes de la Bibliothèque ne gère que des templates
+ * communs : aucun choix de portée ni de site ici (la copie vers un site se fait
+ * via « Copier vers un site », hors de ce formulaire).
+ */
 export function GammeBiblioFormDialog({
   open,
   onOpenChange,
   gamme,
   categories,
-  canEntreprise,
-  siteId,
-  siteName,
-  lockedScope,
   lockedCategorieId,
 }: GammeBiblioFormDialogProps) {
   const isEdit = Boolean(gamme)
@@ -92,57 +84,21 @@ export function GammeBiblioFormDialog({
   )
   const { data: prestataires = [] } = useQuery(prestatairesQueries.list())
   const [values, setValues] = useState<GammeBiblioFormValues>(() =>
-    initialValues(gamme, lockedScope, lockedCategorieId),
+    initialValues(gamme, lockedCategorieId),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
 
-  // Catégorie / portée imposées par la navigation → sélecteurs masqués (création).
+  // Catégorie imposée par la navigation → sélecteur masqué (création).
   const hideCategorie = !isEdit && lockedCategorieId != null
-  const hidePortee = !isEdit && lockedScope != null
-  // En édition, la portée suit la gamme (on n'écrit jamais un site_id par erreur).
-  const showPortee = !hidePortee && !isEdit
-  const showEntreprise = canEntreprise || values.portee === 'entreprise'
 
-  // Site cible effectif (résout portée=site → un id de site).
-  const effectiveSiteId = isEdit
-    ? (gamme?.site_id ?? null)
-    : (lockedScope ? lockedScope.siteId : siteId)
-
-  // Site pertinent pour les prestataires SELON la portée courante :
-  // portée commune (entreprise) → aucun site (un interne est TOUJOURS lié à un
-  // site, cf. CHECK est_interne = site_id IS NOT NULL → pas d'interne commun) ;
-  // portée site → le site cible.
-  const prestataireSiteId = values.portee === 'site' ? effectiveSiteId : null
-
-  // Options du select filtrées par portée : commun → uniquement les prestataires
-  // communs (site_id NULL) ; site → ceux du site cible + les communs.
+  // Portée commune : un interne est toujours lié à un site (CHECK est_interne =
+  // site_id IS NOT NULL), donc seuls les prestataires communs (site_id NULL)
+  // sont éligibles ; pas de défaut « interne » disponible en commun.
   const prestataireOptions = useMemo(
-    () =>
-      prestataires.filter((p) =>
-        prestataireSiteId === null
-          ? p.site_id === null
-          : p.site_id === null || p.site_id === prestataireSiteId,
-      ),
-    [prestataires, prestataireSiteId],
+    () => prestataires.filter((p) => p.site_id === null),
+    [prestataires],
   )
-
-  // Défaut à la création (tant que rien n'est choisi), dépendant de la portée :
-  // site → l'interne DE CE SITE ; commun → pas d'interne disponible, on laisse
-  // vide (prestataire_id.min(1) obligera l'utilisateur à choisir).
-  const defaultPrestataireId = useMemo(
-    () =>
-      prestataireSiteId === null
-        ? ''
-        : (prestataires.find(
-            (p) => p.est_interne && p.site_id === prestataireSiteId,
-          )?.id ?? ''),
-    [prestataires, prestataireSiteId],
-  )
-  const prestataireValue =
-    !isEdit && values.prestataire_id === ''
-      ? defaultPrestataireId
-      : values.prestataire_id
 
   function set<K extends keyof GammeBiblioFormValues>(
     key: K,
@@ -152,10 +108,7 @@ export function GammeBiblioFormDialog({
   }
 
   async function handleSubmit() {
-    const parsed = gammeBiblioSchema.safeParse({
-      ...values,
-      prestataire_id: prestataireValue,
-    })
+    const parsed = gammeBiblioSchema.safeParse(values)
     if (!parsed.success) {
       setErrors(fieldErrors(parsed.error))
       return
@@ -163,9 +116,10 @@ export function GammeBiblioFormDialog({
     setErrors({})
     try {
       if (gamme) {
+        // Commun : `siteId` NULL (la portée du payload reste entreprise).
         await update.mutateAsync({
           id: gamme.id,
-          siteId: effectiveSiteId,
+          siteId: null,
           values: parsed.data,
         })
         toast.success('Gamme-template modifiée')
@@ -175,7 +129,7 @@ export function GammeBiblioFormDialog({
           return
         }
         await create.mutateAsync({
-          siteId: effectiveSiteId,
+          siteId: null,
           createdBy: session.user.id,
           values: parsed.data,
         })
@@ -192,7 +146,7 @@ export function GammeBiblioFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier la gamme-template' : 'Nouvelle gamme-template'}
-      description="Un gabarit réutilisable, rangé dans l’arborescence des catégories."
+      description="Un gabarit commun réutilisable, rangé dans l’arborescence des catégories."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
@@ -259,7 +213,7 @@ export function GammeBiblioFormDialog({
         label="Prestataire par défaut"
         required
         id="gamme_biblio_prestataire"
-        value={prestataireValue}
+        value={values.prestataire_id}
         onChange={(v) => set('prestataire_id', v)}
         error={errors.prestataire_id}
       >
@@ -270,20 +224,6 @@ export function GammeBiblioFormDialog({
           </option>
         ))}
       </SelectField>
-
-      {showPortee && (
-        <SelectField
-          label="Portée"
-          required
-          id="gamme_biblio_portee"
-          value={values.portee}
-          onChange={(v) => set('portee', v as GammeBiblioFormValues['portee'])}
-          error={errors.portee}
-        >
-          {showEntreprise && <option value="entreprise">Commun</option>}
-          {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
-        </SelectField>
-      )}
 
       <TextareaField
         label="Description"

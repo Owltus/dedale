@@ -7,7 +7,7 @@ interface ScopeSelectProps {
   onChange: (scope: string) => void
   /**
    * Inclure l'option « Commun » (site_id NULL). `false` pour les catalogues à
-   * scope SITE strict (ex. modèles de DI), qui n'ont pas de niveau commun.
+   * scope SITE strict, qui n'ont pas de niveau commun.
    */
   allowCommun?: boolean
 }

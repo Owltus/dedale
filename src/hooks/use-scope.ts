@@ -13,7 +13,7 @@ export const ScopeContext = createContext<ScopeContextValue | null>(null)
  * <ScopeProvider>). La valeur choisie dans un onglet est donc conservée quand on
  * change d'onglet.
  *
- * `allowCommun = false` (catalogues à scope SITE strict, ex. modèles de DI) :
+ * `allowCommun = false` (catalogue à scope SITE strict, sans niveau commun) :
  * « Commun » n'existe pas → présenté/filtré comme « Tout » SANS modifier l'état
  * partagé (préservé pour les autres onglets).
  */

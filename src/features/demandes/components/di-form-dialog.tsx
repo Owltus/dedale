@@ -40,7 +40,8 @@ export function DiFormDialog({
     setValues((v) => ({ ...v, [key]: value }))
   }
 
-  // Suggestion rapide : pré-remplit le constat depuis un modèle de DI du site.
+  // Suggestion rapide : pré-remplit le constat depuis un modèle de DI (commun
+  // ou du site).
   function applyModele(id: string) {
     setModeleId(id)
     const modele = modeles.find((m) => m.id === id)

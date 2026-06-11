@@ -1685,7 +1685,7 @@ export type Database = {
           est_actif: boolean
           id: string
           libelle: string
-          site_id: string
+          site_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1696,7 +1696,7 @@ export type Database = {
           est_actif?: boolean
           id?: string
           libelle: string
-          site_id: string
+          site_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1707,7 +1707,7 @@ export type Database = {
           est_actif?: boolean
           id?: string
           libelle?: string
-          site_id?: string
+          site_id?: string | null
           updated_at?: string
         }
         Relationships: [
