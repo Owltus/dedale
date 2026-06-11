@@ -23,8 +23,14 @@ interface TabsProps {
   items: TabItem[]
   /** Onglet actif initial (mode NON contrôlé uniquement ; défaut : le premier). */
   defaultTabId?: string
-  /** Titre de page, affiché dans la zone fixe (à gauche du bouton +). */
-  title: string
+  /**
+   * Titre de REPLI, affiché s'il n'y a aucun onglet actif (cas limite : liste
+   * vide). Par défaut, la zone de titre montre le LIBELLÉ de l'onglet ACTIF —
+   * chaque onglet « se nomme » lui-même (plus de titre générique figé). Un
+   * panneau peut surcharger ce titre par un nœud (ex. fil d'Ariane) via
+   * `useTabTitle`.
+   */
+  title?: string
   /**
    * Mode CONTRÔLÉ : id de l'onglet actif. Si fourni, il prime sur le state
    * interne (la source de vérité devient le parent, ex. un search param d'URL).
@@ -115,7 +121,7 @@ export function Tabs({
         <div className="mb-3 flex items-center justify-between gap-4">
           {titleNode ?? (
             <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
-              {title}
+              {activeItem?.label ?? title}
             </h1>
           )}
           {addConfig !== null && (

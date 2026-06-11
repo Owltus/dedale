@@ -82,7 +82,6 @@ function BibliothequePage() {
     <PageContainer fill>
       <ScopeProvider>
         <Tabs
-          title="Bibliothèque"
           items={tabs}
           value={onglet}
           // Changer d'onglet → chemin réduit à `/bibliotheque/<onglet>` (PUSH) :

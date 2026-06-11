@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ListChecks, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -9,11 +10,14 @@ import { OperationItemsEditor } from './operation-items-editor'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
+import { useBiblioDrill } from '@/hooks/use-biblio-drill'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage, pgCode } from '@/lib/form'
 import { scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
-import { useTabAddAction } from '@/components/common/tab-actions'
+import { useTabAddAction, useTabTitle } from '@/components/common/tab-actions'
+import { TitleBreadcrumb } from '@/components/common/title-breadcrumb'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ScopeSelect } from '@/components/common/scope-select'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
@@ -71,7 +75,6 @@ export function GammesTypesPanel() {
           siteId: targetSiteId,
         }
 
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [form, setForm] = useState<{
     open: boolean
     modele: ModeleOperation | null
@@ -87,28 +90,55 @@ export function GammesTypesPanel() {
   const liens = liensQuery.data ?? []
   const hasLiens = liens.length > 0
 
-  const selected =
-    selectedId !== null
-      ? (query.data?.find((m) => m.id === selectedId) ?? null)
-      : null
+  // Tous les modèles (non filtrés par périmètre) : référentiel du hook de
+  // navigation par URL — le segment se résout quel que soit le filtre courant.
+  const allModeles = useMemo(() => query.data ?? [], [query.data])
+  const { selected, open: ouvrirModele } = useBiblioDrill(
+    'gammes-types',
+    allModeles,
+  )
 
-  // En vue liste seulement : le + ajoute un modèle d’opération (la vue détail a son
-  // propre bouton « Ajouter une opération »).
   const handleAdd = useCallback(() => setForm({ open: true, modele: null }), [])
+  const handleEditSelected = useCallback(() => {
+    if (selected !== null) setForm({ open: true, modele: selected })
+  }, [selected])
   const scopeControl = useMemo(
     () => <ScopeSelect value={scope} onChange={setScope} />,
     [scope, setScope],
   )
-  // Bouton (vue liste) toujours visible pour un rôle métier, mais DÉSACTIVÉ si
-  // le périmètre n'est pas créable (Tout, ou Commun sans le droit) → UX stable.
-  useTabAddAction(
-    selected === null && canManage ? handleAdd : null,
-    'Nouveau modèle d’opération',
-    {
-      disabled: !canAdd,
-      extra: selected === null ? scopeControl : undefined,
-    },
+  const atRoot = selected === null
+  // Détail : le + est masqué ; à sa place, l'action « Modifier le modèle »
+  // (icône) si l'utilisateur peut éditer ce modèle (entreprise, ou modèle de
+  // site). Racine : + « Nouveau modèle d'opération » + sélecteur de périmètre.
+  const editExtra = useMemo<ReactNode>(
+    () =>
+      selected !== null &&
+      canManage &&
+      (canEntreprise || selected.site_id !== null) ? (
+        <TooltipIconButton
+          icon={<Pencil />}
+          label="Modifier le modèle d’opération"
+          onClick={handleEditSelected}
+        />
+      ) : undefined,
+    [selected, canManage, canEntreprise, handleEditSelected],
   )
+  useTabAddAction(
+    atRoot && canManage ? handleAdd : null,
+    'Nouveau modèle d’opération',
+    atRoot ? { disabled: !canAdd, extra: scopeControl } : { extra: editExtra },
+  )
+
+  // Titre : libellé de l'onglet à la racine (défaut de <Tabs>), nom du modèle
+  // ouvert en détail (fil d'Ariane sans ancêtre, comme Gammes).
+  const titleNode = useMemo<ReactNode>(
+    () =>
+      selected === null ? null : (
+        <TitleBreadcrumb ancestors={[]} current={selected.nom} />
+      ),
+    [selected],
+  )
+  useTabTitle(titleNode)
 
   // Mises à jour live entre fenêtres / comptes (Realtime).
   useRealtimeRefresh('modeles_operations', modelesOperationsQueries.all())
@@ -136,14 +166,10 @@ export function GammesTypesPanel() {
       canManage && (canEntreprise || selected.site_id !== null)
     return (
       <>
-        <OperationItemsEditor
-          modele={selected}
-          canManage={canManageItems}
-          onBack={() => setSelectedId(null)}
-        />
+        <OperationItemsEditor modele={selected} canManage={canManageItems} />
         {canManage && (
           <GammeTypeFormDialog
-            key={form.modele?.id ?? 'new'}
+            key={`${form.modele?.id ?? 'new'}-${String(form.open)}`}
             open={form.open}
             onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
             modele={form.modele}
@@ -230,11 +256,11 @@ export function GammesTypesPanel() {
                     tabIndex={0}
                     aria-label={`Ouvrir le modèle ${modele.nom}`}
                     className="focus-visible:ring-ring min-w-0 cursor-pointer transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
-                    onClick={() => setSelectedId(modele.id)}
+                    onClick={() => ouvrirModele(modele)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
-                        setSelectedId(modele.id)
+                        ouvrirModele(modele)
                       }
                     }}
                   >

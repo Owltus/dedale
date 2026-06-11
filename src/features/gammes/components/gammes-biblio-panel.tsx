@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
-  ChevronRight,
   CopyPlus,
   Folder,
   FolderTree,
@@ -35,7 +34,7 @@ import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage, exportErrorMessage } from '@/lib/form'
 import { sousCategoriesNiveau2 } from '@/lib/scope'
-import { slugify } from '@/lib/slug'
+import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction, useTabTitle } from '@/components/common/tab-actions'
 import {
@@ -49,6 +48,10 @@ import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
+import {
+  TitleBreadcrumb,
+  type BreadcrumbAncestor,
+} from '@/components/common/title-breadcrumb'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -87,38 +90,6 @@ const COMMUN_LOCK: LockedScope = { portee: 'entreprise', siteId: null }
 // `getRouteApi` (et non un import du module de route) pour ne PAS inverser la
 // dépendance features → routes : la route reste la seule à connaître la feature.
 const route = getRouteApi('/_app/bibliotheque/$')
-
-/**
- * Segment d'URL STABLE et UNIQUE PARMI SES FRÈRES d'une catégorie/sous-catégorie/
- * gamme : son nom slugifié, désambiguïsé en cas de collision entre frères.
- *
- * Deux cas de repli sur l'unicité :
- *  - slug VIDE (nom fait uniquement de caractères hors `[a-z0-9]`, ex. « ### »,
- *    « ① ») → `''` : ce segment vide disparaîtrait du chemin (`join('/')` +
- *    `split('/').filter(Boolean)`) et l'élément se résoudrait vers son PARENT.
- *    On retombe sur l'`id` (toujours non vide et unique) ;
- *  - COLLISION entre frères (deux éléments de même parent au slug non vide
- *    identique, ex. « Électricité » / « Electricite » → `electricite`) : sans
- *    discriminant, la génération produit le même segment pour les deux et la
- *    résolution (`find`) renvoie toujours le 1er → le 2e devient injoignable.
- *    On suffixe alors `~<id court>` (le `~` est hors de l'alphabet de `slugify`,
- *    qui ne garde que `[a-z0-9-]`, donc jamais de confusion slug/discriminant).
- *
- * À utiliser À LA FOIS en GÉNÉRATION et en RÉSOLUTION, avec EXACTEMENT le même
- * ensemble de `siblings` de chaque côté (symétrie) : un segment doit toujours se
- * relire à l'identique. Slug non vide et sans collision → segment = slug pur.
- */
-function segOfUnique(
-  obj: { nom: string; id: string },
-  siblings: { nom: string; id: string }[],
-): string {
-  const s = slugify(obj.nom)
-  if (!s) return obj.id
-  const collision = siblings.some(
-    (x) => x.id !== obj.id && slugify(x.nom) === s,
-  )
-  return collision ? `${s}~${obj.id.slice(0, 8)}` : s
-}
 
 /**
  * Panneau « Gammes » de la Bibliothèque : arborescence catégorie/sous-catégorie
@@ -1024,57 +995,6 @@ export function GammesBiblioPanel() {
       />
 
       {exportDialog}
-    </div>
-  )
-}
-
-// ----- Fil d'Ariane rendu comme TITRE de la barre d'onglet -----
-
-interface BreadcrumbAncestor {
-  /** Clé React stable (id de catégorie, ou « racine »). */
-  key: string
-  label: string
-  onClick: () => void
-}
-
-/**
- * Titre « fil d'Ariane » de la barre d'onglet : le segment COURANT fait office
- * de grand titre (`text-2xl`), précédé de ses ancêtres cliquables (petits,
- * atténués, séparés par des chevrons). Tout tronque (`min-w-0` / `truncate`)
- * pour ne jamais déborder sur mobile.
- * Générique : réutilisable par tout onglet via `useTabTitle`.
- */
-function TitleBreadcrumb({
-  ancestors,
-  current,
-}: {
-  ancestors: BreadcrumbAncestor[]
-  current: string
-}) {
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-1.5">
-      {ancestors.length > 0 && (
-        <nav
-          aria-label="Fil d'Ariane"
-          className="text-muted-foreground flex min-w-0 items-center gap-1 text-sm"
-        >
-          {ancestors.map((a) => (
-            <span key={a.key} className="flex min-w-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={a.onClick}
-                className="hover:text-foreground truncate"
-              >
-                {a.label}
-              </button>
-              <ChevronRight className="size-4 shrink-0" />
-            </span>
-          ))}
-        </nav>
-      )}
-      <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
-        {current}
-      </h1>
     </div>
   )
 }

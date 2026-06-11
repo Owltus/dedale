@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { modelesOperationsQueries } from '../queries'
 import type { ModeleOperation } from '../queries'
@@ -27,14 +27,12 @@ function formatSeuil(valeur: number | null): string {
 interface OperationItemsEditorProps {
   modele: ModeleOperation
   canManage: boolean
-  onBack: () => void
 }
 
 /** Détail d'un modèle d’opération : la liste ordonnée de ses opérations + leur CRUD. */
 export function OperationItemsEditor({
   modele,
   canManage,
-  onBack,
 }: OperationItemsEditorProps) {
   const query = useQuery(modelesOperationsQueries.items(modele.id))
   const del = useDeleteOperationItem()
@@ -61,26 +59,21 @@ export function OperationItemsEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft /> Retour
-          </Button>
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">
-              {modele.nom}
-            </h2>
-            {modele.site_id === null && (
-              <Badge variant="secondary">Commun</Badge>
-            )}
-          </div>
+      {/* Le nom du modèle vit dans le titre de la barre d'onglet (fil d'Ariane,
+          défini par le panneau). Ici : le badge de périmètre + l'ajout. */}
+      {(modele.site_id === null || canManage) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {modele.site_id === null && <Badge variant="secondary">Commun</Badge>}
+          {canManage && (
+            <Button
+              className="ml-auto"
+              onClick={() => setForm({ open: true, item: null })}
+            >
+              <Plus /> Ajouter une opération
+            </Button>
+          )}
         </div>
-        {canManage && (
-          <Button onClick={() => setForm({ open: true, item: null })}>
-            <Plus /> Ajouter une opération
-          </Button>
-        )}
-      </div>
+      )}
 
       <QueryState
         query={query}

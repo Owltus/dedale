@@ -1,13 +1,12 @@
 import { useCallback, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  ChevronLeft,
   ChevronRight,
   CopyPlus,
   FolderTree,
   Package,
   Pencil,
-  Plus,
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -22,11 +21,13 @@ import { CategoryFormDialog } from '@/features/categories/components/category-fo
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
+import { useBiblioDrill } from '@/hooks/use-biblio-drill'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import { scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
-import { useTabAddAction } from '@/components/common/tab-actions'
+import { useTabAddAction, useTabTitle } from '@/components/common/tab-actions'
+import { TitleBreadcrumb } from '@/components/common/title-breadcrumb'
 import { ScopeSelect } from '@/components/common/scope-select'
 import {
   ExporterVersSiteDialog,
@@ -76,7 +77,6 @@ export function ModelesEquipementsPanel() {
   const del = useDeleteModeleEquipement()
   const copierModele = useCopierModeleEquipement()
 
-  const [openCategoryId, setOpenCategoryId] = useState<string | null>(null)
   const [categoryFormOpen, setCategoryFormOpen] = useState(false)
   const [modeleForm, setModeleForm] = useState<{
     open: boolean
@@ -109,13 +109,20 @@ export function ModelesEquipementsPanel() {
   }
 
   // Catégories d'équipement (actives, scope equipement/mixte).
-  const equipmentCats = (categoriesQuery.data ?? []).filter(
-    (c) => c.est_actif && (c.scope === 'equipement' || c.scope === 'mixte'),
+  const equipmentCats = useMemo(
+    () =>
+      (categoriesQuery.data ?? []).filter(
+        (c) => c.est_actif && (c.scope === 'equipement' || c.scope === 'mixte'),
+      ),
+    [categoriesQuery.data],
   )
-  const openCategory =
-    openCategoryId !== null
-      ? (equipmentCats.find((c) => c.id === openCategoryId) ?? null)
-      : null
+  // Navigation à un niveau (catégorie ouverte) portée par l'URL — calque du
+  // patron Gammes via le hook partagé. `equipmentCats` = TOUTES les catégories
+  // (non filtrées par périmètre) → le segment se résout quel que soit le filtre.
+  const { selected: openCategory, open: ouvrirCategorie } = useBiblioDrill(
+    'modeles-equipements',
+    equipmentCats,
+  )
 
   const modeles = useMemo(() => modelesQuery.data ?? [], [modelesQuery.data])
   // Nombre de modèles par catégorie (compteur des cartes).
@@ -170,15 +177,28 @@ export function ModelesEquipementsPanel() {
     [],
   )
 
-  // En-tête : SEULEMENT à la racine → + Catégorie (+ sélecteur de périmètre).
-  // Dans une catégorie, la création de modèle est un bouton EN CONTEXTE (plus bas).
+  // Barre d'onglet = unique point d'entrée des actions, selon la vue (« boutons
+  // toujours au même endroit ») : racine → + Nouvelle catégorie (+ périmètre) ;
+  // catégorie ouverte → + Nouveau modèle (créé dans cette catégorie).
+  const atRoot = openCategory === null
   useTabAddAction(
-    openCategory === null && canManage ? handleAddCategory : null,
-    'Nouvelle catégorie',
-    openCategory === null
+    canManage ? (atRoot ? handleAddCategory : handleAddModele) : null,
+    atRoot ? 'Nouvelle catégorie' : 'Nouveau modèle',
+    atRoot
       ? { disabled: !canAddCategory, extra: scopeControl }
-      : undefined,
+      : { disabled: !canAddModele },
   )
+
+  // Titre : libellé de l'onglet à la racine (défaut de <Tabs>), nom de la
+  // catégorie ouverte en détail (fil d'Ariane sans ancêtre, comme Gammes).
+  const titleNode = useMemo<ReactNode>(
+    () =>
+      openCategory === null ? null : (
+        <TitleBreadcrumb ancestors={[]} current={openCategory.nom} />
+      ),
+    [openCategory],
+  )
+  useTabTitle(titleNode)
 
   function confirmDelete() {
     if (!toDelete) return
@@ -198,31 +218,14 @@ export function ModelesEquipementsPanel() {
     )
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setOpenCategoryId(null)}
-          >
-            <ChevronLeft /> Catégories
-          </Button>
-          <ChevronRight className="text-muted-foreground size-4" />
-          <span className="font-medium">{openCategory.nom}</span>
+        {/* Le nom de la catégorie vit dans le titre (fil d'Ariane) et « Nouveau
+            modèle » dans la barre d'onglet. Ici, seul le badge de périmètre. */}
+        <div className="flex flex-wrap items-center gap-2">
           <Badge
             variant={openCategory.site_id === null ? 'secondary' : 'outline'}
           >
             {openCategory.site_id === null ? 'Commun' : 'Site'}
           </Badge>
-          {canManage && (
-            <Button
-              size="sm"
-              className="ml-auto"
-              onClick={handleAddModele}
-              disabled={!canAddModele}
-            >
-              <Plus /> Nouveau modèle
-            </Button>
-          )}
         </div>
 
         <QueryState
@@ -426,11 +429,11 @@ export function ModelesEquipementsPanel() {
                     tabIndex={0}
                     aria-label={`Ouvrir la catégorie ${cat.nom}`}
                     className="focus-visible:ring-ring min-w-0 cursor-pointer transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
-                    onClick={() => setOpenCategoryId(cat.id)}
+                    onClick={() => ouvrirCategorie(cat)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
-                        setOpenCategoryId(cat.id)
+                        ouvrirCategorie(cat)
                       }
                     }}
                   >
