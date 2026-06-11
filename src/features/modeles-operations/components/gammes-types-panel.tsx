@@ -54,7 +54,7 @@ export function GammesTypesPanel() {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
   const canEntreprise = perm.canManageAdmin(role)
-  const { activeSiteId, activeSite } = useSiteContext()
+  const { activeSiteId, activeSite, sites } = useSiteContext()
   const query = useQuery(modelesOperationsQueries.pool())
   const detachEtSupprime = useDetacherEtSupprimerModeleOperation()
   const { scope, setScope } = useScope()
@@ -125,7 +125,9 @@ export function GammesTypesPanel() {
   )
   useTabAddAction(
     atRoot && canManage ? handleAdd : null,
-    'Nouveau modèle d’opération',
+    atRoot && !canAdd
+      ? 'Ajout indisponible pour ce périmètre'
+      : 'Nouveau modèle d’opération',
     atRoot ? { disabled: !canAdd, extra: scopeControl } : { extra: editExtra },
   )
 
@@ -174,8 +176,13 @@ export function GammesTypesPanel() {
             onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
             modele={form.modele}
             canEntreprise={canEntreprise}
-            siteId={activeSiteId}
-            siteName={activeSite?.nom ?? null}
+            siteId={form.modele?.site_id ?? activeSiteId}
+            siteName={
+              form.modele?.site_id
+                ? (sites.find((s) => s.id === form.modele?.site_id)?.nom ??
+                  null)
+                : (activeSite?.nom ?? null)
+            }
           />
         )}
       </>
@@ -258,6 +265,10 @@ export function GammesTypesPanel() {
                     className="focus-visible:ring-ring min-w-0 cursor-pointer transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
                     onClick={() => ouvrirModele(modele)}
                     onKeyDown={(e) => {
+                      // N'agir que si la carte est elle-même la cible : un
+                      // Entrée/Espace sur un bouton interne (Modifier/Supprimer)
+                      // ne doit pas être détourné vers l'ouverture du détail.
+                      if (e.target !== e.currentTarget) return
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
                         ouvrirModele(modele)
@@ -316,8 +327,12 @@ export function GammesTypesPanel() {
           onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
           modele={form.modele}
           canEntreprise={canEntreprise}
-          siteId={activeSiteId}
-          siteName={activeSite?.nom ?? null}
+          siteId={form.modele?.site_id ?? activeSiteId}
+          siteName={
+            form.modele?.site_id
+              ? (sites.find((s) => s.id === form.modele?.site_id)?.nom ?? null)
+              : (activeSite?.nom ?? null)
+          }
           lockedScope={form.modele ? undefined : (lockedScope ?? undefined)}
         />
       )}

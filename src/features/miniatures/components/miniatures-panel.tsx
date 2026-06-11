@@ -382,6 +382,10 @@ export function MiniaturesPanel() {
                     }
                     onClick={() => toggleSelect(miniature.id)}
                     onKeyDown={(e) => {
+                      // N'agir que si la tuile est elle-même la cible : un
+                      // Entrée/Espace sur le bouton Supprimer interne ne doit pas
+                      // être détourné vers la (dé)sélection.
+                      if (e.target !== e.currentTarget) return
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
                         toggleSelect(miniature.id)

@@ -303,7 +303,7 @@ export function GammesBiblioPanel() {
   )
 
   // Ouvre une gamme (PUSH) : chemin dérivé de sa catégorie RÉELLE + segment du
-  // nom (ou de l'id si le nom slugifie en '', cf. `segOf`).
+  // nom (ou de l'id si le nom slugifie en '', cf. `segOfUnique`).
   const goToGamme = useCallback(
     (g: GammeBiblioRow) => {
       void navigate({

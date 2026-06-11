@@ -119,11 +119,20 @@ export function Tabs({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 border-b px-4 pt-6 pb-3 sm:px-6 lg:px-8">
         <div className="mb-3 flex items-center justify-between gap-4">
-          {titleNode ?? (
-            <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
-              {activeItem?.label ?? title}
-            </h1>
-          )}
+          {/* Région live : le changement de contexte (onglet actif ou descente
+              dans un onglet) est annoncé aux lecteurs d'écran via le titre. */}
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="flex min-w-0 flex-1 items-center"
+          >
+            {titleNode ?? (
+              <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
+                {activeItem?.label ?? title}
+              </h1>
+            )}
+          </div>
           {addConfig !== null && (
             <div className="flex flex-wrap items-center justify-end gap-2">
               {addExtra}

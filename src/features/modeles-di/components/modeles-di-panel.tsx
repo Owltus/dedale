@@ -67,10 +67,14 @@ export function ModelesDiPanel() {
   )
   // Bouton toujours visible pour un rôle métier, mais DÉSACTIVÉ si le périmètre
   // n'est pas créable (Tout, ou Commun sans le droit) → UX stable.
-  useTabAddAction(canManage ? handleAdd : null, 'Nouveau modèle de DI', {
-    disabled: !canAdd,
-    extra: scopeControl,
-  })
+  useTabAddAction(
+    canManage ? handleAdd : null,
+    canAdd ? 'Nouveau modèle de DI' : 'Ajout indisponible pour ce périmètre',
+    {
+      disabled: !canAdd,
+      extra: scopeControl,
+    },
+  )
 
   // Mises à jour live entre fenêtres / comptes (Realtime).
   useRealtimeRefresh('modeles_di', modelesDiQueries.all())

@@ -183,7 +183,13 @@ export function ModelesEquipementsPanel() {
   const atRoot = openCategory === null
   useTabAddAction(
     canManage ? (atRoot ? handleAddCategory : handleAddModele) : null,
-    atRoot ? 'Nouvelle catégorie' : 'Nouveau modèle',
+    atRoot
+      ? canAddCategory
+        ? 'Nouvelle catégorie'
+        : 'Création indisponible pour ce périmètre'
+      : canAddModele
+        ? 'Nouveau modèle'
+        : 'Création indisponible pour ce périmètre',
     atRoot
       ? { disabled: !canAddCategory, extra: scopeControl }
       : { disabled: !canAddModele },
@@ -337,14 +343,26 @@ export function ModelesEquipementsPanel() {
 
         {canManage && (
           <ModeleEquipementFormDialog
-            key={modeleForm.modele?.id ?? `new-${openCategory.id}`}
+            key={`${modeleForm.modele?.id ?? `new-${openCategory.id}`}-${String(modeleForm.open)}`}
             open={modeleForm.open}
             onOpenChange={(open) => setModeleForm((f) => ({ ...f, open }))}
             modele={modeleForm.modele}
             categories={equipmentCats.map((c) => ({ id: c.id, nom: c.nom }))}
             canEntreprise={canEntreprise}
-            siteId={openCategory.site_id}
-            siteName={null}
+            // Édition : ancrer la portée sur le site PROPRE du modèle (une copie
+            // de site peut vivre dans une catégorie commune) pour ne pas la
+            // reconvertir en « Commun » ; création : le périmètre de la catégorie.
+            siteId={
+              modeleForm.modele
+                ? modeleForm.modele.site_id
+                : openCategory.site_id
+            }
+            siteName={
+              modeleForm.modele?.site_id
+                ? (sites.find((s) => s.id === modeleForm.modele?.site_id)
+                    ?.nom ?? null)
+                : null
+            }
             lockedScope={modeleForm.modele ? undefined : modeleLockedScope}
             lockedCategorieId={modeleForm.modele ? undefined : openCategory.id}
             minimal
@@ -431,6 +449,9 @@ export function ModelesEquipementsPanel() {
                     className="focus-visible:ring-ring min-w-0 cursor-pointer transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
                     onClick={() => ouvrirCategorie(cat)}
                     onKeyDown={(e) => {
+                      // Cohérence avec les autres cartes : n'agir que si la carte
+                      // est elle-même la cible (protège d'un futur bouton interne).
+                      if (e.target !== e.currentTarget) return
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
                         ouvrirCategorie(cat)

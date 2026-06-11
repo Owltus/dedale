@@ -118,7 +118,7 @@ export function OperationItemsEditor({
                           variant="ghost"
                           size="sm"
                           onClick={() => setForm({ open: true, item })}
-                          aria-label="Modifier l'opération"
+                          aria-label="Modifier l’opération"
                         >
                           <Pencil />
                         </Button>
@@ -126,7 +126,7 @@ export function OperationItemsEditor({
                           variant="ghost"
                           size="sm"
                           onClick={() => setToDelete(item)}
-                          aria-label="Supprimer l'opération"
+                          aria-label="Supprimer l’opération"
                         >
                           <Trash2 />
                         </Button>
@@ -142,7 +142,11 @@ export function OperationItemsEditor({
 
       {canManage && (
         <OperationItemFormDialog
-          key={form.item?.id ?? 'new'}
+          // Discriminant `open` : le dialog reste monté, donc on force un
+          // remontage à chaque ouverture pour relire les valeurs initiales (nom,
+          // type, et surtout `defaultOrdre`/nextOrdre frais) — sinon ajouter
+          // plusieurs opérations à la suite réaffiche la saisie + un ordre périmé.
+          key={`${form.item?.id ?? 'new'}-${String(form.open)}`}
           open={form.open}
           onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
           modeleId={modele.id}
@@ -156,7 +160,7 @@ export function OperationItemsEditor({
         onOpenChange={(open) => {
           if (!open) setToDelete(null)
         }}
-        title="Supprimer l'opération ?"
+        title="Supprimer l’opération ?"
         description={
           toDelete
             ? `« ${toDelete.nom} » sera retirée du modèle d’opération.`

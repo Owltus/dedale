@@ -9,7 +9,7 @@
  *
  * Contrat : PEUT renvoyer `''` quand le libellé ne contient aucun caractère
  * `[a-z0-9]` (ex. « ### », « ① »). Les appelants qui ont besoin d'un segment
- * non vide doivent prévoir un repli (cf. `segOf` côté Bibliothèque/Gammes).
+ * non vide doivent prévoir un repli (cf. `segOfUnique`, défini ci-dessous).
  */
 export function slugify(s: string): string {
   return s
