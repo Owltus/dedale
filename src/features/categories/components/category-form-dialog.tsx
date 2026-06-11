@@ -38,6 +38,24 @@ interface CategoryFormDialogProps {
    * (Type, Parent, État et Portée masqués). Ignoré en édition.
    */
   minimal?: boolean
+  /**
+   * Masque DÉFINITIVEMENT le champ « Type » (scope), création ET édition. Pour
+   * les contextes où le scope est imposé (ex. onglet Gammes, toujours `gamme`) :
+   * la valeur du preset / de la catégorie existante est conservée telle quelle à
+   * la soumission. Si absent, le « Type » reste régi par le mode `minimal`.
+   */
+  hideScope?: boolean
+  /**
+   * Masque DÉFINITIVEMENT le champ « Portée », création ET édition. La portée
+   * reste celle de `lockedScope` (création) ou de la catégorie existante
+   * (édition) → soumission inchangée. Prime sur la déduction interne quand fourni.
+   */
+  hidePortee?: boolean
+  /**
+   * Masque le texte d'aide sous le titre (aucune `description` passée au
+   * `FormDialog`). Pour les contextes épurés (ex. onglet Gammes).
+   */
+  hideDescription?: boolean
 }
 
 function initialValues(
@@ -105,6 +123,9 @@ export function CategoryFormDialog({
   siteName,
   lockedScope,
   minimal,
+  hideScope,
+  hidePortee: hidePorteeProp,
+  hideDescription,
 }: CategoryFormDialogProps) {
   const isEdit = Boolean(categorie)
   const create = useCreateCategorie()
@@ -123,9 +144,14 @@ export function CategoryFormDialog({
   // déjà (lecture d'une entrée entreprise existante).
   const showEntreprise = canEntreprise || values.portee === 'entreprise'
   // Création depuis le + : la portée vient du périmètre de la page → masquée.
-  const hidePortee = !isEdit && lockedScope != null
-  // Mode minimal (création depuis la navigation) : juste Nom + Description.
-  const compact = minimal === true && !isEdit
+  // La prop explicite (ex. onglet Gammes) prime sur cette déduction interne.
+  const hidePortee = hidePorteeProp ?? (!isEdit && lockedScope != null)
+  // Mode minimal : juste Nom + Description, en création ET en édition (on
+  // n'ajoute jamais à l'édition ce qui n'est pas proposé à la création).
+  const compact = minimal === true
+  // « Type » (scope) : masqué en mode compact, ou si forcé par la prop.
+  const showScope = !compact && hideScope !== true
+  const showPortee = !hidePortee
   // Description adaptée au scope : l'équipement reste à un seul niveau (catégorie
   // racine), la gamme distingue catégorie racine et sous-catégorie.
   const compactDescription =
@@ -134,6 +160,9 @@ export function CategoryFormDialog({
         ? 'Une sous-catégorie, rattachée à sa catégorie de gammes parente.'
         : 'Une catégorie racine pour organiser tes gammes.'
       : 'Une catégorie pour ranger tes modèles d’équipement.'
+  // Sous-catégorie = présence d'un parent (catégorie existante ou présélection) :
+  // adapte le titre (« catégorie » vs « sous-catégorie »).
+  const estSousCat = (categorie?.parent_id ?? preset?.parent_id) != null
 
   function set<K extends keyof CategorieFormValues>(
     key: K,
@@ -174,11 +203,15 @@ export function CategoryFormDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
+      title={`${isEdit ? 'Modifier la' : 'Nouvelle'} ${
+        estSousCat ? 'sous-catégorie' : 'catégorie'
+      }`}
       description={
-        compact
-          ? compactDescription
-          : 'Une catégorie racine n’a pas de parent ; une sous-catégorie est rattachée à une catégorie parente.'
+        hideDescription
+          ? undefined
+          : compact
+            ? compactDescription
+            : 'Une catégorie racine n’a pas de parent ; une sous-catégorie est rattachée à une catégorie parente.'
       }
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
@@ -192,13 +225,13 @@ export function CategoryFormDialog({
         error={errors.nom}
         required
       />
-      {(!compact || !hidePortee) && (
+      {(showScope || showPortee) && (
         <div
           className={
-            !compact && !hidePortee ? 'grid grid-cols-2 gap-4' : undefined
+            showScope && showPortee ? 'grid grid-cols-2 gap-4' : undefined
           }
         >
-          {!compact && (
+          {showScope && (
             <SelectField
               label="Type"
               value={values.scope}
@@ -213,7 +246,7 @@ export function CategoryFormDialog({
               ))}
             </SelectField>
           )}
-          {!hidePortee && (
+          {showPortee && (
             <SelectField
               label="Portée"
               value={values.portee}
@@ -242,7 +275,6 @@ export function CategoryFormDialog({
           {parentOptions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nom}
-              {c.site_id === null ? ' (entreprise)' : ''}
             </option>
           ))}
         </SelectField>
