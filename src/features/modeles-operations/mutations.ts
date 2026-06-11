@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { gammesQueries } from '@/features/gammes/queries'
 import { modelesOperationsQueries } from './queries'
 import type {
   ModeleOperationFormValues,
@@ -65,20 +66,30 @@ export function useUpdateModeleOperation() {
   })
 }
 
-export function useDeleteModeleOperation() {
+/**
+ * Détache un modèle d'opération de TOUTES ses gammes puis le supprime, via la RPC
+ * ATOMIQUE `detacher_et_supprimer_modele_operation` (migration #005). Une seule
+ * transaction SECURITY DEFINER : elle détache aussi les liaisons cross-site
+ * masquées au caller par la RLS (qu'un DELETE direct laisserait, bloquant la FK
+ * `RESTRICT`), puis supprime le modèle — tout ou rien, plus de détachement
+ * orphelin sur échec partiel. Les gammes ne sont JAMAIS supprimées (seules les
+ * liaisons le sont) et les triggers BEFORE DELETE de `gamme_modeles` restent
+ * actifs (dernière source d'opérations d'une gamme préventive active, OT actifs)
+ * → l'erreur remonte pour être traduite côté UI.
+ */
+export function useDetacherEtSupprimerModeleOperation() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Suppression réelle (pas de soft-delete sur cette table). Le backend
-      // refuse si le modèle est encore lié à des gammes (contrainte FK).
       await supabase
-        .from('modeles_operations')
-        .delete()
-        .eq('id', id)
+        .rpc('detacher_et_supprimer_modele_operation', { p_id: id })
         .throwOnError()
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() }),
+    onSuccess: () => {
+      // Les liaisons modifiées impactent aussi l'affichage des gammes.
+      void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
+      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+    },
   })
 }
 

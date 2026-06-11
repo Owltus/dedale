@@ -84,3 +84,33 @@ export function useDeleteModeleEquipement() {
       qc.invalidateQueries({ queryKey: modelesEquipementsQueries.all() }),
   })
 }
+
+/**
+ * Copie un modèle d'équipement PAR VALEUR vers un site cible via la RPC dédiée
+ * (`copier_modele_equipement`). Cas d'usage : piocher un modèle COMMUN
+ * (`site_id NULL`) et l'instancier sur son site, où il devient une copie
+ * indépendante (snapshot modifiable sans toucher l'original commun). La RPC
+ * arbitre les droits (accès au site cible) → 42501 à catcher côté UI.
+ */
+export function useCopierModeleEquipement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      sourceModeleId,
+      siteCible,
+    }: {
+      sourceModeleId: string
+      siteCible: string
+    }) => {
+      const { data } = await supabase
+        .rpc('copier_modele_equipement', {
+          p_source_modele_id: sourceModeleId,
+          p_site_cible: siteCible,
+        })
+        .throwOnError()
+      return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: modelesEquipementsQueries.all() }),
+  })
+}

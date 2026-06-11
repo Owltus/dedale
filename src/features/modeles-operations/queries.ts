@@ -19,6 +19,17 @@ export interface ModeleOperationImportable {
   nbItems: number
 }
 
+/**
+ * Gamme liée à un modèle d'opération (ligne `gamme_modeles` aplatie) : sert à
+ * détecter les liens avant suppression. Une gamme soft-deletée garde la liaison
+ * (donc bloque la suppression FK) : on la signale via `supprimee`.
+ */
+export interface GammeLieeAModele {
+  gammeId: string
+  nom: string
+  supprimee: boolean
+}
+
 export const modelesOperationsQueries = {
   all: () => ['modeles_operations'] as const,
 
@@ -39,6 +50,36 @@ export const modelesOperationsQueries = {
         return data.filter((m) => m.site_id === null || m.site_id === siteId)
       },
       staleTime: 60_000,
+    }),
+
+  /**
+   * Gammes liées à un modèle d'opération via `gamme_modeles`. Sert UNIQUEMENT à
+   * formuler le message de confirmation avant suppression (combien de gammes,
+   * lesquelles). La suppression elle-même passe toujours par la RPC atomique
+   * `detacher_et_supprimer_modele_operation`, qui détache TOUTES les liaisons —
+   * y compris les gammes hors périmètre masquées par la RLS et absentes de cette
+   * liste — avant de supprimer : aucun blocage FK résiduel à gérer côté UI.
+   */
+  liens: (modeleId: string) =>
+    queryOptions({
+      queryKey: [...modelesOperationsQueries.all(), 'liens', modeleId] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('gamme_modeles')
+          .select('gamme_id, gammes(nom, deleted_at)')
+          .eq('modele_operation_id', modeleId)
+          .abortSignal(signal)
+          .throwOnError()
+        return data.map(
+          (row): GammeLieeAModele => ({
+            gammeId: row.gamme_id,
+            // `gamme_id` est une FK NOT NULL → la gamme jointe existe toujours.
+            nom: row.gammes.nom,
+            supprimee: row.gammes.deleted_at !== null,
+          }),
+        )
+      },
+      staleTime: 30_000,
     }),
 
   /** Items (opérations types) d'un modèle, ordonnés, avec type et unité. */

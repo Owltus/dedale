@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   ChevronLeft,
   ChevronRight,
+  CopyPlus,
   Folder,
   FolderTree,
   ListChecks,
@@ -13,7 +15,11 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { gammesQueries, type GammeBiblioRow } from '../queries'
-import { useDeleteGamme, useDeleteOperation } from '../mutations'
+import {
+  useCopierGamme,
+  useDeleteGamme,
+  useDeleteOperation,
+} from '../mutations'
 import { GammeBiblioFormDialog } from './gamme-biblio-form-dialog'
 import { OperationFormDialog } from './operation-form-dialog'
 import { GammeModelesSection } from './gamme-modeles-section'
@@ -25,11 +31,15 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage } from '@/lib/form'
+import { errorMessage, exportErrorMessage } from '@/lib/form'
 import { scopeMatches, scopeTarget, sousCategoriesNiveau2 } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
 import { ScopeSelect } from '@/components/common/scope-select'
+import {
+  ExporterVersSiteDialog,
+  type ExportOutcome,
+} from '@/components/common/exporter-vers-site-dialog'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
@@ -78,7 +88,8 @@ export function GammesBiblioPanel() {
   const canManage = perm.canManageMetier(role)
   const canEntreprise = perm.canManageAdmin(role)
   const { scope, setScope } = useScope()
-  const { activeSite } = useSiteContext()
+  // `sites` (get_my_sites) : cibles possibles d'une copie commun → site.
+  const { activeSite, sites } = useSiteContext()
 
   const gammesQuery = useQuery(gammesQueries.biblioPool())
   const categoriesQuery = useQuery(categoriesQueries.pool())
@@ -87,6 +98,7 @@ export function GammesBiblioPanel() {
   useRealtimeRefresh('categories', categoriesQueries.all())
   const delGamme = useDeleteGamme()
   const delCategorie = useDeleteCategorie()
+  const copierGamme = useCopierGamme()
 
   // Pile de navigation (catégorie → sous-catégorie). Vide = racine.
   const [path, setPath] = useState<Categorie[]>([])
@@ -105,6 +117,16 @@ export function GammesBiblioPanel() {
   const [toDeleteCategorie, setToDeleteCategorie] = useState<Categorie | null>(
     null,
   )
+  // Export commun → site : soit une gamme-template, soit une sous-catégorie
+  // entière (boucle sur ses gammes communes). `target` survit à la fermeture
+  // (la `key` du dialog reste stable) ; il change quand on ouvre une autre source.
+  const [exportState, setExportState] = useState<{
+    open: boolean
+    target:
+      | { kind: 'gamme'; gamme: GammeBiblioRow }
+      | { kind: 'sousCategorie'; categorie: Categorie }
+      | null
+  }>({ open: false, target: null })
 
   // Catégories de gamme (actives, scope gamme/mixte).
   const gammeCats = useMemo(
@@ -204,6 +226,130 @@ export function GammesBiblioPanel() {
   // Nouvelle gamme : seulement au niveau 2 (dans une sous-catégorie).
   const canAddSubCategory = depth === 1 && canAddInside
   const canAddGamme = depth === 2 && canAddInside
+
+  // --- Export commun → site ---
+  // Bouton « Copier vers un site » : seulement sur un template COMMUN et si
+  // l'utilisateur a au moins un site accessible (la RPC reste l'arbitre réel).
+  const canExport = canManage && sites.length > 0
+  function openExportGamme(gamme: GammeBiblioRow) {
+    setExportState({ open: true, target: { kind: 'gamme', gamme } })
+  }
+  function openExportSousCategorie(categorie: Categorie) {
+    setExportState({ open: true, target: { kind: 'sousCategorie', categorie } })
+  }
+
+  async function handleExportConfirm(
+    siteCible: string,
+  ): Promise<ExportOutcome> {
+    const target = exportState.target
+    if (!target) return { ton: 'echec', message: 'Rien à copier.' }
+    // Nom du site cible (pour indiquer OÙ retrouver la copie). Le site est choisi
+    // dans `sites`, donc résolu ; repli défensif sur « le site » sinon.
+    const nomSite = sites.find((s) => s.id === siteCible)?.nom
+    const surSite = nomSite ? `le site « ${nomSite} »` : 'le site'
+    if (target.kind === 'gamme') {
+      await copierGamme.mutateAsync({
+        sourceGammeId: target.gamme.id,
+        siteCible,
+      })
+      return {
+        ton: 'succes',
+        message: `« ${target.gamme.nom} » copiée sur ${surSite}. La copie apparaît dans sa catégorie (badge Site), visible sous le périmètre « Commun » ou « Tout ».`,
+      }
+    }
+    // Sous-catégorie commune : boucle front sur SES gammes communes, dérivées du
+    // cache FRAIS (`gammes`) au moment du confirm — jamais d'instantané périmé.
+    // `Promise.allSettled` : un échec sur une gamme n'annule pas les autres.
+    const aCopier = gammes.filter(
+      (g) => g.categorie_id === target.categorie.id && g.site_id === null,
+    )
+    if (aCopier.length === 0) {
+      return {
+        ton: 'echec',
+        message: 'Aucune gamme commune à copier dans cette sous-catégorie.',
+      }
+    }
+    const results = await Promise.allSettled(
+      aCopier.map((g) =>
+        copierGamme.mutateAsync({ sourceGammeId: g.id, siteCible }),
+      ),
+    )
+    const total = results.length
+    const reussis = results.filter((r) => r.status === 'fulfilled').length
+    const s = total > 1 ? 's' : ''
+    if (reussis === total) {
+      return {
+        ton: 'succes',
+        message: `${String(total)} gamme${s} copiée${s} sur ${surSite}. ${
+          total > 1 ? 'Les copies apparaissent' : 'La copie apparaît'
+        } dans leur catégorie (badge Site), visible${s} sous le périmètre « Commun » ou « Tout ».`,
+      }
+    }
+    // Bilan partiel/total : on remonte un message représentatif (1er échec),
+    // traduit comme partout (RLS 42501 → message clair, pas le brut de la RPC).
+    const erreurs = results.flatMap((r) =>
+      r.status === 'rejected' ? [exportErrorMessage(r.reason)] : [],
+    )
+    const [premiereErreur] = erreurs
+    const detail = premiereErreur ? ` (${premiereErreur})` : ''
+    if (reussis === 0) {
+      return { ton: 'echec', message: `Aucune gamme copiée${detail}.` }
+    }
+    // Partiel : le dialog reste OUVERT. On AVERTIT que relancer recopiera TOUTE
+    // la sous-catégorie (RPC non idempotente) → doublons sur les déjà réussies.
+    return {
+      ton: 'partiel',
+      message: `${String(reussis)}/${String(total)} gammes copiées sur ${surSite} ; ${String(
+        total - reussis,
+      )} en échec${detail}. Attention : relancer recopiera TOUTE la sous-catégorie (doublons des copies déjà réussies).`,
+    }
+  }
+
+  // Props du dialog d'export dérivées de la source courante. La `key` ne change
+  // pas à la fermeture (target conservé) → l'animation de sortie est préservée ;
+  // elle change quand on ouvre une AUTRE source → état (site choisi) réinitialisé.
+  const exportTarget = exportState.target
+  const exportKey =
+    exportTarget === null
+      ? 'export-none'
+      : exportTarget.kind === 'gamme'
+        ? `export-gamme-${exportTarget.gamme.id}`
+        : `export-souscat-${exportTarget.categorie.id}`
+  const exportTitre =
+    exportTarget?.kind === 'sousCategorie'
+      ? 'Copier la sous-catégorie vers un site'
+      : 'Copier la gamme vers un site'
+  let exportResume: ReactNode = null
+  if (exportTarget?.kind === 'gamme') {
+    exportResume = (
+      <>
+        La gamme <strong>« {exportTarget.gamme.nom} »</strong> et ses opérations
+        seront copiées sur le site choisi.
+      </>
+    )
+  } else if (exportTarget?.kind === 'sousCategorie') {
+    const nb = gammes.filter(
+      (g) => g.categorie_id === exportTarget.categorie.id && g.site_id === null,
+    ).length
+    exportResume = (
+      <>
+        Les <strong>{nb}</strong> gamme{nb > 1 ? 's' : ''} commune
+        {nb > 1 ? 's' : ''} de{' '}
+        <strong>« {exportTarget.categorie.nom} »</strong> seront copiées sur le
+        site choisi.
+      </>
+    )
+  }
+  const exportDialog = canExport ? (
+    <ExporterVersSiteDialog
+      key={exportKey}
+      open={exportState.open}
+      onOpenChange={(open) => setExportState((s) => ({ ...s, open }))}
+      titre={exportTitre}
+      resume={exportResume}
+      onConfirm={handleExportConfirm}
+    />
+  ) : null
 
   const scopeControl = useMemo(
     () => <ScopeSelect value={scope} onChange={setScope} />,
@@ -330,6 +476,11 @@ export function GammesBiblioPanel() {
           gamme={fresh}
           canManage={canManage}
           canEdit={canEditThis}
+          onCopy={
+            canExport && fresh.site_id === null
+              ? () => openExportGamme(fresh)
+              : undefined
+          }
           onBack={() => setOpenGamme(null)}
           onEdit={() => setGammeForm({ open: true, gamme: fresh })}
         />
@@ -348,6 +499,7 @@ export function GammesBiblioPanel() {
             siteName={activeSite?.nom ?? null}
           />
         )}
+        {exportDialog}
       </>
     )
   }
@@ -406,13 +558,28 @@ export function GammesBiblioPanel() {
               )}
               {/* Niveau 2 : on crée des gammes (profondeur max, pas de sous-cat.). */}
               {depth === 2 && (
-                <Button
-                  size="sm"
-                  onClick={() => setGammeForm({ open: true, gamme: null })}
-                  disabled={!canAddGamme}
-                >
-                  <Plus /> Nouvelle gamme
-                </Button>
+                <>
+                  {/* Copie commun → site : sous-catégorie COMMUNE contenant au
+                      moins une gamme commune. Boucle front sur ses gammes. */}
+                  {current.site_id === null &&
+                    canExport &&
+                    gammesInCurrent.some((g) => g.site_id === null) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openExportSousCategorie(current)}
+                      >
+                        <CopyPlus /> Copier la sous-catégorie vers un site
+                      </Button>
+                    )}
+                  <Button
+                    size="sm"
+                    onClick={() => setGammeForm({ open: true, gamme: null })}
+                    disabled={!canAddGamme}
+                  >
+                    <Plus /> Nouvelle gamme
+                  </Button>
+                </>
               )}
             </div>
           )}
@@ -569,6 +736,15 @@ export function GammesBiblioPanel() {
                             <Button size="sm" onClick={() => setOpenGamme(g)}>
                               <ChevronRight /> Détail
                             </Button>
+                            {canExport && g.site_id === null && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openExportGamme(g)}
+                              >
+                                <CopyPlus /> Copier vers un site
+                              </Button>
+                            )}
                             {canManage && canEditThis && (
                               <>
                                 <Button
@@ -675,6 +851,8 @@ export function GammesBiblioPanel() {
         loading={delCategorie.isPending}
         onConfirm={confirmDeleteCategorie}
       />
+
+      {exportDialog}
     </div>
   )
 }
@@ -694,12 +872,15 @@ function GammeBiblioDetail({
   gamme,
   canManage,
   canEdit,
+  onCopy,
   onBack,
   onEdit,
 }: {
   gamme: GammeBiblioRow
   canManage: boolean
   canEdit: boolean
+  /** Copie commun → site (fourni seulement sur un template commun copiable). */
+  onCopy?: () => void
   onBack: () => void
   onEdit: () => void
 }) {
@@ -749,15 +930,19 @@ function GammeBiblioDetail({
         {gamme.periodicites && (
           <Badge variant="outline">{gamme.periodicites.libelle}</Badge>
         )}
-        {canManage && canEdit && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={onEdit}
-          >
-            <Pencil /> Modifier la gamme
-          </Button>
+        {(onCopy ?? (canManage && canEdit)) && (
+          <div className="ml-auto flex flex-wrap gap-2">
+            {onCopy && (
+              <Button variant="outline" size="sm" onClick={onCopy}>
+                <CopyPlus /> Copier vers un site
+              </Button>
+            )}
+            {canManage && canEdit && (
+              <Button variant="outline" size="sm" onClick={onEdit}>
+                <Pencil /> Modifier la gamme
+              </Button>
+            )}
+          </div>
         )}
       </div>
 

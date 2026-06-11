@@ -3152,6 +3152,10 @@ export type Database = {
       }
       current_role: { Args: never; Returns: string }
       deactivate_inactive_users: { Args: never; Returns: undefined }
+      detacher_et_supprimer_modele_operation: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       detect_security_anomalies: { Args: never; Returns: undefined }
       generate_next_ot_for_gamme: {
         Args: {

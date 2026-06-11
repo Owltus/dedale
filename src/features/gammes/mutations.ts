@@ -162,7 +162,14 @@ export function useUpdateGammeBiblio() {
   })
 }
 
-/** Duplique une gamme PAR VALEUR vers le site cible via la RPC dédiée. */
+/**
+ * Copie une gamme PAR VALEUR vers le site cible via la RPC dédiée
+ * (`copier_gamme` : gamme + opérations spécifiques + liaisons `gamme_modeles`,
+ * modèles partagés). Le `siteCible` est CHOISI par l'appelant :
+ * - intra-site (« Dupliquer ») → le site courant ;
+ * - commun → mon site (« Copier vers un site ») → un site accessible choisi.
+ * La RPC arbitre les droits (accès au site cible) → 42501 à catcher côté UI.
+ */
 export function useCopierGamme() {
   const qc = useQueryClient()
   return useMutation({

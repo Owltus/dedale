@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   ChevronLeft,
   ChevronRight,
+  CopyPlus,
   FolderTree,
   Package,
   Pencil,
@@ -11,18 +12,26 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { modelesEquipementsQueries, type ModeleEquipement } from '../queries'
-import { useDeleteModeleEquipement } from '../mutations'
+import {
+  useCopierModeleEquipement,
+  useDeleteModeleEquipement,
+} from '../mutations'
 import { ModeleEquipementFormDialog } from './modele-equipement-form-dialog'
 import { categoriesQueries } from '@/features/categories/queries'
 import { CategoryFormDialog } from '@/features/categories/components/category-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
+import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import { scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
 import { ScopeSelect } from '@/components/common/scope-select'
+import {
+  ExporterVersSiteDialog,
+  type ExportOutcome,
+} from '@/components/common/exporter-vers-site-dialog'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
@@ -56,6 +65,8 @@ export function ModelesEquipementsPanel() {
   const canManage = perm.canManageMetier(role)
   const canEntreprise = perm.canManageAdmin(role)
   const { scope, setScope } = useScope()
+  // Sites accessibles (get_my_sites) : cibles possibles d'une copie commun → site.
+  const { sites } = useSiteContext()
 
   const modelesQuery = useQuery(modelesEquipementsQueries.pool())
   const categoriesQuery = useQuery(categoriesQueries.pool())
@@ -63,6 +74,7 @@ export function ModelesEquipementsPanel() {
   useRealtimeRefresh('modeles_equipements', modelesEquipementsQueries.all())
   useRealtimeRefresh('categories', categoriesQueries.all())
   const del = useDeleteModeleEquipement()
+  const copierModele = useCopierModeleEquipement()
 
   const [openCategoryId, setOpenCategoryId] = useState<string | null>(null)
   const [categoryFormOpen, setCategoryFormOpen] = useState(false)
@@ -71,6 +83,28 @@ export function ModelesEquipementsPanel() {
     modele: ModeleEquipement | null
   }>({ open: false, modele: null })
   const [toDelete, setToDelete] = useState<ModeleEquipement | null>(null)
+  // Export d'un modèle COMMUN vers un site choisi (snapshot indépendant).
+  const [exportState, setExportState] = useState<{
+    open: boolean
+    modele: ModeleEquipement | null
+  }>({ open: false, modele: null })
+
+  // Bouton « Copier vers un site » : seulement sur un modèle COMMUN et si
+  // l'utilisateur a au moins un site accessible (la RPC reste l'arbitre réel).
+  const canExport = canManage && sites.length > 0
+  async function handleExportConfirm(siteCible: string): Promise<ExportOutcome> {
+    const modele = exportState.modele
+    if (!modele) return { ton: 'echec', message: 'Aucun modèle à copier.' }
+    await copierModele.mutateAsync({ sourceModeleId: modele.id, siteCible })
+    // Nom du site cible (pour indiquer OÙ retrouver la copie). Le site est choisi
+    // dans `sites`, donc résolu ; repli défensif sur « le site » sinon.
+    const nomSite = sites.find((s) => s.id === siteCible)?.nom
+    const surSite = nomSite ? `le site « ${nomSite} »` : 'le site'
+    return {
+      ton: 'succes',
+      message: `« ${modele.nom} » copié sur ${surSite}. La copie apparaît dans sa catégorie (badge Site), visible sous le périmètre « Commun » ou « Tout ».`,
+    }
+  }
 
   // Catégories d'équipement (actives, scope equipement/mixte).
   const equipmentCats = (categoriesQuery.data ?? []).filter(
@@ -226,9 +260,20 @@ export function ModelesEquipementsPanel() {
                           <CardTitle className="truncate">
                             {modele.nom}
                           </CardTitle>
-                          {!modele.est_actif && (
-                            <Badge variant="outline">Masqué</Badge>
-                          )}
+                          {/* Portée : distingue une copie de site de son original
+                              commun (même catégorie commune, mais site_id ≠ null). */}
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Badge
+                              variant={
+                                modele.site_id === null ? 'secondary' : 'outline'
+                              }
+                            >
+                              {modele.site_id === null ? 'Commun' : 'Site'}
+                            </Badge>
+                            {!modele.est_actif && (
+                              <Badge variant="outline">Masqué</Badge>
+                            )}
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent className="text-muted-foreground flex flex-col gap-2 text-sm">
@@ -236,24 +281,42 @@ export function ModelesEquipementsPanel() {
                           {specCount(modele.specifications)} caractéristique
                           {specCount(modele.specifications) > 1 ? 's' : ''}
                         </span>
-                        {canManage && canEditThis && (
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setModeleForm({ open: true, modele })
-                              }
-                            >
-                              <Pencil /> Modifier
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setToDelete(modele)}
-                            >
-                              <Trash2 /> Supprimer
-                            </Button>
+                        {((canManage && canEditThis) ||
+                          (canExport && modele.site_id === null)) && (
+                          <div className="flex flex-wrap gap-2">
+                            {/* Copie commun → site : uniquement sur un modèle COMMUN. */}
+                            {canExport && modele.site_id === null && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setExportState({ open: true, modele })
+                                }
+                              >
+                                <CopyPlus /> Copier vers un site
+                              </Button>
+                            )}
+                            {/* Le garde extérieur implique déjà `canManage`. */}
+                            {canEditThis && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    setModeleForm({ open: true, modele })
+                                  }
+                                >
+                                  <Pencil /> Modifier
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setToDelete(modele)}
+                                >
+                                  <Trash2 /> Supprimer
+                                </Button>
+                              </>
+                            )}
                           </div>
                         )}
                       </CardContent>
@@ -297,6 +360,25 @@ export function ModelesEquipementsPanel() {
           loading={del.isPending}
           onConfirm={confirmDelete}
         />
+
+        {canExport && (
+          <ExporterVersSiteDialog
+            key={`export-${exportState.modele?.id ?? 'none'}`}
+            open={exportState.open}
+            onOpenChange={(open) => setExportState((s) => ({ ...s, open }))}
+            titre="Copier le modèle vers un site"
+            resume={
+              exportState.modele ? (
+                <>
+                  Le modèle{' '}
+                  <strong>« {exportState.modele.nom} »</strong> (ses
+                  caractéristiques comprises) sera copié sur le site choisi.
+                </>
+              ) : null
+            }
+            onConfirm={handleExportConfirm}
+          />
+        )}
       </div>
     )
   }

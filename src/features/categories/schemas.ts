@@ -11,7 +11,7 @@ export const categorieSchema = z.object({
   nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
   scope: z.enum(['equipement', 'gamme', 'mixte']),
   description: z.string().trim().max(2000),
-  /** '' = racine (domaine sans parent). */
+  /** '' = catégorie racine (sans parent). */
   parent_id: z.string(),
   /** entreprise = catalogue global (site_id NULL) ; site = catalogue du site actif. */
   portee: z.enum(['entreprise', 'site']),

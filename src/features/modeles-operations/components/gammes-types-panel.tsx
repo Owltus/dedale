@@ -3,14 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { ListChecks, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { modelesOperationsQueries, type ModeleOperation } from '../queries'
-import { useDeleteModeleOperation } from '../mutations'
+import { useDetacherEtSupprimerModeleOperation } from '../mutations'
 import { GammeTypeFormDialog } from './gamme-type-form-dialog'
 import { OperationItemsEditor } from './operation-items-editor'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage } from '@/lib/form'
+import { errorMessage, pgCode } from '@/lib/form'
 import { scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
@@ -24,6 +24,27 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cardGrid } from '@/lib/responsive'
 
+/**
+ * Message clair pour une suppression de modèle d'opération refusée (pas de mur
+ * d'erreur brut `23503`/`23001`).
+ */
+function deleteModeleErrorMessage(e: unknown): string {
+  const code = pgCode(e)
+  // insufficient_privilege : RLS (hors scope d'écriture).
+  if (code === '42501') {
+    return 'Action non autorisée : vous n’avez pas les droits pour supprimer ce modèle.'
+  }
+  // foreign_key_violation : encore lié à des gammes hors périmètre (RLS) → le
+  // détachement n'a pas pu tout retirer. Message générique sans inventer la cause.
+  if (code === '23503') {
+    return 'Ce modèle reste lié à des gammes hors de votre périmètre : suppression impossible.'
+  }
+  // restrict_violation (23001) : trigger BEFORE DELETE sur le détachement
+  // (dernière source d'opérations d'une gamme préventive active OU OT actifs).
+  // Le message FR de la base est explicite → on l'affiche tel quel.
+  return errorMessage(e)
+}
+
 /** Panneau « Modèles d'opérations » : liste des modèles + leurs opérations. */
 export function GammesTypesPanel() {
   const { data: role } = useCurrentRole()
@@ -31,7 +52,7 @@ export function GammesTypesPanel() {
   const canEntreprise = perm.canManageAdmin(role)
   const { activeSiteId, activeSite } = useSiteContext()
   const query = useQuery(modelesOperationsQueries.pool())
-  const del = useDeleteModeleOperation()
+  const detachEtSupprime = useDetacherEtSupprimerModeleOperation()
   const { scope, setScope } = useScope()
 
   // Le + (vue liste) adopte le périmètre choisi : Commun (entreprise) ou un
@@ -56,6 +77,15 @@ export function GammesTypesPanel() {
     modele: ModeleOperation | null
   }>({ open: false, modele: null })
   const [toDelete, setToDelete] = useState<ModeleOperation | null>(null)
+
+  // Gammes liées au modèle à supprimer : on anticipe le RESTRICT FK plutôt que
+  // de heurter un mur d'erreur. La requête n'est active que pendant la confirmation.
+  const liensQuery = useQuery({
+    ...modelesOperationsQueries.liens(toDelete?.id ?? ''),
+    enabled: toDelete !== null,
+  })
+  const liens = liensQuery.data ?? []
+  const hasLiens = liens.length > 0
 
   const selected =
     selectedId !== null
@@ -85,12 +115,18 @@ export function GammesTypesPanel() {
 
   function confirmDelete() {
     if (!toDelete) return
-    del.mutate(toDelete.id, {
+    // TOUJOURS via la RPC atomique : elle détache TOUTES les liaisons — y compris
+    // celles masquées à l'appelant par la RLS (cross-site), qu'un DELETE direct
+    // laisserait, butant alors sur la FK RESTRICT (23503) — puis supprime le
+    // modèle en re-vérifiant les droits. Le cas « 0 liaison » est géré
+    // trivialement (détache 0 ligne puis supprime). La query `liens` ne sert
+    // plus qu'à formuler le message de confirmation.
+    detachEtSupprime.mutate(toDelete.id, {
       onSuccess: () => {
         toast.success('Modèle d’opération supprimé')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e: unknown) => toast.error(deleteModeleErrorMessage(e)),
     })
   }
 
@@ -119,6 +155,41 @@ export function GammesTypesPanel() {
       </>
     )
   }
+
+  // Suppression : on adapte le message à l'état des liens (chargement / liés / libres).
+  // Noms des gammes ACTIVES liées (les soft-deletées bloquent aussi mais sont tues).
+  const liesNoms = liens.filter((l) => !l.supprimee).map((l) => l.nom)
+  const nbActives = liesNoms.length
+  const nbCorbeille = liens.length - nbActives
+  const apercuNoms = liesNoms
+    .slice(0, 5)
+    .map((n) => `« ${n} »`)
+    .join(', ')
+  const reste = nbActives - 5
+  const resteNoms = reste > 0 ? ` et ${String(reste)} autre(s)` : ''
+  const corbeilleNote =
+    nbCorbeille > 0
+      ? ` (+ ${String(nbCorbeille)} liaison${
+          nbCorbeille > 1 ? 's' : ''
+        } en corbeille)`
+      : ''
+  const deleteDescription = !toDelete
+    ? undefined
+    : liensQuery.isLoading
+      ? 'Vérification des gammes liées…'
+      : liensQuery.isError
+        ? `Vérification des gammes liées impossible. La suppression détachera automatiquement toute liaison résiduelle puis supprimera « ${toDelete.nom} ».`
+        : !hasLiens
+          ? `« ${toDelete.nom} » et ses opérations seront supprimés définitivement (toute liaison résiduelle sera détachée).`
+          : nbActives > 0
+          ? `« ${toDelete.nom} » est utilisé par ${String(nbActives)} gamme${
+              nbActives > 1 ? 's' : ''
+            } (${apercuNoms}${resteNoms})${corbeilleNote}. Le détacher de ${
+              nbActives > 1 ? 'ces gammes' : 'cette gamme'
+            } (sans les supprimer) puis le supprimer définitivement ?`
+          : `« ${toDelete.nom} » a ${String(nbCorbeille)} liaison${
+              nbCorbeille > 1 ? 's' : ''
+            } en corbeille à détacher. Le supprimer définitivement ?`
 
   return (
     <div className="flex flex-col gap-4">
@@ -222,14 +293,14 @@ export function GammesTypesPanel() {
           if (!open) setToDelete(null)
         }}
         title="Supprimer le modèle d’opération ?"
-        description={
-          toDelete
-            ? `« ${toDelete.nom} » et ses opérations seront supprimées. Action impossible s’il est encore lié à des gammes.`
-            : undefined
+        description={deleteDescription}
+        confirmLabel={
+          hasLiens
+            ? 'Détacher de toutes les gammes puis supprimer'
+            : 'Supprimer'
         }
-        confirmLabel="Supprimer"
         destructive
-        loading={del.isPending}
+        loading={detachEtSupprime.isPending || liensQuery.isLoading}
         onConfirm={confirmDelete}
       />
     </div>

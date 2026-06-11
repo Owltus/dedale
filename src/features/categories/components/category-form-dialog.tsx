@@ -126,6 +126,14 @@ export function CategoryFormDialog({
   const hidePortee = !isEdit && lockedScope != null
   // Mode minimal (création depuis la navigation) : juste Nom + Description.
   const compact = minimal === true && !isEdit
+  // Description adaptée au scope : l'équipement reste à un seul niveau (catégorie
+  // racine), la gamme distingue catégorie racine et sous-catégorie.
+  const compactDescription =
+    values.scope === 'gamme'
+      ? values.parent_id
+        ? 'Une sous-catégorie, rattachée à sa catégorie de gammes parente.'
+        : 'Une catégorie racine pour organiser tes gammes.'
+      : 'Une catégorie pour ranger tes modèles d’équipement.'
 
   function set<K extends keyof CategorieFormValues>(
     key: K,
@@ -169,8 +177,8 @@ export function CategoryFormDialog({
       title={isEdit ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
       description={
         compact
-          ? 'Une catégorie pour ranger tes modèles d’équipement.'
-          : 'Un domaine est une catégorie racine ; une famille est rattachée à un parent.'
+          ? compactDescription
+          : 'Une catégorie racine n’a pas de parent ; une sous-catégorie est rattachée à une catégorie parente.'
       }
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
@@ -230,7 +238,7 @@ export function CategoryFormDialog({
           onChange={(v) => set('parent_id', v)}
           error={errors.parent_id}
         >
-          <option value="">— Aucun (domaine racine) —</option>
+          <option value="">— Aucun (catégorie racine) —</option>
           {parentOptions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nom}

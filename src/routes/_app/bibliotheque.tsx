@@ -3,7 +3,6 @@ import { requireNav } from '@/lib/nav-guard'
 import { ScopeProvider } from '@/components/common/scope-provider'
 import { PageContainer } from '@/components/common/page-container'
 import { Tabs, type TabItem } from '@/components/common/tabs'
-import { CategoriesPanel } from '@/features/categories/components/categories-panel'
 import { ModelesEquipementsPanel } from '@/features/modeles-equipements/components/modeles-equipements-panel'
 import { GammesTypesPanel } from '@/features/modeles-operations/components/gammes-types-panel'
 import { GammesBiblioPanel } from '@/features/gammes/components/gammes-biblio-panel'
@@ -30,11 +29,6 @@ function BibliothequePage() {
   const showDi = !perm.canManageAdmin(role)
 
   const tabs: TabItem[] = [
-    {
-      id: 'categories',
-      label: 'Domaines & familles',
-      content: <CategoriesPanel />,
-    },
     {
       id: 'modeles-equipements',
       label: "Modèles d'équipements",

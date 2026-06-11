@@ -29,3 +29,15 @@ export function pgCode(e: unknown): string | undefined {
     ? e.code
     : undefined
 }
+
+/**
+ * Message clair pour une copie commun → site refusée (RPC `copier_*`). Traduit le
+ * `42501` (RLS : site cible hors périmètre) au lieu d'afficher le message
+ * technique brut de la RPC ; repli sur `errorMessage` pour le reste.
+ */
+export function exportErrorMessage(e: unknown): string {
+  if (pgCode(e) === '42501') {
+    return 'Action non autorisée : vous n’avez pas accès à ce site.'
+  }
+  return errorMessage(e)
+}
