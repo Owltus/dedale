@@ -758,14 +758,15 @@ export function GammesBiblioPanel() {
                   {childCategories.map((cat) => (
                     <ListRow
                       key={cat.id}
-                      icon={
+                      media={
                         <MiniatureThumb
                           url={urlOf(cat.miniature_id)}
-                          fallback={<Folder className="size-5" />}
+                          fallback={<Folder className="size-6" />}
                           // Image décorative : le titre + le nom accessible de la
                           // ligne portent déjà l'info (pas de 3e annonce au lecteur).
                           alt=""
                           onError={refreshMiniatures}
+                          className="size-full rounded-none"
                         />
                       }
                       title={cat.nom}
@@ -824,14 +825,15 @@ export function GammesBiblioPanel() {
                   {gammesInCurrent.map((g) => (
                     <ListRow
                       key={g.id}
-                      icon={
+                      media={
                         <MiniatureThumb
                           url={urlOf(g.miniature_id)}
-                          fallback={<Wrench className="size-5" />}
+                          fallback={<Wrench className="size-6" />}
                           // Image décorative : le titre + le nom accessible de la
                           // ligne portent déjà l'info (pas de 3e annonce au lecteur).
                           alt=""
                           onError={refreshMiniatures}
+                          className="size-full rounded-none"
                         />
                       }
                       title={g.nom}
