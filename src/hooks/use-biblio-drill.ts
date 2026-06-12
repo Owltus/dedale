@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { segOfUnique, slugify } from '@/lib/slug'
 
@@ -29,6 +29,14 @@ const route = getRouteApi('/_app/bibliotheque/$')
  * frères ferait basculer le segment attendu et éjecterait l'élément ouvert vers
  * la racine sans action de l'utilisateur. La relecture tolérante évite ce rebond
  * et garde les liens partageables valides dans le temps.
+ *
+ * RENOMMAGE de l'élément ouvert : son slug change (édition depuis la barre
+ * d'onglet, ou réception realtime), donc le segment d'URL ne le résout plus.
+ * Plutôt que d'éjecter vers la racine, on RE-SYNCHRONISE l'URL : on mémorise
+ * l'`id` du dernier élément résolu et, si le segment cesse de résoudre alors que
+ * cet élément existe toujours, on réécrit l'URL (REPLACE, pas une entrée
+ * d'historique) sur son slug frais — le détail reste ouvert. S'il a disparu
+ * (supprimé), on retombe proprement sur la racine.
  */
 export function useBiblioDrill<T extends { id: string; nom: string }>(
   onglet: string,
@@ -62,6 +70,29 @@ export function useBiblioDrill<T extends { id: string; nom: string }>(
       null
     )
   }, [seg, items])
+
+  // Identité (id) du dernier élément résolu : socle de la re-synchro sur renommage.
+  const lastIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (selected !== null) lastIdRef.current = selected.id
+  }, [selected])
+
+  // Segment présent mais non résolu : si l'élément existe encore par id (il a
+  // juste été renommé → nouveau slug), on réécrit l'URL sur son slug frais
+  // (REPLACE) sans fermer le détail ; s'il a disparu, on laisse retomber à la
+  // racine (lien cassé / suppression).
+  useEffect(() => {
+    if (seg === undefined || selected !== null) return
+    const id = lastIdRef.current
+    if (id === null) return
+    const fresh = items.find((it) => it.id === id)
+    if (!fresh) return
+    void navigate({
+      to: '/bibliotheque/$',
+      params: { _splat: `${onglet}/${segOfUnique(fresh, items)}` },
+      replace: true,
+    })
+  }, [seg, selected, items, navigate, onglet])
 
   const open = useCallback(
     (item: T) => {

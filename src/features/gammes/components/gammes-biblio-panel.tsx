@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -305,14 +305,34 @@ export function GammesBiblioPanel() {
   // Ouvre une gamme (PUSH) : chemin dérivé de sa catégorie RÉELLE + segment du
   // nom (ou de l'id si le nom slugifie en '', cf. `segOfUnique`).
   const goToGamme = useCallback(
-    (g: GammeBiblioRow) => {
+    (g: GammeBiblioRow, opts?: { replace?: boolean }) => {
       void navigate({
         to: '/bibliotheque/$',
         params: { _splat: buildSplat(pathForGamme(g), g) },
+        replace: opts?.replace ?? false,
       })
     },
     [navigate, buildSplat, pathForGamme],
   )
+
+  // Re-synchronisation de l'URL si la GAMME OUVERTE est renommée (« Modifier la
+  // gamme » depuis la barre d'onglet, ou réception realtime) : son slug change →
+  // l'URL ne la résout plus (openGamme devient null). On mémorise son id et, si
+  // elle existe encore, on réécrit l'URL sur son chemin frais (REPLACE) sans
+  // fermer le détail ; supprimée → retour propre à la navigation.
+  const lastGammeIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (openGamme !== null) lastGammeIdRef.current = openGamme.id
+  }, [openGamme])
+  useEffect(() => {
+    if (gammeSeg === undefined || openGamme !== null) return
+    const id = lastGammeIdRef.current
+    if (id === null) return
+    const fresh = gammes.find((g) => g.id === id)
+    if (!fresh) return
+    goToGamme(fresh, { replace: true })
+  }, [gammeSeg, openGamme, gammes, goToGamme])
+
   const current: Categorie | null = validPath.at(-1) ?? null
   // Profondeur de navigation, BORNÉE à 2 niveaux (modèle strict
   // Catégorie niv.1 → Sous-catégorie niv.2 → Gammes) :
