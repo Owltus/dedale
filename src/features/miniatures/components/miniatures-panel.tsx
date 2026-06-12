@@ -1,9 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, Download, ImageOff, Trash2, X } from 'lucide-react'
+import { Check, Download, ImageOff, ImageUp, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { miniaturesQueries, type MiniatureWithUrl } from '../queries'
-import { useDeleteMiniature, useUploadMiniature } from '../mutations'
+import {
+  useDeleteMiniature,
+  useReplaceMiniature,
+  useUploadMiniature,
+} from '../mutations'
 import { MiniatureCropDialog, type CropResult } from './miniature-crop-dialog'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -56,12 +60,17 @@ export function MiniaturesPanel() {
   const query = useQuery(miniaturesQueries.pool())
   const upload = useUploadMiniature()
   const del = useDeleteMiniature()
+  const replace = useReplaceMiniature()
 
   // Mises à jour live entre fenêtres / comptes (Realtime). Scopé à l'onglet.
   useRealtimeRefresh('miniatures', miniaturesQueries.all())
 
   const fileInput = useRef<HTMLInputElement>(null)
   const [cropFile, setCropFile] = useState<File | null>(null)
+  // Cible d'un remplacement d'image (null = mode AJOUT au pool).
+  const [replaceTarget, setReplaceTarget] = useState<MiniatureWithUrl | null>(
+    null,
+  )
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [zipping, setZipping] = useState(false)
   const [massDeleteOpen, setMassDeleteOpen] = useState(false)
@@ -272,7 +281,16 @@ export function MiniaturesPanel() {
     ],
   )
 
-  const handleAddImage = useCallback(() => fileInput.current?.click(), [])
+  // Ajout au pool : s'assurer d'être en mode AJOUT (pas de cible de remplacement).
+  const handleAddImage = useCallback(() => {
+    setReplaceTarget(null)
+    fileInput.current?.click()
+  }, [])
+  // Remplacement : mémoriser la vignette ciblée puis ouvrir le même sélecteur.
+  const startReplace = useCallback((m: MiniatureWithUrl) => {
+    setReplaceTarget(m)
+    fileInput.current?.click()
+  }, [])
   // Le + reste visible mais désactivé hors périmètre ajoutable.
   useTabAddAction(handleAddImage, addLabel, {
     disabled: !canAdd,
@@ -288,12 +306,38 @@ export function MiniaturesPanel() {
     setCropFile(file)
   }
 
-  // Reçoit le carré 150px (blob + hash) du cropper et lance l'upload.
+  // Reçoit le carré 150px (blob + hash) du cropper, puis REMPLACE l'image ciblée
+  // (propagé à toutes les entités) ou AJOUTE au pool selon `replaceTarget`.
   async function handleCropConfirm(result: CropResult) {
     if (!session) {
       toast.error('Session expirée, reconnecte-toi.')
       return
     }
+    // Remplacement d'une vignette existante : repointe la ligne, l'image change
+    // partout où elle est utilisée. Son périmètre (site_id d'origine) est conservé.
+    if (replaceTarget !== null) {
+      try {
+        const { refs, unchanged } = await replace.mutateAsync({
+          id: replaceTarget.id,
+          oldStoragePath: replaceTarget.storage_path,
+          blob: result.blob,
+          hash: result.hash,
+        })
+        toast.success(
+          unchanged
+            ? 'Image inchangée (déjà cette vignette).'
+            : refs > 0
+              ? `Image remplacée — ${String(refs)} élément(s) mis à jour.`
+              : 'Image remplacée.',
+        )
+        setCropFile(null)
+        setReplaceTarget(null)
+      } catch (e) {
+        toast.error(errorMessage(e))
+      }
+      return
+    }
+    // Ajout au pool.
     if (uploadSiteId === undefined) {
       toast.error(
         'Choisis un périmètre précis (Commun ou un site) pour ajouter.',
@@ -362,7 +406,7 @@ export function MiniaturesPanel() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
               {visible.map((miniature) => {
                 const isSelected = selected.has(miniature.id)
-                const canDeleteThis =
+                const canManageThis =
                   canManage && (canEntreprise || miniature.site_id !== null)
                 const siteName =
                   miniature.site_id === null
@@ -429,20 +473,38 @@ export function MiniaturesPanel() {
                       </div>
                     )}
 
-                    {/* Suppression individuelle (au survol ; n'altère pas la sélection). */}
-                    {canDeleteThis && (
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-1 right-1 size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setToDelete(miniature)
-                        }}
-                        aria-label="Supprimer la vignette"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
+                    {/* Actions au survol (n'altèrent pas la sélection) : remplacer
+                        l'image — répercuté sur toutes les entités liées — puis
+                        supprimer. */}
+                    {canManageThis && (
+                      <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="size-7"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startReplace(miniature)
+                          }}
+                          aria-label="Remplacer l’image"
+                          title="Remplacer l’image"
+                        >
+                          <ImageUp className="size-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="size-7"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setToDelete(miniature)
+                          }}
+                          aria-label="Supprimer la vignette"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )
@@ -457,11 +519,21 @@ export function MiniaturesPanel() {
           key={`${cropFile.name}-${String(cropFile.size)}`}
           open
           file={cropFile}
+          note={
+            replaceTarget !== null
+              ? 'La nouvelle image remplacera l’actuelle partout où cette vignette est déjà utilisée.'
+              : undefined
+          }
           onOpenChange={(open) => {
-            if (!open) setCropFile(null)
+            if (!open) {
+              setCropFile(null)
+              setReplaceTarget(null)
+            }
           }}
           onConfirm={(result) => void handleCropConfirm(result)}
-          pending={upload.isPending}
+          pending={
+            replaceTarget !== null ? replace.isPending : upload.isPending
+          }
         />
       )}
 

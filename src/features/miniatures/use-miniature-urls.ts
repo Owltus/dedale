@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { miniaturesQueries } from './queries'
 
 /**
@@ -14,6 +15,12 @@ import { miniaturesQueries } from './queries'
 export function useMiniatureUrls() {
   const qc = useQueryClient()
   const { data } = useQuery(miniaturesQueries.pool())
+  // Propagation LIVE des changements du pool (ajout, suppression, REMPLACEMENT
+  // d'image = UPDATE de la table miniatures) : invalide le pool partagé → toutes
+  // les images résolues par `urlOf` basculent sans F5, y compris entre fenêtres /
+  // comptes. Centralisé ici pour couvrir TOUT consommateur de vignettes (cartes
+  // de la Bibliothèque, champ image…) sans recâbler chaque écran.
+  useRealtimeRefresh('miniatures', miniaturesQueries.all())
 
   const urlById = useMemo(() => {
     const map = new Map<string, string | null>()

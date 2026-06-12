@@ -31,6 +31,8 @@ interface MiniatureCropDialogProps {
   onConfirm: (result: CropResult) => void
   /** Upload en cours côté appelant. */
   pending: boolean
+  /** Encart d'avertissement optionnel sous la description (ex. remplacement). */
+  note?: React.ReactNode
 }
 
 interface View {
@@ -93,6 +95,7 @@ export function MiniatureCropDialog({
   onOpenChange,
   onConfirm,
   pending,
+  note,
 }: MiniatureCropDialogProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
@@ -247,6 +250,12 @@ export function MiniatureCropDialog({
             visible devient une image de 150&nbsp;px.
           </DialogDescription>
         </DialogHeader>
+
+        {note !== undefined && (
+          <div className="bg-muted/60 text-muted-foreground rounded-md border px-3 py-2 text-xs">
+            {note}
+          </div>
+        )}
 
         <div
           ref={containerRef}
