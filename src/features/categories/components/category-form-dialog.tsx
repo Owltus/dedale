@@ -9,6 +9,7 @@ import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { TextareaField } from '@/components/common/textarea-field'
 import { SelectField } from '@/components/common/select-field'
+import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 
 /**
  * Traduit les erreurs Postgres de création/édition d'une catégorie (dialog
@@ -24,6 +25,11 @@ function categorieErrorMessage(e: unknown): string {
   // insufficient_privilege : RLS (hors scope d'écriture).
   if (code === '42501') {
     return 'Action non autorisée : vous n’avez pas les droits sur ce périmètre.'
+  }
+  // integrity_constraint_violation (trigger) : miniature hors scope (pool
+  // entreprise ou même site que la catégorie requis).
+  if (code === '23514') {
+    return 'Cette image n’est pas disponible pour ce périmètre.'
   }
   return errorMessage(e)
 }
@@ -90,6 +96,7 @@ function initialValues(
       parent_id: categorie.parent_id ?? '',
       portee: categorie.site_id === null ? 'entreprise' : 'site',
       etat: categorie.est_actif ? 'actif' : 'inactif',
+      miniature_id: categorie.miniature_id,
     }
   }
   return {
@@ -170,6 +177,10 @@ export function CategoryFormDialog({
   // « Type » (scope) : masqué en mode compact, ou si forcé par la prop.
   const showScope = !compact && hideScope !== true
   const showPortee = !hidePortee
+  // Image : périmètre = celui de la catégorie (portée) ; téléversement autorisé
+  // sur le commun pour les rôles entreprise, et sur un site pour tout éditeur.
+  const miniatureSite = values.portee === 'entreprise' ? null : siteId
+  const canUploadMiniature = miniatureSite === null ? canEntreprise : true
   // Description adaptée au scope : l'équipement reste à un seul niveau (catégorie
   // racine), la gamme distingue catégorie racine et sous-catégorie.
   const compactDescription =
@@ -242,6 +253,12 @@ export function CategoryFormDialog({
         onChange={(v) => set('nom', v)}
         error={errors.nom}
         required
+      />
+      <MiniatureField
+        value={values.miniature_id}
+        onChange={(id) => set('miniature_id', id)}
+        targetSiteId={miniatureSite}
+        canUpload={canUploadMiniature}
       />
       {(showScope || showPortee) && (
         <div

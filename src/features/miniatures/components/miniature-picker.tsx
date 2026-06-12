@@ -30,6 +30,8 @@ interface MiniaturePickerProps {
   targetSiteId: string | null
   /** L'utilisateur peut-il alimenter le pool de ce périmètre (droits/RLS) ? */
   canUpload: boolean
+  /** Fichier déposé (drag-and-drop) à recadrer directement, sans choisir d'onglet. */
+  initialFile?: File
   /** Retourne l'id de la miniature choisie (bibliothèque) ou téléversée. */
   onSelect: (miniatureId: string) => void
 }
@@ -46,11 +48,18 @@ export function MiniaturePicker({
   onOpenChange,
   targetSiteId,
   canUpload,
+  initialFile,
   onSelect,
 }: MiniaturePickerProps) {
   const { session } = useAuth()
-  const [onglet, setOnglet] = useState<Onglet>('bibliotheque')
-  const [cropFile, setCropFile] = useState<File | null>(null)
+  // Un fichier déposé (initialFile) ouvre d'emblée l'onglet Téléverser + le
+  // recadrage, sans étape de choix.
+  const [onglet, setOnglet] = useState<Onglet>(
+    initialFile !== undefined && canUpload ? 'uploader' : 'bibliotheque',
+  )
+  const [cropFile, setCropFile] = useState<File | null>(
+    initialFile !== undefined && canUpload ? initialFile : null,
+  )
   const fileInputRef = useRef<HTMLInputElement>(null)
   const upload = useUploadMiniature()
 

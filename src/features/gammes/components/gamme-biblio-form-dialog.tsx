@@ -11,6 +11,7 @@ import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import { TextareaField } from '@/components/common/textarea-field'
+import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 
 const NATURE_LABEL: Record<(typeof gammeNatures)[number], string> = {
   controle_reglementaire: 'Contrôle réglementaire',
@@ -35,6 +36,10 @@ function gammeBiblioErrorMessage(e: unknown): string {
   // insufficient_privilege : RLS (hors scope d'écriture).
   if (code === '42501') {
     return 'Action non autorisée : vous n’avez pas les droits.'
+  }
+  // integrity_constraint_violation (trigger) : miniature hors scope.
+  if (code === '23514') {
+    return 'Cette image n’est pas disponible pour ce périmètre.'
   }
   return errorMessage(e)
 }
@@ -68,6 +73,7 @@ function initialValues(
       categorie_id: gamme.categorie_id,
       // Onglet Gammes de la Bibliothèque = COMMUN uniquement (site_id NULL).
       portee: 'entreprise',
+      miniature_id: gamme.miniature_id,
     }
   }
   return {
@@ -163,6 +169,13 @@ export function GammeBiblioFormDialog({
         onChange={(v) => set('nom', v)}
         error={errors.nom}
         required
+      />
+
+      <MiniatureField
+        value={values.miniature_id}
+        onChange={(id) => set('miniature_id', id)}
+        targetSiteId={null}
+        canUpload
       />
 
       <SelectField

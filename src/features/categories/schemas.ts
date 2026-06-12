@@ -17,6 +17,8 @@ export const categorieSchema = z.object({
   portee: z.enum(['entreprise', 'site']),
   /** Activation sans suppression. */
   etat: z.enum(['actif', 'inactif']),
+  /** Vignette du pool (`miniature_id`) ou `null`. */
+  miniature_id: z.string().nullable(),
 })
 
 export type CategorieFormValues = z.infer<typeof categorieSchema>
@@ -28,4 +30,5 @@ export const emptyCategorie: CategorieFormValues = {
   parent_id: '',
   portee: 'entreprise',
   etat: 'actif',
+  miniature_id: null,
 }

@@ -40,6 +40,8 @@ export const gammeBiblioSchema = gammeSchema.extend({
   // après copie) : le champ est facultatif ici (autorise '' → NULL en base),
   // contrairement à la gamme réelle (`gammeSchema`) qui l'exige.
   prestataire_id: z.string(),
+  /** Vignette du pool (`miniature_id`) ou `null`. */
+  miniature_id: z.string().nullable(),
 })
 
 export type GammeBiblioFormValues = z.input<typeof gammeBiblioSchema>
@@ -48,6 +50,7 @@ export const emptyGammeBiblio: GammeBiblioFormValues = {
   ...emptyGamme,
   categorie_id: '',
   portee: 'entreprise',
+  miniature_id: null,
 }
 
 // Opérations : seuils saisis en texte (input number) → '' = non renseigné.

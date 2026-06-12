@@ -11,6 +11,7 @@ function categoriePayload(v: CategorieFormValues, siteId: string | null) {
     scope: v.scope,
     parent_id: v.parent_id || null,
     est_actif: v.etat === 'actif',
+    miniature_id: v.miniature_id,
     // Portée entreprise → site_id NULL ; portée site → site actif.
     site_id: v.portee === 'entreprise' ? null : siteId,
   }

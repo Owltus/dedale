@@ -40,6 +40,7 @@ function gammeBiblioPayload(
     prestataire_id: v.prestataire_id || null,
     description: v.description || null,
     categorie_id: v.categorie_id,
+    miniature_id: v.miniature_id,
     site_id: v.portee === 'entreprise' ? null : siteId,
   }
 }

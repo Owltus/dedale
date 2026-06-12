@@ -23,6 +23,8 @@ import { GammeBiblioFormDialog } from './gamme-biblio-form-dialog'
 import { OperationFormDialog } from './operation-form-dialog'
 import { GammeModelesSection } from './gamme-modeles-section'
 import { CopierContenuDialog } from './copier-contenu-dialog'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import {
   categoriesQueries,
   type Categorie,
@@ -120,6 +122,8 @@ export function GammesBiblioPanel() {
   const delGamme = useDeleteGamme()
   const delCategorie = useDeleteCategorie()
   const copierGamme = useCopierGamme()
+  // Vignettes des contenus (images de cards) : URL signées résolues en lot.
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   // NAVIGATION PAR CHEMIN : la descente (catégorie → sous-catégorie → gamme) vit
   // dans le CHEMIN d'URL en NOMS slugifiés
@@ -826,7 +830,14 @@ export function GammesBiblioPanel() {
                   {childCategories.map((cat) => (
                     <ListRow
                       key={cat.id}
-                      icon={<Folder className="size-5" />}
+                      icon={
+                        <MiniatureThumb
+                          url={urlOf(cat.miniature_id)}
+                          fallback={<Folder className="size-5" />}
+                          alt={cat.nom}
+                          onError={refreshMiniatures}
+                        />
+                      }
                       title={cat.nom}
                       subtitle={
                         cat.description?.trim() ? cat.description : undefined
@@ -881,7 +892,14 @@ export function GammesBiblioPanel() {
                   {gammesInCurrent.map((g) => (
                     <ListRow
                       key={g.id}
-                      icon={<Wrench className="size-5" />}
+                      icon={
+                        <MiniatureThumb
+                          url={urlOf(g.miniature_id)}
+                          fallback={<Wrench className="size-5" />}
+                          alt={g.nom}
+                          onError={refreshMiniatures}
+                        />
+                      }
                       title={g.nom}
                       subtitle={
                         g.description?.trim() ? g.description : undefined
