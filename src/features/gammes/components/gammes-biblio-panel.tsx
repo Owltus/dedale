@@ -321,11 +321,18 @@ export function GammesBiblioPanel() {
   // elle existe encore, on réécrit l'URL sur son chemin frais (REPLACE) sans
   // fermer le détail ; supprimée → retour propre à la navigation.
   const lastGammeIdRef = useRef<string | null>(null)
+  const lastGammeSegRef = useRef<string | undefined>(undefined)
   useEffect(() => {
-    if (openGamme !== null) lastGammeIdRef.current = openGamme.id
-  }, [openGamme])
+    if (openGamme !== null) {
+      lastGammeIdRef.current = openGamme.id
+      lastGammeSegRef.current = gammeSeg
+    }
+  }, [openGamme, gammeSeg])
   useEffect(() => {
+    // Ne re-synchroniser que le MÊME segment devenu irrésolu (gamme renommée sous
+    // une URL stable), pas une navigation vers une autre URL périmée (back/forward).
     if (gammeSeg === undefined || openGamme !== null) return
+    if (gammeSeg !== lastGammeSegRef.current) return
     const id = lastGammeIdRef.current
     if (id === null) return
     const fresh = gammes.find((g) => g.id === id)

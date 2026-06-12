@@ -71,18 +71,27 @@ export function useBiblioDrill<T extends { id: string; nom: string }>(
     )
   }, [seg, items])
 
-  // Identité (id) du dernier élément résolu : socle de la re-synchro sur renommage.
+  // Identité (id) ET segment du dernier élément résolu : socle de la re-synchro
+  // sur renommage (on ne re-synchronise que le MÊME segment, cf. effet ci-dessous).
   const lastIdRef = useRef<string | null>(null)
+  const lastSegRef = useRef<string | undefined>(undefined)
   useEffect(() => {
-    if (selected !== null) lastIdRef.current = selected.id
-  }, [selected])
+    if (selected !== null) {
+      lastIdRef.current = selected.id
+      lastSegRef.current = seg
+    }
+  }, [selected, seg])
 
   // Segment présent mais non résolu : si l'élément existe encore par id (il a
   // juste été renommé → nouveau slug), on réécrit l'URL sur son slug frais
   // (REPLACE) sans fermer le détail ; s'il a disparu, on laisse retomber à la
-  // racine (lien cassé / suppression).
+  // racine (lien cassé / suppression). On n'agit QUE si c'est le MÊME segment qui
+  // a cessé de résoudre (l'élément sous une URL stable a été renommé) — pas une
+  // navigation vers une AUTRE URL périmée (back/forward), qui redirigerait à tort
+  // vers le dernier élément résolu.
   useEffect(() => {
     if (seg === undefined || selected !== null) return
+    if (seg !== lastSegRef.current) return
     const id = lastIdRef.current
     if (id === null) return
     const fresh = items.find((it) => it.id === id)
