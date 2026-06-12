@@ -7,9 +7,12 @@ import { useDelierModeleOperation } from '../mutations'
 import { ImportModeleOperationDialog } from './import-modele-operation-dialog'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { errorMessage, pgCode } from '@/lib/form'
+import { listStack } from '@/lib/responsive'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ListRow } from '@/components/common/list-row'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -77,10 +80,14 @@ export function GammeModelesSection({
     )
   }
 
+  // Bouton « Importer » : ICÔNE SEULE + tooltip, dans l'en-tête de la section,
+  // toujours présent → plus d'action d'ajout dans l'EmptyState.
   const importButton = canEdit ? (
-    <Button size="sm" onClick={() => setImportOpen(true)}>
-      <Plus /> Importer un modèle d’opération
-    </Button>
+    <TooltipIconButton
+      icon={<Plus />}
+      label="Importer un modèle d’opération"
+      onClick={() => setImportOpen(true)}
+    />
   ) : undefined
 
   return (
@@ -90,9 +97,7 @@ export function GammeModelesSection({
           <Layers className="text-muted-foreground size-4" />
           Modèles d’opération liés
         </h3>
-        {/* À l'état vide, le bouton n'est rendu que dans l'EmptyState (évite le
-            doublon) ; en en-tête uniquement dès qu'au moins un modèle est lié. */}
-        {lies.length > 0 && importButton}
+        {importButton}
       </div>
 
       <QueryState
@@ -107,49 +112,56 @@ export function GammeModelesSection({
                 ? 'Importe des modèles d’opération réutilisables pour composer cette gamme.'
                 : 'Aucun modèle d’opération n’est lié à cette gamme.'
             }
-            action={importButton}
           />
         }
       >
         {(modeles) => (
-          <ul className="flex flex-col gap-2">
+          <div className={listStack}>
             {modeles.map((m) => (
-              <li
+              <ListRow
                 key={m.id}
-                className="bg-card flex items-start justify-between gap-3 rounded-md border p-3"
-              >
-                <div className="flex min-w-0 flex-col gap-1">
-                  <span className="truncate font-medium">{m.nom}</span>
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <Badge
-                      variant={m.site_id === null ? 'secondary' : 'outline'}
-                    >
-                      {m.site_id === null ? 'Commun' : 'Site'}
-                    </Badge>
-                    <Badge variant="outline">
+                // Carte VOLONTAIREMENT plus fine (h-12, comme les opérations) avec
+                // un grand SVG de repli centré (carré muté) à la place de l'image.
+                className="h-12"
+                media={
+                  <span className="bg-muted text-muted-foreground flex size-full items-center justify-center">
+                    <Layers className="size-8" />
+                  </span>
+                }
+                title={m.nom}
+                subtitle={
+                  m.description?.trim() ? m.description.trim() : undefined
+                }
+                // Métadonnées à POSITION FIXE (mêmes colonnes d'une carte à
+                // l'autre) : portée à gauche, nombre d'opérations dans un
+                // emplacement de largeur constante aligné à droite.
+                badges={
+                  <Badge variant={m.site_id === null ? 'secondary' : 'outline'}>
+                    {m.site_id === null ? 'Commun' : 'Site'}
+                  </Badge>
+                }
+                meta={
+                  <span className="flex w-32 justify-center">
+                    <Badge variant="outline" className="tabular-nums">
                       {m.nbItems} opération{m.nbItems > 1 ? 's' : ''}
                     </Badge>
-                  </div>
-                  {m.description && (
-                    <p className="text-muted-foreground text-sm">
-                      {m.description}
-                    </p>
-                  )}
-                </div>
-                {canEdit && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0"
-                    onClick={() => setToDetach(m)}
-                    aria-label="Détacher le modèle d’opération"
-                  >
-                    <Link2Off />
-                  </Button>
-                )}
-              </li>
+                  </span>
+                }
+                actions={
+                  canEdit ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setToDetach(m)}
+                      aria-label={`Détacher le modèle « ${m.nom} »`}
+                    >
+                      <Link2Off />
+                    </Button>
+                  ) : undefined
+                }
+              />
             ))}
-          </ul>
+          </div>
         )}
       </QueryState>
 

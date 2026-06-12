@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
+  ClipboardCheck,
   CopyPlus,
   Folder,
   FolderTree,
@@ -77,11 +78,6 @@ interface CategoryFormState {
   categorie: Categorie | null
   preset?: Preset
   lockedScope: LockedScope | null
-}
-
-const NATURE_LABEL: Record<GammeBiblioRow['nature'], string> = {
-  controle_reglementaire: 'Réglementaire',
-  maintenance_preventive: 'Maintenance',
 }
 
 // Onglet Gammes de la Bibliothèque = COMMUN uniquement : portée entreprise
@@ -761,7 +757,7 @@ export function GammesBiblioPanel() {
                       media={
                         <MiniatureThumb
                           url={urlOf(cat.miniature_id)}
-                          fallback={<Folder className="size-6" />}
+                          fallback={<Folder className="size-10" />}
                           // Image décorative : le titre + le nom accessible de la
                           // ligne portent déjà l'info (pas de 3e annonce au lecteur).
                           alt=""
@@ -828,7 +824,7 @@ export function GammesBiblioPanel() {
                       media={
                         <MiniatureThumb
                           url={urlOf(g.miniature_id)}
-                          fallback={<Wrench className="size-6" />}
+                          fallback={<Wrench className="size-10" />}
                           // Image décorative : le titre + le nom accessible de la
                           // ligne portent déjà l'info (pas de 3e annonce au lecteur).
                           alt=""
@@ -1017,12 +1013,15 @@ function GammeBiblioDetail({
   gamme: GammeBiblioRow
   /**
    * Édition réservée aux rôles entreprise (admin/manager) : pilote l'affichage
-   * des actions sur les opérations. « Modifier la gamme » / « Copier vers un
-   * site » vivent désormais dans la barre d'onglet (cf. GammesBiblioPanel).
+   * des actions. « Modifier la gamme » / « Copier vers un site » vivent dans la
+   * barre d'onglet (cf. GammesBiblioPanel) ; « Ajouter une opération » vit dans
+   * l'en-tête de la section Opérations (calque exact de la section Modèles liés).
    */
   canEdit: boolean
 }) {
   const query = useQuery(gammesQueries.operations(gamme.id))
+  // Vignette de la gamme (image de sa card d'en-tête) : URL signées en lot.
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   // Opérations en TEMPS RÉEL (comme les liaisons modèles via gamme_modeles) : un
   // changement table `operations` (autre fenêtre/compte) rafraîchit la liste. Si
   // `operations` n'est pas dans la publication realtime Supabase, l'abonnement
@@ -1046,118 +1045,152 @@ function GammeBiblioDetail({
     })
   }
 
-  const newButton = canEdit ? (
-    <Button size="sm" onClick={() => setOpForm({ open: true, op: null })}>
-      <Plus /> Ajouter une opération
-    </Button>
+  // Bouton « Ajouter une opération » : ICÔNE SEULE + tooltip, dans l'en-tête de SA
+  // section (calque de « Importer un modèle » de GammeModelesSection). Toujours
+  // présent → plus d'action d'ajout dans l'EmptyState.
+  const addButton = canEdit ? (
+    <TooltipIconButton
+      icon={<Plus />}
+      label="Ajouter une opération"
+      onClick={() => setOpForm({ open: true, op: null })}
+    />
   ) : undefined
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Le nom de la gamme vit dans le titre de la barre d'onglet (fil d'Ariane,
-          cf. titleNode). Ici, seuls les badges contextuels. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge
-          variant={
-            gamme.nature === 'controle_reglementaire' ? 'default' : 'secondary'
+    <div className="flex h-full flex-col gap-4">
+      {/* Card de la gamme (image + nom + description) en tête, à la place de
+          l'ancien bandeau type/périodicité/description. Statique (pas de drill :
+          la gamme est déjà ouverte) ; ses actions vivent dans la barre d'onglet. */}
+      <div className="shrink-0">
+        <ListRow
+          media={
+            <MiniatureThumb
+              url={urlOf(gamme.miniature_id)}
+              fallback={<Wrench className="size-10" />}
+              alt=""
+              onError={refreshMiniatures}
+              className="size-full rounded-none"
+            />
           }
-        >
-          {NATURE_LABEL[gamme.nature]}
-        </Badge>
-        {gamme.periodicites && (
-          <Badge variant="outline">{gamme.periodicites.libelle}</Badge>
-        )}
+          title={gamme.nom}
+          subtitle={
+            gamme.description?.trim() ? gamme.description.trim() : undefined
+          }
+        />
       </div>
 
-      {gamme.description && (
-        <p className="text-muted-foreground text-sm">{gamme.description}</p>
-      )}
+      {/* DEUX sections sœurs, chacune exactement 50% de la hauteur restante
+          (grid-rows-2) avec son PROPRE scroll interne → aucune scrollbar de page,
+          « chacun a sa place ». En-tête (titre + bouton icône) puis liste de lignes
+          ListRow (modèle des catégories/gammes), empilées via listStack. */}
+      <div className="grid min-h-0 flex-1 grid-rows-2 gap-4">
+        <section className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              <ListChecks className="text-muted-foreground size-4" />
+              Opérations spécifiques
+            </h3>
+            {addButton}
+          </div>
 
-      {/* Bouton autonome UNIQUEMENT si la liste est non vide : à vide, c'est
-          l'action de l'EmptyState qui le porte (sinon deux boutons identiques). */}
-      {newButton && (query.data?.length ?? 0) > 0 && (
-        <div className="flex justify-end">{newButton}</div>
-      )}
-
-      <QueryState
-        query={query}
-        pending={<Skeleton className="h-40" />}
-        empty={
-          <EmptyState
-            icon={ListChecks}
-            title="Aucune opération"
-            description={
-              canEdit
-                ? 'Ajoute les opérations qui composent cette gamme-template.'
-                : 'Cette gamme-template ne contient pas d’opération.'
+          <QueryState
+            query={query}
+            pending={<Skeleton className="h-24" />}
+            empty={
+              <EmptyState
+                icon={ListChecks}
+                title="Aucune opération spécifique"
+                description={
+                  canEdit
+                    ? 'Ajoute les opérations propres à cette gamme (en plus de celles des modèles liés).'
+                    : 'Aucune opération spécifique pour cette gamme.'
+                }
+              />
             }
-            action={newButton}
-          />
-        }
-      >
-        {(operations) => (
-          <ul className="flex flex-col gap-2">
-            {operations.map((op) => (
-              <li
-                key={op.id}
-                className="bg-card flex items-start justify-between gap-3 rounded-md border p-3"
-              >
-                <div className="flex min-w-0 flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground text-xs tabular-nums">
-                      #{op.ordre}
-                    </span>
-                    <span className="truncate font-medium">{op.nom}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <Badge variant="outline">
-                      {op.types_operations.libelle}
-                    </Badge>
-                    {(op.seuil_minimum !== null ||
-                      op.seuil_maximum !== null) && (
-                      <span className="text-muted-foreground">
-                        {formatSeuils(op)}
-                      </span>
-                    )}
-                  </div>
-                  {op.description && (
-                    <p className="text-muted-foreground text-sm">
-                      {op.description}
-                    </p>
-                  )}
-                </div>
-                {canEdit && (
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setOpForm({ open: true, op })}
-                      aria-label="Modifier l’opération"
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setToDelete(op)}
-                      aria-label="Supprimer l’opération"
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </QueryState>
+          >
+            {(operations) => (
+              <div className={listStack}>
+                {operations.map((op) => {
+                  // Emplacement « Type » À POSITION FIXE (largeur constante) pour
+                  // que les cartes ne se décalent JAMAIS d'une ligne à l'autre : on
+                  // y affiche le libellé du type — SAUF pour une mesure renseignée,
+                  // où l'on montre directement les valeurs (seuils) à la place du
+                  // mot « Mesure ».
+                  const seuils = formatSeuils(op)
+                  const typeAffiche =
+                    op.types_operations.necessite_seuils && seuils
+                      ? seuils
+                      : op.types_operations.libelle
+                  return (
+                    <ListRow
+                      key={op.id}
+                      // Cartes opérations/modèles VOLONTAIREMENT plus fines (h-12 vs
+                      // h-20 des catégories/gammes), avec un grand SVG de repli
+                      // centré (carré muté) à la place de l'image.
+                      className="h-12"
+                      media={
+                        <span className="bg-muted text-muted-foreground flex size-full items-center justify-center">
+                          <ClipboardCheck className="size-8" />
+                        </span>
+                      }
+                      title={op.nom}
+                      subtitle={
+                        op.description?.trim()
+                          ? op.description.trim()
+                          : undefined
+                      }
+                      meta={
+                        // `title` = repli pour lire la valeur COMPLÈTE au survol
+                        // si une mesure dépasse la case fixe (truncate).
+                        <span
+                          className="flex w-32 justify-center"
+                          title={typeAffiche}
+                        >
+                          <Badge
+                            variant="outline"
+                            className="max-w-full truncate tabular-nums"
+                          >
+                            {typeAffiche}
+                          </Badge>
+                        </span>
+                      }
+                      actions={
+                        canEdit ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setOpForm({ open: true, op })}
+                              aria-label={`Modifier l’opération « ${op.nom} »`}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setToDelete(op)}
+                              aria-label={`Supprimer l’opération « ${op.nom} »`}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </>
+                        ) : undefined
+                      }
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </QueryState>
+        </section>
 
-      <div className="border-t pt-4">
-        <GammeModelesSection
-          gammeId={gamme.id}
-          gammeSiteId={gamme.site_id}
-          canEdit={canEdit}
-        />
+        <div className="min-h-0 overflow-y-auto">
+          <GammeModelesSection
+            gammeId={gamme.id}
+            gammeSiteId={gamme.site_id}
+            canEdit={canEdit}
+          />
+        </div>
       </div>
 
       {canEdit && (

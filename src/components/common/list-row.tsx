@@ -20,7 +20,11 @@ export interface ListRowProps {
   badges?: ReactNode
   /** Métadonnée textuelle alignée à droite (masquée sous `sm`). */
   meta?: ReactNode
-  /** Actions (boutons icône). Un clic dessus ne déclenche pas `onClick`. */
+  /**
+   * Actions (boutons icône). Un clic dessus ne déclenche pas `onClick`.
+   * RÉVÉLÉES AU SURVOL de la carte (ou au focus clavier d'une action) : masquées
+   * au repos pour une liste épurée, visibles quand on cible la carte.
+   */
   actions?: ReactNode
   /** Rend toute la ligne cliquable (drill-down) ; ajoute un chevron en fin. */
   onClick?: () => void
@@ -70,7 +74,7 @@ export function ListRow({
     return (
       <div
         className={cn(
-          'bg-card relative flex h-20 items-stretch overflow-hidden rounded-lg border',
+          'bg-card group relative flex h-20 items-stretch overflow-hidden rounded-lg border',
           clickable && 'hover:bg-accent/40 transition-colors',
           className,
         )}
@@ -108,7 +112,7 @@ export function ListRow({
             </div>
           )}
           {actions !== undefined && (
-            <div className="relative z-10 flex shrink-0 items-center gap-1">
+            <div className="relative z-10 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
               {actions}
             </div>
           )}
@@ -123,7 +127,7 @@ export function ListRow({
   return (
     <div
       className={cn(
-        'bg-card relative flex items-center gap-3 rounded-lg border px-4 py-3',
+        'bg-card group relative flex items-center gap-3 rounded-lg border px-4 py-3',
         clickable && 'hover:bg-accent/40 transition-colors',
         className,
       )}
@@ -161,7 +165,7 @@ export function ListRow({
         </div>
       )}
       {actions !== undefined && (
-        <div className="relative z-10 flex shrink-0 items-center gap-1">
+        <div className="relative z-10 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
           {actions}
         </div>
       )}

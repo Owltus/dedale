@@ -117,7 +117,7 @@ export function Tabs({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 border-b px-4 pt-6 pb-3 sm:px-6 lg:px-8">
+      <div className="shrink-0 px-4 pt-6 pb-3 sm:px-6 lg:px-8">
         <div className="mb-3 flex items-center justify-between gap-4">
           {/* Région live : le changement de contexte (onglet actif ou descente
               dans un onglet) est annoncé aux lecteurs d'écran via le titre. */}
