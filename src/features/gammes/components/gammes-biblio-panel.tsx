@@ -35,7 +35,7 @@ import type { CategorieFormValues } from '@/features/categories/schemas'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage, exportErrorMessage } from '@/lib/form'
+import { errorMessage } from '@/lib/form'
 import { sousCategoriesNiveau2 } from '@/lib/scope'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
@@ -218,17 +218,16 @@ export function GammesBiblioPanel() {
     null,
   )
   // Copie « vers un site » d'un conteneur (catégorie ou sous-catégorie) avec
-  // sélection fine (CopierContenuDialog → RPC copier_categorie).
+  // sélection fine (CopierContenuDialog → RPC copier_categorie, image comprise).
+  // C'est l'UNIQUE chemin de copie d'une sous-catégorie (card depth 1 ET barre
+  // d'onglet depth 2).
   const [copierContenu, setCopierContenu] = useState<Categorie | null>(null)
-  // Export commun → site : soit une gamme-template, soit une sous-catégorie
-  // entière (boucle sur ses gammes communes). `target` survit à la fermeture
-  // (la `key` du dialog reste stable) ; il change quand on ouvre une autre source.
+  // Export commun → site d'une GAMME-template (sa copie fine via RPC copier_gamme).
+  // `target` survit à la fermeture (la `key` du dialog reste stable) ; il change
+  // quand on ouvre une autre gamme source.
   const [exportState, setExportState] = useState<{
     open: boolean
-    target:
-      | { kind: 'gamme'; gamme: GammeBiblioRow }
-      | { kind: 'sousCategorie'; categorie: Categorie }
-      | null
+    target: { kind: 'gamme'; gamme: GammeBiblioRow } | null
   }>({ open: false, target: null })
 
   // Chemin de catégories RÉEL d'une gamme, remonté depuis `categorie_id`
@@ -400,63 +399,13 @@ export function GammesBiblioPanel() {
     // dans `sites`, donc résolu ; repli défensif sur « le site » sinon.
     const nomSite = sites.find((s) => s.id === siteCible)?.nom
     const surSite = nomSite ? `le site « ${nomSite} »` : 'le site'
-    if (target.kind === 'gamme') {
-      await copierGamme.mutateAsync({
-        sourceGammeId: target.gamme.id,
-        siteCible,
-      })
-      return {
-        ton: 'succes',
-        message: `« ${target.gamme.nom} » copiée sur ${surSite}. Retrouve la gamme dans la page Gammes du site.`,
-      }
-    }
-    // Sous-catégorie commune : boucle front sur SES gammes communes, dérivées du
-    // cache FRAIS (`gammes`) au moment du confirm — jamais d'instantané périmé.
-    // `Promise.allSettled` : un échec sur une gamme n'annule pas les autres.
-    const aCopier = gammes.filter(
-      (g) => g.categorie_id === target.categorie.id && g.site_id === null,
-    )
-    if (aCopier.length === 0) {
-      return {
-        ton: 'echec',
-        message: 'Aucune gamme commune à copier dans cette sous-catégorie.',
-      }
-    }
-    const results = await Promise.allSettled(
-      aCopier.map((g) =>
-        copierGamme.mutateAsync({ sourceGammeId: g.id, siteCible }),
-      ),
-    )
-    const total = results.length
-    const reussis = results.filter((r) => r.status === 'fulfilled').length
-    const s = total > 1 ? 's' : ''
-    if (reussis === total) {
-      return {
-        ton: 'succes',
-        message: `${String(total)} gamme${s} copiée${s} sur ${surSite}. ${
-          total > 1 ? 'Retrouve les gammes' : 'Retrouve la gamme'
-        } dans la page Gammes du site.`,
-      }
-    }
-    // Bilan partiel/total : on remonte un message représentatif (1er échec),
-    // traduit comme partout (RLS 42501 → message clair, pas le brut de la RPC).
-    const erreurs = results.flatMap((r) =>
-      r.status === 'rejected' ? [exportErrorMessage(r.reason)] : [],
-    )
-    const [premiereErreur] = erreurs
-    const detail = premiereErreur ? ` (${premiereErreur})` : ''
-    if (reussis === 0) {
-      return { ton: 'echec', message: `Aucune gamme copiée${detail}.` }
-    }
-    // Partiel : le dialog reste OUVERT. Relancer recopie TOUTE la sous-catégorie,
-    // mais l'index unique côté base REFUSE les gammes déjà copiées (même nom déjà
-    // présent → 23505 traduit) au lieu de les dupliquer : seules les manquantes
-    // passeront.
+    await copierGamme.mutateAsync({
+      sourceGammeId: target.gamme.id,
+      siteCible,
+    })
     return {
-      ton: 'partiel',
-      message: `${String(reussis)}/${String(total)} gammes copiées sur ${surSite} ; ${String(
-        total - reussis,
-      )} en échec${detail}. Relancer recopie la sous-catégorie : les gammes déjà copiées seront refusées (même nom déjà présent), pas dupliquées.`,
+      ton: 'succes',
+      message: `« ${target.gamme.nom} » copiée sur ${surSite}. Retrouve la gamme dans la page Gammes du site.`,
     }
   }
 
@@ -467,33 +416,15 @@ export function GammesBiblioPanel() {
   const exportKey =
     exportTarget === null
       ? 'export-none'
-      : exportTarget.kind === 'gamme'
-        ? `export-gamme-${exportTarget.gamme.id}`
-        : `export-souscat-${exportTarget.categorie.id}`
-  const exportTitre =
-    exportTarget?.kind === 'sousCategorie'
-      ? 'Copier la sous-catégorie vers un site'
-      : 'Copier la gamme vers un site'
-  let exportResume: ReactNode = null
-  if (exportTarget?.kind === 'gamme') {
-    exportResume = (
+      : `export-gamme-${exportTarget.gamme.id}`
+  const exportTitre = 'Copier la gamme vers un site'
+  const exportResume: ReactNode =
+    exportTarget !== null ? (
       <>
         La gamme <strong>« {exportTarget.gamme.nom} »</strong> et ses opérations
         seront copiées sur le site choisi.
       </>
-    )
-  } else if (exportTarget?.kind === 'sousCategorie') {
-    const nb = gammes.filter(
-      (g) => g.categorie_id === exportTarget.categorie.id && g.site_id === null,
-    ).length
-    exportResume = (
-      <>
-        Les <strong>{nb}</strong> gamme{nb > 1 ? 's' : ''} commune
-        {nb > 1 ? 's' : ''} de <strong>« {exportTarget.categorie.nom} »</strong>{' '}
-        seront copiées sur le site choisi.
-      </>
-    )
-  }
+    ) : null
   const exportDialog = canExport ? (
     <ExporterVersSiteDialog
       key={exportKey}
@@ -540,14 +471,6 @@ export function GammesBiblioPanel() {
     if (openGamme === null) return
     setExportState({ open: true, target: { kind: 'gamme', gamme: openGamme } })
   }, [openGamme])
-
-  const openExportSousCategorieCurrent = useCallback(() => {
-    if (current === null) return
-    setExportState({
-      open: true,
-      target: { kind: 'sousCategorie', categorie: current },
-    })
-  }, [current])
 
   // BARRE D'ONGLET = unique point d'entrée des actions, dépendant de la vue
   // courante (« boutons toujours au même endroit ») :
@@ -607,7 +530,12 @@ export function GammesBiblioPanel() {
           <TooltipIconButton
             icon={<CopyPlus />}
             label="Copier vers un site"
-            onClick={openExportSousCategorieCurrent}
+            // Même chemin que la card depth 1 : copie FINE de la sous-catégorie
+            // courante via CopierContenuDialog → RPC copier_categorie (image
+            // comprise). `current` est non nul ici (depth 2).
+            onClick={() => {
+              if (current !== null) setCopierContenu(current)
+            }}
           />
         ) : undefined,
     }
@@ -617,12 +545,12 @@ export function GammesBiblioPanel() {
     canEntreprise,
     canExport,
     gammesInCurrent,
+    current,
     handleAddRootCategory,
     handleAddSubCategory,
     handleAddGamme,
     handleEditOpenGamme,
     openExportOpenGamme,
-    openExportSousCategorieCurrent,
   ])
 
   useTabAddAction(tabAddConfig.action, tabAddConfig.label, {
@@ -834,13 +762,17 @@ export function GammesBiblioPanel() {
                         <MiniatureThumb
                           url={urlOf(cat.miniature_id)}
                           fallback={<Folder className="size-5" />}
-                          alt={cat.nom}
+                          // Image décorative : le titre + le nom accessible de la
+                          // ligne portent déjà l'info (pas de 3e annonce au lecteur).
+                          alt=""
                           onError={refreshMiniatures}
                         />
                       }
                       title={cat.nom}
                       subtitle={
-                        cat.description?.trim() ? cat.description : undefined
+                        cat.description?.trim()
+                          ? cat.description.trim()
+                          : undefined
                       }
                       hideChevron
                       // Descendre d'un palier (PUSH) : on ajoute la catégorie au
@@ -896,13 +828,15 @@ export function GammesBiblioPanel() {
                         <MiniatureThumb
                           url={urlOf(g.miniature_id)}
                           fallback={<Wrench className="size-5" />}
-                          alt={g.nom}
+                          // Image décorative : le titre + le nom accessible de la
+                          // ligne portent déjà l'info (pas de 3e annonce au lecteur).
+                          alt=""
                           onError={refreshMiniatures}
                         />
                       }
                       title={g.nom}
                       subtitle={
-                        g.description?.trim() ? g.description : undefined
+                        g.description?.trim() ? g.description.trim() : undefined
                       }
                       hideChevron
                       // Ouvrir une gamme (PUSH) : chemin dérivé de sa catégorie

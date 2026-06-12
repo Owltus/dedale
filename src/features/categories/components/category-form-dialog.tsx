@@ -13,8 +13,8 @@ import { MiniatureField } from '@/features/miniatures/components/miniature-field
 
 /**
  * Traduit les erreurs Postgres de création/édition d'une catégorie (dialog
- * partagé entre les onglets Catégories, Gammes et Équipement). Évite tout
- * message technique brut : repli sur `errorMessage` pour le reste.
+ * partagé entre les onglets Gammes et Équipement). Évite tout message technique
+ * brut : repli sur `errorMessage` pour le reste.
  */
 function categorieErrorMessage(e: unknown): string {
   const code = pgCode(e)
@@ -58,8 +58,8 @@ interface CategoryFormDialogProps {
    */
   lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
   /**
-   * Création MINIMALE (navigation par paliers) : ne garde que Nom + Description
-   * (Type, Parent, État et Portée masqués). Ignoré en édition.
+   * Création MINIMALE (navigation par paliers) : ne garde que Nom, Image et
+   * Description (Type, Parent, État et Portée masqués). Ignoré en édition.
    */
   minimal?: boolean
   /**
@@ -80,6 +80,12 @@ interface CategoryFormDialogProps {
    * `FormDialog`). Pour les contextes épurés (ex. onglet Gammes).
    */
   hideDescription?: boolean
+  /**
+   * Masque le champ « Image » (MiniatureField). Pour les contextes hors
+   * périmètre du pool de vignettes (ex. onglet Équipement, dont les cards
+   * n'affichent pas d'image) : contrôle mort retiré.
+   */
+  hideMiniature?: boolean
 }
 
 function initialValues(
@@ -151,6 +157,7 @@ export function CategoryFormDialog({
   hideScope,
   hidePortee: hidePorteeProp,
   hideDescription,
+  hideMiniature,
 }: CategoryFormDialogProps) {
   const isEdit = Boolean(categorie)
   const create = useCreateCategorie()
@@ -254,12 +261,14 @@ export function CategoryFormDialog({
         error={errors.nom}
         required
       />
-      <MiniatureField
-        value={values.miniature_id}
-        onChange={(id) => set('miniature_id', id)}
-        targetSiteId={miniatureSite}
-        canUpload={canUploadMiniature}
-      />
+      {!hideMiniature && (
+        <MiniatureField
+          value={values.miniature_id}
+          onChange={(id) => set('miniature_id', id)}
+          targetSiteId={miniatureSite}
+          canUpload={canUploadMiniature}
+        />
+      )}
       {(showScope || showPortee) && (
         <div
           className={

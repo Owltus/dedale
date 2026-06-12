@@ -7,6 +7,15 @@
  * stocke et valide.
  */
 
+/**
+ * Vrai si le fichier est une image BITMAP décodable et recadrable (JPG, PNG,
+ * WebP, GIF…). Exclut le SVG (vectoriel, non géré par le pipeline de recadrage)
+ * et tout type non-image. Sert de garde au choix/drop d'un fichier d'image.
+ */
+export function isBitmapImage(file: File): boolean {
+  return file.type.startsWith('image/') && file.type !== 'image/svg+xml'
+}
+
 /** Hash SHA-256 hexadécimal d'un Blob ou d'un ArrayBuffer. */
 export async function sha256Hex(data: Blob | ArrayBuffer): Promise<string> {
   const buffer = data instanceof Blob ? await data.arrayBuffer() : data

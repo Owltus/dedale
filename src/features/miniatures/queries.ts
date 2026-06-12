@@ -28,14 +28,18 @@ export const miniaturesQueries = {
           .throwOnError()
         if (data.length === 0) return []
 
-        const { data: signed } = await supabase.storage
+        const { data: signed, error: signError } = await supabase.storage
           .from('documents')
           .createSignedUrls(
             data.map((m) => m.storage_path),
             3600,
           )
+        // Erreur de niveau LOT (réseau, JWT, bucket absent…) : on la propage. Les
+        // erreurs PAR CHEMIN restent dans `signed[i].error` et retombent
+        // gracieusement sur `url: null` (vignette → fallback).
+        if (signError !== null) throw signError
         const urlByPath = new Map<string, string>()
-        for (const item of signed ?? []) {
+        for (const item of signed) {
           if (item.path && item.signedUrl)
             urlByPath.set(item.path, item.signedUrl)
         }

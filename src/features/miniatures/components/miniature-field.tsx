@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { ImagePlus, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { MiniaturePicker } from './miniature-picker'
 import { MiniatureThumb } from './miniature-thumb'
 import { useMiniatureUrls } from '../use-miniature-urls'
+import { isBitmapImage } from '@/lib/image'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -61,7 +63,14 @@ export function MiniatureField({
                 e.preventDefault()
                 setDragOver(false)
                 const f = e.dataTransfer.files[0]
-                if (f) openPicker(f)
+                if (!f) return
+                // Garde-fou : on n'ouvre le picker que pour une image bitmap
+                // recadrable (le SVG et les non-images sont écartés au drop).
+                if (!isBitmapImage(f)) {
+                  toast.error('Choisis une image bitmap (JPG, PNG, WebP…).')
+                  return
+                }
+                openPicker(f)
               }
             : undefined
         }

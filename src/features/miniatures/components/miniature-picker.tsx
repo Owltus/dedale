@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ImageOff, Library, Upload } from 'lucide-react'
 import { toast } from 'sonner'
@@ -6,7 +7,8 @@ import { useAuth } from '@/auth'
 import { miniaturesQueries } from '../queries'
 import { useUploadMiniature } from '../mutations'
 import { MiniatureCropDialog, type CropResult } from './miniature-crop-dialog'
-import { errorMessage } from '@/lib/form'
+import { errorMessage, pgCode } from '@/lib/form'
+import { isBitmapImage } from '@/lib/image'
 import {
   Dialog,
   DialogContent,
@@ -18,6 +20,17 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 type Onglet = 'bibliotheque' | 'uploader'
+
+/**
+ * Traduit l'erreur d'un téléversement de vignette : 42501 (RLS) → message clair
+ * sur les droits du périmètre ; repli sur `errorMessage` pour le reste.
+ */
+function miniatureUploadErrorMessage(e: unknown): string {
+  if (pgCode(e) === '42501') {
+    return 'Action non autorisée : vous n’avez pas les droits pour téléverser une image sur ce périmètre.'
+  }
+  return errorMessage(e)
+}
 
 interface MiniaturePickerProps {
   open: boolean
@@ -62,8 +75,11 @@ export function MiniaturePicker({
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
   const upload = useUploadMiniature()
+  // Vignettes de la grille dont l'`<img>` a échoué → on bascule sur l'icône
+  // `ImageOff` (pas de re-fetch : le pool est déjà chargé, l'URL est juste cassée).
+  const [errored, setErrored] = useState<Set<string>>(new Set())
 
-  const { data: pool } = useQuery(miniaturesQueries.pool())
+  const { data: pool, isPending, isError } = useQuery(miniaturesQueries.pool())
   // Vignettes compatibles avec le périmètre de l'entité (pool entreprise + même
   // site) : une vignette de site ne peut pas être liée à une entité d'un autre
   // périmètre (trigger). Pour le commun, seules les vignettes communes restent.
@@ -81,7 +97,7 @@ export function MiniaturePicker({
   }
 
   function pickFile(file: File) {
-    if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+    if (!isBitmapImage(file)) {
       toast.error('Choisis une image bitmap (JPG, PNG, WebP…).')
       return
     }
@@ -89,7 +105,10 @@ export function MiniaturePicker({
   }
 
   async function handleCropped(result: CropResult) {
-    if (!session) return
+    if (!session) {
+      toast.error('Session expirée, reconnecte-toi.')
+      return
+    }
     try {
       const id = await upload.mutateAsync({
         blob: result.blob,
@@ -99,10 +118,63 @@ export function MiniaturePicker({
       })
       setCropFile(null)
       if (id !== null) choisir(id)
-      else toast.error("L'image n'a pas pu être résolue après l'envoi.")
+      else toast.error('L’image n’a pas pu être résolue après l’envoi.')
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(miniatureUploadErrorMessage(e))
     }
+  }
+
+  // Corps de l'onglet « Bibliothèque » : états chargement / erreur / vide / grille
+  // séparés en fonction (évite des ternaires imbriqués, `no-nested-ternary`).
+  function renderBibliotheque(): ReactNode {
+    if (isPending) {
+      return (
+        <p className="text-muted-foreground py-10 text-center text-sm">
+          Chargement des vignettes…
+        </p>
+      )
+    }
+    if (isError) {
+      return (
+        <p className="text-muted-foreground py-10 text-center text-sm">
+          Impossible de charger les vignettes. Réessaie plus tard.
+        </p>
+      )
+    }
+    if (compatibles.length === 0) {
+      return (
+        <p className="text-muted-foreground py-10 text-center text-sm">
+          Aucune vignette dans ce périmètre.
+        </p>
+      )
+    }
+    return (
+      <div className="grid max-h-80 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
+        {compatibles.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => choisir(m.id)}
+            aria-label="Choisir cette vignette"
+            className="bg-muted focus-visible:ring-ring hover:ring-ring/60 aspect-square overflow-hidden rounded border transition hover:ring-2 focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {m.url !== null && !errored.has(m.id) ? (
+              <img
+                src={m.url}
+                alt=""
+                loading="lazy"
+                onError={() => setErrored((s) => new Set(s).add(m.id))}
+                className="size-full object-cover"
+              />
+            ) : (
+              <span className="text-muted-foreground flex size-full items-center justify-center">
+                <ImageOff className="size-5" />
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    )
   }
 
   const tabClass = (actif: boolean) =>
@@ -145,36 +217,7 @@ export function MiniaturePicker({
           )}
 
           {onglet === 'bibliotheque' || !canUpload ? (
-            compatibles.length === 0 ? (
-              <p className="text-muted-foreground py-10 text-center text-sm">
-                Aucune vignette dans ce périmètre.
-              </p>
-            ) : (
-              <div className="grid max-h-80 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
-                {compatibles.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => choisir(m.id)}
-                    aria-label="Choisir cette vignette"
-                    className="bg-muted focus-visible:ring-ring hover:ring-ring/60 aspect-square overflow-hidden rounded border transition hover:ring-2 focus-visible:ring-2 focus-visible:outline-none"
-                  >
-                    {m.url !== null ? (
-                      <img
-                        src={m.url}
-                        alt=""
-                        loading="lazy"
-                        className="size-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground flex size-full items-center justify-center">
-                        <ImageOff className="size-5" />
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )
+            renderBibliotheque()
           ) : (
             <div className="py-2">
               <input

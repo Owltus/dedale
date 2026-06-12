@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -6,6 +7,12 @@ import { cn } from '@/lib/utils'
  * Occupe TOUJOURS un carré constant (image en `object-cover`, ou `fallback`
  * centré sur fond atténué) pour garder des listes alignées. `onError` permet au
  * parent de re-signer l'URL (les URL signées expirent ~1h) en invalidant le pool.
+ *
+ * Re-signature BORNÉE : on mémorise le « chemin » de la dernière URL en erreur
+ * (la partie AVANT `?token=`, stable malgré le renouvellement du JWT). Première
+ * erreur d'un chemin → `onError` (cas légitime d'URL expirée). Si le MÊME chemin
+ * ré-échoue après re-signature → l'objet Storage est durablement absent : on
+ * cesse d'appeler `onError` (pas de boucle) et on bascule sur le `fallback`.
  */
 export function MiniatureThumb({
   url,
@@ -23,6 +30,26 @@ export function MiniatureThumb({
   onError?: () => void
   className?: string
 }) {
+  // Chemin de l'objet Storage (avant le token JWT) : stable d'une signature à
+  // l'autre, il identifie l'image indépendamment du renouvellement de l'URL.
+  const path = url === null ? null : (url.split('?token=')[0] ?? null)
+  // Dernier chemin pour lequel on a déjà demandé une re-signature (UNE fois).
+  const lastErrorPathRef = useRef<string | null>(null)
+  // Chemin définitivement en échec (ré-échoué après re-signature) → fallback.
+  const [failedPath, setFailedPath] = useState<string | null>(null)
+
+  function handleError() {
+    if (path === null) return
+    if (lastErrorPathRef.current === path) {
+      // Déjà re-signé puis ré-échoué : l'objet est absent, pas seulement expiré.
+      setFailedPath(path)
+      return
+    }
+    // Première erreur de ce chemin : URL probablement expirée → re-signer UNE fois.
+    lastErrorPathRef.current = path
+    onError?.()
+  }
+
   return (
     <span
       className={cn(
@@ -30,12 +57,12 @@ export function MiniatureThumb({
         className,
       )}
     >
-      {url !== null ? (
+      {url !== null && failedPath !== path ? (
         <img
           src={url}
           alt={alt ?? ''}
           loading="lazy"
-          onError={onError}
+          onError={handleError}
           className="size-full object-cover"
         />
       ) : (

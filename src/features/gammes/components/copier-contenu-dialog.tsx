@@ -85,12 +85,28 @@ export function CopierContenuDialog({
   }
 
   function toggleGamme(id: string) {
+    const willBeOn = !selGammes.has(id)
     setSelGammes((prev) => {
       const n = new Set(prev)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
+      if (willBeOn) n.add(id)
+      else n.delete(id)
       return n
     })
+    // Cocher une gamme auto-matérialise sa sous-catégorie côté RPC → on coche
+    // aussi la case parente pour le refléter. On ne la DÉCOCHE jamais
+    // automatiquement : une sous-catégorie vide cochée reste un choix explicite
+    // (feature `p_souscat_ids`).
+    if (willBeOn) {
+      const gamme = gammes.find((g) => g.id === id)
+      if (gamme) {
+        setSelSous((prev) => {
+          if (prev.has(gamme.categorie_id)) return prev
+          const n = new Set(prev)
+          n.add(gamme.categorie_id)
+          return n
+        })
+      }
+    }
   }
 
   function setAll(on: boolean) {
@@ -113,7 +129,7 @@ export function CopierContenuDialog({
       toast.success(
         `« ${source.nom} » copiée sur ${
           nomSite ? `le site « ${nomSite} »` : 'le site'
-        }.`,
+        }. Retrouve le contenu dans la page Gammes du site.`,
       )
       onOpenChange(false)
     } catch (e) {
@@ -135,6 +151,7 @@ export function CopierContenuDialog({
       submitLabel="Copier"
       pendingLabel="Copie…"
       pending={copier.isPending}
+      submitDisabled={siteCible === ''}
     >
       <SelectField
         label="Site cible"
@@ -178,11 +195,15 @@ export function CopierContenuDialog({
         {isRoot ? (
           sousCats.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              Cette catégorie n'a aucune sous-catégorie.
+              Cette catégorie n’a aucune sous-catégorie.
             </p>
           ) : (
             sousCats.map((sc) => {
               const gs = gammesDe.get(sc.id) ?? []
+              // Case parente « indéterminée » quand SEULE une partie de ses
+              // gammes est cochée (ni toutes, ni aucune).
+              const cochees = gs.filter((g) => selGammes.has(g.id)).length
+              const partiel = cochees > 0 && cochees < gs.length
               return (
                 <div key={sc.id}>
                   <label className="flex items-center gap-2 text-sm font-medium">
@@ -190,6 +211,9 @@ export function CopierContenuDialog({
                       type="checkbox"
                       className="accent-primary size-4"
                       checked={selSous.has(sc.id)}
+                      ref={(el) => {
+                        if (el) el.indeterminate = partiel
+                      }}
                       onChange={() => toggleSous(sc.id)}
                     />
                     {sc.nom}
@@ -218,7 +242,7 @@ export function CopierContenuDialog({
           )
         ) : (gammesDe.get(source?.id ?? '') ?? []).length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            Cette sous-catégorie n'a aucune gamme.
+            Cette sous-catégorie n’a aucune gamme.
           </p>
         ) : (
           <div className="space-y-1">

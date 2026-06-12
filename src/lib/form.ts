@@ -31,12 +31,13 @@ export function pgCode(e: unknown): string | undefined {
 }
 
 /**
- * Message clair pour une copie commun → site refusée (RPC `copier_*`). Traduit
- * les codes Postgres remontés par `copier_gamme` au lieu d'afficher le message
- * technique brut de la RPC ; repli sur `errorMessage` pour le reste.
+ * Message clair pour une copie commun → site refusée (RPC `copier_*` :
+ * `copier_gamme` ET `copier_categorie`). Traduit les codes Postgres remontés au
+ * lieu d’afficher le message technique brut de la RPC ; repli sur `errorMessage`
+ * pour le reste. Neutre quant à l’élément copié (catégorie ou gamme).
  * - `42501` : RLS, site cible hors périmètre.
- * - `23505` : nom de gamme déjà présent sur le site cible (copie déjà faite ?).
- * - `P0002` : gamme source introuvable (supprimée pendant l'opération).
+ * - `23505` : élément du même nom déjà présent sur le site cible (copie déjà faite ?).
+ * - `P0002` : élément source (catégorie ou gamme) introuvable (supprimé pendant l’opération).
  */
 export function exportErrorMessage(e: unknown): string {
   const code = pgCode(e)
@@ -44,10 +45,10 @@ export function exportErrorMessage(e: unknown): string {
     return 'Action non autorisée : vous n’avez pas accès à ce site.'
   }
   if (code === '23505') {
-    return 'Une gamme du même nom existe déjà sur ce site (copie déjà effectuée ?).'
+    return 'Un élément du même nom existe déjà sur ce site (copie déjà effectuée ?).'
   }
   if (code === 'P0002') {
-    return 'La gamme source est introuvable ou a été supprimée. Rafraîchis la liste puis réessaie.'
+    return 'L’élément source (catégorie ou gamme) est introuvable ou a été supprimé. Rafraîchis la liste puis réessaie.'
   }
   return errorMessage(e)
 }

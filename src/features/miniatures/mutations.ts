@@ -32,7 +32,10 @@ export function useUploadMiniature() {
       const { error: upErr } = await supabase.storage
         .from('documents')
         .upload(storagePath, blob, { contentType: 'image/webp', upsert: false })
-      if (upErr !== null && !/already exists|duplicate/i.test(upErr.message)) {
+      // 409 = fichier déjà présent (content-addressed : même hash = même
+      // contenu) → pas une erreur, on continue. `statusCode` (string | undefined)
+      // est le statut HTTP structuré : plus robuste qu'un test sur le message.
+      if (upErr !== null && upErr.statusCode !== '409') {
         throw upErr
       }
 
@@ -74,7 +77,7 @@ export function useDeleteMiniature() {
         .throwOnError()
       if (refs > 0) {
         throw new Error(
-          `Image utilisée par ${String(refs)} élément(s) : retire-la d'abord de ces entités.`,
+          `Image utilisée par ${String(refs)} élément(s) : retire-la d’abord de ces entités.`,
         )
       }
       // Chemin Storage récupéré AVANT de détruire le pointeur.

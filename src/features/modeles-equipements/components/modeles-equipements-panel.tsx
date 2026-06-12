@@ -493,6 +493,9 @@ export function ModelesEquipementsPanel() {
           siteName={null}
           lockedScope={categoryLockedScope}
           minimal
+          // Onglet Équipement : les cards de catégorie n'affichent pas d'image →
+          // champ Image masqué (contrôle mort, hors périmètre du pool de vignettes).
+          hideMiniature
         />
       )}
     </div>
