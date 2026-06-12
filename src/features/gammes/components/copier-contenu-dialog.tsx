@@ -129,7 +129,7 @@ export function CopierContenuDialog({
       toast.success(
         `« ${source.nom} » copiée sur ${
           nomSite ? `le site « ${nomSite} »` : 'le site'
-        }. Retrouve le contenu dans la page Gammes du site.`,
+        }. Retrouve le contenu dans la page Plan de maintenance du site.`,
       )
       onOpenChange(false)
     } catch (e) {

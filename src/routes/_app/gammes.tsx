@@ -87,7 +87,7 @@ function GammesPage() {
   if (!activeSiteId) {
     return (
       <NoSiteSelected
-        title="Gammes"
+        title="Plan de maintenance"
         description="Gammes de maintenance et de contrôle réglementaire du site."
         hint="Choisis un site actif pour gérer ses gammes."
         icon={Wrench}
@@ -167,7 +167,7 @@ function GammesList({
   return (
     <PageContainer>
       <PageHeader
-        title="Gammes"
+        title="Plan de maintenance"
         description="Gammes de maintenance et de contrôle réglementaire du site."
         action={newButton}
       />

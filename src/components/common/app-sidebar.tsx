@@ -48,7 +48,7 @@ interface NavItem {
 const OPERATIONNEL: NavItem[] = [
   { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
   { to: '/planning', label: 'Planning', icon: CalendarDays },
-  { to: '/gammes', label: 'Gammes', icon: ClipboardList },
+  { to: '/gammes', label: 'Plan de maintenance', icon: ClipboardList },
   { to: '/ordres-travail', label: 'Ordres de travail', icon: Wrench },
   {
     to: '/demandes',

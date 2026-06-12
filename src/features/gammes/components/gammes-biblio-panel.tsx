@@ -401,7 +401,7 @@ export function GammesBiblioPanel() {
     })
     return {
       ton: 'succes',
-      message: `« ${target.gamme.nom} » copiée sur ${surSite}. Retrouve la gamme dans la page Gammes du site.`,
+      message: `« ${target.gamme.nom} » copiée sur ${surSite}. Retrouve la gamme dans la page Plan de maintenance du site.`,
     }
   }
 
@@ -571,7 +571,7 @@ export function GammesBiblioPanel() {
       return <TitleBreadcrumb ancestors={ancestors} current={openGamme.nom} />
     }
     if (depth === 0) {
-      return <TitleBreadcrumb ancestors={[]} current="Gammes" />
+      return <TitleBreadcrumb ancestors={[]} current="Plan de maintenance" />
     }
     const ancestors: BreadcrumbAncestor[] = validPath
       .slice(0, -1)
@@ -583,7 +583,7 @@ export function GammesBiblioPanel() {
     return (
       <TitleBreadcrumb
         ancestors={ancestors}
-        current={current?.nom ?? 'Gammes'}
+        current={current?.nom ?? 'Plan de maintenance'}
       />
     )
   }, [openGamme, validPath, gammePath, current, depth, goToCats])

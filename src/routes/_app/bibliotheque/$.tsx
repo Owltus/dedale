@@ -62,7 +62,7 @@ function BibliothequePage() {
       content: <GammesTypesPanel />,
     },
     gammes: {
-      label: 'Gammes',
+      label: 'Plan de maintenance',
       content: <GammesBiblioPanel />,
     },
     'modeles-di': {
