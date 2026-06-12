@@ -63,13 +63,14 @@ export function ListRow({
 
   // Variante MÉDIA : vignette carrée collée au bord gauche (sans marge ni
   // padding), pleine hauteur ; card à HAUTEUR FIXE. Titre tronqué (1 ligne),
-  // sous-titre tronqué proprement (2 lignes max). `overflow-hidden` rogne la
+  // sous-titre tronqué proprement (1 ligne, toujours réservé pour une mise en
+  // page stable). `overflow-hidden` rogne la
   // vignette aux coins arrondis → l'anneau de focus passe en `ring-inset`.
   if (media !== undefined) {
     return (
       <div
         className={cn(
-          'bg-card relative flex h-16 items-stretch overflow-hidden rounded-lg border',
+          'bg-card relative flex h-20 items-stretch overflow-hidden rounded-lg border',
           clickable && 'hover:bg-accent/40 transition-colors',
           className,
         )}
