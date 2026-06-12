@@ -18,6 +18,8 @@ export interface ListRowProps {
   actions?: ReactNode
   /** Rend toute la ligne cliquable (drill-down) ; ajoute un chevron en fin. */
   onClick?: () => void
+  /** Masque le chevron de fin même si la ligne est cliquable (card épurée). */
+  hideChevron?: boolean
   /** Surcharge le nom accessible de la ligne cliquable (défaut : le titre visible). */
   titleLabel?: string
   className?: string
@@ -42,6 +44,7 @@ export function ListRow({
   meta,
   actions,
   onClick,
+  hideChevron,
   titleLabel,
   className,
 }: ListRowProps) {
@@ -75,7 +78,7 @@ export function ListRow({
           {title}
         </div>
         {subtitle !== undefined && (
-          <div className="text-muted-foreground truncate text-sm">
+          <div className="text-muted-foreground line-clamp-2 text-sm">
             {subtitle}
           </div>
         )}
@@ -95,7 +98,7 @@ export function ListRow({
           {actions}
         </div>
       )}
-      {clickable && (
+      {clickable && !hideChevron && (
         <ChevronRight className="text-muted-foreground size-4 shrink-0" />
       )}
     </div>

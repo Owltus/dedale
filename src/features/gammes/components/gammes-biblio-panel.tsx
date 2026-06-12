@@ -824,6 +824,10 @@ export function GammesBiblioPanel() {
                       key={cat.id}
                       icon={<Folder className="size-5" />}
                       title={cat.nom}
+                      subtitle={
+                        cat.description?.trim() ? cat.description : undefined
+                      }
+                      hideChevron
                       // Descendre d'un palier (PUSH) : on ajoute la catégorie au
                       // chemin courant → `cat` à la racine, `sous` au niveau 1.
                       onClick={() => goToCats([...validPath, cat])}
@@ -861,26 +865,10 @@ export function GammesBiblioPanel() {
                       key={g.id}
                       icon={<Wrench className="size-5" />}
                       title={g.nom}
-                      // Nature + périodicité aussi en sous-titre (toujours
-                      // visible) : les badges sont masqués sous `sm`, le mobile
-                      // n'aurait sinon que le nom (scannabilité).
-                      subtitle={`${NATURE_LABEL[g.nature]} · ${g.periodicites.libelle}`}
-                      badges={
-                        <>
-                          <Badge
-                            variant={
-                              g.nature === 'controle_reglementaire'
-                                ? 'default'
-                                : 'secondary'
-                            }
-                          >
-                            {NATURE_LABEL[g.nature]}
-                          </Badge>
-                          <Badge variant="outline">
-                            {g.periodicites.libelle}
-                          </Badge>
-                        </>
+                      subtitle={
+                        g.description?.trim() ? g.description : undefined
                       }
+                      hideChevron
                       // Ouvrir une gamme (PUSH) : chemin dérivé de sa catégorie
                       // RÉELLE (cohérent même après un déplacement realtime).
                       onClick={() => goToGamme(g)}
