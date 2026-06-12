@@ -89,11 +89,12 @@ export function ListRow({
             <div id={titleId} className="truncate font-medium">
               {title}
             </div>
-            {subtitle !== undefined && (
-              <div className="text-muted-foreground line-clamp-2 text-sm">
-                {subtitle}
-              </div>
-            )}
+            {/* Ligne de description TOUJOURS présente (espace insécable si vide) →
+                titre et description à position STABLE, qu'il y ait une description
+                ou non. Tronquée sur UNE seule ligne. */}
+            <div className="text-muted-foreground truncate text-sm">
+              {subtitle ?? ' '}
+            </div>
           </div>
           {badges !== undefined && (
             <div className="hidden shrink-0 items-center gap-2 sm:flex">
