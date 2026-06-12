@@ -45,6 +45,19 @@ export function useUploadMiniature() {
         created_by: createdBy,
       })
       if (insErr && insErr.code !== '23505') throw insErr
+
+      // Résout l'id de la miniature — créée À L'INSTANT ou déjà présente (dédup
+      // par hash dans le périmètre) → permet à l'appelant (sélecteur d'image) de
+      // l'assigner directement à une entité. L'unicité (site_id, hash) garantit
+      // au plus une ligne.
+      const base = supabase
+        .from('miniatures')
+        .select('id')
+        .eq('hash_sha256', hash)
+      const scoped =
+        siteId === null ? base.is('site_id', null) : base.eq('site_id', siteId)
+      const { data: row } = await scoped.maybeSingle().throwOnError()
+      return row?.id ?? null
     },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: miniaturesQueries.all() }),
