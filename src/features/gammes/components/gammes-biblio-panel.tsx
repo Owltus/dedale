@@ -22,6 +22,7 @@ import {
 import { GammeBiblioFormDialog } from './gamme-biblio-form-dialog'
 import { OperationFormDialog } from './operation-form-dialog'
 import { GammeModelesSection } from './gamme-modeles-section'
+import { CopierContenuDialog } from './copier-contenu-dialog'
 import {
   categoriesQueries,
   type Categorie,
@@ -212,6 +213,9 @@ export function GammesBiblioPanel() {
   const [toDeleteCategorie, setToDeleteCategorie] = useState<Categorie | null>(
     null,
   )
+  // Copie « vers un site » d'un conteneur (catégorie ou sous-catégorie) avec
+  // sélection fine (CopierContenuDialog → RPC copier_categorie).
+  const [copierContenu, setCopierContenu] = useState<Categorie | null>(null)
   // Export commun → site : soit une gamme-template, soit une sous-catégorie
   // entière (boucle sur ses gammes communes). `target` survit à la fermeture
   // (la `key` du dialog reste stable) ; il change quand on ouvre une autre source.
@@ -832,24 +836,38 @@ export function GammesBiblioPanel() {
                       // chemin courant → `cat` à la racine, `sous` au niveau 1.
                       onClick={() => goToCats([...validPath, cat])}
                       actions={
-                        canEntreprise ? (
+                        canExport || canEntreprise ? (
                           <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Modifier la catégorie"
-                              onClick={() => handleEditCategory(cat)}
-                            >
-                              <Pencil />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Supprimer la catégorie"
-                              onClick={() => setToDeleteCategorie(cat)}
-                            >
-                              <Trash2 />
-                            </Button>
+                            {canExport && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Copier vers un site"
+                                onClick={() => setCopierContenu(cat)}
+                              >
+                                <CopyPlus />
+                              </Button>
+                            )}
+                            {canEntreprise && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="Modifier la catégorie"
+                                  onClick={() => handleEditCategory(cat)}
+                                >
+                                  <Pencil />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="Supprimer la catégorie"
+                                  onClick={() => setToDeleteCategorie(cat)}
+                                >
+                                  <Trash2 />
+                                </Button>
+                              </>
+                            )}
                           </>
                         ) : undefined
                       }
@@ -1010,6 +1028,19 @@ export function GammesBiblioPanel() {
       />
 
       {exportDialog}
+      {copierContenu !== null && (
+        <CopierContenuDialog
+          key={copierContenu.id}
+          open
+          onOpenChange={(o) => {
+            if (!o) setCopierContenu(null)
+          }}
+          source={copierContenu}
+          sousCats={gammeCats.filter((c) => c.parent_id === copierContenu.id)}
+          gammes={gammes}
+          sites={sites}
+        />
+      )}
     </div>
   )
 }
