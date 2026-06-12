@@ -3137,6 +3137,23 @@ export type Database = {
         Returns: boolean
       }
       cleanup_storage_orphans: { Args: never; Returns: undefined }
+      copier_categorie: {
+        Args: {
+          p_gamme_ids?: string[]
+          p_site_cible: string
+          p_source_categorie_id: string
+          p_souscat_ids?: string[]
+        }
+        Returns: string
+      }
+      copier_categorie_noeud: {
+        Args: {
+          p_parent_cible_id: string
+          p_site_cible: string
+          p_source_cat_id: string
+        }
+        Returns: string
+      }
       copier_gamme: {
         Args: { p_site_cible: string; p_source_gamme_id: string }
         Returns: string

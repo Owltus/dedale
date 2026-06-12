@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { gammesQueries } from './queries'
+import { categoriesQueries } from '@/features/categories/queries'
 import {
   gammeBiblioSchema,
   gammeSchema,
@@ -191,6 +192,46 @@ export function useCopierGamme() {
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
+  })
+}
+
+/**
+ * Copie un SOUS-ARBRE catégorie (racine ou sous-catégorie) vers un site via la
+ * RPC `copier_categorie` (récursive, SECURITY DEFINER) : merge idempotent du
+ * chemin de catégories + copie des gammes sélectionnées (opérations, liaisons,
+ * images comprises). `sousCatIds` = sous-catégories (vides) à inclure ;
+ * `gammeIds` = gammes à copier (leur sous-catégorie est auto-matérialisée). La
+ * RPC arbitre les droits (accès au site cible) → 42501 à catcher côté UI.
+ * Invalide gammes ET catégories (la copie crée des catégories de site).
+ */
+export function useCopierCategorie() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      sourceCategorieId,
+      siteCible,
+      sousCatIds,
+      gammeIds,
+    }: {
+      sourceCategorieId: string
+      siteCible: string
+      sousCatIds: string[]
+      gammeIds: string[]
+    }) => {
+      const { data } = await supabase
+        .rpc('copier_categorie', {
+          p_source_categorie_id: sourceCategorieId,
+          p_site_cible: siteCible,
+          p_souscat_ids: sousCatIds,
+          p_gamme_ids: gammeIds,
+        })
+        .throwOnError()
+      return data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+      void qc.invalidateQueries({ queryKey: categoriesQueries.all() })
+    },
   })
 }
 
