@@ -195,8 +195,8 @@ export function ModelesEquipementsPanel() {
       : { disabled: !canAddModele },
   )
 
-  // Titre : libellé de l'onglet à la racine (défaut de <Tabs>), nom de la
-  // catégorie ouverte en détail (fil d'Ariane sans ancêtre, comme Gammes).
+  // Titre : « Bibliothèque » à la racine (défaut de <Tabs>), nom de la catégorie
+  // ouverte en détail (fil d'Ariane sans ancêtre, comme Gammes).
   const titleNode = useMemo<ReactNode>(
     () =>
       openCategory === null ? null : (

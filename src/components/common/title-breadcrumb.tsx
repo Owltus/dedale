@@ -8,14 +8,19 @@ export interface BreadcrumbAncestor {
 }
 
 /**
- * Titre « fil d’Ariane » de la barre d’onglet : le segment COURANT fait office
- * de grand titre (`text-2xl`), précédé de ses ancêtres cliquables (petits,
- * atténués, séparés par des chevrons). Tout tronque (`min-w-0` / `truncate`)
- * pour ne jamais déborder sur mobile.
+ * Fil d’Ariane de la barre d’onglet, affiché quand on a DESCENDU dans un onglet
+ * (catégorie ouverte, modèle ouvert, gamme ouverte…). DISCRET : tous les segments
+ * à la même taille (`text-sm`) ; le segment courant ne se distingue que par le
+ * gras et la couleur pleine, les ancêtres étant atténués, cliquables et séparés
+ * par des chevrons.
  *
- * Générique : réutilisable par tout onglet de la Bibliothèque via `useTabTitle`
- * (Gammes, Modèles d’équipements, Modèles d’opérations…). Sans ancêtre, rend le
- * seul titre courant — identique au titre par défaut d’un onglet.
+ * La RACINE d’un onglet n’utilise PAS ce composant : le panneau renvoie `null`
+ * via `useTabTitle`, et la barre affiche alors le libellé de l’onglet en grand
+ * titre (cf. Tabs). Tout tronque (`min-w-0` / `truncate`) pour ne jamais déborder
+ * sur mobile.
+ *
+ * Générique : réutilisable par tout onglet de la Bibliothèque (Gammes, Modèles
+ * d’équipements, Modèles d’opérations…).
  */
 export function TitleBreadcrumb({
   ancestors,
@@ -40,12 +45,12 @@ export function TitleBreadcrumb({
               >
                 {a.label}
               </button>
-              <ChevronRight className="size-4 shrink-0" />
+              <ChevronRight className="size-3.5 shrink-0" />
             </span>
           ))}
         </nav>
       )}
-      <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
+      <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight">
         {current}
       </h1>
     </div>

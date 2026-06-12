@@ -553,11 +553,13 @@ export function GammesBiblioPanel() {
     extra: tabAddConfig.extra,
   })
 
-  // FIL D'ARIANE = TITRE de la barre d'onglet (remplace le « Bibliothèque » par
-  // défaut). Le segment courant fait office de grand titre ; les ancêtres
-  // (cliquables, atténués, séparés par des chevrons) le précèdent — le chemin
-  // réel des catégories, sans préfixe. Vue détail : la gamme ouverte devient le
-  // titre, sa sous-catégorie passe en ancêtre. Mémoïsé (contrat de `useTabTitle`).
+  // FIL D'ARIANE = TITRE de la barre d'onglet, uniquement quand on a DESCENDU
+  // (catégorie ou gamme ouverte). Le segment courant et ses ancêtres cliquables
+  // sont à la même taille, discrets (cf. TitleBreadcrumb) — le chemin réel des
+  // catégories, sans préfixe. Vue détail : la gamme ouverte devient le segment
+  // courant, sa sous-catégorie passe en ancêtre. À la RACINE (depth 0), on renvoie
+  // `null` : la barre affiche « Bibliothèque » en grand titre via le repli de
+  // <Tabs>. Mémoïsé (contrat de `useTabTitle`).
   const titleNode = useMemo<ReactNode>(() => {
     if (openGamme !== null) {
       // `openGamme` est déjà la donnée FRAÎCHE (issu de `gammes.find`) : pas de
@@ -571,7 +573,7 @@ export function GammesBiblioPanel() {
       return <TitleBreadcrumb ancestors={ancestors} current={openGamme.nom} />
     }
     if (depth === 0) {
-      return <TitleBreadcrumb ancestors={[]} current="Plan de maintenance" />
+      return null
     }
     const ancestors: BreadcrumbAncestor[] = validPath
       .slice(0, -1)

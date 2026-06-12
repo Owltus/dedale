@@ -131,8 +131,8 @@ export function GammesTypesPanel() {
     atRoot ? { disabled: !canAdd, extra: scopeControl } : { extra: editExtra },
   )
 
-  // Titre : libellé de l'onglet à la racine (défaut de <Tabs>), nom du modèle
-  // ouvert en détail (fil d'Ariane sans ancêtre, comme Gammes).
+  // Titre : « Bibliothèque » à la racine (défaut de <Tabs>), nom du modèle ouvert
+  // en détail (fil d'Ariane sans ancêtre, comme Gammes).
   const titleNode = useMemo<ReactNode>(
     () =>
       selected === null ? null : (

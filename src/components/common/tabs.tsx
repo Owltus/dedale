@@ -24,11 +24,12 @@ interface TabsProps {
   /** Onglet actif initial (mode NON contrôlé uniquement ; défaut : le premier). */
   defaultTabId?: string
   /**
-   * Titre de REPLI, affiché s'il n'y a aucun onglet actif (cas limite : liste
-   * vide). Par défaut, la zone de titre montre le LIBELLÉ de l'onglet ACTIF —
-   * chaque onglet « se nomme » lui-même (plus de titre générique figé). Un
-   * panneau peut surcharger ce titre par un nœud (ex. fil d'Ariane) via
-   * `useTabTitle`.
+   * Titre GÉNÉRIQUE de la page, affiché dans la barre tant que l'onglet actif n'a
+   * pas fourni son propre titre via `useTabTitle` — c.-à-d. à la RACINE de chaque
+   * onglet. On y montre « Bibliothèque », pas le nom de l'onglet actif (ce serait
+   * redondant avec le bouton d'onglet déjà surligné). Dès qu'on descend dans un
+   * onglet, le panneau surcharge ce titre par son fil d'Ariane. Repli ultime
+   * (titre absent) : le libellé de l'onglet actif.
    */
   title?: string
   /**
@@ -129,7 +130,7 @@ export function Tabs({
           >
             {titleNode ?? (
               <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
-                {activeItem?.label ?? title}
+                {title ?? activeItem?.label}
               </h1>
             )}
           </div>

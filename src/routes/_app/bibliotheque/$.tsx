@@ -83,6 +83,7 @@ function BibliothequePage() {
       <ScopeProvider>
         <Tabs
           items={tabs}
+          title="Bibliothèque"
           value={onglet}
           // Changer d'onglet → chemin réduit à `/bibliotheque/<onglet>` (PUSH) :
           // la descente cat/sous/gamme disparaît (reset). Le bouton retour du
