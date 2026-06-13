@@ -79,6 +79,58 @@ export function serializeChamps(champs: Champ[]): { champs: Champ[] } {
   return { champs }
 }
 
+/**
+ * Nettoie (trim des noms/unités, options de liste vides retirées + dédupliquées)
+ * et VALIDE finement une liste de champs avant sérialisation : noms non vides,
+ * uniques (insensible à la casse), et listes pourvues d'au moins une option.
+ * Renvoie les champs prêts, ou un message d'erreur. Mutualisé entre le formulaire
+ * de modèle et la page de détail (édition des caractéristiques au même endroit).
+ */
+export function prepareChamps(
+  champs: Champ[],
+): { ok: true; champs: Champ[] } | { ok: false; error: string } {
+  const cleaned: Champ[] = champs.map((c) => ({
+    ...c,
+    cle: c.cle.trim(),
+    // `unite` n'a de sens que pour un nombre : on l'efface si le type a change.
+    unite: c.type === 'nombre' && c.unite?.trim() ? c.unite.trim() : undefined,
+    options:
+      c.type === 'liste'
+        ? [
+            ...new Set(
+              (c.options ?? []).map((o) => o.trim()).filter((o) => o !== ''),
+            ),
+          ]
+        : undefined,
+  }))
+  const cles = cleaned.map((c) => c.cle.toLowerCase())
+  if (cles.some((k) => k === '')) {
+    return { ok: false, error: 'Chaque champ doit avoir un nom.' }
+  }
+  if (new Set(cles).size !== cles.length) {
+    return { ok: false, error: 'Les noms de champ doivent être uniques.' }
+  }
+  const sansOption = cleaned.find(
+    (c) => c.type === 'liste' && (c.options ?? []).length === 0,
+  )
+  if (sansOption) {
+    return {
+      ok: false,
+      error: `Le champ « ${sansOption.cle} » (liste) doit avoir au moins une option.`,
+    }
+  }
+  // Garde-fou taille : le backend refuse specifications::text >= 10 000 caractères
+  // (CHECK chk_modeles_equipements_specs_structure). On prévient avec une marge.
+  if (JSON.stringify(serializeChamps(cleaned)).length > 9500) {
+    return {
+      ok: false,
+      error:
+        'Trop de caractéristiques (ou options trop longues) : réduis-en le nombre ou la taille.',
+    }
+  }
+  return { ok: true, champs: cleaned }
+}
+
 /** Met en forme une valeur de champ pour la LECTURE selon son type. */
 export function formatChampValeur(champ: Champ, valeur: ChampValeur): string {
   if (valeur === null || valeur === '') return '—'
