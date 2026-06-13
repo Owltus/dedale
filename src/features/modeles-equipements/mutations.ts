@@ -2,10 +2,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { modelesEquipementsQueries } from './queries'
 import type { ModeleEquipementFormValues } from './schemas'
-import { serializeChamps } from '@/lib/champs'
+import { serializeChamps, type Champ } from '@/lib/champs'
 
-// Construit le payload, dont `specifications` au format typé { champs: [...] }
-// (les champs sont nettoyés/validés en amont dans le formulaire).
+// Payload des champs de BASE d'un modèle (HORS `specifications`). Le JSONB des
+// caractéristiques est écrit à part : à l'INSERT (création) et via
+// `useUpdateModeleSpecifications` (page de détail), JAMAIS par l'UPDATE du
+// formulaire d'édition — pour ne pas écraser des champs édités en parallèle.
 function modelePayload(v: ModeleEquipementFormValues, siteId: string | null) {
   return {
     nom: v.nom.trim(),
@@ -15,7 +17,6 @@ function modelePayload(v: ModeleEquipementFormValues, siteId: string | null) {
     categorie_id: v.categorie_id,
     est_actif: v.etat === 'actif',
     site_id: v.portee === 'entreprise' ? null : siteId,
-    specifications: serializeChamps(v.specifications),
   }
 }
 
@@ -31,7 +32,10 @@ export function useCreateModeleEquipement() {
     }) => {
       const { data } = await supabase
         .from('modeles_equipements')
-        .insert(modelePayload(values, siteId))
+        .insert({
+          ...modelePayload(values, siteId),
+          specifications: serializeChamps(values.specifications),
+        })
         .select()
         .single()
         .throwOnError()
@@ -68,16 +72,42 @@ export function useUpdateModeleEquipement() {
   })
 }
 
+/**
+ * Met à jour UNIQUEMENT le JSONB `specifications` d'un modèle (page de détail :
+ * caractéristiques gérées champ par champ). UPDATE PARTIEL : ne touche à aucun
+ * autre champ → aucun risque d'écraser nom/description/état édités ailleurs (le
+ * formulaire d'édition, lui, n'écrit jamais `specifications`).
+ */
+export function useUpdateModeleSpecifications() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, champs }: { id: string; champs: Champ[] }) => {
+      await supabase
+        .from('modeles_equipements')
+        .update({ specifications: serializeChamps(champs) })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: modelesEquipementsQueries.all() }),
+  })
+}
+
 export function useDeleteModeleEquipement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
       // Soft-delete : corbeille 90j côté backend. Les équipements déjà
-      // instanciés gardent leur copie (snapshot indépendant).
+      // instanciés gardent leur copie (snapshot indépendant). `.select().single()`
+      // → PGRST116 catché si la RLS filtre la ligne, plutôt qu'un faux succès.
       await supabase
         .from('modeles_equipements')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () =>

@@ -7,8 +7,7 @@ import {
   useUpdateModeleEquipement,
 } from '../mutations'
 import type { ModeleEquipement } from '../queries'
-import { SpecificationsEditor } from './specifications-editor'
-import { parseChamps, type Champ } from '@/lib/champs'
+import { parseChamps, prepareChamps } from '@/lib/champs'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
@@ -99,8 +98,9 @@ export function ModeleEquipementFormDialog({
   // Création depuis le + : portée et/ou catégorie viennent du contexte → masquées.
   const hidePortee = !isEdit && lockedScope != null
   const hideCategorie = !isEdit && lockedCategorieId != null
-  // Mode minimal (création depuis la navigation) : juste Nom + Description.
-  const compact = minimal === true && !isEdit
+  // Mode minimal : juste Nom + Description (création ET édition). Les paramètres
+  // détaillés (État, caractéristiques) se gèrent sur la PAGE de détail du modèle.
+  const compact = minimal === true
 
   function set<K extends keyof ModeleEquipementFormValues>(
     key: K,
@@ -110,45 +110,18 @@ export function ModeleEquipementFormDialog({
   }
 
   async function handleSubmit() {
-    // Nettoyage des champs : noms/unités trimés, options vides retirées + dédupliquées.
-    const champs: Champ[] = values.specifications.map((c) => ({
-      ...c,
-      cle: c.cle.trim(),
-      unite: c.unite?.trim() ? c.unite.trim() : undefined,
-      options:
-        c.type === 'liste'
-          ? [
-              ...new Set(
-                (c.options ?? []).map((o) => o.trim()).filter((o) => o !== ''),
-              ),
-            ]
-          : undefined,
-    }))
+    // Nettoyage + validation fine des champs, mutualisés avec la page de détail.
+    const prepared = prepareChamps(values.specifications)
+    if (!prepared.ok) {
+      setErrors({ specifications: prepared.error })
+      return
+    }
     const parsed = modeleEquipementSchema.safeParse({
       ...values,
-      specifications: champs,
+      specifications: prepared.champs,
     })
     if (!parsed.success) {
       setErrors(fieldErrors(parsed.error))
-      return
-    }
-    // Validation fine : noms non vides, uniques, et listes pourvues d'options.
-    const cles = champs.map((c) => c.cle.toLowerCase())
-    if (cles.some((k) => k === '')) {
-      setErrors({ specifications: 'Chaque champ doit avoir un nom.' })
-      return
-    }
-    if (new Set(cles).size !== cles.length) {
-      setErrors({ specifications: 'Les noms de champ doivent être uniques.' })
-      return
-    }
-    const sansOption = champs.find(
-      (c) => c.type === 'liste' && (c.options ?? []).length === 0,
-    )
-    if (sansOption) {
-      setErrors({
-        specifications: `Le champ « ${sansOption.cle} » (liste) doit avoir au moins une option.`,
-      })
       return
     }
     setErrors({})
@@ -173,7 +146,7 @@ export function ModeleEquipementFormDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le modèle' : "Nouveau modèle d'équipement"}
+      title={isEdit ? 'Modifier le modèle' : 'Nouveau modèle d’équipement'}
       description="Un gabarit réutilisable pour instancier rapidement des équipements."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
@@ -246,13 +219,6 @@ export function ModeleEquipementFormDialog({
         onChange={(v) => set('description', v)}
         error={errors.description}
       />
-      {!compact && (
-        <SpecificationsEditor
-          value={values.specifications}
-          onChange={(lines) => set('specifications', lines)}
-          error={errors.specifications}
-        />
-      )}
     </FormDialog>
   )
 }
