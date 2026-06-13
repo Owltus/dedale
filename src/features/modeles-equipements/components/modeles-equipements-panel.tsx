@@ -32,7 +32,7 @@ import { useBiblioTreeDrill } from '@/hooks/use-biblio-tree-drill'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import { segOfUnique } from '@/lib/slug'
-import { scopeMatches, scopeTarget } from '@/lib/scope'
+import { SCOPE_COMMUN, scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction, useTabTitle } from '@/components/common/tab-actions'
 import {
@@ -147,18 +147,9 @@ export function ModelesEquipementsPanel() {
   const childCategories = useMemo(
     () =>
       children
-        .filter(
-          (c) =>
-            scopeMatches(scope, c.site_id) ||
-            // Catégorie COMMUNE contenant du contenu du périmètre courant : une
-            // copie « commun → site » garde sa catégorie commune → on l'affiche
-            // quand même sous le site pour que la copie y soit atteignable.
-            modeles.some(
-              (m) => m.categorie_id === c.id && scopeMatches(scope, m.site_id),
-            ),
-        )
+        .filter((c) => scopeMatches(scope, c.site_id))
         .sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom)),
-    [children, scope, modeles],
+    [children, scope],
   )
   // Modèles rangés DANS la catégorie courante (visibles dès qu'on est descendu).
   const modelesInCurrent = useMemo(
@@ -281,20 +272,17 @@ export function ModelesEquipementsPanel() {
   )
 
   // Sélecteur de périmètre TOUJOURS présent dans la barre d'onglet : interactif à
-  // la racine, puis VERROUILLÉ dès qu'on descend (catégorie / modèle). Il affiche
-  // alors le périmètre ACTIF — ce qui filtre RÉELLEMENT le contenu — et non
-  // l'origine de la catégorie : une catégorie commune peut héberger du contenu de
-  // site (copie « commun → site »), le filtre actif reste donc la bonne info.
-  const scopeDisplay = useMemo(
-    () => (
-      <ScopeSelect
-        value={scope}
-        onChange={setScope}
-        disabled={current !== null}
-      />
-    ),
-    [scope, setScope, current],
-  )
+  // la racine, puis VERROUILLÉ une fois entré dans une catégorie / un modèle — il
+  // affiche alors l'ORIGINE (Commun ou le site) du modèle ouvert, sinon de la
+  // catégorie courante, sans pouvoir l'ouvrir. (Depuis les migrations 009/010, une
+  // copie « commun → site » vit dans une vraie catégorie de site → origine fiable.)
+  const scopeDisplay = useMemo(() => {
+    if (current === null) {
+      return <ScopeSelect value={scope} onChange={setScope} />
+    }
+    const origin = (openModele ?? current).site_id ?? SCOPE_COMMUN
+    return <ScopeSelect value={origin} disabled />
+  }, [current, openModele, scope, setScope])
 
   const handleAddRootCategory = useCallback(() => {
     setCategoryForm({
