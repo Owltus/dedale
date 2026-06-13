@@ -24,6 +24,8 @@ import {
 import { useDeleteEquipement } from '@/features/equipements/mutations'
 import { EquipementFormDialog } from '@/features/equipements/components/equipement-form-dialog'
 import { InstancierDialog } from '@/features/equipements/components/instancier-dialog'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
@@ -155,6 +157,7 @@ function EquipementsList({
   onOpen: (eq: Equipement) => void
 }) {
   const query = useQuery(equipementsQueries.list(siteId))
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const del = useDeleteEquipement()
   const [search, setSearch] = useState('')
   const [form, setForm] = useState<{ open: boolean; eq: Equipement | null }>({
@@ -234,7 +237,16 @@ function EquipementsList({
               {filtered.map((e) => (
                 <Card key={e.id} className="min-w-0">
                   <CardHeader>
-                    <CardTitle className="truncate">{e.nom}</CardTitle>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <MiniatureThumb
+                        url={urlOf(e.miniature_id)}
+                        fallback={<Package className="size-5" />}
+                        alt=""
+                        onError={refreshMiniatures}
+                        className="size-10 shrink-0 rounded-md"
+                      />
+                      <CardTitle className="truncate">{e.nom}</CardTitle>
+                    </div>
                   </CardHeader>
                   <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
                     <div className="flex flex-wrap items-center gap-2">
@@ -332,6 +344,7 @@ function EquipementDetail({
     list.find((e) => e.id === equipementProp.id) ?? equipementProp
   const [editOpen, setEditOpen] = useState(false)
   const specs = parseChamps(equipement.specifications)
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   return (
     <PageContainer>
@@ -349,6 +362,14 @@ function EquipementDetail({
             </Button>
           ) : undefined
         }
+      />
+
+      <MiniatureThumb
+        url={urlOf(equipement.miniature_id)}
+        fallback={<Package className="size-10" />}
+        alt=""
+        onError={refreshMiniatures}
+        className="mb-4 size-24 rounded-lg"
       />
 
       <div className="grid gap-4 md:grid-cols-2">

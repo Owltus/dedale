@@ -14,6 +14,7 @@ function equipementPayload(values: EquipementFormValues) {
     date_mise_en_service: v.date_mise_en_service || null,
     date_fin_garantie: v.date_fin_garantie || null,
     commentaires: v.commentaires || null,
+    miniature_id: v.miniature_id,
     specifications: serializeChamps(v.specifications),
   }
 }

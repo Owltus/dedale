@@ -9,6 +9,7 @@ import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
+import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
 import { Label } from '@/components/ui/label'
 import { parseChamps, type ChampValeur } from '@/lib/champs'
@@ -35,6 +36,7 @@ function initialValues(
     date_mise_en_service: eq.date_mise_en_service ?? '',
     date_fin_garantie: eq.date_fin_garantie ?? '',
     commentaires: eq.commentaires ?? '',
+    miniature_id: eq.miniature_id ?? null,
     specifications: parseChamps(eq.specifications),
   }
 }
@@ -120,6 +122,12 @@ export function EquipementFormDialog({
         onChange={(v) => set('nom', v)}
         error={errors.nom}
         required
+      />
+      <MiniatureField
+        value={values.miniature_id}
+        onChange={(id) => setValues((v) => ({ ...v, miniature_id: id }))}
+        targetSiteId={siteId}
+        canUpload
       />
       <TextField
         label="Code inventaire"

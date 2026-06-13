@@ -1093,6 +1093,7 @@ export type Database = {
           id: string
           image_path: string | null
           local_id: string
+          miniature_id: string | null
           nom: string
           specifications: Json
           updated_at: string
@@ -1109,6 +1110,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           local_id: string
+          miniature_id?: string | null
           nom: string
           specifications?: Json
           updated_at?: string
@@ -1125,6 +1127,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           local_id?: string
+          miniature_id?: string | null
           nom?: string
           specifications?: Json
           updated_at?: string
@@ -2999,6 +3002,7 @@ export type Database = {
           local_nom: string | null
           localisation_complete: string | null
           localisation_courte: string | null
+          miniature_id: string | null
           niveau_id: string | null
           niveau_nom: string | null
           nom: string | null

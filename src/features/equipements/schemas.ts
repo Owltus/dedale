@@ -18,6 +18,8 @@ export const equipementSchema = z.object({
   date_mise_en_service: optionalDate,
   date_fin_garantie: optionalDate,
   commentaires: z.string().trim().max(2000),
+  /** Vignette du pool (`miniature_id`) ou `null`. */
+  miniature_id: z.string().nullable(),
   /** Valeurs des caractéristiques typées (snapshot des champs du modèle). */
   specifications: z.array(champSchema),
 })
@@ -32,5 +34,6 @@ export const emptyEquipement: EquipementFormValues = {
   date_mise_en_service: '',
   date_fin_garantie: '',
   commentaires: '',
+  miniature_id: null,
   specifications: [],
 }
