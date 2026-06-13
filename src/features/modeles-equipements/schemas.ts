@@ -10,6 +10,8 @@ export const modeleEquipementSchema = z.object({
   portee: z.enum(['entreprise', 'site']),
   /** Activation sans suppression. */
   etat: z.enum(['actif', 'inactif']),
+  /** Vignette du pool (`miniature_id`) ou `null`. */
+  miniature_id: z.string().nullable(),
   /** Champs typés (définitions) ; nettoyés/validés finement à la soumission. */
   specifications: z.array(champSchema),
 })
@@ -22,5 +24,6 @@ export const emptyModeleEquipement: ModeleEquipementFormValues = {
   categorie_id: '',
   portee: 'entreprise',
   etat: 'actif',
+  miniature_id: null,
   specifications: [],
 }

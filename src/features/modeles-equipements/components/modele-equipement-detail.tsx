@@ -20,6 +20,7 @@ import {
 } from '@/lib/champs'
 import { errorMessage } from '@/lib/form'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { EmptyState } from '@/components/common/empty-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -57,6 +58,7 @@ export function ModeleEquipementDetail({
   canEdit: boolean
 }) {
   const update = useUpdateModeleSpecifications()
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const champs = useMemo(
     () => parseChamps(modele.specifications),
     [modele.specifications],
@@ -124,9 +126,10 @@ export function ModeleEquipementDetail({
       <ListRow
         media={
           <MiniatureThumb
-            url={null}
+            url={urlOf(modele.miniature_id)}
             fallback={<Package className="size-10" />}
             alt=""
+            onError={refreshMiniatures}
             className="size-full rounded-none"
           />
         }

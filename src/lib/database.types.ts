@@ -1751,6 +1751,7 @@ export type Database = {
           est_actif: boolean
           id: string
           image_path: string | null
+          miniature_id: string | null
           nom: string
           site_id: string | null
           specifications: Json
@@ -1765,6 +1766,7 @@ export type Database = {
           est_actif?: boolean
           id?: string
           image_path?: string | null
+          miniature_id?: string | null
           nom: string
           site_id?: string | null
           specifications?: Json
@@ -1779,6 +1781,7 @@ export type Database = {
           est_actif?: boolean
           id?: string
           image_path?: string | null
+          miniature_id?: string | null
           nom?: string
           site_id?: string | null
           specifications?: Json

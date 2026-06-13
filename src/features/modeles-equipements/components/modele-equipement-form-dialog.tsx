@@ -13,6 +13,7 @@ import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { TextareaField } from '@/components/common/textarea-field'
 import { SelectField } from '@/components/common/select-field'
+import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 
 interface CategorieOption {
   id: string
@@ -70,6 +71,7 @@ function initialValues(
     categorie_id: modele.categorie_id,
     portee: modele.site_id === null ? 'entreprise' : 'site',
     etat: modele.est_actif ? 'actif' : 'inactif',
+    miniature_id: modele.miniature_id,
     specifications: parseChamps(modele.specifications),
   }
 }
@@ -101,6 +103,11 @@ export function ModeleEquipementFormDialog({
   // Mode minimal : juste Nom + Description (création ET édition). Les paramètres
   // détaillés (État, caractéristiques) se gèrent sur la PAGE de détail du modèle.
   const compact = minimal === true
+  // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
+  // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
+  // pour tout éditeur (calque du formulaire de catégorie).
+  const miniatureSite = values.portee === 'entreprise' ? null : siteId
+  const canUploadMiniature = miniatureSite === null ? canEntreprise : true
 
   function set<K extends keyof ModeleEquipementFormValues>(
     key: K,
@@ -160,6 +167,12 @@ export function ModeleEquipementFormDialog({
         onChange={(v) => set('nom', v)}
         error={errors.nom}
         required
+      />
+      <MiniatureField
+        value={values.miniature_id}
+        onChange={(id) => set('miniature_id', id)}
+        targetSiteId={miniatureSite}
+        canUpload={canUploadMiniature}
       />
       {(!hideCategorie || !hidePortee) && (
         <div

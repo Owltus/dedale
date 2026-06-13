@@ -17,6 +17,8 @@ function modelePayload(v: ModeleEquipementFormValues, siteId: string | null) {
     categorie_id: v.categorie_id,
     est_actif: v.etat === 'actif',
     site_id: v.portee === 'entreprise' ? null : siteId,
+    // Vignette du pool (cohérence de site garantie par trigger côté base).
+    miniature_id: v.miniature_id,
   }
 }
 

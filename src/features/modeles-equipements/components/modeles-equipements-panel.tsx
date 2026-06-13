@@ -620,9 +620,10 @@ export function ModelesEquipementsPanel() {
                         key={modele.id}
                         media={
                           <MiniatureThumb
-                            url={null}
+                            url={urlOf(modele.miniature_id)}
                             fallback={<Package className="size-10" />}
                             alt=""
+                            onError={refreshMiniatures}
                             className="size-full rounded-none"
                           />
                         }
