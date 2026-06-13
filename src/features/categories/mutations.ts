@@ -70,11 +70,15 @@ export function useDeleteCategorie() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft-delete : corbeille 90j côté backend.
+      // Soft-delete : corbeille 90j côté backend. `.select().single()` force un
+      // PGRST116 (catché en UI) si la RLS filtre la ligne (0 ligne touchée),
+      // plutôt qu'un faux toast de succès.
       await supabase
         .from('categories')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () =>
