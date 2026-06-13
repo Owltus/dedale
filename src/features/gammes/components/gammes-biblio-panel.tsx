@@ -37,7 +37,8 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
-import { sousCategoriesNiveau2 } from '@/lib/scope'
+import { SCOPE_COMMUN, sousCategoriesNiveau2 } from '@/lib/scope'
+import { ScopeSelect } from '@/components/common/scope-select'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction, useTabTitle } from '@/components/common/tab-actions'
@@ -549,8 +550,24 @@ export function GammesBiblioPanel() {
     openExportOpenGamme,
   ])
 
+  // Périmètre VERROUILLÉ « Commun » : le Plan de maintenance est commun-only, mais
+  // on affiche quand même l'indicateur (non ouvrable) pour une interface homogène
+  // avec les autres onglets de la Bibliothèque.
+  const scopeDisplay = useMemo(
+    () => <ScopeSelect value={SCOPE_COMMUN} disabled />,
+    [],
+  )
+  const tabExtra = useMemo(
+    () => (
+      <div className="flex flex-wrap items-center gap-2">
+        {scopeDisplay}
+        {tabAddConfig.extra}
+      </div>
+    ),
+    [scopeDisplay, tabAddConfig.extra],
+  )
   useTabAddAction(tabAddConfig.action, tabAddConfig.label, {
-    extra: tabAddConfig.extra,
+    extra: tabExtra,
   })
 
   // FIL D'ARIANE = TITRE de la barre d'onglet, uniquement quand on a DESCENDU
