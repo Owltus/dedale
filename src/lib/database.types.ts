@@ -1161,6 +1161,13 @@ export type Database = {
             referencedRelation: "v_locaux_chemin"
             referencedColumns: ["local_id"]
           },
+          {
+            foreignKeyName: "equipements_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "miniatures"
+            referencedColumns: ["id"]
+          },
         ]
       }
       gamme_modeles: {
@@ -1803,6 +1810,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "modeles_equipements_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "miniatures"
             referencedColumns: ["id"]
           },
           {
@@ -2992,6 +3006,7 @@ export type Database = {
           categorie_scope: Database["public"]["Enums"]["categorie_scope"] | null
           code_inventaire: string | null
           commentaires: string | null
+          copie_depuis_modele_id: string | null
           created_at: string | null
           date_fin_garantie: string | null
           date_mise_en_service: string | null
@@ -3020,6 +3035,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "equipements_copie_depuis_modele_id_fkey"
+            columns: ["copie_depuis_modele_id"]
+            isOneToOne: false
+            referencedRelation: "modeles_equipements"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "equipements_local_id_fkey"
             columns: ["local_id"]
             isOneToOne: false
@@ -3032,6 +3054,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_locaux_chemin"
             referencedColumns: ["local_id"]
+          },
+          {
+            foreignKeyName: "equipements_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "miniatures"
+            referencedColumns: ["id"]
           },
         ]
       }
