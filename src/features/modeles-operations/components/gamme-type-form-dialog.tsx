@@ -12,6 +12,7 @@ import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { TextareaField } from '@/components/common/textarea-field'
 import { SelectField } from '@/components/common/select-field'
+import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 
 interface CategorieOption {
   id: string
@@ -62,6 +63,7 @@ function initialValues(
     nom: modele.nom,
     description: modele.description ?? '',
     categorie_id: modele.categorie_id,
+    miniature_id: modele.miniature_id,
     portee: modele.site_id === null ? 'entreprise' : 'site',
   }
 }
@@ -86,6 +88,11 @@ export function GammeTypeFormDialog({
   const pending = create.isPending || update.isPending
   // Création dans une catégorie imposée → le sélecteur de catégorie est masqué.
   const hideCategorie = !isEdit && lockedCategorieId != null
+  // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
+  // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
+  // pour tout éditeur (calque du formulaire de modèle d'équipement).
+  const miniatureSite = values.portee === 'entreprise' ? null : siteId
+  const canUploadMiniature = miniatureSite === null ? canEntreprise : true
 
   function set<K extends keyof ModeleOperationFormValues>(
     key: K,
@@ -137,6 +144,12 @@ export function GammeTypeFormDialog({
         onChange={(v) => set('nom', v)}
         error={errors.nom}
         required
+      />
+      <MiniatureField
+        value={values.miniature_id}
+        onChange={(id) => set('miniature_id', id)}
+        targetSiteId={miniatureSite}
+        canUpload={canUploadMiniature}
       />
       {!hideCategorie && (
         <SelectField

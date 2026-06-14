@@ -635,9 +635,13 @@ export function GammesTypesPanel() {
                       <ListRow
                         key={modele.id}
                         media={
-                          <span className="bg-muted text-muted-foreground flex size-full items-center justify-center">
-                            <ListChecks className="size-8" />
-                          </span>
+                          <MiniatureThumb
+                            url={urlOf(modele.miniature_id)}
+                            fallback={<ListChecks className="size-10" />}
+                            alt=""
+                            onError={refreshMiniatures}
+                            className="size-full rounded-none"
+                          />
                         }
                         title={modele.nom}
                         subtitle={

@@ -5,6 +5,8 @@ export const modeleOperationSchema = z.object({
   description: z.string().trim().max(2000),
   /** Catégorie de rattachement, OBLIGATOIRE : tout modèle est rangé sous une catégorie. */
   categorie_id: z.string().min(1, 'La catégorie est obligatoire'),
+  /** Vignette du pool (`miniature_id`) ou `null`. */
+  miniature_id: z.string().nullable(),
   /** entreprise = catalogue global (site_id NULL) ; site = catalogue du site actif. */
   portee: z.enum(['entreprise', 'site']),
 })
@@ -15,6 +17,7 @@ export const emptyModeleOperation: ModeleOperationFormValues = {
   nom: '',
   description: '',
   categorie_id: '',
+  miniature_id: null,
   portee: 'entreprise',
 }
 

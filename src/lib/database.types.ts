@@ -1856,6 +1856,7 @@ export type Database = {
           description: string | null
           id: string
           image_path: string | null
+          miniature_id: string | null
           nom: string
           site_id: string | null
           updated_at: string
@@ -1866,6 +1867,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_path?: string | null
+          miniature_id?: string | null
           nom: string
           site_id?: string | null
           updated_at?: string
@@ -1876,6 +1878,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_path?: string | null
+          miniature_id?: string | null
           nom?: string
           site_id?: string | null
           updated_at?: string
@@ -1886,6 +1889,13 @@ export type Database = {
             columns: ["categorie_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "modeles_operations_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "miniatures"
             referencedColumns: ["id"]
           },
           {

@@ -14,6 +14,7 @@ function modelePayload(v: ModeleOperationFormValues, siteId: string | null) {
     nom: v.nom.trim(),
     description: v.description.trim() || null,
     categorie_id: v.categorie_id,
+    miniature_id: v.miniature_id,
     site_id: v.portee === 'entreprise' ? null : siteId,
   }
 }
