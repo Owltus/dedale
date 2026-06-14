@@ -162,7 +162,7 @@ export function MiniaturePicker({
       )
     } else {
       grille = (
-        <div className="grid max-h-72 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
+        <div className="grid max-h-72 grid-cols-5 gap-2 overflow-y-auto pr-1 sm:grid-cols-6">
           {shown.map((m) => (
             <button
               key={m.id}
