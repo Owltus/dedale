@@ -1,5 +1,4 @@
-import { Search } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/common/search-input'
 
 interface MiniatureFiltersProps {
   recherche: string
@@ -8,22 +7,19 @@ interface MiniatureFiltersProps {
 
 /**
  * Barre de recherche des vignettes (par nom des entités liées), partagée par le
- * modal « Choisir une image » et l'onglet Vignettes. Source unique de cette UX.
+ * modal « Choisir une image » et l'onglet Vignettes. Délègue à `SearchInput`
+ * (gabarit commun) ; ne porte que le libellé métier propre aux vignettes.
  */
 export function MiniatureFilters({
   recherche,
   onRechercheChange,
 }: MiniatureFiltersProps) {
   return (
-    <div className="relative">
-      <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-      <Input
-        value={recherche}
-        onChange={(e) => onRechercheChange(e.target.value)}
-        placeholder="Rechercher par nom de l’élément lié…"
-        className="pl-8"
-        aria-label="Rechercher une vignette par nom de l’élément lié"
-      />
-    </div>
+    <SearchInput
+      value={recherche}
+      onChange={onRechercheChange}
+      placeholder="Rechercher par nom de l’élément lié…"
+      ariaLabel="Rechercher une vignette par nom de l’élément lié"
+    />
   )
 }

@@ -24,6 +24,7 @@ import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
 import { ScopeSelect } from '@/components/common/scope-select'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSearchResults } from '@/components/common/no-search-results'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -238,60 +239,57 @@ export function MiniaturesPanel() {
           setScope(s)
           setSelected(new Set())
         }}
+        fluid
       />
     ),
     [scope, setScope],
   )
 
-  // En-tête : actions de masse (à gauche, séparateur) puis le sélecteur. Le
-  // bouton + est ajouté à droite par <Tabs>.
-  const headerExtra = useMemo(
-    () => (
-      <div className="flex items-center gap-1">
-        {selectedCount > 0 && (
-          <>
-            <span className="text-muted-foreground px-1 text-xs tabular-nums">
-              {selectedCount}
-            </span>
+  // Actions de masse (sélection) : boutons COMPACTS → `actions` de la barre (restent
+  // en haut à droite avec le +). Le filtre de périmètre, lui, est passé en `extra`
+  // (sa propre ligne pleine largeur sur mobile). `null` quand rien n'est sélectionné.
+  const massActions = useMemo(
+    () =>
+      selectedCount > 0 ? (
+        <>
+          <span className="text-muted-foreground px-1 text-xs tabular-nums">
+            {selectedCount}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => void downloadSelection()}
+            disabled={zipping}
+            aria-label="Télécharger la sélection"
+            title="Télécharger"
+          >
+            <Download className="text-info" />
+          </Button>
+          {canDeleteAny && (
             <Button
               variant="ghost"
               size="icon"
               className="size-8"
-              onClick={() => void downloadSelection()}
-              disabled={zipping}
-              aria-label="Télécharger la sélection"
-              title="Télécharger"
+              onClick={openMassDelete}
+              aria-label="Supprimer la sélection"
+              title="Supprimer"
             >
-              <Download className="text-info" />
+              <Trash2 className="text-destructive" />
             </Button>
-            {canDeleteAny && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                onClick={openMassDelete}
-                aria-label="Supprimer la sélection"
-                title="Supprimer"
-              >
-                <Trash2 className="text-destructive" />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={clearSelection}
-              aria-label="Tout désélectionner"
-              title="Désélectionner"
-            >
-              <X className="text-muted-foreground" />
-            </Button>
-            <div className="bg-border mx-1 h-6 w-px" aria-hidden />
-          </>
-        )}
-        {scopeControl}
-      </div>
-    ),
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={clearSelection}
+            aria-label="Tout désélectionner"
+            title="Désélectionner"
+          >
+            <X className="text-muted-foreground" />
+          </Button>
+        </>
+      ) : null,
     [
       selectedCount,
       zipping,
@@ -299,7 +297,6 @@ export function MiniaturesPanel() {
       downloadSelection,
       openMassDelete,
       clearSelection,
-      scopeControl,
     ],
   )
 
@@ -316,7 +313,8 @@ export function MiniaturesPanel() {
   // Le + reste visible mais désactivé hors périmètre ajoutable.
   useTabAddAction(handleAddImage, addLabel, {
     disabled: !canAdd,
-    extra: headerExtra,
+    extra: scopeControl,
+    actions: massActions,
   })
 
   // Ouvre le recadreur après validation basique du fichier choisi.
@@ -385,7 +383,10 @@ export function MiniaturesPanel() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="-mt-4 flex h-full flex-col gap-4 sm:mt-0">
+      {/* Sous `sm`, on annule le `pt-4` du panneau défilant de <Tabs> pour que la
+          barre de recherche soit à la MÊME distance des dropdowns (périmètre /
+          section) qu'ils le sont entre eux (~12px). Inchangé en bureau. */}
       <input
         ref={fileInput}
         type="file"
@@ -410,7 +411,7 @@ export function MiniaturesPanel() {
             <CardSkeletons
               count={18}
               height="aspect-square"
-              container="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-9"
+              container="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9"
             />
           }
           empty={
@@ -439,15 +440,11 @@ export function MiniaturesPanel() {
             const shown = filterMiniatures(visible, recherche)
             if (shown.length === 0) {
               return (
-                <EmptyState
-                  icon={ImageOff}
-                  title="Aucune vignette ne correspond"
-                  description="Aucune vignette pour ce filtre d’origine ou cette recherche."
-                />
+                <NoSearchResults description="Aucune vignette ne correspond à ce filtre d’origine ou cette recherche." />
               )
             }
             return (
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-9">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9">
                 {shown.map((miniature) => {
                   const isSelected = selected.has(miniature.id)
                   const canManageThis =
@@ -480,7 +477,7 @@ export function MiniaturesPanel() {
                         }
                       }}
                       className={cn(
-                        'group focus-visible:ring-ring relative cursor-pointer overflow-hidden rounded-lg border transition focus-visible:ring-2 focus-visible:outline-none',
+                        'group focus-visible:ring-ring relative min-w-0 cursor-pointer overflow-hidden rounded-lg border transition focus-visible:ring-2 focus-visible:outline-none',
                         isSelected
                           ? 'ring-primary ring-2'
                           : 'hover:ring-ring/40 hover:ring-2',
@@ -508,11 +505,16 @@ export function MiniaturesPanel() {
 
                       {/* Badge de périmètre : utile seulement en vue « Tout ». */}
                       {scope === SCOPE_ALL && (
-                        <div className="absolute right-1 bottom-1">
+                        <div className="absolute right-1 bottom-1 left-1 flex justify-end">
                           {miniature.site_id === null ? (
                             <Badge variant="secondary">Commun</Badge>
                           ) : siteName !== null ? (
-                            <Badge variant="outline">{siteName}</Badge>
+                            <Badge
+                              variant="outline"
+                              className="max-w-full truncate"
+                            >
+                              {siteName}
+                            </Badge>
                           ) : null}
                         </div>
                       )}
@@ -525,7 +527,7 @@ export function MiniaturesPanel() {
                         <Button
                           variant="secondary"
                           size="icon"
-                          className="size-7"
+                          className="size-7 pointer-coarse:size-9"
                           onClick={(e) => {
                             e.stopPropagation()
                             void downloadOne(miniature)
@@ -540,7 +542,7 @@ export function MiniaturesPanel() {
                             <Button
                               variant="secondary"
                               size="icon"
-                              className="size-7"
+                              className="size-7 pointer-coarse:size-9"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 startReplace(miniature)
@@ -553,7 +555,7 @@ export function MiniaturesPanel() {
                             <Button
                               variant="destructive"
                               size="icon"
-                              className="size-7"
+                              className="size-7 pointer-coarse:size-9"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setToDelete(miniature)

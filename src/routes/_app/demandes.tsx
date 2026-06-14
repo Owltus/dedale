@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ClipboardList, Plus, Search } from 'lucide-react'
+import { ClipboardList, Plus } from 'lucide-react'
 import { demandesQueries } from '@/features/demandes/queries'
 import { DiFormDialog } from '@/features/demandes/components/di-form-dialog'
 import { DiDetail } from '@/features/demandes/components/di-detail'
@@ -14,13 +14,14 @@ import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { SearchInput } from '@/components/common/search-input'
+import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 
 export const Route = createFileRoute('/_app/demandes')({
   // Pas de requireNav : les demandes sont visibles par tous les rôles (landing
@@ -102,15 +103,12 @@ function DemandesContent({
       />
 
       {!query.isPending && !query.isError && query.data.length > 0 && (
-        <div className="relative mb-4 max-w-sm">
-          <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par titre…"
-            className="pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Rechercher par titre…"
+          className="mb-4 max-w-sm"
+        />
       )}
 
       <QueryState
@@ -138,11 +136,7 @@ function DemandesContent({
             : demandes
           if (filtered.length === 0) {
             return (
-              <EmptyState
-                icon={Search}
-                title="Aucun résultat"
-                description="Aucune demande ne correspond à ta recherche."
-              />
+              <NoSearchResults description="Aucune demande ne correspond à ta recherche." />
             )
           }
           return (

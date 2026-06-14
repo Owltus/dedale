@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
@@ -35,6 +34,7 @@ import { cardGrid } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
+import { SubTabs } from '@/components/common/sub-tabs'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
@@ -389,26 +389,28 @@ function GammeDetail({
         )}
       </div>
 
-      <div className="mb-4 flex gap-1 border-b">
-        <TabButton
-          active={tab === 'operations'}
-          onClick={() => setTab('operations')}
-        >
-          <ListChecks className="size-4" /> Opérations
-        </TabButton>
-        <TabButton
-          active={tab === 'equipements'}
-          onClick={() => setTab('equipements')}
-        >
-          <Wrench className="size-4" /> Équipements
-        </TabButton>
-        <TabButton
-          active={tab === 'documents'}
-          onClick={() => setTab('documents')}
-        >
-          <FileText className="size-4" /> Documents
-        </TabButton>
-      </div>
+      <SubTabs
+        ariaLabel="Sections de la gamme"
+        value={tab}
+        onValueChange={setTab}
+        items={[
+          {
+            id: 'operations',
+            label: 'Opérations',
+            icon: <ListChecks className="size-4" />,
+          },
+          {
+            id: 'equipements',
+            label: 'Équipements',
+            icon: <Wrench className="size-4" />,
+          },
+          {
+            id: 'documents',
+            label: 'Documents',
+            icon: <FileText className="size-4" />,
+          },
+        ]}
+      />
 
       {tab === 'operations' && (
         <OperationsTab
@@ -447,31 +449,6 @@ function GammeDetail({
 }
 
 const CREATE_OT_HINT = 'Disponible avec le module Ordres de travail.'
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        'flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ' +
-        (active
-          ? 'border-primary text-foreground'
-          : 'text-muted-foreground hover:text-foreground border-transparent')
-      }
-    >
-      {children}
-    </button>
-  )
-}
 
 // --- Onglet Opérations ---
 

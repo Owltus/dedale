@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
@@ -33,6 +32,7 @@ import { cardGrid } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
+import { SubTabs } from '@/components/common/sub-tabs'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
@@ -74,20 +74,23 @@ function RegistrePage() {
         description="Observations de conformité (contrôles, commission, inspections) et registre du site."
       />
 
-      <div className="mb-4 flex gap-1 border-b">
-        <TabButton
-          active={tab === 'observations'}
-          onClick={() => setTab('observations')}
-        >
-          <ListChecks className="size-4" /> Observations
-        </TabButton>
-        <TabButton
-          active={tab === 'registre'}
-          onClick={() => setTab('registre')}
-        >
-          <BookOpenCheck className="size-4" /> Registre de sécurité
-        </TabButton>
-      </div>
+      <SubTabs
+        ariaLabel="Sections du registre"
+        value={tab}
+        onValueChange={setTab}
+        items={[
+          {
+            id: 'observations',
+            label: 'Observations',
+            icon: <ListChecks className="size-4" />,
+          },
+          {
+            id: 'registre',
+            label: 'Registre de sécurité',
+            icon: <BookOpenCheck className="size-4" />,
+          },
+        ]}
+      />
 
       {tab === 'observations' ? (
         <ObservationsTab siteId={activeSiteId} canManage={canManage} />
@@ -95,31 +98,6 @@ function RegistrePage() {
         <RegistreTab siteId={activeSiteId} />
       )}
     </PageContainer>
-  )
-}
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        'flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ' +
-        (active
-          ? 'border-primary text-foreground'
-          : 'text-muted-foreground hover:text-foreground border-transparent')
-      }
-    >
-      {children}
-    </button>
   )
 }
 

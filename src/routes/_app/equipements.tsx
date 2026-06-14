@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
@@ -12,7 +11,6 @@ import {
   Package,
   Pencil,
   Plus,
-  Search,
   Tag,
   Trash2,
 } from 'lucide-react'
@@ -35,14 +33,16 @@ import * as perm from '@/lib/permissions'
 import { formatDate } from '@/lib/date'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
+import { SubTabs } from '@/components/common/sub-tabs'
 import { EmptyState } from '@/components/common/empty-state'
+import { SearchInput } from '@/components/common/search-input'
+import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
@@ -95,17 +95,23 @@ function EquipementsPage() {
         description="Parc matériel et modèles d’équipement du site."
       />
 
-      <div className="mb-4 flex gap-1 border-b">
-        <TabButton
-          active={tab === 'equipements'}
-          onClick={() => setTab('equipements')}
-        >
-          <Package className="size-4" /> Équipements
-        </TabButton>
-        <TabButton active={tab === 'modeles'} onClick={() => setTab('modeles')}>
-          <Boxes className="size-4" /> Modèles
-        </TabButton>
-      </div>
+      <SubTabs
+        ariaLabel="Sections des équipements"
+        value={tab}
+        onValueChange={setTab}
+        items={[
+          {
+            id: 'equipements',
+            label: 'Équipements',
+            icon: <Package className="size-4" />,
+          },
+          {
+            id: 'modeles',
+            label: 'Modèles',
+            icon: <Boxes className="size-4" />,
+          },
+        ]}
+      />
 
       {tab === 'equipements' ? (
         <EquipementsList
@@ -117,31 +123,6 @@ function EquipementsPage() {
         <ModelesList siteId={activeSiteId} canEdit={canEdit} />
       )}
     </PageContainer>
-  )
-}
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        'flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ' +
-        (active
-          ? 'border-primary text-foreground'
-          : 'text-muted-foreground hover:text-foreground border-transparent')
-      }
-    >
-      {children}
-    </button>
   )
 }
 
@@ -186,15 +167,12 @@ function EquipementsList({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="relative max-w-xs flex-1">
-          <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par nom ou code…"
-            className="pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Rechercher par nom ou code…"
+          className="max-w-xs flex-1"
+        />
         {newButton}
       </div>
 
@@ -225,11 +203,7 @@ function EquipementsList({
             : equipements
           if (filtered.length === 0) {
             return (
-              <EmptyState
-                icon={Search}
-                title="Aucun résultat"
-                description="Aucun équipement ne correspond à ta recherche."
-              />
+              <NoSearchResults description="Aucun équipement ne correspond à ta recherche." />
             )
           }
           return (
