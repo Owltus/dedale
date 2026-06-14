@@ -385,7 +385,7 @@ export function MiniaturesPanel() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full flex-col gap-4">
       <input
         ref={fileInput}
         type="file"
@@ -403,175 +403,177 @@ export function MiniaturesPanel() {
         onRechercheChange={setRecherche}
       />
 
-      <QueryState
-        query={query}
-        pending={
-          <CardSkeletons
-            count={12}
-            height="aspect-square"
-            container="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6"
-          />
-        }
-        empty={
-          <EmptyState
-            icon={ImageOff}
-            title="Aucune vignette"
-            description={
-              canManage
-                ? 'Ajoute une image via le bouton + en haut à droite.'
-                : 'Aucune vignette pour le moment.'
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <QueryState
+          query={query}
+          pending={
+            <CardSkeletons
+              count={18}
+              height="aspect-square"
+              container="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-9"
+            />
+          }
+          empty={
+            <EmptyState
+              icon={ImageOff}
+              title="Aucune vignette"
+              description={
+                canManage
+                  ? 'Ajoute une image via le bouton + en haut à droite.'
+                  : 'Aucune vignette pour le moment.'
+              }
+            />
+          }
+        >
+          {(all) => {
+            const visible = all.filter((m) => scopeMatches(scope, m.site_id))
+            if (visible.length === 0) {
+              return (
+                <EmptyState
+                  icon={ImageOff}
+                  title="Aucune vignette ici"
+                  description="Aucune vignette dans ce périmètre pour le moment."
+                />
+              )
             }
-          />
-        }
-      >
-        {(all) => {
-          const visible = all.filter((m) => scopeMatches(scope, m.site_id))
-          if (visible.length === 0) {
+            const shown = filterMiniatures(visible, recherche)
+            if (shown.length === 0) {
+              return (
+                <EmptyState
+                  icon={ImageOff}
+                  title="Aucune vignette ne correspond"
+                  description="Aucune vignette pour ce filtre d’origine ou cette recherche."
+                />
+              )
+            }
             return (
-              <EmptyState
-                icon={ImageOff}
-                title="Aucune vignette ici"
-                description="Aucune vignette dans ce périmètre pour le moment."
-              />
-            )
-          }
-          const shown = filterMiniatures(visible, recherche)
-          if (shown.length === 0) {
-            return (
-              <EmptyState
-                icon={ImageOff}
-                title="Aucune vignette ne correspond"
-                description="Aucune vignette pour ce filtre d’origine ou cette recherche."
-              />
-            )
-          }
-          return (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-              {shown.map((miniature) => {
-                const isSelected = selected.has(miniature.id)
-                const canManageThis =
-                  canManage && (canEntreprise || miniature.site_id !== null)
-                const siteName =
-                  miniature.site_id === null
-                    ? null
-                    : (sites.find((s) => s.id === miniature.site_id)?.nom ??
-                      null)
-                return (
-                  <div
-                    key={miniature.id}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={isSelected}
-                    aria-label={
-                      isSelected
-                        ? 'Désélectionner la vignette'
-                        : 'Sélectionner la vignette'
-                    }
-                    onClick={() => toggleSelect(miniature.id)}
-                    onKeyDown={(e) => {
-                      // N'agir que si la tuile est elle-même la cible : un
-                      // Entrée/Espace sur le bouton Supprimer interne ne doit pas
-                      // être détourné vers la (dé)sélection.
-                      if (e.target !== e.currentTarget) return
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        toggleSelect(miniature.id)
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-9">
+                {shown.map((miniature) => {
+                  const isSelected = selected.has(miniature.id)
+                  const canManageThis =
+                    canManage && (canEntreprise || miniature.site_id !== null)
+                  const siteName =
+                    miniature.site_id === null
+                      ? null
+                      : (sites.find((s) => s.id === miniature.site_id)?.nom ??
+                        null)
+                  return (
+                    <div
+                      key={miniature.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      aria-label={
+                        isSelected
+                          ? 'Désélectionner la vignette'
+                          : 'Sélectionner la vignette'
                       }
-                    }}
-                    className={cn(
-                      'group focus-visible:ring-ring relative cursor-pointer overflow-hidden rounded-lg border transition focus-visible:ring-2 focus-visible:outline-none',
-                      isSelected
-                        ? 'ring-primary ring-2'
-                        : 'hover:ring-ring/40 hover:ring-2',
-                    )}
-                  >
-                    {miniature.url !== null ? (
-                      <img
-                        src={miniature.url}
-                        alt="Vignette"
-                        className="bg-muted aspect-square w-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="bg-muted text-muted-foreground flex aspect-square w-full items-center justify-center">
-                        <ImageOff className="size-6" />
-                      </div>
-                    )}
+                      onClick={() => toggleSelect(miniature.id)}
+                      onKeyDown={(e) => {
+                        // N'agir que si la tuile est elle-même la cible : un
+                        // Entrée/Espace sur le bouton Supprimer interne ne doit pas
+                        // être détourné vers la (dé)sélection.
+                        if (e.target !== e.currentTarget) return
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          toggleSelect(miniature.id)
+                        }
+                      }}
+                      className={cn(
+                        'group focus-visible:ring-ring relative cursor-pointer overflow-hidden rounded-lg border transition focus-visible:ring-2 focus-visible:outline-none',
+                        isSelected
+                          ? 'ring-primary ring-2'
+                          : 'hover:ring-ring/40 hover:ring-2',
+                      )}
+                    >
+                      {miniature.url !== null ? (
+                        <img
+                          src={miniature.url}
+                          alt="Vignette"
+                          className="bg-muted aspect-square w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="bg-muted text-muted-foreground flex aspect-square w-full items-center justify-center">
+                          <ImageOff className="size-6" />
+                        </div>
+                      )}
 
-                    {/* Indicateur de sélection discret. */}
-                    {isSelected && (
-                      <div className="bg-primary text-primary-foreground absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full shadow">
-                        <Check className="size-3.5" />
-                      </div>
-                    )}
+                      {/* Indicateur de sélection discret. */}
+                      {isSelected && (
+                        <div className="bg-primary text-primary-foreground absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full shadow">
+                          <Check className="size-3.5" />
+                        </div>
+                      )}
 
-                    {/* Badge de périmètre : utile seulement en vue « Tout ». */}
-                    {scope === SCOPE_ALL && (
-                      <div className="absolute right-1 bottom-1">
-                        {miniature.site_id === null ? (
-                          <Badge variant="secondary">Commun</Badge>
-                        ) : siteName !== null ? (
-                          <Badge variant="outline">{siteName}</Badge>
-                        ) : null}
-                      </div>
-                    )}
+                      {/* Badge de périmètre : utile seulement en vue « Tout ». */}
+                      {scope === SCOPE_ALL && (
+                        <div className="absolute right-1 bottom-1">
+                          {miniature.site_id === null ? (
+                            <Badge variant="secondary">Commun</Badge>
+                          ) : siteName !== null ? (
+                            <Badge variant="outline">{siteName}</Badge>
+                          ) : null}
+                        </div>
+                      )}
 
-                    {/* Actions au survol (n'altèrent pas la sélection) :
+                      {/* Actions au survol (n'altèrent pas la sélection) :
                         télécharger l'image (tous les rôles métier), puis — pour
                         les gestionnaires — remplacer l'image (répercuté sur
                         toutes les entités liées) et supprimer. */}
-                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="size-7"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void downloadOne(miniature)
-                        }}
-                        aria-label="Télécharger l’image"
-                        title="Télécharger"
-                      >
-                        <Download className="size-4" />
-                      </Button>
-                      {canManageThis && (
-                        <>
-                          <Button
-                            variant="secondary"
-                            size="icon"
-                            className="size-7"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              startReplace(miniature)
-                            }}
-                            aria-label="Remplacer l’image"
-                            title="Remplacer l’image"
-                          >
-                            <ImageUp className="size-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="size-7"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setToDelete(miniature)
-                            }}
-                            aria-label="Supprimer la vignette"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </>
-                      )}
+                      <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="size-7"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void downloadOne(miniature)
+                          }}
+                          aria-label="Télécharger l’image"
+                          title="Télécharger"
+                        >
+                          <Download className="size-4" />
+                        </Button>
+                        {canManageThis && (
+                          <>
+                            <Button
+                              variant="secondary"
+                              size="icon"
+                              className="size-7"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                startReplace(miniature)
+                              }}
+                              aria-label="Remplacer l’image"
+                              title="Remplacer l’image"
+                            >
+                              <ImageUp className="size-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="size-7"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setToDelete(miniature)
+                              }}
+                              aria-label="Supprimer la vignette"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        }}
-      </QueryState>
+                  )
+                })}
+              </div>
+            )
+          }}
+        </QueryState>
+      </div>
 
       {cropFile !== null && (
         <MiniatureCropDialog
