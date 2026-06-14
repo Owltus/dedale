@@ -26,10 +26,10 @@ interface GammeTypeFormDialogProps {
   /** Droit de créer/éditer sur le scope entreprise (admin/manager). */
   canEntreprise: boolean
   siteId: string | null
-  siteName: string | null
   /**
-   * Création depuis le + de la page : portée VERROUILLÉE sur le périmètre choisi
-   * (le sélecteur de portée est alors masqué). Ignoré en édition.
+   * Périmètre (Commun/site) imposé par le contexte. La portée n'est JAMAIS un
+   * champ du formulaire : à la création elle vient du sélecteur de la top bar
+   * (via `lockedScope`), à l'édition elle reste celle du modèle (inchangée).
    */
   lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
   /**
@@ -73,7 +73,6 @@ export function GammeTypeFormDialog({
   categories,
   canEntreprise,
   siteId,
-  siteName,
   lockedScope,
   lockedCategorieId,
 }: GammeTypeFormDialogProps) {
@@ -85,9 +84,7 @@ export function GammeTypeFormDialog({
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
-  const showEntreprise = canEntreprise || values.portee === 'entreprise'
-  // Création depuis le + : portée et/ou catégorie viennent du contexte → masquées.
-  const hidePortee = !isEdit && lockedScope != null
+  // Création dans une catégorie imposée → le sélecteur de catégorie est masqué.
   const hideCategorie = !isEdit && lockedCategorieId != null
 
   function set<K extends keyof ModeleOperationFormValues>(
@@ -141,45 +138,23 @@ export function GammeTypeFormDialog({
         error={errors.nom}
         required
       />
-      {(!hideCategorie || !hidePortee) && (
-        <div
-          className={
-            !hideCategorie && !hidePortee ? 'grid grid-cols-2 gap-4' : undefined
-          }
+      {!hideCategorie && (
+        <SelectField
+          label="Catégorie"
+          value={values.categorie_id}
+          onChange={(v) => set('categorie_id', v)}
+          error={errors.categorie_id}
+          required
         >
-          {!hideCategorie && (
-            <SelectField
-              label="Catégorie"
-              value={values.categorie_id}
-              onChange={(v) => set('categorie_id', v)}
-              error={errors.categorie_id}
-              required
-            >
-              <option value="" disabled>
-                — Choisir une catégorie —
-              </option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nom}
-                </option>
-              ))}
-            </SelectField>
-          )}
-          {!hidePortee && (
-            <SelectField
-              label="Portée"
-              value={values.portee}
-              onChange={(v) =>
-                set('portee', v as ModeleOperationFormValues['portee'])
-              }
-              error={errors.portee}
-              required
-            >
-              {showEntreprise && <option value="entreprise">Commun</option>}
-              {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
-            </SelectField>
-          )}
-        </div>
+          <option value="" disabled>
+            — Choisir une catégorie —
+          </option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nom}
+            </option>
+          ))}
+        </SelectField>
       )}
       <TextareaField
         label="Description"

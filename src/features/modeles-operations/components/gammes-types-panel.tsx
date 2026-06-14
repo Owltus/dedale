@@ -481,14 +481,6 @@ export function GammesTypesPanel() {
         canEntreprise={canEntreprise}
         // Édition : ancrer la portée sur le site PROPRE du modèle ; création : la catégorie.
         siteId={modeleForm.modele ? modeleForm.modele.site_id : current.site_id}
-        siteName={
-          modeleForm.modele?.site_id
-            ? (sites.find((s) => s.id === modeleForm.modele?.site_id)?.nom ??
-              null)
-            : current.site_id
-              ? (sites.find((s) => s.id === current.site_id)?.nom ?? null)
-              : null
-        }
         lockedScope={modeleForm.modele ? undefined : currentLockedScope}
         lockedCategorieId={modeleForm.modele ? undefined : current.id}
       />
