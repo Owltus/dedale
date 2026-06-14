@@ -30,7 +30,7 @@ import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
 import { useBiblioTreeDrill } from '@/hooks/use-biblio-tree-drill'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage, pgCode } from '@/lib/form'
+import { deleteErrorMessage, errorMessage, pgCode } from '@/lib/form'
 import { segOfUnique } from '@/lib/slug'
 import { SCOPE_COMMUN, scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
@@ -430,7 +430,7 @@ export function GammesTypesPanel() {
         toast.success('Catégorie supprimée')
         setToDeleteCategorie(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -766,7 +766,7 @@ export function GammesTypesPanel() {
           toDeleteCategorie
             ? toDeleteCategorieNonVide
               ? 'Cette catégorie contient des modèles : videz-la d’abord.'
-              : `« ${toDeleteCategorie.nom} » sera placée dans la corbeille (récupérable 90 jours).`
+              : `« ${toDeleteCategorie.nom} » sera placée dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"

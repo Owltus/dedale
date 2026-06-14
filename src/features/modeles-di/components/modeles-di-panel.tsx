@@ -9,7 +9,7 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/form'
 import { scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
@@ -99,7 +99,7 @@ export function ModelesDiPanel() {
         toast.success('Modèle supprimé')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 

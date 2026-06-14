@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { relationVivante } from '@/lib/corbeille'
 
 export const chantiersQueries = {
   all: () => ['chantiers'] as const,
@@ -11,13 +12,17 @@ export const chantiersQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('interventions_chantier')
-          .select('*, prestataires(id, libelle)')
+          .select('*, prestataires(id, libelle, deleted_at)')
           .eq('site_id', siteId)
           .is('deleted_at', null)
           .order('date_demande', { ascending: false })
           .abortSignal(signal)
           .throwOnError()
-        return data
+        // Masque un prestataire EN CORBEILLE (jointure non filtrée par deleted_at).
+        return data.map((c) => ({
+          ...c,
+          prestataires: relationVivante(c.prestataires),
+        }))
       },
       staleTime: 60_000,
     }),
@@ -29,13 +34,16 @@ export const chantiersQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('interventions_chantier')
-          .select('*, prestataires(id, libelle)')
+          .select('*, prestataires(id, libelle, deleted_at)')
           .eq('id', id)
           .is('deleted_at', null)
           .abortSignal(signal)
           .maybeSingle()
           .throwOnError()
-        return data
+        // Masque un prestataire EN CORBEILLE (jointure non filtrée par deleted_at).
+        return data == null
+          ? null
+          : { ...data, prestataires: relationVivante(data.prestataires) }
       },
       staleTime: 60_000,
     }),
@@ -47,11 +55,12 @@ export const chantiersQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('chantier_localisations')
-          .select('local_id, locaux(id, nom)')
+          .select('local_id, locaux(id, nom, deleted_at)')
           .eq('chantier_id', chantierId)
           .abortSignal(signal)
           .throwOnError()
-        return data
+        // Ignore les liens vers un local EN CORBEILLE (jointure non filtrée).
+        return data.filter((r) => r.locaux.deleted_at == null)
       },
       staleTime: 60_000,
     }),
@@ -63,11 +72,12 @@ export const chantiersQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('chantier_equipements')
-          .select('equipement_id, equipements(id, nom)')
+          .select('equipement_id, equipements(id, nom, deleted_at)')
           .eq('chantier_id', chantierId)
           .abortSignal(signal)
           .throwOnError()
-        return data
+        // Ignore les liens vers un équipement EN CORBEILLE (jointure non filtrée).
+        return data.filter((r) => r.equipements.deleted_at == null)
       },
       staleTime: 60_000,
     }),

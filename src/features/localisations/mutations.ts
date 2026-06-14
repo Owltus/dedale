@@ -86,6 +86,8 @@ export function useDeleteBatiment() {
         .from('batiments')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () =>
@@ -169,6 +171,8 @@ export function useDeleteNiveau() {
         .from('niveaux')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () =>
@@ -244,6 +248,8 @@ export function useDeleteLocal() {
         .from('locaux')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () =>

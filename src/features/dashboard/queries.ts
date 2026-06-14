@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { relationVivante } from '@/lib/corbeille'
 
 /**
  * Requêtes propres au tableau de bord (agrégats du site actif).
@@ -29,7 +30,7 @@ export const dashboardQueries = {
         const { data } = await supabase
           .from('contrats')
           .select(
-            'id, reference, date_fin, prestataire_id, est_archive, types_contrats(id, libelle), prestataires(id, libelle)',
+            'id, reference, date_fin, prestataire_id, est_archive, types_contrats(id, libelle), prestataires(id, libelle, deleted_at)',
           )
           .eq('site_id', siteId!)
           .eq('est_archive', false)
@@ -37,7 +38,11 @@ export const dashboardQueries = {
           .order('date_fin', { ascending: true })
           .abortSignal(signal)
           .throwOnError()
-        return data
+        // Masque un prestataire EN CORBEILLE (jointure non filtrée par deleted_at).
+        return data.map((c) => ({
+          ...c,
+          prestataires: relationVivante(c.prestataires),
+        }))
       },
       staleTime: 60_000,
     }),

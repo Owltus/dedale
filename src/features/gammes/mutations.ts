@@ -104,6 +104,8 @@ export function useDeleteGamme() {
         .from('gammes')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),

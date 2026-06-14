@@ -19,7 +19,7 @@ import { ContratFormDialog } from '@/features/prestataires/components/contrat-fo
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
-import { errorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
@@ -173,7 +173,7 @@ function PrestatairesList({
         toast.success('Prestataire supprimé')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -292,7 +292,7 @@ function PrestatairesList({
         title="Supprimer le prestataire ?"
         description={
           toDelete
-            ? `« ${toDelete.libelle} » sera placé dans la corbeille (récupérable 90 jours).`
+            ? `« ${toDelete.libelle} » sera placé dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"
@@ -418,7 +418,7 @@ function ContratsSection({
         toast.success('Contrat supprimé')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 

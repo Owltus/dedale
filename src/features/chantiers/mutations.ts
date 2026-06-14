@@ -115,6 +115,8 @@ export function useDeleteChantier() {
         .from('interventions_chantier')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: chantiersQueries.all() }),

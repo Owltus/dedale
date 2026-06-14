@@ -29,7 +29,7 @@ import { GammeModelesSection } from '@/features/gammes/components/gamme-modeles-
 import { equipementsQueries } from '@/features/equipements/queries'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage } from '@/lib/form'
+import { deleteErrorMessage, errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
@@ -140,7 +140,7 @@ function GammesList({
         toast.success('Gamme supprimée')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -300,7 +300,7 @@ function GammesList({
         title="Supprimer la gamme ?"
         description={
           toDelete
-            ? `« ${toDelete.nom} » sera placée dans la corbeille (récupérable 90 jours).`
+            ? `« ${toDelete.nom} » sera placée dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"
@@ -476,7 +476,7 @@ function OperationsTab({
         toast.success('Opération supprimée')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 

@@ -6,7 +6,7 @@ import { modelesOperationsQueries } from '../queries'
 import type { ModeleOperation } from '../queries'
 import { useDeleteOperationItem } from '../mutations'
 import { OperationItemFormDialog } from './operation-item-form-dialog'
-import { errorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/form'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { EmptyState } from '@/components/common/empty-state'
@@ -54,7 +54,7 @@ export function OperationItemsEditor({
         toast.success('Opération supprimée')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 

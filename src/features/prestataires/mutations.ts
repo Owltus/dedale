@@ -70,6 +70,8 @@ export function useDeletePrestataire() {
         .from('prestataires')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () =>

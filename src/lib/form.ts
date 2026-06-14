@@ -52,3 +52,35 @@ export function exportErrorMessage(e: unknown): string {
   }
   return errorMessage(e)
 }
+
+/**
+ * Message clair pour une SUPPRESSION refusée : traduit les codes Postgres/PostgREST
+ * au lieu du message technique brut. À utiliser dans les `onError` des suppressions.
+ * - `42501` (RLS) / `PGRST116` (0 ligne touchée) : hors périmètre, ou déjà supprimé.
+ * - `23503` : encore référencé par une FK RESTRICT → dissocier d’abord.
+ * - `restrict_violation` (23001) : le message FR de la base est déjà explicite → tel quel.
+ */
+export function deleteErrorMessage(e: unknown): string {
+  const code = pgCode(e)
+  if (code === '42501' || code === 'PGRST116') {
+    return 'Action impossible : élément hors de votre périmètre, ou déjà supprimé.'
+  }
+  if (code === '23503') {
+    return 'Cet élément est encore lié à d’autres données : dissociez-les d’abord.'
+  }
+  return errorMessage(e)
+}
+
+/**
+ * Message clair pour une RESTAURATION refusée. En plus des cas de suppression :
+ * - `23505` : un élément ACTIF a repris le nom/code libéré pendant la corbeille
+ *   (collision d’unicité). NB : à terme, rendre ce message ENTITÉ-CONSCIENT (un
+ *   document ré-importé ou un OT au même créneau ne sont pas renommables) — cf.
+ *   `plan/corbeille/2-front.md` (T4).
+ */
+export function restoreErrorMessage(e: unknown): string {
+  if (pgCode(e) === '23505') {
+    return 'Un élément actif porte déjà ce nom (repris pendant la mise en corbeille). Renommez-le, puis réessayez.'
+  }
+  return deleteErrorMessage(e)
+}

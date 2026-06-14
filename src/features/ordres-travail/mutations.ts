@@ -75,6 +75,8 @@ export function useDeleteOt() {
         .from('ordres_travail')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () =>

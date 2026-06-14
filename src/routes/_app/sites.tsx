@@ -8,7 +8,7 @@ import { sitesQueries } from '@/features/sites/queries'
 import { useDeleteSite } from '@/features/sites/mutations'
 import { SiteFormDialog } from '@/features/sites/components/site-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { errorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
@@ -46,7 +46,7 @@ function SitesPage() {
         toast.success('Site supprimé')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -136,7 +136,7 @@ function SitesPage() {
         title="Supprimer le site ?"
         description={
           toDelete
-            ? `« ${toDelete.nom} » sera placé dans la corbeille (récupérable 90 jours).`
+            ? `« ${toDelete.nom} » sera placé dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"

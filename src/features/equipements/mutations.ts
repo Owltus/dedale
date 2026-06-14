@@ -65,21 +65,37 @@ export function useDeleteEquipement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Verrou : refuser si au moins une gamme est liée à l'équipement.
-      const { count } = await supabase
+      // Verrou : refuser si au moins une gamme VIVANTE est liée à l'équipement.
+      // On filtre `gammes.deleted_at` en 2 temps (récupérer les liaisons puis
+      // compter les gammes vivantes) : une gamme EN CORBEILLE — invisible partout —
+      // ne doit PAS rendre l'équipement définitivement insupprimable.
+      const { data: liaisons } = await supabase
         .from('gammes_equipements')
-        .select('gamme_id', { count: 'exact', head: true })
+        .select('gamme_id')
         .eq('equipement_id', id)
         .throwOnError()
-      if ((count ?? 0) > 0) {
-        throw new Error(
-          'Détache d’abord les gammes liées à cet équipement avant de le supprimer.',
-        )
+      const gammeIds = liaisons.map((l) => l.gamme_id)
+      if (gammeIds.length > 0) {
+        const { count } = await supabase
+          .from('gammes')
+          .select('id', { count: 'exact', head: true })
+          .in('id', gammeIds)
+          .is('deleted_at', null)
+          .throwOnError()
+        if ((count ?? 0) > 0) {
+          throw new Error(
+            'Détache d’abord les gammes liées à cet équipement avant de le supprimer.',
+          )
+        }
       }
+      // `.select('id').single()` : un UPDATE qui matche 0 ligne (hors périmètre RLS)
+      // devient une erreur (PGRST116) au lieu d'un faux succès « supprimé ».
       await supabase
         .from('equipements')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () =>

@@ -18,7 +18,7 @@ import type { DocumentMeta } from '@/features/documents/format'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage } from '@/lib/form'
+import { deleteErrorMessage, errorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
 import { formatDate } from '@/lib/date'
 import * as perm from '@/lib/permissions'
@@ -95,7 +95,7 @@ function DocumentsContent({
         toast.success('Document supprimé')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -233,7 +233,7 @@ function DocumentsContent({
         title="Supprimer le document ?"
         description={
           toDelete
-            ? `« ${toDelete.nom_original} » sera placé dans la corbeille (récupérable 90 jours).`
+            ? `« ${toDelete.nom_original} » sera placé dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"

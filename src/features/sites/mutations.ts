@@ -61,6 +61,8 @@ export function useDeleteSite() {
         .from('sites')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: sitesQueries.all() }),

@@ -26,7 +26,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/form'
 import { parseChamps, formatChampValeur } from '@/lib/champs'
 import { cardGrid } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
@@ -154,7 +154,7 @@ function EquipementsList({
         toast.success('Équipement supprimé')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -286,7 +286,7 @@ function EquipementsList({
         title="Supprimer l’équipement ?"
         description={
           toDelete
-            ? `« ${toDelete.nom ?? ''} » sera placé dans la corbeille (récupérable 90 jours).`
+            ? `« ${toDelete.nom ?? ''} » sera placé dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"

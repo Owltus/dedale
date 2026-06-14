@@ -35,7 +35,7 @@ import type { CategorieFormValues } from '@/features/categories/schemas'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/form'
 import { SCOPE_COMMUN, sousCategoriesNiveau2 } from '@/lib/scope'
 import { ScopeSelect } from '@/components/common/scope-select'
 import { segOfUnique } from '@/lib/slug'
@@ -618,7 +618,7 @@ export function GammesBiblioPanel() {
         toast.success('Gamme-template supprimée')
         setToDeleteGamme(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
   function confirmDeleteCategorie() {
@@ -628,7 +628,7 @@ export function GammesBiblioPanel() {
         toast.success('Catégorie supprimée')
         setToDeleteCategorie(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -961,7 +961,7 @@ export function GammesBiblioPanel() {
         title="Supprimer la gamme-template ?"
         description={
           toDeleteGamme
-            ? `« ${toDeleteGamme.nom} » sera placée dans la corbeille (récupérable 90 jours).`
+            ? `« ${toDeleteGamme.nom} » sera placée dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"
@@ -980,7 +980,7 @@ export function GammesBiblioPanel() {
           toDeleteCategorie
             ? toDeleteCategorieNonVide
               ? 'Cette catégorie contient des sous-catégories ou des gammes : videz-la d’abord.'
-              : `« ${toDeleteCategorie.nom} » sera placée dans la corbeille (récupérable 90 jours).`
+              : `« ${toDeleteCategorie.nom} » sera placée dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"
@@ -1054,7 +1054,7 @@ function GammeBiblioDetail({
         toast.success('Opération supprimée')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 

@@ -12,7 +12,7 @@ import { useDeleteInvestissement } from '@/features/investissements/mutations'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
@@ -88,7 +88,7 @@ function InvestissementsContent({
         toast.success('Investissement supprimé')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -223,7 +223,7 @@ function InvestissementsContent({
         title="Supprimer l'investissement ?"
         description={
           toDelete
-            ? `« ${toDelete.libelle} » sera placé dans la corbeille (récupérable 90 jours).`
+            ? `« ${toDelete.libelle} » sera placé dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"

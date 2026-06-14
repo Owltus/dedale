@@ -14,7 +14,7 @@ import { ChantierDetail } from '@/features/chantiers/components/chantier-detail'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
-import { errorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/form'
 import { cardGrid } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
@@ -94,7 +94,7 @@ function ChantiersContent({
         toast.success('Chantier supprimé')
         setToDelete(null)
       },
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -196,7 +196,7 @@ function ChantiersContent({
         title="Supprimer le chantier ?"
         description={
           toDelete
-            ? `« ${toDelete.titre} » sera placé dans la corbeille (récupérable 90 jours).`
+            ? `« ${toDelete.titre} » sera placé dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"

@@ -82,6 +82,8 @@ export function useDeleteDocument() {
         .from('documents')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
+        .select('id')
+        .single()
         .throwOnError()
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: documentsQueries.all() }),
