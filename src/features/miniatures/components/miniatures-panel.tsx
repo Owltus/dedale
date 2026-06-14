@@ -396,7 +396,13 @@ export function MiniaturesPanel() {
 
       <QueryState
         query={query}
-        pending={<CardSkeletons count={8} height="h-32" />}
+        pending={
+          <CardSkeletons
+            count={12}
+            height="aspect-square"
+            container="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6"
+          />
+        }
         empty={
           <EmptyState
             icon={ImageOff}

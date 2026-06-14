@@ -77,7 +77,9 @@ export function OperationItemsEditor({
 
       <QueryState
         query={query}
-        pending={<CardSkeletons count={3} />}
+        pending={
+          <CardSkeletons count={3} container="flex flex-col gap-2" height="h-14" />
+        }
         empty={
           <EmptyState
             icon={Plus}

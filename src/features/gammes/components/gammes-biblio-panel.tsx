@@ -49,7 +49,7 @@ import {
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
-import { CardSkeletons } from '@/components/common/card-skeletons'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -718,7 +718,7 @@ export function GammesBiblioPanel() {
     <div className="flex flex-col gap-4">
       <QueryState
         query={categoriesQuery}
-        pending={<CardSkeletons count={4} />}
+        pending={<ListRowSkeletons count={4} />}
         empty={
           <EmptyState
             icon={FolderTree}
@@ -735,7 +735,7 @@ export function GammesBiblioPanel() {
           // La requête des gammes (biblioPool) alimente compteurs et listes : on
           // surface son état ici, sinon une erreur du pool serait avalée et un
           // « catégorie vide » clignoterait avant l'arrivée des gammes.
-          if (gammesQuery.isPending) return <CardSkeletons count={4} />
+          if (gammesQuery.isPending) return <ListRowSkeletons count={4} />
           if (gammesQuery.isError) {
             return <ErrorState onRetry={() => void gammesQuery.refetch()} />
           }

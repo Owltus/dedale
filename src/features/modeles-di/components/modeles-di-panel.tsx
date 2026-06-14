@@ -16,7 +16,7 @@ import { useTabAddAction } from '@/components/common/tab-actions'
 import { ScopeSelect } from '@/components/common/scope-select'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
-import { CardSkeletons } from '@/components/common/card-skeletons'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -107,7 +107,7 @@ export function ModelesDiPanel() {
     <div className="flex flex-col gap-4">
       <QueryState
         query={query}
-        pending={<CardSkeletons count={4} />}
+        pending={<ListRowSkeletons count={4} />}
         empty={
           <EmptyState
             icon={FileText}
