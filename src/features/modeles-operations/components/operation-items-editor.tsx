@@ -14,19 +14,15 @@ import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
+import { OperationRow } from '@/components/common/operation-row'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { listStack } from '@/lib/responsive'
 import type { Database } from '@/lib/database.types'
 
 type OperationItem =
   Database['public']['Tables']['modeles_operations_items']['Row']
-
-// Représentation texte d'un seuil (tiret cadratin si non renseigné).
-function formatSeuil(valeur: number | null): string {
-  return valeur === null ? '–' : String(valeur)
-}
 
 interface OperationItemsEditorProps {
   modele: ModeleOperation
@@ -122,52 +118,42 @@ export function OperationItemsEditor({
         }
       >
         {(rows) => (
-          <ul className="flex flex-col gap-2">
+          <div className={listStack}>
             {rows.map((item) => (
-              <li key={item.id}>
-                <Card className="min-w-0">
-                  <CardContent className="flex items-center gap-3 py-3">
-                    <span className="text-muted-foreground w-8 shrink-0 text-sm tabular-nums">
-                      {item.ordre}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{item.nom}</p>
-                      <p className="text-muted-foreground text-xs">
-                        {item.types_operations.libelle}
-                        {item.unites
-                          ? ` · ${item.unites.nom} (${item.unites.symbole})`
-                          : ''}
-                        {item.seuil_minimum !== null ||
-                        item.seuil_maximum !== null
-                          ? ` · seuils ${formatSeuil(item.seuil_minimum)} / ${formatSeuil(item.seuil_maximum)}`
-                          : ''}
-                      </p>
-                    </div>
-                    {canManage && (
-                      <div className="flex shrink-0 gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setForm({ open: true, item })}
-                          aria-label="Modifier l’opération"
-                        >
-                          <Pencil />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setToDelete(item)}
-                          aria-label="Supprimer l’opération"
-                        >
-                          <Trash2 />
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </li>
+              <OperationRow
+                key={item.id}
+                nom={item.nom}
+                description={item.description}
+                typeLibelle={item.types_operations.libelle}
+                necessiteSeuils={item.types_operations.necessite_seuils}
+                seuilMin={item.seuil_minimum}
+                seuilMax={item.seuil_maximum}
+                uniteSymbole={item.unites?.symbole}
+                actions={
+                  canManage ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setForm({ open: true, item })}
+                        aria-label="Modifier l’opération"
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setToDelete(item)}
+                        aria-label="Supprimer l’opération"
+                      >
+                        <Trash2 />
+                      </Button>
+                    </>
+                  ) : undefined
+                }
+              />
             ))}
-          </ul>
+          </div>
         )}
       </QueryState>
 

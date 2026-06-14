@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
-  ClipboardCheck,
   CopyPlus,
   Folder,
   FolderTree,
@@ -52,13 +51,13 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
+import { OperationRow } from '@/components/common/operation-row'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import {
   TitleBreadcrumb,
   type BreadcrumbAncestor,
 } from '@/components/common/title-breadcrumb'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listStack } from '@/lib/responsive'
 import type { Database } from '@/lib/database.types'
@@ -1016,7 +1015,7 @@ export function GammesBiblioPanel() {
 
 // ----- Détail d'une gamme-template : opérations spécifiques -----
 
-type OperationRow = Database['public']['Tables']['operations']['Row'] & {
+type GammeOperation = Database['public']['Tables']['operations']['Row'] & {
   types_operations: {
     id: number
     libelle: string
@@ -1049,9 +1048,9 @@ function GammeBiblioDetail({
   const del = useDeleteOperation()
   const [opForm, setOpForm] = useState<{
     open: boolean
-    op: OperationRow | null
+    op: GammeOperation | null
   }>({ open: false, op: null })
-  const [toDelete, setToDelete] = useState<OperationRow | null>(null)
+  const [toDelete, setToDelete] = useState<GammeOperation | null>(null)
 
   function confirmDelete() {
     if (!toDelete) return
@@ -1129,75 +1128,40 @@ function GammeBiblioDetail({
           >
             {(operations) => (
               <div className={listStack}>
-                {operations.map((op) => {
-                  // Emplacement « Type » À POSITION FIXE (largeur constante) pour
-                  // que les cartes ne se décalent JAMAIS d'une ligne à l'autre : on
-                  // y affiche le libellé du type — SAUF pour une mesure renseignée,
-                  // où l'on montre directement les valeurs (seuils) à la place du
-                  // mot « Mesure ».
-                  const seuils = formatSeuils(op)
-                  const typeAffiche =
-                    op.types_operations.necessite_seuils && seuils
-                      ? seuils
-                      : op.types_operations.libelle
-                  return (
-                    <ListRow
-                      key={op.id}
-                      // Cartes opérations/modèles VOLONTAIREMENT plus fines (h-12 vs
-                      // h-20 des catégories/gammes), avec un grand SVG de repli
-                      // centré (carré muté) à la place de l'image.
-                      className="h-12"
-                      media={
-                        <span className="bg-muted text-muted-foreground flex size-full items-center justify-center">
-                          <ClipboardCheck className="size-8" />
-                        </span>
-                      }
-                      title={op.nom}
-                      subtitle={
-                        op.description?.trim()
-                          ? op.description.trim()
-                          : undefined
-                      }
-                      meta={
-                        // `title` = repli pour lire la valeur COMPLÈTE au survol
-                        // si une mesure dépasse la case fixe (truncate).
-                        <span
-                          className="flex w-32 justify-center"
-                          title={typeAffiche}
-                        >
-                          <Badge
-                            variant="outline"
-                            className="max-w-full truncate tabular-nums"
+                {operations.map((op) => (
+                  <OperationRow
+                    key={op.id}
+                    nom={op.nom}
+                    description={op.description}
+                    typeLibelle={op.types_operations.libelle}
+                    necessiteSeuils={op.types_operations.necessite_seuils}
+                    seuilMin={op.seuil_minimum}
+                    seuilMax={op.seuil_maximum}
+                    uniteSymbole={op.unites?.symbole}
+                    actions={
+                      canEdit ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setOpForm({ open: true, op })}
+                            aria-label={`Modifier l’opération « ${op.nom} »`}
                           >
-                            {typeAffiche}
-                          </Badge>
-                        </span>
-                      }
-                      actions={
-                        canEdit ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setOpForm({ open: true, op })}
-                              aria-label={`Modifier l’opération « ${op.nom} »`}
-                            >
-                              <Pencil />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setToDelete(op)}
-                              aria-label={`Supprimer l’opération « ${op.nom} »`}
-                            >
-                              <Trash2 />
-                            </Button>
-                          </>
-                        ) : undefined
-                      }
-                    />
-                  )
-                })}
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setToDelete(op)}
+                            aria-label={`Supprimer l’opération « ${op.nom} »`}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </>
+                      ) : undefined
+                    }
+                  />
+                ))}
               </div>
             )}
           </QueryState>
@@ -1243,15 +1207,4 @@ function GammeBiblioDetail({
       />
     </div>
   )
-}
-
-function formatSeuils(op: OperationRow): string {
-  const sym = op.unites?.symbole ?? ''
-  const min = op.seuil_minimum
-  const max = op.seuil_maximum
-  if (min !== null && max !== null)
-    return `${String(min)} – ${String(max)} ${sym}`.trim()
-  if (min !== null) return `≥ ${String(min)} ${sym}`.trim()
-  if (max !== null) return `≤ ${String(max)} ${sym}`.trim()
-  return ''
 }
