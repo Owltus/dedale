@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export interface BreadcrumbAncestor {
   /** Clé React stable (id de l’élément, ou « racine »). */
@@ -36,8 +37,17 @@ export function TitleBreadcrumb({
           aria-label="Fil d’Ariane"
           className="text-muted-foreground flex min-w-0 items-center gap-1 text-sm"
         >
-          {ancestors.map((a) => (
-            <span key={a.key} className="flex min-w-0 items-center gap-1">
+          {ancestors.map((a, i) => (
+            <span
+              key={a.key}
+              className={cn(
+                'flex min-w-0 items-center gap-1',
+                // Sur mobile, on ne garde que le parent IMMÉDIAT (dernier ancêtre)
+                // pour ne pas cramer 3-4 segments d'1-2 caractères : les ancêtres
+                // plus profonds sont masqués sous `sm`.
+                i < ancestors.length - 1 && 'hidden sm:flex',
+              )}
+            >
               <button
                 type="button"
                 onClick={a.onClick}

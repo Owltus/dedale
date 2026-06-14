@@ -1,7 +1,6 @@
-import { ChevronDown } from 'lucide-react'
 import { useSiteContext } from '@/lib/site-context'
-import { Select } from '@/components/ui/select'
-import { SCOPE_ALL, SCOPE_COMMUN } from '@/lib/scope'
+import { SelectMenu } from '@/components/common/select-menu'
+import { SCOPE_COMMUN } from '@/lib/scope'
 import { cn } from '@/lib/utils'
 
 interface ScopeSelectProps {
@@ -14,68 +13,61 @@ interface ScopeSelectProps {
    */
   allowCommun?: boolean
   /**
-   * VERROUILLÉ : non ouvrable, sans chevron — indicateur d'origine en lecture
-   * seule (le périmètre est fixé par la catégorie dans laquelle on est entré).
+   * VERROUILLÉ : vrai `<select>` NATIVEMENT désactivé (grisé, non ouvrable, hors
+   * tabulation) — indicateur d'origine en lecture seule quand le périmètre est fixé
+   * par la catégorie / le modèle ouvert. Pas de simulacre : `disabled` natif.
    */
   disabled?: boolean
+  /**
+   * Largeur FLUIDE : pleine largeur sous `sm`, puis `w-44` à partir de `sm`. Pour
+   * les en-têtes empilés sur mobile où le sélecteur occupe sa propre ligne. Défaut :
+   * largeur fixe `w-44` (inchangé pour les autres pages).
+   */
+  fluid?: boolean
 }
 
 /**
  * Sélecteur de périmètre partagé : « Tout » / « Commun » / un par site (par nom).
- * Largeur FIXE (`w-44`) + chevron custom → rendu strictement identique sur toutes
- * les pages et tous les onglets de la Bibliothèque.
+ * Chevron custom (le natif est retiré via `appearance-none`). Largeur fixe `w-44`
+ * par défaut, ou FLUIDE (`fluid`) pour les en-têtes empilés sur mobile.
  *
- * À l'état `disabled` (verrouillé), c'est le MÊME `<select>` (même gabarit, même
- * largeur) mais NON ouvrable et SANS chevron : on le neutralise via
- * `pointer-events-none` + `tabIndex=-1` plutôt que par l'attribut natif `disabled`
- * (qui griserait le texte selon le navigateur) → AUCUNE dissonance visuelle.
+ * À l'état `disabled` (verrouillé en descente), c'est le MÊME `<select>` mais
+ * NATIVEMENT désactivé : grisé, non ouvrable, hors tabulation — un VRAI menu
+ * déroulant désactivé, pas un simulacre. Le chevron reste affiché (grisé) pour
+ * qu'il se lise bien comme un dropdown.
  */
 export function ScopeSelect({
   value,
   onChange,
   allowCommun = true,
   disabled = false,
+  fluid = false,
 }: ScopeSelectProps) {
   const { sites } = useSiteContext()
-  // Libellé courant : sert d'info-bulle à l'état verrouillé (le `<select>` est
-  // neutralisé par pointer-events-none → le title vit sur le conteneur, qui, lui,
-  // reçoit le survol). Couvre les noms de site longs tronqués par w-44.
+  // Libellé courant : info-bulle à l'état verrouillé (portée sur le CONTENEUR — un
+  // `<select>` désactivé ne montre pas toujours son `title`). Couvre les noms de
+  // site longs tronqués par `w-44`.
   const label =
-    value === SCOPE_ALL
-      ? 'Tout'
-      : value === SCOPE_COMMUN
-        ? 'Commun'
-        : (sites.find((s) => s.id === value)?.nom ?? value)
+    value === SCOPE_COMMUN
+      ? 'Commun'
+      : (sites.find((s) => s.id === value)?.nom ?? value)
   return (
-    <div className="relative inline-flex" title={disabled ? label : undefined}>
-      <Select
-        aria-label="Périmètre"
-        aria-disabled={disabled || undefined}
-        tabIndex={disabled ? -1 : undefined}
-        value={value}
-        // Verrouillé : on neutralise aussi le handler (en plus de
-        // pointer-events-none / tabIndex=-1) pour ne jamais muter le périmètre.
-        onChange={(e) => {
-          if (!disabled) onChange?.(e.target.value)
-        }}
-        // Largeur fixe + place du chevron réservée (`pr-8`), dessiné en overlay
-        // ci-dessous uniquement à l'état interactif.
-        className={cn(
-          'h-9 w-44 appearance-none truncate pr-8',
-          disabled && 'pointer-events-none',
-        )}
-      >
-        <option value={SCOPE_ALL}>Tout</option>
-        {allowCommun && <option value={SCOPE_COMMUN}>Commun</option>}
-        {sites.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.nom}
-          </option>
-        ))}
-      </Select>
-      {!disabled && (
-        <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2" />
-      )}
-    </div>
+    <SelectMenu
+      aria-label="Périmètre"
+      disabled={disabled}
+      value={value}
+      onChange={(e) => onChange?.(e.target.value)}
+      // Verrouillé : info-bulle portée par le conteneur (cf. SelectMenu).
+      title={disabled ? label : undefined}
+      containerClassName={cn(fluid && 'flex w-full sm:inline-flex sm:w-auto')}
+      className={fluid ? 'w-full sm:w-44' : 'w-44'}
+    >
+      {allowCommun && <option value={SCOPE_COMMUN}>Commun</option>}
+      {sites.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.nom}
+        </option>
+      ))}
+    </SelectMenu>
   )
 }

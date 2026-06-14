@@ -81,13 +81,17 @@ function BibliothequePage() {
   // Définition par id : un `Record<OngletId, …>` impose l'EXHAUSTIVITÉ à la
   // compilation (ajout/retrait d'un onglet dans ONGLET_IDS casse ici si désync).
   // L'ordre d'affichage reste celui d'ONGLET_IDS via le `.map` ci-dessous.
-  const tabsById: Record<OngletId, { label: ReactNode; content: ReactNode }> = {
+  // Libellés d'AFFICHAGE courts (raccourcis pour soulager la barre d'onglets) :
+  // « Modèles d'… » tombe à un seul mot. « Plan de maintenance » est conservé en
+  // entier (choix produit). Renommage d'AFFICHAGE seulement : les ids/slugs
+  // (ONGLET_IDS), l'URL, la base et le vocabulaire des fiches sont intouchés.
+  const tabsById: Record<OngletId, { label: string; content: ReactNode }> = {
     'modeles-equipements': {
-      label: 'Modèles d’équipements',
+      label: 'Équipements',
       content: <ModelesEquipementsPanel />,
     },
     'gammes-types': {
-      label: 'Modèles d’opérations',
+      label: 'Opérations',
       content: <GammesTypesPanel />,
     },
     gammes: {
@@ -95,7 +99,7 @@ function BibliothequePage() {
       content: <GammesBiblioPanel />,
     },
     'modeles-di': {
-      label: 'Modèles de DI',
+      label: 'Modèles DI',
       content: <ModelesDiPanel />,
     },
     vignettes: {
@@ -104,8 +108,15 @@ function BibliothequePage() {
     },
   }
 
-  // `id` typé `OngletId` (constat #3) → assignable à `TabItem[]` sans cast.
-  const tabs: TabItem[] = ONGLET_IDS.map((id) => ({ id, ...tabsById[id] }))
+  // `id` typé `OngletId` (constat #3) → assignable à `TabItem[]` sans cast. Le
+  // libellé étant déjà du texte, il sert aussi de `labelText` (option du menu
+  // mobile + nom accessible), sans duplication d'intitulé.
+  const tabs: TabItem[] = ONGLET_IDS.map((id) => ({
+    id,
+    label: tabsById[id].label,
+    labelText: tabsById[id].label,
+    content: tabsById[id].content,
+  }))
 
   return (
     <PageContainer fill>
@@ -118,8 +129,15 @@ function BibliothequePage() {
           // la descente cat/sous/gamme disparaît (reset). Le bouton retour du
           // navigateur revient à l'onglet précédent. L'id vient de nos propres
           // onglets, `_splat` est une simple chaîne → aucun cast nécessaire.
+          // Si on est DÉJÀ exactement à la racine de cet onglet (re-clic sans
+          // avoir descendu), on REPLACE pour ne pas empiler une entrée
+          // d'historique identique (sinon le bouton « retour » paraît inopérant).
           onValueChange={(id) =>
-            void navigate({ to: '/bibliotheque/$', params: { _splat: id } })
+            void navigate({
+              to: '/bibliotheque/$',
+              params: { _splat: id },
+              replace: _splat === id,
+            })
           }
         />
       </ScopeProvider>

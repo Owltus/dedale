@@ -2,14 +2,25 @@ import { createContext, useContext, useEffect } from 'react'
 import type { ReactNode } from 'react'
 
 export interface TabAddConfig {
-  /** Action du bouton +. `null` = pas de bouton (mais `extra` peut s'afficher). */
+  /** Action du bouton +. `null` = pas de bouton (mais `extra`/`actions` peuvent s'afficher). */
   action: (() => void) | null
   /** Libellé de l'action (tooltip + aria-label du bouton +). */
   label: string
   /** Bouton + grisé/non cliquable (mais toujours visible). */
   disabled: boolean
-  /** Contrôle additionnel affiché à GAUCHE du + (ex. filtre de périmètre). */
+  /**
+   * Contrôle LARGE (ex. filtre de périmètre) : à droite du titre sur bureau, mais
+   * replié EN PLEINE LARGEUR sous le titre sur mobile (il occuperait sinon la place
+   * du titre). À réserver à UN contrôle large ; pour des boutons icône compacts,
+   * voir `actions`.
+   */
   extra?: ReactNode
+  /**
+   * Boutons d'action COMPACTS (icônes : Copier, Modifier, actions de masse…) : ils
+   * restent EN HAUT À DROITE à côté du titre et du +, mobile comme bureau. À ne PAS
+   * confondre avec `extra` (le filtre large qui, lui, se replie sous le titre).
+   */
+  actions?: ReactNode
 }
 
 export interface TabActionApi {
@@ -31,17 +42,21 @@ export const TabActionContext = createContext<TabActionApi | null>(null)
 export function useTabAddAction(
   action: (() => void) | null,
   label = 'Ajouter',
-  opts?: { disabled?: boolean; extra?: ReactNode },
+  opts?: { disabled?: boolean; extra?: ReactNode; actions?: ReactNode },
 ) {
   const ctx = useContext(TabActionContext)
   const disabled = opts?.disabled ?? false
   const extra = opts?.extra
+  const actions = opts?.actions
   useEffect(() => {
     if (!ctx) return
-    const hasContent = action !== null || extra !== undefined
-    ctx.setAction(hasContent ? { action, label, disabled, extra } : null)
+    const hasContent =
+      action !== null || extra !== undefined || actions !== undefined
+    ctx.setAction(
+      hasContent ? { action, label, disabled, extra, actions } : null,
+    )
     return () => ctx.setAction(null)
-  }, [ctx, action, label, disabled, extra])
+  }, [ctx, action, label, disabled, extra, actions])
 }
 
 export interface TabTitleApi {

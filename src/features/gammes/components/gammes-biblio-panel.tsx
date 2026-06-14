@@ -58,7 +58,6 @@ import {
   type BreadcrumbAncestor,
 } from '@/components/common/title-breadcrumb'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { listStack } from '@/lib/responsive'
 import type { Database } from '@/lib/database.types'
 
@@ -553,20 +552,16 @@ export function GammesBiblioPanel() {
   // on affiche quand même l'indicateur (non ouvrable) pour une interface homogène
   // avec les autres onglets de la Bibliothèque.
   const scopeDisplay = useMemo(
-    () => <ScopeSelect value={SCOPE_COMMUN} disabled />,
+    // Plan de maintenance = commun uniquement → vrai dropdown NATIVEMENT désactivé
+    // (grisé), pas un simulacre.
+    () => <ScopeSelect value={SCOPE_COMMUN} disabled fluid />,
     [],
   )
-  const tabExtra = useMemo(
-    () => (
-      <div className="flex flex-wrap items-center gap-2">
-        {scopeDisplay}
-        {tabAddConfig.extra}
-      </div>
-    ),
-    [scopeDisplay, tabAddConfig.extra],
-  )
   useTabAddAction(tabAddConfig.action, tabAddConfig.label, {
-    extra: tabExtra,
+    // Le filtre de périmètre = `extra` (sa propre ligne pleine largeur sur mobile) ;
+    // les boutons (Copier / Modifier) = `actions` (compacts, en haut à droite).
+    extra: scopeDisplay,
+    actions: tabAddConfig.extra,
   })
 
   // FIL D'ARIANE = TITRE de la barre d'onglet, uniquement quand on a DESCENDU
@@ -1097,12 +1092,14 @@ function GammeBiblioDetail({
         />
       </div>
 
-      {/* DEUX sections sœurs, chacune exactement 50% de la hauteur restante
-          (grid-rows-2) avec son PROPRE scroll interne → aucune scrollbar de page,
-          « chacun a sa place ». En-tête (titre + bouton icône) puis liste de lignes
-          ListRow (modèle des catégories/gammes), empilées via listStack. */}
-      <div className="grid min-h-0 flex-1 grid-rows-2 gap-4">
-        <section className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+      {/* DEUX sections sœurs. Sur grand écran (`lg`+), chacune occupe 50% de la
+          hauteur restante (grid-rows-2) avec son PROPRE scroll interne. Sous `lg`
+          (tablette/mobile), on EMPILE en flux naturel et c'est la PAGE qui défile
+          (un seul scroll) au lieu de deux mini-scrollers imbriqués de ~150px.
+          En-tête (titre + bouton icône) puis liste de lignes ListRow, via
+          listStack. */}
+      <div className="flex flex-col gap-6 lg:grid lg:min-h-0 lg:flex-1 lg:grid-rows-2 lg:gap-4">
+        <section className="flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="flex items-center gap-2 text-sm font-medium">
               <ListChecks className="text-muted-foreground size-4" />
@@ -1113,7 +1110,7 @@ function GammeBiblioDetail({
 
           <QueryState
             query={query}
-            pending={<Skeleton className="h-24" />}
+            pending={<ListRowSkeletons dense count={3} />}
             empty={
               <EmptyState
                 icon={ListChecks}
@@ -1167,7 +1164,7 @@ function GammeBiblioDetail({
           </QueryState>
         </section>
 
-        <div className="min-h-0 overflow-y-auto">
+        <div className="lg:min-h-0 lg:overflow-y-auto">
           <GammeModelesSection
             gammeId={gamme.id}
             gammeSiteId={gamme.site_id}

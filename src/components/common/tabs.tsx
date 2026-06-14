@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
 import { Plus } from 'lucide-react'
+import { SelectMenu } from './select-menu'
 import { cn } from '@/lib/utils'
 import { TooltipIconButton } from './tooltip-icon-button'
 import {
@@ -15,6 +16,12 @@ export interface TabItem {
   id: string
   /** Libellé du bouton d'onglet (texte ou nœud, ex. libellé sur 2 lignes). */
   label: ReactNode
+  /**
+   * Libellé en TEXTE BRUT : sert d'option au menu déroulant mobile (qui remplace
+   * la barre d'onglets sous `sm`) et de nom accessible. Indispensable car `label`
+   * peut être un nœud non textuel.
+   */
+  labelText: string
   /** Contenu rendu uniquement quand l'onglet est actif (montage paresseux). */
   content: ReactNode
 }
@@ -106,6 +113,23 @@ export function Tabs({
     focusTabAt(next)
   }
 
+  // Sécurité : si la barre d'onglets (desktop, `sm:flex`) déborde, on ramène
+  // l'onglet actif dans le champ visible. Défilement HORIZONTAL uniquement (via
+  // `scrollLeft`) → ne perturbe JAMAIS le défilement vertical du panneau, et
+  // garde `block:'nearest'` n'aurait pas suffi (scrollIntoView remonte la chaîne
+  // des conteneurs scrollables). Avec les libellés courts la barre tient sans
+  // scroll dès `sm` ; ce garde reste utile si un libellé s'allonge.
+  useEffect(() => {
+    const list = tablistRef.current
+    if (!list || list.scrollWidth <= list.clientWidth) return
+    const btn = list.querySelector<HTMLButtonElement>(
+      '[role="tab"][aria-selected="true"]',
+    )
+    if (!btn) return
+    const target = btn.offsetLeft - (list.clientWidth - btn.clientWidth) / 2
+    list.scrollTo({ left: Math.max(0, target), behavior: 'auto' })
+  }, [active])
+
   // API stable transmise aux panneaux pour enregistrer leur action + / leur titre.
   const [api] = useState<TabActionApi>(() => ({ setAction: setAddConfig }))
   const [titleApi] = useState<TabTitleApi>(() => ({ setTitle: setTitleNode }))
@@ -115,18 +139,20 @@ export function Tabs({
   const addLabel = addConfig?.label ?? 'Ajouter'
   const addDisabled = addConfig?.disabled ?? false
   const addExtra = addConfig?.extra
+  const addActions = addConfig?.actions
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-4 pt-6 pb-3 sm:px-6 lg:px-8">
-        <div className="mb-3 flex items-center justify-between gap-4">
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           {/* Région live : le changement de contexte (onglet actif ou descente
-              dans un onglet) est annoncé aux lecteurs d'écran via le titre. */}
+              dans un onglet) est annoncé aux lecteurs d'écran via le titre.
+              Toujours en 1re ligne, à gauche, et prend l'espace disponible. */}
           <div
             role="status"
             aria-live="polite"
             aria-atomic="true"
-            className="flex min-w-0 flex-1 items-center"
+            className="order-1 flex min-w-0 flex-1 items-center"
           >
             {titleNode ?? (
               <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
@@ -135,18 +161,34 @@ export function Tabs({
             )}
           </div>
           {addConfig !== null && (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {addExtra}
-              {addAction !== null && (
-                <TooltipIconButton
-                  icon={<Plus />}
-                  label={addLabel}
-                  onClick={addAction}
-                  disabled={addDisabled}
-                  variant="default"
-                />
+            <>
+              {/* Extra (filtre de périmètre / indicateur d'origine) : à droite du
+                  titre sur bureau ; replié EN PLEINE LARGEUR sous le titre sur
+                  mobile, car sa largeur (sélecteur) écraserait le titre sinon. */}
+              {addExtra !== undefined && (
+                <div className="order-3 flex w-full flex-wrap items-center gap-2 sm:order-2 sm:w-auto">
+                  {addExtra}
+                </div>
               )}
-            </div>
+              {/* Boutons d'action compacts (Copier/Modifier, actions de masse…)
+                  + bouton « + » : restent EN HAUT À DROITE, à côté du titre —
+                  même position qu'en bureau, mobile compris (étroits, ils
+                  n'écrasent pas le titre). Seul l'`extra` (filtre large) se replie. */}
+              {(addActions !== undefined || addAction !== null) && (
+                <div className="order-2 flex shrink-0 items-center gap-2 sm:order-3">
+                  {addActions}
+                  {addAction !== null && (
+                    <TooltipIconButton
+                      icon={<Plus />}
+                      label={addLabel}
+                      onClick={addAction}
+                      disabled={addDisabled}
+                      variant="default"
+                    />
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -155,7 +197,7 @@ export function Tabs({
           role="tablist"
           aria-label="Sections"
           onKeyDown={onTablistKeyDown}
-          className="flex w-full gap-1 overflow-x-auto"
+          className="hidden w-full gap-1 overflow-x-auto sm:flex"
         >
           {items.map((tab) => {
             const selected = tab.id === activeItem?.id
@@ -180,6 +222,27 @@ export function Tabs({
               </button>
             )
           })}
+        </div>
+
+        {/* Mobile : menu déroulant des sections. Sous `sm`, les 5 libellés ne
+            tiennent pas côte à côte → un Select remplace la barre d'onglets et
+            évite le scroll horizontal. La sémantique d'onglets reste portée par
+            la barre desktop ; en descente, le fil d'Ariane (titre) assure le
+            « retour racine » que le re-clic d'onglet offrait en bureau. */}
+        <div className="sm:hidden">
+          <SelectMenu
+            aria-label="Section"
+            value={activeItem?.id ?? ''}
+            onChange={(e) => selectTab(e.target.value)}
+            containerClassName="w-full"
+            className="w-full"
+          >
+            {items.map((tab) => (
+              <option key={tab.id} value={tab.id}>
+                {tab.labelText}
+              </option>
+            ))}
+          </SelectMenu>
         </div>
       </div>
 
