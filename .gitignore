@@ -32,6 +32,8 @@ dist-ssr
 # Documentation interne (dépôt public) : schéma backend + spec fonctionnelle legacy
 contexte/
 doc-fonctionnelle/
+# Plans de travail internes (corbeille, etc.) — comme contexte/, on ne publie pas la roadmap
+plan/
 
 # Données d'import legacy SQLite -> Supabase (dedale.db + documents réels, volumineux)
 migration/
