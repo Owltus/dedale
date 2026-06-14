@@ -9,6 +9,8 @@ import {
   useUploadMiniature,
 } from '../mutations'
 import { MiniatureCropDialog, type CropResult } from './miniature-crop-dialog'
+import { MiniatureFilters } from './miniature-filters'
+import { filterMiniatures, type OrigineFiltre } from '../filters'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
@@ -76,6 +78,9 @@ export function MiniaturesPanel() {
   const [massDeleteOpen, setMassDeleteOpen] = useState(false)
   const [massDeleting, setMassDeleting] = useState(false)
   const [toDelete, setToDelete] = useState<MiniatureWithUrl | null>(null)
+  // Recherche (sur les noms des entités liées) + filtre par origine.
+  const [recherche, setRecherche] = useState('')
+  const [origine, setOrigine] = useState<OrigineFiltre>('all')
 
   // Périmètre partagé entre les onglets de la Bibliothèque.
   const { scope, setScope } = useScope()
@@ -394,6 +399,18 @@ export function MiniaturesPanel() {
         }}
       />
 
+      <MiniatureFilters
+        recherche={recherche}
+        onRechercheChange={setRecherche}
+        origine={origine}
+        onOrigineChange={(o) => {
+          setOrigine(o)
+          // Changer de filtre réinitialise la sélection (évite d'agir sur des
+          // vignettes masquées par le filtre).
+          setSelected(new Set())
+        }}
+      />
+
       <QueryState
         query={query}
         pending={
@@ -426,9 +443,19 @@ export function MiniaturesPanel() {
               />
             )
           }
+          const shown = filterMiniatures(visible, origine, recherche)
+          if (shown.length === 0) {
+            return (
+              <EmptyState
+                icon={ImageOff}
+                title="Aucune vignette ne correspond"
+                description="Aucune vignette pour ce filtre d’origine ou cette recherche."
+              />
+            )
+          }
           return (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-              {visible.map((miniature) => {
+              {shown.map((miniature) => {
                 const isSelected = selected.has(miniature.id)
                 const canManageThis =
                   canManage && (canEntreprise || miniature.site_id !== null)

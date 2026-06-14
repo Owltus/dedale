@@ -7,6 +7,8 @@ import { useAuth } from '@/auth'
 import { miniaturesQueries } from '../queries'
 import { useUploadMiniature } from '../mutations'
 import { MiniatureCropDialog, type CropResult } from './miniature-crop-dialog'
+import { MiniatureFilters } from './miniature-filters'
+import { filterMiniatures, type OrigineFiltre } from '../filters'
 import { errorMessage, pgCode } from '@/lib/form'
 import { isBitmapImage } from '@/lib/image'
 import {
@@ -78,6 +80,9 @@ export function MiniaturePicker({
   // Vignettes de la grille dont l'`<img>` a échoué → on bascule sur l'icône
   // `ImageOff` (pas de re-fetch : le pool est déjà chargé, l'URL est juste cassée).
   const [errored, setErrored] = useState<Set<string>>(new Set())
+  // Recherche (sur les noms des entités liées) + filtre par origine.
+  const [recherche, setRecherche] = useState('')
+  const [origine, setOrigine] = useState<OrigineFiltre>('all')
 
   const { data: pool, isPending, isError } = useQuery(miniaturesQueries.pool())
   // Vignettes compatibles avec le périmètre de l'entité (pool entreprise + même
@@ -148,31 +153,52 @@ export function MiniaturePicker({
         </p>
       )
     }
+    const shown = filterMiniatures(compatibles, origine, recherche)
+    let grille: ReactNode
+    if (shown.length === 0) {
+      grille = (
+        <p className="text-muted-foreground py-6 text-center text-sm">
+          Aucune vignette ne correspond.
+        </p>
+      )
+    } else {
+      grille = (
+        <div className="grid max-h-72 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
+          {shown.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => choisir(m.id)}
+              aria-label="Choisir cette vignette"
+              className="bg-muted focus-visible:ring-ring hover:ring-ring/60 aspect-square overflow-hidden rounded border transition hover:ring-2 focus-visible:ring-2 focus-visible:outline-none"
+            >
+              {m.url !== null && !errored.has(m.id) ? (
+                <img
+                  src={m.url}
+                  alt=""
+                  loading="lazy"
+                  onError={() => setErrored((s) => new Set(s).add(m.id))}
+                  className="size-full object-cover"
+                />
+              ) : (
+                <span className="text-muted-foreground flex size-full items-center justify-center">
+                  <ImageOff className="size-5" />
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )
+    }
     return (
-      <div className="grid max-h-80 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
-        {compatibles.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => choisir(m.id)}
-            aria-label="Choisir cette vignette"
-            className="bg-muted focus-visible:ring-ring hover:ring-ring/60 aspect-square overflow-hidden rounded border transition hover:ring-2 focus-visible:ring-2 focus-visible:outline-none"
-          >
-            {m.url !== null && !errored.has(m.id) ? (
-              <img
-                src={m.url}
-                alt=""
-                loading="lazy"
-                onError={() => setErrored((s) => new Set(s).add(m.id))}
-                className="size-full object-cover"
-              />
-            ) : (
-              <span className="text-muted-foreground flex size-full items-center justify-center">
-                <ImageOff className="size-5" />
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="flex flex-col gap-3">
+        <MiniatureFilters
+          recherche={recherche}
+          onRechercheChange={setRecherche}
+          origine={origine}
+          onOrigineChange={setOrigine}
+        />
+        {grille}
       </div>
     )
   }

@@ -90,6 +90,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "batiments_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "batiments_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -174,6 +181,13 @@ export type Database = {
             columns: ["miniature_id"]
             isOneToOne: false
             referencedRelation: "miniatures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categories_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
             referencedColumns: ["id"]
           },
           {
@@ -1168,6 +1182,13 @@ export type Database = {
             referencedRelation: "miniatures"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "equipements_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
+            referencedColumns: ["id"]
+          },
         ]
       }
       gamme_modeles: {
@@ -1285,6 +1306,13 @@ export type Database = {
             columns: ["miniature_id"]
             isOneToOne: false
             referencedRelation: "miniatures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gammes_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
             referencedColumns: ["id"]
           },
           {
@@ -1601,6 +1629,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "locaux_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "locaux_niveau_id_fkey"
             columns: ["niveau_id"]
             isOneToOne: false
@@ -1736,6 +1771,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "modeles_di_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "modeles_di_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -1827,6 +1869,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "modeles_equipements_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "modeles_equipements_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -1896,6 +1945,13 @@ export type Database = {
             columns: ["miniature_id"]
             isOneToOne: false
             referencedRelation: "miniatures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "modeles_operations_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
             referencedColumns: ["id"]
           },
           {
@@ -2049,6 +2105,13 @@ export type Database = {
             columns: ["miniature_id"]
             isOneToOne: false
             referencedRelation: "miniatures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "niveaux_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
             referencedColumns: ["id"]
           },
         ]
@@ -2573,6 +2636,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "prestataires_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "prestataires_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -3089,6 +3159,13 @@ export type Database = {
             referencedRelation: "miniatures"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "equipements_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_locaux_chemin: {
@@ -3113,6 +3190,48 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "types_locaux"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_miniatures_pool: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          hash_sha256: string | null
+          id: string | null
+          libelles: string | null
+          origines: string[] | null
+          site_id: string | null
+          storage_path: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "miniatures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "miniatures_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "miniatures_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["site_id"]
+          },
+          {
+            foreignKeyName: "miniatures_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["site_id"]
           },
         ]
       }
