@@ -33,6 +33,9 @@ dist-ssr
 contexte/
 doc-fonctionnelle/
 
+# Données d'import legacy SQLite -> Supabase (dedale.db + documents réels, volumineux)
+migration/
+
 # Scripts de lancement locaux
 dev.bat
 
