@@ -19,7 +19,7 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { ScopeBadges } from '@/components/common/scope-badges'
 import { ListRow } from '@/components/common/list-row'
 import { listStack } from '@/lib/responsive'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
@@ -66,7 +66,7 @@ export function ModelesDiPanel() {
 
   const handleAdd = useCallback(() => setForm({ open: true, modele: null }), [])
   const scopeControl = useMemo(
-    () => <ScopeSelect value={scope} onChange={setScope} />,
+    () => <ScopeSelect value={scope} onChange={setScope} fluid />,
     [scope, setScope],
   )
   // Bouton toujours visible pour un rôle métier, mais DÉSACTIVÉ si le périmètre
@@ -154,18 +154,20 @@ export function ModelesDiPanel() {
                     title={modele.libelle}
                     subtitle={modele.constat_modele}
                     badges={
-                      <>
-                        {modele.site_id === null ? (
-                          <Badge variant="secondary">Commun</Badge>
-                        ) : (
-                          siteName !== null && (
-                            <Badge variant="outline">{siteName}</Badge>
-                          )
-                        )}
-                        {!modele.est_actif && (
-                          <Badge variant="outline">Masqué</Badge>
-                        )}
-                      </>
+                      <ScopeBadges
+                        siteId={modele.site_id}
+                        siteName={siteName}
+                        masque={!modele.est_actif}
+                      />
+                    }
+                    // Sous `sm` la colonne `badges` est masquée → on replie la
+                    // portée sous le titre pour ne pas la perdre sur mobile.
+                    mobileMeta={
+                      <ScopeBadges
+                        siteId={modele.site_id}
+                        siteName={siteName}
+                        masque={!modele.est_actif}
+                      />
                     }
                     actions={
                       canManage && canEditThis ? (

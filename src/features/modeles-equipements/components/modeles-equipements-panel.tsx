@@ -52,7 +52,7 @@ import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { ScopeBadges } from '@/components/common/scope-badges'
 import { listStack } from '@/lib/responsive'
 
 // Nombre de caractéristiques d'un modèle (clés de l'objet JSON).
@@ -278,10 +278,12 @@ export function ModelesEquipementsPanel() {
   // copie « commun → site » vit dans une vraie catégorie de site → origine fiable.)
   const scopeDisplay = useMemo(() => {
     if (current === null) {
-      return <ScopeSelect value={scope} onChange={setScope} />
+      return <ScopeSelect value={scope} onChange={setScope} fluid />
     }
+    // Vue détail : périmètre fixé par la catégorie / le modèle ouvert → vrai
+    // dropdown NATIVEMENT désactivé (grisé) qui affiche l'origine.
     const origin = (openModele ?? current).site_id ?? SCOPE_COMMUN
-    return <ScopeSelect value={origin} disabled />
+    return <ScopeSelect value={origin} disabled fluid />
   }, [current, openModele, scope, setScope])
 
   const handleAddRootCategory = useCallback(() => {
@@ -312,6 +314,7 @@ export function ModelesEquipementsPanel() {
     label: string
     disabled: boolean
     extra?: ReactNode
+    actions?: ReactNode
   }>(() => {
     if (openModele !== null) {
       // Vue détail d'un modèle : pas de création (+ masqué), juste « Copier » (si
@@ -320,9 +323,9 @@ export function ModelesEquipementsPanel() {
         action: null,
         label: 'Modifier le modèle',
         disabled: false,
-        extra: (
-          <div className="flex flex-wrap items-center gap-2">
-            {scopeDisplay}
+        extra: scopeDisplay,
+        actions: (
+          <>
             {canExport && openModele.site_id === null && (
               <TooltipIconButton
                 icon={<CopyPlus />}
@@ -341,7 +344,7 @@ export function ModelesEquipementsPanel() {
                 }
               />
             )}
-          </div>
+          </>
         ),
       }
     }
@@ -380,6 +383,7 @@ export function ModelesEquipementsPanel() {
   useTabAddAction(tabAddConfig.action, tabAddConfig.label, {
     disabled: tabAddConfig.disabled,
     extra: tabAddConfig.extra,
+    actions: tabAddConfig.actions,
   })
 
   // FIL D'ARIANE = TITRE de la barre d'onglet, uniquement quand on a descendu.
@@ -573,13 +577,8 @@ export function ModelesEquipementsPanel() {
                           ? cat.description.trim()
                           : undefined
                       }
-                      badges={
-                        cat.site_id === null ? (
-                          <Badge variant="secondary">Commun</Badge>
-                        ) : (
-                          <Badge variant="outline">Site</Badge>
-                        )
-                      }
+                      badges={<ScopeBadges siteId={cat.site_id} />}
+                      mobileMeta={<ScopeBadges siteId={cat.site_id} />}
                       hideChevron
                       // Descendre d'un palier (PUSH) : on ajoute la catégorie au
                       // chemin courant.
@@ -631,20 +630,16 @@ export function ModelesEquipementsPanel() {
                         title={modele.nom}
                         subtitle={`${String(specs)} caractéristique${specs > 1 ? 's' : ''}`}
                         badges={
-                          <>
-                            <Badge
-                              variant={
-                                modele.site_id === null
-                                  ? 'secondary'
-                                  : 'outline'
-                              }
-                            >
-                              {modele.site_id === null ? 'Commun' : 'Site'}
-                            </Badge>
-                            {!modele.est_actif && (
-                              <Badge variant="outline">Masqué</Badge>
-                            )}
-                          </>
+                          <ScopeBadges
+                            siteId={modele.site_id}
+                            masque={!modele.est_actif}
+                          />
+                        }
+                        mobileMeta={
+                          <ScopeBadges
+                            siteId={modele.site_id}
+                            masque={!modele.est_actif}
+                          />
                         }
                         hideChevron
                         // Ouvrir la page de détail du modèle (caractéristiques).

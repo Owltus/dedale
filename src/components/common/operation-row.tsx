@@ -60,6 +60,9 @@ export function OperationRow({
       }
       title={nom}
       subtitle={description?.trim() ? description.trim() : undefined}
+      // Sous `sm`, la colonne `meta` (droite) est masquée → on surface le type
+      // (ou les seuils) sous le titre, sinon l'info métier disparaît sur mobile.
+      mobileMeta={typeAffiche}
       meta={
         // `title` = repli pour lire la valeur COMPLÈTE au survol si une mesure
         // dépasse la case fixe (truncate).

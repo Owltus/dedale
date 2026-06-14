@@ -11,7 +11,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
-import { CardSkeletons } from '@/components/common/card-skeletons'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
 import { OperationRow } from '@/components/common/operation-row'
@@ -102,9 +102,7 @@ export function OperationItemsEditor({
 
       <QueryState
         query={query}
-        pending={
-          <CardSkeletons count={3} container="flex flex-col gap-2" height="h-14" />
-        }
+        pending={<ListRowSkeletons dense count={3} />}
         empty={
           <EmptyState
             icon={Plus}

@@ -21,6 +21,14 @@ export interface ListRowProps {
   /** Métadonnée textuelle alignée à droite (masquée sous `sm`). */
   meta?: ReactNode
   /**
+   * Repli MOBILE de l'information clé (portée Commun/Site, type/seuils…) : affichée
+   * SOUS le titre et UNIQUEMENT sous `sm`, là où `badges`/`meta` (colonne de droite)
+   * sont masqués — pour ne pas perdre l'info discriminante sur petit écran. OPT-IN :
+   * sans ce prop, le rendu mobile est inchangé. Variante média (hauteur fixe `h-20`) :
+   * REMPLACE le sous-titre sous `sm`. Variante standard : s'AJOUTE sous le sous-titre.
+   */
+  mobileMeta?: ReactNode
+  /**
    * Actions (boutons icône). Un clic dessus ne déclenche pas `onClick`.
    * RÉVÉLÉES AU SURVOL de la carte (ou au focus clavier d'une action) : masquées
    * au repos pour une liste épurée, visibles quand on cible la carte.
@@ -53,6 +61,7 @@ export function ListRow({
   subtitle,
   badges,
   meta,
+  mobileMeta,
   actions,
   onClick,
   hideChevron,
@@ -97,9 +106,22 @@ export function ListRow({
             {/* Ligne de description TOUJOURS présente (espace insécable si vide) →
                 titre et description à position STABLE, qu'il y ait une description
                 ou non. Tronquée sur UNE seule ligne. */}
-            <div className="text-muted-foreground truncate text-sm">
+            <div
+              className={cn(
+                'text-muted-foreground truncate text-sm',
+                // `mobileMeta` fourni → on masque la description sous `sm` pour
+                // libérer la place à l'info clé sans casser la hauteur fixe.
+                mobileMeta !== undefined && 'hidden sm:block',
+              )}
+            >
               {subtitle ?? ' '}
             </div>
+            {/* Repli mobile : info clé sous le titre (sous `sm` uniquement). */}
+            {mobileMeta !== undefined && (
+              <div className="text-muted-foreground truncate text-xs sm:hidden">
+                {mobileMeta}
+              </div>
+            )}
           </div>
           {badges !== undefined && (
             <div className="hidden shrink-0 items-center gap-2 sm:flex">
@@ -151,6 +173,13 @@ export function ListRow({
         {subtitle !== undefined && (
           <div className="text-muted-foreground line-clamp-2 text-sm">
             {subtitle}
+          </div>
+        )}
+        {/* Repli mobile : info clé (portée, type/seuils…) sous le sous-titre,
+            uniquement sous `sm` où `badges`/`meta` à droite sont masqués. */}
+        {mobileMeta !== undefined && (
+          <div className="text-muted-foreground truncate text-xs sm:hidden">
+            {mobileMeta}
           </div>
         )}
       </div>

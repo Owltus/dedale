@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CopyPlus, Folder, FolderTree, ListChecks, Pencil, Trash2 } from 'lucide-react'
+import {
+  CopyPlus,
+  Folder,
+  FolderTree,
+  ListChecks,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { modelesOperationsQueries, type ModeleOperation } from '../queries'
 import {
@@ -45,7 +52,7 @@ import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { ScopeBadges } from '@/components/common/scope-badges'
 import { listStack } from '@/lib/responsive'
 
 /**
@@ -72,7 +79,10 @@ interface LockedScope {
 interface CategoryFormState {
   open: boolean
   categorie: Categorie | null
-  preset?: { parent_id?: string; scope?: 'equipement' | 'gamme' | 'mixte' | 'operation' }
+  preset?: {
+    parent_id?: string
+    scope?: 'equipement' | 'gamme' | 'mixte' | 'operation'
+  }
   lockedScope: LockedScope | null
 }
 
@@ -273,10 +283,12 @@ export function GammesTypesPanel() {
   // en descente (affiche l'ORIGINE du modèle ouvert, sinon de la catégorie).
   const scopeDisplay = useMemo(() => {
     if (current === null) {
-      return <ScopeSelect value={scope} onChange={setScope} />
+      return <ScopeSelect value={scope} onChange={setScope} fluid />
     }
+    // Vue détail : périmètre fixé par la catégorie / le modèle ouvert → vrai
+    // dropdown NATIVEMENT désactivé (grisé) qui affiche l'origine.
     const origin = (openModele ?? current).site_id ?? SCOPE_COMMUN
-    return <ScopeSelect value={origin} disabled />
+    return <ScopeSelect value={origin} disabled fluid />
   }, [current, openModele, scope, setScope])
 
   const handleAddRootCategory = useCallback(() => {
@@ -306,15 +318,16 @@ export function GammesTypesPanel() {
     label: string
     disabled: boolean
     extra?: ReactNode
+    actions?: ReactNode
   }>(() => {
     if (openModele !== null) {
       return {
         action: null,
         label: 'Modifier le modèle d’opération',
         disabled: false,
-        extra: (
-          <div className="flex flex-wrap items-center gap-2">
-            {scopeDisplay}
+        extra: scopeDisplay,
+        actions: (
+          <>
             {canExport && openModele.site_id === null && (
               <TooltipIconButton
                 icon={<CopyPlus />}
@@ -333,7 +346,7 @@ export function GammesTypesPanel() {
                 }
               />
             )}
-          </div>
+          </>
         ),
       }
     }
@@ -369,6 +382,7 @@ export function GammesTypesPanel() {
   useTabAddAction(tabAddConfig.action, tabAddConfig.label, {
     disabled: tabAddConfig.disabled,
     extra: tabAddConfig.extra,
+    actions: tabAddConfig.actions,
   })
 
   // FIL D'ARIANE = TITRE de la barre d'onglet, uniquement quand on a descendu.
@@ -591,13 +605,8 @@ export function GammesTypesPanel() {
                           ? cat.description.trim()
                           : undefined
                       }
-                      badges={
-                        cat.site_id === null ? (
-                          <Badge variant="secondary">Commun</Badge>
-                        ) : (
-                          <Badge variant="outline">Site</Badge>
-                        )
-                      }
+                      badges={<ScopeBadges siteId={cat.site_id} />}
+                      mobileMeta={<ScopeBadges siteId={cat.site_id} />}
                       hideChevron
                       onClick={() => goTo([...path, cat])}
                       actions={
@@ -649,15 +658,8 @@ export function GammesTypesPanel() {
                             ? modele.description.trim()
                             : undefined
                         }
-                        badges={
-                          <Badge
-                            variant={
-                              modele.site_id === null ? 'secondary' : 'outline'
-                            }
-                          >
-                            {modele.site_id === null ? 'Commun' : 'Site'}
-                          </Badge>
-                        }
+                        badges={<ScopeBadges siteId={modele.site_id} />}
+                        mobileMeta={<ScopeBadges siteId={modele.site_id} />}
                         hideChevron
                         onClick={() => goToModele(modele)}
                         actions={
@@ -745,7 +747,9 @@ export function GammesTypesPanel() {
         title="Supprimer le modèle d’opération ?"
         description={deleteDescription}
         confirmLabel={
-          hasLiens ? 'Détacher de toutes les gammes puis supprimer' : 'Supprimer'
+          hasLiens
+            ? 'Détacher de toutes les gammes puis supprimer'
+            : 'Supprimer'
         }
         destructive
         loading={detachEtSupprime.isPending || liensQuery.isLoading}

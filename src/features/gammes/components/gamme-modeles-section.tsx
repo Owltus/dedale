@@ -15,7 +15,8 @@ import { ListRow } from '@/components/common/list-row'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { ScopeBadges } from '@/components/common/scope-badges'
 
 interface GammeModelesSectionProps {
   gammeId: string
@@ -102,7 +103,7 @@ export function GammeModelesSection({
 
       <QueryState
         query={query}
-        pending={<Skeleton className="h-24" />}
+        pending={<ListRowSkeletons dense count={2} />}
         empty={
           <EmptyState
             icon={Layers}
@@ -135,10 +136,16 @@ export function GammeModelesSection({
                 // Métadonnées à POSITION FIXE (mêmes colonnes d'une carte à
                 // l'autre) : portée à gauche, nombre d'opérations dans un
                 // emplacement de largeur constante aligné à droite.
-                badges={
-                  <Badge variant={m.site_id === null ? 'secondary' : 'outline'}>
-                    {m.site_id === null ? 'Commun' : 'Site'}
-                  </Badge>
+                badges={<ScopeBadges siteId={m.site_id} />}
+                // Sous `sm`, badges + meta (colonne droite) masqués → on replie
+                // portée ET nombre d'opérations sous le titre.
+                mobileMeta={
+                  <span className="flex items-center gap-1.5">
+                    <ScopeBadges siteId={m.site_id} />
+                    <span>
+                      {m.nbItems} opération{m.nbItems > 1 ? 's' : ''}
+                    </span>
+                  </span>
                 }
                 meta={
                   <span className="flex w-32 justify-center">
