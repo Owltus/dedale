@@ -159,7 +159,6 @@ export function ModeleEquipementFormDialog({
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
       pending={pending}
-      contentClassName="max-h-[90vh] overflow-y-auto"
     >
       <TextField
         label="Nom"
