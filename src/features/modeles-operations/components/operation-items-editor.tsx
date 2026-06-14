@@ -1,16 +1,20 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { modelesOperationsQueries } from '../queries'
 import type { ModeleOperation } from '../queries'
 import { useDeleteOperationItem } from '../mutations'
 import { OperationItemFormDialog } from './operation-item-form-dialog'
 import { errorMessage } from '@/lib/form'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ListRow } from '@/components/common/list-row'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -35,6 +39,7 @@ export function OperationItemsEditor({
   canManage,
 }: OperationItemsEditorProps) {
   const query = useQuery(modelesOperationsQueries.items(modele.id))
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const del = useDeleteOperationItem()
   const [form, setForm] = useState<{
     open: boolean
@@ -59,21 +64,45 @@ export function OperationItemsEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Le nom du modèle vit dans le titre de la barre d'onglet (fil d'Ariane,
-          défini par le panneau). Ici : le badge de périmètre + l'ajout. */}
-      {(modele.site_id === null || canManage) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {modele.site_id === null && <Badge variant="secondary">Commun</Badge>}
-          {canManage && (
-            <Button
-              className="ml-auto"
-              onClick={() => setForm({ open: true, item: null })}
-            >
-              <Plus /> Ajouter une opération
-            </Button>
-          )}
-        </div>
-      )}
+      {/* En-tête : carte du modèle (image + nom + description), comme le détail
+          d'un modèle d'équipement ou d'une gamme. Les actions modèle (Modifier /
+          Copier) vivent dans la barre d'onglet. */}
+      <ListRow
+        media={
+          <MiniatureThumb
+            url={urlOf(modele.miniature_id)}
+            fallback={<ListChecks className="size-10" />}
+            alt=""
+            onError={refreshMiniatures}
+            className="size-full rounded-none"
+          />
+        }
+        title={modele.nom}
+        subtitle={
+          modele.description?.trim() ? modele.description.trim() : undefined
+        }
+        badges={
+          <Badge variant={modele.site_id === null ? 'secondary' : 'outline'}>
+            {modele.site_id === null ? 'Commun' : 'Site'}
+          </Badge>
+        }
+      />
+
+      {/* Section Opérations : liste + ajout via modal (calque de la section
+          Caractéristiques du détail d'un modèle d'équipement). */}
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-sm font-medium">
+          <ListChecks className="text-muted-foreground size-4" />
+          Opérations
+        </h3>
+        {canManage && (
+          <TooltipIconButton
+            icon={<Plus />}
+            label="Ajouter une opération"
+            onClick={() => setForm({ open: true, item: null })}
+          />
+        )}
+      </div>
 
       <QueryState
         query={query}
