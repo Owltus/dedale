@@ -20,8 +20,10 @@ import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { cardGrid } from '@/lib/responsive'
+import { ListRow } from '@/components/common/list-row'
+import { listStack } from '@/lib/responsive'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 
 /**
  * Panneau « Modèles de DI » : liste PLATE (pas de catégories), commun + site.
@@ -37,6 +39,8 @@ export function ModelesDiPanel() {
   const query = useQuery(modelesDiQueries.pool())
   const del = useDeleteModeleDi()
   const { scope, setScope } = useScope()
+  // Vignettes (images de cards) : URL signées résolues en lot, live.
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   const [form, setForm] = useState<{ open: boolean; modele: ModeleDi | null }>({
     open: false,
@@ -128,7 +132,7 @@ export function ModelesDiPanel() {
             )
           }
           return (
-            <div className={cardGrid.default}>
+            <div className={listStack}>
               {visible.map((modele) => {
                 // Commun éditable par les rôles entreprise ; site éditable par
                 // tout rôle métier ayant le site (mirror RLS).
@@ -136,50 +140,56 @@ export function ModelesDiPanel() {
                 const siteName =
                   sites.find((s) => s.id === modele.site_id)?.nom ?? null
                 return (
-                  <Card key={modele.id} className="min-w-0">
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="truncate">
-                          {modele.libelle}
-                        </CardTitle>
-                        <div className="flex shrink-0 gap-1">
-                          {modele.site_id === null ? (
-                            <Badge variant="secondary">Commun</Badge>
-                          ) : (
-                            siteName !== null && (
-                              <Badge variant="outline">{siteName}</Badge>
-                            )
-                          )}
-                          {!modele.est_actif && (
-                            <Badge variant="outline">Masqué</Badge>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="text-muted-foreground flex flex-col gap-2 text-sm">
-                      <span className="line-clamp-3">
-                        {modele.constat_modele}
-                      </span>
-                      {canManage && canEditThis && (
-                        <div className="flex gap-2">
+                  <ListRow
+                    key={modele.id}
+                    media={
+                      <MiniatureThumb
+                        url={urlOf(modele.miniature_id)}
+                        fallback={<FileText className="size-10" />}
+                        alt=""
+                        onError={refreshMiniatures}
+                        className="size-full rounded-none"
+                      />
+                    }
+                    title={modele.libelle}
+                    subtitle={modele.constat_modele}
+                    badges={
+                      <>
+                        {modele.site_id === null ? (
+                          <Badge variant="secondary">Commun</Badge>
+                        ) : (
+                          siteName !== null && (
+                            <Badge variant="outline">{siteName}</Badge>
+                          )
+                        )}
+                        {!modele.est_actif && (
+                          <Badge variant="outline">Masqué</Badge>
+                        )}
+                      </>
+                    }
+                    actions={
+                      canManage && canEditThis ? (
+                        <>
                           <Button
-                            variant="outline"
-                            size="sm"
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Modifier le modèle"
                             onClick={() => setForm({ open: true, modele })}
                           >
-                            <Pencil /> Modifier
+                            <Pencil />
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
+                            aria-label="Supprimer le modèle"
                             onClick={() => setToDelete(modele)}
                           >
-                            <Trash2 /> Supprimer
+                            <Trash2 />
                           </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                        </>
+                      ) : undefined
+                    }
+                  />
                 )
               })}
             </div>

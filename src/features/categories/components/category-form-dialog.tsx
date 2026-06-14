@@ -195,7 +195,9 @@ export function CategoryFormDialog({
       ? values.parent_id
         ? 'Une sous-catégorie, rattachée à sa catégorie de gammes parente.'
         : 'Une catégorie racine pour organiser tes gammes.'
-      : 'Une catégorie pour ranger tes modèles d’équipement.'
+      : values.scope === 'operation'
+        ? 'Une catégorie pour ranger tes modèles d’opération.'
+        : 'Une catégorie pour ranger tes modèles d’équipement.'
   // Sous-catégorie = présence d'un parent (catégorie existante ou présélection) :
   // adapte le titre (« catégorie » vs « sous-catégorie »).
   const estSousCat = (categorie?.parent_id ?? preset?.parent_id) != null

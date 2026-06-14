@@ -8,8 +8,8 @@ import type { ModeleDiFormValues } from './schemas'
 function modeleDiPayload(v: ModeleDiFormValues) {
   return {
     libelle: v.libelle.trim(),
-    description: v.description.trim() || null,
     constat_modele: v.constat_modele.trim(),
+    miniature_id: v.miniature_id,
     est_actif: v.etat === 'actif',
   }
 }

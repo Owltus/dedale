@@ -3,6 +3,8 @@ import { z } from 'zod'
 export const modeleOperationSchema = z.object({
   nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
   description: z.string().trim().max(2000),
+  /** Catégorie de rattachement, OBLIGATOIRE : tout modèle est rangé sous une catégorie. */
+  categorie_id: z.string().min(1, 'La catégorie est obligatoire'),
   /** entreprise = catalogue global (site_id NULL) ; site = catalogue du site actif. */
   portee: z.enum(['entreprise', 'site']),
 })
@@ -12,6 +14,7 @@ export type ModeleOperationFormValues = z.input<typeof modeleOperationSchema>
 export const emptyModeleOperation: ModeleOperationFormValues = {
   nom: '',
   description: '',
+  categorie_id: '',
   portee: 'entreprise',
 }
 

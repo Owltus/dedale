@@ -10,6 +10,7 @@ import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { TextareaField } from '@/components/common/textarea-field'
 import { SelectField } from '@/components/common/select-field'
+import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 
 interface ModeleDiFormDialogProps {
   open: boolean
@@ -45,8 +46,8 @@ function initialValues(
     }
   return {
     libelle: modele.libelle,
-    description: modele.description ?? '',
     constat_modele: modele.constat_modele,
+    miniature_id: modele.miniature_id,
     etat: modele.est_actif ? 'actif' : 'inactif',
     portee: modele.site_id === null ? 'entreprise' : 'site',
   }
@@ -73,6 +74,11 @@ export function ModeleDiFormDialog({
   const showEntreprise = canEntreprise || values.portee === 'entreprise'
   // Création depuis le + : la portée vient du périmètre de la page → masquée.
   const hidePortee = !isEdit && lockedScope != null
+  // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
+  // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
+  // pour tout éditeur (calque du formulaire de modèle d'équipement).
+  const miniatureSite = values.portee === 'entreprise' ? null : siteId
+  const canUploadMiniature = miniatureSite === null ? canEntreprise : true
 
   function set<K extends keyof ModeleDiFormValues>(
     key: K,
@@ -129,6 +135,12 @@ export function ModeleDiFormDialog({
         error={errors.libelle}
         required
       />
+      <MiniatureField
+        value={values.miniature_id}
+        onChange={(id) => set('miniature_id', id)}
+        targetSiteId={miniatureSite}
+        canUpload={canUploadMiniature}
+      />
       {!hidePortee && (
         <SelectField
           label="Portée"
@@ -159,13 +171,6 @@ export function ModeleDiFormDialog({
         <option value="actif">Actif</option>
         <option value="inactif">Masqué</option>
       </SelectField>
-      <TextareaField
-        label="Description"
-        value={values.description}
-        onChange={(v) => set('description', v)}
-        error={errors.description}
-        rows={2}
-      />
     </FormDialog>
   )
 }

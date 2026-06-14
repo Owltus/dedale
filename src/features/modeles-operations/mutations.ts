@@ -13,6 +13,7 @@ function modelePayload(v: ModeleOperationFormValues, siteId: string | null) {
   return {
     nom: v.nom.trim(),
     description: v.description.trim() || null,
+    categorie_id: v.categorie_id,
     site_id: v.portee === 'entreprise' ? null : siteId,
   }
 }
@@ -67,6 +68,35 @@ export function useUpdateModeleOperation() {
       void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
       void qc.invalidateQueries({ queryKey: gammesQueries.all() })
     },
+  })
+}
+
+/**
+ * Copie un modèle d'opération PAR VALEUR vers un site cible via la RPC dédiée
+ * (`copier_modele_operation`). Cas d'usage : piocher un modèle COMMUN
+ * (`site_id NULL`) et l'instancier sur son site, où il devient une copie
+ * indépendante (snapshot + items, modifiable sans toucher l'original commun).
+ */
+export function useCopierModeleOperation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      sourceModeleId,
+      siteCible,
+    }: {
+      sourceModeleId: string
+      siteCible: string
+    }) => {
+      const { data } = await supabase
+        .rpc('copier_modele_operation', {
+          p_source_modele_id: sourceModeleId,
+          p_site_cible: siteCible,
+        })
+        .throwOnError()
+      return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() }),
   })
 }
 

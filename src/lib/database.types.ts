@@ -1691,10 +1691,10 @@ export type Database = {
           constat_modele: string
           created_at: string
           created_by: string
-          description: string | null
           est_actif: boolean
           id: string
           libelle: string
+          miniature_id: string | null
           site_id: string | null
           updated_at: string
         }
@@ -1702,10 +1702,10 @@ export type Database = {
           constat_modele: string
           created_at?: string
           created_by: string
-          description?: string | null
           est_actif?: boolean
           id?: string
           libelle: string
+          miniature_id?: string | null
           site_id?: string | null
           updated_at?: string
         }
@@ -1713,10 +1713,10 @@ export type Database = {
           constat_modele?: string
           created_at?: string
           created_by?: string
-          description?: string | null
           est_actif?: boolean
           id?: string
           libelle?: string
+          miniature_id?: string | null
           site_id?: string | null
           updated_at?: string
         }
@@ -1726,6 +1726,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "modeles_di_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "miniatures"
             referencedColumns: ["id"]
           },
           {
@@ -1844,6 +1851,7 @@ export type Database = {
       }
       modeles_operations: {
         Row: {
+          categorie_id: string
           created_at: string
           description: string | null
           id: string
@@ -1853,6 +1861,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          categorie_id: string
           created_at?: string
           description?: string | null
           id?: string
@@ -1862,6 +1871,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          categorie_id?: string
           created_at?: string
           description?: string | null
           id?: string
@@ -1871,6 +1881,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "modeles_operations_categorie_id_fkey"
+            columns: ["categorie_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "modeles_operations_site_id_fkey"
             columns: ["site_id"]
@@ -3198,6 +3215,10 @@ export type Database = {
         Args: { p_site_cible: string; p_source_modele_id: string }
         Returns: string
       }
+      copier_modele_operation: {
+        Args: { p_site_cible: string; p_source_modele_id: string }
+        Returns: string
+      }
       count_document_refs: { Args: { p_document_id: string }; Returns: number }
       count_miniature_refs: {
         Args: { p_miniature_id: string }
@@ -3363,7 +3384,7 @@ export type Database = {
       supprimer_blob_orphelin: { Args: { p_path: string }; Returns: boolean }
     }
     Enums: {
-      categorie_scope: "equipement" | "gamme" | "mixte"
+      categorie_scope: "equipement" | "gamme" | "mixte" | "operation"
       gamme_nature: "controle_reglementaire" | "maintenance_preventive"
       observation_gravite: "mineure" | "majeure" | "bloquante"
       observation_source:
@@ -3499,7 +3520,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      categorie_scope: ["equipement", "gamme", "mixte"],
+      categorie_scope: ["equipement", "gamme", "mixte", "operation"],
       gamme_nature: ["controle_reglementaire", "maintenance_preventive"],
       observation_gravite: ["mineure", "majeure", "bloquante"],
       observation_source: [
