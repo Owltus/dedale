@@ -10,7 +10,7 @@ import {
 } from '../mutations'
 import { MiniatureCropDialog, type CropResult } from './miniature-crop-dialog'
 import { MiniatureFilters } from './miniature-filters'
-import { filterMiniatures, type OrigineFiltre } from '../filters'
+import { filterMiniatures } from '../filters'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
@@ -78,9 +78,8 @@ export function MiniaturesPanel() {
   const [massDeleteOpen, setMassDeleteOpen] = useState(false)
   const [massDeleting, setMassDeleting] = useState(false)
   const [toDelete, setToDelete] = useState<MiniatureWithUrl | null>(null)
-  // Recherche (sur les noms des entités liées) + filtre par origine.
+  // Recherche sur les noms des entités liées.
   const [recherche, setRecherche] = useState('')
-  const [origine, setOrigine] = useState<OrigineFiltre>('all')
 
   // Périmètre partagé entre les onglets de la Bibliothèque.
   const { scope, setScope } = useScope()
@@ -402,13 +401,6 @@ export function MiniaturesPanel() {
       <MiniatureFilters
         recherche={recherche}
         onRechercheChange={setRecherche}
-        origine={origine}
-        onOrigineChange={(o) => {
-          setOrigine(o)
-          // Changer de filtre réinitialise la sélection (évite d'agir sur des
-          // vignettes masquées par le filtre).
-          setSelected(new Set())
-        }}
       />
 
       <QueryState
@@ -443,7 +435,7 @@ export function MiniaturesPanel() {
               />
             )
           }
-          const shown = filterMiniatures(visible, origine, recherche)
+          const shown = filterMiniatures(visible, recherche)
           if (shown.length === 0) {
             return (
               <EmptyState

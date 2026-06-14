@@ -8,7 +8,7 @@ import { miniaturesQueries } from '../queries'
 import { useUploadMiniature } from '../mutations'
 import { MiniatureCropDialog, type CropResult } from './miniature-crop-dialog'
 import { MiniatureFilters } from './miniature-filters'
-import { filterMiniatures, type OrigineFiltre } from '../filters'
+import { filterMiniatures } from '../filters'
 import { errorMessage, pgCode } from '@/lib/form'
 import { isBitmapImage } from '@/lib/image'
 import {
@@ -80,9 +80,8 @@ export function MiniaturePicker({
   // Vignettes de la grille dont l'`<img>` a échoué → on bascule sur l'icône
   // `ImageOff` (pas de re-fetch : le pool est déjà chargé, l'URL est juste cassée).
   const [errored, setErrored] = useState<Set<string>>(new Set())
-  // Recherche (sur les noms des entités liées) + filtre par origine.
+  // Recherche sur les noms des entités liées.
   const [recherche, setRecherche] = useState('')
-  const [origine, setOrigine] = useState<OrigineFiltre>('all')
 
   const { data: pool, isPending, isError } = useQuery(miniaturesQueries.pool())
   // Vignettes compatibles avec le périmètre de l'entité (pool entreprise + même
@@ -153,7 +152,7 @@ export function MiniaturePicker({
         </p>
       )
     }
-    const shown = filterMiniatures(compatibles, origine, recherche)
+    const shown = filterMiniatures(compatibles, recherche)
     let grille: ReactNode
     if (shown.length === 0) {
       grille = (
@@ -195,8 +194,6 @@ export function MiniaturePicker({
         <MiniatureFilters
           recherche={recherche}
           onRechercheChange={setRecherche}
-          origine={origine}
-          onOrigineChange={setOrigine}
         />
         {grille}
       </div>
