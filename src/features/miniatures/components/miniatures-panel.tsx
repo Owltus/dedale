@@ -124,6 +124,24 @@ export function MiniaturesPanel() {
   const clearSelection = useCallback(() => setSelected(new Set()), [])
   const openMassDelete = useCallback(() => setMassDeleteOpen(true), [])
 
+  // Télécharge UNE vignette (bouton au survol). Passe par le SDK Storage
+  // (pas de souci CORS). Disponible à tous les rôles métier, pas seulement aux
+  // gestionnaires : télécharger n'est pas une action de gestion.
+  const downloadOne = useCallback(async (m: MiniatureWithUrl) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .download(m.storage_path)
+      if (error !== null) {
+        toast.error('Image indisponible.')
+        return
+      }
+      downloadBlob(data, fileNameFor(m))
+    } catch (e) {
+      toast.error(errorMessage(e))
+    }
+  }, [])
+
   // Télécharge la sélection : un seul fichier WebP, ou un ZIP au-delà (jszip
   // chargé à la demande). Passe par le SDK Storage (pas de souci CORS).
   const downloadSelection = useCallback(async () => {
@@ -473,39 +491,55 @@ export function MiniaturesPanel() {
                       </div>
                     )}
 
-                    {/* Actions au survol (n'altèrent pas la sélection) : remplacer
-                        l'image — répercuté sur toutes les entités liées — puis
-                        supprimer. */}
-                    {canManageThis && (
-                      <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          className="size-7"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            startReplace(miniature)
-                          }}
-                          aria-label="Remplacer l’image"
-                          title="Remplacer l’image"
-                        >
-                          <ImageUp className="size-4" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="size-7"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setToDelete(miniature)
-                          }}
-                          aria-label="Supprimer la vignette"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    )}
+                    {/* Actions au survol (n'altèrent pas la sélection) :
+                        télécharger l'image (tous les rôles métier), puis — pour
+                        les gestionnaires — remplacer l'image (répercuté sur
+                        toutes les entités liées) et supprimer. */}
+                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="size-7"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void downloadOne(miniature)
+                        }}
+                        aria-label="Télécharger l’image"
+                        title="Télécharger"
+                      >
+                        <Download className="size-4" />
+                      </Button>
+                      {canManageThis && (
+                        <>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="size-7"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              startReplace(miniature)
+                            }}
+                            aria-label="Remplacer l’image"
+                            title="Remplacer l’image"
+                          >
+                            <ImageUp className="size-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="size-7"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setToDelete(miniature)
+                            }}
+                            aria-label="Supprimer la vignette"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )
               })}

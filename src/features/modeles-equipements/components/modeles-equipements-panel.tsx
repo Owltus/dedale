@@ -580,6 +580,7 @@ export function ModelesEquipementsPanel() {
                           <Badge variant="outline">Site</Badge>
                         )
                       }
+                      hideChevron
                       // Descendre d'un palier (PUSH) : on ajoute la catégorie au
                       // chemin courant.
                       onClick={() => goTo([...path, cat])}
@@ -645,6 +646,7 @@ export function ModelesEquipementsPanel() {
                             )}
                           </>
                         }
+                        hideChevron
                         // Ouvrir la page de détail du modèle (caractéristiques).
                         onClick={() => goToModele(modele)}
                         actions={
