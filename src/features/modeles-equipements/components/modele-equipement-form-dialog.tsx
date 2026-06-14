@@ -176,7 +176,9 @@ export function ModeleEquipementFormDialog({
       {(!hideCategorie || !hidePortee) && (
         <div
           className={
-            !hideCategorie && !hidePortee ? 'grid grid-cols-2 gap-4' : undefined
+            !hideCategorie && !hidePortee
+              ? 'grid grid-cols-1 gap-4 sm:grid-cols-2'
+              : undefined
           }
         >
           {!hideCategorie && (

@@ -206,10 +206,10 @@ export function CopierContenuDialog({
               const partiel = cochees > 0 && cochees < gs.length
               return (
                 <div key={sc.id}>
-                  <label className="flex items-center gap-2 text-sm font-medium">
+                  <label className="flex min-w-0 items-center gap-2 text-sm font-medium">
                     <input
                       type="checkbox"
-                      className="accent-primary size-4"
+                      className="accent-primary size-4 shrink-0"
                       checked={selSous.has(sc.id)}
                       ref={(el) => {
                         if (el) el.indeterminate = partiel
@@ -223,11 +223,11 @@ export function CopierContenuDialog({
                       {gs.map((g) => (
                         <label
                           key={g.id}
-                          className="text-muted-foreground flex items-center gap-2 text-sm"
+                          className="text-muted-foreground flex min-w-0 items-center gap-2 text-sm"
                         >
                           <input
                             type="checkbox"
-                            className="accent-primary size-4"
+                            className="accent-primary size-4 shrink-0"
                             checked={selGammes.has(g.id)}
                             onChange={() => toggleGamme(g.id)}
                           />
@@ -247,10 +247,13 @@ export function CopierContenuDialog({
         ) : (
           <div className="space-y-1">
             {(gammesDe.get(source?.id ?? '') ?? []).map((g) => (
-              <label key={g.id} className="flex items-center gap-2 text-sm">
+              <label
+                key={g.id}
+                className="flex min-w-0 items-center gap-2 text-sm"
+              >
                 <input
                   type="checkbox"
-                  className="accent-primary size-4"
+                  className="accent-primary size-4 shrink-0"
                   checked={selGammes.has(g.id)}
                   onChange={() => toggleGamme(g.id)}
                 />

@@ -120,7 +120,7 @@ export function OperationItemFormDialog({
         error={errors.nom}
         required
       />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
           label="Ordre"
           type="number"
@@ -159,7 +159,7 @@ export function OperationItemFormDialog({
               </option>
             ))}
           </SelectField>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <TextField
               label="Seuil minimum"
               type="number"

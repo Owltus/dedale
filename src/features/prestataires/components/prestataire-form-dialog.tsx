@@ -90,7 +90,7 @@ export function PrestataireFormDialog({
         error={errors.libelle}
         required
       />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
           label="Métier"
           value={values.metier}
@@ -104,7 +104,7 @@ export function PrestataireFormDialog({
           error={errors.siret}
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
           label="Email"
           type="email"
@@ -125,7 +125,7 @@ export function PrestataireFormDialog({
         onChange={(v) => set('adresse', v)}
         error={errors.adresse}
       />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
           label="Code postal"
           value={values.code_postal}

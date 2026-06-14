@@ -274,7 +274,9 @@ export function CategoryFormDialog({
       {(showScope || showPortee) && (
         <div
           className={
-            showScope && showPortee ? 'grid grid-cols-2 gap-4' : undefined
+            showScope && showPortee
+              ? 'grid grid-cols-1 gap-4 sm:grid-cols-2'
+              : undefined
           }
         >
           {showScope && (
