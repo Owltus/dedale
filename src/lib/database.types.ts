@@ -1111,7 +1111,6 @@ export type Database = {
         Row: {
           categorie_id: string | null
           code_inventaire: string | null
-          commentaires: string | null
           copie_depuis_modele_id: string | null
           created_at: string
           date_fin_garantie: string | null
@@ -1128,7 +1127,6 @@ export type Database = {
         Insert: {
           categorie_id?: string | null
           code_inventaire?: string | null
-          commentaires?: string | null
           copie_depuis_modele_id?: string | null
           created_at?: string
           date_fin_garantie?: string | null
@@ -1145,7 +1143,6 @@ export type Database = {
         Update: {
           categorie_id?: string | null
           code_inventaire?: string | null
-          commentaires?: string | null
           copie_depuis_modele_id?: string | null
           created_at?: string
           date_fin_garantie?: string | null
@@ -3121,7 +3118,6 @@ export type Database = {
           categorie_nom: string | null
           categorie_scope: Database["public"]["Enums"]["categorie_scope"] | null
           code_inventaire: string | null
-          commentaires: string | null
           copie_depuis_modele_id: string | null
           created_at: string | null
           date_fin_garantie: string | null
