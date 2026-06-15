@@ -411,7 +411,7 @@ export function MiniaturesPanel() {
             <CardSkeletons
               count={18}
               height="aspect-square"
-              container="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9"
+              container="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12"
             />
           }
           empty={
@@ -444,7 +444,7 @@ export function MiniaturesPanel() {
               )
             }
             return (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12">
                 {shown.map((miniature) => {
                   const isSelected = selected.has(miniature.id)
                   const canManageThis =
@@ -527,7 +527,7 @@ export function MiniaturesPanel() {
                         <Button
                           variant="secondary"
                           size="icon"
-                          className="size-7 pointer-coarse:size-9"
+                          className="size-7 pointer-coarse:size-8"
                           onClick={(e) => {
                             e.stopPropagation()
                             void downloadOne(miniature)
@@ -542,7 +542,7 @@ export function MiniaturesPanel() {
                             <Button
                               variant="secondary"
                               size="icon"
-                              className="size-7 pointer-coarse:size-9"
+                              className="size-7 pointer-coarse:size-8"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 startReplace(miniature)
@@ -555,7 +555,7 @@ export function MiniaturesPanel() {
                             <Button
                               variant="destructive"
                               size="icon"
-                              className="size-7 pointer-coarse:size-9"
+                              className="size-7 pointer-coarse:size-8"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setToDelete(miniature)
