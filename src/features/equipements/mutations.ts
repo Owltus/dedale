@@ -6,9 +6,10 @@ import { serializeChamps } from '@/lib/champs'
 import { categoriesQueries } from '@/features/categories/queries'
 
 /**
- * Crée une SOUS-catégorie de parc (scope 'parc') liée à un modèle de site : tous
- * les équipements qu'on y créera seront des copies de ce modèle. Le modèle est
- * OBLIGATOIRE ici (flotte homogène) ; la base valide qu'il appartient au site.
+ * Crée une SOUS-catégorie de parc (scope 'parc'). Le modèle est OPTIONNEL :
+ * - avec modèle (de site) → les équipements créés dedans en seront des copies ;
+ * - sans modèle (null) → équipements SPÉCIFIQUES saisis à la main (rien ne va dans
+ *   la Bibliothèque), comme les opérations spécifiques.
  */
 export function useCreateParcSousCategorie() {
   const qc = useQueryClient()
@@ -22,7 +23,7 @@ export function useCreateParcSousCategorie() {
       nom: string
       parentId: string
       siteId: string
-      modeleId: string
+      modeleId: string | null
     }) => {
       const { data } = await supabase
         .from('categories')

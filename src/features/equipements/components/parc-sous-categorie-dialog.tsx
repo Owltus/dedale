@@ -17,10 +17,11 @@ interface ParcSousCategorieDialogProps {
 }
 
 /**
- * Création d'une SOUS-catégorie de parc : nom + modèle de site FIXÉ (obligatoire).
- * Tous les équipements créés dans cette sous-catégorie seront des copies de ce
- * modèle (flotte homogène). Si aucun modèle de site n'existe, on l'indique et la
- * création est bloquée (créer/exporter un modèle dans la Bibliothèque d'abord).
+ * Création d'une SOUS-catégorie de parc : nom + modèle de site OPTIONNEL.
+ * - Avec modèle → tous les équipements créés dedans en seront des copies (flotte
+ *   homogène).
+ * - Sans modèle → équipements SPÉCIFIQUES saisis à la main (comme les opérations
+ *   spécifiques ; rien ne va dans la Bibliothèque).
  */
 export function ParcSousCategorieDialog({
   open,
@@ -32,20 +33,21 @@ export function ParcSousCategorieDialog({
   const create = useCreateParcSousCategorie()
   const [nom, setNom] = useState('')
   const [modeleId, setModeleId] = useState('')
-  const [errors, setErrors] = useState<{ nom?: string; modele?: string }>({})
-  const aucunModele = modeles.length === 0
+  const [errors, setErrors] = useState<{ nom?: string }>({})
 
   async function handleSubmit() {
-    const next: { nom?: string; modele?: string } = {}
-    if (!nom.trim()) next.nom = 'Le nom est obligatoire'
-    if (!modeleId) next.modele = 'Choisis un modèle'
-    if (next.nom || next.modele) {
-      setErrors(next)
+    if (!nom.trim()) {
+      setErrors({ nom: 'Le nom est obligatoire' })
       return
     }
     setErrors({})
     try {
-      await create.mutateAsync({ nom, parentId, siteId, modeleId })
+      await create.mutateAsync({
+        nom,
+        parentId,
+        siteId,
+        modeleId: modeleId || null,
+      })
       toast.success('Sous-catégorie créée')
       onOpenChange(false)
     } catch (e) {
@@ -58,12 +60,11 @@ export function ParcSousCategorieDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Nouvelle sous-catégorie"
-      description="Choisis le modèle dont hériteront tous les équipements de cette sous-catégorie."
+      description="Avec un modèle, les équipements en seront des copies ; sans modèle, tu les saisis à la main (équipements spécifiques)."
       onSubmit={() => void handleSubmit()}
       submitLabel="Créer"
       pendingLabel="Création…"
       pending={create.isPending}
-      submitDisabled={aucunModele}
     >
       <TextField
         label="Nom"
@@ -73,26 +74,18 @@ export function ParcSousCategorieDialog({
         required
       />
       <SelectField
-        label="Modèle de la sous-catégorie"
-        required
+        label="Modèle (optionnel)"
         id="parc_subcat_modele"
         value={modeleId}
         onChange={setModeleId}
-        error={errors.modele}
       >
-        <option value="">— Choisir un modèle du site —</option>
+        <option value="">— Aucun (équipements spécifiques) —</option>
         {modeles.map((m) => (
           <option key={m.id} value={m.id}>
             {m.nom}
           </option>
         ))}
       </SelectField>
-      {aucunModele && (
-        <p className="text-muted-foreground text-sm">
-          Aucun modèle sur ce site. Crée un modèle dans la Bibliothèque (ou
-          exporte un modèle commun vers le site), puis reviens ici.
-        </p>
-      )}
     </FormDialog>
   )
 }
