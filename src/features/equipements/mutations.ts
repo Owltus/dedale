@@ -86,6 +86,9 @@ export function useCreateEquipementParc() {
       miniatureId,
       champs,
       modeleId,
+      dateMiseEnService,
+      dateFinGarantie,
+      commentaires,
     }: {
       nom: string
       localId: string
@@ -93,6 +96,10 @@ export function useCreateEquipementParc() {
       miniatureId: string | null
       champs: Champ[]
       modeleId: string | null
+      // Données « de base » standard de l'équipement (B).
+      dateMiseEnService?: string
+      dateFinGarantie?: string
+      commentaires?: string
     }) => {
       const { data } = await supabase
         .from('equipements')
@@ -103,6 +110,11 @@ export function useCreateEquipementParc() {
           miniature_id: miniatureId,
           specifications: serializeChamps(champs),
           copie_depuis_modele_id: modeleId,
+          date_mise_en_service: dateMiseEnService?.trim()
+            ? dateMiseEnService
+            : null,
+          date_fin_garantie: dateFinGarantie?.trim() ? dateFinGarantie : null,
+          commentaires: commentaires?.trim() ? commentaires.trim() : null,
         })
         .select('id')
         .single()

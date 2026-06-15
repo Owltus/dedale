@@ -46,6 +46,10 @@ export function NouvelEquipementDialog({
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
   const [nom, setNom] = useState(template.nomDefaut)
   const [localId, setLocalId] = useState('')
+  // Données « de base » standard de l'équipement.
+  const [dateMiseEnService, setDateMiseEnService] = useState('')
+  const [dateFinGarantie, setDateFinGarantie] = useState('')
+  const [commentaires, setCommentaires] = useState('')
   // Caractéristiques héritées : valeur initialisée sur le défaut du gabarit.
   const [champs, setChamps] = useState<Champ[]>(() =>
     template.champs.map((c) => ({ ...c, valeur: c.valeur ?? c.defaut ?? null })),
@@ -83,6 +87,9 @@ export function NouvelEquipementDialog({
         miniatureId: template.miniatureId,
         champs,
         modeleId: template.modeleId,
+        dateMiseEnService,
+        dateFinGarantie,
+        commentaires,
       })
       toast.success('Équipement créé')
       onOpenChange(false)
@@ -124,9 +131,31 @@ export function NouvelEquipementDialog({
           </option>
         ))}
       </SelectField>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <TextField
+          label="Mise en service"
+          type="date"
+          value={dateMiseEnService}
+          onChange={setDateMiseEnService}
+        />
+        <TextField
+          label="Fin de garantie"
+          type="date"
+          value={dateFinGarantie}
+          onChange={setDateFinGarantie}
+        />
+      </div>
+      <TextField
+        label="Commentaires"
+        value={commentaires}
+        onChange={setCommentaires}
+      />
       {champs.length > 0 && (
         <div className="grid gap-3">
           <Label>Caractéristiques</Label>
+          <p className="text-muted-foreground -mt-1 text-sm">
+            Héritées de la sous-catégorie ; ajuste les valeurs pour cet équipement.
+          </p>
           {champs.map((champ, i) => (
             <ChampValeurInput
               key={champ.cle}
