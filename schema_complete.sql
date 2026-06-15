@@ -2138,6 +2138,69 @@ CREATE TRIGGER trg_modeles_equipements_check_categorie
 COMMENT ON FUNCTION public.check_modele_equipement_categorie() IS
     'Garantit la compatibilité d''usage (scope ''gamme'' interdit) et la cohérence de site entre le modèle et sa catégorie. Calque check_equipement_categorie_scope adapté aux 2 niveaux de scope du modèle.';
 
+-- -----------------------------------------------------------------------------
+-- 029 : modèle FIXÉ sur une sous-catégorie de parc (FK ajoutée ici car elle
+-- pointe vers modeles_equipements, créée après categories). Une sous-catégorie de
+-- parc = flotte homogène d'équipements issus d'UN modèle de site ; chaque
+-- équipement créé dedans en est une copie (instancier_equipement). Le caractère
+-- obligatoire est porté par l'UI ; la base valide la cohérence quand un modèle est posé.
+-- -----------------------------------------------------------------------------
+ALTER TABLE categories
+  ADD COLUMN modele_equipement_id UUID
+    REFERENCES modeles_equipements(id) ON DELETE RESTRICT;
+
+COMMENT ON COLUMN categories.modele_equipement_id IS
+  'Modèle d''équipement FIXÉ sur une sous-catégorie de parc (scope ''parc'') : les équipements créés dedans en sont des copies. NULL ailleurs. Doit être un modèle DU SITE de la catégorie (validé par trigger).';
+
+CREATE OR REPLACE FUNCTION public.check_categorie_modele()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    m_site     UUID;
+    m_deleted  TIMESTAMPTZ;
+    m_exists   BOOLEAN;
+BEGIN
+    IF NEW.modele_equipement_id IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.scope <> 'parc' THEN
+        RAISE EXCEPTION 'Un modèle ne peut être fixé que sur une catégorie de parc (scope ''parc'').'
+            USING ERRCODE = 'check_violation';
+    END IF;
+
+    SELECT true, site_id, deleted_at
+      INTO m_exists, m_site, m_deleted
+      FROM public.modeles_equipements
+     WHERE id = NEW.modele_equipement_id;
+
+    IF m_exists IS NULL THEN
+        RAISE EXCEPTION 'Modèle % introuvable.', NEW.modele_equipement_id
+            USING ERRCODE = 'check_violation';
+    END IF;
+    IF m_deleted IS NOT NULL THEN
+        RAISE EXCEPTION 'Modèle % en corbeille : impossible de le fixer.', NEW.modele_equipement_id
+            USING ERRCODE = 'check_violation';
+    END IF;
+    IF m_site IS NULL OR m_site IS DISTINCT FROM NEW.site_id THEN
+        RAISE EXCEPTION 'Le modèle fixé doit être un modèle de CE site (exporte d''abord un modèle commun vers le site).'
+            USING ERRCODE = 'check_violation';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_categories_modele
+    BEFORE INSERT OR UPDATE OF modele_equipement_id, scope, site_id ON categories
+    FOR EACH ROW EXECUTE FUNCTION public.check_categorie_modele();
+
+COMMENT ON FUNCTION public.check_categorie_modele() IS
+    'Valide le modèle fixé sur une sous-catégorie de parc : scope ''parc'' obligatoire, modèle vivant et appartenant au MÊME site que la catégorie.';
+
 ALTER TABLE modeles_equipements ENABLE ROW LEVEL SECURITY;
 
 -- -----------------------------------------------------------------------------

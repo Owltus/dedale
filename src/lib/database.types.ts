@@ -129,6 +129,7 @@ export type Database = {
           id: string
           image_path: string | null
           miniature_id: string | null
+          modele_equipement_id: string | null
           nom: string
           ordre: number
           parent_id: string | null
@@ -145,6 +146,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           miniature_id?: string | null
+          modele_equipement_id?: string | null
           nom: string
           ordre?: number
           parent_id?: string | null
@@ -161,6 +163,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           miniature_id?: string | null
+          modele_equipement_id?: string | null
           nom?: string
           ordre?: number
           parent_id?: string | null
