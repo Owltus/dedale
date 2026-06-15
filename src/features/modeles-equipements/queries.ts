@@ -20,7 +20,11 @@ export const modelesEquipementsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('modeles_equipements')
-          .select('*, categories(id, nom)')
+          // Embed désambiguïsé : depuis 029, il existe DEUX relations
+          // modeles_equipements ↔ categories (categorie_id du modèle, et
+          // categories.modele_equipement_id en sens inverse). On force la 1re via le
+          // nom de contrainte FK, sinon PostgREST refuse l'embed (ambigu).
+          .select('*, categories!modeles_equipements_categorie_id_fkey(id, nom)')
           .eq('est_actif', true)
           .is('deleted_at', null)
           .order('nom')
@@ -45,7 +49,11 @@ export const modelesEquipementsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('modeles_equipements')
-          .select('*, categories(id, nom)')
+          // Embed désambiguïsé : depuis 029, il existe DEUX relations
+          // modeles_equipements ↔ categories (categorie_id du modèle, et
+          // categories.modele_equipement_id en sens inverse). On force la 1re via le
+          // nom de contrainte FK, sinon PostgREST refuse l'embed (ambigu).
+          .select('*, categories!modeles_equipements_categorie_id_fkey(id, nom)')
           .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
@@ -65,7 +73,11 @@ export const modelesEquipementsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('modeles_equipements')
-          .select('*, categories(id, nom)')
+          // Embed désambiguïsé : depuis 029, il existe DEUX relations
+          // modeles_equipements ↔ categories (categorie_id du modèle, et
+          // categories.modele_equipement_id en sens inverse). On force la 1re via le
+          // nom de contrainte FK, sinon PostgREST refuse l'embed (ambigu).
+          .select('*, categories!modeles_equipements_categorie_id_fkey(id, nom)')
           .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
