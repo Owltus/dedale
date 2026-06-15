@@ -35,7 +35,7 @@ export const modelesOperationsQueries = {
 
   /**
    * Modèles d'opérations (gammes-types) visibles : scope entreprise (site_id
-   * NULL) + scope du site actif. Pas de soft-delete sur cette table.
+   * NULL) + scope du site actif. Exclut les modèles EN CORBEILLE (deleted_at, 024).
    */
   list: (siteId: string | null) =>
     queryOptions({
@@ -44,6 +44,7 @@ export const modelesOperationsQueries = {
         const { data } = await supabase
           .from('modeles_operations')
           .select('*')
+          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
@@ -112,6 +113,7 @@ export const modelesOperationsQueries = {
         const { data } = await supabase
           .from('modeles_operations')
           .select('*')
+          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
@@ -133,6 +135,7 @@ export const modelesOperationsQueries = {
         const { data } = await supabase
           .from('modeles_operations')
           .select('id, nom, description, site_id, modeles_operations_items(id)')
+          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()

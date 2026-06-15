@@ -220,7 +220,7 @@ export function ModelesDiPanel() {
         title="Supprimer le modèle ?"
         description={
           toDelete
-            ? `« ${toDelete.libelle} » sera définitivement supprimé.`
+            ? `« ${toDelete.libelle} » sera placé dans la corbeille (suppression définitive après 90 jours).`
             : undefined
         }
         confirmLabel="Supprimer"

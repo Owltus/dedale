@@ -73,8 +73,16 @@ export function useDeleteModeleDi() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Suppression réelle (pas de soft-delete sur cette table).
-      await supabase.from('modeles_di').delete().eq('id', id).throwOnError()
+      // Soft-delete : mise en corbeille (récupérable 90 j, purge backend). (024)
+      // .select('id').single() → un refus RLS (0 ligne) devient une vraie erreur,
+      // pas un faux succès silencieux.
+      await supabase
+        .from('modeles_di')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: modelesDiQueries.all() }),
   })

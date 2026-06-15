@@ -470,18 +470,18 @@ export function GammesTypesPanel() {
     : liensQuery.isLoading
       ? 'Vérification des gammes liées…'
       : liensQuery.isError
-        ? `Vérification des gammes liées impossible. La suppression détachera automatiquement toute liaison résiduelle puis supprimera « ${toDelete.nom} ».`
+        ? `Vérification des gammes liées impossible. La suppression détachera automatiquement toute liaison résiduelle puis placera « ${toDelete.nom} » dans la corbeille (suppression définitive après 90 jours).`
         : !hasLiens
-          ? `« ${toDelete.nom} » et ses opérations seront supprimés définitivement (toute liaison résiduelle sera détachée).`
+          ? `« ${toDelete.nom} » et ses opérations partiront dans la corbeille (suppression définitive après 90 jours ; toute liaison résiduelle sera détachée).`
           : nbActives > 0
             ? `« ${toDelete.nom} » est utilisé par ${String(nbActives)} gamme${
                 nbActives > 1 ? 's' : ''
               } (${apercuNoms}${resteNoms})${corbeilleNote}. Le détacher de ${
                 nbActives > 1 ? 'ces gammes' : 'cette gamme'
-              } (sans les supprimer) puis le supprimer définitivement ?`
+              } (sans les supprimer) puis le placer dans la corbeille (suppression définitive après 90 jours) ?`
             : `« ${toDelete.nom} » a ${String(nbCorbeille)} liaison${
                 nbCorbeille > 1 ? 's' : ''
-              } en corbeille à détacher. Le supprimer définitivement ?`
+              } en corbeille à détacher. Le placer dans la corbeille (suppression définitive après 90 jours) ?`
 
   // Dialog de création/édition de modèle, partagé navigation + détail.
   const modeleFormDialog =

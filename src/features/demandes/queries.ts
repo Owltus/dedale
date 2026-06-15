@@ -107,6 +107,7 @@ export const modelesDiQueries = {
         const { data } = await supabase
           .from('modeles_di')
           .select('id, libelle, constat_modele')
+          .is('deleted_at', null)
           .or(`site_id.is.null,site_id.eq.${siteId!}`)
           .eq('est_actif', true)
           .order('libelle')

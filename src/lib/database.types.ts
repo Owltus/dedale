@@ -1726,6 +1726,7 @@ export type Database = {
           constat_modele: string
           created_at: string
           created_by: string
+          deleted_at: string | null
           est_actif: boolean
           id: string
           libelle: string
@@ -1737,6 +1738,7 @@ export type Database = {
           constat_modele: string
           created_at?: string
           created_by: string
+          deleted_at?: string | null
           est_actif?: boolean
           id?: string
           libelle: string
@@ -1748,6 +1750,7 @@ export type Database = {
           constat_modele?: string
           created_at?: string
           created_by?: string
+          deleted_at?: string | null
           est_actif?: boolean
           id?: string
           libelle?: string
@@ -1902,6 +1905,7 @@ export type Database = {
         Row: {
           categorie_id: string
           created_at: string
+          deleted_at: string | null
           description: string | null
           id: string
           image_path: string | null
@@ -1913,6 +1917,7 @@ export type Database = {
         Insert: {
           categorie_id: string
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           id?: string
           image_path?: string | null
@@ -1924,6 +1929,7 @@ export type Database = {
         Update: {
           categorie_id?: string
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           id?: string
           image_path?: string | null
