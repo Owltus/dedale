@@ -365,7 +365,9 @@ CREATE TYPE categorie_scope AS ENUM (
     'equipement',
     'gamme',
     'mixte',
-    'operation'   -- 015 : catégories des modèles d'opération (racine-only, 1 niveau)
+    'operation',  -- 015 : catégories des modèles d'opération (racine-only, 1 niveau)
+    'parc'        -- 027/028 : catégories des ÉQUIPEMENTS RÉELS (parc), séparées des
+                  --           modèles ; 2 niveaux (catégorie → sous-catégorie), comme 'gamme'
 );
 
 
@@ -1636,8 +1638,9 @@ BEGIN
     -- des gammes (scope 'gamme' OU 'mixte' — check_gamme_categorie accepte les deux)
     -- ne peut pas avoir un parent qui est lui-même un enfant (profondeur > 2).
     -- Arborescence cible : catégorie (racine) → sous-catégorie → gamme.
-    IF NEW.scope IN ('gamme', 'mixte') AND p_parent IS NOT NULL THEN
-        RAISE EXCEPTION 'Une catégorie de gamme/mixte ne peut pas dépasser 2 niveaux (catégorie racine → sous-catégorie).'
+    -- (028 : 'parc' — catégories des équipements réels — traité comme 'gamme'/'mixte'.)
+    IF NEW.scope IN ('gamme', 'mixte', 'parc') AND p_parent IS NOT NULL THEN
+        RAISE EXCEPTION 'Une catégorie de gamme/mixte/parc ne peut pas dépasser 2 niveaux (catégorie racine → sous-catégorie).'
             USING ERRCODE = 'check_violation';
     END IF;
 
@@ -1648,13 +1651,13 @@ BEGIN
     -- gamme/mixte qui DEVIENT une sous-catégorie (NEW.parent_id renseigné → niveau ≥2)
     -- ne peut pas avoir d'enfant vivant. (INSERT : la ligne n'a pas encore d'enfant
     -- → jamais de faux positif. Feuille re-parentée : aucun enfant → permis.)
-    IF NEW.scope IN ('gamme', 'mixte') AND NEW.parent_id IS NOT NULL
+    IF NEW.scope IN ('gamme', 'mixte', 'parc') AND NEW.parent_id IS NOT NULL
        AND EXISTS (
            SELECT 1 FROM public.categories enfant
             WHERE enfant.parent_id = NEW.id
               AND enfant.deleted_at IS NULL
        ) THEN
-        RAISE EXCEPTION 'Une sous-catégorie de gamme/mixte ne peut pas avoir d''enfants : re-parentage interdit (créerait un niveau 3).'
+        RAISE EXCEPTION 'Une sous-catégorie de gamme/mixte/parc ne peut pas avoir d''enfants : re-parentage interdit (créerait un niveau 3).'
             USING ERRCODE = 'check_violation';
     END IF;
 
@@ -1680,7 +1683,7 @@ CREATE TRIGGER trg_categories_parent_scope
     BEFORE INSERT OR UPDATE OF parent_id, site_id, scope ON categories
     FOR EACH ROW
     EXECUTE FUNCTION public.check_categorie_parent_scope();
-COMMENT ON FUNCTION public.check_categorie_parent_scope() IS 'Cohérence parent : (1) un enfant n''est jamais plus large que son parent (entreprise englobe site) ; (2) une catégorie d''équipement OU d''opération ne peut pas avoir de sous-catégorie — ni comme parent, ni en basculant son scope alors qu''elle a déjà des enfants vivants (1 niveau) ; (3) une catégorie de gamme/mixte ne peut pas dépasser 2 niveaux ; (4) une sous-catégorie de gamme/mixte (niveau ≥2) ne peut pas avoir d''enfants (re-parentage d''un ancêtre interdit) ; (5) une catégorie portant des gammes (vivantes ou en corbeille) ne peut pas être promue en racine (parent_id → NULL). SECURITY DEFINER pour fiabiliser la lecture du parent. (015 : scope ''operation'' traité comme ''equipement''.)';
+COMMENT ON FUNCTION public.check_categorie_parent_scope() IS 'Cohérence parent : (1) un enfant n''est jamais plus large que son parent (entreprise englobe site) ; (2) une catégorie d''équipement OU d''opération ne peut pas avoir de sous-catégorie — ni comme parent, ni en basculant son scope alors qu''elle a déjà des enfants vivants (1 niveau) ; (3) une catégorie de gamme/mixte ne peut pas dépasser 2 niveaux ; (4) une sous-catégorie de gamme/mixte (niveau ≥2) ne peut pas avoir d''enfants (re-parentage d''un ancêtre interdit) ; (5) une catégorie portant des gammes (vivantes ou en corbeille) ne peut pas être promue en racine (parent_id → NULL). SECURITY DEFINER pour fiabiliser la lecture du parent. (015 : scope ''operation'' traité comme ''equipement''. 028 : scope ''parc'' — catégories des équipements réels — traité comme ''gamme''/''mixte'' : 2 niveaux.)';
 
 -- -----------------------------------------------------------------------------
 -- Trigger : verrou de structure sur la mise en corbeille d'une catégorie
@@ -1870,9 +1873,11 @@ BEGIN
     SELECT scope, site_id INTO c_scope, c_site
     FROM public.categories WHERE id = NEW.categorie_id;
 
-    -- Scope d'usage compatible
-    IF c_scope = 'gamme' THEN
-        RAISE EXCEPTION 'Catégorie % est de scope ''gamme'' : interdite sur un équipement', NEW.categorie_id;
+    -- Scope d'usage : catégorie de PARC obligatoire (028 — séparée des catégories
+    -- de modèles, scope 'equipement').
+    IF c_scope <> 'parc' THEN
+        RAISE EXCEPTION 'Catégorie % de scope ''%'' : un équipement se range dans une catégorie de parc (scope ''parc'').', NEW.categorie_id, c_scope
+            USING ERRCODE = 'check_violation';
     END IF;
 
     -- Cohérence site (si catégorie scopée site)
@@ -1897,7 +1902,7 @@ $$;
 CREATE TRIGGER trg_equipements_check_categorie
     BEFORE INSERT OR UPDATE OF categorie_id, local_id ON equipements
     FOR EACH ROW EXECUTE FUNCTION public.check_equipement_categorie_scope();
-COMMENT ON FUNCTION public.check_equipement_categorie_scope() IS 'Garantit la compatibilité d''usage (scope gamme interdit) et la cohérence de site entre l''équipement et sa catégorie.';
+COMMENT ON FUNCTION public.check_equipement_categorie_scope() IS 'Un équipement réel se range uniquement dans une catégorie de PARC (scope ''parc'', séparée des catégories de modèles — 028) et sur le même site que son local.';
 COMMENT ON COLUMN equipements.specifications IS 'JSONB libre validé Zod côté app + CHECK F08 base (object, anti prototype pollution, taille < 10ko).';
 COMMENT ON COLUMN equipements.deleted_at IS 'Soft-delete corbeille 90 jours (purge cron purge_corbeille_90j).';
 
@@ -2198,7 +2203,8 @@ COMMENT ON FUNCTION public.protect_copie_depuis_modele_immutable() IS
 CREATE OR REPLACE FUNCTION public.instancier_equipement(
     p_modele_id        UUID,
     p_local_id         UUID,
-    p_code_inventaire  TEXT
+    p_code_inventaire  TEXT,
+    p_categorie_id     UUID DEFAULT NULL   -- 028 : catégorie de PARC où ranger l'équipement
 ) RETURNS UUID
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
@@ -2264,14 +2270,16 @@ BEGIN
 
     -- 6. INSERT equipements (copie par valeur — snapshot Pattern 1).
     --    description du modèle non copiée dans equipements.commentaires (réservé
-    --    aux annotations terrain libres).
+    --    aux annotations terrain libres). 028 : la catégorie vient du PARC
+    --    (p_categorie_id, scope 'parc' ; NULL = Non classé), PAS du modèle (scope
+    --    'equipement') — le trigger check_equipement_categorie_scope la valide.
     INSERT INTO public.equipements (
         id, local_id, categorie_id,
         nom, code_inventaire,
         specifications, image_path,
         copie_depuis_modele_id
     ) VALUES (
-        gen_random_uuid(), p_local_id, v_modele.categorie_id,
+        gen_random_uuid(), p_local_id, p_categorie_id,
         v_modele.nom, p_code_inventaire,
         v_modele.specifications, v_modele.image_path,
         p_modele_id
@@ -2282,8 +2290,8 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.instancier_equipement(UUID, UUID, TEXT) IS
-    'Bibliothèque de modèles d''équipements : crée un équipement réel à partir d''un modèle (copie PAR VALEUR — snapshot Pattern 1). L''équipement est totalement indépendant du modèle après création (le tech peut le modifier librement). Droits : admin/manager/technicien ayant accès au site du local cible. Le modèle doit être vivant + est_actif. Si scope site, doit cibler le site du local. Retourne l''id du nouvel équipement.';
+COMMENT ON FUNCTION public.instancier_equipement(UUID, UUID, TEXT, UUID) IS
+    'Crée un équipement réel à partir d''un modèle (copie PAR VALEUR — snapshot Pattern 1). L''équipement est totalement indépendant du modèle après création. La catégorie vient du PARC (p_categorie_id, scope ''parc'' ; NULL = Non classé), pas du modèle. Droits : admin/manager/technicien ayant accès au site du local cible. Le modèle doit être vivant + est_actif. Si scope site, doit cibler le site du local. Retourne l''id du nouvel équipement.';
 
 -- -----------------------------------------------------------------------------
 -- copier_modele_equipement — duplique un modèle entre scopes
@@ -11670,7 +11678,7 @@ GRANT EXECUTE ON FUNCTION public.copier_gamme(uuid, uuid)                TO auth
 GRANT EXECUTE ON FUNCTION public.copier_categorie(uuid, uuid, uuid[], uuid[]) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.copier_modele_equipement(uuid, uuid)    TO authenticated;
 GRANT EXECUTE ON FUNCTION public.detacher_et_supprimer_modele_operation(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.instancier_equipement(uuid, uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.instancier_equipement(uuid, uuid, text, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.count_document_refs(uuid)               TO authenticated;
 GRANT EXECUTE ON FUNCTION public.count_miniature_refs(uuid)              TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_audit_log(text, int, timestamptz)   TO authenticated;

@@ -3450,6 +3450,7 @@ export type Database = {
       has_site_access: { Args: { target_site_id: string }; Returns: boolean }
       instancier_equipement: {
         Args: {
+          p_categorie_id?: string
           p_code_inventaire: string
           p_local_id: string
           p_modele_id: string
@@ -3519,7 +3520,7 @@ export type Database = {
       supprimer_blob_orphelin: { Args: { p_path: string }; Returns: boolean }
     }
     Enums: {
-      categorie_scope: "equipement" | "gamme" | "mixte" | "operation"
+      categorie_scope: "equipement" | "gamme" | "mixte" | "operation" | "parc"
       gamme_nature: "controle_reglementaire" | "maintenance_preventive"
       observation_gravite: "mineure" | "majeure" | "bloquante"
       observation_source:
@@ -3655,7 +3656,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      categorie_scope: ["equipement", "gamme", "mixte", "operation"],
+      categorie_scope: ["equipement", "gamme", "mixte", "operation", "parc"],
       gamme_nature: ["controle_reglementaire", "maintenance_preventive"],
       observation_gravite: ["mineure", "majeure", "bloquante"],
       observation_source: [

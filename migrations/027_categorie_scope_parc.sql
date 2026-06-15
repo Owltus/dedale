@@ -1,0 +1,21 @@
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║  027_categorie_scope_parc.sql                                               ║
+-- ║  Sépare les catégories du PARC (équipements réels) des catégories de        ║
+-- ║  MODÈLES : nouvelle valeur d'enum `parc` dans categorie_scope.              ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+--
+-- CONTEXTE. Jusqu'ici, équipements RÉELS (page Équipements) et MODÈLES
+-- d'équipements (Bibliothèque) partageaient la même taxonomie (scope
+-- 'equipement'/'mixte'). Conséquence visible : une catégorie créée côté
+-- Équipements apparaissait aussi dans la Bibliothèque. On sépare : les catégories
+-- du parc passent sur un nouveau scope `parc`, calqué sur `gamme` (catégorie →
+-- sous-catégorie → feuille). Les catégories de MODÈLES restent sur 'equipement'.
+--
+-- POURQUOI UNE MIGRATION DÉDIÉE. PostgreSQL interdit d'UTILISER une valeur d'enum
+-- (INSERT/comparaison à l'exécution dans la même transaction) ajoutée par
+-- `ALTER TYPE ... ADD VALUE` dans CETTE transaction. On ajoute donc la valeur
+-- SEULE ici (commit), puis 028 fait le reste (triggers, RPC, backfill).
+--
+-- Idempotent : `IF NOT EXISTS`.
+
+ALTER TYPE public.categorie_scope ADD VALUE IF NOT EXISTS 'parc';

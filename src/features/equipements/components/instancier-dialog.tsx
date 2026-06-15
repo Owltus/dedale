@@ -12,8 +12,18 @@ interface InstancierDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   siteId: string
-  modeleId: string | null
-  modeleNom: string | null
+  /** Modèle imposé (instanciation d'un modèle précis). */
+  modeleId?: string | null
+  /** Nom du modèle imposé (pour le texte d'aide). */
+  modeleNom?: string | null
+  /**
+   * Liste de modèles à CHOISIR (« Créer depuis un modèle ») : si fournie ET sans
+   * `modeleId`, un sélecteur de modèle est affiché. La création produit un
+   * équipement AUTONOME (caractéristiques copiées), indépendant de son modèle.
+   */
+  modeles?: { id: string; nom: string }[]
+  /** Catégorie de PARC où ranger l'équipement créé (la sous-catégorie courante). */
+  categorieId?: string | null
 }
 
 export function InstancierDialog({
@@ -22,25 +32,35 @@ export function InstancierDialog({
   siteId,
   modeleId,
   modeleNom,
+  modeles,
+  categorieId,
 }: InstancierDialogProps) {
   const instancier = useInstancierEquipement()
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
+  // Sélecteur de modèle uniquement quand une liste est fournie sans modèle imposé.
+  const pickModele = modeleId == null && modeles !== undefined
+  const [modeleChoisi, setModeleChoisi] = useState('')
   const [localId, setLocalId] = useState('')
   const [code, setCode] = useState('')
-  const [error, setError] = useState<string | undefined>()
+  const [errors, setErrors] = useState<{ modele?: string; local?: string }>({})
+
+  const effectiveModeleId = modeleId ?? (modeleChoisi || null)
 
   async function handleSubmit() {
-    if (!modeleId) return
-    if (!localId) {
-      setError('L’emplacement est obligatoire')
+    const next: { modele?: string; local?: string } = {}
+    if (!effectiveModeleId) next.modele = 'Le modèle est obligatoire'
+    if (!localId) next.local = 'L’emplacement est obligatoire'
+    if (next.modele || next.local) {
+      setErrors(next)
       return
     }
-    setError(undefined)
+    setErrors({})
     try {
       await instancier.mutateAsync({
-        modeleId,
+        modeleId: effectiveModeleId!,
         localId,
         codeInventaire: code.trim(),
+        categorieId,
       })
       toast.success('Équipement créé depuis le modèle')
       onOpenChange(false)
@@ -53,24 +73,41 @@ export function InstancierDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Instancier le modèle"
+      title="Créer depuis un modèle"
       description={
         modeleNom
-          ? `Crée un équipement à partir du modèle « ${modeleNom} ». Ses caractéristiques sont copiées.`
-          : 'Crée un équipement à partir du modèle. Ses caractéristiques sont copiées.'
+          ? `Crée un équipement à partir du modèle « ${modeleNom} ». Ses caractéristiques sont copiées ; l’équipement est ensuite indépendant.`
+          : 'Crée un équipement à partir d’un modèle. Ses caractéristiques sont copiées ; l’équipement est ensuite indépendant.'
       }
       onSubmit={() => void handleSubmit()}
-      submitLabel="Instancier"
+      submitLabel="Créer"
       pendingLabel="Création…"
       pending={instancier.isPending}
     >
+      {pickModele && (
+        <SelectField
+          label="Modèle"
+          required
+          id="instancier_modele"
+          value={modeleChoisi}
+          onChange={setModeleChoisi}
+          error={errors.modele}
+        >
+          <option value="">— Choisir un modèle —</option>
+          {modeles.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.nom}
+            </option>
+          ))}
+        </SelectField>
+      )}
       <SelectField
         label="Emplacement"
         required
         id="instancier_local"
         value={localId}
         onChange={setLocalId}
-        error={error}
+        error={errors.local}
       >
         <option value="">— Choisir un local —</option>
         {locaux.map((l) => (

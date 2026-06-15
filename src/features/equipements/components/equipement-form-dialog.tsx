@@ -22,12 +22,18 @@ interface EquipementFormDialogProps {
   onOpenChange: (open: boolean) => void
   siteId: string
   equipement?: Equipement | null
+  /**
+   * Catégorie PRÉSÉLECTIONNÉE à la création (création depuis une catégorie de la
+   * page Équipements). Ignorée en édition (la catégorie vient de l'équipement).
+   */
+  presetCategorieId?: string | null
 }
 
 function initialValues(
   eq: Equipement | null | undefined,
+  presetCategorieId?: string | null,
 ): EquipementFormValues {
-  if (!eq) return emptyEquipement
+  if (!eq) return { ...emptyEquipement, categorie_id: presetCategorieId ?? '' }
   return {
     nom: eq.nom ?? '',
     code_inventaire: eq.code_inventaire ?? '',
@@ -46,6 +52,7 @@ export function EquipementFormDialog({
   onOpenChange,
   siteId,
   equipement,
+  presetCategorieId,
 }: EquipementFormDialogProps) {
   const isEdit = Boolean(equipement)
   const create = useCreateEquipement()
@@ -55,7 +62,7 @@ export function EquipementFormDialog({
   )
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
   const [values, setValues] = useState<EquipementFormValues>(() =>
-    initialValues(equipement),
+    initialValues(equipement, presetCategorieId),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending

@@ -23,7 +23,12 @@ export const equipementsQueries = {
       staleTime: 60_000,
     }),
 
-  /** Catégories utilisables sur un équipement (scope ≠ 'gamme'), actives. */
+  /**
+   * Catégories de PARC (scope 'parc') du site actif, actives. Depuis 028, les
+   * équipements réels se rangent dans une taxonomie DÉDIÉE (scope 'parc'), séparée
+   * des catégories de modèles (scope 'equipement', Bibliothèque). Toujours scopées
+   * site (le parc appartient à un site) → on filtre sur `site_id`.
+   */
   categories: (siteId: string | null) =>
     queryOptions({
       queryKey: [...equipementsQueries.all(), 'categories', siteId] as const,
@@ -32,14 +37,14 @@ export const equipementsQueries = {
         const { data } = await supabase
           .from('categories')
           .select('id, nom, scope, site_id')
-          .in('scope', ['equipement', 'mixte'])
+          .eq('scope', 'parc')
+          .eq('site_id', siteId!)
           .eq('est_actif', true)
           .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
-        // Scope entreprise (site_id NULL) OU catégorie du site actif.
-        return data.filter((c) => c.site_id === null || c.site_id === siteId)
+        return data
       },
       staleTime: 60_000,
     }),

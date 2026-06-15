@@ -30,6 +30,7 @@ import { Route as AppDemandesRouteImport } from './routes/_app/demandes'
 import { Route as AppChantiersRouteImport } from './routes/_app/chantiers'
 import { Route as AppBibliothequeRouteImport } from './routes/_app/bibliotheque'
 import { Route as AppBibliothequeIndexRouteImport } from './routes/_app/bibliotheque/index'
+import { Route as AppEquipementsSplatRouteImport } from './routes/_app/equipements/$'
 import { Route as AppBibliothequeSplatRouteImport } from './routes/_app/bibliotheque/$'
 
 const LoginRoute = LoginRouteImport.update({
@@ -136,6 +137,11 @@ const AppBibliothequeIndexRoute = AppBibliothequeIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppBibliothequeRoute,
 } as any)
+const AppEquipementsSplatRoute = AppEquipementsSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => AppEquipementsRoute,
+} as any)
 const AppBibliothequeSplatRoute = AppBibliothequeSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -150,7 +156,7 @@ export interface FileRoutesByFullPath {
   '/chantiers': typeof AppChantiersRoute
   '/demandes': typeof AppDemandesRoute
   '/documents': typeof AppDocumentsRoute
-  '/equipements': typeof AppEquipementsRoute
+  '/equipements': typeof AppEquipementsRouteWithChildren
   '/gammes': typeof AppGammesRoute
   '/investissements': typeof AppInvestissementsRoute
   '/localisations': typeof AppLocalisationsRoute
@@ -163,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/sites': typeof AppSitesRoute
   '/utilisateurs': typeof AppUtilisateursRoute
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
+  '/equipements/$': typeof AppEquipementsSplatRoute
   '/bibliotheque/': typeof AppBibliothequeIndexRoute
 }
 export interface FileRoutesByTo {
@@ -171,7 +178,7 @@ export interface FileRoutesByTo {
   '/chantiers': typeof AppChantiersRoute
   '/demandes': typeof AppDemandesRoute
   '/documents': typeof AppDocumentsRoute
-  '/equipements': typeof AppEquipementsRoute
+  '/equipements': typeof AppEquipementsRouteWithChildren
   '/gammes': typeof AppGammesRoute
   '/investissements': typeof AppInvestissementsRoute
   '/localisations': typeof AppLocalisationsRoute
@@ -185,6 +192,7 @@ export interface FileRoutesByTo {
   '/utilisateurs': typeof AppUtilisateursRoute
   '/': typeof AppIndexRoute
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
+  '/equipements/$': typeof AppEquipementsSplatRoute
   '/bibliotheque': typeof AppBibliothequeIndexRoute
 }
 export interface FileRoutesById {
@@ -196,7 +204,7 @@ export interface FileRoutesById {
   '/_app/chantiers': typeof AppChantiersRoute
   '/_app/demandes': typeof AppDemandesRoute
   '/_app/documents': typeof AppDocumentsRoute
-  '/_app/equipements': typeof AppEquipementsRoute
+  '/_app/equipements': typeof AppEquipementsRouteWithChildren
   '/_app/gammes': typeof AppGammesRoute
   '/_app/investissements': typeof AppInvestissementsRoute
   '/_app/localisations': typeof AppLocalisationsRoute
@@ -210,6 +218,7 @@ export interface FileRoutesById {
   '/_app/utilisateurs': typeof AppUtilisateursRoute
   '/_app/': typeof AppIndexRoute
   '/_app/bibliotheque/$': typeof AppBibliothequeSplatRoute
+  '/_app/equipements/$': typeof AppEquipementsSplatRoute
   '/_app/bibliotheque/': typeof AppBibliothequeIndexRoute
 }
 export interface FileRouteTypes {
@@ -235,6 +244,7 @@ export interface FileRouteTypes {
     | '/sites'
     | '/utilisateurs'
     | '/bibliotheque/$'
+    | '/equipements/$'
     | '/bibliotheque/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -257,6 +267,7 @@ export interface FileRouteTypes {
     | '/utilisateurs'
     | '/'
     | '/bibliotheque/$'
+    | '/equipements/$'
     | '/bibliotheque'
   id:
     | '__root__'
@@ -281,6 +292,7 @@ export interface FileRouteTypes {
     | '/_app/utilisateurs'
     | '/_app/'
     | '/_app/bibliotheque/$'
+    | '/_app/equipements/$'
     | '/_app/bibliotheque/'
   fileRoutesById: FileRoutesById
 }
@@ -439,6 +451,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBibliothequeIndexRouteImport
       parentRoute: typeof AppBibliothequeRoute
     }
+    '/_app/equipements/$': {
+      id: '/_app/equipements/$'
+      path: '/$'
+      fullPath: '/equipements/$'
+      preLoaderRoute: typeof AppEquipementsSplatRouteImport
+      parentRoute: typeof AppEquipementsRoute
+    }
     '/_app/bibliotheque/$': {
       id: '/_app/bibliotheque/$'
       path: '/$'
@@ -463,12 +482,24 @@ const AppBibliothequeRouteWithChildren = AppBibliothequeRoute._addFileChildren(
   AppBibliothequeRouteChildren,
 )
 
+interface AppEquipementsRouteChildren {
+  AppEquipementsSplatRoute: typeof AppEquipementsSplatRoute
+}
+
+const AppEquipementsRouteChildren: AppEquipementsRouteChildren = {
+  AppEquipementsSplatRoute: AppEquipementsSplatRoute,
+}
+
+const AppEquipementsRouteWithChildren = AppEquipementsRoute._addFileChildren(
+  AppEquipementsRouteChildren,
+)
+
 interface AppRouteChildren {
   AppBibliothequeRoute: typeof AppBibliothequeRouteWithChildren
   AppChantiersRoute: typeof AppChantiersRoute
   AppDemandesRoute: typeof AppDemandesRoute
   AppDocumentsRoute: typeof AppDocumentsRoute
-  AppEquipementsRoute: typeof AppEquipementsRoute
+  AppEquipementsRoute: typeof AppEquipementsRouteWithChildren
   AppGammesRoute: typeof AppGammesRoute
   AppInvestissementsRoute: typeof AppInvestissementsRoute
   AppLocalisationsRoute: typeof AppLocalisationsRoute
@@ -488,7 +519,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppChantiersRoute: AppChantiersRoute,
   AppDemandesRoute: AppDemandesRoute,
   AppDocumentsRoute: AppDocumentsRoute,
-  AppEquipementsRoute: AppEquipementsRoute,
+  AppEquipementsRoute: AppEquipementsRouteWithChildren,
   AppGammesRoute: AppGammesRoute,
   AppInvestissementsRoute: AppInvestissementsRoute,
   AppLocalisationsRoute: AppLocalisationsRoute,

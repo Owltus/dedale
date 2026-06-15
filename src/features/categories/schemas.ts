@@ -1,6 +1,8 @@
 import { z } from 'zod'
 
-/** Types (scope) d'une catégorie : ce qu'elle qualifie. */
+// Types (scope) d'une catégorie : ce qu'elle qualifie. NB : 'parc' (catégories des
+// équipements RÉELS) n'est PAS proposé ici — il n'est jamais choisi à la main : la
+// page Équipements le force (preset + scope masqué). Il reste accepté par le schéma.
 export const CATEGORIE_SCOPES = [
   { value: 'equipement', label: 'Équipement' },
   { value: 'operation', label: 'Opération' },
@@ -10,7 +12,7 @@ export const CATEGORIE_SCOPES = [
 
 export const categorieSchema = z.object({
   nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
-  scope: z.enum(['equipement', 'gamme', 'mixte', 'operation']),
+  scope: z.enum(['equipement', 'gamme', 'mixte', 'operation', 'parc']),
   description: z.string().trim().max(2000),
   /** '' = catégorie racine (sans parent). */
   parent_id: z.string(),

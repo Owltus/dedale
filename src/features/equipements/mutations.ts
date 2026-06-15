@@ -110,16 +110,20 @@ export function useInstancierEquipement() {
       modeleId,
       localId,
       codeInventaire,
+      categorieId,
     }: {
       modeleId: string
       localId: string
       codeInventaire: string
+      /** Catégorie de PARC (scope 'parc') où ranger l'équipement ; null = Non classé. */
+      categorieId?: string | null
     }) => {
       const { data } = await supabase
         .rpc('instancier_equipement', {
           p_modele_id: modeleId,
           p_local_id: localId,
           p_code_inventaire: codeInventaire,
+          ...(categorieId ? { p_categorie_id: categorieId } : {}),
         })
         .throwOnError()
       return data
