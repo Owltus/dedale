@@ -81,17 +81,20 @@ function BibliothequePage() {
   // Définition par id : un `Record<OngletId, …>` impose l'EXHAUSTIVITÉ à la
   // compilation (ajout/retrait d'un onglet dans ONGLET_IDS casse ici si désync).
   // L'ordre d'affichage reste celui d'ONGLET_IDS via le `.map` ci-dessous.
-  // Libellés d'AFFICHAGE courts (raccourcis pour soulager la barre d'onglets) :
-  // « Modèles d'… » tombe à un seul mot. « Plan de maintenance » est conservé en
-  // entier (choix produit). Renommage d'AFFICHAGE seulement : les ids/slugs
+  // Libellés d'AFFICHAGE explicites (choix produit) : « Modèles d'équipements » /
+  // « Modèles d'opérations » plutôt que les raccourcis d'un mot, pour lever toute
+  // ambiguïté avec les écrans métier (parc d'équipements, OT…). Formes au pluriel
+  // alignées sur le vocabulaire déjà employé (fil d'Ariane, drill). La barre
+  // d'onglets gère les libellés longs (scroll horizontal sous `sm` côté bureau ;
+  // menu déroulant sur mobile). Renommage d'AFFICHAGE seulement : les ids/slugs
   // (ONGLET_IDS), l'URL, la base et le vocabulaire des fiches sont intouchés.
   const tabsById: Record<OngletId, { label: string; content: ReactNode }> = {
     'modeles-equipements': {
-      label: 'Équipements',
+      label: 'Modèles d’équipements',
       content: <ModelesEquipementsPanel />,
     },
     'gammes-types': {
-      label: 'Opérations',
+      label: 'Modèles d’opérations',
       content: <GammesTypesPanel />,
     },
     gammes: {
