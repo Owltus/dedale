@@ -163,10 +163,11 @@ export function Tabs({
           {addConfig !== null && (
             <>
               {/* Extra (filtre de périmètre / indicateur d'origine) : à droite du
-                  titre sur bureau ; replié EN PLEINE LARGEUR sous le titre sur
-                  mobile, car sa largeur (sélecteur) écraserait le titre sinon. */}
+                  titre sur BUREAU uniquement. Sur mobile il descend sur la même
+                  ligne que le menu des sections (cf. bloc `sm:hidden` plus bas),
+                  car sa largeur (sélecteur) écraserait le titre sinon. */}
               {addExtra !== undefined && (
-                <div className="order-3 flex w-full flex-wrap items-center gap-2 sm:order-2 sm:w-auto">
+                <div className="order-3 hidden w-full flex-wrap items-center gap-2 sm:order-2 sm:flex sm:w-auto">
                   {addExtra}
                 </div>
               )}
@@ -224,17 +225,19 @@ export function Tabs({
           })}
         </div>
 
-        {/* Mobile : menu déroulant des sections. Sous `sm`, les 5 libellés ne
-            tiennent pas côte à côte → un Select remplace la barre d'onglets et
-            évite le scroll horizontal. La sémantique d'onglets reste portée par
-            la barre desktop ; en descente, le fil d'Ariane (titre) assure le
-            « retour racine » que le re-clic d'onglet offrait en bureau. */}
-        <div className="sm:hidden">
+        {/* Mobile : menu déroulant des sections + sélecteur de périmètre sur la
+            MÊME ligne. Sous `sm`, les 5 libellés ne tiennent pas côte à côte → un
+            Select remplace la barre d'onglets et évite le scroll horizontal. La
+            sémantique d'onglets reste portée par la barre desktop ; en descente,
+            le fil d'Ariane (titre) assure le « retour racine » que le re-clic
+            d'onglet offrait en bureau. Les deux dropdowns se partagent la largeur
+            (`flex-1`) ; sans `extra`, le menu des sections occupe toute la ligne. */}
+        <div className="flex items-center gap-2 sm:hidden">
           <SelectMenu
             aria-label="Section"
             value={activeItem?.id ?? ''}
             onChange={(e) => selectTab(e.target.value)}
-            containerClassName="w-full"
+            containerClassName="flex-1"
             className="w-full"
           >
             {items.map((tab) => (
@@ -243,6 +246,7 @@ export function Tabs({
               </option>
             ))}
           </SelectMenu>
+          {addExtra !== undefined && <div className="flex-1">{addExtra}</div>}
         </div>
       </div>
 
