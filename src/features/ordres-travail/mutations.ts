@@ -66,7 +66,7 @@ export function useCreateOt() {
   })
 }
 
-/** Soft-delete d'un OT (corbeille 90j ; hard-delete interdit côté backend). */
+/** Soft-delete d'un OT (hard-delete interdit côté backend). */
 export function useDeleteOt() {
   const qc = useQueryClient()
   return useMutation({

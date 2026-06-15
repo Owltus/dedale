@@ -233,7 +233,7 @@ function DocumentsContent({
         title="Supprimer le document ?"
         description={
           toDelete
-            ? `« ${toDelete.nom_original} » sera placé dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDelete.nom_original} » sera supprimé définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"

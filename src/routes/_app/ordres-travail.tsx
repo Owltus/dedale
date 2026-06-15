@@ -201,7 +201,7 @@ function OrdresTravailContent({
         title="Supprimer l'ordre de travail ?"
         description={
           toDelete
-            ? `« ${toDelete.nom} » sera placé dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDelete.nom} » sera supprimé définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"

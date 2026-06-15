@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { relationVivante } from '@/lib/corbeille'
+import { relationVivante } from '@/lib/relations'
 
 export const chantiersQueries = {
   all: () => ['chantiers'] as const,
@@ -18,7 +18,7 @@ export const chantiersQueries = {
           .order('date_demande', { ascending: false })
           .abortSignal(signal)
           .throwOnError()
-        // Masque un prestataire EN CORBEILLE (jointure non filtrée par deleted_at).
+        // Masque un prestataire supprimé (jointure non filtrée par deleted_at).
         return data.map((c) => ({
           ...c,
           prestataires: relationVivante(c.prestataires),
@@ -40,7 +40,7 @@ export const chantiersQueries = {
           .abortSignal(signal)
           .maybeSingle()
           .throwOnError()
-        // Masque un prestataire EN CORBEILLE (jointure non filtrée par deleted_at).
+        // Masque un prestataire supprimé (jointure non filtrée par deleted_at).
         return data == null
           ? null
           : { ...data, prestataires: relationVivante(data.prestataires) }
@@ -59,7 +59,7 @@ export const chantiersQueries = {
           .eq('chantier_id', chantierId)
           .abortSignal(signal)
           .throwOnError()
-        // Ignore les liens vers un local EN CORBEILLE (jointure non filtrée).
+        // Ignore les liens vers un local supprimé (jointure non filtrée).
         return data.filter((r) => r.locaux.deleted_at == null)
       },
       staleTime: 60_000,
@@ -76,7 +76,7 @@ export const chantiersQueries = {
           .eq('chantier_id', chantierId)
           .abortSignal(signal)
           .throwOnError()
-        // Ignore les liens vers un équipement EN CORBEILLE (jointure non filtrée).
+        // Ignore les liens vers un équipement supprimé (jointure non filtrée).
         return data.filter((r) => r.equipements.deleted_at == null)
       },
       staleTime: 60_000,

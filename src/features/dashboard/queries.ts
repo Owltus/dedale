@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { relationVivante } from '@/lib/corbeille'
+import { relationVivante } from '@/lib/relations'
 
 /**
  * Requêtes propres au tableau de bord (agrégats du site actif).
@@ -38,7 +38,7 @@ export const dashboardQueries = {
           .order('date_fin', { ascending: true })
           .abortSignal(signal)
           .throwOnError()
-        // Masque un prestataire EN CORBEILLE (jointure non filtrée par deleted_at).
+        // Masque un prestataire supprimé (jointure non filtrée par deleted_at).
         return data.map((c) => ({
           ...c,
           prestataires: relationVivante(c.prestataires),

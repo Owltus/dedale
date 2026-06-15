@@ -70,17 +70,3 @@ export function deleteErrorMessage(e: unknown): string {
   }
   return errorMessage(e)
 }
-
-/**
- * Message clair pour une RESTAURATION refusée. En plus des cas de suppression :
- * - `23505` : un élément ACTIF a repris le nom/code libéré pendant la corbeille
- *   (collision d’unicité). NB : à terme, rendre ce message ENTITÉ-CONSCIENT (un
- *   document ré-importé ou un OT au même créneau ne sont pas renommables) — cf.
- *   `plan/corbeille/2-front.md` (T4).
- */
-export function restoreErrorMessage(e: unknown): string {
-  if (pgCode(e) === '23505') {
-    return 'Un élément actif porte déjà ce nom (repris pendant la mise en corbeille). Renommez-le, puis réessayez.'
-  }
-  return deleteErrorMessage(e)
-}

@@ -300,7 +300,7 @@ function GammesList({
         title="Supprimer la gamme ?"
         description={
           toDelete
-            ? `« ${toDelete.nom} » sera placée dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDelete.nom} » sera supprimée définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"

@@ -101,7 +101,7 @@ export function useDeleteModeleEquipement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft-delete : corbeille 90j côté backend. Les équipements déjà
+      // Soft-delete côté backend. Les équipements déjà
       // instanciés gardent leur copie (snapshot indépendant). `.select().single()`
       // → PGRST116 catché si la RLS filtre la ligne, plutôt qu'un faux succès.
       await supabase

@@ -606,7 +606,7 @@ export function MiniaturesPanel() {
           if (!open) setMassDeleteOpen(false)
         }}
         title="Supprimer les vignettes sélectionnées ?"
-        description={`${String(deletableSelected.length)} vignette(s) seront supprimées définitivement (pas de corbeille). Celles encore utilisées par une entité seront ignorées.`}
+        description={`${String(deletableSelected.length)} vignette(s) seront supprimées définitivement. Celles encore utilisées par une entité seront ignorées.`}
         confirmLabel="Supprimer"
         destructive
         loading={massDeleting}
@@ -619,7 +619,7 @@ export function MiniaturesPanel() {
           if (!open) setToDelete(null)
         }}
         title="Supprimer la vignette ?"
-        description="Suppression définitive (pas de corbeille). Refusée si la vignette est encore utilisée par une entité."
+        description="Suppression définitive. Refusée si la vignette est encore utilisée par une entité."
         confirmLabel="Supprimer"
         destructive
         loading={del.isPending}

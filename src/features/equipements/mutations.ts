@@ -67,7 +67,7 @@ export function useDeleteEquipement() {
     mutationFn: async (id: string) => {
       // Verrou : refuser si au moins une gamme VIVANTE est liée à l'équipement.
       // On filtre `gammes.deleted_at` en 2 temps (récupérer les liaisons puis
-      // compter les gammes vivantes) : une gamme EN CORBEILLE — invisible partout —
+      // compter les gammes vivantes) : une gamme supprimée — invisible partout —
       // ne doit PAS rendre l'équipement définitivement insupprimable.
       const { data: liaisons } = await supabase
         .from('gammes_equipements')

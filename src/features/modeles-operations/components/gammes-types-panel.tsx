@@ -454,34 +454,34 @@ export function GammesTypesPanel() {
   // Suppression : message adapté à l'état des liens (chargement / liés / libres).
   const liesNoms = liens.filter((l) => !l.supprimee).map((l) => l.nom)
   const nbActives = liesNoms.length
-  const nbCorbeille = liens.length - nbActives
+  const nbLiensSupprimes = liens.length - nbActives
   const apercuNoms = liesNoms
     .slice(0, 5)
     .map((n) => `« ${n} »`)
     .join(', ')
   const reste = nbActives - 5
   const resteNoms = reste > 0 ? ` et ${String(reste)} autre(s)` : ''
-  const corbeilleNote =
-    nbCorbeille > 0
-      ? ` (+ ${String(nbCorbeille)} liaison${nbCorbeille > 1 ? 's' : ''} en corbeille)`
+  const liensSupprimesNote =
+    nbLiensSupprimes > 0
+      ? ` (+ ${String(nbLiensSupprimes)} liaison${nbLiensSupprimes > 1 ? 's' : ''} vers des gammes déjà supprimées)`
       : ''
   const deleteDescription = !toDelete
     ? undefined
     : liensQuery.isLoading
       ? 'Vérification des gammes liées…'
       : liensQuery.isError
-        ? `Vérification des gammes liées impossible. La suppression détachera automatiquement toute liaison résiduelle puis placera « ${toDelete.nom} » dans la corbeille (suppression définitive après 90 jours).`
+        ? `Vérification des gammes liées impossible. La suppression détachera automatiquement toute liaison résiduelle puis supprimera « ${toDelete.nom} » définitivement.`
         : !hasLiens
-          ? `« ${toDelete.nom} » et ses opérations partiront dans la corbeille (suppression définitive après 90 jours ; toute liaison résiduelle sera détachée).`
+          ? `« ${toDelete.nom} » et ses opérations seront supprimés définitivement (toute liaison résiduelle sera détachée).`
           : nbActives > 0
             ? `« ${toDelete.nom} » est utilisé par ${String(nbActives)} gamme${
                 nbActives > 1 ? 's' : ''
-              } (${apercuNoms}${resteNoms})${corbeilleNote}. Le détacher de ${
+              } (${apercuNoms}${resteNoms})${liensSupprimesNote}. Le détacher de ${
                 nbActives > 1 ? 'ces gammes' : 'cette gamme'
-              } (sans les supprimer) puis le placer dans la corbeille (suppression définitive après 90 jours) ?`
-            : `« ${toDelete.nom} » a ${String(nbCorbeille)} liaison${
-                nbCorbeille > 1 ? 's' : ''
-              } en corbeille à détacher. Le placer dans la corbeille (suppression définitive après 90 jours) ?`
+              } (sans les supprimer) puis le supprimer définitivement ?`
+            : `« ${toDelete.nom} » a ${String(nbLiensSupprimes)} liaison${
+                nbLiensSupprimes > 1 ? 's' : ''
+              } vers des gammes déjà supprimées. Le supprimer définitivement ?`
 
   // Dialog de création/édition de modèle, partagé navigation + détail.
   const modeleFormDialog =
@@ -766,7 +766,7 @@ export function GammesTypesPanel() {
           toDeleteCategorie
             ? toDeleteCategorieNonVide
               ? 'Cette catégorie contient des modèles : videz-la d’abord.'
-              : `« ${toDeleteCategorie.nom} » sera placée dans la corbeille (suppression définitive après 90 jours).`
+              : `« ${toDeleteCategorie.nom} » sera supprimée définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"

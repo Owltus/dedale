@@ -73,7 +73,7 @@ export function useDetachDocument() {
   })
 }
 
-/** Soft-delete d'un document (corbeille 90j côté backend). */
+/** Soft-delete d'un document (côté backend). */
 export function useDeleteDocument() {
   const qc = useQueryClient()
   return useMutation({

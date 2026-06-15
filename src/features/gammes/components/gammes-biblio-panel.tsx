@@ -961,7 +961,7 @@ export function GammesBiblioPanel() {
         title="Supprimer la gamme-template ?"
         description={
           toDeleteGamme
-            ? `« ${toDeleteGamme.nom} » sera placée dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDeleteGamme.nom} » sera supprimée définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"
@@ -980,7 +980,7 @@ export function GammesBiblioPanel() {
           toDeleteCategorie
             ? toDeleteCategorieNonVide
               ? 'Cette catégorie contient des sous-catégories ou des gammes : videz-la d’abord.'
-              : `« ${toDeleteCategorie.nom} » sera placée dans la corbeille (suppression définitive après 90 jours).`
+              : `« ${toDeleteCategorie.nom} » sera supprimée définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"

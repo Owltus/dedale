@@ -136,7 +136,7 @@ function SitesPage() {
         title="Supprimer le site ?"
         description={
           toDelete
-            ? `« ${toDelete.nom} » sera placé dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDelete.nom} » sera supprimé définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"

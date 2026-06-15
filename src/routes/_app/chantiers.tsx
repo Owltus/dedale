@@ -196,7 +196,7 @@ function ChantiersContent({
         title="Supprimer le chantier ?"
         description={
           toDelete
-            ? `« ${toDelete.titre} » sera placé dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDelete.titre} » sera supprimé définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"

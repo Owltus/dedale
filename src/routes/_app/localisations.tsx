@@ -270,7 +270,7 @@ function BatimentsView({
         title="Supprimer le bâtiment ?"
         description={
           toDelete
-            ? `« ${toDelete.nom} » sera placé dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDelete.nom} » sera supprimé définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"
@@ -397,7 +397,7 @@ function NiveauxView({
         title="Supprimer le niveau ?"
         description={
           toDelete
-            ? `« ${toDelete.nom} » sera placé dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDelete.nom} » sera supprimé définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"
@@ -522,7 +522,7 @@ function LocauxView({ niveau, canEdit }: { niveau: Niveau; canEdit: boolean }) {
         title="Supprimer le local ?"
         description={
           toDelete
-            ? `« ${toDelete.nom} » sera placé dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDelete.nom} » sera supprimé définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"

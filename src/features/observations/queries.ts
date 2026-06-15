@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { relationVivante } from '@/lib/corbeille'
+import { relationVivante } from '@/lib/relations'
 
 // NB : la table `observations` n'a pas de colonne deleted_at (pas de soft-delete,
 // cf schema 034) — donc pas de filtre .is('deleted_at', null) ici.
@@ -42,7 +42,7 @@ export const observationsQueries = {
           .order('created_at', { ascending: false })
           .abortSignal(signal)
           .throwOnError()
-        // Masque les références EN CORBEILLE (OT/équipement soft-deletés) : la
+        // Masque les références supprimées (OT/équipement soft-deletés) : la
         // jointure ne filtre pas deleted_at → on neutralise côté client (évite
         // d'afficher un nom d'OT/équipement « fantôme » supprimé).
         return data.map((o) => ({

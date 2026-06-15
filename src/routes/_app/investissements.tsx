@@ -223,7 +223,7 @@ function InvestissementsContent({
         title="Supprimer l'investissement ?"
         description={
           toDelete
-            ? `« ${toDelete.libelle} » sera placé dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDelete.libelle} » sera supprimé définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"

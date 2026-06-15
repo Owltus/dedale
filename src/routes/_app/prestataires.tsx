@@ -292,7 +292,7 @@ function PrestatairesList({
         title="Supprimer le prestataire ?"
         description={
           toDelete
-            ? `« ${toDelete.libelle} » sera placé dans la corbeille (suppression définitive après 90 jours).`
+            ? `« ${toDelete.libelle} » sera supprimé définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"

@@ -35,7 +35,7 @@ export const modelesOperationsQueries = {
 
   /**
    * Modèles d'opérations (gammes-types) visibles : scope entreprise (site_id
-   * NULL) + scope du site actif. Exclut les modèles EN CORBEILLE (deleted_at, 024).
+   * NULL) + scope du site actif. Exclut les modèles supprimés (deleted_at, 024).
    */
   list: (siteId: string | null) =>
     queryOptions({

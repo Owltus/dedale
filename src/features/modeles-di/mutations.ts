@@ -73,7 +73,7 @@ export function useDeleteModeleDi() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft-delete : mise en corbeille (récupérable 90 j, purge backend). (024)
+      // Soft-delete côté backend. (024)
       // .select('id').single() → un refus RLS (0 ligne) devient une vraie erreur,
       // pas un faux succès silencieux.
       await supabase

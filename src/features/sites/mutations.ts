@@ -56,7 +56,7 @@ export function useDeleteSite() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft-delete : on pose deleted_at (corbeille 90j côté backend).
+      // Soft-delete : on pose deleted_at (côté backend).
       await supabase
         .from('sites')
         .update({ deleted_at: new Date().toISOString() })
