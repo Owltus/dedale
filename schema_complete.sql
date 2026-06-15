@@ -2152,6 +2152,29 @@ ALTER TABLE categories
 COMMENT ON COLUMN categories.modele_equipement_id IS
   'Modèle d''équipement FIXÉ sur une sous-catégorie de parc (scope ''parc'') : les équipements créés dedans en sont des copies. NULL ailleurs. Doit être un modèle DU SITE de la catégorie (validé par trigger).';
 
+-- 030 : gabarit « spécifique » LOCAL (caractéristiques définies sur la
+-- sous-catégorie, hors Bibliothèque). Exclusif avec modele_equipement_id.
+ALTER TABLE categories ADD COLUMN specifications JSONB;
+
+COMMENT ON COLUMN categories.specifications IS
+  'Gabarit « spécifique » LOCAL d''une sous-catégorie de parc (scope ''parc'') : caractéristiques (champs JSONB) dont héritent ses équipements, sans passer par la Bibliothèque. NULL = pas de gabarit local. Exclusif avec modele_equipement_id.';
+
+ALTER TABLE categories
+  ADD CONSTRAINT chk_categorie_modele_xor_specs
+    CHECK (modele_equipement_id IS NULL OR specifications IS NULL);
+
+ALTER TABLE categories
+  ADD CONSTRAINT chk_categorie_specs_objet
+    CHECK (
+      specifications IS NULL
+      OR (
+        jsonb_typeof(specifications) = 'object'
+        AND NOT (specifications ? '__proto__')
+        AND NOT (specifications ? 'constructor')
+        AND NOT (specifications ? 'prototype')
+      )
+    );
+
 CREATE OR REPLACE FUNCTION public.check_categorie_modele()
 RETURNS trigger
 LANGUAGE plpgsql

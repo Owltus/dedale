@@ -135,6 +135,7 @@ export type Database = {
           parent_id: string | null
           scope: Database["public"]["Enums"]["categorie_scope"]
           site_id: string | null
+          specifications: Json | null
           updated_at: string
         }
         Insert: {
@@ -152,6 +153,7 @@ export type Database = {
           parent_id?: string | null
           scope?: Database["public"]["Enums"]["categorie_scope"]
           site_id?: string | null
+          specifications?: Json | null
           updated_at?: string
         }
         Update: {
@@ -169,6 +171,7 @@ export type Database = {
           parent_id?: string | null
           scope?: Database["public"]["Enums"]["categorie_scope"]
           site_id?: string | null
+          specifications?: Json | null
           updated_at?: string
         }
         Relationships: [
@@ -191,6 +194,13 @@ export type Database = {
             columns: ["miniature_id"]
             isOneToOne: false
             referencedRelation: "v_miniatures_pool"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categories_modele_equipement_id_fkey"
+            columns: ["modele_equipement_id"]
+            isOneToOne: false
+            referencedRelation: "modeles_equipements"
             referencedColumns: ["id"]
           },
           {
