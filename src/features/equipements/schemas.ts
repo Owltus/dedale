@@ -17,7 +17,6 @@ export const equipementSchema = z.object({
   local_id: z.string().min(1, 'L’emplacement est obligatoire'),
   date_mise_en_service: optionalDate,
   date_fin_garantie: optionalDate,
-  commentaires: z.string().trim().max(2000),
   /** Vignette du pool (`miniature_id`) ou `null`. */
   miniature_id: z.string().nullable(),
   /** Valeurs des caractéristiques typées (snapshot des champs du modèle). */
@@ -33,7 +32,6 @@ export const emptyEquipement: EquipementFormValues = {
   local_id: '',
   date_mise_en_service: '',
   date_fin_garantie: '',
-  commentaires: '',
   miniature_id: null,
   specifications: [],
 }

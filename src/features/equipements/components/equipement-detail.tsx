@@ -51,7 +51,6 @@ export function EquipementDetail({ equipement }: { equipement: Equipement }) {
               label="Fin de garantie"
               value={formatDate(equipement.date_fin_garantie)}
             />
-            <InfoRow label="Commentaires" value={equipement.commentaires} />
           </CardContent>
         </Card>
 

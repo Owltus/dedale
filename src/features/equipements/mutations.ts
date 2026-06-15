@@ -64,7 +64,6 @@ function equipementPayload(values: EquipementFormValues) {
     local_id: v.local_id,
     date_mise_en_service: v.date_mise_en_service || null,
     date_fin_garantie: v.date_fin_garantie || null,
-    commentaires: v.commentaires || null,
     miniature_id: v.miniature_id,
     specifications: serializeChamps(v.specifications),
   }
@@ -88,7 +87,6 @@ export function useCreateEquipementParc() {
       modeleId,
       dateMiseEnService,
       dateFinGarantie,
-      commentaires,
     }: {
       nom: string
       localId: string
@@ -99,7 +97,6 @@ export function useCreateEquipementParc() {
       // Données « de base » standard de l'équipement (B).
       dateMiseEnService?: string
       dateFinGarantie?: string
-      commentaires?: string
     }) => {
       const { data } = await supabase
         .from('equipements')
@@ -114,7 +111,6 @@ export function useCreateEquipementParc() {
             ? dateMiseEnService
             : null,
           date_fin_garantie: dateFinGarantie?.trim() ? dateFinGarantie : null,
-          commentaires: commentaires?.trim() ? commentaires.trim() : null,
         })
         .select('id')
         .single()

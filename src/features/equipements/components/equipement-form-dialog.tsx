@@ -53,7 +53,6 @@ function initialValues(
     local_id: eq.local_id ?? '',
     date_mise_en_service: eq.date_mise_en_service ?? '',
     date_fin_garantie: eq.date_fin_garantie ?? '',
-    commentaires: eq.commentaires ?? '',
     miniature_id: eq.miniature_id ?? null,
     specifications: parseChamps(eq.specifications),
   }
@@ -199,12 +198,6 @@ export function EquipementFormDialog({
           error={errors.date_fin_garantie}
         />
       </div>
-      <TextField
-        label="Commentaires"
-        value={values.commentaires}
-        onChange={(v) => set('commentaires', v)}
-        error={errors.commentaires}
-      />
       {values.specifications.length > 0 && (
         <div className="grid gap-3">
           <Label>Caractéristiques techniques</Label>

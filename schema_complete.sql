@@ -1780,7 +1780,6 @@ CREATE TABLE equipements (
     date_mise_en_service DATE,
     date_fin_garantie    DATE,
     image_path            TEXT,
-    commentaires         TEXT,
     deleted_at           TIMESTAMPTZ,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -2355,10 +2354,10 @@ BEGIN
     END IF;
 
     -- 6. INSERT equipements (copie par valeur — snapshot Pattern 1).
-    --    description du modèle non copiée dans equipements.commentaires (réservé
-    --    aux annotations terrain libres). 028 : la catégorie vient du PARC
-    --    (p_categorie_id, scope 'parc' ; NULL = Non classé), PAS du modèle (scope
-    --    'equipement') — le trigger check_equipement_categorie_scope la valide.
+    --    028 : la catégorie vient du PARC (p_categorie_id, scope 'parc' ; NULL =
+    --    Non classé), PAS du modèle (scope 'equipement') — le trigger
+    --    check_equipement_categorie_scope la valide. (031 : plus de colonne
+    --    commentaires sur equipements.)
     INSERT INTO public.equipements (
         id, local_id, categorie_id,
         nom, code_inventaire,
@@ -10389,10 +10388,6 @@ COMMENT ON FUNCTION public.check_ot_gamme_site() IS
 -- manager). Les colonnes de référentiels (description, libelle)
 -- ne sont pas concernées car écrites uniquement par l'admin.
 -- =====================================================================
-
-ALTER TABLE equipements
-    ADD CONSTRAINT equipements_commentaires_taille
-    CHECK (commentaires IS NULL OR length(commentaires) <= 5000);
 
 ALTER TABLE prestataires
     ADD CONSTRAINT prestataires_commentaires_taille

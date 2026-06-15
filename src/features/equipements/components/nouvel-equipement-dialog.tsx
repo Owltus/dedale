@@ -49,7 +49,6 @@ export function NouvelEquipementDialog({
   // Données « de base » standard de l'équipement.
   const [dateMiseEnService, setDateMiseEnService] = useState('')
   const [dateFinGarantie, setDateFinGarantie] = useState('')
-  const [commentaires, setCommentaires] = useState('')
   // Caractéristiques héritées : valeur initialisée sur le défaut du gabarit.
   const [champs, setChamps] = useState<Champ[]>(() =>
     template.champs.map((c) => ({ ...c, valeur: c.valeur ?? c.defaut ?? null })),
@@ -89,7 +88,6 @@ export function NouvelEquipementDialog({
         modeleId: template.modeleId,
         dateMiseEnService,
         dateFinGarantie,
-        commentaires,
       })
       toast.success('Équipement créé')
       onOpenChange(false)
@@ -145,11 +143,6 @@ export function NouvelEquipementDialog({
           onChange={setDateFinGarantie}
         />
       </div>
-      <TextField
-        label="Commentaires"
-        value={commentaires}
-        onChange={setCommentaires}
-      />
       {champs.length > 0 && (
         <div className="grid gap-3">
           <Label>Caractéristiques</Label>
