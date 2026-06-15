@@ -70,6 +70,50 @@ function equipementPayload(values: EquipementFormValues) {
   }
 }
 
+/**
+ * Crée un équipement DANS une sous-catégorie de parc : il HÉRITE du gabarit de la
+ * sous-catégorie (caractéristiques + image), sans saisir image/code/catégorie. La
+ * catégorie est celle de la sous-catégorie ; l'image vient du modèle ou de la
+ * sous-catégorie ; `copie_depuis_modele_id` relie au modèle source le cas échéant.
+ */
+export function useCreateEquipementParc() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      nom,
+      localId,
+      categorieId,
+      miniatureId,
+      champs,
+      modeleId,
+    }: {
+      nom: string
+      localId: string
+      categorieId: string
+      miniatureId: string | null
+      champs: Champ[]
+      modeleId: string | null
+    }) => {
+      const { data } = await supabase
+        .from('equipements')
+        .insert({
+          nom: nom.trim(),
+          local_id: localId,
+          categorie_id: categorieId,
+          miniature_id: miniatureId,
+          specifications: serializeChamps(champs),
+          copie_depuis_modele_id: modeleId,
+        })
+        .select('id')
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: equipementsQueries.all() }),
+  })
+}
+
 export function useCreateEquipement() {
   const qc = useQueryClient()
   return useMutation({

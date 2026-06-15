@@ -13,8 +13,8 @@ import { toast } from 'sonner'
 import { equipementsQueries } from '../queries'
 import { useDeleteEquipement } from '../mutations'
 import { EquipementFormDialog } from './equipement-form-dialog'
-import { InstancierDialog } from './instancier-dialog'
 import { ParcSousCategorieDialog } from './parc-sous-categorie-dialog'
+import { NouvelEquipementDialog } from './nouvel-equipement-dialog'
 import { EquipementDetail } from './equipement-detail'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
 import {
@@ -286,7 +286,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     open: boolean
     eq: Equipement | null
   }>({ open: false, eq: null })
-  const [instancierOpen, setInstancierOpen] = useState(false)
+  const [nouvelEquipOpen, setNouvelEquipOpen] = useState(false)
   const [toDelete, setToDelete] = useState<Equipement | null>(null)
   const [toDeleteCategorie, setToDeleteCategorie] = useState<DrillCat | null>(
     null,
@@ -310,15 +310,29 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     [modelesQuery.data, siteId],
   )
 
-  // Gabarit « spécifique » de la sous-catégorie courante (caractéristiques dont
-  // hérite un équipement créé à la main ici). Vide si modèle/legacy.
-  const currentTemplateChamps = useMemo(
-    () =>
-      current && !current.virtual
-        ? parseChamps(categoriesById.get(current.id)?.specifications)
-        : [],
-    [current, categoriesById],
-  )
+  // Gabarit hérité par un équipement créé dans la sous-catégorie courante :
+  // caractéristiques + image + nom par défaut. Source = le MODÈLE fixé, sinon le
+  // gabarit « spécifique » local de la sous-catégorie. `null` hors sous-catégorie.
+  const currentTemplate = useMemo(() => {
+    if (!current || current.virtual) return null
+    const cat = categoriesById.get(current.id)
+    if (!cat) return null
+    if (current.modeleId) {
+      const m = (modelesQuery.data ?? []).find((x) => x.id === current.modeleId)
+      return {
+        nomDefaut: m?.nom ?? '',
+        champs: parseChamps(m?.specifications),
+        miniatureId: m?.miniature_id ?? null,
+        modeleId: current.modeleId,
+      }
+    }
+    return {
+      nomDefaut: '',
+      champs: parseChamps(cat.specifications),
+      miniatureId: cat.miniature_id ?? null,
+      modeleId: null,
+    }
+  }, [current, categoriesById, modelesQuery.data])
 
   function confirmDelete() {
     if (!toDelete?.id) return
@@ -388,12 +402,9 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       icon={<Plus />}
       label="Nouvel équipement"
       variant="default"
-      onClick={() => {
-        // Sous-catégorie AVEC modèle → l'équipement est une copie du modèle
-        // (instanciation) ; sans modèle (cas legacy) → saisie libre.
-        if (current?.modeleId) setInstancierOpen(true)
-        else setEquipForm({ open: true, eq: null })
-      }}
+      // L'équipement hérite du gabarit de la sous-catégorie (modèle OU spécifique) :
+      // formulaire épuré (nom + emplacement + caractéristiques).
+      onClick={() => setNouvelEquipOpen(true)}
     />
   ) : null
   const editEquipBtn =
@@ -497,13 +508,9 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           open={equipForm.open}
           onOpenChange={(open) => setEquipForm((f) => ({ ...f, open }))}
           siteId={siteId}
+          // Ce formulaire ne sert plus qu'à MODIFIER un équipement existant (la
+          // création passe par NouvelEquipementDialog, épuré + hérité).
           equipement={equipForm.eq}
-          // Création depuis une vraie catégorie → catégorie présélectionnée, et
-          // caractéristiques héritées du gabarit « spécifique » de la sous-catégorie.
-          presetCategorieId={
-            equipForm.eq || isVirtualCurrent ? undefined : (current?.id ?? null)
-          }
-          presetChamps={equipForm.eq ? undefined : currentTemplateChamps}
         />
       )}
 
@@ -518,16 +525,16 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         />
       )}
 
-      {canEdit && (
-        <InstancierDialog
-          // Modèle FIXÉ par la sous-catégorie courante : pas de sélecteur, l'équipement
-          // créé est une copie de ce modèle, rangé dans la sous-catégorie.
-          key={`instancier-${current?.id ?? 'root'}-${current?.modeleId ?? 'none'}-${String(instancierOpen)}`}
-          open={instancierOpen}
-          onOpenChange={setInstancierOpen}
+      {canEdit && currentTemplate && (
+        <NouvelEquipementDialog
+          // L'équipement hérite du gabarit de la sous-catégorie (modèle ou
+          // spécifique) : image + caractéristiques ; formulaire épuré.
+          key={`nouvel-equip-${current?.id ?? 'root'}-${String(nouvelEquipOpen)}`}
+          open={nouvelEquipOpen}
+          onOpenChange={setNouvelEquipOpen}
           siteId={siteId}
-          modeleId={current?.modeleId ?? null}
-          categorieId={isVirtualCurrent ? null : (current?.id ?? null)}
+          categorieId={current?.id ?? ''}
+          template={currentTemplate}
         />
       )}
 
