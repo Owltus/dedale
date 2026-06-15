@@ -29,11 +29,10 @@ dist-ssr
 *.sln
 *.sw?
 
-# Documentation interne (dépôt public) : doc projet + spec fonctionnelle legacy.
+# Documentation interne (dépôt public) : doc projet.
 # NB : le schéma SQL (schema_complete.sql) et les migrations (migrations/) sont
 # désormais versionnés à la racine — voir plus bas — pour suivre l'historique.
 contexte/
-doc-fonctionnelle/
 # Plans de travail internes (corbeille, etc.) — comme contexte/, on ne publie pas la roadmap
 plan/
 
