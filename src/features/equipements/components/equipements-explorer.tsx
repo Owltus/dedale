@@ -29,6 +29,7 @@ import { useEquipementsDrill } from '@/hooks/use-equipements-drill'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { deleteErrorMessage } from '@/lib/form'
+import { parseChamps } from '@/lib/champs'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
 import {
@@ -309,6 +310,16 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     [modelesQuery.data, siteId],
   )
 
+  // Gabarit « spécifique » de la sous-catégorie courante (caractéristiques dont
+  // hérite un équipement créé à la main ici). Vide si modèle/legacy.
+  const currentTemplateChamps = useMemo(
+    () =>
+      current && !current.virtual
+        ? parseChamps(categoriesById.get(current.id)?.specifications)
+        : [],
+    [current, categoriesById],
+  )
+
   function confirmDelete() {
     if (!toDelete?.id) return
     del.mutate(toDelete.id, {
@@ -487,10 +498,12 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           onOpenChange={(open) => setEquipForm((f) => ({ ...f, open }))}
           siteId={siteId}
           equipement={equipForm.eq}
-          // Création depuis une vraie catégorie → catégorie présélectionnée.
+          // Création depuis une vraie catégorie → catégorie présélectionnée, et
+          // caractéristiques héritées du gabarit « spécifique » de la sous-catégorie.
           presetCategorieId={
             equipForm.eq || isVirtualCurrent ? undefined : (current?.id ?? null)
           }
+          presetChamps={equipForm.eq ? undefined : currentTemplateChamps}
         />
       )}
 

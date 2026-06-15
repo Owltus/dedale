@@ -12,7 +12,7 @@ import { SelectField } from '@/components/common/select-field'
 import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
 import { Label } from '@/components/ui/label'
-import { parseChamps, type ChampValeur } from '@/lib/champs'
+import { parseChamps, type Champ, type ChampValeur } from '@/lib/champs'
 import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
@@ -27,13 +27,25 @@ interface EquipementFormDialogProps {
    * page Équipements). Ignorée en édition (la catégorie vient de l'équipement).
    */
   presetCategorieId?: string | null
+  /**
+   * Caractéristiques PRÉ-REMPLIES à la création (gabarit « spécifique » de la
+   * sous-catégorie) : l'équipement hérite de ces champs (l'utilisateur saisit les
+   * valeurs). Ignoré en édition.
+   */
+  presetChamps?: Champ[]
 }
 
 function initialValues(
   eq: Equipement | null | undefined,
   presetCategorieId?: string | null,
+  presetChamps?: Champ[],
 ): EquipementFormValues {
-  if (!eq) return { ...emptyEquipement, categorie_id: presetCategorieId ?? '' }
+  if (!eq)
+    return {
+      ...emptyEquipement,
+      categorie_id: presetCategorieId ?? '',
+      specifications: presetChamps ?? emptyEquipement.specifications,
+    }
   return {
     nom: eq.nom ?? '',
     code_inventaire: eq.code_inventaire ?? '',
@@ -53,6 +65,7 @@ export function EquipementFormDialog({
   siteId,
   equipement,
   presetCategorieId,
+  presetChamps,
 }: EquipementFormDialogProps) {
   const isEdit = Boolean(equipement)
   const create = useCreateEquipement()
@@ -62,7 +75,7 @@ export function EquipementFormDialog({
   )
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
   const [values, setValues] = useState<EquipementFormValues>(() =>
-    initialValues(equipement, presetCategorieId),
+    initialValues(equipement, presetCategorieId, presetChamps),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending

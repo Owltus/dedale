@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { equipementsQueries } from './queries'
 import { equipementSchema, type EquipementFormValues } from './schemas'
-import { serializeChamps } from '@/lib/champs'
+import { serializeChamps, type Champ } from '@/lib/champs'
 import { categoriesQueries } from '@/features/categories/queries'
 
 /**
@@ -18,12 +18,20 @@ export function useCreateParcSousCategorie() {
       nom,
       parentId,
       siteId,
+      description,
+      miniatureId,
       modeleId,
+      specifications,
     }: {
       nom: string
       parentId: string
       siteId: string
+      description?: string
+      miniatureId?: string | null
+      /** Source du gabarit : un modèle de site (copies) … */
       modeleId: string | null
+      /** … OU un gabarit local « spécifique » (exclusif avec modeleId). */
+      specifications?: { champs: Champ[] } | null
     }) => {
       const { data } = await supabase
         .from('categories')
@@ -32,7 +40,10 @@ export function useCreateParcSousCategorie() {
           scope: 'parc',
           site_id: siteId,
           parent_id: parentId,
+          description: description?.trim() ? description.trim() : null,
+          miniature_id: miniatureId ?? null,
           modele_equipement_id: modeleId,
+          specifications: specifications ?? null,
         })
         .select('id')
         .single()
