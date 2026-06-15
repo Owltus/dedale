@@ -29,13 +29,17 @@ dist-ssr
 *.sln
 *.sw?
 
-# Documentation interne (dépôt public) : schéma backend + spec fonctionnelle legacy
+# Documentation interne (dépôt public) : doc projet + spec fonctionnelle legacy.
+# NB : le schéma SQL (schema_complete.sql) et les migrations (migrations/) sont
+# désormais versionnés à la racine — voir plus bas — pour suivre l'historique.
 contexte/
 doc-fonctionnelle/
 # Plans de travail internes (corbeille, etc.) — comme contexte/, on ne publie pas la roadmap
 plan/
 
 # Données d'import legacy SQLite -> Supabase (dedale.db + documents réels, volumineux)
+# Attention : « migration/ » (singulier, import legacy) est ignoré ; « migrations/ »
+# (pluriel, historique SQL versionné à la racine) ne l'est PAS et doit rester suivi.
 migration/
 
 # Scripts de lancement locaux

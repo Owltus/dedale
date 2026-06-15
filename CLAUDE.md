@@ -53,7 +53,7 @@ Décisions d'archi tranchées : `docs/decisions/`.
 
 ## Repères & pièges
 
-- Backend (source de vérité) : `C:\Users\Pierre-Louis\Desktop\supa`. Doc & schéma du projet : `contexte/` (**gitignoré**).
+- **Schéma SQL (source de vérité) : `schema_complete.sql` à la racine** (seed unique, versionné) ; historique incrémental dans `migrations/` (racine, versionné). À chaque migration → resynchroniser `schema_complete.sql`. Le projet `C:\Users\Pierre-Louis\Desktop\supa` est **déprécié**. Doc interne du projet : `contexte/` (**gitignoré**).
 - Dépôt : `github.com/Owltus/dedale` (public, `main`).
 - Port **5181** (5180 = autre projet de l'utilisateur). `contexte/`, `dev.bat`, `.claude/settings.local.json` gitignorés. `.env.local` jamais commité.
 - Compte créé en SQL à la main → mettre les colonnes de tokens NULL d'`auth.users` à `''` (sinon login 500 GoTrue).
