@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  CopyPlus,
   Folder,
   FolderTree,
   Inbox,
@@ -15,6 +14,7 @@ import { equipementsQueries } from '../queries'
 import { useDeleteEquipement } from '../mutations'
 import { EquipementFormDialog } from './equipement-form-dialog'
 import { InstancierDialog } from './instancier-dialog'
+import { ParcSousCategorieDialog } from './parc-sous-categorie-dialog'
 import { EquipementDetail } from './equipement-detail'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
 import {
@@ -69,6 +69,8 @@ interface DrillCat {
   description: string | null
   miniature_id: string | null
   ordre: number
+  /** Modèle fixé sur la sous-catégorie (les équipements en sont des copies). */
+  modeleId: string | null
   virtual: boolean
 }
 
@@ -155,6 +157,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       description: c.description,
       miniature_id: c.miniature_id,
       ordre: c.ordre,
+      modeleId: c.modele_equipement_id,
       virtual: false,
     }))
     if (orphans.length > 0) {
@@ -167,6 +170,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         miniature_id: null,
         // Toujours en DERNIER dans la liste des catégories racine.
         ordre: Number.MAX_SAFE_INTEGER,
+        modeleId: null,
         virtual: true,
       })
     }
@@ -271,9 +275,12 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
   const [categoryForm, setCategoryForm] = useState<{
     open: boolean
     categorie: Categorie | null
-    // Parent à la création d'une SOUS-catégorie (null = catégorie racine).
+  }>({ open: false, categorie: null })
+  // Création d'une SOUS-catégorie (nom + modèle fixé) sous la catégorie `parentId`.
+  const [subcatForm, setSubcatForm] = useState<{
+    open: boolean
     parentId: string | null
-  }>({ open: false, categorie: null, parentId: null })
+  }>({ open: false, parentId: null })
   const [equipForm, setEquipForm] = useState<{
     open: boolean
     eq: Equipement | null
@@ -347,9 +354,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       icon={<Plus />}
       label="Nouvelle catégorie"
       variant="default"
-      onClick={() =>
-        setCategoryForm({ open: true, categorie: null, parentId: null })
-      }
+      onClick={() => setCategoryForm({ open: true, categorie: null })}
     />
   ) : null
   const canCreateSubcat = canEdit && depth === 1 && !isVirtualCurrent
@@ -359,11 +364,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       label="Nouvelle sous-catégorie"
       variant="default"
       onClick={() =>
-        setCategoryForm({
-          open: true,
-          categorie: null,
-          parentId: current?.id ?? null,
-        })
+        setSubcatForm({ open: true, parentId: current?.id ?? null })
       }
     />
   ) : null
@@ -371,26 +372,17 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
   // strict catégorie → sous-catégorie → équipement. Au niveau 1 (une catégorie),
   // on ne crée QUE des sous-catégories ; jamais d'équipement.
   const canCreateEquipHere = canEdit && depth >= 2 && !isVirtualCurrent
-  const noSiteModele = modeleOptions.length === 0
   const newEquipBtn = canCreateEquipHere ? (
     <TooltipIconButton
       icon={<Plus />}
       label="Nouvel équipement"
       variant="default"
-      onClick={() => setEquipForm({ open: true, eq: null })}
-    />
-  ) : null
-  const fromModeleBtn = canCreateEquipHere ? (
-    <TooltipIconButton
-      icon={<CopyPlus />}
-      // Le tooltip explique aussi l'état désactivé (aucun modèle de site).
-      label={
-        noSiteModele
-          ? 'Aucun modèle sur ce site — exporte d’abord un modèle depuis la Bibliothèque'
-          : 'Créer depuis un modèle'
-      }
-      disabled={noSiteModele}
-      onClick={() => setInstancierOpen(true)}
+      onClick={() => {
+        // Sous-catégorie AVEC modèle → l'équipement est une copie du modèle
+        // (instanciation) ; sans modèle (cas legacy) → saisie libre.
+        if (current?.modeleId) setInstancierOpen(true)
+        else setEquipForm({ open: true, eq: null })
+      }}
     />
   ) : null
   const editEquipBtn =
@@ -445,7 +437,6 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           <>
             {newSubCategoryBtn}
             {newEquipBtn}
-            {fromModeleBtn}
           </>
         }
       />
@@ -467,19 +458,14 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           key={
             (categoryForm.categorie
               ? `cat-edit-${categoryForm.categorie.id}`
-              : `cat-new-${categoryForm.parentId ?? 'root'}`) +
-            `-${String(categoryForm.open)}`
+              : 'cat-new') + `-${String(categoryForm.open)}`
           }
           open={categoryForm.open}
           onOpenChange={(open) => setCategoryForm((f) => ({ ...f, open }))}
           categorie={categoryForm.categorie}
-          // Catégorie de PARC ; parent renseigné = création d'une sous-catégorie.
-          preset={{
-            scope: 'parc',
-            ...(categoryForm.parentId
-              ? { parent_id: categoryForm.parentId }
-              : {}),
-          }}
+          // Catégorie RACINE de parc (les sous-catégories passent par leur propre
+          // dialog avec modèle fixé).
+          preset={{ scope: 'parc' }}
           categories={parentCandidates}
           canEntreprise={canEntreprise}
           siteId={categoryForm.categorie ? null : siteId}
@@ -509,13 +495,25 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       )}
 
       {canEdit && (
+        <ParcSousCategorieDialog
+          key={`subcat-${subcatForm.parentId ?? 'none'}-${String(subcatForm.open)}`}
+          open={subcatForm.open}
+          onOpenChange={(open) => setSubcatForm((f) => ({ ...f, open }))}
+          siteId={siteId}
+          parentId={subcatForm.parentId ?? ''}
+          modeles={modeleOptions}
+        />
+      )}
+
+      {canEdit && (
         <InstancierDialog
-          key={`instancier-${current?.id ?? 'root'}-${String(instancierOpen)}`}
+          // Modèle FIXÉ par la sous-catégorie courante : pas de sélecteur, l'équipement
+          // créé est une copie de ce modèle, rangé dans la sous-catégorie.
+          key={`instancier-${current?.id ?? 'root'}-${current?.modeleId ?? 'none'}-${String(instancierOpen)}`}
           open={instancierOpen}
           onOpenChange={setInstancierOpen}
           siteId={siteId}
-          modeles={modeleOptions}
-          // Range l'équipement créé dans la (sous-)catégorie de parc courante.
+          modeleId={current?.modeleId ?? null}
           categorieId={isVirtualCurrent ? null : (current?.id ?? null)}
         />
       )}
@@ -679,7 +677,6 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                                 setCategoryForm({
                                   open: true,
                                   categorie: categoriesById.get(cat.id) ?? null,
-                                  parentId: null,
                                 })
                               }
                             >

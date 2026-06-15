@@ -3,6 +3,45 @@ import { supabase } from '@/lib/supabase'
 import { equipementsQueries } from './queries'
 import { equipementSchema, type EquipementFormValues } from './schemas'
 import { serializeChamps } from '@/lib/champs'
+import { categoriesQueries } from '@/features/categories/queries'
+
+/**
+ * Crée une SOUS-catégorie de parc (scope 'parc') liée à un modèle de site : tous
+ * les équipements qu'on y créera seront des copies de ce modèle. Le modèle est
+ * OBLIGATOIRE ici (flotte homogène) ; la base valide qu'il appartient au site.
+ */
+export function useCreateParcSousCategorie() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      nom,
+      parentId,
+      siteId,
+      modeleId,
+    }: {
+      nom: string
+      parentId: string
+      siteId: string
+      modeleId: string
+    }) => {
+      const { data } = await supabase
+        .from('categories')
+        .insert({
+          nom: nom.trim(),
+          scope: 'parc',
+          site_id: siteId,
+          parent_id: parentId,
+          modele_equipement_id: modeleId,
+        })
+        .select('id')
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: categoriesQueries.all() }),
+  })
+}
 
 function equipementPayload(values: EquipementFormValues) {
   const v = equipementSchema.parse(values)
