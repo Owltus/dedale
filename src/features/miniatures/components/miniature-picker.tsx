@@ -162,30 +162,36 @@ export function MiniaturePicker({
       )
     } else {
       grille = (
-        <div className="grid max-h-72 grid-cols-5 gap-2 overflow-y-auto pr-1 sm:grid-cols-6">
-          {shown.map((m) => (
+        <div className="max-h-72 overflow-y-auto pr-1">
+          <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
+            {shown.map((m) => (
             <button
               key={m.id}
               type="button"
               onClick={() => choisir(m.id)}
               aria-label="Choisir cette vignette"
-              className="bg-muted focus-visible:ring-ring hover:ring-ring/60 aspect-square overflow-hidden rounded border transition hover:ring-2 focus-visible:ring-2 focus-visible:outline-none"
+              className="bg-muted focus-visible:ring-ring hover:ring-ring/60 block overflow-hidden rounded border transition hover:ring-2 focus-visible:ring-2 focus-visible:outline-none"
             >
+              {/* `aspect-square w-full` porté par l'image (et le placeholder),
+                  pas par le bouton : montage robuste, calqué sur l'onglet
+                  Vignettes — évite que l'image prenne sa taille intrinsèque et
+                  chevauche ses voisines. */}
               {m.url !== null && !errored.has(m.id) ? (
                 <img
                   src={m.url}
                   alt=""
                   loading="lazy"
                   onError={() => setErrored((s) => new Set(s).add(m.id))}
-                  className="size-full object-cover"
+                  className="aspect-square w-full object-cover"
                 />
               ) : (
-                <span className="text-muted-foreground flex size-full items-center justify-center">
+                <span className="text-muted-foreground flex aspect-square w-full items-center justify-center">
                   <ImageOff className="size-5" />
                 </span>
               )}
             </button>
-          ))}
+            ))}
+          </div>
         </div>
       )
     }

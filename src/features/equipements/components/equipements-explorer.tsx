@@ -36,6 +36,7 @@ import {
   type BreadcrumbAncestor,
 } from '@/components/common/title-breadcrumb'
 import { PageHeader } from '@/components/common/page-header'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
 import { listStack } from '@/lib/responsive'
 import { ScopeBadges } from '@/components/common/scope-badges'
@@ -340,20 +341,23 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
   const isVirtualCurrent = current?.virtual ?? false
   // Création d'une CATÉGORIE racine (à la racine) ou d'une SOUS-catégorie (dans une
   // catégorie, niveau 1 → niveau 2 ; pas au-delà : 2 niveaux max, comme les gammes).
+  // Boutons d'action ICÔNE SEULE + tooltip (comme la barre de la Bibliothèque).
   const newCategoryBtn = canEdit ? (
-    <Button
-      key="cat"
+    <TooltipIconButton
+      icon={<Plus />}
+      label="Nouvelle catégorie"
+      variant="default"
       onClick={() =>
         setCategoryForm({ open: true, categorie: null, parentId: null })
       }
-    >
-      <Plus /> Nouvelle catégorie
-    </Button>
+    />
   ) : null
   const canCreateSubcat = canEdit && depth === 1 && !isVirtualCurrent
   const newSubCategoryBtn = canCreateSubcat ? (
-    <Button
-      key="subcat"
+    <TooltipIconButton
+      icon={<Plus />}
+      label="Nouvelle sous-catégorie"
+      variant="default"
       onClick={() =>
         setCategoryForm({
           open: true,
@@ -361,41 +365,42 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           parentId: current?.id ?? null,
         })
       }
-    >
-      <Plus /> Nouvelle sous-catégorie
-    </Button>
+    />
   ) : null
-  // Création d'équipement dans une (sous-)catégorie ouverte (jamais à la racine).
-  const canCreateEquipHere = canEdit && current !== null && !isVirtualCurrent
+  // Création d'équipement UNIQUEMENT dans une SOUS-catégorie (niveau ≥2) — chemin
+  // strict catégorie → sous-catégorie → équipement. Au niveau 1 (une catégorie),
+  // on ne crée QUE des sous-catégories ; jamais d'équipement.
+  const canCreateEquipHere = canEdit && depth >= 2 && !isVirtualCurrent
   const noSiteModele = modeleOptions.length === 0
   const newEquipBtn = canCreateEquipHere ? (
-    <Button key="eq" onClick={() => setEquipForm({ open: true, eq: null })}>
-      <Plus /> Nouvel équipement
-    </Button>
+    <TooltipIconButton
+      icon={<Plus />}
+      label="Nouvel équipement"
+      variant="default"
+      onClick={() => setEquipForm({ open: true, eq: null })}
+    />
   ) : null
   const fromModeleBtn = canCreateEquipHere ? (
-    <Button
-      key="mod"
-      variant="outline"
-      disabled={noSiteModele}
-      title={
+    <TooltipIconButton
+      icon={<CopyPlus />}
+      // Le tooltip explique aussi l'état désactivé (aucun modèle de site).
+      label={
         noSiteModele
-          ? 'Aucun modèle sur ce site. Exporte d’abord un modèle vers le site depuis la Bibliothèque.'
-          : undefined
+          ? 'Aucun modèle sur ce site — exporte d’abord un modèle depuis la Bibliothèque'
+          : 'Créer depuis un modèle'
       }
+      disabled={noSiteModele}
       onClick={() => setInstancierOpen(true)}
-    >
-      <CopyPlus /> Créer depuis un modèle
-    </Button>
+    />
   ) : null
   const editEquipBtn =
     canEdit && openEquipement !== null ? (
-      <Button
-        key="edit"
+      <TooltipIconButton
+        icon={<Pencil />}
+        label="Modifier"
+        variant="default"
         onClick={() => setEquipForm({ open: true, eq: openEquipement })}
-      >
-        <Pencil /> Modifier
-      </Button>
+      />
     ) : null
 
   let header: React.ReactNode
@@ -594,18 +599,31 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
             return <ErrorState onRetry={() => void equipementsQuery.refetch()} />
           }
           if (emptyHere) {
+            // Niveau 0 : catégories ; niveau 1 : sous-catégories ; niveau ≥2
+            // (sous-catégorie) : équipements. Message adapté au palier.
+            const isSubcatLevel = depth >= 2 || isVirtualCurrent
             return (
               <EmptyState
-                icon={depth === 0 ? FolderTree : Package}
-                title={depth === 0 ? 'Aucune catégorie' : 'Catégorie vide'}
+                icon={isSubcatLevel ? Package : FolderTree}
+                title={
+                  depth === 0
+                    ? 'Aucune catégorie'
+                    : depth === 1
+                      ? 'Catégorie vide'
+                      : 'Sous-catégorie vide'
+                }
                 description={
                   depth === 0
                     ? canEdit
                       ? 'Crée une première catégorie avec le bouton « Nouvelle catégorie ».'
                       : 'Aucune catégorie pour le moment.'
-                    : canCreateEquipHere
-                      ? 'Ajoute un équipement avec les boutons ci-dessus.'
-                      : 'Aucun équipement dans cette catégorie.'
+                    : depth === 1
+                      ? canCreateSubcat
+                        ? 'Crée une sous-catégorie avec le bouton « Nouvelle sous-catégorie ».'
+                        : 'Aucune sous-catégorie.'
+                      : canCreateEquipHere
+                        ? 'Ajoute un équipement avec les boutons ci-dessus.'
+                        : 'Aucun équipement dans cette sous-catégorie.'
                 }
               />
             )
