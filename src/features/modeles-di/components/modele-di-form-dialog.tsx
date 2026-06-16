@@ -8,7 +8,7 @@ import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
-import { TextareaField } from '@/components/common/textarea-field'
+import { DescriptionField } from '@/components/common/description-field'
 import { SelectField } from '@/components/common/select-field'
 
 interface ModeleDiFormDialogProps {
@@ -157,12 +157,11 @@ export function ModeleDiFormDialog({
           {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
         </SelectField>
       )}
-      <TextareaField
+      <DescriptionField
         label="Constat (modèle)"
         value={values.constat_modele}
         onChange={(v) => set('constat_modele', v)}
         error={errors.constat_modele}
-        rows={5}
         required
       />
       <SelectField
