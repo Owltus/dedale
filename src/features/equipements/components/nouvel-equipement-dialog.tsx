@@ -109,26 +109,30 @@ export function NouvelEquipementDialog({
         error={errors.nom}
         required
       />
+      {/* Emplacement en cascade (bâtiment pleine ligne si >1) ; les dates occupent
+          la colonne droite, à côté de Niveau/Local, pour compacter. */}
       <EmplacementSelect
         siteId={siteId}
         value={localId}
         onChange={setLocalId}
         error={errors.local}
+        aside={
+          <>
+            <TextField
+              label="Mise en service"
+              type="date"
+              value={dateMiseEnService}
+              onChange={setDateMiseEnService}
+            />
+            <TextField
+              label="Fin de garantie"
+              type="date"
+              value={dateFinGarantie}
+              onChange={setDateFinGarantie}
+            />
+          </>
+        }
       />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TextField
-          label="Mise en service"
-          type="date"
-          value={dateMiseEnService}
-          onChange={setDateMiseEnService}
-        />
-        <TextField
-          label="Fin de garantie"
-          type="date"
-          value={dateFinGarantie}
-          onChange={setDateFinGarantie}
-        />
-      </div>
       {champs.length > 0 && (
         <div className="grid gap-3 border-t pt-4">
           {champs.map((champ, i) => (

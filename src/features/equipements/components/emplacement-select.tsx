@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { equipementsQueries } from '../queries'
 import { SelectField } from '@/components/common/select-field'
@@ -9,6 +9,12 @@ interface EmplacementSelectProps {
   value: string
   onChange: (localId: string) => void
   error?: string
+  /**
+   * Contenu de la COLONNE DROITE (ex. dates), placé à côté de Niveau/Local pour
+   * compacter. Fourni → mise en page 2 colonnes (Niveau+Local à gauche, `aside` à
+   * droite) ; absent → Niveau/Local empilés pleine largeur.
+   */
+  aside?: ReactNode
 }
 
 /**
@@ -22,6 +28,7 @@ export function EmplacementSelect({
   value,
   onChange,
   error,
+  aside,
 }: EmplacementSelectProps) {
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
 
@@ -71,8 +78,43 @@ export function EmplacementSelect({
     onChange('') // réinitialise le local
   }
 
+  const niveauLocal = (
+    <div className="grid gap-4">
+      <SelectField
+        label="Niveau"
+        required
+        id="emplacement_niveau"
+        value={niveauId}
+        onChange={choisirNiveau}
+      >
+        <option value="">— Choisir un niveau —</option>
+        {niveaux.map((n) => (
+          <option key={n.id} value={n.id}>
+            {n.nom}
+          </option>
+        ))}
+      </SelectField>
+      <SelectField
+        label="Local"
+        required
+        id="emplacement_local"
+        value={value}
+        onChange={onChange}
+        error={error}
+      >
+        <option value="">— Choisir un local —</option>
+        {locauxNiveau.map((l) => (
+          <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
+            {l.local_nom ?? ''}
+          </option>
+        ))}
+      </SelectField>
+    </div>
+  )
+
   return (
     <div className="grid gap-4">
+      {/* Bâtiment sur TOUTE LA LIGNE (uniquement si plusieurs bâtiments). */}
       {!batimentUnique && (
         <SelectField
           label="Bâtiment"
@@ -90,36 +132,16 @@ export function EmplacementSelect({
         </SelectField>
       )}
 
-      <SelectField
-        label="Niveau"
-        required
-        id="emplacement_niveau"
-        value={niveauId}
-        onChange={choisirNiveau}
-      >
-        <option value="">— Choisir un niveau —</option>
-        {niveaux.map((n) => (
-          <option key={n.id} value={n.id}>
-            {n.nom}
-          </option>
-        ))}
-      </SelectField>
-
-      <SelectField
-        label="Local"
-        required
-        id="emplacement_local"
-        value={value}
-        onChange={onChange}
-        error={error}
-      >
-        <option value="">— Choisir un local —</option>
-        {locauxNiveau.map((l) => (
-          <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
-            {l.local_nom ?? ''}
-          </option>
-        ))}
-      </SelectField>
+      {/* Avec `aside` (ex. dates) : 2 colonnes — Niveau/Local à gauche, aside à
+          droite (compact). Sinon Niveau/Local pleine largeur. */}
+      {aside !== undefined ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {niveauLocal}
+          <div className="grid content-start gap-4">{aside}</div>
+        </div>
+      ) : (
+        niveauLocal
+      )}
     </div>
   )
 }
