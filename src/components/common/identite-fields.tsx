@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { TextField } from './text-field'
 import { DescriptionField } from './description-field'
 import { MiniatureField } from '@/features/miniatures/components/miniature-field'
@@ -66,6 +67,22 @@ export function IdentiteFields({ nom, description, image }: IdentiteFieldsProps)
     />
   )
 
+  // Hauteur RÉELLE de la colonne Nom + Description, mesurée en direct : on y cale
+  // exactement le carré image (bas alignés), de façon fiable — contrairement aux
+  // techniques CSS « aspect + étirement » qui rendaient mal. Se met à jour si la
+  // colonne grandit (ex. message d'erreur), donc l'alignement reste parfait.
+  const champsRef = useRef<HTMLDivElement>(null)
+  const [tailleImage, setTailleImage] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const el = champsRef.current
+    if (el === null) return
+    const mesurer = () => setTailleImage(el.offsetHeight)
+    mesurer()
+    const observer = new ResizeObserver(mesurer)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   // Sans image : Nom + Description en pleine largeur (ex. catégorie image masquée).
   if (!image) {
     return (
@@ -78,10 +95,17 @@ export function IdentiteFields({ nom, description, image }: IdentiteFieldsProps)
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-      {/* Image carrée à TAILLE FIXE pilotée par la largeur (aspect-square + largeur
-          définie) → 1:1 GARANTI quelle que soit la largeur du modal, sans dépendre
-          d'un étirement fragile. Alignée en haut avec le Nom. */}
-      <div className="aspect-square w-32 shrink-0 sm:w-36">
+      {/* Image carrée dont le côté = hauteur mesurée de la colonne Nom +
+          Description → 1:1 garanti ET bas parfaitement aligné, dans TOUS les modals.
+          `w-32`/`aspect-square` ne sert que de repli avant la première mesure. */}
+      <div
+        className="aspect-square w-32 shrink-0 sm:w-40"
+        style={
+          tailleImage !== null
+            ? { width: tailleImage, height: tailleImage }
+            : undefined
+        }
+      >
         <MiniatureField
           orientation="tile"
           value={image.value}
@@ -90,7 +114,7 @@ export function IdentiteFields({ nom, description, image }: IdentiteFieldsProps)
           canUpload={image.canUpload}
         />
       </div>
-      <div className="grid flex-1 content-start gap-4">
+      <div ref={champsRef} className="grid flex-1 content-start gap-4">
         {champNom}
         {champDescription}
       </div>

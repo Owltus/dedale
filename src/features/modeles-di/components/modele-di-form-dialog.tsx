@@ -8,7 +8,6 @@ import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
-import { DescriptionField } from '@/components/common/description-field'
 import { SelectField } from '@/components/common/select-field'
 
 interface ModeleDiFormDialogProps {
@@ -127,14 +126,22 @@ export function ModeleDiFormDialog({
       pendingLabel="Enregistrement…"
       pending={pending}
     >
-      {/* Bloc identité : image + libellé. Pas de « description » ici — le corps
-          du modèle est le Constat (champ requis, ci-dessous). */}
+      {/* Exception : ce modèle n'a pas de « description » — c'est le CONSTAT qui en
+          tient lieu. On le place donc comme description du bloc identité, pour que
+          l'image s'aligne sur Libellé + Constat comme dans les autres modals. */}
       <IdentiteFields
         nom={{
           label: 'Libellé',
           value: values.libelle,
           onChange: (v) => set('libelle', v),
           error: errors.libelle,
+        }}
+        description={{
+          label: 'Constat (modèle)',
+          value: values.constat_modele,
+          onChange: (v) => set('constat_modele', v),
+          error: errors.constat_modele,
+          required: true,
         }}
         image={{
           value: values.miniature_id,
@@ -157,13 +164,6 @@ export function ModeleDiFormDialog({
           {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
         </SelectField>
       )}
-      <DescriptionField
-        label="Constat (modèle)"
-        value={values.constat_modele}
-        onChange={(v) => set('constat_modele', v)}
-        error={errors.constat_modele}
-        required
-      />
       <SelectField
         label="État"
         value={values.etat}
