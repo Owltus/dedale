@@ -8,7 +8,6 @@ import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
-import { Label } from '@/components/ui/label'
 import type { Champ, ChampValeur } from '@/lib/champs'
 
 interface NouvelEquipementDialogProps {
@@ -106,7 +105,6 @@ export function NouvelEquipementDialog({
       pendingLabel="Création…"
       pending={create.isPending}
     >
-      <Label>Informations</Label>
       <TextField
         label="Nom"
         value={nom}
@@ -145,7 +143,6 @@ export function NouvelEquipementDialog({
       </div>
       {champs.length > 0 && (
         <div className="grid gap-3 border-t pt-4">
-          <Label>Caractéristiques</Label>
           {champs.map((champ, i) => (
             <ChampValeurInput
               key={champ.cle}
