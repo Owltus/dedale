@@ -7,7 +7,6 @@ import {
   Package,
   Pencil,
   Plus,
-  SlidersHorizontal,
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -15,7 +14,6 @@ import { equipementsQueries } from '../queries'
 import { useDeleteEquipement } from '../mutations'
 import { EquipementParcDialog } from './equipement-parc-dialog'
 import { ParcSousCategorieDialog } from './parc-sous-categorie-dialog'
-import { ModifierCaracteristiquesDialog } from './modifier-caracteristiques-dialog'
 import { EquipementDetail } from './equipement-detail'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
 import {
@@ -277,17 +275,18 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     open: boolean
     categorie: Categorie | null
   }>({ open: false, categorie: null })
-  // Création d'une SOUS-catégorie (nom + modèle fixé) sous la catégorie `parentId`.
+  // Sous-catégorie : formulaire UNIQUE création + édition. `categorie` null +
+  // `parentId` → création sous ce parent ; `categorie` → édition de cette sous-cat.
   const [subcatForm, setSubcatForm] = useState<{
     open: boolean
     parentId: string | null
-  }>({ open: false, parentId: null })
+    categorie: Categorie | null
+  }>({ open: false, parentId: null, categorie: null })
   // Formulaire équipement UNIQUE (create + edit) : eq = null → création.
   const [equipForm, setEquipForm] = useState<{
     open: boolean
     eq: Equipement | null
   }>({ open: false, eq: null })
-  const [modifCaractOpen, setModifCaractOpen] = useState(false)
   const [toDelete, setToDelete] = useState<Equipement | null>(null)
   const [toDeleteCategorie, setToDeleteCategorie] = useState<DrillCat | null>(
     null,
@@ -390,7 +389,11 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       label="Nouvelle sous-catégorie"
       variant="default"
       onClick={() =>
-        setSubcatForm({ open: true, parentId: current?.id ?? null })
+        setSubcatForm({
+          open: true,
+          parentId: current?.id ?? null,
+          categorie: null,
+        })
       }
     />
   ) : null
@@ -408,14 +411,20 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       onClick={() => setEquipForm({ open: true, eq: null })}
     />
   ) : null
-  // Édition en masse : seulement sur une sous-catégorie SPÉCIFIQUE (gabarit local).
-  // Pour une sous-catégorie liée à un modèle, le gabarit s'édite dans la Bibliothèque.
-  const editGabaritBtn =
-    canCreateEquipHere && current?.modeleId === null ? (
+  // Édition de la sous-catégorie courante (nom, description, image, gabarit) via le
+  // MÊME formulaire que la création. Disponible dès qu'on est DANS une sous-catégorie.
+  const editSubcatBtn =
+    canCreateEquipHere && current && !current.virtual ? (
       <TooltipIconButton
-        icon={<SlidersHorizontal />}
-        label="Modifier les caractéristiques"
-        onClick={() => setModifCaractOpen(true)}
+        icon={<Pencil />}
+        label="Modifier la sous-catégorie"
+        onClick={() =>
+          setSubcatForm({
+            open: true,
+            parentId: current.parent_id,
+            categorie: categoriesById.get(current.id) ?? null,
+          })
+        }
       />
     ) : null
   const editEquipBtn =
@@ -469,7 +478,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         actions={
           <>
             {newSubCategoryBtn}
-            {editGabaritBtn}
+            {editSubcatBtn}
             {newEquipBtn}
           </>
         }
@@ -519,12 +528,26 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
 
       {canEdit && (
         <ParcSousCategorieDialog
-          key={`subcat-${subcatForm.parentId ?? 'none'}-${String(subcatForm.open)}`}
+          key={`subcat-${subcatForm.categorie?.id ?? subcatForm.parentId ?? 'none'}-${String(subcatForm.open)}`}
           open={subcatForm.open}
           onOpenChange={(open) => setSubcatForm((f) => ({ ...f, open }))}
           siteId={siteId}
-          parentId={subcatForm.parentId ?? ''}
+          parentId={subcatForm.categorie?.parent_id ?? subcatForm.parentId ?? ''}
           modeles={modeleOptions}
+          categorie={subcatForm.categorie}
+          // Équipements de la sous-catégorie éditée : propagation d'un gabarit
+          // spécifique modifié (valeurs déjà saisies conservées par clé).
+          equipements={
+            subcatForm.categorie
+              ? equipements
+                  .filter(
+                    (e) =>
+                      e.id !== null &&
+                      e.categorie_id === subcatForm.categorie!.id,
+                  )
+                  .map((e) => ({ id: e.id!, specifications: e.specifications }))
+              : []
+          }
         />
       )}
 
@@ -539,19 +562,6 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           categorieId={current?.id ?? ''}
           template={currentTemplate}
           equipement={equipForm.eq}
-        />
-      )}
-
-      {canEdit && current && !current.virtual && current.modeleId === null && (
-        <ModifierCaracteristiquesDialog
-          key={`modif-caract-${current.id}-${String(modifCaractOpen)}`}
-          open={modifCaractOpen}
-          onOpenChange={setModifCaractOpen}
-          categorieId={current.id}
-          initialChamps={currentTemplate?.champs ?? []}
-          equipements={equipementsInCurrent
-            .filter((e) => e.id !== null)
-            .map((e) => ({ id: e.id!, specifications: e.specifications }))}
         />
       )}
 
@@ -710,12 +720,20 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                               variant="ghost"
                               size="icon"
                               aria-label="Modifier la catégorie"
-                              onClick={() =>
-                                setCategoryForm({
-                                  open: true,
-                                  categorie: categoriesById.get(cat.id) ?? null,
-                                })
-                              }
+                              onClick={() => {
+                                const full = categoriesById.get(cat.id) ?? null
+                                // Sous-catégorie (parent) → formulaire unifié de
+                                // sous-catégorie ; catégorie racine → form catégorie.
+                                if (full?.parent_id) {
+                                  setSubcatForm({
+                                    open: true,
+                                    parentId: full.parent_id,
+                                    categorie: full,
+                                  })
+                                } else {
+                                  setCategoryForm({ open: true, categorie: full })
+                                }
+                              }}
                             >
                               <Pencil />
                             </Button>

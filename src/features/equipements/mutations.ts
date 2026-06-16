@@ -5,30 +5,47 @@ import { parseChamps, serializeChamps, type Champ } from '@/lib/champs'
 import { categoriesQueries } from '@/features/categories/queries'
 
 /**
- * ÉDITION EN MASSE d'une sous-catégorie SPÉCIFIQUE : met à jour son gabarit local
- * (specifications) PUIS propage le nouvel ensemble de caractéristiques à TOUS ses
- * équipements — en conservant les valeurs déjà saisies (par clé) ; les nouveaux
- * champs prennent leur défaut, les champs retirés disparaissent.
+ * ÉDITION d'une SOUS-catégorie de parc (formulaire unifié avec la création) : met à
+ * jour nom / description / image et, pour un gabarit SPÉCIFIQUE, les caractéristiques
+ * (`specifications`) PUIS les propage à TOUS ses équipements — en conservant les
+ * valeurs déjà saisies (par clé) ; les nouveaux champs prennent leur défaut, les
+ * champs retirés disparaissent. Le TYPE de gabarit (modèle ↔ spécifique) est fixé à
+ * la création : on n'y touche pas ici (pour un modèle, le gabarit vit en Bibliothèque).
  */
-export function useUpdateGabaritSpecifique() {
+export function useUpdateParcSousCategorie() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
-      categorieId,
+      id,
+      nom,
+      description,
+      miniatureId,
+      specifique,
       champs,
       equipements,
     }: {
-      categorieId: string
+      id: string
+      nom: string
+      description?: string
+      miniatureId: string | null
+      /** true = gabarit local (specifications éditables + propagation). */
+      specifique: boolean
       champs: Champ[]
       equipements: { id: string; specifications: unknown }[]
     }) => {
       await supabase
         .from('categories')
-        .update({ specifications: serializeChamps(champs) })
-        .eq('id', categorieId)
+        .update({
+          nom: nom.trim(),
+          description: description?.trim() ? description.trim() : null,
+          miniature_id: miniatureId,
+          ...(specifique ? { specifications: serializeChamps(champs) } : {}),
+        })
+        .eq('id', id)
         .select('id')
         .single()
         .throwOnError()
+      if (!specifique) return
       await Promise.all(
         equipements.map(async (eq) => {
           const actuels = parseChamps(eq.specifications)
