@@ -34,10 +34,6 @@ export function EquipementDetail({ equipement }: { equipement: Equipement }) {
             <CardTitle>Informations</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm">
-            <InfoRow
-              label="Code inventaire"
-              value={equipement.code_inventaire}
-            />
             <InfoRow label="Catégorie" value={equipement.categorie_nom} />
             <InfoRow
               label="Emplacement"

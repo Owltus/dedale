@@ -45,8 +45,22 @@ export function EmplacementSelect({
   const [batimentId, setBatimentId] = useState('')
   const [niveauId, setNiveauId] = useState('')
 
-  // Bâtiment effectif : l'unique s'il n'y en a qu'un, sinon celui choisi.
-  const effBatiment = batimentUnique ? (batiments[0]?.id ?? '') : batimentId
+  // Local correspondant à la valeur courante : sert à PRÉ-POSITIONNER la cascade
+  // en édition (bâtiment/niveau déduits du local), SANS état ni effet — dès qu'un
+  // choix amont est fait, c'est l'état interne qui prime.
+  const localRow = useMemo(
+    () => locaux.find((l) => l.local_id === value) ?? null,
+    [locaux, value],
+  )
+
+  // Bâtiment / niveau EFFECTIFS : choix interne s'il existe, sinon déduit du local
+  // courant (édition). Bâtiment unique → toujours l'unique.
+  const effBatiment = batimentUnique
+    ? (batiments[0]?.id ?? '')
+    : batimentId !== ''
+      ? batimentId
+      : (localRow?.batiment_id ?? '')
+  const effNiveau = niveauId !== '' ? niveauId : (localRow?.niveau_id ?? '')
 
   // Niveaux distincts du bâtiment effectif.
   const niveaux = useMemo(() => {
@@ -63,9 +77,9 @@ export function EmplacementSelect({
   const locauxNiveau = useMemo(
     () =>
       locaux.filter(
-        (l) => l.batiment_id === effBatiment && l.niveau_id === niveauId,
+        (l) => l.batiment_id === effBatiment && l.niveau_id === effNiveau,
       ),
-    [locaux, effBatiment, niveauId],
+    [locaux, effBatiment, effNiveau],
   )
 
   function choisirBatiment(id: string) {
@@ -84,7 +98,7 @@ export function EmplacementSelect({
         label="Niveau"
         required
         id="emplacement_niveau"
-        value={niveauId}
+        value={effNiveau}
         onChange={choisirNiveau}
       >
         <option value="">— Choisir un niveau —</option>
@@ -120,7 +134,7 @@ export function EmplacementSelect({
           label="Bâtiment"
           required
           id="emplacement_batiment"
-          value={batimentId}
+          value={effBatiment}
           onChange={choisirBatiment}
         >
           <option value="">— Choisir un bâtiment —</option>

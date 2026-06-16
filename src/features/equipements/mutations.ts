@@ -171,6 +171,51 @@ export function useCreateEquipementParc() {
   })
 }
 
+/**
+ * Met à jour un équipement de parc depuis le formulaire ÉPURÉ (mêmes champs que la
+ * création) : nom, emplacement, dates, valeurs des caractéristiques. Ne TOUCHE PAS
+ * l'image (héritée), la catégorie (sa sous-catégorie) ni le lien au modèle.
+ */
+export function useUpdateEquipementParc() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      nom,
+      localId,
+      champs,
+      dateMiseEnService,
+      dateFinGarantie,
+    }: {
+      id: string
+      nom: string
+      localId: string
+      champs: Champ[]
+      dateMiseEnService?: string
+      dateFinGarantie?: string
+    }) => {
+      const { data } = await supabase
+        .from('equipements')
+        .update({
+          nom: nom.trim(),
+          local_id: localId,
+          specifications: serializeChamps(champs),
+          date_mise_en_service: dateMiseEnService?.trim()
+            ? dateMiseEnService
+            : null,
+          date_fin_garantie: dateFinGarantie?.trim() ? dateFinGarantie : null,
+        })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: equipementsQueries.all() }),
+  })
+}
+
 export function useCreateEquipement() {
   const qc = useQueryClient()
   return useMutation({

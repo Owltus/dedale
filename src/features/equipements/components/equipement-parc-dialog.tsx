@@ -1,53 +1,73 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { useCreateEquipementParc } from '../mutations'
+import {
+  useCreateEquipementParc,
+  useUpdateEquipementParc,
+} from '../mutations'
 import { EmplacementSelect } from './emplacement-select'
 import { errorMessage } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
-import type { Champ, ChampValeur } from '@/lib/champs'
+import { parseChamps, type Champ, type ChampValeur } from '@/lib/champs'
+import type { Database } from '@/lib/database.types'
 
-interface NouvelEquipementDialogProps {
+type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
+
+interface EquipementParcDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   siteId: string
   /** Sous-catégorie de parc où ranger l'équipement. */
   categorieId: string
-  /** Gabarit hérité de la sous-catégorie. */
+  /** Gabarit hérité de la sous-catégorie (source des champs/image À LA CRÉATION). */
   template: {
-    /** Nom proposé par défaut (nom du modèle, sinon vide). */
     nomDefaut: string
-    /** Caractéristiques (champs) à remplir. */
     champs: Champ[]
-    /** Image héritée (modèle ou sous-catégorie), posée automatiquement. */
     miniatureId: string | null
-    /** Modèle source (lien `copie_depuis`), ou null si gabarit spécifique. */
     modeleId: string | null
   }
+  /** Équipement à MODIFIER. Absent = création. */
+  equipement?: Equipement | null
 }
 
 /**
- * Création ÉPURÉE d'un équipement dans une sous-catégorie : Nom + Emplacement +
- * caractéristiques héritées (à renseigner). PAS d'image (héritée), PAS de code
- * inventaire, PAS de catégorie (on est déjà dans la sous-catégorie).
+ * Formulaire UNIQUE création + édition d'un équipement de parc, ÉPURÉ et identique
+ * dans les deux cas : Nom + Emplacement (cascade) + dates + caractéristiques. PAS
+ * d'image (héritée de la sous-catégorie/modèle), PAS de code inventaire, PAS de
+ * catégorie (c'est la sous-catégorie). En création, les caractéristiques viennent
+ * du gabarit ; en édition, de l'équipement (valeurs déjà saisies conservées).
  */
-export function NouvelEquipementDialog({
+export function EquipementParcDialog({
   open,
   onOpenChange,
   siteId,
   categorieId,
   template,
-}: NouvelEquipementDialogProps) {
+  equipement,
+}: EquipementParcDialogProps) {
+  const isEdit = Boolean(equipement)
   const create = useCreateEquipementParc()
-  const [nom, setNom] = useState(template.nomDefaut)
-  const [localId, setLocalId] = useState('')
-  // Données « de base » standard de l'équipement.
-  const [dateMiseEnService, setDateMiseEnService] = useState('')
-  const [dateFinGarantie, setDateFinGarantie] = useState('')
-  // Caractéristiques héritées : valeur initialisée sur le défaut du gabarit.
+  const update = useUpdateEquipementParc()
+  const pending = create.isPending || update.isPending
+
+  const [nom, setNom] = useState(equipement?.nom ?? template.nomDefaut)
+  const [localId, setLocalId] = useState(equipement?.local_id ?? '')
+  const [dateMiseEnService, setDateMiseEnService] = useState(
+    equipement?.date_mise_en_service ?? '',
+  )
+  const [dateFinGarantie, setDateFinGarantie] = useState(
+    equipement?.date_fin_garantie ?? '',
+  )
+  // Édition : caractéristiques (avec valeurs) de l'équipement ; création :
+  // caractéristiques du gabarit, valeur initialisée sur le défaut.
   const [champs, setChamps] = useState<Champ[]>(() =>
-    template.champs.map((c) => ({ ...c, valeur: c.valeur ?? c.defaut ?? null })),
+    equipement
+      ? parseChamps(equipement.specifications)
+      : template.champs.map((c) => ({
+          ...c,
+          valeur: c.valeur ?? c.defaut ?? null,
+        })),
   )
   const [errors, setErrors] = useState<{
     nom?: string
@@ -75,17 +95,29 @@ export function NouvelEquipementDialog({
     }
     setErrors({})
     try {
-      await create.mutateAsync({
-        nom,
-        localId,
-        categorieId,
-        miniatureId: template.miniatureId,
-        champs,
-        modeleId: template.modeleId,
-        dateMiseEnService,
-        dateFinGarantie,
-      })
-      toast.success('Équipement créé')
+      if (equipement?.id) {
+        await update.mutateAsync({
+          id: equipement.id,
+          nom,
+          localId,
+          champs,
+          dateMiseEnService,
+          dateFinGarantie,
+        })
+        toast.success('Équipement modifié')
+      } else {
+        await create.mutateAsync({
+          nom,
+          localId,
+          categorieId,
+          miniatureId: template.miniatureId,
+          champs,
+          modeleId: template.modeleId,
+          dateMiseEnService,
+          dateFinGarantie,
+        })
+        toast.success('Équipement créé')
+      }
       onOpenChange(false)
     } catch (e) {
       toast.error(errorMessage(e))
@@ -96,11 +128,11 @@ export function NouvelEquipementDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Nouvel équipement"
+      title={isEdit ? 'Modifier l’équipement' : 'Nouvel équipement'}
       onSubmit={() => void handleSubmit()}
-      submitLabel="Créer"
-      pendingLabel="Création…"
-      pending={create.isPending}
+      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+      pendingLabel="Enregistrement…"
+      pending={pending}
     >
       <TextField
         label="Nom"
@@ -109,8 +141,8 @@ export function NouvelEquipementDialog({
         error={errors.nom}
         required
       />
-      {/* Emplacement en cascade (bâtiment pleine ligne si >1) ; les dates occupent
-          la colonne droite, à côté de Niveau/Local, pour compacter. */}
+      {/* Emplacement en cascade (bâtiment pleine ligne si >1) ; dates en colonne
+          droite, à côté de Niveau/Local, pour compacter. */}
       <EmplacementSelect
         siteId={siteId}
         value={localId}

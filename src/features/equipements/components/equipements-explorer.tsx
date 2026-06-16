@@ -13,9 +13,8 @@ import {
 import { toast } from 'sonner'
 import { equipementsQueries } from '../queries'
 import { useDeleteEquipement } from '../mutations'
-import { EquipementFormDialog } from './equipement-form-dialog'
+import { EquipementParcDialog } from './equipement-parc-dialog'
 import { ParcSousCategorieDialog } from './parc-sous-categorie-dialog'
-import { NouvelEquipementDialog } from './nouvel-equipement-dialog'
 import { ModifierCaracteristiquesDialog } from './modifier-caracteristiques-dialog'
 import { EquipementDetail } from './equipement-detail'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
@@ -49,7 +48,6 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
@@ -284,11 +282,11 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     open: boolean
     parentId: string | null
   }>({ open: false, parentId: null })
+  // Formulaire équipement UNIQUE (create + edit) : eq = null → création.
   const [equipForm, setEquipForm] = useState<{
     open: boolean
     eq: Equipement | null
   }>({ open: false, eq: null })
-  const [nouvelEquipOpen, setNouvelEquipOpen] = useState(false)
   const [modifCaractOpen, setModifCaractOpen] = useState(false)
   const [toDelete, setToDelete] = useState<Equipement | null>(null)
   const [toDeleteCategorie, setToDeleteCategorie] = useState<DrillCat | null>(
@@ -406,8 +404,8 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       label="Nouvel équipement"
       variant="default"
       // L'équipement hérite du gabarit de la sous-catégorie (modèle OU spécifique) :
-      // formulaire épuré (nom + emplacement + caractéristiques).
-      onClick={() => setNouvelEquipOpen(true)}
+      // formulaire épuré (nom + emplacement + caractéristiques). eq null = création.
+      onClick={() => setEquipForm({ open: true, eq: null })}
     />
   ) : null
   // Édition en masse : seulement sur une sous-catégorie SPÉCIFIQUE (gabarit local).
@@ -517,18 +515,6 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       )}
 
       {canEdit && (
-        <EquipementFormDialog
-          key={`${equipForm.eq?.id ?? `new-${current?.id ?? 'root'}`}-${String(equipForm.open)}`}
-          open={equipForm.open}
-          onOpenChange={(open) => setEquipForm((f) => ({ ...f, open }))}
-          siteId={siteId}
-          // Ce formulaire ne sert plus qu'à MODIFIER un équipement existant (la
-          // création passe par NouvelEquipementDialog, épuré + hérité).
-          equipement={equipForm.eq}
-        />
-      )}
-
-      {canEdit && (
         <ParcSousCategorieDialog
           key={`subcat-${subcatForm.parentId ?? 'none'}-${String(subcatForm.open)}`}
           open={subcatForm.open}
@@ -539,16 +525,17 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         />
       )}
 
+      {/* Formulaire UNIQUE création + édition d'un équipement (épuré, hérité).
+          eq null = création. Disponible dès qu'on est dans une sous-catégorie. */}
       {canEdit && currentTemplate && (
-        <NouvelEquipementDialog
-          // L'équipement hérite du gabarit de la sous-catégorie (modèle ou
-          // spécifique) : image + caractéristiques ; formulaire épuré.
-          key={`nouvel-equip-${current?.id ?? 'root'}-${String(nouvelEquipOpen)}`}
-          open={nouvelEquipOpen}
-          onOpenChange={setNouvelEquipOpen}
+        <EquipementParcDialog
+          key={`equip-${current?.id ?? 'root'}-${equipForm.eq?.id ?? 'new'}-${String(equipForm.open)}`}
+          open={equipForm.open}
+          onOpenChange={(open) => setEquipForm((f) => ({ ...f, open }))}
           siteId={siteId}
           categorieId={current?.id ?? ''}
           template={currentTemplate}
+          equipement={equipForm.eq}
         />
       )}
 
@@ -763,14 +750,6 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                       subtitle={
                         eq.localisation_courte ?? eq.local_nom ?? undefined
                       }
-                      badges={
-                        eq.code_inventaire ? (
-                          <Badge variant="secondary">
-                            {eq.code_inventaire}
-                          </Badge>
-                        ) : undefined
-                      }
-                      mobileMeta={eq.code_inventaire ?? undefined}
                       hideChevron
                       onClick={() => goToEquipement(eq)}
                       actions={
