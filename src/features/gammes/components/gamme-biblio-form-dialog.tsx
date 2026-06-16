@@ -8,10 +8,8 @@ import { referentielsQueries, type GammeBiblioRow } from '../queries'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors, pgCode } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
+import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
-import { TextareaField } from '@/components/common/textarea-field'
-import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 
 const NATURE_LABEL: Record<(typeof gammeNatures)[number], string> = {
   controle_reglementaire: 'Contrôle réglementaire',
@@ -163,19 +161,23 @@ export function GammeBiblioFormDialog({
       pendingLabel="Enregistrement…"
       pending={pending}
     >
-      <TextField
-        label="Nom"
-        value={values.nom}
-        onChange={(v) => set('nom', v)}
-        error={errors.nom}
-        required
-      />
-
-      <MiniatureField
-        value={values.miniature_id}
-        onChange={(id) => set('miniature_id', id)}
-        targetSiteId={null}
-        canUpload
+      <IdentiteFields
+        nom={{
+          value: values.nom,
+          onChange: (v) => set('nom', v),
+          error: errors.nom,
+        }}
+        description={{
+          value: values.description,
+          onChange: (v) => set('description', v),
+          error: errors.description,
+        }}
+        image={{
+          value: values.miniature_id,
+          onChange: (id) => set('miniature_id', id),
+          targetSiteId: null,
+          canUpload: true,
+        }}
       />
 
       <SelectField
@@ -227,14 +229,6 @@ export function GammeBiblioFormDialog({
         </SelectField>
       )}
 
-      <TextareaField
-        label="Description"
-        id="gamme_biblio_description"
-        value={values.description}
-        onChange={(v) => set('description', v)}
-        rows={3}
-        error={errors.description}
-      />
     </FormDialog>
   )
 }

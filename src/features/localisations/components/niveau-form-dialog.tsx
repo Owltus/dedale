@@ -6,7 +6,7 @@ import { useCreateNiveau, useUpdateNiveau } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
-import { MiniatureField } from '@/features/miniatures/components/miniature-field'
+import { IdentiteFields } from '@/components/common/identite-fields'
 import type { Database } from '@/lib/database.types'
 
 type Niveau = Database['public']['Tables']['niveaux']['Row']
@@ -82,24 +82,23 @@ export function NiveauFormDialog({
       pendingLabel="Enregistrement…"
       pending={pending}
     >
-      <TextField
-        label="Nom"
-        value={values.nom}
-        onChange={(v) => set('nom', v)}
-        error={errors.nom}
-        required
-      />
-      <TextField
-        label="Description"
-        value={values.description}
-        onChange={(v) => set('description', v)}
-        error={errors.description}
-      />
-      <MiniatureField
-        value={values.miniature_id}
-        onChange={(id) => setValues((v) => ({ ...v, miniature_id: id }))}
-        targetSiteId={siteId}
-        canUpload
+      <IdentiteFields
+        nom={{
+          value: values.nom,
+          onChange: (v) => set('nom', v),
+          error: errors.nom,
+        }}
+        description={{
+          value: values.description,
+          onChange: (v) => set('description', v),
+          error: errors.description,
+        }}
+        image={{
+          value: values.miniature_id,
+          onChange: (id) => setValues((v) => ({ ...v, miniature_id: id })),
+          targetSiteId: siteId,
+          canUpload: true,
+        }}
       />
       <TextField
         label="Ordre"

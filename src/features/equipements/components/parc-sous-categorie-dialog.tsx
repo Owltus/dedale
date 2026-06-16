@@ -11,9 +11,8 @@ import {
   type Champ,
 } from '@/lib/champs'
 import { errorMessage } from '@/lib/form'
-import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
+import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
 import { ChampsListEditor } from '@/components/common/champs-list-editor'
 import type { Categorie } from '@/features/categories/queries'
@@ -142,23 +141,15 @@ export function ParcSousCategorieDialog({
       pending={pending}
       contentClassName="sm:max-w-2xl"
     >
-      <TextField
-        label="Nom"
-        value={nom}
-        onChange={setNom}
-        error={errors.nom}
-        required
-      />
-      <TextField
-        label="Description"
-        value={description}
-        onChange={setDescription}
-      />
-      <MiniatureField
-        value={miniatureId}
-        onChange={setMiniatureId}
-        targetSiteId={siteId}
-        canUpload
+      <IdentiteFields
+        nom={{ value: nom, onChange: setNom, error: errors.nom }}
+        description={{ value: description, onChange: setDescription }}
+        image={{
+          value: miniatureId,
+          onChange: setMiniatureId,
+          targetSiteId: siteId,
+          canUpload: true,
+        }}
       />
 
       <SelectField

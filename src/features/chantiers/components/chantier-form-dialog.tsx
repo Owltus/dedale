@@ -12,7 +12,7 @@ import { equipementsQueries } from '@/features/equipements/queries'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
-import { TextareaField } from '@/components/common/textarea-field'
+import { DescriptionField } from '@/components/common/description-field'
 import { Label } from '@/components/ui/label'
 import type { Database } from '@/lib/database.types'
 
@@ -150,9 +150,7 @@ export function ChantierFormDialog({
         error={errors.titre}
         required
       />
-      <TextareaField
-        label="Description"
-        rows={3}
+      <DescriptionField
         value={values.description}
         onChange={(v) => set('description', v)}
         error={errors.description}

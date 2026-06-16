@@ -10,10 +10,8 @@ import type { ModeleEquipement } from '../queries'
 import { parseChamps, prepareChamps } from '@/lib/champs'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { TextareaField } from '@/components/common/textarea-field'
+import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
-import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 
 interface CategorieOption {
   id: string
@@ -160,18 +158,23 @@ export function ModeleEquipementFormDialog({
       pendingLabel="Enregistrement…"
       pending={pending}
     >
-      <TextField
-        label="Nom"
-        value={values.nom}
-        onChange={(v) => set('nom', v)}
-        error={errors.nom}
-        required
-      />
-      <MiniatureField
-        value={values.miniature_id}
-        onChange={(id) => set('miniature_id', id)}
-        targetSiteId={miniatureSite}
-        canUpload={canUploadMiniature}
+      <IdentiteFields
+        nom={{
+          value: values.nom,
+          onChange: (v) => set('nom', v),
+          error: errors.nom,
+        }}
+        description={{
+          value: values.description,
+          onChange: (v) => set('description', v),
+          error: errors.description,
+        }}
+        image={{
+          value: values.miniature_id,
+          onChange: (id) => set('miniature_id', id),
+          targetSiteId: miniatureSite,
+          canUpload: canUploadMiniature,
+        }}
       />
       {(!hideCategorie || !hidePortee) && (
         <div
@@ -227,12 +230,6 @@ export function ModeleEquipementFormDialog({
           <option value="inactif">Masqué</option>
         </SelectField>
       )}
-      <TextareaField
-        label="Description"
-        value={values.description}
-        onChange={(v) => set('description', v)}
-        error={errors.description}
-      />
     </FormDialog>
   )
 }

@@ -6,10 +6,8 @@ import { useCreateCategorie, useUpdateCategorie } from '../mutations'
 import type { Categorie } from '../queries'
 import { errorMessage, fieldErrors, pgCode } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { TextareaField } from '@/components/common/textarea-field'
+import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
-import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 
 /**
  * Traduit les erreurs Postgres de création/édition d'une catégorie (dialog
@@ -263,21 +261,28 @@ export function CategoryFormDialog({
       pendingLabel="Enregistrement…"
       pending={pending}
     >
-      <TextField
-        label="Nom"
-        value={values.nom}
-        onChange={(v) => set('nom', v)}
-        error={errors.nom}
-        required
+      <IdentiteFields
+        nom={{
+          value: values.nom,
+          onChange: (v) => set('nom', v),
+          error: errors.nom,
+        }}
+        description={{
+          value: values.description,
+          onChange: (v) => set('description', v),
+          error: errors.description,
+        }}
+        image={
+          hideMiniature
+            ? undefined
+            : {
+                value: values.miniature_id,
+                onChange: (id) => set('miniature_id', id),
+                targetSiteId: miniatureSite,
+                canUpload: canUploadMiniature,
+              }
+        }
       />
-      {!hideMiniature && (
-        <MiniatureField
-          value={values.miniature_id}
-          onChange={(id) => set('miniature_id', id)}
-          targetSiteId={miniatureSite}
-          canUpload={canUploadMiniature}
-        />
-      )}
       {(showScope || showPortee) && (
         <div
           className={
@@ -344,12 +349,6 @@ export function CategoryFormDialog({
           <option value="inactif">Masqué</option>
         </SelectField>
       )}
-      <TextareaField
-        label="Description"
-        value={values.description}
-        onChange={(v) => set('description', v)}
-        error={errors.description}
-      />
     </FormDialog>
   )
 }

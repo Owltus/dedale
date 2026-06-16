@@ -13,7 +13,7 @@ import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
-import { TextareaField } from '@/components/common/textarea-field'
+import { DescriptionField } from '@/components/common/description-field'
 import type { Database } from '@/lib/database.types'
 
 type Gamme = Database['public']['Tables']['gammes']['Row']
@@ -254,12 +254,10 @@ export function GammeFormDialog({
         )}
       </div>
 
-      <TextareaField
-        label="Description"
+      <DescriptionField
         id="gamme_description"
         value={values.description}
         onChange={(v) => set('description', v)}
-        rows={3}
         error={errors.description}
       />
     </FormDialog>

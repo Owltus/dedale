@@ -9,6 +9,7 @@ import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
+import { DescriptionField } from '@/components/common/description-field'
 import { SelectField } from '@/components/common/select-field'
 import type { Database } from '@/lib/database.types'
 
@@ -108,8 +109,7 @@ export function InvestissementFormDialog({
         error={errors.libelle}
         required
       />
-      <TextField
-        label="Description"
+      <DescriptionField
         value={values.description}
         onChange={(v) => set('description', v)}
         error={errors.description}

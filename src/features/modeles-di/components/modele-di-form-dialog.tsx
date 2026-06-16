@@ -7,10 +7,9 @@ import type { ModeleDi } from '../queries'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
+import { IdentiteFields } from '@/components/common/identite-fields'
 import { TextareaField } from '@/components/common/textarea-field'
 import { SelectField } from '@/components/common/select-field'
-import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 
 interface ModeleDiFormDialogProps {
   open: boolean
@@ -128,18 +127,21 @@ export function ModeleDiFormDialog({
       pendingLabel="Enregistrement…"
       pending={pending}
     >
-      <TextField
-        label="Libellé"
-        value={values.libelle}
-        onChange={(v) => set('libelle', v)}
-        error={errors.libelle}
-        required
-      />
-      <MiniatureField
-        value={values.miniature_id}
-        onChange={(id) => set('miniature_id', id)}
-        targetSiteId={miniatureSite}
-        canUpload={canUploadMiniature}
+      {/* Bloc identité : image + libellé. Pas de « description » ici — le corps
+          du modèle est le Constat (champ requis, ci-dessous). */}
+      <IdentiteFields
+        nom={{
+          label: 'Libellé',
+          value: values.libelle,
+          onChange: (v) => set('libelle', v),
+          error: errors.libelle,
+        }}
+        image={{
+          value: values.miniature_id,
+          onChange: (id) => set('miniature_id', id),
+          targetSiteId: miniatureSite,
+          canUpload: canUploadMiniature,
+        }}
       />
       {!hidePortee && (
         <SelectField

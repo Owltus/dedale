@@ -15,6 +15,7 @@ import { useCreateObservation } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
+import { DescriptionField } from '@/components/common/description-field'
 import { SelectField } from '@/components/common/select-field'
 
 interface ObservationFormDialogProps {
@@ -111,9 +112,8 @@ export function ObservationFormDialog({
         ))}
       </SelectField>
 
-      <TextField
+      <DescriptionField
         id="obs-description"
-        label="Description"
         required
         value={values.description}
         onChange={(description) => set('description', description)}
