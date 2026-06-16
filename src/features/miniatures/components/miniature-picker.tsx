@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ImageOff, Library, Upload } from 'lucide-react'
+import { Camera, ImageOff, Library, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/auth'
 import { miniaturesQueries } from '../queries'
@@ -76,6 +76,8 @@ export function MiniaturePicker({
     initialFile !== undefined && canUpload ? initialFile : null,
   )
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Input dédié à la PRISE DE PHOTO (mobile) : `capture` ouvre l'appareil photo.
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const upload = useUploadMiniature()
   // Vignettes de la grille dont l'`<img>` a échoué → on bascule sur l'icône
   // `ImageOff` (pas de re-fetch : le pool est déjà chargé, l'URL est juste cassée).
@@ -260,6 +262,20 @@ export function MiniaturePicker({
                   e.target.value = ''
                 }}
               />
+              {/* Input dédié à l'appareil photo : `capture="environment"` ouvre la
+                  caméra ARRIÈRE sur mobile (ignoré sur desktop). */}
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) pickFile(f)
+                  e.target.value = ''
+                }}
+              />
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
@@ -273,14 +289,26 @@ export function MiniaturePicker({
                 <p className="text-muted-foreground text-sm">
                   Glisse une image ici, ou
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Choisir un fichier
-                </Button>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Choisir un fichier
+                  </Button>
+                  {/* Prise de photo : uniquement sur appareil tactile (mobile). */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="hidden [@media(hover:none)]:inline-flex"
+                    onClick={() => cameraInputRef.current?.click()}
+                  >
+                    <Camera /> Prendre une photo
+                  </Button>
+                </div>
               </div>
             </div>
           )}
