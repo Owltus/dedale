@@ -59,6 +59,48 @@ export const localisationsQueries = {
       },
     }),
 
+  /** Surface roulée par bâtiment du site (somme des locaux). */
+  batimentsSurface: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [
+        ...localisationsQueries.all(),
+        'batiments-surface',
+        siteId,
+      ] as const,
+      enabled: siteId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('v_batiments_surface')
+          .select('batiment_id, surface_m2')
+          .eq('site_id', siteId!)
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+      staleTime: 60_000,
+    }),
+
+  /** Surface roulée par niveau d'un bâtiment (somme des locaux). */
+  niveauxSurface: (batimentId: string | null) =>
+    queryOptions({
+      queryKey: [
+        ...localisationsQueries.all(),
+        'niveaux-surface',
+        batimentId,
+      ] as const,
+      enabled: batimentId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('v_niveaux_surface')
+          .select('niveau_id, surface_m2')
+          .eq('batiment_id', batimentId!)
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+      staleTime: 60_000,
+    }),
+
   /** Types de locaux actifs (référentiel global), pour le dropdown. */
   typesLocaux: () =>
     queryOptions({

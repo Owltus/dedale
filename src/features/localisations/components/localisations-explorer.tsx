@@ -80,6 +80,38 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   const typeLabel = (id: number | null) =>
     id === null ? null : (types.find((t) => t.id === id)?.libelle ?? null)
 
+  // Surfaces ROULÉES : un niveau = somme de ses locaux, un bâtiment = somme de ses
+  // niveaux (vues d'agrégation). Indexées par id pour l'affichage.
+  const batimentsSurfaceQuery = useQuery(
+    localisationsQueries.batimentsSurface(siteId),
+  )
+  const niveauxSurfaceQuery = useQuery(
+    localisationsQueries.niveauxSurface(batiment?.id ?? null),
+  )
+  const surfaceBatiment = useMemo(
+    () =>
+      new Map(
+        (batimentsSurfaceQuery.data ?? []).map((r) => [
+          r.batiment_id,
+          r.surface_m2,
+        ]),
+      ),
+    [batimentsSurfaceQuery.data],
+  )
+  const surfaceNiveau = useMemo(
+    () =>
+      new Map(
+        (niveauxSurfaceQuery.data ?? []).map((r) => [
+          r.niveau_id,
+          r.surface_m2,
+        ]),
+      ),
+    [niveauxSurfaceQuery.data],
+  )
+  // Libellé surface : « X m² » si > 0, sinon rien (pas de bruit « 0 m² »).
+  const surfaceLabel = (m2: number | null | undefined) =>
+    m2 && m2 > 0 ? `${String(m2)} m²` : undefined
+
   const delBatiment = useDeleteBatiment()
   const delNiveau = useDeleteNiveau()
   const delLocal = useDeleteLocal()
@@ -347,6 +379,9 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                 }
                 title={n.nom}
                 subtitle={n.description ?? undefined}
+                meta={surfaceLabel(surfaceNiveau.get(n.id))}
+                mobileMeta={surfaceLabel(surfaceNiveau.get(n.id))}
+                hideChevron
                 onClick={() => goToNiveau(n)}
                 actions={rowActions(
                   () => setNivForm({ open: true, niveau: n }),
@@ -391,6 +426,9 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                 }
                 title={b.nom}
                 subtitle={b.description ?? undefined}
+                meta={surfaceLabel(surfaceBatiment.get(b.id))}
+                mobileMeta={surfaceLabel(surfaceBatiment.get(b.id))}
+                hideChevron
                 onClick={() => goToBatiment(b)}
                 actions={rowActions(
                   () => setBatForm({ open: true, batiment: b }),

@@ -3110,6 +3110,22 @@ export type Database = {
       }
     }
     Views: {
+      v_batiments_surface: {
+        Row: {
+          batiment_id: string | null
+          site_id: string | null
+          surface_m2: number | null
+        }
+        Relationships: []
+      }
+      v_niveaux_surface: {
+        Row: {
+          batiment_id: string | null
+          niveau_id: string | null
+          surface_m2: number | null
+        }
+        Relationships: []
+      }
       v_equipements_complet: {
         Row: {
           batiment_id: string | null
