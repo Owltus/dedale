@@ -30,6 +30,7 @@ import { Route as AppDemandesRouteImport } from './routes/_app/demandes'
 import { Route as AppChantiersRouteImport } from './routes/_app/chantiers'
 import { Route as AppBibliothequeRouteImport } from './routes/_app/bibliotheque'
 import { Route as AppBibliothequeIndexRouteImport } from './routes/_app/bibliotheque/index'
+import { Route as AppLocalisationsSplatRouteImport } from './routes/_app/localisations/$'
 import { Route as AppEquipementsSplatRouteImport } from './routes/_app/equipements/$'
 import { Route as AppBibliothequeSplatRouteImport } from './routes/_app/bibliotheque/$'
 
@@ -137,6 +138,11 @@ const AppBibliothequeIndexRoute = AppBibliothequeIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppBibliothequeRoute,
 } as any)
+const AppLocalisationsSplatRoute = AppLocalisationsSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => AppLocalisationsRoute,
+} as any)
 const AppEquipementsSplatRoute = AppEquipementsSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -159,7 +165,7 @@ export interface FileRoutesByFullPath {
   '/equipements': typeof AppEquipementsRouteWithChildren
   '/gammes': typeof AppGammesRoute
   '/investissements': typeof AppInvestissementsRoute
-  '/localisations': typeof AppLocalisationsRoute
+  '/localisations': typeof AppLocalisationsRouteWithChildren
   '/ordres-travail': typeof AppOrdresTravailRoute
   '/planning': typeof AppPlanningRoute
   '/prestataires': typeof AppPrestatairesRoute
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/utilisateurs': typeof AppUtilisateursRoute
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
+  '/localisations/$': typeof AppLocalisationsSplatRoute
   '/bibliotheque/': typeof AppBibliothequeIndexRoute
 }
 export interface FileRoutesByTo {
@@ -181,7 +188,7 @@ export interface FileRoutesByTo {
   '/equipements': typeof AppEquipementsRouteWithChildren
   '/gammes': typeof AppGammesRoute
   '/investissements': typeof AppInvestissementsRoute
-  '/localisations': typeof AppLocalisationsRoute
+  '/localisations': typeof AppLocalisationsRouteWithChildren
   '/ordres-travail': typeof AppOrdresTravailRoute
   '/planning': typeof AppPlanningRoute
   '/prestataires': typeof AppPrestatairesRoute
@@ -193,6 +200,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
+  '/localisations/$': typeof AppLocalisationsSplatRoute
   '/bibliotheque': typeof AppBibliothequeIndexRoute
 }
 export interface FileRoutesById {
@@ -207,7 +215,7 @@ export interface FileRoutesById {
   '/_app/equipements': typeof AppEquipementsRouteWithChildren
   '/_app/gammes': typeof AppGammesRoute
   '/_app/investissements': typeof AppInvestissementsRoute
-  '/_app/localisations': typeof AppLocalisationsRoute
+  '/_app/localisations': typeof AppLocalisationsRouteWithChildren
   '/_app/ordres-travail': typeof AppOrdresTravailRoute
   '/_app/planning': typeof AppPlanningRoute
   '/_app/prestataires': typeof AppPrestatairesRoute
@@ -219,6 +227,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/_app/equipements/$': typeof AppEquipementsSplatRoute
+  '/_app/localisations/$': typeof AppLocalisationsSplatRoute
   '/_app/bibliotheque/': typeof AppBibliothequeIndexRoute
 }
 export interface FileRouteTypes {
@@ -245,6 +254,7 @@ export interface FileRouteTypes {
     | '/utilisateurs'
     | '/bibliotheque/$'
     | '/equipements/$'
+    | '/localisations/$'
     | '/bibliotheque/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -268,6 +278,7 @@ export interface FileRouteTypes {
     | '/'
     | '/bibliotheque/$'
     | '/equipements/$'
+    | '/localisations/$'
     | '/bibliotheque'
   id:
     | '__root__'
@@ -293,6 +304,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/bibliotheque/$'
     | '/_app/equipements/$'
+    | '/_app/localisations/$'
     | '/_app/bibliotheque/'
   fileRoutesById: FileRoutesById
 }
@@ -451,6 +463,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBibliothequeIndexRouteImport
       parentRoute: typeof AppBibliothequeRoute
     }
+    '/_app/localisations/$': {
+      id: '/_app/localisations/$'
+      path: '/$'
+      fullPath: '/localisations/$'
+      preLoaderRoute: typeof AppLocalisationsSplatRouteImport
+      parentRoute: typeof AppLocalisationsRoute
+    }
     '/_app/equipements/$': {
       id: '/_app/equipements/$'
       path: '/$'
@@ -494,6 +513,17 @@ const AppEquipementsRouteWithChildren = AppEquipementsRoute._addFileChildren(
   AppEquipementsRouteChildren,
 )
 
+interface AppLocalisationsRouteChildren {
+  AppLocalisationsSplatRoute: typeof AppLocalisationsSplatRoute
+}
+
+const AppLocalisationsRouteChildren: AppLocalisationsRouteChildren = {
+  AppLocalisationsSplatRoute: AppLocalisationsSplatRoute,
+}
+
+const AppLocalisationsRouteWithChildren =
+  AppLocalisationsRoute._addFileChildren(AppLocalisationsRouteChildren)
+
 interface AppRouteChildren {
   AppBibliothequeRoute: typeof AppBibliothequeRouteWithChildren
   AppChantiersRoute: typeof AppChantiersRoute
@@ -502,7 +532,7 @@ interface AppRouteChildren {
   AppEquipementsRoute: typeof AppEquipementsRouteWithChildren
   AppGammesRoute: typeof AppGammesRoute
   AppInvestissementsRoute: typeof AppInvestissementsRoute
-  AppLocalisationsRoute: typeof AppLocalisationsRoute
+  AppLocalisationsRoute: typeof AppLocalisationsRouteWithChildren
   AppOrdresTravailRoute: typeof AppOrdresTravailRoute
   AppPlanningRoute: typeof AppPlanningRoute
   AppPrestatairesRoute: typeof AppPrestatairesRoute
@@ -522,7 +552,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppEquipementsRoute: AppEquipementsRouteWithChildren,
   AppGammesRoute: AppGammesRoute,
   AppInvestissementsRoute: AppInvestissementsRoute,
-  AppLocalisationsRoute: AppLocalisationsRoute,
+  AppLocalisationsRoute: AppLocalisationsRouteWithChildren,
   AppOrdresTravailRoute: AppOrdresTravailRoute,
   AppPlanningRoute: AppPlanningRoute,
   AppPrestatairesRoute: AppPrestatairesRoute,
