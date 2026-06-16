@@ -75,7 +75,7 @@ export function ChampsListEditor({
         </span>
         <TooltipIconButton
           icon={<Plus />}
-          label="Ajouter un champ"
+          label="Ajouter une caractéristique"
           onClick={() => setChampForm({ open: true, champ: null })}
         />
       </div>
@@ -100,7 +100,7 @@ export function ChampsListEditor({
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Modifier le champ"
+                    aria-label="Modifier la caractéristique"
                     onClick={() => setChampForm({ open: true, champ: c })}
                   >
                     <Pencil />
@@ -108,7 +108,7 @@ export function ChampsListEditor({
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Supprimer le champ"
+                    aria-label="Supprimer la caractéristique"
                     onClick={() => setToDelete(c)}
                   >
                     <Trash2 />
@@ -135,9 +135,11 @@ export function ChampsListEditor({
         onOpenChange={(o) => {
           if (!o) setToDelete(null)
         }}
-        title="Supprimer le champ ?"
+        title="Supprimer la caractéristique ?"
         description={
-          toDelete ? `« ${toDelete.cle} » sera retiré du gabarit.` : undefined
+          toDelete
+            ? `« ${toDelete.cle} » sera retirée des caractéristiques.`
+            : undefined
         }
         confirmLabel="Supprimer"
         destructive

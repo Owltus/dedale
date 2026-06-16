@@ -129,6 +129,11 @@ export function EquipementParcDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier l’équipement' : 'Nouvel équipement'}
+      description={
+        isEdit
+          ? 'Mettez à jour son emplacement et ses caractéristiques.'
+          : 'Renseignez son emplacement et ses caractéristiques.'
+      }
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"

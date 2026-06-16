@@ -197,14 +197,17 @@ export function CategoryFormDialog({
         : 'Une catégorie racine pour organiser tes gammes.'
       : values.scope === 'parc'
         ? values.parent_id
-          ? 'Une sous-catégorie, rattachée à sa catégorie d’équipements parente.'
-          : 'Une catégorie racine pour organiser tes équipements.'
+          ? 'Une sous-catégorie rattachée à une catégorie d’équipements.'
+          : 'Regroupez vos équipements par grande famille (CVC, électricité, plomberie…).'
         : values.scope === 'operation'
           ? 'Une catégorie pour ranger tes modèles d’opération.'
           : 'Une catégorie pour ranger tes modèles d’équipement.'
   // Sous-catégorie = présence d'un parent (catégorie existante ou présélection) :
   // adapte le titre (« catégorie » vs « sous-catégorie »).
   const estSousCat = (categorie?.parent_id ?? preset?.parent_id) != null
+  // Complément de titre selon le type : sur la page Équipements (scope 'parc') le
+  // titre nomme explicitement « équipements » pour lever toute ambiguïté.
+  const titreComplement = values.scope === 'parc' ? ' d’équipements' : ''
 
   function set<K extends keyof CategorieFormValues>(
     key: K,
@@ -247,7 +250,7 @@ export function CategoryFormDialog({
       onOpenChange={onOpenChange}
       title={`${isEdit ? 'Modifier la' : 'Nouvelle'} ${
         estSousCat ? 'sous-catégorie' : 'catégorie'
-      }`}
+      }${titreComplement}`}
       description={
         hideDescription
           ? undefined

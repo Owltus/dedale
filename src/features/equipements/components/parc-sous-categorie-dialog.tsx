@@ -130,8 +130,12 @@ export function ParcSousCategorieDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier la sous-catégorie' : 'Nouvelle sous-catégorie'}
-      description="Le gabarit (caractéristiques + image) est hérité par tous les équipements de cette sous-catégorie."
+      title={
+        isEdit
+          ? 'Modifier la sous-catégorie d’équipements'
+          : 'Nouvelle sous-catégorie d’équipements'
+      }
+      description="Les équipements de cette sous-catégorie partageront les mêmes caractéristiques et la même image."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"

@@ -69,8 +69,12 @@ export function ChampFormDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le champ' : 'Nouveau champ'}
-      description="Une caractéristique typée du modèle (nom, type, valeur par défaut…)."
+      title={
+        isEdit
+          ? 'Modifier la caractéristique d’équipement'
+          : 'Nouvelle caractéristique d’équipement'
+      }
+      description="Nom, type et valeur par défaut. Les équipements concernés en hériteront."
       onSubmit={handleSubmit}
       submitLabel={isEdit ? 'Enregistrer' : 'Ajouter'}
       pendingLabel="Enregistrement…"
