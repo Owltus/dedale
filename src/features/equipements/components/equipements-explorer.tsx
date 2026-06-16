@@ -511,6 +511,9 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           minimal
           // Scope 'parc' imposé : jamais proposé/modifiable dans le formulaire.
           hideScope
+          // Parc = toujours rattaché au site : pas de « Portée » (ni à la création
+          // ni à l'édition, où elle réapparaissait à tort avec une option Commun).
+          hidePortee
         />
       )}
 
