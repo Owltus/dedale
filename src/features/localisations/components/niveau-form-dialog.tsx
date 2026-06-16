@@ -76,7 +76,7 @@ export function NiveauFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier le niveau' : 'Nouveau niveau'}
-      description="Renseigne les informations du niveau."
+      description="Un niveau du bâtiment, qui regroupe des locaux."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"

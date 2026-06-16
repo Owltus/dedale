@@ -73,7 +73,7 @@ export function BatimentFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier le bâtiment' : 'Nouveau bâtiment'}
-      description="Renseigne les informations du bâtiment."
+      description="Un bâtiment du site, qui regroupe des niveaux."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"

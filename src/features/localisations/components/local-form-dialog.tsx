@@ -84,7 +84,7 @@ export function LocalFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier le local' : 'Nouveau local'}
-      description="Renseigne les informations du local."
+      description="Un local : surface, type et confort thermique."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"

@@ -117,6 +117,15 @@ export function GammesTypesPanel() {
     categorie: null,
     lockedScope: null,
   })
+  // Périmètre de la catégorie en cours (option « site » de la Portée, affichée des
+  // deux côtés) : édition = site de la catégorie ; création = site verrouillé.
+  const categorySiteId = categoryForm.categorie
+    ? categoryForm.categorie.site_id
+    : (categoryForm.lockedScope?.siteId ?? null)
+  const categorySiteName =
+    categorySiteId === null
+      ? null
+      : (sites.find((s) => s.id === categorySiteId)?.nom ?? null)
   const [modeleForm, setModeleForm] = useState<{
     open: boolean
     modele: ModeleOperation | null
@@ -727,12 +736,15 @@ export function GammesTypesPanel() {
           preset={categoryForm.preset ?? { scope: 'operation' }}
           categories={parentCandidates}
           canEntreprise={canEntreprise}
-          siteId={categoryForm.lockedScope?.siteId ?? null}
-          siteName={null}
+          siteId={categorySiteId}
+          siteName={categorySiteName}
           lockedScope={
             categoryForm.categorie ? undefined : categoryForm.lockedScope
           }
           minimal
+          // Portée visible en création ET modification (désactivée tant qu'imposée
+          // par le contexte) → création identique à la modification.
+          hidePortee={false}
         />
       )}
 

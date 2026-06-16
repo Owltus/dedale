@@ -95,11 +95,13 @@ export function ModeleEquipementFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
   const showEntreprise = canEntreprise || values.portee === 'entreprise'
-  // Création depuis le + : portée et/ou catégorie viennent du contexte → masquées.
-  const hidePortee = !isEdit && lockedScope != null
-  const hideCategorie = !isEdit && lockedCategorieId != null
-  // Mode minimal : juste Nom + Description (création ET édition). Les paramètres
-  // détaillés (État, caractéristiques) se gèrent sur la PAGE de détail du modèle.
+  // Catégorie / Portée : VISIBLES en création ET modification (parité des champs),
+  // mais en lecture seule à la création quand imposées par le contexte (catégorie
+  // du drill, périmètre du sélecteur de site).
+  const porteeForced = !isEdit && lockedScope != null
+  const categorieForced = !isEdit && lockedCategorieId != null
+  // Mode minimal (optionnel) : masque l'État. Les caractéristiques détaillées se
+  // gèrent de toute façon sur la PAGE de détail du modèle.
   const compact = minimal === true
   // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
   // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
@@ -176,50 +178,38 @@ export function ModeleEquipementFormDialog({
           canUpload: canUploadMiniature,
         }}
       />
-      {(!hideCategorie || !hidePortee) && (
-        <div
-          className={
-            !hideCategorie && !hidePortee
-              ? 'grid grid-cols-1 gap-4 sm:grid-cols-2'
-              : undefined
-          }
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <SelectField
+          label="Catégorie"
+          value={values.categorie_id}
+          onChange={(v) => set('categorie_id', v)}
+          error={errors.categorie_id}
+          required
+          disabled={categorieForced}
         >
-          {!hideCategorie && (
-            <SelectField
-              label="Catégorie"
-              value={values.categorie_id}
-              onChange={(v) => set('categorie_id', v)}
-              error={errors.categorie_id}
-              required
-            >
-              <option value="" disabled>
-                — Choisir une catégorie —
-              </option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nom}
-                </option>
-              ))}
-            </SelectField>
-          )}
-          {!hidePortee && (
-            <SelectField
-              label="Portée"
-              value={values.portee}
-              onChange={(v) =>
-                set('portee', v as ModeleEquipementFormValues['portee'])
-              }
-              error={errors.portee}
-              required
-            >
-              {showEntreprise && <option value="entreprise">Commun</option>}
-              {siteId && (
-                <option value="site">{siteName ?? 'Site actif'}</option>
-              )}
-            </SelectField>
-          )}
-        </div>
-      )}
+          <option value="" disabled>
+            — Choisir une catégorie —
+          </option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nom}
+            </option>
+          ))}
+        </SelectField>
+        <SelectField
+          label="Portée"
+          value={values.portee}
+          onChange={(v) =>
+            set('portee', v as ModeleEquipementFormValues['portee'])
+          }
+          error={errors.portee}
+          required
+          disabled={porteeForced}
+        >
+          {showEntreprise && <option value="entreprise">Commun</option>}
+          {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
+        </SelectField>
+      </div>
       {!compact && (
         <SelectField
           label="État"

@@ -84,8 +84,9 @@ export function GammeTypeFormDialog({
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
-  // Création dans une catégorie imposée → le sélecteur de catégorie est masqué.
-  const hideCategorie = !isEdit && lockedCategorieId != null
+  // Catégorie : visible en création ET modification (parité des champs), mais en
+  // lecture seule à la création quand imposée par la catégorie courante du drill.
+  const categorieForced = !isEdit && lockedCategorieId != null
   // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
   // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
   // pour tout éditeur (calque du formulaire de modèle d'équipement).
@@ -154,24 +155,23 @@ export function GammeTypeFormDialog({
           canUpload: canUploadMiniature,
         }}
       />
-      {!hideCategorie && (
-        <SelectField
-          label="Catégorie"
-          value={values.categorie_id}
-          onChange={(v) => set('categorie_id', v)}
-          error={errors.categorie_id}
-          required
-        >
-          <option value="" disabled>
-            — Choisir une catégorie —
+      <SelectField
+        label="Catégorie"
+        value={values.categorie_id}
+        onChange={(v) => set('categorie_id', v)}
+        error={errors.categorie_id}
+        required
+        disabled={categorieForced}
+      >
+        <option value="" disabled>
+          — Choisir une catégorie —
+        </option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nom}
           </option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom}
-            </option>
-          ))}
-        </SelectField>
-      )}
+        ))}
+      </SelectField>
     </FormDialog>
   )
 }

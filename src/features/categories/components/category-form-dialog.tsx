@@ -315,6 +315,10 @@ export function CategoryFormDialog({
               }
               error={errors.portee}
               required
+              // Visible des deux côtés (création = modification), mais imposée par
+              // le contexte à la création (périmètre du sélecteur de site) → lecture
+              // seule tant qu'on n'édite pas une entité existante.
+              disabled={!isEdit && lockedScope != null}
             >
               {showEntreprise && <option value="entreprise">Commun</option>}
               {siteId && (

@@ -127,6 +127,17 @@ export function ModelesEquipementsPanel() {
     modele: ModeleEquipement | null
   }>({ open: false, modele: null })
 
+  // Périmètre de la catégorie en cours de création/édition (pour l'option « site »
+  // de la Portée, affichée des deux côtés) : à l'édition = site de la catégorie ;
+  // à la création = site verrouillé par le sélecteur de périmètre.
+  const categorySiteId = categoryForm.categorie
+    ? categoryForm.categorie.site_id
+    : (categoryForm.lockedScope?.siteId ?? null)
+  const categorySiteName =
+    categorySiteId === null
+      ? null
+      : (sites.find((s) => s.id === categorySiteId)?.nom ?? null)
+
   // Catégories d'équipement (actives, scope equipement/mixte) — TOUTES portées
   // confondues : sert de référentiel pour résoudre le chemin d'URL quel que soit
   // le filtre de périmètre (le sélecteur ne filtre que l'AFFICHAGE).
@@ -476,10 +487,10 @@ export function ModelesEquipementsPanel() {
         }
         lockedScope={modeleForm.modele ? undefined : currentLockedScope}
         lockedCategorieId={modeleForm.modele ? undefined : current.id}
-        // Création : nom + description (minimal). Édition : + état / catégorie /
-        // portée. Les CARACTÉRISTIQUES se gèrent sur la page de détail (un modal
-        // par champ), plus jamais dans ce formulaire.
-        minimal={!modeleForm.modele}
+        // Création identique à la modification : Catégorie / Portée / État affichés
+        // des deux côtés (Catégorie et Portée en lecture seule à la création, car
+        // imposées par la catégorie courante / le périmètre). Les CARACTÉRISTIQUES
+        // se gèrent sur la page de détail (un modal par champ), jamais ici.
       />
     ) : null
 
@@ -710,12 +721,15 @@ export function ModelesEquipementsPanel() {
           preset={categoryForm.preset ?? { scope: 'equipement' }}
           categories={parentCandidates}
           canEntreprise={canEntreprise}
-          siteId={categoryForm.lockedScope?.siteId ?? null}
-          siteName={null}
+          siteId={categorySiteId}
+          siteName={categorySiteName}
           lockedScope={
             categoryForm.categorie ? undefined : categoryForm.lockedScope
           }
           minimal
+          // Portée visible en création ET modification (désactivée tant qu'imposée
+          // par le contexte) → modal de création identique au modal de modification.
+          hidePortee={false}
         />
       )}
 
