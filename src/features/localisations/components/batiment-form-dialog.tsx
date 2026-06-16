@@ -6,6 +6,7 @@ import { useCreateBatiment, useUpdateBatiment } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
+import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 import type { Database } from '@/lib/database.types'
 
 type Batiment = Database['public']['Tables']['batiments']['Row']
@@ -24,7 +25,7 @@ function initialValues(
   return {
     nom: batiment.nom,
     description: batiment.description ?? '',
-    image_path: batiment.image_path ?? '',
+    miniature_id: batiment.miniature_id ?? null,
   }
 }
 
@@ -92,11 +93,11 @@ export function BatimentFormDialog({
         onChange={(v) => set('description', v)}
         error={errors.description}
       />
-      <TextField
-        label="Chemin de l’image"
-        value={values.image_path}
-        onChange={(v) => set('image_path', v)}
-        error={errors.image_path}
+      <MiniatureField
+        value={values.miniature_id}
+        onChange={(id) => setValues((v) => ({ ...v, miniature_id: id }))}
+        targetSiteId={siteId}
+        canUpload
       />
     </FormDialog>
   )

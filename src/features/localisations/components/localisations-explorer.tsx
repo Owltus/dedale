@@ -12,6 +12,8 @@ import {
 import { BatimentFormDialog } from './batiment-form-dialog'
 import { NiveauFormDialog } from './niveau-form-dialog'
 import { LocalFormDialog } from './local-form-dialog'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useLocalisationsDrill } from '@/hooks/use-localisations-drill'
 import { deleteErrorMessage } from '@/lib/form'
@@ -52,6 +54,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   const { data: role } = useCurrentRole()
   const canEdit = perm.canManageMetier(role)
   const { segs, goTo } = useLocalisationsDrill()
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   const batimentsQuery = useQuery(localisationsQueries.batiments(siteId))
   const batiments = useMemo(
@@ -197,6 +200,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
           open={nivForm.open}
           onOpenChange={(open) => setNivForm((f) => ({ ...f, open }))}
           batimentId={batiment.id}
+          siteId={siteId}
           niveau={nivForm.niveau}
         />
       )}
@@ -206,6 +210,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
           open={locForm.open}
           onOpenChange={(open) => setLocForm((f) => ({ ...f, open }))}
           niveauId={niveau.id}
+          siteId={siteId}
           local={locForm.local}
         />
       )}
@@ -280,7 +285,15 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
             {locaux.map((l) => (
               <ListRow
                 key={l.id}
-                icon={<DoorOpen className="size-5" />}
+                media={
+                  <MiniatureThumb
+                    url={urlOf(l.miniature_id)}
+                    fallback={<DoorOpen className="size-10" />}
+                    alt=""
+                    onError={refreshMiniatures}
+                    className="size-full rounded-none"
+                  />
+                }
                 title={l.nom}
                 subtitle={
                   [
@@ -323,7 +336,15 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
             {items.map((n) => (
               <ListRow
                 key={n.id}
-                icon={<Layers className="size-5" />}
+                media={
+                  <MiniatureThumb
+                    url={urlOf(n.miniature_id)}
+                    fallback={<Layers className="size-10" />}
+                    alt=""
+                    onError={refreshMiniatures}
+                    className="size-full rounded-none"
+                  />
+                }
                 title={n.nom}
                 subtitle={n.description ?? undefined}
                 onClick={() => goToNiveau(n)}
@@ -359,7 +380,15 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
             {items.map((b) => (
               <ListRow
                 key={b.id}
-                icon={<Building className="size-5" />}
+                media={
+                  <MiniatureThumb
+                    url={urlOf(b.miniature_id)}
+                    fallback={<Building className="size-10" />}
+                    alt=""
+                    onError={refreshMiniatures}
+                    className="size-full rounded-none"
+                  />
+                }
                 title={b.nom}
                 subtitle={b.description ?? undefined}
                 onClick={() => goToBatiment(b)}

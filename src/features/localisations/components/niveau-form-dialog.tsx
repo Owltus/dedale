@@ -6,6 +6,7 @@ import { useCreateNiveau, useUpdateNiveau } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
+import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 import type { Database } from '@/lib/database.types'
 
 type Niveau = Database['public']['Tables']['niveaux']['Row']
@@ -14,6 +15,8 @@ interface NiveauFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   batimentId: string
+  /** Site (pour le pool de vignettes : périmètre de la MiniatureField). */
+  siteId: string
   niveau?: Niveau | null
 }
 
@@ -23,6 +26,7 @@ function initialValues(niveau: Niveau | null | undefined): NiveauFormValues {
     nom: niveau.nom,
     description: niveau.description ?? '',
     ordre: String(niveau.ordre),
+    miniature_id: niveau.miniature_id ?? null,
   }
 }
 
@@ -30,6 +34,7 @@ export function NiveauFormDialog({
   open,
   onOpenChange,
   batimentId,
+  siteId,
   niveau,
 }: NiveauFormDialogProps) {
   const isEdit = Boolean(niveau)
@@ -89,6 +94,12 @@ export function NiveauFormDialog({
         value={values.description}
         onChange={(v) => set('description', v)}
         error={errors.description}
+      />
+      <MiniatureField
+        value={values.miniature_id}
+        onChange={(id) => setValues((v) => ({ ...v, miniature_id: id }))}
+        targetSiteId={siteId}
+        canUpload
       />
       <TextField
         label="Ordre"

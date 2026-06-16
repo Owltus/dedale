@@ -17,7 +17,7 @@ function batimentPayload(values: BatimentFormValues) {
   return {
     nom: v.nom,
     description: v.description || null,
-    image_path: v.image_path || null,
+    miniature_id: v.miniature_id,
   }
 }
 
@@ -102,6 +102,7 @@ function niveauPayload(values: NiveauFormValues) {
   return {
     nom: v.nom,
     description: v.description || null,
+    miniature_id: v.miniature_id,
     ...(v.ordre === undefined ? {} : { ordre: v.ordre }),
   }
 }
@@ -189,6 +190,7 @@ function localPayload(values: LocalFormValues) {
     description: v.description || null,
     surface_m2: v.surface_m2 ?? null,
     type_local_id: v.type_local_id ?? null,
+    miniature_id: v.miniature_id,
   }
 }
 

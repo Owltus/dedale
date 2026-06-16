@@ -33,10 +33,14 @@ const optionalIntId = z.string().transform((raw, ctx): number | undefined => {
 })
 
 // --- Bâtiment ---
+// Vignette du pool (`miniature_id`) ou `null` — via le composant réutilisable
+// MiniatureField (upload/crop), comme catégories/équipements.
+const miniature = z.string().nullable()
+
 export const batimentSchema = z.object({
   nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
   description: z.string().trim().max(2000),
-  image_path: z.string().trim().max(500),
+  miniature_id: miniature,
 })
 
 export type BatimentFormValues = z.input<typeof batimentSchema>
@@ -44,7 +48,7 @@ export type BatimentFormValues = z.input<typeof batimentSchema>
 export const emptyBatiment: BatimentFormValues = {
   nom: '',
   description: '',
-  image_path: '',
+  miniature_id: null,
 }
 
 // --- Niveau ---
@@ -52,6 +56,7 @@ export const niveauSchema = z.object({
   nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
   description: z.string().trim().max(2000),
   ordre: optionalNumber('L’ordre'),
+  miniature_id: miniature,
 })
 
 export type NiveauFormValues = z.input<typeof niveauSchema>
@@ -60,6 +65,7 @@ export const emptyNiveau: NiveauFormValues = {
   nom: '',
   description: '',
   ordre: '',
+  miniature_id: null,
 }
 
 // --- Local ---
@@ -68,6 +74,7 @@ export const localSchema = z.object({
   description: z.string().trim().max(2000),
   surface_m2: optionalNumber('La surface'),
   type_local_id: optionalIntId,
+  miniature_id: miniature,
 })
 
 export type LocalFormValues = z.input<typeof localSchema>
@@ -77,4 +84,5 @@ export const emptyLocal: LocalFormValues = {
   description: '',
   surface_m2: '',
   type_local_id: '',
+  miniature_id: null,
 }

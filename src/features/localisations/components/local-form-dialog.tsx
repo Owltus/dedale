@@ -9,6 +9,7 @@ import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
+import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 import type { Database } from '@/lib/database.types'
 
 type Local = Database['public']['Tables']['locaux']['Row']
@@ -17,6 +18,8 @@ interface LocalFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   niveauId: string
+  /** Site (pour le pool de vignettes : périmètre de la MiniatureField). */
+  siteId: string
   local?: Local | null
 }
 
@@ -28,6 +31,7 @@ function initialValues(local: Local | null | undefined): LocalFormValues {
     surface_m2: local.surface_m2 === null ? '' : String(local.surface_m2),
     type_local_id:
       local.type_local_id === null ? '' : String(local.type_local_id),
+    miniature_id: local.miniature_id ?? null,
   }
 }
 
@@ -35,6 +39,7 @@ export function LocalFormDialog({
   open,
   onOpenChange,
   niveauId,
+  siteId,
   local,
 }: LocalFormDialogProps) {
   const isEdit = Boolean(local)
@@ -95,6 +100,12 @@ export function LocalFormDialog({
         value={values.description}
         onChange={(v) => set('description', v)}
         error={errors.description}
+      />
+      <MiniatureField
+        value={values.miniature_id}
+        onChange={(id) => setValues((v) => ({ ...v, miniature_id: id }))}
+        targetSiteId={siteId}
+        canUpload
       />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
