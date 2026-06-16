@@ -191,6 +191,7 @@ function localPayload(values: LocalFormValues) {
     surface_m2: v.surface_m2 ?? null,
     type_local_id: v.type_local_id ?? null,
     miniature_id: v.miniature_id,
+    chauffe_climatise: v.chauffe_climatise,
   }
 }
 

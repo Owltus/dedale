@@ -1389,6 +1389,8 @@ CREATE TABLE locaux (
     type_local_id SMALLINT REFERENCES types_locaux(id) ON DELETE RESTRICT,  -- v0.30, facultatif (NULL = non qualifié)
     description   TEXT,
     surface_m2    NUMERIC(8,2),
+    -- 033 : local chauffé / climatisé (pour la remontée de surface chauffée).
+    chauffe_climatise BOOLEAN NOT NULL DEFAULT false,
     image_path    TEXT,
     deleted_at    TIMESTAMPTZ,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -1456,24 +1458,27 @@ COMMENT ON VIEW v_locaux_chemin IS 'Chemin spatial dénormalisé à la volée (r
 
 -- 032 : surfaces agrégées (remontée) — un niveau hérite de la somme de ses locaux,
 -- un bâtiment de la somme de ses niveaux. security_invoker → RLS des tables.
+-- 033 : + surface_chauffee_m2 (somme filtrée sur chauffe_climatise).
 CREATE VIEW v_niveaux_surface AS
 SELECT
     n.id                            AS niveau_id,
     n.batiment_id,
-    COALESCE(SUM(l.surface_m2), 0)  AS surface_m2
+    COALESCE(SUM(l.surface_m2), 0)  AS surface_m2,
+    COALESCE(SUM(l.surface_m2) FILTER (WHERE l.chauffe_climatise), 0) AS surface_chauffee_m2
 FROM niveaux n
 LEFT JOIN locaux l ON l.niveau_id = n.id AND l.deleted_at IS NULL
 WHERE n.deleted_at IS NULL
 GROUP BY n.id, n.batiment_id;
 ALTER VIEW v_niveaux_surface SET (security_invoker = true);
 GRANT SELECT ON v_niveaux_surface TO anon, authenticated;
-COMMENT ON VIEW v_niveaux_surface IS 'Surface roulée d''un niveau = somme des surfaces de ses locaux (vivants).';
+COMMENT ON VIEW v_niveaux_surface IS 'Surface (totale + chauffée) roulée d''un niveau = somme des surfaces de ses locaux (vivants).';
 
 CREATE VIEW v_batiments_surface AS
 SELECT
     b.id                            AS batiment_id,
     b.site_id,
-    COALESCE(SUM(l.surface_m2), 0)  AS surface_m2
+    COALESCE(SUM(l.surface_m2), 0)  AS surface_m2,
+    COALESCE(SUM(l.surface_m2) FILTER (WHERE l.chauffe_climatise), 0) AS surface_chauffee_m2
 FROM batiments b
 LEFT JOIN niveaux n ON n.batiment_id = b.id AND n.deleted_at IS NULL
 LEFT JOIN locaux  l ON l.niveau_id = n.id   AND l.deleted_at IS NULL
@@ -1481,7 +1486,7 @@ WHERE b.deleted_at IS NULL
 GROUP BY b.id, b.site_id;
 ALTER VIEW v_batiments_surface SET (security_invoker = true);
 GRANT SELECT ON v_batiments_surface TO anon, authenticated;
-COMMENT ON VIEW v_batiments_surface IS 'Surface roulée d''un bâtiment = somme des surfaces de tous ses locaux (vivants).';
+COMMENT ON VIEW v_batiments_surface IS 'Surface (totale + chauffée) roulée d''un bâtiment = somme des surfaces de tous ses locaux (vivants).';
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗

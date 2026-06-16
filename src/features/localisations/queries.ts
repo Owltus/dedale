@@ -71,7 +71,7 @@ export const localisationsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('v_batiments_surface')
-          .select('batiment_id, surface_m2')
+          .select('batiment_id, surface_m2, surface_chauffee_m2')
           .eq('site_id', siteId!)
           .abortSignal(signal)
           .throwOnError()
@@ -92,7 +92,7 @@ export const localisationsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('v_niveaux_surface')
-          .select('niveau_id, surface_m2')
+          .select('niveau_id, surface_m2, surface_chauffee_m2')
           .eq('batiment_id', batimentId!)
           .abortSignal(signal)
           .throwOnError()

@@ -1592,6 +1592,7 @@ export type Database = {
       }
       locaux: {
         Row: {
+          chauffe_climatise: boolean
           created_at: string
           deleted_at: string | null
           description: string | null
@@ -1605,6 +1606,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          chauffe_climatise?: boolean
           created_at?: string
           deleted_at?: string | null
           description?: string | null
@@ -1618,6 +1620,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          chauffe_climatise?: boolean
           created_at?: string
           deleted_at?: string | null
           description?: string | null
@@ -3128,6 +3131,7 @@ export type Database = {
         Row: {
           batiment_id: string | null
           site_id: string | null
+          surface_chauffee_m2: number | null
           surface_m2: number | null
         }
         Relationships: [
@@ -3298,6 +3302,7 @@ export type Database = {
         Row: {
           batiment_id: string | null
           niveau_id: string | null
+          surface_chauffee_m2: number | null
           surface_m2: number | null
         }
         Relationships: [

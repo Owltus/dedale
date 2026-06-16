@@ -91,26 +91,28 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   const surfaceBatiment = useMemo(
     () =>
       new Map(
-        (batimentsSurfaceQuery.data ?? []).map((r) => [
-          r.batiment_id,
-          r.surface_m2,
-        ]),
+        (batimentsSurfaceQuery.data ?? []).map((r) => [r.batiment_id, r]),
       ),
     [batimentsSurfaceQuery.data],
   )
   const surfaceNiveau = useMemo(
     () =>
-      new Map(
-        (niveauxSurfaceQuery.data ?? []).map((r) => [
-          r.niveau_id,
-          r.surface_m2,
-        ]),
-      ),
+      new Map((niveauxSurfaceQuery.data ?? []).map((r) => [r.niveau_id, r])),
     [niveauxSurfaceQuery.data],
   )
-  // Libellé surface : « X m² » si > 0, sinon rien (pas de bruit « 0 m² »).
-  const surfaceLabel = (m2: number | null | undefined) =>
-    m2 && m2 > 0 ? `${String(m2)} m²` : undefined
+  // Libellé surface roulée : « X m² » (+ « · Y m² chauffé » si chauffé > 0).
+  // `undefined` si surface nulle → pas de bruit « 0 m² ».
+  const surfaceLabel = (row?: {
+    surface_m2: number | null
+    surface_chauffee_m2: number | null
+  }) => {
+    const total = row?.surface_m2 ?? 0
+    if (total <= 0) return undefined
+    const chauffee = row?.surface_chauffee_m2 ?? 0
+    return chauffee > 0
+      ? `${String(total)} m² · ${String(chauffee)} m² chauffé`
+      : `${String(total)} m²`
+  }
 
   const delBatiment = useDeleteBatiment()
   const delNiveau = useDeleteNiveau()
@@ -331,6 +333,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                   [
                     typeLabel(l.type_local_id),
                     l.surface_m2 === null ? null : `${String(l.surface_m2)} m²`,
+                    l.chauffe_climatise ? 'Chauffé/climatisé' : null,
                   ]
                     .filter(Boolean)
                     .join(' · ') || undefined

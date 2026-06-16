@@ -9,6 +9,7 @@ import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 import type { Database } from '@/lib/database.types'
 
@@ -32,6 +33,7 @@ function initialValues(local: Local | null | undefined): LocalFormValues {
     type_local_id:
       local.type_local_id === null ? '' : String(local.type_local_id),
     miniature_id: local.miniature_id ?? null,
+    chauffe_climatise: local.chauffe_climatise,
   }
 }
 
@@ -130,6 +132,13 @@ export function LocalFormDialog({
           ))}
         </SelectField>
       </div>
+      <CheckboxField
+        label="Chauffé / climatisé"
+        value={values.chauffe_climatise}
+        onChange={(checked) =>
+          setValues((v) => ({ ...v, chauffe_climatise: checked }))
+        }
+      />
     </FormDialog>
   )
 }

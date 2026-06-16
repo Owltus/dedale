@@ -75,6 +75,8 @@ export const localSchema = z.object({
   surface_m2: optionalNumber('La surface'),
   type_local_id: optionalIntId,
   miniature_id: miniature,
+  /** Local chauffé / climatisé (remontée de la surface chauffée). */
+  chauffe_climatise: z.boolean(),
 })
 
 export type LocalFormValues = z.input<typeof localSchema>
@@ -85,4 +87,5 @@ export const emptyLocal: LocalFormValues = {
   surface_m2: '',
   type_local_id: '',
   miniature_id: null,
+  chauffe_climatise: false,
 }
