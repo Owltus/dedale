@@ -101,7 +101,6 @@ export function NouvelEquipementDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Nouvel équipement"
-      description="L’équipement hérite de l’image et des caractéristiques de la sous-catégorie."
       onSubmit={() => void handleSubmit()}
       submitLabel="Créer"
       pendingLabel="Création…"
@@ -146,9 +145,6 @@ export function NouvelEquipementDialog({
       {champs.length > 0 && (
         <div className="grid gap-3">
           <Label>Caractéristiques</Label>
-          <p className="text-muted-foreground -mt-1 text-sm">
-            Héritées de la sous-catégorie ; ajuste les valeurs pour cet équipement.
-          </p>
           {champs.map((champ, i) => (
             <ChampValeurInput
               key={champ.cle}
