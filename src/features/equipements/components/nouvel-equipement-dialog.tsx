@@ -106,6 +106,7 @@ export function NouvelEquipementDialog({
       pendingLabel="Création…"
       pending={create.isPending}
     >
+      <Label>Informations</Label>
       <TextField
         label="Nom"
         value={nom}
@@ -143,7 +144,7 @@ export function NouvelEquipementDialog({
         />
       </div>
       {champs.length > 0 && (
-        <div className="grid gap-3">
+        <div className="grid gap-3 border-t pt-4">
           <Label>Caractéristiques</Label>
           {champs.map((champ, i) => (
             <ChampValeurInput
