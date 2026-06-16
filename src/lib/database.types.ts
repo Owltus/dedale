@@ -1667,6 +1667,13 @@ export type Database = {
             referencedColumns: ["niveau_id"]
           },
           {
+            foreignKeyName: "locaux_niveau_id_fkey"
+            columns: ["niveau_id"]
+            isOneToOne: false
+            referencedRelation: "v_niveaux_surface"
+            referencedColumns: ["niveau_id"]
+          },
+          {
             foreignKeyName: "locaux_type_local_id_fkey"
             columns: ["type_local_id"]
             isOneToOne: false
@@ -2101,6 +2108,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "batiments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "niveaux_batiment_id_fkey"
+            columns: ["batiment_id"]
+            isOneToOne: false
+            referencedRelation: "v_batiments_surface"
+            referencedColumns: ["batiment_id"]
           },
           {
             foreignKeyName: "niveaux_batiment_id_fkey"
@@ -3116,15 +3130,29 @@ export type Database = {
           site_id: string | null
           surface_m2: number | null
         }
-        Relationships: []
-      }
-      v_niveaux_surface: {
-        Row: {
-          batiment_id: string | null
-          niveau_id: string | null
-          surface_m2: number | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "batiments_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batiments_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["site_id"]
+          },
+          {
+            foreignKeyName: "batiments_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["site_id"]
+          },
+        ]
       }
       v_equipements_complet: {
         Row: {
@@ -3263,6 +3291,43 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_locaux_chemin"
             referencedColumns: ["site_id"]
+          },
+        ]
+      }
+      v_niveaux_surface: {
+        Row: {
+          batiment_id: string | null
+          niveau_id: string | null
+          surface_m2: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "niveaux_batiment_id_fkey"
+            columns: ["batiment_id"]
+            isOneToOne: false
+            referencedRelation: "batiments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "niveaux_batiment_id_fkey"
+            columns: ["batiment_id"]
+            isOneToOne: false
+            referencedRelation: "v_batiments_surface"
+            referencedColumns: ["batiment_id"]
+          },
+          {
+            foreignKeyName: "niveaux_batiment_id_fkey"
+            columns: ["batiment_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["batiment_id"]
+          },
+          {
+            foreignKeyName: "niveaux_batiment_id_fkey"
+            columns: ["batiment_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["batiment_id"]
           },
         ]
       }
