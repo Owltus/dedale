@@ -120,7 +120,7 @@ export function ModeleDiFormDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le modèle' : 'Nouveau modèle de DI'}
+      title={isEdit ? 'Modifier le modèle de DI' : 'Nouveau modèle de DI'}
       description="Un constat pré-rédigé pour accélérer la saisie des demandes d'intervention."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}

@@ -95,11 +95,9 @@ export function ModeleEquipementFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
   const showEntreprise = canEntreprise || values.portee === 'entreprise'
-  // Catégorie / Portée : VISIBLES en création ET modification (parité des champs),
-  // mais en lecture seule à la création quand imposées par le contexte (catégorie
-  // du drill, périmètre du sélecteur de site).
-  const porteeForced = !isEdit && lockedScope != null
-  const categorieForced = !isEdit && lockedCategorieId != null
+  // Catégorie / Portée : VISIBLES et éditables en création ET modification (mêmes
+  // champs des deux côtés). À la création, leur valeur par défaut vient du contexte
+  // (catégorie du drill, périmètre du sélecteur de site).
   // Mode minimal (optionnel) : masque l'État. Les caractéristiques détaillées se
   // gèrent de toute façon sur la PAGE de détail du modèle.
   const compact = minimal === true
@@ -153,7 +151,9 @@ export function ModeleEquipementFormDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le modèle' : 'Nouveau modèle d’équipement'}
+      title={
+        isEdit ? 'Modifier le modèle d’équipement' : 'Nouveau modèle d’équipement'
+      }
       description="Un gabarit réutilisable pour instancier rapidement des équipements."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
@@ -185,7 +185,6 @@ export function ModeleEquipementFormDialog({
           onChange={(v) => set('categorie_id', v)}
           error={errors.categorie_id}
           required
-          disabled={categorieForced}
         >
           <option value="" disabled>
             — Choisir une catégorie —
@@ -204,7 +203,6 @@ export function ModeleEquipementFormDialog({
           }
           error={errors.portee}
           required
-          disabled={porteeForced}
         >
           {showEntreprise && <option value="entreprise">Commun</option>}
           {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}

@@ -203,9 +203,18 @@ export function CategoryFormDialog({
   // Sous-catégorie = présence d'un parent (catégorie existante ou présélection) :
   // adapte le titre (« catégorie » vs « sous-catégorie »).
   const estSousCat = (categorie?.parent_id ?? preset?.parent_id) != null
-  // Complément de titre selon le type : sur la page Équipements (scope 'parc') le
-  // titre nomme explicitement « équipements » pour lever toute ambiguïté.
-  const titreComplement = values.scope === 'parc' ? ' d’équipements' : ''
+  // Complément de titre selon le type : le titre nomme explicitement CE QUE la
+  // catégorie range, pour coller à l'onglet où l'on se trouve (« Nouvelle catégorie
+  // de modèles d'équipement », etc.) et lever toute ambiguïté.
+  const titreComplement = (
+    {
+      parc: ' d’équipements',
+      equipement: ' de modèles d’équipement',
+      operation: ' de modèles d’opération',
+      gamme: ' de gammes',
+      mixte: '',
+    } as Record<CategorieFormValues['scope'], string>
+  )[values.scope]
 
   function set<K extends keyof CategorieFormValues>(
     key: K,
@@ -315,10 +324,6 @@ export function CategoryFormDialog({
               }
               error={errors.portee}
               required
-              // Visible des deux côtés (création = modification), mais imposée par
-              // le contexte à la création (périmètre du sélecteur de site) → lecture
-              // seule tant qu'on n'édite pas une entité existante.
-              disabled={!isEdit && lockedScope != null}
             >
               {showEntreprise && <option value="entreprise">Commun</option>}
               {siteId && (

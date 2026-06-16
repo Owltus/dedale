@@ -106,9 +106,6 @@ export function GammeBiblioFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
 
-  // Catégorie : visible en création ET modification (parité des champs), mais en
-  // lecture seule à la création quand imposée par la catégorie courante du drill.
-  const categorieForced = !isEdit && lockedCategorieId != null
 
   function set<K extends keyof GammeBiblioFormValues>(
     key: K,
@@ -219,7 +216,6 @@ export function GammeBiblioFormDialog({
         value={values.categorie_id}
         onChange={(v) => set('categorie_id', v)}
         error={errors.categorie_id}
-        disabled={categorieForced}
       >
         <option value="">— Choisir une catégorie —</option>
         {categories.map((c) => (

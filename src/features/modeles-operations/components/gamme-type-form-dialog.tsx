@@ -84,9 +84,6 @@ export function GammeTypeFormDialog({
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
-  // Catégorie : visible en création ET modification (parité des champs), mais en
-  // lecture seule à la création quand imposée par la catégorie courante du drill.
-  const categorieForced = !isEdit && lockedCategorieId != null
   // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
   // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
   // pour tout éditeur (calque du formulaire de modèle d'équipement).
@@ -161,7 +158,6 @@ export function GammeTypeFormDialog({
         onChange={(v) => set('categorie_id', v)}
         error={errors.categorie_id}
         required
-        disabled={categorieForced}
       >
         <option value="" disabled>
           — Choisir une catégorie —
