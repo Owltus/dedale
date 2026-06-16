@@ -7,6 +7,7 @@ import {
   Package,
   Pencil,
   Plus,
+  SlidersHorizontal,
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -15,6 +16,7 @@ import { useDeleteEquipement } from '../mutations'
 import { EquipementFormDialog } from './equipement-form-dialog'
 import { ParcSousCategorieDialog } from './parc-sous-categorie-dialog'
 import { NouvelEquipementDialog } from './nouvel-equipement-dialog'
+import { ModifierCaracteristiquesDialog } from './modifier-caracteristiques-dialog'
 import { EquipementDetail } from './equipement-detail'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
 import {
@@ -287,6 +289,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     eq: Equipement | null
   }>({ open: false, eq: null })
   const [nouvelEquipOpen, setNouvelEquipOpen] = useState(false)
+  const [modifCaractOpen, setModifCaractOpen] = useState(false)
   const [toDelete, setToDelete] = useState<Equipement | null>(null)
   const [toDeleteCategorie, setToDeleteCategorie] = useState<DrillCat | null>(
     null,
@@ -407,6 +410,16 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       onClick={() => setNouvelEquipOpen(true)}
     />
   ) : null
+  // Édition en masse : seulement sur une sous-catégorie SPÉCIFIQUE (gabarit local).
+  // Pour une sous-catégorie liée à un modèle, le gabarit s'édite dans la Bibliothèque.
+  const editGabaritBtn =
+    canCreateEquipHere && current?.modeleId === null ? (
+      <TooltipIconButton
+        icon={<SlidersHorizontal />}
+        label="Modifier les caractéristiques"
+        onClick={() => setModifCaractOpen(true)}
+      />
+    ) : null
   const editEquipBtn =
     canEdit && openEquipement !== null ? (
       <TooltipIconButton
@@ -458,6 +471,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         actions={
           <>
             {newSubCategoryBtn}
+            {editGabaritBtn}
             {newEquipBtn}
           </>
         }
@@ -535,6 +549,19 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           siteId={siteId}
           categorieId={current?.id ?? ''}
           template={currentTemplate}
+        />
+      )}
+
+      {canEdit && current && !current.virtual && current.modeleId === null && (
+        <ModifierCaracteristiquesDialog
+          key={`modif-caract-${current.id}-${String(modifCaractOpen)}`}
+          open={modifCaractOpen}
+          onOpenChange={setModifCaractOpen}
+          categorieId={current.id}
+          initialChamps={currentTemplate?.champs ?? []}
+          equipements={equipementsInCurrent
+            .filter((e) => e.id !== null)
+            .map((e) => ({ id: e.id!, specifications: e.specifications }))}
         />
       )}
 

@@ -2,8 +2,57 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { equipementsQueries } from './queries'
 import { equipementSchema, type EquipementFormValues } from './schemas'
-import { serializeChamps, type Champ } from '@/lib/champs'
+import { parseChamps, serializeChamps, type Champ } from '@/lib/champs'
 import { categoriesQueries } from '@/features/categories/queries'
+
+/**
+ * ÉDITION EN MASSE d'une sous-catégorie SPÉCIFIQUE : met à jour son gabarit local
+ * (specifications) PUIS propage le nouvel ensemble de caractéristiques à TOUS ses
+ * équipements — en conservant les valeurs déjà saisies (par clé) ; les nouveaux
+ * champs prennent leur défaut, les champs retirés disparaissent.
+ */
+export function useUpdateGabaritSpecifique() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      categorieId,
+      champs,
+      equipements,
+    }: {
+      categorieId: string
+      champs: Champ[]
+      equipements: { id: string; specifications: unknown }[]
+    }) => {
+      await supabase
+        .from('categories')
+        .update({ specifications: serializeChamps(champs) })
+        .eq('id', categorieId)
+        .select('id')
+        .single()
+        .throwOnError()
+      await Promise.all(
+        equipements.map(async (eq) => {
+          const actuels = parseChamps(eq.specifications)
+          const fusion = champs.map((g) => {
+            const existant = actuels.find((c) => c.cle === g.cle)
+            return { ...g, valeur: existant?.valeur ?? g.defaut ?? null }
+          })
+          await supabase
+            .from('equipements')
+            .update({ specifications: serializeChamps(fusion) })
+            .eq('id', eq.id)
+            .select('id')
+            .single()
+            .throwOnError()
+        }),
+      )
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: categoriesQueries.all() })
+      void qc.invalidateQueries({ queryKey: equipementsQueries.all() })
+    },
+  })
+}
 
 /**
  * Crée une SOUS-catégorie de parc (scope 'parc'). Le modèle est OPTIONNEL :

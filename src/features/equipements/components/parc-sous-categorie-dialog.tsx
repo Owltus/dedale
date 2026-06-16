@@ -1,26 +1,13 @@
 import { useState } from 'react'
-import { Pencil, Plus, SlidersHorizontal, Tag, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCreateParcSousCategorie } from '../mutations'
-import { ChampFormDialog } from '@/features/modeles-equipements/components/champ-form-dialog'
-import {
-  CHAMP_TYPES,
-  formatChampValeur,
-  prepareChamps,
-  serializeChamps,
-  type Champ,
-} from '@/lib/champs'
+import { prepareChamps, serializeChamps, type Champ } from '@/lib/champs'
 import { errorMessage } from '@/lib/form'
 import { MiniatureField } from '@/features/miniatures/components/miniature-field'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { ListRow } from '@/components/common/list-row'
-import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { listStack } from '@/lib/responsive'
+import { ChampsListEditor } from '@/components/common/champs-list-editor'
 
 interface ParcSousCategorieDialogProps {
   open: boolean
@@ -30,18 +17,6 @@ interface ParcSousCategorieDialogProps {
   parentId: string
   /** Modèles DU SITE proposés (un modèle commun doit d'abord être exporté). */
   modeles: { id: string; nom: string }[]
-}
-
-// Sous-titre lisible d'un champ (calque de la page de détail d'un modèle).
-function champResume(c: Champ): string {
-  const parts: string[] = [
-    CHAMP_TYPES.find((t) => t.value === c.type)?.label ?? c.type,
-  ]
-  if (c.type === 'nombre' && c.unite) parts.push(c.unite)
-  if (c.defaut !== null && c.defaut !== '') {
-    parts.push(`défaut : ${formatChampValeur(c, c.defaut)}`)
-  }
-  return parts.join(' · ')
 }
 
 /**
@@ -65,37 +40,9 @@ export function ParcSousCategorieDialog({
   // '' = gabarit spécifique (défini ici) ; sinon id d'un modèle de site.
   const [modeleId, setModeleId] = useState('')
   const [champs, setChamps] = useState<Champ[]>([])
-  const [champForm, setChampForm] = useState<{
-    open: boolean
-    champ: Champ | null
-  }>({ open: false, champ: null })
-  const [toDeleteChamp, setToDeleteChamp] = useState<Champ | null>(null)
   const [errors, setErrors] = useState<{ nom?: string }>({})
 
   const specifique = modeleId === ''
-
-  function handleSubmitChamp(champ: Champ) {
-    const original = champForm.champ
-    const editing =
-      original !== null && champs.some((c) => c.cle === original.cle)
-    setChamps(
-      editing
-        ? champs.map((c) => (c.cle === original.cle ? champ : c))
-        : [...champs, champ],
-    )
-    setChampForm({ open: false, champ: null })
-  }
-
-  function confirmDeleteChamp() {
-    if (!toDeleteChamp) return
-    setChamps(champs.filter((c) => c.cle !== toDeleteChamp.cle))
-    setToDeleteChamp(null)
-  }
-
-  // Noms des AUTRES champs (refus de doublon dans le modal de champ).
-  const existingCles = champs
-    .filter((c) => c.cle !== champForm.champ?.cle)
-    .map((c) => c.cle.toLowerCase())
 
   async function handleSubmit() {
     if (!nom.trim()) {
@@ -180,90 +127,12 @@ export function ParcSousCategorieDialog({
       </SelectField>
 
       {specifique && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2 text-sm font-medium">
-              <SlidersHorizontal className="text-muted-foreground size-4" />
-              Caractéristiques
-            </span>
-            <TooltipIconButton
-              icon={<Plus />}
-              label="Ajouter un champ"
-              onClick={() => setChampForm({ open: true, champ: null })}
-            />
-          </div>
-          {champs.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ;
-              les équipements de cette sous-catégorie en hériteront.
-            </p>
-          ) : (
-            <div className={listStack}>
-              {champs.map((c) => (
-                <ListRow
-                  key={c.cle}
-                  icon={<Tag className="size-5" />}
-                  title={c.cle}
-                  subtitle={champResume(c)}
-                  hideChevron
-                  badges={
-                    c.requis ? (
-                      <Badge variant="outline">Obligatoire</Badge>
-                    ) : undefined
-                  }
-                  onClick={() => setChampForm({ open: true, champ: c })}
-                  actions={
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Modifier le champ"
-                        onClick={() => setChampForm({ open: true, champ: c })}
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Supprimer le champ"
-                        onClick={() => setToDeleteChamp(c)}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </>
-                  }
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <ChampsListEditor
+          champs={champs}
+          onChange={setChamps}
+          emptyHint="Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ; les équipements de cette sous-catégorie en hériteront."
+        />
       )}
-
-      <ChampFormDialog
-        key={`${champForm.champ?.cle ?? 'new'}-${String(champForm.open)}`}
-        open={champForm.open}
-        onOpenChange={(o) => setChampForm((f) => ({ ...f, open: o }))}
-        champ={champForm.champ}
-        existingCles={existingCles}
-        onSubmit={handleSubmitChamp}
-        pending={false}
-      />
-
-      <ConfirmDialog
-        open={toDeleteChamp !== null}
-        onOpenChange={(o) => {
-          if (!o) setToDeleteChamp(null)
-        }}
-        title="Supprimer le champ ?"
-        description={
-          toDeleteChamp
-            ? `« ${toDeleteChamp.cle} » sera retiré du gabarit.`
-            : undefined
-        }
-        confirmLabel="Supprimer"
-        destructive
-        onConfirm={confirmDeleteChamp}
-      />
     </FormDialog>
   )
 }
