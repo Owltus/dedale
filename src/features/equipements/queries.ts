@@ -57,7 +57,9 @@ export const equipementsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('v_locaux_chemin')
-          .select('local_id, local_nom, chemin_court')
+          .select(
+            'local_id, local_nom, chemin_court, batiment_id, batiment_nom, niveau_id, niveau_nom',
+          )
           .eq('site_id', siteId!)
           .order('chemin_court')
           .abortSignal(signal)

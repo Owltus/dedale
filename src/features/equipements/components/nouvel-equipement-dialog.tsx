@@ -1,12 +1,10 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useCreateEquipementParc } from '../mutations'
-import { equipementsQueries } from '../queries'
+import { EmplacementSelect } from './emplacement-select'
 import { errorMessage } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
-import { SelectField } from '@/components/common/select-field'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
 import type { Champ, ChampValeur } from '@/lib/champs'
 
@@ -42,7 +40,6 @@ export function NouvelEquipementDialog({
   template,
 }: NouvelEquipementDialogProps) {
   const create = useCreateEquipementParc()
-  const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
   const [nom, setNom] = useState(template.nomDefaut)
   const [localId, setLocalId] = useState('')
   // Données « de base » standard de l'équipement.
@@ -112,21 +109,12 @@ export function NouvelEquipementDialog({
         error={errors.nom}
         required
       />
-      <SelectField
-        label="Emplacement"
-        required
-        id="nouvel_equipement_local"
+      <EmplacementSelect
+        siteId={siteId}
         value={localId}
         onChange={setLocalId}
         error={errors.local}
-      >
-        <option value="">— Choisir un local —</option>
-        {locaux.map((l) => (
-          <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
-            {l.chemin_court ?? l.local_nom ?? ''}
-          </option>
-        ))}
-      </SelectField>
+      />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
           label="Mise en service"
