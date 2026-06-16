@@ -79,17 +79,22 @@ export function IdentiteFields({ nom, description, image }: IdentiteFieldsProps)
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
-      {/* Image carrée : petit carré en haut sur mobile ; sur écran large, sa
-          hauteur s'étire sur la colonne de droite (Nom + Description) tout en
-          restant 1:1, ce qui aligne les bas des deux colonnes. */}
-      <div className="aspect-square w-32 shrink-0 self-stretch sm:min-h-32 sm:w-auto">
-        <MiniatureField
-          orientation="tile"
-          value={image.value}
-          onChange={image.onChange}
-          targetSiteId={image.targetSiteId}
-          canUpload={image.canUpload}
-        />
+      {/* Conteneur image : sur mobile, carré fixe en haut ; sur écran large, il
+          S'ÉTIRE en hauteur sur la colonne de droite (Nom + Description). Il ne
+          porte PAS le ratio (sinon conflit étirement/aspect) : c'est l'élément
+          INTÉRIEUR qui fait le carré. */}
+      <div className="w-32 shrink-0 sm:w-auto sm:min-h-32">
+        {/* Carré : sur mobile, piloté par la largeur (w-full) ; sur écran large,
+            piloté par la hauteur (h-full du parent étiré) → reste 1:1. */}
+        <div className="aspect-square w-full sm:h-full sm:w-auto">
+          <MiniatureField
+            orientation="tile"
+            value={image.value}
+            onChange={image.onChange}
+            targetSiteId={image.targetSiteId}
+            canUpload={image.canUpload}
+          />
+        </div>
       </div>
       <div className="grid flex-1 content-start gap-4">
         {champNom}
