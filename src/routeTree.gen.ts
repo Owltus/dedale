@@ -29,7 +29,11 @@ import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppDemandesRouteImport } from './routes/_app/demandes'
 import { Route as AppChantiersRouteImport } from './routes/_app/chantiers'
 import { Route as AppBibliothequeRouteImport } from './routes/_app/bibliotheque'
+import { Route as AppUtilisateursIndexRouteImport } from './routes/_app/utilisateurs/index'
+import { Route as AppPrestatairesIndexRouteImport } from './routes/_app/prestataires/index'
 import { Route as AppBibliothequeIndexRouteImport } from './routes/_app/bibliotheque/index'
+import { Route as AppUtilisateursUtilisateurRouteImport } from './routes/_app/utilisateurs/$utilisateur'
+import { Route as AppPrestatairesPrestataireRouteImport } from './routes/_app/prestataires/$prestataire'
 import { Route as AppLocalisationsSplatRouteImport } from './routes/_app/localisations/$'
 import { Route as AppEquipementsSplatRouteImport } from './routes/_app/equipements/$'
 import { Route as AppBibliothequeSplatRouteImport } from './routes/_app/bibliotheque/$'
@@ -133,11 +137,33 @@ const AppBibliothequeRoute = AppBibliothequeRouteImport.update({
   path: '/bibliotheque',
   getParentRoute: () => AppRoute,
 } as any)
+const AppUtilisateursIndexRoute = AppUtilisateursIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppUtilisateursRoute,
+} as any)
+const AppPrestatairesIndexRoute = AppPrestatairesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppPrestatairesRoute,
+} as any)
 const AppBibliothequeIndexRoute = AppBibliothequeIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppBibliothequeRoute,
 } as any)
+const AppUtilisateursUtilisateurRoute =
+  AppUtilisateursUtilisateurRouteImport.update({
+    id: '/$utilisateur',
+    path: '/$utilisateur',
+    getParentRoute: () => AppUtilisateursRoute,
+  } as any)
+const AppPrestatairesPrestataireRoute =
+  AppPrestatairesPrestataireRouteImport.update({
+    id: '/$prestataire',
+    path: '/$prestataire',
+    getParentRoute: () => AppPrestatairesRoute,
+  } as any)
 const AppLocalisationsSplatRoute = AppLocalisationsSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -168,16 +194,20 @@ export interface FileRoutesByFullPath {
   '/localisations': typeof AppLocalisationsRouteWithChildren
   '/ordres-travail': typeof AppOrdresTravailRoute
   '/planning': typeof AppPlanningRoute
-  '/prestataires': typeof AppPrestatairesRoute
+  '/prestataires': typeof AppPrestatairesRouteWithChildren
   '/profil': typeof AppProfilRoute
   '/registre': typeof AppRegistreRoute
   '/releves': typeof AppRelevesRoute
   '/sites': typeof AppSitesRoute
-  '/utilisateurs': typeof AppUtilisateursRoute
+  '/utilisateurs': typeof AppUtilisateursRouteWithChildren
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
+  '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
+  '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque/': typeof AppBibliothequeIndexRoute
+  '/prestataires/': typeof AppPrestatairesIndexRoute
+  '/utilisateurs/': typeof AppUtilisateursIndexRoute
 }
 export interface FileRoutesByTo {
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
@@ -191,17 +221,19 @@ export interface FileRoutesByTo {
   '/localisations': typeof AppLocalisationsRouteWithChildren
   '/ordres-travail': typeof AppOrdresTravailRoute
   '/planning': typeof AppPlanningRoute
-  '/prestataires': typeof AppPrestatairesRoute
   '/profil': typeof AppProfilRoute
   '/registre': typeof AppRegistreRoute
   '/releves': typeof AppRelevesRoute
   '/sites': typeof AppSitesRoute
-  '/utilisateurs': typeof AppUtilisateursRoute
   '/': typeof AppIndexRoute
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
+  '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
+  '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque': typeof AppBibliothequeIndexRoute
+  '/prestataires': typeof AppPrestatairesIndexRoute
+  '/utilisateurs': typeof AppUtilisateursIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -218,17 +250,21 @@ export interface FileRoutesById {
   '/_app/localisations': typeof AppLocalisationsRouteWithChildren
   '/_app/ordres-travail': typeof AppOrdresTravailRoute
   '/_app/planning': typeof AppPlanningRoute
-  '/_app/prestataires': typeof AppPrestatairesRoute
+  '/_app/prestataires': typeof AppPrestatairesRouteWithChildren
   '/_app/profil': typeof AppProfilRoute
   '/_app/registre': typeof AppRegistreRoute
   '/_app/releves': typeof AppRelevesRoute
   '/_app/sites': typeof AppSitesRoute
-  '/_app/utilisateurs': typeof AppUtilisateursRoute
+  '/_app/utilisateurs': typeof AppUtilisateursRouteWithChildren
   '/_app/': typeof AppIndexRoute
   '/_app/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/_app/equipements/$': typeof AppEquipementsSplatRoute
   '/_app/localisations/$': typeof AppLocalisationsSplatRoute
+  '/_app/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
+  '/_app/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/_app/bibliotheque/': typeof AppBibliothequeIndexRoute
+  '/_app/prestataires/': typeof AppPrestatairesIndexRoute
+  '/_app/utilisateurs/': typeof AppUtilisateursIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -255,7 +291,11 @@ export interface FileRouteTypes {
     | '/bibliotheque/$'
     | '/equipements/$'
     | '/localisations/$'
+    | '/prestataires/$prestataire'
+    | '/utilisateurs/$utilisateur'
     | '/bibliotheque/'
+    | '/prestataires/'
+    | '/utilisateurs/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/definir-mot-de-passe'
@@ -269,17 +309,19 @@ export interface FileRouteTypes {
     | '/localisations'
     | '/ordres-travail'
     | '/planning'
-    | '/prestataires'
     | '/profil'
     | '/registre'
     | '/releves'
     | '/sites'
-    | '/utilisateurs'
     | '/'
     | '/bibliotheque/$'
     | '/equipements/$'
     | '/localisations/$'
+    | '/prestataires/$prestataire'
+    | '/utilisateurs/$utilisateur'
     | '/bibliotheque'
+    | '/prestataires'
+    | '/utilisateurs'
   id:
     | '__root__'
     | '/_app'
@@ -305,7 +347,11 @@ export interface FileRouteTypes {
     | '/_app/bibliotheque/$'
     | '/_app/equipements/$'
     | '/_app/localisations/$'
+    | '/_app/prestataires/$prestataire'
+    | '/_app/utilisateurs/$utilisateur'
     | '/_app/bibliotheque/'
+    | '/_app/prestataires/'
+    | '/_app/utilisateurs/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -456,12 +502,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBibliothequeRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/utilisateurs/': {
+      id: '/_app/utilisateurs/'
+      path: '/'
+      fullPath: '/utilisateurs/'
+      preLoaderRoute: typeof AppUtilisateursIndexRouteImport
+      parentRoute: typeof AppUtilisateursRoute
+    }
+    '/_app/prestataires/': {
+      id: '/_app/prestataires/'
+      path: '/'
+      fullPath: '/prestataires/'
+      preLoaderRoute: typeof AppPrestatairesIndexRouteImport
+      parentRoute: typeof AppPrestatairesRoute
+    }
     '/_app/bibliotheque/': {
       id: '/_app/bibliotheque/'
       path: '/'
       fullPath: '/bibliotheque/'
       preLoaderRoute: typeof AppBibliothequeIndexRouteImport
       parentRoute: typeof AppBibliothequeRoute
+    }
+    '/_app/utilisateurs/$utilisateur': {
+      id: '/_app/utilisateurs/$utilisateur'
+      path: '/$utilisateur'
+      fullPath: '/utilisateurs/$utilisateur'
+      preLoaderRoute: typeof AppUtilisateursUtilisateurRouteImport
+      parentRoute: typeof AppUtilisateursRoute
+    }
+    '/_app/prestataires/$prestataire': {
+      id: '/_app/prestataires/$prestataire'
+      path: '/$prestataire'
+      fullPath: '/prestataires/$prestataire'
+      preLoaderRoute: typeof AppPrestatairesPrestataireRouteImport
+      parentRoute: typeof AppPrestatairesRoute
     }
     '/_app/localisations/$': {
       id: '/_app/localisations/$'
@@ -524,6 +598,34 @@ const AppLocalisationsRouteChildren: AppLocalisationsRouteChildren = {
 const AppLocalisationsRouteWithChildren =
   AppLocalisationsRoute._addFileChildren(AppLocalisationsRouteChildren)
 
+interface AppPrestatairesRouteChildren {
+  AppPrestatairesPrestataireRoute: typeof AppPrestatairesPrestataireRoute
+  AppPrestatairesIndexRoute: typeof AppPrestatairesIndexRoute
+}
+
+const AppPrestatairesRouteChildren: AppPrestatairesRouteChildren = {
+  AppPrestatairesPrestataireRoute: AppPrestatairesPrestataireRoute,
+  AppPrestatairesIndexRoute: AppPrestatairesIndexRoute,
+}
+
+const AppPrestatairesRouteWithChildren = AppPrestatairesRoute._addFileChildren(
+  AppPrestatairesRouteChildren,
+)
+
+interface AppUtilisateursRouteChildren {
+  AppUtilisateursUtilisateurRoute: typeof AppUtilisateursUtilisateurRoute
+  AppUtilisateursIndexRoute: typeof AppUtilisateursIndexRoute
+}
+
+const AppUtilisateursRouteChildren: AppUtilisateursRouteChildren = {
+  AppUtilisateursUtilisateurRoute: AppUtilisateursUtilisateurRoute,
+  AppUtilisateursIndexRoute: AppUtilisateursIndexRoute,
+}
+
+const AppUtilisateursRouteWithChildren = AppUtilisateursRoute._addFileChildren(
+  AppUtilisateursRouteChildren,
+)
+
 interface AppRouteChildren {
   AppBibliothequeRoute: typeof AppBibliothequeRouteWithChildren
   AppChantiersRoute: typeof AppChantiersRoute
@@ -535,12 +637,12 @@ interface AppRouteChildren {
   AppLocalisationsRoute: typeof AppLocalisationsRouteWithChildren
   AppOrdresTravailRoute: typeof AppOrdresTravailRoute
   AppPlanningRoute: typeof AppPlanningRoute
-  AppPrestatairesRoute: typeof AppPrestatairesRoute
+  AppPrestatairesRoute: typeof AppPrestatairesRouteWithChildren
   AppProfilRoute: typeof AppProfilRoute
   AppRegistreRoute: typeof AppRegistreRoute
   AppRelevesRoute: typeof AppRelevesRoute
   AppSitesRoute: typeof AppSitesRoute
-  AppUtilisateursRoute: typeof AppUtilisateursRoute
+  AppUtilisateursRoute: typeof AppUtilisateursRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -555,12 +657,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppLocalisationsRoute: AppLocalisationsRouteWithChildren,
   AppOrdresTravailRoute: AppOrdresTravailRoute,
   AppPlanningRoute: AppPlanningRoute,
-  AppPrestatairesRoute: AppPrestatairesRoute,
+  AppPrestatairesRoute: AppPrestatairesRouteWithChildren,
   AppProfilRoute: AppProfilRoute,
   AppRegistreRoute: AppRegistreRoute,
   AppRelevesRoute: AppRelevesRoute,
   AppSitesRoute: AppSitesRoute,
-  AppUtilisateursRoute: AppUtilisateursRoute,
+  AppUtilisateursRoute: AppUtilisateursRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }
 

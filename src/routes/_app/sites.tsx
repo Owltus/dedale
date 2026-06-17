@@ -9,16 +9,19 @@ import { useDeleteSite } from '@/features/sites/mutations'
 import { SiteFormDialog } from '@/features/sites/components/site-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { deleteErrorMessage } from '@/lib/form'
-import { cardGrid } from '@/lib/responsive'
+import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { NoSearchResults } from '@/components/common/no-search-results'
 import { QueryState } from '@/components/common/query-state'
-import { CardSkeletons } from '@/components/common/card-skeletons'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ListRow } from '@/components/common/list-row'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { SearchInput } from '@/components/common/search-input'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
 type Site = Database['public']['Tables']['sites']['Row']
@@ -38,6 +41,7 @@ function SitesPage() {
     site: null,
   })
   const [toDelete, setToDelete] = useState<Site | null>(null)
+  const [recherche, setRecherche] = useState('')
 
   function confirmDelete() {
     if (!toDelete) return
@@ -66,9 +70,7 @@ function SitesPage() {
 
       <QueryState
         query={query}
-        pending={
-          <CardSkeletons count={4} height="h-28" container={cardGrid.compact} />
-        }
+        pending={<ListRowSkeletons count={4} />}
         empty={
           <EmptyState
             icon={Building2}
@@ -82,41 +84,61 @@ function SitesPage() {
           />
         }
       >
-        {(sites) => (
-          <div className={cardGrid.compact}>
-            {sites.map((site) => (
-              <Card key={site.id} className="min-w-0">
-                <CardHeader>
-                  <CardTitle className="truncate">{site.nom}</CardTitle>
-                </CardHeader>
-                <CardContent className="text-muted-foreground flex flex-col gap-3 text-sm">
-                  <span className="truncate">
-                    {[site.code_postal, site.ville].filter(Boolean).join(' ') ||
-                      '—'}
-                  </span>
-                  {isAdmin && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setForm({ open: true, site })}
-                      >
-                        <Pencil /> Modifier
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setToDelete(site)}
-                      >
-                        <Trash2 /> Supprimer
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+        {(sites) => {
+          const q = recherche.trim().toLowerCase()
+          const shown =
+            q === ''
+              ? sites
+              : sites.filter(
+                  (s) =>
+                    s.nom.toLowerCase().includes(q) ||
+                    (s.ville ?? '').toLowerCase().includes(q),
+                )
+          return (
+            <div className="flex flex-col gap-4">
+              <SearchInput
+                value={recherche}
+                onChange={setRecherche}
+                placeholder="Rechercher un site…"
+                className="max-w-sm"
+              />
+              {shown.length === 0 ? (
+                <NoSearchResults description="Aucun site ne correspond à cette recherche." />
+              ) : (
+                <div className={listStack}>
+                  {shown.map((site) => (
+                    <ListRow
+                      key={site.id}
+                      icon={<Building2 className="size-5" />}
+                      title={site.nom}
+                      subtitle={
+                        [site.code_postal, site.ville]
+                          .filter(Boolean)
+                          .join(' ') || undefined
+                      }
+                      actions={
+                        isAdmin ? (
+                          <>
+                            <TooltipIconButton
+                              icon={<Pencil />}
+                              label="Modifier le site"
+                              onClick={() => setForm({ open: true, site })}
+                            />
+                            <TooltipIconButton
+                              icon={<Trash2 className="text-destructive" />}
+                              label="Supprimer le site"
+                              onClick={() => setToDelete(site)}
+                            />
+                          </>
+                        ) : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        }}
       </QueryState>
 
       {isAdmin && (
@@ -128,19 +150,13 @@ function SitesPage() {
         />
       )}
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDelete !== null}
         onOpenChange={(open) => {
           if (!open) setToDelete(null)
         }}
-        title="Supprimer le site ?"
-        description={
-          toDelete
-            ? `« ${toDelete.nom} » sera supprimé définitivement.`
-            : undefined
-        }
-        confirmLabel="Supprimer"
-        destructive
+        entityLabel={toDelete ? `le site « ${toDelete.nom} »` : 'le site'}
+        warning="Si ce site contient des bâtiments, des gammes, des contrats ou d'autres données, la suppression sera refusée : vide-le d'abord."
         loading={del.isPending}
         onConfirm={confirmDelete}
       />

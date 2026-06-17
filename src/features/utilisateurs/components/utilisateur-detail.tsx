@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
-  ArrowLeft,
   Ban,
   CheckCircle2,
   KeyRound,
@@ -77,10 +76,15 @@ export function UtilisateurDetail({
   if (!user) {
     return (
       <PageContainer>
-        <Button variant="ghost" size="sm" onClick={onBack} className="mb-4">
-          <ArrowLeft /> Retour
-        </Button>
-        <EmptyState title="Utilisateur introuvable" />
+        <PageHeader
+          title="Utilisateur introuvable"
+          onBack={onBack}
+          backLabel="Retour aux utilisateurs"
+        />
+        <EmptyState
+          title="Utilisateur introuvable"
+          description="Ce compte n'existe pas ou n'est pas accessible."
+        />
       </PageContainer>
     )
   }
@@ -91,21 +95,19 @@ export function UtilisateurDetail({
 
   return (
     <PageContainer>
-      <Button variant="ghost" size="sm" onClick={onBack} className="mb-4">
-        <ArrowLeft /> Retour aux utilisateurs
-      </Button>
-
       <div className="mx-auto flex max-w-2xl flex-col gap-4">
         <PageHeader
           title={user.nom_complet}
           description={roleLabel(targetRole)}
-          action={
-            <div className="flex items-center gap-2">
+          onBack={onBack}
+          backLabel="Retour aux utilisateurs"
+          titleBadges={
+            <>
               <Badge variant={user.est_actif ? 'outline' : 'destructive'}>
                 {user.est_actif ? 'Actif' : 'Inactif'}
               </Badge>
               {user.anonymized_at && <Badge variant="outline">Anonymisé</Badge>}
-            </div>
+            </>
           }
         />
 
