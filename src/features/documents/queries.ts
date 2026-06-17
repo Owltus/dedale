@@ -29,7 +29,7 @@ export function liaisonTable(liaison: LiaisonTable) {
 export const documentsQueries = {
   all: () => ['documents'] as const,
 
-  /** Bibliothèque : tous les documents du site actif (non supprimés). */
+  /** Bibliothèque : tous les documents du site actif. */
   list: (siteId: string) =>
     queryOptions({
       queryKey: [...documentsQueries.all(), 'list', siteId] as const,
@@ -40,7 +40,6 @@ export const documentsQueries = {
             'id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at',
           )
           .eq('site_id', siteId)
-          .is('deleted_at', null)
           .order('uploaded_at', { ascending: false })
           .abortSignal(signal)
           .throwOnError()
@@ -63,23 +62,19 @@ export const documentsQueries = {
       ] as const,
       queryFn: async ({ signal }) => {
         const { data } = await liaisonTable(liaison)
-          // On joint le document parent ; on filtre les soft-deletes côté JS
-          // (le filtre .is() sur une table jointe n'est pas exprimable ici).
+          // On joint le document parent rattaché à l'entité.
           .select(
-            'document_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at, deleted_at)',
+            'document_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at)',
           )
           .eq(parentColumn, parentId)
           .abortSignal(signal)
           .throwOnError()
         const rows = data as {
-          documents: (DocumentMeta & { deleted_at: string | null }) | null
+          documents: DocumentMeta | null
         }[]
         return rows
           .map((row) => row.documents)
-          .filter(
-            (doc): doc is DocumentMeta & { deleted_at: string | null } =>
-              doc != null && doc.deleted_at == null,
-          )
+          .filter((doc): doc is DocumentMeta => doc != null)
       },
     }),
 }

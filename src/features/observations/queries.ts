@@ -1,9 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { relationVivante } from '@/lib/relations'
 
-// NB : la table `observations` n'a pas de colonne deleted_at (pas de soft-delete,
-// cf schema 034) — donc pas de filtre .is('deleted_at', null) ici.
 // Les vues v_registre_securite / v_observations_dashboard sont en security_invoker :
 // la RLS des tables sous-jacentes filtre déjà par site accessible, on filtre en
 // plus par le site actif.
@@ -25,7 +22,7 @@ export const observationsQueries = {
         let q = supabase
           .from('observations')
           .select(
-            'id, source, gravite, description, echeance, statut, date_levee, commentaire_levee, ot_id, equipement_id, created_at, ordres_travail(nom_gamme, deleted_at), equipements(nom, deleted_at)',
+            'id, source, gravite, description, echeance, statut, date_levee, commentaire_levee, ot_id, equipement_id, created_at, ordres_travail(nom_gamme), equipements(nom)',
           )
           .eq('site_id', siteId!)
         if (filtres.statut)
@@ -42,14 +39,7 @@ export const observationsQueries = {
           .order('created_at', { ascending: false })
           .abortSignal(signal)
           .throwOnError()
-        // Masque les références supprimées (OT/équipement soft-deletés) : la
-        // jointure ne filtre pas deleted_at → on neutralise côté client (évite
-        // d'afficher un nom d'OT/équipement « fantôme » supprimé).
-        return data.map((o) => ({
-          ...o,
-          ordres_travail: relationVivante(o.ordres_travail),
-          equipements: relationVivante(o.equipements),
-        }))
+        return data
       },
       staleTime: 60_000,
     }),
@@ -102,7 +92,6 @@ export const otsPourObservationQueries = {
           .from('ordres_travail')
           .select('id, nom_gamme, nom_equipement')
           .eq('site_id', siteId!)
-          .is('deleted_at', null)
           .order('date_prevue', { ascending: false })
           .abortSignal(signal)
           .throwOnError()

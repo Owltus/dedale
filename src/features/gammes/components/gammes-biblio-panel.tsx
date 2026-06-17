@@ -49,7 +49,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ListRow } from '@/components/common/list-row'
 import { OperationRow } from '@/components/common/operation-row'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -953,39 +953,33 @@ export function GammesBiblioPanel() {
         />
       )}
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDeleteGamme !== null}
         onOpenChange={(open) => {
           if (!open) setToDeleteGamme(null)
         }}
-        title="Supprimer la gamme-template ?"
-        description={
+        entityLabel={
           toDeleteGamme
-            ? `« ${toDeleteGamme.nom} » sera supprimée définitivement.`
-            : undefined
+            ? `la gamme-template « ${toDeleteGamme.nom} »`
+            : 'la gamme-template'
         }
-        confirmLabel="Supprimer"
-        destructive
+        warning="Ses opérations seront également supprimées définitivement."
         loading={delGamme.isPending}
         onConfirm={confirmDeleteGamme}
       />
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDeleteCategorie !== null}
         onOpenChange={(open) => {
           if (!open) setToDeleteCategorie(null)
         }}
-        title="Supprimer la catégorie ?"
-        description={
+        entityLabel={
           toDeleteCategorie
-            ? toDeleteCategorieNonVide
-              ? 'Cette catégorie contient des sous-catégories ou des gammes : videz-la d’abord.'
-              : `« ${toDeleteCategorie.nom} » sera supprimée définitivement.`
-            : undefined
+            ? `la catégorie « ${toDeleteCategorie.nom} »`
+            : 'la catégorie'
         }
-        confirmLabel="Supprimer"
-        destructive
-        confirmDisabled={toDeleteCategorieNonVide}
+        blocked={toDeleteCategorieNonVide}
+        blockedReason="Cette catégorie contient des sous-catégories ou des gammes. Vide-la d’abord pour pouvoir la supprimer."
         loading={delCategorie.isPending}
         onConfirm={confirmDeleteCategorie}
       />
@@ -1186,19 +1180,14 @@ function GammeBiblioDetail({
         />
       )}
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDelete !== null}
         onOpenChange={(open) => {
           if (!open) setToDelete(null)
         }}
-        title="Supprimer l’opération ?"
-        description={
-          toDelete
-            ? `« ${toDelete.nom} » sera définitivement retirée.`
-            : undefined
+        entityLabel={
+          toDelete ? `l’opération « ${toDelete.nom} »` : 'l’opération'
         }
-        confirmLabel="Supprimer"
-        destructive
         loading={del.isPending}
         onConfirm={confirmDelete}
       />

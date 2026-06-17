@@ -19,7 +19,6 @@ export const planningQueries = {
             'id, statut, gamme_id, nom_gamme, nature_gamme, nom_prestataire, nom_equipement, libelle_periodicite, date_prevue',
           )
           .eq('site_id', siteId!)
-          .is('deleted_at', null)
           .gte('date_prevue', debut)
           .lte('date_prevue', fin)
           .order('date_prevue', { ascending: true })

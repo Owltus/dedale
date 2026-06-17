@@ -66,14 +66,14 @@ export function useCreateOt() {
   })
 }
 
-/** Soft-delete d'un OT (hard-delete interdit côté backend). */
+/** Suppression définitive (hard-delete) d'un OT. */
 export function useDeleteOt() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
       await supabase
         .from('ordres_travail')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .select('id')
         .single()

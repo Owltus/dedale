@@ -50,7 +50,6 @@ export type Database = {
       batiments: {
         Row: {
           created_at: string
-          deleted_at: string | null
           description: string | null
           id: string
           image_path: string | null
@@ -61,7 +60,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          deleted_at?: string | null
           description?: string | null
           id?: string
           image_path?: string | null
@@ -72,7 +70,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          deleted_at?: string | null
           description?: string | null
           id?: string
           image_path?: string | null
@@ -123,7 +120,6 @@ export type Database = {
         Row: {
           copie_depuis_id: string | null
           created_at: string
-          deleted_at: string | null
           description: string | null
           est_actif: boolean
           id: string
@@ -141,7 +137,6 @@ export type Database = {
         Insert: {
           copie_depuis_id?: string | null
           created_at?: string
-          deleted_at?: string | null
           description?: string | null
           est_actif?: boolean
           id?: string
@@ -159,7 +154,6 @@ export type Database = {
         Update: {
           copie_depuis_id?: string | null
           created_at?: string
-          deleted_at?: string | null
           description?: string | null
           est_actif?: boolean
           id?: string
@@ -465,7 +459,6 @@ export type Database = {
           created_by: string
           date_constat: string
           date_resolution: string | null
-          deleted_at: string | null
           description_resolution: string | null
           id: string
           prestataire_id: string | null
@@ -480,7 +473,6 @@ export type Database = {
           created_by: string
           date_constat?: string
           date_resolution?: string | null
-          deleted_at?: string | null
           description_resolution?: string | null
           id?: string
           prestataire_id?: string | null
@@ -495,7 +487,6 @@ export type Database = {
           created_by?: string
           date_constat?: string
           date_resolution?: string | null
-          deleted_at?: string | null
           description_resolution?: string | null
           id?: string
           prestataire_id?: string | null
@@ -684,7 +675,6 @@ export type Database = {
       documents: {
         Row: {
           chapitre_id: string | null
-          deleted_at: string | null
           hash_sha256: string
           id: string
           mime_type: string
@@ -698,7 +688,6 @@ export type Database = {
         }
         Insert: {
           chapitre_id?: string | null
-          deleted_at?: string | null
           hash_sha256: string
           id?: string
           mime_type: string
@@ -712,7 +701,6 @@ export type Database = {
         }
         Update: {
           chapitre_id?: string | null
-          deleted_at?: string | null
           hash_sha256?: string
           id?: string
           mime_type?: string
@@ -1115,7 +1103,6 @@ export type Database = {
           created_at: string
           date_fin_garantie: string | null
           date_mise_en_service: string | null
-          deleted_at: string | null
           id: string
           image_path: string | null
           local_id: string
@@ -1131,7 +1118,6 @@ export type Database = {
           created_at?: string
           date_fin_garantie?: string | null
           date_mise_en_service?: string | null
-          deleted_at?: string | null
           id?: string
           image_path?: string | null
           local_id: string
@@ -1147,7 +1133,6 @@ export type Database = {
           created_at?: string
           date_fin_garantie?: string | null
           date_mise_en_service?: string | null
-          deleted_at?: string | null
           id?: string
           image_path?: string | null
           local_id?: string
@@ -1240,7 +1225,6 @@ export type Database = {
           copie_depuis_id: string | null
           created_at: string
           created_by: string
-          deleted_at: string | null
           description: string | null
           est_active: boolean
           id: string
@@ -1258,7 +1242,6 @@ export type Database = {
           copie_depuis_id?: string | null
           created_at?: string
           created_by: string
-          deleted_at?: string | null
           description?: string | null
           est_active?: boolean
           id?: string
@@ -1276,7 +1259,6 @@ export type Database = {
           copie_depuis_id?: string | null
           created_at?: string
           created_by?: string
-          deleted_at?: string | null
           description?: string | null
           est_active?: boolean
           id?: string
@@ -1411,7 +1393,6 @@ export type Database = {
           date_demande: string
           date_fin: string | null
           date_prevue: string | null
-          deleted_at: string | null
           description: string | null
           id: string
           prestataire_id: string | null
@@ -1428,7 +1409,6 @@ export type Database = {
           date_demande?: string
           date_fin?: string | null
           date_prevue?: string | null
-          deleted_at?: string | null
           description?: string | null
           id?: string
           prestataire_id?: string | null
@@ -1445,7 +1425,6 @@ export type Database = {
           date_demande?: string
           date_fin?: string | null
           date_prevue?: string | null
-          deleted_at?: string | null
           description?: string | null
           id?: string
           prestataire_id?: string | null
@@ -1511,7 +1490,6 @@ export type Database = {
           created_at: string
           created_by: string
           date_demande: string
-          deleted_at: string | null
           depense_reelle: number | null
           description: string | null
           id: string
@@ -1526,7 +1504,6 @@ export type Database = {
           created_at?: string
           created_by: string
           date_demande?: string
-          deleted_at?: string | null
           depense_reelle?: number | null
           description?: string | null
           id?: string
@@ -1541,7 +1518,6 @@ export type Database = {
           created_at?: string
           created_by?: string
           date_demande?: string
-          deleted_at?: string | null
           depense_reelle?: number | null
           description?: string | null
           id?: string
@@ -1594,7 +1570,6 @@ export type Database = {
         Row: {
           chauffe_climatise: boolean
           created_at: string
-          deleted_at: string | null
           description: string | null
           id: string
           image_path: string | null
@@ -1608,7 +1583,6 @@ export type Database = {
         Insert: {
           chauffe_climatise?: boolean
           created_at?: string
-          deleted_at?: string | null
           description?: string | null
           id?: string
           image_path?: string | null
@@ -1622,7 +1596,6 @@ export type Database = {
         Update: {
           chauffe_climatise?: boolean
           created_at?: string
-          deleted_at?: string | null
           description?: string | null
           id?: string
           image_path?: string | null
@@ -1746,7 +1719,6 @@ export type Database = {
           constat_modele: string
           created_at: string
           created_by: string
-          deleted_at: string | null
           est_actif: boolean
           id: string
           libelle: string
@@ -1758,7 +1730,6 @@ export type Database = {
           constat_modele: string
           created_at?: string
           created_by: string
-          deleted_at?: string | null
           est_actif?: boolean
           id?: string
           libelle: string
@@ -1770,7 +1741,6 @@ export type Database = {
           constat_modele?: string
           created_at?: string
           created_by?: string
-          deleted_at?: string | null
           est_actif?: boolean
           id?: string
           libelle?: string
@@ -1828,7 +1798,6 @@ export type Database = {
           categorie_id: string
           created_at: string
           created_by: string | null
-          deleted_at: string | null
           description: string | null
           est_actif: boolean
           id: string
@@ -1843,7 +1812,6 @@ export type Database = {
           categorie_id: string
           created_at?: string
           created_by?: string | null
-          deleted_at?: string | null
           description?: string | null
           est_actif?: boolean
           id?: string
@@ -1858,7 +1826,6 @@ export type Database = {
           categorie_id?: string
           created_at?: string
           created_by?: string | null
-          deleted_at?: string | null
           description?: string | null
           est_actif?: boolean
           id?: string
@@ -1925,7 +1892,6 @@ export type Database = {
         Row: {
           categorie_id: string
           created_at: string
-          deleted_at: string | null
           description: string | null
           id: string
           image_path: string | null
@@ -1937,7 +1903,6 @@ export type Database = {
         Insert: {
           categorie_id: string
           created_at?: string
-          deleted_at?: string | null
           description?: string | null
           id?: string
           image_path?: string | null
@@ -1949,7 +1914,6 @@ export type Database = {
         Update: {
           categorie_id?: string
           created_at?: string
-          deleted_at?: string | null
           description?: string | null
           id?: string
           image_path?: string | null
@@ -2071,7 +2035,6 @@ export type Database = {
         Row: {
           batiment_id: string
           created_at: string
-          deleted_at: string | null
           description: string | null
           id: string
           image_path: string | null
@@ -2083,7 +2046,6 @@ export type Database = {
         Insert: {
           batiment_id: string
           created_at?: string
-          deleted_at?: string | null
           description?: string | null
           id?: string
           image_path?: string | null
@@ -2095,7 +2057,6 @@ export type Database = {
         Update: {
           batiment_id?: string
           created_at?: string
-          deleted_at?: string | null
           description?: string | null
           id?: string
           image_path?: string | null
@@ -2434,7 +2395,6 @@ export type Database = {
           date_cloture: string | null
           date_debut: string | null
           date_prevue: string
-          deleted_at: string | null
           description_gamme: string | null
           gamme_id: string | null
           id: string
@@ -2464,7 +2424,6 @@ export type Database = {
           date_cloture?: string | null
           date_debut?: string | null
           date_prevue: string
-          deleted_at?: string | null
           description_gamme?: string | null
           gamme_id?: string | null
           id?: string
@@ -2494,7 +2453,6 @@ export type Database = {
           date_cloture?: string | null
           date_debut?: string | null
           date_prevue?: string
-          deleted_at?: string | null
           description_gamme?: string | null
           gamme_id?: string | null
           id?: string
@@ -2608,7 +2566,6 @@ export type Database = {
           code_postal: string | null
           commentaires: string | null
           created_at: string
-          deleted_at: string | null
           email: string | null
           est_interne: boolean
           id: string
@@ -2627,7 +2584,6 @@ export type Database = {
           code_postal?: string | null
           commentaires?: string | null
           created_at?: string
-          deleted_at?: string | null
           email?: string | null
           est_interne?: boolean
           id?: string
@@ -2646,7 +2602,6 @@ export type Database = {
           code_postal?: string | null
           commentaires?: string | null
           created_at?: string
-          deleted_at?: string | null
           email?: string | null
           est_interne?: boolean
           id?: string
@@ -2798,7 +2753,6 @@ export type Database = {
           adresse: string | null
           code_postal: string | null
           created_at: string
-          deleted_at: string | null
           id: string
           nom: string
           updated_at: string
@@ -2808,7 +2762,6 @@ export type Database = {
           adresse?: string | null
           code_postal?: string | null
           created_at?: string
-          deleted_at?: string | null
           id?: string
           nom: string
           updated_at?: string
@@ -2818,7 +2771,6 @@ export type Database = {
           adresse?: string | null
           code_postal?: string | null
           created_at?: string
-          deleted_at?: string | null
           id?: string
           nom?: string
           updated_at?: string
@@ -3170,7 +3122,6 @@ export type Database = {
           created_at: string | null
           date_fin_garantie: string | null
           date_mise_en_service: string | null
-          deleted_at: string | null
           id: string | null
           image_path: string | null
           local_id: string | null
@@ -3510,7 +3461,6 @@ export type Database = {
           adresse: string | null
           code_postal: string | null
           created_at: string
-          deleted_at: string | null
           id: string
           nom: string
           updated_at: string
@@ -3556,7 +3506,6 @@ export type Database = {
         Args: { p_miniature_id: string; p_target_site_id: string }
         Returns: boolean
       }
-      purge_corbeille_90j: { Args: never; Returns: Json }
       reouvrir_ot: {
         Args: { p_motif: string; p_ot_id: string }
         Returns: {
@@ -3567,7 +3516,6 @@ export type Database = {
           date_cloture: string | null
           date_debut: string | null
           date_prevue: string
-          deleted_at: string | null
           description_gamme: string | null
           gamme_id: string | null
           id: string

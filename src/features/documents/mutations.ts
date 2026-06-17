@@ -73,14 +73,14 @@ export function useDetachDocument() {
   })
 }
 
-/** Soft-delete d'un document (côté backend). */
+/** Suppression définitive (hard-delete) d'un document. */
 export function useDeleteDocument() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
       await supabase
         .from('documents')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .select('id')
         .single()

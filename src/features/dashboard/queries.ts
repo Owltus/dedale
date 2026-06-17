@@ -1,6 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { relationVivante } from '@/lib/relations'
 
 /**
  * Requêtes propres au tableau de bord (agrégats du site actif).
@@ -30,7 +29,7 @@ export const dashboardQueries = {
         const { data } = await supabase
           .from('contrats')
           .select(
-            'id, reference, date_fin, prestataire_id, est_archive, types_contrats(id, libelle), prestataires(id, libelle, deleted_at)',
+            'id, reference, date_fin, prestataire_id, est_archive, types_contrats(id, libelle), prestataires(id, libelle)',
           )
           .eq('site_id', siteId!)
           .eq('est_archive', false)
@@ -38,11 +37,7 @@ export const dashboardQueries = {
           .order('date_fin', { ascending: true })
           .abortSignal(signal)
           .throwOnError()
-        // Masque un prestataire supprimé (jointure non filtrée par deleted_at).
-        return data.map((c) => ({
-          ...c,
-          prestataires: relationVivante(c.prestataires),
-        }))
+        return data
       },
       staleTime: 60_000,
     }),
@@ -61,7 +56,6 @@ export const dashboardQueries = {
           .from('documents')
           .select('id, nom_original, mime_type, uploaded_at')
           .eq('site_id', siteId!)
-          .is('deleted_at', null)
           .order('uploaded_at', { ascending: false })
           .limit(5)
           .abortSignal(signal)

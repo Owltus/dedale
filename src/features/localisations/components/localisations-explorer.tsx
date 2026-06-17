@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building, DoorOpen, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { localisationsQueries } from '../queries'
@@ -30,7 +30,7 @@ import { ListRow } from '@/components/common/list-row'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 
@@ -55,6 +55,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   const canEdit = perm.canManageMetier(role)
   const { segs, goTo } = useLocalisationsDrill()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+  const qc = useQueryClient()
 
   const batimentsQuery = useQuery(localisationsQueries.batiments(siteId))
   const batiments = useMemo(
@@ -162,6 +163,35 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
     })
   }
 
+  // La base REFUSE la suppression d'un bâtiment NON VIDE (≥ 1 niveau) ou d'un
+  // niveau NON VIDE (≥ 1 local). On le détecte EN AMONT depuis les données déjà
+  // chargées — la liste d'enfants en cache (palier déjà visité) ou l'agrégat de
+  // surface (> 0 ⇒ contient des locaux, donc des enfants) — pour bloquer la
+  // confirmation et l'expliquer ; la base reste l'arbitre réel. Le local est une
+  // feuille → suppression toujours permise.
+  const deleteBlocked = useMemo(() => {
+    if (!toDelete) return false
+    if (toDelete.kind === 'batiment') {
+      const niveauxCache = qc.getQueryData(
+        localisationsQueries.niveaux(toDelete.item.id).queryKey,
+      )
+      return (
+        (niveauxCache?.length ?? 0) > 0 ||
+        (surfaceBatiment.get(toDelete.item.id)?.surface_m2 ?? 0) > 0
+      )
+    }
+    if (toDelete.kind === 'niveau') {
+      const locauxCache = qc.getQueryData(
+        localisationsQueries.locaux(toDelete.item.id).queryKey,
+      )
+      return (
+        (locauxCache?.length ?? 0) > 0 ||
+        (surfaceNiveau.get(toDelete.item.id)?.surface_m2 ?? 0) > 0
+      )
+    }
+    return false
+  }, [toDelete, qc, surfaceBatiment, surfaceNiveau])
+
   // --- En-tête (titre racine ou fil d'Ariane) + action de création du palier. ---
   const newBtn = (label: string, onClick: () => void) =>
     canEdit ? (
@@ -248,25 +278,27 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
           local={locForm.local}
         />
       )}
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDelete !== null}
         onOpenChange={(open) => {
           if (!open) setToDelete(null)
         }}
-        title={
+        entityLabel={
           toDelete?.kind === 'batiment'
-            ? 'Supprimer le bâtiment ?'
+            ? `le bâtiment « ${toDelete.item.nom} »`
             : toDelete?.kind === 'niveau'
-              ? 'Supprimer le niveau ?'
-              : 'Supprimer le local ?'
+              ? `le niveau « ${toDelete.item.nom} »`
+              : toDelete?.kind === 'local'
+                ? `le local « ${toDelete.item.nom} »`
+                : 'l’élément'
         }
-        description={
-          toDelete
-            ? `« ${toDelete.item.nom} » sera supprimé définitivement.`
-            : undefined
+        blocked={deleteBlocked}
+        blockedReason={
+          toDelete?.kind === 'batiment'
+            ? 'Ce bâtiment contient des niveaux. Vide-le d’abord pour pouvoir le supprimer.'
+            : 'Ce niveau contient des locaux. Vide-le d’abord pour pouvoir le supprimer.'
         }
-        confirmLabel="Supprimer"
-        destructive
+        warning="Cette suppression est définitive."
         loading={del.isPending}
         onConfirm={confirmDelete}
       />

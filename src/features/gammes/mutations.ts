@@ -100,13 +100,8 @@ export function useDeleteGamme() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      await supabase
-        .from('gammes')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id)
-        .select('id')
-        .single()
-        .throwOnError()
+      // Suppression définitive (hard-delete).
+      await supabase.from('gammes').delete().eq('id', id).throwOnError()
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
   })

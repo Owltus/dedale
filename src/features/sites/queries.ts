@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 export const sitesQueries = {
   all: () => ['sites'] as const,
 
-  /** Tous les sites non supprimés (RLS : admin = tous). Pour l'écran d'administration. */
+  /** Tous les sites (RLS : admin = tous). Pour l'écran d'administration. */
   list: () =>
     queryOptions({
       queryKey: [...sitesQueries.all(), 'list'] as const,
@@ -12,7 +12,6 @@ export const sitesQueries = {
         const { data } = await supabase
           .from('sites')
           .select('*')
-          .is('deleted_at', null)
           .order('nom')
           .throwOnError()
         return data

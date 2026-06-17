@@ -19,7 +19,6 @@ export const modelesDiQueries = {
         const { data } = await supabase
           .from('modeles_di')
           .select('*')
-          .is('deleted_at', null)
           .order('libelle')
           .abortSignal(signal)
           .throwOnError()

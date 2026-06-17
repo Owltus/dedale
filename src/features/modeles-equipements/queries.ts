@@ -26,7 +26,6 @@ export const modelesEquipementsQueries = {
           // nom de contrainte FK, sinon PostgREST refuse l'embed (ambigu).
           .select('*, categories!modeles_equipements_categorie_id_fkey(id, nom)')
           .eq('est_actif', true)
-          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
@@ -54,7 +53,6 @@ export const modelesEquipementsQueries = {
           // categories.modele_equipement_id en sens inverse). On force la 1re via le
           // nom de contrainte FK, sinon PostgREST refuse l'embed (ambigu).
           .select('*, categories!modeles_equipements_categorie_id_fkey(id, nom)')
-          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
@@ -78,7 +76,6 @@ export const modelesEquipementsQueries = {
           // categories.modele_equipement_id en sens inverse). On force la 1re via le
           // nom de contrainte FK, sinon PostgREST refuse l'embed (ambigu).
           .select('*, categories!modeles_equipements_categorie_id_fkey(id, nom)')
-          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()

@@ -71,15 +71,9 @@ export function useDeleteMiniature() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Suppression sûre : refusée tant qu'une entité référence la miniature.
-      const { data: refs } = await supabase
-        .rpc('count_miniature_refs', { p_miniature_id: id })
-        .throwOnError()
-      if (refs > 0) {
-        throw new Error(
-          `Image utilisée par ${String(refs)} élément(s) : retire-la d’abord de ces entités.`,
-        )
-      }
+      // Suppression PERMISSIVE : une vignette est purement cosmétique. Les entités
+      // qui la référencent (modèles, gammes, lieux…) sont détachées automatiquement
+      // par la base (FK ON DELETE SET NULL) ; l'impact est montré côté UI avant clic.
       // Chemin Storage récupéré AVANT de détruire le pointeur.
       const { data: row } = await supabase
         .from('miniatures')

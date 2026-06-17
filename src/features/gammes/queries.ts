@@ -63,7 +63,6 @@ export const gammesQueries = {
             '*, periodicites(id, libelle, jours_periodicite), prestataires(id, libelle)',
           )
           .eq('site_id', siteId!)
-          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
@@ -87,7 +86,6 @@ export const gammesQueries = {
           .select(
             '*, periodicites(id, libelle, jours_periodicite), prestataires(id, libelle), categories(id, nom, parent_id, scope)',
           )
-          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
@@ -120,7 +118,6 @@ export const gammesQueries = {
         const { data } = await supabase
           .from('categories')
           .select('id, nom, parent_id, scope, site_id, est_actif, ordre')
-          .is('deleted_at', null)
           .eq('est_actif', true)
           .in('scope', ['gamme', 'mixte'])
           .order('ordre')

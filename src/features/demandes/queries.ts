@@ -17,7 +17,6 @@ export const demandesQueries = {
           .from('demandes_intervention')
           .select('*')
           .eq('site_id', siteId!)
-          .is('deleted_at', null)
           .order('date_constat', { ascending: false })
           .order('created_at', { ascending: false })
           .abortSignal(signal)
@@ -36,7 +35,6 @@ export const demandesQueries = {
           .from('demandes_intervention')
           .select('*')
           .eq('id', id)
-          .is('deleted_at', null)
           .abortSignal(signal)
           .maybeSingle()
           .throwOnError()
@@ -107,7 +105,6 @@ export const modelesDiQueries = {
         const { data } = await supabase
           .from('modeles_di')
           .select('id, libelle, constat_modele')
-          .is('deleted_at', null)
           .or(`site_id.is.null,site_id.eq.${siteId!}`)
           .eq('est_actif', true)
           .order('libelle')

@@ -44,7 +44,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 
@@ -565,39 +565,29 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         />
       )}
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDelete !== null}
         onOpenChange={(open) => {
           if (!open) setToDelete(null)
         }}
-        title="Supprimer l’équipement ?"
-        description={
-          toDelete
-            ? `« ${toDelete.nom ?? ''} » sera supprimé définitivement.`
-            : undefined
-        }
-        confirmLabel="Supprimer"
-        destructive
+        entityLabel={`l’équipement « ${toDelete?.nom ?? ''} »`}
+        // Le backend refuse la suppression d'un équipement rattaché à une gamme
+        // active (FK/trigger). Cette info n'est pas chargée ici → on prévient en
+        // amont ; l'erreur 23503/42501 reste catchée en filet (toast onError).
+        warning="Si cet équipement est rattaché à une ou plusieurs gammes, la suppression sera refusée : détache-le d’abord."
         loading={del.isPending}
         onConfirm={confirmDelete}
       />
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDeleteCategorie !== null}
         onOpenChange={(open) => {
           if (!open) setToDeleteCategorie(null)
         }}
-        title="Supprimer la catégorie ?"
-        description={
-          toDeleteCategorie
-            ? toDeleteCategorieNonVide
-              ? 'Cette catégorie contient des sous-catégories ou des équipements : videz-la d’abord.'
-              : `« ${toDeleteCategorie.nom} » sera supprimée définitivement.`
-            : undefined
-        }
-        confirmLabel="Supprimer"
-        destructive
-        confirmDisabled={toDeleteCategorieNonVide}
+        entityLabel={`la catégorie « ${toDeleteCategorie?.nom ?? ''} »`}
+        blocked={toDeleteCategorieNonVide}
+        blockedReason="Cette catégorie contient des sous-catégories ou des équipements. Vide-la d’abord pour pouvoir la supprimer."
+        warning="Cette suppression est définitive."
         loading={delCategorie.isPending}
         onConfirm={confirmDeleteCategorie}
       />

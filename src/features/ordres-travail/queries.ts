@@ -16,7 +16,6 @@ export const ordresTravailQueries = {
             'id, statut, nom_gamme, nom_prestataire, nom_equipement, nature_gamme, date_prevue, date_cloture, libelle_periodicite',
           )
           .eq('site_id', siteId!)
-          .is('deleted_at', null)
           .order('date_prevue', { ascending: true })
           .abortSignal(signal)
           .throwOnError()
@@ -34,7 +33,6 @@ export const ordresTravailQueries = {
           .from('ordres_travail')
           .select('*')
           .eq('id', id)
-          .is('deleted_at', null)
           .abortSignal(signal)
           .maybeSingle()
           .throwOnError()
@@ -73,7 +71,6 @@ export const gammesPourOtQueries = {
           .select('id, nom, nature, prestataire_id, periodicites(libelle)')
           .eq('site_id', siteId!)
           .eq('est_active', true)
-          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()

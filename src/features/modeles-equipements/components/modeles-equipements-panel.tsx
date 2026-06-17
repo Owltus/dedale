@@ -49,7 +49,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ListRow } from '@/components/common/list-row'
 import { Button } from '@/components/ui/button'
 import { ScopeBadges } from '@/components/common/scope-badges'
@@ -736,39 +736,30 @@ export function ModelesEquipementsPanel() {
       {/* Création / édition de modèle (nom + description) dans la catégorie. */}
       {modeleFormDialog}
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDelete !== null}
         onOpenChange={(open) => {
           if (!open) setToDelete(null)
         }}
-        title="Supprimer le modèle ?"
-        description={
-          toDelete
-            ? `« ${toDelete.nom} » sera supprimé définitivement.`
-            : undefined
-        }
-        confirmLabel="Supprimer"
-        destructive
+        entityLabel={toDelete ? `le modèle « ${toDelete.nom} »` : 'le modèle'}
+        warning="Cette suppression est définitive."
         loading={del.isPending}
         onConfirm={confirmDelete}
       />
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDeleteCategorie !== null}
         onOpenChange={(open) => {
           if (!open) setToDeleteCategorie(null)
         }}
-        title="Supprimer la catégorie ?"
-        description={
+        entityLabel={
           toDeleteCategorie
-            ? toDeleteCategorieNonVide
-              ? 'Cette catégorie contient des sous-catégories ou des modèles : videz-la d’abord.'
-              : `« ${toDeleteCategorie.nom} » sera supprimée définitivement.`
-            : undefined
+            ? `la catégorie « ${toDeleteCategorie.nom} »`
+            : 'la catégorie'
         }
-        confirmLabel="Supprimer"
-        destructive
-        confirmDisabled={toDeleteCategorieNonVide}
+        blocked={toDeleteCategorieNonVide}
+        blockedReason="Cette catégorie contient des sous-catégories ou des modèles. Vide-la d’abord pour pouvoir la supprimer."
+        warning="Cette suppression est définitive."
         loading={delCategorie.isPending}
         onConfirm={confirmDeleteCategorie}
       />

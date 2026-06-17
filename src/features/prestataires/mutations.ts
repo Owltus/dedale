@@ -65,14 +65,8 @@ export function useDeletePrestataire() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft-delete : on pose deleted_at (côté backend).
-      await supabase
-        .from('prestataires')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id)
-        .select('id')
-        .single()
-        .throwOnError()
+      // Suppression définitive (hard-delete).
+      await supabase.from('prestataires').delete().eq('id', id).throwOnError()
     },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: prestatairesQueries.all() }),

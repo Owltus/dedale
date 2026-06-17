@@ -15,7 +15,6 @@ export const prestatairesQueries = {
         const { data } = await supabase
           .from('prestataires')
           .select('*')
-          .is('deleted_at', null)
           .order('libelle')
           .abortSignal(signal)
           .throwOnError()

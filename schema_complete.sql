@@ -108,7 +108,7 @@
 -- ▶ BLOC 8 — SÉCURITÉ & AUTOMATION (060 à 070)
 --    060  Toutes les policies RLS (rôle + scope site)
 --    061  Fix compartimentage (override doc_*_select + triggers cohérence site)
---    070  Cron job Supabase (purge corbeille 90 j)
+--    070  Cron jobs Supabase (storage orphans, comptes inactifs, anomalies)
 --
 -- COMPTEURS (single-tenant, 2026-06-03 — patch v0.33, interventions de chantier + CapEx) :
 --   56 tables (+statuts_chantier, statuts_capex, interventions_chantier,
@@ -118,23 +118,20 @@
 --   + 5 storage ; inclut les policies générées par boucle DO sur les référentiels),
 --   160 index (dont 1 UNIQUE partiel uq_ot_gamme_date_actifs anti-TOCTOU ; +idx_locaux_type ;
 --   +14 index chantier/capex en v0.33, dont les 4 index de FK ajoutés post-audit),
---   4 cron jobs (purge_corbeille_90j quotidien + cleanup_storage_orphans
---   mensuel + deactivate_inactive_users mensuel + detect_security_anomalies
---   horaire), 4 VIEWs (toutes en security_invoker), 5 rôles utilisateur.
+--   3 cron jobs (cleanup_storage_orphans mensuel + deactivate_inactive_users
+--   mensuel + detect_security_anomalies horaire), 4 VIEWs (toutes en
+--   security_invoker), 5 rôles utilisateur.
 --   Bibliothèque de gammes : gammes.site_id (scope 2 niveaux) +
 --   copier_gamme() + check_ot_gamme_site() (modèle inerte).
---   Soft-delete unifié (refonte 2026-05-23 ; 025 : code de restauration retiré) :
---     - Verrou de structure sur catégories : suppression bloquée si
---       sous-catégorie ou gamme vivante (check_categorie_suppression).
---       Suppression bas → haut, étape par étape.
---     - Cascade gamme → OT (cascade_corbeille_gamme) : supprimer une gamme
---       entraîne ses OT en corbeille.
---     - OT en statut 'cloture' : preuve légale, jamais purgés
---       automatiquement par le cron.
---     - Lien souple OT → gamme (ON DELETE SET NULL) : un OT clôturé
---       survit à la purge de sa gamme via snapshots figés (Pattern 1).
---     - Pas de restauration : l'app n'expose aucun chemin pour ressortir un
---       élément de la corbeille (025 : code de restauration retiré).
+--   Hard-delete (035/036 : soft-delete retiré, colonne de corbeille supprimée) :
+--     - Suppression réelle. Les conteneurs non vides sont refusés par les FK
+--       RESTRICT (catégorie/sous-catégorie, bâtiment/niveau/local) → 23503.
+--     - OT en statut 'cloture' : preuve légale (immutabilité sur UPDATE) ;
+--       leur DELETE physique reste néanmoins possible (décision PO 035).
+--     - Lien souple OT → gamme (ON DELETE SET NULL) : un OT clôturé survit à
+--       la suppression de sa gamme via snapshots figés (Pattern 1).
+--     - RGPD : cleanup_document_blob (AFTER DELETE ON documents) retire le blob
+--       Storage d'un document supprimé s'il n'est plus rattaché nulle part.
 --
 -- Patch v0.4 — 2026-05-27 (F28 audit sécu, suite des 8 vagues de questions) :
 --   - OT : motif_annulation obligatoire + motif_reouverture obligatoire +
@@ -1175,13 +1172,13 @@ BEGIN
     -- (l'admin a accès à tous les sites).
     IF v_site_ids IS NOT NULL AND array_length(v_site_ids, 1) > 0 THEN
         FOREACH v_site_id IN ARRAY v_site_ids LOOP
-            -- Vérification existence du site (et non en corbeille)
+            -- Vérification existence du site
             IF NOT EXISTS (
                 SELECT 1 FROM public.sites
-                WHERE id = v_site_id AND deleted_at IS NULL
+                WHERE id = v_site_id
             ) THEN
                 RAISE EXCEPTION
-                    'handle_new_auth_user : site_id % introuvable ou en corbeille',
+                    'handle_new_auth_user : site_id % introuvable',
                     v_site_id
                     USING ERRCODE = 'foreign_key_violation';
             END IF;
@@ -1226,7 +1223,6 @@ CREATE TRIGGER on_auth_user_created
 -- Premier niveau de la hiérarchie spatiale Site → Bâtiment → Niveau → ...
 -- Décision V1 : un Site reste SIMPLE (nom, adresse, code postal, ville).
 -- Pas de categorie_erp / type_erp en V1 (ajoutables sans casser plus tard).
--- Corbeille 90 jours via deleted_at (remplace le legacy est_actif).
 -- Dépend de : 001_extensions, 002_enums, set_updated_at() (Agent 1).
 -- =============================================================================
 
@@ -1236,19 +1232,14 @@ CREATE TABLE sites (
     adresse      TEXT,
     code_postal  TEXT,
     ville        TEXT,
-    deleted_at   TIMESTAMPTZ,                                 -- corbeille 90 j (purge cron Agent 5)
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (length(trim(nom)) > 0)
 );
 
--- Unicité du nom dans l'entreprise (uniquement parmi les sites non supprimés)
+-- Unicité du nom dans l'entreprise
 CREATE UNIQUE INDEX uq_sites_nom_active
-    ON sites (lower(nom))
-    WHERE deleted_at IS NULL;
-
--- Index pour la purge corbeille (cron 90 j)
-CREATE INDEX idx_sites_deleted_at ON sites(deleted_at) WHERE deleted_at IS NOT NULL;
+    ON sites (lower(nom));
 
 -- Trigger horodatage
 CREATE TRIGGER trg_sites_updated_at
@@ -1259,7 +1250,6 @@ CREATE TRIGGER trg_sites_updated_at
 ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
 
 COMMENT ON TABLE sites IS 'Sites physiques de l''entreprise (résidence, immeuble, complexe).';
-COMMENT ON COLUMN sites.deleted_at IS 'Soft-delete. NULL = actif. Purgé physiquement après 90 j (cron Agent 5).';
 
 -- FK manquante ajoutée ici car user_sites créée en 005 avant sites
 ALTER TABLE user_sites
@@ -1273,7 +1263,6 @@ ALTER TABLE user_sites
 -- d'exposer la liste complète des sites par erreur. Admin reçoit tous les
 -- sites actifs ; les autres rôles reçoivent ceux de user_sites.
 -- SECURITY DEFINER + search_path = '' (doctrine sécurité — schémas qualifiés).
--- Retourne uniquement les sites non supprimés (deleted_at IS NULL).
 -- Défini ICI (et non dans le bloc auth helpers) car il retourne SETOF
 -- public.sites : la table sites doit exister au préalable.
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -1284,16 +1273,13 @@ SET search_path = ''
 AS $$
     SELECT s.*
     FROM public.sites s
-    WHERE s.deleted_at IS NULL
-      AND (
-          -- Admin actif : tous les sites
+    WHERE (
           EXISTS (
               SELECT 1 FROM public.users u
               WHERE u.id = (SELECT auth.uid())
                 AND u.role_id = (SELECT id FROM public.roles WHERE code = 'admin')
                 AND u.est_actif = true
           )
-          -- Autres rôles : sites de user_sites (user actif)
           OR EXISTS (
               SELECT 1
               FROM public.user_sites us
@@ -1327,18 +1313,15 @@ CREATE TABLE batiments (
     nom         TEXT NOT NULL,
     description TEXT,
     image_path   TEXT,
-    deleted_at  TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (length(trim(nom)) > 0)
 );
 
 CREATE UNIQUE INDEX uq_batiments_site_nom_active
-    ON batiments (site_id, lower(nom))
-    WHERE deleted_at IS NULL;
+    ON batiments (site_id, lower(nom));
 
-CREATE INDEX idx_batiments_site         ON batiments(site_id)    WHERE deleted_at IS NULL;
-CREATE INDEX idx_batiments_deleted_at   ON batiments(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX idx_batiments_site ON batiments(site_id);
 
 CREATE TRIGGER trg_batiments_updated_at
     BEFORE UPDATE ON batiments
@@ -1358,18 +1341,15 @@ CREATE TABLE niveaux (
     ordre       SMALLINT NOT NULL DEFAULT 0,            -- tri logique (SS=-1, RDC=0, R+1=1…)
     description TEXT,
     image_path   TEXT,
-    deleted_at  TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (length(trim(nom)) > 0)
 );
 
 CREATE UNIQUE INDEX uq_niveaux_batiment_nom_active
-    ON niveaux (batiment_id, lower(nom))
-    WHERE deleted_at IS NULL;
+    ON niveaux (batiment_id, lower(nom));
 
-CREATE INDEX idx_niveaux_batiment       ON niveaux(batiment_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_niveaux_deleted_at     ON niveaux(deleted_at)  WHERE deleted_at IS NOT NULL;
+CREATE INDEX idx_niveaux_batiment ON niveaux(batiment_id);
 
 CREATE TRIGGER trg_niveaux_updated_at
     BEFORE UPDATE ON niveaux
@@ -1392,7 +1372,6 @@ CREATE TABLE locaux (
     -- 033 : local chauffé / climatisé (pour la remontée de surface chauffée).
     chauffe_climatise BOOLEAN NOT NULL DEFAULT false,
     image_path    TEXT,
-    deleted_at    TIMESTAMPTZ,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (length(trim(nom)) > 0),
@@ -1400,11 +1379,9 @@ CREATE TABLE locaux (
 );
 
 CREATE UNIQUE INDEX uq_locaux_niveau_nom_active
-    ON locaux (niveau_id, lower(nom))
-    WHERE deleted_at IS NULL;
+    ON locaux (niveau_id, lower(nom));
 
-CREATE INDEX idx_locaux_niveau          ON locaux(niveau_id)  WHERE deleted_at IS NULL;
-CREATE INDEX idx_locaux_deleted_at      ON locaux(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX idx_locaux_niveau          ON locaux(niveau_id);
 CREATE INDEX idx_locaux_type            ON locaux(type_local_id) WHERE type_local_id IS NOT NULL;  -- FK → index
 
 CREATE TRIGGER trg_locaux_updated_at
@@ -1418,8 +1395,7 @@ COMMENT ON TABLE locaux IS 'Locaux (appartement, partie commune, local technique
 -- -----------------------------------------------------------------------------
 -- VIEW v_locaux_chemin
 -- Libellé contextuel à la volée. Remplace nom_localisation_calc legacy.
--- Filtre uniquement les lignes vivantes (deleted_at IS NULL) à tous les niveaux.
--- Chemin court : on omet le site si l'entreprise n'a qu'un seul site actif.
+-- Chemin court : on omet le site si l'entreprise n'a qu'un seul site.
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE VIEW v_locaux_chemin AS
 SELECT
@@ -1435,11 +1411,10 @@ SELECT
     tl.libelle         AS type_local,
     -- chemin complet (toujours non ambigu)
     s.nom || ' / ' || b.nom || ' / ' || n.nom || ' / ' || l.nom AS chemin_complet,
-    -- chemin court : on omet le site si l'entreprise n'en a qu'un seul actif
+    -- chemin court : on omet le site si l'entreprise n'en a qu'un seul
     CASE
         WHEN (
             SELECT count(*) FROM sites s2
-            WHERE s2.deleted_at IS NULL
         ) = 1
             THEN b.nom || ' / ' || n.nom || ' / ' || l.nom
         ELSE     s.nom || ' / ' || b.nom || ' / ' || n.nom || ' / ' || l.nom
@@ -1448,11 +1423,7 @@ FROM locaux l
 JOIN niveaux   n ON n.id = l.niveau_id
 JOIN batiments b ON b.id = n.batiment_id
 JOIN sites     s ON s.id = b.site_id
-LEFT JOIN types_locaux tl ON tl.id = l.type_local_id
-WHERE l.deleted_at IS NULL
-  AND n.deleted_at IS NULL
-  AND b.deleted_at IS NULL
-  AND s.deleted_at IS NULL;
+LEFT JOIN types_locaux tl ON tl.id = l.type_local_id;
 
 COMMENT ON VIEW v_locaux_chemin IS 'Chemin spatial dénormalisé à la volée (remplace nom_localisation_calc legacy + 6 triggers).';
 
@@ -1466,8 +1437,7 @@ SELECT
     COALESCE(SUM(l.surface_m2), 0)  AS surface_m2,
     COALESCE(SUM(l.surface_m2) FILTER (WHERE l.chauffe_climatise), 0) AS surface_chauffee_m2
 FROM niveaux n
-LEFT JOIN locaux l ON l.niveau_id = n.id AND l.deleted_at IS NULL
-WHERE n.deleted_at IS NULL
+LEFT JOIN locaux l ON l.niveau_id = n.id
 GROUP BY n.id, n.batiment_id;
 ALTER VIEW v_niveaux_surface SET (security_invoker = true);
 GRANT SELECT ON v_niveaux_surface TO anon, authenticated;
@@ -1480,9 +1450,8 @@ SELECT
     COALESCE(SUM(l.surface_m2), 0)  AS surface_m2,
     COALESCE(SUM(l.surface_m2) FILTER (WHERE l.chauffe_climatise), 0) AS surface_chauffee_m2
 FROM batiments b
-LEFT JOIN niveaux n ON n.batiment_id = b.id AND n.deleted_at IS NULL
-LEFT JOIN locaux  l ON l.niveau_id = n.id   AND l.deleted_at IS NULL
-WHERE b.deleted_at IS NULL
+LEFT JOIN niveaux n ON n.batiment_id = b.id
+LEFT JOIN locaux  l ON l.niveau_id = n.id
 GROUP BY b.id, b.site_id;
 ALTER VIEW v_batiments_surface SET (security_invoker = true);
 GRANT SELECT ON v_batiments_surface TO anon, authenticated;
@@ -1519,7 +1488,6 @@ CREATE TABLE categories (
     image_path       TEXT,
     ordre           SMALLINT NOT NULL DEFAULT 0,
     est_actif       BOOLEAN NOT NULL DEFAULT true,
-    deleted_at      TIMESTAMPTZ,                   -- soft-delete (corbeille 90j)
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (length(trim(nom)) > 0),
@@ -1534,22 +1502,18 @@ CREATE TABLE categories (
 -- Unicité du nom (insensible à la casse) par TYPE (scope) dans un même périmètre
 -- (entreprise/site) + parent : une catégorie « Sécurité incendie » d'ÉQUIPEMENT et
 -- une de GAMME peuvent coexister au même emplacement (scope ajouté à la clé en
--- migration 011). WHERE deleted_at IS NULL : une catégorie mise en corbeille libère
--- son nom, ce qui permet d'en recréer une homonyme sans hack d'archivage.
+-- migration 011).
 CREATE UNIQUE INDEX uq_categories_nom
     ON categories (
         COALESCE(site_id::text,   'ALL_SITES'),
         COALESCE(parent_id::text, 'ROOT'),
         scope,
         lower(nom)
-    )
-    WHERE deleted_at IS NULL;
+    );
 
 CREATE INDEX idx_categories_parent ON categories(parent_id);
 CREATE INDEX idx_categories_site   ON categories(site_id);
 CREATE INDEX idx_categories_scope  ON categories(scope);
--- Index partiel pour le cron purge_corbeille_90j (balayage des catégories en corbeille)
-CREATE INDEX idx_categories_deleted ON categories(deleted_at) WHERE deleted_at IS NOT NULL;
 
 CREATE TRIGGER trg_categories_updated_at
     BEFORE UPDATE ON categories
@@ -1611,45 +1575,23 @@ DECLARE
     p_scope  public.categorie_scope;
     p_parent UUID;
 BEGIN
-    -- 1 niveau equipement — verrou AUSSI sur changement de scope (durcissement
-    -- 2026-06-10) : « UPDATE categories SET scope = 'equipement' » sur une racine
-    -- gamme/mixte AYANT DÉJÀ des enfants n'était bloqué par rien — le CHECK ne
-    -- regarde que le parent_id propre, le verrou ancêtre ne cible que 'gamme'/'mixte',
-    -- et le bloc parent_id IS NULL ci-dessous ne teste que les gammes → on obtenait
-    -- une catégorie equipement AVEC des sous-catégories. Une catégorie equipement
-    -- étant TOUJOURS racine, on contrôle EN TÊTE, avant le RETURN du bloc
-    -- parent_id IS NULL. Le trigger surveillant déjà 'scope', ce garde se déclenche
-    -- bien sur le passage scope → equipement.
-    -- (015 : 'operation' traité comme 'equipement' — 1 seul niveau, racine-only.)
+    -- 1 niveau equipement/operation : toujours racine -> pas de sous-catégorie.
     IF NEW.scope IN ('equipement', 'operation') AND EXISTS (
         SELECT 1 FROM public.categories e
          WHERE e.parent_id = NEW.id
-           AND e.deleted_at IS NULL
     ) THEN
         RAISE EXCEPTION 'Une catégorie d''équipement ou d''opération ne peut pas avoir de sous-catégories (1 seul niveau).'
             USING ERRCODE = 'check_violation';
     END IF;
 
-    -- Garde anti-promotion en racine (durcissement 2026-06-10) : un
-    -- « UPDATE categories SET parent_id = NULL » sur une sous-catégorie portant des
-    -- gammes la promeut en racine ; check_gamme_categorie ne re-valide PAS la gamme
-    -- quand SEULE la catégorie bouge → les gammes filles violeraient silencieusement
-    -- « gamme → sous-catégorie ». Le trigger se déclenche désormais aussi sur
-    -- parent_id NULL (clause WHEN retirée) pour attraper ce cas. Durcissement
-    -- 2026-06-10 (symétrie corbeille) : on NE filtre PLUS g.deleted_at — une
-    -- sous-catégorie ne portant que des gammes EN CORBEILLE pouvait être promue en
-    -- racine, puis ces gammes ressurgissaient à la restauration en pointant une
-    -- racine (le trigger gamme n'écoute pas deleted_at → violation silencieuse). On
-    -- bloque donc dès qu'une gamme y est rattachée, VIVANTE OU EN CORBEILLE (il faut
-    -- d'abord les réassigner). Cas légitimes préservés : INSERT d'une vraie racine,
-    -- ou promotion d'une sous-catégorie SANS aucune gamme (ni vivante ni en
-    -- corbeille) → aucun EXISTS → permis.
+    -- Anti-promotion en racine : une sous-catégorie portant des gammes ne peut
+    -- pas être promue en racine (une gamme doit rester dans une sous-catégorie).
     IF NEW.parent_id IS NULL THEN
         IF EXISTS (
             SELECT 1 FROM public.gammes g
              WHERE g.categorie_id = NEW.id
         ) THEN
-            RAISE EXCEPTION 'Impossible de promouvoir cette catégorie en racine : des gammes (y compris en corbeille) y sont rangées (une gamme doit rester dans une sous-catégorie) — réassignez-les d''abord.'
+            RAISE EXCEPTION 'Impossible de promouvoir cette catégorie en racine : des gammes y sont rangées (une gamme doit rester dans une sous-catégorie) — réassignez-les d''abord.'
                 USING ERRCODE = 'check_violation';
         END IF;
         RETURN NEW;
@@ -1689,7 +1631,6 @@ BEGIN
        AND EXISTS (
            SELECT 1 FROM public.categories enfant
             WHERE enfant.parent_id = NEW.id
-              AND enfant.deleted_at IS NULL
        ) THEN
         RAISE EXCEPTION 'Une sous-catégorie de gamme/mixte/parc ne peut pas avoir d''enfants : re-parentage interdit (créerait un niveau 3).'
             USING ERRCODE = 'check_violation';
@@ -1717,67 +1658,7 @@ CREATE TRIGGER trg_categories_parent_scope
     BEFORE INSERT OR UPDATE OF parent_id, site_id, scope ON categories
     FOR EACH ROW
     EXECUTE FUNCTION public.check_categorie_parent_scope();
-COMMENT ON FUNCTION public.check_categorie_parent_scope() IS 'Cohérence parent : (1) un enfant n''est jamais plus large que son parent (entreprise englobe site) ; (2) une catégorie d''équipement OU d''opération ne peut pas avoir de sous-catégorie — ni comme parent, ni en basculant son scope alors qu''elle a déjà des enfants vivants (1 niveau) ; (3) une catégorie de gamme/mixte ne peut pas dépasser 2 niveaux ; (4) une sous-catégorie de gamme/mixte (niveau ≥2) ne peut pas avoir d''enfants (re-parentage d''un ancêtre interdit) ; (5) une catégorie portant des gammes (vivantes ou en corbeille) ne peut pas être promue en racine (parent_id → NULL). SECURITY DEFINER pour fiabiliser la lecture du parent. (015 : scope ''operation'' traité comme ''equipement''. 028 : scope ''parc'' — catégories des équipements réels — traité comme ''gamme''/''mixte'' : 2 niveaux.)';
-
--- -----------------------------------------------------------------------------
--- Trigger : verrou de structure sur la mise en corbeille d'une catégorie
--- Règle métier (validée 2026-05-23) : on supprime du bas vers le haut. Une
--- catégorie (domaine, famille, n'importe quel niveau) ne peut être mise en
--- corbeille que si elle est VIDE — pas de sous-catégorie directe vivante,
--- pas de gamme directement rattachée vivante. L'utilisateur doit vider le
--- contenu d'abord.
---
--- Le blocage sur les enfants DIRECTS suffit à forcer le bas-vers-haut : pour
--- vider un domaine il faut d'abord vider ses familles, et pour vider une
--- famille il faut d'abord vider ses gammes. Pas besoin de descente récursive.
---
--- Note : ce verrou ignore les OT. Les OT descendent désormais en cascade avec
--- leur gamme (trigger cascade_corbeille_gamme), donc une fois la gamme en
--- corbeille la catégorie devient libérable de ce côté.
--- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.check_categorie_suppression()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-BEGIN
-    -- Verrou de structure (023/024) : sous-catégorie, gamme, modèle d'équipement ou
-    -- modèle d'opération encore VIVANT. (Pas equipements : categorie_id SET NULL.)
-    IF EXISTS (
-        SELECT 1 FROM public.categories c
-        WHERE c.parent_id = NEW.id
-          AND c.deleted_at IS NULL
-    ) OR EXISTS (
-        SELECT 1 FROM public.gammes g
-        WHERE g.categorie_id = NEW.id
-          AND g.deleted_at IS NULL
-    ) OR EXISTS (
-        SELECT 1 FROM public.modeles_equipements me
-        WHERE me.categorie_id = NEW.id
-          AND me.deleted_at IS NULL
-    ) OR EXISTS (
-        SELECT 1 FROM public.modeles_operations mo
-        WHERE mo.categorie_id = NEW.id
-          AND mo.deleted_at IS NULL
-    ) THEN
-        RAISE EXCEPTION
-            'Suppression impossible : cette catégorie contient encore des sous-catégories, des gammes ou des modèles. Videz d''abord son contenu.'
-            USING ERRCODE = 'restrict_violation';
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-COMMENT ON FUNCTION public.check_categorie_suppression() IS
-    'BEFORE UPDATE OF deleted_at ON categories : verrou de structure. Bloque la suppression si la catégorie a une sous-catégorie, une gamme, un modèle d''équipement ou un modèle d''opération VIVANT (deleted_at IS NULL). (025 : bypass GUC app.cascade_soft_delete retiré — supprimé avec le code de restauration. cf. 023/024.)';
-
-CREATE TRIGGER trg_check_categorie_suppression
-    BEFORE UPDATE OF deleted_at ON categories
-    FOR EACH ROW
-    WHEN (OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL)
-    EXECUTE FUNCTION public.check_categorie_suppression();
+COMMENT ON FUNCTION public.check_categorie_parent_scope() IS 'Cohérence parent : (1) un enfant n''est jamais plus large que son parent (entreprise englobe site) ; (2) une catégorie d''équipement OU d''opération ne peut pas avoir de sous-catégorie — ni comme parent, ni en basculant son scope alors qu''elle a déjà des enfants vivants (1 niveau) ; (3) une catégorie de gamme/mixte ne peut pas dépasser 2 niveaux ; (4) une sous-catégorie de gamme/mixte (niveau ≥2) ne peut pas avoir d''enfants (re-parentage d''un ancêtre interdit) ; (5) une catégorie portant des gammes ne peut pas être promue en racine (parent_id → NULL). SECURITY DEFINER pour fiabiliser la lecture du parent. (015 : scope ''operation'' traité comme ''equipement''. 028 : scope ''parc'' — catégories des équipements réels — traité comme ''gamme''/''mixte'' : 2 niveaux.)';
 
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 
@@ -1786,8 +1667,6 @@ COMMENT ON COLUMN categories.site_id         IS 'NULL = scope entreprise (global
 COMMENT ON COLUMN categories.scope           IS 'Usage : equipement seul, gamme seule, ou mixte (défaut).';
 COMMENT ON COLUMN categories.copie_depuis_id IS
     'Étiquette molle : catégorie d''origine si celle-ci provient d''une copie bibliothèque. Auto-référence. ON DELETE SET NULL — si l''originale disparaît, la copie reste intacte (l''étiquette se vide).';
-COMMENT ON COLUMN categories.deleted_at      IS
-    'Soft-delete (corbeille 90j). Le cron purge_corbeille_90j supprime physiquement après 90 jours.';
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
@@ -1814,7 +1693,6 @@ CREATE TABLE equipements (
     date_mise_en_service DATE,
     date_fin_garantie    DATE,
     image_path            TEXT,
-    deleted_at           TIMESTAMPTZ,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (length(trim(nom)) > 0),
@@ -1833,15 +1711,14 @@ CREATE TABLE equipements (
     )
 );
 
--- Unicité du code inventaire dans l'entreprise (uniquement si renseigné et actif)
+-- Unicité du code inventaire dans l'entreprise (uniquement si renseigné)
 CREATE UNIQUE INDEX uq_equipements_code_inv_active
     ON equipements (code_inventaire)
-    WHERE code_inventaire IS NOT NULL AND deleted_at IS NULL;
+    WHERE code_inventaire IS NOT NULL;
 
-CREATE INDEX idx_equipements_local      ON equipements(local_id)     WHERE deleted_at IS NULL;
-CREATE INDEX idx_equipements_categorie  ON equipements(categorie_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_equipements_local      ON equipements(local_id);
+CREATE INDEX idx_equipements_categorie  ON equipements(categorie_id);
 CREATE INDEX idx_equipements_specs_gin  ON equipements USING GIN (specifications jsonb_path_ops);
-CREATE INDEX idx_equipements_deleted_at ON equipements(deleted_at)   WHERE deleted_at IS NOT NULL;
 
 CREATE TRIGGER trg_equipements_updated_at
     BEFORE UPDATE ON equipements
@@ -1937,7 +1814,6 @@ CREATE TRIGGER trg_equipements_check_categorie
     FOR EACH ROW EXECUTE FUNCTION public.check_equipement_categorie_scope();
 COMMENT ON FUNCTION public.check_equipement_categorie_scope() IS 'Un équipement réel se range uniquement dans une catégorie de PARC (scope ''parc'', séparée des catégories de modèles — 028) et sur le même site que son local.';
 COMMENT ON COLUMN equipements.specifications IS 'JSONB libre validé Zod côté app + CHECK F08 base (object, anti prototype pollution, taille < 10ko).';
-COMMENT ON COLUMN equipements.deleted_at IS 'Soft-delete corbeille 90 jours (purge cron purge_corbeille_90j).';
 
 ALTER TABLE equipements ENABLE ROW LEVEL SECURITY;
 
@@ -1960,16 +1836,12 @@ SELECT
     v.niveau_nom,
     v.local_nom
 FROM equipements e
--- Une catégorie en corbeille (deleted_at) compte comme "non classé" :
--- l'équipement reste visible, mais sans libellé de catégorie fantôme.
-LEFT JOIN categories       c ON c.id = e.categorie_id AND c.deleted_at IS NULL
-LEFT JOIN v_locaux_chemin  v ON v.local_id = e.local_id
-WHERE e.deleted_at IS NULL;
+LEFT JOIN categories       c ON c.id = e.categorie_id
+LEFT JOIN v_locaux_chemin  v ON v.local_id = e.local_id;
 
 COMMENT ON TABLE equipements         IS 'Actifs physiques maintenables. JSONB specifications libre (validé Zod côté app).';
 COMMENT ON COLUMN equipements.specifications IS 'Caractéristiques techniques libres (marque, modèle, puissance…). Indexé GIN.';
-COMMENT ON COLUMN equipements.deleted_at     IS 'Soft-delete corbeille 90 j (purge cron Agent 5).';
-COMMENT ON VIEW  v_equipements_complet IS 'Équipement enrichi du chemin spatial + libellé catégorie. Filtre auto les supprimés.';
+COMMENT ON VIEW  v_equipements_complet IS 'Équipement enrichi du chemin spatial + libellé catégorie.';
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
@@ -2011,17 +1883,14 @@ CREATE TABLE modeles_equipements (
     image_path      TEXT,
     -- NOT NULL + ON DELETE RESTRICT (patch 2026-06-10) : la catégorie est désormais
     -- obligatoire (le front l'exige). RESTRICT (au lieu de SET NULL) pour rester
-    -- compatible avec NOT NULL ; la purge des catégories garde un NOT EXISTS
-    -- modeles_equipements (cf. purge_corbeille_90j). Nom de contrainte =
+    -- compatible avec NOT NULL ; la FK RESTRICT bloque la suppression d'une
+    -- catégorie encore référencée. Nom de contrainte =
     -- modeles_equipements_categorie_id_fkey (auto-généré par Postgres).
     categorie_id    UUID NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
     specifications  JSONB NOT NULL DEFAULT '{}'::jsonb,
 
     -- Activation (peut être désactivé sans suppression)
     est_actif       BOOLEAN NOT NULL DEFAULT true,
-
-    -- Corbeille 90j
-    deleted_at      TIMESTAMPTZ,
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -2049,34 +1918,29 @@ COMMENT ON COLUMN modeles_equipements.site_id IS
 COMMENT ON COLUMN modeles_equipements.specifications IS
     'JSONB libre (mêmes CHECK que equipements.specifications). Pré-rempli au modèle, copié à l''instanciation.';
 COMMENT ON COLUMN modeles_equipements.est_actif IS
-    'Mode "archive" : false = modèle masqué des listes de sélection sans être supprimé. Différent du soft-delete (deleted_at).';
-COMMENT ON COLUMN modeles_equipements.deleted_at IS
-    'Soft-delete corbeille 90j (purge par cron purge_corbeille_90j).';
+    'Mode "archive" : false = modèle masqué des listes de sélection sans être supprimé.';
 
 -- Index uniques différenciés par scope (NULL distincts en PG → 2 index partiels)
 CREATE UNIQUE INDEX uniq_modeles_equipements_entreprise
     ON modeles_equipements (lower(nom))
-    WHERE site_id IS NULL AND deleted_at IS NULL;
+    WHERE site_id IS NULL;
 
 CREATE UNIQUE INDEX uniq_modeles_equipements_site
     ON modeles_equipements (site_id, lower(nom))
-    WHERE site_id IS NOT NULL AND deleted_at IS NULL;
+    WHERE site_id IS NOT NULL;
 
 -- Index de recherche / RLS
 CREATE INDEX idx_modeles_equipements_site
     ON modeles_equipements(site_id)
-    WHERE site_id IS NOT NULL AND deleted_at IS NULL;
+    WHERE site_id IS NOT NULL;
 CREATE INDEX idx_modeles_equipements_categorie
     ON modeles_equipements(categorie_id)
-    WHERE categorie_id IS NOT NULL AND deleted_at IS NULL;
+    WHERE categorie_id IS NOT NULL;
 CREATE INDEX idx_modeles_equipements_specs_gin
     ON modeles_equipements USING GIN (specifications jsonb_path_ops);
-CREATE INDEX idx_modeles_equipements_deleted_at
-    ON modeles_equipements(deleted_at)
-    WHERE deleted_at IS NOT NULL;
 CREATE INDEX idx_modeles_equipements_actif
     ON modeles_equipements(site_id)
-    WHERE est_actif = true AND deleted_at IS NULL;
+    WHERE est_actif = true;
 
 -- Trigger updated_at
 CREATE TRIGGER trg_modeles_equipements_set_updated_at
@@ -2216,7 +2080,6 @@ SET search_path = ''
 AS $$
 DECLARE
     m_site     UUID;
-    m_deleted  TIMESTAMPTZ;
     m_exists   BOOLEAN;
 BEGIN
     IF NEW.modele_equipement_id IS NULL THEN
@@ -2228,17 +2091,13 @@ BEGIN
             USING ERRCODE = 'check_violation';
     END IF;
 
-    SELECT true, site_id, deleted_at
-      INTO m_exists, m_site, m_deleted
+    SELECT true, site_id
+      INTO m_exists, m_site
       FROM public.modeles_equipements
      WHERE id = NEW.modele_equipement_id;
 
     IF m_exists IS NULL THEN
         RAISE EXCEPTION 'Modèle % introuvable.', NEW.modele_equipement_id
-            USING ERRCODE = 'check_violation';
-    END IF;
-    IF m_deleted IS NOT NULL THEN
-        RAISE EXCEPTION 'Modèle % en corbeille : impossible de le fixer.', NEW.modele_equipement_id
             USING ERRCODE = 'check_violation';
     END IF;
     IF m_site IS NULL OR m_site IS DISTINCT FROM NEW.site_id THEN
@@ -2255,7 +2114,7 @@ CREATE TRIGGER trg_categories_modele
     FOR EACH ROW EXECUTE FUNCTION public.check_categorie_modele();
 
 COMMENT ON FUNCTION public.check_categorie_modele() IS
-    'Valide le modèle fixé sur une sous-catégorie de parc : scope ''parc'' obligatoire, modèle vivant et appartenant au MÊME site que la catégorie.';
+    'Valide le modèle fixé sur une sous-catégorie de parc : scope ''parc'' obligatoire, modèle appartenant au MÊME site que la catégorie.';
 
 ALTER TABLE modeles_equipements ENABLE ROW LEVEL SECURITY;
 
@@ -2350,7 +2209,7 @@ BEGIN
       JOIN public.niveaux   n ON n.id = l.niveau_id
       JOIN public.batiments b ON b.id = n.batiment_id
       JOIN public.sites     s ON s.id = b.site_id
-     WHERE l.id = p_local_id AND l.deleted_at IS NULL;
+     WHERE l.id = p_local_id;
 
     IF v_local_site IS NULL THEN
         RAISE EXCEPTION 'instancier_equipement : local % introuvable ou hiérarchie spatiale incomplète.', p_local_id
@@ -2369,11 +2228,10 @@ BEGIN
     SELECT * INTO v_modele
       FROM public.modeles_equipements
      WHERE id = p_modele_id
-       AND deleted_at IS NULL
        AND est_actif = true;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'instancier_equipement : modèle % introuvable, archivé ou en corbeille.', p_modele_id
+        RAISE EXCEPTION 'instancier_equipement : modèle % introuvable ou archivé.', p_modele_id
             USING ERRCODE = 'no_data_found';
     END IF;
 
@@ -2468,10 +2326,10 @@ BEGIN
     --    physique → on ne veut pas d'instance d'un modèle inactif).
     SELECT * INTO v_source
       FROM public.modeles_equipements
-     WHERE id = p_source_modele_id AND deleted_at IS NULL;
+     WHERE id = p_source_modele_id;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'copier_modele_equipement : modèle source % introuvable ou supprimé.', p_source_modele_id
+        RAISE EXCEPTION 'copier_modele_equipement : modèle source % introuvable.', p_source_modele_id
             USING ERRCODE = 'no_data_found';
     END IF;
 
@@ -2500,7 +2358,7 @@ BEGIN
     --    (migration 009)
     IF EXISTS (
         SELECT 1 FROM public.categories
-         WHERE id = v_source.categorie_id AND deleted_at IS NULL
+         WHERE id = v_source.categorie_id
     ) THEN
         v_source.categorie_id := public.copier_categorie_noeud(
             v_source.categorie_id, NULL, p_site_cible
@@ -2511,7 +2369,6 @@ BEGIN
          WHERE site_id IS NULL AND parent_id IS NULL
            AND scope = 'equipement'
            AND lower(nom) = 'non classé (équipements)'
-           AND deleted_at IS NULL
          LIMIT 1;
         IF v_source.categorie_id IS NULL THEN
             RAISE EXCEPTION 'copier_modele_equipement : catégorie de secours « Non classé (équipements) » introuvable — recréez-la avant de copier.'
@@ -2550,8 +2407,7 @@ COMMENT ON FUNCTION public.copier_modele_equipement(UUID, UUID) IS
 -- Table unique pour tous les prestataires (internes et externes).
 --   - Pas de distinction COFRAC / organisme agréé (champ `metier TEXT` libre)
 --   - Un prestataire "interne" PAR SITE (v0.26 : régie de site, créée auto par trigger)
---   - Protection : impossible de supprimer un interne (sauf cascade de purge de son site)
---   - Corbeille 90j : soft-delete via `deleted_at`
+--   - Protection : impossible de supprimer un interne (sauf cascade de suppression de son site)
 -- =============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -2577,7 +2433,6 @@ CREATE TABLE prestataires (
     commentaires    TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at      TIMESTAMPTZ,                   -- soft-delete (corbeille 90j, purge cron)
     CONSTRAINT prestataires_libelle_non_vide CHECK (length(trim(libelle)) > 0),
     CONSTRAINT prestataires_code_postal_format CHECK (code_postal IS NULL OR code_postal ~ '^[0-9]{5}$'),
     -- F16 (audit sécu) — POSIX regex ne supporte pas \s : utiliser [:space:]
@@ -2588,7 +2443,7 @@ CREATE TABLE prestataires (
 );
 
 COMMENT ON TABLE prestataires IS
-    'Prestataires (internes ou externes) qui réalisent les interventions. Soft-delete via deleted_at.';
+    'Prestataires (internes ou externes) qui réalisent les interventions.';
 COMMENT ON COLUMN prestataires.est_interne IS
     'TRUE = équipe interne de l''entreprise (gardien, technicien maison). Indélétable.';
 COMMENT ON COLUMN prestataires.metier IS
@@ -2601,21 +2456,18 @@ COMMENT ON COLUMN prestataires.metier IS
 -- la régie du site). Remplace l'ancien unique interne global de l'entreprise.
 CREATE UNIQUE INDEX uniq_prestataire_interne_site
     ON prestataires(site_id)
-    WHERE est_interne = true AND deleted_at IS NULL;
+    WHERE est_interne = true;
 CREATE INDEX idx_prestataires_site ON prestataires(site_id) WHERE site_id IS NOT NULL;
 
 CREATE INDEX idx_prestataires_siret
     ON prestataires(siret)
-    WHERE siret IS NOT NULL AND deleted_at IS NULL;
+    WHERE siret IS NOT NULL;
 
--- Unicité du libellé filtrée par soft-delete : un prestataire en corbeille ne
--- réserve plus son libellé (cohérent avec sites/gammes/categories... — doctrine
--- « index partiel d'unicité avec soft-delete »). Remplace l'ancienne CONSTRAINT
--- prestataires_unique_libelle UNIQUE(libelle), pleine table, qui bloquait la
--- recréation d'un homonyme pendant les 90 j de corbeille.
+-- Unicité du libellé pour les prestataires externes. Remplace l'ancienne CONSTRAINT
+-- prestataires_unique_libelle UNIQUE(libelle), pleine table.
 CREATE UNIQUE INDEX uq_prestataires_libelle_active
     ON prestataires(libelle)
-    WHERE deleted_at IS NULL AND est_interne = false;   -- v0.26 : internes hors unicité (identifiés par leur site, pas leur libellé)
+    WHERE est_interne = false;   -- v0.26 : internes hors unicité (identifiés par leur site, pas leur libellé)
 
 -- ----------------------------------------------------------------------------
 -- Trigger updated_at
@@ -2668,11 +2520,6 @@ BEGIN
         RAISE EXCEPTION 'Le flag est_interne d''un prestataire ne peut pas être modifié après création.'
             USING ERRCODE = 'restrict_violation';
     END IF;
-    -- Soft-delete du prestataire interne interdit
-    IF OLD.est_interne AND OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
-        RAISE EXCEPTION 'Le prestataire interne ne peut pas être placé à la corbeille.'
-            USING ERRCODE = 'restrict_violation';
-    END IF;
     RETURN NEW;
 END;
 $$;
@@ -2680,7 +2527,7 @@ $$;
 CREATE TRIGGER trg_protect_prestataire_interne_update
     BEFORE UPDATE ON prestataires
     FOR EACH ROW EXECUTE FUNCTION public.protect_prestataire_interne_update();
-COMMENT ON FUNCTION public.protect_prestataire_interne_update() IS 'Interdit la bascule du flag est_interne et le soft-delete du prestataire interne (invariant : 1 prestataire interne vivant).';
+COMMENT ON FUNCTION public.protect_prestataire_interne_update() IS 'Interdit la bascule du flag est_interne d''un prestataire après création.';
 
 -- ----------------------------------------------------------------------------
 -- Seed du prestataire interne (Vague E)
@@ -2923,7 +2770,6 @@ CREATE TRIGGER trg_create_interne_for_site
 -- Une gamme = procédure récurrente (périodicité + nature + opérations) à exécuter
 -- sur un ou plusieurs équipements.
 --   - Nature : controle_reglementaire | maintenance_preventive (ENUM gamme_nature)
---   - Soft-delete via deleted_at (corbeille 90j)
 --   - Triggers de propagation legacy SUPPRIMÉS (Option B : snapshot figé sur l'OT)
 --   - Triggers conservés : protection_desactivation_gamme (validation seule)
 --
@@ -2947,11 +2793,9 @@ CREATE TABLE gammes (
     nom             TEXT NOT NULL,
     description     TEXT,
     nature          gamme_nature NOT NULL,
-    -- ON DELETE RESTRICT : aligne sur le verrou de structure
-    -- (check_categorie_suppression). Une catégorie ne peut être mise en corbeille
-    -- que si elle n'a plus de gamme vivante rattachée. À la purge physique
-    -- (purge_corbeille_90j), le garde-fou NOT EXISTS gamme sur le DELETE des
-    -- catégories empêche les violations FK.
+    -- ON DELETE RESTRICT : aligne sur la règle de structure. Une catégorie ne peut
+    -- être supprimée que si elle n'a plus de gamme rattachée — sinon la FK RESTRICT
+    -- bloque (23503).
     -- Note : différent du lien souple equipements.categorie_id (SET NULL) —
     -- pour les équipements le déclassement est autorisé, mais une gamme reste
     -- attachée à sa catégorie tant qu'elle existe.
@@ -2969,7 +2813,6 @@ CREATE TABLE gammes (
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at      TIMESTAMPTZ,                   -- soft-delete (corbeille 90j)
     created_by      UUID NOT NULL REFERENCES users(id),
 
     CONSTRAINT gammes_nom_non_vide CHECK (length(trim(nom)) > 0)
@@ -2983,32 +2826,28 @@ COMMENT ON COLUMN gammes.copie_depuis_id IS
     'Étiquette molle : gamme d''origine d''une copie (injection bibliothèque). ON DELETE SET NULL — si l''origine disparaît, la copie reste intacte (l''étiquette se vide simplement).';
 COMMENT ON COLUMN gammes.nature IS
     'controle_reglementaire = contrôle externe obligatoire. maintenance_preventive = maintenance interne récurrente. v0.31 : TOUTE gamme générant un OT doit avoir au moins une source d''opération (un OT ne peut exister sans opération).';
-COMMENT ON COLUMN gammes.deleted_at IS
-    'Soft-delete (corbeille 90j). Le cron de purge supprime physiquement après 90 jours.';
 COMMENT ON COLUMN gammes.prestataire_id IS
     'Prestataire par défaut. NULLABLE (migration 007) : un template commun (site_id NULL) n''en a pas — le prestataire dépend du SITE, renseigné après copie sur un site. Les gammes réelles en portent un (imposé côté front) ; la génération d''OT reste protégée par ordres_travail.prestataire_id NOT NULL.';
 
 -- Index
 CREATE INDEX idx_gammes_active
     ON gammes(est_active)
-    WHERE est_active = true AND deleted_at IS NULL;
+    WHERE est_active = true;
 
 CREATE INDEX idx_gammes_periodicite
-    ON gammes(periodicite_id)
-    WHERE deleted_at IS NULL;
+    ON gammes(periodicite_id);
 
 CREATE INDEX idx_gammes_prestataire
-    ON gammes(prestataire_id)
-    WHERE deleted_at IS NULL;
+    ON gammes(prestataire_id);
 
 CREATE INDEX idx_gammes_categorie
     ON gammes(categorie_id)
-    WHERE categorie_id IS NOT NULL AND deleted_at IS NULL;
+    WHERE categorie_id IS NOT NULL;
 
 -- Index sur le scope site (filtres bibliothèque + colonne RLS)
 CREATE INDEX idx_gammes_site
     ON gammes(site_id)
-    WHERE site_id IS NOT NULL AND deleted_at IS NULL;
+    WHERE site_id IS NOT NULL;
 
 -- Unicité du nom différenciée par scope (NULL distincts en Postgres → 2 index
 -- partiels, calque sur modeles_operations). Le nom est unique PAR niveau :
@@ -3017,11 +2856,11 @@ CREATE INDEX idx_gammes_site
 -- Une copie peut donc garder le nom de sa source, l'unicité étant par niveau.
 CREATE UNIQUE INDEX uniq_gammes_entreprise
     ON gammes (lower(nom))
-    WHERE site_id IS NULL AND deleted_at IS NULL;
+    WHERE site_id IS NULL;
 
 CREATE UNIQUE INDEX uniq_gammes_site
     ON gammes (site_id, lower(nom))
-    WHERE site_id IS NOT NULL AND deleted_at IS NULL;
+    WHERE site_id IS NOT NULL;
 
 -- Trigger updated_at
 CREATE TRIGGER trg_gammes_set_updated_at
@@ -3178,108 +3017,6 @@ CREATE TRIGGER trg_protect_gamme_site_immutable
     FOR EACH ROW EXECUTE FUNCTION public.protect_gamme_site_immutable();
 
 -- ----------------------------------------------------------------------------
--- Cascade corbeille gamme → OT (validée 2026-05-23)
---
--- Mise en corbeille d'une gamme → ses OT vivants descendent en corbeille (même
--- timestamp). (025 : la branche restauration a été retirée — code mort, l'app
--- n'a aucun chemin de restauration.)
---
--- protection_ot_terminaux laisse passer le seul changement de deleted_at : le
--- tuple protégé sur les OT terminaux ne contient pas deleted_at, donc le
--- soft-delete des OT clôturés via cette cascade est autorisé.
--- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.cascade_corbeille_gamme()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-BEGIN
-    -- Suppression : descend les OT vivants de la gamme au même timestamp.
-    IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
-        UPDATE public.ordres_travail
-        SET deleted_at = NEW.deleted_at
-        WHERE gamme_id = NEW.id
-          AND deleted_at IS NULL;
-    END IF;
-
-    RETURN NULL;
-END;
-$$;
-
-COMMENT ON FUNCTION public.cascade_corbeille_gamme() IS
-    'AFTER UPDATE OF deleted_at ON gammes : à la suppression, descend les OT vivants de la gamme (même timestamp). (025 : branche restauration retirée — code mort.)';
-
-CREATE TRIGGER trg_gammes_cascade_corbeille
-    AFTER UPDATE OF deleted_at ON gammes
-    FOR EACH ROW
-    WHEN (OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
-    EXECUTE FUNCTION public.cascade_corbeille_gamme();
-
--- ----------------------------------------------------------------------------
--- v0.21 — Cascade corbeille SPATIALE (décision 2026-05-31 : « cascade automatique »).
--- Mettre un parent à la corbeille y descend ses enfants (même timestamp). Chaîne
--- stricte sans cycle (site→bâtiment→niveau→local→équipement) : chaque niveau a son
--- trigger qui propage au suivant. Pour le SITE, on descend en plus les entités
--- rattachées qui ONT un soft-delete : gammes/catégories/documents/DI + OT de site.
--- Les OT clôturés suivent leur site en corbeille (cohérent avec cascade_corbeille_gamme),
--- mais restent des preuves NF EN 13306 jamais PURGÉES physiquement (statut cloture
--- exclu du cron de purge). SECURITY DEFINER : la cascade reste dans le périmètre du
--- site (l'utilisateur a déjà prouvé son accès en supprimant le parent).
--- (025 : la branche restauration symétrique a été retirée — code mort.)
--- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.cascade_corbeille_spatial()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-BEGIN
-    -- Suppression (descente du soft-delete vers les enfants).
-    IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
-        IF TG_TABLE_NAME = 'sites' THEN
-            UPDATE public.batiments            SET deleted_at = NEW.deleted_at WHERE site_id = NEW.id AND deleted_at IS NULL;
-            UPDATE public.gammes               SET deleted_at = NEW.deleted_at WHERE site_id = NEW.id AND deleted_at IS NULL;
-            UPDATE public.categories           SET deleted_at = NEW.deleted_at WHERE site_id = NEW.id AND deleted_at IS NULL;
-            UPDATE public.documents            SET deleted_at = NEW.deleted_at WHERE site_id = NEW.id AND deleted_at IS NULL;
-            UPDATE public.demandes_intervention SET deleted_at = NEW.deleted_at WHERE site_id = NEW.id AND deleted_at IS NULL;
-            UPDATE public.ordres_travail        SET deleted_at = NEW.deleted_at WHERE site_id = NEW.id AND deleted_at IS NULL;
-        ELSIF TG_TABLE_NAME = 'batiments' THEN
-            UPDATE public.niveaux     SET deleted_at = NEW.deleted_at WHERE batiment_id = NEW.id AND deleted_at IS NULL;
-        ELSIF TG_TABLE_NAME = 'niveaux' THEN
-            UPDATE public.locaux      SET deleted_at = NEW.deleted_at WHERE niveau_id = NEW.id AND deleted_at IS NULL;
-        ELSIF TG_TABLE_NAME = 'locaux' THEN
-            UPDATE public.equipements SET deleted_at = NEW.deleted_at WHERE local_id = NEW.id AND deleted_at IS NULL;
-        END IF;
-    END IF;
-
-    RETURN NULL;
-END;
-$$;
-COMMENT ON FUNCTION public.cascade_corbeille_spatial() IS
-    'v0.21 — AFTER UPDATE OF deleted_at sur sites/batiments/niveaux/locaux : cascade descendante du soft-delete à la suppression. Pour sites, descend aussi gammes/categories/documents/DI + OT de site (cohérent avec cascade_corbeille_gamme ; les OT cloture suivent en corbeille mais ne sont jamais purgés physiquement). (025 : branche restauration retirée — code mort.)';
-
-CREATE TRIGGER trg_sites_cascade_corbeille
-    AFTER UPDATE OF deleted_at ON sites
-    FOR EACH ROW WHEN (OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
-    EXECUTE FUNCTION public.cascade_corbeille_spatial();
-
-CREATE TRIGGER trg_batiments_cascade_corbeille
-    AFTER UPDATE OF deleted_at ON batiments
-    FOR EACH ROW WHEN (OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
-    EXECUTE FUNCTION public.cascade_corbeille_spatial();
-
-CREATE TRIGGER trg_niveaux_cascade_corbeille
-    AFTER UPDATE OF deleted_at ON niveaux
-    FOR EACH ROW WHEN (OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
-    EXECUTE FUNCTION public.cascade_corbeille_spatial();
-
-CREATE TRIGGER trg_locaux_cascade_corbeille
-    AFTER UPDATE OF deleted_at ON locaux
-    FOR EACH ROW WHEN (OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
-    EXECUTE FUNCTION public.cascade_corbeille_spatial();
-
--- ----------------------------------------------------------------------------
 -- RLS (policies définies par Agent 5)
 -- ----------------------------------------------------------------------------
 ALTER TABLE gammes ENABLE ROW LEVEL SECURITY;
@@ -3365,7 +3102,6 @@ CREATE TABLE modeles_operations (
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at      TIMESTAMPTZ,   -- corbeille (soft-delete 90j) — 024
 
     CONSTRAINT modeles_operations_nom_non_vide CHECK (length(trim(nom)) > 0)
 );
@@ -3374,18 +3110,15 @@ COMMENT ON TABLE modeles_operations IS
     'Bibliothèque de modèles d''opérations réutilisables. Scope entreprise (site_id NULL) ou site spécifique.';
 COMMENT ON COLUMN modeles_operations.site_id IS
     'NULL = modèle global à l''entreprise. Renseigné = modèle restreint à un site spécifique.';
-COMMENT ON COLUMN modeles_operations.deleted_at IS
-    'Corbeille (soft-delete) : NULL = vivant, renseigné = en corbeille (purge physique à 90 j). (024)';
 
 -- Index uniques différenciés par scope (NULL distincts en Postgres → 2 index partiels).
--- 024 : + deleted_at IS NULL → la corbeille libère le nom.
 CREATE UNIQUE INDEX uniq_modeles_operations_entreprise
     ON modeles_operations (nom)
-    WHERE site_id IS NULL AND deleted_at IS NULL;
+    WHERE site_id IS NULL;
 
 CREATE UNIQUE INDEX uniq_modeles_operations_site
     ON modeles_operations (site_id, nom)
-    WHERE site_id IS NOT NULL AND deleted_at IS NULL;
+    WHERE site_id IS NOT NULL;
 
 CREATE INDEX idx_modeles_operations_site   ON modeles_operations(site_id)   WHERE site_id   IS NOT NULL;
 
@@ -3395,10 +3128,6 @@ CREATE INDEX idx_modeles_operations_categorie ON modeles_operations(categorie_id
 -- Index de la vignette (019)
 CREATE INDEX idx_modeles_operations_miniature ON modeles_operations(miniature_id)
     WHERE miniature_id IS NOT NULL;
-
--- Index de balayage de la corbeille (024)
-CREATE INDEX idx_modeles_operations_deleted ON modeles_operations(deleted_at)
-    WHERE deleted_at IS NOT NULL;
 
 -- Trigger updated_at
 CREATE TRIGGER trg_modeles_operations_set_updated_at
@@ -3456,40 +3185,6 @@ CREATE TRIGGER trg_modeles_operations_check_categorie
 
 COMMENT ON FUNCTION public.check_modele_operation_categorie() IS
     'Garantit qu''un modèle d''opération est classé dans une catégorie de scope ''operation'' et que la cohérence de site est respectée (catégorie de site -> modèle du même site). Calque de check_modele_equipement_categorie (scope strict ''operation''). (016)';
-
--- Verrou de mise en corbeille (024) : refuse le soft-delete tant qu'une gamme
--- VIVANTE référence le modèle via gamme_modeles (force le détachement).
-CREATE OR REPLACE FUNCTION public.check_modele_operation_suppression()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM public.gamme_modeles gm
-        JOIN public.gammes g ON g.id = gm.gamme_id
-        WHERE gm.modele_operation_id = NEW.id
-          AND g.deleted_at IS NULL
-    ) THEN
-        RAISE EXCEPTION
-            'Mise en corbeille impossible : ce modèle d''opération est encore rattaché à une gamme. Dissociez-le d''abord.'
-            USING ERRCODE = 'restrict_violation';
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_modeles_operations_check_suppression
-    BEFORE UPDATE OF deleted_at ON modeles_operations
-    FOR EACH ROW
-    WHEN (OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL)
-    EXECUTE FUNCTION public.check_modele_operation_suppression();
-
-COMMENT ON FUNCTION public.check_modele_operation_suppression() IS
-    'BEFORE UPDATE OF deleted_at ON modeles_operations : refuse la mise en corbeille tant qu''une gamme VIVANTE référence le modèle via gamme_modeles (force le détachement, fait par detacher_et_supprimer_modele_operation). (024)';
 
 -- ----------------------------------------------------------------------------
 -- modeles_operations_items
@@ -3578,11 +3273,10 @@ BEGIN
         END IF;
     END IF;
 
-    -- 3. Lecture du modèle source VIVANT (024 : on ne copie pas un modèle en corbeille).
+    -- 3. Lecture du modèle source.
     SELECT * INTO v_source
       FROM public.modeles_operations
-     WHERE id = p_source_modele_id
-       AND deleted_at IS NULL;
+     WHERE id = p_source_modele_id;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'copier_modele_operation : modèle source % introuvable.', p_source_modele_id
@@ -3597,10 +3291,10 @@ BEGIN
             USING ERRCODE = 'insufficient_privilege';
     END IF;
 
-    -- 4. Catégorie cible : matérialisation (find-or-create) ; repli si en corbeille
+    -- 4. Catégorie cible : matérialisation (find-or-create) ; repli si absente
     IF EXISTS (
         SELECT 1 FROM public.categories
-         WHERE id = v_source.categorie_id AND deleted_at IS NULL
+         WHERE id = v_source.categorie_id
     ) THEN
         v_source.categorie_id := public.copier_categorie_noeud(
             v_source.categorie_id, NULL, p_site_cible
@@ -3611,7 +3305,6 @@ BEGIN
          WHERE site_id IS NULL AND parent_id IS NULL
            AND scope = 'operation'
            AND lower(nom) = 'non classé (opérations)'
-           AND deleted_at IS NULL
          LIMIT 1;
         IF v_source.categorie_id IS NULL THEN
             RAISE EXCEPTION 'copier_modele_operation : catégorie de secours « Non classé (opérations) » introuvable — recréez-la avant de copier.'
@@ -3646,7 +3339,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.copier_modele_operation(UUID, UUID) IS
-    'Bibliothèque de modèles d''opérations : duplique un modèle VIVANT PAR VALEUR (avec ses items) vers un site (p_site_cible renseigné) ou vers la bibliothèque entreprise (p_site_cible NULL). Copie indépendante de la source. La catégorie de la source est MATÉRIALISÉE dans le scope cible via copier_categorie_noeud (find-or-create idempotent). Repli « Non classé (opérations) » si la catégorie source est en corbeille. Droits : copie entreprise = admin/manager ; copie site = admin ou manager/technicien avec accès au site. Retourne l''id du nouveau modèle. Calque de copier_modele_equipement. (017 ; 024 : source filtrée deleted_at IS NULL.)';
+    'Bibliothèque de modèles d''opérations : duplique un modèle PAR VALEUR (avec ses items) vers un site (p_site_cible renseigné) ou vers la bibliothèque entreprise (p_site_cible NULL). Copie indépendante de la source. La catégorie de la source est MATÉRIALISÉE dans le scope cible via copier_categorie_noeud (find-or-create idempotent). Repli « Non classé (opérations) » si la catégorie source est absente. Droits : copie entreprise = admin/manager ; copie site = admin ou manager/technicien avec accès au site. Retourne l''id du nouveau modèle. Calque de copier_modele_equipement. (017)';
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
@@ -3737,18 +3430,11 @@ BEGIN
     SELECT EXISTS (
         SELECT 1 FROM public.prestataires
          WHERE id = p_prestataire_demande
-           AND deleted_at IS NULL
     ) INTO v_prest_existe;
 
     IF NOT v_prest_existe THEN
-        -- v0.21 : message métier clair — distingue « supprimé » d'« inexistant ».
-        IF EXISTS (SELECT 1 FROM public.prestataires WHERE id = p_prestataire_demande) THEN
-            RAISE EXCEPTION 'Ce prestataire a été supprimé : choisissez-en un autre avant de créer cet ordre de travail.'
-                USING ERRCODE = 'foreign_key_violation';
-        ELSE
-            RAISE EXCEPTION 'Prestataire introuvable (id %).', p_prestataire_demande
-                USING ERRCODE = 'foreign_key_violation';
-        END IF;
+        RAISE EXCEPTION 'Prestataire introuvable (id %).', p_prestataire_demande
+            USING ERRCODE = 'foreign_key_violation';
     END IF;
 
     -- Récupère le prestataire interne (cible de fallback)
@@ -3757,7 +3443,6 @@ BEGIN
       FROM public.prestataires pr
       JOIN public.gammes g ON g.id = p_gamme_id
      WHERE pr.est_interne = true
-       AND pr.deleted_at IS NULL
        AND pr.site_id = g.site_id;
 
     IF v_interne_id IS NULL THEN
@@ -3958,11 +3643,10 @@ BEGIN
     -- ----------------------------------------------------------------------
     SELECT * INTO v_source
     FROM public.gammes
-    WHERE id = p_source_gamme_id
-      AND deleted_at IS NULL;
+    WHERE id = p_source_gamme_id;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'copier_gamme : gamme source % introuvable ou supprimée.', p_source_gamme_id
+        RAISE EXCEPTION 'copier_gamme : gamme source % introuvable.', p_source_gamme_id
             USING ERRCODE = 'no_data_found';
     END IF;
 
@@ -4002,13 +3686,11 @@ BEGIN
                   FROM public.categories
                  WHERE site_id IS NULL AND parent_id IS NULL
                    AND lower(nom) = 'non classé (gammes)'
-                   AND deleted_at IS NULL
                  LIMIT 1;
                 SELECT id INTO v_cat_secours
                   FROM public.categories
                  WHERE site_id IS NULL AND parent_id = v_racine_id
                    AND lower(nom) = 'non classé'
-                   AND deleted_at IS NULL
                  LIMIT 1;
                 -- Durcissement (2026-06-10) : si la catégorie de secours « Non
                 -- classé » a été supprimée/purgée, v_cat_secours est NULL → l'INSERT
@@ -4107,28 +3789,26 @@ DECLARE
     v_src   public.categories%ROWTYPE;
     v_cible UUID;
 BEGIN
-    -- Lecture de la catégorie source (vivante).
+    -- Lecture de la catégorie source.
     SELECT * INTO v_src
       FROM public.categories
-     WHERE id = p_source_cat_id
-       AND deleted_at IS NULL;
+     WHERE id = p_source_cat_id;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'copier_categorie_noeud : catégorie source % introuvable ou supprimée.', p_source_cat_id
+        RAISE EXCEPTION 'copier_categorie_noeud : catégorie source % introuvable.', p_source_cat_id
             USING ERRCODE = 'no_data_found';
     END IF;
 
     -- FIND : un conteneur de même (site, parent, SCOPE, lower(nom)) existe déjà sur
     -- la cible → on le réutilise (merge). IS NOT DISTINCT FROM gère les NULL (commun
     -- / racine). Clé alignée sur l'index unique uq_categories_nom (scope inclus
-    -- depuis migration 011, deleted_at IS NULL) → merge dans le MÊME scope uniquement.
+    -- depuis migration 011) → merge dans le MÊME scope uniquement.
     SELECT id INTO v_cible
       FROM public.categories
      WHERE site_id   IS NOT DISTINCT FROM p_site_cible
        AND parent_id IS NOT DISTINCT FROM p_parent_cible_id
        AND scope      = v_src.scope
        AND lower(nom) = lower(v_src.nom)
-       AND deleted_at IS NULL
      LIMIT 1;
 
     IF FOUND THEN
@@ -4218,15 +3898,14 @@ BEGIN
     END IF;
 
     -- ----------------------------------------------------------------------
-    -- 2. Lecture de la catégorie source (vivante)
+    -- 2. Lecture de la catégorie source
     -- ----------------------------------------------------------------------
     SELECT * INTO v_source
       FROM public.categories
-     WHERE id = p_source_categorie_id
-       AND deleted_at IS NULL;
+     WHERE id = p_source_categorie_id;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'copier_categorie : catégorie source % introuvable ou supprimée.', p_source_categorie_id
+        RAISE EXCEPTION 'copier_categorie : catégorie source % introuvable.', p_source_categorie_id
             USING ERRCODE = 'no_data_found';
     END IF;
 
@@ -4261,7 +3940,6 @@ BEGIN
               FROM public.categories c
              WHERE c.id = ANY (p_souscat_ids)
                AND c.parent_id = v_source.id
-               AND c.deleted_at IS NULL
                -- Audit défensif (parité copier_gamme 2bis) : une racine COMMUNE peut
                -- légalement héberger des sous-cats scopées site → sans ce filtre, un
                -- manager exfiltrerait nom/description/image d'une sous-cat hors de son
@@ -4298,7 +3976,6 @@ BEGIN
         SELECT *
           FROM public.gammes
          WHERE id = ANY (p_gamme_ids)
-           AND deleted_at IS NULL
     LOOP
         -- Branche SOURCE = sous-catégorie : on n'inclut que les gammes rattachées à
         -- la sous-cat source. On écarte les AUTRES EN TÊTE (avant l'audit), pour ne
@@ -4338,7 +4015,6 @@ BEGIN
               FROM public.gammes g2
              WHERE g2.categorie_id = v_cat_cible
                AND lower(g2.nom) = lower(v_g.nom)
-               AND g2.deleted_at IS NULL
         ) THEN
             CONTINUE;
         END IF;
@@ -4401,9 +4077,8 @@ COMMENT ON FUNCTION public.copier_categorie(UUID, UUID, UUID[], UUID[]) IS
 -- BEFORE DELETE de gamme_modeles (check_derniere_op_preventive,
 -- validation_suppression_association_gamme_type) restent actifs et peuvent lever
 -- restrict_violation → roll back intégral, jamais de détachement orphelin.
--- 024 : modeles_operations a désormais une corbeille (deleted_at). La RPC détache
--- les liaisons puis met le modèle EN CORBEILLE (UPDATE deleted_at) au lieu d'un DELETE
--- physique ; ses items restent en base (vivent avec le parent jusqu'à la purge 90 j).
+-- 035 : la RPC détache les liaisons puis SUPPRIME physiquement le modèle ; ses
+-- items partent en CASCADE avec le parent.
 -- =============================================================================
 CREATE OR REPLACE FUNCTION public.detacher_et_supprimer_modele_operation(p_id uuid)
 RETURNS void
@@ -4415,22 +4090,16 @@ DECLARE
   v_role text := public.current_role();
   v_site uuid;
 BEGIN
-  -- 0. Caller actif ? current_role() = NULL pour un user désactivé (F02) → on rejette
-  --    explicitement (un v_role NULL rendrait la logique de droits « ni vrai ni faux »
-  --    et laisserait passer ; DEFINER contournant la RLS, c'est notre seul rempart).
   IF v_role IS NULL THEN
     RAISE EXCEPTION 'Action non autorisée : utilisateur non authentifié ou désactivé.'
       USING ERRCODE = 'insufficient_privilege';
   END IF;
 
-  -- 0bis. Rôles jamais autorisés en écriture (lecteur, demandeur) : barrés AVANT
-  --       toute lecture, pour ne pas leur offrir un oracle d'existence (calque copier_gamme).
   IF v_role NOT IN ('admin', 'manager', 'technicien') THEN
     RAISE EXCEPTION 'Action non autorisée : droits insuffisants pour supprimer ce modèle d''opération.'
       USING ERRCODE = 'insufficient_privilege';
   END IF;
 
-  -- 1. Le modèle existe ? On lit son scope (IF NOT FOUND fiable même si site_id NULL).
   SELECT site_id INTO v_site
   FROM public.modeles_operations
   WHERE id = p_id;
@@ -4440,7 +4109,6 @@ BEGIN
       USING ERRCODE = 'no_data_found';
   END IF;
 
-  -- 2. Re-vérification des droits d'écriture (rejoue les policies de modeles_operations).
   IF NOT (
     v_role = 'admin'
     OR (v_role = 'manager'    AND (v_site IS NULL OR public.has_site_access(v_site)))
@@ -4450,22 +4118,19 @@ BEGIN
       USING ERRCODE = 'insufficient_privilege';
   END IF;
 
-  -- 3. Détacher TOUTES les liaisons (cross-site inclus, RLS contournée). Triggers
-  --    BEFORE DELETE de gamme_modeles actifs → restrict_violation possible (roll back).
+  -- Détacher TOUTES les liaisons (cross-site inclus, RLS contournée). Triggers
+  -- BEFORE DELETE de gamme_modeles actifs → restrict_violation possible (roll back).
   DELETE FROM public.gamme_modeles WHERE modele_operation_id = p_id;
 
-  -- 4. Mettre le modèle EN CORBEILLE (soft-delete, 024 — ex-DELETE physique). Le verrou
-  --    check_modele_operation_suppression passe : plus aucune liaison vivante après l'étape 3.
-  --    Items conservés (vivent avec le parent). AND deleted_at IS NULL → idempotent.
-  UPDATE public.modeles_operations
-     SET deleted_at = now()
-   WHERE id = p_id
-     AND deleted_at IS NULL;
+  -- 035 : suppression PHYSIQUE (ex-soft-delete). Plus aucune liaison vivante
+  -- après le détachement → validation_suppression_gamme_type_globale passe ;
+  -- les items partent en CASCADE avec le modèle.
+  DELETE FROM public.modeles_operations WHERE id = p_id;
 END;
 $$;
 
 COMMENT ON FUNCTION public.detacher_et_supprimer_modele_operation(uuid) IS
-    'Bibliothèque d''opérations : détache TOUTES les liaisons gamme_modeles d''un modèle d''opération PUIS le met EN CORBEILLE (soft-delete, UPDATE deleted_at — 024, ex-DELETE physique), en UNE transaction atomique (plus de détachement orphelin sur échec partiel). SECURITY DEFINER pour détacher aussi les liaisons cross-site masquées au caller par la RLS ; rejoue donc explicitement la règle d''écriture de modeles_operations (admin partout ; manager si entreprise ou site accessible ; technicien si modèle de site accessible). Les triggers BEFORE DELETE de gamme_modeles (dernière op d''une préventive active, OT actifs) restent actifs et peuvent annuler toute la transaction. no_data_found si le modèle n''existe pas, insufficient_privilege si droits insuffisants.';
+    'Détache toutes les liaisons gamme_modeles d''un modèle d''opération PUIS le SUPPRIME physiquement (035 : ex-soft-delete), en une transaction atomique. SECURITY DEFINER pour détacher aussi les liaisons cross-site ; rejoue la règle d''écriture de modeles_operations. Les BEFORE DELETE de gamme_modeles (dernière op préventive active, OT actifs) restent actifs.';
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
@@ -4483,7 +4148,6 @@ COMMENT ON FUNCTION public.detacher_et_supprimer_modele_operation(uuid) IS
 --   1 = Ouverte → 2 = Résolue → 3 = Réouverte
 --   (transitions 1→2, 2→3, 3→2 — gérées par triggers Agent 5)
 --
--- Soft-delete (corbeille 90j) : deleted_at TIMESTAMPTZ
 -- Pas de champ priorite (décision : simplicité UX)
 --
 -- Dépendances : 002_enums, 003_referentiels (statuts_di), 005_users,
@@ -4517,27 +4181,21 @@ CREATE TABLE demandes_intervention (
     -- Traçabilité : qui a passé la DI en Résolue (équivalent closed_by des OT)
     resolved_by             UUID REFERENCES users(id) ON DELETE SET NULL,
 
-    -- Audit + soft-delete (corbeille 90j)
+    -- Audit
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at      TIMESTAMPTZ
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE demandes_intervention IS
-    'Signalements curatifs (DI). Machine à états 1→2→3 via statuts_di. Soft-delete 90j.';
+    'Signalements curatifs (DI). Machine à états 1→2→3 via statuts_di.';
 COMMENT ON COLUMN demandes_intervention.site_id IS
     'Matérialisé pour RLS Manager/Technicien sans jointure sur locaux.';
 COMMENT ON COLUMN demandes_intervention.resolved_by IS
     'Qui a passé la DI en Résolue. Peuplé par trigger trg_di_set_resolved_by (équivalent closed_by des OT). NULL tant que non résolue ou rouverte.';
-COMMENT ON COLUMN demandes_intervention.deleted_at IS
-    'Soft-delete RGPD : DI = pièce opposable au prestataire, jamais hard-delete.';
 
 -- Index
 CREATE INDEX idx_di_site        ON demandes_intervention(site_id);
 CREATE INDEX idx_di_statut      ON demandes_intervention(statut_di_id);
-
-CREATE INDEX idx_di_active      ON demandes_intervention(site_id)
-    WHERE deleted_at IS NULL;
 
 -- Trigger updated_at standard
 CREATE TRIGGER trg_demandes_intervention_set_updated_at
@@ -4625,21 +4283,18 @@ CREATE TABLE interventions_chantier (
     compte_rendu        TEXT,
     cloture_by          UUID REFERENCES users(id) ON DELETE SET NULL,
 
-    -- Audit + soft-delete (corbeille 90j)
+    -- Audit
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at          TIMESTAMPTZ
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE interventions_chantier IS
-    'Travaux de chantier ponctuels (souvent prestataire). Machine à états 1→2/3→4 via statuts_chantier. Soft-delete 90j.';
+    'Travaux de chantier ponctuels (souvent prestataire). Machine à états 1→2/3→4 via statuts_chantier.';
 COMMENT ON COLUMN interventions_chantier.cloture_by IS
     'Qui a passé le chantier en Terminé. Peuplé par trigger set_chantier_cloture_by (valeur forcée serveur). NULL tant que non terminé ou réouvert.';
 
 CREATE INDEX idx_chantier_site   ON interventions_chantier(site_id);
 CREATE INDEX idx_chantier_statut ON interventions_chantier(statut_chantier_id);
-CREATE INDEX idx_chantier_active ON interventions_chantier(site_id)
-    WHERE deleted_at IS NULL;
 -- Index des FK (règle « indexer toute FK » — v0.33 corrigé post-audit)
 CREATE INDEX idx_chantier_created_by  ON interventions_chantier(created_by);
 CREATE INDEX idx_chantier_prestataire ON interventions_chantier(prestataire_id);
@@ -4709,17 +4364,14 @@ CREATE TABLE investissements (
     date_demande      DATE NOT NULL DEFAULT current_date,
 
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at        TIMESTAMPTZ
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE investissements IS
-    'Suivi budgétaire CapEx par site. Statut LIBRE (statuts_capex, sans machine à états). Soft-delete 90j.';
+    'Suivi budgétaire CapEx par site. Statut LIBRE (statuts_capex, sans machine à états).';
 
 CREATE INDEX idx_capex_site   ON investissements(site_id);
 CREATE INDEX idx_capex_statut ON investissements(statut_capex_id);
-CREATE INDEX idx_capex_active ON investissements(site_id)
-    WHERE deleted_at IS NULL;
 -- Index de la FK created_by (règle « indexer toute FK » — v0.33 corrigé post-audit)
 CREATE INDEX idx_capex_created_by ON investissements(created_by);
 
@@ -4776,10 +4428,7 @@ CREATE TABLE modeles_di (
     -- Audit
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_by      UUID NOT NULL REFERENCES users(id),
-
-    -- Corbeille (soft-delete 90j) — 024
-    deleted_at      TIMESTAMPTZ
+    created_by      UUID NOT NULL REFERENCES users(id)
 );
 
 COMMENT ON TABLE modeles_di IS
@@ -4788,8 +4437,6 @@ COMMENT ON COLUMN modeles_di.site_id IS
     'NULL = modèle commun (bibliothèque entreprise, visible partout, écriture admin + manager). Renseigné = modèle propre au site (écriture admin + manager + technicien si has_site_access). Aligné sur la règle universelle des modèles le 2026-06-11.';
 COMMENT ON COLUMN modeles_di.constat_modele IS
     'Constat pré-rédigé qui sera injecté dans demandes_intervention.constat à l''utilisation (copie par valeur).';
-COMMENT ON COLUMN modeles_di.deleted_at IS
-    'Corbeille (soft-delete) : NULL = vivant, renseigné = en corbeille (purge physique à 90 j). (024)';
 
 -- Index : recherche par site + libellé
 CREATE INDEX idx_modeles_di_site   ON modeles_di(site_id, libelle);
@@ -4798,10 +4445,6 @@ CREATE INDEX idx_modeles_di_actifs ON modeles_di(site_id)
 -- Image : index partiel sur la vignette (018)
 CREATE INDEX idx_modeles_di_miniature ON modeles_di(miniature_id)
     WHERE miniature_id IS NOT NULL;
-
--- Index de balayage de la corbeille (024)
-CREATE INDEX idx_modeles_di_deleted ON modeles_di(deleted_at)
-    WHERE deleted_at IS NOT NULL;
 
 -- Trigger updated_at
 CREATE TRIGGER trg_modeles_di_set_updated_at
@@ -4939,11 +4582,10 @@ CREATE TABLE ordres_travail (
     -- quitte l'entreprise, on garde l'OT clôturé mais on perd l'attribution.
     closed_by       UUID REFERENCES users(id) ON DELETE SET NULL,
 
-    -- Audit + soft-delete (corbeille 90j, preuve légale)
+    -- Audit (preuve légale)
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_by      UUID NOT NULL REFERENCES users(id),
-    deleted_at      TIMESTAMPTZ,
 
     -- ----------------------------------------------------------------------
     -- Contraintes CHECK métier
@@ -4974,7 +4616,7 @@ CREATE TABLE ordres_travail (
 );
 
 COMMENT ON TABLE ordres_travail IS
-    'OT = instance datée d''une gamme. Snapshots figés (Option B). Soft-delete obligatoire (pièce légale).';
+    'OT = instance datée d''une gamme. Snapshots figés (Option B). OT terminal = lecture seule sur UPDATE (pièce légale).';
 COMMENT ON COLUMN ordres_travail.gamme_id IS
     'OBLIGATOIRE à la création (snapshots peuplés depuis la gamme — garde dans validation_gamme_avec_operations). Figé après création (protection_ot_terminaux). Peut passer à NULL si la gamme est purgée alors qu''un OT clôturé la référence encore — l''OT survit grâce aux snapshots figés (Pattern 1).';
 COMMENT ON COLUMN ordres_travail.nom_gamme IS
@@ -4991,8 +4633,6 @@ COMMENT ON COLUMN ordres_travail.motif_annulation IS
     'F28 (audit) : motif obligatoire au passage en annule (CHECK motif_annulation_oblig_si_annule). Reste figé en cas de résurrection (annule → planifie) pour conserver la trace de la décision originelle.';
 COMMENT ON COLUMN ordres_travail.motif_reouverture IS
     'F28 (audit) : motif de réouverture (cloture → reouvert) renseigné par la RPC reouvrir_ot(). Conserve l''historique sur les OT ayant fait l''objet d''une réouverture (sensible juridiquement : un OT clôturé est une preuve légale NF EN 13306).';
-COMMENT ON COLUMN ordres_travail.deleted_at IS
-    'Soft-delete uniquement (DELETE physique interdit par trigger protection_ot_terminaux).';
 
 -- ----------------------------------------------------------------------
 -- Index
@@ -5016,17 +4656,16 @@ CREATE INDEX idx_ot_closed_by
 -- Cas couvert : deux clôtures concurrentes du même OT pourraient théoriquement
 -- déclencher 2 fois generer_prochain_ot et créer 2 OT identiques pour la même
 -- (gamme, date_prevue). Le UNIQUE bloque le 2e INSERT en race condition avec
--- une erreur claire au front. Filtre statut + deleted_at : permet de réinsérer
--- une fois l'OT précédent clôturé/annulé/supprimé. Couvre aussi les requêtes
--- de lecture (l'ancien index non-unique idx_ot_actifs_par_gamme est remplacé).
+-- une erreur claire au front. Filtre statut : permet de réinsérer une fois
+-- l'OT précédent clôturé/annulé. Couvre aussi les requêtes de lecture (l'ancien
+-- index non-unique idx_ot_actifs_par_gamme est remplacé).
 CREATE UNIQUE INDEX uq_ot_gamme_date_actifs
     ON ordres_travail(gamme_id, date_prevue)
-    WHERE statut NOT IN ('cloture', 'annule') AND deleted_at IS NULL;
+    WHERE statut NOT IN ('cloture', 'annule');
 
 
 CREATE INDEX idx_ot_actifs
-    ON ordres_travail(site_id, date_prevue)
-    WHERE deleted_at IS NULL;
+    ON ordres_travail(site_id, date_prevue);
 
 -- Trigger updated_at standard (les triggers métier sont posés par Agent 5)
 CREATE TRIGGER trg_ordres_travail_set_updated_at
@@ -5310,7 +4949,6 @@ SELECT
 FROM ordres_travail ot
 WHERE ot.statut = 'cloture'
   AND ot.nature_gamme = 'controle_reglementaire'
-  AND ot.deleted_at IS NULL
 
 UNION ALL
 
@@ -5401,7 +5039,6 @@ CREATE TABLE documents (
     mime_type         TEXT NOT NULL,
     uploaded_by       UUID NOT NULL REFERENCES users(id),
     uploaded_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at        TIMESTAMPTZ,            -- soft-delete (corbeille 90j)
     CHECK (length(hash_sha256) = 64),
     CHECK (length(trim(nom_original)) > 0),
     CHECK (length(trim(storage_path)) > 0),
@@ -5430,21 +5067,16 @@ CREATE TABLE documents (
         )
     )
     -- Dédup SHA-256 : la contrainte UNIQUE inline a été transformée en index
-    -- partiel documents_unique_hash (WHERE deleted_at IS NULL) — voir ci-dessous.
+    -- documents_unique_hash — voir ci-dessous.
 );
 
 -- Dédup à l'échelle de l'entreprise (un même PDF n'est stocké qu'une fois).
--- WHERE deleted_at IS NULL : un document mis en corbeille libère son hash, ce
--- qui permet de ré-uploader le même fichier sans collision (la dédup ne porte
--- que sur les documents vivants).
 -- documents_unique_hash : index unique de dédup DÉPLACÉ en v0.14b (scopé par site_id).
 
 
 CREATE INDEX idx_documents_type            ON documents(type_document_id);
 CREATE INDEX idx_documents_uploaded_at     ON documents(uploaded_at);
 CREATE INDEX idx_documents_hash            ON documents(hash_sha256);
--- Index partiel pour le cron purge_corbeille_90j (balayage des documents en corbeille)
-CREATE INDEX idx_documents_deleted         ON documents(deleted_at) WHERE deleted_at IS NOT NULL;
 
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 
@@ -5453,9 +5085,7 @@ COMMENT ON TABLE documents IS
 COMMENT ON COLUMN documents.storage_path IS
     'Chemin relatif au bucket Storage (ex: documents/{uuid}.pdf).';
 COMMENT ON COLUMN documents.hash_sha256 IS
-    'Hash SHA-256 hex (64 chars). Unique parmi les documents vivants (index partiel documents_unique_hash WHERE deleted_at IS NULL) : un PDF n''est stocké qu''une seule fois.';
-COMMENT ON COLUMN documents.deleted_at IS
-    'Soft-delete (corbeille 90j). Le cron purge_corbeille_90j supprime physiquement après 90 jours.';
+    'Hash SHA-256 hex (64 chars). Unique par site (index documents_unique_hash) : un PDF n''est stocké qu''une seule fois.';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 7 tables de liaison polymorphes
@@ -5645,8 +5275,7 @@ COMMENT ON COLUMN documents.chapitre_id IS 'v0.14b — rangement dans l''arbre d
 -- Dédup SCOPÉE : on ne refuse un doublon que DANS la portée (entreprise ou un
 -- site), jamais à travers des sites qu'un utilisateur ne voit pas.
 CREATE UNIQUE INDEX documents_unique_hash
-    ON documents (site_id, hash_sha256) NULLS NOT DISTINCT
-    WHERE deleted_at IS NULL;
+    ON documents (site_id, hash_sha256) NULLS NOT DISTINCT;
 CREATE INDEX idx_documents_chapitre ON documents(chapitre_id) WHERE chapitre_id IS NOT NULL;
 
 -- 4. miniature_id sur les entités illustrées. FK pour un comptage de références
@@ -5821,13 +5450,12 @@ SELECT
     v.niveau_nom,
     v.local_nom
 FROM public.equipements e
-LEFT JOIN public.categories       c ON c.id = e.categorie_id AND c.deleted_at IS NULL
-LEFT JOIN public.v_locaux_chemin  v ON v.local_id = e.local_id
-WHERE e.deleted_at IS NULL;
+LEFT JOIN public.categories       c ON c.id = e.categorie_id
+LEFT JOIN public.v_locaux_chemin  v ON v.local_id = e.local_id;
 ALTER VIEW public.v_equipements_complet SET (security_invoker = true);
 GRANT SELECT ON public.v_equipements_complet TO anon, authenticated;
 COMMENT ON VIEW public.v_equipements_complet IS
-    'Équipement enrichi du chemin spatial + libellé catégorie + vignette (miniature_id via e.*). Filtre auto les supprimés.';
+    'Équipement enrichi du chemin spatial + libellé catégorie + vignette (miniature_id via e.*).';
 
 -- niveaux : site dérivé via batiments
 CREATE OR REPLACE FUNCTION public.check_miniature_site_niveau()
@@ -6195,7 +5823,7 @@ BEGIN
 
     -- Résurrection bloquée si gamme inactive
     IF OLD.statut = 'annule' AND NEW.statut = 'planifie'
-       AND NOT EXISTS (SELECT 1 FROM public.gammes WHERE id = NEW.gamme_id AND est_active AND deleted_at IS NULL) THEN
+       AND NOT EXISTS (SELECT 1 FROM public.gammes WHERE id = NEW.gamme_id AND est_active) THEN
         RAISE EXCEPTION 'Résurrection impossible : la gamme est inactive ou supprimée';
     END IF;
 
@@ -6274,7 +5902,7 @@ BEGIN
     END IF;
 
     SELECT nature, est_active INTO v_nature, v_est_active
-    FROM public.gammes WHERE id = NEW.gamme_id AND deleted_at IS NULL;
+    FROM public.gammes WHERE id = NEW.gamme_id;
 
     IF v_nature IS NULL THEN
         RAISE EXCEPTION 'Gamme % introuvable ou supprimée', NEW.gamme_id;
@@ -6330,7 +5958,7 @@ DECLARE
     v_reste  BOOLEAN;
 BEGIN
     SELECT nature, est_active, site_id INTO v_nature, v_active, v_site
-    FROM public.gammes WHERE id = v_gamme AND deleted_at IS NULL;
+    FROM public.gammes WHERE id = v_gamme;
 
     -- Aucune contrainte si : gamme absente / supprimée / non préventive / inactive
     -- (le retrait accompagne une suppression de gamme ou une désactivation), OU
@@ -6614,8 +6242,8 @@ COMMENT ON FUNCTION public.set_chantier_cloture_by() IS
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2.1 protection_ot_terminaux : OT clos/annulé = immuable
--- + bloque DELETE physique (soft-delete uniquement) + id_gamme figé
+-- 2.1 protection_ot_terminaux : OT clos/annulé = immuable sur UPDATE
+-- + gamme_id figé. 035 : DELETE physique désormais AUTORISÉ (fin du soft-delete).
 -- (fusionne protection_ot_terminaux + protection_id_gamme_ot legacy)
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.protection_ot_terminaux()
@@ -6623,36 +6251,20 @@ RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-    -- DELETE physique interdit (soft-delete uniquement)
+    -- DELETE physique désormais AUTORISÉ (suppressions définitives, décision PO).
     IF TG_OP = 'DELETE' THEN
-        RAISE EXCEPTION 'DELETE physique interdit sur ordres_travail (soft-delete uniquement)';
+        RETURN OLD;
     END IF;
 
-    -- gamme_id figé après création (sinon snapshots désynchronisés).
-    -- Exception : le passage à NULL est autorisé — c'est le déclassement
-    -- via ON DELETE SET NULL à la purge d'une gamme laissant un OT clôturé
-    -- conservé (preuve légale survivant via les snapshots figés Pattern 1).
-    -- Le garde-fou explicite évite la fragilité de `uuid != NULL` (qui
-    -- retourne NULL et laisse passer par accident).
+    -- gamme_id figé après création (snapshots). Passage à NULL toléré (legacy).
     IF NEW.gamme_id IS NOT NULL
        AND OLD.gamme_id IS DISTINCT FROM NEW.gamme_id THEN
         RAISE EXCEPTION 'gamme_id est figé à la création de l''OT — annulez et recréez si nécessaire';
     END IF;
 
-    -- OT terminal : seule la transition de statut (reouvert/resurrection)
-    -- ou le soft-delete (deleted_at) sont autorisés.
-    -- F25 audit : assigned_to retiré (n'existe plus). closed_by ne fait pas
-    -- partie de la liste car il est peuplé par trigger AU MOMENT de la clôture.
-    -- F28 audit : motif_annulation ajouté à la liste — il est posé à la
-    -- transition vers annule (via CHECK obligatoire) et doit ensuite être figé
-    -- comme preuve légale, au même titre que les snapshots Pattern 1.
-    -- v0.31 : TOUS les snapshots Pattern 1 sont désormais dans la liste
-    -- (nature_gamme, nom_prestataire, libelle_periodicite, jours_periodicite
-    -- manquaient → un OT clôturé restait modifiable sur ces preuves). Aucun bypass
-    -- admin : pour corriger un OT terminal, l'admin rouvre comme tout le monde.
+    -- OT terminal (cloture/annule) : lecture seule hors transition de statut.
     IF OLD.statut IN ('cloture', 'annule')
        AND OLD.statut = NEW.statut
-       AND OLD.deleted_at IS NOT DISTINCT FROM NEW.deleted_at
        AND (OLD.nom_gamme,       OLD.description_gamme, OLD.date_prevue,
             OLD.date_debut,      OLD.date_cloture,      OLD.commentaires,
             OLD.prestataire_id,  OLD.motif_annulation,
@@ -6673,7 +6285,8 @@ $$;
 CREATE TRIGGER trg_protection_ot_terminaux
     BEFORE UPDATE OR DELETE ON ordres_travail
     FOR EACH ROW EXECUTE FUNCTION public.protection_ot_terminaux();
-COMMENT ON FUNCTION public.protection_ot_terminaux() IS 'Immutabilité NF EN 13306 : OT cloture/annule = lecture seule. Réouverture (cloture → reouvert) ou résurrection (annule → planifie) débloque les modifs ; les snapshots Pattern 1 restent figés. gamme_id figé à vie (site_id figé par protect_ot_site_immutable). DELETE physique interdit (soft-delete uniquement).';
+COMMENT ON FUNCTION public.protection_ot_terminaux() IS
+    'Immutabilité NF EN 13306 sur UPDATE : OT cloture/annule = lecture seule (réouverture pour modifier). gamme_id figé. 035 : le DELETE physique est désormais AUTORISÉ (fin du soft-delete).';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2.2 protection_operations_ot_terminaux : ops d'un OT terminal = lecture seule
@@ -6763,7 +6376,7 @@ COMMENT ON FUNCTION public.protection_ajout_operations_terminaux() IS 'INSERT bl
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2.5 cascade_suppression_gamme : refuse DELETE gamme si OT non terminaux
--- (le DELETE soft via deleted_at est OK, hard-delete seul bloqué ici)
+-- (les OT terminaux n'empêchent pas la suppression)
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.cascade_suppression_gamme()
 RETURNS TRIGGER LANGUAGE plpgsql
@@ -6789,7 +6402,7 @@ $$;
 CREATE TRIGGER trg_cascade_suppression_gamme
     BEFORE DELETE ON gammes
     FOR EACH ROW EXECUTE FUNCTION public.cascade_suppression_gamme();
-COMMENT ON FUNCTION public.cascade_suppression_gamme() IS 'Hard-DELETE gamme bloqué si OT non terminaux (le soft-delete via deleted_at reste autorisé).';
+COMMENT ON FUNCTION public.cascade_suppression_gamme() IS 'DELETE gamme bloqué s''il reste des OT non terminaux (planifie/en_cours/reouvert) ; les OT terminaux (cloture/annule) n''empêchent pas la suppression.';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2.6 protection_suppression_prestataire_contrats : refuse DELETE prestataire
@@ -7281,7 +6894,6 @@ BEGIN
         WHERE gamme_id = NEW.gamme_id
           AND id != NEW.id
           AND statut NOT IN ('cloture', 'annule')
-          AND deleted_at IS NULL
     ) THEN
         RAISE EXCEPTION 'Un OT actif (planifie/en_cours/reouvert) existe déjà pour la gamme %.', NEW.gamme_id;
     END IF;
@@ -7643,10 +7255,6 @@ BEGIN
         RAISE EXCEPTION 'OT introuvable ou hors de votre périmètre';
     END IF;
 
-    IF v_ot.deleted_at IS NOT NULL THEN
-        RAISE EXCEPTION 'Cet ordre de travail a été supprimé : réouverture impossible.';
-    END IF;
-
     IF v_ot.statut <> 'cloture' THEN
         RAISE EXCEPTION 'Seul un OT clôturé peut être rouvert (statut actuel : %)',
             v_ot.statut;
@@ -7661,7 +7269,6 @@ BEGIN
         WHERE gamme_id = v_ot.gamme_id
           AND id <> v_ot.id
           AND statut NOT IN ('cloture', 'annule')
-          AND deleted_at IS NULL
     ) THEN
         RAISE EXCEPTION 'Réouverture impossible : un OT actif existe déjà pour cette gamme. Traitez-le (ou supprimez-le) avant de rouvrir cet OT.'
             USING ERRCODE = 'restrict_violation';
@@ -9027,7 +8634,7 @@ CREATE POLICY di_demandeur_update ON demandes_intervention FOR UPDATE
 -- ╚══════════════════════════════════════════════════════════════════════════╝
 -- admin partout ; manager + technicien écrivent sur leurs sites ; lecteur SELECT.
 -- Pas de rôle demandeur (les chantiers ne sont pas des tickets terrain ouverts).
--- Suppression = soft-delete via UPDATE deleted_at (pas de policy DELETE).
+-- Suppression réservée à l'admin (policy FOR ALL) ; pas de policy DELETE site-scopée.
 
 CREATE POLICY chantier_admin_all ON interventions_chantier FOR ALL
     USING ((SELECT public.current_role()) = 'admin')
@@ -9109,7 +8716,7 @@ $$;
 -- ║ 17ter. investissements / CapEx (site_id) — v0.33, statut libre            ║
 -- ╚══════════════════════════════════════════════════════════════════════════╝
 -- admin partout ; manager + technicien écrivent sur leurs sites ; lecteur SELECT.
--- Suppression = soft-delete via UPDATE deleted_at (pas de policy DELETE).
+-- Suppression réservée à l'admin (policy FOR ALL) ; pas de policy DELETE site-scopée.
 
 CREATE POLICY capex_admin_all ON investissements FOR ALL
     USING ((SELECT public.current_role()) = 'admin')
@@ -9145,12 +8752,7 @@ CREATE POLICY ot_admin_all ON ordres_travail FOR ALL
     USING ((SELECT public.current_role()) = 'admin')
     WITH CHECK ((SELECT public.current_role()) = 'admin');
 
--- SELECT site-scopés
--- Note : pas de filtre deleted_at — la RLS gère l'AUTORISATION, pas le filtrage
--- actif/corbeille. Aligné sur categories_site_scoped_select et gammes_select.
--- Les lignes en corbeille restent visibles (et donc restaurables via UPDATE).
--- Le filtrage actif vs corbeille est la responsabilité des requêtes / VIEWs
--- applicatives (cf bonne pratique RLS Postgres).
+-- SELECT site-scopés : la RLS gère l'AUTORISATION (accès au site), pas le filtrage.
 CREATE POLICY ot_site_scoped_select ON ordres_travail FOR SELECT
     USING (
         (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
@@ -9178,7 +8780,8 @@ CREATE POLICY ot_manager_update ON ordres_travail FOR UPDATE
 -- Le technicien : plein pouvoir métier sur son giron — cf bloc FIX I plus bas
 -- (policy ot_technicien_all FOR ALL).
 
--- DELETE physique interdit par trigger ; pas de policy DELETE site-scoped.
+-- DELETE physique autorisé (035) via les policies FOR ALL (admin / technicien sur
+-- ses sites) ; protection_ot_terminaux ne garde plus que l'immutabilité sur UPDATE.
 
 -- ╔══════════════════════════════════════════════════════════════════════════╗
 -- ║ 19. operations_execution                                                  ║
@@ -10476,8 +10079,8 @@ ALTER TABLE observations
 
 -- 1. ordres_travail — plein pouvoir (INSERT/UPDATE/DELETE) sur ses sites.
 -- L'INSERT permet l'amorçage 1er OT (F41) et la création d'OT correctif
--- manuel. La DELETE physique reste bloquée par protection_ot_terminaux
--- (trigger BEFORE DELETE) ; seul le soft-delete via deleted_at est possible.
+-- manuel. Le DELETE physique est désormais autorisé (035) ; protection_ot_terminaux
+-- conserve l'immutabilité des OT terminaux sur UPDATE.
 CREATE POLICY ot_technicien_all ON ordres_travail FOR ALL
     USING (
         (SELECT public.current_role()) = 'technicien'
@@ -10794,9 +10397,10 @@ CREATE POLICY user_sites_manager_provision ON user_sites FOR ALL
 --
 -- F27 (audit 3e passe) : refonte majeure du modèle de génération des OT.
 -- Avant : 3 crons opérationnels (check_observations_caduques, generate_next_ots,
---         cleanup_orphan_documents) + 1 cron RGPD (purge_corbeille_90j).
--- Après : 1 seul cron RGPD (purge_corbeille_90j) + génération événementielle
---         du prochain OT au moment de la clôture du précédent (trigger).
+--         cleanup_orphan_documents).
+-- Après : génération événementielle du prochain OT au moment de la clôture du
+--         précédent (trigger). (035 : le cron de purge corbeille a été retiré —
+--         passage au hard-delete.)
 --
 -- Justification (décision 2026-05-19) :
 --   - À l'échelle 250 clients × milliers de gammes, un cron 03h qui scanne
@@ -10807,8 +10411,9 @@ CREATE POLICY user_sites_manager_provision ON user_sites FOR ALL
 --     bug) sans valeur métier forte : on accepte l'accumulation de fichiers
 --     orphelins en V1 (faible volume attendu).
 --
--- Restent en cron :
---   - purge_corbeille_90j : RGPD, hors charge transactionnelle, 1 fois/jour
+-- Restent en cron (définis en fin de fichier) :
+--   - cleanup_storage_orphans (mensuel), deactivate_inactive_users (mensuel),
+--     detect_security_anomalies (horaire)
 -- =============================================================================
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -10845,7 +10450,7 @@ DECLARE
     v_new_ot_id     UUID;
 BEGIN
     -- Charger la gamme + sa périodicité
-    SELECT g.id, g.site_id, g.prestataire_id, g.est_active, g.deleted_at,
+    SELECT g.id, g.site_id, g.prestataire_id, g.est_active,
            p.jours_periodicite, p.tolerance_jours, p.libelle
     INTO v_gamme
     FROM public.gammes g
@@ -10853,7 +10458,7 @@ BEGIN
     WHERE g.id = p_gamme_id;
 
     -- Conditions de non-génération (sortie silencieuse)
-    IF v_gamme IS NULL OR NOT v_gamme.est_active OR v_gamme.deleted_at IS NOT NULL THEN
+    IF v_gamme IS NULL OR NOT v_gamme.est_active THEN
         RETURN NULL;
     END IF;
 
@@ -10871,7 +10476,6 @@ BEGIN
         SELECT 1 FROM public.ordres_travail
         WHERE gamme_id = p_gamme_id
           AND statut NOT IN ('cloture', 'annule')
-          AND deleted_at IS NULL
     ) THEN
         RETURN NULL;
     END IF;
@@ -10890,23 +10494,20 @@ BEGIN
     -- le trigger fournit toujours NEW.site_id). Le site retenu DOIT être celui
     -- de la gamme : trg_check_ot_gamme_site rejette sinon l'INSERT.
     IF p_site_id IS NOT NULL THEN
-        -- Vérifie que le site est toujours actif
         SELECT id INTO v_site_final
         FROM public.sites
-        WHERE id = p_site_id
-          AND deleted_at IS NULL;
+        WHERE id = p_site_id;
     END IF;
 
     IF v_site_final IS NULL THEN
         -- Fallback : le site propre de la gamme (cohérent avec check_ot_gamme_site)
         SELECT id INTO v_site_final
         FROM public.sites
-        WHERE id = v_gamme.site_id
-          AND deleted_at IS NULL;
+        WHERE id = v_gamme.site_id;
     END IF;
 
     IF v_site_final IS NULL THEN
-        RAISE LOG 'generate_next_ot_for_gamme: gamme % sans site actif, abandon',
+        RAISE LOG 'generate_next_ot_for_gamme: gamme % sans site, abandon',
             p_gamme_id;
         RETURN NULL;
     END IF;
@@ -11012,314 +10613,36 @@ COMMENT ON FUNCTION public.generate_next_ot_on_cloture() IS
     'F27 audit : génère le prochain OT préventif pour la gamme à la clôture (événementiel, remplace l''ancien cron generate_next_ots). Sans effet si gamme inactive / OT actif déjà existant.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 2. purge_corbeille_90j — RGPD, soft-deleted > 90j supprimés physiquement
+-- cleanup_document_blob — RGPD : nettoyage Storage à la suppression d'un document
 -- ═══════════════════════════════════════════════════════════════════════════
-CREATE OR REPLACE FUNCTION public.purge_corbeille_90j()
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER
+-- 035 : en hard-delete, le blob Storage est retiré dès qu'un document n'est plus
+-- rattaché nulle part (remplace le nettoyage RGPD de l'ancien cron de purge).
+-- Filet supplémentaire : le cron mensuel cleanup_storage_orphans demeure.
+CREATE OR REPLACE FUNCTION public.cleanup_document_blob()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE
-    v_result JSONB := '{}'::jsonb;
-    v_nb     INTEGER;
 BEGIN
-    -- v0.26 : autorise la suppression en cascade des équipes internes des sites
-    -- purgés (FK prestataires.site_id CASCADE ; protect_prestataire_interne lit ce flag).
-    PERFORM set_config('app.purge_active', 'on', true);
-
-    -- Ordre de purge : du plus feuille au plus racine pour respecter les FK RESTRICT.
-    --
-    -- PRÉSERVATION DES OT CLÔTURÉS (NF EN 13306) : un OT en statut 'cloture' est
-    -- une preuve légale de contrôle réglementaire ERP — il N'EST JAMAIS purgé
-    -- automatiquement par ce cron. Seul un admin peut le détruire manuellement.
-    -- Conséquence : un OT clôturé peut survivre à la purge de sa gamme parente
-    -- grâce à ses snapshots figés (Pattern 1) ; la FK gamme_id passe à NULL
-    -- (ON DELETE SET NULL — cf définition de ordres_travail.gamme_id).
-    --
-    -- GARDE-FOU FK : le DELETE physique des OT (tout en bas) bascule la session
-    -- en session_replication_role = 'replica', ce qui DÉSACTIVE le contrôle des
-    -- FK. Les DELETE de gammes/categories s'exécutent AVANT ce basculement (donc
-    -- FK actives). Pour les categories on garde des garde-fous NOT EXISTS sur
-    -- (gamme, sous-catégorie) — RESTRICT volontaire. Pour les gammes, plus de
-    -- garde-fou côté OT : le SET NULL absorbe les OT survivants (clôturés ou
-    -- non encore purgés à ce stade).
-
-    -- documents — purge tôt (les liaisons documents_* partent en CASCADE ; la seule
-    -- FK métier entrante, observations.document_levee_id, est ON DELETE SET NULL et
-    -- ce DELETE tourne HORS replica → le SET NULL se déclenche, pas de garde-fou requis).
-    --
-    -- F28 audit sécu : suppression PHYSIQUE des fichiers Storage rattachés AVANT
-    -- de supprimer la ligne metadata. Sans ça, les blobs restent indéfiniment
-    -- dans le bucket 'documents' (fuite RGPD + coût de stockage). On supprime
-    -- via storage.objects (RLS bypass via SECURITY DEFINER + search_path = '').
-    -- Supabase storage récent : le trigger storage.protect_delete (statement-level)
-    -- interdit tout DELETE direct sur storage.objects, SAUF si cette GUC est posée
-    -- (mécanisme officiel — la Storage API la pose elle-même). SET LOCAL = portée TX.
-    -- Sans ça, la purge entière échoue (transaction avortée) → purge RGPD jamais faite.
-    PERFORM set_config('storage.allow_delete_query', 'true', true);
-    DELETE FROM storage.objects
-        WHERE bucket_id = 'documents'
-          AND name IN (
-              SELECT storage_path FROM public.documents
-              WHERE deleted_at IS NOT NULL
-                AND deleted_at < now() - interval '90 days'
-          );
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('storage_objects', v_nb);
-
-    DELETE FROM public.documents
-        WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('documents', v_nb);
-
-    -- demandes_intervention (signalement curatif autonome). Soft-delete RGPD :
-    -- purge à 90j comme les autres entités. Les liaisons di_equipements /
-    -- di_localisations partent en CASCADE (FK ON DELETE CASCADE). La table est
-    -- auditée → le trigger AFTER DELETE trace la purge. Aucun trigger de
-    -- protection ne bloque le DELETE d'une DI (pas de bypass replica requis).
-    DELETE FROM public.demandes_intervention
-        WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('demandes_intervention', v_nb);
-
-    -- interventions_chantier (v0.33) — soft-delete RGPD, purge à 90j. Les liaisons
-    -- chantier_localisations / chantier_equipements / documents_interventions_chantier
-    -- partent en CASCADE. Aucun trigger de protection terminal (pas de bypass replica).
-    DELETE FROM public.interventions_chantier
-        WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('interventions_chantier', v_nb);
-
-    -- investissements (v0.33) — soft-delete RGPD, purge à 90j. La liaison
-    -- documents_investissements part en CASCADE.
-    DELETE FROM public.investissements
-        WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('investissements', v_nb);
-
-    -- equipements — détacher D'ABORD les liaisons gammes_equipements (FK RESTRICT
-    -- entrante, table de liaison sans soft-delete propre, jamais nettoyée par
-    -- ailleurs) : sinon le DELETE ci-dessous lève foreign_key_violation et AVORTE
-    -- toute la purge (le bloc tourne hors 'replica', FK actives). Les autres
-    -- liaisons entrantes se résolvent seules : di_equipements / documents_equipements
-    -- (CASCADE), observations.equipement_id (SET NULL).
-    DELETE FROM public.gammes_equipements
-        WHERE equipement_id IN (
-            SELECT id FROM public.equipements
-            WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days'
-        );
-    DELETE FROM public.equipements WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('equipements', v_nb);
-
-    -- modeles_equipements — chantier C 2026-05-25.
-    -- equipements.copie_depuis_modele_id est ON DELETE SET NULL → aucun garde-fou
-    -- FK nécessaire : la purge d'un modèle déclasse proprement les équipements
-    -- instanciés (qui conservent leurs specs grâce au snapshot Pattern 1).
-    DELETE FROM public.modeles_equipements WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('modeles_equipements', v_nb);
-
-    -- modeles_di (024) — feuille pure : aucune FK entrante, aucun trigger BEFORE
-    -- DELETE, pas d'items. DELETE simple, hors replica.
-    DELETE FROM public.modeles_di WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('modeles_di', v_nb);
-
-    -- modeles_operations (024) — fenêtre 'replica' DÉDIÉE. Hors replica, le DELETE
-    -- déclencherait validation_suppression_gamme_type_globale (BEFORE DELETE), la FK
-    -- gamme_modeles RESTRICT et la CASCADE des items, avec un RISQUE D'AVORTER toute
-    -- la purge. En 'replica', triggers ET FK désactivés → on nettoie EXPLICITEMENT les
-    -- items (CASCADE inactif) puis les liaisons gamme_modeles (RESTRICT inactif), avant
-    -- de supprimer les modèles. Placé AVANT categories (garde-fou NOT EXISTS).
-    SET LOCAL session_replication_role = replica;
-    DELETE FROM public.modeles_operations_items
-        WHERE modele_operation_id IN (
-            SELECT id FROM public.modeles_operations
-            WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days'
-        );
-    DELETE FROM public.gamme_modeles
-        WHERE modele_operation_id IN (
-            SELECT id FROM public.modeles_operations
-            WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days'
-        );
-    DELETE FROM public.modeles_operations
-        WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    SET LOCAL session_replication_role = origin;
-    v_result := v_result || jsonb_build_object('modeles_operations', v_nb);
-
-    -- locaux
-    DELETE FROM public.locaux WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('locaux', v_nb);
-
-    -- niveaux
-    DELETE FROM public.niveaux WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('niveaux', v_nb);
-
-    -- batiments
-    DELETE FROM public.batiments WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('batiments', v_nb);
-
-    -- gammes — Plus de garde-fou côté OT : la FK ordres_travail.gamme_id est
-    -- ON DELETE SET NULL, donc la purge d'une gamme déclasse proprement les OT
-    -- conservés (clôturés ou pas encore purgés). Les OT survivent grâce aux
-    -- snapshots figés (Pattern 1).
-    DELETE FROM public.gammes
-        WHERE deleted_at IS NOT NULL
-          AND deleted_at < now() - interval '90 days';
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('gammes', v_nb);
-
-    -- categories — GARDE-FOU : on n'efface PAS une catégorie encore référencée
-    -- par une gamme non purgée (gammes.categorie_id est RESTRICT), par un modèle
-    -- d'équipement (modeles_equipements.categorie_id est RESTRICT — patch
-    -- 2026-06-10), par un modèle d'opération (modeles_operations.categorie_id RESTRICT
-    -- — garde-fou 024) ni par une catégorie enfant (parent_id RESTRICT). En revanche
-    -- equipements.categorie_id et copie_depuis_id sont ON DELETE SET NULL → aucun
-    -- garde-fou nécessaire de ces côtés (la purge déclasse simplement les
-    -- équipements concernés).
-    DELETE FROM public.categories
-        WHERE deleted_at IS NOT NULL
-          AND deleted_at < now() - interval '90 days'
-          AND NOT EXISTS (
-              SELECT 1 FROM public.gammes g WHERE g.categorie_id = public.categories.id
-          )
-          AND NOT EXISTS (
-              SELECT 1 FROM public.modeles_equipements me WHERE me.categorie_id = public.categories.id
-          )
-          AND NOT EXISTS (
-              SELECT 1 FROM public.modeles_operations mo WHERE mo.categorie_id = public.categories.id
-          )
-          AND NOT EXISTS (
-              SELECT 1 FROM public.categories enfant WHERE enfant.parent_id = public.categories.id
-          );
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('categories', v_nb);
-
-    -- prestataires + sites : v0.21 — purgés APRÈS les OT (déplacés plus bas), sinon
-    -- leurs OT (même soft-deletés) bloqueraient le DELETE par FK RESTRICT. Voir le
-    -- bloc « prestataires/sites » en fin de fonction (avec garde-fous NOT EXISTS).
-
-    -- ordres_travail (soft-delete RGPD : on conserve 90j puis on purge — SAUF
-    -- les OT en statut 'cloture' qui sont des preuves légales NF EN 13306 et
-    -- ne sont JAMAIS purgés automatiquement. Seul un admin peut les détruire).
-    -- ATTENTION : protection_ot_terminaux bloque DELETE physique ; il faut
-    -- bypasser via session_replication_role = 'replica' (service_role + SET LOCAL).
-    -- F15 (audit sécu) : 'replica' désactive AUSSI les triggers d'audit
-    --   (audit_ordres_travail) → on log manuellement AVANT le DELETE pour
-    --   garder une trace conforme NF EN 13306. row_pk en TEXT, before = ligne
-    --   complète, after = NULL (DELETE). user_id = NULL car cron système.
-    INSERT INTO public.audit_log (user_id, table_name, row_pk, action, before, after)
-    SELECT
-        NULL,                        -- cron système, pas d'user
-        'ordres_travail',
-        ot.id::text,
-        'DELETE',
-        to_jsonb(ot.*),
-        NULL
-    FROM public.ordres_travail ot
-    WHERE ot.deleted_at IS NOT NULL
-      AND ot.deleted_at < now() - interval '90 days'
-      AND ot.statut <> 'cloture';   -- preuve légale → jamais purgée auto
-
-    -- ATTENTION : 'replica' désactive AUSSI les triggers d'intégrité référentielle
-    -- (FK). Les actions ON DELETE CASCADE / SET NULL des enfants des OT ne se
-    -- déclenchent donc PAS → on nettoie EXPLICITEMENT, sinon lignes orphelines :
-    --   - operations_execution (FK CASCADE, pas de soft-delete propre → jamais
-    --     purgée autrement : un OT purgé laisserait ses opex orphelines)
-    --   - documents_ordres_travail (FK CASCADE, table de liaison)
-    --   - observations.ot_id (FK SET NULL : la ligne survit, on neutralise le lien)
-    SET LOCAL session_replication_role = replica;
-
-    DELETE FROM public.operations_execution
-        WHERE ordre_travail_id IN (
-            SELECT id FROM public.ordres_travail
-            WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days'
-              AND statut <> 'cloture'
-        );
-    DELETE FROM public.documents_ordres_travail
-        WHERE ordre_travail_id IN (
-            SELECT id FROM public.ordres_travail
-            WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days'
-              AND statut <> 'cloture'
-        );
-    -- observations : lien souple (SET NULL) pour celles qui peuvent vivre
-    -- détachées. MAIS le CHECK observations_source_controle_ot impose ot_id NOT
-    -- NULL pour source='controle_reglementaire', et les CHECK SURVIVENT à 'replica'
-    -- (contrairement aux FK) → un SET NULL aveugle lèverait check_violation et
-    -- avorterait la purge. Ces observations de contrôle sont donc purgées AVEC leur
-    -- OT (un OT non clôturé purgé les emporte ; les OT clôturés ne sont jamais
-    -- purgés). observations n'a aucune FK entrante → DELETE sûr (pas d'orphelin).
-    UPDATE public.observations SET ot_id = NULL
-        WHERE source <> 'controle_reglementaire'
-          AND ot_id IN (
-              SELECT id FROM public.ordres_travail
-              WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days'
-                AND statut <> 'cloture'
-          );
-    DELETE FROM public.observations
-        WHERE source = 'controle_reglementaire'
-          AND ot_id IN (
-              SELECT id FROM public.ordres_travail
-              WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '90 days'
-                AND statut <> 'cloture'
-          );
-
-    DELETE FROM public.ordres_travail
-        WHERE deleted_at IS NOT NULL
-          AND deleted_at < now() - interval '90 days'
-          AND statut <> 'cloture';   -- preuve légale → jamais purgée auto
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    SET LOCAL session_replication_role = origin;
-    v_result := v_result || jsonb_build_object('ordres_travail', v_nb);
-
-    -- prestataires — v0.21 : APRÈS les OT (les OT non clôturés sont désormais purgés).
-    -- Garde-fou NOT EXISTS : un prestataire encore référencé par un contrat (pas de
-    -- soft-delete), une gamme ou un OT (clôturé = preuve jamais purgée) reste en
-    -- corbeille — jamais détruit tant qu'une de ces références existe (décision PO 2026).
-    DELETE FROM public.prestataires p
-        WHERE p.deleted_at IS NOT NULL AND p.deleted_at < now() - interval '90 days'
-          AND NOT EXISTS (SELECT 1 FROM public.contrats c        WHERE c.prestataire_id = p.id)
-          AND NOT EXISTS (SELECT 1 FROM public.gammes g          WHERE g.prestataire_id = p.id)
-          AND NOT EXISTS (SELECT 1 FROM public.ordres_travail ot WHERE ot.prestataire_id = p.id);
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('prestataires', v_nb);
-
-    -- sites — v0.21 : EN DERNIER. La cascade spatiale (trg_sites_cascade_corbeille)
-    -- a normalement déjà mis batiments/gammes/categories/documents/DI/OT du site en
-    -- corbeille (donc purgés au-dessus). Garde-fou NOT EXISTS sur les 6 FK RESTRICT
-    -- filles : un OT clôturé (preuve jamais purgée) ou une observation (pas de
-    -- soft-delete) retient le site → il reste en corbeille (décision PO 2026 : on ne
-    -- détruit jamais une preuve NF EN 13306).
-    DELETE FROM public.sites s
-        WHERE s.deleted_at IS NOT NULL AND s.deleted_at < now() - interval '90 days'
-          AND NOT EXISTS (SELECT 1 FROM public.batiments b             WHERE b.site_id = s.id)
-          AND NOT EXISTS (SELECT 1 FROM public.gammes g                WHERE g.site_id = s.id)
-          AND NOT EXISTS (SELECT 1 FROM public.categories c            WHERE c.site_id = s.id)
-          AND NOT EXISTS (SELECT 1 FROM public.documents d             WHERE d.site_id = s.id)
-          AND NOT EXISTS (SELECT 1 FROM public.demandes_intervention di WHERE di.site_id = s.id)
-          AND NOT EXISTS (SELECT 1 FROM public.observations o          WHERE o.site_id = s.id)
-          AND NOT EXISTS (SELECT 1 FROM public.ordres_travail ot       WHERE ot.site_id = s.id)
-          AND NOT EXISTS (SELECT 1 FROM public.contrats c              WHERE c.site_id = s.id)
-          AND NOT EXISTS (SELECT 1 FROM public.interventions_chantier ic WHERE ic.site_id = s.id)
-          AND NOT EXISTS (SELECT 1 FROM public.investissements inv     WHERE inv.site_id = s.id);
-    GET DIAGNOSTICS v_nb = ROW_COUNT;
-    v_result := v_result || jsonb_build_object('sites', v_nb);
-
-    -- Trace d'exécution (apparaît dans les logs Supabase). Le détail par table
-    -- — dont documents, gammes et categories avec leurs garde-fous FK — sert au
-    -- suivi RGPD et au diagnostic d'éventuels résidus non purgés.
-    RAISE LOG 'purge_corbeille_90j: purge terminée %', v_result;
-
-    RETURN v_result;
+    -- Ne retire le fichier que s'il n'est plus rattaché nulle part (test global
+    -- hors RLS) : sûr pour un hash partagé entre plusieurs entités/portées.
+    IF OLD.storage_path IS NOT NULL
+       AND NOT public.storage_objet_rattache(OLD.storage_path) THEN
+        PERFORM set_config('storage.allow_delete_query', 'true', true);
+        DELETE FROM storage.objects
+            WHERE bucket_id = 'documents' AND name = OLD.storage_path;
+    END IF;
+    RETURN OLD;
 END;
 $$;
+COMMENT ON FUNCTION public.cleanup_document_blob() IS
+    '035 RGPD : AFTER DELETE ON documents — supprime le blob Storage du document si plus rattaché nulle part (remplace le nettoyage RGPD de l''ancien cron de purge). Filet : cleanup_storage_orphans (mensuel).';
 
-COMMENT ON FUNCTION public.purge_corbeille_90j() IS
-    'Cron quotidien 05:00 : supprime physiquement les entités soft-deleted depuis > 90 jours. Bypass triggers via session_replication_role. (024 : + modeles_operations (fenêtre replica dédiée) + modeles_di + garde-fou catégorie NOT EXISTS modeles_operations.)';
+DROP TRIGGER IF EXISTS trg_documents_cleanup_blob ON public.documents;
+CREATE TRIGGER trg_documents_cleanup_blob
+    AFTER DELETE ON public.documents
+    FOR EACH ROW EXECUTE FUNCTION public.cleanup_document_blob();
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- cleanup_storage_orphans — Cron mensuel (patch v0.5, F29)
@@ -11613,15 +10936,8 @@ COMMENT ON FUNCTION public.detect_security_anomalies() IS
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Planification pg_cron
 -- ═══════════════════════════════════════════════════════════════════════════
--- F27 audit : 1 cron RGPD (purge 90j). F29 (v0.5) : +cleanup_storage_orphans.
--- F30 (v0.6) : +deactivate_inactive_users +detect_security_anomalies.
-
--- purge_corbeille_90j : 05:00 Paris (hors charge transactionnelle), tous les jours
-SELECT cron.schedule(
-    'purge_corbeille_90j',
-    '0 5 * * *',
-    $$ SELECT public.purge_corbeille_90j(); $$
-);
+-- F29 (v0.5) : cleanup_storage_orphans. F30 (v0.6) : +deactivate_inactive_users
+-- +detect_security_anomalies. (035 : cron de purge corbeille retiré — hard-delete.)
 
 -- cleanup_storage_orphans (F29 v0.5) : 1er du mois, 04:00 Paris (hors charge,
 -- avant la purge RGPD qui peut elle-même créer des orphelins documents).
@@ -11892,9 +11208,8 @@ CREATE INDEX IF NOT EXISTS idx_modeles_operations_image_path  ON public.modeles_
 CREATE INDEX IF NOT EXISTS idx_modeles_equipements_image_path ON public.modeles_equipements(image_path) WHERE image_path IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_ordres_travail_image_path      ON public.ordres_travail(image_path)      WHERE image_path IS NOT NULL;
 
--- documents.site_id : colonne de policy (cloisonnement v0.20), filtrée sans
--- deleted_at → index PLEIN dédié (l'unique partiel documents_unique_hash ne
--- couvre que WHERE deleted_at IS NULL). Doctrine : indexer toute colonne de policy.
+-- documents.site_id : colonne de policy (cloisonnement v0.20) → index dédié.
+-- Doctrine : indexer toute colonne de policy.
 CREATE INDEX IF NOT EXISTS idx_documents_site               ON public.documents(site_id)              WHERE site_id IS NOT NULL;
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -12065,8 +11380,7 @@ BEGIN
     FOR r IN
         SELECT c.id, c.site_id, c.nom, c.scope
           FROM public.categories c
-         WHERE c.deleted_at IS NULL
-           AND (
+         WHERE (
                (c.scope = 'equipement' AND c.parent_id IS NOT NULL)
                OR c.parent_id IN (
                    SELECT id FROM public.categories WHERE scope = 'equipement'
@@ -12079,8 +11393,7 @@ BEGIN
         WHILE EXISTS (
             SELECT 1
               FROM public.categories x
-             WHERE x.deleted_at IS NULL
-               AND x.parent_id IS NULL
+             WHERE x.parent_id IS NULL
                AND x.id <> r.id
                AND x.site_id IS NOT DISTINCT FROM r.site_id
                AND x.scope = r.scope
@@ -12138,7 +11451,6 @@ BEGIN
       FROM public.categories
      WHERE site_id IS NULL AND parent_id IS NULL
        AND lower(nom) = 'non classé (gammes)'
-       AND deleted_at IS NULL
      LIMIT 1;
 
     IF v_racine_id IS NULL THEN
@@ -12152,7 +11464,6 @@ BEGIN
       FROM public.categories
      WHERE site_id IS NULL AND parent_id = v_racine_id
        AND lower(nom) = 'non classé'
-       AND deleted_at IS NULL
      LIMIT 1;
 
     IF v_sous_cat_id IS NULL THEN
@@ -12198,7 +11509,6 @@ BEGIN
       FROM public.categories
      WHERE site_id IS NULL AND parent_id IS NULL
        AND lower(nom) = 'non classé (équipements)'
-       AND deleted_at IS NULL
      LIMIT 1;
 
     IF v_cat_id IS NULL THEN
@@ -12232,10 +11542,8 @@ BEGIN
         SELECT m.id AS modele_id, m.categorie_id AS cat_commune, m.site_id AS site_id
           FROM public.modeles_equipements m
           JOIN public.categories c ON c.id = m.categorie_id
-         WHERE m.deleted_at IS NULL
-           AND m.site_id    IS NOT NULL   -- modèle DE SITE
+         WHERE m.site_id    IS NOT NULL   -- modèle DE SITE
            AND c.site_id    IS NULL       -- mais rangé dans une catégorie COMMUNE
-           AND c.deleted_at IS NULL
     LOOP
         v_cat_site := public.copier_categorie_noeud(r.cat_commune, NULL, r.site_id);
         UPDATE public.modeles_equipements
@@ -12255,15 +11563,15 @@ CREATE OR REPLACE VIEW public.v_miniatures_pool AS
 WITH refs AS (
     SELECT miniature_id, 'equipement'::text AS origine, nom AS libelle
       FROM public.modeles_equipements
-     WHERE miniature_id IS NOT NULL AND deleted_at IS NULL
+     WHERE miniature_id IS NOT NULL
     UNION ALL
     SELECT miniature_id, 'equipement', nom
       FROM public.equipements
-     WHERE miniature_id IS NOT NULL AND deleted_at IS NULL
+     WHERE miniature_id IS NOT NULL
     UNION ALL
     SELECT miniature_id, 'equipement', nom
       FROM public.categories
-     WHERE miniature_id IS NOT NULL AND deleted_at IS NULL
+     WHERE miniature_id IS NOT NULL
        AND scope IN ('equipement', 'mixte')
     UNION ALL
     SELECT miniature_id, 'operation', nom
@@ -12272,16 +11580,16 @@ WITH refs AS (
     UNION ALL
     SELECT miniature_id, 'operation', nom
       FROM public.categories
-     WHERE miniature_id IS NOT NULL AND deleted_at IS NULL
+     WHERE miniature_id IS NOT NULL
        AND scope = 'operation'
     UNION ALL
     SELECT miniature_id, 'plan_maintenance', nom
       FROM public.gammes
-     WHERE miniature_id IS NOT NULL AND deleted_at IS NULL
+     WHERE miniature_id IS NOT NULL
     UNION ALL
     SELECT miniature_id, 'plan_maintenance', nom
       FROM public.categories
-     WHERE miniature_id IS NOT NULL AND deleted_at IS NULL
+     WHERE miniature_id IS NOT NULL
        AND scope IN ('gamme', 'mixte')
     UNION ALL
     SELECT miniature_id, 'di', libelle
@@ -12290,19 +11598,19 @@ WITH refs AS (
     UNION ALL
     SELECT miniature_id, 'lieux', libelle
       FROM public.prestataires
-     WHERE miniature_id IS NOT NULL AND deleted_at IS NULL
+     WHERE miniature_id IS NOT NULL
     UNION ALL
     SELECT miniature_id, 'lieux', nom
       FROM public.batiments
-     WHERE miniature_id IS NOT NULL AND deleted_at IS NULL
+     WHERE miniature_id IS NOT NULL
     UNION ALL
     SELECT miniature_id, 'lieux', nom
       FROM public.niveaux
-     WHERE miniature_id IS NOT NULL AND deleted_at IS NULL
+     WHERE miniature_id IS NOT NULL
     UNION ALL
     SELECT miniature_id, 'lieux', nom
       FROM public.locaux
-     WHERE miniature_id IS NOT NULL AND deleted_at IS NULL
+     WHERE miniature_id IS NOT NULL
 ),
 agg AS (
     SELECT miniature_id,

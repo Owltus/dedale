@@ -49,7 +49,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ListRow } from '@/components/common/list-row'
 import { Button } from '@/components/ui/button'
 import { ScopeBadges } from '@/components/common/scope-badges'
@@ -460,37 +460,25 @@ export function GammesTypesPanel() {
   const emptyHere =
     childCategories.length === 0 && modelesInCurrent.length === 0
 
-  // Suppression : message adapté à l'état des liens (chargement / liés / libres).
-  const liesNoms = liens.filter((l) => !l.supprimee).map((l) => l.nom)
-  const nbActives = liesNoms.length
-  const nbLiensSupprimes = liens.length - nbActives
-  const apercuNoms = liesNoms
-    .slice(0, 5)
-    .map((n) => `« ${n} »`)
-    .join(', ')
-  const reste = nbActives - 5
-  const resteNoms = reste > 0 ? ` et ${String(reste)} autre(s)` : ''
-  const liensSupprimesNote =
-    nbLiensSupprimes > 0
-      ? ` (+ ${String(nbLiensSupprimes)} liaison${nbLiensSupprimes > 1 ? 's' : ''} vers des gammes déjà supprimées)`
-      : ''
-  const deleteDescription = !toDelete
+  // Suppression d'un modèle : les gammes liées sont affichées en IMPACTS (toutes
+  // actives — plus de soft-delete). La RPC les détache puis supprime, donc ce
+  // n'est jamais bloquant. Le dialogue tronque lui-même la liste (5 + « et N »).
+  const liensNoms = liens.map((l) => `« ${l.nom} »`)
+  const deleteModeleEntityLabel = `le modèle d’opération${
+    toDelete ? ` « ${toDelete.nom} »` : ''
+  }`
+  const deleteModeleImpactsTitle = hasLiens
+    ? `Ce modèle est utilisé par ${String(liens.length)} gamme${
+        liens.length > 1 ? 's' : ''
+      } :`
+    : undefined
+  const deleteModeleWarning: ReactNode = !toDelete
     ? undefined
-    : liensQuery.isLoading
-      ? 'Vérification des gammes liées…'
-      : liensQuery.isError
-        ? `Vérification des gammes liées impossible. La suppression détachera automatiquement toute liaison résiduelle puis supprimera « ${toDelete.nom} » définitivement.`
-        : !hasLiens
-          ? `« ${toDelete.nom} » et ses opérations seront supprimés définitivement (toute liaison résiduelle sera détachée).`
-          : nbActives > 0
-            ? `« ${toDelete.nom} » est utilisé par ${String(nbActives)} gamme${
-                nbActives > 1 ? 's' : ''
-              } (${apercuNoms}${resteNoms})${liensSupprimesNote}. Le détacher de ${
-                nbActives > 1 ? 'ces gammes' : 'cette gamme'
-              } (sans les supprimer) puis le supprimer définitivement ?`
-            : `« ${toDelete.nom} » a ${String(nbLiensSupprimes)} liaison${
-                nbLiensSupprimes > 1 ? 's' : ''
-              } vers des gammes déjà supprimées. Le supprimer définitivement ?`
+    : liensQuery.isError
+      ? 'Vérification des gammes liées impossible. Toute liaison résiduelle sera détachée, puis le modèle et ses opérations seront supprimés définitivement.'
+      : hasLiens
+        ? 'Ces gammes seront détachées (sans être supprimées), puis le modèle et ses opérations seront supprimés définitivement.'
+        : 'Le modèle et ses opérations seront supprimés définitivement.'
 
   // Dialog de création/édition de modèle, partagé navigation + détail.
   const modeleFormDialog =
@@ -535,19 +523,17 @@ export function GammesTypesPanel() {
         <OperationItemsEditor modele={openModele} canManage={canManageItems} />
         {modeleFormDialog}
         {exportDialog}
-        <ConfirmDialog
+        <ConfirmDeleteDialog
           open={toDelete !== null}
           onOpenChange={(open) => {
             if (!open) setToDelete(null)
           }}
-          title="Supprimer le modèle d’opération ?"
-          description={deleteDescription}
-          confirmLabel={
-            hasLiens
-              ? 'Détacher de toutes les gammes puis supprimer'
-              : 'Supprimer'
-          }
-          destructive
+          entityLabel={deleteModeleEntityLabel}
+          loadingImpacts={liensQuery.isLoading}
+          impactsTitle={deleteModeleImpactsTitle}
+          impacts={hasLiens ? liensNoms : undefined}
+          warning={deleteModeleWarning}
+          confirmLabel={hasLiens ? 'Détacher puis supprimer' : 'Supprimer'}
           loading={detachEtSupprime.isPending || liensQuery.isLoading}
           onConfirm={confirmDelete}
         />
@@ -751,39 +737,31 @@ export function GammesTypesPanel() {
       {/* Création / édition de modèle (nom + catégorie + description) dans la catégorie. */}
       {modeleFormDialog}
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDelete !== null}
         onOpenChange={(open) => {
           if (!open) setToDelete(null)
         }}
-        title="Supprimer le modèle d’opération ?"
-        description={deleteDescription}
-        confirmLabel={
-          hasLiens
-            ? 'Détacher de toutes les gammes puis supprimer'
-            : 'Supprimer'
-        }
-        destructive
+        entityLabel={deleteModeleEntityLabel}
+        loadingImpacts={liensQuery.isLoading}
+        impactsTitle={deleteModeleImpactsTitle}
+        impacts={hasLiens ? liensNoms : undefined}
+        warning={deleteModeleWarning}
+        confirmLabel={hasLiens ? 'Détacher puis supprimer' : 'Supprimer'}
         loading={detachEtSupprime.isPending || liensQuery.isLoading}
         onConfirm={confirmDelete}
       />
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDeleteCategorie !== null}
         onOpenChange={(open) => {
           if (!open) setToDeleteCategorie(null)
         }}
-        title="Supprimer la catégorie ?"
-        description={
-          toDeleteCategorie
-            ? toDeleteCategorieNonVide
-              ? 'Cette catégorie contient des modèles : videz-la d’abord.'
-              : `« ${toDeleteCategorie.nom} » sera supprimée définitivement.`
-            : undefined
-        }
-        confirmLabel="Supprimer"
-        destructive
-        confirmDisabled={toDeleteCategorieNonVide}
+        entityLabel={`la catégorie${
+          toDeleteCategorie ? ` « ${toDeleteCategorie.nom} »` : ''
+        }`}
+        blocked={toDeleteCategorieNonVide}
+        blockedReason="Cette catégorie contient des sous-catégories ou des modèles. Vide-la d’abord pour pouvoir la supprimer."
         loading={delCategorie.isPending}
         onConfirm={confirmDeleteCategorie}
       />

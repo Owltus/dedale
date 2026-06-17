@@ -21,13 +21,11 @@ export interface ModeleOperationImportable {
 
 /**
  * Gamme liée à un modèle d'opération (ligne `gamme_modeles` aplatie) : sert à
- * détecter les liens avant suppression. Une gamme soft-deletée garde la liaison
- * (donc bloque la suppression FK) : on la signale via `supprimee`.
+ * lister les gammes concernées avant la suppression d'un modèle.
  */
 export interface GammeLieeAModele {
   gammeId: string
   nom: string
-  supprimee: boolean
 }
 
 export const modelesOperationsQueries = {
@@ -35,7 +33,7 @@ export const modelesOperationsQueries = {
 
   /**
    * Modèles d'opérations (gammes-types) visibles : scope entreprise (site_id
-   * NULL) + scope du site actif. Exclut les modèles supprimés (deleted_at, 024).
+   * NULL) + scope du site actif.
    */
   list: (siteId: string | null) =>
     queryOptions({
@@ -44,7 +42,6 @@ export const modelesOperationsQueries = {
         const { data } = await supabase
           .from('modeles_operations')
           .select('*')
-          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
@@ -67,7 +64,7 @@ export const modelesOperationsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('gamme_modeles')
-          .select('gamme_id, gammes(nom, deleted_at)')
+          .select('gamme_id, gammes(nom)')
           .eq('modele_operation_id', modeleId)
           .abortSignal(signal)
           .throwOnError()
@@ -76,7 +73,6 @@ export const modelesOperationsQueries = {
             gammeId: row.gamme_id,
             // `gamme_id` est une FK NOT NULL → la gamme jointe existe toujours.
             nom: row.gammes.nom,
-            supprimee: row.gammes.deleted_at !== null,
           }),
         )
       },
@@ -113,7 +109,6 @@ export const modelesOperationsQueries = {
         const { data } = await supabase
           .from('modeles_operations')
           .select('*')
-          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
@@ -135,7 +130,6 @@ export const modelesOperationsQueries = {
         const { data } = await supabase
           .from('modeles_operations')
           .select('id, nom, description, site_id, modeles_operations_items(id)')
-          .is('deleted_at', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()

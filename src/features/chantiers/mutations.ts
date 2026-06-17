@@ -110,10 +110,10 @@ export function useDeleteChantier() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft-delete : on pose deleted_at (côté backend).
+      // Suppression définitive (hard-delete).
       await supabase
         .from('interventions_chantier')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .select('id')
         .single()

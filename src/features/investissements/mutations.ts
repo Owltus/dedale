@@ -74,10 +74,10 @@ export function useDeleteInvestissement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft-delete : on pose deleted_at (côté backend).
+      // Suppression définitive (hard-delete).
       await supabase
         .from('investissements')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .select('id')
         .single()

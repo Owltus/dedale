@@ -20,7 +20,6 @@ export const categoriesQueries = {
         const { data } = await supabase
           .from('categories')
           .select('*')
-          .is('deleted_at', null)
           .order('ordre')
           .order('nom')
           .abortSignal(signal)
@@ -45,7 +44,6 @@ export const categoriesQueries = {
           .from('categories')
           .select('id, nom')
           .eq('id', id!)
-          .is('deleted_at', null)
           .abortSignal(signal)
           .maybeSingle()
           .throwOnError()
@@ -65,7 +63,6 @@ export const categoriesQueries = {
         const { data } = await supabase
           .from('categories')
           .select('*')
-          .is('deleted_at', null)
           .order('ordre')
           .order('nom')
           .abortSignal(signal)

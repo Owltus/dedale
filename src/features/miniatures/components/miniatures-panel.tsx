@@ -28,8 +28,18 @@ import { NoSearchResults } from '@/components/common/no-search-results'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+
+// Familles d'usage d'une vignette (origines de v_miniatures_pool) → libellés UI.
+const ORIGINE_LABEL: Record<string, string> = {
+  equipement: 'Équipements',
+  operation: 'Opérations',
+  plan_maintenance: 'Plan de maintenance',
+  di: 'Demandes d’intervention',
+  lieux: 'Lieux',
+}
 
 // Déclenche un téléchargement navigateur d'un blob.
 function downloadBlob(blob: Blob, filename: string) {
@@ -193,8 +203,9 @@ export function MiniaturesPanel() {
     }
   }, [selectedMiniatures])
 
-  // Suppression de masse : tente chaque vignette supprimable (la RPC refuse si
-  // elle est encore référencée → comptée en échec), puis résumé.
+  // Suppression de masse : supprime chaque vignette supprimable (permissif — les
+  // entités liées sont détachées par la base). Les échecs = droits insuffisants /
+  // erreur réseau, plus jamais « encore utilisée ».
   async function runMassDelete() {
     setMassDeleting(true)
     let ok = 0
@@ -213,7 +224,7 @@ export function MiniaturesPanel() {
     if (ok > 0) toast.success(`${String(ok)} vignette(s) supprimée(s)`)
     if (fail > 0) {
       toast.error(
-        `${String(fail)} non supprimée(s) (utilisée(s) ou non autorisée(s))`,
+        `${String(fail)} non supprimée(s) (non autorisée(s) ou erreur)`,
       )
     }
   }
@@ -606,22 +617,30 @@ export function MiniaturesPanel() {
           if (!open) setMassDeleteOpen(false)
         }}
         title="Supprimer les vignettes sélectionnées ?"
-        description={`${String(deletableSelected.length)} vignette(s) seront supprimées définitivement. Celles encore utilisées par une entité seront ignorées.`}
+        description={`${String(deletableSelected.length)} vignette(s) seront supprimées définitivement. Les éléments liés perdront leur vignette.`}
         confirmLabel="Supprimer"
         destructive
         loading={massDeleting}
         onConfirm={() => void runMassDelete()}
       />
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDelete !== null}
         onOpenChange={(open) => {
           if (!open) setToDelete(null)
         }}
-        title="Supprimer la vignette ?"
-        description="Suppression définitive. Refusée si la vignette est encore utilisée par une entité."
-        confirmLabel="Supprimer"
-        destructive
+        entityLabel="la vignette"
+        impactsTitle={
+          toDelete && toDelete.origines.length > 0
+            ? 'Cette image est utilisée dans :'
+            : undefined
+        }
+        impacts={toDelete?.origines.map((o) => ORIGINE_LABEL[o] ?? o)}
+        warning={
+          toDelete && toDelete.origines.length > 0
+            ? 'Les éléments liés perdront leur vignette ; tu pourras en remettre une autre.'
+            : 'Cette vignette n’est utilisée nulle part : suppression définitive.'
+        }
         loading={del.isPending}
         onConfirm={confirmDelete}
       />

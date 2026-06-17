@@ -13,7 +13,6 @@ export const investissementsQueries = {
           .from('investissements')
           .select('*')
           .eq('site_id', siteId)
-          .is('deleted_at', null)
           .order('date_demande', { ascending: false })
           .throwOnError()
         return data

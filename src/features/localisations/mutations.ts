@@ -72,19 +72,19 @@ export function useDeleteBatiment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Verrou : refuser si au moins un niveau actif est rattaché.
+      // Verrou : refuser si au moins un niveau est rattaché.
       const { count } = await supabase
         .from('niveaux')
         .select('id', { count: 'exact', head: true })
         .eq('batiment_id', id)
-        .is('deleted_at', null)
         .throwOnError()
       if ((count ?? 0) > 0) {
         throw new Error('Supprime d’abord les niveaux de ce bâtiment.')
       }
+      // Suppression définitive (hard-delete).
       await supabase
         .from('batiments')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .select('id')
         .single()
@@ -158,19 +158,19 @@ export function useDeleteNiveau() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Verrou : refuser si au moins un local actif est rattaché.
+      // Verrou : refuser si au moins un local est rattaché.
       const { count } = await supabase
         .from('locaux')
         .select('id', { count: 'exact', head: true })
         .eq('niveau_id', id)
-        .is('deleted_at', null)
         .throwOnError()
       if ((count ?? 0) > 0) {
         throw new Error('Supprime d’abord les locaux de ce niveau.')
       }
+      // Suppression définitive (hard-delete).
       await supabase
         .from('niveaux')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .select('id')
         .single()
@@ -246,10 +246,10 @@ export function useDeleteLocal() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Le local se supprime librement (soft-delete).
+      // Suppression définitive (hard-delete). Le local se supprime librement.
       await supabase
         .from('locaux')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .select('id')
         .single()

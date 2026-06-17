@@ -67,10 +67,10 @@ export interface MesurePoint {
 }
 
 const SELECT_MESURE =
-  'id, source_id, nom, valeur_mesuree, date_execution, est_conforme, seuil_minimum, seuil_maximum, unite_symbole, unite_nom, ordre_travail_id, ordres_travail!inner(site_id, gamme_id, nom_gamme, deleted_at)'
+  'id, source_id, nom, valeur_mesuree, date_execution, est_conforme, seuil_minimum, seuil_maximum, unite_symbole, unite_nom, ordre_travail_id, ordres_travail!inner(site_id, gamme_id, nom_gamme)'
 
 /**
- * Charge toutes les mesures (valeur renseignée) des OT non supprimés du site.
+ * Charge toutes les mesures (valeur renseignée) des OT du site.
  * On agrège ensuite côté client (peu de lignes attendues par site, et pas de
  * vue/RPC dédiée disponible).
  */
@@ -82,7 +82,6 @@ async function fetchMesuresSite(
     .from('operations_execution')
     .select(SELECT_MESURE)
     .eq('ordres_travail.site_id', siteId)
-    .is('ordres_travail.deleted_at', null)
     .not('valeur_mesuree', 'is', null)
     .not('date_execution', 'is', null)
     .order('date_execution', { ascending: true })
@@ -237,7 +236,6 @@ export const relevesQueries = {
             'id, nom_gamme, nom_prestataire, nom_equipement, nom_localisation, statut, date_prevue, date_cloture, libelle_periodicite',
           )
           .eq('id', otId!)
-          .is('deleted_at', null)
           .abortSignal(signal)
           .maybeSingle()
           .throwOnError()

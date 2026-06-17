@@ -101,12 +101,12 @@ export function useDeleteModeleEquipement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft-delete côté backend. Les équipements déjà
+      // Suppression définitive (hard-delete). Les équipements déjà
       // instanciés gardent leur copie (snapshot indépendant). `.select().single()`
       // → PGRST116 catché si la RLS filtre la ligne, plutôt qu'un faux succès.
       await supabase
         .from('modeles_equipements')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .select('id')
         .single()

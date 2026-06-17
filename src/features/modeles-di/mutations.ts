@@ -73,12 +73,12 @@ export function useDeleteModeleDi() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft-delete côté backend. (024)
+      // Suppression définitive (hard-delete).
       // .select('id').single() → un refus RLS (0 ligne) devient une vraie erreur,
       // pas un faux succès silencieux.
       await supabase
         .from('modeles_di')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
         .select('id')
         .single()
