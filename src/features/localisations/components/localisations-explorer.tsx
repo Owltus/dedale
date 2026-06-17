@@ -21,10 +21,9 @@ import { segOfUnique } from '@/lib/slug'
 import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import {
-  TitleBreadcrumb,
-  type BreadcrumbAncestor,
-} from '@/components/common/title-breadcrumb'
-import { PageHeader } from '@/components/common/page-header'
+  PageHeader,
+  type PageHeaderCrumb,
+} from '@/components/common/page-header'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
 import { EmptyState } from '@/components/common/empty-state'
@@ -205,32 +204,34 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
 
   let header: ReactNode
   if (niveau && batiment) {
-    const ancestors: BreadcrumbAncestor[] = [
-      { key: 'racine', label: 'Localisations', onClick: () => goTo([]) },
-      { key: batiment.id, label: batiment.nom, onClick: () => goToBatiment(batiment) },
+    const ancestors: PageHeaderCrumb[] = [
+      { label: 'Localisations', onClick: () => goTo([]) },
+      { label: batiment.nom, onClick: () => goToBatiment(batiment) },
     ]
     header = (
-      <DrillHeader
-        breadcrumb={
-          <TitleBreadcrumb ancestors={ancestors} current={niveau.nom} />
+      <PageHeader
+        breadcrumb={ancestors}
+        title={niveau.nom}
+        action={
+          newBtn('Nouveau local', () =>
+            setLocForm({ open: true, local: null }),
+          ) ?? undefined
         }
-        actions={newBtn('Nouveau local', () =>
-          setLocForm({ open: true, local: null }),
-        )}
       />
     )
   } else if (batiment) {
-    const ancestors: BreadcrumbAncestor[] = [
-      { key: 'racine', label: 'Localisations', onClick: () => goTo([]) },
+    const ancestors: PageHeaderCrumb[] = [
+      { label: 'Localisations', onClick: () => goTo([]) },
     ]
     header = (
-      <DrillHeader
-        breadcrumb={
-          <TitleBreadcrumb ancestors={ancestors} current={batiment.nom} />
+      <PageHeader
+        breadcrumb={ancestors}
+        title={batiment.nom}
+        action={
+          newBtn('Nouveau niveau', () =>
+            setNivForm({ open: true, niveau: null }),
+          ) ?? undefined
         }
-        actions={newBtn('Nouveau niveau', () =>
-          setNivForm({ open: true, niveau: null }),
-        )}
       />
     )
   } else {
@@ -486,18 +487,3 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   )
 }
 
-/** En-tête de descente : fil d'Ariane à gauche, action à droite. */
-function DrillHeader({
-  breadcrumb,
-  actions,
-}: {
-  breadcrumb: ReactNode
-  actions?: ReactNode
-}) {
-  return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      {breadcrumb}
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-    </div>
-  )
-}

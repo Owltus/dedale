@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect } from 'react'
 import type { ReactNode } from 'react'
+import type { PageHeaderCrumb } from './page-header'
 
 export interface TabAddConfig {
   /** Action du bouton +. `null` = pas de bouton (mais `extra`/`actions` peuvent s'afficher). */
@@ -59,29 +60,46 @@ export function useTabAddAction(
   }, [ctx, action, label, disabled, extra, actions])
 }
 
-export interface TabTitleApi {
-  setTitle: (node: ReactNode | null) => void
+/**
+ * En-tête fourni par l'onglet actif quand on a DESCENDU (catégorie / modèle /
+ * gamme ouverte). `<Tabs>` le transforme en `<PageHeader>` : `title` devient le
+ * grand titre (le nœud courant), et `breadcrumb` (ancêtres DANS l'onglet, sans
+ * préfixe) est précédé par « Bibliothèque › <onglet> » avant d'être rendu sur la
+ * ligne discrète au-dessus. À la RACINE de l'onglet, le panneau renvoie `null` :
+ * la barre affiche alors le titre de section (prop `title` de <Tabs>), sans fil.
+ */
+export interface TabHeader {
+  /** Titre courant (nœud de descente : nom de catégorie, de modèle, de gamme…). */
+  title: string
+  /**
+   * Ancêtres CLIQUABLES propres à l'onglet (chemin de catégories), SANS le
+   * préfixe « Bibliothèque › <onglet> » que <Tabs> ajoute lui-même.
+   */
+  breadcrumb?: PageHeaderCrumb[]
 }
 
-export const TabTitleContext = createContext<TabTitleApi | null>(null)
+export interface TabHeaderApi {
+  setHeader: (header: TabHeader | null) => void
+}
+
+export const TabHeaderContext = createContext<TabHeaderApi | null>(null)
 
 /**
- * Enregistre, pour l'onglet actif, un NŒUD DE TITRE personnalisé (ex. un fil
- * d'Ariane) rendu à la place du `<h1>` par défaut dans l'en-tête de la barre
- * d'onglets. `null` (ou hook non appelé) → titre par défaut (la prop `title`
- * de <Tabs>). Le nœud peut être interactif (boutons cliquables).
+ * Enregistre, pour l'onglet actif, l'en-tête de descente (`TabHeader`) rendu par
+ * `<Tabs>` via `<PageHeader>`. `null` (ou hook non appelé) → en-tête de section
+ * par défaut (titre = prop `title` de <Tabs>, sans fil d'Ariane).
  *
- * Il doit être STABLE : l'appelant le mémoïse (useMemo) — sinon il se ré-
+ * L'objet doit être STABLE : l'appelant le mémoïse (useMemo) — sinon il se ré-
  * enregistre à chaque rendu. Même contrat que `useTabAddAction`.
  *
  * Contexte/hook volontairement isolés du composant <Tabs> : un module Vite ne
  * doit pas mélanger composant et non-composant (sinon Fast Refresh casse).
  */
-export function useTabTitle(node: ReactNode | null) {
-  const ctx = useContext(TabTitleContext)
+export function useTabHeader(header: TabHeader | null) {
+  const ctx = useContext(TabHeaderContext)
   useEffect(() => {
     if (!ctx) return
-    ctx.setTitle(node)
-    return () => ctx.setTitle(null)
-  }, [ctx, node])
+    ctx.setHeader(header)
+    return () => ctx.setHeader(null)
+  }, [ctx, header])
 }

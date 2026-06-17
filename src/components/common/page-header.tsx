@@ -13,29 +13,39 @@ interface PageHeaderProps {
   /** Actions à droite. Convention : boutons ICÔNE + tooltip (`TooltipIconButton`). */
   action?: ReactNode
   /**
-   * Fil d'Ariane : ancêtres CLIQUABLES précédant le titre (vue détail) ; le titre
-   * courant en est le dernier maillon. Absent ou `[]` sur une page racine (→ titre
-   * seul). Emplacement FIXE : toujours la ligne de titre, qu'il y ait un chemin ou non.
+   * Contrôle LARGE à droite (ex. `ScopeSelect`). À droite des actions en bureau,
+   * replié pleine largeur sous l'en-tête en mobile.
+   */
+  extra?: ReactNode
+  /**
+   * Fil d'Ariane : ancêtres CLIQUABLES rendus sur une ligne PETITE et DISCRÈTE
+   * AU-DESSUS du titre (le titre courant n'y figure pas — il EST le titre). Absent
+   * ou `[]` (page racine) → pas de ligne de chemin. Repli mobile : parent immédiat.
    */
   breadcrumb?: PageHeaderCrumb[]
-  /** Bouton « Retour » simple (alternative au fil d'Ariane, ex. état transitoire). */
+  /** Bouton « Retour » simple (repli des états transitoires : chargement/erreur). */
   onBack?: () => void
   backLabel?: string
-  /** Badges affichés à côté du titre (ex. statut actif / anonymisé). */
+  /** Badges affichés à côté du titre (ex. statut actif / anonymisé / type). */
   titleBadges?: ReactNode
 }
 
 /**
- * En-tête de page UNIQUE et réutilisable. Liste = titre + description + actions.
- * Détail = fil d'Ariane inline (ancêtres cliquables) → titre courant + badges.
- * Les actions sont des boutons icône (tooltip). Responsive : le titre/fil d'Ariane
- * se replient (flex-wrap, troncature des ancêtres) et l'ensemble s'empile sous `sm`.
- * Un seul composant → un changement de mise en forme impacte toutes les pages.
+ * En-tête de page UNIQUE et réutilisable (pages simples, explorateurs à paliers,
+ * et — via `Tabs` — pages à onglets). Mise en forme standard :
+ *   1. fil d'Ariane PETIT et DISCRET sur sa propre ligne AU-DESSUS (text-sm muted) ;
+ *   2. titre TOUJOURS grand (`text-2xl`) quel que soit le palier ;
+ *   3. description optionnelle (text-sm muted) ;
+ *   4. zone d'actions (boutons icône+tooltip) + `extra` (contrôle large) à droite.
+ * Responsive : empilement sous `sm`, troncature du titre et des ancêtres (le fil
+ * ne garde que le parent immédiat sous `sm`). Un seul composant → un changement de
+ * mise en forme se répercute sur toutes les pages.
  */
 export function PageHeader({
   title,
   description,
   action,
+  extra,
   breadcrumb,
   onBack,
   backLabel = 'Retour',
@@ -45,6 +55,39 @@ export function PageHeader({
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="min-w-0">
+        {/* Fil d'Ariane discret au-dessus du titre (descente / détail seulement). */}
+        {hasCrumbs && (
+          <nav
+            aria-label="Fil d’Ariane"
+            className="text-muted-foreground mb-1 flex min-w-0 items-center gap-1 text-sm"
+          >
+            {breadcrumb.map((c, i) => (
+              <span
+                key={i}
+                className={
+                  // Sous `sm`, on ne garde que le parent IMMÉDIAT (dernier ancêtre).
+                  i < breadcrumb.length - 1
+                    ? 'hidden min-w-0 items-center gap-1 sm:flex'
+                    : 'flex min-w-0 items-center gap-1'
+                }
+              >
+                <button
+                  type="button"
+                  onClick={c.onClick}
+                  className="hover:text-foreground truncate"
+                >
+                  {c.label}
+                </button>
+                {/* Chevron ENTRE les maillons seulement : pas de chevron pendant
+                    après le dernier ancêtre (le titre vit sur la ligne en dessous). */}
+                {i < breadcrumb.length - 1 && (
+                  <ChevronRight className="size-3.5 shrink-0" />
+                )}
+              </span>
+            ))}
+          </nav>
+        )}
+        {/* Repli simple « Retour » pour les états transitoires sans fil d'Ariane. */}
         {onBack && !hasCrumbs && (
           <Button
             variant="ghost"
@@ -56,20 +99,7 @@ export function PageHeader({
             {backLabel}
           </Button>
         )}
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          {hasCrumbs &&
-            breadcrumb.map((c, i) => (
-              <span key={i} className="flex min-w-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={c.onClick}
-                  className="text-muted-foreground hover:text-foreground max-w-[45vw] shrink-0 truncate text-sm font-medium sm:max-w-[14rem]"
-                >
-                  {c.label}
-                </button>
-                <ChevronRight className="text-muted-foreground size-4 shrink-0" />
-              </span>
-            ))}
+        <div className="flex min-w-0 items-center gap-2">
           <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
             {title}
           </h1>
@@ -79,8 +109,11 @@ export function PageHeader({
           <p className="text-muted-foreground mt-1 text-sm">{description}</p>
         )}
       </div>
-      {action && (
-        <div className="flex shrink-0 items-center gap-1">{action}</div>
+      {(action != null || extra != null) && (
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+          {extra}
+          {action && <div className="flex items-center gap-1">{action}</div>}
+        </div>
       )}
     </div>
   )

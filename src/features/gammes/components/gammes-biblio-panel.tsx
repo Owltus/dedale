@@ -40,7 +40,12 @@ import { SCOPE_COMMUN, sousCategoriesNiveau2 } from '@/lib/scope'
 import { ScopeSelect } from '@/components/common/scope-select'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
-import { useTabAddAction, useTabTitle } from '@/components/common/tab-actions'
+import {
+  useTabAddAction,
+  useTabHeader,
+  type TabHeader,
+} from '@/components/common/tab-actions'
+import type { PageHeaderCrumb } from '@/components/common/page-header'
 import {
   ExporterVersSiteDialog,
   type ExportOutcome,
@@ -53,10 +58,6 @@ import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ListRow } from '@/components/common/list-row'
 import { OperationRow } from '@/components/common/operation-row'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import {
-  TitleBreadcrumb,
-  type BreadcrumbAncestor,
-} from '@/components/common/title-breadcrumb'
 import { Button } from '@/components/ui/button'
 import { listStack } from '@/lib/responsive'
 import type { Database } from '@/lib/database.types'
@@ -564,44 +565,34 @@ export function GammesBiblioPanel() {
     actions: tabAddConfig.extra,
   })
 
-  // FIL D'ARIANE = TITRE de la barre d'onglet, uniquement quand on a DESCENDU
-  // (catégorie ou gamme ouverte). Le segment courant et ses ancêtres cliquables
-  // sont à la même taille, discrets (cf. TitleBreadcrumb) — le chemin réel des
-  // catégories, sans préfixe. Vue détail : la gamme ouverte devient le segment
-  // courant, sa sous-catégorie passe en ancêtre. À la RACINE (depth 0), on renvoie
-  // `null` : la barre affiche « Bibliothèque » en grand titre via le repli de
-  // <Tabs>. Mémoïsé (contrat de `useTabTitle`).
-  const titleNode = useMemo<ReactNode>(() => {
+  // En-tête de descente (catégorie ou gamme ouverte) : le titre SUIT le nœud
+  // courant et les ancêtres cliquables (chemin RÉEL des catégories) alimentent le
+  // fil « Bibliothèque › Plan de maintenance › … » rendu par <Tabs>. Vue détail :
+  // la gamme ouverte devient le segment courant (titre), sa sous-catégorie passe
+  // en ancêtre. À la RACINE (depth 0) → `null` : titre de section « Bibliothèque ».
+  // Mémoïsé (contrat de `useTabHeader`).
+  const header = useMemo<TabHeader | null>(() => {
     if (openGamme !== null) {
       // `openGamme` est déjà la donnée FRAÎCHE (issu de `gammes.find`) : pas de
       // re-find. Ancêtres dérivés de la catégorie RÉELLE de la gamme (`gammePath`),
       // pas du chemin brut de l'URL (constat #1).
-      const ancestors: BreadcrumbAncestor[] = gammePath.map((c, i) => ({
-        key: c.id,
+      const breadcrumb: PageHeaderCrumb[] = gammePath.map((c, i) => ({
         label: c.nom,
         onClick: () => goToCats(gammePath.slice(0, i + 1)),
       }))
-      return <TitleBreadcrumb ancestors={ancestors} current={openGamme.nom} />
+      return { title: openGamme.nom, breadcrumb }
     }
     if (depth === 0) {
       return null
     }
-    const ancestors: BreadcrumbAncestor[] = validPath
-      .slice(0, -1)
-      .map((c, i) => ({
-        key: c.id,
-        label: c.nom,
-        onClick: () => goToCats(validPath.slice(0, i + 1)),
-      }))
-    return (
-      <TitleBreadcrumb
-        ancestors={ancestors}
-        current={current?.nom ?? 'Plan de maintenance'}
-      />
-    )
+    const breadcrumb: PageHeaderCrumb[] = validPath.slice(0, -1).map((c, i) => ({
+      label: c.nom,
+      onClick: () => goToCats(validPath.slice(0, i + 1)),
+    }))
+    return { title: current?.nom ?? 'Plan de maintenance', breadcrumb }
   }, [openGamme, validPath, gammePath, current, depth, goToCats])
 
-  useTabTitle(titleNode)
+  useTabHeader(header)
 
   function handleEditCategory(categorie: Categorie) {
     setCategoryForm({

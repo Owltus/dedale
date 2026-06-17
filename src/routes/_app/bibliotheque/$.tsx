@@ -88,25 +88,37 @@ function BibliothequePage() {
   // d'onglets gère les libellés longs (scroll horizontal sous `sm` côté bureau ;
   // menu déroulant sur mobile). Renommage d'AFFICHAGE seulement : les ids/slugs
   // (ONGLET_IDS), l'URL, la base et le vocabulaire des fiches sont intouchés.
-  const tabsById: Record<OngletId, { label: string; content: ReactNode }> = {
+  const tabsById: Record<
+    OngletId,
+    { label: string; description: string; content: ReactNode }
+  > = {
     'modeles-equipements': {
       label: 'Modèles d’équipements',
+      description:
+        'Modèles d’équipements réutilisables du catalogue, classés par catégorie.',
       content: <ModelesEquipementsPanel />,
     },
     'gammes-types': {
       label: 'Modèles d’opérations',
+      description:
+        'Opérations de maintenance types, réutilisables pour composer les plans.',
       content: <GammesTypesPanel />,
     },
     gammes: {
       label: 'Plan de maintenance',
+      description:
+        'Plans de maintenance préventive du catalogue, organisés par catégorie.',
       content: <GammesBiblioPanel />,
     },
     'modeles-di': {
       label: 'Modèles DI',
+      description: 'Modèles de demandes d’intervention prêts à réutiliser.',
       content: <ModelesDiPanel />,
     },
     vignettes: {
       label: 'Vignettes',
+      description:
+        'Images réutilisables pour illustrer modèles et plans de maintenance.',
       content: <MiniaturesPanel />,
     },
   }
@@ -118,6 +130,7 @@ function BibliothequePage() {
     id,
     label: tabsById[id].label,
     labelText: tabsById[id].label,
+    description: tabsById[id].description,
     content: tabsById[id].content,
   }))
 

@@ -4,11 +4,13 @@ import { Plus } from 'lucide-react'
 import { SelectMenu } from './select-menu'
 import { cn } from '@/lib/utils'
 import { TooltipIconButton } from './tooltip-icon-button'
+import { PageHeader, type PageHeaderCrumb } from './page-header'
 import {
   TabActionContext,
-  TabTitleContext,
+  TabHeaderContext,
   type TabActionApi,
-  type TabTitleApi,
+  type TabHeaderApi,
+  type TabHeader,
   type TabAddConfig,
 } from './tab-actions'
 
@@ -22,6 +24,11 @@ export interface TabItem {
    * peut être un nœud non textuel.
    */
   labelText: string
+  /**
+   * Description courte de l'onglet, affichée sous le titre À LA RACINE de l'onglet
+   * (masquée en descente, où le fil d'Ariane porte le contexte). Optionnelle.
+   */
+  description?: string
   /** Contenu rendu uniquement quand l'onglet est actif (montage paresseux). */
   content: ReactNode
 }
@@ -31,12 +38,11 @@ interface TabsProps {
   /** Onglet actif initial (mode NON contrôlé uniquement ; défaut : le premier). */
   defaultTabId?: string
   /**
-   * Titre GÉNÉRIQUE de la page, affiché dans la barre tant que l'onglet actif n'a
-   * pas fourni son propre titre via `useTabTitle` — c.-à-d. à la RACINE de chaque
-   * onglet. On y montre « Bibliothèque », pas le nom de l'onglet actif (ce serait
-   * redondant avec le bouton d'onglet déjà surligné). Dès qu'on descend dans un
-   * onglet, le panneau surcharge ce titre par son fil d'Ariane. Repli ultime
-   * (titre absent) : le libellé de l'onglet actif.
+   * Titre de SECTION (ex. « Bibliothèque »). Affiché en grand titre à la RACINE de
+   * chaque onglet (le nom de l'onglet actif est déjà porté par le bouton surligné).
+   * Dès qu'on descend, l'en-tête suit le NŒUD COURANT (titre = catégorie/modèle/
+   * gamme) et ce libellé de section ouvre le fil « <section> › <onglet> › … »
+   * (cf. `useTabHeader`). Repli (titre absent) : le libellé de l'onglet actif.
    */
   title?: string
   /**
@@ -81,9 +87,9 @@ export function Tabs({
   }
 
   const [addConfig, setAddConfig] = useState<TabAddConfig | null>(null)
-  // Nœud de titre personnalisé fourni par le panneau actif (ex. fil d'Ariane).
-  // `null` → titre par défaut (`title`).
-  const [titleNode, setTitleNode] = useState<ReactNode | null>(null)
+  // En-tête de descente fourni par le panneau actif (titre courant + ancêtres).
+  // `null` → en-tête de section par défaut (titre = `title`, sans fil d'Ariane).
+  const [tabHeader, setTabHeader] = useState<TabHeader | null>(null)
   const activeItem = items.find((t) => t.id === active) ?? items[0]
 
   // Pattern WAI-ARIA Tabs : ids stables reliant chaque onglet à son panneau, et
@@ -130,9 +136,9 @@ export function Tabs({
     list.scrollTo({ left: Math.max(0, target), behavior: 'auto' })
   }, [active])
 
-  // API stable transmise aux panneaux pour enregistrer leur action + / leur titre.
+  // API stable transmise aux panneaux pour enregistrer leur action + / leur en-tête.
   const [api] = useState<TabActionApi>(() => ({ setAction: setAddConfig }))
-  const [titleApi] = useState<TabTitleApi>(() => ({ setTitle: setTitleNode }))
+  const [headerApi] = useState<TabHeaderApi>(() => ({ setHeader: setTabHeader }))
 
   // Locaux : le narrowing TS sur addConfig.action ne traverse pas le JSX imbriqué.
   const addAction = addConfig?.action ?? null
@@ -141,57 +147,62 @@ export function Tabs({
   const addExtra = addConfig?.extra
   const addActions = addConfig?.actions
 
+  // --- En-tête unifié (<PageHeader>) ---
+  // En descente, le titre SUIT le nœud courant (comme les explorateurs) ; à la
+  // racine d'un onglet, il retombe sur le titre de section (« Bibliothèque »).
+  const sectionLabel = title ?? activeItem?.labelText ?? ''
+  const inDescent = tabHeader !== null
+  const headerTitle = tabHeader?.title ?? sectionLabel
+  // Retour à la racine de l'onglet actif (réinitialise la descente) : destination
+  // commune aux deux premiers maillons « <section> › <onglet> ».
+  const goOngletRoot = () => {
+    if (activeItem) selectTab(activeItem.id)
+  }
+  // Fil d'Ariane « <section> › <onglet> › …ancêtres » : seulement en descente.
+  const headerCrumbs: PageHeaderCrumb[] | undefined = inDescent
+    ? [
+        { label: sectionLabel, onClick: goOngletRoot },
+        { label: activeItem?.labelText ?? '', onClick: goOngletRoot },
+        ...(tabHeader.breadcrumb ?? []),
+      ]
+    : undefined
+  // Description : à la racine seulement (en descente, le fil porte le contexte).
+  const headerDescription = inDescent ? undefined : activeItem?.description
+  // Cluster d'actions : boutons compacts éventuels + bouton « + » mutualisé.
+  const headerAction =
+    addActions !== undefined || addAction !== null ? (
+      <>
+        {addActions}
+        {addAction !== null && (
+          <TooltipIconButton
+            icon={<Plus />}
+            label={addLabel}
+            onClick={addAction}
+            disabled={addDisabled}
+            variant="default"
+          />
+        )}
+      </>
+    ) : undefined
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-4 pt-6 pb-3 sm:px-6 lg:px-8">
-        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-          {/* Région live : le changement de contexte (onglet actif ou descente
-              dans un onglet) est annoncé aux lecteurs d'écran via le titre.
-              Toujours en 1re ligne, à gauche, et prend l'espace disponible. */}
-          <div
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            className="order-1 flex min-w-0 flex-1 items-center"
-          >
-            {titleNode ?? (
-              <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
-                {title ?? activeItem?.label}
-              </h1>
-            )}
-          </div>
-          {addConfig !== null && (
-            <>
-              {/* Extra (filtre de périmètre / indicateur d'origine) : à droite du
-                  titre sur BUREAU uniquement. Sur mobile il descend sur la même
-                  ligne que le menu des sections (cf. bloc `sm:hidden` plus bas),
-                  car sa largeur (sélecteur) écraserait le titre sinon. */}
-              {addExtra !== undefined && (
-                <div className="order-3 hidden w-full flex-wrap items-center gap-2 sm:order-2 sm:flex sm:w-auto">
-                  {addExtra}
-                </div>
-              )}
-              {/* Boutons d'action compacts (Copier/Modifier, actions de masse…)
-                  + bouton « + » : restent EN HAUT À DROITE, à côté du titre —
-                  même position qu'en bureau, mobile compris (étroits, ils
-                  n'écrasent pas le titre). Seul l'`extra` (filtre large) se replie. */}
-              {(addActions !== undefined || addAction !== null) && (
-                <div className="order-2 flex shrink-0 items-center gap-2 sm:order-3">
-                  {addActions}
-                  {addAction !== null && (
-                    <TooltipIconButton
-                      icon={<Plus />}
-                      label={addLabel}
-                      onClick={addAction}
-                      disabled={addDisabled}
-                      variant="default"
-                    />
-                  )}
-                </div>
-              )}
-            </>
-          )}
+        {/* Région live : le changement de contexte (onglet actif ou descente dans
+            un onglet) est annoncé aux lecteurs d'écran via le titre courant. */}
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {headerTitle}
         </div>
+        {/* En-tête UNIQUE et partagé avec les autres pages (cf. <PageHeader>) :
+            titre = nœud courant en descente, sinon section ; fil « <section> ›
+            <onglet> › … » ; `extra` = filtre de périmètre ; `action` = +/actions. */}
+        <PageHeader
+          title={headerTitle}
+          description={headerDescription}
+          breadcrumb={headerCrumbs}
+          extra={addExtra}
+          action={headerAction}
+        />
 
         <div
           ref={tablistRef}
@@ -225,14 +236,13 @@ export function Tabs({
           })}
         </div>
 
-        {/* Mobile : menu déroulant des sections + sélecteur de périmètre sur la
-            MÊME ligne. Sous `sm`, les 5 libellés ne tiennent pas côte à côte → un
-            Select remplace la barre d'onglets et évite le scroll horizontal. La
-            sémantique d'onglets reste portée par la barre desktop ; en descente,
-            le fil d'Ariane (titre) assure le « retour racine » que le re-clic
-            d'onglet offrait en bureau. Les deux dropdowns se partagent la largeur
-            (`flex-1`) ; sans `extra`, le menu des sections occupe toute la ligne. */}
-        <div className="flex items-center gap-2 sm:hidden">
+        {/* Mobile : menu déroulant des sections (remplace la barre d'onglets sous
+            `sm`, où les 5 libellés ne tiennent pas côte à côte ; évite le scroll
+            horizontal). La sémantique d'onglets reste portée par la barre desktop ;
+            en descente, le fil d'Ariane (PageHeader) assure le « retour racine » que
+            le re-clic d'onglet offrait en bureau. Le filtre de périmètre (`extra`)
+            n'est plus ici : PageHeader le rend pleine largeur sous le titre. */}
+        <div className="flex items-center sm:hidden">
           <SelectMenu
             aria-label="Section"
             value={activeItem?.id ?? ''}
@@ -246,12 +256,11 @@ export function Tabs({
               </option>
             ))}
           </SelectMenu>
-          {addExtra !== undefined && <div className="flex-1">{addExtra}</div>}
         </div>
       </div>
 
       <TabActionContext.Provider value={api}>
-        <TabTitleContext.Provider value={titleApi}>
+        <TabHeaderContext.Provider value={headerApi}>
           <div
             role="tabpanel"
             id={activeItem ? `panneau-${activeItem.id}` : undefined}
@@ -260,7 +269,7 @@ export function Tabs({
           >
             {activeItem?.content}
           </div>
-        </TabTitleContext.Provider>
+        </TabHeaderContext.Provider>
       </TabActionContext.Provider>
     </div>
   )

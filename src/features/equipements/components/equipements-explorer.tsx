@@ -32,10 +32,9 @@ import { parseChamps } from '@/lib/champs'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
 import {
-  TitleBreadcrumb,
-  type BreadcrumbAncestor,
-} from '@/components/common/title-breadcrumb'
-import { PageHeader } from '@/components/common/page-header'
+  PageHeader,
+  type PageHeaderCrumb,
+} from '@/components/common/page-header'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
 import { listStack } from '@/lib/responsive'
@@ -439,43 +438,33 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
 
   let header: React.ReactNode
   if (openEquipement !== null) {
-    const ancestors: BreadcrumbAncestor[] = [
-      { key: 'racine', label: 'Équipements', onClick: () => goTo([]) },
+    const ancestors: PageHeaderCrumb[] = [
+      { label: 'Équipements', onClick: () => goTo([]) },
       ...path.map((c, i) => ({
-        key: c.id,
         label: c.nom,
         onClick: () => goTo(path.slice(0, i + 1)),
       })),
     ]
     header = (
-      <DrillHeader
-        breadcrumb={
-          <TitleBreadcrumb
-            ancestors={ancestors}
-            current={openEquipement.nom ?? 'Équipement'}
-          />
-        }
-        actions={editEquipBtn}
+      <PageHeader
+        breadcrumb={ancestors}
+        title={openEquipement.nom ?? 'Équipement'}
+        action={editEquipBtn}
       />
     )
   } else if (depth > 0) {
-    const ancestors: BreadcrumbAncestor[] = [
-      { key: 'racine', label: 'Équipements', onClick: () => goTo([]) },
+    const ancestors: PageHeaderCrumb[] = [
+      { label: 'Équipements', onClick: () => goTo([]) },
       ...path.slice(0, -1).map((c, i) => ({
-        key: c.id,
         label: c.nom,
         onClick: () => goTo(path.slice(0, i + 1)),
       })),
     ]
     header = (
-      <DrillHeader
-        breadcrumb={
-          <TitleBreadcrumb
-            ancestors={ancestors}
-            current={current?.nom ?? 'Catégorie'}
-          />
-        }
-        actions={
+      <PageHeader
+        breadcrumb={ancestors}
+        title={current?.nom ?? 'Catégorie'}
+        action={
           <>
             {newSubCategoryBtn}
             {editSubcatBtn}
@@ -799,18 +788,3 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
   )
 }
 
-/** En-tête de descente : fil d'Ariane à gauche, actions à droite. */
-function DrillHeader({
-  breadcrumb,
-  actions,
-}: {
-  breadcrumb: React.ReactNode
-  actions?: React.ReactNode
-}) {
-  return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      {breadcrumb}
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-    </div>
-  )
-}

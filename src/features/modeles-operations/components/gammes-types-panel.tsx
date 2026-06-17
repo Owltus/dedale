@@ -34,11 +34,12 @@ import { deleteErrorMessage, errorMessage, pgCode } from '@/lib/form'
 import { segOfUnique } from '@/lib/slug'
 import { SCOPE_COMMUN, scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
-import { useTabAddAction, useTabTitle } from '@/components/common/tab-actions'
 import {
-  TitleBreadcrumb,
-  type BreadcrumbAncestor,
-} from '@/components/common/title-breadcrumb'
+  useTabAddAction,
+  useTabHeader,
+  type TabHeader,
+} from '@/components/common/tab-actions'
+import type { PageHeaderCrumb } from '@/components/common/page-header'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ScopeSelect } from '@/components/common/scope-select'
 import {
@@ -394,30 +395,25 @@ export function GammesTypesPanel() {
     actions: tabAddConfig.actions,
   })
 
-  // FIL D'ARIANE = TITRE de la barre d'onglet, uniquement quand on a descendu.
-  const titleNode = useMemo<ReactNode>(() => {
+  // En-tête de descente : le titre SUIT le nœud courant (catégorie ou modèle
+  // ouvert), les ancêtres alimentent le fil « Bibliothèque › Modèles d'opérations
+  // › … » rendu par <Tabs>. À la RACINE (depth 0) → `null` (titre de section).
+  const header = useMemo<TabHeader | null>(() => {
     if (openModele !== null) {
-      const ancestors: BreadcrumbAncestor[] = path.map((c, i) => ({
-        key: c.id,
+      const breadcrumb: PageHeaderCrumb[] = path.map((c, i) => ({
         label: c.nom,
         onClick: () => goTo(path.slice(0, i + 1)),
       }))
-      return <TitleBreadcrumb ancestors={ancestors} current={openModele.nom} />
+      return { title: openModele.nom, breadcrumb }
     }
     if (depth === 0) return null
-    const ancestors: BreadcrumbAncestor[] = path.slice(0, -1).map((c, i) => ({
-      key: c.id,
+    const breadcrumb: PageHeaderCrumb[] = path.slice(0, -1).map((c, i) => ({
       label: c.nom,
       onClick: () => goTo(path.slice(0, i + 1)),
     }))
-    return (
-      <TitleBreadcrumb
-        ancestors={ancestors}
-        current={current?.nom ?? 'Modèles d’opérations'}
-      />
-    )
+    return { title: current?.nom ?? 'Modèles d’opérations', breadcrumb }
   }, [openModele, depth, path, current, goTo])
-  useTabTitle(titleNode)
+  useTabHeader(header)
 
   function confirmDelete() {
     if (!toDelete) return
