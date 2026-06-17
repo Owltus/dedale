@@ -26,6 +26,7 @@ import { ErrorState } from '@/components/common/error-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
+import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
@@ -242,7 +243,7 @@ function ContratsSection({
 
       <QueryState
         query={query}
-        pending={<ListRowSkeletons count={2} dense />}
+        pending={<ListRowSkeletons count={2} />}
         empty={
           <EmptyState
             icon={FileText}
@@ -263,7 +264,7 @@ function ContratsSection({
               return (
                 <ListRow
                   key={c.id}
-                  icon={<FileText className="size-5" />}
+                  media={<RowMediaIcon icon={FileText} />}
                   title={c.reference}
                   subtitle={`Du ${formatDate(c.date_debut)} au ${formatDate(c.date_fin)}${c.objet_avenant ? ` — avenant : ${c.objet_avenant}` : ''}`}
                   badges={

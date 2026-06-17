@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
+import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { SearchInput } from '@/components/common/search-input'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -109,7 +110,7 @@ function SitesPage() {
                   {shown.map((site) => (
                     <ListRow
                       key={site.id}
-                      icon={<Building2 className="size-5" />}
+                      media={<RowMediaIcon icon={Building2} />}
                       title={site.nom}
                       subtitle={
                         [site.code_postal, site.ville]

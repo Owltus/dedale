@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
+import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -91,7 +92,7 @@ function UtilisateursIndexPage() {
               {users.map((u) => (
                 <ListRow
                   key={u.id}
-                  icon={<User className="size-5" />}
+                  media={<RowMediaIcon icon={User} />}
                   title={u.nom_complet}
                   badges={
                     <>

@@ -22,6 +22,7 @@ import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
+import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { SearchInput } from '@/components/common/search-input'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -142,7 +143,7 @@ function PrestatairesList({
                     return (
                       <ListRow
                         key={p.id}
-                        icon={<Truck className="size-5" />}
+                        media={<RowMediaIcon icon={Truck} />}
                         title={p.libelle}
                         subtitle={p.email ?? p.ville ?? p.metier ?? undefined}
                         badges={
