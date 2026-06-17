@@ -436,6 +436,9 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       />
     ) : null
 
+  // Description de SECTION, affichée à toutes les profondeurs (le fil-titre situe
+  // précisément, la description rappelle ce qu'est la page) → zone jamais vide.
+  const sectionDescription = 'Parc matériel du site, rangé par catégorie.'
   let header: React.ReactNode
   if (openEquipement !== null) {
     const ancestors: PageHeaderCrumb[] = [
@@ -449,6 +452,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       <PageHeader
         breadcrumb={ancestors}
         title={openEquipement.nom ?? 'Équipement'}
+        description={sectionDescription}
         action={editEquipBtn}
       />
     )
@@ -464,6 +468,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       <PageHeader
         breadcrumb={ancestors}
         title={current?.nom ?? 'Catégorie'}
+        description={sectionDescription}
         action={
           <>
             {newSubCategoryBtn}
@@ -477,7 +482,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     header = (
       <PageHeader
         title="Équipements"
-        description="Parc matériel du site, rangé par catégorie."
+        description={sectionDescription}
         action={newCategoryBtn ?? undefined}
       />
     )

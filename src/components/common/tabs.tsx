@@ -166,8 +166,9 @@ export function Tabs({
         ...(tabHeader.breadcrumb ?? []),
       ]
     : undefined
-  // Description : à la racine seulement (en descente, le fil porte le contexte).
-  const headerDescription = inDescent ? undefined : activeItem?.description
+  // Description de SECTION (celle de l'onglet actif), affichée à TOUTES les
+  // profondeurs (racine comme descente) : la zone description n'est jamais vide.
+  const headerDescription = activeItem?.description
   // Cluster d'actions : boutons compacts éventuels + bouton « + » mutualisé.
   const headerAction =
     addActions !== undefined || addAction !== null ? (

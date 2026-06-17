@@ -202,6 +202,8 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
       />
     ) : null
 
+  // Description de SECTION, affichée à toutes les profondeurs → zone jamais vide.
+  const sectionDescription = 'Bâtiments, niveaux et locaux du site.'
   let header: ReactNode
   if (niveau && batiment) {
     const ancestors: PageHeaderCrumb[] = [
@@ -212,6 +214,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
       <PageHeader
         breadcrumb={ancestors}
         title={niveau.nom}
+        description={sectionDescription}
         action={
           newBtn('Nouveau local', () =>
             setLocForm({ open: true, local: null }),
@@ -227,6 +230,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
       <PageHeader
         breadcrumb={ancestors}
         title={batiment.nom}
+        description={sectionDescription}
         action={
           newBtn('Nouveau niveau', () =>
             setNivForm({ open: true, niveau: null }),
@@ -238,7 +242,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
     header = (
       <PageHeader
         title="Localisations"
-        description="Bâtiments, niveaux et locaux du site."
+        description={sectionDescription}
         action={
           newBtn('Nouveau bâtiment', () =>
             setBatForm({ open: true, batiment: null }),
