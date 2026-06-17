@@ -66,7 +66,16 @@ function SitesPage() {
       <PageHeader
         title="Sites"
         description="Les sites de l'entreprise. Chaque site est cloisonné par la sécurité."
-        action={newButton}
+        action={
+          isAdmin ? (
+            <TooltipIconButton
+              icon={<Plus />}
+              label="Nouveau site"
+              variant="default"
+              onClick={() => setForm({ open: true, site: null })}
+            />
+          ) : undefined
+        }
       />
 
       <QueryState

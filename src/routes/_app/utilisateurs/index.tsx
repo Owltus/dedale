@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -67,7 +68,14 @@ function UtilisateursIndexPage() {
       <PageHeader
         title="Utilisateurs"
         description="Gère les comptes : profil, rôle, sites attribués, accès."
-        action={inviteButton}
+        action={
+          <TooltipIconButton
+            icon={<UserPlus />}
+            label="Inviter un utilisateur"
+            variant="default"
+            onClick={() => setInviteOpen(true)}
+          />
+        }
       />
 
       <QueryState query={query} pending={<ListRowSkeletons count={4} />}>

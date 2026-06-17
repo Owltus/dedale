@@ -99,8 +99,7 @@ export function UtilisateurDetail({
         <PageHeader
           title={user.nom_complet}
           description={roleLabel(targetRole)}
-          onBack={onBack}
-          backLabel="Retour aux utilisateurs"
+          breadcrumb={[{ label: 'Utilisateurs', onClick: onBack }]}
           titleBadges={
             <>
               <Badge variant={user.est_actif ? 'outline' : 'destructive'}>

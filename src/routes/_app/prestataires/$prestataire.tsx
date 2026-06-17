@@ -137,7 +137,7 @@ function PrestataireDetail({
       <PageHeader
         title={prestataire.libelle}
         description={prestataire.metier ?? undefined}
-        onBack={onBack}
+        breadcrumb={[{ label: 'Prestataires', onClick: onBack }]}
         titleBadges={
           <Badge variant={prestataire.est_interne ? 'default' : 'secondary'}>
             {prestataire.est_interne ? 'Interne' : 'Externe'}
@@ -145,9 +145,12 @@ function PrestataireDetail({
         }
         action={
           canManage ? (
-            <Button variant="outline" onClick={() => setEditPrestataire(true)}>
-              <Pencil /> Modifier
-            </Button>
+            <TooltipIconButton
+              icon={<Pencil />}
+              label="Modifier le prestataire"
+              variant="outline"
+              onClick={() => setEditPrestataire(true)}
+            />
           ) : undefined
         }
       />
@@ -238,7 +241,14 @@ function ContratsSection({
     <section>
       <div className="mb-3 flex items-center justify-between gap-4">
         <h2 className="text-lg font-semibold tracking-tight">Contrats</h2>
-        {newButton}
+        {canManage && (
+          <TooltipIconButton
+            icon={<Plus />}
+            label="Nouveau contrat"
+            variant="default"
+            onClick={() => setForm({ open: true, contrat: null })}
+          />
+        )}
       </div>
 
       <QueryState

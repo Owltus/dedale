@@ -99,7 +99,16 @@ function PrestatairesList({
       <PageHeader
         title="Prestataires"
         description="Prestataires (externes et régie interne) et leurs contrats."
-        action={newButton}
+        action={
+          canManage ? (
+            <TooltipIconButton
+              icon={<Plus />}
+              label="Nouveau prestataire"
+              variant="default"
+              onClick={() => setForm({ open: true, prestataire: null })}
+            />
+          ) : undefined
+        }
       />
 
       <QueryState
