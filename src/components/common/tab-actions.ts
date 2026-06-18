@@ -72,10 +72,16 @@ export interface TabHeader {
   /** Titre courant (nœud de descente : nom de catégorie, de modèle, de gamme…). */
   title: string
   /**
-   * Ancêtres CLIQUABLES propres à l'onglet (chemin de catégories), SANS le
-   * préfixe « Bibliothèque › <onglet> » que <Tabs> ajoute lui-même.
+   * Ancêtres CLIQUABLES propres à l'onglet (chemin de catégories), SANS le préfixe
+   * « Bibliothèque » que <Tabs> ajoute lui-même (et SANS le nom de l'onglet, déjà
+   * porté par l'onglet surligné — l'inclure ferait doublon).
    */
   breadcrumb?: PageHeaderCrumb[]
+  /**
+   * Description PROPRE du nœud courant (catégorie/modèle/gamme), affichée sous le
+   * titre. Absente → <Tabs> retombe sur la description de l'onglet (jamais vide).
+   */
+  description?: string
 }
 
 export interface TabHeaderApi {

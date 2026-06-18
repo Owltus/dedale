@@ -404,14 +404,26 @@ export function GammesTypesPanel() {
         label: c.nom,
         onClick: () => goTo(path.slice(0, i + 1)),
       }))
-      return { title: openModele.nom, breadcrumb }
+      return {
+        title: openModele.nom,
+        breadcrumb,
+        description: openModele.description?.trim()
+          ? openModele.description.trim()
+          : undefined,
+      }
     }
     if (depth === 0) return null
     const breadcrumb: PageHeaderCrumb[] = path.slice(0, -1).map((c, i) => ({
       label: c.nom,
       onClick: () => goTo(path.slice(0, i + 1)),
     }))
-    return { title: current?.nom ?? 'Modèles d’opérations', breadcrumb }
+    return {
+      title: current?.nom ?? 'Modèles d’opérations',
+      breadcrumb,
+      description: current?.description?.trim()
+        ? current.description.trim()
+        : undefined,
+    }
   }, [openModele, depth, path, current, goTo])
   useTabHeader(header)
 

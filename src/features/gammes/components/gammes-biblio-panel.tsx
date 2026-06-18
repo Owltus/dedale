@@ -580,7 +580,13 @@ export function GammesBiblioPanel() {
         label: c.nom,
         onClick: () => goToCats(gammePath.slice(0, i + 1)),
       }))
-      return { title: openGamme.nom, breadcrumb }
+      return {
+        title: openGamme.nom,
+        breadcrumb,
+        description: openGamme.description?.trim()
+          ? openGamme.description.trim()
+          : undefined,
+      }
     }
     if (depth === 0) {
       return null
@@ -589,7 +595,13 @@ export function GammesBiblioPanel() {
       label: c.nom,
       onClick: () => goToCats(validPath.slice(0, i + 1)),
     }))
-    return { title: current?.nom ?? 'Plan de maintenance', breadcrumb }
+    return {
+      title: current?.nom ?? 'Plan de maintenance',
+      breadcrumb,
+      description: current?.description?.trim()
+        ? current.description.trim()
+        : undefined,
+    }
   }, [openGamme, validPath, gammePath, current, depth, goToCats])
 
   useTabHeader(header)

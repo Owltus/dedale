@@ -158,17 +158,20 @@ export function Tabs({
   const goOngletRoot = () => {
     if (activeItem) selectTab(activeItem.id)
   }
-  // Fil d'Ariane « <section> › <onglet> › …ancêtres » : seulement en descente.
+  // Fil d'Ariane « <section> › …ancêtres » (seulement en descente). On N'INCLUT
+  // PAS le nom de l'onglet : il est déjà porté par l'onglet surligné juste à côté,
+  // l'ajouter ferait doublon dans la même page.
   const headerCrumbs: PageHeaderCrumb[] | undefined = inDescent
     ? [
         { label: sectionLabel, onClick: goOngletRoot },
-        { label: activeItem?.labelText ?? '', onClick: goOngletRoot },
         ...(tabHeader.breadcrumb ?? []),
       ]
     : undefined
-  // Description de SECTION (celle de l'onglet actif), affichée à TOUTES les
-  // profondeurs (racine comme descente) : la zone description n'est jamais vide.
-  const headerDescription = activeItem?.description
+  // Description : en descente, celle PROPRE au nœud courant (fournie par le panneau)
+  // avec repli sur celle de l'onglet ; à la racine, celle de l'onglet. Jamais vide.
+  const headerDescription = inDescent
+    ? (tabHeader.description ?? activeItem?.description)
+    : activeItem?.description
   // Cluster d'actions : boutons compacts éventuels + bouton « + » mutualisé.
   const headerAction =
     addActions !== undefined || addAction !== null ? (
