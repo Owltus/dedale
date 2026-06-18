@@ -183,7 +183,7 @@ export function Tabs({
             label={addLabel}
             onClick={addAction}
             disabled={addDisabled}
-            variant="default"
+            variant="outline"
           />
         )}
       </>

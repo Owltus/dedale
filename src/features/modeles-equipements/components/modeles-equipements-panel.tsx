@@ -342,6 +342,7 @@ export function ModelesEquipementsPanel() {
               <TooltipIconButton
                 icon={<CopyPlus />}
                 label="Copier vers un site"
+                variant="outline"
                 onClick={() =>
                   setExportState({ open: true, modele: openModele })
                 }
@@ -351,6 +352,7 @@ export function ModelesEquipementsPanel() {
               <TooltipIconButton
                 icon={<Pencil />}
                 label="Modifier le modèle"
+                variant="outline"
                 onClick={() =>
                   setModeleForm({ open: true, modele: openModele })
                 }

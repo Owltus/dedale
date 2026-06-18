@@ -72,7 +72,7 @@ function UtilisateursIndexPage() {
           <TooltipIconButton
             icon={<UserPlus />}
             label="Inviter un utilisateur"
-            variant="default"
+            variant="outline"
             onClick={() => setInviteOpen(true)}
           />
         }

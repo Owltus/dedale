@@ -342,6 +342,7 @@ export function GammesTypesPanel() {
               <TooltipIconButton
                 icon={<CopyPlus />}
                 label="Copier vers un site"
+                variant="outline"
                 onClick={() =>
                   setExportState({ open: true, modele: openModele })
                 }
@@ -351,6 +352,7 @@ export function GammesTypesPanel() {
               <TooltipIconButton
                 icon={<Pencil />}
                 label="Modifier le modèle d’opération"
+                variant="outline"
                 onClick={() =>
                   setModeleForm({ open: true, modele: openModele })
                 }

@@ -12,7 +12,11 @@ interface TooltipIconButtonProps {
   /** Libellé : sert au tooltip (survol) ET au nom accessible (`aria-label`). */
   label: string
   onClick?: () => void
-  /** Variante du `Button` shadcn (défaut `ghost`, action secondaire). */
+  /**
+   * Variante du `Button` shadcn. CONVENTION barre de titre : `outline` (bordure) —
+   * style harmonisé de tous les boutons de topbar. Défaut `ghost` (sans bordure)
+   * pour les actions de ligne / de section dans le contenu.
+   */
   variant?: ComponentProps<typeof Button>['variant']
   disabled?: boolean
   type?: ComponentProps<typeof Button>['type']

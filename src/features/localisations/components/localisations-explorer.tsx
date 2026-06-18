@@ -197,7 +197,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
       <TooltipIconButton
         icon={<Plus />}
         label={label}
-        variant="default"
+        variant="outline"
         onClick={onClick}
       />
     ) : null

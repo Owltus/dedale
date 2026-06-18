@@ -104,7 +104,7 @@ function PrestatairesList({
             <TooltipIconButton
               icon={<Plus />}
               label="Nouveau prestataire"
-              variant="default"
+              variant="outline"
               onClick={() => setForm({ open: true, prestataire: null })}
             />
           ) : undefined

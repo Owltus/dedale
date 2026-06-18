@@ -377,7 +377,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     <TooltipIconButton
       icon={<Plus />}
       label="Nouvelle catégorie"
-      variant="default"
+      variant="outline"
       onClick={() => setCategoryForm({ open: true, categorie: null })}
     />
   ) : null
@@ -386,7 +386,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     <TooltipIconButton
       icon={<Plus />}
       label="Nouvelle sous-catégorie"
-      variant="default"
+      variant="outline"
       onClick={() =>
         setSubcatForm({
           open: true,
@@ -404,7 +404,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     <TooltipIconButton
       icon={<Plus />}
       label="Nouvel équipement"
-      variant="default"
+      variant="outline"
       // L'équipement hérite du gabarit de la sous-catégorie (modèle OU spécifique) :
       // formulaire épuré (nom + emplacement + caractéristiques). eq null = création.
       onClick={() => setEquipForm({ open: true, eq: null })}
@@ -417,6 +417,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       <TooltipIconButton
         icon={<Pencil />}
         label="Modifier la sous-catégorie"
+        variant="outline"
         onClick={() =>
           setSubcatForm({
             open: true,
@@ -431,7 +432,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       <TooltipIconButton
         icon={<Pencil />}
         label="Modifier"
-        variant="default"
+        variant="outline"
         onClick={() => setEquipForm({ open: true, eq: openEquipement })}
       />
     ) : null

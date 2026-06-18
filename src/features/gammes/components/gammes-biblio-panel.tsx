@@ -492,6 +492,7 @@ export function GammesBiblioPanel() {
               <TooltipIconButton
                 icon={<CopyPlus />}
                 label="Copier vers un site"
+                variant="outline"
                 onClick={openExportOpenGamme}
               />
             )}
@@ -499,6 +500,7 @@ export function GammesBiblioPanel() {
               <TooltipIconButton
                 icon={<Pencil />}
                 label="Modifier la gamme"
+                variant="outline"
                 onClick={handleEditOpenGamme}
               />
             )}
@@ -526,6 +528,7 @@ export function GammesBiblioPanel() {
           <TooltipIconButton
             icon={<CopyPlus />}
             label="Copier vers un site"
+            variant="outline"
             // Même chemin que la card depth 1 : copie FINE de la sous-catégorie
             // courante via CopierContenuDialog → RPC copier_categorie (image
             // comprise). `current` est non nul ici (depth 2).

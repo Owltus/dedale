@@ -71,7 +71,7 @@ function SitesPage() {
             <TooltipIconButton
               icon={<Plus />}
               label="Nouveau site"
-              variant="default"
+              variant="outline"
               onClick={() => setForm({ open: true, site: null })}
             />
           ) : undefined
