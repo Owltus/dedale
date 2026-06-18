@@ -55,7 +55,9 @@ const NAV_ROLES: Record<NavKey, readonly string[] | 'tous'> = {
   '/releves': ROLES_METIER_LECTURE,
   '/registre': ROLES_METIER_LECTURE,
   '/documents': ROLES_METIER_LECTURE,
-  '/investissements': ROLES_ADMINISTRATIF,
+  // Écran métier (cf. RLS investissements) : technicien crée/édite sur ses
+  // sites, lecteur consulte. La suppression reste admin (gérée dans la page).
+  '/investissements': ROLES_METIER_LECTURE,
   '/sites': ROLES_ADMIN,
   '/localisations': ROLES_METIER_LECTURE,
   '/equipements': ROLES_METIER_LECTURE,

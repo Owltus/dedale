@@ -43,7 +43,10 @@ export const Route = createFileRoute('/_app/investissements/')({
 
 function InvestissementsPage() {
   const { data: role } = useCurrentRole()
-  const canManage = perm.canManageAdmin(role)
+  // Investissements = écran MÉTIER (cf. RLS) : technicien crée/édite sur ses
+  // sites, lecteur consulte. Suppression réservée à l'admin (RLS).
+  const canManage = perm.canManageMetier(role)
+  const canDelete = perm.isAdmin(role)
   const { activeSiteId } = useSiteContext()
 
   if (!activeSiteId) {
@@ -57,15 +60,23 @@ function InvestissementsPage() {
     )
   }
 
-  return <InvestissementsContent siteId={activeSiteId} canManage={canManage} />
+  return (
+    <InvestissementsContent
+      siteId={activeSiteId}
+      canManage={canManage}
+      canDelete={canDelete}
+    />
+  )
 }
 
 function InvestissementsContent({
   siteId,
   canManage,
+  canDelete,
 }: {
   siteId: string
   canManage: boolean
+  canDelete: boolean
 }) {
   const navigate = useNavigate()
   const query = useQuery(investissementsQueries.list(siteId))
@@ -232,11 +243,13 @@ function InvestissementsContent({
                                   setForm({ open: true, investissement: inv })
                                 }
                               />
-                              <TooltipIconButton
-                                icon={<Trash2 className="text-destructive" />}
-                                label="Supprimer l'investissement"
-                                onClick={() => setToDelete(inv)}
-                              />
+                              {canDelete && (
+                                <TooltipIconButton
+                                  icon={<Trash2 className="text-destructive" />}
+                                  label="Supprimer l'investissement"
+                                  onClick={() => setToDelete(inv)}
+                                />
+                              )}
                             </>
                           ) : undefined
                         }

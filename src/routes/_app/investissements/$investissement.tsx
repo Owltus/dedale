@@ -22,7 +22,8 @@ function InvestissementDetailPage() {
   const { investissement: slug } = Route.useParams()
   const navigate = useNavigate()
   const { data: role } = useCurrentRole()
-  const canManage = perm.canManageAdmin(role)
+  // Édition = rôle métier (admin/manager/technicien), conforme à la RLS.
+  const canManage = perm.canManageMetier(role)
   const { activeSiteId } = useSiteContext()
 
   const goBack = () => void navigate({ to: '/investissements' })
