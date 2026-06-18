@@ -1401,7 +1401,10 @@ COMMENT ON TABLE locaux IS 'Locaux (appartement, partie commune, local technique
 -- Libellé contextuel à la volée. Remplace nom_localisation_calc legacy.
 -- Chemin court : on omet le site si l'entreprise n'a qu'un seul site.
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE VIEW v_locaux_chemin AS
+-- WITH (security_invoker = true) EN LIGNE : la vue applique la RLS de
+-- l'appelant. Posé à la création pour qu'un CREATE OR REPLACE ne puisse plus
+-- perdre le flag (cf. régression 036 → migration 039).
+CREATE OR REPLACE VIEW v_locaux_chemin WITH (security_invoker = true) AS
 SELECT
     l.id               AS local_id,
     s.id               AS site_id,
@@ -4938,7 +4941,8 @@ ALTER TABLE observations ENABLE ROW LEVEL SECURITY;
 -- Note : `nature_gamme` est un SNAPSHOT figé dans ordres_travail (cf 032), donc
 -- on n'a pas besoin de jointer la table `gammes` (perfo + immuabilité).
 -- =============================================================================
-CREATE VIEW v_registre_securite AS
+-- WITH (security_invoker = true) EN LIGNE (cf. v_locaux_chemin / migration 039).
+CREATE VIEW v_registre_securite WITH (security_invoker = true) AS
 -- 1. OT de contrôle réglementaire clôturés
 SELECT
     ot.site_id,
