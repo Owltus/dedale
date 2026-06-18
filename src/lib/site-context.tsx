@@ -18,7 +18,14 @@ const STORAGE_KEY = 'dedale-site'
 const SiteContext = createContext<SiteContextValue | undefined>(undefined)
 
 export function SiteProvider({ children }: { children: ReactNode }) {
-  const { data: sites = [], isPending } = useQuery(sitesQueries.mine())
+  const { data, isPending } = useQuery(sitesQueries.mine())
+  // Tri alphabétique : la RPC get_my_sites ne garantit aucun ordre → on ordonne
+  // la liste du sélecteur ET on rend le défaut déterministe (le « premier site »
+  // au tout premier login = le premier dans l'ordre alphabétique).
+  const sites = useMemo(
+    () => [...(data ?? [])].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')),
+    [data],
+  )
   const [storedId, setStoredId] = useState<string | null>(() =>
     localStorage.getItem(STORAGE_KEY),
   )
