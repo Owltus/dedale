@@ -1,16 +1,31 @@
 import { supabase } from '@/lib/supabase'
 
 export const MAX_TAILLE_OCTETS = 20 * 1024 * 1024 // 20 Mo
+/** Liste MIME par défaut (toutes les fiches métier) : PDF + WebP. */
 export const MIME_AUTORISES = ['application/pdf', 'image/webp'] as const
-export const ACCEPT_FICHIER = MIME_AUTORISES.join(',')
+/** Sous-ensemble PDF uniquement (ex. investissements : pièce jointe « plus pro »). */
+export const MIME_PDF = ['application/pdf'] as const
+
+/** Libellés humains des MIME pris en charge (pour les messages d'erreur). */
+const LABELS_MIME: Record<string, string> = {
+  'application/pdf': 'PDF',
+  'image/webp': 'WebP',
+  'image/jpeg': 'JPEG',
+  'image/png': 'PNG',
+}
 
 /**
- * Valide un fichier avant upload (type MIME + taille).
+ * Valide un fichier avant upload (type MIME + taille). `mimesAutorises` permet
+ * de restreindre les formats acceptés (défaut : `MIME_AUTORISES`).
  * Retourne un message d'erreur français, ou null si le fichier est valide.
  */
-export function validerFichier(file: File): string | null {
-  if (!MIME_AUTORISES.includes(file.type as (typeof MIME_AUTORISES)[number])) {
-    return 'Format non pris en charge (PDF ou WebP uniquement).'
+export function validerFichier(
+  file: File,
+  mimesAutorises: readonly string[] = MIME_AUTORISES,
+): string | null {
+  if (!mimesAutorises.includes(file.type)) {
+    const noms = mimesAutorises.map((m) => LABELS_MIME[m] ?? m).join(' ou ')
+    return `Format non pris en charge (${noms} uniquement).`
   }
   if (file.size > MAX_TAILLE_OCTETS) {
     return 'Fichier trop volumineux (20 Mo maximum).'

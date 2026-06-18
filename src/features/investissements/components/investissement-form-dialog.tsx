@@ -5,6 +5,7 @@ import { emptyInvestissement, investissementSchema } from '../schemas'
 import type { InvestissementFormValues } from '../schemas'
 import { useCreateInvestissement, useUpdateInvestissement } from '../mutations'
 import { statutsCapexQueries } from '../queries'
+import { rangStatutCapex } from '../etat'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
@@ -122,11 +123,13 @@ export function InvestissementFormDialog({
         error={errors.statut_capex_id}
       >
         <option value="">Sélectionne un statut</option>
-        {statuts.map((statut) => (
-          <option key={statut.id} value={String(statut.id)}>
-            {statut.nom}
-          </option>
-        ))}
+        {[...statuts]
+          .sort((a, b) => rangStatutCapex(a.id) - rangStatutCapex(b.id))
+          .map((statut) => (
+            <option key={statut.id} value={String(statut.id)}>
+              {statut.nom}
+            </option>
+          ))}
       </SelectField>
       <div className="grid grid-cols-3 gap-4">
         <TextField

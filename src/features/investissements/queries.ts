@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 export const investissementsQueries = {
   all: () => ['investissements'] as const,
 
-  /** Investissements du site actif (non supprimés). */
+  /** Investissements du site actif, plus récents d'abord. */
   list: (siteId: string) =>
     queryOptions({
       queryKey: [...investissementsQueries.all(), 'list', siteId] as const,

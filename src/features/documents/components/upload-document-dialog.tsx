@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { typesDocumentsQueries } from '../queries'
-import { ACCEPT_FICHIER, validerFichier } from '../upload'
+import { MIME_AUTORISES, validerFichier } from '../upload'
 import { useAuth } from '@/auth'
 import { errorMessage } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
@@ -26,6 +26,12 @@ interface UploadDocumentDialogProps {
     typeDocumentId: number
   }) => Promise<unknown>
   pending: boolean
+  /**
+   * Formats MIME acceptés (défaut : `MIME_AUTORISES` = PDF + WebP). Restreindre
+   * pour une fiche « plus pro » — ex. `MIME_PDF` (PDF uniquement) côté
+   * investissements. Pilote l'attribut `accept` du picker ET la validation.
+   */
+  acceptedMimes?: readonly string[]
 }
 
 /** Dialogue d'upload réutilisable : choix du fichier + type, validation front. */
@@ -36,6 +42,7 @@ export function UploadDocumentDialog({
   description = 'PDF ou WebP, 20 Mo maximum.',
   onUpload,
   pending,
+  acceptedMimes = MIME_AUTORISES,
 }: UploadDocumentDialogProps) {
   const { session } = useAuth()
   const { data: types = [] } = useQuery(typesDocumentsQueries.list())
@@ -45,7 +52,7 @@ export function UploadDocumentDialog({
 
   function pickFile(next: File | null) {
     if (next) {
-      const invalide = validerFichier(next)
+      const invalide = validerFichier(next, acceptedMimes)
       if (invalide) {
         setError(invalide)
         setFile(null)
@@ -65,7 +72,7 @@ export function UploadDocumentDialog({
       setError('Choisis un type de document.')
       return
     }
-    const invalide = validerFichier(file)
+    const invalide = validerFichier(file, acceptedMimes)
     if (invalide) {
       setError(invalide)
       return
@@ -103,7 +110,7 @@ export function UploadDocumentDialog({
         <Input
           id="document-fichier"
           type="file"
-          accept={ACCEPT_FICHIER}
+          accept={acceptedMimes.join(',')}
           onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
         />
       </div>

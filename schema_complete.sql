@@ -581,12 +581,16 @@ INSERT INTO statuts_chantier (id, nom, description) VALUES
     (4, 'Terminé',   'Intervention achevée (compte-rendu obligatoire)'),
     (5, 'Annulé',    'Chantier abandonné (état terminal)');
 
--- Statuts d'un investissement / CapEx (statut LIBRE — aucune transition imposée)
+-- Statuts d'un investissement / CapEx (statut LIBRE — aucune transition imposée ;
+-- l'ordre du parcours d'affichage est porté côté front, cf. etat.ts)
 INSERT INTO statuts_capex (id, nom, description) VALUES
-    (1, 'Demandé', 'Investissement proposé, en attente d''arbitrage'),
-    (2, 'Validé',  'Investissement approuvé / budgété'),
-    (3, 'Réalisé', 'Dépense engagée et réalisée'),
-    (4, 'Refusé',  'Investissement écarté');
+    (1, 'Demandé',   'Investissement proposé, en attente d''arbitrage'),
+    (2, 'Validé',    'Investissement approuvé / budgété'),
+    (3, 'Réalisé',   'Dépense engagée et réalisée'),
+    (4, 'Refusé',    'Investissement écarté'),
+    (5, 'À l''étude', 'Investissement en instruction / arbitrage'),
+    (6, 'Engagé',     'Dépense engagée (commande passée)'),
+    (7, 'Clôturé',    'Investissement soldé et clôturé');
 
 -- Types de contrats
 INSERT INTO types_contrats (id, libelle, description) VALUES

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Download, FileText, Link2Off, Plus } from 'lucide-react'
+import { Download, FileText, Link2Off, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
 import { documentsQueries } from '@/features/documents/queries'
 import type { LiaisonTable } from '@/features/documents/queries'
@@ -16,11 +16,13 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { formatDate } from '@/lib/date'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
+import { cn } from '@/lib/utils'
 import * as perm from '@/lib/permissions'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
@@ -31,6 +33,18 @@ interface DocumentsTabProps {
   parentColumn: string
   /** Id de l'entité parente à laquelle rattacher les documents. */
   parentId: string
+  /**
+   * Restreint les formats acceptés à l'upload (défaut : PDF + WebP). Ex.
+   * `MIME_PDF` pour n'autoriser que le PDF (investissements). Transmis tel quel
+   * au dialogue d'upload.
+   */
+  acceptedMimes?: readonly string[]
+  /**
+   * Titre de section (ex. « Documents »). Si fourni, l'en-tête affiche le titre
+   * à gauche et le bouton de rattachement (icône + tooltip) à droite, sur une
+   * seule ligne. Sans titre, seul le bouton est rendu (aligné à droite).
+   */
+  title?: string
 }
 
 /**
@@ -39,11 +53,18 @@ interface DocumentsTabProps {
  *
  * Liste les documents rattachés à une entité via sa table de liaison,
  * permet d'uploader+rattacher (doctrine 3 étapes a+b+c) et de détacher.
+ *
+ * Le droit d'écriture (rattacher/détacher) suit `canManageMetier` — le miroir
+ * de la RLS des tables `documents_*` — indépendamment du `canManage` de la
+ * fiche hôte : un rôle autorisé en base voit les actions, même si la fiche
+ * elle-même est en lecture seule pour lui.
  */
 export function DocumentsTab({
   liaison,
   parentColumn,
   parentId,
+  acceptedMimes,
+  title,
 }: DocumentsTabProps) {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
@@ -82,12 +103,22 @@ export function DocumentsTab({
     )
   }
 
-  const addButton =
-    canManage && activeSiteId ? (
-      <Button size="sm" onClick={() => setUploadOpen(true)}>
-        <Plus /> Rattacher un document
-      </Button>
-    ) : undefined
+  const peutAjouter = canManage && activeSiteId
+  // En-tête : bouton icône seule + tooltip (style barre de titre réutilisable).
+  const headerAction = peutAjouter ? (
+    <TooltipIconButton
+      icon={<Paperclip />}
+      label="Rattacher un document"
+      variant="outline"
+      onClick={() => setUploadOpen(true)}
+    />
+  ) : undefined
+  // État vide : CTA explicite (libellé visible) pour amorcer le premier ajout.
+  const emptyAction = peutAjouter ? (
+    <Button size="sm" onClick={() => setUploadOpen(true)}>
+      <Paperclip /> Rattacher un document
+    </Button>
+  ) : undefined
 
   // Le rattachement insère le `site_id` du site actif sur le document.
   if (!activeSiteId) {
@@ -102,7 +133,19 @@ export function DocumentsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">{addButton}</div>
+      {(title != null || headerAction != null) && (
+        <div
+          className={cn(
+            'flex items-center gap-4',
+            title != null ? 'justify-between' : 'justify-end',
+          )}
+        >
+          {title && (
+            <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+          )}
+          {headerAction}
+        </div>
+      )}
 
       <QueryState
         query={query}
@@ -122,7 +165,7 @@ export function DocumentsTab({
                 ? 'Rattache un document à cette fiche.'
                 : 'Aucun document rattaché à cette fiche.'
             }
-            action={addButton}
+            action={emptyAction}
           />
         }
       >
@@ -195,6 +238,7 @@ export function DocumentsTab({
             })
           }
           pending={uploadAttach.isPending}
+          acceptedMimes={acceptedMimes}
         />
       )}
 
