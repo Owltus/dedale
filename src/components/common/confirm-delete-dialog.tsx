@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { ConfirmDialog } from './confirm-dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 interface ConfirmDeleteDialogProps {
   open: boolean
@@ -20,6 +23,11 @@ interface ConfirmDeleteDialogProps {
   impacts?: string[]
   /** Avertissement quand la suppression est permise malgré des impacts. */
   warning?: ReactNode
+  /**
+   * Si fourni, exige de SAISIR exactement ce texte (ex. le nom de l'entité) pour
+   * activer le bouton — protège les actions à fort impact (suppression cascade).
+   */
+  confirmPhrase?: string
   /** Libellé du bouton de confirmation (défaut « Supprimer »). */
   confirmLabel?: string
   loading?: boolean
@@ -49,12 +57,44 @@ export function ConfirmDeleteDialog({
   impactsTitle,
   impacts,
   warning,
+  confirmPhrase,
   confirmLabel = 'Supprimer',
   loading = false,
   onConfirm,
 }: ConfirmDeleteDialogProps) {
   const apercu = impacts?.slice(0, APERCU_MAX) ?? []
   const reste = (impacts?.length ?? 0) - apercu.length
+
+  // Confirmation par saisie (si confirmPhrase fourni) : on réinitialise le champ
+  // à chaque ouverture/fermeture et changement d'entité.
+  const [saisie, setSaisie] = useState('')
+  // Réinitialisé à chaque FERMETURE (toutes voies, y compris après confirmation)
+  // → réouverture toujours vierge. Pattern « ajuster l'état pendant le rendu »
+  // (pas d'effet → pas de rendu en cascade).
+  const [vuOuvert, setVuOuvert] = useState(open)
+  if (vuOuvert !== open) {
+    setVuOuvert(open)
+    if (!open) setSaisie('')
+  }
+  const phraseOk =
+    confirmPhrase == null || saisie.trim() === confirmPhrase.trim()
+  // Champ affiché seulement quand l'action est réellement possible.
+  const phraseBody =
+    confirmPhrase != null && !blocked && !loadingImpacts ? (
+      <div className="grid gap-1.5">
+        <Label htmlFor="confirm-delete-phrase">
+          Pour confirmer, saisis{' '}
+          <span className="text-foreground font-semibold">{confirmPhrase}</span>
+        </Label>
+        <Input
+          id="confirm-delete-phrase"
+          value={saisie}
+          onChange={(e) => setSaisie(e.target.value)}
+          autoComplete="off"
+          placeholder={confirmPhrase}
+        />
+      </div>
+    ) : undefined
 
   const description: ReactNode = loadingImpacts ? (
     <span className="text-muted-foreground">Vérification des éléments liés…</span>
@@ -92,7 +132,8 @@ export function ConfirmDeleteDialog({
       confirmLabel={confirmLabel}
       destructive
       loading={loading}
-      confirmDisabled={blocked}
+      confirmDisabled={blocked || !phraseOk}
+      body={phraseBody}
       onConfirm={onConfirm}
     />
   )

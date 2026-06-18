@@ -56,9 +56,14 @@ export function useDeleteSite() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Suppression définitive (hard-delete).
-      await supabase.from('sites').delete().eq('id', id).throwOnError()
+      // Suppression EN CASCADE (admin only) : la RPC efface le site ET tout son
+      // contenu, en transaction (rollback si une contrainte échoue). Cf. 040.
+      await supabase
+        .rpc('supprimer_site_cascade', { p_site_id: id })
+        .throwOnError()
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: sitesQueries.all() }),
+    // La cascade touche de nombreuses tables (OT, équipements, documents…) :
+    // on invalide tout le cache pour repartir propre.
+    onSuccess: () => qc.invalidateQueries(),
   })
 }

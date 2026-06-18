@@ -3359,6 +3359,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      can_access_contrat: { Args: { p_contrat_id: string }; Returns: boolean }
       can_access_equipement: {
         Args: { p_equipement_id: string }
         Returns: boolean
@@ -3561,6 +3562,10 @@ export type Database = {
       storage_objet_modifiable: { Args: { p_name: string }; Returns: boolean }
       storage_objet_rattache: { Args: { p_name: string }; Returns: boolean }
       supprimer_blob_orphelin: { Args: { p_path: string }; Returns: boolean }
+      supprimer_site_cascade: {
+        Args: { p_site_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       categorie_scope: "equipement" | "gamme" | "mixte" | "operation" | "parc"

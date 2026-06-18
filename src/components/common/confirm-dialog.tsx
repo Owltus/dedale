@@ -19,6 +19,9 @@ interface ConfirmDialogProps {
   loading?: boolean
   /** Désactive le bouton de confirmation (ex. action interdite en l'état). */
   confirmDisabled?: boolean
+  /** Contenu BLOC optionnel sous la description (ex. champ de confirmation par
+   *  saisie). Rendu hors du `<p>` de la description (mise en page libre). */
+  body?: ReactNode
   onConfirm: () => void
 }
 
@@ -32,6 +35,7 @@ export function ConfirmDialog({
   destructive = false,
   loading = false,
   confirmDisabled = false,
+  body,
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -40,9 +44,10 @@ export function ConfirmDialog({
         <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        {description && (
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-2">
-            <DialogDescription>{description}</DialogDescription>
+        {(description != null || body != null) && (
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-2">
+            {description && <DialogDescription>{description}</DialogDescription>}
+            {body}
           </div>
         )}
         <DialogFooter className="shrink-0 px-6 pt-4 pb-6">

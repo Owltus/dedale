@@ -166,7 +166,8 @@ function SitesPage() {
           if (!open) setToDelete(null)
         }}
         entityLabel={toDelete ? `le site « ${toDelete.nom} »` : 'le site'}
-        warning="Si ce site contient des bâtiments, des gammes, des contrats ou d'autres données, la suppression sera refusée : vide-le d'abord."
+        warning="Action IRRÉVERSIBLE : le site et TOUT son contenu (bâtiments, locaux, équipements, ordres de travail, demandes, contrats, investissements, documents…) seront supprimés définitivement."
+        confirmPhrase={toDelete?.nom}
         loading={del.isPending}
         onConfirm={confirmDelete}
       />
