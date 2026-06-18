@@ -8224,6 +8224,20 @@ AS $$
 $$;
 COMMENT ON FUNCTION public.can_access_gamme_site(uuid) IS 'F32 — true UNIQUEMENT si la gamme est rattachée à un site (site_id NOT NULL) auquel le caller a accès. Exclut le commun (site_id NULL), contrairement à can_access_gamme. SECURITY DEFINER (anti-récursion). Sert aux policies d''ÉCRITURE technicien pour préserver l''inviolabilité du commun.';
 
+-- Accès au site du CONTRAT (contrats.site_id NOT NULL → toujours site-scopé).
+-- Sert à cloisonner la liaison contrats_gammes par le site du contrat : la gamme
+-- peut être commune (site_id NULL, can_access_gamme permissif), pas le contrat. (038)
+CREATE OR REPLACE FUNCTION public.can_access_contrat(p_contrat_id uuid) RETURNS BOOLEAN
+    LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM public.contrats c
+        WHERE c.id = p_contrat_id
+          AND public.has_site_access(c.site_id)
+    );
+$$;
+COMMENT ON FUNCTION public.can_access_contrat(uuid) IS '038 — true si le caller a accès au site du contrat (contrats.site_id NOT NULL). SECURITY DEFINER (anti-récursion). Cloisonne contrats_gammes par le site du CONTRAT (la gamme commune ne cloisonne pas).';
+
 -- Un équipement est « accessible » si le caller a accès au site de son local.
 CREATE OR REPLACE FUNCTION public.can_access_equipement(p_equipement_id UUID) RETURNS BOOLEAN
     LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
@@ -8283,23 +8297,28 @@ CREATE POLICY contrats_gammes_admin_all ON contrats_gammes FOR ALL
     USING ((SELECT public.current_role()) = 'admin')
     WITH CHECK ((SELECT public.current_role()) = 'admin');
 
--- F32 : cloisonnement par site via la gamme liée.
+-- Cloisonnement par le SITE DU CONTRAT (toujours site-scopé) ET accès gamme
+-- (commun autorisé). La gamme commune ne cloisonnant pas (can_access_gamme
+-- permissif), c'est le contrat qui porte le périmètre. (038)
 CREATE POLICY contrats_gammes_manager_write ON contrats_gammes FOR ALL
     USING (
         (SELECT public.current_role()) = 'manager'
+        AND public.can_access_contrat(contrat_id)
         AND public.can_access_gamme(gamme_id)
     )
     WITH CHECK (
         (SELECT public.current_role()) = 'manager'
+        AND public.can_access_contrat(contrat_id)
         AND public.can_access_gamme(gamme_id)
     );
 
 -- Lecture pour les rôles internes (les liaisons contrat ↔ gamme sont une info
--- contractuelle interne, pas exposée aux demandeurs). Scopée par site (gamme).
+-- contractuelle interne, pas exposée aux demandeurs). Scopée par le SITE DU
+-- CONTRAT (038 : avant via la gamme → fuite cross-site sur les gammes communes).
 CREATE POLICY contrats_gammes_select ON contrats_gammes FOR SELECT
     USING (
         (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
-        AND public.can_access_gamme(gamme_id)
+        AND public.can_access_contrat(contrat_id)
     );
 
 -- ╔══════════════════════════════════════════════════════════════════════════╗
@@ -10160,16 +10179,19 @@ CREATE POLICY contrats_technicien_all ON contrats FOR ALL
         AND public.has_site_access(site_id)
     );
 
--- 5. contrats_gammes — liaison contrats ↔ gammes (F32 : cloisonné via la gamme).
--- Inviolabilité du commun (2026-06-10) : can_access_gamme_site exclut le commun
--- (site_id NULL) → un technicien n'écrit JAMAIS la liaison d'une gamme commune.
+-- 5. contrats_gammes — liaison contrats ↔ gammes. Cloisonné par le SITE DU
+-- CONTRAT (038) ET gamme SITE en écriture. Inviolabilité du commun (2026-06-10) :
+-- can_access_gamme_site exclut le commun (site_id NULL) → un technicien n'écrit
+-- JAMAIS la liaison d'une gamme commune.
 CREATE POLICY contrats_gammes_technicien_all ON contrats_gammes FOR ALL
     USING (
         (SELECT public.current_role()) = 'technicien'
+        AND public.can_access_contrat(contrat_id)
         AND public.can_access_gamme_site(gamme_id)
     )
     WITH CHECK (
         (SELECT public.current_role()) = 'technicien'
+        AND public.can_access_contrat(contrat_id)
         AND public.can_access_gamme_site(gamme_id)
     );
 
@@ -11151,6 +11173,7 @@ GRANT EXECUTE ON FUNCTION public.can_access_local(uuid)             TO authentic
 GRANT EXECUTE ON FUNCTION public.can_access_prestataire(uuid)       TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.can_access_gamme(uuid)             TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.can_access_gamme_site(uuid)        TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.can_access_contrat(uuid)           TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.can_access_equipement(uuid)        TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.miniature_scope_ok(uuid, uuid)     TO authenticated, service_role;
 
