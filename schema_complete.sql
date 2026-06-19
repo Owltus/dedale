@@ -70,7 +70,7 @@
 --    011  Tables batiments → niveaux → locaux + VIEW v_locaux_chemin
 --    012  Table categories récursive (scope entreprise / site)
 --    013  Table equipements (JSONB specifications + CHECK structure) + VIEW
---    013b Table modeles_equipements (bibliothèque entreprise/site — chantier C 2026-05-25)
+--    013b Table modeles_equipements (bibliothèque entreprise/site — travaux C 2026-05-25)
 --    013c Fonctions instancier_equipement + copier_modele_equipement
 --
 -- ▶ BLOC 3 — ACTEURS (020 à 028)
@@ -86,7 +86,7 @@
 --
 -- ▶ BLOC 4 — DEMANDES D'INTERVENTION (030 à 031)
 --    030  Table demandes_intervention + liaisons di_*
---    030b Table interventions_chantier + liaisons (machine à états — v0.33)
+--    030b Table interventions_travaux + liaisons (machine à états — v0.33)
 --    030c Table investissements / CapEx (statut libre — v0.33 ; vue v_capex reportée)
 --    031  Table modeles_di (bibliothèque entreprise/site — commun + site 2026-06-11)
 --
@@ -96,7 +96,7 @@
 --    034  Table observations + VIEW v_registre_securite + v_observations_dashboard
 --
 -- ▶ BLOC 6 — DOCUMENTS & STORAGE (040 à 041)
---    040  Table documents (CHECK path + MIME) + 9 tables de liaison (+chantier, +capex v0.33)
+--    040  Table documents (CHECK path + MIME) + 9 tables de liaison (+travaux, +capex v0.33)
 --    041  Bucket Storage unique 'documents' + 5 policies
 --
 -- ▶ BLOC 7 — LOGIQUE EN BASE (050 à 055)
@@ -110,14 +110,14 @@
 --    061  Fix compartimentage (override doc_*_select + triggers cohérence site)
 --    070  Cron jobs Supabase (storage orphans, comptes inactifs, anomalies)
 --
--- COMPTEURS (single-tenant, 2026-06-03 — patch v0.33, interventions de chantier + CapEx) :
---   56 tables (+statuts_chantier, statuts_capex, interventions_chantier,
---   chantier_localisations, chantier_equipements, investissements,
---   documents_interventions_chantier, documents_investissements en v0.33),
+-- COMPTEURS (single-tenant, 2026-06-03 — patch v0.33, interventions de travaux + CapEx) :
+--   56 tables (+statuts_travaux, statuts_capex, interventions_travaux,
+--   travaux_localisations, travaux_equipements, investissements,
+--   documents_interventions_travaux, documents_investissements en v0.33),
 --   6 ENUMs, 108 fonctions, 110 triggers, 214 policies RLS (209 public
 --   + 5 storage ; inclut les policies générées par boucle DO sur les référentiels),
 --   160 index (dont 1 UNIQUE partiel uq_ot_gamme_date_actifs anti-TOCTOU ; +idx_locaux_type ;
---   +14 index chantier/capex en v0.33, dont les 4 index de FK ajoutés post-audit),
+--   +14 index travaux/capex en v0.33, dont les 4 index de FK ajoutés post-audit),
 --   3 cron jobs (cleanup_storage_orphans mensuel + deactivate_inactive_users
 --   mensuel + detect_security_anomalies horaire), 4 VIEWs (toutes en
 --   security_invoker), 5 rôles utilisateur.
@@ -168,7 +168,7 @@
 --     Storage, Realtime, 1er admin, tests d'étanchéité, 2FA, rollback,
 --     monitoring 30 premiers jours).
 --
--- Patch v0.6 — 2026-05-27 (F30, 3 chantiers : hygiène comptes + monitoring) :
+-- Patch v0.6 — 2026-05-27 (F30, 3 travaux : hygiène comptes + monitoring) :
 --   - Cron deactivate_inactive_users : désactive (est_actif=false) les comptes
 --     non-admin sans connexion depuis 6 mois (auth.users.last_sign_in_at).
 --     Exclut les admins (anti-lockout). Bypass contrôlé du trigger
@@ -479,10 +479,10 @@ CREATE TABLE statuts_operations (
     description TEXT
 );
 
--- Statuts d'une intervention de chantier (v0.33). Machine à états (cf trigger
--- validation_transitions_chantier) : les ids sont STABLES car portés par les
+-- Statuts d'une intervention de travaux (v0.33). Machine à états (cf trigger
+-- validation_transitions_travaux) : les ids sont STABLES car portés par les
 -- transitions. Référentiel consultable (libellé/description ajustables).
-CREATE TABLE statuts_chantier (
+CREATE TABLE statuts_travaux (
     id          SMALLINT PRIMARY KEY,
     nom         TEXT NOT NULL UNIQUE,
     description TEXT
@@ -573,13 +573,13 @@ INSERT INTO statuts_operations (id, code, libelle, description) VALUES
     (4, 'annulee',        'Annulée',        'Annulée par cascade système (OT annulé)'),
     (5, 'non_applicable', 'Non applicable', 'Opération sans objet sur cet OT');
 
--- Statuts d'une intervention de chantier (codes/ids STABLES — machine à états)
-INSERT INTO statuts_chantier (id, nom, description) VALUES
-    (1, 'Ouvert',    'Chantier déclaré, pas encore planifié'),
+-- Statuts d'une intervention de travaux (codes/ids STABLES — machine à états)
+INSERT INTO statuts_travaux (id, nom, description) VALUES
+    (1, 'Ouvert',    'Travaux déclaré, pas encore planifié'),
     (2, 'Planifié',  'Date d''intervention fixée'),
     (3, 'En cours',  'Intervention en cours sur le terrain'),
     (4, 'Terminé',   'Intervention achevée (compte-rendu obligatoire)'),
-    (5, 'Annulé',    'Chantier abandonné (état terminal)');
+    (5, 'Annulé',    'Travaux abandonné (état terminal)');
 
 -- Statuts d'un investissement / CapEx (statut LIBRE — aucune transition imposée ;
 -- l'ordre du parcours d'affichage est porté côté front, cf. etat.ts)
@@ -603,7 +603,7 @@ INSERT INTO types_documents (id, nom, description, est_systeme) VALUES
     (1, 'Attestation', 'Certificat de conformité, d''assurance, d''habilitation ou de formation', true),
     (2, 'Rapport',     'Compte-rendu d''intervention, de contrôle ou de maintenance',             true),
     (3, 'Contrat',     'Document contractuel ou de prestation de service',                        true),
-    (4, 'Devis',       'Devis ou estimation chiffrée (chantiers, investissements)',               false);
+    (4, 'Devis',       'Devis ou estimation chiffrée (travaux, investissements)',               false);
 
 -- Types de locaux (liste de départ — l'admin ajuste/complète via l'app)
 -- Liste généraliste et volontairement courte (vaut pour copro/bailleur ET hôtel
@@ -1855,7 +1855,7 @@ COMMENT ON VIEW  v_equipements_complet IS 'Équipement enrichi du chemin spatial
 -- ║  013b_modeles_equipements.sql
 -- ╚═════════════════════════════════════════════════════════════════════════╝
 -- =============================================================================
--- 013b — Modèles d'équipements (chantier C 2026-05-25)
+-- 013b — Modèles d'équipements (travaux C 2026-05-25)
 -- =============================================================================
 -- Bibliothèque de modèles pré-remplis pour instancier rapidement des
 -- équipements répétitifs (ex: 30 BAES identiques sur un site).
@@ -1919,7 +1919,7 @@ CREATE TABLE modeles_equipements (
 );
 
 COMMENT ON TABLE modeles_equipements IS
-    'Bibliothèque de modèles d''équipements (chantier C 2026-05-25). Scope 2 niveaux : entreprise (site_id NULL) / site. Copie par valeur via instancier_equipement() ou copier_modele_equipement().';
+    'Bibliothèque de modèles d''équipements (travaux C 2026-05-25). Scope 2 niveaux : entreprise (site_id NULL) / site. Copie par valeur via instancier_equipement() ou copier_modele_equipement().';
 COMMENT ON COLUMN modeles_equipements.site_id IS
     'NULL = modèle entreprise (visible partout, écriture admin + manager). Renseigné = modèle propre au site (écriture admin + manager + technicien si has_site_access).';
 COMMENT ON COLUMN modeles_equipements.specifications IS
@@ -2791,7 +2791,7 @@ CREATE TRIGGER trg_create_interne_for_site
 CREATE TABLE gammes (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-    -- Scope bibliothèque (cf. chantier bibliothèque de modèles, 2026-05-20)
+    -- Scope bibliothèque (cf. travaux bibliothèque de modèles, 2026-05-20)
     site_id         UUID REFERENCES sites(id) ON DELETE CASCADE,
 
     -- Étiquette molle : gamme d'origine si cette gamme est une copie
@@ -3677,7 +3677,7 @@ BEGIN
     --    (site cible différent, ou NULL = remontée entreprise), copier categorie_id
     --    brut ferait échouer check_gamme_categorie (catégorie de site référencée par
     --    une gamme d'un autre site / entreprise). categorie_id étant NOT NULL
-    --    (chantier 2026-06-10), on ne peut pas la nuller : on réassigne la
+    --    (travaux 2026-06-10), on ne peut pas la nuller : on réassigne la
     --    SOUS-catégorie de secours « Non classé » (enfant de « Non classé (gammes) »,
     --    ENTREPRISE → sous-catégorie valide acceptée pour toute gamme). Le manager
     --    reclassera après.
@@ -4250,20 +4250,20 @@ ALTER TABLE di_equipements ENABLE ROW LEVEL SECURITY;
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
--- ║  030b_interventions_chantier.sql (v0.33)                                  ║
+-- ║  030b_interventions_travaux.sql (v0.33)                                  ║
 -- ╚═════════════════════════════════════════════════════════════════════════╝
 -- =============================================================================
--- Interventions de chantier : travaux ponctuels confiés (souvent) à un
+-- Interventions de travaux : travaux ponctuels confiés (souvent) à un
 -- prestataire, distincts des OT préventifs (cycle réglementaire) et des DI
 -- (signalements curatifs). Modèle calqué sur les DI : scope site, machine à
 -- états, liaisons locaux/équipements/documents, soft-delete 90j.
--- Machine à états (statuts_chantier) : 1 Ouvert → {2,3,5} ; 2 Planifié → {3,5} ;
+-- Machine à états (statuts_travaux) : 1 Ouvert → {2,3,5} ; 2 Planifié → {3,5} ;
 -- 3 En cours → {4,5} ; 4 Terminé → {3} (réouverture) ; 5 Annulé = terminal.
--- Dépendances : 010_sites, 020_prestataires, 005_users, statuts_chantier,
+-- Dépendances : 010_sites, 020_prestataires, 005_users, statuts_travaux,
 --               locaux/equipements (liaisons), set_updated_at()
 -- =============================================================================
 
-CREATE TABLE interventions_chantier (
+CREATE TABLE interventions_travaux (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Scope site (matérialisé pour RLS Manager/Technicien)
@@ -4274,7 +4274,7 @@ CREATE TABLE interventions_chantier (
     prestataire_id      UUID REFERENCES prestataires(id) ON DELETE SET NULL,
 
     -- Machine à états (référentiel SMALLINT, IDs stables)
-    statut_chantier_id  SMALLINT NOT NULL DEFAULT 1 REFERENCES statuts_chantier(id),
+    statut_travaux_id  SMALLINT NOT NULL DEFAULT 1 REFERENCES statuts_travaux(id),
 
     -- Contenu
     titre               TEXT NOT NULL CHECK (length(trim(titre)) > 0),
@@ -4286,7 +4286,7 @@ CREATE TABLE interventions_chantier (
     date_fin            DATE,
 
     -- Clôture (compte-rendu obligatoire au passage Terminé, contrôle par trigger).
-    -- cloture_by : qui a passé le chantier en Terminé (équivalent resolved_by des DI).
+    -- cloture_by : qui a passé les travaux en Terminé (équivalent resolved_by des DI).
     compte_rendu        TEXT,
     cloture_by          UUID REFERENCES users(id) ON DELETE SET NULL,
 
@@ -4295,49 +4295,49 @@ CREATE TABLE interventions_chantier (
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-COMMENT ON TABLE interventions_chantier IS
-    'Travaux de chantier ponctuels (souvent prestataire). Machine à états 1→2/3→4 via statuts_chantier.';
-COMMENT ON COLUMN interventions_chantier.cloture_by IS
-    'Qui a passé le chantier en Terminé. Peuplé par trigger set_chantier_cloture_by (valeur forcée serveur). NULL tant que non terminé ou réouvert.';
+COMMENT ON TABLE interventions_travaux IS
+    'Travaux ponctuels (souvent prestataire). Machine à états 1→2/3→4 via statuts_travaux.';
+COMMENT ON COLUMN interventions_travaux.cloture_by IS
+    'Qui a passé les travaux en Terminé. Peuplé par trigger set_travaux_cloture_by (valeur forcée serveur). NULL tant que non terminé ou réouvert.';
 
-CREATE INDEX idx_chantier_site   ON interventions_chantier(site_id);
-CREATE INDEX idx_chantier_statut ON interventions_chantier(statut_chantier_id);
+CREATE INDEX idx_travaux_site   ON interventions_travaux(site_id);
+CREATE INDEX idx_travaux_statut ON interventions_travaux(statut_travaux_id);
 -- Index des FK (règle « indexer toute FK » — v0.33 corrigé post-audit)
-CREATE INDEX idx_chantier_created_by  ON interventions_chantier(created_by);
-CREATE INDEX idx_chantier_prestataire ON interventions_chantier(prestataire_id);
-CREATE INDEX idx_chantier_cloture_by  ON interventions_chantier(cloture_by);
+CREATE INDEX idx_travaux_created_by  ON interventions_travaux(created_by);
+CREATE INDEX idx_travaux_prestataire ON interventions_travaux(prestataire_id);
+CREATE INDEX idx_travaux_cloture_by  ON interventions_travaux(cloture_by);
 
-CREATE TRIGGER trg_interventions_chantier_set_updated_at
-    BEFORE UPDATE ON interventions_chantier
+CREATE TRIGGER trg_interventions_travaux_set_updated_at
+    BEFORE UPDATE ON interventions_travaux
     FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-ALTER TABLE interventions_chantier ENABLE ROW LEVEL SECURITY;
+ALTER TABLE interventions_travaux ENABLE ROW LEVEL SECURITY;
 
 
--- Liaison N-N : chantier_localisations (chantier ↔ locaux)
-CREATE TABLE chantier_localisations (
-    chantier_id  UUID NOT NULL REFERENCES interventions_chantier(id) ON DELETE CASCADE,
+-- Liaison N-N : travaux_localisations (travaux ↔ locaux)
+CREATE TABLE travaux_localisations (
+    travaux_id  UUID NOT NULL REFERENCES interventions_travaux(id) ON DELETE CASCADE,
     local_id     UUID NOT NULL REFERENCES locaux(id) ON DELETE CASCADE,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (chantier_id, local_id)
+    PRIMARY KEY (travaux_id, local_id)
 );
-COMMENT ON TABLE chantier_localisations IS
-    'Localisations concernées par un chantier (locaux du même site).';
-CREATE INDEX idx_chantier_localisations_local ON chantier_localisations(local_id);
-ALTER TABLE chantier_localisations ENABLE ROW LEVEL SECURITY;
+COMMENT ON TABLE travaux_localisations IS
+    'Localisations concernées par des travaux (locaux du même site).';
+CREATE INDEX idx_travaux_localisations_local ON travaux_localisations(local_id);
+ALTER TABLE travaux_localisations ENABLE ROW LEVEL SECURITY;
 
 
--- Liaison N-N : chantier_equipements (chantier ↔ équipements)
-CREATE TABLE chantier_equipements (
-    chantier_id    UUID NOT NULL REFERENCES interventions_chantier(id) ON DELETE CASCADE,
+-- Liaison N-N : travaux_equipements (travaux ↔ équipements)
+CREATE TABLE travaux_equipements (
+    travaux_id    UUID NOT NULL REFERENCES interventions_travaux(id) ON DELETE CASCADE,
     equipement_id  UUID NOT NULL REFERENCES equipements(id) ON DELETE CASCADE,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (chantier_id, equipement_id)
+    PRIMARY KEY (travaux_id, equipement_id)
 );
-COMMENT ON TABLE chantier_equipements IS
-    'Équipements concernés par un chantier (équipements du même site).';
-CREATE INDEX idx_chantier_equipements_equipement ON chantier_equipements(equipement_id);
-ALTER TABLE chantier_equipements ENABLE ROW LEVEL SECURITY;
+COMMENT ON TABLE travaux_equipements IS
+    'Équipements concernés par des travaux (équipements du même site).';
+CREATE INDEX idx_travaux_equipements_equipement ON travaux_equipements(equipement_id);
+ALTER TABLE travaux_equipements ENABLE ROW LEVEL SECURITY;
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
@@ -5181,16 +5181,16 @@ CREATE TABLE documents_equipements (
 CREATE INDEX idx_doc_eq_eq ON documents_equipements(equipement_id);
 ALTER TABLE documents_equipements ENABLE ROW LEVEL SECURITY;
 
--- 8) documents ↔ interventions_chantier (v0.33)
-CREATE TABLE documents_interventions_chantier (
+-- 8) documents ↔ interventions_travaux (v0.33)
+CREATE TABLE documents_interventions_travaux (
     document_id UUID NOT NULL REFERENCES documents(id)               ON DELETE CASCADE,
-    chantier_id UUID NOT NULL REFERENCES interventions_chantier(id)  ON DELETE CASCADE,
+    travaux_id UUID NOT NULL REFERENCES interventions_travaux(id)  ON DELETE CASCADE,
     commentaire TEXT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (document_id, chantier_id)
+    PRIMARY KEY (document_id, travaux_id)
 );
-CREATE INDEX idx_doc_chantier_chantier ON documents_interventions_chantier(chantier_id);
-ALTER TABLE documents_interventions_chantier ENABLE ROW LEVEL SECURITY;
+CREATE INDEX idx_doc_travaux_travaux ON documents_interventions_travaux(travaux_id);
+ALTER TABLE documents_interventions_travaux ENABLE ROW LEVEL SECURITY;
 
 -- 9) documents ↔ investissements (v0.33)
 CREATE TABLE documents_investissements (
@@ -6139,72 +6139,72 @@ COMMENT ON FUNCTION public.reset_di_reouverture() IS
     'Réouverture DI (→3) : efface resolved_by + date_resolution (la DI n''est plus résolue). description_resolution conservée.';
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 1.7 Machine à états des interventions de chantier (v0.33, calque DI)
--- statuts_chantier : 1 Ouvert, 2 Planifié, 3 En cours, 4 Terminé, 5 Annulé.
+-- 1.7 Machine à états des interventions de travaux (v0.33, calque DI)
+-- statuts_travaux : 1 Ouvert, 2 Planifié, 3 En cours, 4 Terminé, 5 Annulé.
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- validation_statut_initial_chantier : force le statut initial à 'Ouvert' (id=1)
-CREATE OR REPLACE FUNCTION public.validation_statut_initial_chantier()
+-- validation_statut_initial_travaux : force le statut initial à 'Ouvert' (id=1)
+CREATE OR REPLACE FUNCTION public.validation_statut_initial_travaux()
 RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-    IF NEW.statut_chantier_id IS DISTINCT FROM 1 THEN
-        RAISE EXCEPTION 'Le statut initial d''un chantier doit être « Ouvert » (id=1)';
+    IF NEW.statut_travaux_id IS DISTINCT FROM 1 THEN
+        RAISE EXCEPTION 'Le statut initial de travaux doit être « Ouvert » (id=1)';
     END IF;
     RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER trg_validation_statut_initial_chantier
-    BEFORE INSERT ON interventions_chantier
-    FOR EACH ROW EXECUTE FUNCTION public.validation_statut_initial_chantier();
-COMMENT ON FUNCTION public.validation_statut_initial_chantier() IS 'Force tout nouveau chantier à démarrer en statut Ouvert (id=1).';
+CREATE TRIGGER trg_validation_statut_initial_travaux
+    BEFORE INSERT ON interventions_travaux
+    FOR EACH ROW EXECUTE FUNCTION public.validation_statut_initial_travaux();
+COMMENT ON FUNCTION public.validation_statut_initial_travaux() IS 'Force tout nouveau lot de travaux à démarrer en statut Ouvert (id=1).';
 
--- validation_transitions_chantier : machine à états
+-- validation_transitions_travaux : machine à états
 -- 1→{2,3,5}, 2→{3,5}, 3→{4,5}, 4→{3}, 5=terminal.
-CREATE OR REPLACE FUNCTION public.validation_transitions_chantier()
+CREATE OR REPLACE FUNCTION public.validation_transitions_travaux()
 RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-    IF OLD.statut_chantier_id = NEW.statut_chantier_id THEN
+    IF OLD.statut_travaux_id = NEW.statut_travaux_id THEN
         RETURN NEW;
     END IF;
 
-    IF OLD.statut_chantier_id = 1 AND NEW.statut_chantier_id NOT IN (2, 3, 5) THEN
-        RAISE EXCEPTION 'Transition chantier interdite depuis « Ouvert » vers statut %', NEW.statut_chantier_id;
+    IF OLD.statut_travaux_id = 1 AND NEW.statut_travaux_id NOT IN (2, 3, 5) THEN
+        RAISE EXCEPTION 'Transition travaux interdite depuis « Ouvert » vers statut %', NEW.statut_travaux_id;
     END IF;
-    IF OLD.statut_chantier_id = 2 AND NEW.statut_chantier_id NOT IN (3, 5) THEN
-        RAISE EXCEPTION 'Transition chantier interdite depuis « Planifié » vers statut %', NEW.statut_chantier_id;
+    IF OLD.statut_travaux_id = 2 AND NEW.statut_travaux_id NOT IN (3, 5) THEN
+        RAISE EXCEPTION 'Transition travaux interdite depuis « Planifié » vers statut %', NEW.statut_travaux_id;
     END IF;
-    IF OLD.statut_chantier_id = 3 AND NEW.statut_chantier_id NOT IN (4, 5) THEN
-        RAISE EXCEPTION 'Transition chantier interdite depuis « En cours » vers statut %', NEW.statut_chantier_id;
+    IF OLD.statut_travaux_id = 3 AND NEW.statut_travaux_id NOT IN (4, 5) THEN
+        RAISE EXCEPTION 'Transition travaux interdite depuis « En cours » vers statut %', NEW.statut_travaux_id;
     END IF;
-    IF OLD.statut_chantier_id = 4 AND NEW.statut_chantier_id NOT IN (3) THEN
-        RAISE EXCEPTION 'Transition chantier interdite depuis « Terminé » vers statut %', NEW.statut_chantier_id;
+    IF OLD.statut_travaux_id = 4 AND NEW.statut_travaux_id NOT IN (3) THEN
+        RAISE EXCEPTION 'Transition travaux interdite depuis « Terminé » vers statut %', NEW.statut_travaux_id;
     END IF;
-    IF OLD.statut_chantier_id = 5 THEN
-        RAISE EXCEPTION 'Chantier « Annulé » est un état terminal (aucune transition autorisée)';
+    IF OLD.statut_travaux_id = 5 THEN
+        RAISE EXCEPTION 'Travaux « Annulé » est un état terminal (aucune transition autorisée)';
     END IF;
 
     RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER trg_validation_transitions_chantier
-    BEFORE UPDATE OF statut_chantier_id ON interventions_chantier
-    FOR EACH ROW EXECUTE FUNCTION public.validation_transitions_chantier();
-COMMENT ON FUNCTION public.validation_transitions_chantier() IS 'Machine à états chantier : 1→2/3/5, 2→3/5, 3→4/5, 4→3 (réouverture), 5 terminal.';
+CREATE TRIGGER trg_validation_transitions_travaux
+    BEFORE UPDATE OF statut_travaux_id ON interventions_travaux
+    FOR EACH ROW EXECUTE FUNCTION public.validation_transitions_travaux();
+COMMENT ON FUNCTION public.validation_transitions_travaux() IS 'Machine à états travaux : 1→2/3/5, 2→3/5, 3→4/5, 4→3 (réouverture), 5 terminal.';
 
--- validation_chantier_compte_rendu : passage à Terminé (4) exige un compte_rendu
+-- validation_travaux_compte_rendu : passage à Terminé (4) exige un compte_rendu
 -- non vide (miroir de validation_resolution_di).
-CREATE OR REPLACE FUNCTION public.validation_chantier_compte_rendu()
+CREATE OR REPLACE FUNCTION public.validation_travaux_compte_rendu()
 RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-    IF NEW.statut_chantier_id = 4 AND OLD.statut_chantier_id <> 4 THEN
+    IF NEW.statut_travaux_id = 4 AND OLD.statut_travaux_id <> 4 THEN
         IF NEW.compte_rendu IS NULL OR length(trim(NEW.compte_rendu)) = 0 THEN
             RAISE EXCEPTION 'Clôture impossible : un compte_rendu non vide est obligatoire au passage « Terminé ».';
         END IF;
@@ -6213,25 +6213,25 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_validation_chantier_compte_rendu
-    BEFORE UPDATE OF statut_chantier_id ON interventions_chantier
-    FOR EACH ROW EXECUTE FUNCTION public.validation_chantier_compte_rendu();
-COMMENT ON FUNCTION public.validation_chantier_compte_rendu() IS 'Passage à Terminé exige un compte_rendu non vide (miroir validation_resolution_di).';
+CREATE TRIGGER trg_validation_travaux_compte_rendu
+    BEFORE UPDATE OF statut_travaux_id ON interventions_travaux
+    FOR EACH ROW EXECUTE FUNCTION public.validation_travaux_compte_rendu();
+COMMENT ON FUNCTION public.validation_travaux_compte_rendu() IS 'Passage à Terminé exige un compte_rendu non vide (miroir validation_resolution_di).';
 
--- set_chantier_cloture_by : peuple cloture_by + date_fin au passage Terminé (4),
+-- set_travaux_cloture_by : peuple cloture_by + date_fin au passage Terminé (4),
 -- les efface à la réouverture (4→3). Valeurs forcées serveur (miroir set_di_resolved_by
 -- + reset_di_reouverture).
-CREATE OR REPLACE FUNCTION public.set_chantier_cloture_by()
+CREATE OR REPLACE FUNCTION public.set_travaux_cloture_by()
 RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-    IF NEW.statut_chantier_id = 4 AND OLD.statut_chantier_id IS DISTINCT FROM 4 THEN
+    IF NEW.statut_travaux_id = 4 AND OLD.statut_travaux_id IS DISTINCT FROM 4 THEN
         -- Passage en Terminé : QUI (forcé serveur) + QUAND (date_fin si non fournie).
         NEW.cloture_by := (SELECT auth.uid());
         NEW.date_fin   := COALESCE(NEW.date_fin, current_date);
-    ELSIF NEW.statut_chantier_id = 3 AND OLD.statut_chantier_id = 4 THEN
-        -- Réouverture (Terminé → En cours) : le chantier n'est plus clos.
+    ELSIF NEW.statut_travaux_id = 3 AND OLD.statut_travaux_id = 4 THEN
+        -- Réouverture (Terminé → En cours) : les travaux ne sont plus clos.
         NEW.cloture_by := NULL;
         NEW.date_fin   := NULL;
     END IF;
@@ -6239,11 +6239,11 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_chantier_set_cloture_by
-    BEFORE UPDATE OF statut_chantier_id ON interventions_chantier
-    FOR EACH ROW EXECUTE FUNCTION public.set_chantier_cloture_by();
-COMMENT ON FUNCTION public.set_chantier_cloture_by() IS
-    'Peuple cloture_by = (SELECT auth.uid()) + date_fin au passage chantier → Terminé (4) ; les efface à la réouverture (4→3). Valeurs forcées serveur.';
+CREATE TRIGGER trg_travaux_set_cloture_by
+    BEFORE UPDATE OF statut_travaux_id ON interventions_travaux
+    FOR EACH ROW EXECUTE FUNCTION public.set_travaux_cloture_by();
+COMMENT ON FUNCTION public.set_travaux_cloture_by() IS
+    'Peuple cloture_by = (SELECT auth.uid()) + date_fin au passage travaux → Terminé (4) ; les efface à la réouverture (4→3). Valeurs forcées serveur.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 2. PROTECTION DES ENTITÉS TERMINALES
@@ -8510,7 +8510,7 @@ CREATE POLICY gamme_modeles_manager_write ON gamme_modeles FOR ALL
     );
 
 -- ╔══════════════════════════════════════════════════════════════════════════╗
--- ║ 15bis. modeles_equipements (bibliothèque d'équipements — chantier C)     ║
+-- ║ 15bis. modeles_equipements (bibliothèque d'équipements — travaux C)     ║
 -- ╚══════════════════════════════════════════════════════════════════════════╝
 -- Règle universelle des modèles (2026-05-25) :
 --   - bibliothèque entreprise (site_id NULL) : admin + manager
@@ -8535,7 +8535,7 @@ CREATE POLICY modeles_equipements_select ON modeles_equipements FOR SELECT
     );
 
 -- Manager : plein pouvoir sur la bibliothèque entreprise (site_id IS NULL)
--- ET sur ses sites assignés (calque modeles_operations_manager_all post-chantier A).
+-- ET sur ses sites assignés (calque modeles_operations_manager_all post-travaux A).
 CREATE POLICY modeles_equipements_manager_all ON modeles_equipements FOR ALL
     USING (
         (SELECT public.current_role()) = 'manager'
@@ -8657,29 +8657,29 @@ CREATE POLICY di_demandeur_update ON demandes_intervention FOR UPDATE
 -- Pas de policy DELETE → demandeur ne peut jamais supprimer (soft-delete réservé admin/manager).
 
 -- ╔══════════════════════════════════════════════════════════════════════════╗
--- ║ 17bis. interventions_chantier (site_id) — v0.33, calque DI sans demandeur ║
+-- ║ 17bis. interventions_travaux (site_id) — v0.33, calque DI sans demandeur ║
 -- ╚══════════════════════════════════════════════════════════════════════════╝
 -- admin partout ; manager + technicien écrivent sur leurs sites ; lecteur SELECT.
--- Pas de rôle demandeur (les chantiers ne sont pas des tickets terrain ouverts).
+-- Pas de rôle demandeur (les travaux ne sont pas des tickets terrain ouverts).
 -- Suppression réservée à l'admin (policy FOR ALL) ; pas de policy DELETE site-scopée.
 
-CREATE POLICY chantier_admin_all ON interventions_chantier FOR ALL
+CREATE POLICY travaux_admin_all ON interventions_travaux FOR ALL
     USING ((SELECT public.current_role()) = 'admin')
     WITH CHECK ((SELECT public.current_role()) = 'admin');
 
-CREATE POLICY chantier_site_scoped_select ON interventions_chantier FOR SELECT
+CREATE POLICY travaux_site_scoped_select ON interventions_travaux FOR SELECT
     USING (
         (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
         AND public.has_site_access(site_id)
     );
 
-CREATE POLICY chantier_site_scoped_insert ON interventions_chantier FOR INSERT
+CREATE POLICY travaux_site_scoped_insert ON interventions_travaux FOR INSERT
     WITH CHECK (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND public.has_site_access(site_id)
     );
 
-CREATE POLICY chantier_site_scoped_update ON interventions_chantier FOR UPDATE
+CREATE POLICY travaux_site_scoped_update ON interventions_travaux FOR UPDATE
     USING (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND public.has_site_access(site_id)
@@ -8689,14 +8689,14 @@ CREATE POLICY chantier_site_scoped_update ON interventions_chantier FOR UPDATE
         AND public.has_site_access(site_id)
     );
 
--- Liaisons chantier_localisations / chantier_equipements : sécurité par
--- existence d'un chantier visible (scope via has_site_access du chantier parent).
+-- Liaisons travaux_localisations / travaux_equipements : sécurité par
+-- existence de travaux visibles (scope via has_site_access des travaux parents).
 -- Calque EXACT des policies de liaison DI (bloc DO $$). admin = court-circuit.
 DO $$
 DECLARE
     t TEXT;
 BEGIN
-    FOR t IN VALUES ('chantier_localisations'), ('chantier_equipements')
+    FOR t IN VALUES ('travaux_localisations'), ('travaux_equipements')
     LOOP
         EXECUTE format($q$
             CREATE POLICY %I ON %I FOR ALL
@@ -8709,8 +8709,8 @@ BEGIN
             USING (
                 (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
                 AND EXISTS (
-                    SELECT 1 FROM interventions_chantier ic
-                    WHERE ic.id = %I.chantier_id
+                    SELECT 1 FROM interventions_travaux ic
+                    WHERE ic.id = %I.travaux_id
                       AND public.has_site_access(ic.site_id)
                 )
             )
@@ -8721,16 +8721,16 @@ BEGIN
             USING (
                 (SELECT public.current_role()) IN ('manager', 'technicien')
                 AND EXISTS (
-                    SELECT 1 FROM interventions_chantier ic
-                    WHERE ic.id = %I.chantier_id
+                    SELECT 1 FROM interventions_travaux ic
+                    WHERE ic.id = %I.travaux_id
                       AND public.has_site_access(ic.site_id)
                 )
             )
             WITH CHECK (
                 (SELECT public.current_role()) IN ('manager', 'technicien')
                 AND EXISTS (
-                    SELECT 1 FROM interventions_chantier ic
-                    WHERE ic.id = %I.chantier_id
+                    SELECT 1 FROM interventions_travaux ic
+                    WHERE ic.id = %I.travaux_id
                       AND public.has_site_access(ic.site_id)
                 )
             )
@@ -9063,28 +9063,28 @@ CREATE POLICY doc_eq_scoped ON documents_equipements FOR ALL
 CREATE POLICY doc_eq_select ON documents_equipements FOR SELECT
     USING ((SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur'));
 
--- documents_interventions_chantier (v0.33) — scope via le site du chantier parent.
+-- documents_interventions_travaux (v0.33) — scope via le site des travaux parents.
 -- Écriture (manager/technicien) + SELECT (… + lecteur), cloisonnés dès l'origine
 -- (pas d'override FIX B nécessaire, tables neuves). admin = court-circuit.
-CREATE POLICY doc_chantier_admin_all ON documents_interventions_chantier FOR ALL
+CREATE POLICY doc_travaux_admin_all ON documents_interventions_travaux FOR ALL
     USING ((SELECT public.current_role()) = 'admin')
     WITH CHECK ((SELECT public.current_role()) = 'admin');
 
-CREATE POLICY doc_chantier_scoped ON documents_interventions_chantier FOR ALL
+CREATE POLICY doc_travaux_scoped ON documents_interventions_travaux FOR ALL
     USING ((SELECT public.current_role()) IN ('manager', 'technicien')
-           AND EXISTS (SELECT 1 FROM interventions_chantier ic
-                       WHERE ic.id = documents_interventions_chantier.chantier_id
+           AND EXISTS (SELECT 1 FROM interventions_travaux ic
+                       WHERE ic.id = documents_interventions_travaux.travaux_id
                          AND public.has_site_access(ic.site_id)))
     WITH CHECK ((SELECT public.current_role()) IN ('manager', 'technicien')
-           AND EXISTS (SELECT 1 FROM interventions_chantier ic
-                       WHERE ic.id = documents_interventions_chantier.chantier_id
+           AND EXISTS (SELECT 1 FROM interventions_travaux ic
+                       WHERE ic.id = documents_interventions_travaux.travaux_id
                          AND public.has_site_access(ic.site_id)));
 
-CREATE POLICY doc_chantier_select ON documents_interventions_chantier FOR SELECT
+CREATE POLICY doc_travaux_select ON documents_interventions_travaux FOR SELECT
     USING (
         (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
-        AND EXISTS (SELECT 1 FROM interventions_chantier ic
-                    WHERE ic.id = documents_interventions_chantier.chantier_id
+        AND EXISTS (SELECT 1 FROM interventions_travaux ic
+                    WHERE ic.id = documents_interventions_travaux.travaux_id
                       AND public.has_site_access(ic.site_id))
     );
 
@@ -9314,7 +9314,7 @@ BEGIN
         ('unites'), ('periodicites'),
         ('types_operations'), ('statuts_di'), ('types_contrats'),
         ('types_documents'), ('roles'), ('statuts_ot'), ('statuts_operations'),
-        ('types_locaux'), ('statuts_chantier'), ('statuts_capex')
+        ('types_locaux'), ('statuts_travaux'), ('statuts_capex')
     LOOP
         IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = t) THEN
             EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
@@ -9672,24 +9672,24 @@ COMMENT ON FUNCTION public.check_gamme_equipement_site() IS 'F32 — Pattern 6 :
 
 
 -- =====================================================================
--- FIX D bis — Triggers cohérence site sur les liaisons de chantier (v0.33)
+-- FIX D bis — Triggers cohérence site sur les liaisons de travaux (v0.33)
 -- =====================================================================
 -- Pattern 6 (calque FIX D des liaisons DI) : un local / équipement rattaché à un
--- chantier doit appartenir au site du chantier (la table de liaison ne porte pas
--- site_id). Sans ces triggers, un user pourrait rattacher un chantier du site A à
+-- travaux doit appartenir au site des travaux (la table de liaison ne porte pas
+-- site_id). Sans ces triggers, un user pourrait rattacher des travaux du site A à
 -- un local / équipement du site B.
 -- =====================================================================
 
--- chantier_localisations : local doit appartenir au site du chantier
-CREATE OR REPLACE FUNCTION public.check_chantier_localisation_site()
+-- travaux_localisations : local doit appartenir au site des travaux
+CREATE OR REPLACE FUNCTION public.check_travaux_localisation_site()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-    v_chantier_site UUID;
+    v_travaux_site UUID;
     v_local_site    UUID;
 BEGIN
-    SELECT site_id INTO v_chantier_site FROM public.interventions_chantier WHERE id = NEW.chantier_id;
+    SELECT site_id INTO v_travaux_site FROM public.interventions_travaux WHERE id = NEW.travaux_id;
     SELECT b.site_id INTO v_local_site
     FROM public.locaux    l
     JOIN public.niveaux   n ON n.id = l.niveau_id
@@ -9697,32 +9697,32 @@ BEGIN
     WHERE l.id = NEW.local_id;
 
     IF v_local_site IS NULL THEN
-        RAISE EXCEPTION 'chantier_localisations : local_id % introuvable ou hiérarchie incomplète', NEW.local_id;
+        RAISE EXCEPTION 'travaux_localisations : local_id % introuvable ou hiérarchie incomplète', NEW.local_id;
     END IF;
-    IF v_local_site <> v_chantier_site THEN
-        RAISE EXCEPTION 'chantier_localisations : local_id % (site %) n''appartient pas au site % du chantier %',
-            NEW.local_id, v_local_site, v_chantier_site, NEW.chantier_id;
+    IF v_local_site <> v_travaux_site THEN
+        RAISE EXCEPTION 'travaux_localisations : local_id % (site %) n''appartient pas au site % des travaux %',
+            NEW.local_id, v_local_site, v_travaux_site, NEW.travaux_id;
     END IF;
 
     RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER trg_chantier_localisation_site
-    BEFORE INSERT OR UPDATE ON chantier_localisations
-    FOR EACH ROW EXECUTE FUNCTION public.check_chantier_localisation_site();
-COMMENT ON FUNCTION public.check_chantier_localisation_site() IS 'Pattern 6 — un local rattaché à un chantier doit appartenir au site du chantier.';
+CREATE TRIGGER trg_travaux_localisation_site
+    BEFORE INSERT OR UPDATE ON travaux_localisations
+    FOR EACH ROW EXECUTE FUNCTION public.check_travaux_localisation_site();
+COMMENT ON FUNCTION public.check_travaux_localisation_site() IS 'Pattern 6 — un local rattaché à des travaux doit appartenir au site des travaux.';
 
--- chantier_equipements : équipement doit appartenir au site du chantier
-CREATE OR REPLACE FUNCTION public.check_chantier_equipement_site()
+-- travaux_equipements : équipement doit appartenir au site des travaux
+CREATE OR REPLACE FUNCTION public.check_travaux_equipement_site()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-    v_chantier_site UUID;
+    v_travaux_site UUID;
     v_eq_site       UUID;
 BEGIN
-    SELECT site_id INTO v_chantier_site FROM public.interventions_chantier WHERE id = NEW.chantier_id;
+    SELECT site_id INTO v_travaux_site FROM public.interventions_travaux WHERE id = NEW.travaux_id;
     SELECT b.site_id INTO v_eq_site
     FROM public.equipements e
     JOIN public.locaux    l ON l.id = e.local_id
@@ -9731,21 +9731,21 @@ BEGIN
     WHERE e.id = NEW.equipement_id;
 
     IF v_eq_site IS NULL THEN
-        RAISE EXCEPTION 'chantier_equipements : equipement_id % introuvable ou hiérarchie incomplète', NEW.equipement_id;
+        RAISE EXCEPTION 'travaux_equipements : equipement_id % introuvable ou hiérarchie incomplète', NEW.equipement_id;
     END IF;
-    IF v_eq_site <> v_chantier_site THEN
-        RAISE EXCEPTION 'chantier_equipements : equipement_id % (site %) n''appartient pas au site % du chantier %',
-            NEW.equipement_id, v_eq_site, v_chantier_site, NEW.chantier_id;
+    IF v_eq_site <> v_travaux_site THEN
+        RAISE EXCEPTION 'travaux_equipements : equipement_id % (site %) n''appartient pas au site % des travaux %',
+            NEW.equipement_id, v_eq_site, v_travaux_site, NEW.travaux_id;
     END IF;
 
     RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER trg_chantier_equipement_site
-    BEFORE INSERT OR UPDATE ON chantier_equipements
-    FOR EACH ROW EXECUTE FUNCTION public.check_chantier_equipement_site();
-COMMENT ON FUNCTION public.check_chantier_equipement_site() IS 'Pattern 6 — un équipement rattaché à un chantier doit appartenir au site du chantier.';
+CREATE TRIGGER trg_travaux_equipement_site
+    BEFORE INSERT OR UPDATE ON travaux_equipements
+    FOR EACH ROW EXECUTE FUNCTION public.check_travaux_equipement_site();
+COMMENT ON FUNCTION public.check_travaux_equipement_site() IS 'Pattern 6 — un équipement rattaché à des travaux doit appartenir au site des travaux.';
 
 
 -- =====================================================================
@@ -10697,7 +10697,7 @@ BEGIN
     -- 1. Activité métier (référence le structurel / le catalogue)
     DELETE FROM public.observations           WHERE site_id = p_site_id;
     DELETE FROM public.ordres_travail         WHERE site_id = p_site_id;
-    DELETE FROM public.interventions_chantier WHERE site_id = p_site_id;
+    DELETE FROM public.interventions_travaux WHERE site_id = p_site_id;
     DELETE FROM public.demandes_intervention  WHERE site_id = p_site_id;
     DELETE FROM public.investissements        WHERE site_id = p_site_id;
 
