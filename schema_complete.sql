@@ -10358,17 +10358,11 @@ CREATE POLICY documents_technicien_update ON documents FOR UPDATE
 -- =====================================================================
 
 -- P2. users — Manager provisionne technicien/lecteur/demandeur.
--- Filtre role IN (...) interdit l'escalade vers admin ou manager.
-CREATE POLICY users_manager_provision ON users FOR ALL
-    USING (
-        (SELECT public.current_role()) = 'manager'
-        AND role_id IN (SELECT id FROM public.roles WHERE code IN ('technicien', 'lecteur', 'demandeur'))
-        AND public.shares_site_with(id)   -- v0.29 : cloisonnement — gère uniquement les comptes partageant un de ses sites
-    )
-    WITH CHECK (
-        (SELECT public.current_role()) = 'manager'
-        AND role_id IN (SELECT id FROM public.roles WHERE code IN ('technicien', 'lecteur', 'demandeur'))
-    );
+-- SUPPRIMÉE en migration 042 : entièrement couverte par users_manager_all
+-- (FOR ALL) depuis le durcissement v0.29 (provision ⊆ all sur USING ET
+-- WITH CHECK car {tech,lecteur,demandeur} = NOT {admin,manager}). Le
+-- provisionnement manager reste assuré par users_manager_all. Politique morte
+-- retirée (Performance Advisor lint 0006 — multiple_permissive_policies).
 
 -- P3. users — Technicien provisionne lecteur/demandeur.
 -- Cas usage : technicien d'un site qui invite une gouvernante (demandeur)
