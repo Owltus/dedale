@@ -7,7 +7,7 @@ export const cardGrid = {
   /** Listes denses : sites, localisations, prestataires. */
   compact:
     'grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
-  /** Listes standard : gammes, équipements, OT, demandes, chantiers, relevés. */
+  /** Listes standard : gammes, équipements, OT, demandes, travaux, relevés. */
   default: 'grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
 } as const
 

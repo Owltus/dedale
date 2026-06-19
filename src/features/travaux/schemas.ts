@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-// IDs stables de la machine à états (cf. statuts_chantier dans schema_complete.sql).
+// IDs stables de la machine à états (cf. statuts_travaux dans schema_complete.sql).
 // 1 Ouvert → {2,3,5} ; 2 Planifié → {3,5} ; 3 En cours → {4,5} ; 4 Terminé → {3} ; 5 Annulé = terminal.
 export const STATUT_OUVERT = 1
 export const STATUT_PLANIFIE = 2
@@ -17,12 +17,12 @@ export const TRANSITIONS: Record<number, number[]> = {
   [STATUT_ANNULE]: [],
 }
 
-/** Un chantier terminé ou annulé est en lecture seule (hors réouverture). */
+/** Un travaux terminé ou annulé est en lecture seule (hors réouverture). */
 export function estVerrouille(statutId: number): boolean {
   return statutId === STATUT_TERMINE || statutId === STATUT_ANNULE
 }
 
-export const chantierSchema = z.object({
+export const travauxSchema = z.object({
   titre: z.string().trim().min(1, 'Le titre est obligatoire').max(200),
   description: z.string().trim().max(2000),
   prestataire_id: z.string(),
@@ -33,13 +33,13 @@ export const chantierSchema = z.object({
   equipement_ids: z.array(z.string()),
 })
 
-export type ChantierFormValues = z.infer<typeof chantierSchema>
+export type TravauxFormValues = z.infer<typeof travauxSchema>
 
 function today(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function emptyChantier(): ChantierFormValues {
+export function emptyTravaux(): TravauxFormValues {
   return {
     titre: '',
     description: '',

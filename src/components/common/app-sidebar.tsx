@@ -55,7 +55,7 @@ const OPERATIONNEL: NavItem[] = [
     label: "Demandes d'intervention",
     icon: MessageSquareWarning,
   },
-  { to: '/chantiers', label: 'Chantiers', icon: HardHat },
+  { to: '/travaux', label: 'Travaux', icon: HardHat },
   { to: '/releves', label: 'Relevés', icon: LineChart },
   { to: '/registre', label: 'Registre de sécurité', icon: ShieldCheck },
   { to: '/documents', label: 'Documents', icon: FileText },

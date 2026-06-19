@@ -28,7 +28,7 @@ export type NavKey =
   | '/gammes'
   | '/ordres-travail'
   | '/demandes'
-  | '/chantiers'
+  | '/travaux'
   | '/releves'
   | '/registre'
   | '/documents'
@@ -51,7 +51,7 @@ const NAV_ROLES: Record<NavKey, readonly string[] | 'tous'> = {
   '/gammes': ROLES_METIER_LECTURE,
   '/ordres-travail': ROLES_METIER_LECTURE,
   '/demandes': 'tous', // espace de travail du demandeur
-  '/chantiers': ROLES_METIER_LECTURE,
+  '/travaux': ROLES_METIER_LECTURE,
   '/releves': ROLES_METIER_LECTURE,
   '/registre': ROLES_METIER_LECTURE,
   '/documents': ROLES_METIER_LECTURE,

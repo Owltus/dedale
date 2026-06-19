@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { chantiersQueries } from './queries'
-import type { ChantierFormValues } from './schemas'
+import { travauxQueries } from './queries'
+import type { TravauxFormValues } from './schemas'
 
 // Convertit les champs du formulaire en payload base (vides → null).
-function toPayload(v: ChantierFormValues) {
+function toPayload(v: TravauxFormValues) {
   return {
     titre: v.titre.trim(),
     description: v.description.trim() || null,
@@ -15,37 +15,37 @@ function toPayload(v: ChantierFormValues) {
   }
 }
 
-/** Remplace les liaisons locaux/équipements d'un chantier (delete-all puis insert). */
+/** Remplace les liaisons locaux/équipements d'un travaux (delete-all puis insert). */
 async function syncLiaisons(
-  chantierId: string,
+  travauxId: string,
   localIds: string[],
   equipementIds: string[],
 ) {
   await supabase
-    .from('chantier_localisations')
+    .from('travaux_localisations')
     .delete()
-    .eq('chantier_id', chantierId)
+    .eq('travaux_id', travauxId)
     .throwOnError()
   await supabase
-    .from('chantier_equipements')
+    .from('travaux_equipements')
     .delete()
-    .eq('chantier_id', chantierId)
+    .eq('travaux_id', travauxId)
     .throwOnError()
 
   if (localIds.length > 0) {
     await supabase
-      .from('chantier_localisations')
+      .from('travaux_localisations')
       .insert(
-        localIds.map((local_id) => ({ chantier_id: chantierId, local_id })),
+        localIds.map((local_id) => ({ travaux_id: travauxId, local_id })),
       )
       .throwOnError()
   }
   if (equipementIds.length > 0) {
     await supabase
-      .from('chantier_equipements')
+      .from('travaux_equipements')
       .insert(
         equipementIds.map((equipement_id) => ({
-          chantier_id: chantierId,
+          travaux_id: travauxId,
           equipement_id,
         })),
       )
@@ -53,7 +53,7 @@ async function syncLiaisons(
   }
 }
 
-export function useCreateChantier() {
+export function useCreateTravaux() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
@@ -63,10 +63,10 @@ export function useCreateChantier() {
     }: {
       siteId: string
       createdBy: string
-      values: ChantierFormValues
+      values: TravauxFormValues
     }) => {
       const { data } = await supabase
-        .from('interventions_chantier')
+        .from('interventions_travaux')
         .insert({
           ...toPayload(values),
           site_id: siteId,
@@ -78,11 +78,11 @@ export function useCreateChantier() {
       await syncLiaisons(data.id, values.local_ids, values.equipement_ids)
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: chantiersQueries.all() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
   })
 }
 
-export function useUpdateChantier() {
+export function useUpdateTravaux() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
@@ -90,10 +90,10 @@ export function useUpdateChantier() {
       values,
     }: {
       id: string
-      values: ChantierFormValues
+      values: TravauxFormValues
     }) => {
       const { data } = await supabase
-        .from('interventions_chantier')
+        .from('interventions_travaux')
         .update(toPayload(values))
         .eq('id', id)
         .select()
@@ -102,34 +102,34 @@ export function useUpdateChantier() {
       await syncLiaisons(id, values.local_ids, values.equipement_ids)
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: chantiersQueries.all() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
   })
 }
 
-export function useDeleteChantier() {
+export function useDeleteTravaux() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
       // Suppression définitive (hard-delete).
       await supabase
-        .from('interventions_chantier')
+        .from('interventions_travaux')
         .delete()
         .eq('id', id)
         .select('id')
         .single()
         .throwOnError()
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: chantiersQueries.all() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
   })
 }
 
 /**
- * Transition d'état via UPDATE du statut_chantier_id. Le passage « Terminé »
+ * Transition d'état via UPDATE du statut_travaux_id. Le passage « Terminé »
  * exige un compte_rendu : il est envoyé avec le changement. Le trigger backend
  * force cloture_by / date_fin et refuse une transition interdite — on laisse
  * l'erreur remonter pour l'afficher.
  */
-export function useChangeStatutChantier() {
+export function useChangeStatutTravaux() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
@@ -141,14 +141,14 @@ export function useChangeStatutChantier() {
       statutId: number
       compteRendu?: string
     }) => {
-      const patch: { statut_chantier_id: number; compte_rendu?: string } = {
-        statut_chantier_id: statutId,
+      const patch: { statut_travaux_id: number; compte_rendu?: string } = {
+        statut_travaux_id: statutId,
       }
       if (compteRendu !== undefined) {
         patch.compte_rendu = compteRendu.trim()
       }
       const { data } = await supabase
-        .from('interventions_chantier')
+        .from('interventions_travaux')
         .update(patch)
         .eq('id', id)
         .select()
@@ -156,6 +156,6 @@ export function useChangeStatutChantier() {
         .throwOnError()
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: chantiersQueries.all() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
   })
 }

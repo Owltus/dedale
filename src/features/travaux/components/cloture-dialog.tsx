@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { compteRenduSchema } from '../schemas'
 import { STATUT_TERMINE } from '../schemas'
-import { useChangeStatutChantier } from '../mutations'
+import { useChangeStatutTravaux } from '../mutations'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextareaField } from '@/components/common/textarea-field'
@@ -10,16 +10,16 @@ import { TextareaField } from '@/components/common/textarea-field'
 interface ClotureDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  chantierId: string
+  travauxId: string
 }
 
 /** Clôture (passage Terminé) : exige un compte-rendu, envoyé avec le statut. */
 export function ClotureDialog({
   open,
   onOpenChange,
-  chantierId,
+  travauxId,
 }: ClotureDialogProps) {
-  const change = useChangeStatutChantier()
+  const change = useChangeStatutTravaux()
   const [compteRendu, setCompteRendu] = useState('')
   const [error, setError] = useState<string | undefined>()
 
@@ -32,11 +32,11 @@ export function ClotureDialog({
     setError(undefined)
     try {
       await change.mutateAsync({
-        id: chantierId,
+        id: travauxId,
         statutId: STATUT_TERMINE,
         compteRendu: parsed.data.compte_rendu,
       })
-      toast.success('Chantier clôturé')
+      toast.success('Travaux clôturé')
       onOpenChange(false)
     } catch (e) {
       // Le trigger backend peut aussi refuser : on affiche l'erreur.
@@ -48,8 +48,8 @@ export function ClotureDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Clôturer le chantier"
-      description="Un compte-rendu est obligatoire pour passer le chantier en « Terminé »."
+      title="Clôturer le travaux"
+      description="Un compte-rendu est obligatoire pour passer le travaux en « Terminé »."
       onSubmit={() => void handleSubmit()}
       submitLabel="Clôturer"
       pendingLabel="Clôture…"

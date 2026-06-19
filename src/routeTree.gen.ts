@@ -14,6 +14,7 @@ import { Route as DefinirMotDePasseRouteImport } from './routes/definir-mot-de-p
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppUtilisateursRouteImport } from './routes/_app/utilisateurs'
+import { Route as AppTravauxRouteImport } from './routes/_app/travaux'
 import { Route as AppSitesRouteImport } from './routes/_app/sites'
 import { Route as AppRelevesRouteImport } from './routes/_app/releves'
 import { Route as AppRegistreRouteImport } from './routes/_app/registre'
@@ -27,13 +28,14 @@ import { Route as AppGammesRouteImport } from './routes/_app/gammes'
 import { Route as AppEquipementsRouteImport } from './routes/_app/equipements'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppDemandesRouteImport } from './routes/_app/demandes'
-import { Route as AppChantiersRouteImport } from './routes/_app/chantiers'
 import { Route as AppBibliothequeRouteImport } from './routes/_app/bibliotheque'
 import { Route as AppUtilisateursIndexRouteImport } from './routes/_app/utilisateurs/index'
+import { Route as AppTravauxIndexRouteImport } from './routes/_app/travaux/index'
 import { Route as AppPrestatairesIndexRouteImport } from './routes/_app/prestataires/index'
 import { Route as AppInvestissementsIndexRouteImport } from './routes/_app/investissements/index'
 import { Route as AppBibliothequeIndexRouteImport } from './routes/_app/bibliotheque/index'
 import { Route as AppUtilisateursUtilisateurRouteImport } from './routes/_app/utilisateurs/$utilisateur'
+import { Route as AppTravauxTravauxRouteImport } from './routes/_app/travaux/$travaux'
 import { Route as AppPrestatairesPrestataireRouteImport } from './routes/_app/prestataires/$prestataire'
 import { Route as AppLocalisationsSplatRouteImport } from './routes/_app/localisations/$'
 import { Route as AppInvestissementsInvestissementRouteImport } from './routes/_app/investissements/$investissement'
@@ -62,6 +64,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppUtilisateursRoute = AppUtilisateursRouteImport.update({
   id: '/utilisateurs',
   path: '/utilisateurs',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTravauxRoute = AppTravauxRouteImport.update({
+  id: '/travaux',
+  path: '/travaux',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSitesRoute = AppSitesRouteImport.update({
@@ -129,11 +136,6 @@ const AppDemandesRoute = AppDemandesRouteImport.update({
   path: '/demandes',
   getParentRoute: () => AppRoute,
 } as any)
-const AppChantiersRoute = AppChantiersRouteImport.update({
-  id: '/chantiers',
-  path: '/chantiers',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppBibliothequeRoute = AppBibliothequeRouteImport.update({
   id: '/bibliotheque',
   path: '/bibliotheque',
@@ -143,6 +145,11 @@ const AppUtilisateursIndexRoute = AppUtilisateursIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppUtilisateursRoute,
+} as any)
+const AppTravauxIndexRoute = AppTravauxIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppTravauxRoute,
 } as any)
 const AppPrestatairesIndexRoute = AppPrestatairesIndexRouteImport.update({
   id: '/',
@@ -165,6 +172,11 @@ const AppUtilisateursUtilisateurRoute =
     path: '/$utilisateur',
     getParentRoute: () => AppUtilisateursRoute,
   } as any)
+const AppTravauxTravauxRoute = AppTravauxTravauxRouteImport.update({
+  id: '/$travaux',
+  path: '/$travaux',
+  getParentRoute: () => AppTravauxRoute,
+} as any)
 const AppPrestatairesPrestataireRoute =
   AppPrestatairesPrestataireRouteImport.update({
     id: '/$prestataire',
@@ -198,7 +210,6 @@ export interface FileRoutesByFullPath {
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
   '/bibliotheque': typeof AppBibliothequeRouteWithChildren
-  '/chantiers': typeof AppChantiersRoute
   '/demandes': typeof AppDemandesRoute
   '/documents': typeof AppDocumentsRoute
   '/equipements': typeof AppEquipementsRouteWithChildren
@@ -212,22 +223,24 @@ export interface FileRoutesByFullPath {
   '/registre': typeof AppRegistreRoute
   '/releves': typeof AppRelevesRoute
   '/sites': typeof AppSitesRoute
+  '/travaux': typeof AppTravauxRouteWithChildren
   '/utilisateurs': typeof AppUtilisateursRouteWithChildren
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
   '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
   '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
+  '/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque/': typeof AppBibliothequeIndexRoute
   '/investissements/': typeof AppInvestissementsIndexRoute
   '/prestataires/': typeof AppPrestatairesIndexRoute
+  '/travaux/': typeof AppTravauxIndexRoute
   '/utilisateurs/': typeof AppUtilisateursIndexRoute
 }
 export interface FileRoutesByTo {
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
-  '/chantiers': typeof AppChantiersRoute
   '/demandes': typeof AppDemandesRoute
   '/documents': typeof AppDocumentsRoute
   '/equipements': typeof AppEquipementsRouteWithChildren
@@ -245,10 +258,12 @@ export interface FileRoutesByTo {
   '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
   '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
+  '/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque': typeof AppBibliothequeIndexRoute
   '/investissements': typeof AppInvestissementsIndexRoute
   '/prestataires': typeof AppPrestatairesIndexRoute
+  '/travaux': typeof AppTravauxIndexRoute
   '/utilisateurs': typeof AppUtilisateursIndexRoute
 }
 export interface FileRoutesById {
@@ -257,7 +272,6 @@ export interface FileRoutesById {
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
   '/_app/bibliotheque': typeof AppBibliothequeRouteWithChildren
-  '/_app/chantiers': typeof AppChantiersRoute
   '/_app/demandes': typeof AppDemandesRoute
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/equipements': typeof AppEquipementsRouteWithChildren
@@ -271,6 +285,7 @@ export interface FileRoutesById {
   '/_app/registre': typeof AppRegistreRoute
   '/_app/releves': typeof AppRelevesRoute
   '/_app/sites': typeof AppSitesRoute
+  '/_app/travaux': typeof AppTravauxRouteWithChildren
   '/_app/utilisateurs': typeof AppUtilisateursRouteWithChildren
   '/_app/': typeof AppIndexRoute
   '/_app/bibliotheque/$': typeof AppBibliothequeSplatRoute
@@ -278,10 +293,12 @@ export interface FileRoutesById {
   '/_app/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/_app/localisations/$': typeof AppLocalisationsSplatRoute
   '/_app/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
+  '/_app/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/_app/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/_app/bibliotheque/': typeof AppBibliothequeIndexRoute
   '/_app/investissements/': typeof AppInvestissementsIndexRoute
   '/_app/prestataires/': typeof AppPrestatairesIndexRoute
+  '/_app/travaux/': typeof AppTravauxIndexRoute
   '/_app/utilisateurs/': typeof AppUtilisateursIndexRoute
 }
 export interface FileRouteTypes {
@@ -291,7 +308,6 @@ export interface FileRouteTypes {
     | '/definir-mot-de-passe'
     | '/login'
     | '/bibliotheque'
-    | '/chantiers'
     | '/demandes'
     | '/documents'
     | '/equipements'
@@ -305,22 +321,24 @@ export interface FileRouteTypes {
     | '/registre'
     | '/releves'
     | '/sites'
+    | '/travaux'
     | '/utilisateurs'
     | '/bibliotheque/$'
     | '/equipements/$'
     | '/investissements/$investissement'
     | '/localisations/$'
     | '/prestataires/$prestataire'
+    | '/travaux/$travaux'
     | '/utilisateurs/$utilisateur'
     | '/bibliotheque/'
     | '/investissements/'
     | '/prestataires/'
+    | '/travaux/'
     | '/utilisateurs/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/definir-mot-de-passe'
     | '/login'
-    | '/chantiers'
     | '/demandes'
     | '/documents'
     | '/equipements'
@@ -338,10 +356,12 @@ export interface FileRouteTypes {
     | '/investissements/$investissement'
     | '/localisations/$'
     | '/prestataires/$prestataire'
+    | '/travaux/$travaux'
     | '/utilisateurs/$utilisateur'
     | '/bibliotheque'
     | '/investissements'
     | '/prestataires'
+    | '/travaux'
     | '/utilisateurs'
   id:
     | '__root__'
@@ -349,7 +369,6 @@ export interface FileRouteTypes {
     | '/definir-mot-de-passe'
     | '/login'
     | '/_app/bibliotheque'
-    | '/_app/chantiers'
     | '/_app/demandes'
     | '/_app/documents'
     | '/_app/equipements'
@@ -363,6 +382,7 @@ export interface FileRouteTypes {
     | '/_app/registre'
     | '/_app/releves'
     | '/_app/sites'
+    | '/_app/travaux'
     | '/_app/utilisateurs'
     | '/_app/'
     | '/_app/bibliotheque/$'
@@ -370,10 +390,12 @@ export interface FileRouteTypes {
     | '/_app/investissements/$investissement'
     | '/_app/localisations/$'
     | '/_app/prestataires/$prestataire'
+    | '/_app/travaux/$travaux'
     | '/_app/utilisateurs/$utilisateur'
     | '/_app/bibliotheque/'
     | '/_app/investissements/'
     | '/_app/prestataires/'
+    | '/_app/travaux/'
     | '/_app/utilisateurs/'
   fileRoutesById: FileRoutesById
 }
@@ -418,6 +440,13 @@ declare module '@tanstack/react-router' {
       path: '/utilisateurs'
       fullPath: '/utilisateurs'
       preLoaderRoute: typeof AppUtilisateursRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/travaux': {
+      id: '/_app/travaux'
+      path: '/travaux'
+      fullPath: '/travaux'
+      preLoaderRoute: typeof AppTravauxRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/sites': {
@@ -511,13 +540,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDemandesRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/chantiers': {
-      id: '/_app/chantiers'
-      path: '/chantiers'
-      fullPath: '/chantiers'
-      preLoaderRoute: typeof AppChantiersRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/bibliotheque': {
       id: '/_app/bibliotheque'
       path: '/bibliotheque'
@@ -531,6 +553,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/utilisateurs/'
       preLoaderRoute: typeof AppUtilisateursIndexRouteImport
       parentRoute: typeof AppUtilisateursRoute
+    }
+    '/_app/travaux/': {
+      id: '/_app/travaux/'
+      path: '/'
+      fullPath: '/travaux/'
+      preLoaderRoute: typeof AppTravauxIndexRouteImport
+      parentRoute: typeof AppTravauxRoute
     }
     '/_app/prestataires/': {
       id: '/_app/prestataires/'
@@ -559,6 +588,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/utilisateurs/$utilisateur'
       preLoaderRoute: typeof AppUtilisateursUtilisateurRouteImport
       parentRoute: typeof AppUtilisateursRoute
+    }
+    '/_app/travaux/$travaux': {
+      id: '/_app/travaux/$travaux'
+      path: '/$travaux'
+      fullPath: '/travaux/$travaux'
+      preLoaderRoute: typeof AppTravauxTravauxRouteImport
+      parentRoute: typeof AppTravauxRoute
     }
     '/_app/prestataires/$prestataire': {
       id: '/_app/prestataires/$prestataire'
@@ -662,6 +698,20 @@ const AppPrestatairesRouteWithChildren = AppPrestatairesRoute._addFileChildren(
   AppPrestatairesRouteChildren,
 )
 
+interface AppTravauxRouteChildren {
+  AppTravauxTravauxRoute: typeof AppTravauxTravauxRoute
+  AppTravauxIndexRoute: typeof AppTravauxIndexRoute
+}
+
+const AppTravauxRouteChildren: AppTravauxRouteChildren = {
+  AppTravauxTravauxRoute: AppTravauxTravauxRoute,
+  AppTravauxIndexRoute: AppTravauxIndexRoute,
+}
+
+const AppTravauxRouteWithChildren = AppTravauxRoute._addFileChildren(
+  AppTravauxRouteChildren,
+)
+
 interface AppUtilisateursRouteChildren {
   AppUtilisateursUtilisateurRoute: typeof AppUtilisateursUtilisateurRoute
   AppUtilisateursIndexRoute: typeof AppUtilisateursIndexRoute
@@ -678,7 +728,6 @@ const AppUtilisateursRouteWithChildren = AppUtilisateursRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppBibliothequeRoute: typeof AppBibliothequeRouteWithChildren
-  AppChantiersRoute: typeof AppChantiersRoute
   AppDemandesRoute: typeof AppDemandesRoute
   AppDocumentsRoute: typeof AppDocumentsRoute
   AppEquipementsRoute: typeof AppEquipementsRouteWithChildren
@@ -692,13 +741,13 @@ interface AppRouteChildren {
   AppRegistreRoute: typeof AppRegistreRoute
   AppRelevesRoute: typeof AppRelevesRoute
   AppSitesRoute: typeof AppSitesRoute
+  AppTravauxRoute: typeof AppTravauxRouteWithChildren
   AppUtilisateursRoute: typeof AppUtilisateursRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppBibliothequeRoute: AppBibliothequeRouteWithChildren,
-  AppChantiersRoute: AppChantiersRoute,
   AppDemandesRoute: AppDemandesRoute,
   AppDocumentsRoute: AppDocumentsRoute,
   AppEquipementsRoute: AppEquipementsRouteWithChildren,
@@ -712,6 +761,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRegistreRoute: AppRegistreRoute,
   AppRelevesRoute: AppRelevesRoute,
   AppSitesRoute: AppSitesRoute,
+  AppTravauxRoute: AppTravauxRouteWithChildren,
   AppUtilisateursRoute: AppUtilisateursRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }

@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { chantierSchema, emptyChantier } from '../schemas'
-import type { ChantierFormValues } from '../schemas'
-import { useCreateChantier, useUpdateChantier } from '../mutations'
-import { chantiersQueries } from '../queries'
+import { travauxSchema, emptyTravaux } from '../schemas'
+import type { TravauxFormValues } from '../schemas'
+import { useCreateTravaux, useUpdateTravaux } from '../mutations'
+import { travauxQueries } from '../queries'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { prestatairesQueries } from '@/features/prestataires/queries'
@@ -16,52 +16,52 @@ import { DescriptionField } from '@/components/common/description-field'
 import { Label } from '@/components/ui/label'
 import type { Database } from '@/lib/database.types'
 
-type Chantier = Database['public']['Tables']['interventions_chantier']['Row']
+type Travaux = Database['public']['Tables']['interventions_travaux']['Row']
 
-interface ChantierFormDialogProps {
+interface TravauxFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   siteId: string
-  chantier?: Chantier | null
+  travaux?: Travaux | null
 }
 
-export function ChantierFormDialog({
+export function TravauxFormDialog({
   open,
   onOpenChange,
   siteId,
-  chantier,
-}: ChantierFormDialogProps) {
-  const isEdit = Boolean(chantier)
+  travaux,
+}: TravauxFormDialogProps) {
+  const isEdit = Boolean(travaux)
   const { session } = useAuth()
-  const create = useCreateChantier()
-  const update = useUpdateChantier()
+  const create = useCreateTravaux()
+  const update = useUpdateTravaux()
   const { data: prestataires = [] } = useQuery(prestatairesQueries.list())
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
   const { data: equipements = [] } = useQuery(equipementsQueries.list(siteId))
 
   // Liaisons existantes (en édition) pour pré-cocher les multi-sélections.
-  const { data: chantierLocaux = [] } = useQuery({
-    ...chantiersQueries.locaux(chantier?.id ?? ''),
+  const { data: travauxLocaux = [] } = useQuery({
+    ...travauxQueries.locaux(travaux?.id ?? ''),
     enabled: isEdit && open,
   })
-  const { data: chantierEquipements = [] } = useQuery({
-    ...chantiersQueries.equipements(chantier?.id ?? ''),
+  const { data: travauxEquipements = [] } = useQuery({
+    ...travauxQueries.equipements(travaux?.id ?? ''),
     enabled: isEdit && open,
   })
 
-  const [values, setValues] = useState<ChantierFormValues>(() =>
-    chantier
+  const [values, setValues] = useState<TravauxFormValues>(() =>
+    travaux
       ? {
-          titre: chantier.titre,
-          description: chantier.description ?? '',
-          prestataire_id: chantier.prestataire_id ?? '',
-          date_demande: chantier.date_demande,
-          date_prevue: chantier.date_prevue ?? '',
-          date_fin: chantier.date_fin ?? '',
+          titre: travaux.titre,
+          description: travaux.description ?? '',
+          prestataire_id: travaux.prestataire_id ?? '',
+          date_demande: travaux.date_demande,
+          date_prevue: travaux.date_prevue ?? '',
+          date_fin: travaux.date_fin ?? '',
           local_ids: [],
           equipement_ids: [],
         }
-      : emptyChantier(),
+      : emptyTravaux(),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   // Les liaisons arrivent en asynchrone : on les fusionne tant que l'utilisateur
@@ -71,12 +71,12 @@ export function ChantierFormDialog({
 
   const localIds = touchedLiens
     ? values.local_ids
-    : chantierLocaux.map((l) => l.local_id)
+    : travauxLocaux.map((l) => l.local_id)
   const equipementIds = touchedLiens
     ? values.equipement_ids
-    : chantierEquipements.map((e) => e.equipement_id)
+    : travauxEquipements.map((e) => e.equipement_id)
 
-  function set(key: keyof ChantierFormValues, value: string) {
+  function set(key: keyof TravauxFormValues, value: string) {
     setValues((v) => ({ ...v, [key]: value }))
   }
 
@@ -99,21 +99,21 @@ export function ChantierFormDialog({
   }
 
   async function handleSubmit() {
-    const candidate: ChantierFormValues = {
+    const candidate: TravauxFormValues = {
       ...values,
       local_ids: localIds,
       equipement_ids: equipementIds,
     }
-    const parsed = chantierSchema.safeParse(candidate)
+    const parsed = travauxSchema.safeParse(candidate)
     if (!parsed.success) {
       setErrors(fieldErrors(parsed.error))
       return
     }
     setErrors({})
     try {
-      if (chantier) {
-        await update.mutateAsync({ id: chantier.id, values: parsed.data })
-        toast.success('Chantier modifié')
+      if (travaux) {
+        await update.mutateAsync({ id: travaux.id, values: parsed.data })
+        toast.success('Travaux modifié')
       } else {
         if (!session) {
           toast.error('Session expirée, reconnecte-toi.')
@@ -124,7 +124,7 @@ export function ChantierFormDialog({
           createdBy: session.user.id,
           values: parsed.data,
         })
-        toast.success('Chantier créé')
+        toast.success('Travaux créé')
       }
       onOpenChange(false)
     } catch (e) {
@@ -136,7 +136,7 @@ export function ChantierFormDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le chantier' : 'Nouveau chantier'}
+      title={isEdit ? 'Modifier le travaux' : 'Nouveau travaux'}
       description="Travaux ponctuels (souvent confiés à un prestataire)."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}

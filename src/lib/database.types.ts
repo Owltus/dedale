@@ -227,86 +227,6 @@ export type Database = {
           },
         ]
       }
-      chantier_equipements: {
-        Row: {
-          chantier_id: string
-          created_at: string
-          equipement_id: string
-        }
-        Insert: {
-          chantier_id: string
-          created_at?: string
-          equipement_id: string
-        }
-        Update: {
-          chantier_id?: string
-          created_at?: string
-          equipement_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chantier_equipements_chantier_id_fkey"
-            columns: ["chantier_id"]
-            isOneToOne: false
-            referencedRelation: "interventions_chantier"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chantier_equipements_equipement_id_fkey"
-            columns: ["equipement_id"]
-            isOneToOne: false
-            referencedRelation: "equipements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chantier_equipements_equipement_id_fkey"
-            columns: ["equipement_id"]
-            isOneToOne: false
-            referencedRelation: "v_equipements_complet"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      chantier_localisations: {
-        Row: {
-          chantier_id: string
-          created_at: string
-          local_id: string
-        }
-        Insert: {
-          chantier_id: string
-          created_at?: string
-          local_id: string
-        }
-        Update: {
-          chantier_id?: string
-          created_at?: string
-          local_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chantier_localisations_chantier_id_fkey"
-            columns: ["chantier_id"]
-            isOneToOne: false
-            referencedRelation: "interventions_chantier"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chantier_localisations_local_id_fkey"
-            columns: ["local_id"]
-            isOneToOne: false
-            referencedRelation: "locaux"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chantier_localisations_local_id_fkey"
-            columns: ["local_id"]
-            isOneToOne: false
-            referencedRelation: "v_locaux_chemin"
-            referencedColumns: ["local_id"]
-          },
-        ]
-      }
       contrats: {
         Row: {
           commentaires: string | null
@@ -908,38 +828,38 @@ export type Database = {
           },
         ]
       }
-      documents_interventions_chantier: {
+      documents_interventions_travaux: {
         Row: {
-          chantier_id: string
           commentaire: string | null
           created_at: string
           document_id: string
+          travaux_id: string
         }
         Insert: {
-          chantier_id: string
           commentaire?: string | null
           created_at?: string
           document_id: string
+          travaux_id: string
         }
         Update: {
-          chantier_id?: string
           commentaire?: string | null
           created_at?: string
           document_id?: string
+          travaux_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "documents_interventions_chantier_chantier_id_fkey"
-            columns: ["chantier_id"]
-            isOneToOne: false
-            referencedRelation: "interventions_chantier"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "documents_interventions_chantier_document_id_fkey"
+            foreignKeyName: "documents_interventions_travaux_document_id_fkey"
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_interventions_travaux_travaux_id_fkey"
+            columns: ["travaux_id"]
+            isOneToOne: false
+            referencedRelation: "interventions_travaux"
             referencedColumns: ["id"]
           },
         ]
@@ -1384,7 +1304,7 @@ export type Database = {
           },
         ]
       }
-      interventions_chantier: {
+      interventions_travaux: {
         Row: {
           cloture_by: string | null
           compte_rendu: string | null
@@ -1397,7 +1317,7 @@ export type Database = {
           id: string
           prestataire_id: string | null
           site_id: string
-          statut_chantier_id: number
+          statut_travaux_id: number
           titre: string
           updated_at: string
         }
@@ -1413,7 +1333,7 @@ export type Database = {
           id?: string
           prestataire_id?: string | null
           site_id: string
-          statut_chantier_id?: number
+          statut_travaux_id?: number
           titre: string
           updated_at?: string
         }
@@ -1429,58 +1349,58 @@ export type Database = {
           id?: string
           prestataire_id?: string | null
           site_id?: string
-          statut_chantier_id?: number
+          statut_travaux_id?: number
           titre?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "interventions_chantier_cloture_by_fkey"
+            foreignKeyName: "interventions_travaux_cloture_by_fkey"
             columns: ["cloture_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "interventions_chantier_created_by_fkey"
+            foreignKeyName: "interventions_travaux_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "interventions_chantier_prestataire_id_fkey"
+            foreignKeyName: "interventions_travaux_prestataire_id_fkey"
             columns: ["prestataire_id"]
             isOneToOne: false
             referencedRelation: "prestataires"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "interventions_chantier_site_id_fkey"
+            foreignKeyName: "interventions_travaux_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "interventions_chantier_site_id_fkey"
+            foreignKeyName: "interventions_travaux_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "v_equipements_complet"
             referencedColumns: ["site_id"]
           },
           {
-            foreignKeyName: "interventions_chantier_site_id_fkey"
+            foreignKeyName: "interventions_travaux_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "v_locaux_chemin"
             referencedColumns: ["site_id"]
           },
           {
-            foreignKeyName: "interventions_chantier_statut_chantier_id_fkey"
-            columns: ["statut_chantier_id"]
+            foreignKeyName: "interventions_travaux_statut_travaux_id_fkey"
+            columns: ["statut_travaux_id"]
             isOneToOne: false
-            referencedRelation: "statuts_chantier"
+            referencedRelation: "statuts_travaux"
             referencedColumns: ["id"]
           },
         ]
@@ -2796,24 +2716,6 @@ export type Database = {
         }
         Relationships: []
       }
-      statuts_chantier: {
-        Row: {
-          description: string | null
-          id: number
-          nom: string
-        }
-        Insert: {
-          description?: string | null
-          id: number
-          nom: string
-        }
-        Update: {
-          description?: string | null
-          id?: number
-          nom?: string
-        }
-        Relationships: []
-      }
       statuts_di: {
         Row: {
           description: string | null
@@ -2873,6 +2775,104 @@ export type Database = {
           libelle?: string
         }
         Relationships: []
+      }
+      statuts_travaux: {
+        Row: {
+          description: string | null
+          id: number
+          nom: string
+        }
+        Insert: {
+          description?: string | null
+          id: number
+          nom: string
+        }
+        Update: {
+          description?: string | null
+          id?: number
+          nom?: string
+        }
+        Relationships: []
+      }
+      travaux_equipements: {
+        Row: {
+          created_at: string
+          equipement_id: string
+          travaux_id: string
+        }
+        Insert: {
+          created_at?: string
+          equipement_id: string
+          travaux_id: string
+        }
+        Update: {
+          created_at?: string
+          equipement_id?: string
+          travaux_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "travaux_equipements_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "travaux_equipements_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "travaux_equipements_travaux_id_fkey"
+            columns: ["travaux_id"]
+            isOneToOne: false
+            referencedRelation: "interventions_travaux"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      travaux_localisations: {
+        Row: {
+          created_at: string
+          local_id: string
+          travaux_id: string
+        }
+        Insert: {
+          created_at?: string
+          local_id: string
+          travaux_id: string
+        }
+        Update: {
+          created_at?: string
+          local_id?: string
+          travaux_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "travaux_localisations_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "locaux"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "travaux_localisations_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["local_id"]
+          },
+          {
+            foreignKeyName: "travaux_localisations_travaux_id_fkey"
+            columns: ["travaux_id"]
+            isOneToOne: false
+            referencedRelation: "interventions_travaux"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       types_contrats: {
         Row: {

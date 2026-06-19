@@ -7,7 +7,7 @@ const TOUTES: NavKey[] = [
   '/gammes',
   '/ordres-travail',
   '/demandes',
-  '/chantiers',
+  '/travaux',
   '/releves',
   '/registre',
   '/documents',
