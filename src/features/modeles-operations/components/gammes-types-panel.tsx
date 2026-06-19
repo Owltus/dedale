@@ -612,7 +612,6 @@ export function GammesTypesPanel() {
                       }
                       badges={<ScopeBadges siteId={cat.site_id} />}
                       mobileMeta={<ScopeBadges siteId={cat.site_id} />}
-                      hideChevron
                       onClick={() => goTo([...path, cat])}
                       actions={
                         canManageCat(cat) ? (
@@ -665,7 +664,6 @@ export function GammesTypesPanel() {
                         }
                         badges={<ScopeBadges siteId={modele.site_id} />}
                         mobileMeta={<ScopeBadges siteId={modele.site_id} />}
-                        hideChevron
                         onClick={() => goToModele(modele)}
                         actions={
                           editable || (canExport && modele.site_id === null) ? (

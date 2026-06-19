@@ -1,6 +1,5 @@
 import { useId } from 'react'
 import type { ReactNode } from 'react'
-import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface ListRowProps {
@@ -24,8 +23,8 @@ export interface ListRowProps {
    * Repli MOBILE de l'information clé (portée Commun/Site, type/seuils…) : affichée
    * SOUS le titre et UNIQUEMENT sous `sm`, là où `badges`/`meta` (colonne de droite)
    * sont masqués — pour ne pas perdre l'info discriminante sur petit écran. OPT-IN :
-   * sans ce prop, le rendu mobile est inchangé. Variante média (hauteur fixe `h-20`) :
-   * REMPLACE le sous-titre sous `sm`. Variante standard : s'AJOUTE sous le sous-titre.
+   * sans ce prop, le rendu mobile est inchangé. Variante média (hauteur fixe selon
+   * `size`) : REMPLACE le sous-titre sous `sm`. Variante standard : s'AJOUTE sous le sous-titre.
    */
   mobileMeta?: ReactNode
   /**
@@ -34,20 +33,36 @@ export interface ListRowProps {
    * au repos pour une liste épurée, visibles quand on cible la carte.
    */
   actions?: ReactNode
-  /** Rend toute la ligne cliquable (drill-down) ; ajoute un chevron en fin. */
+  /** Rend toute la ligne cliquable (drill-down). */
   onClick?: () => void
-  /** Masque le chevron de fin même si la ligne est cliquable (card épurée). */
-  hideChevron?: boolean
   /** Surcharge le nom accessible de la ligne cliquable (défaut : le titre visible). */
   titleLabel?: string
+  /**
+   * Densité (hauteur) de la carte, cadrée par le composant pour rester homogène :
+   * `'md'` par défaut (variante média `h-20`, standard `py-3`), `'sm'` plus
+   * compacte, `'lg'` plus aérée. La vignette média suit (`h-full`).
+   */
+  size?: 'sm' | 'md' | 'lg'
   className?: string
+}
+
+// Hauteur de la carte média / padding vertical de la carte standard, par densité.
+const MEDIA_HEIGHT: Record<NonNullable<ListRowProps['size']>, string> = {
+  sm: 'h-14',
+  md: 'h-20',
+  lg: 'h-24',
+}
+const ROW_PADDING: Record<NonNullable<ListRowProps['size']>, string> = {
+  sm: 'py-1.5',
+  md: 'py-3',
+  lg: 'py-4',
 }
 
 /**
  * Ligne de liste générique, pleine largeur, à colonnes alignées (« tableau en
- * cartes ») : `[icône?] [titre + sous-titre?] [badges?] [méta?] [actions?]
- * [chevron si cliquable]`. Aucune logique métier → réutilisable partout, à
- * empiler via `listStack` (`src/lib/responsive.ts`).
+ * cartes ») : `[icône?] [titre + sous-titre?] [badges?] [méta?] [actions?]`.
+ * Aucune logique métier → réutilisable partout, à empiler via `listStack`
+ * (`src/lib/responsive.ts`).
  *
  * Cliquable : un vrai `<button>` ÉTIRÉ en overlay (`absolute inset-0`) porte
  * l'action — clavier natif (Entrée/Espace), focus visible sur toute la ligne, et
@@ -64,8 +79,8 @@ export function ListRow({
   mobileMeta,
   actions,
   onClick,
-  hideChevron,
   titleLabel,
+  size = 'md',
   className,
 }: ListRowProps) {
   const clickable = onClick !== undefined
@@ -83,7 +98,8 @@ export function ListRow({
     return (
       <div
         className={cn(
-          'bg-card group relative flex h-20 items-stretch overflow-hidden rounded-lg border',
+          'bg-card group relative flex items-stretch overflow-hidden rounded-lg border',
+          MEDIA_HEIGHT[size],
           clickable && 'hover:bg-accent/40 transition-colors',
           className,
         )}
@@ -138,9 +154,6 @@ export function ListRow({
               {actions}
             </div>
           )}
-          {clickable && !hideChevron && (
-            <ChevronRight className="text-muted-foreground size-4 shrink-0" />
-          )}
         </div>
       </div>
     )
@@ -149,7 +162,8 @@ export function ListRow({
   return (
     <div
       className={cn(
-        'bg-card group relative flex items-center gap-3 rounded-lg border px-4 py-3',
+        'bg-card group relative flex items-center gap-3 rounded-lg border px-4',
+        ROW_PADDING[size],
         clickable && 'hover:bg-accent/40 transition-colors',
         className,
       )}
@@ -197,9 +211,6 @@ export function ListRow({
         <div className="relative z-10 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
           {actions}
         </div>
-      )}
-      {clickable && !hideChevron && (
-        <ChevronRight className="text-muted-foreground size-4 shrink-0" />
       )}
     </div>
   )

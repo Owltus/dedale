@@ -696,7 +696,6 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                           <ScopeBadges siteId={cat.site_id} />
                         )
                       }
-                      hideChevron
                       onClick={() => goTo([...path, cat])}
                       actions={
                         canManageCat(cat) ? (
@@ -756,7 +755,6 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                       subtitle={
                         eq.localisation_courte ?? eq.local_nom ?? undefined
                       }
-                      hideChevron
                       onClick={() => goToEquipement(eq)}
                       actions={
                         canEdit ? (

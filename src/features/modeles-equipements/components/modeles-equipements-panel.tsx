@@ -599,7 +599,6 @@ export function ModelesEquipementsPanel() {
                       }
                       badges={<ScopeBadges siteId={cat.site_id} />}
                       mobileMeta={<ScopeBadges siteId={cat.site_id} />}
-                      hideChevron
                       // Descendre d'un palier (PUSH) : on ajoute la catégorie au
                       // chemin courant.
                       onClick={() => goTo([...path, cat])}
@@ -661,7 +660,6 @@ export function ModelesEquipementsPanel() {
                             masque={!modele.est_actif}
                           />
                         }
-                        hideChevron
                         // Ouvrir la page de détail du modèle (caractéristiques).
                         onClick={() => goToModele(modele)}
                         actions={

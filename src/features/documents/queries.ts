@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { getSignedUrl } from './upload'
 import type { DocumentMeta } from './format'
 
 /**
@@ -76,6 +77,17 @@ export const documentsQueries = {
           .map((row) => row.documents)
           .filter((doc): doc is DocumentMeta => doc != null)
       },
+    }),
+
+  /**
+   * URL signée temporaire d'un document (aperçu/téléchargement). Expire au bout
+   * de 10 min ; `staleTime` < expiration → réémission automatique à la réouverture.
+   */
+  signedUrl: (storagePath: string) =>
+    queryOptions({
+      queryKey: [...documentsQueries.all(), 'signed-url', storagePath] as const,
+      queryFn: () => getSignedUrl(storagePath, 600),
+      staleTime: 9 * 60_000,
     }),
 }
 

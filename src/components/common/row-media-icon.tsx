@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
+import type { ComponentType } from 'react'
 
 /**
  * Zone média CARRÉE d'une `ListRow` pour une entité SANS image (sites,
@@ -10,7 +10,12 @@ import type { LucideIcon } from 'lucide-react'
  * Source UNIQUE de la taille/forme de cette zone : un ajustement ici se répercute
  * partout où des lignes « icône seule » sont affichées.
  */
-export function RowMediaIcon({ icon: Icon }: { icon: LucideIcon }) {
+export function RowMediaIcon({
+  icon: Icon,
+}: {
+  /** Icône lucide OU composant SVG maison (ex. `PdfFileIcon`) recevant `className`. */
+  icon: ComponentType<{ className?: string }>
+}) {
   return (
     <span className="bg-muted text-muted-foreground flex size-full items-center justify-center">
       <Icon className="size-10" />

@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Pencil } from 'lucide-react'
+import { Paperclip, Pencil } from 'lucide-react'
 import { statutsCapexQueries } from '@/features/investissements/queries'
-import {
-  etapesInvestissement,
-  variantStatutCapex,
-} from '@/features/investissements/etat'
+import { etapesInvestissement } from '@/features/investissements/etat'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
 import { MIME_PDF } from '@/features/documents/upload'
+import { useFileDrop } from '@/hooks/use-file-drop'
 import { formatDate } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { PageContainer } from '@/components/common/page-container'
@@ -17,7 +15,6 @@ import { StatusStepper } from '@/components/common/status-stepper'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -26,43 +23,62 @@ export function InvestissementDetail({
   investissement: inv,
   siteId,
   canManage,
-  onBack,
 }: {
   investissement: Investissement
   siteId: string
   canManage: boolean
-  onBack: () => void
 }) {
   const [edit, setEdit] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
+  // Fichiers issus d'un glisser-déposer sur la page → pré-remplis dans le dialogue.
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
-  const statutLabel = noms.get(inv.statut_capex_id)
   const etapes = etapesInvestissement(inv.statut_capex_id, noms)
 
   const { label, depassement } = ecartCapex(inv)
   const ecartLabel = label ?? '—'
 
+  // Ouverture manuelle (bouton top bar) : aucun fichier pré-rempli.
+  const openUploadEmpty = () => {
+    setDroppedFiles([])
+    setUploadOpen(true)
+  }
+  // Fermeture : on oublie les fichiers déposés pour repartir propre au coup suivant.
+  const handleUploadOpenChange = (open: boolean) => {
+    setUploadOpen(open)
+    if (!open) setDroppedFiles([])
+  }
+  // Glisser-déposer sur TOUTE la page (réservé aux rôles pouvant rattacher).
+  const { dragging } = useFileDrop({
+    enabled: canManage,
+    onFiles: (files) => {
+      setDroppedFiles(files)
+      setUploadOpen(true)
+    },
+  })
+
   return (
-    <PageContainer>
+    <PageContainer className="flex flex-col">
       <PageHeader
         title={inv.libelle}
         description={`Demandé le ${formatDate(inv.date_demande)}`}
-        breadcrumb={[{ label: 'Investissements', onClick: onBack }]}
-        titleBadges={
-          statutLabel ? (
-            <Badge variant={variantStatutCapex(inv.statut_capex_id)}>
-              {statutLabel}
-            </Badge>
-          ) : undefined
-        }
         action={
           canManage ? (
-            <TooltipIconButton
-              icon={<Pencil />}
-              label="Modifier l'investissement"
-              variant="outline"
-              onClick={() => setEdit(true)}
-            />
+            <>
+              <TooltipIconButton
+                icon={<Paperclip />}
+                label="Rattacher un document"
+                variant="outline"
+                onClick={openUploadEmpty}
+              />
+              <TooltipIconButton
+                icon={<Pencil />}
+                label="Modifier l'investissement"
+                variant="outline"
+                onClick={() => setEdit(true)}
+              />
+            </>
           ) : undefined
         }
       />
@@ -99,13 +115,25 @@ export function InvestissementDetail({
         </CardContent>
       </Card>
 
-      <DocumentsTab
-        title="Documents"
-        liaison="documents_investissements"
-        parentColumn="investissement_id"
-        parentId={inv.id}
-        acceptedMimes={MIME_PDF}
-      />
+      {/* Zone documents : prend EXACTEMENT l'espace restant (flex-1, sans min-h
+          qui forcerait un débordement) → surface de dépôt pleine hauteur, mise en
+          valeur en entier pendant le glisser-déposer, sans scrollbar parasite. La
+          page ne défile que s'il y a vraiment trop de documents. */}
+      <div className="relative flex-1">
+        <DocumentsTab
+          liaison="documents_investissements"
+          parentColumn="investissement_id"
+          parentId={inv.id}
+          acceptedMimes={MIME_PDF}
+          uploadOpen={uploadOpen}
+          onUploadOpenChange={handleUploadOpenChange}
+          uploadInitialFiles={droppedFiles}
+          uploadDefaultTypeNom="Devis"
+        />
+        {dragging && (
+          <div className="border-primary bg-primary/5 pointer-events-none absolute inset-0 z-10 rounded-lg border-2 border-dashed" />
+        )}
+      </div>
 
       {canManage && (
         <InvestissementFormDialog
@@ -116,6 +144,7 @@ export function InvestissementDetail({
           investissement={inv}
         />
       )}
+
     </PageContainer>
   )
 }

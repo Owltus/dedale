@@ -790,7 +790,6 @@ export function GammesBiblioPanel() {
                           ? cat.description.trim()
                           : undefined
                       }
-                      hideChevron
                       // Descendre d'un palier (PUSH) : on ajoute la catégorie au
                       // chemin courant → `cat` à la racine, `sous` au niveau 1.
                       onClick={() => goToCats([...validPath, cat])}
@@ -855,7 +854,6 @@ export function GammesBiblioPanel() {
                       subtitle={
                         g.description?.trim() ? g.description.trim() : undefined
                       }
-                      hideChevron
                       // Ouvrir une gamme (PUSH) : chemin dérivé de sa catégorie
                       // RÉELLE (cohérent même après un déplacement realtime).
                       onClick={() => goToGamme(g)}

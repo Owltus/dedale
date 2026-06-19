@@ -1,30 +1,55 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Download, FileText, Link2Off, Paperclip } from 'lucide-react'
+import type { ComponentType } from 'react'
+import {
+  Download,
+  FileImage,
+  FileText,
+  Link2Off,
+  Paperclip,
+  Trash2,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { documentsQueries } from '@/features/documents/queries'
 import type { LiaisonTable } from '@/features/documents/queries'
 import {
+  useDeleteDocument,
   useDetachDocument,
   useUploadAndAttach,
 } from '@/features/documents/mutations'
 import { getSignedUrl } from '@/features/documents/upload'
-import { formatMime, formatTaille } from '@/features/documents/format'
+import { formatTaille } from '@/features/documents/format'
 import type { DocumentMeta } from '@/features/documents/format'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
+import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { formatDate } from '@/lib/date'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import { cn } from '@/lib/utils'
+import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
+import { ListRow } from '@/components/common/list-row'
+import { RowMediaIcon } from '@/components/common/row-media-icon'
+import { PdfFileIcon } from '@/components/common/file-format-icons'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+
+/**
+ * Icône média selon le FORMAT du fichier (≠ type métier « devis/contrat » qui,
+ * lui, n'est pas affiché ici) : PDF explicite, image, ou document générique, pour
+ * différencier d'un coup d'œil.
+ */
+function iconeFormat(mime: string): ComponentType<{ className?: string }> {
+  if (mime === 'application/pdf') return PdfFileIcon
+  if (mime.startsWith('image/')) return FileImage
+  return FileText
+}
 
 interface DocumentsTabProps {
   /** Nom de la table de liaison (ex. 'documents_ordres_travail'). */
@@ -45,6 +70,18 @@ interface DocumentsTabProps {
    * seule ligne. Sans titre, seul le bouton est rendu (aligné à droite).
    */
   title?: string
+  /**
+   * Mode CONTRÔLÉ du dialogue d'upload : si l'hôte fournit ce couple, c'est LUI
+   * qui ouvre l'upload (typiquement pour poser le bouton « Rattacher » dans sa
+   * propre barre de titre). Dans ce mode, l'en-tête interne (titre + bouton)
+   * N'EST PAS rendu. Omis → état interne + bouton d'en-tête (comportement par défaut).
+   */
+  uploadOpen?: boolean
+  onUploadOpenChange?: (open: boolean) => void
+  /** Fichiers pré-remplis du dialogue (ex. issus d'un glisser-déposer de l'hôte). */
+  uploadInitialFiles?: File[]
+  /** Type de document pré-sélectionné, par nom (ex. « Devis »). */
+  uploadDefaultTypeNom?: string
 }
 
 /**
@@ -65,9 +102,15 @@ export function DocumentsTab({
   parentId,
   acceptedMimes,
   title,
+  uploadOpen,
+  onUploadOpenChange,
+  uploadInitialFiles,
+  uploadDefaultTypeNom,
 }: DocumentsTabProps) {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
+  // Hard-delete d'un document = admin uniquement (RLS `documents_admin_all`).
+  const canDelete = perm.isAdmin(role)
   const { activeSiteId } = useSiteContext()
 
   const query = useQuery(
@@ -76,9 +119,18 @@ export function DocumentsTab({
 
   const uploadAttach = useUploadAndAttach()
   const detach = useDetachDocument()
+  const del = useDeleteDocument()
 
-  const [uploadOpen, setUploadOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
   const [toDetach, setToDetach] = useState<DocumentMeta | null>(null)
+  const [toDelete, setToDelete] = useState<DocumentMeta | null>(null)
+  const [toPreview, setToPreview] = useState<DocumentMeta | null>(null)
+
+  // Mode contrôlé si l'hôte fournit le pilotage de l'ouverture (il pose alors
+  // son propre déclencheur, ex. dans la barre de titre) ; sinon, état interne.
+  const isControlled = onUploadOpenChange !== undefined
+  const open = uploadOpen ?? internalOpen
+  const setOpen = onUploadOpenChange ?? setInternalOpen
 
   async function handleDownload(doc: DocumentMeta) {
     try {
@@ -103,19 +155,31 @@ export function DocumentsTab({
     )
   }
 
+  function confirmDelete() {
+    if (!toDelete) return
+    del.mutate(toDelete.id, {
+      onSuccess: () => {
+        toast.success('Document supprimé')
+        setToDelete(null)
+      },
+      onError: (e) => toast.error(errorMessage(e)),
+    })
+  }
+
   const peutAjouter = canManage && activeSiteId
   // En-tête : bouton icône seule + tooltip (style barre de titre réutilisable).
-  const headerAction = peutAjouter ? (
-    <TooltipIconButton
-      icon={<Paperclip />}
-      label="Rattacher un document"
-      variant="outline"
-      onClick={() => setUploadOpen(true)}
-    />
-  ) : undefined
+  const headerAction =
+    !isControlled && peutAjouter ? (
+      <TooltipIconButton
+        icon={<Paperclip />}
+        label="Rattacher un document"
+        variant="outline"
+        onClick={() => setOpen(true)}
+      />
+    ) : undefined
   // État vide : CTA explicite (libellé visible) pour amorcer le premier ajout.
   const emptyAction = peutAjouter ? (
-    <Button size="sm" onClick={() => setUploadOpen(true)}>
+    <Button size="sm" onClick={() => setOpen(true)}>
       <Paperclip /> Rattacher un document
     </Button>
   ) : undefined
@@ -170,59 +234,49 @@ export function DocumentsTab({
         }
       >
         {(list) => (
-          <ul className="flex flex-col gap-2">
+          <div className={listStack}>
             {list.map((doc) => (
-              <li
+              <ListRow
                 key={doc.id}
-                className="bg-card flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:gap-3"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <FileText className="text-muted-foreground size-5 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className="truncate text-sm font-medium"
-                      title={doc.nom_original}
-                    >
-                      {doc.nom_original}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {formatTaille(doc.taille_octets)} ·{' '}
-                      {formatDate(doc.uploaded_at)}
-                    </p>
-                  </div>
-                  <Badge variant="secondary" className="shrink-0">
-                    {formatMime(doc.mime_type)}
-                  </Badge>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void handleDownload(doc)}
-                  >
-                    <Download /> Télécharger
-                  </Button>
-                  {canManage && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setToDetach(doc)}
-                    >
-                      <Link2Off /> Détacher
-                    </Button>
-                  )}
-                </div>
-              </li>
+                size="sm"
+                media={<RowMediaIcon icon={iconeFormat(doc.mime_type)} />}
+                title={doc.nom_original}
+                subtitle={`${formatTaille(doc.taille_octets)} · ${formatDate(doc.uploaded_at)}`}
+                onClick={() => setToPreview(doc)}
+                actions={
+                  <>
+                    <TooltipIconButton
+                      icon={<Download />}
+                      label="Télécharger"
+                      onClick={() => void handleDownload(doc)}
+                    />
+                    {canManage && (
+                      <TooltipIconButton
+                        icon={<Link2Off />}
+                        label="Détacher le document"
+                        onClick={() => setToDetach(doc)}
+                      />
+                    )}
+                    {canDelete && (
+                      <TooltipIconButton
+                        icon={<Trash2 className="text-destructive" />}
+                        label="Supprimer définitivement"
+                        onClick={() => setToDelete(doc)}
+                      />
+                    )}
+                  </>
+                }
+              />
             ))}
-          </ul>
+          </div>
         )}
       </QueryState>
 
       {canManage && (
         <UploadDocumentDialog
-          key={uploadOpen ? 'open' : 'closed'}
-          open={uploadOpen}
-          onOpenChange={setUploadOpen}
+          key={open ? 'open' : 'closed'}
+          open={open}
+          onOpenChange={setOpen}
           siteId={activeSiteId}
           title="Rattacher un document"
           description="Le document est ajouté à la bibliothèque du site puis rattaché à cette fiche."
@@ -239,6 +293,8 @@ export function DocumentsTab({
           }
           pending={uploadAttach.isPending}
           acceptedMimes={acceptedMimes}
+          initialFiles={uploadInitialFiles}
+          defaultTypeNom={uploadDefaultTypeNom}
         />
       )}
 
@@ -256,6 +312,26 @@ export function DocumentsTab({
         confirmLabel="Détacher"
         loading={detach.isPending}
         onConfirm={confirmDetach}
+      />
+
+      <ConfirmDeleteDialog
+        open={toDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setToDelete(null)
+        }}
+        entityLabel={
+          toDelete ? `le document « ${toDelete.nom_original} »` : 'le document'
+        }
+        warning="Suppression définitive : le document est retiré de TOUTES les fiches où il est rattaché et effacé du stockage."
+        loading={del.isPending}
+        onConfirm={confirmDelete}
+      />
+
+      <DocumentPreviewDialog
+        doc={toPreview}
+        onOpenChange={(open) => {
+          if (!open) setToPreview(null)
+        }}
       />
     </div>
   )

@@ -180,8 +180,6 @@ export function ModeleEquipementDetail({
               icon={<Tag className="size-5" />}
               title={c.cle}
               subtitle={champResume(c)}
-              // Clic = ouvrir le modal d'édition (pas une navigation) → pas de chevron.
-              hideChevron
               badges={
                 c.requis ? (
                   <Badge variant="outline">Obligatoire</Badge>

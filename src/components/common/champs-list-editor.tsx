@@ -90,7 +90,6 @@ export function ChampsListEditor({
               icon={<Tag className="size-5" />}
               title={c.cle}
               subtitle={champResume(c)}
-              hideChevron
               badges={
                 c.requis ? <Badge variant="outline">Obligatoire</Badge> : undefined
               }

@@ -375,7 +375,6 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                     .filter(Boolean)
                     .join(' · ') || undefined
                 }
-                hideChevron
                 actions={rowActions(
                   () => setLocForm({ open: true, local: l }),
                   () => setToDelete({ kind: 'local', item: l }),
@@ -421,7 +420,6 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                 subtitle={n.description ?? undefined}
                 meta={surfaceLabel(surfaceNiveau.get(n.id))}
                 mobileMeta={surfaceLabel(surfaceNiveau.get(n.id))}
-                hideChevron
                 onClick={() => goToNiveau(n)}
                 actions={rowActions(
                   () => setNivForm({ open: true, niveau: n }),
@@ -468,7 +466,6 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                 subtitle={b.description ?? undefined}
                 meta={surfaceLabel(surfaceBatiment.get(b.id))}
                 mobileMeta={surfaceLabel(surfaceBatiment.get(b.id))}
-                hideChevron
                 onClick={() => goToBatiment(b)}
                 actions={rowActions(
                   () => setBatForm({ open: true, batiment: b }),

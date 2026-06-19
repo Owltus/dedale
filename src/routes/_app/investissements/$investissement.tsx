@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Wallet } from 'lucide-react'
 import { investissementsQueries } from '@/features/investissements/queries'
@@ -20,13 +20,10 @@ export const Route = createFileRoute('/_app/investissements/$investissement')({
 
 function InvestissementDetailPage() {
   const { investissement: slug } = Route.useParams()
-  const navigate = useNavigate()
   const { data: role } = useCurrentRole()
   // Édition = rôle métier (admin/manager/technicien), conforme à la RLS.
   const canManage = perm.canManageMetier(role)
   const { activeSiteId } = useSiteContext()
-
-  const goBack = () => void navigate({ to: '/investissements' })
 
   if (!activeSiteId) {
     return (
@@ -44,7 +41,6 @@ function InvestissementDetailPage() {
       siteId={activeSiteId}
       slug={slug}
       canManage={canManage}
-      onBack={goBack}
     />
   )
 }
@@ -53,12 +49,10 @@ function InvestissementResolver({
   siteId,
   slug,
   canManage,
-  onBack,
 }: {
   siteId: string
   slug: string
   canManage: boolean
-  onBack: () => void
 }) {
   const { data, isPending, isError, refetch } = useQuery(
     investissementsQueries.list(siteId),
@@ -67,7 +61,7 @@ function InvestissementResolver({
   if (isPending) {
     return (
       <PageContainer>
-        <PageHeader title="Investissement" onBack={onBack} />
+        <PageHeader title="Investissement" />
         <ListRowSkeletons count={3} />
       </PageContainer>
     )
@@ -76,7 +70,7 @@ function InvestissementResolver({
   if (isError) {
     return (
       <PageContainer>
-        <PageHeader title="Investissement" onBack={onBack} />
+        <PageHeader title="Investissement" />
         <ErrorState onRetry={() => void refetch()} />
       </PageContainer>
     )
@@ -93,7 +87,7 @@ function InvestissementResolver({
   if (!investissement) {
     return (
       <PageContainer>
-        <PageHeader title="Investissement introuvable" onBack={onBack} />
+        <PageHeader title="Investissement introuvable" />
         <EmptyState
           icon={Wallet}
           title="Investissement introuvable"
@@ -108,7 +102,6 @@ function InvestissementResolver({
       investissement={investissement}
       siteId={siteId}
       canManage={canManage}
-      onBack={onBack}
     />
   )
 }

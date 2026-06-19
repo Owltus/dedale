@@ -109,11 +109,17 @@ export async function uploadDocument(params: {
   return data
 }
 
-/** Crée une URL signée temporaire (60 s) pour télécharger/prévisualiser. */
-export async function getSignedUrl(storagePath: string): Promise<string> {
+/**
+ * Crée une URL signée temporaire pour télécharger/prévisualiser un document.
+ * `expiresInSeconds` (défaut 60 s) : à allonger pour un aperçu confortable.
+ */
+export async function getSignedUrl(
+  storagePath: string,
+  expiresInSeconds = 60,
+): Promise<string> {
   const { data, error } = await supabase.storage
     .from('documents')
-    .createSignedUrl(storagePath, 60)
+    .createSignedUrl(storagePath, expiresInSeconds)
   if (error) throw error
   return data.signedUrl
 }
