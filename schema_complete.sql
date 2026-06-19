@@ -11250,6 +11250,7 @@ GRANT EXECUTE ON FUNCTION public.get_user_telephone(uuid)                TO auth
 GRANT EXECUTE ON FUNCTION public.copier_gamme(uuid, uuid)                TO authenticated;
 GRANT EXECUTE ON FUNCTION public.copier_categorie(uuid, uuid, uuid[], uuid[]) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.copier_modele_equipement(uuid, uuid)    TO authenticated;
+GRANT EXECUTE ON FUNCTION public.copier_modele_operation(uuid, uuid)     TO authenticated;
 GRANT EXECUTE ON FUNCTION public.detacher_et_supprimer_modele_operation(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.instancier_equipement(uuid, uuid, text, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.count_document_refs(uuid)               TO authenticated;
