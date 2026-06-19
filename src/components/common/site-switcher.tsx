@@ -88,7 +88,7 @@ export function SiteSwitcher({
   // ─── Rail réduit : icône centrée + tooltip, zone bordée. ───
   if (variant === 'sidebar-rail') {
     return (
-      <div className="border-b px-2 py-2">
+      <div className="border-b px-2 py-2 shrink-0">
         <DropdownMenu>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -135,7 +135,7 @@ export function SiteSwitcher({
 
   // ─── Sidebar étendu : barre de contexte bordée, bouton pleine largeur. ───
   return (
-    <div className="border-b px-3 py-1.5">
+    <div className="border-b px-3 py-1.5 shrink-0">
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(

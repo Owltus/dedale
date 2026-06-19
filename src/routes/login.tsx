@@ -47,61 +47,66 @@ function LoginPage() {
   }
 
   return (
-    <div className="bg-muted/40 flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <img
-            src="/logo.svg"
-            alt="Logo Dédale"
-            className="mx-auto mb-4 size-32 shrink-0 dark:invert"
-          />
-          <CardTitle className="text-xl font-bold tracking-wide uppercase">
-            Dédale
-          </CardTitle>
-          <CardDescription className="text-muted-foreground text-xs">
-            Gestion de Maintenance
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              void handleSubmit()
-            }}
-            className="flex flex-col gap-4"
-          >
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+    // Hors app-shell : le document ne défile pas (html/body overflow-hidden), donc
+    // cette page porte SON scroller (plein écran) + un contenu centré qui peut
+    // grandir et défiler sur écran court, sans rognage.
+    <div className="bg-muted/40 h-full overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            <img
+              src="/logo.svg"
+              alt="Logo Dédale"
+              className="mx-auto mb-4 size-32 shrink-0 dark:invert"
+            />
+            <CardTitle className="text-xl font-bold tracking-wide uppercase">
+              Dédale
+            </CardTitle>
+            <CardDescription className="text-muted-foreground text-xs">
+              Gestion de Maintenance
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                void handleSubmit()
+              }}
+              className="flex flex-col gap-4"
+            >
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="password">Mot de passe</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Mot de passe</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
 
-            {error && <p className="text-destructive text-sm">{error}</p>}
+              {error && <p className="text-destructive text-sm">{error}</p>}
 
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? 'Connexion…' : 'Se connecter'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? 'Connexion…' : 'Se connecter'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

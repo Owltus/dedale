@@ -210,7 +210,7 @@ export function SidebarContent({
           (visible seulement s'il y a plusieurs sites accessibles). */}
       <SiteSwitcher variant={iconOnly ? 'sidebar-rail' : 'sidebar'} />
 
-      <div className="flex-1 overflow-x-hidden overflow-y-auto py-2 [&>div:first-child]:pt-0">
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto py-2 [&>div:first-child]:pt-0">
         <NavGroup
           title="Opérationnel"
           items={OPERATIONNEL}
@@ -247,7 +247,7 @@ export function AppSidebar({ iconOnly }: { iconOnly: boolean }) {
       id="app-sidebar"
       aria-label="Barre latérale"
       className={cn(
-        'bg-card flex h-dvh shrink-0 flex-col transition-[width] duration-200 ease-out motion-reduce:transition-none',
+        'bg-card flex h-full min-h-0 shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none',
         iconOnly ? 'w-16' : 'w-64',
       )}
     >

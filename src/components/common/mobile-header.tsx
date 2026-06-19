@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
  *  depuis _app) : logo + titre centrés, burger à droite. */
 export function MobileHeader({ onMenu }: { onMenu: () => void }) {
   return (
-    <header className="bg-card sticky top-0 z-30 flex h-14 shrink-0 items-center border-b px-4">
+    <header className="bg-card z-30 flex h-14 shrink-0 items-center border-b px-4">
       {/* Espace fantôme (largeur du burger) pour centrer réellement le titre. */}
       <div className="size-9 shrink-0" aria-hidden />
       <div className="flex flex-1 items-center justify-center gap-2">

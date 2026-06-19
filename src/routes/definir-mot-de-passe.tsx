@@ -50,64 +50,67 @@ function SetPasswordPage() {
   }
 
   return (
-    <div className="bg-muted/40 flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Bienvenue sur Dédale</CardTitle>
-          <CardDescription>
-            Définis ton mot de passe pour activer ton compte.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="text-muted-foreground text-center text-sm">
-              Chargement…
-            </p>
-          ) : !session ? (
-            <p className="text-muted-foreground text-center text-sm">
-              Lien invalide ou expiré. Demande une nouvelle invitation à un
-              administrateur.
-            </p>
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                void handleSubmit()
-              }}
-              className="flex flex-col gap-4"
-            >
-              <div className="grid gap-2">
-                <Label htmlFor="password">Nouveau mot de passe</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="confirm">Confirme le mot de passe</Label>
-                <Input
-                  id="confirm"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                />
-              </div>
+    // Hors app-shell : scroller propre + contenu centré défilable sur écran court.
+    <div className="bg-muted/40 h-full overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Bienvenue sur Dédale</CardTitle>
+            <CardDescription>
+              Définis ton mot de passe pour activer ton compte.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <p className="text-muted-foreground text-center text-sm">
+                Chargement…
+              </p>
+            ) : !session ? (
+              <p className="text-muted-foreground text-center text-sm">
+                Lien invalide ou expiré. Demande une nouvelle invitation à un
+                administrateur.
+              </p>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void handleSubmit()
+                }}
+                className="flex flex-col gap-4"
+              >
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Nouveau mot de passe</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="confirm">Confirme le mot de passe</Label>
+                  <Input
+                    id="confirm"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                  />
+                </div>
 
-              {error && <p className="text-destructive text-sm">{error}</p>}
+                {error && <p className="text-destructive text-sm">{error}</p>}
 
-              <Button type="submit" disabled={loading} className="w-full">
-                {loading ? 'Enregistrement…' : 'Activer mon compte'}
-              </Button>
-            </form>
-          )}
-        </CardContent>
-      </Card>
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? 'Enregistrement…' : 'Activer mon compte'}
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

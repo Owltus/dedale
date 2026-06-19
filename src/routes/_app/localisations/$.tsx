@@ -30,7 +30,7 @@ function LocalisationsPage() {
   }
 
   return (
-    <PageContainer>
+    <PageContainer fill>
       <LocalisationsExplorer siteId={activeSiteId} />
     </PageContainer>
   )

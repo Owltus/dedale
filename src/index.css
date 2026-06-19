@@ -99,6 +99,18 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Le DOCUMENT ne défile JAMAIS : garde-fou absolu contre toute scrollbar
+     globale, quel que soit l'élément qui déborde. Le défilement vit UNIQUEMENT
+     dans les zones internes (corps de page `PageContainer`, nav sidebar). Les
+     pages hors app-shell (login, reset, 404) portent leur propre scroller. */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+  #root {
+    height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
   }

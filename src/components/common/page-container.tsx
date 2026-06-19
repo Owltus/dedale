@@ -22,7 +22,10 @@ export function PageContainer({
   fill = false,
 }: PageContainerProps) {
   if (fill) {
-    return <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+    // L'enfant gère lui-même son en-tête fixe + son défilement : il DOIT poser
+    // sa propre zone scrollable (`min-h-0 flex-1 overflow-y-auto`), sinon son
+    // contenu déborde et est clippé par le `main` (overflow-hidden).
+    return <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
   }
 
   const kids = Children.toArray(children)

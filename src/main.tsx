@@ -30,7 +30,7 @@ function InnerApp() {
   // pour éviter une redirection vers /login au rechargement d'une page protégée.
   if (auth.isLoading) {
     return (
-      <div className="text-muted-foreground flex min-h-screen flex-col items-center justify-center gap-6">
+      <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-6">
         <img
           src="/logo.svg"
           alt="Logo Dédale"

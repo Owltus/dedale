@@ -479,10 +479,14 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
     )
   }
 
+  // En-tête FIXE + corps DÉFILANT (mode `fill` de PageContainer), cohérent avec
+  // Sites/Documents : seul le corps défile, le PageHeader reste en place.
   return (
     <>
-      {header}
-      {content}
+      <div className="shrink-0 px-4 pt-6 sm:px-6 lg:px-8">{header}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
+        {content}
+      </div>
       {dialogs}
     </>
   )

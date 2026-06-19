@@ -9,7 +9,7 @@ import { UserMenu } from '@/components/common/user-menu'
  */
 export function TopBar() {
   return (
-    <header className="bg-card sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b px-4">
+    <header className="bg-card z-30 flex h-16 shrink-0 items-center gap-3 border-b px-4">
       <Link
         to="/demandes"
         className="focus-visible:ring-ring/50 focus-visible:ring-offset-card flex shrink-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-offset-2"

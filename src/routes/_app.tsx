@@ -169,7 +169,7 @@ function DefaultLayout() {
   const mainRef = useMainFocusRef()
 
   return (
-    <div className="flex h-dvh">
+    <div className="flex h-full overflow-hidden">
       <SkipLink />
 
       {/* Sidebar fixe : rail d'icônes (tablette souris) ou pleine (bureau) */}
@@ -190,7 +190,7 @@ function DefaultLayout() {
         </SheetContent>
       </Sheet>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {!showFixedSidebar && (
           <MobileHeader onMenu={() => setDrawerOpen(true)} />
         )}
@@ -214,7 +214,7 @@ function DefaultLayout() {
 function DemandeurLayout() {
   const mainRef = useMainFocusRef()
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       <SkipLink />
       <TopBar />
       <main
@@ -237,7 +237,7 @@ function DemandeurLayout() {
 function NoSiteLayout() {
   const mainRef = useMainFocusRef()
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       <SkipLink />
       <TopBar />
       <main
