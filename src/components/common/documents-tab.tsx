@@ -1,14 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { ComponentType } from 'react'
-import {
-  Download,
-  FileImage,
-  FileText,
-  Link2Off,
-  Paperclip,
-  Trash2,
-} from 'lucide-react'
+import { Download, FileText, Link2Off, Paperclip, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { documentsQueries } from '@/features/documents/queries'
 import type { LiaisonTable } from '@/features/documents/queries'
@@ -17,21 +9,17 @@ import {
   useDetachDocument,
   useUploadAndAttach,
 } from '@/features/documents/mutations'
-import { getSignedUrl } from '@/features/documents/upload'
-import { formatTaille } from '@/features/documents/format'
 import type { DocumentMeta } from '@/features/documents/format'
+import { useDocumentDownload } from '@/features/documents/use-document-download'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
+import { DocumentRow } from '@/features/documents/components/document-row'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { formatDate } from '@/lib/date'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
 import { cn } from '@/lib/utils'
 import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
-import { ListRow } from '@/components/common/list-row'
-import { RowMediaIcon } from '@/components/common/row-media-icon'
-import { PdfFileIcon } from '@/components/common/file-format-icons'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
@@ -39,17 +27,6 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
-
-/**
- * Icône média selon le FORMAT du fichier (≠ type métier « devis/contrat » qui,
- * lui, n'est pas affiché ici) : PDF explicite, image, ou document générique, pour
- * différencier d'un coup d'œil.
- */
-function iconeFormat(mime: string): ComponentType<{ className?: string }> {
-  if (mime === 'application/pdf') return PdfFileIcon
-  if (mime.startsWith('image/')) return FileImage
-  return FileText
-}
 
 interface DocumentsTabProps {
   /** Nom de la table de liaison (ex. 'documents_ordres_travail'). */
@@ -131,15 +108,7 @@ export function DocumentsTab({
   const isControlled = onUploadOpenChange !== undefined
   const open = uploadOpen ?? internalOpen
   const setOpen = onUploadOpenChange ?? setInternalOpen
-
-  async function handleDownload(doc: DocumentMeta) {
-    try {
-      const url = await getSignedUrl(doc.storage_path)
-      window.open(url, '_blank', 'noopener,noreferrer')
-    } catch (e) {
-      toast.error(errorMessage(e))
-    }
-  }
+  const download = useDocumentDownload()
 
   function confirmDetach() {
     if (!toDetach) return
@@ -236,19 +205,16 @@ export function DocumentsTab({
         {(list) => (
           <div className={listStack}>
             {list.map((doc) => (
-              <ListRow
+              <DocumentRow
                 key={doc.id}
-                size="sm"
-                media={<RowMediaIcon icon={iconeFormat(doc.mime_type)} />}
-                title={doc.nom_original}
-                subtitle={`${formatTaille(doc.taille_octets)} · ${formatDate(doc.uploaded_at)}`}
+                doc={doc}
                 onClick={() => setToPreview(doc)}
                 actions={
                   <>
                     <TooltipIconButton
                       icon={<Download />}
                       label="Télécharger"
-                      onClick={() => void handleDownload(doc)}
+                      onClick={() => void download(doc)}
                     />
                     {canManage && (
                       <TooltipIconButton

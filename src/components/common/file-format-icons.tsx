@@ -1,3 +1,6 @@
+import type { ComponentType } from 'react'
+import { FileImage, FileText } from 'lucide-react'
+
 interface FormatIconProps {
   className?: string
 }
@@ -37,4 +40,15 @@ export function PdfFileIcon({ className }: FormatIconProps) {
       </text>
     </svg>
   )
+}
+
+/**
+ * Icône à afficher selon le FORMAT d'un document (≠ type métier « devis/contrat »
+ * qui, lui, n'est pas porté par le fichier) : PDF explicite, image, ou document
+ * générique. Source UNIQUE → même différenciation partout (bibliothèque, fiches).
+ */
+export function iconeFormat(mime: string): ComponentType<{ className?: string }> {
+  if (mime === 'application/pdf') return PdfFileIcon
+  if (mime.startsWith('image/')) return FileImage
+  return FileText
 }
