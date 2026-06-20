@@ -111,9 +111,9 @@
 --    070  Cron jobs Supabase (storage orphans, comptes inactifs, anomalies)
 --
 -- COMPTEURS (single-tenant, 2026-06-03 — patch v0.33, interventions de travaux + CapEx) :
---   56 tables (+statuts_travaux, statuts_capex, interventions_travaux,
---   travaux_localisations, travaux_equipements, investissements,
---   documents_interventions_travaux, documents_investissements en v0.33),
+--   tables (+statuts_travaux, statuts_capex, interventions_travaux,
+--   travaux_taches, investissements,
+--   documents_interventions_travaux, documents_investissements),
 --   6 ENUMs, 108 fonctions, 110 triggers, 214 policies RLS (209 public
 --   + 5 storage ; inclut les policies générées par boucle DO sur les référentiels),
 --   160 index (dont 1 UNIQUE partiel uq_ot_gamme_date_actifs anti-TOCTOU ; +idx_locaux_type ;
@@ -4271,7 +4271,6 @@ CREATE TABLE interventions_travaux (
 
     -- Acteurs
     created_by          UUID NOT NULL REFERENCES users(id),
-    prestataire_id      UUID REFERENCES prestataires(id) ON DELETE SET NULL,
 
     -- Machine à états (référentiel SMALLINT, IDs stables)
     statut_travaux_id  SMALLINT NOT NULL DEFAULT 1 REFERENCES statuts_travaux(id),
@@ -4280,9 +4279,8 @@ CREATE TABLE interventions_travaux (
     titre               TEXT NOT NULL CHECK (length(trim(titre)) > 0),
     description         TEXT,
 
-    -- Calendrier
+    -- Calendrier (date_demande = date de création ; date_fin posée à la clôture)
     date_demande        DATE NOT NULL DEFAULT current_date,
-    date_prevue         DATE,
     date_fin            DATE,
 
     -- Clôture (compte-rendu obligatoire au passage Terminé, contrôle par trigger).
@@ -4296,7 +4294,7 @@ CREATE TABLE interventions_travaux (
 );
 
 COMMENT ON TABLE interventions_travaux IS
-    'Travaux ponctuels (souvent prestataire). Machine à états 1→2/3→4 via statuts_travaux.';
+    'Travaux ponctuels du site. Machine à états 1→2/3→4 via statuts_travaux.';
 COMMENT ON COLUMN interventions_travaux.cloture_by IS
     'Qui a passé les travaux en Terminé. Peuplé par trigger set_travaux_cloture_by (valeur forcée serveur). NULL tant que non terminé ou réouvert.';
 
@@ -4304,7 +4302,6 @@ CREATE INDEX idx_travaux_site   ON interventions_travaux(site_id);
 CREATE INDEX idx_travaux_statut ON interventions_travaux(statut_travaux_id);
 -- Index des FK (règle « indexer toute FK » — v0.33 corrigé post-audit)
 CREATE INDEX idx_travaux_created_by  ON interventions_travaux(created_by);
-CREATE INDEX idx_travaux_prestataire ON interventions_travaux(prestataire_id);
 CREATE INDEX idx_travaux_cloture_by  ON interventions_travaux(cloture_by);
 
 CREATE TRIGGER trg_interventions_travaux_set_updated_at
@@ -4314,30 +4311,32 @@ CREATE TRIGGER trg_interventions_travaux_set_updated_at
 ALTER TABLE interventions_travaux ENABLE ROW LEVEL SECURITY;
 
 
--- Liaison N-N : travaux_localisations (travaux ↔ locaux)
-CREATE TABLE travaux_localisations (
-    travaux_id  UUID NOT NULL REFERENCES interventions_travaux(id) ON DELETE CASCADE,
-    local_id     UUID NOT NULL REFERENCES locaux(id) ON DELETE CASCADE,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (travaux_id, local_id)
-);
-COMMENT ON TABLE travaux_localisations IS
-    'Localisations concernées par des travaux (locaux du même site).';
-CREATE INDEX idx_travaux_localisations_local ON travaux_localisations(local_id);
-ALTER TABLE travaux_localisations ENABLE ROW LEVEL SECURITY;
-
-
--- Liaison N-N : travaux_equipements (travaux ↔ équipements)
-CREATE TABLE travaux_equipements (
-    travaux_id    UUID NOT NULL REFERENCES interventions_travaux(id) ON DELETE CASCADE,
-    equipement_id  UUID NOT NULL REFERENCES equipements(id) ON DELETE CASCADE,
+-- Tâches de travaux (to-do à statut) — v0.34, migrations 044/045
+-- Chaque tâche : libellé libre + local/équipement FACULTATIFS (du même site) +
+-- statut. Seul mécanisme de rattachement locaux/équipements d'un travail.
+CREATE TABLE travaux_taches (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    travaux_id     UUID NOT NULL REFERENCES interventions_travaux(id) ON DELETE CASCADE,
+    local_id       UUID REFERENCES locaux(id)      ON DELETE SET NULL,
+    equipement_id  UUID REFERENCES equipements(id) ON DELETE SET NULL,
+    libelle        TEXT NOT NULL CHECK (length(trim(libelle)) > 0),
+    statut         TEXT NOT NULL DEFAULT 'en_attente'
+                   CHECK (statut IN ('en_attente','en_cours','realise','non_realise','non_applicable')),
+    ordre          INTEGER NOT NULL DEFAULT 0,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (travaux_id, equipement_id)
+    created_by     UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE travaux_equipements IS
-    'Équipements concernés par des travaux (équipements du même site).';
-CREATE INDEX idx_travaux_equipements_equipement ON travaux_equipements(equipement_id);
-ALTER TABLE travaux_equipements ENABLE ROW LEVEL SECURITY;
+COMMENT ON TABLE travaux_taches IS
+    'Tâches (to-do à statut) d''un travail. Local/équipement facultatifs, du même site que le travail.';
+CREATE INDEX idx_travaux_taches_travaux    ON travaux_taches(travaux_id);
+CREATE INDEX idx_travaux_taches_local      ON travaux_taches(local_id);
+CREATE INDEX idx_travaux_taches_equipement ON travaux_taches(equipement_id);
+CREATE INDEX idx_travaux_taches_created_by ON travaux_taches(created_by);
+CREATE TRIGGER trg_travaux_taches_set_updated_at
+    BEFORE UPDATE ON travaux_taches
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+ALTER TABLE travaux_taches ENABLE ROW LEVEL SECURITY;
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
@@ -6184,8 +6183,9 @@ BEGIN
     IF OLD.statut_travaux_id = 4 AND NEW.statut_travaux_id NOT IN (3) THEN
         RAISE EXCEPTION 'Transition travaux interdite depuis « Terminé » vers statut %', NEW.statut_travaux_id;
     END IF;
-    IF OLD.statut_travaux_id = 5 THEN
-        RAISE EXCEPTION 'Travaux « Annulé » est un état terminal (aucune transition autorisée)';
+    -- Annulé : réactivation autorisée UNIQUEMENT vers « Ouvert » (5 → 1).
+    IF OLD.statut_travaux_id = 5 AND NEW.statut_travaux_id NOT IN (1) THEN
+        RAISE EXCEPTION 'Réactivation travaux : depuis « Annulé », seul le retour à « Ouvert » est autorisé (statut %)', NEW.statut_travaux_id;
     END IF;
 
     RETURN NEW;
@@ -6195,7 +6195,7 @@ $$;
 CREATE TRIGGER trg_validation_transitions_travaux
     BEFORE UPDATE OF statut_travaux_id ON interventions_travaux
     FOR EACH ROW EXECUTE FUNCTION public.validation_transitions_travaux();
-COMMENT ON FUNCTION public.validation_transitions_travaux() IS 'Machine à états travaux : 1→2/3/5, 2→3/5, 3→4/5, 4→3 (réouverture), 5 terminal.';
+COMMENT ON FUNCTION public.validation_transitions_travaux() IS 'Machine à états travaux : 1→2/3/5, 2→3/5, 3→4/5, 4→3 (réouverture), 5→1 (réactivation).';
 
 -- validation_travaux_compte_rendu : passage à Terminé (4) exige un compte_rendu
 -- non vide (miroir de validation_resolution_di).
@@ -8689,55 +8689,40 @@ CREATE POLICY travaux_site_scoped_update ON interventions_travaux FOR UPDATE
         AND public.has_site_access(site_id)
     );
 
--- Liaisons travaux_localisations / travaux_equipements : sécurité par
--- existence de travaux visibles (scope via has_site_access des travaux parents).
--- Calque EXACT des policies de liaison DI (bloc DO $$). admin = court-circuit.
-DO $$
-DECLARE
-    t TEXT;
-BEGIN
-    FOR t IN VALUES ('travaux_localisations'), ('travaux_equipements')
-    LOOP
-        EXECUTE format($q$
-            CREATE POLICY %I ON %I FOR ALL
-            USING ((SELECT public.current_role()) = 'admin')
-            WITH CHECK ((SELECT public.current_role()) = 'admin')
-        $q$, t || '_admin_all', t);
+-- travaux_taches (v0.34) : scope via le site du travail parent (EXISTS
+-- interventions_travaux + has_site_access). admin = court-circuit ;
+-- manager/technicien écrivent ; lecteur lit.
+CREATE POLICY travaux_taches_admin_all ON travaux_taches FOR ALL
+    USING ((SELECT public.current_role()) = 'admin')
+    WITH CHECK ((SELECT public.current_role()) = 'admin');
 
-        EXECUTE format($q$
-            CREATE POLICY %I ON %I FOR SELECT
-            USING (
-                (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
-                AND EXISTS (
-                    SELECT 1 FROM interventions_travaux ic
-                    WHERE ic.id = %I.travaux_id
-                      AND public.has_site_access(ic.site_id)
-                )
-            )
-        $q$, t || '_select', t, t);
+CREATE POLICY travaux_taches_select ON travaux_taches FOR SELECT
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
+        AND EXISTS (
+            SELECT 1 FROM interventions_travaux ic
+            WHERE ic.id = travaux_taches.travaux_id
+              AND public.has_site_access(ic.site_id)
+        )
+    );
 
-        EXECUTE format($q$
-            CREATE POLICY %I ON %I FOR ALL
-            USING (
-                (SELECT public.current_role()) IN ('manager', 'technicien')
-                AND EXISTS (
-                    SELECT 1 FROM interventions_travaux ic
-                    WHERE ic.id = %I.travaux_id
-                      AND public.has_site_access(ic.site_id)
-                )
-            )
-            WITH CHECK (
-                (SELECT public.current_role()) IN ('manager', 'technicien')
-                AND EXISTS (
-                    SELECT 1 FROM interventions_travaux ic
-                    WHERE ic.id = %I.travaux_id
-                      AND public.has_site_access(ic.site_id)
-                )
-            )
-        $q$, t || '_scoped', t, t, t);
-    END LOOP;
-END;
-$$;
+CREATE POLICY travaux_taches_scoped ON travaux_taches FOR ALL
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND EXISTS (
+            SELECT 1 FROM interventions_travaux ic
+            WHERE ic.id = travaux_taches.travaux_id
+              AND public.has_site_access(ic.site_id)
+        )
+    )
+    WITH CHECK (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND EXISTS (
+            SELECT 1 FROM interventions_travaux ic
+            WHERE ic.id = travaux_taches.travaux_id
+              AND public.has_site_access(ic.site_id)
+        )
+    );
 
 -- ╔══════════════════════════════════════════════════════════════════════════╗
 -- ║ 17ter. investissements / CapEx (site_id) — v0.33, statut libre            ║
@@ -9680,72 +9665,63 @@ COMMENT ON FUNCTION public.check_gamme_equipement_site() IS 'F32 — Pattern 6 :
 -- un local / équipement du site B.
 -- =====================================================================
 
--- travaux_localisations : local doit appartenir au site des travaux
-CREATE OR REPLACE FUNCTION public.check_travaux_localisation_site()
+-- travaux_taches : local & équipement (facultatifs) du même site que le travail ;
+-- si les deux sont fournis, l'équipement doit être dans le local indiqué. (v0.34)
+CREATE OR REPLACE FUNCTION public.check_travaux_tache_coherence()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
     v_travaux_site UUID;
-    v_local_site    UUID;
+    v_local_site   UUID;
+    v_eq_site      UUID;
+    v_eq_local     UUID;
 BEGIN
-    SELECT site_id INTO v_travaux_site FROM public.interventions_travaux WHERE id = NEW.travaux_id;
-    SELECT b.site_id INTO v_local_site
-    FROM public.locaux    l
-    JOIN public.niveaux   n ON n.id = l.niveau_id
-    JOIN public.batiments b ON b.id = n.batiment_id
-    WHERE l.id = NEW.local_id;
+    SELECT site_id INTO v_travaux_site
+    FROM public.interventions_travaux WHERE id = NEW.travaux_id;
 
-    IF v_local_site IS NULL THEN
-        RAISE EXCEPTION 'travaux_localisations : local_id % introuvable ou hiérarchie incomplète', NEW.local_id;
+    IF NEW.local_id IS NOT NULL THEN
+        SELECT b.site_id INTO v_local_site
+        FROM public.locaux    l
+        JOIN public.niveaux   n ON n.id = l.niveau_id
+        JOIN public.batiments b ON b.id = n.batiment_id
+        WHERE l.id = NEW.local_id;
+        IF v_local_site IS NULL THEN
+            RAISE EXCEPTION 'travaux_taches : local_id % introuvable ou hiérarchie incomplète', NEW.local_id;
+        END IF;
+        IF v_local_site <> v_travaux_site THEN
+            RAISE EXCEPTION 'travaux_taches : local_id % (site %) hors du site % du travail %',
+                NEW.local_id, v_local_site, v_travaux_site, NEW.travaux_id;
+        END IF;
     END IF;
-    IF v_local_site <> v_travaux_site THEN
-        RAISE EXCEPTION 'travaux_localisations : local_id % (site %) n''appartient pas au site % des travaux %',
-            NEW.local_id, v_local_site, v_travaux_site, NEW.travaux_id;
+
+    IF NEW.equipement_id IS NOT NULL THEN
+        SELECT b.site_id, e.local_id INTO v_eq_site, v_eq_local
+        FROM public.equipements e
+        JOIN public.locaux    l ON l.id = e.local_id
+        JOIN public.niveaux   n ON n.id = l.niveau_id
+        JOIN public.batiments b ON b.id = n.batiment_id
+        WHERE e.id = NEW.equipement_id;
+        IF v_eq_site IS NULL THEN
+            RAISE EXCEPTION 'travaux_taches : equipement_id % introuvable ou hiérarchie incomplète', NEW.equipement_id;
+        END IF;
+        IF v_eq_site <> v_travaux_site THEN
+            RAISE EXCEPTION 'travaux_taches : equipement_id % (site %) hors du site % du travail %',
+                NEW.equipement_id, v_eq_site, v_travaux_site, NEW.travaux_id;
+        END IF;
+        IF NEW.local_id IS NOT NULL AND v_eq_local <> NEW.local_id THEN
+            RAISE EXCEPTION 'travaux_taches : equipement_id % n''est pas dans le local %',
+                NEW.equipement_id, NEW.local_id;
+        END IF;
     END IF;
 
     RETURN NEW;
 END;
 $$;
-
-CREATE TRIGGER trg_travaux_localisation_site
-    BEFORE INSERT OR UPDATE ON travaux_localisations
-    FOR EACH ROW EXECUTE FUNCTION public.check_travaux_localisation_site();
-COMMENT ON FUNCTION public.check_travaux_localisation_site() IS 'Pattern 6 — un local rattaché à des travaux doit appartenir au site des travaux.';
-
--- travaux_equipements : équipement doit appartenir au site des travaux
-CREATE OR REPLACE FUNCTION public.check_travaux_equipement_site()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-    v_travaux_site UUID;
-    v_eq_site       UUID;
-BEGIN
-    SELECT site_id INTO v_travaux_site FROM public.interventions_travaux WHERE id = NEW.travaux_id;
-    SELECT b.site_id INTO v_eq_site
-    FROM public.equipements e
-    JOIN public.locaux    l ON l.id = e.local_id
-    JOIN public.niveaux   n ON n.id = l.niveau_id
-    JOIN public.batiments b ON b.id = n.batiment_id
-    WHERE e.id = NEW.equipement_id;
-
-    IF v_eq_site IS NULL THEN
-        RAISE EXCEPTION 'travaux_equipements : equipement_id % introuvable ou hiérarchie incomplète', NEW.equipement_id;
-    END IF;
-    IF v_eq_site <> v_travaux_site THEN
-        RAISE EXCEPTION 'travaux_equipements : equipement_id % (site %) n''appartient pas au site % des travaux %',
-            NEW.equipement_id, v_eq_site, v_travaux_site, NEW.travaux_id;
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_travaux_equipement_site
-    BEFORE INSERT OR UPDATE ON travaux_equipements
-    FOR EACH ROW EXECUTE FUNCTION public.check_travaux_equipement_site();
-COMMENT ON FUNCTION public.check_travaux_equipement_site() IS 'Pattern 6 — un équipement rattaché à des travaux doit appartenir au site des travaux.';
+CREATE TRIGGER trg_travaux_tache_coherence
+    BEFORE INSERT OR UPDATE ON travaux_taches
+    FOR EACH ROW EXECUTE FUNCTION public.check_travaux_tache_coherence();
+COMMENT ON FUNCTION public.check_travaux_tache_coherence() IS 'Pattern 6 — local/équipement d''une tâche appartiennent au site du travail ; équipement dans le local indiqué.';
 
 
 -- =====================================================================
