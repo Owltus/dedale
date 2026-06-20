@@ -4311,15 +4311,14 @@ CREATE TRIGGER trg_interventions_travaux_set_updated_at
 ALTER TABLE interventions_travaux ENABLE ROW LEVEL SECURITY;
 
 
--- Tâches de travaux (to-do à statut) — v0.34, migrations 044/045
--- Chaque tâche : libellé libre + local/équipement FACULTATIFS (du même site) +
--- statut. Seul mécanisme de rattachement locaux/équipements d'un travail.
+-- Zones concernées par un travail — v0.34, migrations 044/045/048
+-- Une ligne = un local (REQUIS) + un équipement précis OPTIONNEL (du même site)
+-- + un statut d'avancement. Seul mécanisme de rattachement locaux/équipements.
 CREATE TABLE travaux_taches (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     travaux_id     UUID NOT NULL REFERENCES interventions_travaux(id) ON DELETE CASCADE,
-    local_id       UUID REFERENCES locaux(id)      ON DELETE SET NULL,
+    local_id       UUID NOT NULL REFERENCES locaux(id)      ON DELETE CASCADE,
     equipement_id  UUID REFERENCES equipements(id) ON DELETE SET NULL,
-    libelle        TEXT NOT NULL CHECK (length(trim(libelle)) > 0),
     statut         TEXT NOT NULL DEFAULT 'en_attente'
                    CHECK (statut IN ('en_attente','en_cours','realise','non_realise','non_applicable')),
     ordre          INTEGER NOT NULL DEFAULT 0,
@@ -4328,7 +4327,7 @@ CREATE TABLE travaux_taches (
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE travaux_taches IS
-    'Tâches (to-do à statut) d''un travail. Local/équipement facultatifs, du même site que le travail.';
+    'Zones concernées par un travail : un local (requis), un équipement précis optionnel, et un statut d''avancement.';
 CREATE INDEX idx_travaux_taches_travaux    ON travaux_taches(travaux_id);
 CREATE INDEX idx_travaux_taches_local      ON travaux_taches(local_id);
 CREATE INDEX idx_travaux_taches_equipement ON travaux_taches(equipement_id);
@@ -9665,8 +9664,8 @@ COMMENT ON FUNCTION public.check_gamme_equipement_site() IS 'F32 — Pattern 6 :
 -- un local / équipement du site B.
 -- =====================================================================
 
--- travaux_taches : local & équipement (facultatifs) du même site que le travail ;
--- si les deux sont fournis, l'équipement doit être dans le local indiqué. (v0.34)
+-- travaux_taches : local (requis) & équipement (optionnel) du même site que le
+-- travail ; si l'équipement est fourni, il doit être dans le local indiqué. (v0.34)
 CREATE OR REPLACE FUNCTION public.check_travaux_tache_coherence()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
