@@ -32,10 +32,22 @@ export function ChampsListEditor({
   champs,
   onChange,
   emptyHint = 'Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…).',
+  pending = false,
+  deleteImpactHint,
 }: {
   champs: Champ[]
   onChange: (champs: Champ[]) => void
   emptyHint?: string
+  /**
+   * Désactive l'éditeur pendant une persistance en cours (mode enregistrement
+   * immédiat) → évite des écritures concurrentes non sérialisées.
+   */
+  pending?: boolean
+  /**
+   * Avertissement ajouté à la confirmation de suppression (ex. « la valeur sera
+   * retirée de N équipements »), quand la suppression a un impact en cascade.
+   */
+  deleteImpactHint?: string
 }) {
   const [champForm, setChampForm] = useState<{
     open: boolean
@@ -76,6 +88,7 @@ export function ChampsListEditor({
         <TooltipIconButton
           icon={<Plus />}
           label="Ajouter une caractéristique"
+          disabled={pending}
           onClick={() => setChampForm({ open: true, champ: null })}
         />
       </div>
@@ -93,21 +106,27 @@ export function ChampsListEditor({
               badges={
                 c.requis ? <Badge variant="outline">Obligatoire</Badge> : undefined
               }
-              onClick={() => setChampForm({ open: true, champ: c })}
+              onClick={
+                pending ? undefined : () => setChampForm({ open: true, champ: c })
+              }
               actions={
                 <>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="icon"
                     aria-label="Modifier la caractéristique"
+                    disabled={pending}
                     onClick={() => setChampForm({ open: true, champ: c })}
                   >
                     <Pencil />
                   </Button>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="icon"
                     aria-label="Supprimer la caractéristique"
+                    disabled={pending}
                     onClick={() => setToDelete(c)}
                   >
                     <Trash2 />
@@ -137,7 +156,9 @@ export function ChampsListEditor({
         title="Supprimer la caractéristique ?"
         description={
           toDelete
-            ? `« ${toDelete.cle} » sera retirée des caractéristiques.`
+            ? `« ${toDelete.cle} » sera retirée des caractéristiques.${
+                deleteImpactHint ? ` ${deleteImpactHint}` : ''
+              }`
             : undefined
         }
         confirmLabel="Supprimer"

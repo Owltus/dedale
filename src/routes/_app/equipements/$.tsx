@@ -33,7 +33,10 @@ function EquipementsPage() {
 
   return (
     <PageContainer>
-      <EquipementsExplorer siteId={activeSiteId} />
+      {/* key=site : remonte l'explorer à chaque changement de site actif → remise à
+          zéro propre des refs/états internes (drill, modaux), pas de fuite d'état
+          du site précédent. */}
+      <EquipementsExplorer key={activeSiteId} siteId={activeSiteId} />
     </PageContainer>
   )
 }

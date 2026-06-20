@@ -5,12 +5,11 @@ import { parseChamps, serializeChamps, type Champ } from '@/lib/champs'
 import { categoriesQueries } from '@/features/categories/queries'
 
 /**
- * ÉDITION d'une SOUS-catégorie de parc (formulaire unifié avec la création) : met à
- * jour nom / description / image et, pour un gabarit SPÉCIFIQUE, les caractéristiques
- * (`specifications`) PUIS les propage à TOUS ses équipements — en conservant les
- * valeurs déjà saisies (par clé) ; les nouveaux champs prennent leur défaut, les
- * champs retirés disparaissent. Le TYPE de gabarit (modèle ↔ spécifique) est fixé à
- * la création : on n'y touche pas ici (pour un modèle, le gabarit vit en Bibliothèque).
+ * ÉDITION des attributs de BASE d'une SOUS-catégorie de parc : nom / description /
+ * image. Les CARACTÉRISTIQUES (`specifications`) d'un gabarit spécifique ne sont PLUS
+ * écrites ici : elles s'enregistrent au fil de l'eau via
+ * `useUpdateParcSousCategorieChamps` (UX « ajout immédiat », comme la fiche modèle).
+ * Le TYPE de gabarit (modèle ↔ spécifique) est fixé à la création (non modifiable ici).
  */
 export function useUpdateParcSousCategorie() {
   const qc = useQueryClient()
@@ -20,18 +19,11 @@ export function useUpdateParcSousCategorie() {
       nom,
       description,
       miniatureId,
-      specifique,
-      champs,
-      equipements,
     }: {
       id: string
       nom: string
       description?: string
       miniatureId: string | null
-      /** true = gabarit local (specifications éditables + propagation). */
-      specifique: boolean
-      champs: Champ[]
-      equipements: { id: string; specifications: unknown }[]
     }) => {
       await supabase
         .from('categories')
@@ -39,31 +31,82 @@ export function useUpdateParcSousCategorie() {
           nom: nom.trim(),
           description: description?.trim() ? description.trim() : null,
           miniature_id: miniatureId,
-          ...(specifique ? { specifications: serializeChamps(champs) } : {}),
         })
         .eq('id', id)
         .select('id')
         .single()
         .throwOnError()
-      if (!specifique) return
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: categoriesQueries.all() }),
+  })
+}
+
+/**
+ * Met à jour UNIQUEMENT les caractéristiques (`specifications`) d'une sous-catégorie
+ * de parc SPÉCIFIQUE et les PROPAGE à ses équipements (fusion par clé : valeurs déjà
+ * saisies conservées, nouveaux champs au défaut, champs retirés supprimés). Permet
+ * d'enregistrer CHAQUE caractéristique au fil de l'eau, sans réécrire nom/description/
+ * image — le modal reste ouvert pour en ajouter d'autres.
+ */
+export function useUpdateParcSousCategorieChamps() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      champs,
+      equipements,
+    }: {
+      id: string
+      champs: Champ[]
+      equipements: { id: string; specifications: unknown }[]
+    }) => {
+      // Pré-calcul des fusions + contrôle de TAILLE de chaque équipement (gabarit +
+      // clé `valeur` ajoutée) AVANT toute écriture : le CHECK Postgres rejette
+      // specifications::text >= 10000. On échoue ICI, atomiquement, plutôt qu'en
+      // plein Promise.all (ce qui laisserait une propagation PARTIELLE).
+      const fusions = equipements.map((eq) => {
+        const actuels = parseChamps(eq.specifications)
+        const fusion = champs.map((g) => {
+          const existant = actuels.find((c) => c.cle === g.cle)
+          return { ...g, valeur: existant?.valeur ?? g.defaut ?? null }
+        })
+        return { id: eq.id, payload: serializeChamps(fusion) }
+      })
+      // Marge FRANCHE sous le CHECK Postgres (specifications::text < 10000) :
+      // jsonb::text ajoute des espaces (« : », « , ») absents de JSON.stringify, donc
+      // la longueur réelle en base est plus grande → on garde du mou (9000).
+      if (fusions.some((f) => JSON.stringify(f.payload).length >= 9000)) {
+        throw new Error(
+          'Trop de caractéristiques pour un équipement de cette sous-catégorie (limite de taille atteinte).',
+        )
+      }
+      await supabase
+        .from('categories')
+        .update({ specifications: serializeChamps(champs) })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
       await Promise.all(
-        equipements.map(async (eq) => {
-          const actuels = parseChamps(eq.specifications)
-          const fusion = champs.map((g) => {
-            const existant = actuels.find((c) => c.cle === g.cle)
-            return { ...g, valeur: existant?.valeur ?? g.defaut ?? null }
-          })
-          await supabase
+        fusions.map((f) =>
+          supabase
             .from('equipements')
-            .update({ specifications: serializeChamps(fusion) })
-            .eq('id', eq.id)
+            .update({ specifications: f.payload })
+            .eq('id', f.id)
             .select('id')
             .single()
-            .throwOnError()
-        }),
+            .throwOnError(),
+        ),
       )
     },
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: categoriesQueries.all() })
+      void qc.invalidateQueries({ queryKey: equipementsQueries.all() })
+    },
+    onError: () => {
+      // Une propagation a pu n'aboutir que PARTIELLEMENT (suppression concurrente
+      // d'un équipement, RLS…) → resynchroniser le cache sur la vérité de la base.
       void qc.invalidateQueries({ queryKey: categoriesQueries.all() })
       void qc.invalidateQueries({ queryKey: equipementsQueries.all() })
     },

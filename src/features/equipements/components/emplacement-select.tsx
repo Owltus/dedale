@@ -103,8 +103,19 @@ export function EmplacementSelect({
     onChange('') // réinitialise niveau + local en aval
   }
   function choisirNiveau(id: string) {
+    // Multi-bâtiments en ÉDITION : le bâtiment n'est encore que DÉRIVÉ du local
+    // (batimentId === ''). Le figer en état AVANT de vider le local, sinon
+    // `localRow` devient null → `effBatiment` retombe à '' → la cascade s'effondre.
+    if (batimentId === '' && effBatiment) setBatimentId(effBatiment)
     setNiveauId(id)
     onChange('') // réinitialise le local
+  }
+  function choisirLocal(id: string) {
+    // Idem : revenir à « — Choisir un local — » ne doit pas effondrer bâtiment et
+    // niveau encore seulement dérivés du local courant → on les fige d'abord.
+    if (batimentId === '' && effBatiment) setBatimentId(effBatiment)
+    if (niveauId === '' && effNiveau) setNiveauId(effNiveau)
+    onChange(id)
   }
 
   const niveauLocal = (
@@ -128,7 +139,7 @@ export function EmplacementSelect({
         required={requiredEmplacement}
         id="emplacement_local"
         value={value}
-        onChange={onChange}
+        onChange={choisirLocal}
         error={error}
       >
         <option value="">— Choisir un local —</option>

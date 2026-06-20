@@ -50,7 +50,10 @@ export const equipementsQueries = {
   /** Locaux actifs du site actif (pour le dropdown emplacement), via la vue chemin. */
   locaux: (siteId: string | null) =>
     queryOptions({
-      queryKey: [...equipementsQueries.all(), 'locaux', siteId] as const,
+      // Clé HORS préfixe « equipements » : sinon le realtime et les mutations
+      // d'équipements (qui invalident ['equipements']) refetchent inutilement les
+      // locaux, qui n'ont pas à changer sur une modification d'équipement.
+      queryKey: ['locaux', 'list', siteId] as const,
       enabled: siteId !== null,
       queryFn: async ({ signal }) => {
         const { data } = await supabase

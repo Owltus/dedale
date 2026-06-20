@@ -66,8 +66,15 @@ export function FormDialog({
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <form
+          // FormDialog IMBRIQUÉ (ex. « Ajouter une caractéristique » dans le modal
+          // de sous-catégorie) : même affiché dans un portail, le sous-dialogue
+          // reste un ENFANT React du <form> parent, et React fait REMONTER
+          // l'événement « submit » le long de l'arbre REACT (pas du DOM). Sans
+          // stopPropagation, valider le sous-dialogue soumettait AUSSI le
+          // formulaire parent (toast + fermeture, saisie perdue). On coupe net.
           onSubmit={(e) => {
             e.preventDefault()
+            e.stopPropagation()
             onSubmit()
           }}
           className="flex min-h-0 flex-1 flex-col"

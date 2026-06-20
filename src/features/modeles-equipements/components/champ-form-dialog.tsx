@@ -50,8 +50,18 @@ export function ChampFormDialog({
       setError('Le nom du champ est obligatoire.')
       return
     }
+    // Bornes alignées sur champSchema (champs.ts) : sans ça, un nom/unité trop long
+    // s'enregistre mais est JETÉ en silence à la relecture (parseChamps) → perte.
+    if (cle.length > 60) {
+      setError('Le nom du champ est limité à 60 caractères.')
+      return
+    }
     if (existingCles.includes(cle.toLowerCase())) {
       setError('Un champ porte déjà ce nom.')
+      return
+    }
+    if (value.type === 'nombre' && (value.unite?.trim().length ?? 0) > 20) {
+      setError('L’unité est limitée à 20 caractères.')
       return
     }
     if (
@@ -62,7 +72,13 @@ export function ChampFormDialog({
       return
     }
     setError(undefined)
-    onSubmit({ ...value, cle })
+    // Oui/Non ne peut pas être « obligatoire » (la valeur false passerait toujours
+    // la validation) : le sélecteur est masqué pour ce type → on force requis=false.
+    onSubmit({
+      ...value,
+      cle,
+      requis: value.type === 'oui-non' ? false : value.requis,
+    })
   }
 
   return (
@@ -84,14 +100,23 @@ export function ChampFormDialog({
         label="Nom du champ"
         value={value.cle}
         onChange={(v) => set({ cle: v })}
+        maxLength={60}
         required
       />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <SelectField
           label="Type"
           value={value.type}
-          // Changer de type réinitialise la valeur par défaut.
-          onChange={(v) => set({ type: v as ChampType, defaut: null })}
+          // Changer de type réinitialise la valeur par défaut, et désactive
+          // « obligatoire » pour Oui/Non (sans objet pour ce type).
+          onChange={(v) => {
+            const type = v as ChampType
+            set(
+              type === 'oui-non'
+                ? { type, defaut: null, requis: false }
+                : { type, defaut: null },
+            )
+          }}
         >
           {CHAMP_TYPES.map((t) => (
             <option key={t.value} value={t.value}>
@@ -106,6 +131,7 @@ export function ChampFormDialog({
               placeholder="ex. kW, bars"
               value={value.unite ?? ''}
               onChange={(e) => set({ unite: e.target.value || undefined })}
+              maxLength={20}
               aria-label="Unité"
             />
           </div>
@@ -122,11 +148,15 @@ export function ChampFormDialog({
         value={value.defaut}
         onChange={(defaut) => set({ defaut })}
       />
-      <CheckboxField
-        label="Champ obligatoire"
-        value={value.requis}
-        onChange={(requis) => set({ requis })}
-      />
+      {/* « Obligatoire » n'a pas de sens pour Oui/Non (false serait toujours
+          valide) → masqué pour ce type. */}
+      {value.type !== 'oui-non' && (
+        <CheckboxField
+          label="Champ obligatoire"
+          value={value.requis}
+          onChange={(requis) => set({ requis })}
+        />
+      )}
       {error !== undefined && (
         <p className="text-destructive text-sm">{error}</p>
       )}

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Folder,
@@ -259,7 +266,11 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       lastLeafRef.current = leafSeg
     }
   }, [openEquipement, leafSeg])
-  useEffect(() => {
+  // useLayoutEffect (et non useEffect) : la resynchro de l'URL doit se faire AVANT
+  // la peinture, sinon on voit un flash de la liste/catégorie (openEquipement
+  // transitoirement null) le temps que le slug frais remplace l'ancien — au
+  // renommage de l'équipement ouvert comme à l'apparition d'un homonyme (realtime).
+  useLayoutEffect(() => {
     if (leafSeg === undefined || openEquipement !== null) return
     if (leafSeg !== lastLeafRef.current) return
     const id = lastIdRef.current
@@ -506,7 +517,11 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           preset={{ scope: 'parc' }}
           categories={parentCandidates}
           canEntreprise={canEntreprise}
-          siteId={categoryForm.categorie ? null : siteId}
+          // Édition comme création : une catégorie de parc appartient TOUJOURS au
+          // site actif → on passe le vrai siteId. Un null en édition rebasculerait
+          // la catégorie en « commun » à l'enregistrement (site_id=null) et
+          // orphelinerait tous ses équipements.
+          siteId={siteId}
           siteName={null}
           // Création depuis cette page = catégorie DU SITE actif (portée verrouillée).
           lockedScope={
@@ -547,15 +562,25 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       )}
 
       {/* Formulaire UNIQUE création + édition d'un équipement (épuré, hérité).
-          eq null = création. Disponible dès qu'on est dans une sous-catégorie. */}
-      {canEdit && currentTemplate && (
+          eq null = création. Monté dès qu'un template existe (création dans une
+          sous-catégorie) OU qu'un équipement est ciblé pour ÉDITION — y compris un
+          orphelin du bac « Non classé » (currentTemplate null) : en édition le
+          template ne sert pas (les champs viennent de equipement.specifications). */}
+      {canEdit && (currentTemplate ?? equipForm.eq) && (
         <EquipementParcDialog
           key={`equip-${current?.id ?? 'root'}-${equipForm.eq?.id ?? 'new'}-${String(equipForm.open)}`}
           open={equipForm.open}
           onOpenChange={(open) => setEquipForm((f) => ({ ...f, open }))}
           siteId={siteId}
           categorieId={current?.id ?? ''}
-          template={currentTemplate}
+          template={
+            currentTemplate ?? {
+              nomDefaut: '',
+              champs: [],
+              miniatureId: null,
+              modeleId: null,
+            }
+          }
           equipement={equipForm.eq}
         />
       )}
@@ -608,20 +633,14 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     <>
       {header}
 
+      {/* Pas de prop `empty` : on ne court-circuite PAS sur le vide du pool global
+          de catégories. Sinon, un site sans catégorie de parc MAIS avec des
+          équipements orphelins (import legacy) afficherait « Aucune catégorie » et
+          masquerait le bac « Non classé ». La branche interne `emptyHere` gère
+          l'état vide en tenant compte des orphelins. */}
       <QueryState
         query={categoriesQuery}
         pending={<ListRowSkeletons count={4} />}
-        empty={
-          <EmptyState
-            icon={FolderTree}
-            title="Aucune catégorie"
-            description={
-              canEdit
-                ? 'Crée une première catégorie avec le bouton « Nouvelle catégorie ».'
-                : 'Aucune catégorie accessible.'
-            }
-          />
-        }
       >
         {() => {
           if (equipementsQuery.isPending) return <ListRowSkeletons count={4} />

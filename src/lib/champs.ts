@@ -92,6 +92,9 @@ export function prepareChamps(
   const cleaned: Champ[] = champs.map((c) => ({
     ...c,
     cle: c.cle.trim(),
+    // Oui/Non ne peut pas être « obligatoire » (false serait toujours valide) :
+    // normalisation défensive qui réaligne aussi les champs legacy au prochain save.
+    requis: c.type === 'oui-non' ? false : c.requis,
     // `unite` n'a de sens que pour un nombre : on l'efface si le type a change.
     unite: c.type === 'nombre' && c.unite?.trim() ? c.unite.trim() : undefined,
     options:
@@ -109,6 +112,23 @@ export function prepareChamps(
   }
   if (new Set(cles).size !== cles.length) {
     return { ok: false, error: 'Les noms de champ doivent être uniques.' }
+  }
+  // Bornes de longueur ALIGNÉES sur champSchema (cle ≤ 60, unite ≤ 20). Sans ce
+  // garde-fou, un champ trop long s'écrirait mais serait JETÉ en silence par
+  // parseChamps au safeParse → caractéristique perdue sans erreur.
+  const tropLong = cleaned.find((c) => c.cle.length > 60)
+  if (tropLong) {
+    return {
+      ok: false,
+      error: `Le nom « ${tropLong.cle} » dépasse 60 caractères.`,
+    }
+  }
+  const uniteTropLongue = cleaned.find((c) => (c.unite?.length ?? 0) > 20)
+  if (uniteTropLongue) {
+    return {
+      ok: false,
+      error: `L’unité du champ « ${uniteTropLongue.cle} » dépasse 20 caractères.`,
+    }
   }
   const sansOption = cleaned.find(
     (c) => c.type === 'liste' && (c.options ?? []).length === 0,

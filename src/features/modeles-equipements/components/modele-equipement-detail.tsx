@@ -194,6 +194,7 @@ export function ModeleEquipementDetail({
                 canEdit ? (
                   <>
                     <Button
+                      type="button"
                       variant="ghost"
                       size="icon"
                       aria-label="Modifier le champ"
@@ -202,6 +203,7 @@ export function ModeleEquipementDetail({
                       <Pencil />
                     </Button>
                     <Button
+                      type="button"
                       variant="ghost"
                       size="icon"
                       aria-label="Supprimer le champ"

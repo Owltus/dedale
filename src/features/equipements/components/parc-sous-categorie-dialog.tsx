@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import {
   useCreateParcSousCategorie,
   useUpdateParcSousCategorie,
+  useUpdateParcSousCategorieChamps,
 } from '../mutations'
 import {
   parseChamps,
@@ -56,7 +57,13 @@ export function ParcSousCategorieDialog({
   const isEdit = Boolean(categorie)
   const create = useCreateParcSousCategorie()
   const update = useUpdateParcSousCategorie()
-  const pending = create.isPending || update.isPending
+  // Caractéristiques d'un gabarit spécifique EXISTANT : enregistrées au fil de l'eau.
+  const persistChamps = useUpdateParcSousCategorieChamps()
+  // « Occupé » inclut la persistance des caractéristiques : footer (Annuler/
+  // Enregistrer) et éditeur de champs désactivés tant qu'une écriture est en vol
+  // → pas de fermeture mid-propagation ni d'écritures concurrentes non sérialisées.
+  const pending =
+    create.isPending || update.isPending || persistChamps.isPending
 
   const [nom, setNom] = useState(categorie?.nom ?? '')
   const [description, setDescription] = useState(categorie?.description ?? '')
@@ -84,30 +91,29 @@ export function ParcSousCategorieDialog({
     }
     setErrors({})
 
-    // Validation des champs (gabarit spécifique uniquement).
-    let preparedChamps: Champ[] = []
-    if (specifique) {
-      const prepared = prepareChamps(champs)
-      if (!prepared.ok) {
-        toast.error(prepared.error)
-        return
-      }
-      preparedChamps = prepared.champs
-    }
-
     try {
       if (categorie) {
+        // Édition : nom / description / image. Les caractéristiques d'un gabarit
+        // spécifique sont déjà enregistrées au fil de l'eau (handleChampsChange).
         await update.mutateAsync({
           id: categorie.id,
           nom,
           description,
           miniatureId,
-          specifique,
-          champs: preparedChamps,
-          equipements,
         })
         toast.success('Sous-catégorie modifiée')
       } else {
+        // Création : la sous-catégorie n'existe pas encore → on valide et sérialise
+        // les caractéristiques (gabarit spécifique) pour les écrire d'un bloc.
+        let preparedChamps: Champ[] = []
+        if (specifique) {
+          const prepared = prepareChamps(champs)
+          if (!prepared.ok) {
+            toast.error(prepared.error)
+            return
+          }
+          preparedChamps = prepared.champs
+        }
         await create.mutateAsync({
           nom,
           parentId,
@@ -123,6 +129,34 @@ export function ParcSousCategorieDialog({
     } catch (e) {
       toast.error(errorMessage(e))
     }
+  }
+
+  /**
+   * Changement de la liste des caractéristiques. Sous-catégorie EXISTANTE (édition)
+   * → enregistrement IMMÉDIAT (+ propagation aux équipements), le modal reste ouvert
+   * pour en ajouter d'autres. CRÉATION (pas encore d'id) → on accumule en mémoire,
+   * écrit au clic sur « Créer ». Mise à jour optimiste, revert si l'écriture échoue.
+   */
+  function handleChampsChange(next: Champ[]) {
+    const previous = champs
+    setChamps(next)
+    if (!categorie) return
+    const prepared = prepareChamps(next)
+    if (!prepared.ok) {
+      toast.error(prepared.error)
+      setChamps(previous)
+      return
+    }
+    persistChamps.mutate(
+      { id: categorie.id, champs: prepared.champs, equipements },
+      {
+        onSuccess: () => toast.success('Caractéristiques enregistrées'),
+        onError: (e) => {
+          toast.error(errorMessage(e))
+          setChamps(previous)
+        },
+      },
+    )
   }
 
   return (
@@ -171,8 +205,20 @@ export function ParcSousCategorieDialog({
       {specifique ? (
         <ChampsListEditor
           champs={champs}
-          onChange={setChamps}
-          emptyHint="Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ; les équipements de cette sous-catégorie en hériteront."
+          onChange={handleChampsChange}
+          pending={pending}
+          deleteImpactHint={
+            categorie && equipements.length > 0
+              ? `Sa valeur sera aussi retirée de ${String(equipements.length)} équipement${
+                  equipements.length > 1 ? 's' : ''
+                } de cette sous-catégorie.`
+              : undefined
+          }
+          emptyHint={
+            categorie
+              ? 'Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ; ils s’enregistrent aussitôt et les équipements de cette sous-catégorie en héritent.'
+              : 'Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ; les équipements de cette sous-catégorie en hériteront.'
+          }
         />
       ) : (
         <p className="text-muted-foreground text-sm">

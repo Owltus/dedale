@@ -86,6 +86,9 @@ export function EquipementParcDialog({
     const manquant = champs.find(
       (c) =>
         c.requis &&
+        // Oui/Non n'est jamais réellement obligatoire (false est une réponse
+        // valide) : on l'exclut pour ne pas bloquer sur un champ legacy requis=true.
+        c.type !== 'oui-non' &&
         (c.valeur === null || c.valeur === undefined || c.valeur === ''),
     )
     if (manquant) next.champs = `Le champ « ${manquant.cle} » est obligatoire.`
