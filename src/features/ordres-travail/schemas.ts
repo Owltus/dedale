@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { todayLocal } from '@/lib/date'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Machine à états OT — miroir du trigger validation_transitions_ot.
@@ -88,12 +89,8 @@ export const otCreateSchema = z.object({
 
 export type OtCreateFormValues = z.infer<typeof otCreateSchema>
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 export function emptyOtCreate(): OtCreateFormValues {
-  return { gamme_id: '', date_prevue: today() }
+  return { gamme_id: '', date_prevue: todayLocal() }
 }
 
 // Motif obligatoire pour annuler ou rouvrir un OT (CHECK + RPC backend).

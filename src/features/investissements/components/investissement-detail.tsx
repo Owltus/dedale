@@ -10,7 +10,7 @@ import { InvestissementFormDialog } from './investissement-form-dialog'
 import { MIME_PDF } from '@/features/documents/upload'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { formatDate } from '@/lib/date'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { cn } from '@/lib/utils'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -74,7 +74,7 @@ export function InvestissementDetail({
       { id: inv.id, statutId },
       {
         onSuccess: () => toast.success('Statut mis à jour'),
-        onError: (e) => toast.error(errorMessage(e)),
+        onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
   }
@@ -119,7 +119,7 @@ export function InvestissementDetail({
                       {
                         onSuccess: () =>
                           toast.success('Investissement réactivé'),
-                        onError: (e) => toast.error(errorMessage(e)),
+                        onError: (e) => toast.error(writeErrorMessage(e)),
                       },
                     )
                   }
@@ -193,7 +193,7 @@ export function InvestissementDetail({
 
       {canManage && (
         <InvestissementFormDialog
-          key={inv.id}
+          key={`${inv.id}-${String(edit)}`}
           open={edit}
           onOpenChange={setEdit}
           siteId={siteId}
@@ -217,7 +217,7 @@ export function InvestissementDetail({
                 toast.success('Investissement refusé')
                 setRefuserOpen(false)
               },
-              onError: (e) => toast.error(errorMessage(e)),
+              onError: (e) => toast.error(writeErrorMessage(e)),
             },
           )
         }

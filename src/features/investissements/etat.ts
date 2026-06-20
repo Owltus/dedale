@@ -25,6 +25,15 @@ const LABELS_DEFAUT: Record<number, string> = {
   4: 'Refusé',
 }
 
+/**
+ * Libellé d'un statut CapEx : référentiel (suit un renommage), sinon défaut, sinon
+ * « Statut N ». Mutualisé entre la liste et la fiche → un badge ne disparaît plus
+ * au premier rendu tant que `statuts_capex` n'est pas résolu (repli LABELS_DEFAUT).
+ */
+export function nomStatutCapex(id: number, noms: Map<number, string>): string {
+  return noms.get(id) ?? LABELS_DEFAUT[id] ?? `Statut ${String(id)}`
+}
+
 /** Variante de `Badge` cohérente pour un statut CapEx. */
 export function variantStatutCapex(
   id: number,
@@ -64,8 +73,7 @@ export function etapesInvestissement(
   statutId: number,
   noms: Map<number, string>,
 ): InvestissementEtape[] | null {
-  const nom = (id: number) =>
-    noms.get(id) ?? LABELS_DEFAUT[id] ?? `Statut ${String(id)}`
+  const nom = (id: number) => nomStatutCapex(id, noms)
 
   // Statut LIBRE (aucune machine à états) → toute étape du parcours est
   // actionnable (clic = on positionne ce statut), sauf l'étape courante.

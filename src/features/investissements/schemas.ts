@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { todayLocal } from '@/lib/date'
 
 // Champ montant : texte numérique optionnel (≥ 0, max 2 décimales).
 // Vide accepté → converti en null à l'enregistrement (cf. mutations).
@@ -7,6 +8,11 @@ const montant = z
   .trim()
   .refine((v) => v === '' || /^\d+([.,]\d{1,2})?$/.test(v), {
     message: 'Montant invalide (positif, 2 décimales max)',
+  })
+  // Borne alignée sur la colonne NUMERIC(12,2) : on intercède AVANT le réseau
+  // plutôt que de laisser Postgres lever 22003 (numeric field overflow).
+  .refine((v) => v === '' || Number(v.replace(',', '.')) <= 9_999_999_999.99, {
+    message: 'Montant trop élevé (max ~10 milliards)',
   })
 
 export const investissementSchema = z.object({
@@ -20,10 +26,6 @@ export const investissementSchema = z.object({
 
 export type InvestissementFormValues = z.infer<typeof investissementSchema>
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 export function emptyInvestissement(): InvestissementFormValues {
   return {
     libelle: '',
@@ -31,7 +33,7 @@ export function emptyInvestissement(): InvestissementFormValues {
     montant_demande: '',
     montant_prevu: '',
     depense_reelle: '',
-    date_demande: today(),
+    date_demande: todayLocal(),
   }
 }
 

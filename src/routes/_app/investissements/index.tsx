@@ -8,7 +8,10 @@ import {
   statutsCapexQueries,
 } from '@/features/investissements/queries'
 import { useDeleteInvestissement } from '@/features/investissements/mutations'
-import { variantStatutCapex } from '@/features/investissements/etat'
+import {
+  nomStatutCapex,
+  variantStatutCapex,
+} from '@/features/investissements/etat'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -170,7 +173,10 @@ function InvestissementsContent({
               ) : (
                 <div className={listStack}>
                   {shown.map((inv) => {
-                    const statutLabel = statutNom.get(inv.statut_capex_id)
+                    const statutLabel = nomStatutCapex(
+                      inv.statut_capex_id,
+                      statutNom,
+                    )
                     const { label: ecartLabel, depassement } = ecartCapex(inv)
                     return (
                       <ListRow
@@ -194,11 +200,11 @@ function InvestissementsContent({
                           })
                         }
                         badges={
-                          statutLabel ? (
-                            <Badge variant={variantStatutCapex(inv.statut_capex_id)}>
-                              {statutLabel}
-                            </Badge>
-                          ) : undefined
+                          <Badge
+                            variant={variantStatutCapex(inv.statut_capex_id)}
+                          >
+                            {statutLabel}
+                          </Badge>
                         }
                         meta={
                           <div className="text-right leading-tight tabular-nums">
@@ -265,7 +271,7 @@ function InvestissementsContent({
 
       {canManage && (
         <InvestissementFormDialog
-          key={form.investissement?.id ?? 'new'}
+          key={`${form.investissement?.id ?? 'new'}-${String(form.open)}`}
           open={form.open}
           onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
           siteId={siteId}

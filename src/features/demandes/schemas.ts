@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { todayLocal } from '@/lib/date'
 
 // Création d'une DI. Le constat est obligatoire ; liaisons et prestataire
 // optionnels. La table demandes_intervention n'a PAS de colonne `titre` :
@@ -26,14 +27,10 @@ export const diResolutionSchema = z.object({
 
 export type DiResolutionFormValues = z.infer<typeof diResolutionSchema>
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 export function emptyDi(): DiFormValues {
   return {
     constat: '',
-    date_constat: today(),
+    date_constat: todayLocal(),
     local_id: '',
     equipement_id: '',
     prestataire_id: '',

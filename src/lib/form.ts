@@ -70,3 +70,27 @@ export function deleteErrorMessage(e: unknown): string {
   }
   return errorMessage(e)
 }
+
+/**
+ * Message clair pour une ÉCRITURE refusée (INSERT/UPDATE) : traduit les codes
+ * Postgres/PostgREST courants au lieu du message technique brut. À utiliser dans
+ * les `onError` de création/édition/changement de statut.
+ * - `42501` (RLS) / `PGRST116` (0 ligne touchée) : hors périmètre, ou déjà modifié.
+ * - `22003` : dépassement de capacité d’un montant (numeric overflow).
+ * - `23514` (CHECK) : valeur refusée par une règle de la base.
+ * - `23505` : doublon (contrainte d’unicité).
+ * - `23503` : référence FK manquante / supprimée.
+ */
+export function writeErrorMessage(e: unknown): string {
+  const code = pgCode(e)
+  if (code === '42501' || code === 'PGRST116') {
+    return 'Action impossible : élément hors de votre périmètre, ou déjà modifié.'
+  }
+  if (code === '22003') return 'Montant trop élevé : réduisez la valeur.'
+  if (code === '23514') return 'Valeur refusée : elle ne respecte pas une règle.'
+  if (code === '23505') return 'Un élément identique existe déjà.'
+  if (code === '23503') {
+    return 'Référence manquante : un élément lié est introuvable.'
+  }
+  return errorMessage(e)
+}

@@ -4,7 +4,7 @@ import { emptyInvestissement, investissementSchema } from '../schemas'
 import type { InvestissementFormValues } from '../schemas'
 import { useCreateInvestissement, useUpdateInvestissement } from '../mutations'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { fieldErrors, writeErrorMessage } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { DescriptionField } from '@/components/common/description-field'
@@ -82,7 +82,7 @@ export function InvestissementFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

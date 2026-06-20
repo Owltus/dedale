@@ -1,9 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Wallet } from 'lucide-react'
 import { investissementsQueries } from '@/features/investissements/queries'
 import { InvestissementDetail } from '@/features/investissements/components/investissement-detail'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useSlugResolved } from '@/hooks/use-slug-resolved'
 import { useSiteContext } from '@/lib/site-context'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
@@ -13,6 +14,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/_app/investissements/$investissement')({
   component: InvestissementDetailPage,
@@ -54,8 +56,26 @@ function InvestissementResolver({
   slug: string
   canManage: boolean
 }) {
+  const navigate = useNavigate()
   const { data, isPending, isError, refetch } = useQuery(
     investissementsQueries.list(siteId),
+  )
+
+  // Résolution slug -> investissement (MÊMES frères qu'à la génération du lien,
+  // symétrie segOfUnique) AVEC repli par id : renommer l'investissement ouvert ne
+  // l'éjecte plus vers « introuvable », l'URL se resynchronise sur le slug frais.
+  const items = data ?? []
+  const sibs = items.map((i) => ({ nom: i.libelle, id: i.id }))
+  const investissement = useSlugResolved(
+    items,
+    slug,
+    (i) => segOfUnique({ nom: i.libelle, id: i.id }, sibs),
+    (freshSlug) =>
+      void navigate({
+        to: '/investissements/$investissement',
+        params: { investissement: freshSlug },
+        replace: true,
+      }),
   )
 
   if (isPending) {
@@ -76,14 +96,6 @@ function InvestissementResolver({
     )
   }
 
-  // Résolution slug -> investissement avec le MÊME ensemble de frères qu'à la
-  // génération du lien (symétrie segOfUnique).
-  const sibs = data.map((i) => ({ nom: i.libelle, id: i.id }))
-  const investissement =
-    data.find(
-      (i) => segOfUnique({ nom: i.libelle, id: i.id }, sibs) === slug,
-    ) ?? null
-
   if (!investissement) {
     return (
       <PageContainer>
@@ -92,6 +104,11 @@ function InvestissementResolver({
           icon={Wallet}
           title="Investissement introuvable"
           description="Cet investissement n'existe pas ou n'est pas accessible."
+          action={
+            <Button asChild>
+              <Link to="/investissements">Retour aux investissements</Link>
+            </Button>
+          }
         />
       </PageContainer>
     )
