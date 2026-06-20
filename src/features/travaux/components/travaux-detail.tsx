@@ -25,7 +25,7 @@ import { TacheDialog } from './tache-dialog'
 import { TacheRow, type TacheItem } from './tache-row'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { formatDate } from '@/lib/date'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -107,7 +107,7 @@ export function TravauxDetail({
       { id: travaux.id, statutId },
       {
         onSuccess: () => toast.success('Statut mis à jour'),
-        onError: (e) => toast.error(errorMessage(e)),
+        onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
   }
@@ -121,7 +121,7 @@ export function TravauxDetail({
           toast.success('Zone retirée')
           setTacheToDelete(null)
         },
-        onError: (e) => toast.error(errorMessage(e)),
+        onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
   }
@@ -167,7 +167,7 @@ export function TravauxDetail({
                       { id: travaux.id, statutId: STATUT_OUVERT },
                       {
                         onSuccess: () => toast.success('Travaux réactivé'),
-                        onError: (e) => toast.error(errorMessage(e)),
+                        onError: (e) => toast.error(writeErrorMessage(e)),
                       },
                     )
                   }
@@ -345,7 +345,7 @@ export function TravauxDetail({
                 toast.success('Travaux annulé')
                 setAnnulerOpen(false)
               },
-              onError: (e) => toast.error(errorMessage(e)),
+              onError: (e) => toast.error(writeErrorMessage(e)),
             },
           )
         }

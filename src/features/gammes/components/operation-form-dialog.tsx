@@ -5,7 +5,7 @@ import { emptyOperation, operationSchema } from '../schemas'
 import type { OperationFormValues } from '../schemas'
 import { useCreateOperation, useUpdateOperation } from '../mutations'
 import { referentielsQueries } from '../queries'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
@@ -105,7 +105,7 @@ export function OperationFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

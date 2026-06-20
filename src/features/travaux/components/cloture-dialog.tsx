@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { compteRenduSchema } from '../schemas'
 import { STATUT_TERMINE } from '../schemas'
 import { useChangeStatutTravaux } from '../mutations'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextareaField } from '@/components/common/textarea-field'
 
@@ -40,7 +40,7 @@ export function ClotureDialog({
       onOpenChange(false)
     } catch (e) {
       // Le trigger backend peut aussi refuser : on affiche l'erreur.
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

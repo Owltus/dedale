@@ -17,7 +17,7 @@ import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
 import { useSiteContext } from '@/lib/site-context'
 import { supabase } from '@/lib/supabase'
-import { deleteErrorMessage, errorMessage } from '@/lib/form'
+import { deleteErrorMessage, errorMessage, writeErrorMessage } from '@/lib/form'
 import { SCOPE_ALL, scopeMatches, scopeTarget } from '@/lib/scope'
 import { cn } from '@/lib/utils'
 import * as perm from '@/lib/permissions'
@@ -364,7 +364,7 @@ export function MiniaturesPanel() {
         setCropFile(null)
         setReplaceTarget(null)
       } catch (e) {
-        toast.error(errorMessage(e))
+        toast.error(writeErrorMessage(e))
       }
       return
     }
@@ -389,7 +389,7 @@ export function MiniaturesPanel() {
       toast.success('Vignette ajoutée')
       setCropFile(null)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

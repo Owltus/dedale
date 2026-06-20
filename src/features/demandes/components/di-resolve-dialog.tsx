@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { diResolutionSchema } from '../schemas'
 import { useResolveDemande } from '../mutations'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextareaField } from '@/components/common/textarea-field'
 
@@ -39,7 +39,7 @@ export function DiResolveDialog({
       onOpenChange(false)
     } catch (e) {
       // Transition interdite / RLS → erreur serveur catchée.
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

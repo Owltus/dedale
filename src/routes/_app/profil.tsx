@@ -8,7 +8,7 @@ import { useUpdateUser } from '@/features/utilisateurs/mutations'
 import { profileSchema, roleLabel } from '@/features/utilisateurs/schemas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { errorMessage, fieldErrors, writeErrorMessage } from '@/lib/form'
 import { useSiteContext } from '@/lib/site-context'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -192,7 +192,7 @@ function ProfilForm({
       })
       toast.success('Profil mis à jour')
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

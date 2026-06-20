@@ -9,7 +9,7 @@ import { OperationRow } from './operation-row'
 import { MotifDialog } from './motif-dialog'
 import { useAuth } from '@/auth'
 import { formatDate } from '@/lib/date'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -77,7 +77,7 @@ export function OtDetail({ otId, canManage, onBack }: OtDetailProps) {
         },
         onError: (e) => {
           // Transition refusée (ops non terminées, etc.) → message backend.
-          toast.error(errorMessage(e))
+          toast.error(writeErrorMessage(e))
           setClotureOpen(false)
         },
       },
@@ -90,7 +90,7 @@ export function OtDetail({ otId, canManage, onBack }: OtDetailProps) {
       { id: otId, statut: 'planifie' },
       {
         onSuccess: () => toast.success('OT réactivé'),
-        onError: (e) => toast.error(errorMessage(e)),
+        onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
   }
@@ -103,7 +103,7 @@ export function OtDetail({ otId, canManage, onBack }: OtDetailProps) {
           toast.success('OT annulé')
           setAnnulerOpen(false)
         },
-        onError: (e) => toast.error(errorMessage(e)),
+        onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
   }
@@ -116,7 +116,7 @@ export function OtDetail({ otId, canManage, onBack }: OtDetailProps) {
           toast.success('OT rouvert')
           setReouvrirOpen(false)
         },
-        onError: (e) => toast.error(errorMessage(e)),
+        onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
   }

@@ -5,7 +5,7 @@ import { contratSchema, emptyContrat } from '../schemas'
 import type { ContratFormValues } from '../schemas'
 import { useCreateContrat, useUpdateContrat } from '../mutations'
 import { typesContratsQueries } from '../queries'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
@@ -75,7 +75,7 @@ export function ContratFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

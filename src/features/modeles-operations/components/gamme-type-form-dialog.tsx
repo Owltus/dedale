@@ -7,7 +7,7 @@ import {
   useUpdateModeleOperation,
 } from '../mutations'
 import type { ModeleOperation } from '../queries'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
@@ -117,7 +117,7 @@ export function GammeTypeFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

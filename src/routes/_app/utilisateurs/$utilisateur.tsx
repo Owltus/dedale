@@ -5,6 +5,7 @@ import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { UtilisateurDetail } from '@/features/utilisateurs/components/utilisateur-detail'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useSlugResolved } from '@/hooks/use-slug-resolved'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
@@ -25,6 +26,22 @@ function UtilisateurDetailPage() {
   const { session } = useAuth()
   const canManage = perm.canManageAdmin(role)
   const query = useQuery({ ...utilisateursQueries.list(), enabled: canManage })
+
+  // Résolution par slug AVEC repli par id (self exclu des deux côtés, comme la
+  // liste). Renommer l'utilisateur ouvert ne l'éjecte plus vers « introuvable ».
+  const visible = (query.data ?? []).filter((u) => u.id !== session?.user.id)
+  const sibs = visible.map((u) => ({ nom: u.nom_complet, id: u.id }))
+  const user = useSlugResolved(
+    visible,
+    slug,
+    (u) => segOfUnique({ nom: u.nom_complet, id: u.id }, sibs),
+    (freshSlug) =>
+      void navigate({
+        to: '/utilisateurs/$utilisateur',
+        params: { utilisateur: freshSlug },
+        replace: true,
+      }),
+  )
 
   const goBack = () => void navigate({ to: '/utilisateurs' })
 
@@ -63,13 +80,6 @@ function UtilisateurDetailPage() {
       </PageContainer>
     )
   }
-
-  // Self exclu des deux côtés (cf. la liste) → mêmes « frères » pour segOfUnique.
-  const visible = query.data.filter((u) => u.id !== session?.user.id)
-  const sibs = visible.map((u) => ({ nom: u.nom_complet, id: u.id }))
-  const user = visible.find(
-    (u) => segOfUnique({ nom: u.nom_complet, id: u.id }, sibs) === slug,
-  )
 
   if (!user) {
     return (

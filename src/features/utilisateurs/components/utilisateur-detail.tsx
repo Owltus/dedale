@@ -27,7 +27,7 @@ import { supabase } from '@/lib/supabase'
 import * as perm from '@/lib/permissions'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { errorMessage, fieldErrors, writeErrorMessage } from '@/lib/form'
 import { InfoNote } from '@/components/common/info-note'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -202,7 +202,7 @@ function ProfileForm({
       })
       toast.success('Profil mis à jour')
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 
@@ -432,7 +432,7 @@ function SitesCard({ userId, canEdit }: { userId: string; canEdit: boolean }) {
       { userId, siteId },
       {
         onSuccess: () => toast.success('Site ajouté'),
-        onError: (e) => toast.error(errorMessage(e)),
+        onError: (e) => toast.error(writeErrorMessage(e)),
         onSettled: () => setBusy(null),
       },
     )
@@ -597,7 +597,7 @@ function AccountCard({ user }: { user: UserRow }) {
                   )
                   setConfirmToggle(false)
                 },
-                onError: (e) => toast.error(errorMessage(e)),
+                onError: (e) => toast.error(writeErrorMessage(e)),
               },
             )
           }
@@ -617,7 +617,7 @@ function AccountCard({ user }: { user: UserRow }) {
                 toast.success('Utilisateur anonymisé')
                 setConfirmAnon(false)
               },
-              onError: (e) => toast.error(errorMessage(e)),
+              onError: (e) => toast.error(writeErrorMessage(e)),
             })
           }
         />

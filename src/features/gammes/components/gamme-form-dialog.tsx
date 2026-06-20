@@ -9,7 +9,7 @@ import type { SousCategorieGamme } from '../queries'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
@@ -149,7 +149,7 @@ export function GammeFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

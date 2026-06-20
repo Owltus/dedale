@@ -5,7 +5,7 @@ import { emptyOperationItem, operationItemSchema } from '../schemas'
 import type { OperationItemFormValues } from '../schemas'
 import { useCreateOperationItem, useUpdateOperationItem } from '../mutations'
 import { referentielsQueries } from '@/features/gammes/queries'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
@@ -98,7 +98,7 @@ export function OperationItemFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

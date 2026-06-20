@@ -7,7 +7,7 @@ import {
   type StatutTache,
 } from '../schemas'
 import { useUpdateTacheStatut } from '../mutations'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -47,7 +47,7 @@ export function TacheRow({ tache, travauxId, readOnly, onDelete }: TacheRowProps
       { id: tache.id, travauxId, statut: next },
       {
         onSuccess: () => toast.success('Statut mis à jour'),
-        onError: (e) => toast.error(errorMessage(e)),
+        onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
   }

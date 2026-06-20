@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Search } from 'lucide-react'
 import { useSyncGammeEquipements } from '../mutations'
 import { equipementsQueries } from '@/features/equipements/queries'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import {
   Dialog,
   DialogContent,
@@ -66,7 +66,7 @@ export function EquipementsLinkDialog({
       toast.success('Équipements liés mis à jour')
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

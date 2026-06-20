@@ -18,7 +18,7 @@ import {
   prepareChamps,
   type Champ,
 } from '@/lib/champs'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { EmptyState } from '@/components/common/empty-state'
@@ -83,7 +83,7 @@ export function ModeleEquipementDetail({
       await update.mutateAsync({ id: modele.id, champs: prepared.champs })
       return true
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
       return false
     }
   }

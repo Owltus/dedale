@@ -3,7 +3,7 @@ import { Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { LIBELLES_STATUT_OP, STATUTS_OP_SAISISSABLES } from '../schemas'
 import { useUpdateOperationExecution } from '../mutations'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -84,7 +84,7 @@ export function OperationRow({
       },
       {
         onSuccess: () => toast.success('Opération enregistrée'),
-        onError: (e) => toast.error(errorMessage(e)),
+        onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
   }

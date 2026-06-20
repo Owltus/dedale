@@ -5,7 +5,7 @@ import type { ModeleDiFormValues } from '../schemas'
 import { useCreateModeleDi, useUpdateModeleDi } from '../mutations'
 import type { ModeleDi } from '../queries'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
@@ -111,7 +111,7 @@ export function ModeleDiFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

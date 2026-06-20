@@ -7,7 +7,7 @@ import { useReopenDemande } from '../mutations'
 import { DiResolveDialog } from './di-resolve-dialog'
 import { statutBadgeVariant, statutLabel } from '../etat'
 import { formatDateLong } from '@/lib/date'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -68,7 +68,7 @@ export function DiDetail({ diId, canResolve, onBack }: DiDetailProps) {
   function handleReopen() {
     reopen.mutate(diId, {
       onSuccess: () => toast.success('Demande réouverte'),
-      onError: (e) => toast.error(errorMessage(e)),
+      onError: (e) => toast.error(writeErrorMessage(e)),
     })
   }
 

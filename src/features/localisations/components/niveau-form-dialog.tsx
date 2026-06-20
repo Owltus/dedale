@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { emptyNiveau, niveauSchema } from '../schemas'
 import type { NiveauFormValues } from '../schemas'
 import { useCreateNiveau, useUpdateNiveau } from '../mutations'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { IdentiteFields } from '@/components/common/identite-fields'
@@ -67,7 +67,7 @@ export function NiveauFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

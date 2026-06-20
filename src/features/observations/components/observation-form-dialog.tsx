@@ -12,7 +12,7 @@ import {
 } from '../schemas'
 import type { ObservationCreateValues, ObservationSource } from '../schemas'
 import { useCreateObservation } from '../mutations'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { DescriptionField } from '@/components/common/description-field'
@@ -67,7 +67,7 @@ export function ObservationFormDialog({
       toast.success('Observation créée')
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

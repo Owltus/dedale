@@ -5,7 +5,7 @@ import { emptyLocal, localSchema } from '../schemas'
 import type { LocalFormValues } from '../schemas'
 import { useCreateLocal, useUpdateLocal } from '../mutations'
 import { localisationsQueries } from '../queries'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
@@ -75,7 +75,7 @@ export function LocalFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

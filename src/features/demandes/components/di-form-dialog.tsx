@@ -8,7 +8,7 @@ import { modelesDiQueries } from '../queries'
 import { equipementsQueries } from '@/features/equipements/queries'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
@@ -68,7 +68,7 @@ export function DiFormDialog({
       toast.success("Demande d'intervention créée")
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

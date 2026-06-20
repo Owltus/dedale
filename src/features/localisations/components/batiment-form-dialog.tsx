@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { batimentSchema, emptyBatiment } from '../schemas'
 import type { BatimentFormValues } from '../schemas'
 import { useCreateBatiment, useUpdateBatiment } from '../mutations'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import type { Database } from '@/lib/database.types'
@@ -64,7 +64,7 @@ export function BatimentFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

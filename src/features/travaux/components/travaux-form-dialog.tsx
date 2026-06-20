@@ -4,7 +4,7 @@ import { travauxSchema, emptyTravaux } from '../schemas'
 import type { TravauxFormValues } from '../schemas'
 import { useCreateTravaux, useUpdateTravaux } from '../mutations'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { DescriptionField } from '@/components/common/description-field'
@@ -78,7 +78,7 @@ export function TravauxFormDialog({
         onCreated?.(created)
       }
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

@@ -5,7 +5,7 @@ import {
   useUpdateEquipementParc,
 } from '../mutations'
 import { EmplacementSelect } from './emplacement-select'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
@@ -123,7 +123,7 @@ export function EquipementParcDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

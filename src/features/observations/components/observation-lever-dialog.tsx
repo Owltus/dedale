@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { emptyObservationLever, observationLeverSchema } from '../schemas'
 import type { ObservationLeverValues } from '../schemas'
 import { useLeverObservation } from '../mutations'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { TextField } from '@/components/common/text-field'
 import {
   Dialog,
@@ -58,7 +58,7 @@ export function ObservationLeverDialog({
       toast.success('Observation levée')
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

@@ -8,7 +8,7 @@ import {
 } from '../mutations'
 import type { ModeleEquipement } from '../queries'
 import { parseChamps, prepareChamps } from '@/lib/champs'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
@@ -143,7 +143,7 @@ export function ModeleEquipementFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

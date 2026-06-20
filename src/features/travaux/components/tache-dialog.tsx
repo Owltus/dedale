@@ -7,7 +7,7 @@ import { useCreateTache } from '../mutations'
 import { useAuth } from '@/auth'
 import { equipementsQueries } from '@/features/equipements/queries'
 import { EmplacementSelect } from '@/features/equipements/components/emplacement-select'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { SelectField } from '@/components/common/select-field'
 
@@ -70,7 +70,7 @@ export function TacheDialog({
       toast.success('Zone ajoutée')
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

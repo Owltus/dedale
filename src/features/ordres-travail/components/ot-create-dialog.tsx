@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { gammesPourOtQueries } from '../queries'
 import { emptyOtCreate, otCreateSchema } from '../schemas'
 import { useCreateOt } from '../mutations'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import { FormDialog } from '@/components/common/form-dialog'
@@ -74,7 +74,7 @@ export function OtCreateDialog({
       onOpenChange(false)
     } catch (e) {
       // Anti-doublon, gamme sans opération, gamme inactive… → erreur backend.
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

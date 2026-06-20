@@ -11,7 +11,7 @@ import {
   serializeChamps,
   type Champ,
 } from '@/lib/champs'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
@@ -127,7 +127,7 @@ export function ParcSousCategorieDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 
@@ -152,7 +152,7 @@ export function ParcSousCategorieDialog({
       {
         onSuccess: () => toast.success('Caractéristiques enregistrées'),
         onError: (e) => {
-          toast.error(errorMessage(e))
+          toast.error(writeErrorMessage(e))
           setChamps(previous)
         },
       },

@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { emptyPrestataire, prestataireSchema } from '../schemas'
 import type { PrestataireFormValues } from '../schemas'
 import { useCreatePrestataire, useUpdatePrestataire } from '../mutations'
-import { errorMessage, fieldErrors } from '@/lib/form'
+import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import type { Database } from '@/lib/database.types'
@@ -68,7 +68,7 @@ export function PrestataireFormDialog({
       }
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

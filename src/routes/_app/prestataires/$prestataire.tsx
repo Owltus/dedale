@@ -13,6 +13,7 @@ import { etatContrat } from '@/features/prestataires/etat'
 import { PrestataireFormDialog } from '@/features/prestataires/components/prestataire-form-dialog'
 import { ContratFormDialog } from '@/features/prestataires/components/contrat-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useSlugResolved } from '@/hooks/use-slug-resolved'
 import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
 import { deleteErrorMessage } from '@/lib/form'
@@ -59,6 +60,22 @@ function PrestataireDetailPage() {
 
   const goBack = () => void navigate({ to: '/prestataires' })
 
+  // Résolution par slug AVEC repli par id : renommer le prestataire ouvert ne
+  // l'éjecte plus vers « introuvable », l'URL se resynchronise sur le slug frais.
+  const items = prestataires ?? []
+  const sibs = items.map((p) => ({ nom: p.libelle, id: p.id }))
+  const prestataire = useSlugResolved(
+    items,
+    slug,
+    (p) => segOfUnique({ nom: p.libelle, id: p.id }, sibs),
+    (freshSlug) =>
+      void navigate({
+        to: '/prestataires/$prestataire',
+        params: { prestataire: freshSlug },
+        replace: true,
+      }),
+  )
+
   if (!activeSiteId) {
     return (
       <NoSiteSelected
@@ -87,14 +104,6 @@ function PrestataireDetailPage() {
       </PageContainer>
     )
   }
-
-  // Résolution slug -> prestataire avec le MÊME ensemble de frères qu'à la
-  // génération du lien (symétrie segOfUnique).
-  const sibs = prestataires.map((p) => ({ nom: p.libelle, id: p.id }))
-  const prestataire =
-    prestataires.find(
-      (p) => segOfUnique({ nom: p.libelle, id: p.id }, sibs) === slug,
-    ) ?? null
 
   if (!prestataire) {
     return (
