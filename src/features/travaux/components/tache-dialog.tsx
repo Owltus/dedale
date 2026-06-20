@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { tacheSchema, emptyTache } from '../schemas'
 import type { TacheFormValues } from '../schemas'
-import { useCreateTache } from '../mutations'
+import { useCreateTache, useUpdateTache } from '../mutations'
+import type { TacheItem } from './tache-row'
 import { useAuth } from '@/auth'
 import { equipementsQueries } from '@/features/equipements/queries'
 import { EmplacementSelect } from '@/features/equipements/components/emplacement-select'
@@ -16,24 +17,36 @@ interface TacheDialogProps {
   onOpenChange: (open: boolean) => void
   travauxId: string
   siteId: string
+  /** Zone à MODIFIER (local/équipement). Absent = ajout d'une nouvelle zone. */
+  tache?: TacheItem | null
 }
 
 /**
- * Ajout d'une ZONE concernée à un travail : un local REQUIS (cascade Niveau →
- * Local) et, le cas échéant, un équipement DE CE LOCAL (optionnel). Le statut
- * initial est « En attente » (défaut backend) ; il se change ensuite sur la fiche.
+ * Ajout OU modification d'une ZONE concernée par un travail : un local REQUIS
+ * (cascade Niveau → Local) et, le cas échéant, un équipement DE CE LOCAL
+ * (optionnel). En création le statut initial est « En attente » (défaut backend) ;
+ * il se change ensuite sur la fiche. L'édition ne touche QUE le local/équipement
+ * (le statut reste géré en ligne sur la ligne de zone).
  */
 export function TacheDialog({
   open,
   onOpenChange,
   travauxId,
   siteId,
+  tache,
 }: TacheDialogProps) {
+  const isEdit = Boolean(tache)
   const { session } = useAuth()
   const create = useCreateTache()
+  const update = useUpdateTache()
+  const pending = create.isPending || update.isPending
   const { data: equipements = [] } = useQuery(equipementsQueries.list(siteId))
 
-  const [values, setValues] = useState<TacheFormValues>(emptyTache)
+  const [values, setValues] = useState<TacheFormValues>(() =>
+    tache
+      ? { local_id: tache.local_id, equipement_id: tache.equipement_id ?? '' }
+      : emptyTache(),
+  )
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   // Équipements DU LOCAL choisi (sinon liste vide → sélecteur désactivé).
@@ -57,17 +70,26 @@ export function TacheDialog({
       return
     }
     setErrors({})
-    if (!session) {
-      toast.error('Session expirée, reconnecte-toi.')
-      return
-    }
     try {
-      await create.mutateAsync({
-        travauxId,
-        createdBy: session.user.id,
-        values: parsed.data,
-      })
-      toast.success('Zone ajoutée')
+      if (tache) {
+        await update.mutateAsync({
+          id: tache.id,
+          travauxId,
+          values: parsed.data,
+        })
+        toast.success('Zone modifiée')
+      } else {
+        if (!session) {
+          toast.error('Session expirée, reconnecte-toi.')
+          return
+        }
+        await create.mutateAsync({
+          travauxId,
+          createdBy: session.user.id,
+          values: parsed.data,
+        })
+        toast.success('Zone ajoutée')
+      }
       onOpenChange(false)
     } catch (e) {
       toast.error(writeErrorMessage(e))
@@ -78,12 +100,12 @@ export function TacheDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Ajouter une zone"
+      title={isEdit ? 'Modifier la zone' : 'Ajouter une zone'}
       description="Choisis le local concerné et, si besoin, l'équipement précis."
       onSubmit={() => void handleSubmit()}
-      submitLabel="Ajouter"
-      pendingLabel="Ajout…"
-      pending={create.isPending}
+      submitLabel={isEdit ? 'Enregistrer' : 'Ajouter'}
+      pendingLabel={isEdit ? 'Enregistrement…' : 'Ajout…'}
+      pending={pending}
     >
       <EmplacementSelect
         siteId={siteId}

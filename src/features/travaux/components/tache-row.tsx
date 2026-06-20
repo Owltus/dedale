@@ -1,4 +1,4 @@
-import { MapPin, Trash2, Wrench } from 'lucide-react'
+import { MapPin, Pencil, Trash2, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   LIBELLES_STATUT_TACHE,
@@ -28,6 +28,7 @@ interface TacheRowProps {
   travauxId: string
   /** Statut figé (travail Terminé/Annulé) ou rôle sans écriture. */
   readOnly: boolean
+  onEdit: () => void
   onDelete: () => void
 }
 
@@ -36,7 +37,13 @@ interface TacheRowProps {
  * précis éventuel, et le statut d'avancement éditable EN LIGNE (sauvegarde
  * immédiate à la sélection). En lecture seule, le statut s'affiche en badge.
  */
-export function TacheRow({ tache, travauxId, readOnly, onDelete }: TacheRowProps) {
+export function TacheRow({
+  tache,
+  travauxId,
+  readOnly,
+  onEdit,
+  onDelete,
+}: TacheRowProps) {
   const update = useUpdateTacheStatut()
   const statut = tache.statut as StatutTache
   const localNom = tache.locaux?.nom ?? 'Local supprimé'
@@ -88,11 +95,18 @@ export function TacheRow({ tache, travauxId, readOnly, onDelete }: TacheRowProps
       )}
 
       {!readOnly && (
-        <TooltipIconButton
-          icon={<Trash2 className="text-destructive" />}
-          label="Retirer cette zone"
-          onClick={onDelete}
-        />
+        <>
+          <TooltipIconButton
+            icon={<Pencil />}
+            label="Modifier cette zone"
+            onClick={onEdit}
+          />
+          <TooltipIconButton
+            icon={<Trash2 className="text-destructive" />}
+            label="Retirer cette zone"
+            onClick={onDelete}
+          />
+        </>
       )}
     </div>
   )

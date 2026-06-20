@@ -60,7 +60,11 @@ export function TravauxDetail({
   const [edit, setEdit] = useState(false)
   const [clotureOpen, setClotureOpen] = useState(false)
   const [annulerOpen, setAnnulerOpen] = useState(false)
-  const [tacheOpen, setTacheOpen] = useState(false)
+  // Modal de zone : `tache` null = ajout, sinon édition de cette zone.
+  const [tacheForm, setTacheForm] = useState<{
+    open: boolean
+    tache: TacheItem | null
+  }>({ open: false, tache: null })
   const [tacheToDelete, setTacheToDelete] = useState<TacheItem | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
   // Fichiers issus d'un glisser-déposer sur la page → pré-remplis dans le dialogue.
@@ -223,9 +227,12 @@ export function TravauxDetail({
         <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
           <CardTitle className="text-base">Zones concernées</CardTitle>
           {!tachesReadOnly && (
-            <Button size="sm" onClick={() => setTacheOpen(true)}>
-              <ListPlus /> Ajouter une zone
-            </Button>
+            <TooltipIconButton
+              icon={<ListPlus />}
+              label="Ajouter une zone"
+              variant="outline"
+              onClick={() => setTacheForm({ open: true, tache: null })}
+            />
           )}
         </CardHeader>
         <CardContent>
@@ -244,7 +251,7 @@ export function TravauxDetail({
                 title="Aucune zone concernée"
                 action={
                   !tachesReadOnly ? (
-                    <Button size="sm" onClick={() => setTacheOpen(true)}>
+                    <Button size="sm" onClick={() => setTacheForm({ open: true, tache: null })}>
                       <ListPlus /> Ajouter une zone
                     </Button>
                   ) : undefined
@@ -260,6 +267,7 @@ export function TravauxDetail({
                     tache={t}
                     travauxId={travaux.id}
                     readOnly={tachesReadOnly}
+                    onEdit={() => setTacheForm({ open: true, tache: t })}
                     onDelete={() => setTacheToDelete(t)}
                   />
                 ))}
@@ -297,11 +305,12 @@ export function TravauxDetail({
 
       {!tachesReadOnly && (
         <TacheDialog
-          key={tacheOpen ? 'open' : 'closed'}
-          open={tacheOpen}
-          onOpenChange={setTacheOpen}
+          key={`${tacheForm.tache?.id ?? 'new'}-${String(tacheForm.open)}`}
+          open={tacheForm.open}
+          onOpenChange={(open) => setTacheForm((f) => ({ ...f, open }))}
           travauxId={travaux.id}
           siteId={siteId}
+          tache={tacheForm.tache}
         />
       )}
 

@@ -150,6 +150,36 @@ export function useCreateTache() {
   })
 }
 
+/** Modifie le local et/ou l'équipement d'une zone existante (pas son statut). */
+export function useUpdateTache() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      values,
+    }: {
+      id: string
+      travauxId: string
+      values: TacheFormValues
+    }) => {
+      await supabase
+        .from('travaux_taches')
+        .update({
+          local_id: values.local_id,
+          equipement_id: values.equipement_id || null,
+        })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({
+        queryKey: travauxQueries.taches(vars.travauxId).queryKey,
+      }),
+  })
+}
+
 export function useUpdateTacheStatut() {
   const qc = useQueryClient()
   return useMutation({
