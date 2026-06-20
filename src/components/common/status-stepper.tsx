@@ -13,6 +13,13 @@ export interface StepperStep {
    * - `rejected` : issue défavorable terminale (pastille destructive + ✗).
    */
   state: 'done' | 'current' | 'upcoming' | 'rejected'
+  /**
+   * Étape ACTIONNABLE : un clic sur la pastille déclenche `onStepClick` (passage
+   * vers ce statut). Sans ce flag — ou sans `onStepClick` — la pastille reste un
+   * simple indicateur. Indépendant de `state` (ex. une étape `done` peut rester
+   * actionnable = réouverture).
+   */
+  actionable?: boolean
 }
 
 /** Texte d'état (lecteur d'écran) — l'info ne doit pas passer que par la couleur. */
@@ -23,11 +30,34 @@ const ETAT_SR: Record<StepperStep['state'], string> = {
   rejected: 'refusé',
 }
 
+const PASTILLE_BASE =
+  'flex size-8 items-center justify-center rounded-full border text-sm font-medium'
+
+function pastilleStateClass(state: StepperStep['state']): string {
+  return cn(
+    state === 'done' && 'border-success bg-success text-success-foreground',
+    state === 'current' && 'border-primary text-primary ring-primary/25 ring-2',
+    state === 'upcoming' && 'border-border text-muted-foreground',
+    state === 'rejected' && 'border-destructive bg-destructive text-white',
+  )
+}
+
+function pastilleContenu(state: StepperStep['state'], index: number) {
+  if (state === 'done') return <Check className="size-4" />
+  if (state === 'rejected') return <X className="size-4" />
+  return index + 1
+}
+
 /**
  * Frise d'avancement générique (aucune logique métier) : une suite d'étapes
  * reliées par un connecteur, à empiler dans une `Card`. L'appelant calcule
  * l'état de chaque étape (cf. `features/<x>/etat.ts`). Réutilisable pour tout
  * suivi de statut.
+ *
+ * Les pastilles peuvent devenir CLIQUABLES : si `onStepClick` est fourni, toute
+ * étape marquée `actionable` est rendue en `<button>` (clic = passage vers ce
+ * statut). C'est ainsi qu'on change de statut directement depuis la frise, sans
+ * liste d'actions séparée.
  *
  * Le connecteur se colore (success) quand l'étape précédente est franchie ET
  * que la suivante n'est pas un refus → lecture immédiate de la progression sans
@@ -36,12 +66,23 @@ const ETAT_SR: Record<StepperStep['state'], string> = {
  * couleur/l'icône). Tolère les libellés longs (troncature) et le débordement
  * (scroll horizontal) pour tenir sur mobile.
  */
-export function StatusStepper({ steps }: { steps: StepperStep[] }) {
+export function StatusStepper({
+  steps,
+  onStepClick,
+  disabled = false,
+}: {
+  steps: StepperStep[]
+  /** Rendu cliquable des étapes `actionable`. Reçoit l'index de l'étape cliquée. */
+  onStepClick?: (index: number) => void
+  /** Désactive temporairement tous les clics (ex. mutation en cours). */
+  disabled?: boolean
+}) {
   return (
     <ol aria-label="Avancement" className="flex items-start overflow-x-auto">
       {steps.map((step, i) => {
         const connecteurFranchi =
           steps[i - 1]?.state === 'done' && step.state !== 'rejected'
+        const clickable = onStepClick !== undefined && step.actionable === true
         return (
           <Fragment key={i}>
             {i > 0 && (
@@ -57,27 +98,26 @@ export function StatusStepper({ steps }: { steps: StepperStep[] }) {
               aria-current={step.state === 'current' ? 'step' : undefined}
               className="flex shrink-0 flex-col items-center gap-1.5"
             >
-              <span
-                className={cn(
-                  'flex size-8 items-center justify-center rounded-full border text-sm font-medium',
-                  step.state === 'done' &&
-                    'border-success bg-success text-success-foreground',
-                  step.state === 'current' &&
-                    'border-primary text-primary ring-primary/25 ring-2',
-                  step.state === 'upcoming' &&
-                    'border-border text-muted-foreground',
-                  step.state === 'rejected' &&
-                    'border-destructive bg-destructive text-white',
-                )}
-              >
-                {step.state === 'done' ? (
-                  <Check className="size-4" />
-                ) : step.state === 'rejected' ? (
-                  <X className="size-4" />
-                ) : (
-                  i + 1
-                )}
-              </span>
+              {clickable ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onStepClick(i)}
+                  aria-label={`Passer à « ${step.label} »`}
+                  title={`Passer à « ${step.label} »`}
+                  className={cn(
+                    PASTILLE_BASE,
+                    pastilleStateClass(step.state),
+                    'focus-visible:ring-ring/50 cursor-pointer transition hover:brightness-95 focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60',
+                  )}
+                >
+                  {pastilleContenu(step.state, i)}
+                </button>
+              ) : (
+                <span className={cn(PASTILLE_BASE, pastilleStateClass(step.state))}>
+                  {pastilleContenu(step.state, i)}
+                </span>
+              )}
               <span
                 title={step.label}
                 className={cn(

@@ -15,6 +15,17 @@ interface EmplacementSelectProps {
    * droite) ; absent → Niveau/Local empilés pleine largeur.
    */
   aside?: ReactNode
+  /**
+   * Locaux à MASQUER de la liste « Local » (ex. ceux déjà sélectionnés dans un
+   * sélecteur multiple). Optionnel.
+   */
+  excludeLocalIds?: string[]
+  /**
+   * Marque les champs comme requis (astérisque). Défaut `true` (formulaire d'une
+   * unique entité). Mettre `false` en mode AJOUT à une sélection multiple, où le
+   * choix n'est pas obligatoire en soi.
+   */
+  requiredEmplacement?: boolean
 }
 
 /**
@@ -29,6 +40,8 @@ export function EmplacementSelect({
   onChange,
   error,
   aside,
+  excludeLocalIds,
+  requiredEmplacement = true,
 }: EmplacementSelectProps) {
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
 
@@ -73,14 +86,16 @@ export function EmplacementSelect({
     return [...map].map(([id, nom]) => ({ id, nom }))
   }, [locaux, effBatiment])
 
-  // Locaux du niveau choisi.
-  const locauxNiveau = useMemo(
-    () =>
-      locaux.filter(
-        (l) => l.batiment_id === effBatiment && l.niveau_id === effNiveau,
-      ),
-    [locaux, effBatiment, effNiveau],
-  )
+  // Locaux du niveau choisi (hors locaux explicitement exclus).
+  const locauxNiveau = useMemo(() => {
+    const exclus = new Set(excludeLocalIds ?? [])
+    return locaux.filter(
+      (l) =>
+        l.batiment_id === effBatiment &&
+        l.niveau_id === effNiveau &&
+        !exclus.has(l.local_id ?? ''),
+    )
+  }, [locaux, effBatiment, effNiveau, excludeLocalIds])
 
   function choisirBatiment(id: string) {
     setBatimentId(id)
@@ -96,7 +111,7 @@ export function EmplacementSelect({
     <div className="grid gap-4">
       <SelectField
         label="Niveau"
-        required
+        required={requiredEmplacement}
         id="emplacement_niveau"
         value={effNiveau}
         onChange={choisirNiveau}
@@ -110,7 +125,7 @@ export function EmplacementSelect({
       </SelectField>
       <SelectField
         label="Local"
-        required
+        required={requiredEmplacement}
         id="emplacement_local"
         value={value}
         onChange={onChange}
@@ -132,7 +147,7 @@ export function EmplacementSelect({
       {!batimentUnique && (
         <SelectField
           label="Bâtiment"
-          required
+          required={requiredEmplacement}
           id="emplacement_batiment"
           value={effBatiment}
           onChange={choisirBatiment}

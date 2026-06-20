@@ -1,5 +1,10 @@
 import type { StepperStep } from '@/components/common/status-stepper'
 
+/** Étape de frise enrichie du statut CapEx qu'elle représente (pour le clic). */
+export interface InvestissementEtape extends StepperStep {
+  statutId: number
+}
+
 // Parcours CapEx (ids du seed `statuts_capex`), dans l'ORDRE narratif d'affichage :
 // Demandé(1) → À l'étude(5) → Validé(2) → Engagé(6) → Réalisé(3) → Clôturé(7).
 // Refusé(4) = issue défavorable, hors du parcours linéaire.
@@ -8,7 +13,8 @@ import type { StepperStep } from '@/components/common/status-stepper'
 // ici (présentation) — les ids ne sont volontairement PAS monotones (statuts
 // ajoutés après coup) → l'état se calcule par POSITION, pas par valeur d'id.
 const PARCOURS_IDS = [1, 5, 2, 6, 3, 7] as const
-const ID_REFUSE = 4
+/** Statut « Refusé » (issue défavorable, hors parcours linéaire). */
+export const ID_REFUSE = 4
 const LABELS_DEFAUT: Record<number, string> = {
   1: 'Demandé',
   5: "À l'étude",
@@ -50,20 +56,30 @@ export function rangStatutCapex(id: number): number {
 /**
  * Construit la frise de suivi d'un investissement depuis son statut courant et
  * le référentiel des statuts (id → nom, pour suivre un éventuel renommage).
- * Renvoie `null` si le statut n'appartient pas au parcours connu (statut
- * personnalisé) → l'appelant retombe sur un simple badge.
+ * Renvoie `null` si le statut n'appartient ni au parcours ni au refus (cas
+ * théorique : le seed `statuts_capex` couvre 1-7) → la frise n'est alors pas
+ * affichée. Statut LIBRE : toutes les étapes du parcours sont actionnables.
  */
 export function etapesInvestissement(
   statutId: number,
   noms: Map<number, string>,
-): StepperStep[] | null {
+): InvestissementEtape[] | null {
   const nom = (id: number) =>
     noms.get(id) ?? LABELS_DEFAUT[id] ?? `Statut ${String(id)}`
 
+  // Statut LIBRE (aucune machine à états) → toute étape du parcours est
+  // actionnable (clic = on positionne ce statut), sauf l'étape courante.
   if (statutId === ID_REFUSE) {
+    // Refusé : frise minimale, en lecture seule. La sortie du refus
+    // (réactivation) se fait via le bouton dédié, pas par la frise.
     return [
-      { label: nom(1), state: 'done' },
-      { label: nom(ID_REFUSE), state: 'rejected' },
+      { label: nom(1), state: 'done', statutId: 1, actionable: false },
+      {
+        label: nom(ID_REFUSE),
+        state: 'rejected',
+        statutId: ID_REFUSE,
+        actionable: false,
+      },
     ]
   }
 
@@ -75,7 +91,16 @@ export function etapesInvestissement(
   const dernier = PARCOURS_IDS.length - 1
   return PARCOURS_IDS.map((id, i) => ({
     label: nom(id),
+    statutId: id,
     state:
-      i < idx ? 'done' : i === idx ? (i === dernier ? 'done' : 'current') : 'upcoming',
+      i < idx
+        ? 'done'
+        : i === idx
+          ? i === dernier
+            ? 'done'
+            : 'current'
+          : 'upcoming',
+    // Libre : toutes les étapes sont cliquables sauf celle déjà active.
+    actionable: i !== idx,
   }))
 }

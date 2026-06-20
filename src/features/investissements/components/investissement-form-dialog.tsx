@@ -1,17 +1,13 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { emptyInvestissement, investissementSchema } from '../schemas'
 import type { InvestissementFormValues } from '../schemas'
 import { useCreateInvestissement, useUpdateInvestissement } from '../mutations'
-import { statutsCapexQueries } from '../queries'
-import { rangStatutCapex } from '../etat'
 import { useAuth } from '@/auth'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { DescriptionField } from '@/components/common/description-field'
-import { SelectField } from '@/components/common/select-field'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -34,7 +30,6 @@ function initialValues(
   return {
     libelle: investissement.libelle,
     description: investissement.description ?? '',
-    statut_capex_id: String(investissement.statut_capex_id),
     montant_demande: montantToText(investissement.montant_demande),
     montant_prevu: montantToText(investissement.montant_prevu),
     depense_reelle: montantToText(investissement.depense_reelle),
@@ -52,7 +47,6 @@ export function InvestissementFormDialog({
   const { session } = useAuth()
   const create = useCreateInvestissement()
   const update = useUpdateInvestissement()
-  const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const [values, setValues] = useState<InvestissementFormValues>(() =>
     initialValues(investissement),
   )
@@ -115,22 +109,6 @@ export function InvestissementFormDialog({
         onChange={(v) => set('description', v)}
         error={errors.description}
       />
-      <SelectField
-        label="Statut"
-        required
-        value={values.statut_capex_id}
-        onChange={(v) => set('statut_capex_id', v)}
-        error={errors.statut_capex_id}
-      >
-        <option value="">Sélectionne un statut</option>
-        {[...statuts]
-          .sort((a, b) => rangStatutCapex(a.id) - rangStatutCapex(b.id))
-          .map((statut) => (
-            <option key={statut.id} value={String(statut.id)}>
-              {statut.nom}
-            </option>
-          ))}
-      </SelectField>
       <div className="grid grid-cols-3 gap-4">
         <TextField
           label="Montant demandé (€)"

@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Paperclip, Pencil } from 'lucide-react'
+import {
+  Ban,
+  ListChecks,
+  ListPlus,
+  Paperclip,
+  Pencil,
+  RotateCcw,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { travauxQueries, statutsTravauxQueries } from '../queries'
-import { useChangeStatutTravaux } from '../mutations'
+import { useChangeStatutTravaux, useDeleteTache } from '../mutations'
 import {
-  STATUT_EN_COURS,
+  STATUT_ANNULE,
+  STATUT_OUVERT,
   STATUT_TERMINE,
   TRANSITIONS,
   estVerrouille,
@@ -13,15 +21,22 @@ import {
 import { etapesTravaux, variantStatutTravaux } from '../etat'
 import { TravauxFormDialog } from './travaux-form-dialog'
 import { ClotureDialog } from './cloture-dialog'
+import { TacheDialog } from './tache-dialog'
+import { TacheRow, type TacheItem } from './tache-row'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { formatDate } from '@/lib/date'
 import { errorMessage } from '@/lib/form'
+import { listStack } from '@/lib/responsive'
 import { cn } from '@/lib/utils'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusStepper } from '@/components/common/status-stepper'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
+import { EmptyState } from '@/components/common/empty-state'
+import { QueryState } from '@/components/common/query-state'
+import { CardSkeletons } from '@/components/common/card-skeletons'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,9 +45,7 @@ import type { Database } from '@/lib/database.types'
 type TravauxRow = Database['public']['Tables']['interventions_travaux']['Row']
 
 interface TravauxDetailProps {
-  travaux: TravauxRow & {
-    prestataires: { id: string; libelle: string } | null
-  }
+  travaux: TravauxRow
   siteId: string
   canManage: boolean
 }
@@ -43,13 +56,14 @@ export function TravauxDetail({
   canManage,
 }: TravauxDetailProps) {
   const { data: statuts = [] } = useQuery(statutsTravauxQueries.list())
-  const { data: locaux = [] } = useQuery(travauxQueries.locaux(travaux.id))
-  const { data: equipements = [] } = useQuery(
-    travauxQueries.equipements(travaux.id),
-  )
+  const tachesQuery = useQuery(travauxQueries.taches(travaux.id))
   const change = useChangeStatutTravaux()
+  const delTache = useDeleteTache()
   const [edit, setEdit] = useState(false)
   const [clotureOpen, setClotureOpen] = useState(false)
+  const [annulerOpen, setAnnulerOpen] = useState(false)
+  const [tacheOpen, setTacheOpen] = useState(false)
+  const [tacheToDelete, setTacheToDelete] = useState<TacheItem | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
   // Fichiers issus d'un glisser-déposer sur la page → pré-remplis dans le dialogue.
   const [droppedFiles, setDroppedFiles] = useState<File[]>([])
@@ -60,6 +74,13 @@ export function TravauxDetail({
   const verrouille = estVerrouille(travaux.statut_travaux_id)
   const transitions = TRANSITIONS[travaux.statut_travaux_id] ?? []
   const editable = canManage && !verrouille
+  const tachesReadOnly = !canManage || verrouille
+  // « Annuler » (statut hors parcours de la frise) : proposé en top bar tant
+  // que la transition vers Annulé est autorisée.
+  const canAnnuler = canManage && transitions.includes(STATUT_ANNULE)
+  // « Réactiver » : ramène un travaux Annulé vers « Ouvert » (résurrection).
+  const canReactiver =
+    canManage && travaux.statut_travaux_id === STATUT_ANNULE
 
   // Ouverture manuelle (bouton top bar) : aucun fichier pré-rempli.
   const openUploadEmpty = () => {
@@ -94,11 +115,25 @@ export function TravauxDetail({
     )
   }
 
+  function confirmDeleteTache() {
+    if (!tacheToDelete) return
+    delTache.mutate(
+      { id: tacheToDelete.id, travauxId: travaux.id },
+      {
+        onSuccess: () => {
+          toast.success('Tâche supprimée')
+          setTacheToDelete(null)
+        },
+        onError: (e) => toast.error(errorMessage(e)),
+      },
+    )
+  }
+
   return (
     <PageContainer className="flex flex-col">
       <PageHeader
         title={travaux.titre}
-        description={`Demandé le ${formatDate(travaux.date_demande)}`}
+        description={`Créé le ${formatDate(travaux.date_demande)}`}
         titleBadges={
           <Badge variant={variantStatutTravaux(travaux.statut_travaux_id)}>
             {statutLabel}
@@ -121,6 +156,31 @@ export function TravauxDetail({
                   onClick={() => setEdit(true)}
                 />
               )}
+              {canAnnuler && (
+                <TooltipIconButton
+                  icon={<Ban className="text-destructive" />}
+                  label="Annuler le travaux"
+                  variant="outline"
+                  onClick={() => setAnnulerOpen(true)}
+                />
+              )}
+              {canReactiver && (
+                <TooltipIconButton
+                  icon={<RotateCcw />}
+                  label="Réactiver le travaux"
+                  variant="outline"
+                  disabled={change.isPending}
+                  onClick={() =>
+                    change.mutate(
+                      { id: travaux.id, statutId: STATUT_OUVERT },
+                      {
+                        onSuccess: () => toast.success('Travaux réactivé'),
+                        onError: (e) => toast.error(errorMessage(e)),
+                      },
+                    )
+                  }
+                />
+              )}
             </>
           ) : undefined
         }
@@ -135,49 +195,34 @@ export function TravauxDetail({
         </Card>
       )}
 
-      {/* Suivi : frise d'avancement + transitions de la machine à états. */}
+      {/* Suivi : frise d'avancement. Les pastilles actionnables changent le
+          statut directement (clic) ; « Annuler » est en barre de titre. */}
       {etapes && (
         <Card className="mb-6">
-          <CardContent className="flex flex-col gap-4">
-            <StatusStepper steps={etapes} />
-            {canManage && transitions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 border-t pt-4">
-                <span className="text-muted-foreground text-xs">
-                  Faire passer à :
-                </span>
-                {transitions.map((statutId) => (
-                  <Button
-                    key={statutId}
-                    size="sm"
-                    variant={statutId === STATUT_TERMINE ? 'default' : 'outline'}
-                    disabled={change.isPending}
-                    onClick={() => transition(statutId)}
-                  >
-                    {travaux.statut_travaux_id === STATUT_TERMINE &&
-                    statutId === STATUT_EN_COURS
-                      ? 'Rouvrir'
-                      : (noms.get(statutId) ?? 'Statut')}
-                  </Button>
-                ))}
-              </div>
-            )}
+          <CardContent>
+            <StatusStepper
+              steps={etapes}
+              disabled={change.isPending}
+              onStepClick={
+                canManage
+                  ? (i) => {
+                      const cible = etapes[i]
+                      if (cible) transition(cible.statutId)
+                    }
+                  : undefined
+              }
+            />
           </CardContent>
         </Card>
       )}
 
       {/* Caractéristiques (sans titre : les libellés suffisent). */}
       <Card className="mb-6">
-        <CardContent className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-          <Champ
-            label="Prestataire"
-            value={travaux.prestataires?.libelle ?? '—'}
-          />
-          <Champ label="Date prévue" value={formatDate(travaux.date_prevue)} />
-          <Champ label="Date de fin" value={formatDate(travaux.date_fin)} />
-          <Champ
-            label="Date de demande"
-            value={formatDate(travaux.date_demande)}
-          />
+        <CardContent className="grid grid-cols-2 gap-x-6 gap-y-4">
+          <Champ label="Créé le" value={formatDate(travaux.date_demande)} />
+          {travaux.date_fin && (
+            <Champ label="Terminé le" value={formatDate(travaux.date_fin)} />
+          )}
         </CardContent>
       </Card>
 
@@ -191,46 +236,61 @@ export function TravauxDetail({
         </Card>
       )}
 
-      {/* Périmètre concerné : locaux + équipements liés. */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2">
-        <Card className="min-w-0">
-          <CardHeader>
-            <CardTitle className="text-base">Locaux concernés</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            {locaux.length === 0 ? (
-              <p className="text-muted-foreground">Aucun local lié.</p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {locaux.map((l) => (
-                  <li key={l.local_id} className="truncate">
-                    {l.locaux.nom}
-                  </li>
+      {/* Tâches : to-do à statut (cœur de la fiche). */}
+      <Card className="mb-6">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+          <CardTitle className="text-base">Tâches</CardTitle>
+          {!tachesReadOnly && (
+            <Button size="sm" onClick={() => setTacheOpen(true)}>
+              <ListPlus /> Ajouter une tâche
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <QueryState
+            query={tachesQuery}
+            pending={
+              <CardSkeletons
+                count={3}
+                height="h-14"
+                container="flex flex-col gap-2"
+              />
+            }
+            empty={
+              <EmptyState
+                icon={ListChecks}
+                title="Aucune tâche"
+                description={
+                  tachesReadOnly
+                    ? 'Aucune tâche pour ce travail.'
+                    : 'Ajoute une première tâche à réaliser.'
+                }
+                action={
+                  !tachesReadOnly ? (
+                    <Button size="sm" onClick={() => setTacheOpen(true)}>
+                      <ListPlus /> Ajouter une tâche
+                    </Button>
+                  ) : undefined
+                }
+              />
+            }
+          >
+            {(taches) => (
+              <div className={listStack}>
+                {taches.map((t) => (
+                  <TacheRow
+                    key={t.id}
+                    tache={t}
+                    travauxId={travaux.id}
+                    readOnly={tachesReadOnly}
+                    onDelete={() => setTacheToDelete(t)}
+                  />
                 ))}
-              </ul>
+              </div>
             )}
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0">
-          <CardHeader>
-            <CardTitle className="text-base">Équipements concernés</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            {equipements.length === 0 ? (
-              <p className="text-muted-foreground">Aucun équipement lié.</p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {equipements.map((e) => (
-                  <li key={e.equipement_id} className="truncate">
-                    {e.equipements.nom}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          </QueryState>
+        </CardContent>
+      </Card>
 
       {/* Zone documents : prend l'espace restant (flex-1) → surface de dépôt
           pleine hauteur, mise en valeur en entier pendant le glisser-déposer. */}
@@ -239,6 +299,7 @@ export function TravauxDetail({
           liaison="documents_interventions_travaux"
           parentColumn="travaux_id"
           parentId={travaux.id}
+          title="Documents"
           uploadOpen={uploadOpen}
           onUploadOpenChange={handleUploadOpenChange}
           uploadInitialFiles={droppedFiles}
@@ -258,11 +319,60 @@ export function TravauxDetail({
         />
       )}
 
+      {!tachesReadOnly && (
+        <TacheDialog
+          key={tacheOpen ? 'open' : 'closed'}
+          open={tacheOpen}
+          onOpenChange={setTacheOpen}
+          travauxId={travaux.id}
+          siteId={siteId}
+        />
+      )}
+
+      <ConfirmDialog
+        open={tacheToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setTacheToDelete(null)
+        }}
+        title="Supprimer la tâche ?"
+        description={
+          tacheToDelete
+            ? `« ${tacheToDelete.libelle} » sera supprimée définitivement.`
+            : undefined
+        }
+        confirmLabel="Supprimer"
+        destructive
+        loading={delTache.isPending}
+        onConfirm={confirmDeleteTache}
+      />
+
       <ClotureDialog
         key={clotureOpen ? 'open' : 'closed'}
         open={clotureOpen}
         onOpenChange={setClotureOpen}
         travauxId={travaux.id}
+      />
+
+      <ConfirmDialog
+        open={annulerOpen}
+        onOpenChange={setAnnulerOpen}
+        title="Annuler le travaux ?"
+        description="Le travaux passera au statut « Annulé ». Cette issue est terminale."
+        confirmLabel="Annuler le travaux"
+        destructive
+        loading={change.isPending}
+        onConfirm={() =>
+          change.mutate(
+            { id: travaux.id, statutId: STATUT_ANNULE },
+            {
+              onSuccess: () => {
+                toast.success('Travaux annulé')
+                setAnnulerOpen(false)
+              },
+              onError: (e) => toast.error(errorMessage(e)),
+            },
+          )
+        }
       />
     </PageContainer>
   )

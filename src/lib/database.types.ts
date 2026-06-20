@@ -1312,10 +1312,8 @@ export type Database = {
           created_by: string
           date_demande: string
           date_fin: string | null
-          date_prevue: string | null
           description: string | null
           id: string
-          prestataire_id: string | null
           site_id: string
           statut_travaux_id: number
           titre: string
@@ -1328,10 +1326,8 @@ export type Database = {
           created_by: string
           date_demande?: string
           date_fin?: string | null
-          date_prevue?: string | null
           description?: string | null
           id?: string
-          prestataire_id?: string | null
           site_id: string
           statut_travaux_id?: number
           titre: string
@@ -1344,10 +1340,8 @@ export type Database = {
           created_by?: string
           date_demande?: string
           date_fin?: string | null
-          date_prevue?: string | null
           description?: string | null
           id?: string
-          prestataire_id?: string | null
           site_id?: string
           statut_travaux_id?: number
           titre?: string
@@ -1366,13 +1360,6 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "interventions_travaux_prestataire_id_fkey"
-            columns: ["prestataire_id"]
-            isOneToOne: false
-            referencedRelation: "prestataires"
             referencedColumns: ["id"]
           },
           {
@@ -2794,79 +2781,81 @@ export type Database = {
         }
         Relationships: []
       }
-      travaux_equipements: {
+      travaux_taches: {
         Row: {
           created_at: string
-          equipement_id: string
+          created_by: string | null
+          equipement_id: string | null
+          id: string
+          libelle: string
+          local_id: string | null
+          ordre: number
+          statut: string
           travaux_id: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
-          equipement_id: string
+          created_by?: string | null
+          equipement_id?: string | null
+          id?: string
+          libelle: string
+          local_id?: string | null
+          ordre?: number
+          statut?: string
           travaux_id: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
-          equipement_id?: string
+          created_by?: string | null
+          equipement_id?: string | null
+          id?: string
+          libelle?: string
+          local_id?: string | null
+          ordre?: number
+          statut?: string
           travaux_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "travaux_equipements_equipement_id_fkey"
+            foreignKeyName: "travaux_taches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "travaux_taches_equipement_id_fkey"
             columns: ["equipement_id"]
             isOneToOne: false
             referencedRelation: "equipements"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "travaux_equipements_equipement_id_fkey"
+            foreignKeyName: "travaux_taches_equipement_id_fkey"
             columns: ["equipement_id"]
             isOneToOne: false
             referencedRelation: "v_equipements_complet"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "travaux_equipements_travaux_id_fkey"
-            columns: ["travaux_id"]
-            isOneToOne: false
-            referencedRelation: "interventions_travaux"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      travaux_localisations: {
-        Row: {
-          created_at: string
-          local_id: string
-          travaux_id: string
-        }
-        Insert: {
-          created_at?: string
-          local_id: string
-          travaux_id: string
-        }
-        Update: {
-          created_at?: string
-          local_id?: string
-          travaux_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "travaux_localisations_local_id_fkey"
+            foreignKeyName: "travaux_taches_local_id_fkey"
             columns: ["local_id"]
             isOneToOne: false
             referencedRelation: "locaux"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "travaux_localisations_local_id_fkey"
+            foreignKeyName: "travaux_taches_local_id_fkey"
             columns: ["local_id"]
             isOneToOne: false
             referencedRelation: "v_locaux_chemin"
             referencedColumns: ["local_id"]
           },
           {
-            foreignKeyName: "travaux_localisations_travaux_id_fkey"
+            foreignKeyName: "travaux_taches_travaux_id_fkey"
             columns: ["travaux_id"]
             isOneToOne: false
             referencedRelation: "interventions_travaux"

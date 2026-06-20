@@ -1,19 +1,23 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Paperclip, Pencil } from 'lucide-react'
+import { Ban, Paperclip, Pencil, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
 import { statutsCapexQueries } from '@/features/investissements/queries'
-import { etapesInvestissement } from '@/features/investissements/etat'
+import { etapesInvestissement, ID_REFUSE } from '@/features/investissements/etat'
+import { useChangeStatutCapex } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
 import { MIME_PDF } from '@/features/documents/upload'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { formatDate } from '@/lib/date'
+import { errorMessage } from '@/lib/form'
 import { cn } from '@/lib/utils'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusStepper } from '@/components/common/status-stepper'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
@@ -29,15 +33,21 @@ export function InvestissementDetail({
   canManage: boolean
 }) {
   const [edit, setEdit] = useState(false)
+  const [refuserOpen, setRefuserOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   // Fichiers issus d'un glisser-déposer sur la page → pré-remplis dans le dialogue.
   const [droppedFiles, setDroppedFiles] = useState<File[]>([])
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
+  const change = useChangeStatutCapex()
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const etapes = etapesInvestissement(inv.statut_capex_id, noms)
 
   const { label, depassement } = ecartCapex(inv)
   const ecartLabel = label ?? '—'
+  // « Refuser » (statut hors parcours de la frise) : proposé en top bar tant que
+  // l'investissement n'est pas déjà refusé. « Réactiver » fait l'inverse.
+  const canRefuser = canManage && inv.statut_capex_id !== ID_REFUSE
+  const canReactiver = canManage && inv.statut_capex_id === ID_REFUSE
 
   // Ouverture manuelle (bouton top bar) : aucun fichier pré-rempli.
   const openUploadEmpty = () => {
@@ -57,6 +67,17 @@ export function InvestissementDetail({
       setUploadOpen(true)
     },
   })
+
+  function changeStatut(statutId: number) {
+    if (statutId === inv.statut_capex_id) return
+    change.mutate(
+      { id: inv.id, statutId },
+      {
+        onSuccess: () => toast.success('Statut mis à jour'),
+        onError: (e) => toast.error(errorMessage(e)),
+      },
+    )
+  }
 
   return (
     <PageContainer className="flex flex-col">
@@ -78,6 +99,32 @@ export function InvestissementDetail({
                 variant="outline"
                 onClick={() => setEdit(true)}
               />
+              {canRefuser && (
+                <TooltipIconButton
+                  icon={<Ban className="text-destructive" />}
+                  label="Refuser l'investissement"
+                  variant="outline"
+                  onClick={() => setRefuserOpen(true)}
+                />
+              )}
+              {canReactiver && (
+                <TooltipIconButton
+                  icon={<RotateCcw />}
+                  label="Réactiver l'investissement"
+                  variant="outline"
+                  disabled={change.isPending}
+                  onClick={() =>
+                    change.mutate(
+                      { id: inv.id, statutId: 1 },
+                      {
+                        onSuccess: () =>
+                          toast.success('Investissement réactivé'),
+                        onError: (e) => toast.error(errorMessage(e)),
+                      },
+                    )
+                  }
+                />
+              )}
             </>
           ) : undefined
         }
@@ -92,11 +139,23 @@ export function InvestissementDetail({
         </Card>
       )}
 
-      {/* Suivi : frise d'avancement (sans titre). */}
+      {/* Suivi : frise d'avancement. Statut LIBRE → toute pastille est cliquable
+          (positionne ce statut) ; « Refuser » est en barre de titre. */}
       {etapes && (
         <Card className="mb-6">
           <CardContent>
-            <StatusStepper steps={etapes} />
+            <StatusStepper
+              steps={etapes}
+              disabled={change.isPending}
+              onStepClick={
+                canManage
+                  ? (i) => {
+                      const cible = etapes[i]
+                      if (cible) changeStatut(cible.statutId)
+                    }
+                  : undefined
+              }
+            />
           </CardContent>
         </Card>
       )}
@@ -115,10 +174,7 @@ export function InvestissementDetail({
         </CardContent>
       </Card>
 
-      {/* Zone documents : prend EXACTEMENT l'espace restant (flex-1, sans min-h
-          qui forcerait un débordement) → surface de dépôt pleine hauteur, mise en
-          valeur en entier pendant le glisser-déposer, sans scrollbar parasite. La
-          page ne défile que s'il y a vraiment trop de documents. */}
+      {/* Zone documents : prend EXACTEMENT l'espace restant (flex-1). */}
       <div className="relative flex-1">
         <DocumentsTab
           liaison="documents_investissements"
@@ -145,6 +201,27 @@ export function InvestissementDetail({
         />
       )}
 
+      <ConfirmDialog
+        open={refuserOpen}
+        onOpenChange={setRefuserOpen}
+        title="Refuser l'investissement ?"
+        description="L'investissement passera au statut « Refusé »."
+        confirmLabel="Refuser"
+        destructive
+        loading={change.isPending}
+        onConfirm={() =>
+          change.mutate(
+            { id: inv.id, statutId: ID_REFUSE },
+            {
+              onSuccess: () => {
+                toast.success('Investissement refusé')
+                setRefuserOpen(false)
+              },
+              onError: (e) => toast.error(errorMessage(e)),
+            },
+          )
+        }
+      />
     </PageContainer>
   )
 }

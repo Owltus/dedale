@@ -1,55 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { travauxQueries } from './queries'
-import type { TravauxFormValues } from './schemas'
+import type { TravauxFormValues, TacheFormValues, StatutTache } from './schemas'
 
-// Convertit les champs du formulaire en payload base (vides → null).
+// Convertit les champs du formulaire en payload base (vides → null). Les dates
+// ne sont plus saisies : date_demande prend son DEFAULT (date du jour) à
+// l'insert, date_fin est posée par le trigger de clôture.
 function toPayload(v: TravauxFormValues) {
   return {
     titre: v.titre.trim(),
     description: v.description.trim() || null,
-    prestataire_id: v.prestataire_id || null,
-    date_demande: v.date_demande,
-    date_prevue: v.date_prevue || null,
-    date_fin: v.date_fin || null,
-  }
-}
-
-/** Remplace les liaisons locaux/équipements d'un travaux (delete-all puis insert). */
-async function syncLiaisons(
-  travauxId: string,
-  localIds: string[],
-  equipementIds: string[],
-) {
-  await supabase
-    .from('travaux_localisations')
-    .delete()
-    .eq('travaux_id', travauxId)
-    .throwOnError()
-  await supabase
-    .from('travaux_equipements')
-    .delete()
-    .eq('travaux_id', travauxId)
-    .throwOnError()
-
-  if (localIds.length > 0) {
-    await supabase
-      .from('travaux_localisations')
-      .insert(
-        localIds.map((local_id) => ({ travaux_id: travauxId, local_id })),
-      )
-      .throwOnError()
-  }
-  if (equipementIds.length > 0) {
-    await supabase
-      .from('travaux_equipements')
-      .insert(
-        equipementIds.map((equipement_id) => ({
-          travaux_id: travauxId,
-          equipement_id,
-        })),
-      )
-      .throwOnError()
   }
 }
 
@@ -75,7 +35,6 @@ export function useCreateTravaux() {
         .select()
         .single()
         .throwOnError()
-      await syncLiaisons(data.id, values.local_ids, values.equipement_ids)
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
@@ -99,7 +58,6 @@ export function useUpdateTravaux() {
         .select()
         .single()
         .throwOnError()
-      await syncLiaisons(id, values.local_ids, values.equipement_ids)
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
@@ -110,7 +68,7 @@ export function useDeleteTravaux() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Suppression définitive (hard-delete).
+      // Suppression définitive (hard-delete) ; les tâches suivent en CASCADE.
       await supabase
         .from('interventions_travaux')
         .delete()
@@ -157,5 +115,79 @@ export function useChangeStatutTravaux() {
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
+  })
+}
+
+// ─── Tâches (to-do à statut) ──────────────────────────────────────────────────
+
+export function useCreateTache() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      travauxId,
+      createdBy,
+      values,
+    }: {
+      travauxId: string
+      createdBy: string
+      values: TacheFormValues
+    }) => {
+      const { data } = await supabase
+        .from('travaux_taches')
+        .insert({
+          travaux_id: travauxId,
+          libelle: values.libelle.trim(),
+          local_id: values.local_id || null,
+          equipement_id: values.equipement_id || null,
+          created_by: createdBy,
+        })
+        .select('id')
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({ queryKey: travauxQueries.taches(vars.travauxId).queryKey }),
+  })
+}
+
+export function useUpdateTacheStatut() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      statut,
+    }: {
+      id: string
+      travauxId: string
+      statut: StatutTache
+    }) => {
+      await supabase
+        .from('travaux_taches')
+        .update({ statut })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({ queryKey: travauxQueries.taches(vars.travauxId).queryKey }),
+  })
+}
+
+export function useDeleteTache() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; travauxId: string }) => {
+      await supabase
+        .from('travaux_taches')
+        .delete()
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({ queryKey: travauxQueries.taches(vars.travauxId).queryKey }),
   })
 }

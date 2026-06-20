@@ -52,7 +52,7 @@ function TravauxPage() {
     return (
       <NoSiteSelected
         title="Travaux"
-        description="Travaux ponctuels du site (souvent confiés à un prestataire)."
+        description="Travaux ponctuels du site."
         hint="Choisis un site pour voir ses travaux."
         icon={HardHat}
       />
@@ -101,6 +101,21 @@ function TravauxContent({
     })
   }
 
+  // Après création : rediriger vers la fiche (où l'on ajoute les tâches). On
+  // calcule le slug avec les frères ACTUELS + le nouveau (symétrie segOfUnique).
+  function handleCreated(created: Travaux) {
+    const sibs = [...(query.data ?? []), created].map((c) => ({
+      nom: c.titre,
+      id: c.id,
+    }))
+    void navigate({
+      to: '/travaux/$travaux',
+      params: {
+        travaux: segOfUnique({ nom: created.titre, id: created.id }, sibs),
+      },
+    })
+  }
+
   const newButton = canManage ? (
     <Button onClick={() => setForm({ open: true, travaux: null })}>
       <Plus /> Nouveau travaux
@@ -111,7 +126,7 @@ function TravauxContent({
     <PageContainer>
       <PageHeader
         title="Travaux"
-        description="Travaux ponctuels du site (souvent confiés à un prestataire)."
+        description="Travaux ponctuels du site."
         action={
           canManage ? (
             <TooltipIconButton
@@ -148,8 +163,7 @@ function TravauxContent({
               : travaux.filter(
                   (c) =>
                     c.titre.toLowerCase().includes(q) ||
-                    (c.description ?? '').toLowerCase().includes(q) ||
-                    (c.prestataires?.libelle ?? '').toLowerCase().includes(q),
+                    (c.description ?? '').toLowerCase().includes(q),
                 )
           // Frères pour le slug d'URL : MÊME ensemble qu'à la résolution dans la
           // fiche détail (symétrie segOfUnique).
@@ -177,7 +191,7 @@ function TravauxContent({
                         subtitle={
                           c.description?.trim()
                             ? c.description
-                            : `Demandé le ${formatDate(c.date_demande)}`
+                            : `Créé le ${formatDate(c.date_demande)}`
                         }
                         onClick={() =>
                           void navigate({
@@ -200,18 +214,18 @@ function TravauxContent({
                           ) : undefined
                         }
                         meta={
-                          <div className="text-right leading-tight">
+                          <div className="text-right leading-tight tabular-nums">
                             <div className="text-xs">
-                              {c.prestataires?.libelle ?? 'Sans prestataire'}
+                              Créé le {formatDate(c.date_demande)}
                             </div>
-                            <div className="text-xs tabular-nums">
-                              Prévue {formatDate(c.date_prevue)}
-                            </div>
+                            {c.date_fin && (
+                              <div className="text-xs">
+                                Terminé le {formatDate(c.date_fin)}
+                              </div>
+                            )}
                           </div>
                         }
-                        mobileMeta={[statutLabel, c.prestataires?.libelle]
-                          .filter(Boolean)
-                          .join(' · ')}
+                        mobileMeta={statutLabel}
                         actions={
                           <>
                             {editable && (
@@ -249,6 +263,7 @@ function TravauxContent({
           onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
           siteId={siteId}
           travaux={form.travaux}
+          onCreated={handleCreated}
         />
       )}
 

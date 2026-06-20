@@ -29,7 +29,7 @@ function TravauxDetailPage() {
     return (
       <NoSiteSelected
         title="Travaux"
-        description="Travaux ponctuels du site (souvent confiés à un prestataire)."
+        description="Travaux ponctuels du site."
         hint="Choisis un site pour voir ses travaux."
         icon={HardHat}
       />

@@ -12,10 +12,6 @@ const montant = z
 export const investissementSchema = z.object({
   libelle: z.string().trim().min(1, 'Le libellé est obligatoire').max(200),
   description: z.string().trim().max(2000),
-  statut_capex_id: z
-    .string()
-    .min(1, 'Le statut est obligatoire')
-    .regex(/^\d+$/, 'Statut invalide'),
   montant_demande: montant,
   montant_prevu: montant,
   depense_reelle: montant,
@@ -32,7 +28,6 @@ export function emptyInvestissement(): InvestissementFormValues {
   return {
     libelle: '',
     description: '',
-    statut_capex_id: '',
     montant_demande: '',
     montant_prevu: '',
     depense_reelle: '',

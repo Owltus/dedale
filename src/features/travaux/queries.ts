@@ -4,35 +4,16 @@ import { supabase } from '@/lib/supabase'
 export const travauxQueries = {
   all: () => ['travaux'] as const,
 
-  /** Travaux du site actif (non supprimés), avec prestataire pour les cartes. */
+  /** Travaux du site actif. */
   list: (siteId: string) =>
     queryOptions({
       queryKey: [...travauxQueries.all(), 'list', siteId] as const,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('interventions_travaux')
-          .select('*, prestataires(id, libelle)')
+          .select('*')
           .eq('site_id', siteId)
           .order('date_demande', { ascending: false })
-          .abortSignal(signal)
-          .throwOnError()
-        return data.map((c) => ({
-          ...c,
-          prestataires: c.prestataires ?? null,
-        }))
-      },
-      staleTime: 60_000,
-    }),
-
-  /** Locaux liés à un travaux (avec leur chemin lisible). */
-  locaux: (travauxId: string) =>
-    queryOptions({
-      queryKey: [...travauxQueries.all(), 'locaux', travauxId] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('travaux_localisations')
-          .select('local_id, locaux(id, nom)')
-          .eq('travaux_id', travauxId)
           .abortSignal(signal)
           .throwOnError()
         return data
@@ -40,15 +21,19 @@ export const travauxQueries = {
       staleTime: 60_000,
     }),
 
-  /** Équipements liés à un travaux. */
-  equipements: (travauxId: string) =>
+  /** Tâches (to-do à statut) d'un travail, avec le local et l'équipement liés. */
+  taches: (travauxId: string) =>
     queryOptions({
-      queryKey: [...travauxQueries.all(), 'equipements', travauxId] as const,
+      queryKey: [...travauxQueries.all(), 'taches', travauxId] as const,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
-          .from('travaux_equipements')
-          .select('equipement_id, equipements(id, nom)')
+          .from('travaux_taches')
+          .select(
+            'id, libelle, statut, ordre, local_id, equipement_id, created_at, locaux(id, nom), equipements(id, nom)',
+          )
           .eq('travaux_id', travauxId)
+          .order('ordre')
+          .order('created_at')
           .abortSignal(signal)
           .throwOnError()
         return data

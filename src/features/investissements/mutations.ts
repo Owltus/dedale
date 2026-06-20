@@ -4,12 +4,13 @@ import { investissementsQueries } from './queries'
 import { parseMontant } from './schemas'
 import type { InvestissementFormValues } from './schemas'
 
-// Convertit les champs texte du formulaire en payload base (vides → null).
+// Convertit les champs texte du formulaire en payload base (vides → null). Le
+// statut n'est plus saisi dans le formulaire : il vaut son DEFAULT (Demandé) à
+// la création et se change ensuite via la frise (cf. useChangeStatutCapex).
 function toPayload(v: InvestissementFormValues) {
   return {
     libelle: v.libelle.trim(),
     description: v.description.trim() || null,
-    statut_capex_id: Number(v.statut_capex_id),
     montant_demande: parseMontant(v.montant_demande),
     montant_prevu: parseMontant(v.montant_prevu),
     depense_reelle: parseMontant(v.depense_reelle),
@@ -59,6 +60,28 @@ export function useUpdateInvestissement() {
       const { data } = await supabase
         .from('investissements')
         .update(toPayload(values))
+        .eq('id', id)
+        .select()
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
+  })
+}
+
+/**
+ * Change le statut CapEx (frise cliquable + bouton « Refuser »). Statut LIBRE :
+ * aucune machine à états backend → simple UPDATE du statut_capex_id.
+ */
+export function useChangeStatutCapex() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, statutId }: { id: string; statutId: number }) => {
+      const { data } = await supabase
+        .from('investissements')
+        .update({ statut_capex_id: statutId })
         .eq('id', id)
         .select()
         .single()
