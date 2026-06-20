@@ -18,7 +18,7 @@ import {
   TRANSITIONS,
   estVerrouille,
 } from '../schemas'
-import { etapesTravaux, variantStatutTravaux } from '../etat'
+import { etapesTravaux } from '../etat'
 import { TravauxFormDialog } from './travaux-form-dialog'
 import { ClotureDialog } from './cloture-dialog'
 import { TacheDialog } from './tache-dialog'
@@ -27,7 +27,6 @@ import { useFileDrop } from '@/hooks/use-file-drop'
 import { formatDate } from '@/lib/date'
 import { errorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
-import { cn } from '@/lib/utils'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusStepper } from '@/components/common/status-stepper'
@@ -38,7 +37,6 @@ import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
@@ -69,7 +67,6 @@ export function TravauxDetail({
   const [droppedFiles, setDroppedFiles] = useState<File[]>([])
 
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
-  const statutLabel = noms.get(travaux.statut_travaux_id) ?? 'Statut'
   const etapes = etapesTravaux(travaux.statut_travaux_id, noms)
   const verrouille = estVerrouille(travaux.statut_travaux_id)
   const transitions = TRANSITIONS[travaux.statut_travaux_id] ?? []
@@ -121,7 +118,7 @@ export function TravauxDetail({
       { id: tacheToDelete.id, travauxId: travaux.id },
       {
         onSuccess: () => {
-          toast.success('Tâche supprimée')
+          toast.success('Zone retirée')
           setTacheToDelete(null)
         },
         onError: (e) => toast.error(errorMessage(e)),
@@ -134,11 +131,6 @@ export function TravauxDetail({
       <PageHeader
         title={travaux.titre}
         description={`Créé le ${formatDate(travaux.date_demande)}`}
-        titleBadges={
-          <Badge variant={variantStatutTravaux(travaux.statut_travaux_id)}>
-            {statutLabel}
-          </Badge>
-        }
         action={
           canManage ? (
             <>
@@ -216,16 +208,6 @@ export function TravauxDetail({
         </Card>
       )}
 
-      {/* Caractéristiques (sans titre : les libellés suffisent). */}
-      <Card className="mb-6">
-        <CardContent className="grid grid-cols-2 gap-x-6 gap-y-4">
-          <Champ label="Créé le" value={formatDate(travaux.date_demande)} />
-          {travaux.date_fin && (
-            <Champ label="Terminé le" value={formatDate(travaux.date_fin)} />
-          )}
-        </CardContent>
-      </Card>
-
       {/* Compte-rendu (présent une fois le travaux clôturé). */}
       {travaux.compte_rendu?.trim() && (
         <Card className="mb-6">
@@ -236,13 +218,13 @@ export function TravauxDetail({
         </Card>
       )}
 
-      {/* Tâches : to-do à statut (cœur de la fiche). */}
+      {/* Zones concernées : locaux/équipements liés au travaux + statut. */}
       <Card className="mb-6">
         <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-          <CardTitle className="text-base">Tâches</CardTitle>
+          <CardTitle className="text-base">Zones concernées</CardTitle>
           {!tachesReadOnly && (
             <Button size="sm" onClick={() => setTacheOpen(true)}>
-              <ListPlus /> Ajouter une tâche
+              <ListPlus /> Ajouter une zone
             </Button>
           )}
         </CardHeader>
@@ -259,16 +241,11 @@ export function TravauxDetail({
             empty={
               <EmptyState
                 icon={ListChecks}
-                title="Aucune tâche"
-                description={
-                  tachesReadOnly
-                    ? 'Aucune tâche pour ce travail.'
-                    : 'Ajoute une première tâche à réaliser.'
-                }
+                title="Aucune zone concernée"
                 action={
                   !tachesReadOnly ? (
                     <Button size="sm" onClick={() => setTacheOpen(true)}>
-                      <ListPlus /> Ajouter une tâche
+                      <ListPlus /> Ajouter une zone
                     </Button>
                   ) : undefined
                 }
@@ -299,7 +276,6 @@ export function TravauxDetail({
           liaison="documents_interventions_travaux"
           parentColumn="travaux_id"
           parentId={travaux.id}
-          title="Documents"
           uploadOpen={uploadOpen}
           onUploadOpenChange={handleUploadOpenChange}
           uploadInitialFiles={droppedFiles}
@@ -334,13 +310,13 @@ export function TravauxDetail({
         onOpenChange={(open) => {
           if (!open) setTacheToDelete(null)
         }}
-        title="Supprimer la tâche ?"
+        title="Retirer cette zone ?"
         description={
           tacheToDelete
-            ? `« ${tacheToDelete.libelle} » sera supprimée définitivement.`
+            ? `« ${tacheToDelete.locaux?.nom ?? 'Cette zone'} » sera retirée de ce travaux.`
             : undefined
         }
-        confirmLabel="Supprimer"
+        confirmLabel="Retirer"
         destructive
         loading={delTache.isPending}
         onConfirm={confirmDeleteTache}
@@ -375,22 +351,5 @@ export function TravauxDetail({
         }
       />
     </PageContainer>
-  )
-}
-
-function Champ({
-  label,
-  value,
-  className,
-}: {
-  label: string
-  value: string
-  className?: string
-}) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <span className={cn('font-medium', className)}>{value}</span>
-    </div>
   )
 }

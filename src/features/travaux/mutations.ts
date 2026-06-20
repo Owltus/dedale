@@ -136,8 +136,7 @@ export function useCreateTache() {
         .from('travaux_taches')
         .insert({
           travaux_id: travauxId,
-          libelle: values.libelle.trim(),
-          local_id: values.local_id || null,
+          local_id: values.local_id,
           equipement_id: values.equipement_id || null,
           created_by: createdBy,
         })

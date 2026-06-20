@@ -75,16 +75,16 @@ export function variantStatutTache(
   }
 }
 
+// Une « zone concernée » : un local (requis) + un équipement précis optionnel.
 export const tacheSchema = z.object({
-  libelle: z.string().trim().min(1, 'Le libellé est obligatoire').max(300),
-  local_id: z.string(), // '' = aucun local
+  local_id: z.string().min(1, 'Choisis un local'),
   equipement_id: z.string(), // '' = aucun équipement
 })
 
 export type TacheFormValues = z.infer<typeof tacheSchema>
 
 export function emptyTache(): TacheFormValues {
-  return { libelle: '', local_id: '', equipement_id: '' }
+  return { local_id: '', equipement_id: '' }
 }
 
 // Compte-rendu obligatoire au passage « Terminé » (contrôlé aussi par trigger).

@@ -2787,8 +2787,7 @@ export type Database = {
           created_by: string | null
           equipement_id: string | null
           id: string
-          libelle: string
-          local_id: string | null
+          local_id: string
           ordre: number
           statut: string
           travaux_id: string
@@ -2799,8 +2798,7 @@ export type Database = {
           created_by?: string | null
           equipement_id?: string | null
           id?: string
-          libelle: string
-          local_id?: string | null
+          local_id: string
           ordre?: number
           statut?: string
           travaux_id: string
@@ -2811,8 +2809,7 @@ export type Database = {
           created_by?: string | null
           equipement_id?: string | null
           id?: string
-          libelle?: string
-          local_id?: string | null
+          local_id?: string
           ordre?: number
           statut?: string
           travaux_id?: string

@@ -192,12 +192,7 @@ export function DocumentsTab({
         empty={
           <EmptyState
             icon={FileText}
-            title="Aucun document rattaché"
-            description={
-              canManage
-                ? 'Rattache un document à cette fiche.'
-                : 'Aucun document rattaché à cette fiche.'
-            }
+            title="Aucun document"
             action={emptyAction}
           />
         }

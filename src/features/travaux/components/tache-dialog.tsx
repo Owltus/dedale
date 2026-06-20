@@ -9,7 +9,6 @@ import { equipementsQueries } from '@/features/equipements/queries'
 import { EmplacementSelect } from '@/features/equipements/components/emplacement-select'
 import { errorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 
 interface TacheDialogProps {
@@ -20,10 +19,9 @@ interface TacheDialogProps {
 }
 
 /**
- * Ajout d'une tâche à un travail : un libellé, un local (cascade Niveau → Local,
- * FACULTATIF) et, le cas échéant, un équipement DE CE LOCAL (facultatif). Le
- * statut initial est « En attente » (défaut backend) ; il se change ensuite sur
- * la fiche.
+ * Ajout d'une ZONE concernée à un travail : un local REQUIS (cascade Niveau →
+ * Local) et, le cas échéant, un équipement DE CE LOCAL (optionnel). Le statut
+ * initial est « En attente » (défaut backend) ; il se change ensuite sur la fiche.
  */
 export function TacheDialog({
   open,
@@ -69,7 +67,7 @@ export function TacheDialog({
         createdBy: session.user.id,
         values: parsed.data,
       })
-      toast.success('Tâche ajoutée')
+      toast.success('Zone ajoutée')
       onOpenChange(false)
     } catch (e) {
       toast.error(errorMessage(e))
@@ -80,26 +78,18 @@ export function TacheDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Ajouter une tâche"
-      description="Décris la tâche et, si besoin, le local et l'équipement concernés."
+      title="Ajouter une zone"
+      description="Choisis le local concerné et, si besoin, l'équipement précis."
       onSubmit={() => void handleSubmit()}
       submitLabel="Ajouter"
       pendingLabel="Ajout…"
       pending={create.isPending}
     >
-      <TextField
-        label="Libellé"
-        value={values.libelle}
-        onChange={(libelle) => setValues((v) => ({ ...v, libelle }))}
-        error={errors.libelle}
-        required
-      />
-
       <EmplacementSelect
         siteId={siteId}
         value={values.local_id}
         onChange={setLocal}
-        requiredEmplacement={false}
+        error={errors.local_id}
       />
 
       <SelectField

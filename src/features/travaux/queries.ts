@@ -21,7 +21,7 @@ export const travauxQueries = {
       staleTime: 60_000,
     }),
 
-  /** Tâches (to-do à statut) d'un travail, avec le local et l'équipement liés. */
+  /** Zones concernées par un travail (local + équipement optionnel + statut). */
   taches: (travauxId: string) =>
     queryOptions({
       queryKey: [...travauxQueries.all(), 'taches', travauxId] as const,
@@ -29,7 +29,7 @@ export const travauxQueries = {
         const { data } = await supabase
           .from('travaux_taches')
           .select(
-            'id, libelle, statut, ordre, local_id, equipement_id, created_at, locaux(id, nom), equipements(id, nom)',
+            'id, statut, ordre, local_id, equipement_id, created_at, locaux(id, nom), equipements(id, nom)',
           )
           .eq('travaux_id', travauxId)
           .order('ordre')

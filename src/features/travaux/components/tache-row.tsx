@@ -14,10 +14,9 @@ import { Badge } from '@/components/ui/badge'
 
 export interface TacheItem {
   id: string
-  libelle: string
   statut: string
   ordre: number
-  local_id: string | null
+  local_id: string
   equipement_id: string | null
   created_at: string
   locaux: { id: string; nom: string } | null
@@ -33,13 +32,14 @@ interface TacheRowProps {
 }
 
 /**
- * Ligne d'une tâche (to-do) : libellé + local/équipement concernés, statut
- * éditable EN LIGNE (sauvegarde immédiate à la sélection), et suppression. En
- * lecture seule, le statut s'affiche en badge. Esprit des opérations d'un OT.
+ * Ligne d'une ZONE concernée : le local (intitulé principal) + l'équipement
+ * précis éventuel, et le statut d'avancement éditable EN LIGNE (sauvegarde
+ * immédiate à la sélection). En lecture seule, le statut s'affiche en badge.
  */
 export function TacheRow({ tache, travauxId, readOnly, onDelete }: TacheRowProps) {
   const update = useUpdateTacheStatut()
   const statut = tache.statut as StatutTache
+  const localNom = tache.locaux?.nom ?? 'Local supprimé'
 
   function changeStatut(next: StatutTache) {
     if (next === statut) return
@@ -55,22 +55,16 @@ export function TacheRow({ tache, travauxId, readOnly, onDelete }: TacheRowProps
   return (
     <div className="bg-card flex items-center gap-3 rounded-md border px-3 py-2">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{tache.libelle}</p>
-        <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
-          {tache.locaux && (
-            <span className="flex items-center gap-1">
-              <MapPin className="size-3 shrink-0" />
-              <span className="truncate">{tache.locaux.nom}</span>
-            </span>
-          )}
-          {tache.equipements && (
-            <span className="flex items-center gap-1">
-              <Wrench className="size-3 shrink-0" />
-              <span className="truncate">{tache.equipements.nom}</span>
-            </span>
-          )}
-          {!tache.locaux && !tache.equipements && <span>Sans rattachement</span>}
-        </div>
+        <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+          <MapPin className="text-muted-foreground size-3.5 shrink-0" />
+          <span className="truncate">{localNom}</span>
+        </p>
+        {tache.equipements && (
+          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <Wrench className="size-3 shrink-0" />
+            <span className="truncate">{tache.equipements.nom}</span>
+          </p>
+        )}
       </div>
 
       {readOnly ? (
@@ -79,7 +73,7 @@ export function TacheRow({ tache, travauxId, readOnly, onDelete }: TacheRowProps
         </Badge>
       ) : (
         <Select
-          aria-label={`Statut de « ${tache.libelle} »`}
+          aria-label={`Statut — ${localNom}`}
           value={statut}
           disabled={update.isPending}
           onChange={(e) => changeStatut(e.target.value as StatutTache)}
@@ -96,7 +90,7 @@ export function TacheRow({ tache, travauxId, readOnly, onDelete }: TacheRowProps
       {!readOnly && (
         <TooltipIconButton
           icon={<Trash2 className="text-destructive" />}
-          label="Supprimer la tâche"
+          label="Retirer cette zone"
           onClick={onDelete}
         />
       )}
