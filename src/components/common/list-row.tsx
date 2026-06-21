@@ -1,5 +1,14 @@
 import { useId } from 'react'
 import type { ReactNode } from 'react'
+import {
+  RowActionsKebab,
+  RowContextMenuContent,
+  type RowAction,
+} from '@/components/common/row-actions'
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 
 export interface ListRowProps {
@@ -28,11 +37,17 @@ export interface ListRowProps {
    */
   mobileMeta?: ReactNode
   /**
-   * Actions (boutons icône). Un clic dessus ne déclenche pas `onClick`.
-   * RÉVÉLÉES AU SURVOL de la carte (ou au focus clavier d'une action) : masquées
-   * au repos pour une liste épurée, visibles quand on cible la carte.
+   * Actions (boutons icône) — ANCIEN mode. Un clic dessus ne déclenche pas
+   * `onClick`. Révélées au survol. Conservé pour les pages non encore migrées ;
+   * remplacé à terme par `menuActions`.
    */
   actions?: ReactNode
+  /**
+   * Actions présentées en MENU : clic droit / appui long sur la card ouvrent un
+   * menu contextuel, et un kebab « ⋮ » (révélé au survol / permanent au tactile)
+   * ouvre le même menu. Prime sur `actions`. La page filtre selon les permissions.
+   */
+  menuActions?: RowAction[]
   /** Rend toute la ligne cliquable (drill-down). */
   onClick?: () => void
   /** Surcharge le nom accessible de la ligne cliquable (défaut : le titre visible). */
@@ -68,6 +83,10 @@ const ROW_PADDING: Record<NonNullable<ListRowProps['size']>, string> = {
  * l'action — clavier natif (Entrée/Espace), focus visible sur toute la ligne, et
  * surtout AUCUN élément interactif imbriqué. Les actions, posées au-dessus
  * (`z-10`), restent donc indépendantes du drill-down sans `stopPropagation`.
+ *
+ * Menu : si `menuActions` est fourni, la card devient déclencheur d'un menu
+ * contextuel (clic droit / appui long) et le slot d'actions porte un kebab « ⋮ »
+ * (le clic droit n'ouvre PAS le drill-down — qui ne réagit qu'au clic gauche).
  */
 export function ListRow({
   icon,
@@ -78,6 +97,7 @@ export function ListRow({
   meta,
   mobileMeta,
   actions,
+  menuActions,
   onClick,
   titleLabel,
   size = 'md',
@@ -89,13 +109,24 @@ export function ListRow({
   // `titleLabel` reste une surcharge optionnelle (titre non textuel, etc.).
   const titleId = useId()
 
+  const hasMenu = menuActions !== undefined && menuActions.length > 0
+  // Contenu du slot d'actions : kebab « ⋮ » si menu, sinon l'ancien `actions`.
+  const actionsContent = hasMenu ? (
+    <RowActionsKebab actions={menuActions} />
+  ) : (
+    actions
+  )
+  const showActionsSlot = hasMenu || actions !== undefined
+
+  let card: ReactNode
+
   // Variante MÉDIA : vignette carrée collée au bord gauche (sans marge ni
   // padding), pleine hauteur ; card à HAUTEUR FIXE. Titre tronqué (1 ligne),
   // sous-titre tronqué proprement (1 ligne, toujours réservé pour une mise en
   // page stable). `overflow-hidden` rogne la
   // vignette aux coins arrondis → l'anneau de focus passe en `ring-inset`.
   if (media !== undefined) {
-    return (
+    card = (
       <div
         className={cn(
           'bg-card group relative flex items-stretch overflow-hidden rounded-lg border',
@@ -130,7 +161,7 @@ export function ListRow({
                 mobileMeta !== undefined && 'hidden sm:block',
               )}
             >
-              {subtitle ?? ' '}
+              {subtitle ?? ' '}
             </div>
             {/* Repli mobile : info clé sous le titre (sous `sm` uniquement). */}
             {mobileMeta !== undefined && (
@@ -149,69 +180,83 @@ export function ListRow({
               {meta}
             </div>
           )}
-          {actions !== undefined && (
+          {showActionsSlot && (
             <div className="relative z-10 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
-              {actions}
+              {actionsContent}
             </div>
           )}
         </div>
       </div>
     )
-  }
-
-  return (
-    <div
-      className={cn(
-        'bg-card group relative flex items-center gap-3 rounded-lg border px-4',
-        ROW_PADDING[size],
-        clickable && 'hover:bg-accent/40 transition-colors',
-        className,
-      )}
-    >
-      {clickable && (
-        <button
-          type="button"
-          onClick={onClick}
-          aria-labelledby={titleLabel === undefined ? titleId : undefined}
-          aria-label={titleLabel}
-          className="focus-visible:ring-ring/50 absolute inset-0 rounded-lg focus-visible:ring-[3px] focus-visible:outline-none"
-        />
-      )}
-      {icon !== undefined && (
-        <span className="text-muted-foreground shrink-0">{icon}</span>
-      )}
-      <div className="min-w-0 flex-1">
-        <div id={titleId} className="truncate font-medium">
-          {title}
+  } else {
+    card = (
+      <div
+        className={cn(
+          'bg-card group relative flex items-center gap-3 rounded-lg border px-4',
+          ROW_PADDING[size],
+          clickable && 'hover:bg-accent/40 transition-colors',
+          className,
+        )}
+      >
+        {clickable && (
+          <button
+            type="button"
+            onClick={onClick}
+            aria-labelledby={titleLabel === undefined ? titleId : undefined}
+            aria-label={titleLabel}
+            className="focus-visible:ring-ring/50 absolute inset-0 rounded-lg focus-visible:ring-[3px] focus-visible:outline-none"
+          />
+        )}
+        {icon !== undefined && (
+          <span className="text-muted-foreground shrink-0">{icon}</span>
+        )}
+        <div className="min-w-0 flex-1">
+          <div id={titleId} className="truncate font-medium">
+            {title}
+          </div>
+          {subtitle !== undefined && (
+            <div className="text-muted-foreground line-clamp-2 text-sm">
+              {subtitle}
+            </div>
+          )}
+          {/* Repli mobile : info clé (portée, type/seuils…) sous le sous-titre,
+              uniquement sous `sm` où `badges`/`meta` à droite sont masqués. */}
+          {mobileMeta !== undefined && (
+            <div className="text-muted-foreground truncate text-xs sm:hidden">
+              {mobileMeta}
+            </div>
+          )}
         </div>
-        {subtitle !== undefined && (
-          <div className="text-muted-foreground line-clamp-2 text-sm">
-            {subtitle}
+        {badges !== undefined && (
+          <div className="hidden shrink-0 items-center gap-2 sm:flex">
+            {badges}
           </div>
         )}
-        {/* Repli mobile : info clé (portée, type/seuils…) sous le sous-titre,
-            uniquement sous `sm` où `badges`/`meta` à droite sont masqués. */}
-        {mobileMeta !== undefined && (
-          <div className="text-muted-foreground truncate text-xs sm:hidden">
-            {mobileMeta}
+        {meta !== undefined && (
+          <div className="text-muted-foreground hidden shrink-0 text-sm sm:block">
+            {meta}
+          </div>
+        )}
+        {showActionsSlot && (
+          <div className="relative z-10 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+            {actionsContent}
           </div>
         )}
       </div>
-      {badges !== undefined && (
-        <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          {badges}
-        </div>
-      )}
-      {meta !== undefined && (
-        <div className="text-muted-foreground hidden shrink-0 text-sm sm:block">
-          {meta}
-        </div>
-      )}
-      {actions !== undefined && (
-        <div className="relative z-10 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
-          {actions}
-        </div>
-      )}
-    </div>
-  )
+    )
+  }
+
+  // Menu contextuel : la card devient déclencheur (clic droit + appui long).
+  // Le clic GAUCHE conserve le drill-down (le bouton overlay ne réagit pas au
+  // bouton droit), et le kebab reste accessible au clic.
+  if (hasMenu) {
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
+        <RowContextMenuContent actions={menuActions} />
+      </ContextMenu>
+    )
+  }
+
+  return card
 }

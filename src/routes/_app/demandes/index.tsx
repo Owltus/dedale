@@ -26,6 +26,7 @@ import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { SearchInput } from '@/components/common/search-input'
@@ -218,7 +219,20 @@ function DemandesContent({
                     // pour le demandeur (son scope) ; toujours vrai pour admin/manager/tech.
                     const canEdit = perm.canEditDemande(role, d, userId)
                     const canDelete = perm.canDeleteDemande(role, d, userId)
-                    const showActions = canEdit || canDelete
+                    const rowActions: RowAction[] = []
+                    if (canEdit)
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () => setEditDemande(d),
+                      })
+                    if (canDelete)
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDelete(d),
+                      })
                     const createur = d.created_by
                       ? (usersById.get(d.created_by) ?? null)
                       : null
@@ -253,32 +267,7 @@ function DemandesContent({
                             ? `${local} · ${statutLabel(d.statut_di_id)}`
                             : statutLabel(d.statut_di_id)
                         }
-                        actions={
-                          showActions ? (
-                            <>
-                              {canEdit && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label="Modifier la demande"
-                                  onClick={() => setEditDemande(d)}
-                                >
-                                  <Pencil />
-                                </Button>
-                              )}
-                              {canDelete && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label="Supprimer la demande"
-                                  onClick={() => setToDelete(d)}
-                                >
-                                  <Trash2 />
-                                </Button>
-                              )}
-                            </>
-                          ) : undefined
-                        }
+                        menuActions={rowActions.length ? rowActions : undefined}
                       />
                     )
                   })}
