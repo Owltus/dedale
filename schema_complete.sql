@@ -544,9 +544,9 @@ INSERT INTO types_operations (id, libelle, description, necessite_seuils) VALUES
 
 -- Statuts d'une DI
 INSERT INTO statuts_di (id, nom, description) VALUES
-    (1, 'Ouverte',   'Demande en cours de traitement'),
-    (2, 'Résolue',   'Demande résolue — immutable sauf réouverture'),
-    (3, 'Réouverte', 'Demande rouverte pour correction ou complément');
+    (1, 'Ouvert',   'Signalement non pris en charge (état initial)'),
+    (2, 'En cours', 'Signalement pris en charge / en traitement'),
+    (3, 'Clôturé',  'Signalement traité et clos');
 
 -- Rôles applicatifs (codes STABLES — hardcodés dans les policies via current_role).
 -- ⚠️ Ne pas renuméroter ni renommer un code : c'est la clé de toute la sécurité RLS.
@@ -4149,11 +4149,12 @@ COMMENT ON FUNCTION public.detacher_et_supprimer_modele_operation(uuid) IS
 -- =============================================================================
 -- Une DI est un signalement curatif (panne, fuite, dysfonctionnement) émis par
 -- un occupant ou un agent terrain. Résolution (DI autonome, aucun lien OT) :
---   - description_resolution + date_resolution (obligatoire au passage Résolue)
+--   - description_resolution + date_resolution (obligatoire à la clôture)
 --
--- Machine à états (FK statuts_di, IDs stables) :
---   1 = Ouverte → 2 = Résolue → 3 = Réouverte
---   (transitions 1→2, 2→3, 3→2 — gérées par triggers Agent 5)
+-- Cycle de vie (FK statuts_di, IDs stables — migration 052) :
+--   1 = Ouvert · 2 = En cours · 3 = Clôturé
+--   Transitions LIBRES côté métier (plus de machine rigide) : le FK garantit la
+--   validité du statut, la RLS arbitre QUI peut écrire.
 --
 -- Pas de champ priorite (décision : simplicité UX)
 --
@@ -4181,10 +4182,10 @@ CREATE TABLE demandes_intervention (
     constat         TEXT NOT NULL CHECK (length(trim(constat)) > 0),
     date_constat    DATE NOT NULL DEFAULT current_date,
 
-    -- Résolution (obligatoire si statut = Résolue, contrôle par trigger Agent 5)
+    -- Note de clôture (obligatoire si statut = Clôturé, contrôle par trigger)
     description_resolution  TEXT,
     date_resolution         DATE,
-    -- Traçabilité : qui a passé la DI en Résolue (équivalent closed_by des OT)
+    -- Traçabilité : qui a clôturé la DI (équivalent closed_by des OT)
     resolved_by             UUID REFERENCES users(id) ON DELETE SET NULL,
 
     -- Audit
@@ -4197,7 +4198,7 @@ COMMENT ON TABLE demandes_intervention IS
 COMMENT ON COLUMN demandes_intervention.site_id IS
     'Matérialisé pour RLS Manager/Technicien sans jointure sur locaux.';
 COMMENT ON COLUMN demandes_intervention.resolved_by IS
-    'Qui a passé la DI en Résolue. Peuplé par trigger trg_di_set_resolved_by (équivalent closed_by des OT). NULL tant que non résolue ou rouverte.';
+    'Qui a clôturé la DI. Peuplé par trigger trg_di_set_resolved_by (équivalent closed_by des OT). NULL tant que non clôturée ou rouverte.';
 
 -- Index
 CREATE INDEX idx_di_site        ON demandes_intervention(site_id);
@@ -6018,7 +6019,7 @@ SET search_path = ''
 AS $$
 BEGIN
     IF NEW.statut_di_id IS DISTINCT FROM 1 THEN
-        RAISE EXCEPTION 'Le statut initial d''une DI doit être « Ouverte » (id=1)';
+        RAISE EXCEPTION 'Le statut initial d''une DI doit être « Ouvert » (id=1)';
     END IF;
     RETURN NEW;
 END;
@@ -6030,55 +6031,23 @@ CREATE TRIGGER trg_validation_statut_initial_di
 COMMENT ON FUNCTION public.validation_statut_initial_di() IS 'Force toute nouvelle DI à démarrer en statut Ouverte (id=1).';
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 1.5 validation_transitions_di : machine à états DI
--- Statuts (référentiel statuts_di) : 1=Ouverte, 2=Résolue, 3=Réouverte
+-- 1.5 Transitions DI : LIBRES (migration 052). L'ancienne machine rigide
+-- (validation_transitions_di) est retirée — le FK statuts_di garantit un statut
+-- valide (1 Ouvert · 2 En cours · 3 Clôturé) et la RLS arbitre QUI peut écrire.
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.validation_transitions_di()
-RETURNS TRIGGER LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-BEGIN
-    IF OLD.statut_di_id = NEW.statut_di_id THEN
-        RETURN NEW;
-    END IF;
-
-    -- Ouverte (1) → Résolue (2) OK
-    -- Résolue (2) → Réouverte (3) OK
-    -- Réouverte (3) → Résolue (2) OK
-    -- Tout le reste interdit
-    IF OLD.statut_di_id = 1 AND NEW.statut_di_id NOT IN (2) THEN
-        RAISE EXCEPTION 'Transition DI interdite depuis « Ouverte » vers statut %', NEW.statut_di_id;
-    END IF;
-    IF OLD.statut_di_id = 2 AND NEW.statut_di_id NOT IN (3) THEN
-        RAISE EXCEPTION 'Transition DI interdite depuis « Résolue » vers statut %', NEW.statut_di_id;
-    END IF;
-    IF OLD.statut_di_id = 3 AND NEW.statut_di_id NOT IN (2) THEN
-        RAISE EXCEPTION 'Transition DI interdite depuis « Réouverte » vers statut %', NEW.statut_di_id;
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_validation_transitions_di
-    BEFORE UPDATE OF statut_di_id ON demandes_intervention
-    FOR EACH ROW EXECUTE FUNCTION public.validation_transitions_di();
-COMMENT ON FUNCTION public.validation_transitions_di() IS 'Machine à états DI : Ouverte (1) -> Résolue (2) <-> Réouverte (3). Tout autre passage refusé.';
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 1.6 validation_resolution_di : passage à 'Résolue' exige une description_resolution
--- non vide (DI = signalement curatif autonome, aucun lien OT depuis v0.11).
+-- 1.6 validation_resolution_di : passage à 'Clôturé' (id=3) exige une note de
+-- clôture (description_resolution) non vide.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.validation_resolution_di()
 RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-    IF NEW.statut_di_id = 2 AND OLD.statut_di_id != 2 THEN
-        -- DI = signalement curatif autonome (aucun lien OT) : la résolution
-        -- exige une description_resolution non vide.
+    IF NEW.statut_di_id = 3 AND OLD.statut_di_id IS DISTINCT FROM 3 THEN
         IF NEW.description_resolution IS NULL OR length(trim(NEW.description_resolution)) = 0 THEN
-            RAISE EXCEPTION 'Résolution impossible : une description_resolution non vide est obligatoire.';
+            RAISE EXCEPTION 'Clôture impossible : une note de clôture non vide est obligatoire.';
         END IF;
     END IF;
     RETURN NEW;
@@ -6089,17 +6058,16 @@ CREATE TRIGGER trg_validation_resolution_di
     BEFORE UPDATE OF statut_di_id ON demandes_intervention
     FOR EACH ROW EXECUTE FUNCTION public.validation_resolution_di();
 
--- Peuple resolved_by au passage en Résolue (id=2). BEFORE UPDATE : valeur forcée
--- côté serveur (anti-tricherie), calque exact de set_ot_closed_by sur les OT.
+-- Peuple resolved_by à la CLÔTURE (id=3). BEFORE UPDATE : valeur forcée côté
+-- serveur (anti-tricherie), calque exact de set_ot_closed_by sur les OT.
 CREATE OR REPLACE FUNCTION public.set_di_resolved_by()
 RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-    -- Valeurs forcées serveur au passage en Résolue : QUI (resolved_by) et QUAND
-    -- (date_resolution, annoncée obligatoire — commentaire colonne). Écrasement
-    -- systématique (comme resolved_by) → une re-résolution après réouverture porte
-    -- la date courante, pas l'ancienne.
+    -- Valeurs forcées serveur à la clôture : QUI (resolved_by) et QUAND
+    -- (date_resolution). Écrasement systématique → une re-clôture après
+    -- réouverture porte la date courante, pas l'ancienne.
     NEW.resolved_by     := (SELECT auth.uid());
     NEW.date_resolution := current_date;
     RETURN NEW;
@@ -6109,16 +6077,16 @@ $$;
 CREATE TRIGGER trg_di_set_resolved_by
     BEFORE UPDATE OF statut_di_id ON demandes_intervention
     FOR EACH ROW
-    WHEN (NEW.statut_di_id = 2 AND OLD.statut_di_id IS DISTINCT FROM 2)
+    WHEN (NEW.statut_di_id = 3 AND OLD.statut_di_id IS DISTINCT FROM 3)
     EXECUTE FUNCTION public.set_di_resolved_by();
 COMMENT ON FUNCTION public.set_di_resolved_by() IS
-    'Peuple resolved_by = (SELECT auth.uid()) et date_resolution = current_date au passage statut DI -> Résolue (id=2). Valeurs forcées serveur. Équivalent set_ot_closed_by.';
-COMMENT ON FUNCTION public.validation_resolution_di() IS 'Passage à Résolue exige une description_resolution non vide (DI curative autonome, sans lien OT).';
+    'Peuple resolved_by = (SELECT auth.uid()) et date_resolution = current_date à la clôture (statut DI -> Clôturé id=3). Valeurs forcées serveur. Équivalent set_ot_closed_by.';
+COMMENT ON FUNCTION public.validation_resolution_di() IS 'Clôture (id=3) exige une note de clôture (description_resolution) non vide.';
 
--- Réouverture (Résolue 2 → Réouverte 3) : la DI n'est plus résolue → on efface
--- qui/quand de la résolution (resolved_by NULL « ou rouverte » + date_resolution,
--- cohérente avec « obligatoire si Résolue »). description_resolution CONSERVÉE
--- (historique du diagnostic ; une nouvelle résolution pourra la remplacer).
+-- Réouverture : on QUITTE Clôturé (3 → Ouvert 1 ou En cours 2) → la DI n'est plus
+-- close, on efface qui/quand de la clôture (resolved_by + date_resolution). La
+-- note de clôture (description_resolution) est CONSERVÉE (historique ; une nouvelle
+-- clôture la remplacera).
 CREATE OR REPLACE FUNCTION public.reset_di_reouverture()
 RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
@@ -6133,7 +6101,7 @@ $$;
 CREATE TRIGGER trg_di_reset_reouverture
     BEFORE UPDATE OF statut_di_id ON demandes_intervention
     FOR EACH ROW
-    WHEN (NEW.statut_di_id = 3 AND OLD.statut_di_id IS DISTINCT FROM 3)
+    WHEN (OLD.statut_di_id = 3 AND NEW.statut_di_id IS DISTINCT FROM 3)
     EXECUTE FUNCTION public.reset_di_reouverture();
 COMMENT ON FUNCTION public.reset_di_reouverture() IS
     'Réouverture DI (→3) : efface resolved_by + date_resolution (la DI n''est plus résolue). description_resolution conservée.';
@@ -8628,7 +8596,7 @@ CREATE POLICY di_site_scoped_delete ON demandes_intervention FOR DELETE
 -- Le demandeur (gouvernante, accueil…) voit TOUTES les DI de ses sites (lecture,
 -- pour éviter les doublons et voir l'activité du bâtiment), mais ne peut AGIR
 -- (créer / modifier / clore) que sur SES propres DI. INSERT sur ses sites
--- assignés ; UPDATE tant que SA DI est Ouverte (il peut la passer Résolue).
+-- assignés ; UPDATE tant que SA DI est Ouverte (constat seul, sans changer le statut).
 -- Accès lecture aux équipements de ses sites (policy dédiée). Aucun accès OT,
 -- gammes, prestataires (pas de policy → RLS bloque par défaut).
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -8646,8 +8614,8 @@ CREATE POLICY di_demandeur_insert ON demandes_intervention FOR INSERT
         AND created_by = (SELECT auth.uid())
     );
 
--- UPDATE limité aux DI Ouvertes (statut_di_id = 1).
--- WITH CHECK autorise la transition vers Résolue (2) pour clore soi-même.
+-- UPDATE limité à SA DI Ouverte (statut_di_id = 1) : le demandeur édite le
+-- constat mais ne change PAS le statut (workflow réservé au métier, migration 052).
 CREATE POLICY di_demandeur_update ON demandes_intervention FOR UPDATE
     USING (
         (SELECT public.current_role()) = 'demandeur'
@@ -8655,16 +8623,17 @@ CREATE POLICY di_demandeur_update ON demandes_intervention FOR UPDATE
         AND statut_di_id = 1
     )
     WITH CHECK (
-        -- Audit final TROU 2 : le WITH CHECK doit rejouer rôle + scope site,
-        -- sinon un demandeur peut déplacer sa DI vers un site hors périmètre.
+        -- Le demandeur n'édite que SA DI Ouverte (id=1) et n'en change pas le
+        -- statut (workflow En cours/Clôturé réservé au métier). WITH CHECK rejoue
+        -- rôle + scope site (sinon déplacement de la DI hors périmètre).
         (SELECT public.current_role()) = 'demandeur'
         AND created_by = (SELECT auth.uid())
-        AND statut_di_id IN (1, 2)
+        AND statut_di_id = 1
         AND public.has_site_access(site_id)
     );
 
 -- Suppression de SA propre DI tant qu'elle est Ouverte (statut 1) : le demandeur
--- gère son petit périmètre ; plus de suppression une fois Résolue/Réouverte
+-- gère son petit périmètre ; plus de suppression une fois En cours/Clôturé
 -- (migration 050). Lecteur : aucune policy DELETE → jamais.
 CREATE POLICY di_demandeur_delete ON demandes_intervention FOR DELETE
     USING (

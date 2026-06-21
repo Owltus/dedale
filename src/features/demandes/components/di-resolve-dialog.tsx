@@ -12,12 +12,17 @@ interface DiResolveDialogProps {
   diId: string
 }
 
+/**
+ * Clôture d'une DI : on saisit une NOTE de clôture (obligatoire) ; le passage en
+ * « Clôturé » (statut 3), le QUI (resolved_by) et le QUAND (date_resolution) sont
+ * posés côté serveur (triggers). Une RLS / règle refusée → erreur catchée.
+ */
 export function DiResolveDialog({
   open,
   onOpenChange,
   diId,
 }: DiResolveDialogProps) {
-  const resolve = useResolveDemande()
+  const cloturer = useResolveDemande()
   const [description, setDescription] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -31,14 +36,13 @@ export function DiResolveDialog({
     }
     setErrors({})
     try {
-      await resolve.mutateAsync({
+      await cloturer.mutateAsync({
         id: diId,
         descriptionResolution: parsed.data.description_resolution,
       })
-      toast.success('Demande résolue')
+      toast.success('Demande clôturée')
       onOpenChange(false)
     } catch (e) {
-      // Transition interdite / RLS → erreur serveur catchée.
       toast.error(writeErrorMessage(e))
     }
   }
@@ -47,16 +51,16 @@ export function DiResolveDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Résoudre la demande"
-      description="Décris la résolution. La date de résolution est enregistrée automatiquement."
+      title="Clôturer la demande"
+      description="Décris ce qui a été fait. La date de clôture est enregistrée automatiquement."
       onSubmit={() => void handleSubmit()}
-      submitLabel="Résoudre"
-      pendingLabel="Enregistrement…"
-      pending={resolve.isPending}
+      submitLabel="Clôturer"
+      pendingLabel="Clôture…"
+      pending={cloturer.isPending}
     >
       <TextareaField
-        id="di-resolution"
-        label="Description de résolution"
+        id="di-cloture"
+        label="Note de clôture"
         required
         rows={4}
         value={description}

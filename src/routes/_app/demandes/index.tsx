@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList, Pencil, Plus, Trash2 } from 'lucide-react'
@@ -7,9 +7,11 @@ import { demandesQueries } from '@/features/demandes/queries'
 import { DiFormDialog } from '@/features/demandes/components/di-form-dialog'
 import { DiEditDialog } from '@/features/demandes/components/di-edit-dialog'
 import { useDeleteDemande } from '@/features/demandes/mutations'
+import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { diTitre } from '@/features/demandes/schemas'
 import { statutBadgeVariant, statutLabel } from '@/features/demandes/etat'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useAuth } from '@/auth'
 import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
@@ -27,6 +29,7 @@ import { ListRow } from '@/components/common/list-row'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { SearchInput } from '@/components/common/search-input'
+import { Select } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
@@ -81,8 +84,35 @@ function DemandesContent({
   const navigate = useNavigate()
   const query = useQuery(demandesQueries.list(siteId))
   const del = useDeleteDemande()
+  // Liste LIVE : tout INSERT/UPDATE/DELETE sur demandes_intervention (n'importe
+  // quelle fenêtre, n'importe quel utilisateur du site) rafraîchit la liste sans F5.
+  useRealtimeRefresh('demandes_intervention', demandesQueries.all())
+
+  // Noms des créateurs (la RLS users filtre : un rôle métier voit ses pairs de
+  // site ; un demandeur ne voit que LUI → ses DI affichent son nom, pas celles
+  // des autres). id → nom_complet pour un accès O(1) par ligne.
+  const { data: users = [] } = useQuery(utilisateursQueries.list())
+  const usersById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const u of users) if (u.nom_complet) m.set(u.id, u.nom_complet)
+    return m
+  }, [users])
+
+  // Nom du local de chaque DI (di_id → local) : affiché en carte ET cible de
+  // recherche. Une seule requête RLS-scopée pour toute la liste (pas de N+1).
+  const { data: locLinks = [] } = useQuery(demandesQueries.locauxParDi())
+  const localParDi = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of locLinks) {
+      const nom = r.locaux.nom
+      if (nom && !m.has(r.di_id)) m.set(r.di_id, nom)
+    }
+    return m
+  }, [locLinks])
   const [formOpen, setFormOpen] = useState(false)
   const [recherche, setRecherche] = useState('')
+  // Filtre statut : 'all' ou l'id de statut (1 Ouvert, 2 En cours, 3 Clôturé).
+  const [statutFilter, setStatutFilter] = useState('all')
   const [editDemande, setEditDemande] = useState<Demande | null>(null)
   const [toDelete, setToDelete] = useState<Demande | null>(null)
 
@@ -138,13 +168,20 @@ function DemandesContent({
       >
         {(demandes) => {
           const q = recherche.trim().toLowerCase()
-          const shown = q
-            ? demandes.filter(
-                (d) =>
-                  diTitre(d.constat).toLowerCase().includes(q) ||
-                  d.constat.toLowerCase().includes(q),
-              )
-            : demandes
+          // Filtre statut + recherche (constat ET nom du local).
+          const shown = demandes.filter((d) => {
+            if (
+              statutFilter !== 'all' &&
+              d.statut_di_id !== Number(statutFilter)
+            )
+              return false
+            if (q === '') return true
+            const local = localParDi.get(d.id) ?? ''
+            return (
+              d.constat.toLowerCase().includes(q) ||
+              local.toLowerCase().includes(q)
+            )
+          })
           // Frères pour le slug d'URL : MÊME ensemble qu'à la résolution dans la
           // fiche détail (symétrie segOfUnique), sur la liste NON filtrée.
           const sibs = demandes.map((d) => ({
@@ -153,14 +190,27 @@ function DemandesContent({
           }))
           return (
             <div className="flex flex-col gap-4">
-              <SearchInput
-                value={recherche}
-                onChange={setRecherche}
-                placeholder="Rechercher une demande…"
-                className="max-w-sm"
-              />
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <SearchInput
+                  value={recherche}
+                  onChange={setRecherche}
+                  placeholder="Rechercher (constat, local…)"
+                  className="flex-1"
+                />
+                <Select
+                  value={statutFilter}
+                  onChange={(e) => setStatutFilter(e.target.value)}
+                  aria-label="Filtrer par statut"
+                  className="sm:w-52"
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="1">{statutLabel(1)}</option>
+                  <option value="2">{statutLabel(2)}</option>
+                  <option value="3">{statutLabel(3)}</option>
+                </Select>
+              </div>
               {shown.length === 0 ? (
-                <NoSearchResults description="Aucune demande ne correspond à cette recherche." />
+                <NoSearchResults description="Aucune demande ne correspond à ces critères." />
               ) : (
                 <div className={listStack}>
                   {shown.map((d) => {
@@ -169,12 +219,19 @@ function DemandesContent({
                     const canEdit = perm.canEditDemande(role, d, userId)
                     const canDelete = perm.canDeleteDemande(role, d, userId)
                     const showActions = canEdit || canDelete
+                    const createur = d.created_by
+                      ? (usersById.get(d.created_by) ?? null)
+                      : null
+                    const local = localParDi.get(d.id) ?? null
+                    const ligne = createur
+                      ? `Signalé par ${createur} · le ${formatDate(d.date_constat)}`
+                      : `Constaté le ${formatDate(d.date_constat)}`
                     return (
                       <ListRow
                         key={d.id}
                         media={<RowMediaIcon icon={ClipboardList} />}
                         title={diTitre(d.constat)}
-                        subtitle={`Constaté le ${formatDate(d.date_constat)}`}
+                        subtitle={local ? `${local} · ${ligne}` : ligne}
                         onClick={() =>
                           void navigate({
                             to: '/demandes/$demande',
@@ -191,7 +248,11 @@ function DemandesContent({
                             {statutLabel(d.statut_di_id)}
                           </Badge>
                         }
-                        mobileMeta={statutLabel(d.statut_di_id)}
+                        mobileMeta={
+                          local
+                            ? `${local} · ${statutLabel(d.statut_di_id)}`
+                            : statutLabel(d.statut_di_id)
+                        }
                         actions={
                           showActions ? (
                             <>

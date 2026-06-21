@@ -3,11 +3,11 @@ import type { Badge } from '@/components/ui/badge'
 
 type BadgeVariant = ComponentProps<typeof Badge>['variant']
 
-// Référentiel statuts_di : 1 Ouverte, 2 Résolue, 3 Réouverte.
+// Référentiel statuts_di (migration 052) : 1 Ouvert, 2 En cours, 3 Clôturé.
 const LABELS: Record<number, string> = {
-  1: 'Ouverte',
-  2: 'Résolue',
-  3: 'Réouverte',
+  1: 'Ouvert',
+  2: 'En cours',
+  3: 'Clôturé',
 }
 
 export function statutLabel(statutId: number): string {
@@ -17,10 +17,10 @@ export function statutLabel(statutId: number): string {
 export function statutBadgeVariant(statutId: number): BadgeVariant {
   switch (statutId) {
     case 2:
-      return 'secondary' // Résolue
+      return 'secondary' // En cours
     case 3:
-      return 'destructive' // Réouverte
+      return 'outline' // Clôturé (état clos, faible emphase)
     default:
-      return 'default' // Ouverte
+      return 'default' // Ouvert (à traiter)
   }
 }

@@ -1,14 +1,19 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { CheckCircle2, Pencil, RotateCcw, Trash2, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { demandesQueries } from '../queries'
-import { useReopenDemande, useDeleteDemande } from '../mutations'
+import {
+  useReopenDemande,
+  useDeleteDemande,
+  usePrendreEnCharge,
+} from '../mutations'
 import { DiResolveDialog } from './di-resolve-dialog'
 import { DiEditDialog } from './di-edit-dialog'
 import { statutBadgeVariant, statutLabel } from '../etat'
 import { diTitre } from '../schemas'
+import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
 import { formatDate, formatDateLong } from '@/lib/date'
@@ -26,17 +31,16 @@ type Demande = Database['public']['Tables']['demandes_intervention']['Row']
 
 interface DiDetailProps {
   demande: Demande
-  /** Résolution / réouverture autorisée (rôle opérationnel). */
+  /** Workflow (prendre en charge / clôturer / rouvrir) autorisé : rôle métier. */
   canResolve: boolean
 }
 
 /**
- * Fiche détail d'une demande d'intervention : constat + liaisons (locaux,
- * équipements) et, le cas échéant, sa résolution. Le statut (Ouverte / Résolue /
- * Réouverte) est affiché en badge près du titre. Actions de la barre de titre :
- * Modifier / Résoudre-Réouvrir / Supprimer, chacune gouvernée par la RLS (le
- * front reflète les droits). La donnée vient de la liste (résolue par slug en
- * amont) — pas de requête « getOne ».
+ * Fiche détail d'une demande d'intervention. Cycle de vie à 3 états (migration
+ * 052) : Ouvert (1) → En cours (2) → Clôturé (3), transitions LIBRES côté métier
+ * (Ouvert ↔ En cours ↔ Clôturé). Actions de la barre de titre selon le statut :
+ * Modifier · Prendre en charge · Clôturer · Rouvrir · Supprimer, chacune gouvernée
+ * par la RLS. La donnée vient de la liste (résolue par slug en amont).
  */
 export function DiDetail({ demande, canResolve }: DiDetailProps) {
   const navigate = useNavigate()
@@ -48,20 +52,35 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
   const { data: equipements = [] } = useQuery(
     demandesQueries.equipements(demande.id),
   )
+  // Créateur de la DI : nom résolu via la RLS users (soit, ou pairs de site).
+  const { data: users = [] } = useQuery(utilisateursQueries.list())
+  const createur = useMemo(
+    () => users.find((u) => u.id === demande.created_by)?.nom_complet ?? null,
+    [users, demande.created_by],
+  )
+  const enCharge = usePrendreEnCharge()
   const reopen = useReopenDemande()
   const del = useDeleteDemande()
   const [resolveOpen, setResolveOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const isResolved = demande.statut_di_id === 2
+  const statut = demande.statut_di_id
+  const isCloture = statut === 3
   const canEdit = perm.canEditDemande(role, demande, session?.user.id)
   const canDelete = perm.canDeleteDemande(role, demande, session?.user.id)
   const hasActions = canEdit || canResolve || canDelete
 
+  function handlePrendreEnCharge() {
+    enCharge.mutate(demande.id, {
+      onSuccess: () => toast.success('Demande prise en charge'),
+      onError: (e) => toast.error(writeErrorMessage(e)),
+    })
+  }
+
   function handleReopen() {
     reopen.mutate(demande.id, {
-      onSuccess: () => toast.success('Demande réouverte'),
+      onSuccess: () => toast.success('Demande rouverte'),
       onError: (e) => toast.error(writeErrorMessage(e)),
     })
   }
@@ -82,8 +101,8 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
         title={diTitre(demande.constat)}
         description={`Constaté le ${formatDate(demande.date_constat)}`}
         titleBadges={
-          <Badge variant={statutBadgeVariant(demande.statut_di_id)}>
-            {statutLabel(demande.statut_di_id)}
+          <Badge variant={statutBadgeVariant(statut)}>
+            {statutLabel(statut)}
           </Badge>
         }
         action={
@@ -97,23 +116,35 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
                   onClick={() => setEditOpen(true)}
                 />
               )}
-              {canResolve &&
-                (isResolved ? (
-                  <TooltipIconButton
-                    icon={<RotateCcw />}
-                    label="Réouvrir la demande"
-                    variant="outline"
-                    disabled={reopen.isPending}
-                    onClick={handleReopen}
-                  />
-                ) : (
-                  <TooltipIconButton
-                    icon={<CheckCircle2 />}
-                    label="Résoudre la demande"
-                    variant="outline"
-                    onClick={() => setResolveOpen(true)}
-                  />
-                ))}
+              {/* Prendre en charge : Ouvert → En cours. */}
+              {canResolve && statut === 1 && (
+                <TooltipIconButton
+                  icon={<Wrench />}
+                  label="Prendre en charge"
+                  variant="outline"
+                  disabled={enCharge.isPending}
+                  onClick={handlePrendreEnCharge}
+                />
+              )}
+              {/* Clôturer : depuis Ouvert ou En cours (note obligatoire → dialog). */}
+              {canResolve && !isCloture && (
+                <TooltipIconButton
+                  icon={<CheckCircle2 />}
+                  label="Clôturer la demande"
+                  variant="outline"
+                  onClick={() => setResolveOpen(true)}
+                />
+              )}
+              {/* Rouvrir : depuis En cours ou Clôturé → Ouvert. */}
+              {canResolve && statut !== 1 && (
+                <TooltipIconButton
+                  icon={<RotateCcw />}
+                  label="Rouvrir la demande"
+                  variant="outline"
+                  disabled={reopen.isPending}
+                  onClick={handleReopen}
+                />
+              )}
               {canDelete && (
                 <TooltipIconButton
                   icon={<Trash2 />}
@@ -135,6 +166,12 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
         <CardContent className="flex flex-col gap-4 text-sm">
           <p className="whitespace-pre-wrap">{demande.constat}</p>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            {createur && (
+              <>
+                <dt className="text-muted-foreground">Signalé par</dt>
+                <dd>{createur}</dd>
+              </>
+            )}
             <dt className="text-muted-foreground">Date de constat</dt>
             <dd>{formatDateLong(demande.date_constat)}</dd>
             {localisations.length > 0 && (
@@ -153,23 +190,25 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
         </CardContent>
       </Card>
 
-      {/* Résolution (présente une fois la demande résolue ; conservée si réouverte). */}
+      {/* Note de clôture (présente dès qu'une clôture a eu lieu ; conservée si rouverte). */}
       {demande.description_resolution && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-base">Résolution</CardTitle>
+            <CardTitle className="text-base">Note de clôture</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 text-sm">
             <p className="whitespace-pre-wrap">
               {demande.description_resolution}
             </p>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-              <dt className="text-muted-foreground">Date de résolution</dt>
-              <dd>{formatDateLong(demande.date_resolution)}</dd>
-            </dl>
-            {!isResolved && (
+            {demande.date_resolution && (
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+                <dt className="text-muted-foreground">Date de clôture</dt>
+                <dd>{formatDateLong(demande.date_resolution)}</dd>
+              </dl>
+            )}
+            {!isCloture && (
               <p className="text-muted-foreground italic">
-                Demande réouverte : cette résolution est conservée à titre
+                Demande rouverte : cette note de clôture est conservée à titre
                 d'historique.
               </p>
             )}

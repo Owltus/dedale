@@ -15,7 +15,7 @@ export function useCreateDemande() {
       createdBy: string
       values: DiFormValues
     }) => {
-      // 1. Insertion de la DI (statut Ouverte forcé par défaut/trigger serveur).
+      // 1. Insertion de la DI (statut Ouvert forcé par défaut/trigger serveur).
       const { data } = await supabase
         .from('demandes_intervention')
         .insert({
@@ -51,9 +51,9 @@ export function useCreateDemande() {
 export function useResolveDemande() {
   const qc = useQueryClient()
   return useMutation({
-    // Passage en Résolue (statut id=2). resolved_by + date_resolution sont
-    // forcés serveur (triggers) → on ne les envoie pas. Une transition interdite
-    // (statut terminal, etc.) renvoie une erreur Postgres à catcher côté appelant.
+    // Clôture : passage en Clôturé (statut id=3). resolved_by + date_resolution
+    // forcés serveur (triggers) → non envoyés. La note (description_resolution)
+    // est obligatoire (validée serveur). Erreur Postgres catchée côté appelant.
     mutationFn: async ({
       id,
       descriptionResolution,
@@ -64,7 +64,7 @@ export function useResolveDemande() {
       const { data } = await supabase
         .from('demandes_intervention')
         .update({
-          statut_di_id: 2,
+          statut_di_id: 3,
           description_resolution: descriptionResolution.trim(),
         })
         .eq('id', id)
@@ -80,11 +80,30 @@ export function useResolveDemande() {
 export function useReopenDemande() {
   const qc = useQueryClient()
   return useMutation({
-    // Réouverture (statut id=3). resolved_by + date_resolution effacés serveur.
+    // Réouverture : retour à Ouvert (statut id=1). resolved_by + date_resolution
+    // effacés serveur (la note de clôture est conservée à titre d'historique).
     mutationFn: async (id: string) => {
       const { data } = await supabase
         .from('demandes_intervention')
-        .update({ statut_di_id: 3 })
+        .update({ statut_di_id: 1 })
+        .eq('id', id)
+        .select()
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: demandesQueries.all() }),
+  })
+}
+
+export function usePrendreEnCharge() {
+  const qc = useQueryClient()
+  return useMutation({
+    // Prise en charge : passage en En cours (statut id=2). Pas de note.
+    mutationFn: async (id: string) => {
+      const { data } = await supabase
+        .from('demandes_intervention')
+        .update({ statut_di_id: 2 })
         .eq('id', id)
         .select()
         .single()

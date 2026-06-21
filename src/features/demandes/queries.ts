@@ -26,6 +26,25 @@ export const demandesQueries = {
       staleTime: 60_000,
     }),
 
+  /**
+   * Nom du local lié à chaque DI VISIBLE (di_id → local), pour l'afficher en
+   * liste SANS une requête par carte. La RLS des liaisons hérite du scope de leur
+   * DI (un demandeur voit celles de tout son site) → on récupère juste le nom.
+   */
+  locauxParDi: () =>
+    queryOptions({
+      queryKey: [...demandesQueries.all(), 'locaux-par-di'] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('di_localisations')
+          .select('di_id, locaux(nom)')
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+      staleTime: 60_000,
+    }),
+
   /** Locaux liés à une DI (avec leur chemin lisible). */
   localisations: (diId: string) =>
     queryOptions({
@@ -60,7 +79,7 @@ export const demandesQueries = {
 export const statutsDiQueries = {
   all: () => ['statuts_di'] as const,
 
-  /** Référentiel des statuts DI (1 Ouverte, 2 Résolue, 3 Réouverte). */
+  /** Référentiel des statuts DI (1 Ouvert, 2 En cours, 3 Clôturé). */
   list: () =>
     queryOptions({
       queryKey: [...statutsDiQueries.all(), 'list'] as const,
