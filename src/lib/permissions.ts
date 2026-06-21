@@ -112,3 +112,46 @@ export function canEditUser(role: Role, targetRole: Role): boolean {
       SUBORDINATE_ROLES.includes(targetRole))
   )
 }
+
+/**
+ * Modifier une demande d'intervention (miroir de la RLS) :
+ *  - admin / manager / technicien : toute DI de leur périmètre (di_site_scoped_update).
+ *  - demandeur : UNIQUEMENT SA propre DI tant qu'elle est Ouverte (statut 1),
+ *    conformément à di_demandeur_update (own + statut_di_id = 1). Une fois Résolue
+ *    ou Réouverte, il ne peut plus rien faire.
+ *  - lecteur (ou rôle absent) : jamais.
+ */
+export function canEditDemande(
+  role: Role,
+  demande: { created_by: string | null; statut_di_id: number },
+  userId: string | undefined,
+): boolean {
+  if (canManageMetier(role)) return true
+  if (isDemandeur(role))
+    return (
+      !!userId && demande.created_by === userId && demande.statut_di_id === 1
+    )
+  return false
+}
+
+/**
+ * Supprimer une demande d'intervention (miroir RLS, migration 050) :
+ *  - admin / manager / technicien : toute DI de leur périmètre (di_site_scoped_delete).
+ *  - demandeur : SA propre DI tant qu'elle est Ouverte (statut 1) — il gère son
+ *    petit périmètre (di_demandeur_delete). Plus rien une fois Résolue/Réouverte.
+ *  - lecteur (ou rôle absent) : jamais.
+ * Logique identique à canEditDemande aujourd'hui, mais gardée distincte (concepts
+ * séparés, susceptibles de diverger).
+ */
+export function canDeleteDemande(
+  role: Role,
+  demande: { created_by: string | null; statut_di_id: number },
+  userId: string | undefined,
+): boolean {
+  if (canManageMetier(role)) return true
+  if (isDemandeur(role))
+    return (
+      !!userId && demande.created_by === userId && demande.statut_di_id === 1
+    )
+  return false
+}

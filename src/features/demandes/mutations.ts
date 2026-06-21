@@ -94,3 +94,79 @@ export function useReopenDemande() {
     onSuccess: () => qc.invalidateQueries({ queryKey: demandesQueries.all() }),
   })
 }
+
+export function useUpdateDemande() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      constat,
+      liaisons,
+    }: {
+      id: string
+      constat: string
+      // `null` → on NE touche PAS aux liaisons. Cas du DEMANDEUR : la RLS ne lui
+      // donne que SELECT/INSERT sur di_localisations/di_equipements (jamais
+      // DELETE/UPDATE) → un delete-réinsert échouerait. Il n'édite que le constat.
+      // Renseigné → réconciliation complète (admin/manager/technicien : FOR ALL).
+      liaisons: { localId: string; equipementId: string } | null
+    }) => {
+      // 1. Constat (RLS : manager/tech sur le site, demandeur sur SA DI Ouverte).
+      //    .select('id').single() → un refus RLS (0 ligne) devient une vraie erreur.
+      await supabase
+        .from('demandes_intervention')
+        .update({ constat: constat.trim() })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+
+      if (liaisons === null) return
+
+      // 2. Réconciliation des liaisons : on remet à plat puis on réinsère la
+      //    sélection courante (au plus une localisation + un équipement ici).
+      await supabase
+        .from('di_localisations')
+        .delete()
+        .eq('di_id', id)
+        .throwOnError()
+      if (liaisons.localId) {
+        await supabase
+          .from('di_localisations')
+          .insert({ di_id: id, local_id: liaisons.localId })
+          .throwOnError()
+      }
+      await supabase
+        .from('di_equipements')
+        .delete()
+        .eq('di_id', id)
+        .throwOnError()
+      if (liaisons.equipementId) {
+        await supabase
+          .from('di_equipements')
+          .insert({ di_id: id, equipement_id: liaisons.equipementId })
+          .throwOnError()
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: demandesQueries.all() }),
+  })
+}
+
+export function useDeleteDemande() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // Hard-delete. CASCADE nettoie di_localisations / di_equipements /
+      // documents_di. .select('id').single() → un refus RLS (0 ligne) devient une
+      // vraie erreur plutôt qu'un faux succès silencieux.
+      await supabase
+        .from('demandes_intervention')
+        .delete()
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: demandesQueries.all() }),
+  })
+}

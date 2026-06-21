@@ -8612,6 +8612,14 @@ CREATE POLICY di_site_scoped_update ON demandes_intervention FOR UPDATE
         AND public.has_site_access(site_id)
     );
 
+-- Suppression site-scopée (manager + technicien), calquée sur l'UPDATE
+-- (migration 050). Demandeur et lecteur restent sans suppression (aucune policy).
+CREATE POLICY di_site_scoped_delete ON demandes_intervention FOR DELETE
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND public.has_site_access(site_id)
+    );
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 18bis. demandes_intervention — Rôle DEMANDEUR (RLS chirurgicale)
 -- Le demandeur (gouvernante, accueil…) voit TOUTES les DI de ses sites (lecture,
@@ -8652,7 +8660,15 @@ CREATE POLICY di_demandeur_update ON demandes_intervention FOR UPDATE
         AND public.has_site_access(site_id)
     );
 
--- Pas de policy DELETE → demandeur ne peut jamais supprimer (soft-delete réservé admin/manager).
+-- Suppression de SA propre DI tant qu'elle est Ouverte (statut 1) : le demandeur
+-- gère son petit périmètre ; plus de suppression une fois Résolue/Réouverte
+-- (migration 050). Lecteur : aucune policy DELETE → jamais.
+CREATE POLICY di_demandeur_delete ON demandes_intervention FOR DELETE
+    USING (
+        (SELECT public.current_role()) = 'demandeur'
+        AND created_by = (SELECT auth.uid())
+        AND statut_di_id = 1
+    );
 
 -- ╔══════════════════════════════════════════════════════════════════════════╗
 -- ║ 17bis. interventions_travaux (site_id) — v0.33, calque DI sans demandeur ║

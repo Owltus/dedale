@@ -1,16 +1,22 @@
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, RotateCcw } from 'lucide-react'
+import { CheckCircle2, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { demandesQueries } from '../queries'
-import { useReopenDemande } from '../mutations'
+import { useReopenDemande, useDeleteDemande } from '../mutations'
 import { DiResolveDialog } from './di-resolve-dialog'
+import { DiEditDialog } from './di-edit-dialog'
 import { statutBadgeVariant, statutLabel } from '../etat'
 import { diTitre } from '../schemas'
+import { useCurrentRole } from '@/hooks/use-current-role'
+import { useAuth } from '@/auth'
 import { formatDate, formatDateLong } from '@/lib/date'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage, deleteErrorMessage } from '@/lib/form'
+import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,11 +33,15 @@ interface DiDetailProps {
 /**
  * Fiche détail d'une demande d'intervention : constat + liaisons (locaux,
  * équipements) et, le cas échéant, sa résolution. Le statut (Ouverte / Résolue /
- * Réouverte) est affiché en badge près du titre ; la résolution / réouverture se
- * fait via la barre de titre. La donnée vient de la liste (résolue par slug en
+ * Réouverte) est affiché en badge près du titre. Actions de la barre de titre :
+ * Modifier / Résoudre-Réouvrir / Supprimer, chacune gouvernée par la RLS (le
+ * front reflète les droits). La donnée vient de la liste (résolue par slug en
  * amont) — pas de requête « getOne ».
  */
 export function DiDetail({ demande, canResolve }: DiDetailProps) {
+  const navigate = useNavigate()
+  const { data: role } = useCurrentRole()
+  const { session } = useAuth()
   const { data: localisations = [] } = useQuery(
     demandesQueries.localisations(demande.id),
   )
@@ -39,14 +49,30 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
     demandesQueries.equipements(demande.id),
   )
   const reopen = useReopenDemande()
+  const del = useDeleteDemande()
   const [resolveOpen, setResolveOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const isResolved = demande.statut_di_id === 2
+  const canEdit = perm.canEditDemande(role, demande, session?.user.id)
+  const canDelete = perm.canDeleteDemande(role, demande, session?.user.id)
+  const hasActions = canEdit || canResolve || canDelete
 
   function handleReopen() {
     reopen.mutate(demande.id, {
       onSuccess: () => toast.success('Demande réouverte'),
       onError: (e) => toast.error(writeErrorMessage(e)),
+    })
+  }
+
+  function confirmDelete() {
+    del.mutate(demande.id, {
+      onSuccess: () => {
+        toast.success('Demande supprimée')
+        void navigate({ to: '/demandes' })
+      },
+      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -61,23 +87,42 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
           </Badge>
         }
         action={
-          canResolve ? (
-            isResolved ? (
-              <TooltipIconButton
-                icon={<RotateCcw />}
-                label="Réouvrir la demande"
-                variant="outline"
-                disabled={reopen.isPending}
-                onClick={handleReopen}
-              />
-            ) : (
-              <TooltipIconButton
-                icon={<CheckCircle2 />}
-                label="Résoudre la demande"
-                variant="outline"
-                onClick={() => setResolveOpen(true)}
-              />
-            )
+          hasActions ? (
+            <div className="flex items-center gap-2">
+              {canEdit && (
+                <TooltipIconButton
+                  icon={<Pencil />}
+                  label="Modifier la demande"
+                  variant="outline"
+                  onClick={() => setEditOpen(true)}
+                />
+              )}
+              {canResolve &&
+                (isResolved ? (
+                  <TooltipIconButton
+                    icon={<RotateCcw />}
+                    label="Réouvrir la demande"
+                    variant="outline"
+                    disabled={reopen.isPending}
+                    onClick={handleReopen}
+                  />
+                ) : (
+                  <TooltipIconButton
+                    icon={<CheckCircle2 />}
+                    label="Résoudre la demande"
+                    variant="outline"
+                    onClick={() => setResolveOpen(true)}
+                  />
+                ))}
+              {canDelete && (
+                <TooltipIconButton
+                  icon={<Trash2 />}
+                  label="Supprimer la demande"
+                  variant="outline"
+                  onClick={() => setDeleteOpen(true)}
+                />
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -137,6 +182,25 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
         open={resolveOpen}
         onOpenChange={setResolveOpen}
         diId={demande.id}
+      />
+
+      <DiEditDialog
+        key={editOpen ? 'open' : 'closed'}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        demande={demande}
+        siteId={demande.site_id}
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Supprimer la demande ?"
+        description={`« ${diTitre(demande.constat)} » sera supprimée définitivement.`}
+        confirmLabel="Supprimer"
+        destructive
+        loading={del.isPending}
+        onConfirm={confirmDelete}
       />
     </PageContainer>
   )
