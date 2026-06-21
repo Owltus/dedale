@@ -110,9 +110,13 @@ export function ListRow({
   const titleId = useId()
 
   const hasMenu = menuActions !== undefined && menuActions.length > 0
+  // Nom accessible du kebab : contextualisé sur le titre quand il est textuel
+  // (sinon `titleLabel`, sinon « Actions » par défaut côté RowActionsKebab).
+  const menuLabel =
+    typeof title === 'string' ? `Actions sur ${title}` : titleLabel
   // Contenu du slot d'actions : kebab « ⋮ » si menu, sinon l'ancien `actions`.
   const actionsContent = hasMenu ? (
-    <RowActionsKebab actions={menuActions} />
+    <RowActionsKebab actions={menuActions} label={menuLabel} />
   ) : (
     actions
   )
