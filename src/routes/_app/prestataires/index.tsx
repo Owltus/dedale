@@ -22,6 +22,7 @@ import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { SearchInput } from '@/components/common/search-input'
@@ -149,6 +150,21 @@ function PrestatairesList({
                 <div className={listStack}>
                   {shown.map((p) => {
                     const nb = counts?.get(p.id) ?? 0
+                    const rowActions: RowAction[] = []
+                    if (canManage)
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () =>
+                          setForm({ open: true, prestataire: p }),
+                      })
+                    if (canManage && !p.est_interne)
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDelete(p),
+                      })
                     return (
                       <ListRow
                         key={p.id}
@@ -175,25 +191,8 @@ function PrestatairesList({
                             },
                           })
                         }
-                        actions={
-                          canManage ? (
-                            <>
-                              <TooltipIconButton
-                                icon={<Pencil />}
-                                label="Modifier le prestataire"
-                                onClick={() =>
-                                  setForm({ open: true, prestataire: p })
-                                }
-                              />
-                              {!p.est_interne && (
-                                <TooltipIconButton
-                                  icon={<Trash2 className="text-destructive" />}
-                                  label="Supprimer le prestataire"
-                                  onClick={() => setToDelete(p)}
-                                />
-                              )}
-                            </>
-                          ) : undefined
+                        menuActions={
+                          rowActions.length ? rowActions : undefined
                         }
                       />
                     )

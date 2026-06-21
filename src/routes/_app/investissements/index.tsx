@@ -28,6 +28,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { SearchInput } from '@/components/common/search-input'
@@ -178,6 +179,21 @@ function InvestissementsContent({
                       statutNom,
                     )
                     const { label: ecartLabel, depassement } = ecartCapex(inv)
+                    const rowActions: RowAction[] = []
+                    if (canManage)
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () =>
+                          setForm({ open: true, investissement: inv }),
+                      })
+                    if (canManage && canDelete)
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDelete(inv),
+                      })
                     return (
                       <ListRow
                         key={inv.id}
@@ -239,25 +255,8 @@ function InvestissementsContent({
                         ]
                           .filter(Boolean)
                           .join(' · ')}
-                        actions={
-                          canManage ? (
-                            <>
-                              <TooltipIconButton
-                                icon={<Pencil />}
-                                label="Modifier l'investissement"
-                                onClick={() =>
-                                  setForm({ open: true, investissement: inv })
-                                }
-                              />
-                              {canDelete && (
-                                <TooltipIconButton
-                                  icon={<Trash2 className="text-destructive" />}
-                                  label="Supprimer l'investissement"
-                                  onClick={() => setToDelete(inv)}
-                                />
-                              )}
-                            </>
-                          ) : undefined
+                        menuActions={
+                          rowActions.length ? rowActions : undefined
                         }
                       />
                     )

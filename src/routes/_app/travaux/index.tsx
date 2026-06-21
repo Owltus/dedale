@@ -25,6 +25,7 @@ import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { SearchInput } from '@/components/common/search-input'
@@ -182,7 +183,22 @@ function TravauxContent({
                 <div className={listStack}>
                   {shown.map((c) => {
                     const statutLabel = statutNom.get(c.statut_travaux_id)
-                    const editable = canManage && !estVerrouille(c.statut_travaux_id)
+                    const editable =
+                      canManage && !estVerrouille(c.statut_travaux_id)
+                    const rowActions: RowAction[] = []
+                    if (editable)
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () => setForm({ open: true, travaux: c }),
+                      })
+                    if (canDelete)
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDelete(c),
+                      })
                     return (
                       <ListRow
                         key={c.id}
@@ -226,25 +242,8 @@ function TravauxContent({
                           </div>
                         }
                         mobileMeta={statutLabel}
-                        actions={
-                          <>
-                            {editable && (
-                              <TooltipIconButton
-                                icon={<Pencil />}
-                                label="Modifier le travaux"
-                                onClick={() =>
-                                  setForm({ open: true, travaux: c })
-                                }
-                              />
-                            )}
-                            {canDelete && (
-                              <TooltipIconButton
-                                icon={<Trash2 className="text-destructive" />}
-                                label="Supprimer le travaux"
-                                onClick={() => setToDelete(c)}
-                              />
-                            )}
-                          </>
+                        menuActions={
+                          rowActions.length ? rowActions : undefined
                         }
                       />
                     )
