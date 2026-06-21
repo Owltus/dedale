@@ -56,9 +56,9 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { OperationRow } from '@/components/common/operation-row'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import { Button } from '@/components/ui/button'
 import { listStack } from '@/lib/responsive'
 import type { Database } from '@/lib/database.types'
 
@@ -770,133 +770,111 @@ export function GammesBiblioPanel() {
             <div className="flex flex-col gap-6">
               {childCategories.length > 0 && (
                 <div className={listStack}>
-                  {childCategories.map((cat) => (
-                    <ListRow
-                      key={cat.id}
-                      media={
-                        <MiniatureThumb
-                          url={urlOf(cat.miniature_id)}
-                          fallback={<Folder className="size-10" />}
-                          // Image décorative : le titre + le nom accessible de la
-                          // ligne portent déjà l'info (pas de 3e annonce au lecteur).
-                          alt=""
-                          onError={refreshMiniatures}
-                          className="size-full rounded-none"
-                        />
-                      }
-                      title={cat.nom}
-                      subtitle={
-                        cat.description?.trim()
-                          ? cat.description.trim()
-                          : undefined
-                      }
-                      // Descendre d'un palier (PUSH) : on ajoute la catégorie au
-                      // chemin courant → `cat` à la racine, `sous` au niveau 1.
-                      onClick={() => goToCats([...validPath, cat])}
-                      actions={
-                        canExport || canEntreprise ? (
-                          <>
-                            {canExport && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label="Copier vers un site"
-                                onClick={() => setCopierContenu(cat)}
-                              >
-                                <CopyPlus />
-                              </Button>
-                            )}
-                            {canEntreprise && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label="Modifier la catégorie"
-                                  onClick={() => handleEditCategory(cat)}
-                                >
-                                  <Pencil />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label="Supprimer la catégorie"
-                                  onClick={() => setToDeleteCategorie(cat)}
-                                >
-                                  <Trash2 />
-                                </Button>
-                              </>
-                            )}
-                          </>
-                        ) : undefined
-                      }
-                    />
-                  ))}
+                  {childCategories.map((cat) => {
+                    const rowActions: RowAction[] = []
+                    if (canExport)
+                      rowActions.push({
+                        label: 'Copier vers un site',
+                        icon: CopyPlus,
+                        onSelect: () => setCopierContenu(cat),
+                      })
+                    if (canEntreprise) {
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () => handleEditCategory(cat),
+                      })
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDeleteCategorie(cat),
+                      })
+                    }
+                    return (
+                      <ListRow
+                        key={cat.id}
+                        media={
+                          <MiniatureThumb
+                            url={urlOf(cat.miniature_id)}
+                            fallback={<Folder className="size-10" />}
+                            // Image décorative : le titre + le nom accessible de la
+                            // ligne portent déjà l'info (pas de 3e annonce au lecteur).
+                            alt=""
+                            onError={refreshMiniatures}
+                            className="size-full rounded-none"
+                          />
+                        }
+                        title={cat.nom}
+                        subtitle={
+                          cat.description?.trim()
+                            ? cat.description.trim()
+                            : undefined
+                        }
+                        // Descendre d'un palier (PUSH) : on ajoute la catégorie au
+                        // chemin courant → `cat` à la racine, `sous` au niveau 1.
+                        onClick={() => goToCats([...validPath, cat])}
+                        menuActions={
+                          rowActions.length ? rowActions : undefined
+                        }
+                      />
+                    )
+                  })}
                 </div>
               )}
 
               {current !== null && gammesInCurrent.length > 0 && (
                 <div className={listStack}>
-                  {gammesInCurrent.map((g) => (
-                    <ListRow
-                      key={g.id}
-                      media={
-                        <MiniatureThumb
-                          url={urlOf(g.miniature_id)}
-                          fallback={<Wrench className="size-10" />}
-                          // Image décorative : le titre + le nom accessible de la
-                          // ligne portent déjà l'info (pas de 3e annonce au lecteur).
-                          alt=""
-                          onError={refreshMiniatures}
-                          className="size-full rounded-none"
-                        />
-                      }
-                      title={g.nom}
-                      subtitle={
-                        g.description?.trim() ? g.description.trim() : undefined
-                      }
-                      // Ouvrir une gamme (PUSH) : chemin dérivé de sa catégorie
-                      // RÉELLE (cohérent même après un déplacement realtime).
-                      onClick={() => goToGamme(g)}
-                      actions={
-                        canExport || canEntreprise ? (
-                          <>
-                            {canExport && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label="Copier vers un site"
-                                onClick={() => openExportGamme(g)}
-                              >
-                                <CopyPlus />
-                              </Button>
-                            )}
-                            {canEntreprise && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label="Modifier la gamme"
-                                  onClick={() =>
-                                    setGammeForm({ open: true, gamme: g })
-                                  }
-                                >
-                                  <Pencil />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label="Supprimer la gamme"
-                                  onClick={() => setToDeleteGamme(g)}
-                                >
-                                  <Trash2 />
-                                </Button>
-                              </>
-                            )}
-                          </>
-                        ) : undefined
-                      }
-                    />
-                  ))}
+                  {gammesInCurrent.map((g) => {
+                    const rowActions: RowAction[] = []
+                    if (canExport)
+                      rowActions.push({
+                        label: 'Copier vers un site',
+                        icon: CopyPlus,
+                        onSelect: () => openExportGamme(g),
+                      })
+                    if (canEntreprise) {
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () => setGammeForm({ open: true, gamme: g }),
+                      })
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDeleteGamme(g),
+                      })
+                    }
+                    return (
+                      <ListRow
+                        key={g.id}
+                        media={
+                          <MiniatureThumb
+                            url={urlOf(g.miniature_id)}
+                            fallback={<Wrench className="size-10" />}
+                            // Image décorative : le titre + le nom accessible de la
+                            // ligne portent déjà l'info (pas de 3e annonce au lecteur).
+                            alt=""
+                            onError={refreshMiniatures}
+                            className="size-full rounded-none"
+                          />
+                        }
+                        title={g.nom}
+                        subtitle={
+                          g.description?.trim()
+                            ? g.description.trim()
+                            : undefined
+                        }
+                        // Ouvrir une gamme (PUSH) : chemin dérivé de sa catégorie
+                        // RÉELLE (cohérent même après un déplacement realtime).
+                        onClick={() => goToGamme(g)}
+                        menuActions={
+                          rowActions.length ? rowActions : undefined
+                        }
+                      />
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -1123,40 +1101,37 @@ function GammeBiblioDetail({
           >
             {(operations) => (
               <div className={listStack}>
-                {operations.map((op) => (
-                  <OperationRow
-                    key={op.id}
-                    nom={op.nom}
-                    description={op.description}
-                    typeLibelle={op.types_operations.libelle}
-                    necessiteSeuils={op.types_operations.necessite_seuils}
-                    seuilMin={op.seuil_minimum}
-                    seuilMax={op.seuil_maximum}
-                    uniteSymbole={op.unites?.symbole}
-                    actions={
-                      canEdit ? (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setOpForm({ open: true, op })}
-                            aria-label={`Modifier l’opération « ${op.nom} »`}
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setToDelete(op)}
-                            aria-label={`Supprimer l’opération « ${op.nom} »`}
-                          >
-                            <Trash2 />
-                          </Button>
-                        </>
-                      ) : undefined
-                    }
-                  />
-                ))}
+                {operations.map((op) => {
+                  const rowActions: RowAction[] = []
+                  if (canEdit) {
+                    rowActions.push({
+                      label: 'Modifier',
+                      icon: Pencil,
+                      onSelect: () => setOpForm({ open: true, op }),
+                    })
+                    rowActions.push({
+                      label: 'Supprimer',
+                      icon: Trash2,
+                      destructive: true,
+                      onSelect: () => setToDelete(op),
+                    })
+                  }
+                  return (
+                    <OperationRow
+                      key={op.id}
+                      nom={op.nom}
+                      description={op.description}
+                      typeLibelle={op.types_operations.libelle}
+                      necessiteSeuils={op.types_operations.necessite_seuils}
+                      seuilMin={op.seuil_minimum}
+                      seuilMax={op.seuil_maximum}
+                      uniteSymbole={op.unites?.symbole}
+                      menuActions={
+                        rowActions.length ? rowActions : undefined
+                      }
+                    />
+                  )
+                })}
               </div>
             )}
           </QueryState>

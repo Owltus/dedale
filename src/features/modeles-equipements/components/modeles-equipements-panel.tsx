@@ -52,7 +52,7 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ListRow } from '@/components/common/list-row'
-import { Button } from '@/components/ui/button'
+import type { RowAction } from '@/components/common/row-actions'
 import { ScopeBadges } from '@/components/common/scope-badges'
 import { listStack } from '@/lib/responsive'
 
@@ -578,54 +578,51 @@ export function ModelesEquipementsPanel() {
             <div className="flex flex-col gap-6">
               {childCategories.length > 0 && (
                 <div className={listStack}>
-                  {childCategories.map((cat) => (
-                    <ListRow
-                      key={cat.id}
-                      media={
-                        <MiniatureThumb
-                          url={urlOf(cat.miniature_id)}
-                          fallback={<Folder className="size-10" />}
-                          // Image décorative : le titre porte déjà le nom accessible.
-                          alt=""
-                          onError={refreshMiniatures}
-                          className="size-full rounded-none"
-                        />
-                      }
-                      title={cat.nom}
-                      subtitle={
-                        cat.description?.trim()
-                          ? cat.description.trim()
-                          : undefined
-                      }
-                      badges={<ScopeBadges siteId={cat.site_id} />}
-                      mobileMeta={<ScopeBadges siteId={cat.site_id} />}
-                      // Descendre d'un palier (PUSH) : on ajoute la catégorie au
-                      // chemin courant.
-                      onClick={() => goTo([...path, cat])}
-                      actions={
-                        canManageCat(cat) ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Modifier la catégorie"
-                              onClick={() => handleEditCategory(cat)}
-                            >
-                              <Pencil />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Supprimer la catégorie"
-                              onClick={() => setToDeleteCategorie(cat)}
-                            >
-                              <Trash2 />
-                            </Button>
-                          </>
-                        ) : undefined
-                      }
-                    />
-                  ))}
+                  {childCategories.map((cat) => {
+                    const rowActions: RowAction[] = []
+                    if (canManageCat(cat)) {
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () => handleEditCategory(cat),
+                      })
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDeleteCategorie(cat),
+                      })
+                    }
+                    return (
+                      <ListRow
+                        key={cat.id}
+                        media={
+                          <MiniatureThumb
+                            url={urlOf(cat.miniature_id)}
+                            fallback={<Folder className="size-10" />}
+                            // Image décorative : le titre porte déjà le nom accessible.
+                            alt=""
+                            onError={refreshMiniatures}
+                            className="size-full rounded-none"
+                          />
+                        }
+                        title={cat.nom}
+                        subtitle={
+                          cat.description?.trim()
+                            ? cat.description.trim()
+                            : undefined
+                        }
+                        badges={<ScopeBadges siteId={cat.site_id} />}
+                        mobileMeta={<ScopeBadges siteId={cat.site_id} />}
+                        // Descendre d'un palier (PUSH) : on ajoute la catégorie au
+                        // chemin courant.
+                        onClick={() => goTo([...path, cat])}
+                        menuActions={
+                          rowActions.length ? rowActions : undefined
+                        }
+                      />
+                    )
+                  })}
                 </div>
               )}
 
@@ -634,6 +631,27 @@ export function ModelesEquipementsPanel() {
                   {modelesInCurrent.map((modele) => {
                     const specs = specCount(modele.specifications)
                     const editable = canEditModele(modele)
+                    const rowActions: RowAction[] = []
+                    // Copie commun → site : uniquement sur un modèle COMMUN.
+                    if (canExport && modele.site_id === null)
+                      rowActions.push({
+                        label: 'Copier vers un site',
+                        icon: CopyPlus,
+                        onSelect: () => setExportState({ open: true, modele }),
+                      })
+                    if (editable) {
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () => setModeleForm({ open: true, modele }),
+                      })
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDelete(modele),
+                      })
+                    }
                     return (
                       <ListRow
                         key={modele.id}
@@ -662,46 +680,8 @@ export function ModelesEquipementsPanel() {
                         }
                         // Ouvrir la page de détail du modèle (caractéristiques).
                         onClick={() => goToModele(modele)}
-                        actions={
-                          editable || (canExport && modele.site_id === null) ? (
-                            <>
-                              {/* Copie commun → site : uniquement sur un modèle COMMUN. */}
-                              {canExport && modele.site_id === null && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label="Copier vers un site"
-                                  onClick={() =>
-                                    setExportState({ open: true, modele })
-                                  }
-                                >
-                                  <CopyPlus />
-                                </Button>
-                              )}
-                              {editable && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Modifier le modèle"
-                                    onClick={() =>
-                                      setModeleForm({ open: true, modele })
-                                    }
-                                  >
-                                    <Pencil />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Supprimer le modèle"
-                                    onClick={() => setToDelete(modele)}
-                                  >
-                                    <Trash2 />
-                                  </Button>
-                                </>
-                              )}
-                            </>
-                          ) : undefined
+                        menuActions={
+                          rowActions.length ? rowActions : undefined
                         }
                       />
                     )

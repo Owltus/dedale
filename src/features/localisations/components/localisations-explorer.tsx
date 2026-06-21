@@ -26,11 +26,11 @@ import {
 } from '@/components/common/page-header'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
-import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 
 type Batiment = Database['public']['Tables']['batiments']['Row']
@@ -311,27 +311,23 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   )
 
   // Actions (modifier / supprimer) d'une ligne, réservées au rôle métier.
-  const rowActions = (onEdit: () => void, onDelete: () => void) =>
-    canEdit ? (
-      <>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Modifier"
-          onClick={onEdit}
-        >
-          <Pencil />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Supprimer"
-          onClick={onDelete}
-        >
-          <Trash2 />
-        </Button>
-      </>
-    ) : undefined
+  // La suppression d'un conteneur non vide reste arbitrée par la confirmation
+  // (`deleteBlocked`) → l'action figure toujours dans le menu, comme avant.
+  const rowActions = (
+    onEdit: () => void,
+    onDelete: () => void,
+  ): RowAction[] | undefined =>
+    canEdit
+      ? [
+          { label: 'Modifier', icon: Pencil, onSelect: onEdit },
+          {
+            label: 'Supprimer',
+            icon: Trash2,
+            destructive: true,
+            onSelect: onDelete,
+          },
+        ]
+      : undefined
 
   let content: ReactNode
   if (niveau) {
@@ -375,7 +371,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                     .filter(Boolean)
                     .join(' · ') || undefined
                 }
-                actions={rowActions(
+                menuActions={rowActions(
                   () => setLocForm({ open: true, local: l }),
                   () => setToDelete({ kind: 'local', item: l }),
                 )}
@@ -421,7 +417,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                 meta={surfaceLabel(surfaceNiveau.get(n.id))}
                 mobileMeta={surfaceLabel(surfaceNiveau.get(n.id))}
                 onClick={() => goToNiveau(n)}
-                actions={rowActions(
+                menuActions={rowActions(
                   () => setNivForm({ open: true, niveau: n }),
                   () => setToDelete({ kind: 'niveau', item: n }),
                 )}
@@ -467,7 +463,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                 meta={surfaceLabel(surfaceBatiment.get(b.id))}
                 mobileMeta={surfaceLabel(surfaceBatiment.get(b.id))}
                 onClick={() => goToBatiment(b)}
-                actions={rowActions(
+                menuActions={rowActions(
                   () => setBatForm({ open: true, batiment: b }),
                   () => setToDelete({ kind: 'batiment', item: b }),
                 )}

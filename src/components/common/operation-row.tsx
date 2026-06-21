@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { ClipboardCheck } from 'lucide-react'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { Badge } from '@/components/ui/badge'
 
 interface OperationRowProps {
@@ -13,8 +14,10 @@ interface OperationRowProps {
   seuilMin: number | null
   seuilMax: number | null
   uniteSymbole?: string | null
-  /** Boutons d'action (icônes), révélés au survol par ListRow. */
+  /** Boutons d'action (icônes), révélés au survol par ListRow. ANCIEN mode. */
   actions?: ReactNode
+  /** Actions présentées en MENU (clic droit / appui long / kebab). Prime sur `actions`. */
+  menuActions?: RowAction[]
 }
 
 // Représentation texte des seuils (avec l'unité). Vide si aucun seuil.
@@ -47,6 +50,7 @@ export function OperationRow({
   seuilMax,
   uniteSymbole,
   actions,
+  menuActions,
 }: OperationRowProps) {
   const seuils = formatSeuils(seuilMin, seuilMax, uniteSymbole ?? '')
   const typeAffiche = necessiteSeuils && seuils ? seuils : typeLibelle
@@ -76,6 +80,7 @@ export function OperationRow({
         </span>
       }
       actions={actions}
+      menuActions={menuActions}
     />
   )
 }

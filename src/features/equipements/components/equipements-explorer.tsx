@@ -44,6 +44,7 @@ import {
 } from '@/components/common/page-header'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { listStack } from '@/lib/responsive'
 import { ScopeBadges } from '@/components/common/scope-badges'
 import { EmptyState } from '@/components/common/empty-state'
@@ -51,7 +52,6 @@ import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
-import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
@@ -716,40 +716,39 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                         )
                       }
                       onClick={() => goTo([...path, cat])}
-                      actions={
-                        canManageCat(cat) ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Modifier la catégorie"
-                              onClick={() => {
-                                const full = categoriesById.get(cat.id) ?? null
-                                // Sous-catégorie (parent) → formulaire unifié de
-                                // sous-catégorie ; catégorie racine → form catégorie.
-                                if (full?.parent_id) {
-                                  setSubcatForm({
-                                    open: true,
-                                    parentId: full.parent_id,
-                                    categorie: full,
-                                  })
-                                } else {
-                                  setCategoryForm({ open: true, categorie: full })
-                                }
-                              }}
-                            >
-                              <Pencil />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Supprimer la catégorie"
-                              onClick={() => setToDeleteCategorie(cat)}
-                            >
-                              <Trash2 />
-                            </Button>
-                          </>
-                        ) : undefined
+                      menuActions={
+                        canManageCat(cat)
+                          ? ([
+                              {
+                                label: 'Modifier',
+                                icon: Pencil,
+                                onSelect: () => {
+                                  const full =
+                                    categoriesById.get(cat.id) ?? null
+                                  // Sous-catégorie (parent) → formulaire unifié de
+                                  // sous-catégorie ; catégorie racine → form catégorie.
+                                  if (full?.parent_id) {
+                                    setSubcatForm({
+                                      open: true,
+                                      parentId: full.parent_id,
+                                      categorie: full,
+                                    })
+                                  } else {
+                                    setCategoryForm({
+                                      open: true,
+                                      categorie: full,
+                                    })
+                                  }
+                                },
+                              },
+                              {
+                                label: 'Supprimer',
+                                icon: Trash2,
+                                destructive: true,
+                                onSelect: () => setToDeleteCategorie(cat),
+                              },
+                            ] satisfies RowAction[])
+                          : undefined
                       }
                     />
                   ))}
@@ -775,27 +774,22 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                         eq.localisation_courte ?? eq.local_nom ?? undefined
                       }
                       onClick={() => goToEquipement(eq)}
-                      actions={
-                        canEdit ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Modifier l’équipement"
-                              onClick={() => setEquipForm({ open: true, eq })}
-                            >
-                              <Pencil />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Supprimer l’équipement"
-                              onClick={() => setToDelete(eq)}
-                            >
-                              <Trash2 />
-                            </Button>
-                          </>
-                        ) : undefined
+                      menuActions={
+                        canEdit
+                          ? ([
+                              {
+                                label: 'Modifier',
+                                icon: Pencil,
+                                onSelect: () => setEquipForm({ open: true, eq }),
+                              },
+                              {
+                                label: 'Supprimer',
+                                icon: Trash2,
+                                destructive: true,
+                                onSelect: () => setToDelete(eq),
+                              },
+                            ] satisfies RowAction[])
+                          : undefined
                       }
                     />
                   ))}

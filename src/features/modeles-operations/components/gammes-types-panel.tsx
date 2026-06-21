@@ -52,7 +52,7 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ListRow } from '@/components/common/list-row'
-import { Button } from '@/components/ui/button'
+import type { RowAction } from '@/components/common/row-actions'
 import { ScopeBadges } from '@/components/common/scope-badges'
 import { listStack } from '@/lib/responsive'
 
@@ -592,51 +592,48 @@ export function GammesTypesPanel() {
             <div className="flex flex-col gap-6">
               {childCategories.length > 0 && (
                 <div className={listStack}>
-                  {childCategories.map((cat) => (
-                    <ListRow
-                      key={cat.id}
-                      media={
-                        <MiniatureThumb
-                          url={urlOf(cat.miniature_id)}
-                          fallback={<Folder className="size-10" />}
-                          alt=""
-                          onError={refreshMiniatures}
-                          className="size-full rounded-none"
-                        />
-                      }
-                      title={cat.nom}
-                      subtitle={
-                        cat.description?.trim()
-                          ? cat.description.trim()
-                          : undefined
-                      }
-                      badges={<ScopeBadges siteId={cat.site_id} />}
-                      mobileMeta={<ScopeBadges siteId={cat.site_id} />}
-                      onClick={() => goTo([...path, cat])}
-                      actions={
-                        canManageCat(cat) ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Modifier la catégorie"
-                              onClick={() => handleEditCategory(cat)}
-                            >
-                              <Pencil />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Supprimer la catégorie"
-                              onClick={() => setToDeleteCategorie(cat)}
-                            >
-                              <Trash2 />
-                            </Button>
-                          </>
-                        ) : undefined
-                      }
-                    />
-                  ))}
+                  {childCategories.map((cat) => {
+                    const rowActions: RowAction[] = []
+                    if (canManageCat(cat)) {
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () => handleEditCategory(cat),
+                      })
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDeleteCategorie(cat),
+                      })
+                    }
+                    return (
+                      <ListRow
+                        key={cat.id}
+                        media={
+                          <MiniatureThumb
+                            url={urlOf(cat.miniature_id)}
+                            fallback={<Folder className="size-10" />}
+                            alt=""
+                            onError={refreshMiniatures}
+                            className="size-full rounded-none"
+                          />
+                        }
+                        title={cat.nom}
+                        subtitle={
+                          cat.description?.trim()
+                            ? cat.description.trim()
+                            : undefined
+                        }
+                        badges={<ScopeBadges siteId={cat.site_id} />}
+                        mobileMeta={<ScopeBadges siteId={cat.site_id} />}
+                        onClick={() => goTo([...path, cat])}
+                        menuActions={
+                          rowActions.length ? rowActions : undefined
+                        }
+                      />
+                    )
+                  })}
                 </div>
               )}
 
@@ -644,6 +641,28 @@ export function GammesTypesPanel() {
                 <div className={listStack}>
                   {modelesInCurrent.map((modele) => {
                     const editable = canEditModele(modele)
+                    const rowActions: RowAction[] = []
+                    if (canExport && modele.site_id === null)
+                      rowActions.push({
+                        label: 'Copier vers un site',
+                        icon: CopyPlus,
+                        onSelect: () => setExportState({ open: true, modele }),
+                      })
+                    if (editable) {
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () => setModeleForm({ open: true, modele }),
+                      })
+                      // Suppression ATOMIQUE (détachement + delete via RPC) :
+                      // ouvre le dialog branché sur detachEtSupprime.
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDelete(modele),
+                      })
+                    }
                     return (
                       <ListRow
                         key={modele.id}
@@ -665,45 +684,8 @@ export function GammesTypesPanel() {
                         badges={<ScopeBadges siteId={modele.site_id} />}
                         mobileMeta={<ScopeBadges siteId={modele.site_id} />}
                         onClick={() => goToModele(modele)}
-                        actions={
-                          editable || (canExport && modele.site_id === null) ? (
-                            <>
-                              {canExport && modele.site_id === null && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label="Copier vers un site"
-                                  onClick={() =>
-                                    setExportState({ open: true, modele })
-                                  }
-                                >
-                                  <CopyPlus />
-                                </Button>
-                              )}
-                              {editable && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Modifier le modèle d’opération"
-                                    onClick={() =>
-                                      setModeleForm({ open: true, modele })
-                                    }
-                                  >
-                                    <Pencil />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Supprimer le modèle d’opération"
-                                    onClick={() => setToDelete(modele)}
-                                  >
-                                    <Trash2 />
-                                  </Button>
-                                </>
-                              )}
-                            </>
-                          ) : undefined
+                        menuActions={
+                          rowActions.length ? rowActions : undefined
                         }
                       />
                     )

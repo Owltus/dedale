@@ -18,9 +18,9 @@ import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { Button } from '@/components/ui/button'
 import { ScopeBadges } from '@/components/common/scope-badges'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { listStack } from '@/lib/responsive'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
@@ -139,6 +139,20 @@ export function ModelesDiPanel() {
                 const canEditThis = canEntreprise || modele.site_id !== null
                 const siteName =
                   sites.find((s) => s.id === modele.site_id)?.nom ?? null
+                const rowActions: RowAction[] = []
+                if (canManage && canEditThis) {
+                  rowActions.push({
+                    label: 'Modifier',
+                    icon: Pencil,
+                    onSelect: () => setForm({ open: true, modele }),
+                  })
+                  rowActions.push({
+                    label: 'Supprimer',
+                    icon: Trash2,
+                    destructive: true,
+                    onSelect: () => setToDelete(modele),
+                  })
+                }
                 return (
                   <ListRow
                     key={modele.id}
@@ -169,28 +183,7 @@ export function ModelesDiPanel() {
                         masque={!modele.est_actif}
                       />
                     }
-                    actions={
-                      canManage && canEditThis ? (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Modifier le modèle"
-                            onClick={() => setForm({ open: true, modele })}
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="Supprimer le modèle"
-                            onClick={() => setToDelete(modele)}
-                          >
-                            <Trash2 />
-                          </Button>
-                        </>
-                      ) : undefined
-                    }
+                    menuActions={rowActions.length ? rowActions : undefined}
                   />
                 )
               })}
