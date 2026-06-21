@@ -82,6 +82,21 @@ export function LocalSearchSelect({
     [locaux],
   )
 
+  // Valeur posée DE L'EXTÉRIEUR (pré-remplissage en édition) : le champ n'affiche
+  // que `query`, on l'amorce donc UNE FOIS depuis le local déjà sélectionné —
+  // sinon un lieu pourtant choisi apparaîtrait vide. (À la création, value='' →
+  // jamais déclenché ; après un `pick`, query≠'' → idem.)
+  const [seeded, setSeeded] = useState(false)
+  if (!seeded && query === '' && value !== '' && locaux.length > 0) {
+    const l = locaux.find((x) => x.local_id === value)
+    if (l) {
+      setSeeded(true)
+      const ctx = contextOf(l, multiBatiment)
+      const nom = l.local_nom ?? ''
+      setQuery(ctx ? `${ctx} › ${nom}` : nom)
+    }
+  }
+
   // Suggestions : nom du local OU chemin contiennent la saisie (normalisée).
   const suggestions = useMemo(() => {
     const q = normalize(query.trim())

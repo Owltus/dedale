@@ -122,6 +122,16 @@ export function DiEditDialog({
       pendingLabel="Enregistrement…"
       pending={update.isPending}
     >
+      {/* Ordre calqué sur le modal de création : Localisation → Constat → Équipement. */}
+      {canEditLiaisons && (
+        <LocalSearchSelect
+          siteId={siteId}
+          label="Localisation"
+          value={localId}
+          onChange={setLocal}
+        />
+      )}
+
       <TextareaField
         id="di-edit-constat"
         label="Constat"
@@ -133,28 +143,20 @@ export function DiEditDialog({
       />
 
       {canEditLiaisons && (
-        <>
-          <LocalSearchSelect
-            siteId={siteId}
-            label="Localisation"
-            value={localId}
-            onChange={setLocal}
-          />
-          <SelectField
-            id="di-edit-equipement"
-            label="Équipement"
-            value={equipementId}
-            onChange={setEquipementId}
-            disabled={localId === ''}
-          >
-            <option value="">Aucun</option>
-            {equipementsDuLocal.map((eq) => (
-              <option key={eq.id ?? ''} value={eq.id ?? ''}>
-                {eq.nom}
-              </option>
-            ))}
-          </SelectField>
-        </>
+        <SelectField
+          id="di-edit-equipement"
+          label="Équipement"
+          value={equipementId}
+          onChange={setEquipementId}
+          disabled={localId === ''}
+        >
+          <option value="">Aucun</option>
+          {equipementsDuLocal.map((eq) => (
+            <option key={eq.id ?? ''} value={eq.id ?? ''}>
+              {eq.nom}
+            </option>
+          ))}
+        </SelectField>
       )}
     </FormDialog>
   )
