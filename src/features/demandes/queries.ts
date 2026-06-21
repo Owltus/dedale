@@ -80,7 +80,12 @@ export const statutsDiQueries = {
 export const modelesDiQueries = {
   all: () => ['modeles_di'] as const,
 
-  /** Modèles actifs commun + site, pour la suggestion à la création d'une DI. */
+  /**
+   * Modèles actifs DU SITE actif, pour la suggestion « souci courant » à la
+   * création d'une DI. On EXCLUT les modèles communs (Bibliothèque entreprise,
+   * site_id NULL) : seuls les modèles réellement présents sur le site sont
+   * proposés au demandeur (sinon la liste mélange des templates non déployés).
+   */
   list: (siteId: string | null) =>
     queryOptions({
       queryKey: [...modelesDiQueries.all(), 'list', siteId] as const,
@@ -88,8 +93,8 @@ export const modelesDiQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('modeles_di')
-          .select('id, libelle, constat_modele')
-          .or(`site_id.is.null,site_id.eq.${siteId!}`)
+          .select('id, libelle, constat_modele, miniature_id')
+          .eq('site_id', siteId!)
           .eq('est_actif', true)
           .order('libelle')
           .abortSignal(signal)
