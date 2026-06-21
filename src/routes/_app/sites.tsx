@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { SearchInput } from '@/components/common/search-input'
@@ -116,34 +117,37 @@ function SitesPage() {
                 <NoSearchResults description="Aucun site ne correspond à cette recherche." />
               ) : (
                 <div className={listStack}>
-                  {shown.map((site) => (
-                    <ListRow
-                      key={site.id}
-                      media={<RowMediaIcon icon={Building2} />}
-                      title={site.nom}
-                      subtitle={
-                        [site.code_postal, site.ville]
-                          .filter(Boolean)
-                          .join(' ') || undefined
-                      }
-                      actions={
-                        isAdmin ? (
-                          <>
-                            <TooltipIconButton
-                              icon={<Pencil />}
-                              label="Modifier le site"
-                              onClick={() => setForm({ open: true, site })}
-                            />
-                            <TooltipIconButton
-                              icon={<Trash2 className="text-destructive" />}
-                              label="Supprimer le site"
-                              onClick={() => setToDelete(site)}
-                            />
-                          </>
-                        ) : undefined
-                      }
-                    />
-                  ))}
+                  {shown.map((site) => {
+                    const rowActions: RowAction[] = []
+                    if (isAdmin) {
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        onSelect: () => setForm({ open: true, site }),
+                      })
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () => setToDelete(site),
+                      })
+                    }
+                    return (
+                      <ListRow
+                        key={site.id}
+                        media={<RowMediaIcon icon={Building2} />}
+                        title={site.nom}
+                        subtitle={
+                          [site.code_postal, site.ville]
+                            .filter(Boolean)
+                            .join(' ') || undefined
+                        }
+                        menuActions={
+                          rowActions.length ? rowActions : undefined
+                        }
+                      />
+                    )
+                  })}
                 </div>
               )}
             </div>
