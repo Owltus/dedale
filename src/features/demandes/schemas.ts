@@ -10,7 +10,6 @@ export const diSchema = z.object({
   date_constat: z.string().min(1, 'La date de constat est obligatoire'),
   local_id: z.string(), // '' = aucun
   equipement_id: z.string(), // '' = aucun
-  prestataire_id: z.string(), // '' = aucun
 })
 
 export type DiFormValues = z.infer<typeof diSchema>
@@ -33,7 +32,6 @@ export function emptyDi(): DiFormValues {
     date_constat: todayLocal(),
     local_id: '',
     equipement_id: '',
-    prestataire_id: '',
   }
 }
 

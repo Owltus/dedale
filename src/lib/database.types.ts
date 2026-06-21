@@ -381,7 +381,6 @@ export type Database = {
           date_resolution: string | null
           description_resolution: string | null
           id: string
-          prestataire_id: string | null
           resolved_by: string | null
           site_id: string
           statut_di_id: number
@@ -395,7 +394,6 @@ export type Database = {
           date_resolution?: string | null
           description_resolution?: string | null
           id?: string
-          prestataire_id?: string | null
           resolved_by?: string | null
           site_id: string
           statut_di_id?: number
@@ -409,7 +407,6 @@ export type Database = {
           date_resolution?: string | null
           description_resolution?: string | null
           id?: string
-          prestataire_id?: string | null
           resolved_by?: string | null
           site_id?: string
           statut_di_id?: number
@@ -421,13 +418,6 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "demandes_intervention_prestataire_id_fkey"
-            columns: ["prestataire_id"]
-            isOneToOne: false
-            referencedRelation: "prestataires"
             referencedColumns: ["id"]
           },
           {

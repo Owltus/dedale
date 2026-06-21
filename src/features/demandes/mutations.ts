@@ -23,7 +23,6 @@ export function useCreateDemande() {
           created_by: createdBy,
           constat: values.constat.trim(),
           date_constat: values.date_constat,
-          prestataire_id: values.prestataire_id || null,
         })
         .select()
         .single()

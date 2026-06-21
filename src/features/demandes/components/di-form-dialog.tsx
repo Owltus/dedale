@@ -6,11 +6,9 @@ import type { DiFormValues } from '../schemas'
 import { useCreateDemande } from '../mutations'
 import { modelesDiQueries } from '../queries'
 import { equipementsQueries } from '@/features/equipements/queries'
-import { prestatairesQueries } from '@/features/prestataires/queries'
 import { useAuth } from '@/auth'
 import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import { TextareaField } from '@/components/common/textarea-field'
 
@@ -29,7 +27,6 @@ export function DiFormDialog({
   const create = useCreateDemande()
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
   const { data: equipements = [] } = useQuery(equipementsQueries.list(siteId))
-  const { data: prestataires = [] } = useQuery(prestatairesQueries.list())
   const { data: modeles = [] } = useQuery(modelesDiQueries.list(siteId))
 
   const [values, setValues] = useState<DiFormValues>(() => emptyDi())
@@ -77,7 +74,7 @@ export function DiFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Nouvelle demande d'intervention"
-      description="Décris le constat. Le lieu, l'équipement et le prestataire sont optionnels."
+      description="Décris le constat. Le lieu et l'équipement sont optionnels."
       onSubmit={() => void handleSubmit()}
       submitLabel="Créer"
       pendingLabel="Création…"
@@ -109,15 +106,6 @@ export function DiFormDialog({
         error={errors.constat}
       />
 
-      <TextField
-        label="Date de constat"
-        type="date"
-        value={values.date_constat}
-        onChange={(v) => set('date_constat', v)}
-        error={errors.date_constat}
-        required
-      />
-
       <SelectField
         id="di-local"
         label="Localisation"
@@ -142,20 +130,6 @@ export function DiFormDialog({
         {equipements.map((eq) => (
           <option key={eq.id} value={eq.id ?? ''}>
             {eq.nom}
-          </option>
-        ))}
-      </SelectField>
-
-      <SelectField
-        id="di-prestataire"
-        label="Prestataire"
-        value={values.prestataire_id}
-        onChange={(v) => set('prestataire_id', v)}
-      >
-        <option value="">Aucun</option>
-        {prestataires.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.libelle}
           </option>
         ))}
       </SelectField>
