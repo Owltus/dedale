@@ -4173,7 +4173,6 @@ CREATE TABLE demandes_intervention (
 
     -- Acteurs
     created_by      UUID NOT NULL REFERENCES users(id),
-    prestataire_id  UUID REFERENCES prestataires(id) ON DELETE SET NULL,
 
     -- Machine à états (référentiel SMALLINT, IDs stables)
     statut_di_id    SMALLINT NOT NULL DEFAULT 1 REFERENCES statuts_di(id),
