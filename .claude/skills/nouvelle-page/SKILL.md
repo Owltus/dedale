@@ -5,7 +5,7 @@ description: Crée OU refond une page/écran de l'app Dédale (route TanStack Ro
 
 # Créer / refondre une page Dédale
 
-> **Règle d'or : le front présente, la base valide.** La page consomme l'API et reflète rôle + site ; la RLS et les machines à états backend sont la vraie sécurité. **Ne jamais réimplémenter une coquille maison** : réutiliser les briques `common/`. « Presque pareil = pas pareil » → viser l'homogénéité avec les pages déjà faites (Sites, Investissements, Prestataires, Utilisateurs, Documents, Localisations, Équipements, Travaux).
+> **Règle d'or : le front présente, la base valide.** La page consomme l'API et reflète rôle + site ; la RLS et les machines à états backend sont la vraie sécurité. **Ne jamais réimplémenter une coquille maison** : réutiliser les briques `common/`. « Presque pareil = pas pareil » → viser l'homogénéité avec les pages déjà faites (Sites, Investissements, Prestataires, Utilisateurs, Documents, Localisations, Équipements, Travaux, Demandes d'intervention).
 
 Avant de coder : **choisir le patron** (§1), puis dérouler sa recette. Typage via `Database['public']['Tables']['xxx']['Row']`.
 À la fin **toujours** : `npm run typecheck && npm run lint && npm run build` (le build régénère `routeTree.gen.ts`).
@@ -17,7 +17,7 @@ Avant de coder : **choisir le patron** (§1), puis dérouler sa recette. Typage 
 | Patron | Quand le prendre | Routes |
 | --- | --- | --- |
 | **Liste plate + modale** | L'entité tient sur une ligne ; l'édition est un formulaire court ; rien de riche à montrer (ni frise, ni documents, ni sous-listes) ; pas besoin d'URL partageable. | 1 route unique `<entite>.tsx`, édition par modale réutilisée create+edit. **Pas de slug.** → *Sites* |
-| **Liste + détail par slug** | La fiche montre plus qu'un formulaire (description, **StatusStepper**, **DocumentsTab**, blocs métier) **ou** il faut une URL partageable. | layout `<entite>.tsx` + `<entite>/index.tsx` + `<entite>/$<entite>.tsx`. Slug lisible. → *Investissements, Travaux, Prestataires* |
+| **Liste + détail par slug** | La fiche montre plus qu'un formulaire (description, **StatusStepper**, **DocumentsTab**, blocs métier) **ou** il faut une URL partageable. | layout `<entite>.tsx` + `<entite>/index.tsx` + `<entite>/$<entite>.tsx`. Slug lisible (`useSlugResolved` au détail pour le repli par id). → *Investissements, Travaux, Prestataires, Demandes* |
 | **Explorateur à paliers (drill)** | Données **hiérarchiques** à explorer en descendant ; l'état de nav vit dans le **chemin d'URL**. | layout `<entite>.tsx` + **route splat `$.tsx`**, `PageHeader breadcrumb`, hook de drill. → *Localisations, Équipements, Bibliothèque* |
 
 Un « détail » rendu par **dialogue piloté par état local** (ex. aperçu d'un document) n'est **pas** le patron liste+détail — pas d'URL, pas de `segOfUnique`.

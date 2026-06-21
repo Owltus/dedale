@@ -33,6 +33,7 @@ import { Route as AppUtilisateursIndexRouteImport } from './routes/_app/utilisat
 import { Route as AppTravauxIndexRouteImport } from './routes/_app/travaux/index'
 import { Route as AppPrestatairesIndexRouteImport } from './routes/_app/prestataires/index'
 import { Route as AppInvestissementsIndexRouteImport } from './routes/_app/investissements/index'
+import { Route as AppDemandesIndexRouteImport } from './routes/_app/demandes/index'
 import { Route as AppBibliothequeIndexRouteImport } from './routes/_app/bibliotheque/index'
 import { Route as AppUtilisateursUtilisateurRouteImport } from './routes/_app/utilisateurs/$utilisateur'
 import { Route as AppTravauxTravauxRouteImport } from './routes/_app/travaux/$travaux'
@@ -40,6 +41,7 @@ import { Route as AppPrestatairesPrestataireRouteImport } from './routes/_app/pr
 import { Route as AppLocalisationsSplatRouteImport } from './routes/_app/localisations/$'
 import { Route as AppInvestissementsInvestissementRouteImport } from './routes/_app/investissements/$investissement'
 import { Route as AppEquipementsSplatRouteImport } from './routes/_app/equipements/$'
+import { Route as AppDemandesDemandeRouteImport } from './routes/_app/demandes/$demande'
 import { Route as AppBibliothequeSplatRouteImport } from './routes/_app/bibliotheque/$'
 
 const LoginRoute = LoginRouteImport.update({
@@ -161,6 +163,11 @@ const AppInvestissementsIndexRoute = AppInvestissementsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppInvestissementsRoute,
 } as any)
+const AppDemandesIndexRoute = AppDemandesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppDemandesRoute,
+} as any)
 const AppBibliothequeIndexRoute = AppBibliothequeIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -199,6 +206,11 @@ const AppEquipementsSplatRoute = AppEquipementsSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => AppEquipementsRoute,
 } as any)
+const AppDemandesDemandeRoute = AppDemandesDemandeRouteImport.update({
+  id: '/$demande',
+  path: '/$demande',
+  getParentRoute: () => AppDemandesRoute,
+} as any)
 const AppBibliothequeSplatRoute = AppBibliothequeSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -210,7 +222,7 @@ export interface FileRoutesByFullPath {
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
   '/bibliotheque': typeof AppBibliothequeRouteWithChildren
-  '/demandes': typeof AppDemandesRoute
+  '/demandes': typeof AppDemandesRouteWithChildren
   '/documents': typeof AppDocumentsRoute
   '/equipements': typeof AppEquipementsRouteWithChildren
   '/gammes': typeof AppGammesRoute
@@ -226,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/travaux': typeof AppTravauxRouteWithChildren
   '/utilisateurs': typeof AppUtilisateursRouteWithChildren
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
+  '/demandes/$demande': typeof AppDemandesDemandeRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
   '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
@@ -233,6 +246,7 @@ export interface FileRoutesByFullPath {
   '/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque/': typeof AppBibliothequeIndexRoute
+  '/demandes/': typeof AppDemandesIndexRoute
   '/investissements/': typeof AppInvestissementsIndexRoute
   '/prestataires/': typeof AppPrestatairesIndexRoute
   '/travaux/': typeof AppTravauxIndexRoute
@@ -241,7 +255,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
-  '/demandes': typeof AppDemandesRoute
   '/documents': typeof AppDocumentsRoute
   '/equipements': typeof AppEquipementsRouteWithChildren
   '/gammes': typeof AppGammesRoute
@@ -254,6 +267,7 @@ export interface FileRoutesByTo {
   '/sites': typeof AppSitesRoute
   '/': typeof AppIndexRoute
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
+  '/demandes/$demande': typeof AppDemandesDemandeRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
   '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
@@ -261,6 +275,7 @@ export interface FileRoutesByTo {
   '/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque': typeof AppBibliothequeIndexRoute
+  '/demandes': typeof AppDemandesIndexRoute
   '/investissements': typeof AppInvestissementsIndexRoute
   '/prestataires': typeof AppPrestatairesIndexRoute
   '/travaux': typeof AppTravauxIndexRoute
@@ -272,7 +287,7 @@ export interface FileRoutesById {
   '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
   '/_app/bibliotheque': typeof AppBibliothequeRouteWithChildren
-  '/_app/demandes': typeof AppDemandesRoute
+  '/_app/demandes': typeof AppDemandesRouteWithChildren
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/equipements': typeof AppEquipementsRouteWithChildren
   '/_app/gammes': typeof AppGammesRoute
@@ -289,6 +304,7 @@ export interface FileRoutesById {
   '/_app/utilisateurs': typeof AppUtilisateursRouteWithChildren
   '/_app/': typeof AppIndexRoute
   '/_app/bibliotheque/$': typeof AppBibliothequeSplatRoute
+  '/_app/demandes/$demande': typeof AppDemandesDemandeRoute
   '/_app/equipements/$': typeof AppEquipementsSplatRoute
   '/_app/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/_app/localisations/$': typeof AppLocalisationsSplatRoute
@@ -296,6 +312,7 @@ export interface FileRoutesById {
   '/_app/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/_app/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/_app/bibliotheque/': typeof AppBibliothequeIndexRoute
+  '/_app/demandes/': typeof AppDemandesIndexRoute
   '/_app/investissements/': typeof AppInvestissementsIndexRoute
   '/_app/prestataires/': typeof AppPrestatairesIndexRoute
   '/_app/travaux/': typeof AppTravauxIndexRoute
@@ -324,6 +341,7 @@ export interface FileRouteTypes {
     | '/travaux'
     | '/utilisateurs'
     | '/bibliotheque/$'
+    | '/demandes/$demande'
     | '/equipements/$'
     | '/investissements/$investissement'
     | '/localisations/$'
@@ -331,6 +349,7 @@ export interface FileRouteTypes {
     | '/travaux/$travaux'
     | '/utilisateurs/$utilisateur'
     | '/bibliotheque/'
+    | '/demandes/'
     | '/investissements/'
     | '/prestataires/'
     | '/travaux/'
@@ -339,7 +358,6 @@ export interface FileRouteTypes {
   to:
     | '/definir-mot-de-passe'
     | '/login'
-    | '/demandes'
     | '/documents'
     | '/equipements'
     | '/gammes'
@@ -352,6 +370,7 @@ export interface FileRouteTypes {
     | '/sites'
     | '/'
     | '/bibliotheque/$'
+    | '/demandes/$demande'
     | '/equipements/$'
     | '/investissements/$investissement'
     | '/localisations/$'
@@ -359,6 +378,7 @@ export interface FileRouteTypes {
     | '/travaux/$travaux'
     | '/utilisateurs/$utilisateur'
     | '/bibliotheque'
+    | '/demandes'
     | '/investissements'
     | '/prestataires'
     | '/travaux'
@@ -386,6 +406,7 @@ export interface FileRouteTypes {
     | '/_app/utilisateurs'
     | '/_app/'
     | '/_app/bibliotheque/$'
+    | '/_app/demandes/$demande'
     | '/_app/equipements/$'
     | '/_app/investissements/$investissement'
     | '/_app/localisations/$'
@@ -393,6 +414,7 @@ export interface FileRouteTypes {
     | '/_app/travaux/$travaux'
     | '/_app/utilisateurs/$utilisateur'
     | '/_app/bibliotheque/'
+    | '/_app/demandes/'
     | '/_app/investissements/'
     | '/_app/prestataires/'
     | '/_app/travaux/'
@@ -575,6 +597,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInvestissementsIndexRouteImport
       parentRoute: typeof AppInvestissementsRoute
     }
+    '/_app/demandes/': {
+      id: '/_app/demandes/'
+      path: '/'
+      fullPath: '/demandes/'
+      preLoaderRoute: typeof AppDemandesIndexRouteImport
+      parentRoute: typeof AppDemandesRoute
+    }
     '/_app/bibliotheque/': {
       id: '/_app/bibliotheque/'
       path: '/'
@@ -624,6 +653,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEquipementsSplatRouteImport
       parentRoute: typeof AppEquipementsRoute
     }
+    '/_app/demandes/$demande': {
+      id: '/_app/demandes/$demande'
+      path: '/$demande'
+      fullPath: '/demandes/$demande'
+      preLoaderRoute: typeof AppDemandesDemandeRouteImport
+      parentRoute: typeof AppDemandesRoute
+    }
     '/_app/bibliotheque/$': {
       id: '/_app/bibliotheque/$'
       path: '/$'
@@ -646,6 +682,20 @@ const AppBibliothequeRouteChildren: AppBibliothequeRouteChildren = {
 
 const AppBibliothequeRouteWithChildren = AppBibliothequeRoute._addFileChildren(
   AppBibliothequeRouteChildren,
+)
+
+interface AppDemandesRouteChildren {
+  AppDemandesDemandeRoute: typeof AppDemandesDemandeRoute
+  AppDemandesIndexRoute: typeof AppDemandesIndexRoute
+}
+
+const AppDemandesRouteChildren: AppDemandesRouteChildren = {
+  AppDemandesDemandeRoute: AppDemandesDemandeRoute,
+  AppDemandesIndexRoute: AppDemandesIndexRoute,
+}
+
+const AppDemandesRouteWithChildren = AppDemandesRoute._addFileChildren(
+  AppDemandesRouteChildren,
 )
 
 interface AppEquipementsRouteChildren {
@@ -728,7 +778,7 @@ const AppUtilisateursRouteWithChildren = AppUtilisateursRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppBibliothequeRoute: typeof AppBibliothequeRouteWithChildren
-  AppDemandesRoute: typeof AppDemandesRoute
+  AppDemandesRoute: typeof AppDemandesRouteWithChildren
   AppDocumentsRoute: typeof AppDocumentsRoute
   AppEquipementsRoute: typeof AppEquipementsRouteWithChildren
   AppGammesRoute: typeof AppGammesRoute
@@ -748,7 +798,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppBibliothequeRoute: AppBibliothequeRouteWithChildren,
-  AppDemandesRoute: AppDemandesRoute,
+  AppDemandesRoute: AppDemandesRouteWithChildren,
   AppDocumentsRoute: AppDocumentsRoute,
   AppEquipementsRoute: AppEquipementsRouteWithChildren,
   AppGammesRoute: AppGammesRoute,

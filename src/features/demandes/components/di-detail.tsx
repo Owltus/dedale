@@ -1,199 +1,143 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, CheckCircle2, RotateCcw } from 'lucide-react'
+import { CheckCircle2, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { demandesQueries } from '../queries'
 import { useReopenDemande } from '../mutations'
 import { DiResolveDialog } from './di-resolve-dialog'
 import { statutBadgeVariant, statutLabel } from '../etat'
-import { formatDateLong } from '@/lib/date'
+import { diTitre } from '../schemas'
+import { formatDate, formatDateLong } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
-import { Button } from '@/components/ui/button'
+import { PageContainer } from '@/components/common/page-container'
+import { PageHeader } from '@/components/common/page-header'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import { ErrorState } from '@/components/common/error-state'
-import { EmptyState } from '@/components/common/empty-state'
-import { FileQuestion } from 'lucide-react'
+import type { Database } from '@/lib/database.types'
+
+type Demande = Database['public']['Tables']['demandes_intervention']['Row']
 
 interface DiDetailProps {
-  diId: string
+  demande: Demande
+  /** Résolution / réouverture autorisée (rôle opérationnel). */
   canResolve: boolean
-  onBack: () => void
 }
 
-type Tab = 'detail' | 'documents'
-
-export function DiDetail({ diId, canResolve, onBack }: DiDetailProps) {
-  const {
-    data: di,
-    isPending,
-    isError,
-    refetch,
-  } = useQuery(demandesQueries.detail(diId))
+/**
+ * Fiche détail d'une demande d'intervention : constat + liaisons (locaux,
+ * équipements) et, le cas échéant, sa résolution. Le statut (Ouverte / Résolue /
+ * Réouverte) est affiché en badge près du titre ; la résolution / réouverture se
+ * fait via la barre de titre. La donnée vient de la liste (résolue par slug en
+ * amont) — pas de requête « getOne ».
+ */
+export function DiDetail({ demande, canResolve }: DiDetailProps) {
   const { data: localisations = [] } = useQuery(
-    demandesQueries.localisations(diId),
+    demandesQueries.localisations(demande.id),
   )
-  const { data: equipements = [] } = useQuery(demandesQueries.equipements(diId))
+  const { data: equipements = [] } = useQuery(
+    demandesQueries.equipements(demande.id),
+  )
   const reopen = useReopenDemande()
-  const [tab, setTab] = useState<Tab>('detail')
   const [resolveOpen, setResolveOpen] = useState(false)
 
-  if (isPending) {
-    return (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-9 w-40" />
-        <Skeleton className="h-48" />
-      </div>
-    )
-  }
-  if (isError) return <ErrorState onRetry={() => void refetch()} />
-  if (!di) {
-    return (
-      <EmptyState
-        icon={FileQuestion}
-        title="Demande introuvable"
-        description="Cette demande n'existe plus ou ne t'est pas accessible."
-        action={
-          <Button variant="outline" onClick={onBack}>
-            <ArrowLeft /> Retour à la liste
-          </Button>
-        }
-      />
-    )
-  }
-
-  const isResolved = di.statut_di_id === 2
+  const isResolved = demande.statut_di_id === 2
 
   function handleReopen() {
-    reopen.mutate(diId, {
+    reopen.mutate(demande.id, {
       onSuccess: () => toast.success('Demande réouverte'),
       onError: (e) => toast.error(writeErrorMessage(e)),
     })
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft /> Retour
-          </Button>
-          <Badge variant={statutBadgeVariant(di.statut_di_id)}>
-            {statutLabel(di.statut_di_id)}
+    <PageContainer className="flex flex-col">
+      <PageHeader
+        title={diTitre(demande.constat)}
+        description={`Constaté le ${formatDate(demande.date_constat)}`}
+        titleBadges={
+          <Badge variant={statutBadgeVariant(demande.statut_di_id)}>
+            {statutLabel(demande.statut_di_id)}
           </Badge>
-        </div>
-        {canResolve && (
-          <div className="flex gap-2">
-            {isResolved ? (
-              <Button
+        }
+        action={
+          canResolve ? (
+            isResolved ? (
+              <TooltipIconButton
+                icon={<RotateCcw />}
+                label="Réouvrir la demande"
                 variant="outline"
-                size="sm"
-                onClick={handleReopen}
                 disabled={reopen.isPending}
-              >
-                <RotateCcw /> Réouvrir
-              </Button>
+                onClick={handleReopen}
+              />
             ) : (
-              <Button size="sm" onClick={() => setResolveOpen(true)}>
-                <CheckCircle2 /> Résoudre
-              </Button>
+              <TooltipIconButton
+                icon={<CheckCircle2 />}
+                label="Résoudre la demande"
+                variant="outline"
+                onClick={() => setResolveOpen(true)}
+              />
+            )
+          ) : undefined
+        }
+      />
+
+      {/* Constat : contenu du signalement + liaisons éventuelles. */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">Constat</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 text-sm">
+          <p className="whitespace-pre-wrap">{demande.constat}</p>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            <dt className="text-muted-foreground">Date de constat</dt>
+            <dd>{formatDateLong(demande.date_constat)}</dd>
+            {localisations.length > 0 && (
+              <>
+                <dt className="text-muted-foreground">Localisations</dt>
+                <dd>{localisations.map((l) => l.locaux.nom).join(', ')}</dd>
+              </>
             )}
-          </div>
-        )}
-      </div>
+            {equipements.length > 0 && (
+              <>
+                <dt className="text-muted-foreground">Équipements</dt>
+                <dd>{equipements.map((e) => e.equipements.nom).join(', ')}</dd>
+              </>
+            )}
+          </dl>
+        </CardContent>
+      </Card>
 
-      <div className="border-border flex gap-1 border-b">
-        <button
-          type="button"
-          onClick={() => setTab('detail')}
-          className={
-            tab === 'detail'
-              ? 'border-primary text-foreground -mb-px border-b-2 px-3 py-2 text-sm font-medium'
-              : 'text-muted-foreground hover:text-foreground px-3 py-2 text-sm'
-          }
-        >
-          Détail
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('documents')}
-          className={
-            tab === 'documents'
-              ? 'border-primary text-foreground -mb-px border-b-2 px-3 py-2 text-sm font-medium'
-              : 'text-muted-foreground hover:text-foreground px-3 py-2 text-sm'
-          }
-        >
-          Documents
-        </button>
-      </div>
-
-      {tab === 'detail' ? (
-        <div className="flex flex-col gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Constat</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4 text-sm">
-              <p className="whitespace-pre-wrap">{di.constat}</p>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-                <dt className="text-muted-foreground">Date de constat</dt>
-                <dd>{formatDateLong(di.date_constat)}</dd>
-                {localisations.length > 0 && (
-                  <>
-                    <dt className="text-muted-foreground">Localisations</dt>
-                    <dd>{localisations.map((l) => l.locaux.nom).join(', ')}</dd>
-                  </>
-                )}
-                {equipements.length > 0 && (
-                  <>
-                    <dt className="text-muted-foreground">Équipements</dt>
-                    <dd>
-                      {equipements.map((e) => e.equipements.nom).join(', ')}
-                    </dd>
-                  </>
-                )}
-              </dl>
-            </CardContent>
-          </Card>
-
-          {di.description_resolution && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Résolution</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4 text-sm">
-                <p className="whitespace-pre-wrap">
-                  {di.description_resolution}
-                </p>
-                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-                  <dt className="text-muted-foreground">Date de résolution</dt>
-                  <dd>{formatDateLong(di.date_resolution)}</dd>
-                </dl>
-                {!isResolved && (
-                  <p className="text-muted-foreground italic">
-                    Demande réouverte : cette résolution est conservée à titre
-                    d'historique.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      ) : (
-        <EmptyState
-          icon={FileQuestion}
-          title="Documents"
-          description="À venir."
-        />
+      {/* Résolution (présente une fois la demande résolue ; conservée si réouverte). */}
+      {demande.description_resolution && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-base">Résolution</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 text-sm">
+            <p className="whitespace-pre-wrap">
+              {demande.description_resolution}
+            </p>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+              <dt className="text-muted-foreground">Date de résolution</dt>
+              <dd>{formatDateLong(demande.date_resolution)}</dd>
+            </dl>
+            {!isResolved && (
+              <p className="text-muted-foreground italic">
+                Demande réouverte : cette résolution est conservée à titre
+                d'historique.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <DiResolveDialog
         key={resolveOpen ? 'open' : 'closed'}
         open={resolveOpen}
         onOpenChange={setResolveOpen}
-        diId={diId}
+        diId={demande.id}
       />
-    </div>
+    </PageContainer>
   )
 }

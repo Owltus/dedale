@@ -26,22 +26,6 @@ export const demandesQueries = {
       staleTime: 60_000,
     }),
 
-  /** Détail d'une DI (vide = normal si la RLS la masque → maybeSingle). */
-  detail: (id: string) =>
-    queryOptions({
-      queryKey: [...demandesQueries.all(), 'detail', id] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('demandes_intervention')
-          .select('*')
-          .eq('id', id)
-          .abortSignal(signal)
-          .maybeSingle()
-          .throwOnError()
-        return data
-      },
-    }),
-
   /** Locaux liés à une DI (avec leur chemin lisible). */
   localisations: (diId: string) =>
     queryOptions({
