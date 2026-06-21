@@ -5258,8 +5258,11 @@ COMMENT ON TABLE miniatures IS 'v0.14b — pool de miniatures (images de style 1
 CREATE POLICY miniatures_admin_all ON miniatures FOR ALL
     USING ((SELECT public.current_role()) = 'admin')
     WITH CHECK ((SELECT public.current_role()) = 'admin');
+-- 'demandeur' inclus (migration 051) : il choisit un modèle de DI à la création
+-- et doit en voir la vignette. Lecture seule ; débloque aussi le Storage (la
+-- policy SELECT du bucket teste l'existence d'une miniature VISIBLE).
 CREATE POLICY miniatures_select ON miniatures FOR SELECT
-    USING ((SELECT public.current_role()) IN ('manager','technicien','lecteur')
+    USING ((SELECT public.current_role()) IN ('manager','technicien','lecteur','demandeur')
            AND (site_id IS NULL OR public.has_site_access(site_id)));
 CREATE POLICY miniatures_manager_all ON miniatures FOR ALL
     USING ((SELECT public.current_role()) = 'manager'
