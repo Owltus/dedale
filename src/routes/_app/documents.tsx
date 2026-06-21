@@ -16,6 +16,7 @@ import { useDocumentDownload } from '@/features/documents/use-document-download'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
 import { DocumentRow } from '@/features/documents/components/document-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
@@ -211,35 +212,36 @@ function DocumentsContent({
                 )
               return (
                 <div className={listStack}>
-                  {shown.map((doc) => (
-                    <DocumentRow
-                      key={doc.id}
-                      doc={doc}
-                      onClick={() => setToPreview(doc)}
-                      badges={
-                        <Badge variant="secondary">
-                          {typeNom.get(doc.type_document_id) ?? '—'}
-                        </Badge>
-                      }
-                      mobileMeta={typeNom.get(doc.type_document_id)}
-                      actions={
-                        <>
-                          <TooltipIconButton
-                            icon={<Download />}
-                            label="Télécharger"
-                            onClick={() => void download(doc)}
-                          />
-                          {canDelete && (
-                            <TooltipIconButton
-                              icon={<Trash2 className="text-destructive" />}
-                              label="Supprimer définitivement"
-                              onClick={() => setToDelete(doc)}
-                            />
-                          )}
-                        </>
-                      }
-                    />
-                  ))}
+                  {shown.map((doc) => {
+                    const rowActions: RowAction[] = [
+                      {
+                        label: 'Télécharger',
+                        icon: Download,
+                        onSelect: () => void download(doc),
+                      },
+                    ]
+                    if (canDelete)
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        onSelect: () => setToDelete(doc),
+                        destructive: true,
+                      })
+                    return (
+                      <DocumentRow
+                        key={doc.id}
+                        doc={doc}
+                        onClick={() => setToPreview(doc)}
+                        badges={
+                          <Badge variant="secondary">
+                            {typeNom.get(doc.type_document_id) ?? '—'}
+                          </Badge>
+                        }
+                        mobileMeta={typeNom.get(doc.type_document_id)}
+                        menuActions={rowActions}
+                      />
+                    )
+                  })}
                 </div>
               )
             }}

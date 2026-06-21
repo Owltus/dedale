@@ -14,6 +14,7 @@ import { useDocumentDownload } from '@/features/documents/use-document-download'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
 import { DocumentRow } from '@/features/documents/components/document-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { errorMessage } from '@/lib/form'
@@ -199,36 +200,36 @@ export function DocumentsTab({
       >
         {(list) => (
           <div className={listStack}>
-            {list.map((doc) => (
-              <DocumentRow
-                key={doc.id}
-                doc={doc}
-                onClick={() => setToPreview(doc)}
-                actions={
-                  <>
-                    <TooltipIconButton
-                      icon={<Download />}
-                      label="Télécharger"
-                      onClick={() => void download(doc)}
-                    />
-                    {canManage && (
-                      <TooltipIconButton
-                        icon={<Link2Off />}
-                        label="Détacher le document"
-                        onClick={() => setToDetach(doc)}
-                      />
-                    )}
-                    {canDelete && (
-                      <TooltipIconButton
-                        icon={<Trash2 className="text-destructive" />}
-                        label="Supprimer définitivement"
-                        onClick={() => setToDelete(doc)}
-                      />
-                    )}
-                  </>
-                }
-              />
-            ))}
+            {list.map((doc) => {
+              const rowActions: RowAction[] = [
+                {
+                  label: 'Télécharger',
+                  icon: Download,
+                  onSelect: () => void download(doc),
+                },
+              ]
+              if (canManage)
+                rowActions.push({
+                  label: 'Détacher',
+                  icon: Link2Off,
+                  onSelect: () => setToDetach(doc),
+                })
+              if (canDelete)
+                rowActions.push({
+                  label: 'Supprimer',
+                  icon: Trash2,
+                  onSelect: () => setToDelete(doc),
+                  destructive: true,
+                })
+              return (
+                <DocumentRow
+                  key={doc.id}
+                  doc={doc}
+                  onClick={() => setToPreview(doc)}
+                  menuActions={rowActions}
+                />
+              )
+            })}
           </div>
         )}
       </QueryState>

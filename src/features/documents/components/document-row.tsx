@@ -3,6 +3,7 @@ import { formatTaille } from '../format'
 import type { DocumentMeta } from '../format'
 import { formatDate } from '@/lib/date'
 import { ListRow } from '@/components/common/list-row'
+import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { iconeFormat } from '@/components/common/file-format-icons'
 
@@ -14,8 +15,10 @@ interface DocumentRowProps {
   badges?: ReactNode
   /** Repli mobile de l'info clé (sous le titre, sous `sm`). */
   mobileMeta?: ReactNode
-  /** Actions au survol (boutons icône : télécharger, détacher, supprimer…). */
+  /** Actions au survol (boutons icône : télécharger, détacher, supprimer…). ANCIEN mode. */
   actions?: ReactNode
+  /** Actions présentées en MENU (clic droit / appui long / kebab). Prime sur `actions`. */
+  menuActions?: RowAction[]
 }
 
 /**
@@ -30,6 +33,7 @@ export function DocumentRow({
   badges,
   mobileMeta,
   actions,
+  menuActions,
 }: DocumentRowProps) {
   return (
     <ListRow
@@ -41,6 +45,7 @@ export function DocumentRow({
       badges={badges}
       mobileMeta={mobileMeta}
       actions={actions}
+      menuActions={menuActions}
     />
   )
 }
