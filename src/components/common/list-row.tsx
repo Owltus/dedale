@@ -246,8 +246,12 @@ export function ListRow({
   // Le clic GAUCHE conserve le drill-down (le bouton overlay ne réagit pas au
   // bouton droit), et le kebab reste accessible au clic.
   if (hasMenu) {
+    // modal={false} : sinon, ouvrir un dialog (Modifier/Supprimer) depuis un item
+    // laisse `pointer-events: none` sur <body> (bug Radix connu menu→dialog) → le
+    // dialog s'affiche mais devient inclickable. Le menu ferme toujours au clic
+    // extérieur / Échap (DismissableLayer), donc aucune perte de comportement.
     return (
-      <ContextMenu>
+      <ContextMenu modal={false}>
         <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
         <RowContextMenuContent actions={menuActions} />
       </ContextMenu>

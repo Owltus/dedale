@@ -31,7 +31,11 @@ const itemClass = (destructive?: boolean) =>
  */
 export function RowContextMenuContent({ actions }: { actions: RowAction[] }) {
   return (
-    <ContextMenuContent>
+    <ContextMenuContent
+      // Sélectionner un item ouvre souvent un dialog (Modifier/Supprimer) : on
+      // empêche la restauration de focus du menu d'entrer en conflit avec le dialog.
+      onCloseAutoFocus={(e) => e.preventDefault()}
+    >
       {actions.map((a) => {
         const Icon = a.icon
         return (
