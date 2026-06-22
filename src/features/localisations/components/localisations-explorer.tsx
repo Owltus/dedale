@@ -1,9 +1,14 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Building, DoorOpen, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { localisationsQueries } from '../queries'
+import {
+  blockingListTitle,
+  blockingReason,
+  localCascadeWarning,
+  localisationsQueries,
+} from '../queries'
 import {
   useDeleteBatiment,
   useDeleteLocal,
@@ -54,7 +59,6 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   const canEdit = perm.canManageMetier(role)
   const { segs, goTo } = useLocalisationsDrill()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
-  const qc = useQueryClient()
 
   const batimentsQuery = useQuery(localisationsQueries.batiments(siteId))
   const batiments = useMemo(
@@ -162,34 +166,31 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
     })
   }
 
-  // La base REFUSE la suppression d'un bâtiment NON VIDE (≥ 1 niveau) ou d'un
-  // niveau NON VIDE (≥ 1 local). On le détecte EN AMONT depuis les données déjà
-  // chargées — la liste d'enfants en cache (palier déjà visité) ou l'agrégat de
-  // surface (> 0 ⇒ contient des locaux, donc des enfants) — pour bloquer la
-  // confirmation et l'expliquer ; la base reste l'arbitre réel. Le local est une
-  // feuille → suppression toujours permise.
-  const deleteBlocked = useMemo(() => {
-    if (!toDelete) return false
-    if (toDelete.kind === 'batiment') {
-      const niveauxCache = qc.getQueryData(
-        localisationsQueries.niveaux(toDelete.item.id).queryKey,
-      )
-      return (
-        (niveauxCache?.length ?? 0) > 0 ||
-        (surfaceBatiment.get(toDelete.item.id)?.surface_m2 ?? 0) > 0
-      )
-    }
-    if (toDelete.kind === 'niveau') {
-      const locauxCache = qc.getQueryData(
-        localisationsQueries.locaux(toDelete.item.id).queryKey,
-      )
-      return (
-        (locauxCache?.length ?? 0) > 0 ||
-        (surfaceNiveau.get(toDelete.item.id)?.surface_m2 ?? 0) > 0
-      )
-    }
-    return false
-  }, [toDelete, qc, surfaceBatiment, surfaceNiveau])
+  // Enfants BLOQUANTS de la cible (FK RESTRICT) comptés EN AMONT, à l'ouverture
+  // de la confirmation, pour expliquer précisément le refus (nombre + noms) au
+  // lieu d'une erreur opaque. Le local n'est PAS une feuille :
+  // `equipements.local_id` est RESTRICT. La base reste l'arbitre réel.
+  const blockingQuery = useQuery(
+    localisationsQueries.blockingChildren(
+      toDelete ? { kind: toDelete.kind, id: toDelete.item.id } : null,
+    ),
+  )
+  const blockingCount = blockingQuery.data?.count ?? 0
+  const deleteBlocked = toDelete !== null && blockingCount > 0
+  // Vérification impossible (réseau/RLS) : on n'autorise PAS la suppression « à
+  // l'aveugle ». On désactive et on l'explique, plutôt que de laisser la base
+  // renvoyer son erreur opaque.
+  const verifFailed = toDelete !== null && blockingQuery.isError
+  // Liens d'un local supprimés EN CASCADE (DI, tâches de travaux, documents) :
+  // non bloquants mais retirés → on les compte pour prévenir avant suppression.
+  const cascadeQuery = useQuery(
+    localisationsQueries.localCascade(
+      toDelete?.kind === 'local' ? toDelete.item.id : null,
+    ),
+  )
+  const cascadeWarn = cascadeQuery.data
+    ? localCascadeWarning(cascadeQuery.data)
+    : null
 
   // --- En-tête (titre racine ou fil d'Ariane) + action de création du palier. ---
   const newBtn = (label: string, onClick: () => void) =>
@@ -297,13 +298,24 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                 ? `le local « ${toDelete.item.nom} »`
                 : 'l’élément'
         }
-        blocked={deleteBlocked}
+        blocked={deleteBlocked || verifFailed}
+        loadingImpacts={blockingQuery.isFetching}
         blockedReason={
-          toDelete?.kind === 'batiment'
-            ? 'Ce bâtiment contient des niveaux. Vide-le d’abord pour pouvoir le supprimer.'
-            : 'Ce niveau contient des locaux. Vide-le d’abord pour pouvoir le supprimer.'
+          verifFailed
+            ? 'Impossible de vérifier le contenu de cet élément. Réessaie dans un instant.'
+            : toDelete
+              ? blockingReason(toDelete.kind, blockingCount)
+              : undefined
         }
-        warning="Cette suppression est définitive."
+        impactsTitle={
+          toDelete ? blockingListTitle(toDelete.kind, blockingCount) : undefined
+        }
+        impacts={blockingQuery.data?.names}
+        warning={
+          cascadeWarn
+            ? `Cette suppression est définitive. ${cascadeWarn}`
+            : 'Cette suppression est définitive.'
+        }
         loading={del.isPending}
         onConfirm={confirmDelete}
       />

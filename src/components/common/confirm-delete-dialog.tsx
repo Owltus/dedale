@@ -10,8 +10,9 @@ interface ConfirmDeleteDialogProps {
   /** Désignation lisible de l'entité : « la vignette », « la catégorie « CVC » ». */
   entityLabel: string
   /**
-   * Suppression INTERDITE : on affiche la raison et le bouton est désactivé.
-   * Prioritaire sur les impacts (un blocage n'a pas besoin d'avertissement).
+   * Suppression INTERDITE : on affiche la raison (en rouge) et, le cas échéant,
+   * la liste `impacts` des éléments qui l'empêchent. Le bouton est désactivé.
+   * Prioritaire sur `warning` (un blocage n'a pas besoin d'avertissement).
    */
   blocked?: boolean
   blockedReason?: ReactNode
@@ -96,29 +97,38 @@ export function ConfirmDeleteDialog({
       </div>
     ) : undefined
 
+  // Liste (tronquée) des éléments liés, réutilisée dans les deux cas : quand la
+  // suppression est BLOQUÉE (les enfants qui l'empêchent → répond au « mais
+  // quoi ? ») comme quand elle est PERMISE (ce qui sera nettoyé en cascade).
+  const impactsList =
+    apercu.length > 0 ? (
+      <span className="grid gap-1">
+        {impactsTitle != null && <span>{impactsTitle}</span>}
+        <span className="grid gap-0.5 pl-1">
+          {apercu.map((item, i) => (
+            <span key={i} className="block">
+              • {item}
+            </span>
+          ))}
+          {reste > 0 && (
+            <span className="text-muted-foreground block">
+              • et {reste} autre{reste > 1 ? 's' : ''}
+            </span>
+          )}
+        </span>
+      </span>
+    ) : null
+
   const description: ReactNode = loadingImpacts ? (
     <span className="text-muted-foreground">Vérification des éléments liés…</span>
   ) : blocked ? (
-    <span className="text-destructive">{blockedReason}</span>
+    <span className="grid gap-3">
+      <span className="text-destructive">{blockedReason}</span>
+      {impactsList}
+    </span>
   ) : (
     <span className="grid gap-3">
-      {apercu.length > 0 && (
-        <span className="grid gap-1">
-          {impactsTitle != null && <span>{impactsTitle}</span>}
-          <span className="grid gap-0.5 pl-1">
-            {apercu.map((item, i) => (
-              <span key={i} className="block">
-                • {item}
-              </span>
-            ))}
-            {reste > 0 && (
-              <span className="text-muted-foreground block">
-                • et {reste} autre{reste > 1 ? 's' : ''}
-              </span>
-            )}
-          </span>
-        </span>
-      )}
+      {impactsList}
       {warning != null && <span className="block">{warning}</span>}
     </span>
   )
@@ -132,7 +142,7 @@ export function ConfirmDeleteDialog({
       confirmLabel={confirmLabel}
       destructive
       loading={loading}
-      confirmDisabled={blocked || !phraseOk}
+      confirmDisabled={blocked || loadingImpacts || !phraseOk}
       body={phraseBody}
       onConfirm={onConfirm}
     />

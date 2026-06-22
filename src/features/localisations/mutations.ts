@@ -1,6 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { localisationsQueries } from './queries'
+import {
+  blockingReason,
+  fetchBlockingChildren,
+  localisationsQueries,
+} from './queries'
 import {
   batimentSchema,
   localSchema,
@@ -72,15 +76,10 @@ export function useDeleteBatiment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Verrou : refuser si au moins un niveau est rattaché.
-      const { count } = await supabase
-        .from('niveaux')
-        .select('id', { count: 'exact', head: true })
-        .eq('batiment_id', id)
-        .throwOnError()
-      if ((count ?? 0) > 0) {
-        throw new Error('Supprime d’abord les niveaux de ce bâtiment.')
-      }
+      // Filet de sécurité : refuser si au moins un niveau est rattaché (la
+      // confirmation le bloque déjà en amont, ceci couvre une course/contournement).
+      const { count } = await fetchBlockingChildren({ kind: 'batiment', id })
+      if (count > 0) throw new Error(blockingReason('batiment', count))
       // Suppression définitive (hard-delete).
       await supabase
         .from('batiments')
@@ -158,15 +157,9 @@ export function useDeleteNiveau() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Verrou : refuser si au moins un local est rattaché.
-      const { count } = await supabase
-        .from('locaux')
-        .select('id', { count: 'exact', head: true })
-        .eq('niveau_id', id)
-        .throwOnError()
-      if ((count ?? 0) > 0) {
-        throw new Error('Supprime d’abord les locaux de ce niveau.')
-      }
+      // Filet de sécurité : refuser si au moins un local est rattaché.
+      const { count } = await fetchBlockingChildren({ kind: 'niveau', id })
+      if (count > 0) throw new Error(blockingReason('niveau', count))
       // Suppression définitive (hard-delete).
       await supabase
         .from('niveaux')
@@ -246,7 +239,11 @@ export function useDeleteLocal() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // Suppression définitive (hard-delete). Le local se supprime librement.
+      // Filet de sécurité : `equipements.local_id` est en RESTRICT → un local
+      // contenant des équipements ne peut PAS être supprimé (la base refuse).
+      const { count } = await fetchBlockingChildren({ kind: 'local', id })
+      if (count > 0) throw new Error(blockingReason('local', count))
+      // Suppression définitive (hard-delete).
       await supabase
         .from('locaux')
         .delete()
