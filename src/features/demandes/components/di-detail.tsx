@@ -11,7 +11,7 @@ import {
   useCloturerDemande,
 } from '../mutations'
 import { DiEditDialog } from './di-edit-dialog'
-import { statutBadgeVariant, statutLabel } from '../etat'
+import { statutLabel, statutTone } from '../etat'
 import { diTitre } from '../schemas'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -23,7 +23,7 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/common/status-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
@@ -108,9 +108,9 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
         title={diTitre(demande.constat)}
         description={`Constaté le ${formatDate(demande.date_constat)}`}
         titleBadges={
-          <Badge variant={statutBadgeVariant(statut)}>
+          <StatusBadge tone={statutTone(statut)}>
             {statutLabel(statut)}
-          </Badge>
+          </StatusBadge>
         }
         action={
           hasActions ? (

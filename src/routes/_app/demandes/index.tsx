@@ -22,7 +22,7 @@ import {
 } from '@/features/demandes/mutations'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { diTitre } from '@/features/demandes/schemas'
-import { statutBadgeVariant, statutLabel } from '@/features/demandes/etat'
+import { statutLabel, statutTone } from '@/features/demandes/etat'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useAuth } from '@/auth'
@@ -47,7 +47,7 @@ import { Select } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/common/status-badge'
 import type { Database } from '@/lib/database.types'
 
 type Demande = Database['public']['Tables']['demandes_intervention']['Row']
@@ -304,6 +304,7 @@ function DemandesContent({
                     return (
                       <ListRow
                         key={d.id}
+                        tone={statutTone(d.statut_di_id)}
                         media={<RowMediaIcon icon={ClipboardList} />}
                         title={diTitre(d.constat)}
                         subtitle={local ? `${local} · ${ligne}` : ligne}
@@ -319,9 +320,9 @@ function DemandesContent({
                           })
                         }
                         badges={
-                          <Badge variant={statutBadgeVariant(d.statut_di_id)}>
+                          <StatusBadge tone={statutTone(d.statut_di_id)}>
                             {statutLabel(d.statut_di_id)}
-                          </Badge>
+                          </StatusBadge>
                         }
                         mobileMeta={
                           local

@@ -1,7 +1,4 @@
-import type { ComponentProps } from 'react'
-import type { Badge } from '@/components/ui/badge'
-
-type BadgeVariant = ComponentProps<typeof Badge>['variant']
+import type { StatusTone } from '@/components/common/status-badge'
 
 // Référentiel statuts_di (migration 052) : 1 Ouvert, 2 En cours, 3 Clôturé.
 const LABELS: Record<number, string> = {
@@ -14,13 +11,18 @@ export function statutLabel(statutId: number): string {
   return LABELS[statutId] ?? 'Statut'
 }
 
-export function statutBadgeVariant(statutId: number): BadgeVariant {
+/**
+ * Code couleur du statut DI, aligné sur le menu contextuel des Demandes :
+ * Ouvert = gris (neutral), En cours = orange (warning), Clôturé = vert (success).
+ * Consommé par la pastille réutilisable `StatusBadge`.
+ */
+export function statutTone(statutId: number): StatusTone {
   switch (statutId) {
     case 2:
-      return 'secondary' // En cours
+      return 'warning' // En cours
     case 3:
-      return 'outline' // Clôturé (état clos, faible emphase)
+      return 'success' // Clôturé (état clos)
     default:
-      return 'default' // Ouvert (à traiter)
+      return 'neutral' // Ouvert (à traiter)
   }
 }

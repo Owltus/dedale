@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { MessageSquareWarning } from 'lucide-react'
 import { demandesQueries } from '@/features/demandes/queries'
 import { diTitre } from '@/features/demandes/schemas'
-import { statutBadgeVariant, statutLabel } from '@/features/demandes/etat'
+import { statutLabel, statutTone } from '@/features/demandes/etat'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { EmptyState } from '@/components/common/empty-state'
@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/common/status-badge'
 import { formatDate } from '@/lib/date'
 
 interface DernieresDemandesProps {
@@ -63,12 +63,12 @@ export function DernieresDemandes({ siteId }: DernieresDemandesProps) {
                         {formatDate(d.date_constat)}
                       </p>
                     </div>
-                    <Badge
-                      variant={statutBadgeVariant(d.statut_di_id)}
+                    <StatusBadge
+                      tone={statutTone(d.statut_di_id)}
                       className="shrink-0"
                     >
                       {statutLabel(d.statut_di_id)}
-                    </Badge>
+                    </StatusBadge>
                   </Link>
                 </li>
               ))}

@@ -8,6 +8,7 @@ import {
   ContextMenu,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import type { StatusTone } from '@/components/common/status-badge'
 import { cn } from '@/lib/utils'
 
 export interface ListRowProps {
@@ -47,6 +48,12 @@ export interface ListRowProps {
    * ouvre le même menu. Prime sur `actions`. La page filtre selon les permissions.
    */
   menuActions?: RowAction[]
+  /**
+   * Accent de STATUT sur la card elle-même : un liseré coloré au bord gauche,
+   * selon la tonalité sémantique (même code couleur que `StatusBadge`). OPT-IN —
+   * sans ce prop, aucun liseré. La page mappe son statut métier → `tone`.
+   */
+  tone?: StatusTone
   /** Rend toute la ligne cliquable (drill-down). */
   onClick?: () => void
   /** Surcharge le nom accessible de la ligne cliquable (défaut : le titre visible). */
@@ -72,6 +79,16 @@ const ROW_PADDING: Record<NonNullable<ListRowProps['size']>, string> = {
   lg: 'py-4',
 }
 
+// Liseré d'accent (bord gauche) par tonalité de statut — même code couleur que
+// `StatusBadge`. `border-l-4` épaissit le bord gauche existant de la card.
+const TONE_ACCENT: Record<StatusTone, string> = {
+  neutral: 'border-l-4 border-l-muted-foreground/30',
+  success: 'border-l-4 border-l-success',
+  warning: 'border-l-4 border-l-warning',
+  destructive: 'border-l-4 border-l-destructive',
+  info: 'border-l-4 border-l-info',
+}
+
 /**
  * Ligne de liste générique, pleine largeur, à colonnes alignées (« tableau en
  * cartes ») : `[icône?] [titre + sous-titre?] [badges?] [méta?] [actions?]`.
@@ -95,6 +112,7 @@ export function ListRow({
   badges,
   meta,
   mobileMeta,
+  tone,
   actions,
   menuActions,
   onClick,
@@ -127,6 +145,7 @@ export function ListRow({
         className={cn(
           'bg-card group relative flex items-stretch overflow-hidden rounded-lg border',
           MEDIA_HEIGHT[size],
+          tone !== undefined && TONE_ACCENT[tone],
           clickable && 'hover:bg-accent/40 transition-colors',
           className,
         )}
@@ -190,6 +209,7 @@ export function ListRow({
         className={cn(
           'bg-card group relative flex items-center gap-3 rounded-lg border px-4',
           ROW_PADDING[size],
+          tone !== undefined && TONE_ACCENT[tone],
           clickable && 'hover:bg-accent/40 transition-colors',
           className,
         )}
