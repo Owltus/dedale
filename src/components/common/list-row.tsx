@@ -1,7 +1,6 @@
 import { useId } from 'react'
 import type { ReactNode } from 'react'
 import {
-  RowActionsKebab,
   RowContextMenuContent,
   type RowAction,
 } from '@/components/common/row-actions'
@@ -110,17 +109,10 @@ export function ListRow({
   const titleId = useId()
 
   const hasMenu = menuActions !== undefined && menuActions.length > 0
-  // Nom accessible du kebab : contextualisé sur le titre quand il est textuel
-  // (sinon `titleLabel`, sinon « Actions » par défaut côté RowActionsKebab).
-  const menuLabel =
-    typeof title === 'string' ? `Actions sur ${title}` : titleLabel
-  // Contenu du slot d'actions : kebab « ⋮ » si menu, sinon l'ancien `actions`.
-  const actionsContent = hasMenu ? (
-    <RowActionsKebab actions={menuActions} label={menuLabel} />
-  ) : (
-    actions
-  )
-  const showActionsSlot = hasMenu || actions !== undefined
+  // `menuActions` s'ouvre UNIQUEMENT au clic droit / appui long — AUCUN bouton
+  // déclencheur visible (kebab retiré, choix PO). Le slot d'actions ne sert plus
+  // qu'à l'ancien prop `actions` (sous-listes/éditeurs non migrés).
+  const showActionsSlot = actions !== undefined
 
   let card: ReactNode
 
@@ -186,7 +178,7 @@ export function ListRow({
           )}
           {showActionsSlot && (
             <div className="relative z-10 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
-              {actionsContent}
+              {actions}
             </div>
           )}
         </div>
@@ -243,7 +235,7 @@ export function ListRow({
         )}
         {showActionsSlot && (
           <div className="relative z-10 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
-            {actionsContent}
+            {actions}
           </div>
         )}
       </div>

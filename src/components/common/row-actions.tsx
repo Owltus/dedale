@@ -1,12 +1,4 @@
 import type { LucideIcon } from 'lucide-react'
-import { MoreVertical } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   ContextMenuContent,
   ContextMenuItem,
@@ -14,9 +6,9 @@ import {
 import { cn } from '@/lib/utils'
 
 /**
- * Action de ligne, présentée dans le menu contextuel (clic droit / appui long)
- * ET dans le kebab « ⋮ ». La page ne passe QUE les actions autorisées (les gardes
- * de permission/condition restent côté page — cf. hétérogénéité des entités).
+ * Action de ligne, présentée dans le menu contextuel (clic droit / appui long).
+ * La page ne passe QUE les actions autorisées (les gardes de permission/condition
+ * restent côté page — cf. hétérogénéité des entités).
  */
 export interface RowAction {
   label: string
@@ -34,7 +26,8 @@ const itemClass = (destructive?: boolean) =>
 
 /**
  * Contenu du MENU CONTEXTUEL (à placer dans un `<ContextMenu>`). Rendu par
- * `ListRow` quand `menuActions` est fourni.
+ * `ListRow` quand `menuActions` est fourni. Pas de déclencheur visible : le menu
+ * s'ouvre au clic droit (desktop) ou à l'appui long (tactile).
  */
 export function RowContextMenuContent({ actions }: { actions: RowAction[] }) {
   return (
@@ -54,50 +47,5 @@ export function RowContextMenuContent({ actions }: { actions: RowAction[] }) {
         )
       })}
     </ContextMenuContent>
-  )
-}
-
-/**
- * Bouton kebab « ⋮ » ouvrant le MÊME jeu d'actions au clic (découvrabilité
- * desktop, et accès tactile permanent). Calque le rendu des items du menu
- * contextuel pour une cohérence parfaite.
- */
-export function RowActionsKebab({
-  actions,
-  label = 'Actions',
-}: {
-  actions: RowAction[]
-  label?: string
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label={label}
-          className="shrink-0"
-        >
-          <MoreVertical />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {actions.map((a) => {
-          const Icon = a.icon
-          return (
-            <DropdownMenuItem
-              key={a.label}
-              disabled={a.disabled}
-              onSelect={a.onSelect}
-              className={cn(itemClass(a.destructive))}
-            >
-              <Icon />
-              {a.label}
-            </DropdownMenuItem>
-          )
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }
