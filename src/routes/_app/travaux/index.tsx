@@ -43,10 +43,10 @@ export const Route = createFileRoute('/_app/travaux/')({
 
 function TravauxPage() {
   const { data: role } = useCurrentRole()
-  // Travaux = écran MÉTIER (cf. RLS) : manager/technicien créent/éditent sur
-  // leurs sites, lecteur consulte. Suppression réservée à l'admin (RLS).
+  // Travaux = écran MÉTIER (cf. RLS) : manager/technicien créent/éditent ET
+  // SUPPRIMENT sur leurs sites (migration 053), lecteur consulte.
   const canManage = perm.canManageMetier(role)
-  const canDelete = perm.isAdmin(role)
+  const canDelete = perm.canManageMetier(role)
   const { activeSiteId } = useSiteContext()
 
   if (!activeSiteId) {

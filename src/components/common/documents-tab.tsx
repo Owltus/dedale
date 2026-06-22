@@ -87,8 +87,8 @@ export function DocumentsTab({
 }: DocumentsTabProps) {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
-  // Hard-delete d'un document = admin uniquement (RLS `documents_admin_all`).
-  const canDelete = perm.isAdmin(role)
+  // Hard-delete d'un document = manager + technicien sur leurs sites (migration 053).
+  const canDelete = perm.canManageMetier(role)
   const { activeSiteId } = useSiteContext()
 
   const query = useQuery(

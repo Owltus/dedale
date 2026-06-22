@@ -5761,13 +5761,17 @@ BEGIN
     EXECUTE $pol$CREATE POLICY storage_objects_insert_documents ON storage.objects FOR INSERT
         WITH CHECK (bucket_id = 'documents' AND (SELECT public.current_role()) IN ('admin','manager','technicien','demandeur'))$pol$;
 
-    -- UPDATE / DELETE : admin/manager + scope-gating via storage_objet_modifiable()
+    -- UPDATE : admin/manager + scope-gating via storage_objet_modifiable()
     -- (objet référencé par une entité VISIBLE, ou orphelin) — admin court-circuite.
     EXECUTE $pol$CREATE POLICY storage_objects_update_documents ON storage.objects FOR UPDATE
         USING (bucket_id = 'documents' AND (SELECT public.current_role()) IN ('admin','manager') AND public.storage_objet_modifiable(name))
         WITH CHECK (bucket_id = 'documents' AND (SELECT public.current_role()) IN ('admin','manager') AND public.storage_objet_modifiable(name))$pol$;
+    -- DELETE : admin/manager/technicien (migration 053 — aligné sur le hard-delete
+    -- documents) + même scope-gating storage_objet_modifiable(). Helpers déjà
+    -- compatibles 'technicien' (storage_objet_rattache : garde incluant technicien ;
+    -- storage_objet_modifiable : SECURITY INVOKER sans garde de rôle).
     EXECUTE $pol$CREATE POLICY storage_objects_delete_documents ON storage.objects FOR DELETE
-        USING (bucket_id = 'documents' AND (SELECT public.current_role()) IN ('admin','manager') AND public.storage_objet_modifiable(name))$pol$;
+        USING (bucket_id = 'documents' AND (SELECT public.current_role()) IN ('admin','manager','technicien') AND public.storage_objet_modifiable(name))$pol$;
 
     -- storage.buckets : lecture seule du bucket 'documents'.
     EXECUTE $pol$CREATE POLICY storage_buckets_select_documents ON storage.buckets FOR SELECT
@@ -7823,6 +7827,13 @@ CREATE POLICY batiments_site_scoped_update ON batiments FOR UPDATE
         AND public.has_site_access(site_id)
     );
 
+-- Suppression site-scopée (manager + technicien), calquée sur l'UPDATE (migration 053).
+CREATE POLICY batiments_site_scoped_delete ON batiments FOR DELETE
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND public.has_site_access(site_id)
+    );
+
 -- Le demandeur voit les bâtiments de ses sites assignés.
 CREATE POLICY batiments_demandeur_select ON batiments FOR SELECT
     USING (
@@ -7865,6 +7876,17 @@ CREATE POLICY niveaux_site_scoped_update ON niveaux FOR UPDATE
         )
     )
     WITH CHECK (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND EXISTS (
+            SELECT 1 FROM batiments b
+            WHERE b.id = niveaux.batiment_id
+              AND public.has_site_access(b.site_id)
+        )
+    );
+
+-- Suppression site-scopée (manager + technicien), calquée sur l'UPDATE (migration 053).
+CREATE POLICY niveaux_site_scoped_delete ON niveaux FOR DELETE
+    USING (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND EXISTS (
             SELECT 1 FROM batiments b
@@ -7922,6 +7944,18 @@ CREATE POLICY locaux_site_scoped_update ON locaux FOR UPDATE
         )
     )
     WITH CHECK (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND EXISTS (
+            SELECT 1 FROM niveaux n
+            JOIN batiments b ON b.id = n.batiment_id
+            WHERE n.id = locaux.niveau_id
+              AND public.has_site_access(b.site_id)
+        )
+    );
+
+-- Suppression site-scopée (manager + technicien), calquée sur l'UPDATE (migration 053).
+CREATE POLICY locaux_site_scoped_delete ON locaux FOR DELETE
+    USING (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND EXISTS (
             SELECT 1 FROM niveaux n
@@ -8002,6 +8036,22 @@ CREATE POLICY categories_technicien_update ON categories FOR UPDATE
         AND public.has_site_access(site_id)
     );
 
+-- Suppression scindée par rôle (migration 053), calquée sur les UPDATE :
+-- manager gère le commun (site_id NULL) OU ses sites ; technicien UNIQUEMENT
+-- ses sites (site_id NOT NULL) — le commun reste réservé admin + manager.
+CREATE POLICY categories_site_scoped_delete ON categories FOR DELETE
+    USING (
+        (SELECT public.current_role()) = 'manager'
+        AND (site_id IS NULL OR public.has_site_access(site_id))
+    );
+
+CREATE POLICY categories_technicien_delete ON categories FOR DELETE
+    USING (
+        (SELECT public.current_role()) = 'technicien'
+        AND site_id IS NOT NULL
+        AND public.has_site_access(site_id)
+    );
+
 -- v0.13 — accès au site d'un LOCAL (par local_id), utilisable aussi en INSERT
 -- (contrairement à can_access_equipement qui exige l'equipement déjà en base).
 -- Encapsule le triple JOIN locaux→niveaux→batiments des policies equipements.
@@ -8051,6 +8101,13 @@ CREATE POLICY equipements_site_scoped_update ON equipements FOR UPDATE
         AND public.can_access_local(local_id)
     )
     WITH CHECK (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND public.can_access_local(local_id)
+    );
+
+-- Suppression site-scopée (manager + technicien), calquée sur l'UPDATE (migration 053).
+CREATE POLICY equipements_site_scoped_delete ON equipements FOR DELETE
+    USING (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND public.can_access_local(local_id)
     );
@@ -8108,6 +8165,21 @@ CREATE POLICY prestataires_manager_update ON prestataires FOR UPDATE
         )
     )
     WITH CHECK (
+        (SELECT public.current_role()) = 'manager'
+        AND (
+            NOT EXISTS (SELECT 1 FROM prestataires_sites ps WHERE ps.prestataire_id = prestataires.id)
+            OR EXISTS (
+                SELECT 1 FROM prestataires_sites ps
+                WHERE ps.prestataire_id = prestataires.id
+                  AND public.has_site_access(ps.site_id)
+            )
+        )
+    );
+
+-- Suppression (manager), calquée sur prestataires_manager_update (migration 053).
+-- Le trigger protect_prestataire_interne reste l'arbitre pour l'interne.
+CREATE POLICY prestataires_manager_delete ON prestataires FOR DELETE
+    USING (
         (SELECT public.current_role()) = 'manager'
         AND (
             NOT EXISTS (SELECT 1 FROM prestataires_sites ps WHERE ps.prestataire_id = prestataires.id)
@@ -8675,6 +8747,13 @@ CREATE POLICY travaux_site_scoped_update ON interventions_travaux FOR UPDATE
         AND public.has_site_access(site_id)
     );
 
+-- Suppression site-scopée (manager + technicien), calquée sur l'UPDATE (migration 053).
+CREATE POLICY travaux_site_scoped_delete ON interventions_travaux FOR DELETE
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND public.has_site_access(site_id)
+    );
+
 -- travaux_taches (v0.34) : scope via le site du travail parent (EXISTS
 -- interventions_travaux + has_site_access). admin = court-circuit ;
 -- manager/technicien écrivent ; lecteur lit.
@@ -8738,6 +8817,13 @@ CREATE POLICY capex_site_scoped_update ON investissements FOR UPDATE
         AND public.has_site_access(site_id)
     )
     WITH CHECK (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND public.has_site_access(site_id)
+    );
+
+-- Suppression site-scopée (manager + technicien), calquée sur l'UPDATE (migration 053).
+CREATE POLICY capex_site_scoped_delete ON investissements FOR DELETE
+    USING (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND public.has_site_access(site_id)
     );
@@ -10122,6 +10208,20 @@ CREATE POLICY prestataires_technicien_update ON prestataires FOR UPDATE
         )
     );
 
+-- Suppression (technicien), calquée sur prestataires_technicien_update (migration 053).
+CREATE POLICY prestataires_technicien_delete ON prestataires FOR DELETE
+    USING (
+        (SELECT public.current_role()) = 'technicien'
+        AND (
+            NOT EXISTS (SELECT 1 FROM prestataires_sites ps WHERE ps.prestataire_id = prestataires.id)
+            OR EXISTS (
+                SELECT 1 FROM prestataires_sites ps
+                WHERE ps.prestataire_id = prestataires.id
+                  AND public.has_site_access(ps.site_id)
+            )
+        )
+    );
+
 -- 3. prestataires_sites — gestion des affectations site sur ses sites.
 CREATE POLICY prestataires_sites_technicien_all ON prestataires_sites FOR ALL
     USING (
@@ -11385,6 +11485,18 @@ CREATE POLICY documents_technicien_update ON documents FOR UPDATE
     )
     WITH CHECK (
         (SELECT public.current_role()) = 'technicien'
+        AND (site_id IS NULL OR public.has_site_access(site_id))
+    );
+
+-- ── documents : DELETE cloisonné (manager + technicien) ─────────────────────
+-- Hard-delete (migration 053). Union exacte des deux UPDATE ci-dessus : même
+-- prédicat site `(site_id IS NULL OR has_site_access(site_id))` pour les deux
+-- rôles → une seule policy combinée. Le trigger AFTER DELETE (035) nettoie le
+-- blob Storage devenu orphelin.
+DROP POLICY IF EXISTS documents_site_scoped_delete ON documents;
+CREATE POLICY documents_site_scoped_delete ON documents FOR DELETE
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
         AND (site_id IS NULL OR public.has_site_access(site_id))
     );
 

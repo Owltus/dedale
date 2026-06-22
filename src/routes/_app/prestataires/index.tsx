@@ -40,7 +40,9 @@ export const Route = createFileRoute('/_app/prestataires/')({
 
 function PrestatairesIndexPage() {
   const { data: role } = useCurrentRole()
-  const canManage = perm.canManageAdmin(role)
+  // Gérés par manager + technicien sur leurs sites (migration 053) ; le garde
+  // `!est_interne` + le trigger protègent le prestataire interne.
+  const canManage = perm.canManageMetier(role)
   const { activeSiteId } = useSiteContext()
 
   if (!activeSiteId) {
