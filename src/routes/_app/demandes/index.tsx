@@ -1,12 +1,25 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ClipboardList, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  CheckCircle2,
+  Circle,
+  ClipboardList,
+  Clock,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { demandesQueries } from '@/features/demandes/queries'
 import { DiFormDialog } from '@/features/demandes/components/di-form-dialog'
 import { DiEditDialog } from '@/features/demandes/components/di-edit-dialog'
-import { useDeleteDemande } from '@/features/demandes/mutations'
+import { DiResolveDialog } from '@/features/demandes/components/di-resolve-dialog'
+import {
+  useDeleteDemande,
+  useReopenDemande,
+  usePrendreEnCharge,
+} from '@/features/demandes/mutations'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { diTitre } from '@/features/demandes/schemas'
 import { statutBadgeVariant, statutLabel } from '@/features/demandes/etat'
@@ -15,7 +28,7 @@ import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useAuth } from '@/auth'
 import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
-import { deleteErrorMessage } from '@/lib/form'
+import { deleteErrorMessage, writeErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
@@ -85,6 +98,10 @@ function DemandesContent({
   const navigate = useNavigate()
   const query = useQuery(demandesQueries.list(siteId))
   const del = useDeleteDemande()
+  const reopen = useReopenDemande()
+  const enCharge = usePrendreEnCharge()
+  // Changement de statut (Ouvert/En cours/Clôturé) via le menu : rôles métier.
+  const canResolve = perm.canResolveDemande(role)
   // Liste LIVE : tout INSERT/UPDATE/DELETE sur demandes_intervention (n'importe
   // quelle fenêtre, n'importe quel utilisateur du site) rafraîchit la liste sans F5.
   useRealtimeRefresh('demandes_intervention', demandesQueries.all())
@@ -116,6 +133,7 @@ function DemandesContent({
   const [statutFilter, setStatutFilter] = useState('all')
   const [editDemande, setEditDemande] = useState<Demande | null>(null)
   const [toDelete, setToDelete] = useState<Demande | null>(null)
+  const [cloturerDemande, setCloturerDemande] = useState<Demande | null>(null)
 
   const newButton = canCreate ? (
     <Button onClick={() => setFormOpen(true)}>
@@ -233,6 +251,43 @@ function DemandesContent({
                         destructive: true,
                         onSelect: () => setToDelete(d),
                       })
+                    // Groupe « statut » (rôles métier) : séparateur + icône colorée
+                    // (Ouvert/Clôturé gris, En cours orange). Le statut courant est
+                    // désactivé ; Clôturer ouvre la saisie de la note (dialog).
+                    if (canResolve) {
+                      const sep = rowActions.length > 0
+                      rowActions.push({
+                        label: 'Ouvert',
+                        icon: Circle,
+                        iconClassName: 'text-muted-foreground',
+                        separatorBefore: sep,
+                        disabled: d.statut_di_id === 1,
+                        onSelect: () =>
+                          reopen.mutate(d.id, {
+                            onSuccess: () => toast.success('Demande rouverte'),
+                            onError: (e) => toast.error(writeErrorMessage(e)),
+                          }),
+                      })
+                      rowActions.push({
+                        label: 'En cours',
+                        icon: Clock,
+                        iconClassName: 'text-warning',
+                        disabled: d.statut_di_id === 2,
+                        onSelect: () =>
+                          enCharge.mutate(d.id, {
+                            onSuccess: () =>
+                              toast.success('Demande prise en charge'),
+                            onError: (e) => toast.error(writeErrorMessage(e)),
+                          }),
+                      })
+                      rowActions.push({
+                        label: 'Clôturé',
+                        icon: CheckCircle2,
+                        iconClassName: 'text-muted-foreground',
+                        disabled: d.statut_di_id === 3,
+                        onSelect: () => setCloturerDemande(d),
+                      })
+                    }
                     const createur = d.created_by
                       ? (usersById.get(d.created_by) ?? null)
                       : null
@@ -312,6 +367,15 @@ function DemandesContent({
         destructive
         loading={del.isPending}
         onConfirm={confirmDelete}
+      />
+
+      <DiResolveDialog
+        key={cloturerDemande?.id ?? 'none'}
+        open={cloturerDemande !== null}
+        onOpenChange={(o) => {
+          if (!o) setCloturerDemande(null)
+        }}
+        diId={cloturerDemande?.id ?? ''}
       />
     </PageContainer>
   )

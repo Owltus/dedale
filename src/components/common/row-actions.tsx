@@ -1,7 +1,9 @@
+import { Fragment } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
 } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +19,10 @@ export interface RowAction {
   /** Item en rouge (text-destructive) — jamais bg-destructive. */
   destructive?: boolean
   disabled?: boolean
+  /** Affiche un séparateur AVANT cet item (pour grouper, ex. le bloc « statut »). */
+  separatorBefore?: boolean
+  /** Classe de couleur de l'icône (ex. 'text-warning', 'text-muted-foreground'). */
+  iconClassName?: string
 }
 
 // L'item destructif passe AUSSI le focus en rouge (sinon focus:text-accent-foreground
@@ -27,27 +33,26 @@ const itemClass = (destructive?: boolean) =>
 /**
  * Contenu du MENU CONTEXTUEL (à placer dans un `<ContextMenu>`). Rendu par
  * `ListRow` quand `menuActions` est fourni. Pas de déclencheur visible : le menu
- * s'ouvre au clic droit (desktop) ou à l'appui long (tactile).
+ * s'ouvre au clic droit (desktop) ou à l'appui long (tactile). Supporte des
+ * séparateurs (`separatorBefore`) et une icône colorée par item (`iconClassName`).
  */
 export function RowContextMenuContent({ actions }: { actions: RowAction[] }) {
   return (
-    <ContextMenuContent
-      // Sélectionner un item ouvre souvent un dialog (Modifier/Supprimer) : on
-      // empêche la restauration de focus du menu d'entrer en conflit avec le dialog.
-      onCloseAutoFocus={(e) => e.preventDefault()}
-    >
-      {actions.map((a) => {
+    <ContextMenuContent>
+      {actions.map((a, i) => {
         const Icon = a.icon
         return (
-          <ContextMenuItem
-            key={a.label}
-            disabled={a.disabled}
-            onSelect={a.onSelect}
-            className={cn(itemClass(a.destructive))}
-          >
-            <Icon />
-            {a.label}
-          </ContextMenuItem>
+          <Fragment key={a.label}>
+            {a.separatorBefore && i > 0 && <ContextMenuSeparator />}
+            <ContextMenuItem
+              disabled={a.disabled}
+              onSelect={a.onSelect}
+              className={cn(itemClass(a.destructive))}
+            >
+              <Icon className={cn(a.iconClassName)} />
+              {a.label}
+            </ContextMenuItem>
+          </Fragment>
         )
       })}
     </ContextMenuContent>
