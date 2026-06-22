@@ -30,16 +30,20 @@ dist-ssr
 *.sw?
 
 # Documentation interne (dépôt public) : doc projet.
-# NB : le schéma SQL (schema_complete.sql) et les migrations (migrations/) sont
-# désormais versionnés à la racine — voir plus bas — pour suivre l'historique.
+# NB : la source de vérité du schéma est schema_complete.sql (versionné à la
+# racine). Les migrations/ incrémentales NE sont PAS publiées — voir plus bas.
 contexte/
 # Plans de travail internes (corbeille, etc.) — comme contexte/, on ne publie pas la roadmap
 plan/
 
 # Données d'import legacy SQLite -> Supabase (dedale.db + documents réels, volumineux)
-# Attention : « migration/ » (singulier, import legacy) est ignoré ; « migrations/ »
-# (pluriel, historique SQL versionné à la racine) ne l'est PAS et doit rester suivi.
 migration/
+
+# Migrations SQL : dépôt PUBLIC → on ne les publie pas (elles peuvent contenir des
+# données réelles, ex. coordonnées prestataires). Source de vérité du schéma =
+# schema_complete.sql (versionné à la racine). Les fichiers existants sont
+# dé-suivis (git rm --cached) ; ils restent en local pour être rejoués en prod.
+migrations/
 
 # Scripts de lancement locaux
 dev.bat
