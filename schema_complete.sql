@@ -2742,8 +2742,9 @@ ALTER TABLE prestataires_sites ENABLE ROW LEVEL SECURITY;
 -- ----------------------------------------------------------------------------
 -- v0.26 — Équipe interne créée AUTOMATIQUEMENT à la création d'un site (décision
 -- PO : 1 interne par site). SECURITY DEFINER (l'admin crée le site, le trigger
--- crée la régie sans buter sur la RLS). Le libellé inclut le nom du site ; les
--- internes sont hors de l'unicité de libellé (uq_prestataires_libelle_active).
+-- crée la régie sans buter sur la RLS). Le libellé EST le nom du site (migration
+-- 055, plus de préfixe « Régie interne — ») ; les internes sont hors de l'unicité
+-- de libellé (uq_prestataires_libelle_active).
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.create_interne_for_site()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
@@ -2752,7 +2753,7 @@ DECLARE
     v_presta_id UUID;
 BEGIN
     INSERT INTO public.prestataires (libelle, metier, est_interne, site_id)
-    VALUES ('Régie interne — ' || NEW.nom, 'Maintenance interne', true, NEW.id)
+    VALUES (NEW.nom, 'Maintenance interne', true, NEW.id)
     RETURNING id INTO v_presta_id;
 
     INSERT INTO public.prestataires_sites (prestataire_id, site_id)
