@@ -1,4 +1,5 @@
 import type { StepperStep } from '@/components/common/status-stepper'
+import type { StatusTone } from '@/components/common/status-badge'
 import {
   STATUT_OUVERT,
   STATUT_PLANIFIE,
@@ -25,19 +26,23 @@ export interface TravauxEtape extends StepperStep {
   statutId: number
 }
 
-/** Variante de `Badge` cohérente pour un statut de travaux. */
-export function variantStatutTravaux(
-  id: number,
-): 'default' | 'secondary' | 'outline' | 'destructive' {
+/**
+ * Code couleur (tone) d'un statut de travaux, pour la pastille `StatusBadge` et
+ * le liseré de card : Ouvert = gris, Planifié = violet, En cours = jaune,
+ * Terminé = vert, Annulé = gris atténué (issue terminale, le libellé distingue).
+ */
+export function statutTravauxTone(id: number): StatusTone {
   switch (id) {
-    case STATUT_ANNULE:
-      return 'destructive'
+    case STATUT_PLANIFIE:
+      return 'violet'
+    case STATUT_EN_COURS:
+      return 'yellow'
     case STATUT_TERMINE:
-      return 'default'
-    case STATUT_OUVERT:
-      return 'outline'
-    default: // Planifié, En cours
-      return 'secondary'
+      return 'success'
+    case STATUT_ANNULE:
+      return 'neutral'
+    default: // Ouvert
+      return 'neutral'
   }
 }
 

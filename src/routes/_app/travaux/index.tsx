@@ -8,7 +8,7 @@ import {
   statutsTravauxQueries,
 } from '@/features/travaux/queries'
 import { useDeleteTravaux } from '@/features/travaux/mutations'
-import { variantStatutTravaux } from '@/features/travaux/etat'
+import { statutTravauxTone } from '@/features/travaux/etat'
 import { estVerrouille } from '@/features/travaux/schemas'
 import { TravauxFormDialog } from '@/features/travaux/components/travaux-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -32,7 +32,7 @@ import { SearchInput } from '@/components/common/search-input'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/common/status-badge'
 import type { Database } from '@/lib/database.types'
 
 type Travaux = Database['public']['Tables']['interventions_travaux']['Row']
@@ -202,6 +202,7 @@ function TravauxContent({
                     return (
                       <ListRow
                         key={c.id}
+                        tone={statutTravauxTone(c.statut_travaux_id)}
                         media={<RowMediaIcon icon={HardHat} />}
                         title={c.titre}
                         subtitle={
@@ -222,11 +223,11 @@ function TravauxContent({
                         }
                         badges={
                           statutLabel ? (
-                            <Badge
-                              variant={variantStatutTravaux(c.statut_travaux_id)}
+                            <StatusBadge
+                              tone={statutTravauxTone(c.statut_travaux_id)}
                             >
                               {statutLabel}
-                            </Badge>
+                            </StatusBadge>
                           ) : undefined
                         }
                         meta={

@@ -7,7 +7,14 @@ import { cn } from '@/lib/utils'
  * (cf. `src/index.css`). `neutral` = état au repos (gris) ; les autres reprennent
  * --success / --warning / --destructive / --info.
  */
-export type StatusTone = 'neutral' | 'success' | 'warning' | 'destructive' | 'info'
+export type StatusTone =
+  | 'neutral'
+  | 'success'
+  | 'warning'
+  | 'destructive'
+  | 'info'
+  | 'violet'
+  | 'yellow'
 
 // Pastille TEINTÉE : fond doux (couleur à 10 %), texte de la couleur, liseré
 // discret. Les tokens d'état sont foncés en thème clair → texte AA lisible.
@@ -17,6 +24,8 @@ const TONE_CLASSES: Record<StatusTone, string> = {
   warning: 'border-warning/20 bg-warning/10 text-warning',
   destructive: 'border-destructive/20 bg-destructive/10 text-destructive',
   info: 'border-info/20 bg-info/10 text-info',
+  violet: 'border-violet/20 bg-violet/10 text-violet',
+  yellow: 'border-yellow/20 bg-yellow/10 text-yellow',
 }
 
 /**

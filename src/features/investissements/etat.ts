@@ -1,4 +1,5 @@
 import type { StepperStep } from '@/components/common/status-stepper'
+import type { StatusTone } from '@/components/common/status-badge'
 
 /** Étape de frise enrichie du statut CapEx qu'elle représente (pour le clic). */
 export interface InvestissementEtape extends StepperStep {
@@ -34,20 +35,30 @@ export function nomStatutCapex(id: number, noms: Map<number, string>): string {
   return noms.get(id) ?? LABELS_DEFAUT[id] ?? `Statut ${String(id)}`
 }
 
-/** Variante de `Badge` cohérente pour un statut CapEx. */
-export function variantStatutCapex(
-  id: number,
-): 'default' | 'secondary' | 'outline' | 'destructive' {
+/**
+ * Code couleur (tone) LOGIQUE d'un statut CapEx, pour la pastille `StatusBadge`
+ * et le liseré de card. Le cycle CapEx a sa propre lecture (≠ DI/Travaux) :
+ *  Demandé = gris (en attente), À l'étude = bleu (analyse), Validé = violet
+ *  (feu vert / jalon), Engagé = jaune (exécution en cours), Réalisé = vert
+ *  (accompli), Clôturé = gris (dossier clos / archivé), Refusé = rouge.
+ */
+export function statutCapexTone(id: number): StatusTone {
   switch (id) {
-    case ID_REFUSE:
+    case ID_REFUSE: // Refusé
       return 'destructive'
+    case 5: // À l'étude
+      return 'info'
+    case 2: // Validé
+      return 'violet'
+    case 6: // Engagé
+      return 'yellow'
     case 3: // Réalisé
-    case 7: // Clôturé
-      return 'default'
-    case 1: // Demandé
-      return 'outline'
-    default: // À l'étude, Validé, Engagé
-      return 'secondary'
+      return 'success'
+    case 7: // Clôturé (dossier clos / archivé)
+    case 1: // Demandé (en attente)
+      return 'neutral'
+    default:
+      return 'neutral'
   }
 }
 

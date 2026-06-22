@@ -10,7 +10,7 @@ import {
 import { useDeleteInvestissement } from '@/features/investissements/mutations'
 import {
   nomStatutCapex,
-  variantStatutCapex,
+  statutCapexTone,
 } from '@/features/investissements/etat'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
@@ -36,7 +36,7 @@ import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/common/status-badge'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -197,6 +197,7 @@ function InvestissementsContent({
                     return (
                       <ListRow
                         key={inv.id}
+                        tone={statutCapexTone(inv.statut_capex_id)}
                         media={<RowMediaIcon icon={Wallet} />}
                         title={inv.libelle}
                         subtitle={
@@ -216,11 +217,11 @@ function InvestissementsContent({
                           })
                         }
                         badges={
-                          <Badge
-                            variant={variantStatutCapex(inv.statut_capex_id)}
+                          <StatusBadge
+                            tone={statutCapexTone(inv.statut_capex_id)}
                           >
                             {statutLabel}
-                          </Badge>
+                          </StatusBadge>
                         }
                         meta={
                           <div className="text-right leading-tight tabular-nums">
