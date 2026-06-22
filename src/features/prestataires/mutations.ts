@@ -5,18 +5,14 @@ import type { ContratFormValues, PrestataireFormValues } from './schemas'
 
 // ── Prestataires ──────────────────────────────────────────────────────────────
 
-// Convertit les champs texte vides en NULL (colonnes nullables côté base).
+// Formulaire allégé : seuls le nom (libelle), la description (commentaires) et
+// l'image (miniature_id) sont saisis. Les autres colonnes gardent leur valeur
+// (UPDATE) ou leur défaut NULL (INSERT).
 function prestatairePayload(v: PrestataireFormValues) {
   return {
     libelle: v.libelle.trim(),
-    metier: v.metier.trim() || null,
-    email: v.email.trim() || null,
-    telephone: v.telephone.trim() || null,
-    siret: v.siret.trim() || null,
-    adresse: v.adresse.trim() || null,
-    code_postal: v.code_postal.trim() || null,
-    ville: v.ville.trim() || null,
     commentaires: v.commentaires.trim() || null,
+    miniature_id: v.miniature_id,
   }
 }
 

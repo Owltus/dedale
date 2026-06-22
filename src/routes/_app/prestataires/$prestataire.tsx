@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { FileText, Pencil, Plus, Trash2, Truck } from 'lucide-react'
@@ -28,6 +27,8 @@ import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
@@ -140,12 +141,13 @@ function PrestataireDetail({
   onBack: () => void
 }) {
   const [editPrestataire, setEditPrestataire] = useState(false)
+  const { urlOf, refresh } = useMiniatureUrls()
+  const description = prestataire.commentaires?.trim()
 
   return (
     <PageContainer>
       <PageHeader
         title={prestataire.libelle}
-        description={prestataire.metier ?? undefined}
         breadcrumb={[{ label: 'Prestataires', onClick: onBack }]}
         titleBadges={
           <Badge variant={prestataire.est_interne ? 'default' : 'secondary'}>
@@ -165,23 +167,19 @@ function PrestataireDetail({
       />
 
       <Card className="mb-6">
-        <CardContent className="text-muted-foreground grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-4 text-sm">
-          <Info label="Email">{prestataire.email ?? '—'}</Info>
-          <Info label="Téléphone">{prestataire.telephone ?? '—'}</Info>
-          <Info label="SIRET">{prestataire.siret ?? '—'}</Info>
-          <Info label="Adresse">
-            {[
-              prestataire.adresse,
-              [prestataire.code_postal, prestataire.ville]
-                .filter(Boolean)
-                .join(' '),
-            ]
-              .filter(Boolean)
-              .join(', ') || '—'}
-          </Info>
-          {prestataire.commentaires && (
-            <Info label="Commentaires">{prestataire.commentaires}</Info>
-          )}
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="aspect-square w-32 shrink-0 sm:w-40">
+            <MiniatureThumb
+              url={urlOf(prestataire.miniature_id)}
+              fallback={<Truck className="size-8" />}
+              alt=""
+              onError={refresh}
+              className="size-full rounded-lg border"
+            />
+          </div>
+          <p className="text-muted-foreground flex-1 text-sm whitespace-pre-wrap">
+            {description ?? 'Aucune description.'}
+          </p>
         </CardContent>
       </Card>
 
@@ -200,15 +198,6 @@ function PrestataireDetail({
         />
       )}
     </PageContainer>
-  )
-}
-
-function Info({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-foreground text-xs font-medium">{label}</span>
-      <span>{children}</span>
-    </div>
   )
 }
 

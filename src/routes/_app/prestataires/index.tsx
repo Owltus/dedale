@@ -23,7 +23,8 @@ import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import type { RowAction } from '@/components/common/row-actions'
-import { RowMediaIcon } from '@/components/common/row-media-icon'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { SearchInput } from '@/components/common/search-input'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -67,6 +68,7 @@ function PrestatairesList({
   canManage: boolean
 }) {
   const navigate = useNavigate()
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const query = useQuery(prestatairesQueries.list())
   const { data: counts } = useQuery(contratsQueries.countsBySite(siteId))
   const del = useDeletePrestataire()
@@ -170,9 +172,17 @@ function PrestatairesList({
                     return (
                       <ListRow
                         key={p.id}
-                        media={<RowMediaIcon icon={Truck} />}
+                        media={
+                          <MiniatureThumb
+                            url={urlOf(p.miniature_id)}
+                            fallback={<Truck className="size-10" />}
+                            alt=""
+                            onError={refreshMiniatures}
+                            className="size-full rounded-none"
+                          />
+                        }
                         title={p.libelle}
-                        subtitle={p.email ?? p.ville ?? p.metier ?? undefined}
+                        subtitle={p.commentaires ?? undefined}
                         badges={
                           <Badge
                             variant={p.est_interne ? 'default' : 'secondary'}

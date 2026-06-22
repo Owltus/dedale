@@ -5,7 +5,7 @@ import type { PrestataireFormValues } from '../schemas'
 import { useCreatePrestataire, useUpdatePrestataire } from '../mutations'
 import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
+import { IdentiteFields } from '@/components/common/identite-fields'
 import type { Database } from '@/lib/database.types'
 
 type Prestataire = Database['public']['Tables']['prestataires']['Row']
@@ -22,14 +22,8 @@ function initialValues(
   if (!prestataire) return emptyPrestataire
   return {
     libelle: prestataire.libelle,
-    metier: prestataire.metier ?? '',
-    email: prestataire.email ?? '',
-    telephone: prestataire.telephone ?? '',
-    siret: prestataire.siret ?? '',
-    adresse: prestataire.adresse ?? '',
-    code_postal: prestataire.code_postal ?? '',
-    ville: prestataire.ville ?? '',
     commentaires: prestataire.commentaires ?? '',
+    miniature_id: prestataire.miniature_id ?? null,
   }
 }
 
@@ -47,7 +41,7 @@ export function PrestataireFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
 
-  function set(key: keyof PrestataireFormValues, value: string) {
+  function set(key: 'libelle' | 'commentaires', value: string) {
     setValues((v) => ({ ...v, [key]: value }))
   }
 
@@ -77,73 +71,30 @@ export function PrestataireFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier le prestataire' : 'Nouveau prestataire'}
-      description="Renseigne les informations du prestataire."
+      description="Nom, description et image du prestataire."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
       pending={pending}
     >
-      <TextField
-        label="Libellé"
-        value={values.libelle}
-        onChange={(v) => set('libelle', v)}
-        error={errors.libelle}
-        required
-      />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TextField
-          label="Métier"
-          value={values.metier}
-          onChange={(v) => set('metier', v)}
-          error={errors.metier}
-        />
-        <TextField
-          label="SIRET"
-          value={values.siret}
-          onChange={(v) => set('siret', v)}
-          error={errors.siret}
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TextField
-          label="Email"
-          type="email"
-          value={values.email}
-          onChange={(v) => set('email', v)}
-          error={errors.email}
-        />
-        <TextField
-          label="Téléphone"
-          value={values.telephone}
-          onChange={(v) => set('telephone', v)}
-          error={errors.telephone}
-        />
-      </div>
-      <TextField
-        label="Adresse"
-        value={values.adresse}
-        onChange={(v) => set('adresse', v)}
-        error={errors.adresse}
-      />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TextField
-          label="Code postal"
-          value={values.code_postal}
-          onChange={(v) => set('code_postal', v)}
-          error={errors.code_postal}
-        />
-        <TextField
-          label="Ville"
-          value={values.ville}
-          onChange={(v) => set('ville', v)}
-          error={errors.ville}
-        />
-      </div>
-      <TextField
-        label="Commentaires"
-        value={values.commentaires}
-        onChange={(v) => set('commentaires', v)}
-        error={errors.commentaires}
+      <IdentiteFields
+        nom={{
+          value: values.libelle,
+          onChange: (v) => set('libelle', v),
+          error: errors.libelle,
+        }}
+        description={{
+          value: values.commentaires,
+          onChange: (v) => set('commentaires', v),
+          error: errors.commentaires,
+        }}
+        image={{
+          value: values.miniature_id,
+          onChange: (id) => setValues((v) => ({ ...v, miniature_id: id })),
+          // Prestataire = entité transverse → pool commun (entreprise).
+          targetSiteId: null,
+          canUpload: true,
+        }}
       />
     </FormDialog>
   )

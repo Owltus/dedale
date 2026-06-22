@@ -2,30 +2,21 @@ import { z } from 'zod'
 
 // ── Prestataire ─────────────────────────────────────────────────────────────
 
+// Formulaire allégé (décision PO) : un prestataire = un NOM + une DESCRIPTION +
+// une IMAGE. Les coordonnées (métier, SIRET, contact, adresse…) restent en base
+// mais ne sont plus saisies ici. `commentaires` porte la description.
 export const prestataireSchema = z.object({
-  libelle: z.string().trim().min(1, 'Le libellé est obligatoire').max(200),
-  metier: z.string().trim().max(200),
-  email: z.union([z.email("L'email est invalide"), z.literal('')]),
-  telephone: z.string().trim().max(50),
-  siret: z.string().trim().max(20),
-  adresse: z.string().trim().max(500),
-  code_postal: z.string().trim().max(20),
-  ville: z.string().trim().max(200),
+  libelle: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
   commentaires: z.string().trim().max(2000),
+  miniature_id: z.string().nullable(),
 })
 
 export type PrestataireFormValues = z.infer<typeof prestataireSchema>
 
 export const emptyPrestataire: PrestataireFormValues = {
   libelle: '',
-  metier: '',
-  email: '',
-  telephone: '',
-  siret: '',
-  adresse: '',
-  code_postal: '',
-  ville: '',
   commentaires: '',
+  miniature_id: null,
 }
 
 // ── Contrat ──────────────────────────────────────────────────────────────────
