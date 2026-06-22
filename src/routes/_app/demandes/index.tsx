@@ -238,29 +238,14 @@ function DemandesContent({
                     const canEdit = perm.canEditDemande(role, d, userId)
                     const canDelete = perm.canDeleteDemande(role, d, userId)
                     const rowActions: RowAction[] = []
-                    if (canEdit)
-                      rowActions.push({
-                        label: 'Modifier',
-                        icon: Pencil,
-                        onSelect: () => setEditDemande(d),
-                      })
-                    if (canDelete)
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () => setToDelete(d),
-                      })
-                    // Groupe « statut » (rôles métier) : séparateur + icône colorée
-                    // (Ouvert/Clôturé gris, En cours orange). Le statut courant est
+                    // Groupe « statut » EN HAUT (rôles métier) : icône colorée —
+                    // Ouvert gris, En cours orange, Clôturé vert. Statut courant
                     // désactivé ; Clôturer ouvre la saisie de la note (dialog).
                     if (canResolve) {
-                      const sep = rowActions.length > 0
                       rowActions.push({
                         label: 'Ouvert',
                         icon: Circle,
                         iconClassName: 'text-muted-foreground',
-                        separatorBefore: sep,
                         disabled: d.statut_di_id === 1,
                         onSelect: () =>
                           reopen.mutate(d.id, {
@@ -283,11 +268,28 @@ function DemandesContent({
                       rowActions.push({
                         label: 'Clôturé',
                         icon: CheckCircle2,
-                        iconClassName: 'text-muted-foreground',
+                        iconClassName: 'text-success',
                         disabled: d.statut_di_id === 3,
                         onSelect: () => setCloturerDemande(d),
                       })
                     }
+                    // Modifier / Supprimer EN BAS, séparés du groupe statut.
+                    const sep = rowActions.length > 0
+                    if (canEdit)
+                      rowActions.push({
+                        label: 'Modifier',
+                        icon: Pencil,
+                        separatorBefore: sep,
+                        onSelect: () => setEditDemande(d),
+                      })
+                    if (canDelete)
+                      rowActions.push({
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        separatorBefore: sep && !canEdit,
+                        onSelect: () => setToDelete(d),
+                      })
                     const createur = d.created_by
                       ? (usersById.get(d.created_by) ?? null)
                       : null
