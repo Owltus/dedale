@@ -14,18 +14,6 @@ export const diSchema = z.object({
 
 export type DiFormValues = z.infer<typeof diSchema>
 
-// Résolution d'une DI : seule la description est saisie. date_resolution et
-// resolved_by sont forcés côté serveur (triggers) → on ne les envoie pas.
-export const diResolutionSchema = z.object({
-  description_resolution: z
-    .string()
-    .trim()
-    .min(1, 'La description de résolution est obligatoire')
-    .max(4000),
-})
-
-export type DiResolutionFormValues = z.infer<typeof diResolutionSchema>
-
 export function emptyDi(): DiFormValues {
   return {
     constat: '',

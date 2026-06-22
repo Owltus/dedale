@@ -8,8 +8,8 @@ import {
   useReopenDemande,
   useDeleteDemande,
   usePrendreEnCharge,
+  useCloturerDemande,
 } from '../mutations'
-import { DiResolveDialog } from './di-resolve-dialog'
 import { DiEditDialog } from './di-edit-dialog'
 import { statutBadgeVariant, statutLabel } from '../etat'
 import { diTitre } from '../schemas'
@@ -61,7 +61,7 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
   const enCharge = usePrendreEnCharge()
   const reopen = useReopenDemande()
   const del = useDeleteDemande()
-  const [resolveOpen, setResolveOpen] = useState(false)
+  const cloturer = useCloturerDemande()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -81,6 +81,13 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
   function handleReopen() {
     reopen.mutate(demande.id, {
       onSuccess: () => toast.success('Demande rouverte'),
+      onError: (e) => toast.error(writeErrorMessage(e)),
+    })
+  }
+
+  function handleCloturer() {
+    cloturer.mutate(demande.id, {
+      onSuccess: () => toast.success('Demande clôturée'),
       onError: (e) => toast.error(writeErrorMessage(e)),
     })
   }
@@ -126,13 +133,14 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
                   onClick={handlePrendreEnCharge}
                 />
               )}
-              {/* Clôturer : depuis Ouvert ou En cours (note obligatoire → dialog). */}
+              {/* Clôturer : depuis Ouvert ou En cours → Clôturé (direct, sans note). */}
               {canResolve && !isCloture && (
                 <TooltipIconButton
                   icon={<CheckCircle2 />}
                   label="Clôturer la demande"
                   variant="outline"
-                  onClick={() => setResolveOpen(true)}
+                  disabled={cloturer.isPending}
+                  onClick={handleCloturer}
                 />
               )}
               {/* Rouvrir : depuis En cours ou Clôturé → Ouvert. */}
@@ -215,13 +223,6 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
           </CardContent>
         </Card>
       )}
-
-      <DiResolveDialog
-        key={resolveOpen ? 'open' : 'closed'}
-        open={resolveOpen}
-        onOpenChange={setResolveOpen}
-        diId={demande.id}
-      />
 
       <DiEditDialog
         key={editOpen ? 'open' : 'closed'}

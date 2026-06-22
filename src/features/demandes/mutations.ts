@@ -48,25 +48,16 @@ export function useCreateDemande() {
   })
 }
 
-export function useResolveDemande() {
+export function useCloturerDemande() {
   const qc = useQueryClient()
   return useMutation({
-    // Clôture : passage en Clôturé (statut id=3). resolved_by + date_resolution
-    // forcés serveur (triggers) → non envoyés. La note (description_resolution)
-    // est obligatoire (validée serveur). Erreur Postgres catchée côté appelant.
-    mutationFn: async ({
-      id,
-      descriptionResolution,
-    }: {
-      id: string
-      descriptionResolution: string
-    }) => {
+    // Clôture DIRECTE (statut id=3, SANS note — décision PO). resolved_by +
+    // date_resolution sont forcés serveur (trigger). Erreur Postgres catchée
+    // côté appelant.
+    mutationFn: async (id: string) => {
       const { data } = await supabase
         .from('demandes_intervention')
-        .update({
-          statut_di_id: 3,
-          description_resolution: descriptionResolution.trim(),
-        })
+        .update({ statut_di_id: 3 })
         .eq('id', id)
         .select()
         .single()

@@ -14,11 +14,11 @@ import { toast } from 'sonner'
 import { demandesQueries } from '@/features/demandes/queries'
 import { DiFormDialog } from '@/features/demandes/components/di-form-dialog'
 import { DiEditDialog } from '@/features/demandes/components/di-edit-dialog'
-import { DiResolveDialog } from '@/features/demandes/components/di-resolve-dialog'
 import {
   useDeleteDemande,
   useReopenDemande,
   usePrendreEnCharge,
+  useCloturerDemande,
 } from '@/features/demandes/mutations'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { diTitre } from '@/features/demandes/schemas'
@@ -100,6 +100,7 @@ function DemandesContent({
   const del = useDeleteDemande()
   const reopen = useReopenDemande()
   const enCharge = usePrendreEnCharge()
+  const cloturer = useCloturerDemande()
   // Changement de statut (Ouvert/En cours/Clôturé) via le menu : rôles métier.
   const canResolve = perm.canResolveDemande(role)
   // Liste LIVE : tout INSERT/UPDATE/DELETE sur demandes_intervention (n'importe
@@ -133,7 +134,6 @@ function DemandesContent({
   const [statutFilter, setStatutFilter] = useState('all')
   const [editDemande, setEditDemande] = useState<Demande | null>(null)
   const [toDelete, setToDelete] = useState<Demande | null>(null)
-  const [cloturerDemande, setCloturerDemande] = useState<Demande | null>(null)
 
   const newButton = canCreate ? (
     <Button onClick={() => setFormOpen(true)}>
@@ -270,7 +270,11 @@ function DemandesContent({
                         icon: CheckCircle2,
                         iconClassName: 'text-success',
                         disabled: d.statut_di_id === 3,
-                        onSelect: () => setCloturerDemande(d),
+                        onSelect: () =>
+                          cloturer.mutate(d.id, {
+                            onSuccess: () => toast.success('Demande clôturée'),
+                            onError: (e) => toast.error(writeErrorMessage(e)),
+                          }),
                       })
                     }
                     // Modifier / Supprimer EN BAS, séparés du groupe statut.
@@ -369,15 +373,6 @@ function DemandesContent({
         destructive
         loading={del.isPending}
         onConfirm={confirmDelete}
-      />
-
-      <DiResolveDialog
-        key={cloturerDemande?.id ?? 'none'}
-        open={cloturerDemande !== null}
-        onOpenChange={(o) => {
-          if (!o) setCloturerDemande(null)
-        }}
-        diId={cloturerDemande?.id ?? ''}
       />
     </PageContainer>
   )

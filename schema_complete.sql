@@ -6041,26 +6041,11 @@ COMMENT ON FUNCTION public.validation_statut_initial_di() IS 'Force toute nouvel
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 1.6 validation_resolution_di : passage à 'Clôturé' (id=3) exige une note de
--- clôture (description_resolution) non vide.
+-- 1.6 Clôture SANS note (migration 054) : l'ancien validation_resolution_di, qui
+-- exigeait une note (description_resolution) au passage Clôturé (id=3), est RETIRÉ
+-- (décision PO — clôture directe). description_resolution reste une colonne libre
+-- (legacy / historique), non requise.
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.validation_resolution_di()
-RETURNS TRIGGER LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-BEGIN
-    IF NEW.statut_di_id = 3 AND OLD.statut_di_id IS DISTINCT FROM 3 THEN
-        IF NEW.description_resolution IS NULL OR length(trim(NEW.description_resolution)) = 0 THEN
-            RAISE EXCEPTION 'Clôture impossible : une note de clôture non vide est obligatoire.';
-        END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_validation_resolution_di
-    BEFORE UPDATE OF statut_di_id ON demandes_intervention
-    FOR EACH ROW EXECUTE FUNCTION public.validation_resolution_di();
 
 -- Peuple resolved_by à la CLÔTURE (id=3). BEFORE UPDATE : valeur forcée côté
 -- serveur (anti-tricherie), calque exact de set_ot_closed_by sur les OT.
@@ -6085,7 +6070,6 @@ CREATE TRIGGER trg_di_set_resolved_by
     EXECUTE FUNCTION public.set_di_resolved_by();
 COMMENT ON FUNCTION public.set_di_resolved_by() IS
     'Peuple resolved_by = (SELECT auth.uid()) et date_resolution = current_date à la clôture (statut DI -> Clôturé id=3). Valeurs forcées serveur. Équivalent set_ot_closed_by.';
-COMMENT ON FUNCTION public.validation_resolution_di() IS 'Clôture (id=3) exige une note de clôture (description_resolution) non vide.';
 
 -- Réouverture : on QUITTE Clôturé (3 → Ouvert 1 ou En cours 2) → la DI n'est plus
 -- close, on efface qui/quand de la clôture (resolved_by + date_resolution). La
