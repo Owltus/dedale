@@ -8,7 +8,10 @@ import {
   statutsTravauxQueries,
 } from '@/features/travaux/queries'
 import { useDeleteTravaux } from '@/features/travaux/mutations'
-import { statutTravauxTone } from '@/features/travaux/etat'
+import {
+  statutTravauxTone,
+  STATUTS_TRAVAUX_TERMINAUX,
+} from '@/features/travaux/etat'
 import { estVerrouille } from '@/features/travaux/schemas'
 import { TravauxFormDialog } from '@/features/travaux/components/travaux-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -28,7 +31,12 @@ import { ListRow } from '@/components/common/list-row'
 import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { SearchInput } from '@/components/common/search-input'
+import {
+  ListFilterBar,
+  matchStatutFilter,
+  statutFilterOptions,
+  FILTRE_NON_TERMINES,
+} from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
@@ -88,8 +96,14 @@ function TravauxContent({
   })
   const [toDelete, setToDelete] = useState<Travaux | null>(null)
   const [recherche, setRecherche] = useState('')
+  // Défaut : on masque les travaux terminés (Terminé/Annulé) — le filtre permet
+  // d'afficher un statut précis ou « Tous les statuts ».
+  const [statutFilter, setStatutFilter] = useState(FILTRE_NON_TERMINES)
 
   const statutNom = new Map(statuts.map((s) => [s.id, s.nom]))
+  const statutOptions = statutFilterOptions(
+    [...statuts].sort((a, b) => a.id - b.id),
+  )
 
   function confirmDelete() {
     if (!toDelete) return
@@ -158,27 +172,37 @@ function TravauxContent({
       >
         {(travaux) => {
           const q = recherche.trim().toLowerCase()
-          const shown =
-            q === ''
-              ? travaux
-              : travaux.filter(
-                  (c) =>
-                    c.titre.toLowerCase().includes(q) ||
-                    (c.description ?? '').toLowerCase().includes(q),
-                )
+          const shown = travaux.filter((c) => {
+            if (
+              !matchStatutFilter(
+                c.statut_travaux_id,
+                statutFilter,
+                STATUTS_TRAVAUX_TERMINAUX,
+              )
+            )
+              return false
+            if (q === '') return true
+            return (
+              c.titre.toLowerCase().includes(q) ||
+              (c.description ?? '').toLowerCase().includes(q)
+            )
+          })
           // Frères pour le slug d'URL : MÊME ensemble qu'à la résolution dans la
-          // fiche détail (symétrie segOfUnique).
+          // fiche détail (symétrie segOfUnique), sur la liste NON filtrée.
           const sibs = travaux.map((c) => ({ nom: c.titre, id: c.id }))
           return (
             <div className="flex flex-col gap-4">
-              <SearchInput
-                value={recherche}
-                onChange={setRecherche}
-                placeholder="Rechercher un travaux…"
-                className="max-w-sm"
+              <ListFilterBar
+                search={recherche}
+                onSearchChange={setRecherche}
+                searchPlaceholder="Rechercher un travaux…"
+                filterValue={statutFilter}
+                onFilterChange={setStatutFilter}
+                options={statutOptions}
+                filterLabel="Filtrer par statut"
               />
               {shown.length === 0 ? (
-                <NoSearchResults description="Aucun travaux ne correspond à cette recherche." />
+                <NoSearchResults description="Aucun travaux ne correspond à ces critères." />
               ) : (
                 <div className={listStack}>
                   {shown.map((c) => {

@@ -12,6 +12,12 @@ export function statutLabel(statutId: number): string {
 }
 
 /**
+ * Statut TERMINAL d'une DI (Clôturé) : exclu par défaut du filtre « Non terminés »
+ * de la liste (cf. `matchStatutFilter`). Ouvert et En cours restent visibles.
+ */
+export const STATUTS_DI_TERMINAUX = [3] as const
+
+/**
  * Code couleur du statut DI, aligné sur le menu contextuel des Demandes :
  * Ouvert = gris (neutral), En cours = orange (warning), Clôturé = vert (success).
  * Consommé par la pastille réutilisable `StatusBadge`.

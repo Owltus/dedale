@@ -36,6 +36,12 @@ export function nomStatutCapex(id: number, noms: Map<number, string>): string {
 }
 
 /**
+ * Statuts TERMINAUX d'un investissement (Réalisé, Clôturé, Refusé) : exclus par
+ * défaut du filtre « Non terminés » des listes (cf. `matchStatutFilter`).
+ */
+export const STATUTS_CAPEX_TERMINAUX = [3, 7, ID_REFUSE] as const
+
+/**
  * Code couleur (tone) LOGIQUE d'un statut CapEx, pour la pastille `StatusBadge`
  * et le liseré de card. Le cycle CapEx a sa propre lecture (≠ DI/Travaux) :
  *  Demandé = gris (en attente), À l'étude = bleu (analyse), Validé = violet

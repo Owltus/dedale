@@ -11,6 +11,8 @@ import { useDeleteInvestissement } from '@/features/investissements/mutations'
 import {
   nomStatutCapex,
   statutCapexTone,
+  rangStatutCapex,
+  STATUTS_CAPEX_TERMINAUX,
 } from '@/features/investissements/etat'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
@@ -31,7 +33,12 @@ import { ListRow } from '@/components/common/list-row'
 import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { SearchInput } from '@/components/common/search-input'
+import {
+  ListFilterBar,
+  matchStatutFilter,
+  statutFilterOptions,
+  FILTRE_NON_TERMINES,
+} from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
@@ -92,8 +99,14 @@ function InvestissementsContent({
   }>({ open: false, investissement: null })
   const [toDelete, setToDelete] = useState<Investissement | null>(null)
   const [recherche, setRecherche] = useState('')
+  // Défaut : on masque les investissements terminés (Réalisé/Clôturé/Refusé) —
+  // le filtre permet d'afficher un statut précis ou « Tous les statuts ».
+  const [statutFilter, setStatutFilter] = useState(FILTRE_NON_TERMINES)
 
   const statutNom = new Map(statuts.map((s) => [s.id, s.nom]))
+  const statutOptions = statutFilterOptions(
+    [...statuts].sort((a, b) => rangStatutCapex(a.id) - rangStatutCapex(b.id)),
+  )
 
   function confirmDelete() {
     if (!toDelete) return
@@ -147,30 +160,40 @@ function InvestissementsContent({
       >
         {(investissements) => {
           const q = recherche.trim().toLowerCase()
-          const shown =
-            q === ''
-              ? investissements
-              : investissements.filter(
-                  (inv) =>
-                    inv.libelle.toLowerCase().includes(q) ||
-                    (inv.description ?? '').toLowerCase().includes(q),
-                )
+          const shown = investissements.filter((inv) => {
+            if (
+              !matchStatutFilter(
+                inv.statut_capex_id,
+                statutFilter,
+                STATUTS_CAPEX_TERMINAUX,
+              )
+            )
+              return false
+            if (q === '') return true
+            return (
+              inv.libelle.toLowerCase().includes(q) ||
+              (inv.description ?? '').toLowerCase().includes(q)
+            )
+          })
           // Frères pour le slug d'URL : MÊME ensemble qu'à la résolution dans la
-          // fiche détail (symétrie segOfUnique).
+          // fiche détail (symétrie segOfUnique), sur la liste NON filtrée.
           const sibs = investissements.map((i) => ({
             nom: i.libelle,
             id: i.id,
           }))
           return (
             <div className="flex flex-col gap-4">
-              <SearchInput
-                value={recherche}
-                onChange={setRecherche}
-                placeholder="Rechercher un investissement…"
-                className="max-w-sm"
+              <ListFilterBar
+                search={recherche}
+                onSearchChange={setRecherche}
+                searchPlaceholder="Rechercher un investissement…"
+                filterValue={statutFilter}
+                onFilterChange={setStatutFilter}
+                options={statutOptions}
+                filterLabel="Filtrer par statut"
               />
               {shown.length === 0 ? (
-                <NoSearchResults description="Aucun investissement ne correspond à cette recherche." />
+                <NoSearchResults description="Aucun investissement ne correspond à ces critères." />
               ) : (
                 <div className={listStack}>
                   {shown.map((inv) => {

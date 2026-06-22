@@ -22,7 +22,11 @@ import {
 } from '@/features/demandes/mutations'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { diTitre } from '@/features/demandes/schemas'
-import { statutLabel, statutTone } from '@/features/demandes/etat'
+import {
+  statutLabel,
+  statutTone,
+  STATUTS_DI_TERMINAUX,
+} from '@/features/demandes/etat'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useAuth } from '@/auth'
@@ -42,8 +46,12 @@ import { ListRow } from '@/components/common/list-row'
 import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { SearchInput } from '@/components/common/search-input'
-import { Select } from '@/components/ui/select'
+import {
+  ListFilterBar,
+  matchStatutFilter,
+  statutFilterOptions,
+  FILTRE_NON_TERMINES,
+} from '@/components/common/list-filter-bar'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
@@ -131,7 +139,9 @@ function DemandesContent({
   const [formOpen, setFormOpen] = useState(false)
   const [recherche, setRecherche] = useState('')
   // Filtre statut : 'all' ou l'id de statut (1 Ouvert, 2 En cours, 3 Clôturé).
-  const [statutFilter, setStatutFilter] = useState('all')
+  // Défaut : on masque les demandes clôturées — le filtre permet d'afficher un
+  // statut précis ou « Tous les statuts ».
+  const [statutFilter, setStatutFilter] = useState(FILTRE_NON_TERMINES)
   const [editDemande, setEditDemande] = useState<Demande | null>(null)
   const [toDelete, setToDelete] = useState<Demande | null>(null)
 
@@ -190,8 +200,7 @@ function DemandesContent({
           // Filtre statut + recherche (constat ET nom du local).
           const shown = demandes.filter((d) => {
             if (
-              statutFilter !== 'all' &&
-              d.statut_di_id !== Number(statutFilter)
+              !matchStatutFilter(d.statut_di_id, statutFilter, STATUTS_DI_TERMINAUX)
             )
               return false
             if (q === '') return true
@@ -209,25 +218,19 @@ function DemandesContent({
           }))
           return (
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <SearchInput
-                  value={recherche}
-                  onChange={setRecherche}
-                  placeholder="Rechercher (constat, local…)"
-                  className="flex-1"
-                />
-                <Select
-                  value={statutFilter}
-                  onChange={(e) => setStatutFilter(e.target.value)}
-                  aria-label="Filtrer par statut"
-                  className="sm:w-52"
-                >
-                  <option value="all">Tous les statuts</option>
-                  <option value="1">{statutLabel(1)}</option>
-                  <option value="2">{statutLabel(2)}</option>
-                  <option value="3">{statutLabel(3)}</option>
-                </Select>
-              </div>
+              <ListFilterBar
+                search={recherche}
+                onSearchChange={setRecherche}
+                searchPlaceholder="Rechercher (constat, local…)"
+                filterValue={statutFilter}
+                onFilterChange={setStatutFilter}
+                options={statutFilterOptions([
+                  { id: 1, nom: statutLabel(1) },
+                  { id: 2, nom: statutLabel(2) },
+                  { id: 3, nom: statutLabel(3) },
+                ])}
+                filterLabel="Filtrer par statut"
+              />
               {shown.length === 0 ? (
                 <NoSearchResults description="Aucune demande ne correspond à ces critères." />
               ) : (

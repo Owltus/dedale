@@ -27,6 +27,12 @@ export interface TravauxEtape extends StepperStep {
 }
 
 /**
+ * Statuts TERMINAUX d'un travaux (Terminé, Annulé) : exclus par défaut du filtre
+ * « Non terminés » des listes (cf. `matchStatutFilter`).
+ */
+export const STATUTS_TRAVAUX_TERMINAUX = [STATUT_TERMINE, STATUT_ANNULE] as const
+
+/**
  * Code couleur (tone) d'un statut de travaux, pour la pastille `StatusBadge` et
  * le liseré de card : Ouvert = gris, Planifié = violet, En cours = jaune,
  * Terminé = vert, Annulé = gris atténué (issue terminale, le libellé distingue).
