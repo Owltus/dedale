@@ -26,7 +26,7 @@ import type { RowAction } from '@/components/common/row-actions'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { SearchInput } from '@/components/common/search-input'
+import { ListFilterBar } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
@@ -142,11 +142,10 @@ function PrestatairesList({
             : prestataires
           return (
             <div className="flex flex-col gap-4">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Rechercher un prestataire…"
-                className="max-w-sm"
+              <ListFilterBar
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Rechercher un prestataire…"
               />
               {shown.length === 0 ? (
                 <NoSearchResults description="Aucun prestataire ne correspond à cette recherche." />

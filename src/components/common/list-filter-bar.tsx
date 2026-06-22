@@ -16,10 +16,14 @@ interface ListFilterBarProps {
   onSearchChange: (value: string) => void
   /** Placeholder du champ de recherche. */
   searchPlaceholder?: string
-  filterValue: string
-  onFilterChange: (value: string) => void
-  /** Options du Select de filtre (cf. `statutFilterOptions`). */
-  options: FilterOption[]
+  /**
+   * Filtre OPTIONNEL : fournir `options` (+ `filterValue`/`onFilterChange`)
+   * affiche le Select à droite. Omis → barre de recherche SEULE, pleine largeur
+   * (même gabarit que les listes à filtre, ex. Prestataires).
+   */
+  filterValue?: string
+  onFilterChange?: (value: string) => void
+  options?: FilterOption[]
   /** Nom accessible du filtre (défaut « Filtrer »). */
   filterLabel?: string
 }
@@ -40,6 +44,13 @@ export function ListFilterBar({
   options,
   filterLabel = 'Filtrer',
 }: ListFilterBarProps) {
+  // Filtre présent uniquement si la page fournit options + état contrôlé. Regroupé
+  // en objet `const` → narrowing stable jusque dans le closure `onChange`.
+  const filtre =
+    options && options.length > 0 && filterValue !== undefined && onFilterChange
+      ? { value: filterValue, onChange: onFilterChange, options }
+      : null
+
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <SearchInput
@@ -48,18 +59,20 @@ export function ListFilterBar({
         placeholder={searchPlaceholder}
         className="flex-1"
       />
-      <Select
-        value={filterValue}
-        onChange={(e) => onFilterChange(e.target.value)}
-        aria-label={filterLabel}
-        className="sm:w-52"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </Select>
+      {filtre && (
+        <Select
+          value={filtre.value}
+          onChange={(e) => filtre.onChange(e.target.value)}
+          aria-label={filterLabel}
+          className="sm:w-52"
+        >
+          {filtre.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+      )}
     </div>
   )
 }
