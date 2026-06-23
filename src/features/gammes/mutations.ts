@@ -237,6 +237,7 @@ export function useCopierCategorie() {
 
 function operationPayload(
   values: OperationFormValues,
+  aUnite: boolean,
   requiresSeuils: boolean,
 ) {
   const v = operationSchema.parse(values)
@@ -244,8 +245,8 @@ function operationPayload(
     nom: v.nom,
     ordre: v.ordre === '' ? 0 : Number(v.ordre),
     type_operation_id: Number(v.type_operation_id),
-    // Unité et seuils n'ont de sens que pour un type « mesure ».
-    unite_id: requiresSeuils && v.unite_id ? Number(v.unite_id) : null,
+    // L'unité dépend du TYPE (Mesure) ; les seuils dépendent de l'UNITÉ.
+    unite_id: aUnite && v.unite_id ? Number(v.unite_id) : null,
     seuil_minimum:
       requiresSeuils && v.seuil_minimum !== '' ? Number(v.seuil_minimum) : null,
     seuil_maximum:
@@ -260,16 +261,18 @@ export function useCreateOperation() {
     mutationFn: async ({
       gammeId,
       values,
+      aUnite,
       requiresSeuils,
     }: {
       gammeId: string
       values: OperationFormValues
+      aUnite: boolean
       requiresSeuils: boolean
     }) => {
       const { data } = await supabase
         .from('operations')
         .insert({
-          ...operationPayload(values, requiresSeuils),
+          ...operationPayload(values, aUnite, requiresSeuils),
           gamme_id: gammeId,
         })
         .select('id')
@@ -287,15 +290,17 @@ export function useUpdateOperation() {
     mutationFn: async ({
       id,
       values,
+      aUnite,
       requiresSeuils,
     }: {
       id: string
       values: OperationFormValues
+      aUnite: boolean
       requiresSeuils: boolean
     }) => {
       const { data } = await supabase
         .from('operations')
-        .update(operationPayload(values, requiresSeuils))
+        .update(operationPayload(values, aUnite, requiresSeuils))
         .eq('id', id)
         .select('id')
         .single()

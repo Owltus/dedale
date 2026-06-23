@@ -7,9 +7,10 @@ import { useCreateOperationItem, useUpdateOperationItem } from '../mutations'
 import { referentielsQueries } from '@/features/gammes/queries'
 import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { SelectField } from '@/components/common/select-field'
-import { DescriptionField } from '@/components/common/description-field'
+import {
+  OperationFormBase,
+  resolveOperationFlags,
+} from '@/features/operations/components/operation-form-base'
 import type { Database } from '@/lib/database.types'
 
 type OperationItem =
@@ -42,6 +43,12 @@ function initialValues(
   }
 }
 
+/**
+ * Création / modification d'un item de modèle d'opération (Bibliothèque). Même
+ * formulaire que les opérations de gamme via `OperationFormBase` (cascade
+ * Type → Unité → Seuils, purge des champs masqués) ; seules la table cible
+ * (`modeles_operations_items`) et la mutation diffèrent.
+ */
 export function OperationItemFormDialog({
   open,
   onOpenChange,
@@ -60,19 +67,6 @@ export function OperationItemFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
 
-  // Le type sélectionné décide si l'opération est une mesure (seuils + unité).
-  const selectedType = types.find(
-    (t) => String(t.id) === values.type_operation_id,
-  )
-  const requiresSeuils = selectedType?.necessite_seuils ?? false
-
-  function set<K extends keyof OperationItemFormValues>(
-    key: K,
-    value: OperationItemFormValues[K],
-  ) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
   async function handleSubmit() {
     const parsed = operationItemSchema.safeParse(values)
     if (!parsed.success) {
@@ -80,20 +74,13 @@ export function OperationItemFormDialog({
       return
     }
     setErrors({})
+    const flags = resolveOperationFlags(parsed.data, types, unites)
     try {
       if (item) {
-        await update.mutateAsync({
-          id: item.id,
-          values: parsed.data,
-          requiresSeuils,
-        })
+        await update.mutateAsync({ id: item.id, values: parsed.data, ...flags })
         toast.success('Opération modifiée')
       } else {
-        await create.mutateAsync({
-          modeleId,
-          values: parsed.data,
-          requiresSeuils,
-        })
+        await create.mutateAsync({ modeleId, values: parsed.data, ...flags })
         toast.success('Opération ajoutée')
       }
       onOpenChange(false)
@@ -107,81 +94,16 @@ export function OperationItemFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? "Modifier l'opération" : 'Nouvelle opération'}
-      description="Un type « mesure » ajoute l'unité et les seuils."
+      description="Le type « Mesure » ajoute une unité ; selon l'unité, des seuils mini/maxi sont demandés (pas pour un relevé de compteur)."
       onSubmit={() => void handleSubmit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Ajouter'}
       pendingLabel="Enregistrement…"
       pending={pending}
     >
-      <TextField
-        label="Libellé"
-        value={values.nom}
-        onChange={(v) => set('nom', v)}
-        error={errors.nom}
-        required
-      />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TextField
-          label="Ordre"
-          type="number"
-          min={0}
-          value={values.ordre}
-          onChange={(v) => set('ordre', v)}
-          error={errors.ordre}
-        />
-        <SelectField
-          label="Type"
-          required
-          value={values.type_operation_id}
-          onChange={(v) => set('type_operation_id', v)}
-          error={errors.type_operation_id}
-        >
-          <option value="">— Choisir un type —</option>
-          {types.map((t) => (
-            <option key={t.id} value={String(t.id)}>
-              {t.libelle}
-            </option>
-          ))}
-        </SelectField>
-      </div>
-
-      {requiresSeuils && (
-        <>
-          <SelectField
-            label="Unité"
-            value={values.unite_id}
-            onChange={(v) => set('unite_id', v)}
-          >
-            <option value="">— Aucune —</option>
-            {unites.map((u) => (
-              <option key={u.id} value={String(u.id)}>
-                {u.nom} ({u.symbole})
-              </option>
-            ))}
-          </SelectField>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <TextField
-              label="Seuil minimum"
-              type="number"
-              value={values.seuil_minimum}
-              onChange={(v) => set('seuil_minimum', v)}
-              error={errors.seuil_minimum}
-            />
-            <TextField
-              label="Seuil maximum"
-              type="number"
-              value={values.seuil_maximum}
-              onChange={(v) => set('seuil_maximum', v)}
-              error={errors.seuil_maximum}
-            />
-          </div>
-        </>
-      )}
-
-      <DescriptionField
-        value={values.description}
-        onChange={(v) => set('description', v)}
-        error={errors.description}
+      <OperationFormBase
+        values={values}
+        onChange={(v) => setValues(v)}
+        errors={errors}
       />
     </FormDialog>
   )

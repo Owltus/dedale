@@ -253,7 +253,7 @@ export const referentielsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('unites')
-          .select('id, nom, symbole')
+          .select('id, nom, symbole, necessite_seuils')
           .order('nom')
           .abortSignal(signal)
           .throwOnError()

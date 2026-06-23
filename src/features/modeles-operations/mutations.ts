@@ -130,13 +130,18 @@ export function useDetacherEtSupprimerModeleOperation() {
 
 // ── Items (opérations types) ────────────────────────────────────────────────
 
-function itemPayload(v: OperationItemFormValues, requiresSeuils: boolean) {
+function itemPayload(
+  v: OperationItemFormValues,
+  aUnite: boolean,
+  requiresSeuils: boolean,
+) {
   return {
     nom: v.nom.trim(),
     description: v.description.trim() || null,
     ordre: v.ordre.trim() === '' ? 0 : Number(v.ordre),
     type_operation_id: Number(v.type_operation_id),
-    unite_id: requiresSeuils && v.unite_id ? Number(v.unite_id) : null,
+    // L'unité dépend du TYPE (Mesure) ; les seuils dépendent de l'UNITÉ.
+    unite_id: aUnite && v.unite_id ? Number(v.unite_id) : null,
     seuil_minimum:
       requiresSeuils && v.seuil_minimum.trim() !== ''
         ? Number(v.seuil_minimum)
@@ -154,16 +159,18 @@ export function useCreateOperationItem() {
     mutationFn: async ({
       modeleId,
       values,
+      aUnite,
       requiresSeuils,
     }: {
       modeleId: string
       values: OperationItemFormValues
+      aUnite: boolean
       requiresSeuils: boolean
     }) => {
       const { data } = await supabase
         .from('modeles_operations_items')
         .insert({
-          ...itemPayload(values, requiresSeuils),
+          ...itemPayload(values, aUnite, requiresSeuils),
           modele_operation_id: modeleId,
         })
         .select()
@@ -186,15 +193,17 @@ export function useUpdateOperationItem() {
     mutationFn: async ({
       id,
       values,
+      aUnite,
       requiresSeuils,
     }: {
       id: string
       values: OperationItemFormValues
+      aUnite: boolean
       requiresSeuils: boolean
     }) => {
       const { data } = await supabase
         .from('modeles_operations_items')
-        .update(itemPayload(values, requiresSeuils))
+        .update(itemPayload(values, aUnite, requiresSeuils))
         .eq('id', id)
         .select()
         .single()
