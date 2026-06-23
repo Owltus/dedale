@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   ClipboardList,
+  FileText,
   ListChecks,
+  Paperclip,
   Pencil,
   Plus,
   Trash2,
   Wrench,
-  FileText,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { gammesQueries } from '@/features/gammes/queries'
@@ -16,10 +17,19 @@ import { OperationFormDialog } from '@/features/gammes/components/operation-form
 import { EquipementsLinkDialog } from '@/features/gammes/components/equipements-link-dialog'
 import { GammeModelesSection } from '@/features/gammes/components/gamme-modeles-section'
 import { OtListeParGammes } from '@/features/ordres-travail/components/ot-liste-par-gammes'
+import { OtCreateDialog } from '@/features/ordres-travail/components/ot-create-dialog'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { equipementsQueries } from '@/features/equipements/queries'
+import { useAuth } from '@/auth'
 import { deleteErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
+import { cn } from '@/lib/utils'
 import { SubTabs } from '@/components/common/sub-tabs'
+import { SectionHeader } from '@/components/common/section'
+import { SplitPane, SplitPanes } from '@/components/common/split-panes'
+import { DocumentsTab } from '@/components/common/documents-tab'
+import { useTabAddAction } from '@/components/common/tab-actions'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
@@ -30,7 +40,6 @@ import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import type { RowAction } from '@/components/common/row-actions'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
 export type GammeRow = Database['public']['Tables']['gammes']['Row'] & {
@@ -69,13 +78,60 @@ export function GammeDetail({
   siteId: string
   canEdit: boolean
 }) {
+  const { session } = useAuth()
   const [tab, setTab] = useState<Tab>('ordres')
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+  // Dialogues d'ajout pilotés ICI → leur déclencheur vit dans la TOP BAR (via
+  // useTabAddAction), plus dans un en-tête de section.
+  const [createOtOpen, setCreateOtOpen] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
+
+  // Bouton « ajouter » de la top bar, DYNAMIQUE selon l'onglet actif (Opérations
+  // exclu : il garde son propre bouton interne). Enregistré via le contexte
+  // d'actions consommé par l'en-tête de l'explorateur.
+  const addAction = useMemo<(() => void) | null>(() => {
+    if (!canEdit) return null
+    // Création d'OT seulement pour une gamme ACTIVE (sinon le backend refuse) ;
+    // la gamme courante est pré-remplie et verrouillée dans le dialog.
+    if (tab === 'ordres')
+      return gamme.est_active ? () => setCreateOtOpen(true) : null
+    if (tab === 'equipements') return () => setLinkOpen(true)
+    if (tab === 'documents') return () => setUploadOpen(true)
+    return null
+  }, [tab, canEdit, gamme.est_active])
+  const addLabel =
+    tab === 'ordres'
+      ? 'Nouvel ordre de travail'
+      : tab === 'equipements'
+        ? 'Lier des équipements'
+        : tab === 'documents'
+          ? 'Rattacher un document'
+          : 'Ajouter'
+  useTabAddAction(addAction, addLabel, {
+    // Icône fidèle au bouton d'origine de chaque onglet (déplacé en top bar) :
+    // Paperclip pour « Rattacher un document », Plus partout ailleurs.
+    icon: tab === 'documents' ? Paperclip : Plus,
+  })
 
   return (
     <div className="flex min-h-0 flex-1 flex-col px-4 pb-6 sm:px-6 lg:px-8">
       {/* Barre d'onglets FIXE (toujours visible). SEUL le contenu défile → la
           scrollbar apparaît DANS la liste (OT…), sous les onglets. */}
       <div className="shrink-0">
+        {/* Carte de la gamme — pour l'instant SEULE la vignette (autres infos à
+            ajouter plus tard). Conteneur calqué sur la carte média de ListRow. */}
+        <div className="bg-card mb-4 flex h-20 items-stretch overflow-hidden rounded-lg border">
+          <div className="aspect-square h-full shrink-0">
+            <MiniatureThumb
+              url={urlOf(gamme.miniature_id)}
+              fallback={<Wrench className="size-10" />}
+              alt=""
+              onError={refreshMiniatures}
+              className="size-full rounded-none"
+            />
+          </div>
+        </div>
         <SubTabs
           ariaLabel="Sections de la gamme"
           variant="segmented"
@@ -107,9 +163,16 @@ export function GammeDetail({
       </div>
 
       {/* SEULE zone défilante. Padding horizontale + marge basse portées par le
-          CONTENEUR (px/pb-6). `no-scrollbar` masque la barre (défilement
-          conservé) en gardant la même mise en page, comme le parent. */}
-      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
+          CONTENEUR (px/pb-6). `no-scrollbar` masque la barre. L'onglet Opérations
+          est un SPLIT 50/50 → la zone doit être BORNÉE en >= lg (overflow-hidden
+          + flex-col) pour que ses deux panneaux défilent ; autres onglets : flux
+          défilant normal. */}
+      <div
+        className={cn(
+          'no-scrollbar min-h-0 flex-1 overflow-y-auto',
+          tab === 'operations' && 'flex flex-col lg:overflow-hidden',
+        )}
+      >
         {tab === 'ordres' && (
           <OtListeParGammes siteId={siteId} gammeIds={[gamme.id]} />
         )}
@@ -125,21 +188,31 @@ export function GammeDetail({
             siteId={siteId}
             gammeId={gamme.id}
             canEdit={canEdit}
+            linkOpen={linkOpen}
+            onLinkOpenChange={setLinkOpen}
           />
         )}
         {tab === 'documents' && (
-          <Card className="border-dashed">
-            <CardHeader>
-              <CardTitle className="text-muted-foreground text-base">
-                Documents
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-muted-foreground text-sm">
-              À venir.
-            </CardContent>
-          </Card>
+          <DocumentsTab
+            liaison="documents_gammes"
+            parentColumn="gamme_id"
+            parentId={gamme.id}
+            uploadOpen={uploadOpen}
+            onUploadOpenChange={setUploadOpen}
+          />
         )}
       </div>
+
+      {session && (
+        <OtCreateDialog
+          key={createOtOpen ? 'open' : 'closed'}
+          open={createOtOpen}
+          onOpenChange={setCreateOtOpen}
+          siteId={siteId}
+          createdBy={session.user.id}
+          presetGammeId={gamme.id}
+        />
+      )}
     </div>
   )
 }
@@ -185,74 +258,64 @@ function OperationsTab({
   ) : undefined
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-sm font-medium">
-            <ListChecks className="text-muted-foreground size-4" />
-            Opérations spécifiques
-          </h3>
-          {addButton}
-        </div>
-
-        <QueryState
-          query={query}
-          pending={<ListRowSkeletons dense count={3} />}
-          empty={
-            <EmptyState
+    <>
+      <SplitPanes>
+        <SplitPane
+          header={
+            <SectionHeader
               icon={ListChecks}
-              title="Aucune opération"
-              description={
-                canEdit
-                  ? 'Ajoute les opérations propres à cette gamme (en plus de celles des modèles liés).'
-                  : 'Cette gamme ne contient pas d’opération.'
-              }
+              title="Opérations spécifiques"
+              action={addButton}
             />
           }
         >
-          {(operations) => (
-            <div className={listStack}>
-              {operations.map((op) => {
-                const rowActions: RowAction[] = []
-                if (canEdit) {
-                  rowActions.push({
-                    label: 'Modifier',
-                    icon: Pencil,
-                    onSelect: () => setForm({ open: true, op }),
-                  })
-                  rowActions.push({
-                    label: 'Supprimer',
-                    icon: Trash2,
-                    destructive: true,
-                    onSelect: () => setToDelete(op),
-                  })
-                }
-                return (
-                  <OperationRow
-                    key={op.id}
-                    nom={op.nom}
-                    description={op.description}
-                    typeLibelle={op.types_operations.libelle}
-                    necessiteSeuils={op.types_operations.necessite_seuils}
-                    seuilMin={op.seuil_minimum}
-                    seuilMax={op.seuil_maximum}
-                    uniteSymbole={op.unites?.symbole}
-                    menuActions={rowActions.length ? rowActions : undefined}
-                  />
-                )
-              })}
-            </div>
-          )}
-        </QueryState>
-      </section>
-
-      <div className="border-t pt-4">
+          <QueryState
+            query={query}
+            pending={<ListRowSkeletons dense count={3} />}
+            empty={<EmptyState icon={ListChecks} title="Aucune opération" />}
+          >
+            {(operations) => (
+              <div className={listStack}>
+                {operations.map((op) => {
+                  const rowActions: RowAction[] = []
+                  if (canEdit) {
+                    rowActions.push({
+                      label: 'Modifier',
+                      icon: Pencil,
+                      onSelect: () => setForm({ open: true, op }),
+                    })
+                    rowActions.push({
+                      label: 'Supprimer',
+                      icon: Trash2,
+                      destructive: true,
+                      onSelect: () => setToDelete(op),
+                    })
+                  }
+                  return (
+                    <OperationRow
+                      key={op.id}
+                      nom={op.nom}
+                      description={op.description}
+                      typeLibelle={op.types_operations.libelle}
+                      necessiteSeuils={op.types_operations.necessite_seuils}
+                      seuilMin={op.seuil_minimum}
+                      seuilMax={op.seuil_maximum}
+                      uniteSymbole={op.unites?.symbole}
+                      menuActions={rowActions.length ? rowActions : undefined}
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </QueryState>
+        </SplitPane>
         <GammeModelesSection
+          fill
           gammeId={gammeId}
           gammeSiteId={gammeSiteId}
           canEdit={canEdit}
         />
-      </div>
+      </SplitPanes>
 
       {canEdit && (
         <OperationFormDialog
@@ -275,7 +338,7 @@ function OperationsTab({
         loading={del.isPending}
         onConfirm={confirmDelete}
       />
-    </div>
+    </>
   )
 }
 
@@ -285,15 +348,18 @@ function EquipementsTab({
   siteId,
   gammeId,
   canEdit,
+  linkOpen,
+  onLinkOpenChange,
 }: {
   siteId: string
   gammeId: string
   canEdit: boolean
+  linkOpen: boolean
+  onLinkOpenChange: (open: boolean) => void
 }) {
   const equipementsQuery = useQuery(equipementsQueries.list(siteId))
   const liesQuery = useQuery(gammesQueries.equipementsLies(gammeId))
   const liesIds = liesQuery.data ?? []
-  const [linkOpen, setLinkOpen] = useState(false)
 
   const lies = useMemo(() => {
     const equipements = equipementsQuery.data ?? []
@@ -301,39 +367,15 @@ function EquipementsTab({
     return equipements.filter((e) => e.id !== null && ids.includes(e.id))
   }, [equipementsQuery.data, liesQuery.data])
 
-  const linkButton = canEdit ? (
-    <TooltipIconButton
-      icon={<Plus />}
-      label="Lier des équipements"
-      onClick={() => setLinkOpen(true)}
-    />
-  ) : undefined
-
   return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-sm font-medium">
-          <Wrench className="text-muted-foreground size-4" />
-          Équipements liés
-        </h3>
-        {linkButton}
-      </div>
-
+    <>
       <QueryState
         query={liesQuery}
         pending={<ListRowSkeletons dense count={3} />}
       >
         {() =>
           lies.length === 0 ? (
-            <EmptyState
-              icon={Wrench}
-              title="Aucun équipement lié"
-              description={
-                canEdit
-                  ? 'Lie les équipements du site concernés par cette gamme.'
-                  : 'Aucun équipement n’est lié à cette gamme.'
-              }
-            />
+            <EmptyState icon={Wrench} title="Aucun équipement" />
           ) : (
             <div className={listStack}>
               {lies.map((e) => (
@@ -358,12 +400,12 @@ function EquipementsTab({
         <EquipementsLinkDialog
           key={liesIds.join(',')}
           open={linkOpen}
-          onOpenChange={setLinkOpen}
+          onOpenChange={onLinkOpenChange}
           siteId={siteId}
           gammeId={gammeId}
           current={liesIds}
         />
       )}
-    </section>
+    </>
   )
 }

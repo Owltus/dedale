@@ -23,6 +23,7 @@ import { gammesQueries } from '../queries'
 import { useCopierGamme, useDeleteGamme } from '../mutations'
 import { GammeFormDialog } from './gamme-form-dialog'
 import { GammeDetail, type GammeRow } from './gamme-detail'
+import { GammeCard } from './gamme-card'
 import { SousCategorieSplit } from './sous-categorie-split'
 import {
   categoriesQueries,
@@ -53,19 +54,16 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { Badge } from '@/components/ui/badge'
+import { TabActionContext } from '@/components/common/tab-actions'
+import type {
+  TabActionApi,
+  TabAddConfig,
+} from '@/components/common/tab-actions'
 
 // Id sentinelle du bac « Non classé » (catégorie VIRTUELLE, hors base) : regroupe
 // à la racine les gammes du site sans catégorie visible (legacy/import, ou rangées
 // dans une catégorie non affichée ici) pour ne JAMAIS les cacher.
 const NON_CLASSE_ID = '__non_classe__'
-
-const NATURE_LABEL: Record<GammeRow['nature'], string> = {
-  controle_reglementaire: 'Réglementaire',
-  maintenance_preventive: 'Maintenance',
-}
-
-const CREATE_OT_HINT = 'Disponible avec le module Ordres de travail.'
 
 const SECTION_DESCRIPTION =
   'Gammes de maintenance et de contrôle réglementaire du site, rangées par catégorie.'
@@ -132,6 +130,16 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   const copier = useCopierGamme()
   const delCategorie = useDeleteCategorie()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+
+  // Action « ajouter » de la top bar, PILOTÉE par l'onglet actif de la fiche
+  // gamme (GammeDetail → useTabAddAction) : Lier équipements / Rattacher document
+  // selon l'onglet. Remplace l'ancien bouton « Créer OT » désactivé.
+  const [gammeAddConfig, setGammeAddConfig] = useState<TabAddConfig | null>(
+    null,
+  )
+  const [gammeActionApi] = useState<TabActionApi>(() => ({
+    setAction: setGammeAddConfig,
+  }))
 
   // Catégories de GAMME visibles : scope 'gamme'/'mixte' (jamais 'parc'/'equipement'
   // seul), actives, du commun (site_id null) OU du site actif — cohérent avec le
@@ -433,26 +441,37 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
         onClick: () => goTo(path.slice(0, i + 1)),
       })),
     ]
+    // Top bar : « Modifier » + bouton d'ajout DYNAMIQUE selon l'onglet actif
+    // (Lier équipements / Rattacher document), enregistré par GammeDetail via
+    // useTabAddAction. Plus de bouton « Créer OT » désactivé.
+    const modifierBtn = canEdit ? (
+      <TooltipIconButton
+        icon={<Pencil />}
+        label="Modifier la gamme"
+        variant="outline"
+        onClick={() => setGammeForm({ open: true, gamme: openGamme })}
+      />
+    ) : null
+    const AddIcon = gammeAddConfig?.icon ?? Plus
+    const addBtn =
+      gammeAddConfig?.action != null ? (
+        <TooltipIconButton
+          icon={<AddIcon />}
+          label={gammeAddConfig.label}
+          variant="outline"
+          onClick={gammeAddConfig.action}
+        />
+      ) : null
     header = (
       <PageHeader
         breadcrumb={ancestors}
         title={openGamme.nom}
         description={nodeDescription(openGamme.description)}
         action={
-          canEdit ? (
+          modifierBtn || addBtn ? (
             <>
-              <TooltipIconButton
-                icon={<Pencil />}
-                label="Modifier la gamme"
-                variant="outline"
-                onClick={() => setGammeForm({ open: true, gamme: openGamme })}
-              />
-              <TooltipIconButton
-                icon={<ClipboardList />}
-                label={CREATE_OT_HINT}
-                variant="outline"
-                disabled
-              />
+              {modifierBtn}
+              {addBtn}
             </>
           ) : undefined
         }
@@ -579,16 +598,17 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     </>
   )
 
-  // VUE DÉTAIL : une gamme ouverte.
+  // VUE DÉTAIL : une gamme ouverte. Le Provider permet à l'onglet actif
+  // (GammeDetail) d'enregistrer son action « ajouter », rendue dans la top bar.
   if (openGamme !== null) {
     return (
-      <>
+      <TabActionContext.Provider value={gammeActionApi}>
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 px-4 pt-6 sm:px-6 lg:px-8">{header}</div>
           <GammeDetail gamme={openGamme} siteId={siteId} canEdit={canEdit} />
         </div>
         {dialogs}
-      </>
+      </TabActionContext.Provider>
     )
   }
 
@@ -744,49 +764,11 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
                         })
                       }
                       return (
-                        <ListRow
+                        <GammeCard
                           key={g.id}
-                          media={
-                            <MiniatureThumb
-                              url={urlOf(g.miniature_id)}
-                              fallback={<Wrench className="size-10" />}
-                              alt=""
-                              onError={refreshMiniatures}
-                              className="size-full rounded-none"
-                            />
-                          }
-                          title={g.nom}
-                          subtitle={
-                            g.description?.trim()
-                              ? g.description.trim()
-                              : (g.periodicites?.libelle ?? undefined)
-                          }
-                          badges={
-                            <Badge
-                              variant={
-                                g.nature === 'controle_reglementaire'
-                                  ? 'default'
-                                  : 'secondary'
-                              }
-                            >
-                              {NATURE_LABEL[g.nature]}
-                            </Badge>
-                          }
-                          meta={
-                            g.prestataires ? (
-                              <span className="text-sm">
-                                {g.prestataires.libelle}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">
-                                Prestataire à renseigner
-                              </span>
-                            )
-                          }
-                          mobileMeta={
-                            g.prestataires?.libelle ??
-                            'Prestataire à renseigner'
-                          }
+                          gamme={g}
+                          urlOf={urlOf}
+                          refreshMiniatures={refreshMiniatures}
                           onClick={() => goToGamme(g)}
                           menuActions={
                             rowActions.length ? rowActions : undefined

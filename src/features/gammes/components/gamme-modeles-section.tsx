@@ -10,6 +10,7 @@ import { errorMessage, pgCode } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
+import { SectionHeader } from '@/components/common/section'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -28,6 +29,12 @@ interface GammeModelesSectionProps {
    * En lecture seule : les liens s'affichent sans action.
    */
   canEdit: boolean
+  /**
+   * Mode PANNEAU de split (onglet Opérations de la fiche gamme) : occupe 50 % de
+   * la hauteur (`lg:flex-1`), en-tête fixe et liste défilante. Omis → rendu en
+   * flux normal (Bibliothèque), strictement inchangé.
+   */
+  fill?: boolean
 }
 
 /** Message clair pour un détachement refusé (pas de mur d'erreur brut). */
@@ -46,15 +53,17 @@ function detachErrorMessage(e: unknown): string {
 }
 
 /**
- * Section partagée « Modèles d'opération liés » — réutilisée dans le détail
- * d'une gamme-template de la Bibliothèque ET dans l'onglet « Opérations » d'une
- * gamme réelle. Affiche les modèles liés via `gamme_modeles`, permet d'en
- * importer (multi) et d'en détacher (avec confirmation), sous réserve du gating.
+ * Section partagée « Modèles d'opération » — réutilisée dans le détail d'une
+ * gamme-template de la Bibliothèque ET dans l'onglet « Opérations » d'une gamme
+ * réelle (où `fill` en fait un panneau de split). Affiche les modèles liés via
+ * `gamme_modeles`, permet d'en importer (multi) et d'en détacher (confirmation),
+ * sous réserve du gating.
  */
 export function GammeModelesSection({
   gammeId,
   gammeSiteId,
   canEdit,
+  fill = false,
 }: GammeModelesSectionProps) {
   const query = useQuery(gammesQueries.modelesLies(gammeId))
   // Rafraîchissement live des liaisons (entre onglets / comptes).
@@ -92,85 +101,87 @@ export function GammeModelesSection({
   ) : undefined
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-sm font-medium">
-          <Layers className="text-muted-foreground size-4" />
-          Modèles d’opération liés
-        </h3>
-        {importButton}
-      </div>
+    <div
+      className={
+        fill
+          ? 'flex flex-col gap-2 lg:min-h-0 lg:flex-1'
+          : 'flex flex-col gap-3'
+      }
+    >
+      <SectionHeader
+        icon={Layers}
+        title="Modèles d’opération"
+        action={importButton}
+      />
 
-      <QueryState
-        query={query}
-        pending={<ListRowSkeletons dense count={2} />}
-        empty={
-          <EmptyState
-            icon={Layers}
-            title="Aucun modèle d’opération lié"
-            description={
-              canEdit
-                ? 'Importe des modèles d’opération réutilisables pour composer cette gamme.'
-                : 'Aucun modèle d’opération n’est lié à cette gamme.'
-            }
-          />
+      <div
+        className={
+          fill
+            ? 'no-scrollbar lg:min-h-0 lg:flex-1 lg:overflow-y-auto'
+            : 'contents'
         }
       >
-        {(modeles) => (
-          <div className={listStack}>
-            {modeles.map((m) => (
-              <ListRow
-                key={m.id}
-                // Carte VOLONTAIREMENT plus fine (h-12, comme les opérations) avec
-                // un grand SVG de repli centré (carré muté) à la place de l'image.
-                className="h-12"
-                media={
-                  <span className="bg-muted text-muted-foreground flex size-full items-center justify-center">
-                    <Layers className="size-8" />
-                  </span>
-                }
-                title={m.nom}
-                subtitle={
-                  m.description?.trim() ? m.description.trim() : undefined
-                }
-                // Métadonnées à POSITION FIXE (mêmes colonnes d'une carte à
-                // l'autre) : portée à gauche, nombre d'opérations dans un
-                // emplacement de largeur constante aligné à droite.
-                badges={<ScopeBadges siteId={m.site_id} />}
-                // Sous `sm`, badges + meta (colonne droite) masqués → on replie
-                // portée ET nombre d'opérations sous le titre.
-                mobileMeta={
-                  <span className="flex items-center gap-1.5">
-                    <ScopeBadges siteId={m.site_id} />
-                    <span>
-                      {m.nbItems} opération{m.nbItems > 1 ? 's' : ''}
+        <QueryState
+          query={query}
+          pending={<ListRowSkeletons dense count={2} />}
+          empty={<EmptyState icon={Layers} title="Aucun modèle d’opération" />}
+        >
+          {(modeles) => (
+            <div className={listStack}>
+              {modeles.map((m) => (
+                <ListRow
+                  key={m.id}
+                  // Carte VOLONTAIREMENT plus fine (h-12, comme les opérations) avec
+                  // un grand SVG de repli centré (carré muté) à la place de l'image.
+                  className="h-12"
+                  media={
+                    <span className="bg-muted text-muted-foreground flex size-full items-center justify-center">
+                      <Layers className="size-8" />
                     </span>
-                  </span>
-                }
-                meta={
-                  <span className="flex w-32 justify-center">
-                    <Badge variant="outline" className="tabular-nums">
-                      {m.nbItems} opération{m.nbItems > 1 ? 's' : ''}
-                    </Badge>
-                  </span>
-                }
-                actions={
-                  canEdit ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setToDetach(m)}
-                      aria-label={`Détacher le modèle « ${m.nom} »`}
-                    >
-                      <Link2Off />
-                    </Button>
-                  ) : undefined
-                }
-              />
-            ))}
-          </div>
-        )}
-      </QueryState>
+                  }
+                  title={m.nom}
+                  subtitle={
+                    m.description?.trim() ? m.description.trim() : undefined
+                  }
+                  // Métadonnées à POSITION FIXE (mêmes colonnes d'une carte à
+                  // l'autre) : portée à gauche, nombre d'opérations dans un
+                  // emplacement de largeur constante aligné à droite.
+                  badges={<ScopeBadges siteId={m.site_id} />}
+                  // Sous `sm`, badges + meta (colonne droite) masqués → on replie
+                  // portée ET nombre d'opérations sous le titre.
+                  mobileMeta={
+                    <span className="flex items-center gap-1.5">
+                      <ScopeBadges siteId={m.site_id} />
+                      <span>
+                        {m.nbItems} opération{m.nbItems > 1 ? 's' : ''}
+                      </span>
+                    </span>
+                  }
+                  meta={
+                    <span className="flex w-32 justify-center">
+                      <Badge variant="outline" className="tabular-nums">
+                        {m.nbItems} opération{m.nbItems > 1 ? 's' : ''}
+                      </Badge>
+                    </span>
+                  }
+                  actions={
+                    canEdit ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setToDetach(m)}
+                        aria-label={`Détacher le modèle « ${m.nom} »`}
+                      >
+                        <Link2Off />
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </QueryState>
+      </div>
 
       {canEdit && (
         <ImportModeleOperationDialog

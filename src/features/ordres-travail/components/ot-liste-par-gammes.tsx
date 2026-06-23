@@ -26,12 +26,9 @@ import { Badge } from '@/components/ui/badge'
 export function OtListeParGammes({
   siteId,
   gammeIds,
-  emptyDescription = "Aucun OT n'est rattaché à cette gamme.",
 }: {
   siteId: string
   gammeIds: string[]
-  /** Texte de l'état vide (selon le contexte : une gamme ou une sous-catégorie). */
-  emptyDescription?: string
 }) {
   const navigate = useNavigate()
   const query = useQuery(ordresTravailQueries.byGammes(siteId, gammeIds))
@@ -41,13 +38,7 @@ export function OtListeParGammes({
     <QueryState
       query={query}
       pending={<ListRowSkeletons count={3} />}
-      empty={
-        <EmptyState
-          icon={ClipboardList}
-          title="Aucun ordre de travail"
-          description={emptyDescription}
-        />
-      }
+      empty={<EmptyState icon={ClipboardList} title="Aucun ordre de travail" />}
     >
       {(ordres) => (
         <div className={listStack}>

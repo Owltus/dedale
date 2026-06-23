@@ -14,6 +14,12 @@ interface OtCreateDialogProps {
   onOpenChange: (open: boolean) => void
   siteId: string
   createdBy: string
+  /**
+   * Gamme PRÉ-SÉLECTIONNÉE et verrouillée (ex. création depuis la fiche gamme :
+   * l'OT est forcément pour cette gamme). Le sélecteur est alors désactivé. Omis
+   * → sélecteur libre (page Ordres de travail).
+   */
+  presetGammeId?: string
 }
 
 /**
@@ -26,10 +32,15 @@ export function OtCreateDialog({
   onOpenChange,
   siteId,
   createdBy,
+  presetGammeId,
 }: OtCreateDialogProps) {
   const { data: gammes = [] } = useQuery(gammesPourOtQueries.list(siteId))
   const create = useCreateOt()
-  const [values, setValues] = useState(emptyOtCreate())
+  const [values, setValues] = useState(() =>
+    presetGammeId
+      ? { ...emptyOtCreate(), gamme_id: presetGammeId }
+      : emptyOtCreate(),
+  )
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   async function handleSubmit() {
@@ -93,6 +104,7 @@ export function OtCreateDialog({
         <SelectField
           label="Gamme"
           required
+          disabled={presetGammeId !== undefined}
           value={values.gamme_id}
           onChange={(gamme_id) => setValues((v) => ({ ...v, gamme_id }))}
           error={errors.gamme_id}
