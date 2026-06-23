@@ -32,12 +32,14 @@ import { Route as AppBibliothequeRouteImport } from './routes/_app/bibliotheque'
 import { Route as AppUtilisateursIndexRouteImport } from './routes/_app/utilisateurs/index'
 import { Route as AppTravauxIndexRouteImport } from './routes/_app/travaux/index'
 import { Route as AppPrestatairesIndexRouteImport } from './routes/_app/prestataires/index'
+import { Route as AppOrdresTravailIndexRouteImport } from './routes/_app/ordres-travail/index'
 import { Route as AppInvestissementsIndexRouteImport } from './routes/_app/investissements/index'
 import { Route as AppDemandesIndexRouteImport } from './routes/_app/demandes/index'
 import { Route as AppBibliothequeIndexRouteImport } from './routes/_app/bibliotheque/index'
 import { Route as AppUtilisateursUtilisateurRouteImport } from './routes/_app/utilisateurs/$utilisateur'
 import { Route as AppTravauxTravauxRouteImport } from './routes/_app/travaux/$travaux'
 import { Route as AppPrestatairesPrestataireRouteImport } from './routes/_app/prestataires/$prestataire'
+import { Route as AppOrdresTravailOtIdRouteImport } from './routes/_app/ordres-travail/$otId'
 import { Route as AppLocalisationsSplatRouteImport } from './routes/_app/localisations/$'
 import { Route as AppInvestissementsInvestissementRouteImport } from './routes/_app/investissements/$investissement'
 import { Route as AppGammesSplatRouteImport } from './routes/_app/gammes/$'
@@ -159,6 +161,11 @@ const AppPrestatairesIndexRoute = AppPrestatairesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppPrestatairesRoute,
 } as any)
+const AppOrdresTravailIndexRoute = AppOrdresTravailIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppOrdresTravailRoute,
+} as any)
 const AppInvestissementsIndexRoute = AppInvestissementsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -191,6 +198,11 @@ const AppPrestatairesPrestataireRoute =
     path: '/$prestataire',
     getParentRoute: () => AppPrestatairesRoute,
   } as any)
+const AppOrdresTravailOtIdRoute = AppOrdresTravailOtIdRouteImport.update({
+  id: '/$otId',
+  path: '/$otId',
+  getParentRoute: () => AppOrdresTravailRoute,
+} as any)
 const AppLocalisationsSplatRoute = AppLocalisationsSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -234,7 +246,7 @@ export interface FileRoutesByFullPath {
   '/gammes': typeof AppGammesRouteWithChildren
   '/investissements': typeof AppInvestissementsRouteWithChildren
   '/localisations': typeof AppLocalisationsRouteWithChildren
-  '/ordres-travail': typeof AppOrdresTravailRoute
+  '/ordres-travail': typeof AppOrdresTravailRouteWithChildren
   '/planning': typeof AppPlanningRoute
   '/prestataires': typeof AppPrestatairesRouteWithChildren
   '/profil': typeof AppProfilRoute
@@ -249,12 +261,14 @@ export interface FileRoutesByFullPath {
   '/gammes/$': typeof AppGammesSplatRoute
   '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
+  '/ordres-travail/$otId': typeof AppOrdresTravailOtIdRoute
   '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
   '/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque/': typeof AppBibliothequeIndexRoute
   '/demandes/': typeof AppDemandesIndexRoute
   '/investissements/': typeof AppInvestissementsIndexRoute
+  '/ordres-travail/': typeof AppOrdresTravailIndexRoute
   '/prestataires/': typeof AppPrestatairesIndexRoute
   '/travaux/': typeof AppTravauxIndexRoute
   '/utilisateurs/': typeof AppUtilisateursIndexRoute
@@ -266,7 +280,6 @@ export interface FileRoutesByTo {
   '/equipements': typeof AppEquipementsRouteWithChildren
   '/gammes': typeof AppGammesRouteWithChildren
   '/localisations': typeof AppLocalisationsRouteWithChildren
-  '/ordres-travail': typeof AppOrdresTravailRoute
   '/planning': typeof AppPlanningRoute
   '/profil': typeof AppProfilRoute
   '/registre': typeof AppRegistreRoute
@@ -279,12 +292,14 @@ export interface FileRoutesByTo {
   '/gammes/$': typeof AppGammesSplatRoute
   '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
+  '/ordres-travail/$otId': typeof AppOrdresTravailOtIdRoute
   '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
   '/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque': typeof AppBibliothequeIndexRoute
   '/demandes': typeof AppDemandesIndexRoute
   '/investissements': typeof AppInvestissementsIndexRoute
+  '/ordres-travail': typeof AppOrdresTravailIndexRoute
   '/prestataires': typeof AppPrestatairesIndexRoute
   '/travaux': typeof AppTravauxIndexRoute
   '/utilisateurs': typeof AppUtilisateursIndexRoute
@@ -301,7 +316,7 @@ export interface FileRoutesById {
   '/_app/gammes': typeof AppGammesRouteWithChildren
   '/_app/investissements': typeof AppInvestissementsRouteWithChildren
   '/_app/localisations': typeof AppLocalisationsRouteWithChildren
-  '/_app/ordres-travail': typeof AppOrdresTravailRoute
+  '/_app/ordres-travail': typeof AppOrdresTravailRouteWithChildren
   '/_app/planning': typeof AppPlanningRoute
   '/_app/prestataires': typeof AppPrestatairesRouteWithChildren
   '/_app/profil': typeof AppProfilRoute
@@ -317,12 +332,14 @@ export interface FileRoutesById {
   '/_app/gammes/$': typeof AppGammesSplatRoute
   '/_app/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/_app/localisations/$': typeof AppLocalisationsSplatRoute
+  '/_app/ordres-travail/$otId': typeof AppOrdresTravailOtIdRoute
   '/_app/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
   '/_app/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/_app/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/_app/bibliotheque/': typeof AppBibliothequeIndexRoute
   '/_app/demandes/': typeof AppDemandesIndexRoute
   '/_app/investissements/': typeof AppInvestissementsIndexRoute
+  '/_app/ordres-travail/': typeof AppOrdresTravailIndexRoute
   '/_app/prestataires/': typeof AppPrestatairesIndexRoute
   '/_app/travaux/': typeof AppTravauxIndexRoute
   '/_app/utilisateurs/': typeof AppUtilisateursIndexRoute
@@ -355,12 +372,14 @@ export interface FileRouteTypes {
     | '/gammes/$'
     | '/investissements/$investissement'
     | '/localisations/$'
+    | '/ordres-travail/$otId'
     | '/prestataires/$prestataire'
     | '/travaux/$travaux'
     | '/utilisateurs/$utilisateur'
     | '/bibliotheque/'
     | '/demandes/'
     | '/investissements/'
+    | '/ordres-travail/'
     | '/prestataires/'
     | '/travaux/'
     | '/utilisateurs/'
@@ -372,7 +391,6 @@ export interface FileRouteTypes {
     | '/equipements'
     | '/gammes'
     | '/localisations'
-    | '/ordres-travail'
     | '/planning'
     | '/profil'
     | '/registre'
@@ -385,12 +403,14 @@ export interface FileRouteTypes {
     | '/gammes/$'
     | '/investissements/$investissement'
     | '/localisations/$'
+    | '/ordres-travail/$otId'
     | '/prestataires/$prestataire'
     | '/travaux/$travaux'
     | '/utilisateurs/$utilisateur'
     | '/bibliotheque'
     | '/demandes'
     | '/investissements'
+    | '/ordres-travail'
     | '/prestataires'
     | '/travaux'
     | '/utilisateurs'
@@ -422,12 +442,14 @@ export interface FileRouteTypes {
     | '/_app/gammes/$'
     | '/_app/investissements/$investissement'
     | '/_app/localisations/$'
+    | '/_app/ordres-travail/$otId'
     | '/_app/prestataires/$prestataire'
     | '/_app/travaux/$travaux'
     | '/_app/utilisateurs/$utilisateur'
     | '/_app/bibliotheque/'
     | '/_app/demandes/'
     | '/_app/investissements/'
+    | '/_app/ordres-travail/'
     | '/_app/prestataires/'
     | '/_app/travaux/'
     | '/_app/utilisateurs/'
@@ -602,6 +624,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPrestatairesIndexRouteImport
       parentRoute: typeof AppPrestatairesRoute
     }
+    '/_app/ordres-travail/': {
+      id: '/_app/ordres-travail/'
+      path: '/'
+      fullPath: '/ordres-travail/'
+      preLoaderRoute: typeof AppOrdresTravailIndexRouteImport
+      parentRoute: typeof AppOrdresTravailRoute
+    }
     '/_app/investissements/': {
       id: '/_app/investissements/'
       path: '/'
@@ -643,6 +672,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/prestataires/$prestataire'
       preLoaderRoute: typeof AppPrestatairesPrestataireRouteImport
       parentRoute: typeof AppPrestatairesRoute
+    }
+    '/_app/ordres-travail/$otId': {
+      id: '/_app/ordres-travail/$otId'
+      path: '/$otId'
+      fullPath: '/ordres-travail/$otId'
+      preLoaderRoute: typeof AppOrdresTravailOtIdRouteImport
+      parentRoute: typeof AppOrdresTravailRoute
     }
     '/_app/localisations/$': {
       id: '/_app/localisations/$'
@@ -765,6 +801,19 @@ const AppLocalisationsRouteChildren: AppLocalisationsRouteChildren = {
 const AppLocalisationsRouteWithChildren =
   AppLocalisationsRoute._addFileChildren(AppLocalisationsRouteChildren)
 
+interface AppOrdresTravailRouteChildren {
+  AppOrdresTravailOtIdRoute: typeof AppOrdresTravailOtIdRoute
+  AppOrdresTravailIndexRoute: typeof AppOrdresTravailIndexRoute
+}
+
+const AppOrdresTravailRouteChildren: AppOrdresTravailRouteChildren = {
+  AppOrdresTravailOtIdRoute: AppOrdresTravailOtIdRoute,
+  AppOrdresTravailIndexRoute: AppOrdresTravailIndexRoute,
+}
+
+const AppOrdresTravailRouteWithChildren =
+  AppOrdresTravailRoute._addFileChildren(AppOrdresTravailRouteChildren)
+
 interface AppPrestatairesRouteChildren {
   AppPrestatairesPrestataireRoute: typeof AppPrestatairesPrestataireRoute
   AppPrestatairesIndexRoute: typeof AppPrestatairesIndexRoute
@@ -815,7 +864,7 @@ interface AppRouteChildren {
   AppGammesRoute: typeof AppGammesRouteWithChildren
   AppInvestissementsRoute: typeof AppInvestissementsRouteWithChildren
   AppLocalisationsRoute: typeof AppLocalisationsRouteWithChildren
-  AppOrdresTravailRoute: typeof AppOrdresTravailRoute
+  AppOrdresTravailRoute: typeof AppOrdresTravailRouteWithChildren
   AppPlanningRoute: typeof AppPlanningRoute
   AppPrestatairesRoute: typeof AppPrestatairesRouteWithChildren
   AppProfilRoute: typeof AppProfilRoute
@@ -835,7 +884,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppGammesRoute: AppGammesRouteWithChildren,
   AppInvestissementsRoute: AppInvestissementsRouteWithChildren,
   AppLocalisationsRoute: AppLocalisationsRouteWithChildren,
-  AppOrdresTravailRoute: AppOrdresTravailRoute,
+  AppOrdresTravailRoute: AppOrdresTravailRouteWithChildren,
   AppPlanningRoute: AppPlanningRoute,
   AppPrestatairesRoute: AppPrestatairesRouteWithChildren,
   AppProfilRoute: AppProfilRoute,
