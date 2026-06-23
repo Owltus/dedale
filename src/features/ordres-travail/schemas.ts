@@ -1,5 +1,10 @@
 import { z } from 'zod'
 import { todayLocal } from '@/lib/date'
+import {
+  FILTRE_NON_TERMINES,
+  FILTRE_TOUS,
+  type FilterOption,
+} from '@/components/common/list-filter-bar'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Machine à états OT — miroir du trigger validation_transitions_ot.
@@ -77,6 +82,49 @@ export const STATUTS_OP_SAISISSABLES: StatutOperation[] = [
   'terminee',
   'non_applicable',
 ]
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Filtre par statut de la liste des OT.
+// `matchStatutFilter` / `statutFilterOptions` de `common/list-filter-bar` opèrent
+// sur des id NUMÉRIQUES ; le statut d'un OT est une CHAÎNE → équivalents dédiés
+// ci-dessous, qui réutilisent les mêmes sentinelles (FILTRE_TOUS / FILTRE_NON_TERMINES).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Statuts terminaux d'un OT (lecture seule, exclus du filtre « Non terminés »). */
+export const STATUTS_OT_TERMINAUX: StatutOt[] = ['cloture', 'annule']
+
+// Ordre d'affichage des statuts dans le Select (cycle de vie de l'OT).
+const ORDRE_STATUTS_OT: StatutOt[] = [
+  'planifie',
+  'en_cours',
+  'reouvert',
+  'cloture',
+  'annule',
+]
+
+/** Options du filtre de statut OT : « Non terminés » (défaut) + « Tous » + chaque statut. */
+export function statutOtFilterOptions(): FilterOption[] {
+  return [
+    { value: FILTRE_NON_TERMINES, label: 'Non terminés' },
+    { value: FILTRE_TOUS, label: 'Tous les statuts' },
+    ...ORDRE_STATUTS_OT.map((s) => ({
+      value: s,
+      label: LIBELLES_STATUT_OT[s] ?? s,
+    })),
+  ]
+}
+
+/**
+ * Prédicat de filtrage par statut OT (chaîne) : miroir « string » de
+ * `matchStatutFilter`. `FILTRE_TOUS` = tout, `FILTRE_NON_TERMINES` = exclut les
+ * statuts terminaux, sinon égalité exacte d'identifiant de statut.
+ */
+export function matchStatutOt(statut: string, filterValue: string): boolean {
+  if (filterValue === FILTRE_TOUS) return true
+  if (filterValue === FILTRE_NON_TERMINES)
+    return !STATUTS_OT_TERMINAUX.includes(statut as StatutOt)
+  return statut === filterValue
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Formulaire de création d'un OT (depuis une gamme).
