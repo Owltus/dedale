@@ -138,12 +138,15 @@ export function Tabs({
 
   // API stable transmise aux panneaux pour enregistrer leur action + / leur en-tête.
   const [api] = useState<TabActionApi>(() => ({ setAction: setAddConfig }))
-  const [headerApi] = useState<TabHeaderApi>(() => ({ setHeader: setTabHeader }))
+  const [headerApi] = useState<TabHeaderApi>(() => ({
+    setHeader: setTabHeader,
+  }))
 
   // Locaux : le narrowing TS sur addConfig.action ne traverse pas le JSX imbriqué.
   const addAction = addConfig?.action ?? null
   const addLabel = addConfig?.label ?? 'Ajouter'
   const addDisabled = addConfig?.disabled ?? false
+  const AddIcon = addConfig?.icon ?? Plus
   const addExtra = addConfig?.extra
   const addActions = addConfig?.actions
 
@@ -179,7 +182,7 @@ export function Tabs({
         {addActions}
         {addAction !== null && (
           <TooltipIconButton
-            icon={<Plus />}
+            icon={<AddIcon />}
             label={addLabel}
             onClick={addAction}
             disabled={addDisabled}
@@ -194,7 +197,12 @@ export function Tabs({
       <div className="shrink-0 px-4 pt-6 pb-3 sm:px-6 lg:px-8">
         {/* Région live : le changement de contexte (onglet actif ou descente dans
             un onglet) est annoncé aux lecteurs d'écran via le titre courant. */}
-        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+        >
           {headerTitle}
         </div>
         {/* En-tête UNIQUE et partagé avec les autres pages (cf. <PageHeader>) :

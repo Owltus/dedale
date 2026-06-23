@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect } from 'react'
 import type { ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import type { PageHeaderCrumb } from './page-header'
 
 export interface TabAddConfig {
@@ -9,6 +10,8 @@ export interface TabAddConfig {
   label: string
   /** Bouton + grisé/non cliquable (mais toujours visible). */
   disabled: boolean
+  /** Icône du bouton (défaut : `Plus`). Composant lucide STABLE (réf. de module). */
+  icon?: LucideIcon
   /**
    * Contrôle LARGE (ex. filtre de périmètre) : à droite du titre sur bureau, mais
    * replié EN PLEINE LARGEUR sous le titre sur mobile (il occuperait sinon la place
@@ -43,10 +46,16 @@ export const TabActionContext = createContext<TabActionApi | null>(null)
 export function useTabAddAction(
   action: (() => void) | null,
   label = 'Ajouter',
-  opts?: { disabled?: boolean; extra?: ReactNode; actions?: ReactNode },
+  opts?: {
+    disabled?: boolean
+    icon?: LucideIcon
+    extra?: ReactNode
+    actions?: ReactNode
+  },
 ) {
   const ctx = useContext(TabActionContext)
   const disabled = opts?.disabled ?? false
+  const icon = opts?.icon
   const extra = opts?.extra
   const actions = opts?.actions
   useEffect(() => {
@@ -54,10 +63,10 @@ export function useTabAddAction(
     const hasContent =
       action !== null || extra !== undefined || actions !== undefined
     ctx.setAction(
-      hasContent ? { action, label, disabled, extra, actions } : null,
+      hasContent ? { action, label, disabled, icon, extra, actions } : null,
     )
     return () => ctx.setAction(null)
-  }, [ctx, action, label, disabled, extra, actions])
+  }, [ctx, action, label, disabled, icon, extra, actions])
 }
 
 /**
