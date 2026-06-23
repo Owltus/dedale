@@ -531,7 +531,8 @@ INSERT INTO periodicites (id, libelle, jours_periodicite, jours_valide, toleranc
     (10, 'Biennale',         730,  540,  60,  'Tous les 2 ans'),
     (11, 'Triennal',         1095, 730,  90,  'Tous les 3 ans'),
     (12, 'Quinquennal',      1825, 1200, 120, 'Tous les 5 ans'),
-    (13, 'Décennal',         3650, 2920, 180, 'Tous les 10 ans');
+    (13, 'Décennal',         3650, 2920, 180, 'Tous les 10 ans'),
+    (14, 'Quadriennal',      1460, 1080, 100, 'Tous les 4 ans');
 
 
 -- Types d'opérations
