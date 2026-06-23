@@ -147,12 +147,16 @@ export function DocumentsTab({
         onClick={() => setOpen(true)}
       />
     ) : undefined
-  // État vide : CTA explicite (libellé visible) pour amorcer le premier ajout.
-  const emptyAction = peutAjouter ? (
-    <Button size="sm" onClick={() => setOpen(true)}>
-      <Paperclip /> Rattacher un document
-    </Button>
-  ) : undefined
+  // État vide : CTA explicite pour amorcer le premier ajout, MAIS seulement en
+  // mode autonome. En mode CONTRÔLÉ, l'hôte fournit déjà le déclencheur (bouton
+  // de sa barre de titre) → pas de CTA redondant au centre (cohérent avec
+  // l'onglet Équipements, dont l'état vide n'a pas d'action).
+  const emptyAction =
+    !isControlled && peutAjouter ? (
+      <Button size="sm" onClick={() => setOpen(true)}>
+        <Paperclip /> Rattacher un document
+      </Button>
+    ) : undefined
 
   // Le rattachement insère le `site_id` du site actif sur le document.
   if (!activeSiteId) {
