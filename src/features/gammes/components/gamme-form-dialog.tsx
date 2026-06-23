@@ -28,10 +28,22 @@ interface GammeFormDialogProps {
   onOpenChange: (open: boolean) => void
   siteId: string
   gamme?: Gamme | null
+  /**
+   * Sous-catégorie pré-sélectionnée à la CRÉATION (ex. on crée une gamme depuis la
+   * sous-catégorie ouverte dans l'explorateur Plan de maintenance). Ignoré en
+   * édition (la gamme porte déjà sa `categorie_id`).
+   */
+  presetCategorieId?: string | null
 }
 
-function initialValues(gamme: Gamme | null | undefined): GammeFormValues {
-  if (!gamme) return emptyGamme
+function initialValues(
+  gamme: Gamme | null | undefined,
+  presetCategorieId?: string | null,
+): GammeFormValues {
+  if (!gamme)
+    return presetCategorieId
+      ? { ...emptyGamme, categorie_id: presetCategorieId }
+      : emptyGamme
   return {
     nom: gamme.nom,
     nature: gamme.nature,
@@ -74,6 +86,7 @@ export function GammeFormDialog({
   onOpenChange,
   siteId,
   gamme,
+  presetCategorieId,
 }: GammeFormDialogProps) {
   const isEdit = Boolean(gamme)
   const { session } = useAuth()
@@ -89,7 +102,7 @@ export function GammeFormDialog({
     [sousCategoriesQuery.data],
   )
   const [values, setValues] = useState<GammeFormValues>(() =>
-    initialValues(gamme),
+    initialValues(gamme, presetCategorieId),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending

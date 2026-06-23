@@ -40,6 +40,7 @@ import { Route as AppTravauxTravauxRouteImport } from './routes/_app/travaux/$tr
 import { Route as AppPrestatairesPrestataireRouteImport } from './routes/_app/prestataires/$prestataire'
 import { Route as AppLocalisationsSplatRouteImport } from './routes/_app/localisations/$'
 import { Route as AppInvestissementsInvestissementRouteImport } from './routes/_app/investissements/$investissement'
+import { Route as AppGammesSplatRouteImport } from './routes/_app/gammes/$'
 import { Route as AppEquipementsSplatRouteImport } from './routes/_app/equipements/$'
 import { Route as AppDemandesDemandeRouteImport } from './routes/_app/demandes/$demande'
 import { Route as AppBibliothequeSplatRouteImport } from './routes/_app/bibliotheque/$'
@@ -201,6 +202,11 @@ const AppInvestissementsInvestissementRoute =
     path: '/$investissement',
     getParentRoute: () => AppInvestissementsRoute,
   } as any)
+const AppGammesSplatRoute = AppGammesSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => AppGammesRoute,
+} as any)
 const AppEquipementsSplatRoute = AppEquipementsSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -225,7 +231,7 @@ export interface FileRoutesByFullPath {
   '/demandes': typeof AppDemandesRouteWithChildren
   '/documents': typeof AppDocumentsRoute
   '/equipements': typeof AppEquipementsRouteWithChildren
-  '/gammes': typeof AppGammesRoute
+  '/gammes': typeof AppGammesRouteWithChildren
   '/investissements': typeof AppInvestissementsRouteWithChildren
   '/localisations': typeof AppLocalisationsRouteWithChildren
   '/ordres-travail': typeof AppOrdresTravailRoute
@@ -240,6 +246,7 @@ export interface FileRoutesByFullPath {
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/demandes/$demande': typeof AppDemandesDemandeRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
+  '/gammes/$': typeof AppGammesSplatRoute
   '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
   '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
@@ -257,7 +264,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/documents': typeof AppDocumentsRoute
   '/equipements': typeof AppEquipementsRouteWithChildren
-  '/gammes': typeof AppGammesRoute
+  '/gammes': typeof AppGammesRouteWithChildren
   '/localisations': typeof AppLocalisationsRouteWithChildren
   '/ordres-travail': typeof AppOrdresTravailRoute
   '/planning': typeof AppPlanningRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/demandes/$demande': typeof AppDemandesDemandeRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
+  '/gammes/$': typeof AppGammesSplatRoute
   '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
   '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
@@ -290,7 +298,7 @@ export interface FileRoutesById {
   '/_app/demandes': typeof AppDemandesRouteWithChildren
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/equipements': typeof AppEquipementsRouteWithChildren
-  '/_app/gammes': typeof AppGammesRoute
+  '/_app/gammes': typeof AppGammesRouteWithChildren
   '/_app/investissements': typeof AppInvestissementsRouteWithChildren
   '/_app/localisations': typeof AppLocalisationsRouteWithChildren
   '/_app/ordres-travail': typeof AppOrdresTravailRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/_app/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/_app/demandes/$demande': typeof AppDemandesDemandeRoute
   '/_app/equipements/$': typeof AppEquipementsSplatRoute
+  '/_app/gammes/$': typeof AppGammesSplatRoute
   '/_app/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/_app/localisations/$': typeof AppLocalisationsSplatRoute
   '/_app/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
@@ -343,6 +352,7 @@ export interface FileRouteTypes {
     | '/bibliotheque/$'
     | '/demandes/$demande'
     | '/equipements/$'
+    | '/gammes/$'
     | '/investissements/$investissement'
     | '/localisations/$'
     | '/prestataires/$prestataire'
@@ -372,6 +382,7 @@ export interface FileRouteTypes {
     | '/bibliotheque/$'
     | '/demandes/$demande'
     | '/equipements/$'
+    | '/gammes/$'
     | '/investissements/$investissement'
     | '/localisations/$'
     | '/prestataires/$prestataire'
@@ -408,6 +419,7 @@ export interface FileRouteTypes {
     | '/_app/bibliotheque/$'
     | '/_app/demandes/$demande'
     | '/_app/equipements/$'
+    | '/_app/gammes/$'
     | '/_app/investissements/$investissement'
     | '/_app/localisations/$'
     | '/_app/prestataires/$prestataire'
@@ -646,6 +658,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInvestissementsInvestissementRouteImport
       parentRoute: typeof AppInvestissementsRoute
     }
+    '/_app/gammes/$': {
+      id: '/_app/gammes/$'
+      path: '/$'
+      fullPath: '/gammes/$'
+      preLoaderRoute: typeof AppGammesSplatRouteImport
+      parentRoute: typeof AppGammesRoute
+    }
     '/_app/equipements/$': {
       id: '/_app/equipements/$'
       path: '/$'
@@ -708,6 +727,18 @@ const AppEquipementsRouteChildren: AppEquipementsRouteChildren = {
 
 const AppEquipementsRouteWithChildren = AppEquipementsRoute._addFileChildren(
   AppEquipementsRouteChildren,
+)
+
+interface AppGammesRouteChildren {
+  AppGammesSplatRoute: typeof AppGammesSplatRoute
+}
+
+const AppGammesRouteChildren: AppGammesRouteChildren = {
+  AppGammesSplatRoute: AppGammesSplatRoute,
+}
+
+const AppGammesRouteWithChildren = AppGammesRoute._addFileChildren(
+  AppGammesRouteChildren,
 )
 
 interface AppInvestissementsRouteChildren {
@@ -781,7 +812,7 @@ interface AppRouteChildren {
   AppDemandesRoute: typeof AppDemandesRouteWithChildren
   AppDocumentsRoute: typeof AppDocumentsRoute
   AppEquipementsRoute: typeof AppEquipementsRouteWithChildren
-  AppGammesRoute: typeof AppGammesRoute
+  AppGammesRoute: typeof AppGammesRouteWithChildren
   AppInvestissementsRoute: typeof AppInvestissementsRouteWithChildren
   AppLocalisationsRoute: typeof AppLocalisationsRouteWithChildren
   AppOrdresTravailRoute: typeof AppOrdresTravailRoute
@@ -801,7 +832,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDemandesRoute: AppDemandesRouteWithChildren,
   AppDocumentsRoute: AppDocumentsRoute,
   AppEquipementsRoute: AppEquipementsRouteWithChildren,
-  AppGammesRoute: AppGammesRoute,
+  AppGammesRoute: AppGammesRouteWithChildren,
   AppInvestissementsRoute: AppInvestissementsRouteWithChildren,
   AppLocalisationsRoute: AppLocalisationsRouteWithChildren,
   AppOrdresTravailRoute: AppOrdresTravailRoute,
