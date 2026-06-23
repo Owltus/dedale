@@ -115,7 +115,7 @@ handleSubmit():
 
 **Recherche / périmètre** — `SearchInput` · `SelectMenu` (`<select>` habillé, filtre par type) · `ScopeSelect` + `ScopeProvider` + `ScopeBadges` (périmètre Commun/site, Bibliothèque) — `@/components/common/`.
 
-**Onglets** — `Tabs` (+ contextes `useTabAddAction`/`useTabHeader` de `@/components/common/tab-actions`) = nav principale d'une page à onglets (Bibliothèque) · `SubTabs` = sous-onglets de sections **dans** une page · `InfoNote` = encart info/avertissement — `@/components/common/`.
+**Onglets & sections** — `Tabs` (+ contextes `useTabAddAction`/`useTabHeader` de `@/components/common/tab-actions`) = nav principale d'une page à onglets (Bibliothèque) · `SubTabs` = sous-onglets de sections **dans** une page (variante `segmented` = pilules sur fond arrondi `bg-muted`, pleine largeur ≥ `sm` ; défaut = souligné) · `Section`/`SectionHeader` = en-tête de section RÉUTILISABLE (`h3` icône+titre + action optionnelle ; `Section` ajoute l'enveloppe `<section flex flex-col gap-3>`, `SectionHeader` = en-tête seul quand l'hôte gère son enveloppe) — gabarit des onglets de fiche (OT/Opérations/Équipements/Modèles) · `InfoNote` = encart info/avertissement — `@/components/common/`.
 
 **Dialogs & champs** — `FormDialog` (coquille de tout dialog formulaire) · `ConfirmDialog` (action ponctuelle/réversible) · `ConfirmDeleteDialog` (suppression définitive impact-aware) · `ExporterVersSiteDialog` · `TextField`/`TextareaField`/`DescriptionField`/`SelectField`/`NumberField`/`CheckboxField`/`IdentiteFields` · `ChampValeurInput`/`ChampsListEditor` (caractéristiques dynamiques) · `MiniatureField` (`@/features/miniatures/components/miniature-field`, upload de vignette) — `@/components/common/` sauf indiqué.
 
