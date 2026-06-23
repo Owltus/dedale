@@ -1,12 +1,21 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ListChecks, Pencil, Plus, Trash2, Wrench, FileText } from 'lucide-react'
+import {
+  ClipboardList,
+  ListChecks,
+  Pencil,
+  Plus,
+  Trash2,
+  Wrench,
+  FileText,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { gammesQueries } from '@/features/gammes/queries'
 import { useDeleteOperation } from '@/features/gammes/mutations'
 import { OperationFormDialog } from '@/features/gammes/components/operation-form-dialog'
 import { EquipementsLinkDialog } from '@/features/gammes/components/equipements-link-dialog'
 import { GammeModelesSection } from '@/features/gammes/components/gamme-modeles-section'
+import { OtListeParGammes } from '@/features/ordres-travail/components/ot-liste-par-gammes'
 import { equipementsQueries } from '@/features/equipements/queries'
 import { deleteErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
@@ -42,14 +51,14 @@ type GammeOperation = Database['public']['Tables']['operations']['Row'] & {
   unites: { id: number; nom: string; symbole: string } | null
 }
 
-type Tab = 'operations' | 'equipements' | 'documents'
+type Tab = 'ordres' | 'operations' | 'equipements' | 'documents'
 
 /**
  * CONTENU de la fiche d'une gamme de SITE (Plan de maintenance) : système à
- * onglets (Opérations / Équipements / Documents). L'EN-TÊTE (fil d'Ariane, badges
- * nature/périodicité/prestataire, actions « Modifier » / « Créer un OT ») et la
- * navigation sont portés par l'explorateur parent (`GammesExplorer`) — ce
- * composant ne rend QUE le corps de la fiche, calqué sur `EquipementDetail`.
+ * onglets (Ordres de travail / Opérations / Équipements / Documents). L'EN-TÊTE
+ * (fil d'Ariane + action « Modifier ») et la navigation sont portés par
+ * l'explorateur parent (`GammesExplorer`) — ce composant ne rend QUE le corps de
+ * la fiche, calqué sur `EquipementDetail`.
  */
 export function GammeDetail({
   gamme,
@@ -60,56 +69,78 @@ export function GammeDetail({
   siteId: string
   canEdit: boolean
 }) {
-  const [tab, setTab] = useState<Tab>('operations')
+  const [tab, setTab] = useState<Tab>('ordres')
 
   return (
-    <>
-      <SubTabs
-        ariaLabel="Sections de la gamme"
-        value={tab}
-        onValueChange={setTab}
-        items={[
-          {
-            id: 'operations',
-            label: 'Opérations',
-            icon: <ListChecks className="size-4" />,
-          },
-          {
-            id: 'equipements',
-            label: 'Équipements',
-            icon: <Wrench className="size-4" />,
-          },
-          {
-            id: 'documents',
-            label: 'Documents',
-            icon: <FileText className="size-4" />,
-          },
-        ]}
-      />
-
-      {tab === 'operations' && (
-        <OperationsTab
-          gammeId={gamme.id}
-          gammeSiteId={gamme.site_id}
-          canEdit={canEdit}
+    <div className="flex min-h-0 flex-1 flex-col px-4 pb-6 sm:px-6 lg:px-8">
+      {/* Barre d'onglets FIXE (toujours visible). SEUL le contenu défile → la
+          scrollbar apparaît DANS la liste (OT…), sous les onglets. */}
+      <div className="shrink-0">
+        <SubTabs
+          ariaLabel="Sections de la gamme"
+          variant="segmented"
+          value={tab}
+          onValueChange={setTab}
+          items={[
+            {
+              id: 'ordres',
+              label: 'Ordres de travail',
+              icon: <ClipboardList className="size-4" />,
+            },
+            {
+              id: 'operations',
+              label: 'Opérations',
+              icon: <ListChecks className="size-4" />,
+            },
+            {
+              id: 'equipements',
+              label: 'Équipements',
+              icon: <Wrench className="size-4" />,
+            },
+            {
+              id: 'documents',
+              label: 'Documents',
+              icon: <FileText className="size-4" />,
+            },
+          ]}
         />
-      )}
-      {tab === 'equipements' && (
-        <EquipementsTab siteId={siteId} gammeId={gamme.id} canEdit={canEdit} />
-      )}
-      {tab === 'documents' && (
-        <Card className="border-dashed">
-          <CardHeader>
-            <CardTitle className="text-muted-foreground text-base">
-              Documents
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            À venir.
-          </CardContent>
-        </Card>
-      )}
-    </>
+      </div>
+
+      {/* SEULE zone défilante. Padding horizontale + marge basse portées par le
+          CONTENEUR (px/pb-6). `no-scrollbar` masque la barre (défilement
+          conservé) en gardant la même mise en page, comme le parent. */}
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
+        {tab === 'ordres' && (
+          <OtListeParGammes siteId={siteId} gammeIds={[gamme.id]} />
+        )}
+        {tab === 'operations' && (
+          <OperationsTab
+            gammeId={gamme.id}
+            gammeSiteId={gamme.site_id}
+            canEdit={canEdit}
+          />
+        )}
+        {tab === 'equipements' && (
+          <EquipementsTab
+            siteId={siteId}
+            gammeId={gamme.id}
+            canEdit={canEdit}
+          />
+        )}
+        {tab === 'documents' && (
+          <Card className="border-dashed">
+            <CardHeader>
+              <CardTitle className="text-muted-foreground text-base">
+                Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-muted-foreground text-sm">
+              À venir.
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -288,7 +319,10 @@ function EquipementsTab({
         {linkButton}
       </div>
 
-      <QueryState query={liesQuery} pending={<ListRowSkeletons dense count={3} />}>
+      <QueryState
+        query={liesQuery}
+        pending={<ListRowSkeletons dense count={3} />}
+      >
         {() =>
           lies.length === 0 ? (
             <EmptyState
