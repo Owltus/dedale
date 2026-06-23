@@ -38,6 +38,10 @@ plan/
 
 # Données d'import legacy SQLite -> Supabase (dedale.db + documents réels, volumineux)
 migration/
+# Source SQLite legacy à la racine (données réelles à migrer ; dépôt PUBLIC -> jamais commité)
+dedale.db
+# Docs de migration legacy à la racine (gammes/OT/opérations) : données réelles -> jamais commités
+migration-*.md
 
 # Migrations SQL : dépôt PUBLIC → on ne les publie pas (elles peuvent contenir des
 # données réelles, ex. coordonnées prestataires). Source de vérité du schéma =
