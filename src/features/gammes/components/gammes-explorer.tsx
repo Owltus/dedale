@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -22,6 +23,7 @@ import { gammesQueries } from '../queries'
 import { useCopierGamme, useDeleteGamme } from '../mutations'
 import { GammeFormDialog } from './gamme-form-dialog'
 import { GammeDetail, type GammeRow } from './gamme-detail'
+import { SousCategorieSplit } from './sous-categorie-split'
 import {
   categoriesQueries,
   type Categorie,
@@ -86,6 +88,20 @@ interface DrillCat {
 /** Segment d'URL d'une gamme, désambiguïsé entre frères (même sous-catégorie). */
 function gammeSeg(g: GammeRow, siblings: GammeRow[]): string {
   return segOfUnique({ id: g.id, nom: g.nom }, siblings)
+}
+
+/**
+ * Corps DÉFILANT d'un palier (catégories, gamme ouverte, états vides). En mode
+ * `fill`, l'explorateur pose lui-même sa zone scrollable et réintègre le padding
+ * que `PageContainer` non-`fill` fournissait. Le palier SPLIT n'utilise PAS ce
+ * helper : ses deux panneaux gèrent leur propre défilement.
+ */
+function ScrollBody({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
+      {children}
+    </div>
+  )
 }
 
 /**
@@ -422,29 +438,6 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
         breadcrumb={ancestors}
         title={openGamme.nom}
         description={nodeDescription(openGamme.description)}
-        titleBadges={
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-            <Badge
-              variant={
-                openGamme.nature === 'controle_reglementaire'
-                  ? 'default'
-                  : 'secondary'
-              }
-            >
-              {NATURE_LABEL[openGamme.nature]}
-            </Badge>
-            {openGamme.periodicites && (
-              <Badge variant="outline">{openGamme.periodicites.libelle}</Badge>
-            )}
-            {openGamme.prestataires ? (
-              <Badge variant="outline">{openGamme.prestataires.libelle}</Badge>
-            ) : (
-              <Badge variant="outline" className="text-muted-foreground">
-                Prestataire à renseigner
-              </Badge>
-            )}
-          </div>
-        }
         action={
           canEdit ? (
             <>
@@ -452,9 +445,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
                 icon={<Pencil />}
                 label="Modifier la gamme"
                 variant="outline"
-                onClick={() =>
-                  setGammeForm({ open: true, gamme: openGamme })
-                }
+                onClick={() => setGammeForm({ open: true, gamme: openGamme })}
               />
               <TooltipIconButton
                 icon={<ClipboardList />}
@@ -592,8 +583,10 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   if (openGamme !== null) {
     return (
       <>
-        {header}
-        <GammeDetail gamme={openGamme} siteId={siteId} canEdit={canEdit} />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0 px-4 pt-6 sm:px-6 lg:px-8">{header}</div>
+          <GammeDetail gamme={openGamme} siteId={siteId} canEdit={canEdit} />
+        </div>
         {dialogs}
       </>
     )
@@ -603,190 +596,228 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     childCategories.length === 0 &&
     (current === null || gammesInCurrent.length === 0)
 
+  // Palier « sous-catégorie » : on y affiche les gammes ; dès qu'il y en a,
+  // l'écran passe en SPLIT 50/50 (gammes en haut, OT liés en bas).
+  const isSubcatLevel = depth >= 2 || (current?.virtual ?? false)
+
   return (
     <>
-      {header}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 px-4 pt-6 sm:px-6 lg:px-8">{header}</div>
 
-      <QueryState
-        query={categoriesQuery}
-        pending={<ListRowSkeletons count={4} />}
-      >
-        {() => {
-          if (gammesQuery.isPending) return <ListRowSkeletons count={4} />
-          if (gammesQuery.isError) {
-            return <ErrorState onRetry={() => void gammesQuery.refetch()} />
+        <QueryState
+          query={categoriesQuery}
+          pending={
+            <ScrollBody>
+              <ListRowSkeletons count={4} />
+            </ScrollBody>
           }
-          if (emptyHere) {
-            const isSubcatLevel = depth >= 2 || (current?.virtual ?? false)
-            return (
-              <EmptyState
-                icon={isSubcatLevel ? Wrench : FolderTree}
-                title={
-                  depth === 0
-                    ? 'Aucune catégorie'
-                    : depth === 1
-                      ? 'Catégorie vide'
-                      : 'Sous-catégorie vide'
-                }
-                description={
-                  depth === 0
-                    ? canEdit
-                      ? 'Crée une première catégorie avec le bouton « Nouvelle catégorie », ou réutilise le catalogue commun de la Bibliothèque.'
-                      : 'Aucune catégorie pour le moment.'
-                    : depth === 1
-                      ? canCreateSubcat
-                        ? 'Crée une sous-catégorie avec le bouton « Nouvelle sous-catégorie ».'
-                        : 'Aucune sous-catégorie.'
-                      : canCreateGammeHere
-                        ? 'Crée une gamme avec le bouton « Nouvelle gamme ».'
-                        : 'Aucune gamme dans cette sous-catégorie.'
-                }
-              />
-            )
-          }
-          return (
-            <div className="flex flex-col gap-6">
-              {childCategories.length > 0 && (
-                <div className={listStack}>
-                  {childCategories.map((cat) => (
-                    <ListRow
-                      key={cat.id}
-                      media={
-                        <MiniatureThumb
-                          url={cat.virtual ? null : urlOf(cat.miniature_id)}
-                          fallback={
-                            cat.virtual ? (
-                              <Inbox className="size-10" />
-                            ) : (
-                              <Folder className="size-10" />
-                            )
-                          }
-                          alt=""
-                          onError={refreshMiniatures}
-                          className="size-full rounded-none"
-                        />
-                      }
-                      title={cat.nom}
-                      subtitle={
-                        cat.description?.trim()
-                          ? cat.description.trim()
-                          : undefined
-                      }
-                      badges={
-                        cat.virtual ? undefined : (
-                          <ScopeBadges siteId={cat.site_id} />
-                        )
-                      }
-                      mobileMeta={
-                        cat.virtual ? undefined : (
-                          <ScopeBadges siteId={cat.site_id} />
-                        )
-                      }
-                      onClick={() => goTo([...path, cat])}
-                      menuActions={
-                        canManageCat(cat)
-                          ? ([
-                              {
-                                label: 'Modifier',
-                                icon: Pencil,
-                                onSelect: () => {
-                                  const full = categoriesById.get(cat.id)
-                                  if (full) handleEditCategory(full)
-                                },
-                              },
-                              {
-                                label: 'Supprimer',
-                                icon: Trash2,
-                                destructive: true,
-                                onSelect: () => setToDeleteCategorie(cat),
-                              },
-                            ] satisfies RowAction[])
-                          : undefined
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-
-              {gammesInCurrent.length > 0 && (
-                <div className={listStack}>
-                  {gammesInCurrent.map((g) => {
-                    const rowActions: RowAction[] = []
-                    if (canEdit) {
-                      rowActions.push({
-                        label: 'Modifier',
-                        icon: Pencil,
-                        onSelect: () =>
-                          setGammeForm({ open: true, gamme: g }),
-                      })
-                      rowActions.push({
-                        label: 'Dupliquer',
-                        icon: ClipboardList,
-                        onSelect: () => setToCopy(g),
-                      })
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () => setToDelete(g),
-                      })
+        >
+          {() => {
+            if (gammesQuery.isPending)
+              return (
+                <ScrollBody>
+                  <ListRowSkeletons count={4} />
+                </ScrollBody>
+              )
+            if (gammesQuery.isError) {
+              return (
+                <ScrollBody>
+                  <ErrorState onRetry={() => void gammesQuery.refetch()} />
+                </ScrollBody>
+              )
+            }
+            if (emptyHere) {
+              return (
+                <ScrollBody>
+                  <EmptyState
+                    icon={isSubcatLevel ? Wrench : FolderTree}
+                    title={
+                      depth === 0
+                        ? 'Aucune catégorie'
+                        : depth === 1
+                          ? 'Catégorie vide'
+                          : 'Sous-catégorie vide'
                     }
-                    return (
+                    description={
+                      depth === 0
+                        ? canEdit
+                          ? 'Crée une première catégorie avec le bouton « Nouvelle catégorie », ou réutilise le catalogue commun de la Bibliothèque.'
+                          : 'Aucune catégorie pour le moment.'
+                        : depth === 1
+                          ? canCreateSubcat
+                            ? 'Crée une sous-catégorie avec le bouton « Nouvelle sous-catégorie ».'
+                            : 'Aucune sous-catégorie.'
+                          : canCreateGammeHere
+                            ? 'Crée une gamme avec le bouton « Nouvelle gamme ».'
+                            : 'Aucune gamme dans cette sous-catégorie.'
+                    }
+                  />
+                </ScrollBody>
+              )
+            }
+            const lists = (
+              <div className="flex flex-col gap-6">
+                {childCategories.length > 0 && (
+                  <div className={listStack}>
+                    {childCategories.map((cat) => (
                       <ListRow
-                        key={g.id}
+                        key={cat.id}
                         media={
                           <MiniatureThumb
-                            url={urlOf(g.miniature_id)}
-                            fallback={<Wrench className="size-10" />}
+                            url={cat.virtual ? null : urlOf(cat.miniature_id)}
+                            fallback={
+                              cat.virtual ? (
+                                <Inbox className="size-10" />
+                              ) : (
+                                <Folder className="size-10" />
+                              )
+                            }
                             alt=""
                             onError={refreshMiniatures}
                             className="size-full rounded-none"
                           />
                         }
-                        title={g.nom}
+                        title={cat.nom}
                         subtitle={
-                          g.description?.trim()
-                            ? g.description.trim()
-                            : (g.periodicites?.libelle ?? undefined)
+                          cat.description?.trim()
+                            ? cat.description.trim()
+                            : undefined
                         }
                         badges={
-                          <Badge
-                            variant={
-                              g.nature === 'controle_reglementaire'
-                                ? 'default'
-                                : 'secondary'
-                            }
-                          >
-                            {NATURE_LABEL[g.nature]}
-                          </Badge>
-                        }
-                        meta={
-                          g.prestataires ? (
-                            <span className="text-sm">
-                              {g.prestataires.libelle}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">
-                              Prestataire à renseigner
-                            </span>
+                          cat.virtual ? undefined : (
+                            <ScopeBadges siteId={cat.site_id} />
                           )
                         }
                         mobileMeta={
-                          g.prestataires?.libelle ?? 'Prestataire à renseigner'
+                          cat.virtual ? undefined : (
+                            <ScopeBadges siteId={cat.site_id} />
+                          )
                         }
-                        onClick={() => goToGamme(g)}
+                        onClick={() => goTo([...path, cat])}
                         menuActions={
-                          rowActions.length ? rowActions : undefined
+                          canManageCat(cat)
+                            ? ([
+                                {
+                                  label: 'Modifier',
+                                  icon: Pencil,
+                                  onSelect: () => {
+                                    const full = categoriesById.get(cat.id)
+                                    if (full) handleEditCategory(full)
+                                  },
+                                },
+                                {
+                                  label: 'Supprimer',
+                                  icon: Trash2,
+                                  destructive: true,
+                                  onSelect: () => setToDeleteCategorie(cat),
+                                },
+                              ] satisfies RowAction[])
+                            : undefined
                         }
                       />
-                    )
-                  })}
+                    ))}
+                  </div>
+                )}
+
+                {gammesInCurrent.length > 0 && (
+                  <div className={listStack}>
+                    {gammesInCurrent.map((g) => {
+                      const rowActions: RowAction[] = []
+                      if (canEdit) {
+                        rowActions.push({
+                          label: 'Modifier',
+                          icon: Pencil,
+                          onSelect: () =>
+                            setGammeForm({ open: true, gamme: g }),
+                        })
+                        rowActions.push({
+                          label: 'Dupliquer',
+                          icon: ClipboardList,
+                          onSelect: () => setToCopy(g),
+                        })
+                        rowActions.push({
+                          label: 'Supprimer',
+                          icon: Trash2,
+                          destructive: true,
+                          onSelect: () => setToDelete(g),
+                        })
+                      }
+                      return (
+                        <ListRow
+                          key={g.id}
+                          media={
+                            <MiniatureThumb
+                              url={urlOf(g.miniature_id)}
+                              fallback={<Wrench className="size-10" />}
+                              alt=""
+                              onError={refreshMiniatures}
+                              className="size-full rounded-none"
+                            />
+                          }
+                          title={g.nom}
+                          subtitle={
+                            g.description?.trim()
+                              ? g.description.trim()
+                              : (g.periodicites?.libelle ?? undefined)
+                          }
+                          badges={
+                            <Badge
+                              variant={
+                                g.nature === 'controle_reglementaire'
+                                  ? 'default'
+                                  : 'secondary'
+                              }
+                            >
+                              {NATURE_LABEL[g.nature]}
+                            </Badge>
+                          }
+                          meta={
+                            g.prestataires ? (
+                              <span className="text-sm">
+                                {g.prestataires.libelle}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">
+                                Prestataire à renseigner
+                              </span>
+                            )
+                          }
+                          mobileMeta={
+                            g.prestataires?.libelle ??
+                            'Prestataire à renseigner'
+                          }
+                          onClick={() => goToGamme(g)}
+                          menuActions={
+                            rowActions.length ? rowActions : undefined
+                          }
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+            if (isSubcatLevel && gammesInCurrent.length > 0) {
+              // < lg : un seul flux scrollable (gammes puis OT empilés,
+              // mobile-first) ; >= lg : SPLIT 50/50 à double défilement (le
+              // wrapper passe en overflow-hidden). `no-scrollbar` masque la
+              // barre du wrapper en mobile (défilement conservé).
+              return (
+                <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 sm:px-6 lg:overflow-hidden lg:px-8">
+                  <SousCategorieSplit
+                    siteId={siteId}
+                    gammeIds={gammesInCurrent.map((g) => g.id)}
+                  >
+                    {lists}
+                  </SousCategorieSplit>
                 </div>
-              )}
-            </div>
-          )
-        }}
-      </QueryState>
+              )
+            }
+            return <ScrollBody>{lists}</ScrollBody>
+          }}
+        </QueryState>
+      </div>
 
       {dialogs}
     </>

@@ -24,6 +24,39 @@ export const ordresTravailQueries = {
       staleTime: 60_000,
     }),
 
+  /**
+   * OT du site rattachés à une liste de gammes (panneau bas du Plan de
+   * maintenance, au palier sous-catégorie). TOUS statuts confondus, triés par
+   * date prévue (plus récent d'abord). Un OT à `gamme_id` NULL (gamme supprimée,
+   * `ON DELETE SET NULL`) n'est plus rattachable → exclu naturellement par le
+   * filtre `.in(...)`. queryKey STABLE : ids triés + joints (un tableau brut
+   * change de référence à chaque rendu et casserait le cache).
+   */
+  byGammes: (siteId: string | null, gammeIds: string[]) =>
+    queryOptions({
+      queryKey: [
+        ...ordresTravailQueries.all(),
+        'by-gammes',
+        siteId,
+        [...gammeIds].sort().join(','),
+      ] as const,
+      enabled: siteId !== null && gammeIds.length > 0,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('ordres_travail')
+          .select(
+            'id, statut, nom_gamme, nom_prestataire, nom_equipement, date_prevue, gamme_id',
+          )
+          .eq('site_id', siteId!)
+          .in('gamme_id', gammeIds)
+          .order('date_prevue', { ascending: false })
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+      staleTime: 60_000,
+    }),
+
   /** Un OT précis (détail en page). */
   detail: (id: string) =>
     queryOptions({

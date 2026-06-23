@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList, Plus, Trash2 } from 'lucide-react'
@@ -31,6 +31,10 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const Route = createFileRoute('/_app/ordres-travail')({
+  // `?ot=<id>` : deep-link vers le détail d'un OT (utilisé par la redirection
+  // depuis le Plan de maintenance). Absent → liste.
+  validateSearch: (search: Record<string, unknown>): { ot?: string } =>
+    typeof search.ot === 'string' ? { ot: search.ot } : {},
   beforeLoad: ({ context }) =>
     requireNav('/ordres-travail', context.queryClient),
   component: OrdresTravailPage,
@@ -63,10 +67,13 @@ function OrdresTravailContent({
   canManage: boolean
 }) {
   const { session } = useAuth()
+  const navigate = useNavigate()
+  // Sélection portée par l'URL (`?ot=<id>`) → détail deep-linkable + bouton
+  // « précédent » du navigateur fonctionnel.
+  const { ot: selectedId } = Route.useSearch()
   const query = useQuery(ordresTravailQueries.list(siteId))
   const del = useDeleteOt()
 
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [toDelete, setToDelete] = useState<{ id: string; nom: string } | null>(
     null,
@@ -78,7 +85,12 @@ function OrdresTravailContent({
         <OtDetail
           otId={selectedId}
           canManage={canManage}
-          onBack={() => setSelectedId(null)}
+          // `replace` : fermer le détail REMPLACE l'entrée `?ot=<id>` au lieu
+          // d'en empiler une → le bouton « précédent » du navigateur ne rouvre
+          // pas le détail qu'on vient de fermer.
+          onBack={() =>
+            void navigate({ to: '/ordres-travail', search: {}, replace: true })
+          }
         />
       </PageContainer>
     )
@@ -132,7 +144,12 @@ function OrdresTravailContent({
               <Card
                 key={ot.id}
                 className="hover:bg-accent/40 min-w-0 cursor-pointer transition-colors"
-                onClick={() => setSelectedId(ot.id)}
+                onClick={() =>
+                  void navigate({
+                    to: '/ordres-travail',
+                    search: { ot: ot.id },
+                  })
+                }
               >
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">

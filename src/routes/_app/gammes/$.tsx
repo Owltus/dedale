@@ -31,7 +31,9 @@ function GammesPage() {
   }
 
   return (
-    <PageContainer>
+    // `fill` : l'explorateur gère lui-même en-tête fixe + défilement, car le palier
+    // sous-catégorie est un SPLIT 50/50 (gammes / OT) à double scroll indépendant.
+    <PageContainer fill>
       {/* key=site : remonte l'explorer à chaque changement de site actif → remise à
           zéro propre des états internes (drill, modaux). */}
       <GammesExplorer key={activeSiteId} siteId={activeSiteId} />

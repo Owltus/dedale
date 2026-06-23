@@ -171,3 +171,15 @@
     scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
   }
 }
+
+/* Masque la barre de défilement d'une zone SANS désactiver le défilement
+   (molette / tactile / clavier conservés). En CSS NON layered, comme les règles
+   de scrollbar ci-dessus → prime par sa spécificité de classe sur le style
+   global `*::-webkit-scrollbar` / `scrollbar-width`. À réserver aux zones où la
+   barre gêne (ex. panneaux du Plan de maintenance). */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
