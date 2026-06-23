@@ -384,7 +384,11 @@ CREATE TABLE unites (
     id SMALLINT PRIMARY KEY,
     nom TEXT NOT NULL UNIQUE,
     symbole TEXT NOT NULL UNIQUE,
-    description TEXT
+    description TEXT,
+    -- necessite_seuils : false pour les unités « compteur » (relevé d'index sans
+    -- mini/maxi : heure, kVA, kWh, m³). C'est l'UNITÉ qui pilote l'affichage des
+    -- seuils (le type Mesure impose l'unité ; l'unité décide des seuils).
+    necessite_seuils BOOLEAN NOT NULL DEFAULT true
 );
 
 -- Périodicités de maintenance avec tolérance intelligente
@@ -508,14 +512,14 @@ CREATE TABLE statuts_capex (
 -- =============================================================================
 
 -- Unités de mesure
-INSERT INTO unites (id, nom, symbole, description) VALUES
-    (1, 'Degrés Celsius',         '°C',  'Température'),
-    (2, 'Pourcentage',             '%',   'Pourcentage'),
-    (3, 'Titre Hydrotimétrique',   'TH',  'Dureté de l''eau'),
-    (4, 'Mètre Cube',              'm³',  'Volume'),
-    (5, 'Kilovolt-Ampère',         'kVA', 'Puissance électrique'),
-    (6, 'Kilowatt-Heure',          'kWh', 'Énergie électrique'),
-    (7, 'Heure',                   'h',   'Durée ou compteur horaire de fonctionnement');
+INSERT INTO unites (id, nom, symbole, description, necessite_seuils) VALUES
+    (1, 'Degrés Celsius',         '°C',  'Température',                                   true),
+    (2, 'Pourcentage',             '%',   'Pourcentage',                                  true),
+    (3, 'Titre Hydrotimétrique',   'TH',  'Dureté de l''eau',                             true),
+    (4, 'Mètre Cube',              'm³',  'Volume',                                       false),
+    (5, 'Kilovolt-Ampère',         'kVA', 'Puissance électrique',                         false),
+    (6, 'Kilowatt-Heure',          'kWh', 'Énergie électrique',                           false),
+    (7, 'Heure',                   'h',   'Durée ou compteur horaire de fonctionnement',  false);
 
 -- Périodicités de maintenance avec tolérance intelligente
 INSERT INTO periodicites (id, libelle, jours_periodicite, jours_valide, tolerance_jours, description) VALUES
@@ -6416,34 +6420,46 @@ RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 DECLARE
-    v_necessite_seuils BOOLEAN;
+    v_type_a_unite BOOLEAN;   -- types_operations.necessite_seuils = « Mesure / a une unité »
+    v_unite_seuils BOOLEAN;
 BEGIN
-    SELECT necessite_seuils INTO v_necessite_seuils
+    SELECT necessite_seuils INTO v_type_a_unite
     FROM public.types_operations WHERE id = NEW.type_operation_id;
 
-    IF v_necessite_seuils IS NULL THEN
+    IF v_type_a_unite IS NULL THEN
         RAISE EXCEPTION 'type_operation_id % invalide', NEW.type_operation_id;
     END IF;
 
-    -- Type Mesure (necessite_seuils=true) : au moins un seuil + unité requise
-    IF v_necessite_seuils THEN
-        IF NEW.seuil_minimum IS NULL AND NEW.seuil_maximum IS NULL THEN
-            RAISE EXCEPTION 'Opération de type Mesure : au moins un seuil (min ou max) est requis';
-        END IF;
+    IF v_type_a_unite THEN
+        -- Type « Mesure » : unité OBLIGATOIRE.
         IF NEW.unite_id IS NULL THEN
             RAISE EXCEPTION 'Opération de type Mesure : l''unité est obligatoire';
         END IF;
+
+        SELECT necessite_seuils INTO v_unite_seuils
+        FROM public.unites WHERE id = NEW.unite_id;
+        IF v_unite_seuils IS NULL THEN
+            RAISE EXCEPTION 'unite_id % invalide', NEW.unite_id;
+        END IF;
+
+        -- Unité à seuils (°C, %, TH…) : au moins un seuil requis.
+        -- Unité « compteur » (h, kVA, kWh, m³) : seuils NON requis (et tolérés
+        -- s'ils existent déjà → on ne casse pas l'historique ni les copies).
+        IF v_unite_seuils AND NEW.seuil_minimum IS NULL AND NEW.seuil_maximum IS NULL THEN
+            RAISE EXCEPTION 'Unité avec seuils : au moins un seuil (min ou max) est requis';
+        END IF;
+
         IF NEW.seuil_minimum IS NOT NULL AND NEW.seuil_maximum IS NOT NULL
            AND NEW.seuil_minimum > NEW.seuil_maximum THEN
             RAISE EXCEPTION 'seuil_minimum (%) > seuil_maximum (%)', NEW.seuil_minimum, NEW.seuil_maximum;
         END IF;
     ELSE
-        -- Type non-Mesure : pas de seuils ni d'unité
-        IF NEW.seuil_minimum IS NOT NULL OR NEW.seuil_maximum IS NOT NULL THEN
-            RAISE EXCEPTION 'Opération non-Mesure : les seuils doivent être NULL';
-        END IF;
+        -- Type non-Mesure : ni unité ni seuils.
         IF NEW.unite_id IS NOT NULL THEN
             RAISE EXCEPTION 'Opération non-Mesure : l''unité doit être NULL';
+        END IF;
+        IF NEW.seuil_minimum IS NOT NULL OR NEW.seuil_maximum IS NOT NULL THEN
+            RAISE EXCEPTION 'Opération non-Mesure : les seuils doivent être NULL';
         END IF;
     END IF;
 
@@ -6452,7 +6468,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.check_coherence_type_operation() IS
-    'Trigger factorisé : valide la cohérence type_operation ↔ seuils/unité (4 triggers déclaratifs).';
+    'Trigger factorisé : valide type_operation -> unite -> seuils (4 triggers déclaratifs). Le type Mesure impose une unité ; l''unité (unites.necessite_seuils) décide si des seuils sont requis. Seuils tolérés sur les unités compteur pour préserver l''existant.';
 
 -- 4 triggers déclaratifs (1 par couple {table, opération})
 CREATE TRIGGER trg_coherence_operations_insert

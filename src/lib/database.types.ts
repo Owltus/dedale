@@ -2935,18 +2935,21 @@ export type Database = {
         Row: {
           description: string | null
           id: number
+          necessite_seuils: boolean
           nom: string
           symbole: string
         }
         Insert: {
           description?: string | null
           id: number
+          necessite_seuils?: boolean
           nom: string
           symbole: string
         }
         Update: {
           description?: string | null
           id?: number
+          necessite_seuils?: boolean
           nom?: string
           symbole?: string
         }
