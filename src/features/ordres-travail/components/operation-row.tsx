@@ -17,6 +17,10 @@ interface OperationRowProps {
   operation: OperationExecution
   otId: string
   executedBy: string
+  /**
+   * Mode LECTURE (OT clôturé/annulé, ou rôle sans droit) : on AFFICHE les données
+   * enregistrées (preuve légale) au lieu d'un formulaire désactivé. Sinon : SAISIE.
+   */
   readOnly: boolean
 }
 
@@ -39,9 +43,13 @@ function formatSeuils(op: OperationExecution): string {
 }
 
 /**
- * Ligne d'opération éditable (saisie d'exécution). Édition locale + bouton
- * « Enregistrer » par ligne. La conformité est recalculée par le backend
- * (auto_calcul_conformite), on affiche est_conforme de la donnée serveur.
+ * Ligne d'opération à DEUX modes :
+ * - SAISIE (OT actif, droit d'écriture) : édition locale + bouton « Enregistrer ».
+ * - LECTURE (OT clôturé/annulé = preuve légale, ou rôle lecteur) : affichage des
+ *   données enregistrées (valeur mesurée, statut, commentaire, date d'exécution),
+ *   et non un formulaire grisé — pour qu'elles restent lisibles.
+ * La conformité est recalculée par le backend (auto_calcul_conformite) ; on
+ * affiche `est_conforme` de la donnée serveur dans les deux modes.
  */
 export function OperationRow({
   operation,
@@ -103,6 +111,16 @@ export function OperationRow({
       </Badge>
     )
 
+  // Date d'exécution — visible dans LES DEUX modes (en lecture, c'est l'info
+  // « quand ça a été fait » ; auparavant masquée hors saisie).
+  const dateExecution = (
+    <span className="text-muted-foreground text-xs">
+      {operation.date_execution
+        ? `Exécutée le ${new Date(operation.date_execution).toLocaleString('fr-FR')}`
+        : 'Non exécutée'}
+    </span>
+  )
+
   return (
     <div className="bg-card flex flex-col gap-3 rounded-md border p-3">
       <div className="flex items-start justify-between gap-2">
@@ -121,69 +139,103 @@ export function OperationRow({
         {conformiteBadge}
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] gap-3">
-        {mesure && (
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">
-              Valeur mesurée
-              {operation.unite_symbole ? ` (${operation.unite_symbole})` : ''}
-            </span>
-            <Input
-              type="number"
-              inputMode="decimal"
-              step="any"
-              value={valeur}
-              disabled={readOnly}
-              onChange={(e) => setValeur(e.target.value)}
-            />
-          </label>
-        )}
+      {readOnly ? (
+        // ── Mode LECTURE : données enregistrées (preuve légale) ────────────────
+        <>
+          <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] gap-3 text-xs">
+            {mesure && (
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-muted-foreground">
+                  Valeur mesurée
+                  {operation.unite_symbole
+                    ? ` (${operation.unite_symbole})`
+                    : ''}
+                </dt>
+                <dd className="text-sm">
+                  {operation.valeur_mesuree !== null
+                    ? String(operation.valeur_mesuree)
+                    : '—'}
+                </dd>
+              </div>
+            )}
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-muted-foreground">Statut</dt>
+              <dd className="text-sm">
+                {LIBELLES_STATUT_OP[operation.statut] ?? operation.statut}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-muted-foreground">Commentaire</dt>
+              <dd className="text-sm whitespace-pre-wrap">
+                {operation.commentaires?.trim() ? operation.commentaires : '—'}
+              </dd>
+            </div>
+          </dl>
+          {dateExecution}
+        </>
+      ) : (
+        // ── Mode SAISIE : édition de l'exécution ───────────────────────────────
+        <>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] gap-3">
+            {mesure && (
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="text-muted-foreground">
+                  Valeur mesurée
+                  {operation.unite_symbole
+                    ? ` (${operation.unite_symbole})`
+                    : ''}
+                </span>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={valeur}
+                  onChange={(e) => setValeur(e.target.value)}
+                />
+              </label>
+            )}
 
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Statut</span>
-          <Select
-            value={statut}
-            disabled={readOnly}
-            onChange={(e) => setStatut(e.target.value)}
-            className="w-auto"
-          >
-            {/* L'éventuel statut « annulee » système reste affiché en lecture. */}
-            {!STATUTS_OP_SAISISSABLES.includes(
-              statut as (typeof STATUTS_OP_SAISISSABLES)[number],
-            ) && <option value={statut}>{LIBELLES_STATUT_OP[statut]}</option>}
-            {STATUTS_OP_SAISISSABLES.map((s) => (
-              <option key={s} value={s}>
-                {LIBELLES_STATUT_OP[s]}
-              </option>
-            ))}
-          </Select>
-        </label>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-muted-foreground">Statut</span>
+              <Select
+                value={statut}
+                onChange={(e) => setStatut(e.target.value)}
+                className="w-auto"
+              >
+                {/* L'éventuel statut « annulee » système reste affiché en lecture. */}
+                {!STATUTS_OP_SAISISSABLES.includes(
+                  statut as (typeof STATUTS_OP_SAISISSABLES)[number],
+                ) && (
+                  <option value={statut}>{LIBELLES_STATUT_OP[statut]}</option>
+                )}
+                {STATUTS_OP_SAISISSABLES.map((s) => (
+                  <option key={s} value={s}>
+                    {LIBELLES_STATUT_OP[s]}
+                  </option>
+                ))}
+              </Select>
+            </label>
 
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Commentaire</span>
-          <Input
-            value={commentaires}
-            disabled={readOnly}
-            onChange={(e) => setCommentaires(e.target.value)}
-          />
-        </label>
-      </div>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-muted-foreground">Commentaire</span>
+              <Input
+                value={commentaires}
+                onChange={(e) => setCommentaires(e.target.value)}
+              />
+            </label>
+          </div>
 
-      {!readOnly && (
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground text-xs">
-            {operation.date_execution
-              ? `Exécutée le ${new Date(operation.date_execution).toLocaleString('fr-FR')}`
-              : 'Non exécutée'}
-          </span>
-          <Button
-            size="sm"
-            disabled={!dirty || update.isPending}
-            onClick={handleSave}
-          >
-            {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
-          </Button>
-        </div>
+          <div className="flex items-center justify-between gap-2">
+            {dateExecution}
+            <Button
+              size="sm"
+              disabled={!dirty || update.isPending}
+              onClick={handleSave}
+            >
+              {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </div>
+        </>
       )}
     </div>
   )

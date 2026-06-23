@@ -64,7 +64,9 @@ export const ordresTravailQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('ordres_travail')
-          .select('*')
+          // Jointure de la vignette de la gamme liée (l'OT en est issu) pour la
+          // carte de rappel ; `gamme_id` NULL (gamme supprimée) → `gammes` null.
+          .select('*, gammes(miniature_id)')
           .eq('id', id)
           .abortSignal(signal)
           .maybeSingle()
