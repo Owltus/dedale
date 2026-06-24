@@ -85,11 +85,12 @@ export function useDeleteOt() {
 }
 
 /**
- * Met à jour le statut d'un OT (transition manuelle : clôture, annulation,
- * résurrection). Le trigger validation_transitions_ot refuse les transitions
- * interdites et exige les motifs → on laisse l'erreur remonter.
+ * Transitions MANUELLES d'un OT : annulation et réactivation (résurrection). La
+ * CLÔTURE n'est PAS manuelle — elle est automatique côté backend (trigger
+ * gestion_statut_ot, dès que toutes les opérations sont terminales). Le trigger
+ * validation_transitions_ot refuse les transitions interdites et exige les
+ * motifs → on laisse l'erreur remonter.
  *
- * - cloture : nécessite date_cloture (CHECK statut_terminal_a_date_cloture).
  * - annule  : nécessite motif_annulation + date_cloture.
  * - planifie (résurrection depuis annule) : pas de champ supplémentaire.
  */
@@ -98,7 +99,7 @@ export function useChangerStatutOt() {
   return useMutation({
     mutationFn: async (p: {
       id: string
-      statut: 'cloture' | 'annule' | 'planifie'
+      statut: 'annule' | 'planifie'
       motifAnnulation?: string
     }) => {
       const patch: {
@@ -107,11 +108,11 @@ export function useChangerStatutOt() {
         motif_annulation?: string
       } = { statut: p.statut }
 
-      if (p.statut === 'cloture' || p.statut === 'annule') {
+      if (p.statut === 'annule') {
         patch.date_cloture = new Date().toISOString()
-      }
-      if (p.statut === 'annule' && p.motifAnnulation !== undefined) {
-        patch.motif_annulation = p.motifAnnulation.trim()
+        if (p.motifAnnulation !== undefined) {
+          patch.motif_annulation = p.motifAnnulation.trim()
+        }
       }
 
       const { data } = await supabase

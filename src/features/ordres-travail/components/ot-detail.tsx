@@ -147,30 +147,37 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       }
     }
     setSavingOps(true)
-    const results = await Promise.allSettled(
-      dirtyOps.map((op) => {
-        const e = edits[op.id]!
-        const valeurMesuree =
-          estMesureExecution(op) && e.valeur.trim() !== '' ? Number(e.valeur) : null
-        return updateOp.mutateAsync({
+    // Écritures SÉRIALISÉES (pas en parallèle) : la clôture auto de l'OT
+    // (trigger gestion_statut_ot) teste « toutes les opérations terminées ? ».
+    // En parallèle, des transactions concurrentes ne verraient pas les ops
+    // sœurs encore non commitées → l'OT resterait « en cours » alors que tout
+    // est terminé. En série, le trigger de la dernière op voit les précédentes.
+    const errors: unknown[] = []
+    for (const op of dirtyOps) {
+      const e = edits[op.id]!
+      const valeurMesuree =
+        estMesureExecution(op) && e.valeur.trim() !== '' ? Number(e.valeur) : null
+      try {
+        await updateOp.mutateAsync({
           id: op.id,
           otId,
           statut: e.statut,
           valeurMesuree,
-          // Date saisie (jour) → ISO ; le backend ajuste selon le statut.
+          // Jour saisi → MIDI UTC : la date UTC stockée == le jour choisi, donc
+          // relue à l'identique (slice de l'UTC) et affichée le bon jour en local
+          // (évite le décalage J-1 d'un minuit local converti en UTC).
           dateExecution: e.dateExec
-            ? new Date(`${e.dateExec}T00:00:00`).toISOString()
+            ? new Date(`${e.dateExec}T12:00:00Z`).toISOString()
             : null,
           executedBy: session?.user.id ?? '',
           commentaires: op.commentaires,
         })
-      }),
-    )
+      } catch (err) {
+        errors.push(err)
+      }
+    }
     setSavingOps(false)
-    const rejected = results.filter(
-      (r): r is PromiseRejectedResult => r.status === 'rejected',
-    )
-    if (rejected.length === 0) {
+    if (errors.length === 0) {
       toast.success(
         dirtyOps.length > 1
           ? `${String(dirtyOps.length)} opérations enregistrées`
@@ -178,7 +185,7 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       )
       setEdits({})
     } else {
-      toast.error(writeErrorMessage(rejected[0]!.reason))
+      toast.error(writeErrorMessage(errors[0]))
     }
   }
 

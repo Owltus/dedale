@@ -14,8 +14,9 @@ import {
 //   annule   → planifie (résurrection)
 //   reouvert → planifie / en_cours / cloture / annule
 // NB : la plupart des transitions sont automatiques (gestion_statut_ot bascule
-// l'OT selon l'état de ses opérations). Le front expose seulement les actions
-// utiles : Clôturer, Annuler, Réactiver (résurrection), Réouvrir (RPC).
+// l'OT selon l'état de ses opérations, et le CLÔT dès qu'elles sont toutes
+// terminales — il n'y a donc PAS de bouton « Clôturer » manuel). Le front
+// expose seulement : Annuler, Réactiver (résurrection), Réouvrir (RPC).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type StatutOt =
