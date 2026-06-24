@@ -49,6 +49,9 @@ migration-*.md
 # dé-suivis (git rm --cached) ; ils restent en local pour être rejoués en prod.
 migrations/
 
+# Captures d'écran locales (peuvent montrer des données réelles ; dépôt PUBLIC)
+screenshot/
+
 # Scripts de lancement locaux
 dev.bat
 
