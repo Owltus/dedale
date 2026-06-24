@@ -5,6 +5,7 @@ import {
   FILTRE_TOUS,
   type FilterOption,
 } from '@/components/common/list-filter-bar'
+import type { StatusTone } from '@/components/common/status-badge'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Machine à états OT — miroir du trigger validation_transitions_ot.
@@ -83,6 +84,26 @@ export const STATUTS_OP_SAISISSABLES: StatutOperation[] = [
   'terminee',
   'non_applicable',
 ]
+
+/**
+ * Code couleur (liseré de carte) du statut d'une opération d'exécution, sur le
+ * principe des cartes Demandes : en attente = gris (neutral), en cours = bleu
+ * (info), terminée = vert (success), non applicable / annulée = rouge
+ * (destructive). Consommé via le liseré `border-l-*` de la carte d'opération.
+ */
+export function statutOperationTone(statut: string): StatusTone {
+  switch (statut) {
+    case 'en_cours':
+      return 'info' // bleu
+    case 'terminee':
+      return 'success' // vert
+    case 'non_applicable':
+    case 'annulee':
+      return 'destructive' // rouge
+    default:
+      return 'neutral' // en attente (gris)
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Filtre par statut de la liste des OT.
