@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useBlocker } from '@tanstack/react-router'
 import {
   Ban,
   ClipboardList,
@@ -19,6 +20,7 @@ import {
 } from '../mutations'
 import {
   OperationRow,
+  estCompteur,
   estMesureExecution,
   type OperationEdit,
 } from './operation-row'
@@ -26,6 +28,8 @@ import { MotifDialog } from './motif-dialog'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useAuth } from '@/auth'
+import { useSaveShortcut } from '@/hooks/use-save-shortcut'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { todayLocal } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -35,6 +39,7 @@ import { SubTabs } from '@/components/common/sub-tabs'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ErrorState } from '@/components/common/error-state'
 import { EmptyState } from '@/components/common/empty-state'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DocumentsTab } from '@/components/common/documents-tab'
 
 interface OtDetailProps {
@@ -53,6 +58,9 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     refetch,
   } = useQuery(ordresTravailQueries.detail(otId))
   const operationsQuery = useQuery(ordresTravailQueries.operations(otId))
+  // Focus auto réservé aux pointeurs fins (desktop) : sur tactile, un focus
+  // programmatique ouvrirait le clavier virtuel sans valeur ajoutée (pas de Tab).
+  const isFinePointer = useMediaQuery('(hover: hover) and (pointer: fine)')
 
   const changerStatut = useChangerStatutOt()
   const reouvrir = useReouvrirOt()
@@ -69,6 +77,99 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
   // opérations passent à un état terminal → pas de bouton « Clôturer » manuel.
   const [edits, setEdits] = useState<Record<string, OperationEdit>>({})
   const [savingOps, setSavingOps] = useState(false)
+
+  // Opérations + détection des saisies non enregistrées — calculées AVANT les
+  // retours anticipés (le hook useBlocker doit être appelé inconditionnellement).
+  const operations = operationsQuery.data ?? []
+  // Valeurs « serveur » d'une opération (baseline + valeur affichée tant qu'elle
+  // n'a pas été éditée). Date par défaut = aujourd'hui si non exécutée.
+  function baseEdit(op: (typeof operations)[number]): OperationEdit {
+    return {
+      statut: op.statut,
+      valeur: op.valeur_mesuree !== null ? String(op.valeur_mesuree) : '',
+      dateExec: op.date_execution
+        ? op.date_execution.slice(0, 10)
+        : todayLocal(),
+    }
+  }
+  function opEdit(op: (typeof operations)[number]): OperationEdit {
+    return edits[op.id] ?? baseEdit(op)
+  }
+  function isOpDirty(op: (typeof operations)[number]): boolean {
+    const e = edits[op.id]
+    if (!e) return false
+    const b = baseEdit(op)
+    return (
+      e.statut !== b.statut ||
+      e.valeur !== b.valeur ||
+      e.dateExec !== b.dateExec
+    )
+  }
+  const dirtyOps = operations.filter(isOpDirty)
+
+  // Relevés précédents des compteurs (rappel « précédent : X (+écart) ») : dernier
+  // relevé de la même opération (reliée par source_id, stable depuis la migration 063)
+  // sur un OT antérieur de la même gamme. La RLS cloisonne par site. Hook appelé AVANT
+  // les early-returns (règle des hooks).
+  const compteurSourceIds = operations
+    .filter((op) => estCompteur(op))
+    .map((op) => op.source_id)
+  const previousReadingsQuery = useQuery(
+    ordresTravailQueries.previousReadings(
+      otId,
+      ot?.gamme_id ?? null,
+      ot?.date_prevue ?? null,
+      compteurSourceIds,
+    ),
+  )
+
+  // Garde-fou : prévient avant de quitter la page s'il reste des saisies non
+  // enregistrées — navigation interne ET retour/fermeture du navigateur
+  // (beforeUnload natif). `withResolver` → on affiche notre propre modale.
+  const blocker = useBlocker({
+    shouldBlockFn: () => dirtyOps.length > 0,
+    enableBeforeUnload: () => dirtyOps.length > 0,
+    withResolver: true,
+  })
+
+  // Ctrl/⌘ + S enregistre les opérations modifiées (équivaut au bouton disquette).
+  // Actif UNIQUEMENT s'il y a des saisies à enregistrer → sinon on laisse le
+  // Ctrl+S natif du navigateur (et un OT verrouillé n'a jamais de saisies). Hook
+  // appelé AVANT les retours anticipés (règle des hooks).
+  useSaveShortcut(
+    () => void saveAllOps(),
+    onglet === 'operations' && !savingOps && dirtyOps.length > 0,
+  )
+
+  // À l'ouverture de l'onglet Opérations (données chargées), on place le focus sur
+  // le 1er champ valeur VIDE et non désactivé → saisie immédiate sans cliquer (puis
+  // Tab enchaîne, déjà géré). Si tout est renseigné, ou OT verrouillé (champs
+  // désactivés), on ne vole pas le focus. `requestAnimationFrame` attend le rendu.
+  useEffect(() => {
+    // `isPending` = query DÉTAIL : tant qu'elle charge, l'onglet affiche le
+    // squelette (les OperationRow ne sont pas encore dans le DOM). Sans ce garde,
+    // si les opérations résolvent avant le détail, l'effet se déclencherait sur le
+    // squelette (focus perdu) sans jamais se rejouer (course détail/opérations).
+    if (
+      !isFinePointer ||
+      onglet !== 'operations' ||
+      isPending ||
+      !operationsQuery.isSuccess
+    )
+      return
+    const raf = requestAnimationFrame(() => {
+      const premierVide = Array.from(
+        document.querySelectorAll<HTMLInputElement>(
+          'input[data-op-value]:not([disabled])',
+        ),
+      ).find((i) => i.value.trim() === '')
+      premierVide?.focus({ preventScroll: true })
+      premierVide?.select()
+    })
+    return () => cancelAnimationFrame(raf)
+    // Déclenché à l'ouverture de l'onglet / fin de chargement / changement d'OT,
+    // PAS à chaque frappe (sinon le focus sauterait pendant la saisie).
+  }, [isFinePointer, onglet, isPending, operationsQuery.isSuccess, otId])
 
   if (isPending) {
     return (
@@ -109,31 +210,14 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     ot.statut === 'en_cours' ||
     ot.statut === 'reouvert'
 
-  const operations = operationsQuery.data ?? []
   const canEditOps = canManage && !verrouille && Boolean(session)
-
-  // Valeurs « serveur » d'une opération (baseline de comparaison + valeur affichée
-  // tant qu'elle n'a pas été éditée). Date par défaut = aujourd'hui si non exécutée.
-  function baseEdit(op: (typeof operations)[number]): OperationEdit {
-    return {
-      statut: op.statut,
-      valeur: op.valeur_mesuree !== null ? String(op.valeur_mesuree) : '',
-      dateExec: op.date_execution ? op.date_execution.slice(0, 10) : todayLocal(),
-    }
-  }
-  function opEdit(op: (typeof operations)[number]): OperationEdit {
-    return edits[op.id] ?? baseEdit(op)
-  }
-  function isOpDirty(op: (typeof operations)[number]): boolean {
-    const e = edits[op.id]
-    if (!e) return false
-    const b = baseEdit(op)
-    return e.statut !== b.statut || e.valeur !== b.valeur || e.dateExec !== b.dateExec
-  }
-  const dirtyOps = operations.filter(isOpDirty)
 
   async function saveAllOps() {
     if (dirtyOps.length === 0) return
+    // Lecture seule (OT verrouillé, rôle sans droit, ou session expirée) → on ne
+    // tente AUCUNE écriture, quel que soit le déclencheur (bouton OU Ctrl+S). Défend
+    // la fenêtre transitoire : édits résiduels après une annulation d'OT.
+    if (opsReadOnly) return
     // Garde : valeur mesurée non numérique → on bloque avant tout envoi.
     for (const op of dirtyOps) {
       const e = edits[op.id]!
@@ -156,7 +240,9 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     for (const op of dirtyOps) {
       const e = edits[op.id]!
       const valeurMesuree =
-        estMesureExecution(op) && e.valeur.trim() !== '' ? Number(e.valeur) : null
+        estMesureExecution(op) && e.valeur.trim() !== ''
+          ? Number(e.valeur)
+          : null
       try {
         await updateOp.mutateAsync({
           id: op.id,
@@ -169,7 +255,7 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
           dateExecution: e.dateExec
             ? new Date(`${e.dateExec}T12:00:00Z`).toISOString()
             : null,
-          executedBy: session?.user.id ?? '',
+          executedBy: session.user.id,
           commentaires: op.commentaires,
         })
       } catch (err) {
@@ -340,10 +426,13 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
                 key={op.id}
                 operation={op}
                 value={opEdit(op)}
-                onChange={(v) =>
-                  setEdits((prev) => ({ ...prev, [op.id]: v }))
-                }
+                onChange={(v) => setEdits((prev) => ({ ...prev, [op.id]: v }))}
                 readOnly={opsReadOnly}
+                previousValue={
+                  previousReadingsQuery.data?.[
+                    `${String(op.source_type)}:${op.source_id}`
+                  ] ?? null
+                }
               />
             ))}
           </div>
@@ -379,6 +468,19 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
         confirmLabel="Réouvrir"
         pending={reouvrir.isPending}
         onConfirm={handleReouvrir}
+      />
+
+      {/* Garde-fou navigation : saisies d'opérations non enregistrées. */}
+      <ConfirmDialog
+        open={blocker.status === 'blocked'}
+        onOpenChange={(open) => {
+          if (!open) blocker.reset?.()
+        }}
+        title="Modifications non enregistrées"
+        description="Des saisies d'opérations n'ont pas été enregistrées. Si vous quittez cette page, elles seront perdues."
+        confirmLabel="Quitter sans enregistrer"
+        destructive
+        onConfirm={() => blocker.proceed?.()}
       />
     </PageContainer>
   )
