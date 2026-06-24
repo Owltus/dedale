@@ -213,7 +213,14 @@ export function OperationRow({
       onPointerLeave={longPress.onPointerLeave}
       onPointerCancel={longPress.onPointerCancel}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+      <div
+        className={cn(
+          'flex flex-col gap-3 sm:flex-row sm:gap-4',
+          // Clôturé (2 lignes par colonne) → titre aligné EN HAUT sur valeur/date.
+          // Éditable (champs h-8) → titre CENTRÉ verticalement sur les champs.
+          readOnly ? 'sm:items-start' : 'sm:items-center',
+        )}
+      >
         <div className="min-w-0 flex-1 select-none">
           <p className="truncate text-sm font-medium">{operation.nom}</p>
           {operation.description?.trim() && (
