@@ -3,9 +3,10 @@ import {
   STATUTS_OP_SAISISSABLES,
   statutOperationTone,
 } from '../schemas'
-import type { StatusTone } from '@/components/common/status-badge'
+import { StatusBadge, type StatusTone } from '@/components/common/status-badge'
 import { cn } from '@/lib/utils'
 import { useLongPress } from '@/hooks/use-long-press'
+import { formatDate } from '@/lib/date'
 import { DateField } from '@/components/ui/date-field'
 import {
   SelectDropdown,
@@ -145,6 +146,13 @@ export function OperationRow({
     previousValue != null && courant !== null && !Number.isNaN(courant)
       ? courant - previousValue
       : null
+  // Affichage LECTURE SEULE (OT clôturé) : valeur enregistrée formatée (« — » si
+  // vide) + libellé du statut (pour le badge).
+  const valeurAffichee =
+    courant !== null && !Number.isNaN(courant)
+      ? courant.toLocaleString('fr-FR')
+      : '—'
+  const statutLabel = LIBELLES_STATUT_OP[value.statut] ?? value.statut
 
   // Options du statut : les statuts saisissables + l'éventuel statut « système »
   // courant (ex. « annulee ») pour qu'il reste affiché.
@@ -215,111 +223,142 @@ export function OperationRow({
           )}
         </div>
 
-        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
-          {mesure && (
-            // Champ valeur (largeur fixe) : nombre aligné à DROITE + unité accolée
-            // en suffixe, dans un seul cadre aux tokens de `Input`.
-            <div
-              className={cn(
-                'border-input bg-background flex h-8 w-20 items-center gap-1 rounded-md border px-2 shadow-xs transition-[color,box-shadow] pointer-coarse:h-10',
-                'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
-                valeurDisabled && 'pointer-events-none opacity-50',
-              )}
-            >
-              <input
-                type="number"
-                inputMode="decimal"
-                step="any"
-                // Nombre aligné à DROITE → il vient coller l'unité (qui le suit
-                // immédiatement) ; « nombre unité » forment un bloc aligné à droite.
-                className={cn(
-                  'no-spinner placeholder:text-muted-foreground w-full min-w-0 border-0 bg-transparent p-0 text-right text-sm outline-none',
-                  conformiteClass,
-                  conformiteClass !== '' && 'font-medium',
-                )}
-                placeholder={placeholderRange(operation)}
-                aria-label={`Valeur mesurée${unite ? ` (${unite})` : ''}${conformiteLabel ? ` — ${conformiteLabel}` : ''}`}
-                title={conformiteLabel ?? undefined}
-                value={value.valeur}
-                disabled={valeurDisabled}
-                // Tab/Shift+Tab navigue UNIQUEMENT entre les champs valeur (saisie en
-                // série), en bouclant (dernier → premier). Date/statut s'atteignent au clic.
-                data-op-value=""
-                onKeyDown={(e) => {
-                  if (e.key !== 'Tab') return
-                  const inputs = Array.from(
-                    document.querySelectorAll<HTMLInputElement>(
-                      'input[data-op-value]:not([disabled])',
-                    ),
-                  )
-                  const i = inputs.indexOf(e.currentTarget)
-                  if (i === -1 || inputs.length < 2) return
-                  e.preventDefault()
-                  const dir = e.shiftKey ? -1 : 1
-                  const next = inputs[(i + dir + inputs.length) % inputs.length]
-                  next?.focus()
-                  next?.select()
-                }}
-                onChange={(e) => {
-                  const valeur = e.target.value
-                  // Renseigner une valeur (champ VIDE → rempli) bascule l'opération
-                  // en « Terminée ». Uniquement à la 1re saisie → on n'écrase pas un
-                  // statut réajusté ensuite à la main, et la frappe ne le force pas.
-                  const passeTerminee =
-                    value.valeur.trim() === '' && valeur.trim() !== ''
-                  onChange({
-                    ...value,
-                    valeur,
-                    statut: passeTerminee ? 'terminee' : value.statut,
-                  })
-                }}
-              />
-              {unite && (
-                <span
-                  className={cn(
-                    'text-muted-foreground shrink-0 text-xs',
-                    conformiteClass,
+        {readOnly ? (
+          // ── LECTURE SEULE (OT clôturé) : 2 colonnes À POSITION FIXE, contenu centré ──
+          //    [ valeur / consommation ]   [ date / statut ]
+          //    Les deux colonnes ont une largeur fixe et sont TOUJOURS présentes (la
+          //    1re reste vide pour une non-mesure) → alignement stable d'une ligne à l'autre.
+          <div className="flex w-full items-start justify-end gap-4 sm:w-auto">
+            <div className="flex w-28 flex-col items-center text-center leading-tight">
+              {mesure && (
+                <>
+                  <span
+                    className={cn(
+                      'text-sm font-medium tabular-nums',
+                      conformiteClass,
+                    )}
+                  >
+                    {valeurAffichee}
+                    {valeurAffichee !== '—' && unite ? ` ${unite}` : ''}
+                  </span>
+                  {estCompteur(operation) && ecart != null && (
+                    <span className="text-muted-foreground text-xs tabular-nums">
+                      {ecart > 0 ? '+' : ''}
+                      {ecart.toLocaleString('fr-FR')}
+                      {unite ? ` ${unite}` : ''}
+                    </span>
                   )}
-                >
-                  {unite}
-                </span>
+                </>
               )}
             </div>
-          )}
+            <div className="flex w-28 flex-col items-center gap-1 text-center leading-tight">
+              <span className="text-muted-foreground text-xs tabular-nums">
+                {formatDate(operation.date_execution)}
+              </span>
+              <StatusBadge tone={tone}>{statutLabel}</StatusBadge>
+            </div>
+          </div>
+        ) : (
+          // ── ÉDITABLE (OT en cours) : formulaire inline ─────────────────────
+          <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
+            {mesure && (
+              // Champ valeur (largeur fixe) : nombre aligné à DROITE + unité accolée
+              // en suffixe, dans un seul cadre aux tokens de `Input`.
+              <div
+                className={cn(
+                  'border-input bg-background flex h-8 w-25 items-center gap-1 rounded-md border px-2 shadow-xs transition-[color,box-shadow] pointer-coarse:h-10',
+                  'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
+                  valeurDisabled && 'pointer-events-none opacity-50',
+                )}
+              >
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  // Nombre aligné à DROITE → il vient coller l'unité (qui le suit
+                  // immédiatement) ; « nombre unité » forment un bloc aligné à droite.
+                  className={cn(
+                    'no-spinner placeholder:text-muted-foreground w-full min-w-0 border-0 bg-transparent p-0 text-right text-sm outline-none',
+                    conformiteClass,
+                    conformiteClass !== '' && 'font-medium',
+                  )}
+                  placeholder={placeholderRange(operation)}
+                  aria-label={`Valeur mesurée${unite ? ` (${unite})` : ''}${conformiteLabel ? ` — ${conformiteLabel}` : ''}`}
+                  title={conformiteLabel ?? undefined}
+                  value={value.valeur}
+                  disabled={valeurDisabled}
+                  // Tab/Shift+Tab navigue UNIQUEMENT entre les champs valeur (saisie en
+                  // série), en bouclant (dernier → premier). Date/statut s'atteignent au clic.
+                  data-op-value=""
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Tab') return
+                    const inputs = Array.from(
+                      document.querySelectorAll<HTMLInputElement>(
+                        'input[data-op-value]:not([disabled])',
+                      ),
+                    )
+                    const i = inputs.indexOf(e.currentTarget)
+                    if (i === -1 || inputs.length < 2) return
+                    e.preventDefault()
+                    const dir = e.shiftKey ? -1 : 1
+                    const next =
+                      inputs[(i + dir + inputs.length) % inputs.length]
+                    next?.focus()
+                    next?.select()
+                  }}
+                  onChange={(e) => {
+                    const valeur = e.target.value
+                    // Renseigner une valeur (champ VIDE → rempli) bascule l'opération
+                    // en « Terminée ». Uniquement à la 1re saisie → on n'écrase pas un
+                    // statut réajusté ensuite à la main, et la frappe ne le force pas.
+                    const passeTerminee =
+                      value.valeur.trim() === '' && valeur.trim() !== ''
+                    onChange({
+                      ...value,
+                      valeur,
+                      statut: passeTerminee ? 'terminee' : value.statut,
+                    })
+                  }}
+                />
+                {unite && (
+                  <span
+                    className={cn(
+                      'text-muted-foreground shrink-0 text-xs',
+                      conformiteClass,
+                    )}
+                  >
+                    {unite}
+                  </span>
+                )}
+              </div>
+            )}
 
-          <DateField
-            className="h-8 w-[7.25rem] pointer-coarse:h-10"
-            ariaLabel="Date d'exécution"
-            value={value.dateExec}
-            disabled={readOnly}
-            onValueChange={(v) => onChange({ ...value, dateExec: v })}
-          />
+            <DateField
+              className="h-8 w-[7.25rem] pointer-coarse:h-10"
+              ariaLabel="Date d'exécution"
+              value={value.dateExec}
+              disabled={readOnly}
+              onValueChange={(v) => onChange({ ...value, dateExec: v })}
+            />
 
-          <SelectDropdown
-            ariaLabel="Statut"
-            className="h-8 w-36 px-2 pointer-coarse:h-10"
-            value={value.statut}
-            disabled={readOnly}
-            onValueChange={(v) =>
-              onChange({
-                ...value,
-                statut: v,
-                // « Non applicable » → aucune valeur attendue → on vide le champ.
-                valeur: v === 'non_applicable' ? '' : value.valeur,
-              })
-            }
-            options={statutOptions}
-          />
-        </div>
+            <SelectDropdown
+              ariaLabel="Statut"
+              className="h-8 w-36 px-2 pointer-coarse:h-10"
+              value={value.statut}
+              disabled={readOnly}
+              onValueChange={(v) =>
+                onChange({
+                  ...value,
+                  statut: v,
+                  // « Non applicable » → aucune valeur attendue → on vide le champ.
+                  valeur: v === 'non_applicable' ? '' : value.valeur,
+                })
+              }
+              options={statutOptions}
+            />
+          </div>
+        )}
       </div>
-
-      {estCompteur(operation) && previousValue != null && (
-        <p className="text-muted-foreground text-xs select-none sm:text-right">
-          {`précédent : ${previousValue.toLocaleString('fr-FR')}${unite ? ` ${unite}` : ''}`}
-          {ecart != null &&
-            ` (${ecart > 0 ? '+' : ''}${ecart.toLocaleString('fr-FR')})`}
-        </p>
-      )}
     </div>
   )
 }
