@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { OtDetail } from '@/features/ordres-travail/components/ot-detail'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import * as perm from '@/lib/permissions'
@@ -18,13 +18,6 @@ function OtDetailPage() {
   const { otId } = Route.useParams()
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
-  const navigate = useNavigate()
 
-  return (
-    <OtDetail
-      otId={otId}
-      canManage={canManage}
-      onBack={() => void navigate({ to: '/ordres-travail' })}
-    />
-  )
+  return <OtDetail otId={otId} canManage={canManage} />
 }
