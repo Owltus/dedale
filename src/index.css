@@ -183,3 +183,73 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ─── Calendrier react-day-picker (Calendar shadcn) ───────────────────────────
+   Le style de base de la librairie est recoloré via ses variables `--rdp-*` et
+   quelques surcharges (spécificité de classe > base) → couleurs du thème, jour
+   sélectionné en pastille pleine « primary », survol en « accent ». */
+.dedale-rdp {
+  --rdp-accent-color: var(--primary);
+  --rdp-accent-background-color: var(--accent);
+  --rdp-today-color: var(--primary);
+  --rdp-day-width: 2.25rem;
+  --rdp-day-height: 2.25rem;
+  --rdp-outside-opacity: 0.4;
+  --rdp-disabled-opacity: 0.4;
+  --rdp-weekday-opacity: 1;
+  margin: 0;
+}
+.dedale-rdp .rdp-day_button {
+  border-radius: calc(var(--radius) - 2px);
+}
+.dedale-rdp .rdp-day_button:hover:not(:disabled) {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+.dedale-rdp .rdp-selected .rdp-day_button,
+.dedale-rdp .rdp-selected .rdp-day_button:hover {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  font-weight: 500;
+}
+.dedale-rdp .rdp-today:not(.rdp-outside) {
+  font-weight: 600;
+}
+.dedale-rdp .rdp-weekday {
+  color: var(--muted-foreground);
+  font-weight: 400;
+  font-size: 0.75rem;
+}
+.dedale-rdp .rdp-caption_label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.dedale-rdp .rdp-chevron {
+  fill: var(--muted-foreground);
+}
+
+/* Champ nombre : on masque les flèches d'incrément natives (grises, hors DA). */
+.no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Inputs date : l'icône native du sélecteur suit le thème — atténuée en clair,
+   éclaircie (filter invert) en sombre, pour ne plus être un carré noir. */
+input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+input[type='date']::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.9;
+}
+.dark input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
