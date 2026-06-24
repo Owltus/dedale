@@ -42,6 +42,23 @@ function placeholderRange(op: OperationExecution): string | undefined {
   return undefined
 }
 
+/**
+ * Conformité calculée EN DIRECT (aperçu) depuis la valeur saisie et les seuils :
+ * dans la plage → conforme, hors plage → non conforme, sinon (pas de seuils / pas
+ * de valeur / valeur invalide) → indéterminé. Le backend recalcule `est_conforme`
+ * à l'enregistrement (auto_calcul_conformite) ; ici c'est le retour visuel immédiat.
+ */
+function conformiteLocale(valeur: string, op: OperationExecution): boolean | null {
+  if (op.seuil_minimum === null && op.seuil_maximum === null) return null
+  const s = valeur.trim()
+  if (s === '') return null
+  const v = Number(s)
+  if (Number.isNaN(v)) return null
+  if (op.seuil_minimum !== null && v < op.seuil_minimum) return false
+  if (op.seuil_maximum !== null && v > op.seuil_maximum) return false
+  return true
+}
+
 interface OperationRowProps {
   operation: OperationExecution
   /** Valeurs courantes (contrôlées par le parent, qui porte le bouton d'enregistrement). */
@@ -66,13 +83,19 @@ export function OperationRow({
 }: OperationRowProps) {
   const mesure = estMesureExecution(operation)
   const unite = operation.unite_symbole ?? operation.unite_nom ?? ''
-  // Code couleur de conformité (donnée serveur) appliqué à la police de la valeur.
+  // Couleur de conformité calculée EN DIRECT depuis la valeur saisie → réagit dès
+  // la frappe (avant enregistrement). Appliquée à la police de la valeur + unité.
+  const conforme = conformiteLocale(value.valeur, operation)
   const conformiteClass =
-    operation.est_conforme === true
+    conforme === true
       ? 'text-success'
-      : operation.est_conforme === false
+      : conforme === false
         ? 'text-destructive'
         : ''
+  // Repère de conformité NON visuel (a11y / WCAG 1.4.1 « use of color ») : porté
+  // par l'aria-label + le title, en plus de la couleur — pour lecteurs d'écran.
+  const conformiteLabel =
+    conforme === true ? 'conforme' : conforme === false ? 'hors seuils' : null
 
   // Options du statut : les statuts saisissables + l'éventuel statut « système »
   // courant (ex. « annulee ») pour qu'il reste affiché.
@@ -106,12 +129,11 @@ export function OperationRow({
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {mesure && (
-          // Champ valeur AJUSTÉ AU CONTENU (`field-sizing-content`) : largeur =
-          // celle du nombre, bornée [min,max] → « au plus juste ». Unité en
-          // suffixe dans le même cadre (tokens de `Input`).
+          // Champ valeur (largeur fixe) : nombre aligné à DROITE + unité accolée
+          // en suffixe, dans un seul cadre aux tokens de `Input`.
           <div
             className={cn(
-              'border-input bg-background flex h-8 w-fit items-center gap-1 rounded-md border px-2 shadow-xs transition-[color,box-shadow]',
+              'border-input bg-background flex h-8 w-20 items-center gap-1 rounded-md border px-2 shadow-xs transition-[color,box-shadow]',
               'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
               readOnly && 'pointer-events-none opacity-50',
             )}
@@ -120,13 +142,16 @@ export function OperationRow({
               type="number"
               inputMode="decimal"
               step="any"
+              // Nombre aligné à DROITE → il vient coller l'unité (qui le suit
+              // immédiatement) ; « nombre unité » forment un bloc aligné à droite.
               className={cn(
-                'no-spinner placeholder:text-muted-foreground field-sizing-content min-w-[3.5rem] max-w-[6rem] border-0 bg-transparent p-0 text-sm outline-none',
+                'no-spinner placeholder:text-muted-foreground w-full min-w-0 border-0 bg-transparent p-0 text-right text-sm outline-none',
                 conformiteClass,
                 conformiteClass !== '' && 'font-medium',
               )}
               placeholder={placeholderRange(operation)}
-              aria-label={`Valeur mesurée${unite ? ` (${unite})` : ''}`}
+              aria-label={`Valeur mesurée${unite ? ` (${unite})` : ''}${conformiteLabel ? ` — ${conformiteLabel}` : ''}`}
+              title={conformiteLabel ?? undefined}
               value={value.valeur}
               disabled={readOnly}
               onChange={(e) => onChange({ ...value, valeur: e.target.value })}
@@ -154,7 +179,7 @@ export function OperationRow({
 
         <SelectDropdown
           ariaLabel="Statut"
-          className="h-8 w-32 px-2"
+          className="h-8 w-36 px-2"
           value={value.statut}
           disabled={readOnly}
           onValueChange={(v) => onChange({ ...value, statut: v })}
