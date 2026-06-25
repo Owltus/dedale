@@ -2197,10 +2197,13 @@ export type Database = {
           commentaires: string | null
           created_at: string
           date_execution: string | null
+          date_remplacement: string | null
           description: string | null
           est_conforme: boolean | null
           executed_by: string | null
           id: string
+          index_depose: number | null
+          index_pose: number | null
           nom: string
           ordre: number
           ordre_travail_id: string
@@ -2219,10 +2222,13 @@ export type Database = {
           commentaires?: string | null
           created_at?: string
           date_execution?: string | null
+          date_remplacement?: string | null
           description?: string | null
           est_conforme?: boolean | null
           executed_by?: string | null
           id?: string
+          index_depose?: number | null
+          index_pose?: number | null
           nom: string
           ordre?: number
           ordre_travail_id: string
@@ -2241,10 +2247,13 @@ export type Database = {
           commentaires?: string | null
           created_at?: string
           date_execution?: string | null
+          date_remplacement?: string | null
           description?: string | null
           est_conforme?: boolean | null
           executed_by?: string | null
           id?: string
+          index_depose?: number | null
+          index_pose?: number | null
           nom?: string
           ordre?: number
           ordre_travail_id?: string

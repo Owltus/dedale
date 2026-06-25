@@ -1,6 +1,9 @@
+import { useState, type KeyboardEventHandler } from 'react'
+import { Replace } from 'lucide-react'
 import {
   LIBELLES_STATUT_OP,
   STATUTS_OP_SAISISSABLES,
+  consoOperation,
   statutOperationTone,
 } from '../schemas'
 import { StatusBadge, type StatusTone } from '@/components/common/status-badge'
@@ -22,6 +25,10 @@ export interface OperationEdit {
   statut: string
   valeur: string
   dateExec: string
+  // Remplacement de compteur (manuel) — chaînes vides hors remplacement.
+  indexDepose: string
+  indexPose: string
+  dateRemplacement: string
 }
 
 /**
@@ -94,6 +101,81 @@ const TONE_BORDER: Record<StatusTone, string> = {
   yellow: 'border-l-yellow',
 }
 
+/**
+ * Saisie numérique avec l'unité accolée en suffixe, dans un cadre aux tokens d'`Input`
+ * (nombre aligné à DROITE, l'unité le suit immédiatement). Brique UNIQUE réutilisée
+ * pour la valeur mesurée ET les index de remplacement → unité affichée partout, look
+ * homogène. Le champ valeur passe `dataOpValue`/`onKeyDown` (navigation Tab en série)
+ * et `emphaseClassName` (couleur de conformité) ; les index s'en passent.
+ */
+function ChampNombreUnite({
+  value,
+  onValueChange,
+  ariaLabel,
+  unite,
+  widthClassName = 'w-28',
+  disabled,
+  placeholder,
+  title,
+  emphaseClassName,
+  bold,
+  dataOpValue,
+  onKeyDown,
+}: {
+  value: string
+  onValueChange: (v: string) => void
+  ariaLabel: string
+  unite: string | null
+  widthClassName?: string
+  disabled?: boolean
+  placeholder?: string
+  title?: string
+  emphaseClassName?: string
+  bold?: boolean
+  dataOpValue?: boolean
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement>
+}) {
+  return (
+    <div
+      className={cn(
+        'border-input bg-background flex h-8 items-center gap-1 rounded-md border px-2 shadow-xs transition-[color,box-shadow] pointer-coarse:h-10',
+        'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
+        widthClassName,
+        disabled && 'pointer-events-none opacity-50',
+      )}
+    >
+      <input
+        type="number"
+        inputMode="decimal"
+        step="any"
+        className={cn(
+          'no-spinner placeholder:text-muted-foreground w-full min-w-0 border-0 bg-transparent p-0 text-right text-sm outline-none',
+          emphaseClassName,
+          bold && 'font-medium',
+        )}
+        aria-label={ariaLabel}
+        placeholder={placeholder}
+        title={title}
+        value={value}
+        disabled={disabled}
+        data-op-value={dataOpValue ? '' : undefined}
+        onKeyDown={onKeyDown}
+        onChange={(e) => onValueChange(e.target.value)}
+      />
+      {unite && (
+        <span
+          className={cn(
+            'text-muted-foreground shrink-0 text-xs',
+            emphaseClassName,
+          )}
+        >
+          {unite}
+        </span>
+      )}
+    </div>
+  )
+}
+
 interface OperationRowProps {
   operation: OperationExecution
   /** Valeurs courantes (contrôlées par le parent, qui porte le bouton d'enregistrement). */
@@ -139,15 +221,25 @@ export function OperationRow({
   // par l'aria-label + le title, en plus de la couleur — pour lecteurs d'écran.
   const conformiteLabel =
     conforme === true ? 'conforme' : conforme === false ? 'hors seuils' : null
-  // Écart EN DIRECT (compteurs) : valeur saisie − relevé précédent, affiché dès la
-  // frappe. Null avant saisie ou si la valeur courante n'est pas un nombre.
   const courant = value.valeur.trim() === '' ? null : Number(value.valeur)
-  const ecart =
-    previousValue != null && courant !== null && !Number.isNaN(courant)
-      ? courant - previousValue
-      : null
-  // Affichage LECTURE SEULE (OT clôturé) : valeur enregistrée formatée (« — » si
-  // vide) + libellé du statut (pour le badge).
+  // Remplacement de compteur (manuel) : index dépose/pose saisis (number ou null).
+  const depose =
+    value.indexDepose.trim() === '' ? null : Number(value.indexDepose)
+  const pose = value.indexPose.trim() === '' ? null : Number(value.indexPose)
+  const aRemplacement =
+    depose !== null &&
+    !Number.isNaN(depose) &&
+    pose !== null &&
+    !Number.isNaN(pose)
+  // Consommation (helper UNIQUE, replacement-aware) : (dépose − précédent) +
+  // (courant − pose), ou courant − précédent hors remplacement. Pour les compteurs.
+  const conso = consoOperation({
+    precedent: previousValue ?? null,
+    courant,
+    depose: aRemplacement ? depose : null,
+    pose: aRemplacement ? pose : null,
+  })
+  // Affichage LECTURE SEULE (OT clôturé) : valeur enregistrée formatée (« — » si vide).
   const valeurAffichee =
     courant !== null && !Number.isNaN(courant)
       ? courant.toLocaleString('fr-FR')
@@ -173,13 +265,28 @@ export function OperationRow({
     })),
   ]
 
+  // Mode « changement de compteur » (manuel) : révèle les champs dépose/pose.
+  // Initialisé d'après un remplacement déjà saisi sur l'opération.
+  const [showReplacement, setShowReplacement] = useState(
+    value.indexPose.trim() !== '' || value.indexDepose.trim() !== '',
+  )
+
   // Bascule du statut hors champs — au double-clic (desktop) ou à l'appui long
   // (tactile) : non-mesure → Terminée ↔ En attente ; mesure → réinitialise (on ne
   // peut pas « terminer » une mesure sans valeur).
   function toggleStatut() {
     if (readOnly) return
     if (mesure) {
-      onChange({ ...value, valeur: '', statut: 'en_attente' })
+      // Réinitialise la mesure ET un éventuel remplacement de compteur.
+      onChange({
+        ...value,
+        valeur: '',
+        statut: 'en_attente',
+        indexDepose: '',
+        indexPose: '',
+        dateRemplacement: '',
+      })
+      setShowReplacement(false)
     } else {
       onChange({
         ...value,
@@ -191,6 +298,72 @@ export function OperationRow({
   }
   // Appui long tactile = même bascule (la souris conserve le double-clic).
   const longPress = useLongPress(toggleStatut, !readOnly)
+  // Active/désactive le mode remplacement. À l'extinction, vide les 3 champs.
+  // À l'activation, on NE pré-remplit RIEN : pré-remplir la date rendrait l'op
+  // « modifiée » à tort (blocage de navigation + tentative d'enregistrement d'une
+  // date sans index → violation du CHECK tout-ou-rien). La date est posée à
+  // l'enregistrement, par défaut au jour du relevé, dès que les 2 index sont saisis.
+  function toggleRemplacement() {
+    const next = !showReplacement
+    setShowReplacement(next)
+    if (!next) {
+      onChange({
+        ...value,
+        indexDepose: '',
+        indexPose: '',
+        dateRemplacement: '',
+      })
+    }
+  }
+
+  // Largeur du champ valeur : compacte dans la ligne par défaut, élargie (alignée
+  // sur les index) quand il descend dans le panneau de remplacement. Comme il n'y
+  // est rendu QUE dans l'un des deux contextes, dériver de showReplacement suffit.
+  const valeurWidth = showReplacement ? 'w-32' : 'w-25'
+  // Champ « valeur mesurée » (cadre + unité accolée). Réutilisé tel quel : dans la
+  // ligne par défaut, ou — en mode remplacement — DANS le panneau après les index.
+  const valeurField = mesure && (
+    <ChampNombreUnite
+      value={value.valeur}
+      onValueChange={(valeur) => {
+        // Renseigner une valeur (champ VIDE → rempli) bascule l'opération en
+        // « Terminée ». Uniquement à la 1re saisie → on n'écrase pas un statut
+        // réajusté ensuite à la main, et la frappe ne le force pas.
+        const passeTerminee = value.valeur.trim() === '' && valeur.trim() !== ''
+        onChange({
+          ...value,
+          valeur,
+          statut: passeTerminee ? 'terminee' : value.statut,
+        })
+      }}
+      ariaLabel={`Valeur mesurée${unite ? ` (${unite})` : ''}${conformiteLabel ? ` — ${conformiteLabel}` : ''}`}
+      title={conformiteLabel ?? undefined}
+      placeholder={placeholderRange(operation)}
+      unite={unite}
+      widthClassName={valeurWidth}
+      disabled={valeurDisabled}
+      emphaseClassName={conformiteClass}
+      bold={conformiteClass !== ''}
+      dataOpValue
+      // Tab/Shift+Tab navigue UNIQUEMENT entre les champs valeur (saisie en série),
+      // en bouclant (dernier → premier). Date/statut s'atteignent au clic.
+      onKeyDown={(e) => {
+        if (e.key !== 'Tab') return
+        const inputs = Array.from(
+          document.querySelectorAll<HTMLInputElement>(
+            'input[data-op-value]:not([disabled])',
+          ),
+        )
+        const i = inputs.indexOf(e.currentTarget)
+        if (i === -1 || inputs.length < 2) return
+        e.preventDefault()
+        const dir = e.shiftKey ? -1 : 1
+        const next = inputs[(i + dir + inputs.length) % inputs.length]
+        next?.focus()
+        next?.select()
+      }}
+    />
+  )
 
   return (
     <div
@@ -213,14 +386,7 @@ export function OperationRow({
       onPointerLeave={longPress.onPointerLeave}
       onPointerCancel={longPress.onPointerCancel}
     >
-      <div
-        className={cn(
-          'flex flex-col gap-3 sm:flex-row sm:gap-4',
-          // Clôturé (2 lignes par colonne) → titre aligné EN HAUT sur valeur/date.
-          // Éditable (champs h-8) → titre CENTRÉ verticalement sur les champs.
-          readOnly ? 'sm:items-start' : 'sm:items-center',
-        )}
-      >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <div className="min-w-0 flex-1 select-none">
           <p className="truncate text-sm font-medium">{operation.nom}</p>
           {operation.description?.trim() && (
@@ -235,8 +401,12 @@ export function OperationRow({
           //    [ valeur / consommation ]   [ date / statut ]
           //    Les deux colonnes ont une largeur fixe et sont TOUJOURS présentes (la
           //    1re reste vide pour une non-mesure) → alignement stable d'une ligne à l'autre.
-          <div className="flex w-full items-start justify-end gap-4 sm:w-auto">
-            <div className="flex w-28 flex-col items-center text-center leading-tight">
+          <div className="flex w-full items-center justify-end gap-4 sm:w-auto">
+            {/* Colonne valeur : 1 à 2 lignes (valeur + consommation), centrée H+V.
+                Largeur fixe et TOUJOURS présente (vide pour une non-mesure) → cartes
+                alignées. En cas de remplacement, on n'affiche PAS « remplacé : … » :
+                juste l'index récent + la conso (qui intègre déjà le changement). */}
+            <div className="flex w-28 flex-col items-center justify-center text-center leading-tight">
               {mesure && (
                 <>
                   <span
@@ -248,17 +418,17 @@ export function OperationRow({
                     {valeurAffichee}
                     {valeurAffichee !== '—' && unite ? ` ${unite}` : ''}
                   </span>
-                  {estCompteur(operation) && ecart != null && (
+                  {estCompteur(operation) && conso != null && (
                     <span className="text-muted-foreground text-xs tabular-nums">
-                      {ecart > 0 ? '+' : ''}
-                      {ecart.toLocaleString('fr-FR')}
+                      {conso > 0 ? '+' : ''}
+                      {conso.toLocaleString('fr-FR')}
                       {unite ? ` ${unite}` : ''}
                     </span>
                   )}
                 </>
               )}
             </div>
-            <div className="flex w-28 flex-col items-center gap-1 text-center leading-tight">
+            <div className="flex w-28 flex-col items-center justify-center gap-1 text-center leading-tight">
               <span className="text-muted-foreground text-xs tabular-nums">
                 {formatDate(operation.date_execution)}
               </span>
@@ -268,77 +438,8 @@ export function OperationRow({
         ) : (
           // ── ÉDITABLE (OT en cours) : formulaire inline ─────────────────────
           <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
-            {mesure && (
-              // Champ valeur (largeur fixe) : nombre aligné à DROITE + unité accolée
-              // en suffixe, dans un seul cadre aux tokens de `Input`.
-              <div
-                className={cn(
-                  'border-input bg-background flex h-8 w-25 items-center gap-1 rounded-md border px-2 shadow-xs transition-[color,box-shadow] pointer-coarse:h-10',
-                  'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
-                  valeurDisabled && 'pointer-events-none opacity-50',
-                )}
-              >
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step="any"
-                  // Nombre aligné à DROITE → il vient coller l'unité (qui le suit
-                  // immédiatement) ; « nombre unité » forment un bloc aligné à droite.
-                  className={cn(
-                    'no-spinner placeholder:text-muted-foreground w-full min-w-0 border-0 bg-transparent p-0 text-right text-sm outline-none',
-                    conformiteClass,
-                    conformiteClass !== '' && 'font-medium',
-                  )}
-                  placeholder={placeholderRange(operation)}
-                  aria-label={`Valeur mesurée${unite ? ` (${unite})` : ''}${conformiteLabel ? ` — ${conformiteLabel}` : ''}`}
-                  title={conformiteLabel ?? undefined}
-                  value={value.valeur}
-                  disabled={valeurDisabled}
-                  // Tab/Shift+Tab navigue UNIQUEMENT entre les champs valeur (saisie en
-                  // série), en bouclant (dernier → premier). Date/statut s'atteignent au clic.
-                  data-op-value=""
-                  onKeyDown={(e) => {
-                    if (e.key !== 'Tab') return
-                    const inputs = Array.from(
-                      document.querySelectorAll<HTMLInputElement>(
-                        'input[data-op-value]:not([disabled])',
-                      ),
-                    )
-                    const i = inputs.indexOf(e.currentTarget)
-                    if (i === -1 || inputs.length < 2) return
-                    e.preventDefault()
-                    const dir = e.shiftKey ? -1 : 1
-                    const next =
-                      inputs[(i + dir + inputs.length) % inputs.length]
-                    next?.focus()
-                    next?.select()
-                  }}
-                  onChange={(e) => {
-                    const valeur = e.target.value
-                    // Renseigner une valeur (champ VIDE → rempli) bascule l'opération
-                    // en « Terminée ». Uniquement à la 1re saisie → on n'écrase pas un
-                    // statut réajusté ensuite à la main, et la frappe ne le force pas.
-                    const passeTerminee =
-                      value.valeur.trim() === '' && valeur.trim() !== ''
-                    onChange({
-                      ...value,
-                      valeur,
-                      statut: passeTerminee ? 'terminee' : value.statut,
-                    })
-                  }}
-                />
-                {unite && (
-                  <span
-                    className={cn(
-                      'text-muted-foreground shrink-0 text-xs',
-                      conformiteClass,
-                    )}
-                  >
-                    {unite}
-                  </span>
-                )}
-              </div>
-            )}
+            {/* En mode remplacement, la valeur descend dans le panneau (après les index). */}
+            {!showReplacement && valeurField}
 
             <DateField
               className="h-8 w-[7.25rem] pointer-coarse:h-10"
@@ -363,9 +464,124 @@ export function OperationRow({
               }
               options={statutOptions}
             />
+
+            {estCompteur(operation) && (
+              <button
+                type="button"
+                onClick={toggleRemplacement}
+                title="Changement de compteur"
+                aria-pressed={showReplacement}
+                className={cn(
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors pointer-coarse:h-10 pointer-coarse:w-10',
+                  showReplacement
+                    ? 'border-info bg-info/10 text-info'
+                    : 'border-input text-muted-foreground hover:bg-muted',
+                )}
+              >
+                <Replace className="size-4" />
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {!readOnly && estCompteur(operation) && showReplacement && (
+        // stopPropagation : un double-clic / appui long DANS le panneau (labels,
+        // fond) ne doit PAS déclencher la bascule de statut de la carte
+        // (qui effacerait la saisie de remplacement en cours).
+        <div
+          className="bg-muted/40 flex flex-col gap-2 rounded-md border border-dashed p-2 select-none"
+          onPointerDown={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          {/* Intro = le POURQUOI, en une phrase. Puis un formulaire vertical : à
+              gauche le libellé + une explication simple, à droite la saisie (w-32,
+              bords droits alignés, lignes espacées régulièrement). */}
+          <p className="text-muted-foreground flex items-start gap-1.5 text-xs">
+            <Replace className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              Le compteur a été changé pendant la période ? Recopiez les chiffres
+              ci-dessous : la consommation restera juste malgré le changement.
+            </span>
+          </p>
+          {/* Relevé précédent (lecture seule) : base du calcul, lu automatiquement
+              sur l'OT antérieur de la même gamme. Affiché pour que l'écart soit
+              transparent ; « — » si l'app n'a trouvé aucun relevé antérieur. */}
+          <div className="flex items-center gap-4">
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm">Relevé précédent</span>
+              <span className="text-muted-foreground text-xs">
+                Le dernier index relevé avant le changement (OT précédent). Base du
+                calcul de l'écart.
+              </span>
+            </span>
+            <span className="w-32 pr-2 text-right text-sm font-medium tabular-nums">
+              {previousValue != null
+                ? `${previousValue.toLocaleString('fr-FR')}${unite ? ` ${unite}` : ''}`
+                : '—'}
+            </span>
+          </div>
+          <label className="flex items-center gap-4">
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm">Ancien compteur à la dépose</span>
+              <span className="text-muted-foreground text-xs">
+                Le dernier chiffre affiché par l'ancien compteur, juste avant de le
+                retirer.
+              </span>
+            </span>
+            <ChampNombreUnite
+              ariaLabel="Ancien compteur à la dépose"
+              unite={unite}
+              widthClassName="w-32"
+              value={value.indexDepose}
+              onValueChange={(v) => onChange({ ...value, indexDepose: v })}
+            />
+          </label>
+          <label className="flex items-center gap-4">
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm">Nouveau compteur à l'installation</span>
+              <span className="text-muted-foreground text-xs">
+                Le chiffre affiché par le compteur neuf au moment où on le pose
+                (souvent 0).
+              </span>
+            </span>
+            <ChampNombreUnite
+              ariaLabel="Nouveau compteur à l'installation"
+              unite={unite}
+              widthClassName="w-32"
+              value={value.indexPose}
+              onValueChange={(v) => onChange({ ...value, indexPose: v })}
+            />
+          </label>
+          <label className="flex items-center gap-4">
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm">Nouvel index</span>
+              <span className="text-muted-foreground text-xs">
+                Le relevé d'aujourd'hui, lu sur le nouveau compteur.
+              </span>
+            </span>
+            {valeurField}
+          </label>
+          {conso != null && (
+            // Écart = consommation calculée (consciente du remplacement), séparée des
+            // saisies par un filet ; même colonne (w-32) et même unité que ci-dessus.
+            <div className="flex items-center gap-4 border-t pt-2">
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-sm">Écart</span>
+                <span className="text-muted-foreground text-xs">
+                  La consommation de la période, calculée pour vous malgré le
+                  changement de compteur.
+                </span>
+              </span>
+              <span className="w-32 pr-2 text-right text-sm font-medium tabular-nums">
+                {conso > 0 ? '+' : ''}
+                {conso.toLocaleString('fr-FR')}
+                {unite ? ` ${unite}` : ''}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

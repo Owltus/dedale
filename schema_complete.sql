@@ -4747,6 +4747,15 @@ CREATE TABLE operations_execution (
     executed_by         UUID REFERENCES users(id) ON DELETE SET NULL,
     commentaires        TEXT,
 
+    -- ----------------------------------------------------------------------
+    -- Remplacement de compteur (manuel) — données d'EXÉCUTION (NULL hors
+    -- remplacement). Figées à la clôture par protection_operations_ot_terminaux ;
+    -- PAS dans protect_opex_snapshots. Conso = (dépose − précédent) + (valeur − pose).
+    -- ----------------------------------------------------------------------
+    index_depose        NUMERIC,
+    index_pose          NUMERIC,
+    date_remplacement   DATE,
+
     -- Audit
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -4764,6 +4773,13 @@ CREATE TABLE operations_execution (
         (statut = 'en_attente' AND date_execution IS NULL)
         OR (statut IN ('en_cours', 'terminee') AND date_execution IS NOT NULL)
         OR (statut IN ('annulee', 'non_applicable'))
+    ),
+
+    -- Remplacement de compteur : les deux index vont ensemble ; la date n'a de
+    -- sens qu'avec un remplacement. AUCUNE monotonicité (un neuf peut démarrer bas).
+    CONSTRAINT operations_execution_remplacement_coherent CHECK (
+        (index_depose IS NULL) = (index_pose IS NULL)
+        AND (date_remplacement IS NULL OR index_depose IS NOT NULL)
     )
 );
 
@@ -4775,6 +4791,12 @@ COMMENT ON COLUMN operations_execution.est_conforme IS
     'Calculé automatiquement par trigger auto_calcul_conformite (Agent 5) depuis valeur_mesuree vs seuils. NULL si non évaluable.';
 COMMENT ON COLUMN operations_execution.statut IS
     'annulee : uniquement par cascade système quand l''OT passe en annule.';
+COMMENT ON COLUMN operations_execution.index_depose IS
+    'Remplacement manuel : index final de l''ancien compteur (dépose). NULL hors remplacement.';
+COMMENT ON COLUMN operations_execution.index_pose IS
+    'Remplacement manuel : index initial du nouveau compteur (pose). NULL hors remplacement.';
+COMMENT ON COLUMN operations_execution.date_remplacement IS
+    'Remplacement manuel : date du swap physique du compteur. NULL hors remplacement.';
 
 -- ----------------------------------------------------------------------
 -- Index

@@ -105,6 +105,35 @@ export function statutOperationTone(statut: string): StatusTone {
   }
 }
 
+/**
+ * Consommation d'un relevé de compteur, consciente d'un éventuel remplacement
+ * (helper UNIQUE — à réutiliser partout, ne jamais recopier « courant − précédent »).
+ * - Remplacement (dépose ET pose renseignés) : (dépose − précédent) + (courant − pose) ;
+ *   sans précédent (1er relevé) → (courant − pose) seul (part ancien non calculable).
+ * - Sinon : courant − précédent.
+ * Renvoie null si non calculable (pas de valeur courante, ou pas de base de comparaison).
+ */
+export function consoOperation(p: {
+  precedent: number | null
+  courant: number | null
+  depose: number | null
+  pose: number | null
+}): number | null {
+  const { precedent, courant, depose, pose } = p
+  if (courant === null || Number.isNaN(courant)) return null
+  if (
+    depose !== null &&
+    !Number.isNaN(depose) &&
+    pose !== null &&
+    !Number.isNaN(pose)
+  ) {
+    const partNeuf = courant - pose
+    const partAncien = precedent !== null ? depose - precedent : 0
+    return partAncien + partNeuf
+  }
+  return precedent !== null ? courant - precedent : null
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Filtre par statut de la liste des OT.
 // `matchStatutFilter` / `statutFilterOptions` de `common/list-filter-bar` opèrent

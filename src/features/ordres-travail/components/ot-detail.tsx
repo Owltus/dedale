@@ -90,6 +90,11 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       dateExec: op.date_execution
         ? op.date_execution.slice(0, 10)
         : todayLocal(),
+      indexDepose: op.index_depose !== null ? String(op.index_depose) : '',
+      indexPose: op.index_pose !== null ? String(op.index_pose) : '',
+      dateRemplacement: op.date_remplacement
+        ? op.date_remplacement.slice(0, 10)
+        : '',
     }
   }
   function opEdit(op: (typeof operations)[number]): OperationEdit {
@@ -102,7 +107,10 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     return (
       e.statut !== b.statut ||
       e.valeur !== b.valeur ||
-      e.dateExec !== b.dateExec
+      e.dateExec !== b.dateExec ||
+      e.indexDepose !== b.indexDepose ||
+      e.indexPose !== b.indexPose ||
+      e.dateRemplacement !== b.dateRemplacement
     )
   }
   const dirtyOps = operations.filter(isOpDirty)
@@ -218,15 +226,29 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     // tente AUCUNE écriture, quel que soit le déclencheur (bouton OU Ctrl+S). Défend
     // la fenêtre transitoire : édits résiduels après une annulation d'OT.
     if (opsReadOnly) return
-    // Garde : valeur mesurée non numérique → on bloque avant tout envoi.
+    // Garde : valeur mesurée / index de remplacement non numériques → on bloque
+    // avant tout envoi.
+    const numInvalide = (s: string) =>
+      s.trim() !== '' && Number.isNaN(Number(s))
     for (const op of dirtyOps) {
       const e = edits[op.id]!
-      if (
-        estMesureExecution(op) &&
-        e.valeur.trim() !== '' &&
-        Number.isNaN(Number(e.valeur))
-      ) {
+      if (estMesureExecution(op) && numInvalide(e.valeur)) {
         toast.error(`Valeur mesurée invalide : ${op.nom}`)
+        return
+      }
+      if (numInvalide(e.indexDepose) || numInvalide(e.indexPose)) {
+        toast.error(`Index de remplacement invalide : ${op.nom}`)
+        return
+      }
+      // Remplacement : les deux index vont ensemble (miroir du CHECK
+      // operations_execution_remplacement_coherent). On rejette proprement le
+      // remplissage partiel plutôt que de laisser remonter une erreur DB opaque.
+      const aDepose = e.indexDepose.trim() !== ''
+      const aPose = e.indexPose.trim() !== ''
+      if (aDepose !== aPose) {
+        toast.error(
+          `Remplacement incomplet : renseignez l'ancien ET le nouvel index — ${op.nom}`,
+        )
         return
       }
     }
@@ -243,6 +265,11 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
         estMesureExecution(op) && e.valeur.trim() !== ''
           ? Number(e.valeur)
           : null
+      // Remplacement : tout-ou-rien (miroir du CHECK). Le garde ci-dessus a déjà
+      // rejeté le remplissage partiel ; ici on neutralise une date orpheline (date
+      // sans index) et, si la date n'a pas été saisie, on défausse au jour du relevé.
+      const aRempl =
+        e.indexDepose.trim() !== '' && e.indexPose.trim() !== ''
       try {
         await updateOp.mutateAsync({
           id: op.id,
@@ -257,6 +284,14 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
             : null,
           executedBy: session.user.id,
           commentaires: op.commentaires,
+          // Remplacement de compteur (manuel) — tout-ou-rien, null sinon.
+          indexDepose: aRempl ? Number(e.indexDepose) : null,
+          indexPose: aRempl ? Number(e.indexPose) : null,
+          dateRemplacement: aRempl
+            ? e.dateRemplacement.trim() !== ''
+              ? e.dateRemplacement
+              : e.dateExec
+            : null,
         })
       } catch (err) {
         errors.push(err)

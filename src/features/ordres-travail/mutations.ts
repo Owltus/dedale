@@ -168,6 +168,10 @@ export function useUpdateOperationExecution() {
       dateExecution: string | null
       executedBy: string
       commentaires: string | null
+      // Remplacement de compteur (manuel) — null hors remplacement.
+      indexDepose: number | null
+      indexPose: number | null
+      dateRemplacement: string | null
     }) => {
       let dateExecution = p.dateExecution
       if (p.statut === 'en_attente') {
@@ -187,6 +191,9 @@ export function useUpdateOperationExecution() {
           date_execution: dateExecution,
           executed_by: p.executedBy,
           commentaires: p.commentaires,
+          index_depose: p.indexDepose,
+          index_pose: p.indexPose,
+          date_remplacement: p.dateRemplacement,
         })
         .eq('id', p.id)
         .select('id')
