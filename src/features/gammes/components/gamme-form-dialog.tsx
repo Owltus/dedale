@@ -11,9 +11,8 @@ import { categoriesQueries } from '@/features/categories/queries'
 import { useAuth } from '@/auth'
 import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
+import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
-import { DescriptionField } from '@/components/common/description-field'
 import type { Database } from '@/lib/database.types'
 
 type Gamme = Database['public']['Tables']['gammes']['Row']
@@ -53,6 +52,7 @@ function initialValues(
     prestataire_id: gamme.prestataire_id ?? '',
     categorie_id: gamme.categorie_id,
     description: gamme.description ?? '',
+    miniature_id: gamme.miniature_id,
   }
 }
 
@@ -178,12 +178,25 @@ export function GammeFormDialog({
       pending={pending}
       submitDisabled={aucuneOption}
     >
-      <TextField
-        label="Nom"
-        value={values.nom}
-        onChange={(v) => set('nom', v)}
-        error={errors.nom}
-        required
+      <IdentiteFields
+        nom={{
+          value: values.nom,
+          onChange: (v) => set('nom', v),
+          error: errors.nom,
+        }}
+        description={{
+          value: values.description,
+          onChange: (v) => set('description', v),
+          error: errors.description,
+        }}
+        image={{
+          value: values.miniature_id,
+          onChange: (id) => set('miniature_id', id),
+          // Périmètre = le site de la gamme : le pool propose les vignettes
+          // communes + celles de ce site (le trigger backend le garantit).
+          targetSiteId: siteId,
+          canUpload: true,
+        }}
       />
 
       <SelectField
@@ -266,13 +279,6 @@ export function GammeFormDialog({
           </p>
         )}
       </div>
-
-      <DescriptionField
-        id="gamme_description"
-        value={values.description}
-        onChange={(v) => set('description', v)}
-        error={errors.description}
-      />
     </FormDialog>
   )
 }

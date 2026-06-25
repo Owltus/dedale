@@ -21,6 +21,8 @@ function gammePayload(values: GammeFormValues) {
     // Sous-catégorie obligatoire (garantie non vide par le schéma).
     categorie_id: v.categorie_id,
     description: v.description || null,
+    // Vignette du pool (ou NULL) ; le trigger backend valide le périmètre.
+    miniature_id: v.miniature_id,
   }
 }
 

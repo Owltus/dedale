@@ -14,6 +14,10 @@ export const gammeSchema = z.object({
   // toute gamme — réelle de site comprise — pointe une sous-catégorie (niveau 2).
   categorie_id: z.string().min(1, 'La sous-catégorie est obligatoire'),
   description: z.string().trim().max(2000),
+  // Vignette du pool (`gammes.miniature_id`) ou `null` — gamme réelle de site ET
+  // template commun ; le trigger backend valide qu'elle est du pool commun ou du
+  // site de la gamme.
+  miniature_id: z.string().nullable(),
 })
 
 export type GammeFormValues = z.input<typeof gammeSchema>
@@ -25,6 +29,7 @@ export const emptyGamme: GammeFormValues = {
   prestataire_id: '',
   categorie_id: '',
   description: '',
+  miniature_id: null,
 }
 
 /**
@@ -40,8 +45,7 @@ export const gammeBiblioSchema = gammeSchema.extend({
   // après copie) : le champ est facultatif ici (autorise '' → NULL en base),
   // contrairement à la gamme réelle (`gammeSchema`) qui l'exige.
   prestataire_id: z.string(),
-  /** Vignette du pool (`miniature_id`) ou `null`. */
-  miniature_id: z.string().nullable(),
+  // `miniature_id` est hérité de `gammeSchema` (vignette du pool, nullable).
 })
 
 export type GammeBiblioFormValues = z.input<typeof gammeBiblioSchema>
