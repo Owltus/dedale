@@ -85,13 +85,16 @@ export function useDeleteOt() {
 }
 
 /**
- * Transitions MANUELLES d'un OT : annulation et réactivation (résurrection). La
- * CLÔTURE n'est PAS manuelle — elle est automatique côté backend (trigger
- * gestion_statut_ot, dès que toutes les opérations sont terminales). Le trigger
- * validation_transitions_ot refuse les transitions interdites et exige les
- * motifs → on laisse l'erreur remonter.
+ * Transitions MANUELLES d'un OT : annulation, réactivation (résurrection) et
+ * RE-clôture d'un OT rouvert. La clôture INITIALE reste automatique (trigger
+ * gestion_statut_ot dès que toutes les opérations sont terminales) ; mais un OT
+ * rouvert dont les ops sont déjà toutes terminales n'a aucun déclencheur auto (le
+ * trigger ne part que sur un changement de STATUT d'opération) → on le re-clôture
+ * à la main. validation_transitions_ot valide la transition (et bloque si des ops
+ * ne sont pas terminées), set_ot_closed_by peuple closed_by.
  *
  * - annule  : nécessite motif_annulation + date_cloture.
+ * - cloture : date_cloture (re-clôture manuelle d'un OT rouvert).
  * - planifie (résurrection depuis annule) : pas de champ supplémentaire.
  */
 export function useChangerStatutOt() {
@@ -99,7 +102,7 @@ export function useChangerStatutOt() {
   return useMutation({
     mutationFn: async (p: {
       id: string
-      statut: 'annule' | 'planifie'
+      statut: 'annule' | 'planifie' | 'cloture'
       motifAnnulation?: string
     }) => {
       const patch: {
@@ -108,11 +111,12 @@ export function useChangerStatutOt() {
         motif_annulation?: string
       } = { statut: p.statut }
 
-      if (p.statut === 'annule') {
+      // Statut terminal → date_cloture obligatoire (CHECK statut_terminal_a_date_cloture).
+      if (p.statut === 'annule' || p.statut === 'cloture') {
         patch.date_cloture = new Date().toISOString()
-        if (p.motifAnnulation !== undefined) {
-          patch.motif_annulation = p.motifAnnulation.trim()
-        }
+      }
+      if (p.statut === 'annule' && p.motifAnnulation !== undefined) {
+        patch.motif_annulation = p.motifAnnulation.trim()
       }
 
       const { data } = await supabase

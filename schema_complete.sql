@@ -7265,19 +7265,15 @@ BEGIN
             v_ot.statut;
     END IF;
 
-    -- v0.25 : anti-doublon (même règle qu'à la création). Refuser la réouverture
-    -- si un autre OT actif existe déjà sur la gamme — typiquement le successeur
-    -- préventif généré à la clôture. Sinon on se retrouverait avec 2 OT actifs
-    -- sur la même gamme, ce que la création interdit pourtant strictement.
-    IF v_ot.gamme_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM public.ordres_travail
-        WHERE gamme_id = v_ot.gamme_id
-          AND id <> v_ot.id
-          AND statut NOT IN ('cloture', 'annule')
-    ) THEN
-        RAISE EXCEPTION 'Réouverture impossible : un OT actif existe déjà pour cette gamme. Traitez-le (ou supprimez-le) avant de rouvrir cet OT.'
-            USING ERRCODE = 'restrict_violation';
-    END IF;
+    -- v0.32 (migration 066) : anti-doublon RETIRÉ ici. La réouverture est un
+    -- changement de statut (cloture → reouvert), pas une création : on ne réplique
+    -- plus la règle « un seul OT actif par gamme », qui bloquait la réouverture dès
+    -- qu'un successeur préventif existait. Garde-fous conservés :
+    --   - uq_ot_gamme_date_actifs interdit toujours 2 OT actifs de MÊME
+    --     (gamme, date_prevue) ; le successeur ayant une date postérieure, la
+    --     réouverture passe (collision de date pathologique → bloquée par l'index).
+    --   - generate_next_ot_for_gamme sort en silence si un OT actif existe déjà →
+    --     re-clôturer l'OT rouvert ne crée pas de doublon de successeur.
 
     -- UPDATE : la RLS valide l'autorisation (USING + WITH CHECK),
     -- protection_ot_terminaux autorise la transition cloture → reouvert,

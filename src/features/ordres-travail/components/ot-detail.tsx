@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useBlocker } from '@tanstack/react-router'
 import {
   Ban,
+  CheckCircle2,
   ClipboardList,
   FileText,
   ListChecks,
@@ -69,12 +70,14 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
 
   const [onglet, setOnglet] = useState<Onglet>('operations')
   const [annulerOpen, setAnnulerOpen] = useState(false)
-  const [reouvrirOpen, setReouvrirOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
-  // Édition des opérations (clé = id) remontée ICI : un SEUL bouton « Enregistrer »
-  // (top bar) sauvegarde toutes les opérations modifiées. La clôture de l'OT est
-  // AUTOMATIQUE côté backend (trigger gestion_statut_ot) quand toutes les
-  // opérations passent à un état terminal → pas de bouton « Clôturer » manuel.
+  // Édition des opérations (clé = id) remontée ICI : un SEUL bouton adaptatif (top
+  // bar, onglet Opérations) sauvegarde les opérations modifiées. La clôture d'un OT
+  // normal est AUTOMATIQUE côté backend (trigger gestion_statut_ot) quand toutes les
+  // opérations passent à un état terminal. Exception : un OT ROUVERT dont les ops sont
+  // déjà terminales ne se re-clôt pas seul (le trigger ne part que sur un changement
+  // de statut d'op) → le même bouton devient « Enregistrer et clôturer » (s'il reste
+  // des saisies) ou « Clôturer » (sinon). Jamais deux boutons concurrents.
   const [edits, setEdits] = useState<Record<string, OperationEdit>>({})
   const [savingOps, setSavingOps] = useState(false)
 
@@ -299,12 +302,33 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     }
     setSavingOps(false)
     if (errors.length === 0) {
+      // Calculé AVANT de vider edits. Re-clôture auto d'un OT rouvert : si
+      // l'enregistrement n'a changé AUCUN statut d'opération, le trigger de clôture
+      // auto (gestion_statut_ot, qui ne réagit qu'à un changement de statut) ne s'est
+      // pas déclenché → un OT rouvert dont toutes les ops sont terminales resterait
+      // bloqué « rouvert ». On le clôture pour matcher « j'enregistre → c'est clôturé ».
+      const aucunStatutChange = dirtyOps.every(
+        (op) => edits[op.id]?.statut === op.statut,
+      )
+      const toutesTerminales = operations.every((op) => {
+        const s = edits[op.id]?.statut ?? op.statut
+        return s !== 'en_attente' && s !== 'en_cours'
+      })
       toast.success(
         dirtyOps.length > 1
           ? `${String(dirtyOps.length)} opérations enregistrées`
           : 'Opération enregistrée',
       )
       setEdits({})
+      if (ot?.statut === 'reouvert' && aucunStatutChange && toutesTerminales) {
+        changerStatut.mutate(
+          { id: otId, statut: 'cloture' },
+          {
+            onSuccess: () => toast.success('OT clôturé'),
+            onError: (e) => toast.error(writeErrorMessage(e)),
+          },
+        )
+      }
     } else {
       toast.error(writeErrorMessage(errors[0]))
     }
@@ -337,34 +361,78 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     )
   }
 
-  function handleReouvrir(motif: string) {
-    reouvrir.mutate(
-      { id: otId, motif },
+  function recloturer() {
+    // Re-clôture manuelle d'un OT rouvert : ses opérations étant déjà toutes
+    // terminales, aucun déclencheur de clôture auto ne part (le trigger ne réagit
+    // qu'à un changement de STATUT d'opération). La base valide la transition
+    // reouvert → cloture et refuse si une opération n'est pas terminée.
+    changerStatut.mutate(
+      { id: otId, statut: 'cloture' },
       {
-        onSuccess: () => {
-          toast.success('OT rouvert')
-          setReouvrirOpen(false)
-        },
+        onSuccess: () => toast.success('OT clôturé'),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
   }
 
+  function handleReouvrir() {
+    // Réouverture en UN clic (pas de modal). Le motif est imposé par la base
+    // (CHECK motif_reouverture_oblig_si_reouvert + RPC, valeur juridique NF EN
+    // 13306) → on fournit une note générique automatique plutôt que de demander
+    // une saisie. Le changement de statut reste tracé dans audit_log.
+    reouvrir.mutate(
+      { id: otId, motif: 'Réouverture' },
+      {
+        onSuccess: () => toast.success('OT rouvert'),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
+  // OT rouvert : finition via UN SEUL bouton adaptatif (jamais « Enregistrer » +
+  // « Clôturer » en même temps). `toutesTerminalesApres` = une fois les saisies
+  // enregistrées, toutes les opérations seraient-elles terminales → l'enregistrement
+  // clôturera l'OT.
+  const estReouvert = ot.statut === 'reouvert'
+  const toutesTerminalesApres = operations.every((op) => {
+    const s = edits[op.id]?.statut ?? op.statut
+    return s !== 'en_attente' && s !== 'en_cours'
+  })
+
   // Top bar : actions en boutons ICÔNE + tooltip (TooltipIconButton, outline).
-  // Onglet Opérations → un SEUL bouton « Enregistrer » (disquette) pour toutes les
-  // opérations. Annuler / Réouvrir / Réactiver = transitions manuelles restantes
-  // (la clôture, elle, est automatique côté backend).
+  // Onglet Opérations → un bouton de finition adaptatif. Annuler / Réouvrir /
+  // Réactiver = transitions manuelles restantes (la clôture initiale est auto).
   const headerActions = canManage ? (
     <>
-      {onglet === 'operations' && canEditOps && (
-        <TooltipIconButton
-          icon={<Save />}
-          label="Enregistrer les opérations"
-          variant="outline"
-          disabled={dirtyOps.length === 0 || savingOps}
-          onClick={() => void saveAllOps()}
-        />
-      )}
+      {onglet === 'operations' &&
+        canEditOps &&
+        (estReouvert && dirtyOps.length === 0 ? (
+          // Rouvert, rien à enregistrer → simple « Clôturer » (uniquement si tout est
+          // terminal : on ne clôt pas un OT incomplet, sinon aucun bouton ici).
+          toutesTerminalesApres && (
+            <TooltipIconButton
+              icon={<CheckCircle2 />}
+              label="Clôturer l'OT"
+              variant="outline"
+              disabled={changerStatut.isPending}
+              onClick={recloturer}
+            />
+          )
+        ) : (
+          // Des saisies à enregistrer → « Enregistrer », qui devient « Enregistrer et
+          // clôturer » sur un OT rouvert dont l'enregistrement va tout terminer.
+          <TooltipIconButton
+            icon={<Save />}
+            label={
+              estReouvert && toutesTerminalesApres
+                ? 'Enregistrer et clôturer'
+                : 'Enregistrer les opérations'
+            }
+            variant="outline"
+            disabled={dirtyOps.length === 0 || savingOps}
+            onClick={() => void saveAllOps()}
+          />
+        ))}
       {onglet === 'documents' && (
         <TooltipIconButton
           icon={<Paperclip />}
@@ -388,7 +456,7 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
           label="Réouvrir l'OT"
           variant="outline"
           disabled={reouvrir.isPending}
-          onClick={() => setReouvrirOpen(true)}
+          onClick={handleReouvrir}
         />
       )}
       {ot.statut === 'annule' && (
@@ -492,17 +560,6 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
         destructive
         pending={changerStatut.isPending}
         onConfirm={annuler}
-      />
-
-      <MotifDialog
-        key={reouvrirOpen ? 'reouvrir-open' : 'reouvrir-closed'}
-        open={reouvrirOpen}
-        onOpenChange={setReouvrirOpen}
-        title="Réouvrir l'ordre de travail"
-        description="Indiquez le motif de réouverture (un OT clôturé est une preuve légale)."
-        confirmLabel="Réouvrir"
-        pending={reouvrir.isPending}
-        onConfirm={handleReouvrir}
       />
 
       {/* Garde-fou navigation : saisies d'opérations non enregistrées. */}
