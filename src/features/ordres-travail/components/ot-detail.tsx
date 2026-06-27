@@ -26,7 +26,6 @@ import {
   estMesureExecution,
   type OperationEdit,
 } from './operation-row'
-import { lieuCommun } from '../localisation'
 import { MotifDialog } from './motif-dialog'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
@@ -53,7 +52,7 @@ interface OtDetailProps {
 
 type Onglet = 'operations' | 'documents'
 
-/** Cellule de la carte d'en-tête : intitulé EN HAUT, valeur EN BAS (« — » si vide). */
+/** Cellule de la carte d'en-tête : intitulé EN HAUT, valeur EN BAS, compact (« — » si vide). */
 function Champ({
   label,
   value,
@@ -64,8 +63,8 @@ function Champ({
   className?: string
 }) {
   return (
-    <div className={cn('flex min-w-0 flex-col gap-0.5', className)}>
-      <span className="text-muted-foreground text-xs">{label}</span>
+    <div className={cn('flex min-w-0 flex-col leading-tight', className)}>
+      <span className="text-muted-foreground text-[10px]">{label}</span>
       <span className="truncate text-sm font-medium">{value ?? '—'}</span>
     </div>
   )
@@ -80,13 +79,6 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     refetch,
   } = useQuery(ordresTravailQueries.detail(otId))
   const operationsQuery = useQuery(ordresTravailQueries.operations(otId))
-  // Localisation intelligente : équipements liés à la gamme + nombre de bâtiments
-  // du périmètre (pour masquer le bâtiment quand il est unique). Hooks appelés
-  // AVANT les retours anticipés (règle des hooks) ; désactivés tant que gamme NULL.
-  const equipementsLieuxQuery = useQuery(
-    ordresTravailQueries.gammeEquipementsLieux(ot?.gamme_id ?? null),
-  )
-  const nbBatimentsQuery = useQuery(ordresTravailQueries.nbBatiments())
   // Focus auto réservé aux pointeurs fins (desktop) : sur tactile, un focus
   // programmatique ouvrirait le clavier virtuel sans valeur ajoutée (pas de Tab).
   const isFinePointer = useMediaQuery('(hover: hover) and (pointer: fine)')
@@ -501,12 +493,6 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     </>
   ) : undefined
 
-  // Localisation affichée : plus grand lieu commun (live) ; repli sur le snapshot
-  // `nom_localisation` (mono-équipement ou gamme purgée).
-  const localisation =
-    lieuCommun(equipementsLieuxQuery.data ?? [], nbBatimentsQuery.data ?? 1) ??
-    ot.nom_localisation
-
   // Sommes de consommation par unité CUMULATIVE (kVA exclu via estCompteurCumulatif).
   // Réutilise les relevés précédents déjà chargés ; total partiel accepté.
   const toNombre = (s: string) =>
@@ -543,23 +529,24 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       <div>
         <PageHeader title={ot.nom_gamme} action={headerActions} />
 
-        {/* Carte de l'ordre — vignette + infos en 3 colonnes : ligne 1 prestataire /
-            périodicité / relevé, ligne 2 dates, ligne 3 localisation. */}
-        <div className="bg-card mb-4 flex items-stretch overflow-hidden rounded-lg border">
-          <div className="w-20 shrink-0 sm:w-24">
+        {/* Carte de l'ordre — hauteur de base (h-20) : vignette carrée + infos en
+            3 colonnes × 2 lignes (l1 prestataire/périodicité/relevé, l2 dates),
+            intitulé au-dessus de la valeur. */}
+        <div className="bg-card mb-4 flex h-20 items-stretch overflow-hidden rounded-lg border">
+          <div className="aspect-square h-full shrink-0">
             <MiniatureThumb
               url={urlOf(otMiniatureId)}
               fallback={<ClipboardList className="size-10" />}
               alt=""
               onError={refreshMiniatures}
-              className="size-full rounded-none object-cover"
+              className="size-full rounded-none"
             />
           </div>
-          <div className="grid min-w-0 flex-1 grid-cols-3 gap-x-4 gap-y-2 px-4 py-3">
+          <div className="grid min-w-0 flex-1 grid-cols-3 content-center gap-x-4 gap-y-1 px-4">
             <Champ label="Prestataire" value={ot.nom_prestataire} />
             <Champ label="Périodicité" value={ot.libelle_periodicite} />
             <Champ label="Relevé" value={releve} />
-            <Champ label="Date prévue" value={formatDate(ot.date_prevue)} />
+            <Champ label="Prévue" value={formatDate(ot.date_prevue)} />
             <Champ
               label="Début"
               value={ot.date_debut ? formatDate(ot.date_debut) : null}
@@ -567,11 +554,6 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
             <Champ
               label="Clôture"
               value={ot.date_cloture ? formatDate(ot.date_cloture) : null}
-            />
-            <Champ
-              label="Localisation"
-              value={localisation}
-              className="col-span-3"
             />
           </div>
         </div>
