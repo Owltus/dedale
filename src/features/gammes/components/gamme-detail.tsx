@@ -22,6 +22,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { equipementsQueries } from '@/features/equipements/queries'
 import { useAuth } from '@/auth'
+import { useFileDrop } from '@/hooks/use-file-drop'
 import { deleteErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import { cn } from '@/lib/utils'
@@ -29,6 +30,7 @@ import { SubTabs } from '@/components/common/sub-tabs'
 import { SectionHeader } from '@/components/common/section'
 import { SplitPane, SplitPanes } from '@/components/common/split-panes'
 import { DocumentsTab } from '@/components/common/documents-tab'
+import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { useTabAddAction } from '@/components/common/tab-actions'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
@@ -86,6 +88,24 @@ export function GammeDetail({
   const [createOtOpen, setCreateOtOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
+  // Fichiers issus d'un glisser-déposer pleine page → pré-remplissent l'upload.
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
+
+  // Glisser-déposer sur TOUTE la page (réservé aux éditeurs) : un dépôt bascule
+  // sur l'onglet Documents et ouvre l'upload pré-rempli des fichiers.
+  const { dragging } = useFileDrop({
+    enabled: canEdit,
+    onFiles: (files) => {
+      setDroppedFiles(files)
+      setTab('documents')
+      setUploadOpen(true)
+    },
+  })
+  // Fermeture de l'upload : on oublie les fichiers déposés pour repartir propre.
+  const handleUploadOpenChange = (open: boolean) => {
+    setUploadOpen(open)
+    if (!open) setDroppedFiles([])
+  }
 
   // Bouton « ajouter » de la top bar, DYNAMIQUE selon l'onglet actif (Opérations
   // exclu : il garde son propre bouton interne). Enregistré via le contexte
@@ -97,7 +117,11 @@ export function GammeDetail({
     if (tab === 'ordres')
       return gamme.est_active ? () => setCreateOtOpen(true) : null
     if (tab === 'equipements') return () => setLinkOpen(true)
-    if (tab === 'documents') return () => setUploadOpen(true)
+    if (tab === 'documents')
+      return () => {
+        setDroppedFiles([])
+        setUploadOpen(true)
+      }
     return null
   }, [tab, canEdit, gamme.est_active])
   const addLabel =
@@ -169,7 +193,7 @@ export function GammeDetail({
           défilant normal. */}
       <div
         className={cn(
-          'no-scrollbar min-h-0 flex-1 overflow-y-auto',
+          'no-scrollbar relative min-h-0 flex-1 overflow-y-auto',
           tab === 'operations' && 'flex flex-col lg:overflow-hidden',
         )}
       >
@@ -198,9 +222,12 @@ export function GammeDetail({
             parentColumn="gamme_id"
             parentId={gamme.id}
             uploadOpen={uploadOpen}
-            onUploadOpenChange={setUploadOpen}
+            onUploadOpenChange={handleUploadOpenChange}
+            uploadInitialFiles={droppedFiles}
           />
         )}
+        {/* Surcouche de glisser-déposer pleine page (réservée aux éditeurs). */}
+        {canEdit && <FileDropOverlay show={dragging} />}
       </div>
 
       {session && (
