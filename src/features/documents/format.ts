@@ -19,6 +19,7 @@ export function formatTaille(octets: number): string {
 /** Libellé court du format à partir du type MIME. */
 export function formatMime(mime: string): string {
   if (mime === 'application/pdf') return 'PDF'
+  if (mime === 'image/*') return 'image'
   if (mime === 'image/webp') return 'WebP'
   if (mime.startsWith('image/')) return 'Image'
   return mime

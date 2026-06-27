@@ -29,7 +29,8 @@ interface UploadDocumentDialogProps {
   }) => Promise<unknown>
   pending: boolean
   /**
-   * Formats MIME acceptés (défaut : `MIME_AUTORISES` = PDF + WebP). Restreindre
+   * Formats MIME acceptés (défaut : `MIME_AUTORISES` = PDF + toute image, les
+   * images étant converties en WebP compressé à l'upload). Restreindre
    * pour une fiche « plus pro » — ex. `MIME_PDF` (PDF uniquement) côté
    * investissements. Pilote l'attribut `accept` du picker ET la validation.
    */
@@ -64,7 +65,7 @@ export function UploadDocumentDialog({
   open,
   onOpenChange,
   title = 'Ajouter des documents',
-  description = 'PDF ou WebP, 20 Mo maximum par fichier.',
+  description = 'PDF ou image, 20 Mo maximum par fichier.',
   onUpload,
   pending,
   acceptedMimes = MIME_AUTORISES,
