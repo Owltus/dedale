@@ -215,7 +215,9 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
   // Lecture seule des opérations dès que l'OT est terminal (cloture/annule)
   // ou sans session valide (executed_by requis à la saisie).
   const opsReadOnly = !canManage || verrouille || !session
-  const gammeMiniatureId = ot.gammes?.miniature_id ?? null
+  // Image ESTHÉTIQUE PROPRE de l'OT (snapshot souple hérité de la gamme — 067) :
+  // un OT terminal garde la sienne même si la gamme change d'image ensuite.
+  const otMiniatureId = ot.miniature_id ?? null
   const statutActif =
     ot.statut === 'planifie' ||
     ot.statut === 'en_cours' ||
@@ -478,11 +480,12 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       <div>
         <PageHeader title={ot.nom_gamme} action={headerActions} />
 
-        {/* Carte de l'ordre — vignette de la gamme liée (autres infos plus tard). */}
+        {/* Carte de l'ordre — vignette esthétique de l'OT (héritée de la gamme,
+            figée pour un OT terminal ; migration 067). */}
         <div className="bg-card mb-4 flex h-20 items-stretch overflow-hidden rounded-lg border">
           <div className="aspect-square h-full shrink-0">
             <MiniatureThumb
-              url={urlOf(gammeMiniatureId)}
+              url={urlOf(otMiniatureId)}
               fallback={<ClipboardList className="size-10" />}
               alt=""
               onError={refreshMiniatures}

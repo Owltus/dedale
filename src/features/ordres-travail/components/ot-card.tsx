@@ -7,7 +7,8 @@ import {
 } from '@/features/ordres-travail/schemas'
 import { formatDate } from '@/lib/date'
 import { ListRow } from '@/components/common/list-row'
-import { RowMediaIcon } from '@/components/common/row-media-icon'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { Badge } from '@/components/ui/badge'
 
 /**
@@ -21,6 +22,8 @@ export interface OtCardData {
   nom_equipement: string | null
   nom_prestataire: string | null
   date_prevue: string | null
+  /** Vignette esthétique de l'OT (héritée de la gamme — migration 067). */
+  miniature_id: string | null
 }
 
 /**
@@ -38,9 +41,18 @@ export function OtCard({
   menuActions?: RowAction[]
 }) {
   const navigate = useNavigate()
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   return (
     <ListRow
-      media={<RowMediaIcon icon={ClipboardList} />}
+      media={
+        <MiniatureThumb
+          url={urlOf(ot.miniature_id)}
+          fallback={<ClipboardList className="size-10" />}
+          alt=""
+          onError={refreshMiniatures}
+          className="size-full rounded-none"
+        />
+      }
       title={ot.nom_gamme}
       subtitle={ot.nom_equipement ?? ot.nom_prestataire ?? undefined}
       badges={

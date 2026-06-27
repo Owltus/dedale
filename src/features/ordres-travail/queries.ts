@@ -13,7 +13,7 @@ export const ordresTravailQueries = {
         const { data } = await supabase
           .from('ordres_travail')
           .select(
-            'id, statut, nom_gamme, nom_prestataire, nom_equipement, nature_gamme, date_prevue, date_cloture, libelle_periodicite',
+            'id, statut, nom_gamme, nom_prestataire, nom_equipement, nature_gamme, date_prevue, date_cloture, libelle_periodicite, miniature_id',
           )
           .eq('site_id', siteId!)
           .order('date_prevue', { ascending: true })
@@ -45,7 +45,7 @@ export const ordresTravailQueries = {
         const { data } = await supabase
           .from('ordres_travail')
           .select(
-            'id, statut, nom_gamme, nom_prestataire, nom_equipement, date_prevue, gamme_id',
+            'id, statut, nom_gamme, nom_prestataire, nom_equipement, date_prevue, gamme_id, miniature_id',
           )
           .eq('site_id', siteId!)
           .in('gamme_id', gammeIds)
@@ -64,9 +64,10 @@ export const ordresTravailQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('ordres_travail')
-          // Jointure de la vignette de la gamme liée (l'OT en est issu) pour la
-          // carte de rappel ; `gamme_id` NULL (gamme supprimée) → `gammes` null.
-          .select('*, gammes(miniature_id)')
+          // `*` inclut miniature_id : l'image ESTHÉTIQUE PROPRE de l'OT (snapshot
+          // souple hérité de la gamme à la création — migration 067). On ne joint
+          // plus l'image VIVANTE de la gamme : un OT terminal garde la sienne.
+          .select('*')
           .eq('id', id)
           .abortSignal(signal)
           .maybeSingle()

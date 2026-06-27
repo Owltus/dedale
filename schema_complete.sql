@@ -5327,6 +5327,9 @@ ALTER TABLE locaux       ADD COLUMN miniature_id UUID REFERENCES miniatures(id) 
 ALTER TABLE modeles_equipements ADD COLUMN miniature_id UUID REFERENCES miniatures(id) ON DELETE SET NULL;
 -- Équipements-instances (migration 013) : site dérivé via local → niveau → batiment.
 ALTER TABLE equipements ADD COLUMN miniature_id UUID REFERENCES miniatures(id) ON DELETE SET NULL;
+-- Ordres de travail (067) : image ESTHÉTIQUE héritée de la gamme (PAS un snapshot
+-- légal figé). ON DELETE SET NULL : supprimer la vignette du pool délie l'OT.
+ALTER TABLE ordres_travail ADD COLUMN miniature_id UUID REFERENCES miniatures(id) ON DELETE SET NULL;
 CREATE INDEX idx_categories_miniature   ON categories(miniature_id)   WHERE miniature_id IS NOT NULL;
 CREATE INDEX idx_gammes_miniature       ON gammes(miniature_id)       WHERE miniature_id IS NOT NULL;
 CREATE INDEX idx_prestataires_miniature ON prestataires(miniature_id) WHERE miniature_id IS NOT NULL;
@@ -5335,6 +5338,7 @@ CREATE INDEX idx_niveaux_miniature      ON niveaux(miniature_id)      WHERE mini
 CREATE INDEX idx_locaux_miniature       ON locaux(miniature_id)       WHERE miniature_id IS NOT NULL;
 CREATE INDEX idx_modeles_equipements_miniature ON modeles_equipements(miniature_id) WHERE miniature_id IS NOT NULL;
 CREATE INDEX idx_equipements_miniature ON equipements(miniature_id) WHERE miniature_id IS NOT NULL;
+CREATE INDEX idx_ordres_travail_miniature ON ordres_travail(miniature_id) WHERE miniature_id IS NOT NULL;
 
 -- 5. Comptage de références : suppression sûre du fichier Storage (refcount = 0).
 CREATE OR REPLACE FUNCTION public.count_miniature_refs(p_miniature_id UUID)
@@ -5360,7 +5364,8 @@ BEGIN
          + (SELECT count(*) FROM public.modeles_equipements WHERE miniature_id = p_miniature_id)
          + (SELECT count(*) FROM public.equipements         WHERE miniature_id = p_miniature_id)
          + (SELECT count(*) FROM public.modeles_di          WHERE miniature_id = p_miniature_id)
-         + (SELECT count(*) FROM public.modeles_operations  WHERE miniature_id = p_miniature_id);
+         + (SELECT count(*) FROM public.modeles_operations  WHERE miniature_id = p_miniature_id)
+         + (SELECT count(*) FROM public.ordres_travail      WHERE miniature_id = p_miniature_id);
 END;
 $$;
 COMMENT ON FUNCTION public.count_miniature_refs(UUID) IS 'v0.14b — nb d''entités référençant une miniature. Suppression sûre : ne retirer le fichier Storage que si le compte = 0.';
@@ -5427,6 +5432,10 @@ CREATE TRIGGER trg_check_miniature_site_categories
     FOR EACH ROW EXECUTE FUNCTION public.check_miniature_site_direct();
 CREATE TRIGGER trg_check_miniature_site_gammes
     BEFORE INSERT OR UPDATE OF miniature_id ON gammes
+    FOR EACH ROW EXECUTE FUNCTION public.check_miniature_site_direct();
+-- Ordres de travail (067) : site_id direct, comme categories/gammes.
+CREATE TRIGGER trg_check_miniature_site_ordres_travail
+    BEFORE INSERT OR UPDATE OF miniature_id ON ordres_travail
     FOR EACH ROW EXECUTE FUNCTION public.check_miniature_site_direct();
 CREATE TRIGGER trg_check_miniature_site_batiments
     BEFORE INSERT OR UPDATE OF miniature_id ON batiments
@@ -6751,6 +6760,9 @@ BEGIN
         jours_periodicite   = p.jours_periodicite,
         tolerance_jours     = p.tolerance_jours,
         image_path          = g.image_path,
+        -- miniature_id (067) : image ESTHÉTIQUE héritée de la gamme. Souple : un
+        -- changement d'image de gamme rafraîchit ensuite les OT ouverts.
+        miniature_id        = g.miniature_id,
         -- nom_equipement : si la gamme cible un seul équipement, snapshot ; sinon NULL.
         -- (Sous-SELECT scalaire : on garde 1 ligne max via LIMIT 1, et on filtre
         --  le cas multi-équipements par CASE/COUNT pour ne pas planter "more than
@@ -6927,6 +6939,42 @@ COMMENT ON FUNCTION public.creation_ot_orchestrator() IS
 CREATE TRIGGER trg_creation_ot_orchestrator
     AFTER INSERT ON ordres_travail
     FOR EACH ROW EXECUTE FUNCTION public.creation_ot_orchestrator();
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 4bis. propager_miniature_gamme_aux_ot (067) : image esthétique gamme → OT ouverts
+-- ═══════════════════════════════════════════════════════════════════════════
+-- L'image d'un OT (miniature_id) est ESTHÉTIQUE, pas une preuve figée. Un nouveau
+-- choix d'image sur la gamme rafraîchit les OT encore OUVERTS (planifie/en_cours/
+-- reouvert) ; les OT terminaux (cloture/annule) gardent l'image qu'ils avaient
+-- (cohérence d'archive). La SUPPRESSION (ON DELETE SET NULL) et le REMPLACEMENT en
+-- place d'une vignette du pool restent, eux, propagés PARTOUT (clôturés compris).
+CREATE OR REPLACE FUNCTION public.propager_miniature_gamme_aux_ot()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    -- NEW.miniature_id NULL = retrait (propagation symétrique). GUC système posée
+    -- pour bypasser protect_ot_immutable_fields (écriture légitime, cohérente avec
+    -- l'orchestrateur). miniature_id n'est pas un champ protégé, mais robustesse.
+    PERFORM set_config('app.system_ot_generation', 'on', true);
+    UPDATE public.ordres_travail
+    SET miniature_id = NEW.miniature_id
+    WHERE gamme_id = NEW.id
+      AND statut IN ('planifie', 'en_cours', 'reouvert')
+      AND miniature_id IS DISTINCT FROM NEW.miniature_id;
+    PERFORM set_config('app.system_ot_generation', 'off', true);
+    RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.propager_miniature_gamme_aux_ot() IS
+    'Propage un changement d''image (miniature_id) d''une gamme aux OT OUVERTS (planifie/en_cours/reouvert) de cette gamme. Image esthétique : OT terminaux figés. (067)';
+
+CREATE TRIGGER trg_propager_miniature_gamme_aux_ot
+    AFTER UPDATE OF miniature_id ON gammes
+    FOR EACH ROW
+    WHEN (OLD.miniature_id IS DISTINCT FROM NEW.miniature_id)
+    EXECUTE FUNCTION public.propager_miniature_gamme_aux_ot();
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 5. gestion_statut_ot : bascule auto OT depuis l'évolution des ops

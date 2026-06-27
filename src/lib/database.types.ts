@@ -2307,6 +2307,7 @@ export type Database = {
           image_path: string | null
           jours_periodicite: number
           libelle_periodicite: string
+          miniature_id: string | null
           motif_annulation: string | null
           motif_reouverture: string | null
           nature_gamme: Database["public"]["Enums"]["gamme_nature"]
@@ -2336,6 +2337,7 @@ export type Database = {
           image_path?: string | null
           jours_periodicite?: number
           libelle_periodicite: string
+          miniature_id?: string | null
           motif_annulation?: string | null
           motif_reouverture?: string | null
           nature_gamme: Database["public"]["Enums"]["gamme_nature"]
@@ -2365,6 +2367,7 @@ export type Database = {
           image_path?: string | null
           jours_periodicite?: number
           libelle_periodicite?: string
+          miniature_id?: string | null
           motif_annulation?: string | null
           motif_reouverture?: string | null
           nature_gamme?: Database["public"]["Enums"]["gamme_nature"]
@@ -2400,6 +2403,20 @@ export type Database = {
             columns: ["gamme_id"]
             isOneToOne: false
             referencedRelation: "gammes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordres_travail_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "miniatures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordres_travail_miniature_id_fkey"
+            columns: ["miniature_id"]
+            isOneToOne: false
+            referencedRelation: "v_miniatures_pool"
             referencedColumns: ["id"]
           },
           {
@@ -3511,6 +3528,7 @@ export type Database = {
           image_path: string | null
           jours_periodicite: number
           libelle_periodicite: string
+          miniature_id: string | null
           motif_annulation: string | null
           motif_reouverture: string | null
           nature_gamme: Database["public"]["Enums"]["gamme_nature"]
