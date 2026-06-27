@@ -85,6 +85,32 @@ export function useDeleteOt() {
 }
 
 /**
+ * Modifie la DATE PRÉVUE d'un OT (replanification ponctuelle « en cas de besoin »).
+ *
+ * Simple UPDATE d'une colonne planning : aucune machine à états n'est touchée
+ * (le trigger validation_transitions_ot ne réagit qu'à un changement de `statut`).
+ * La RLS autorise la modification aux gestionnaires de leurs sites. On invalide
+ * liste + détail pour rafraîchir la carte d'en-tête.
+ */
+export function useUpdateDatePrevueOt() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { id: string; datePrevue: string }) => {
+      const { data } = await supabase
+        .from('ordres_travail')
+        .update({ date_prevue: p.datePrevue })
+        .eq('id', p.id)
+        .select('id')
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ordresTravailQueries.all() }),
+  })
+}
+
+/**
  * Transitions MANUELLES d'un OT : annulation, réactivation (résurrection) et
  * RE-clôture d'un OT rouvert. La clôture INITIALE reste automatique (trigger
  * gestion_statut_ot dès que toutes les opérations sont terminales) ; mais un OT

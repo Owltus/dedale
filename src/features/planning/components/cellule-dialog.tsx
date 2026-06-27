@@ -1,8 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import {
-  LIBELLES_STATUT_OT,
-  variantStatutOt,
-} from '@/features/ordres-travail/schemas'
+import { OtStatutBadge } from '@/features/ordres-travail/components/ot-statut-badge'
 import type { PlanningOt } from '@/features/planning/grille'
 import { formatDate } from '@/lib/date'
 import {
@@ -12,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 interface CelluleDialogProps {
@@ -64,12 +60,12 @@ export function CelluleDialog({
                 <span className="text-muted-foreground">
                   Prévu le {formatDate(ot.date_prevue)}
                 </span>
-                <Badge
-                  variant={variantStatutOt(ot.statut)}
-                  className="shrink-0"
-                >
-                  {LIBELLES_STATUT_OT[ot.statut] ?? ot.statut}
-                </Badge>
+                <OtStatutBadge
+                  statut={ot.statut}
+                  origine={ot.origine}
+                  datePrevue={ot.date_prevue}
+                  toleranceJours={ot.tolerance_jours}
+                />
               </div>
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
                 <dt className="text-muted-foreground">Prestataire</dt>

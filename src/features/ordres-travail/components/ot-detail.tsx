@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useBlocker } from '@tanstack/react-router'
+import { useBlocker, useNavigate } from '@tanstack/react-router'
 import {
   Ban,
   CheckCircle2,
@@ -8,15 +8,23 @@ import {
   FileText,
   ListChecks,
   Paperclip,
+  Pencil,
   RotateCcw,
   Save,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ordresTravailQueries } from '../queries'
-import { consoOperation, estVerrouille, sommesCompteursParUnite } from '../schemas'
+import {
+  consoOperation,
+  estVerrouille,
+  sommesCompteursParUnite,
+} from '../schemas'
 import {
   useChangerStatutOt,
+  useDeleteOt,
   useReouvrirOt,
+  useUpdateDatePrevueOt,
   useUpdateOperationExecution,
 } from '../mutations'
 import {
@@ -27,18 +35,20 @@ import {
   type OperationEdit,
 } from './operation-row'
 import { MotifDialog } from './motif-dialog'
+import { DatePrevueDialog } from './date-prevue-dialog'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useAuth } from '@/auth'
 import { useSaveShortcut } from '@/hooks/use-save-shortcut'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { formatDate, todayLocal } from '@/lib/date'
-import { writeErrorMessage } from '@/lib/form'
+import { deleteErrorMessage, writeErrorMessage } from '@/lib/form'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { SubTabs } from '@/components/common/sub-tabs'
+import { OtStatutBadge } from './ot-statut-badge'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ErrorState } from '@/components/common/error-state'
 import { EmptyState } from '@/components/common/empty-state'
@@ -83,13 +93,18 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
   // programmatique ouvrirait le clavier virtuel sans valeur ajoutée (pas de Tab).
   const isFinePointer = useMediaQuery('(hover: hover) and (pointer: fine)')
 
+  const navigate = useNavigate()
   const changerStatut = useChangerStatutOt()
   const reouvrir = useReouvrirOt()
+  const supprimer = useDeleteOt()
+  const updateDatePrevue = useUpdateDatePrevueOt()
   const updateOp = useUpdateOperationExecution()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   const [onglet, setOnglet] = useState<Onglet>('operations')
   const [annulerOpen, setAnnulerOpen] = useState(false)
+  const [datePrevueOpen, setDatePrevueOpen] = useState(false)
+  const [supprimerOpen, setSupprimerOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   // Édition des opérations (clé = id) remontée ICI : un SEUL bouton adaptatif (top
   // bar, onglet Opérations) sauvegarde les opérations modifiées. La clôture d'un OT
@@ -397,6 +412,32 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     )
   }
 
+  function confirmDatePrevue(datePrevue: string) {
+    updateDatePrevue.mutate(
+      { id: otId, datePrevue },
+      {
+        onSuccess: () => {
+          toast.success('Date prévue modifiée')
+          setDatePrevueOpen(false)
+        },
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
+  function confirmSupprimer() {
+    // Suppression définitive (hard-delete) — même logique que la liste. Après
+    // succès, l'OT n'existe plus : on retourne à la liste des ordres de travail.
+    supprimer.mutate(otId, {
+      onSuccess: () => {
+        toast.success('OT supprimé')
+        setSupprimerOpen(false)
+        void navigate({ to: '/ordres-travail' })
+      },
+      onError: (e) => toast.error(deleteErrorMessage(e)),
+    })
+  }
+
   function handleReouvrir() {
     // Réouverture en UN clic (pas de modal). Le motif est imposé par la base
     // (CHECK motif_reouverture_oblig_si_reouvert + RPC, valeur juridique NF EN
@@ -421,11 +462,22 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     return s !== 'en_attente' && s !== 'en_cours'
   })
 
-  // Top bar : actions en boutons ICÔNE + tooltip (TooltipIconButton, outline).
-  // Onglet Opérations → un bouton de finition adaptatif. Annuler / Réouvrir /
-  // Réactiver = transitions manuelles restantes (la clôture initiale est auto).
-  const headerActions = canManage ? (
+  // Top bar : badge de STATUT (toujours visible, même en lecture seule) suivi des
+  // actions en boutons ICÔNE + tooltip (TooltipIconButton, outline). Onglet
+  // Opérations → un bouton de finition adaptatif. Annuler / Réouvrir / Réactiver =
+  // transitions manuelles restantes (la clôture initiale est auto). Les boutons ne
+  // s'affichent que pour un gestionnaire (canManage) ; le badge reste pour tous.
+  const headerActions = (
     <>
+      <OtStatutBadge
+        statut={ot.statut}
+        origine={ot.origine}
+        datePrevue={ot.date_prevue}
+        toleranceJours={ot.tolerance_jours}
+        className="h-9 px-3 text-sm font-medium"
+      />
+      {canManage && (
+        <>
       {onglet === 'operations' &&
         canEditOps &&
         (estReouvert && dirtyOps.length === 0 ? (
@@ -465,6 +517,15 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       )}
       {statutActif && (
         <TooltipIconButton
+          icon={<Pencil />}
+          label="Modifier la date prévue"
+          variant="outline"
+          disabled={updateDatePrevue.isPending}
+          onClick={() => setDatePrevueOpen(true)}
+        />
+      )}
+      {statutActif && (
+        <TooltipIconButton
           icon={<Ban className="text-destructive" />}
           label="Annuler l'OT"
           variant="outline"
@@ -490,8 +551,20 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
           onClick={reactiver}
         />
       )}
+      {/* Suppression définitive — icône rouge, miroir de l'action « Supprimer »
+          de la liste (même mutation, même confirmation). Disponible quel que
+          soit le statut (réservée aux gestionnaires via canManage). */}
+      <TooltipIconButton
+        icon={<Trash2 className="text-destructive" />}
+        label="Supprimer l'OT"
+        variant="outline"
+        disabled={supprimer.isPending}
+        onClick={() => setSupprimerOpen(true)}
+      />
+        </>
+      )}
     </>
-  ) : undefined
+  )
 
   // Sommes de consommation par unité CUMULATIVE (kVA exclu via estCompteurCumulatif).
   // Réutilise les relevés précédents déjà chargés ; total partiel accepté.
@@ -527,7 +600,11 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     // L'en-tête (1er enfant : top bar + carte + onglets) reste FIXE.
     <PageContainer className="no-scrollbar">
       <div>
-        <PageHeader title={ot.nom_gamme} action={headerActions} />
+        <PageHeader
+          title={ot.nom_gamme}
+          description={ot.description_gamme ?? undefined}
+          action={headerActions}
+        />
 
         {/* Carte de l'ordre — hauteur de base (h-20) : vignette carrée + infos en
             3 colonnes × 2 lignes (l1 prestataire/périodicité/relevé, l2 dates),
@@ -629,6 +706,31 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
         destructive
         pending={changerStatut.isPending}
         onConfirm={annuler}
+      />
+
+      {/* Replanification : édition de la date prévue. `key` réinitialise le champ
+          à la date courante à chaque ouverture (état interne au dialogue). */}
+      <DatePrevueDialog
+        key={datePrevueOpen ? 'date-open' : 'date-closed'}
+        open={datePrevueOpen}
+        onOpenChange={setDatePrevueOpen}
+        datePrevue={ot.date_prevue.slice(0, 10)}
+        pending={updateDatePrevue.isPending}
+        onConfirm={confirmDatePrevue}
+      />
+
+      {/* Suppression définitive de l'OT — même formulation que la liste. */}
+      <ConfirmDialog
+        open={supprimerOpen}
+        onOpenChange={(open) => {
+          if (!open) setSupprimerOpen(false)
+        }}
+        title="Supprimer l'ordre de travail ?"
+        description={`« ${ot.nom_gamme} » sera supprimé définitivement.`}
+        confirmLabel="Supprimer"
+        destructive
+        loading={supprimer.isPending}
+        onConfirm={confirmSupprimer}
       />
 
       {/* Garde-fou navigation : saisies d'opérations non enregistrées. */}

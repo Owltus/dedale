@@ -1,15 +1,12 @@
 import { useNavigate } from '@tanstack/react-router'
 import { ClipboardList } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
-import {
-  LIBELLES_STATUT_OT,
-  variantStatutOt,
-} from '@/features/ordres-travail/schemas'
+import { statutAffichageOt } from '@/features/ordres-travail/statut-affichage'
+import { OtStatutBadge } from '@/features/ordres-travail/components/ot-statut-badge'
 import { formatDate } from '@/lib/date'
 import { ListRow } from '@/components/common/list-row'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
-import { Badge } from '@/components/ui/badge'
 
 /**
  * Champs nécessaires au rendu d'une carte OT — communs aux requêtes `list`
@@ -18,10 +15,14 @@ import { Badge } from '@/components/ui/badge'
 export interface OtCardData {
   id: string
   statut: string
+  /** Origine (enum ot_origine) — distingue Planifié (plan) / Programmé (ponctuel). */
+  origine: string
   nom_gamme: string
   nom_equipement: string | null
   nom_prestataire: string | null
   date_prevue: string | null
+  /** Fenêtre de tolérance (jours) : pilote la bascule vers les statuts temporels. */
+  tolerance_jours: number
   /** Vignette esthétique de l'OT (héritée de la gamme — migration 067). */
   miniature_id: string | null
 }
@@ -42,6 +43,13 @@ export function OtCard({
 }) {
   const navigate = useNavigate()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+  // Libellé d'affichage (statut métier ou temporel) — réutilisé pour `mobileMeta`.
+  const statutLabel = statutAffichageOt({
+    statut: ot.statut,
+    origine: ot.origine,
+    datePrevue: ot.date_prevue,
+    toleranceJours: ot.tolerance_jours,
+  }).label
   return (
     <ListRow
       media={
@@ -56,16 +64,19 @@ export function OtCard({
       title={ot.nom_gamme}
       subtitle={ot.nom_equipement ?? ot.nom_prestataire ?? undefined}
       badges={
-        <Badge variant={variantStatutOt(ot.statut)}>
-          {LIBELLES_STATUT_OT[ot.statut] ?? ot.statut}
-        </Badge>
+        <OtStatutBadge
+          statut={ot.statut}
+          origine={ot.origine}
+          datePrevue={ot.date_prevue}
+          toleranceJours={ot.tolerance_jours}
+        />
       }
       meta={formatDate(ot.date_prevue)}
       // Variante média : sous `sm`, `mobileMeta` REMPLACE le sous-titre → on y
       // condense l'info discriminante (équipement, statut, date prévue).
       mobileMeta={[
         ot.nom_equipement ?? ot.nom_prestataire,
-        LIBELLES_STATUT_OT[ot.statut] ?? ot.statut,
+        statutLabel,
         formatDate(ot.date_prevue),
       ]
         .filter(Boolean)
