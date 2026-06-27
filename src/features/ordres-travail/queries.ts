@@ -165,6 +165,60 @@ export const ordresTravailQueries = {
       },
       staleTime: 60_000,
     }),
+
+  /**
+   * Équipements liés à la gamme de l'OT + leur chaîne de lieux (live, via
+   * `v_equipements_complet`). Sert au calcul du plus grand lieu commun (carte
+   * d'en-tête). Requête en 2 temps (liens puis lieux) pour éviter un embed
+   * PostgREST sur une vue. RLS : `gammes_equipements` cloisonne déjà par site.
+   */
+  gammeEquipementsLieux: (gammeId: string | null) =>
+    queryOptions({
+      queryKey: [
+        ...ordresTravailQueries.all(),
+        'equipements-lieux',
+        gammeId,
+      ] as const,
+      enabled: gammeId !== null,
+      queryFn: async ({ signal }) => {
+        const { data: liens } = await supabase
+          .from('gammes_equipements')
+          .select('equipement_id')
+          .eq('gamme_id', gammeId!)
+          .abortSignal(signal)
+          .throwOnError()
+        const ids = liens.map((l) => l.equipement_id)
+        if (ids.length === 0) return []
+        const { data } = await supabase
+          .from('v_equipements_complet')
+          .select(
+            'local_id, niveau_id, batiment_id, local_nom, niveau_nom, batiment_nom, site_nom',
+          )
+          .in('id', ids)
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+      staleTime: 60_000,
+    }),
+
+  /**
+   * Nombre de bâtiments du périmètre accessible. Sert au cas « un seul bâtiment
+   * → on ne l'affiche pas » (il est alors implicite). RLS-scopé.
+   */
+  nbBatiments: () =>
+    queryOptions({
+      queryKey: ['batiments', 'count'] as const,
+      queryFn: async ({ signal }) => {
+        const { count } = await supabase
+          .from('batiments')
+          .select('id', { count: 'exact', head: true })
+          .abortSignal(signal)
+          .throwOnError()
+        return count ?? 0
+      },
+      staleTime: 5 * 60_000,
+    }),
 }
 
 /** Gammes du site sélectionnables pour créer un OT (actives, non supprimées). */

@@ -385,10 +385,14 @@ CREATE TABLE unites (
     nom TEXT NOT NULL UNIQUE,
     symbole TEXT NOT NULL UNIQUE,
     description TEXT,
-    -- necessite_seuils : false pour les unités « compteur » (relevé d'index sans
-    -- mini/maxi : heure, kVA, kWh, m³). C'est l'UNITÉ qui pilote l'affichage des
-    -- seuils (le type Mesure impose l'unité ; l'unité décide des seuils).
-    necessite_seuils BOOLEAN NOT NULL DEFAULT true
+    -- necessite_seuils : false = relevé d'index sans mini/maxi. NE distingue PAS
+    -- cumulatif (kWh/m³/h) de ponctuel (kVA) → voir est_cumulatif. C'est l'UNITÉ
+    -- qui pilote l'affichage des seuils (le type Mesure impose l'unité).
+    necessite_seuils BOOLEAN NOT NULL DEFAULT true,
+    -- est_cumulatif (068) : true = compteur cumulatif (index croissant, consommation
+    -- entre relevés : m³, kWh, h) ; false = mesure ponctuelle (kVA) ou unité à
+    -- seuils. Pilote la somme de consommations de la carte d'en-tête d'un OT.
+    est_cumulatif BOOLEAN NOT NULL DEFAULT false
 );
 
 -- Périodicités de maintenance avec tolérance intelligente
@@ -512,14 +516,14 @@ CREATE TABLE statuts_capex (
 -- =============================================================================
 
 -- Unités de mesure
-INSERT INTO unites (id, nom, symbole, description, necessite_seuils) VALUES
-    (1, 'Degrés Celsius',         '°C',  'Température',                                   true),
-    (2, 'Pourcentage',             '%',   'Pourcentage',                                  true),
-    (3, 'Titre Hydrotimétrique',   'TH',  'Dureté de l''eau',                             true),
-    (4, 'Mètre Cube',              'm³',  'Volume',                                       false),
-    (5, 'Kilovolt-Ampère',         'kVA', 'Puissance électrique',                         false),
-    (6, 'Kilowatt-Heure',          'kWh', 'Énergie électrique',                           false),
-    (7, 'Heure',                   'h',   'Durée ou compteur horaire de fonctionnement',  false);
+INSERT INTO unites (id, nom, symbole, description, necessite_seuils, est_cumulatif) VALUES
+    (1, 'Degrés Celsius',         '°C',  'Température',                                   true,  false),
+    (2, 'Pourcentage',             '%',   'Pourcentage',                                  true,  false),
+    (3, 'Titre Hydrotimétrique',   'TH',  'Dureté de l''eau',                             true,  false),
+    (4, 'Mètre Cube',              'm³',  'Volume',                                       false, true),
+    (5, 'Kilovolt-Ampère',         'kVA', 'Puissance électrique',                         false, false),
+    (6, 'Kilowatt-Heure',          'kWh', 'Énergie électrique',                           false, true),
+    (7, 'Heure',                   'h',   'Durée ou compteur horaire de fonctionnement',  false, true);
 
 -- Périodicités de maintenance avec tolérance intelligente
 INSERT INTO periodicites (id, libelle, jours_periodicite, jours_valide, tolerance_jours, description) VALUES
@@ -4736,6 +4740,9 @@ CREATE TABLE operations_execution (
     seuil_maximum       NUMERIC,
     unite_nom           TEXT,
     unite_symbole       TEXT,
+    -- est_cumulatif de l'unité, figé à la génération (068). NULL = pas d'unité →
+    -- non cumulatif. Sert à la somme de consommations de la carte d'en-tête d'OT.
+    unite_est_cumulatif BOOLEAN,
 
     -- ----------------------------------------------------------------------
     -- État + résultat d'exécution
@@ -6864,12 +6871,12 @@ BEGIN
     INSERT INTO public.operations_execution (
         ordre_travail_id, source_type, source_id, ordre,
         nom, description, type_operation, seuil_minimum, seuil_maximum,
-        unite_nom, unite_symbole, statut
+        unite_nom, unite_symbole, unite_est_cumulatif, statut
     )
     SELECT
         p_ot_id, 1, o.id, COALESCE(o.ordre, 0),
         o.nom, o.description, t.libelle, o.seuil_minimum, o.seuil_maximum,
-        u.nom, u.symbole, 'en_attente'
+        u.nom, u.symbole, u.est_cumulatif, 'en_attente'
     FROM public.operations o
     JOIN public.types_operations t ON t.id = o.type_operation_id
     LEFT JOIN public.unites u      ON u.id = o.unite_id
@@ -6879,12 +6886,12 @@ BEGIN
     INSERT INTO public.operations_execution (
         ordre_travail_id, source_type, source_id, ordre,
         nom, description, type_operation, seuil_minimum, seuil_maximum,
-        unite_nom, unite_symbole, statut
+        unite_nom, unite_symbole, unite_est_cumulatif, statut
     )
     SELECT
         p_ot_id, 2, moi.id, COALESCE(moi.ordre, 0),
         moi.nom, moi.description, t.libelle, moi.seuil_minimum, moi.seuil_maximum,
-        u.nom, u.symbole, 'en_attente'
+        u.nom, u.symbole, u.est_cumulatif, 'en_attente'
     FROM public.gamme_modeles gm
     JOIN public.modeles_operations_items moi ON moi.modele_operation_id = gm.modele_operation_id
     JOIN public.types_operations t           ON t.id = moi.type_operation_id

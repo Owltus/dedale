@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ordresTravailQueries } from '../queries'
-import { estVerrouille } from '../schemas'
+import { consoOperation, estVerrouille, sommesCompteursParUnite } from '../schemas'
 import {
   useChangerStatutOt,
   useReouvrirOt,
@@ -22,17 +22,20 @@ import {
 import {
   OperationRow,
   estCompteur,
+  estCompteurCumulatif,
   estMesureExecution,
   type OperationEdit,
 } from './operation-row'
+import { lieuCommun } from '../localisation'
 import { MotifDialog } from './motif-dialog'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useAuth } from '@/auth'
 import { useSaveShortcut } from '@/hooks/use-save-shortcut'
 import { useMediaQuery } from '@/hooks/use-media-query'
-import { todayLocal } from '@/lib/date'
+import { formatDate, todayLocal } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
+import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -50,6 +53,24 @@ interface OtDetailProps {
 
 type Onglet = 'operations' | 'documents'
 
+/** Cellule de la carte d'en-tête : intitulé EN HAUT, valeur EN BAS (« — » si vide). */
+function Champ({
+  label,
+  value,
+  className,
+}: {
+  label: string
+  value: string | null
+  className?: string
+}) {
+  return (
+    <div className={cn('flex min-w-0 flex-col gap-0.5', className)}>
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className="truncate text-sm font-medium">{value ?? '—'}</span>
+    </div>
+  )
+}
+
 export function OtDetail({ otId, canManage }: OtDetailProps) {
   const { session } = useAuth()
   const {
@@ -59,6 +80,13 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     refetch,
   } = useQuery(ordresTravailQueries.detail(otId))
   const operationsQuery = useQuery(ordresTravailQueries.operations(otId))
+  // Localisation intelligente : équipements liés à la gamme + nombre de bâtiments
+  // du périmètre (pour masquer le bâtiment quand il est unique). Hooks appelés
+  // AVANT les retours anticipés (règle des hooks) ; désactivés tant que gamme NULL.
+  const equipementsLieuxQuery = useQuery(
+    ordresTravailQueries.gammeEquipementsLieux(ot?.gamme_id ?? null),
+  )
+  const nbBatimentsQuery = useQuery(ordresTravailQueries.nbBatiments())
   // Focus auto réservé aux pointeurs fins (desktop) : sur tactile, un focus
   // programmatique ouvrirait le clavier virtuel sans valeur ajoutée (pas de Tab).
   const isFinePointer = useMediaQuery('(hover: hover) and (pointer: fine)')
@@ -473,6 +501,41 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     </>
   ) : undefined
 
+  // Localisation affichée : plus grand lieu commun (live) ; repli sur le snapshot
+  // `nom_localisation` (mono-équipement ou gamme purgée).
+  const localisation =
+    lieuCommun(equipementsLieuxQuery.data ?? [], nbBatimentsQuery.data ?? 1) ??
+    ot.nom_localisation
+
+  // Sommes de consommation par unité CUMULATIVE (kVA exclu via estCompteurCumulatif).
+  // Réutilise les relevés précédents déjà chargés ; total partiel accepté.
+  const toNombre = (s: string) =>
+    s.trim() === '' || Number.isNaN(Number(s)) ? null : Number(s)
+  const sommesCompteurs = sommesCompteursParUnite(
+    operations.filter(estCompteurCumulatif).map((op) => {
+      const e = opEdit(op)
+      const precedent =
+        previousReadingsQuery.data?.[
+          `${String(op.source_type)}:${op.source_id}`
+        ] ?? null
+      return {
+        symbole: op.unite_symbole ?? '',
+        conso: consoOperation({
+          precedent,
+          courant: toNombre(e.valeur),
+          depose: toNombre(e.indexDepose),
+          pose: toNombre(e.indexPose),
+        }),
+      }
+    }),
+  )
+  // Valeur affichée dans la cellule « Relevé » : un total par unité cumulative
+  // (ex. « 188 kWh ») ; plusieurs unités séparées par « · ». Vide → « — ».
+  const releve =
+    sommesCompteurs
+      .map((s) => `${s.total.toLocaleString('fr-FR')} ${s.symbole}`)
+      .join(' · ') || null
+
   return (
     // `no-scrollbar` : seule la zone de contenu (2e enfant) défile, barre masquée.
     // L'en-tête (1er enfant : top bar + carte + onglets) reste FIXE.
@@ -480,16 +543,35 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       <div>
         <PageHeader title={ot.nom_gamme} action={headerActions} />
 
-        {/* Carte de l'ordre — vignette esthétique de l'OT (héritée de la gamme,
-            figée pour un OT terminal ; migration 067). */}
-        <div className="bg-card mb-4 flex h-20 items-stretch overflow-hidden rounded-lg border">
-          <div className="aspect-square h-full shrink-0">
+        {/* Carte de l'ordre — vignette + infos en 3 colonnes : ligne 1 prestataire /
+            périodicité / relevé, ligne 2 dates, ligne 3 localisation. */}
+        <div className="bg-card mb-4 flex items-stretch overflow-hidden rounded-lg border">
+          <div className="w-20 shrink-0 sm:w-24">
             <MiniatureThumb
               url={urlOf(otMiniatureId)}
               fallback={<ClipboardList className="size-10" />}
               alt=""
               onError={refreshMiniatures}
-              className="size-full rounded-none"
+              className="size-full rounded-none object-cover"
+            />
+          </div>
+          <div className="grid min-w-0 flex-1 grid-cols-3 gap-x-4 gap-y-2 px-4 py-3">
+            <Champ label="Prestataire" value={ot.nom_prestataire} />
+            <Champ label="Périodicité" value={ot.libelle_periodicite} />
+            <Champ label="Relevé" value={releve} />
+            <Champ label="Date prévue" value={formatDate(ot.date_prevue)} />
+            <Champ
+              label="Début"
+              value={ot.date_debut ? formatDate(ot.date_debut) : null}
+            />
+            <Champ
+              label="Clôture"
+              value={ot.date_cloture ? formatDate(ot.date_cloture) : null}
+            />
+            <Champ
+              label="Localisation"
+              value={localisation}
+              className="col-span-3"
             />
           </div>
         </div>

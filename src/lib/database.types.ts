@@ -2213,6 +2213,7 @@ export type Database = {
           source_type: number
           statut: string
           type_operation: string
+          unite_est_cumulatif: boolean | null
           unite_nom: string | null
           unite_symbole: string | null
           updated_at: string
@@ -2238,6 +2239,7 @@ export type Database = {
           source_type: number
           statut?: string
           type_operation: string
+          unite_est_cumulatif?: boolean | null
           unite_nom?: string | null
           unite_symbole?: string | null
           updated_at?: string
@@ -2263,6 +2265,7 @@ export type Database = {
           source_type?: number
           statut?: string
           type_operation?: string
+          unite_est_cumulatif?: boolean | null
           unite_nom?: string | null
           unite_symbole?: string | null
           updated_at?: string
@@ -2960,6 +2963,7 @@ export type Database = {
       unites: {
         Row: {
           description: string | null
+          est_cumulatif: boolean
           id: number
           necessite_seuils: boolean
           nom: string
@@ -2967,6 +2971,7 @@ export type Database = {
         }
         Insert: {
           description?: string | null
+          est_cumulatif?: boolean
           id: number
           necessite_seuils?: boolean
           nom: string
@@ -2974,6 +2979,7 @@ export type Database = {
         }
         Update: {
           description?: string | null
+          est_cumulatif?: boolean
           id?: number
           necessite_seuils?: boolean
           nom?: string

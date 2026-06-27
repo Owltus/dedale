@@ -134,6 +134,35 @@ export function consoOperation(p: {
   return precedent !== null ? courant - precedent : null
 }
 
+/**
+ * Somme des consommations par unité, pour la carte d'en-tête d'un OT. On ne garde
+ * que les unités présentes AU MOINS DEUX FOIS (une seule occurrence → pas de somme,
+ * inutile) et dont au moins une consommation est calculable (total PARTIEL accepté).
+ * Jamais de somme entre unités différentes. L'appelant ne passe QUE des compteurs
+ * cumulatifs (estCompteurCumulatif) — le kVA est déjà exclu en amont.
+ */
+export function sommesCompteursParUnite(
+  items: { symbole: string; conso: number | null }[],
+): { symbole: string; total: number }[] {
+  const groupes = new Map<
+    string,
+    { count: number; total: number; aConso: boolean }
+  >()
+  for (const it of items) {
+    if (it.symbole === '') continue
+    const g = groupes.get(it.symbole) ?? { count: 0, total: 0, aConso: false }
+    g.count += 1
+    if (it.conso !== null) {
+      g.total += it.conso
+      g.aConso = true
+    }
+    groupes.set(it.symbole, g)
+  }
+  return [...groupes.entries()]
+    .filter(([, g]) => g.count >= 2 && g.aConso)
+    .map(([symbole, g]) => ({ symbole, total: g.total }))
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Filtre par statut de la liste des OT.
 // `matchStatutFilter` / `statutFilterOptions` de `common/list-filter-bar` opèrent

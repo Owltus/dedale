@@ -59,6 +59,18 @@ export function estCompteur(op: OperationExecution): boolean {
   )
 }
 
+/**
+ * Un COMPTEUR CUMULATIF = un compteur dont l'unité s'incrémente d'un OT à l'autre
+ * (kWh, m³, h) — par opposition à une mesure ponctuelle sans seuils (kVA), remise à
+ * zéro à chaque OT. SEULE famille additionnable. Le drapeau `unite_est_cumulatif`
+ * est snapshotté à la génération (migration 068) ; NULL (relevés orphelins) → non
+ * cumulatif. Réservé aux SOMMES de la carte d'en-tête d'un OT (la saisie utilise
+ * encore `estCompteur`, inchangé — décision PO).
+ */
+export function estCompteurCumulatif(op: OperationExecution): boolean {
+  return estCompteur(op) && op.unite_est_cumulatif === true
+}
+
 /** Placeholder = plage de seuils attendue (sans unité : elle est affichée en
  *  suffixe du champ). Vide pour un compteur (pas de seuils). */
 function placeholderRange(op: OperationExecution): string | undefined {
