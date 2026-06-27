@@ -545,7 +545,9 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
           <div className="grid min-w-0 flex-1 grid-cols-3 content-center gap-x-4 gap-y-1 px-4">
             <Champ label="Prestataire" value={ot.nom_prestataire} />
             <Champ label="Périodicité" value={ot.libelle_periodicite} />
-            <Champ label="Relevé" value={releve} />
+            {/* Relevé masqué s'il n'y a aucune somme — mais on garde la cellule
+                pour ne pas décaler la grille (l'emplacement reste réservé). */}
+            {releve ? <Champ label="Relevé" value={releve} /> : <div />}
             <Champ label="Prévue" value={formatDate(ot.date_prevue)} />
             <Champ
               label="Début"
