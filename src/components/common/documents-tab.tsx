@@ -12,6 +12,7 @@ import {
 import type { DocumentMeta } from '@/features/documents/format'
 import { useDocumentDownload } from '@/features/documents/use-document-download'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
+import type { DocumentNamingContext } from '@/features/documents/naming'
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
 import { DocumentRow } from '@/features/documents/components/document-row'
 import type { RowAction } from '@/components/common/row-actions'
@@ -66,6 +67,12 @@ interface DocumentsTabProps {
    * vide « Aucun document » se centre alors verticalement dans toute la zone.
    */
   className?: string
+  /**
+   * Contexte de NOMMAGE transmis au dialogue d'upload : si fourni, les fichiers
+   * ajoutés sont pré-renommés « [Type] - [Prestataire] - [Objet] - [Date] »
+   * (éditable). L'hôte le dérive de sa fiche (ex. OT : prestataire + gamme + date).
+   */
+  namingContext?: DocumentNamingContext
 }
 
 /**
@@ -91,6 +98,7 @@ export function DocumentsTab({
   uploadInitialFiles,
   uploadDefaultTypeNom,
   className,
+  namingContext,
 }: DocumentsTabProps) {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
@@ -269,6 +277,7 @@ export function DocumentsTab({
           acceptedMimes={acceptedMimes}
           initialFiles={uploadInitialFiles}
           defaultTypeNom={uploadDefaultTypeNom}
+          namingContext={namingContext}
         />
       )}
 

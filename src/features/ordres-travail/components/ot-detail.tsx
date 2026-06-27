@@ -721,6 +721,11 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
             onUploadOpenChange={handleUploadOpenChange}
             uploadInitialFiles={droppedFiles}
             className="min-h-0 flex-1"
+            namingContext={{
+              prestataire: ot.nom_prestataire,
+              objet: ot.nom_gamme,
+              date: ot.date_prevue,
+            }}
           />
         )}
         {canManage && <FileDropOverlay show={dragging} />}
