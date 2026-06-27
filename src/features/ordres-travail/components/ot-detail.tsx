@@ -5,7 +5,6 @@ import {
   Ban,
   CheckCircle2,
   ClipboardList,
-  FileText,
   ListChecks,
   Paperclip,
   Pencil,
@@ -40,6 +39,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useAuth } from '@/auth'
 import { useSaveShortcut } from '@/hooks/use-save-shortcut'
+import { useFileDrop } from '@/hooks/use-file-drop'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { formatDate, todayLocal } from '@/lib/date'
 import { deleteErrorMessage, writeErrorMessage } from '@/lib/form'
@@ -54,6 +54,7 @@ import { ErrorState } from '@/components/common/error-state'
 import { EmptyState } from '@/components/common/empty-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DocumentsTab } from '@/components/common/documents-tab'
+import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 
 interface OtDetailProps {
   otId: string
@@ -106,6 +107,8 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
   const [datePrevueOpen, setDatePrevueOpen] = useState(false)
   const [supprimerOpen, setSupprimerOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
+  // Fichiers issus d'un glisser-déposer pleine page → pré-remplissent l'upload.
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
   // Édition des opérations (clé = id) remontée ICI : un SEUL bouton adaptatif (top
   // bar, onglet Opérations) sauvegarde les opérations modifiées. La clôture d'un OT
   // normal est AUTOMATIQUE côté backend (trigger gestion_statut_ot) quand toutes les
@@ -177,6 +180,22 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     enableBeforeUnload: () => dirtyOps.length > 0,
     withResolver: true,
   })
+
+  // Glisser-déposer sur TOUTE la page (réservé aux gestionnaires) : un dépôt
+  // bascule sur l'onglet Documents et ouvre l'upload pré-rempli des fichiers.
+  const { dragging } = useFileDrop({
+    enabled: canManage,
+    onFiles: (files) => {
+      setDroppedFiles(files)
+      setOnglet('documents')
+      setUploadOpen(true)
+    },
+  })
+  // Fermeture de l'upload : on oublie les fichiers déposés pour repartir propre.
+  const handleUploadOpenChange = (open: boolean) => {
+    setUploadOpen(open)
+    if (!open) setDroppedFiles([])
+  }
 
   // Ctrl/⌘ + S enregistre les opérations modifiées (équivaut au bouton disquette).
   // Actif UNIQUEMENT s'il y a des saisies à enregistrer → sinon on laisse le
@@ -512,7 +531,10 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
           icon={<Paperclip />}
           label="Rattacher un document"
           variant="outline"
-          onClick={() => setUploadOpen(true)}
+          onClick={() => {
+            setDroppedFiles([])
+            setUploadOpen(true)
+          }}
         />
       )}
       {statutActif && (
@@ -643,58 +665,66 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
           value={onglet}
           onValueChange={setOnglet}
           items={[
-            {
-              id: 'operations',
-              label: 'Opérations',
-              icon: <ListChecks className="size-4" />,
-            },
-            {
-              id: 'documents',
-              label: 'Documents',
-              icon: <FileText className="size-4" />,
-            },
+            { id: 'operations', label: 'Opérations' },
+            { id: 'documents', label: 'Documents' },
           ]}
         />
       </div>
 
-      {onglet === 'operations' ? (
-        operationsQuery.isPending ? (
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-20" />
-            ))}
-          </div>
-        ) : operationsQuery.isError ? (
-          <ErrorState onRetry={() => void operationsQuery.refetch()} />
-        ) : operations.length === 0 ? (
-          <EmptyState icon={ListChecks} title="Aucune opération" />
+      {/* Zone de contenu défilante : `relative` + `min-h-full` → la surcouche de
+          glisser-déposer voile toute la hauteur visible, quel que soit l'onglet
+          (le drop est capté sur la fenêtre entière par `useFileDrop`). Colonne
+          flex pour que l'onglet Documents occupe toute la zone → son état vide
+          « Aucun document » se centre verticalement. */}
+      <div className="relative flex min-h-full flex-col">
+        {onglet === 'operations' ? (
+          operationsQuery.isPending ? (
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-20" />
+              ))}
+            </div>
+          ) : operationsQuery.isError ? (
+            <ErrorState onRetry={() => void operationsQuery.refetch()} />
+          ) : operations.length === 0 ? (
+            <EmptyState
+              icon={ListChecks}
+              title="Aucune opération"
+              className="min-h-40 flex-1 justify-center"
+            />
+          ) : (
+            <div className="flex flex-col gap-3">
+              {operations.map((op) => (
+                <OperationRow
+                  key={op.id}
+                  operation={op}
+                  value={opEdit(op)}
+                  onChange={(v) =>
+                    setEdits((prev) => ({ ...prev, [op.id]: v }))
+                  }
+                  readOnly={opsReadOnly}
+                  previousValue={
+                    previousReadingsQuery.data?.[
+                      `${String(op.source_type)}:${op.source_id}`
+                    ] ?? null
+                  }
+                />
+              ))}
+            </div>
+          )
         ) : (
-          <div className="flex flex-col gap-3">
-            {operations.map((op) => (
-              <OperationRow
-                key={op.id}
-                operation={op}
-                value={opEdit(op)}
-                onChange={(v) => setEdits((prev) => ({ ...prev, [op.id]: v }))}
-                readOnly={opsReadOnly}
-                previousValue={
-                  previousReadingsQuery.data?.[
-                    `${String(op.source_type)}:${op.source_id}`
-                  ] ?? null
-                }
-              />
-            ))}
-          </div>
-        )
-      ) : (
-        <DocumentsTab
-          liaison="documents_ordres_travail"
-          parentColumn="ordre_travail_id"
-          parentId={otId}
-          uploadOpen={uploadOpen}
-          onUploadOpenChange={setUploadOpen}
-        />
-      )}
+          <DocumentsTab
+            liaison="documents_ordres_travail"
+            parentColumn="ordre_travail_id"
+            parentId={otId}
+            uploadOpen={uploadOpen}
+            onUploadOpenChange={handleUploadOpenChange}
+            uploadInitialFiles={droppedFiles}
+            className="min-h-0 flex-1"
+          />
+        )}
+        {canManage && <FileDropOverlay show={dragging} />}
+      </div>
 
       <MotifDialog
         key={annulerOpen ? 'annuler-open' : 'annuler-closed'}

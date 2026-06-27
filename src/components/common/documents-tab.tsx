@@ -60,6 +60,12 @@ interface DocumentsTabProps {
   uploadInitialFiles?: File[]
   /** Type de document pré-sélectionné, par nom (ex. « Devis »). */
   uploadDefaultTypeNom?: string
+  /**
+   * Classe du conteneur racine. Permet à l'hôte de borner la hauteur (ex.
+   * `min-h-0 flex-1` dans une zone `flex flex-col` à hauteur définie) : l'état
+   * vide « Aucun document » se centre alors verticalement dans toute la zone.
+   */
+  className?: string
 }
 
 /**
@@ -84,6 +90,7 @@ export function DocumentsTab({
   onUploadOpenChange,
   uploadInitialFiles,
   uploadDefaultTypeNom,
+  className,
 }: DocumentsTabProps) {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
@@ -170,7 +177,7 @@ export function DocumentsTab({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={cn('flex flex-col gap-4', className)}>
       {(title != null || headerAction != null) && (
         <div
           className={cn(
@@ -199,6 +206,7 @@ export function DocumentsTab({
             icon={FileText}
             title="Aucun document"
             action={emptyAction}
+            className="min-h-40 flex-1 justify-center"
           />
         }
       >
