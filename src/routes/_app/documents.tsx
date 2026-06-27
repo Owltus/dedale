@@ -27,6 +27,7 @@ import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
@@ -247,9 +248,7 @@ function DocumentsContent({
             }}
           </QueryState>
         </div>
-        {dragging && (
-          <div className="border-primary bg-primary/5 pointer-events-none absolute inset-x-4 top-0 bottom-6 rounded-lg border-2 border-dashed sm:inset-x-6 lg:inset-x-8" />
-        )}
+        <FileDropOverlay show={dragging} />
       </div>
 
       {canManage && (

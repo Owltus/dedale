@@ -31,6 +31,7 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusStepper } from '@/components/common/status-stepper'
 import { DocumentsTab } from '@/components/common/documents-tab'
+import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
@@ -288,9 +289,7 @@ export function TravauxDetail({
           onUploadOpenChange={handleUploadOpenChange}
           uploadInitialFiles={droppedFiles}
         />
-        {dragging && (
-          <div className="border-primary bg-primary/5 pointer-events-none absolute inset-0 z-10 rounded-lg border-2 border-dashed" />
-        )}
+        <FileDropOverlay show={dragging} />
       </div>
 
       {editable && (

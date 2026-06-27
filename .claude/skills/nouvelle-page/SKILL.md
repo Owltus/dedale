@@ -119,7 +119,7 @@ handleSubmit():
 
 **Dialogs & champs** — `FormDialog` (coquille de tout dialog formulaire) · `ConfirmDialog` (action ponctuelle/réversible) · `ConfirmDeleteDialog` (suppression définitive impact-aware) · `ExporterVersSiteDialog` · `TextField`/`TextareaField`/`DescriptionField`/`SelectField`/`NumberField`/`CheckboxField`/`IdentiteFields` · `ChampValeurInput`/`ChampsListEditor` (caractéristiques dynamiques) · `MiniatureField` (`@/features/miniatures/components/miniature-field`, upload de vignette) — `@/components/common/` sauf indiqué.
 
-**Statut & documents** — `StatusStepper` (frise, states calculés en amont) · `DocumentsTab` (pièces jointes, doctrine 3 étapes) · `FileDropField` (zone de dépôt dans un dialog) · `iconeFormat`/`PdfFileIcon` (icône selon le **format/MIME**, pas le type métier) — `@/components/common/`.
+**Statut & documents** — `StatusStepper` (frise, states calculés en amont) · `DocumentsTab` (pièces jointes, doctrine 3 étapes) · `FileDropField` (zone de dépôt dans un dialog) · `FileDropOverlay` (surcouche d'invite « Déposez pour rattacher » sur une zone `relative`, pilotée par `dragging` de `useFileDrop` — glisser-déposer pleine page) · `iconeFormat`/`PdfFileIcon` (icône selon le **format/MIME**, pas le type métier) — `@/components/common/`.
 
 **Actions & layout** — `TooltipIconButton` (action icône seule + tooltip/aria ; `variant="outline"` en top bar) · `AppSidebar`/`SidebarContent`/`SiteSwitcher`/`UserMenu`/`TopBar`/`MobileHeader` (déjà câblés dans `_app` ; visibilité via `canSeeNav`) — `@/components/common/`.
 
