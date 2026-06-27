@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { imageToWebp, isBitmapImage } from '@/lib/image'
+import { splitExtension } from './naming'
 
 export const MAX_TAILLE_OCTETS = 20 * 1024 * 1024 // 20 Mo
 
@@ -79,7 +80,10 @@ async function preparerFichier(file: File): Promise<File> {
     quality: 0.82,
     maxBytes: IMG_MAX_BYTES,
   })
-  const nom = `${file.name.replace(/\.[^.]+$/, '')}.webp`
+  // Retrait d'extension via splitExtension (SOURCE UNIQUE) — pas une regex maison :
+  // garantit que la base coïncide exactement avec le nom_original re-dérivé plus
+  // bas (sinon un nom sans extension reconnue mais avec un point se désynchronise).
+  const nom = `${splitExtension(file.name).base}.webp`
   return new File([blob], nom, { type: 'image/webp' })
 }
 
@@ -126,6 +130,9 @@ export async function uploadDocument(params: {
   // optimal est gardé intact). Tout ce qui part vers Storage est donc PDF ou WebP
   // — ce que le bucket exige côté serveur. nom_original / mime / taille suivent.
   const file = await preparerFichier(params.file)
+  // nom_original = nom d'affichage SANS extension (exigence métier). L'extension
+  // reste sur le storage_path (objet réel) → le téléchargement la conserve.
+  const nomOriginal = splitExtension(file.name).base || file.name
 
   const id = crypto.randomUUID()
   const storagePath = `${siteId}/${id}-${nomFichierSur(file.name)}`
@@ -144,7 +151,7 @@ export async function uploadDocument(params: {
       id,
       site_id: siteId,
       type_document_id: typeDocumentId,
-      nom_original: file.name,
+      nom_original: nomOriginal,
       storage_path: storagePath,
       hash_sha256: hash,
       taille_octets: file.size,
