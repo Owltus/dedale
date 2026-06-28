@@ -9,7 +9,6 @@ import {
 } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  ClipboardList,
   Folder,
   FolderTree,
   Inbox,
@@ -20,7 +19,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { gammesQueries } from '../queries'
-import { useCopierGamme, useDeleteGamme } from '../mutations'
+import { useDeleteGamme } from '../mutations'
 import { GammeFormDialog } from './gamme-form-dialog'
 import { GammeDetail, type GammeRow } from './gamme-detail'
 import { GammeCard } from './gamme-card'
@@ -36,7 +35,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { useGammesDrill } from '@/hooks/use-gammes-drill'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { deleteErrorMessage, errorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/form'
 import { segOfUnique } from '@/lib/slug'
 import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
@@ -53,7 +52,6 @@ import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { TabActionContext } from '@/components/common/tab-actions'
 import type {
   TabActionApi,
@@ -127,7 +125,6 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   useRealtimeRefresh('categories', categoriesQueries.all())
 
   const del = useDeleteGamme()
-  const copier = useCopierGamme()
   const delCategorie = useDeleteCategorie()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
@@ -309,7 +306,6 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     gamme: GammeRow | null
   }>({ open: false, gamme: null })
   const [toDelete, setToDelete] = useState<GammeRow | null>(null)
-  const [toCopy, setToCopy] = useState<GammeRow | null>(null)
   const [categoryForm, setCategoryForm] = useState<{
     open: boolean
     categorie: Categorie | null
@@ -329,20 +325,6 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
       },
       onError: (e) => toast.error(deleteErrorMessage(e)),
     })
-  }
-
-  function confirmCopy() {
-    if (!toCopy) return
-    copier.mutate(
-      { sourceGammeId: toCopy.id, siteCible: siteId },
-      {
-        onSuccess: () => {
-          toast.success('Gamme dupliquée')
-          setToCopy(null)
-        },
-        onError: (e) => toast.error(errorMessage(e)),
-      },
-    )
   }
 
   function confirmDeleteCategorie() {
@@ -452,6 +434,16 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
         onClick={() => setGammeForm({ open: true, gamme: openGamme })}
       />
     ) : null
+    // Supprimer : miroir de l'action de la carte de liste (même mutation delete,
+    // même confirmation), réservé canEdit.
+    const supprimerBtn = canEdit ? (
+      <TooltipIconButton
+        icon={<Trash2 className="text-destructive" />}
+        label="Supprimer la gamme"
+        variant="outline"
+        onClick={() => setToDelete(openGamme)}
+      />
+    ) : null
     const AddIcon = gammeAddConfig?.icon ?? Plus
     const addBtn =
       gammeAddConfig?.action != null ? (
@@ -462,15 +454,17 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
           onClick={gammeAddConfig.action}
         />
       ) : null
+    const gammeActions = modifierBtn ?? supprimerBtn ?? addBtn
     header = (
       <PageHeader
         breadcrumb={ancestors}
         title={openGamme.nom}
         description={nodeDescription(openGamme.description)}
         action={
-          modifierBtn || addBtn ? (
+          gammeActions ? (
             <>
               {modifierBtn}
+              {supprimerBtn}
               {addBtn}
             </>
           ) : undefined
@@ -578,22 +572,6 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
         warning="Cette suppression est définitive. Les opérations de la gamme sont retirées."
         loading={del.isPending}
         onConfirm={confirmDelete}
-      />
-
-      <ConfirmDialog
-        open={toCopy !== null}
-        onOpenChange={(open) => {
-          if (!open) setToCopy(null)
-        }}
-        title="Dupliquer la gamme ?"
-        description={
-          toCopy
-            ? `Une copie indépendante de « ${toCopy.nom} » (opérations comprises) sera créée sur ce site.`
-            : undefined
-        }
-        confirmLabel="Dupliquer"
-        loading={copier.isPending}
-        onConfirm={confirmCopy}
       />
     </>
   )
@@ -750,11 +728,6 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
                           icon: Pencil,
                           onSelect: () =>
                             setGammeForm({ open: true, gamme: g }),
-                        })
-                        rowActions.push({
-                          label: 'Dupliquer',
-                          icon: ClipboardList,
-                          onSelect: () => setToCopy(g),
                         })
                         rowActions.push({
                           label: 'Supprimer',
