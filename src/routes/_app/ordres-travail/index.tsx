@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList, Plus, Trash2 } from 'lucide-react'
@@ -10,6 +10,8 @@ import {
   statutOtFilterOptions,
 } from '@/features/ordres-travail/schemas'
 import { OtCard } from '@/features/ordres-travail/components/ot-card'
+import { trierOtParUrgence } from '@/features/ordres-travail/tri'
+import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import { OtCreateDialog } from '@/features/ordres-travail/components/ot-create-dialog'
 import type { RowAction } from '@/components/common/row-actions'
 import { useAuth } from '@/auth'
@@ -21,7 +23,7 @@ import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import {
-  FILTRE_NON_TERMINES,
+  FILTRE_TOUS,
   ListFilterBar,
 } from '@/components/common/list-filter-bar'
 import { EmptyState } from '@/components/common/empty-state'
@@ -65,6 +67,13 @@ function OrdresTravailContent({
 }) {
   const { session } = useAuth()
   const query = useQuery(ordresTravailQueries.list(siteId))
+  // Relevés (consommations) des compteurs cumulatifs du site, en UNE requête
+  // groupée → map `ot_id → « 80 kWh »` (même règle que la fiche détail).
+  const relevesQuery = useQuery(ordresTravailQueries.relevesListe(siteId))
+  const releveParOt = useMemo(
+    () => calculerRelevesParOt(relevesQuery.data ?? []),
+    [relevesQuery.data],
+  )
   const del = useDeleteOt()
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -72,7 +81,7 @@ function OrdresTravailContent({
     null,
   )
   const [search, setSearch] = useState('')
-  const [statutFilter, setStatutFilter] = useState<string>(FILTRE_NON_TERMINES)
+  const [statutFilter, setStatutFilter] = useState<string>(FILTRE_TOUS)
 
   function confirmDelete() {
     if (!toDelete) return
@@ -128,13 +137,15 @@ function OrdresTravailContent({
       >
         {(ordres) => {
           const q = search.trim().toLowerCase()
-          const filtered = ordres.filter((ot) => {
-            if (!matchStatutOt(ot.statut, statutFilter)) return false
-            if (q === '') return true
-            return [ot.nom_gamme, ot.nom_equipement, ot.nom_prestataire].some(
-              (v) => v?.toLowerCase().includes(q),
-            )
-          })
+          const filtered = trierOtParUrgence(
+            ordres.filter((ot) => {
+              if (!matchStatutOt(ot.statut, statutFilter)) return false
+              if (q === '') return true
+              return [ot.nom_gamme, ot.nom_equipement, ot.nom_prestataire].some(
+                (v) => v?.toLowerCase().includes(q),
+              )
+            }),
+          )
           return (
             <div className="flex flex-col gap-4">
               <ListFilterBar
@@ -167,6 +178,7 @@ function OrdresTravailContent({
                         key={ot.id}
                         ot={ot}
                         menuActions={actions.length ? actions : undefined}
+                        releve={releveParOt.get(ot.id) ?? null}
                       />
                     )
                   })}

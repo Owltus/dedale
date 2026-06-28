@@ -14,11 +14,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ordresTravailQueries } from '../queries'
-import {
-  consoOperation,
-  estVerrouille,
-  sommesCompteursParUnite,
-} from '../schemas'
+import { consoOperation, estVerrouille } from '../schemas'
+import { libelleReleve } from '../releves'
 import {
   useChangerStatutOt,
   useDeleteOt,
@@ -574,30 +571,29 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
   // Réutilise les relevés précédents déjà chargés ; total partiel accepté.
   const toNombre = (s: string) =>
     s.trim() === '' || Number.isNaN(Number(s)) ? null : Number(s)
-  const sommesCompteurs = sommesCompteursParUnite(
-    operations.filter(estCompteurCumulatif).map((op) => {
-      const e = opEdit(op)
-      const precedent =
-        previousReadingsQuery.data?.[
-          `${String(op.source_type)}:${op.source_id}`
-        ] ?? null
-      return {
-        symbole: op.unite_symbole ?? '',
-        conso: consoOperation({
-          precedent,
-          courant: toNombre(e.valeur),
-          depose: toNombre(e.indexDepose),
-          pose: toNombre(e.indexPose),
-        }),
-      }
-    }),
-  )
-  // Valeur affichée dans la cellule « Relevé » : un total par unité cumulative
-  // (ex. « 188 kWh ») ; plusieurs unités séparées par « · ». Vide → « — ».
+  // Valeur affichée dans la cellule « Relevé » de la carte d'en-tête : MÊME
+  // logique exportée que la carte de liste (`libelleReleve`), mais seuil ≥ 2
+  // occurrences d'une unité (carte d'en-tête). Vide → « — ».
   const releve =
-    sommesCompteurs
-      .map((s) => `${s.total.toLocaleString('fr-FR')} ${s.symbole}`)
-      .join(' · ') || null
+    libelleReleve(
+      operations.filter(estCompteurCumulatif).map((op) => {
+        const e = opEdit(op)
+        const precedent =
+          previousReadingsQuery.data?.[
+            `${String(op.source_type)}:${op.source_id}`
+          ] ?? null
+        return {
+          symbole: op.unite_symbole ?? '',
+          conso: consoOperation({
+            precedent,
+            courant: toNombre(e.valeur),
+            depose: toNombre(e.indexDepose),
+            pose: toNombre(e.indexPose),
+          }),
+        }
+      }),
+      2,
+    ) || null
 
   return (
     // `no-scrollbar` : seule la zone de contenu (2e enfant) défile, barre masquée.

@@ -170,14 +170,17 @@ export function consoOperation(p: {
 }
 
 /**
- * Somme des consommations par unité, pour la carte d'en-tête d'un OT. On ne garde
- * que les unités présentes AU MOINS DEUX FOIS (une seule occurrence → pas de somme,
- * inutile) et dont au moins une consommation est calculable (total PARTIEL accepté).
- * Jamais de somme entre unités différentes. L'appelant ne passe QUE des compteurs
- * cumulatifs (estCompteurCumulatif) — le kVA est déjà exclu en amont.
+ * Somme des consommations par unité. On ne garde que les unités présentes au moins
+ * `minOccurrences` fois (défaut 2 — carte d'EN-TÊTE de l'OT : une occurrence seule
+ * n'a pas d'intérêt à sommer) et dont au moins une consommation est calculable
+ * (total PARTIEL accepté). La carte de LISTE passe `minOccurrences = 1` pour
+ * afficher la valeur même avec un seul compteur. Jamais de somme entre unités
+ * différentes. L'appelant ne passe QUE des compteurs cumulatifs (estCompteurCumulatif)
+ * — le kVA est déjà exclu en amont.
  */
 export function sommesCompteursParUnite(
   items: { symbole: string; conso: number | null }[],
+  minOccurrences = 2,
 ): { symbole: string; total: number }[] {
   const groupes = new Map<
     string,
@@ -194,7 +197,7 @@ export function sommesCompteursParUnite(
     groupes.set(it.symbole, g)
   }
   return [...groupes.entries()]
-    .filter(([, g]) => g.count >= 2 && g.aConso)
+    .filter(([, g]) => g.count >= minOccurrences && g.aConso)
     .map(([symbole, g]) => ({ symbole, total: g.total }))
 }
 

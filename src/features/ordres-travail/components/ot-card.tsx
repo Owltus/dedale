@@ -37,9 +37,17 @@ export interface OtCardData {
 export function OtCard({
   ot,
   menuActions,
+  releve,
 }: {
   ot: OtCardData
   menuActions?: RowAction[]
+  /**
+   * Relevé (somme de consommation, ex. « 80 kWh ») calculé en amont par
+   * `calculerRelevesParOt`. Affiché À GAUCHE de la colonne statut/date, masqué si
+   * vide. Injecté par CHAQUE conteneur d'OT (page liste, panneau par-gamme, popup
+   * planning) → même valeur partout.
+   */
+  releve?: string | null
 }) {
   const navigate = useNavigate()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
@@ -63,15 +71,31 @@ export function OtCard({
       }
       title={ot.nom_gamme}
       subtitle={ot.nom_equipement ?? ot.nom_prestataire ?? undefined}
+      // À droite : le relevé (s'il existe) À GAUCHE de la colonne statut/date.
+      // Statut + date prévue empilés en COLONNE (statut en haut, date dessous),
+      // largeur FIXE + contenu centré : les libellés de statut ont des largeurs
+      // variables, mais la colonne occupe la même place sur toutes les cartes →
+      // badges et dates alignés verticalement d'une ligne à l'autre.
       badges={
-        <OtStatutBadge
-          statut={ot.statut}
-          origine={ot.origine}
-          datePrevue={ot.date_prevue}
-          toleranceJours={ot.tolerance_jours}
-        />
+        <div className="flex items-center gap-4">
+          {releve && (
+            <span className="text-muted-foreground text-sm whitespace-nowrap">
+              {releve}
+            </span>
+          )}
+          <div className="flex w-36 flex-col items-center gap-1 text-center">
+            <OtStatutBadge
+              statut={ot.statut}
+              origine={ot.origine}
+              datePrevue={ot.date_prevue}
+              toleranceJours={ot.tolerance_jours}
+            />
+            <span className="text-muted-foreground text-sm">
+              {formatDate(ot.date_prevue)}
+            </span>
+          </div>
+        </div>
       }
-      meta={formatDate(ot.date_prevue)}
       // Variante média : sous `sm`, `mobileMeta` REMPLACE le sous-titre → on y
       // condense l'info discriminante (équipement, statut, date prévue).
       mobileMeta={[

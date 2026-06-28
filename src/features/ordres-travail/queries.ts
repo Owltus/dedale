@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { ReleveLigne } from './releves'
 
 export const ordresTravailQueries = {
   all: () => ['ordres_travail'] as const,
@@ -45,13 +46,44 @@ export const ordresTravailQueries = {
         const { data } = await supabase
           .from('ordres_travail')
           .select(
-            'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, date_prevue, gamme_id, miniature_id',
+            'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, date_prevue, date_cloture, gamme_id, miniature_id',
           )
           .eq('site_id', siteId!)
           .in('gamme_id', gammeIds)
           .order('date_prevue', { ascending: false })
           .abortSignal(signal)
           .throwOnError()
+        return data
+      },
+      staleTime: 60_000,
+    }),
+
+  /**
+   * Relevés des compteurs CUMULATIFS du site, pour calculer le « relevé » des
+   * cartes de la liste OT — MÊME règle que la fiche détail (somme par unité
+   * présente ≥ 2 fois, cf. `calculerRelevesParOt`). UNE seule requête groupée
+   * (≠ N+1) : tous les relevés cumulatifs valués du site, avec gamme + date prévue
+   * de leur OT (`!inner`) pour retrouver le relevé PRÉCÉDENT. Le filtre
+   * `unite_est_cumulatif` + seuils nuls reflète `estCompteurCumulatif`.
+   */
+  relevesListe: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [...ordresTravailQueries.all(), 'releves-liste', siteId] as const,
+      enabled: siteId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('operations_execution')
+          .select(
+            'ordre_travail_id, source_type, source_id, valeur_mesuree, index_depose, index_pose, statut, date_execution, created_at, unite_symbole, ordres_travail!inner(gamme_id, date_prevue)',
+          )
+          .eq('ordres_travail.site_id', siteId!)
+          .eq('unite_est_cumulatif', true)
+          .is('seuil_minimum', null)
+          .is('seuil_maximum', null)
+          .not('valeur_mesuree', 'is', null)
+          .abortSignal(signal)
+          .throwOnError()
+          .overrideTypes<ReleveLigne[], { merge: false }>()
         return data
       },
       staleTime: 60_000,
