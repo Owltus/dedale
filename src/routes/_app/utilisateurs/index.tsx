@@ -13,6 +13,8 @@ import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
+import { SearchInput } from '@/components/common/search-input'
+import { NoSearchResults } from '@/components/common/no-search-results'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
@@ -32,6 +34,7 @@ function UtilisateursIndexPage() {
   const { session } = useAuth()
   const canManage = perm.canManageAdmin(role)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [search, setSearch] = useState('')
 
   const query = useQuery({ ...utilisateursQueries.list(), enabled: canManage })
 
@@ -95,42 +98,62 @@ function UtilisateursIndexPage() {
           // Mêmes « frères » qu'à la résolution côté détail (self exclu des deux
           // côtés) → le slug d'URL se relit à l'identique.
           const sibs = users.map((u) => ({ nom: u.nom_complet, id: u.id }))
+          const q = search.trim().toLowerCase()
+          const shown =
+            q === ''
+              ? users
+              : users.filter(
+                  (u) =>
+                    u.nom_complet.toLowerCase().includes(q) ||
+                    roleLabel(u.roles.code).toLowerCase().includes(q),
+                )
           return (
-            <div className={listStack}>
-              {users.map((u) => (
-                <ListRow
-                  key={u.id}
-                  media={<RowMediaIcon icon={User} />}
-                  title={u.nom_complet}
-                  badges={
-                    <>
-                      <Badge variant="secondary">
-                        {roleLabel(u.roles.code)}
-                      </Badge>
-                      {u.est_actif ? (
-                        <Badge variant="outline">Actif</Badge>
-                      ) : (
-                        <Badge variant="destructive">Inactif</Badge>
-                      )}
-                      {u.anonymized_at && (
-                        <Badge variant="outline">Anonymisé</Badge>
-                      )}
-                    </>
-                  }
-                  mobileMeta={roleLabel(u.roles.code)}
-                  onClick={() =>
-                    void navigate({
-                      to: '/utilisateurs/$utilisateur',
-                      params: {
-                        utilisateur: segOfUnique(
-                          { nom: u.nom_complet, id: u.id },
-                          sibs,
-                        ),
-                      },
-                    })
-                  }
-                />
-              ))}
+            <div className="flex flex-col gap-4">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Rechercher un utilisateur…"
+              />
+              {shown.length === 0 ? (
+                <NoSearchResults description="Aucun utilisateur ne correspond à cette recherche." />
+              ) : (
+                <div className={listStack}>
+                  {shown.map((u) => (
+                    <ListRow
+                      key={u.id}
+                      media={<RowMediaIcon icon={User} />}
+                      title={u.nom_complet}
+                      badges={
+                        <>
+                          <Badge variant="secondary">
+                            {roleLabel(u.roles.code)}
+                          </Badge>
+                          {u.est_actif ? (
+                            <Badge variant="outline">Actif</Badge>
+                          ) : (
+                            <Badge variant="destructive">Inactif</Badge>
+                          )}
+                          {u.anonymized_at && (
+                            <Badge variant="outline">Anonymisé</Badge>
+                          )}
+                        </>
+                      }
+                      mobileMeta={roleLabel(u.roles.code)}
+                      onClick={() =>
+                        void navigate({
+                          to: '/utilisateurs/$utilisateur',
+                          params: {
+                            utilisateur: segOfUnique(
+                              { nom: u.nom_complet, id: u.id },
+                              sibs,
+                            ),
+                          },
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )
         }}

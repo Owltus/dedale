@@ -4,16 +4,8 @@ import { emptyObservationLever, observationLeverSchema } from '../schemas'
 import type { ObservationLeverValues } from '../schemas'
 import { useLeverObservation } from '../mutations'
 import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { TextareaField } from '@/components/common/textarea-field'
 
 interface ObservationLeverDialogProps {
@@ -63,57 +55,36 @@ export function ObservationLeverDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Lever l'observation</DialogTitle>
-          <DialogDescription className="line-clamp-2">
-            {description}
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void handleSubmit()
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TextField
-            id="lever-date"
-            label="Date de levée"
-            type="date"
-            required
-            value={values.date_levee}
-            onChange={(date_levee) => setValues((v) => ({ ...v, date_levee }))}
-            error={errors.date_levee}
-          />
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Lever l'observation"
+      description={description}
+      onSubmit={() => void handleSubmit()}
+      submitLabel="Lever"
+      pendingLabel="Levée…"
+      pending={lever.isPending}
+    >
+      <TextField
+        id="lever-date"
+        label="Date de levée"
+        type="date"
+        required
+        value={values.date_levee}
+        onChange={(date_levee) => setValues((v) => ({ ...v, date_levee }))}
+        error={errors.date_levee}
+      />
 
-          <TextareaField
-            id="lever-commentaire"
-            label="Commentaire de levée"
-            rows={3}
-            value={values.commentaire_levee}
-            onChange={(commentaire_levee) =>
-              setValues((v) => ({ ...v, commentaire_levee }))
-            }
-            error={errors.commentaire_levee}
-          />
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={lever.isPending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={lever.isPending}>
-              {lever.isPending ? 'Levée…' : 'Lever'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <TextareaField
+        id="lever-commentaire"
+        label="Commentaire de levée"
+        rows={3}
+        value={values.commentaire_levee}
+        onChange={(commentaire_levee) =>
+          setValues((v) => ({ ...v, commentaire_levee }))
+        }
+        error={errors.commentaire_levee}
+      />
+    </FormDialog>
   )
 }

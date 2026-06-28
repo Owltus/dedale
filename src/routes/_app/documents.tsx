@@ -32,12 +32,11 @@ import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { SearchInput } from '@/components/common/search-input'
+import { ListFilterBar } from '@/components/common/list-filter-bar'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
 
 export const Route = createFileRoute('/_app/documents')({
   beforeLoad: ({ context }) => requireNav('/documents', context.queryClient),
@@ -154,26 +153,19 @@ function DocumentsContent({
           }
         />
         {hasDocuments && (
-          <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder="Rechercher un document…"
-              className="flex-1"
+          <div className="mb-4">
+            <ListFilterBar
+              search={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Rechercher un document…"
+              filterValue={typeFilter}
+              onFilterChange={setTypeFilter}
+              options={[
+                { value: '', label: 'Tous les types' },
+                ...types.map((t) => ({ value: String(t.id), label: t.nom })),
+              ]}
+              filterLabel="Filtrer par type de document"
             />
-            <Select
-              aria-label="Filtrer par type de document"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="sm:w-56"
-            >
-              <option value="">Tous les types</option>
-              {types.map((t) => (
-                <option key={t.id} value={String(t.id)}>
-                  {t.nom}
-                </option>
-              ))}
-            </Select>
           </div>
         )}
       </div>
