@@ -2,10 +2,8 @@ import { Folder, Inbox } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
 import { ListRow } from '@/components/common/list-row'
 import { ScopeBadges } from '@/components/common/scope-badges'
-import {
-  StatusBadge,
-  type StatusTone,
-} from '@/components/common/status-badge'
+import { type StatusTone } from '@/components/common/status-badge'
+import { StatutColonne } from '@/components/common/statut-colonne'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 
 /**
@@ -81,19 +79,9 @@ export function CategorieCard({
       <ScopeBadges siteId={categorie.site_id} />
     ) : undefined
 
-  const badges = statutMode ? (
-    // Colonne à largeur FIXE et centrée — MÊME gabarit que la carte OT : badge centré
-    // et ALIGNÉ d'une carte à l'autre malgré des libellés de longueurs différentes.
-    <div className="flex w-36 flex-col items-center text-center">
-      {statut && (
-        <StatusBadge tone={statut.tone} className="shrink-0">
-          {statut.label}
-        </StatusBadge>
-      )}
-    </div>
-  ) : (
-    scope
-  )
+  // Mode statut : colonne partagée `StatutColonne` (même gabarit aligné que la carte
+  // OT). Sinon : badges de périmètre.
+  const badges = statutMode ? <StatutColonne statut={statut} /> : scope
   const mobileMeta = statutMode
     ? [description, statut?.label].filter(Boolean).join(' · ') || undefined
     : scope

@@ -13,6 +13,7 @@ import { OtCard } from '@/features/ordres-travail/components/ot-card'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import { OtCreateDialog } from '@/features/ordres-travail/components/ot-create-dialog'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import type { RowAction } from '@/components/common/row-actions'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -74,6 +75,7 @@ function OrdresTravailContent({
     () => calculerRelevesParOt(relevesQuery.data ?? []),
     [relevesQuery.data],
   )
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const del = useDeleteOt()
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -82,6 +84,22 @@ function OrdresTravailContent({
   )
   const [search, setSearch] = useState('')
   const [statutFilter, setStatutFilter] = useState<string>(FILTRE_TOUS)
+
+  // Filtre (recherche + statut) puis tri par urgence — mémoïsé pour ne PAS
+  // refiltrer/retrier tous les OT du site à chaque ouverture de dialog ; seul un
+  // changement de données / recherche / filtre le recalcule.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return trierOtParUrgence(
+      (query.data ?? []).filter((ot) => {
+        if (!matchStatutOt(ot.statut, statutFilter)) return false
+        if (q === '') return true
+        return [ot.nom_gamme, ot.nom_equipement, ot.nom_prestataire].some((v) =>
+          v?.toLowerCase().includes(q),
+        )
+      }),
+    )
+  }, [query.data, search, statutFilter])
 
   function confirmDelete() {
     if (!toDelete) return
@@ -135,17 +153,7 @@ function OrdresTravailContent({
           />
         }
       >
-        {(ordres) => {
-          const q = search.trim().toLowerCase()
-          const filtered = trierOtParUrgence(
-            ordres.filter((ot) => {
-              if (!matchStatutOt(ot.statut, statutFilter)) return false
-              if (q === '') return true
-              return [ot.nom_gamme, ot.nom_equipement, ot.nom_prestataire].some(
-                (v) => v?.toLowerCase().includes(q),
-              )
-            }),
-          )
+        {() => {
           return (
             <div className="flex flex-col gap-4">
               <ListFilterBar
@@ -177,6 +185,8 @@ function OrdresTravailContent({
                       <OtCard
                         key={ot.id}
                         ot={ot}
+                        urlOf={urlOf}
+                        refreshMiniatures={refreshMiniatures}
                         menuActions={actions.length ? actions : undefined}
                         releve={releveParOt.get(ot.id) ?? null}
                       />

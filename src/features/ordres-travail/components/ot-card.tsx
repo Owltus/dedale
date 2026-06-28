@@ -2,11 +2,10 @@ import { useNavigate } from '@tanstack/react-router'
 import { ClipboardList } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
 import { statutAffichageOt } from '@/features/ordres-travail/statut-affichage'
-import { OtStatutBadge } from '@/features/ordres-travail/components/ot-statut-badge'
 import { formatDateAvecSemaineIso } from '@/lib/date'
 import { ListRow } from '@/components/common/list-row'
+import { StatutColonne } from '@/components/common/statut-colonne'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
-import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 
 /**
  * Champs nécessaires au rendu d'une carte OT — communs aux requêtes `list`
@@ -34,13 +33,21 @@ export interface OtCardData {
  * page liste « Ordres de travail » ET par `OtListeParGammes` (Plan de maintenance,
  * onglet OT d'une fiche gamme). Le clic ouvre le détail (`/ordres-travail/<id>`).
  * La page fournit les `menuActions` autorisées (ex. Supprimer pour un gestionnaire).
+ *
+ * Les vignettes (`urlOf`/`refreshMiniatures`) sont INJECTÉES par le conteneur (qui
+ * appelle `useMiniatureUrls` UNE fois pour toute la liste) → un seul canal Realtime
+ * et une seule map d'URL, pas un par carte.
  */
 export function OtCard({
   ot,
+  urlOf,
+  refreshMiniatures,
   menuActions,
   releve,
 }: {
   ot: OtCardData
+  urlOf: (id: string | null) => string | null
+  refreshMiniatures: () => void
   menuActions?: RowAction[]
   /**
    * Relevé (somme de consommation, ex. « 80 kWh ») calculé en amont par
@@ -51,14 +58,15 @@ export function OtCard({
   releve?: string | null
 }) {
   const navigate = useNavigate()
-  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
-  // Libellé d'affichage (statut métier ou temporel) — réutilisé pour `mobileMeta`.
-  const statutLabel = statutAffichageOt({
+  // Statut d'affichage (métier ou temporel) — calculé UNE fois, partagé entre le
+  // badge de la colonne et le `mobileMeta` (plus de double calcul via un sous-badge).
+  const statut = statutAffichageOt({
     statut: ot.statut,
     origine: ot.origine,
     datePrevue: ot.date_prevue,
     toleranceJours: ot.tolerance_jours,
-  }).label
+  })
+  const datePrevue = formatDateAvecSemaineIso(ot.date_prevue)
   return (
     <ListRow
       media={
@@ -73,10 +81,8 @@ export function OtCard({
       title={ot.nom_gamme}
       subtitle={ot.nom_equipement ?? ot.description_gamme ?? undefined}
       // À droite : le relevé (s'il existe) À GAUCHE de la colonne statut/date.
-      // Statut + date prévue empilés en COLONNE (statut en haut, date dessous),
-      // largeur FIXE + contenu centré : les libellés de statut ont des largeurs
-      // variables, mais la colonne occupe la même place sur toutes les cartes →
-      // badges et dates alignés verticalement d'une ligne à l'autre.
+      // Statut + date prévue empilés via la brique `StatutColonne` (largeur fixe
+      // centrée) → badges et dates alignés d'une carte à l'autre.
       badges={
         <div className="flex items-center gap-4">
           {releve && (
@@ -84,25 +90,15 @@ export function OtCard({
               {releve}
             </span>
           )}
-          <div className="flex w-36 flex-col items-center gap-1 text-center">
-            <OtStatutBadge
-              statut={ot.statut}
-              origine={ot.origine}
-              datePrevue={ot.date_prevue}
-              toleranceJours={ot.tolerance_jours}
-            />
-            <span className="text-muted-foreground text-sm">
-              {formatDateAvecSemaineIso(ot.date_prevue)}
-            </span>
-          </div>
+          <StatutColonne statut={statut} meta={datePrevue} />
         </div>
       }
       // Variante média : sous `sm`, `mobileMeta` REMPLACE le sous-titre → on y
       // condense l'info discriminante (équipement, statut, date prévue).
       mobileMeta={[
         ot.nom_equipement ?? ot.description_gamme,
-        statutLabel,
-        formatDateAvecSemaineIso(ot.date_prevue),
+        statut.label,
+        datePrevue,
       ]
         .filter(Boolean)
         .join(' · ')}

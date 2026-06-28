@@ -60,6 +60,11 @@ interface OtDetailProps {
 
 type Onglet = 'operations' | 'documents'
 
+/** Une opération est-elle dans un état TERMINAL (ni à faire, ni en cours) ? */
+function statutOpTerminal(statut: string): boolean {
+  return statut !== 'en_attente' && statut !== 'en_cours'
+}
+
 export function OtDetail({ otId, canManage }: OtDetailProps) {
   const { session } = useAuth()
   const {
@@ -134,6 +139,12 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     )
   }
   const dirtyOps = operations.filter(isOpDirty)
+  // Toutes les opérations seraient-elles terminales une fois les saisies en cours
+  // appliquées ? Calculé UNE fois (même rendu) et réutilisé par la re-clôture auto
+  // (enregistrement d'un OT rouvert) ET le bouton de finition adaptatif.
+  const toutesTerminalesApres = operations.every((op) =>
+    statutOpTerminal(edits[op.id]?.statut ?? op.statut),
+  )
 
   // Relevés précédents des compteurs (rappel « précédent : X (+écart) ») : dernier
   // relevé de la même opération (reliée par source_id, stable depuis la migration 063)
@@ -150,6 +161,11 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       compteurSourceIds,
     ),
   )
+  // Relevé précédent d'une opération compteur (clé `source_type:source_id`, cf.
+  // requête previousReadings) — UN seul format de clé pour la carte ET les lignes.
+  const relevePrecedentDe = (op: (typeof operations)[number]) =>
+    previousReadingsQuery.data?.[`${String(op.source_type)}:${op.source_id}`] ??
+    null
 
   // Garde-fou : prévient avant de quitter la page s'il reste des saisies non
   // enregistrées — navigation interne ET retour/fermeture du navigateur
@@ -256,7 +272,9 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     ot.statut === 'en_cours' ||
     ot.statut === 'reouvert'
 
-  const canEditOps = canManage && !verrouille && Boolean(session)
+  // Strict inverse de `opsReadOnly` (cf. ci-dessus) — une seule règle, pas deux
+  // expressions en miroir à garder synchrones.
+  const canEditOps = !opsReadOnly
 
   async function saveAllOps() {
     if (dirtyOps.length === 0) return
@@ -345,24 +363,16 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       const aucunStatutChange = dirtyOps.every(
         (op) => edits[op.id]?.statut === op.statut,
       )
-      const toutesTerminales = operations.every((op) => {
-        const s = edits[op.id]?.statut ?? op.statut
-        return s !== 'en_attente' && s !== 'en_cours'
-      })
       toast.success(
         dirtyOps.length > 1
           ? `${String(dirtyOps.length)} opérations enregistrées`
           : 'Opération enregistrée',
       )
       setEdits({})
-      if (ot?.statut === 'reouvert' && aucunStatutChange && toutesTerminales) {
-        changerStatut.mutate(
-          { id: otId, statut: 'cloture' },
-          {
-            onSuccess: () => toast.success('OT clôturé'),
-            onError: (e) => toast.error(writeErrorMessage(e)),
-          },
-        )
+      // `toutesTerminalesApres` (calculé au rendu, AVANT le vidage des edits) reflète
+      // bien l'état post-enregistrement. Même mutation/toasts que la clôture manuelle.
+      if (ot?.statut === 'reouvert' && aucunStatutChange && toutesTerminalesApres) {
+        recloturer()
       }
     } else {
       toast.error(writeErrorMessage(errors[0]))
@@ -451,14 +461,9 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
   }
 
   // OT rouvert : finition via UN SEUL bouton adaptatif (jamais « Enregistrer » +
-  // « Clôturer » en même temps). `toutesTerminalesApres` = une fois les saisies
-  // enregistrées, toutes les opérations seraient-elles terminales → l'enregistrement
-  // clôturera l'OT.
+  // « Clôturer » en même temps), piloté par `toutesTerminalesApres` (calculé plus
+  // haut) → l'enregistrement clôturera l'OT si tout devient terminal.
   const estReouvert = ot.statut === 'reouvert'
-  const toutesTerminalesApres = operations.every((op) => {
-    const s = edits[op.id]?.statut ?? op.statut
-    return s !== 'en_attente' && s !== 'en_cours'
-  })
 
   // Top bar : badge de STATUT (toujours visible, même en lecture seule) suivi des
   // actions en boutons ICÔNE + tooltip (TooltipIconButton, outline). Onglet
@@ -578,10 +583,7 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     libelleReleve(
       operations.filter(estCompteurCumulatif).map((op) => {
         const e = opEdit(op)
-        const precedent =
-          previousReadingsQuery.data?.[
-            `${String(op.source_type)}:${op.source_id}`
-          ] ?? null
+        const precedent = relevePrecedentDe(op)
         return {
           symbole: op.unite_symbole ?? '',
           conso: consoOperation({
@@ -680,11 +682,7 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
                     setEdits((prev) => ({ ...prev, [op.id]: v }))
                   }
                   readOnly={opsReadOnly}
-                  previousValue={
-                    previousReadingsQuery.data?.[
-                      `${String(op.source_type)}:${op.source_id}`
-                    ] ?? null
-                  }
+                  previousValue={relevePrecedentDe(op)}
                 />
               ))}
             </div>

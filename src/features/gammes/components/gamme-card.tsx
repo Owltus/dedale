@@ -1,12 +1,12 @@
 import { Wrench } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
 import { ListRow } from '@/components/common/list-row'
+import { StatutColonne } from '@/components/common/statut-colonne'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { Badge } from '@/components/ui/badge'
 import type { OtTriable } from '@/features/ordres-travail/tri'
 import { NATURE_GAMME_LABEL } from '../schemas'
 import { statutAffichageGamme } from '../statut-affichage'
-import { GammeStatutBadge } from './gamme-statut-badge'
 import type { GammeRow } from './gamme-detail'
 
 /**
@@ -90,20 +90,15 @@ export function GammeCard({
         subtitle={
           gamme.description?.trim() ? gamme.description.trim() : undefined
         }
-        // Colonne de droite à largeur FIXE et centrée — MÊME gabarit que la carte
+        // Colonne de droite (brique `StatutColonne`) — MÊME gabarit que la carte
         // OT : badge de statut EN HAUT, périodicité EN DESSOUS (là où l'OT met la
-        // date prévue). Largeur fixe → badges et périodicités alignés d'une carte à
-        // l'autre. Statut masqué tant que les OT chargent (pas de « Non assigné »
-        // trompeur) ; la périodicité, connue d'emblée, reste affichée.
+        // date prévue). Statut masqué tant que les OT chargent (pas de « Non
+        // assigné » trompeur) ; la périodicité, connue d'emblée, reste affichée.
         badges={
-          <div className="flex w-36 flex-col items-center gap-1 text-center">
-            {!statutPending && (
-              <GammeStatutBadge estActive={gamme.est_active} ots={statutOts} />
-            )}
-            <span className="text-muted-foreground text-sm">
-              {gamme.periodicites?.libelle ?? '—'}
-            </span>
-          </div>
+          <StatutColonne
+            statut={statutPending ? undefined : statut}
+            meta={gamme.periodicites?.libelle ?? '—'}
+          />
         }
         mobileMeta={[
           gamme.description?.trim(),

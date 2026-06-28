@@ -5,6 +5,7 @@ import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { OtCard } from './ot-card'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { listStack } from '@/lib/responsive'
 import { QueryState } from '@/components/common/query-state'
@@ -37,6 +38,13 @@ export function OtListeParGammes({
     () => calculerRelevesParOt(relevesQuery.data ?? []),
     [relevesQuery.data],
   )
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+  // Tri par urgence mémoïsé : ne se recalcule que quand les OT changent (pas à
+  // chaque re-render du split parent), au même titre que `releveParOt`.
+  const ordresTries = useMemo(
+    () => trierOtParUrgence(query.data ?? []),
+    [query.data],
+  )
   useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
 
   return (
@@ -45,12 +53,14 @@ export function OtListeParGammes({
       pending={<ListRowSkeletons count={3} />}
       empty={<EmptyState icon={ClipboardList} title="Aucun ordre de travail" />}
     >
-      {(ordres) => (
+      {() => (
         <div className={listStack}>
-          {trierOtParUrgence(ordres).map((ot) => (
+          {ordresTries.map((ot) => (
             <OtCard
               key={ot.id}
               ot={ot}
+              urlOf={urlOf}
+              refreshMiniatures={refreshMiniatures}
               releve={releveParOt.get(ot.id) ?? null}
             />
           ))}

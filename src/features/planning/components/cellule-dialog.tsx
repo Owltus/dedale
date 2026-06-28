@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { OtCard } from '@/features/ordres-travail/components/ot-card'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import type { PlanningOt } from '@/features/planning/grille'
 import {
   Dialog,
@@ -36,6 +37,8 @@ export function CelluleDialog({
   const open = ots !== null && ots.length > 0
   const liste = trierOtParUrgence(ots ?? [])
   const titreGamme = liste[0]?.nom_gamme ?? ''
+  // Vignettes résolues UNE fois pour toute la liste du popup (un seul canal Realtime).
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   return (
     <Dialog
@@ -57,7 +60,13 @@ export function CelluleDialog({
 
         <div className="flex flex-col gap-2">
           {liste.map((ot) => (
-            <OtCard key={ot.id} ot={ot} releve={releveParOt.get(ot.id) ?? null} />
+            <OtCard
+              key={ot.id}
+              ot={ot}
+              urlOf={urlOf}
+              refreshMiniatures={refreshMiniatures}
+              releve={releveParOt.get(ot.id) ?? null}
+            />
           ))}
         </div>
 

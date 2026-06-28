@@ -300,6 +300,21 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
       })),
     [gammeRowsUnderNode, otsParGamme],
   )
+  // Badge de statut AGRÉGÉ par catégorie/sous-catégorie affichée, MÉMOÏSÉ :
+  // l'agrégation + le tri par urgence de TOUS les OT du palier ne se recalculent que
+  // si les nœuds affichés ou leurs OT changent — plus à chaque re-render (ouverture
+  // de dialog, frappe dans le formulaire catégorie…). Map vide pendant le fetch / sur
+  // erreur → badges masqués (cf. statutPending).
+  const statutParNode = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof statutAffichageAgrege>>()
+    if (otsBadgesIndispo) return map
+    for (const node of childCategories)
+      map.set(
+        node.id,
+        statutAffichageAgrege({ gammes: gammesStatutUnderNode(node) }),
+      )
+    return map
+  }, [childCategories, gammesStatutUnderNode, otsBadgesIndispo])
 
   // Gamme OUVERTE (vue détail, niveau FEUILLE) : résolue parmi les gammes du palier
   // courant (mêmes frères qu'à la génération → slug stable).
@@ -472,15 +487,18 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   // générale de la section → la ligne n'est jamais vide ni muette.
   const nodeDescription = (d: string | null | undefined) =>
     d?.trim() ? d.trim() : SECTION_DESCRIPTION
+  // Fil d'Ariane « Plan de maintenance › … › nœud ». `segs` est TOUJOURS un préfixe
+  // de `path`, donc l'index `i` indexe `path` directement (clic = descente à ce palier).
+  const crumbs = (segs: DrillCat[]): PageHeaderCrumb[] => [
+    { label: 'Plan de maintenance', onClick: () => goTo([]) },
+    ...segs.map((c, i) => ({
+      label: c.nom,
+      onClick: () => goTo(path.slice(0, i + 1)),
+    })),
+  ]
   let header: React.ReactNode
   if (openGamme !== null) {
-    const ancestors: PageHeaderCrumb[] = [
-      { label: 'Plan de maintenance', onClick: () => goTo([]) },
-      ...path.map((c, i) => ({
-        label: c.nom,
-        onClick: () => goTo(path.slice(0, i + 1)),
-      })),
-    ]
+    const ancestors = crumbs(path)
     // Top bar : « Modifier » + bouton d'ajout DYNAMIQUE selon l'onglet actif
     // (Lier équipements / Rattacher document), enregistré par GammeDetail via
     // useTabAddAction. Plus de bouton « Créer OT » désactivé.
@@ -530,13 +548,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
       />
     )
   } else if (depth > 0) {
-    const ancestors: PageHeaderCrumb[] = [
-      { label: 'Plan de maintenance', onClick: () => goTo([]) },
-      ...path.slice(0, -1).map((c, i) => ({
-        label: c.nom,
-        onClick: () => goTo(path.slice(0, i + 1)),
-      })),
-    ]
+    const ancestors = crumbs(path.slice(0, -1))
     header = (
       <PageHeader
         breadcrumb={ancestors}
@@ -746,12 +758,9 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
                       // choisis par profondeur.
                       // Badge de statut AGRÉGÉ (pire cas des gammes du périmètre —
                       // catégorie OU sous-catégorie), masqué pendant le fetch / sur
-                      // erreur. MÊME règle à tous les niveaux (statutAffichageAgrege).
-                      const statutNode = otsBadgesIndispo
-                        ? undefined
-                        : statutAffichageAgrege({
-                            gammes: gammesStatutUnderNode(cat),
-                          })
+                      // erreur (Map vide alors → undefined). MÊME règle à tous les
+                      // niveaux (statutAffichageAgrege, mémoïsé dans statutParNode).
+                      const statutNode = statutParNode.get(cat.id)
                       if (depth === 0) {
                         return (
                           <CategorieCard
