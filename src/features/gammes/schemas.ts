@@ -5,6 +5,12 @@ export const gammeNatures = [
   'maintenance_preventive',
 ] as const
 
+/** Libellé court de la nature d'une gamme (cartes de liste ET d'en-tête). */
+export const NATURE_GAMME_LABEL: Record<(typeof gammeNatures)[number], string> = {
+  controle_reglementaire: 'Réglementaire',
+  maintenance_preventive: 'Maintenance',
+}
+
 export const gammeSchema = z.object({
   nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
   nature: z.enum(gammeNatures),

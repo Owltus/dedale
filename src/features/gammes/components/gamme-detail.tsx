@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  ClipboardList,
-  FileText,
   ListChecks,
   Paperclip,
   Pencil,
@@ -13,6 +11,7 @@ import {
 import { toast } from 'sonner'
 import { gammesQueries } from '@/features/gammes/queries'
 import { useDeleteOperation } from '@/features/gammes/mutations'
+import { NATURE_GAMME_LABEL } from '@/features/gammes/schemas'
 import { OperationFormDialog } from '@/features/gammes/components/operation-form-dialog'
 import { EquipementsLinkDialog } from '@/features/gammes/components/equipements-link-dialog'
 import { GammeModelesSection } from '@/features/gammes/components/gamme-modeles-section'
@@ -26,6 +25,7 @@ import { useFileDrop } from '@/hooks/use-file-drop'
 import { deleteErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import { cn } from '@/lib/utils'
+import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { SubTabs } from '@/components/common/sub-tabs'
 import { SectionHeader } from '@/components/common/section'
 import { SplitPane, SplitPanes } from '@/components/common/split-panes'
@@ -143,10 +143,11 @@ export function GammeDetail({
       {/* Barre d'onglets FIXE (toujours visible). SEUL le contenu défile → la
           scrollbar apparaît DANS la liste (OT…), sous les onglets. */}
       <div className="shrink-0">
-        {/* Carte de la gamme — pour l'instant SEULE la vignette (autres infos à
-            ajouter plus tard). Conteneur calqué sur la carte média de ListRow. */}
-        <div className="bg-card mb-4 flex h-20 items-stretch overflow-hidden rounded-lg border">
-          <div className="aspect-square h-full shrink-0">
+        {/* Carte d'en-tête (brique partagée DetailHeaderCard) : vignette + infos
+            essentielles de la gamme. */}
+        <DetailHeaderCard
+          className="mb-4"
+          thumbnail={
             <MiniatureThumb
               url={urlOf(gamme.miniature_id)}
               fallback={<Wrench className="size-10" />}
@@ -154,34 +155,25 @@ export function GammeDetail({
               onError={refreshMiniatures}
               className="size-full rounded-none"
             />
-          </div>
-        </div>
+          }
+          columns={2}
+          fields={[
+            { label: 'Nature', value: NATURE_GAMME_LABEL[gamme.nature] },
+            { label: 'Périodicité', value: gamme.periodicites?.libelle ?? null },
+            { label: 'Prestataire', value: gamme.prestataires?.libelle ?? null },
+            { label: 'État', value: gamme.est_active ? 'Active' : 'Inactive' },
+          ]}
+        />
         <SubTabs
           ariaLabel="Sections de la gamme"
           variant="segmented"
           value={tab}
           onValueChange={setTab}
           items={[
-            {
-              id: 'ordres',
-              label: 'Ordres de travail',
-              icon: <ClipboardList className="size-4" />,
-            },
-            {
-              id: 'operations',
-              label: 'Opérations',
-              icon: <ListChecks className="size-4" />,
-            },
-            {
-              id: 'equipements',
-              label: 'Équipements',
-              icon: <Wrench className="size-4" />,
-            },
-            {
-              id: 'documents',
-              label: 'Documents',
-              icon: <FileText className="size-4" />,
-            },
+            { id: 'ordres', label: 'Ordres de travail' },
+            { id: 'operations', label: 'Opérations' },
+            { id: 'equipements', label: 'Équipements' },
+            { id: 'documents', label: 'Documents' },
           ]}
         />
       </div>
@@ -224,6 +216,7 @@ export function GammeDetail({
             uploadOpen={uploadOpen}
             onUploadOpenChange={handleUploadOpenChange}
             uploadInitialFiles={droppedFiles}
+            className="min-h-full"
           />
         )}
         {/* Surcouche de glisser-déposer pleine page (réservée aux éditeurs). */}
@@ -299,7 +292,13 @@ function OperationsTab({
           <QueryState
             query={query}
             pending={<ListRowSkeletons dense count={3} />}
-            empty={<EmptyState icon={ListChecks} title="Aucune opération" />}
+            empty={
+            <EmptyState
+              icon={ListChecks}
+              title="Aucune opération"
+              className="min-h-full justify-center"
+            />
+          }
           >
             {(operations) => (
               <div className={listStack}>
@@ -402,7 +401,11 @@ function EquipementsTab({
       >
         {() =>
           lies.length === 0 ? (
-            <EmptyState icon={Wrench} title="Aucun équipement" />
+            <EmptyState
+              icon={Wrench}
+              title="Aucun équipement"
+              className="min-h-full justify-center"
+            />
           ) : (
             <div className={listStack}>
               {lies.map((e) => (

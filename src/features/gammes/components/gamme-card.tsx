@@ -3,13 +3,8 @@ import type { RowAction } from '@/components/common/row-actions'
 import { ListRow } from '@/components/common/list-row'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { Badge } from '@/components/ui/badge'
+import { NATURE_GAMME_LABEL } from '../schemas'
 import type { GammeRow } from './gamme-detail'
-
-/** Libellé de la nature d'une gamme. */
-const NATURE_LABEL: Record<GammeRow['nature'], string> = {
-  controle_reglementaire: 'Réglementaire',
-  maintenance_preventive: 'Maintenance',
-}
 
 /**
  * Carte (ListRow média) d'une gamme : vignette + nom + sous-titre + nature +
@@ -53,7 +48,7 @@ export function GammeCard({
             gamme.nature === 'controle_reglementaire' ? 'default' : 'secondary'
           }
         >
-          {NATURE_LABEL[gamme.nature]}
+          {NATURE_GAMME_LABEL[gamme.nature]}
         </Badge>
       }
       meta={
