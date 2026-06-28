@@ -1,4 +1,6 @@
 import {
+  niveauUrgenceOt,
+  NIVEAU_URGENCE,
   statutAffichageOt,
   type StatutAffichage,
 } from '@/features/ordres-travail/statut-affichage'
@@ -7,18 +9,8 @@ import { trierOtParUrgence, type OtTriable } from '@/features/ordres-travail/tri
 /**
  * Statut d'AFFICHAGE d'une gamme (libellé + couleur de pastille `StatusBadge`) :
  * SYNTHÈSE PRIORISÉE de l'état de tous ses OT — le badge remonte toujours
- * l'information la plus urgente. Cascade (on s'arrête au premier cas vrai) :
- *
- *   1. Gamme désactivée        → « Inactive »    (gris)   — rien à suivre.
- *   2. Aucun OT                → « Non assigné »  (gris)   — rien à suivre.
- *   3. Sinon, on prend l'OT le PLUS URGENT (MÊME tri que la liste OT,
- *      `trierOtParUrgence` : Réouvert → En retard → En cours → À venir → Terminés)
- *      et on affiche SON badge — mêmes libellés et MÊMES couleurs que
- *      `statutAffichageOt` (Réouvert, En retard, En cours, Cette semaine…), avec
- *      deux nuances « niveau gamme » qui n'existent pas pour un OT seul :
- *        • le plus urgent est terminal (clôturé/annulé) → TOUS le sont → « À jour » (vert) ;
- *        • le prochain OT planifié est encore HORS fenêtre de tolérance (rien
- *          d'imminent) → « À jour » (vert).
+ * l'information la plus urgente (gamme désactivée → « Inactive » ; aucun OT → « Non
+ * assigné » ; sinon le badge de l'OT le plus urgent, cf. `statutDuPireOt`).
  *
  * 100 % dérivé des OT (aucune table, aucun compteur backend) : recalculé à chaque
  * rendu → toujours juste, exactement comme les statuts temporels d'OT.
@@ -27,6 +19,38 @@ import { trierOtParUrgence, type OtTriable } from '@/features/ordres-travail/tri
 export interface GammeStatutInput {
   estActive: boolean
   ots: OtTriable[]
+}
+
+/**
+ * Statut d'affichage du PIRE OT (le plus urgent) d'un ensemble — cœur PARTAGÉ par la
+ * synthèse d'une gamme ET d'un conteneur. Deux nuances « niveau synthèse » que le badge
+ * d'un OT seul n'a pas :
+ *   • le plus urgent est terminal (clôturé/annulé) → TOUS le sont → « À jour » (vert) ;
+ *   • le prochain OT planifié est encore HORS fenêtre de tolérance (repli non temporel,
+ *     rien d'imminent) → « À jour » (vert).
+ * `top` absent (aucun OT) → « Non assigné ».
+ */
+function statutDuPireOt(
+  top: OtTriable | undefined,
+  aujourdHui?: Date,
+): StatutAffichage {
+  if (!top) return { label: 'Non assigné', tone: 'neutral', temporel: false }
+  if (top.statut === 'cloture' || top.statut === 'annule')
+    return { label: 'À jour', tone: 'success', temporel: false }
+
+  const aff = statutAffichageOt({
+    statut: top.statut,
+    origine: top.origine,
+    datePrevue: top.date_prevue,
+    toleranceJours: top.tolerance_jours,
+    aujourdHui,
+  })
+  if (top.statut === 'planifie' && !aff.temporel)
+    return { label: 'À jour', tone: 'success', temporel: false }
+
+  // Sinon on remonte tel quel l'état le plus urgent (Réouvert / En retard /
+  // En cours / Cette semaine / Semaine prochaine / Ce mois-ci / Mois prochain).
+  return aff
 }
 
 export function statutAffichageGamme(input: {
@@ -40,32 +64,7 @@ export function statutAffichageGamme(input: {
     return { label: 'Non assigné', tone: 'neutral', temporel: false }
 
   // OT le plus urgent (le tri place le groupe prioritaire en tête).
-  const top = trierOtParUrgence(input.ots)[0]
-  // Liste non vide (garde ci-dessus) → `top` est défini ; repli défensif.
-  if (!top) return { label: 'Non assigné', tone: 'neutral', temporel: false }
-
-  // Le plus urgent est terminal → tous les OT le sont → la gamme est à jour.
-  if (top.statut === 'cloture' || top.statut === 'annule') {
-    return { label: 'À jour', tone: 'success', temporel: false }
-  }
-
-  const aff = statutAffichageOt({
-    statut: top.statut,
-    origine: top.origine,
-    datePrevue: top.date_prevue,
-    toleranceJours: top.tolerance_jours,
-    aujourdHui: input.aujourdHui,
-  })
-
-  // OT planifié mais encore loin (hors fenêtre de tolérance → repli non temporel) :
-  // rien d'imminent → la gamme est à jour.
-  if (top.statut === 'planifie' && !aff.temporel) {
-    return { label: 'À jour', tone: 'success', temporel: false }
-  }
-
-  // Sinon on remonte tel quel l'état le plus urgent (Réouvert / En retard /
-  // En cours / Cette semaine / Semaine prochaine / Ce mois-ci / Mois prochain).
-  return aff
+  return statutDuPireOt(trierOtParUrgence(input.ots)[0], input.aujourdHui)
 }
 
 /**
@@ -104,22 +103,20 @@ export function statutAffichageAgrege(input: {
     return { label: 'Inactive', tone: 'neutral', temporel: false }
 
   // « Super-gamme » : le pire OT de TOUTES les gammes actives réunies, via la MÊME
-  // règle que la gamme (trierOtParUrgence + statutAffichageOt).
-  const pire = statutAffichageGamme({
-    estActive: true,
-    ots: actives.flatMap((g) => g.ots),
-    aujourdHui: input.aujourdHui,
-  })
+  // règle que la gamme (trierOtParUrgence + statutDuPireOt).
+  const ots = actives.flatMap((g) => g.ots)
+  const top = trierOtParUrgence(ots)[0]
+  const pire = statutDuPireOt(top, input.aujourdHui)
 
   // 3-5. États réellement URGENTS (à traiter maintenant) — priment sur « À assigner ».
-  // Discriminant par tonalité (robuste aux libellés) : destructive = En retard,
-  // info = En cours, warning NON temporel = Réouvert (les warning TEMPORELS —
-  // Semaine prochaine / Ce mois-ci — relèvent de la proximité, pas de l'urgence).
-  const urgent =
-    pire.tone === 'destructive' ||
-    pire.tone === 'info' ||
-    (pire.tone === 'warning' && !pire.temporel)
-  if (urgent) return pire
+  // SEUIL sur le NIVEAU D'URGENCE STRUCTUREL du pire OT (Réouvert / En retard / En
+  // cours = niveau ≤ En cours), plus aucun détour par la couleur du badge : la
+  // proximité (Cette semaine / Ce mois-ci…) reste « à venir », donc non urgente.
+  if (
+    top !== undefined &&
+    niveauUrgenceOt(top, input.aujourdHui) <= NIVEAU_URGENCE.enCours
+  )
+    return pire
 
   // 6. À assigner : au moins une gamme active n'a aucun OT (rien à suivre dessus).
   if (actives.some((g) => g.ots.length === 0))

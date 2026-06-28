@@ -25,6 +25,63 @@ function lundiDeLaSemaine(date: Date): Date {
   return d
 }
 
+/**
+ * Niveau d'URGENCE d'un OT, ORDONNÉ du plus urgent (0) au moins urgent (4). C'est la
+ * source UNIQUE de l'urgence : le TRI (`trierOtParUrgence`) s'en sert comme rang de
+ * groupe, la synthèse d'un conteneur (`statutAffichageAgrege`) comme SEUIL (« urgent »
+ * = niveau ≤ En cours). Dérivé de l'état STRUCTUREL (statut + date), JAMAIS de la
+ * couleur du badge → recolorer un statut ne déplace plus ni le tri ni l'agrégation.
+ */
+export const NIVEAU_URGENCE = {
+  reouvert: 0,
+  enRetard: 1,
+  enCours: 2,
+  aVenir: 3,
+  termine: 4,
+} as const
+export type NiveauUrgence =
+  (typeof NIVEAU_URGENCE)[keyof typeof NIVEAU_URGENCE]
+
+/**
+ * Un OT planifié est-il EN RETARD ? → sa date prévue est antérieure au lundi de la
+ * semaine ISO courante. Fait structurel PARTAGÉ par le badge (« En retard ») et le
+ * niveau d'urgence, pour qu'ils ne puissent JAMAIS diverger.
+ */
+export function estPlanifieEnRetard(
+  ot: { statut: string; date_prevue: string | null },
+  aujourdHui?: Date,
+): boolean {
+  if (ot.statut !== 'planifie' || !ot.date_prevue) return false
+  const lundi = lundiDeLaSemaine(minuit(aujourdHui ?? new Date()))
+  return parseDateLocale(ot.date_prevue).getTime() < lundi.getTime()
+}
+
+/**
+ * Niveau d'urgence d'un OT (cf. `NIVEAU_URGENCE`). Réouvert et En cours sont des états
+ * métier ; un OT terminal (clôturé/annulé) est au plus bas ; un OT planifié est En
+ * retard si sa date est passée, sinon À venir. La PROXIMITÉ (Cette semaine, Ce
+ * mois-ci…) est une nuance de PRÉSENTATION, pas d'urgence : tous ces OT sont « À venir »
+ * et se départagent ensuite par DATE (cf. `trierOtParUrgence`).
+ */
+export function niveauUrgenceOt(
+  ot: { statut: string; date_prevue: string | null },
+  aujourdHui?: Date,
+): NiveauUrgence {
+  switch (ot.statut) {
+    case 'reouvert':
+      return NIVEAU_URGENCE.reouvert
+    case 'en_cours':
+      return NIVEAU_URGENCE.enCours
+    case 'cloture':
+    case 'annule':
+      return NIVEAU_URGENCE.termine
+    default:
+      return estPlanifieEnRetard(ot, aujourdHui)
+        ? NIVEAU_URGENCE.enRetard
+        : NIVEAU_URGENCE.aVenir
+  }
+}
+
 export interface StatutAffichage {
   label: string
   tone: StatusTone
@@ -89,7 +146,11 @@ export function statutAffichageOt(params: {
   const lundiDans2 = new Date(lundiCourant.getTime() + 14 * JOUR_MS)
   const t = cible.getTime()
 
-  if (t < lundiCourant.getTime())
+  // En retard = date passée (avant le lundi courant) : MÊME fait que `niveauUrgenceOt`
+  // (estPlanifieEnRetard), pour que badge et niveau d'urgence ne divergent jamais. On
+  // repasse `today` (déjà résolu) et pas `params.aujourdHui` → une SEULE lecture
+  // d'horloge dans toute la fonction (pas de bascule de semaine à minuit dim.→lun.).
+  if (estPlanifieEnRetard({ statut, date_prevue: datePrevue }, today))
     return { label: 'En retard', tone: 'destructive', temporel: true }
   if (t < lundiProchain.getTime())
     return { label: 'Cette semaine', tone: 'yellow', temporel: true }
