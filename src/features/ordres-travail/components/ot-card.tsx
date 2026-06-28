@@ -3,7 +3,7 @@ import { ClipboardList } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
 import { statutAffichageOt } from '@/features/ordres-travail/statut-affichage'
 import { OtStatutBadge } from '@/features/ordres-travail/components/ot-statut-badge'
-import { formatDate } from '@/lib/date'
+import { formatDateAvecSemaineIso } from '@/lib/date'
 import { ListRow } from '@/components/common/list-row'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
@@ -19,7 +19,8 @@ export interface OtCardData {
   origine: string
   nom_gamme: string
   nom_equipement: string | null
-  nom_prestataire: string | null
+  /** Description (snapshot de la gamme) — sous-titre de repli quand l'OT n'a pas d'équipement. */
+  description_gamme: string | null
   date_prevue: string | null
   /** Fenêtre de tolérance (jours) : pilote la bascule vers les statuts temporels. */
   tolerance_jours: number
@@ -70,7 +71,7 @@ export function OtCard({
         />
       }
       title={ot.nom_gamme}
-      subtitle={ot.nom_equipement ?? ot.nom_prestataire ?? undefined}
+      subtitle={ot.nom_equipement ?? ot.description_gamme ?? undefined}
       // À droite : le relevé (s'il existe) À GAUCHE de la colonne statut/date.
       // Statut + date prévue empilés en COLONNE (statut en haut, date dessous),
       // largeur FIXE + contenu centré : les libellés de statut ont des largeurs
@@ -91,7 +92,7 @@ export function OtCard({
               toleranceJours={ot.tolerance_jours}
             />
             <span className="text-muted-foreground text-sm">
-              {formatDate(ot.date_prevue)}
+              {formatDateAvecSemaineIso(ot.date_prevue)}
             </span>
           </div>
         </div>
@@ -99,9 +100,9 @@ export function OtCard({
       // Variante média : sous `sm`, `mobileMeta` REMPLACE le sous-titre → on y
       // condense l'info discriminante (équipement, statut, date prévue).
       mobileMeta={[
-        ot.nom_equipement ?? ot.nom_prestataire,
+        ot.nom_equipement ?? ot.description_gamme,
         statutLabel,
-        formatDate(ot.date_prevue),
+        formatDateAvecSemaineIso(ot.date_prevue),
       ]
         .filter(Boolean)
         .join(' · ')}

@@ -13,6 +13,8 @@ export interface PlanningOt {
   nature_gamme: 'controle_reglementaire' | 'maintenance_preventive'
   nom_prestataire: string
   nom_equipement: string | null
+  /** Description (snapshot de la gamme) — sous-titre de repli de la carte `OtCard`. */
+  description_gamme: string | null
   libelle_periodicite: string
   date_prevue: string
   /** Date de clôture (OT terminé) — utilisée pour le TRI par urgence, pas affichée. */

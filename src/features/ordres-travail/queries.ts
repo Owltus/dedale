@@ -14,7 +14,7 @@ export const ordresTravailQueries = {
         const { data } = await supabase
           .from('ordres_travail')
           .select(
-            'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, nature_gamme, date_prevue, date_cloture, libelle_periodicite, miniature_id',
+            'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, description_gamme, nature_gamme, date_prevue, date_cloture, libelle_periodicite, miniature_id',
           )
           .eq('site_id', siteId!)
           .order('date_prevue', { ascending: true })
@@ -46,7 +46,7 @@ export const ordresTravailQueries = {
         const { data } = await supabase
           .from('ordres_travail')
           .select(
-            'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, date_prevue, date_cloture, gamme_id, miniature_id',
+            'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, description_gamme, date_prevue, date_cloture, gamme_id, miniature_id',
           )
           .eq('site_id', siteId!)
           .in('gamme_id', gammeIds)
