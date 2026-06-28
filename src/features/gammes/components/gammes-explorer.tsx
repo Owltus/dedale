@@ -11,6 +11,12 @@ import { useQuery } from '@tanstack/react-query'
 import { FolderTree, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { gammesQueries } from '../queries'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import type { OtTriable } from '@/features/ordres-travail/tri'
+import {
+  statutAffichageAgrege,
+  type GammeStatutInput,
+} from '../statut-affichage'
 import { useDeleteGamme } from '../mutations'
 import { GammeFormDialog } from './gamme-form-dialog'
 import { GammeDetail, type GammeRow } from './gamme-detail'
@@ -232,6 +238,67 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
             a.nom.localeCompare(b.nom),
           ),
     [gammesUnder, current],
+  )
+
+  // Gammes (rows) sous un nœud de l'arbre AFFICHÉ : catégorie (depth 0) → gammes de
+  // TOUTES ses sous-catégories ; sous-catégorie (depth 1) → ses gammes directes ; bac
+  // « Non classé » virtuel → les orphelines. Sert au calcul des ids à charger ET au
+  // badge agrégé de la carte (MÊME règle à tous les niveaux).
+  const gammeRowsUnderNode = useCallback(
+    (node: DrillCat): GammeRow[] => {
+      if (node.virtual) return orphans
+      if (depth === 0) {
+        const sousCatIds = new Set(
+          gammeCats.filter((c) => c.parent_id === node.id).map((c) => c.id),
+        )
+        return gammes.filter((g) => sousCatIds.has(g.categorie_id))
+      }
+      return gammes.filter((g) => g.categorie_id === node.id)
+    },
+    [depth, gammeCats, gammes, orphans],
+  )
+
+  // OT à charger pour les badges du palier : gammes LISTÉES (GammeCard) + gammes sous
+  // chaque catégorie / sous-catégorie affichée (badge AGRÉGÉ). Au palier
+  // sous-catégorie, la clé byGammes est PARTAGÉE avec le panneau OT du bas
+  // (SousCategorieSplit → OtListeParGammes) → pas de double fetch. Realtime OT pour
+  // que les badges suivent clôtures/réouvertures — NÉCESSAIRE aux paliers
+  // catégorie/sous-catégorie où le panneau OT n'est pas (toujours) rendu.
+  const gammeIdsBadges = useMemo(() => {
+    const ids = new Set<string>()
+    for (const g of gammesInCurrent) ids.add(g.id)
+    for (const node of childCategories)
+      for (const g of gammeRowsUnderNode(node)) ids.add(g.id)
+    return [...ids]
+  }, [gammesInCurrent, childCategories, gammeRowsUnderNode])
+  const otsParGammeQuery = useQuery(
+    ordresTravailQueries.byGammes(siteId, gammeIdsBadges),
+  )
+  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
+  // Badges INDISPONIBLES : seulement pendant un fetch réel (`isLoading` — PAS
+  // `isPending`, qui reste vrai pour une requête DÉSACTIVÉE quand il n'y a aucune
+  // gamme à charger, ce qui masquerait à tort « Vide »), ou en cas d'erreur (on évite
+  // d'afficher un statut trompeur calculé sur des OT absents).
+  const otsBadgesIndispo = otsParGammeQuery.isLoading || otsParGammeQuery.isError
+  const otsParGamme = useMemo(() => {
+    const map = new Map<string, OtTriable[]>()
+    for (const ot of otsParGammeQuery.data ?? []) {
+      if (ot.gamme_id === null) continue
+      const liste = map.get(ot.gamme_id) ?? []
+      liste.push(ot)
+      map.set(ot.gamme_id, liste)
+    }
+    return map
+  }, [otsParGammeQuery.data])
+  // Gammes (activité + OT) sous un nœud, pour le badge AGRÉGÉ (pire cas — cf.
+  // statutAffichageAgrege) de sa CategorieCard / SousCategorieCard.
+  const gammesStatutUnderNode = useCallback(
+    (node: DrillCat): GammeStatutInput[] =>
+      gammeRowsUnderNode(node).map((g) => ({
+        estActive: g.est_active,
+        ots: otsParGamme.get(g.id) ?? [],
+      })),
+    [gammeRowsUnderNode, otsParGamme],
   )
 
   // Gamme OUVERTE (vue détail, niveau FEUILLE) : résolue parmi les gammes du palier
@@ -677,18 +744,30 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
                       // Racine (depth 0) = catégories (+ bac « Non classé »
                       // virtuel) ; niveau 1 = sous-catégories. Composants dédiés,
                       // choisis par profondeur.
-                      return depth === 0 ? (
-                        <CategorieCard
-                          key={cat.id}
-                          categorie={cat}
-                          urlOf={urlOf}
-                          refreshMiniatures={refreshMiniatures}
-                          onClick={onClick}
-                          menuActions={menuActions}
-                          showScopeBadges
-                          virtual={cat.virtual}
-                        />
-                      ) : (
+                      // Badge de statut AGRÉGÉ (pire cas des gammes du périmètre —
+                      // catégorie OU sous-catégorie), masqué pendant le fetch / sur
+                      // erreur. MÊME règle à tous les niveaux (statutAffichageAgrege).
+                      const statutNode = otsBadgesIndispo
+                        ? undefined
+                        : statutAffichageAgrege({
+                            gammes: gammesStatutUnderNode(cat),
+                          })
+                      if (depth === 0) {
+                        return (
+                          <CategorieCard
+                            key={cat.id}
+                            categorie={cat}
+                            urlOf={urlOf}
+                            refreshMiniatures={refreshMiniatures}
+                            onClick={onClick}
+                            menuActions={menuActions}
+                            virtual={cat.virtual}
+                            statut={statutNode}
+                            statutPending={otsBadgesIndispo}
+                          />
+                        )
+                      }
+                      return (
                         <SousCategorieCard
                           key={cat.id}
                           sousCategorie={cat}
@@ -696,7 +775,8 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
                           refreshMiniatures={refreshMiniatures}
                           onClick={onClick}
                           menuActions={menuActions}
-                          showScopeBadges
+                          statut={statutNode}
+                          statutPending={otsBadgesIndispo}
                         />
                       )
                     })}
@@ -731,6 +811,8 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
                           menuActions={
                             rowActions.length ? rowActions : undefined
                           }
+                          statutOts={otsParGamme.get(g.id) ?? []}
+                          statutPending={otsBadgesIndispo}
                         />
                       )
                     })}

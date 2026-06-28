@@ -28,6 +28,14 @@ function lundiDeLaSemaine(date: Date): Date {
 export interface StatutAffichage {
   label: string
   tone: StatusTone
+  /**
+   * `true` quand le libellé est un statut TEMPOREL dérivé de la date (En retard,
+   * Cette semaine, … Mois prochain) ; `false` pour un statut métier ou le repli
+   * « Planifié / Programmé » (OT encore HORS fenêtre de tolérance). Sert à la
+   * synthèse gamme (`statutAffichageGamme`) : un OT planifié non temporel = encore
+   * loin → ne crée aucune urgence (la gamme se lit « À jour »).
+   */
+  temporel: boolean
 }
 
 /**
@@ -60,6 +68,7 @@ export function statutAffichageOt(params: {
   const fallback: StatutAffichage = {
     label: libelleStatutOt(statut, ori),
     tone: statutOtTone(statut, ori),
+    temporel: false,
   }
 
   // Statut métier pour un OT déjà engagé/terminé, ou date prévue manquante.
@@ -80,9 +89,13 @@ export function statutAffichageOt(params: {
   const lundiDans2 = new Date(lundiCourant.getTime() + 14 * JOUR_MS)
   const t = cible.getTime()
 
-  if (t < lundiCourant.getTime()) return { label: 'En retard', tone: 'destructive' }
-  if (t < lundiProchain.getTime()) return { label: 'Cette semaine', tone: 'yellow' }
-  if (t < lundiDans2.getTime()) return { label: 'Semaine prochaine', tone: 'warning' }
-  if (joursRestants <= 30) return { label: 'Ce mois-ci', tone: 'warning' }
-  return { label: 'Mois prochain', tone: 'neutral' }
+  if (t < lundiCourant.getTime())
+    return { label: 'En retard', tone: 'destructive', temporel: true }
+  if (t < lundiProchain.getTime())
+    return { label: 'Cette semaine', tone: 'yellow', temporel: true }
+  if (t < lundiDans2.getTime())
+    return { label: 'Semaine prochaine', tone: 'warning', temporel: true }
+  if (joursRestants <= 30)
+    return { label: 'Ce mois-ci', tone: 'warning', temporel: true }
+  return { label: 'Mois prochain', tone: 'neutral', temporel: true }
 }

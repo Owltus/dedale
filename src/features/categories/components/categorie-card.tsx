@@ -2,6 +2,10 @@ import { Folder, Inbox } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
 import { ListRow } from '@/components/common/list-row'
 import { ScopeBadges } from '@/components/common/scope-badges'
+import {
+  StatusBadge,
+  type StatusTone,
+} from '@/components/common/status-badge'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 
 /**
@@ -18,11 +22,16 @@ export interface CategorieCardData {
 
 /**
  * Carte (ListRow média) d'une CATÉGORIE de gammes : vignette dossier + nom +
- * description + (option) badges de périmètre. Source UNIQUE du rendu d'une
- * catégorie → liste de l'explorateur du Plan de maintenance ET de la Bibliothèque.
- * Le bac virtuel « Non classé » est rendu via `virtual` (icône Inbox, sans
- * vignette ni badge). Garantit un visuel identique partout : une modification ici
- * se répercute aux deux listes.
+ * description + (option) badge de STATUT agrégé OU badges de périmètre. Source
+ * UNIQUE du rendu d'une catégorie → liste de l'explorateur du Plan de maintenance
+ * ET de la Bibliothèque. Le bac virtuel « Non classé » est rendu via `virtual`
+ * (icône Inbox).
+ *
+ * Deux variantes :
+ *  - `statut` (ou `statutPending`) FOURNI → mode « Plan de maintenance » : badge de
+ *    statut temporel à droite (synthèse du pire cas de TOUTES les gammes de la
+ *    catégorie, calculée par le conteneur), badges de périmètre masqués ;
+ *  - SINON → mode « Bibliothèque » : badges de périmètre selon `showScopeBadges`.
  */
 export function CategorieCard({
   categorie,
@@ -32,6 +41,8 @@ export function CategorieCard({
   menuActions,
   showScopeBadges = false,
   virtual = false,
+  statut,
+  statutPending = false,
 }: {
   categorie: CategorieCardData
   urlOf: (id: string | null) => string | null
@@ -40,7 +51,7 @@ export function CategorieCard({
   menuActions?: RowAction[]
   /**
    * Affiche les badges de périmètre (Commun / Site). `false` en Bibliothèque, où
-   * tout est commun (entreprise) → un badge serait redondant.
+   * tout est commun (entreprise) → un badge serait redondant. Ignoré en mode statut.
    */
   showScopeBadges?: boolean
   /**
@@ -48,11 +59,45 @@ export function CategorieCard({
    * catégorie visible) : icône Inbox, sans vignette ni badge de périmètre.
    */
   virtual?: boolean
+  /**
+   * Statut temporel agrégé (libellé + tonalité), calculé par le conteneur via
+   * `statutAffichageAgrege` sur toutes les gammes de la catégorie. Sa présence — ou
+   * `statutPending` — bascule la carte en mode « statut » (badge à droite, périmètre
+   * masqué).
+   */
+  statut?: { label: string; tone: StatusTone }
+  /**
+   * Chargement des OT en cours : on garde le mode statut (mise en page stable) mais
+   * on masque le badge le temps du fetch (pas d'état trompeur avant les données).
+   */
+  statutPending?: boolean
 }) {
-  const badges =
+  const statutMode = statut !== undefined || statutPending
+  const description = categorie.description?.trim()
+    ? categorie.description.trim()
+    : undefined
+  const scope =
     showScopeBadges && !virtual ? (
       <ScopeBadges siteId={categorie.site_id} />
     ) : undefined
+
+  const badges = statutMode ? (
+    // Colonne à largeur FIXE et centrée — MÊME gabarit que la carte OT : badge centré
+    // et ALIGNÉ d'une carte à l'autre malgré des libellés de longueurs différentes.
+    <div className="flex w-36 flex-col items-center text-center">
+      {statut && (
+        <StatusBadge tone={statut.tone} className="shrink-0">
+          {statut.label}
+        </StatusBadge>
+      )}
+    </div>
+  ) : (
+    scope
+  )
+  const mobileMeta = statutMode
+    ? [description, statut?.label].filter(Boolean).join(' · ') || undefined
+    : scope
+
   return (
     <ListRow
       media={
@@ -71,11 +116,9 @@ export function CategorieCard({
         />
       }
       title={categorie.nom}
-      subtitle={
-        categorie.description?.trim() ? categorie.description.trim() : undefined
-      }
+      subtitle={description}
       badges={badges}
-      mobileMeta={badges}
+      mobileMeta={mobileMeta}
       onClick={onClick}
       menuActions={menuActions}
     />

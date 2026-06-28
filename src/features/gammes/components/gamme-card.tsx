@@ -3,14 +3,24 @@ import type { RowAction } from '@/components/common/row-actions'
 import { ListRow } from '@/components/common/list-row'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { Badge } from '@/components/ui/badge'
+import type { OtTriable } from '@/features/ordres-travail/tri'
 import { NATURE_GAMME_LABEL } from '../schemas'
+import { statutAffichageGamme } from '../statut-affichage'
+import { GammeStatutBadge } from './gamme-statut-badge'
 import type { GammeRow } from './gamme-detail'
 
 /**
  * Carte (ListRow média) d'une gamme : vignette + nom + sous-titre + nature +
- * prestataire. Source UNIQUE du rendu d'une gamme → utilisée dans la LISTE du
- * Plan de maintenance (avec drill `onClick` + `menuActions`) ET en tête de la
- * FICHE gamme (statique, sans action). Garantit un visuel identique partout.
+ * prestataire. Source UNIQUE du rendu d'une gamme en LISTE → utilisée dans
+ * l'explorateur du Plan de maintenance (gammes de site, avec badge de statut) ET
+ * dans la Bibliothèque (templates communs, sans statut). Visuel identique partout.
+ *
+ * Deux variantes selon `statutOts` :
+ *  - FOURNI (Plan de maintenance) : badge de STATUT à droite (façon carte OT,
+ *    synthèse priorisée des OT de la gamme), nature + prestataire ramenés près du
+ *    nom (sous-titre) ;
+ *  - ABSENT (Bibliothèque / fiche) : rendu classique (badge nature à droite,
+ *    prestataire en méta) — les gammes-templates communes n'ont pas d'OT.
  */
 export function GammeCard({
   gamme,
@@ -19,6 +29,8 @@ export function GammeCard({
   onClick,
   menuActions,
   showPrestataire = true,
+  statutOts,
+  statutPending = false,
 }: {
   gamme: GammeRow
   urlOf: (id: string | null) => string | null
@@ -31,33 +43,92 @@ export function GammeCard({
    * site) → on n'affiche pas un trompeur « Prestataire à renseigner ».
    */
   showPrestataire?: boolean
+  /**
+   * OT de la gamme (sous-ensemble triable). Sa présence (même tableau vide)
+   * BASCULE la carte en variante « Plan de maintenance » avec badge de statut.
+   * Absent → variante Bibliothèque, sans badge.
+   */
+  statutOts?: OtTriable[]
+  /**
+   * Chargement des OT en cours : on garde la variante statut (mise en page stable)
+   * mais on masque le badge le temps du fetch, pour ne pas afficher un « Non
+   * assigné » trompeur avant l'arrivée des données.
+   */
+  statutPending?: boolean
 }) {
+  const media = (
+    <MiniatureThumb
+      url={urlOf(gamme.miniature_id)}
+      fallback={<Wrench className="size-10" />}
+      alt=""
+      onError={refreshMiniatures}
+      className="size-full rounded-none"
+    />
+  )
+
+  const natureBadge = (
+    <Badge
+      variant={
+        gamme.nature === 'controle_reglementaire' ? 'default' : 'secondary'
+      }
+    >
+      {NATURE_GAMME_LABEL[gamme.nature]}
+    </Badge>
+  )
+
+  // Variante PLAN DE MAINTENANCE : statut à droite (façon carte OT), nature +
+  // prestataire ramenés près du nom.
+  if (statutOts !== undefined) {
+    const statut = statutAffichageGamme({
+      estActive: gamme.est_active,
+      ots: statutOts,
+    })
+    return (
+      <ListRow
+        media={media}
+        title={gamme.nom}
+        subtitle={
+          gamme.description?.trim() ? gamme.description.trim() : undefined
+        }
+        // Colonne de droite à largeur FIXE et centrée — MÊME gabarit que la carte
+        // OT : badge de statut EN HAUT, périodicité EN DESSOUS (là où l'OT met la
+        // date prévue). Largeur fixe → badges et périodicités alignés d'une carte à
+        // l'autre. Statut masqué tant que les OT chargent (pas de « Non assigné »
+        // trompeur) ; la périodicité, connue d'emblée, reste affichée.
+        badges={
+          <div className="flex w-36 flex-col items-center gap-1 text-center">
+            {!statutPending && (
+              <GammeStatutBadge estActive={gamme.est_active} ots={statutOts} />
+            )}
+            <span className="text-muted-foreground text-sm">
+              {gamme.periodicites?.libelle ?? '—'}
+            </span>
+          </div>
+        }
+        mobileMeta={[
+          gamme.description?.trim(),
+          statutPending ? null : statut.label,
+          gamme.periodicites?.libelle,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        onClick={onClick}
+        menuActions={menuActions}
+      />
+    )
+  }
+
+  // Variante BIBLIOTHÈQUE / fiche : rendu classique (nature à droite).
   return (
     <ListRow
-      media={
-        <MiniatureThumb
-          url={urlOf(gamme.miniature_id)}
-          fallback={<Wrench className="size-10" />}
-          alt=""
-          onError={refreshMiniatures}
-          className="size-full rounded-none"
-        />
-      }
+      media={media}
       title={gamme.nom}
       subtitle={
         gamme.description?.trim()
           ? gamme.description.trim()
           : (gamme.periodicites?.libelle ?? undefined)
       }
-      badges={
-        <Badge
-          variant={
-            gamme.nature === 'controle_reglementaire' ? 'default' : 'secondary'
-          }
-        >
-          {NATURE_GAMME_LABEL[gamme.nature]}
-        </Badge>
-      }
+      badges={natureBadge}
       meta={
         showPrestataire ? (
           gamme.prestataires ? (
