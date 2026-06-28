@@ -8,15 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Folder,
-  FolderTree,
-  Inbox,
-  Pencil,
-  Plus,
-  Trash2,
-  Wrench,
-} from 'lucide-react'
+import { FolderTree, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { gammesQueries } from '../queries'
 import { useDeleteGamme } from '../mutations'
@@ -31,7 +23,8 @@ import {
 import { useDeleteCategorie } from '@/features/categories/mutations'
 import { CategoryFormDialog } from '@/features/categories/components/category-form-dialog'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
-import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { CategorieCard } from '@/features/categories/components/categorie-card'
+import { SousCategorieCard } from '@/features/categories/components/sous-categorie-card'
 import { useGammesDrill } from '@/hooks/use-gammes-drill'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
@@ -44,9 +37,7 @@ import {
   type PageHeaderCrumb,
 } from '@/components/common/page-header'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import { ListRow } from '@/components/common/list-row'
 import type { RowAction } from '@/components/common/row-actions'
-import { ScopeBadges } from '@/components/common/scope-badges'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
@@ -661,63 +652,54 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
               <div className="flex flex-col gap-6">
                 {childCategories.length > 0 && (
                   <div className={listStack}>
-                    {childCategories.map((cat) => (
-                      <ListRow
-                        key={cat.id}
-                        media={
-                          <MiniatureThumb
-                            url={cat.virtual ? null : urlOf(cat.miniature_id)}
-                            fallback={
-                              cat.virtual ? (
-                                <Inbox className="size-10" />
-                              ) : (
-                                <Folder className="size-10" />
-                              )
-                            }
-                            alt=""
-                            onError={refreshMiniatures}
-                            className="size-full rounded-none"
-                          />
-                        }
-                        title={cat.nom}
-                        subtitle={
-                          cat.description?.trim()
-                            ? cat.description.trim()
-                            : undefined
-                        }
-                        badges={
-                          cat.virtual ? undefined : (
-                            <ScopeBadges siteId={cat.site_id} />
-                          )
-                        }
-                        mobileMeta={
-                          cat.virtual ? undefined : (
-                            <ScopeBadges siteId={cat.site_id} />
-                          )
-                        }
-                        onClick={() => goTo([...path, cat])}
-                        menuActions={
-                          canManageCat(cat)
-                            ? ([
-                                {
-                                  label: 'Modifier',
-                                  icon: Pencil,
-                                  onSelect: () => {
-                                    const full = categoriesById.get(cat.id)
-                                    if (full) handleEditCategory(full)
-                                  },
-                                },
-                                {
-                                  label: 'Supprimer',
-                                  icon: Trash2,
-                                  destructive: true,
-                                  onSelect: () => setToDeleteCategorie(cat),
-                                },
-                              ] satisfies RowAction[])
-                            : undefined
-                        }
-                      />
-                    ))}
+                    {childCategories.map((cat) => {
+                      const menuActions: RowAction[] | undefined = canManageCat(
+                        cat,
+                      )
+                        ? [
+                            {
+                              label: 'Modifier',
+                              icon: Pencil,
+                              onSelect: () => {
+                                const full = categoriesById.get(cat.id)
+                                if (full) handleEditCategory(full)
+                              },
+                            },
+                            {
+                              label: 'Supprimer',
+                              icon: Trash2,
+                              destructive: true,
+                              onSelect: () => setToDeleteCategorie(cat),
+                            },
+                          ]
+                        : undefined
+                      const onClick = () => goTo([...path, cat])
+                      // Racine (depth 0) = catégories (+ bac « Non classé »
+                      // virtuel) ; niveau 1 = sous-catégories. Composants dédiés,
+                      // choisis par profondeur.
+                      return depth === 0 ? (
+                        <CategorieCard
+                          key={cat.id}
+                          categorie={cat}
+                          urlOf={urlOf}
+                          refreshMiniatures={refreshMiniatures}
+                          onClick={onClick}
+                          menuActions={menuActions}
+                          showScopeBadges
+                          virtual={cat.virtual}
+                        />
+                      ) : (
+                        <SousCategorieCard
+                          key={cat.id}
+                          sousCategorie={cat}
+                          urlOf={urlOf}
+                          refreshMiniatures={refreshMiniatures}
+                          onClick={onClick}
+                          menuActions={menuActions}
+                          showScopeBadges
+                        />
+                      )
+                    })}
                   </div>
                 )}
 

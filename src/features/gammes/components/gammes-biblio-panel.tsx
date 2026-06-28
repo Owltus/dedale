@@ -4,7 +4,6 @@ import { getRouteApi } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
   CopyPlus,
-  Folder,
   FolderTree,
   ListChecks,
   Pencil,
@@ -32,6 +31,8 @@ import {
 } from '@/features/categories/queries'
 import { useDeleteCategorie } from '@/features/categories/mutations'
 import { CategoryFormDialog } from '@/features/categories/components/category-form-dialog'
+import { CategorieCard } from '@/features/categories/components/categorie-card'
+import { SousCategorieCard } from '@/features/categories/components/sous-categorie-card'
 import type { CategorieFormValues } from '@/features/categories/schemas'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
@@ -792,32 +793,32 @@ export function GammesBiblioPanel() {
                         onSelect: () => setToDeleteCategorie(cat),
                       })
                     }
-                    return (
-                      <ListRow
+                    const menuActions = rowActions.length
+                      ? rowActions
+                      : undefined
+                    // Descendre d'un palier (PUSH) : on ajoute la catégorie au
+                    // chemin courant → `cat` à la racine, `sous` au niveau 1.
+                    const onClick = () => goToCats([...validPath, cat])
+                    // Racine (depth 0) = catégories, niveau 1 = sous-catégories :
+                    // composants dédiés. Tout est commun ici → pas de badge de
+                    // périmètre.
+                    return depth === 0 ? (
+                      <CategorieCard
                         key={cat.id}
-                        media={
-                          <MiniatureThumb
-                            url={urlOf(cat.miniature_id)}
-                            fallback={<Folder className="size-10" />}
-                            // Image décorative : le titre + le nom accessible de la
-                            // ligne portent déjà l'info (pas de 3e annonce au lecteur).
-                            alt=""
-                            onError={refreshMiniatures}
-                            className="size-full rounded-none"
-                          />
-                        }
-                        title={cat.nom}
-                        subtitle={
-                          cat.description?.trim()
-                            ? cat.description.trim()
-                            : undefined
-                        }
-                        // Descendre d'un palier (PUSH) : on ajoute la catégorie au
-                        // chemin courant → `cat` à la racine, `sous` au niveau 1.
-                        onClick={() => goToCats([...validPath, cat])}
-                        menuActions={
-                          rowActions.length ? rowActions : undefined
-                        }
+                        categorie={cat}
+                        urlOf={urlOf}
+                        refreshMiniatures={refreshMiniatures}
+                        onClick={onClick}
+                        menuActions={menuActions}
+                      />
+                    ) : (
+                      <SousCategorieCard
+                        key={cat.id}
+                        sousCategorie={cat}
+                        urlOf={urlOf}
+                        refreshMiniatures={refreshMiniatures}
+                        onClick={onClick}
+                        menuActions={menuActions}
                       />
                     )
                   })}
