@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { emptyGamme, gammeNatures, gammeSchema } from '../schemas'
+import { emptyGamme, gammeSchema } from '../schemas'
 import type { GammeFormValues } from '../schemas'
 import { useCreateGamme, useUpdateGamme } from '../mutations'
 import { gammesQueries, referentielsQueries } from '../queries'
@@ -13,14 +13,10 @@ import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
+import { SwitchField } from '@/components/common/switch-field'
 import type { Database } from '@/lib/database.types'
 
 type Gamme = Database['public']['Tables']['gammes']['Row']
-
-const NATURE_LABEL: Record<(typeof gammeNatures)[number], string> = {
-  controle_reglementaire: 'Contrôle réglementaire',
-  maintenance_preventive: 'Maintenance préventive',
-}
 
 interface GammeFormDialogProps {
   open: boolean
@@ -53,6 +49,7 @@ function initialValues(
     categorie_id: gamme.categorie_id,
     description: gamme.description ?? '',
     miniature_id: gamme.miniature_id,
+    est_active: gamme.est_active,
   }
 }
 
@@ -199,20 +196,28 @@ export function GammeFormDialog({
         }}
       />
 
-      <SelectField
-        label="Nature"
-        required
+      <SwitchField
+        label="Contrôle réglementaire"
+        description="Attend des documents justificatifs."
         id="gamme_nature"
-        value={values.nature}
-        onChange={(v) => set('nature', v as GammeFormValues['nature'])}
-        error={errors.nature}
-      >
-        {gammeNatures.map((n) => (
-          <option key={n} value={n}>
-            {NATURE_LABEL[n]}
-          </option>
-        ))}
-      </SelectField>
+        checked={values.nature === 'controle_reglementaire'}
+        onChange={(reglementaire) =>
+          set(
+            'nature',
+            reglementaire ? 'controle_reglementaire' : 'maintenance_preventive',
+          )
+        }
+      />
+
+      {isEdit && (
+        <SwitchField
+          label="Gamme active"
+          description="Une gamme inactive ne génère plus d’ordres de travail."
+          id="gamme_active"
+          checked={values.est_active}
+          onChange={(actif) => set('est_active', actif)}
+        />
+      )}
 
       <SelectField
         label="Périodicité"
@@ -254,6 +259,11 @@ export function GammeFormDialog({
           value={values.categorie_id}
           onChange={(v) => set('categorie_id', v)}
           error={errors.categorie_id}
+          hint={
+            isEdit && !aucuneSousCategorie
+              ? 'Choisir une autre sous-catégorie déplace la gamme.'
+              : undefined
+          }
         >
           <option value="">— Choisir une sous-catégorie —</option>
           {assignedMissing && (

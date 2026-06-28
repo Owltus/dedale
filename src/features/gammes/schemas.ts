@@ -24,6 +24,9 @@ export const gammeSchema = z.object({
   // template commun ; le trigger backend valide qu'elle est du pool commun ou du
   // site de la gamme.
   miniature_id: z.string().nullable(),
+  // Gamme active = génère des OT ; inactive = mise en sommeil. La désactivation
+  // est refusée par un trigger s'il reste des OT actifs (erreur à catcher en UI).
+  est_active: z.boolean(),
 })
 
 export type GammeFormValues = z.input<typeof gammeSchema>
@@ -36,6 +39,7 @@ export const emptyGamme: GammeFormValues = {
   categorie_id: '',
   description: '',
   miniature_id: null,
+  est_active: true,
 }
 
 /**
@@ -44,7 +48,7 @@ export const emptyGamme: GammeFormValues = {
  * **portée** (commun = `site_id NULL` inviolable, ou un site). Le schéma de
  * gamme de SITE reste inchangé (catégorie absente du flux existant).
  */
-export const gammeBiblioSchema = gammeSchema.extend({
+export const gammeBiblioSchema = gammeSchema.omit({ est_active: true }).extend({
   categorie_id: z.string().min(1, 'La catégorie est obligatoire'),
   portee: z.enum(['entreprise', 'site']),
   // Un template commun n'a PAS de prestataire (il dépend du site, renseigné

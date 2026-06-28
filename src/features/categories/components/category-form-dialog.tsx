@@ -84,6 +84,14 @@ interface CategoryFormDialogProps {
    * n'affichent pas d'image) : contrôle mort retiré.
    */
   hideMiniature?: boolean
+  /**
+   * Autorise le DÉPLACEMENT d'une sous-catégorie vers une autre catégorie
+   * parente, même en mode `minimal` : affiche un sélecteur « Catégorie parente »
+   * en ÉDITION d'une sous-catégorie (jamais à la création ni sur une racine).
+   * L'option « racine » n'est pas proposée (préserve le modèle à deux niveaux).
+   * Les parents proposés = `categories` (filtrées self + descendance).
+   */
+  allowReparent?: boolean
 }
 
 function initialValues(
@@ -156,6 +164,7 @@ export function CategoryFormDialog({
   hidePortee: hidePorteeProp,
   hideDescription,
   hideMiniature,
+  allowReparent,
 }: CategoryFormDialogProps) {
   const isEdit = Boolean(categorie)
   const create = useCreateCategorie()
@@ -182,6 +191,14 @@ export function CategoryFormDialog({
   // « Type » (scope) : masqué en mode compact, ou si forcé par la prop.
   const showScope = !compact && hideScope !== true
   const showPortee = !hidePortee
+  // Déplacement d'une sous-catégorie vers une autre parente : en édition d'une
+  // entrée AYANT un parent (donc une sous-catégorie), même en mode compact.
+  const showReparent =
+    allowReparent === true && isEdit && categorie?.parent_id != null
+  // Le sélecteur « Parent » apparaît en mode complet (création/édition large) OU
+  // pour un reparentage explicite. En reparentage, on NE propose PAS « racine »
+  // (préserve le modèle racine → sous-catégorie → gamme).
+  const showParentSelect = !compact || showReparent
   // Image : périmètre = celui de la catégorie (portée) ; téléversement autorisé
   // sur le commun pour les rôles entreprise, et sur un site pour tout éditeur.
   const miniatureSite = values.portee === 'entreprise' ? null : siteId
@@ -333,14 +350,21 @@ export function CategoryFormDialog({
           )}
         </div>
       )}
-      {!compact && (
+      {showParentSelect && (
         <SelectField
-          label="Parent"
+          label={showReparent ? 'Catégorie parente' : 'Parent'}
           value={values.parent_id}
           onChange={(v) => set('parent_id', v)}
           error={errors.parent_id}
+          hint={
+            showReparent
+              ? 'Choisir une autre catégorie déplace la sous-catégorie et ses gammes.'
+              : undefined
+          }
         >
-          <option value="">— Aucun (catégorie racine) —</option>
+          {!showReparent && (
+            <option value="">— Aucun (catégorie racine) —</option>
+          )}
           {parentOptions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nom}

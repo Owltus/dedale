@@ -89,7 +89,8 @@ handleSubmit():
   } catch (e) { toast.error(errorMessage(e)) }
 ```
 
-- `<FormDialog open onOpenChange title description onSubmit={() => void handleSubmit()} submitLabel pending={create.isPending || update.isPending}>` + champs `*-Field` (`TextField`, `DescriptionField`, `SelectField`, `NumberField`, `CheckboxField`, `IdentiteFields`…), chacun avec `error={errors.<champ>}`. Les `*-Field` renvoient **la valeur** dans `onChange` (pas l'event).
+- `<FormDialog open onOpenChange title description onSubmit={() => void handleSubmit()} submitLabel pending={create.isPending || update.isPending}>` + champs `*-Field` (`TextField`, `DescriptionField`, `SelectField`, `NumberField`, `CheckboxField`, `SwitchField`, `IdentiteFields`…), chacun avec `error={errors.<champ>}`. Les `*-Field` renvoient **la valeur** dans `onChange` (pas l'event).
+- `SwitchField` (`common/`, libellé + `description` + interrupteur on/off `role="switch"`, brique `ui/switch`) : pour un choix **binaire** (actif/inactif, A/B), à préférer à un `SelectField` à deux options. Ex. nature de gamme (réglementaire ↔ préventive), `est_active`.
 - La session se lit dans le composant via `useAuth()` (**`@/auth`**) ; les mutations restent pures.
 - `FormDialog` ne gère **ni** state, **ni** validation, **ni** mutation, **ni** toast, **ni** reset (d'où le `key` côté hôte). Son `<form>` interne fait déjà `preventDefault` → **ne pas re-wrapper**.
 - Suppression : `ConfirmDeleteDialog` (impact-aware : `blocked`/`impacts`/`warning` ; `confirmPhrase` = saisie du nom pour les cascades). Erreurs via `deleteErrorMessage(e)`.

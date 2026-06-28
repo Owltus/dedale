@@ -543,6 +543,9 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
           // Scope toujours `gamme` et portée toujours « site » ici → champs masqués.
           hideScope
           hidePortee
+          // Permet de déplacer une sous-catégorie vers une autre catégorie racine
+          // du site (parents = `parentCandidates`), malgré le mode minimal.
+          allowReparent
         />
       )}
 

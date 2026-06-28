@@ -9,6 +9,8 @@ interface SelectFieldProps extends Omit<ComponentProps<'select'>, 'onChange'> {
   onChange: (value: string) => void
   error?: string
   required?: boolean
+  /** Texte d'aide discret sous le champ (masqué tant qu'une erreur s'affiche). */
+  hint?: ReactNode
   children: ReactNode
 }
 
@@ -19,6 +21,7 @@ export function SelectField({
   onChange,
   error,
   required = false,
+  hint,
   id,
   children,
   ...props
@@ -40,7 +43,11 @@ export function SelectField({
       >
         {children}
       </Select>
-      {error && <p className="text-destructive text-sm">{error}</p>}
+      {error ? (
+        <p className="text-destructive text-sm">{error}</p>
+      ) : hint ? (
+        <p className="text-muted-foreground text-sm">{hint}</p>
+      ) : null}
     </div>
   )
 }

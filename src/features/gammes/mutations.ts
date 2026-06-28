@@ -23,6 +23,9 @@ function gammePayload(values: GammeFormValues) {
     description: v.description || null,
     // Vignette du pool (ou NULL) ; le trigger backend valide le périmètre.
     miniature_id: v.miniature_id,
+    // Active/inactive : la désactivation avec OT actifs est refusée par un
+    // trigger (erreur catchée côté formulaire).
+    est_active: v.est_active,
   }
 }
 
