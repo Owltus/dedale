@@ -9,6 +9,7 @@ import {
   Plus,
   ShieldCheck,
   ShieldOff,
+  User,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -31,6 +32,7 @@ import { errorMessage, fieldErrors, writeErrorMessage } from '@/lib/form'
 import { InfoNote } from '@/components/common/info-note'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
+import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { TextField } from '@/components/common/text-field'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { EmptyState } from '@/components/common/empty-state'
@@ -65,6 +67,9 @@ export function UtilisateurDetail({
 
   const { data: users = [], isPending } = useQuery(utilisateursQueries.list())
   const user = users.find((u) => u.id === userId) as UserRow | undefined
+  // Téléphone (résumé du bandeau d'en-tête) ; dédupliqué avec le formulaire Identité
+  // (même clé React Query). Hook AVANT tout early-return.
+  const { data: telephone } = useQuery(utilisateursQueries.telephone(userId))
 
   if (isPending) {
     return (
@@ -108,6 +113,15 @@ export function UtilisateurDetail({
               {user.anonymized_at && <Badge variant="outline">Anonymisé</Badge>}
             </>
           }
+        />
+
+        <DetailHeaderCard
+          fallbackIcon={User}
+          fields={[
+            { label: 'Rôle', value: roleLabel(targetRole) },
+            { label: 'Téléphone', value: telephone ?? null },
+            { label: 'État', value: user.est_actif ? 'Actif' : 'Inactif' },
+          ]}
         />
 
         <IdentityCard user={user} isAdmin={isAdmin} canEdit={canEdit} />

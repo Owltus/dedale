@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Ban, Paperclip, Pencil, RotateCcw } from 'lucide-react'
+import { Ban, Coins, Paperclip, Pencil, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { statutsCapexQueries } from '@/features/investissements/queries'
 import { etapesInvestissement, ID_REFUSE } from '@/features/investissements/etat'
@@ -11,9 +11,9 @@ import { MIME_PDF } from '@/features/documents/upload'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
-import { cn } from '@/lib/utils'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
+import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { StatusStepper } from '@/components/common/status-stepper'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
@@ -161,19 +161,22 @@ export function InvestissementDetail({
         </Card>
       )}
 
-      {/* Budget (sans titre : les libellés des montants suffisent). */}
-      <Card className="mb-6">
-        <CardContent className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-          <Montant label="Demandé" value={formatEuros(inv.montant_demande)} />
-          <Montant label="Prévu" value={formatEuros(inv.montant_prevu)} />
-          <Montant label="Réel" value={formatEuros(inv.depense_reelle)} />
-          <Montant
-            label="Écart prévu / réel"
-            value={ecartLabel}
-            className={depassement ? 'text-warning' : undefined}
-          />
-        </CardContent>
-      </Card>
+      {/* Budget : carte d'en-tête partagée (montants + écart coloré si dépassement). */}
+      <DetailHeaderCard
+        className="mb-6"
+        columns={2}
+        fallbackIcon={Coins}
+        fields={[
+          { label: 'Demandé', value: formatEuros(inv.montant_demande) },
+          { label: 'Prévu', value: formatEuros(inv.montant_prevu) },
+          { label: 'Réel', value: formatEuros(inv.depense_reelle) },
+          {
+            label: 'Écart prévu / réel',
+            value: ecartLabel,
+            tone: depassement ? 'warning' : undefined,
+          },
+        ]}
+      />
 
       {/* Zone documents : prend EXACTEMENT l'espace restant (flex-1). */}
       <div className="relative flex-1">
@@ -225,19 +228,3 @@ export function InvestissementDetail({
   )
 }
 
-function Montant({
-  label,
-  value,
-  className,
-}: {
-  label: string
-  value: string
-  className?: string
-}) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <span className={cn('font-medium tabular-nums', className)}>{value}</span>
-    </div>
-  )
-}

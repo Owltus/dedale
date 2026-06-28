@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Pencil, RotateCcw, Trash2, Wrench } from 'lucide-react'
+import {
+  CheckCircle2,
+  MessageSquareWarning,
+  Pencil,
+  RotateCcw,
+  Trash2,
+  Wrench,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { demandesQueries } from '../queries'
 import {
@@ -21,6 +28,7 @@ import { writeErrorMessage, deleteErrorMessage } from '@/lib/form'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
+import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { StatusBadge } from '@/components/common/status-badge'
@@ -166,35 +174,39 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
         }
       />
 
-      {/* Constat : contenu du signalement + liaisons éventuelles. */}
+      {/* En-tête : qui / quand / où (carte partagée) ; le texte du constat suit. */}
+      <DetailHeaderCard
+        className="mb-6"
+        columns={2}
+        fallbackIcon={MessageSquareWarning}
+        fields={[
+          { label: 'Signalé par', value: createur ?? null },
+          {
+            label: 'Date de constat',
+            value: formatDateLong(demande.date_constat),
+          },
+          localisations.length > 0
+            ? {
+                label: 'Localisations',
+                value: localisations.map((l) => l.locaux.nom).join(', '),
+              }
+            : null,
+          equipements.length > 0
+            ? {
+                label: 'Équipements',
+                value: equipements.map((e) => e.equipements.nom).join(', '),
+              }
+            : null,
+        ]}
+      />
+
+      {/* Constat : le texte du signalement. */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-base">Constat</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4 text-sm">
+        <CardContent className="text-sm">
           <p className="whitespace-pre-wrap">{demande.constat}</p>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-            {createur && (
-              <>
-                <dt className="text-muted-foreground">Signalé par</dt>
-                <dd>{createur}</dd>
-              </>
-            )}
-            <dt className="text-muted-foreground">Date de constat</dt>
-            <dd>{formatDateLong(demande.date_constat)}</dd>
-            {localisations.length > 0 && (
-              <>
-                <dt className="text-muted-foreground">Localisations</dt>
-                <dd>{localisations.map((l) => l.locaux.nom).join(', ')}</dd>
-              </>
-            )}
-            {equipements.length > 0 && (
-              <>
-                <dt className="text-muted-foreground">Équipements</dt>
-                <dd>{equipements.map((e) => e.equipements.nom).join(', ')}</dd>
-              </>
-            )}
-          </dl>
         </CardContent>
       </Card>
 
