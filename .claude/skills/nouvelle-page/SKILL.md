@@ -111,7 +111,7 @@ handleSubmit():
 
 **États** — `QueryState` (4 états) · `EmptyState` · `ErrorState` · `NoSearchResults` (liste filtrée vide) · `NoSiteSelected` (garde site, AVANT toute query) — `@/components/common/`.
 
-**Listes** — `ListRow` (ligne générique : `media`/`title`/`subtitle`/`badges`/`meta`/`mobileMeta`/`actions`/`onClick`/`size`) · `RowMediaIcon` (icône pour entité **sans** image — passer le **composant** : `icon={HardHat}`) · `OperationRow` · `ListRowSkeletons` · `CardSkeletons` (grilles de cartes) — `@/components/common/`. Entité **avec** image → `MiniatureThumb` (`@/features/miniatures/components/miniature-thumb`) en `media`.
+**Listes** — `ListRow` (ligne générique : `media`/`title`/`subtitle`/`badges`/`meta`/`mobileMeta`/`actions`/`onClick`/`size`) · `RowMediaIcon` (icône pour entité **sans** image — passer le **composant** : `icon={HardHat}`) · `OperationRow` · `ListRowSkeletons` · `CardSkeletons` (grilles de cartes) — `@/components/common/`. Entité **avec** image → `MiniatureThumb` (`@/features/miniatures/components/miniature-thumb`) en `media`. **Carte d'en-tête d'une fiche détail** (vignette carrée + grille d'infos compacte, hauteur `h-20`) → `DetailHeaderCard` (`thumbnail` + `fields: ({ label, value } | null)[]` — un `null` = cellule vide qui préserve l'alignement ; `columns` 2 ou 3 ; partagée OT/gamme) — `@/components/common/`.
 
 **Recherche / périmètre** — `SearchInput` · `SelectMenu` (`<select>` habillé, filtre par type) · `ScopeSelect` + `ScopeProvider` + `ScopeBadges` (périmètre Commun/site, Bibliothèque) — `@/components/common/`.
 

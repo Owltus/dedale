@@ -43,8 +43,8 @@ import { useFileDrop } from '@/hooks/use-file-drop'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { formatDate, todayLocal } from '@/lib/date'
 import { deleteErrorMessage, writeErrorMessage } from '@/lib/form'
-import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { SubTabs } from '@/components/common/sub-tabs'
@@ -62,24 +62,6 @@ interface OtDetailProps {
 }
 
 type Onglet = 'operations' | 'documents'
-
-/** Cellule de la carte d'en-tête : intitulé EN HAUT, valeur EN BAS, compact (« — » si vide). */
-function Champ({
-  label,
-  value,
-  className,
-}: {
-  label: string
-  value: string | null
-  className?: string
-}) {
-  return (
-    <div className={cn('flex min-w-0 flex-col leading-tight', className)}>
-      <span className="text-muted-foreground text-[10px]">{label}</span>
-      <span className="truncate text-sm font-medium">{value ?? '—'}</span>
-    </div>
-  )
-}
 
 export function OtDetail({ otId, canManage }: OtDetailProps) {
   const { session } = useAuth()
@@ -628,11 +610,12 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
           action={headerActions}
         />
 
-        {/* Carte de l'ordre — hauteur de base (h-20) : vignette carrée + infos en
-            3 colonnes × 2 lignes (l1 prestataire/périodicité/relevé, l2 dates),
-            intitulé au-dessus de la valeur. */}
-        <div className="bg-card mb-4 flex h-20 items-stretch overflow-hidden rounded-lg border">
-          <div className="aspect-square h-full shrink-0">
+        {/* Carte d'en-tête (brique partagée DetailHeaderCard) : vignette + infos
+            en grille 3 colonnes (l1 prestataire/périodicité/relevé, l2 dates). Le
+            relevé est masqué par une cellule vide quand il n'y a aucune somme. */}
+        <DetailHeaderCard
+          className="mb-4"
+          thumbnail={
             <MiniatureThumb
               url={urlOf(otMiniatureId)}
               fallback={<ClipboardList className="size-10" />}
@@ -640,24 +623,22 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
               onError={refreshMiniatures}
               className="size-full rounded-none"
             />
-          </div>
-          <div className="grid min-w-0 flex-1 grid-cols-3 content-center gap-x-4 gap-y-1 px-4">
-            <Champ label="Prestataire" value={ot.nom_prestataire} />
-            <Champ label="Périodicité" value={ot.libelle_periodicite} />
-            {/* Relevé masqué s'il n'y a aucune somme — mais on garde la cellule
-                pour ne pas décaler la grille (l'emplacement reste réservé). */}
-            {releve ? <Champ label="Relevé" value={releve} /> : <div />}
-            <Champ label="Prévue" value={formatDate(ot.date_prevue)} />
-            <Champ
-              label="Début"
-              value={ot.date_debut ? formatDate(ot.date_debut) : null}
-            />
-            <Champ
-              label="Clôture"
-              value={ot.date_cloture ? formatDate(ot.date_cloture) : null}
-            />
-          </div>
-        </div>
+          }
+          fields={[
+            { label: 'Prestataire', value: ot.nom_prestataire },
+            { label: 'Périodicité', value: ot.libelle_periodicite },
+            releve ? { label: 'Relevé', value: releve } : null,
+            { label: 'Prévue', value: formatDate(ot.date_prevue) },
+            {
+              label: 'Début',
+              value: ot.date_debut ? formatDate(ot.date_debut) : null,
+            },
+            {
+              label: 'Clôture',
+              value: ot.date_cloture ? formatDate(ot.date_cloture) : null,
+            },
+          ]}
+        />
 
         <SubTabs
           ariaLabel="Sections de l’ordre de travail"
