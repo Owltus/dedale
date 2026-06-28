@@ -19,6 +19,7 @@ import {
   useDeleteGamme,
   useDeleteOperation,
 } from '../mutations'
+import { GammeCard } from './gamme-card'
 import { GammeBiblioFormDialog } from './gamme-biblio-form-dialog'
 import { OperationFormDialog } from './operation-form-dialog'
 import { GammeModelesSection } from './gamme-modeles-section'
@@ -847,31 +848,18 @@ export function GammesBiblioPanel() {
                       })
                     }
                     return (
-                      <ListRow
+                      <GammeCard
                         key={g.id}
-                        media={
-                          <MiniatureThumb
-                            url={urlOf(g.miniature_id)}
-                            fallback={<Wrench className="size-10" />}
-                            // Image décorative : le titre + le nom accessible de la
-                            // ligne portent déjà l'info (pas de 3e annonce au lecteur).
-                            alt=""
-                            onError={refreshMiniatures}
-                            className="size-full rounded-none"
-                          />
-                        }
-                        title={g.nom}
-                        subtitle={
-                          g.description?.trim()
-                            ? g.description.trim()
-                            : undefined
-                        }
+                        gamme={g}
+                        urlOf={urlOf}
+                        refreshMiniatures={refreshMiniatures}
                         // Ouvrir une gamme (PUSH) : chemin dérivé de sa catégorie
                         // RÉELLE (cohérent même après un déplacement realtime).
                         onClick={() => goToGamme(g)}
-                        menuActions={
-                          rowActions.length ? rowActions : undefined
-                        }
+                        menuActions={rowActions.length ? rowActions : undefined}
+                        // Template commun : pas de prestataire (renseigné après
+                        // copie sur un site) → on masque la méta prestataire.
+                        showPrestataire={false}
                       />
                     )
                   })}

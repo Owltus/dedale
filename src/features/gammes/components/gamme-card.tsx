@@ -18,12 +18,19 @@ export function GammeCard({
   refreshMiniatures,
   onClick,
   menuActions,
+  showPrestataire = true,
 }: {
   gamme: GammeRow
   urlOf: (id: string | null) => string | null
   refreshMiniatures: () => void
   onClick?: () => void
   menuActions?: RowAction[]
+  /**
+   * Affiche le prestataire (méta). `false` pour une gamme-template commune de la
+   * Bibliothèque, qui n'en porte JAMAIS (il est renseigné après copie sur un
+   * site) → on n'affiche pas un trompeur « Prestataire à renseigner ».
+   */
+  showPrestataire?: boolean
 }) {
   return (
     <ListRow
@@ -52,15 +59,21 @@ export function GammeCard({
         </Badge>
       }
       meta={
-        gamme.prestataires ? (
-          <span className="text-sm">{gamme.prestataires.libelle}</span>
-        ) : (
-          <span className="text-muted-foreground text-sm">
-            Prestataire à renseigner
-          </span>
-        )
+        showPrestataire ? (
+          gamme.prestataires ? (
+            <span className="text-sm">{gamme.prestataires.libelle}</span>
+          ) : (
+            <span className="text-muted-foreground text-sm">
+              Prestataire à renseigner
+            </span>
+          )
+        ) : undefined
       }
-      mobileMeta={gamme.prestataires?.libelle ?? 'Prestataire à renseigner'}
+      mobileMeta={
+        showPrestataire
+          ? (gamme.prestataires?.libelle ?? 'Prestataire à renseigner')
+          : undefined
+      }
       onClick={onClick}
       menuActions={menuActions}
     />
