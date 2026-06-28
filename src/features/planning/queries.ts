@@ -16,7 +16,7 @@ export const planningQueries = {
         const { data } = await supabase
           .from('ordres_travail')
           .select(
-            'id, statut, origine, tolerance_jours, gamme_id, nom_gamme, nature_gamme, nom_prestataire, nom_equipement, libelle_periodicite, date_prevue',
+            'id, statut, origine, tolerance_jours, gamme_id, nom_gamme, nature_gamme, nom_prestataire, nom_equipement, libelle_periodicite, date_prevue, date_cloture, miniature_id',
           )
           .eq('site_id', siteId!)
           .gte('date_prevue', debut)

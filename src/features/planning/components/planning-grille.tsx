@@ -1,42 +1,89 @@
-import { LIBELLES_STATUT_OT } from '@/features/ordres-travail/schemas'
+import { statutAffichageOt } from '@/features/ordres-travail/statut-affichage'
+import type { StatusTone } from '@/components/common/status-badge'
 import type { LigneGamme, PlanningOt } from '@/features/planning/grille'
 import type { SemaineIso } from '@/features/planning/semaines'
 import { cn } from '@/lib/utils'
 
 /**
- * Couleur de fond de la cellule selon le statut de l'OT, alignée sur les
- * variantes de Badge OT (tokens sémantiques uniquement). Si plusieurs statuts
- * cohabitent, on prend le plus « avancé » visible.
+ * Couleur de fond SOLIDE d'une cellule selon la TONALITÉ du statut d'affichage
+ * de l'OT — même source que le badge (`statutAffichageOt`), donc toute évolution
+ * du code couleur se répercute ici. Remplissage plein (≠ pastille teintée du
+ * badge) pour une lecture dense ; chaque tonalité a son couple `-foreground`
+ * garantissant le contraste en thème clair comme sombre.
  */
-function classeStatut(statut: string): string {
-  switch (statut) {
-    case 'cloture':
-      return 'bg-primary text-primary-foreground'
-    case 'annule':
-      return 'bg-destructive text-white'
-    case 'en_cours':
-    case 'reouvert':
-      return 'bg-secondary text-secondary-foreground'
-    default:
-      return 'bg-muted text-muted-foreground'
-  }
+const TONE_CELL: Record<StatusTone, string> = {
+  neutral: 'bg-muted text-muted-foreground',
+  success: 'bg-success text-success-foreground',
+  warning: 'bg-warning text-warning-foreground',
+  destructive: 'bg-destructive text-white',
+  info: 'bg-info text-info-foreground',
+  violet: 'bg-violet text-violet-foreground',
+  yellow: 'bg-yellow text-yellow-foreground',
 }
 
-/** Priorité d'affichage quand une cellule mélange plusieurs statuts. */
-const ORDRE_STATUT: Record<string, number> = {
-  annule: 0,
-  en_cours: 1,
-  reouvert: 1,
-  planifie: 2,
-  cloture: 3,
+/** Priorité d'affichage quand une cellule mélange plusieurs tonalités (le plus
+ *  urgent d'abord : retard/annulé → cette semaine → à venir → en cours →
+ *  planifié → clôturé → repos). */
+const PRIORITE_TONE: StatusTone[] = [
+  'destructive',
+  'yellow',
+  'warning',
+  'info',
+  'violet',
+  'success',
+  'neutral',
+]
+
+/** Statut d'affichage (libellé + tonalité) le plus prioritaire de la cellule. */
+function affichageDominant(ots: PlanningOt[]) {
+  return ots
+    .map((ot) =>
+      statutAffichageOt({
+        statut: ot.statut,
+        origine: ot.origine,
+        datePrevue: ot.date_prevue,
+        toleranceJours: ot.tolerance_jours,
+      }),
+    )
+    .reduce((meilleur, courant) =>
+      PRIORITE_TONE.indexOf(courant.tone) < PRIORITE_TONE.indexOf(meilleur.tone)
+        ? courant
+        : meilleur,
+    )
 }
 
-function statutDominant(ots: PlanningOt[]): string {
-  return ots.reduce<string>((meilleur, ot) => {
-    const rangCourant = ORDRE_STATUT[meilleur] ?? 99
-    const rangNouveau = ORDRE_STATUT[ot.statut] ?? 99
-    return rangNouveau < rangCourant ? ot.statut : meilleur
-  }, ots[0]?.statut ?? 'planifie')
+// Légende : tonalité → libellé, dans l'ordre d'urgence. MÊME source de couleur
+// (TONE_CELL) que les cellules de la grille → la légende ne peut plus diverger.
+const LEGENDE_PLANNING: { tone: StatusTone; libelle: string }[] = [
+  { tone: 'destructive', libelle: 'En retard / annulé' },
+  { tone: 'yellow', libelle: 'Cette semaine' },
+  { tone: 'warning', libelle: 'À venir / réouvert' },
+  { tone: 'info', libelle: 'En cours' },
+  { tone: 'violet', libelle: 'Planifié' },
+  { tone: 'success', libelle: 'Clôturé' },
+  { tone: 'neutral', libelle: 'Programmé / plus tard' },
+]
+
+/**
+ * Légende des couleurs du planning. Dérivée de `TONE_CELL` (source UNIQUE,
+ * partagée avec le coloriage des cellules) : changer une couleur de statut met à
+ * jour la grille ET la légende d'un seul geste.
+ */
+export function PlanningLegende() {
+  return (
+    <div className="text-muted-foreground flex flex-wrap items-center gap-4 text-xs">
+      {LEGENDE_PLANNING.map((i) => (
+        <span key={i.tone} className="flex items-center gap-1.5">
+          <span className={cn('size-3 rounded', TONE_CELL[i.tone])} />
+          {i.libelle}
+        </span>
+      ))}
+      <span className="flex items-center gap-1.5">
+        <span className="text-primary">●</span>
+        Gamme réglementaire
+      </span>
+    </div>
+  )
 }
 
 interface PlanningGrilleProps {
@@ -107,19 +154,18 @@ export function PlanningGrille({
                   if (!ots || ots.length === 0) {
                     return <td key={s.cle} className="px-1 py-1" />
                   }
-                  const statut = statutDominant(ots)
-                  const libelle = LIBELLES_STATUT_OT[statut] ?? statut
+                  const affichage = affichageDominant(ots)
                   return (
                     <td key={s.cle} className="px-1 py-1 text-center">
                       <button
                         type="button"
                         onClick={() => onSelect(ots, s)}
-                        title={`${ligne.nomGamme} — S${String(s.numero)} — ${libelle}${
+                        title={`${ligne.nomGamme} — S${String(s.numero)} — ${affichage.label}${
                           ots.length > 1 ? ` (${String(ots.length)})` : ''
                         }`}
                         className={cn(
                           'focus-visible:ring-ring inline-flex h-6 min-w-6 items-center justify-center rounded px-1 text-xs font-medium transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none',
-                          classeStatut(statut),
+                          TONE_CELL[affichage.tone],
                         )}
                       >
                         {ots.length > 1 ? ots.length : ''}

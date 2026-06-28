@@ -15,6 +15,10 @@ export interface PlanningOt {
   nom_equipement: string | null
   libelle_periodicite: string
   date_prevue: string
+  /** Date de clôture (OT terminé) — utilisée pour le TRI par urgence, pas affichée. */
+  date_cloture: string | null
+  /** Vignette esthétique de l'OT (héritée de la gamme) — pour la carte `OtCard`. */
+  miniature_id: string | null
 }
 
 /** Une ligne de la grille = une gamme, ses OT répartis par clé de semaine. */

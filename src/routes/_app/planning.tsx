@@ -4,6 +4,8 @@ import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarRange, Search } from 'lucide-react'
 import { planningQueries } from '@/features/planning/queries'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import { construireLignes } from '@/features/planning/grille'
 import type { PlanningOt } from '@/features/planning/grille'
 import {
@@ -12,7 +14,10 @@ import {
   lundiDeLaSemaine,
 } from '@/features/planning/semaines'
 import type { SemaineIso } from '@/features/planning/semaines'
-import { PlanningGrille } from '@/features/planning/components/planning-grille'
+import {
+  PlanningGrille,
+  PlanningLegende,
+} from '@/features/planning/components/planning-grille'
 import { CelluleDialog } from '@/features/planning/components/cellule-dialog'
 import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
@@ -21,7 +26,7 @@ import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
-import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/components/common/search-input'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export const Route = createFileRoute('/_app/planning')({
@@ -64,6 +69,13 @@ function PlanningContent({ siteId }: { siteId: string }) {
   }, [])
 
   const query = useQuery(planningQueries.fenetre(siteId, debutIso, finIso))
+  // Relevés du site (même requête groupée et même logique que la page liste) → la
+  // popup d'une cellule affiche le relevé comme partout ailleurs.
+  const relevesQuery = useQuery(ordresTravailQueries.relevesListe(siteId))
+  const releveParOt = useMemo(
+    () => calculerRelevesParOt(relevesQuery.data ?? []),
+    [relevesQuery.data],
+  )
 
   const [recherche, setRecherche] = useState('')
   const [cellule, setCellule] = useState<{
@@ -104,15 +116,12 @@ function PlanningContent({ siteId }: { siteId: string }) {
       >
         {() => (
           <div className="flex flex-col gap-4">
-            <div className="relative max-w-xs">
-              <Search className="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-              <Input
-                value={recherche}
-                onChange={(e) => setRecherche(e.target.value)}
-                placeholder="Filtrer par gamme…"
-                className="pl-8"
-              />
-            </div>
+            <SearchInput
+              value={recherche}
+              onChange={setRecherche}
+              placeholder="Filtrer par gamme…"
+              className="max-w-xs"
+            />
 
             {lignesFiltrees.length === 0 ? (
               <EmptyState
@@ -128,39 +137,17 @@ function PlanningContent({ siteId }: { siteId: string }) {
               />
             )}
 
-            <Legende />
+            <PlanningLegende />
           </div>
         )}
       </QueryState>
 
       <CelluleDialog
         ots={cellule?.ots ?? null}
+        releveParOt={releveParOt}
         titreSemaine={titreSemaine}
         onClose={() => setCellule(null)}
       />
     </PageContainer>
-  )
-}
-
-function Legende() {
-  const items: { libelle: string; classe: string }[] = [
-    { libelle: 'Planifié', classe: 'bg-muted' },
-    { libelle: 'En cours / Rouvert', classe: 'bg-secondary' },
-    { libelle: 'Clôturé', classe: 'bg-primary' },
-    { libelle: 'Annulé', classe: 'bg-destructive' },
-  ]
-  return (
-    <div className="text-muted-foreground flex flex-wrap items-center gap-4 text-xs">
-      {items.map((i) => (
-        <span key={i.libelle} className="flex items-center gap-1.5">
-          <span className={`size-3 rounded ${i.classe}`} />
-          {i.libelle}
-        </span>
-      ))}
-      <span className="flex items-center gap-1.5">
-        <span className="text-primary">●</span>
-        Gamme réglementaire
-      </span>
-    </div>
   )
 }

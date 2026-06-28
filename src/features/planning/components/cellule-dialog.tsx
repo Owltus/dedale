@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
-import { OtStatutBadge } from '@/features/ordres-travail/components/ot-statut-badge'
+import { OtCard } from '@/features/ordres-travail/components/ot-card'
+import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import type { PlanningOt } from '@/features/planning/grille'
-import { formatDate } from '@/lib/date'
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 interface CelluleDialogProps {
   /** OT de la cellule cliquée (≥ 1), ou `null` si fermé. */
   ots: PlanningOt[] | null
+  /** Relevés du site (`ot_id → « 80 kWh »`) — même map que la page liste. */
+  releveParOt: ReadonlyMap<string, string>
   /** Libellé de la semaine (« S24 — 09/06 »). */
   titreSemaine: string
   onClose: () => void
@@ -21,15 +23,18 @@ interface CelluleDialogProps {
 
 /**
  * Petit dialog listant les OT d'une cellule (gamme × semaine).
- * Lecture seule : un lien optionnel renvoie vers la liste des OT du module.
+ * Chaque OT est rendu via `OtCard` — la MÊME carte que la page liste et la fiche
+ * gamme — pour qu'une évolution de la carte se répercute ici aussi. Clic sur une
+ * carte = ouverture du détail de l'OT.
  */
 export function CelluleDialog({
   ots,
+  releveParOt,
   titreSemaine,
   onClose,
 }: CelluleDialogProps) {
   const open = ots !== null && ots.length > 0
-  const liste = ots ?? []
+  const liste = trierOtParUrgence(ots ?? [])
   const titreGamme = liste[0]?.nom_gamme ?? ''
 
   return (
@@ -50,38 +55,11 @@ export function CelluleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ul className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           {liste.map((ot) => (
-            <li
-              key={ot.id}
-              className="border-border flex flex-col gap-2 rounded-md border p-3 text-sm"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-muted-foreground">
-                  Prévu le {formatDate(ot.date_prevue)}
-                </span>
-                <OtStatutBadge
-                  statut={ot.statut}
-                  origine={ot.origine}
-                  datePrevue={ot.date_prevue}
-                  toleranceJours={ot.tolerance_jours}
-                />
-              </div>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-                <dt className="text-muted-foreground">Prestataire</dt>
-                <dd className="truncate text-right">{ot.nom_prestataire}</dd>
-                <dt className="text-muted-foreground">Équipement</dt>
-                <dd className="truncate text-right">
-                  {ot.nom_equipement ?? '—'}
-                </dd>
-                <dt className="text-muted-foreground">Périodicité</dt>
-                <dd className="truncate text-right">
-                  {ot.libelle_periodicite}
-                </dd>
-              </dl>
-            </li>
+            <OtCard key={ot.id} ot={ot} releve={releveParOt.get(ot.id) ?? null} />
           ))}
-        </ul>
+        </div>
 
         <Button asChild variant="outline" className="w-full">
           <Link to="/ordres-travail">Voir les ordres de travail</Link>
