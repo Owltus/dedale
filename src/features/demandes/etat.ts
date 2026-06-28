@@ -1,4 +1,7 @@
-import type { StatusTone } from '@/components/common/status-badge'
+import {
+  statusToneById,
+  type StatusTone,
+} from '@/components/common/status-badge'
 
 // Référentiel statuts_di (migration 052) : 1 Ouvert, 2 En cours, 3 Clôturé.
 const LABELS: Record<number, string> = {
@@ -22,13 +25,11 @@ export const STATUTS_DI_TERMINAUX = [3] as const
  * Ouvert = gris (neutral), En cours = orange (warning), Clôturé = vert (success).
  * Consommé par la pastille réutilisable `StatusBadge`.
  */
+const TONES: Record<number, StatusTone> = {
+  2: 'warning', // En cours
+  3: 'success', // Clôturé (état clos)
+  // 1 (Ouvert / à traiter) → repli neutral
+}
 export function statutTone(statutId: number): StatusTone {
-  switch (statutId) {
-    case 2:
-      return 'warning' // En cours
-    case 3:
-      return 'success' // Clôturé (état clos)
-    default:
-      return 'neutral' // Ouvert (à traiter)
-  }
+  return statusToneById(statutId, TONES)
 }

@@ -16,6 +16,18 @@ export type StatusTone =
   | 'violet'
   | 'yellow'
 
+/**
+ * Tonalité d'un statut par id, depuis une table fournie par la feature ; repli
+ * `neutral`. Mutualise le mécanisme statut → tonalité : chaque feature (Demandes,
+ * Travaux, Investissements…) garde SA table, le lookup est commun.
+ */
+export function statusToneById(
+  id: number,
+  map: Record<number, StatusTone>,
+): StatusTone {
+  return map[id] ?? 'neutral'
+}
+
 // Pastille TEINTÉE : fond doux (couleur à 10 %), texte de la couleur, liseré
 // discret. Les tokens d'état sont foncés en thème clair → texte AA lisible.
 const TONE_CLASSES: Record<StatusTone, string> = {

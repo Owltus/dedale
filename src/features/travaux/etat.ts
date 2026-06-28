@@ -1,5 +1,8 @@
 import type { StepperStep } from '@/components/common/status-stepper'
-import type { StatusTone } from '@/components/common/status-badge'
+import {
+  statusToneById,
+  type StatusTone,
+} from '@/components/common/status-badge'
 import {
   STATUT_OUVERT,
   STATUT_PLANIFIE,
@@ -37,19 +40,15 @@ export const STATUTS_TRAVAUX_TERMINAUX = [STATUT_TERMINE, STATUT_ANNULE] as cons
  * le liseré de card : Ouvert = gris, Planifié = violet, En cours = jaune,
  * Terminé = vert, Annulé = gris atténué (issue terminale, le libellé distingue).
  */
+const TONES: Record<number, StatusTone> = {
+  [STATUT_PLANIFIE]: 'violet',
+  [STATUT_EN_COURS]: 'yellow',
+  [STATUT_TERMINE]: 'success',
+  [STATUT_ANNULE]: 'neutral', // issue terminale, le libellé distingue
+  // STATUT_OUVERT → repli neutral
+}
 export function statutTravauxTone(id: number): StatusTone {
-  switch (id) {
-    case STATUT_PLANIFIE:
-      return 'violet'
-    case STATUT_EN_COURS:
-      return 'yellow'
-    case STATUT_TERMINE:
-      return 'success'
-    case STATUT_ANNULE:
-      return 'neutral'
-    default: // Ouvert
-      return 'neutral'
-  }
+  return statusToneById(id, TONES)
 }
 
 /**

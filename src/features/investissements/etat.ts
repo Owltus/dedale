@@ -1,5 +1,8 @@
 import type { StepperStep } from '@/components/common/status-stepper'
-import type { StatusTone } from '@/components/common/status-badge'
+import {
+  statusToneById,
+  type StatusTone,
+} from '@/components/common/status-badge'
 
 /** Étape de frise enrichie du statut CapEx qu'elle représente (pour le clic). */
 export interface InvestissementEtape extends StepperStep {
@@ -48,24 +51,17 @@ export const STATUTS_CAPEX_TERMINAUX = [3, 7, ID_REFUSE] as const
  *  (feu vert / jalon), Engagé = jaune (exécution en cours), Réalisé = vert
  *  (accompli), Clôturé = gris (dossier clos / archivé), Refusé = rouge.
  */
+const TONES: Record<number, StatusTone> = {
+  [ID_REFUSE]: 'destructive', // Refusé
+  5: 'info', // À l'étude
+  2: 'violet', // Validé
+  6: 'yellow', // Engagé
+  3: 'success', // Réalisé
+  7: 'neutral', // Clôturé (dossier clos / archivé)
+  1: 'neutral', // Demandé (en attente)
+}
 export function statutCapexTone(id: number): StatusTone {
-  switch (id) {
-    case ID_REFUSE: // Refusé
-      return 'destructive'
-    case 5: // À l'étude
-      return 'info'
-    case 2: // Validé
-      return 'violet'
-    case 6: // Engagé
-      return 'yellow'
-    case 3: // Réalisé
-      return 'success'
-    case 7: // Clôturé (dossier clos / archivé)
-    case 1: // Demandé (en attente)
-      return 'neutral'
-    default:
-      return 'neutral'
-  }
+  return statusToneById(id, TONES)
 }
 
 // Ordre canonique d'AFFICHAGE des statuts : le parcours, puis Refusé en fin.
