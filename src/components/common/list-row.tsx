@@ -37,6 +37,14 @@ export interface ListRowProps {
    */
   mobileMeta?: ReactNode
   /**
+   * Contenu (typiquement la colonne de STATUT) maintenu VISIBLE sous `sm`, dans la
+   * colonne de droite, là où `badges`/`meta` sont masqués. OPT-IN — pour les cartes
+   * dont le statut est l'info clé à ne pas perdre sur petit écran. En général, la
+   * MÊME `StatutColonne` que `badges` (badge + date/périodicité) → centrée et alignée
+   * d'une carte à l'autre comme au bureau.
+   */
+  mobileBadge?: ReactNode
+  /**
    * Actions (boutons icône) — ANCIEN mode. Un clic dessus ne déclenche pas
    * `onClick`. Révélées au survol. Conservé pour les pages non encore migrées ;
    * remplacé à terme par `menuActions`.
@@ -114,6 +122,7 @@ export function ListRow({
   badges,
   meta,
   mobileMeta,
+  mobileBadge,
   tone,
   actions,
   menuActions,
@@ -187,6 +196,11 @@ export function ListRow({
               </div>
             )}
           </div>
+          {mobileBadge !== undefined && (
+            <div className="flex shrink-0 items-center sm:hidden">
+              {mobileBadge}
+            </div>
+          )}
           {badges !== undefined && (
             <div className="hidden shrink-0 items-center gap-2 sm:flex">
               {badges}
@@ -245,6 +259,11 @@ export function ListRow({
             </div>
           )}
         </div>
+        {mobileBadge !== undefined && (
+          <div className="flex shrink-0 items-center sm:hidden">
+            {mobileBadge}
+          </div>
+        )}
         {badges !== undefined && (
           <div className="hidden shrink-0 items-center gap-2 sm:flex">
             {badges}

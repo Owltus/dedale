@@ -67,6 +67,10 @@ export function OtCard({
     toleranceJours: ot.tolerance_jours,
   })
   const datePrevue = formatDateAvecSemaineIso(ot.date_prevue)
+  // Colonne de statut (badge + date prévue, largeur fixe centrée) — affichée à
+  // l'identique au BUREAU (slot `badges`) ET sur MOBILE (slot `mobileBadge`) → badges
+  // et dates centrés et alignés d'une carte à l'autre, à toutes les tailles.
+  const statutColonne = <StatutColonne statut={statut} meta={datePrevue} />
   return (
     <ListRow
       media={
@@ -80,9 +84,10 @@ export function OtCard({
       }
       title={ot.nom_gamme}
       subtitle={ot.nom_equipement ?? ot.description_gamme ?? undefined}
-      // À droite : le relevé (s'il existe) À GAUCHE de la colonne statut/date.
-      // Statut + date prévue empilés via la brique `StatutColonne` (largeur fixe
-      // centrée) → badges et dates alignés d'une carte à l'autre.
+      // Liséré de statut au bord gauche (code couleur lié au statut, comme les
+      // Demandes d'intervention).
+      tone={statut.tone}
+      // À droite (bureau) : le relevé (s'il existe) À GAUCHE de la colonne statut/date.
       badges={
         <div className="flex items-center gap-4">
           {releve && (
@@ -90,18 +95,12 @@ export function OtCard({
               {releve}
             </span>
           )}
-          <StatutColonne statut={statut} meta={datePrevue} />
+          {statutColonne}
         </div>
       }
-      // Variante média : sous `sm`, `mobileMeta` REMPLACE le sous-titre → on y
-      // condense l'info discriminante (équipement, statut, date prévue).
-      mobileMeta={[
-        ot.nom_equipement ?? ot.description_gamme,
-        statut.label,
-        datePrevue,
-      ]
-        .filter(Boolean)
-        .join(' · ')}
+      // Sous `sm` : la MÊME colonne de statut, réaffichée à droite (le sous-titre
+      // équipement/description reste visible → pas besoin de `mobileMeta`).
+      mobileBadge={statutColonne}
       onClick={() =>
         void navigate({
           to: '/ordres-travail/$otId',

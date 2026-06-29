@@ -79,12 +79,14 @@ export function CategorieCard({
       <ScopeBadges siteId={categorie.site_id} />
     ) : undefined
 
-  // Mode statut : colonne partagée `StatutColonne` (même gabarit aligné que la carte
-  // OT). Sinon : badges de périmètre.
-  const badges = statutMode ? <StatutColonne statut={statut} /> : scope
-  const mobileMeta = statutMode
-    ? [description, statut?.label].filter(Boolean).join(' · ') || undefined
-    : scope
+  // Mode statut : colonne `StatutColonne` (badge centré, même gabarit aligné que la
+  // carte OT), affichée au BUREAU (`badges`) ET sur MOBILE (`mobileBadge`) → badges
+  // centrés et alignés d'une carte à l'autre à toutes les tailles. Sinon : badges de
+  // périmètre (repliés en texte sur mobile via `mobileMeta`).
+  const statutColonne = <StatutColonne statut={statut} />
+  const badges = statutMode ? statutColonne : scope
+  const mobileBadge = statutMode ? statutColonne : undefined
+  const mobileMeta = statutMode ? undefined : scope
 
   return (
     <ListRow
@@ -105,7 +107,11 @@ export function CategorieCard({
       }
       title={categorie.nom}
       subtitle={description}
+      // Liséré de statut au bord gauche (code couleur lié au statut, comme les
+      // Demandes) — uniquement en mode statut.
+      tone={statut?.tone}
       badges={badges}
+      mobileBadge={mobileBadge}
       mobileMeta={mobileMeta}
       onClick={onClick}
       menuActions={menuActions}

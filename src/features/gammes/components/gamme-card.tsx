@@ -83,6 +83,17 @@ export function GammeCard({
       estActive: gamme.est_active,
       ots: statutOts,
     })
+    // Colonne de droite (brique `StatutColonne`) — MÊME gabarit que la carte OT :
+    // badge de statut EN HAUT, périodicité EN DESSOUS (là où l'OT met la date). Statut
+    // masqué tant que les OT chargent (pas de « Non assigné » trompeur) ; la
+    // périodicité reste affichée. RÉAFFICHÉE à l'identique sur mobile (`mobileBadge`)
+    // → badges et périodicités centrés et alignés à toutes les tailles.
+    const statutColonne = (
+      <StatutColonne
+        statut={statutPending ? undefined : statut}
+        meta={gamme.periodicites?.libelle ?? '—'}
+      />
+    )
     return (
       <ListRow
         media={media}
@@ -90,23 +101,13 @@ export function GammeCard({
         subtitle={
           gamme.description?.trim() ? gamme.description.trim() : undefined
         }
-        // Colonne de droite (brique `StatutColonne`) — MÊME gabarit que la carte
-        // OT : badge de statut EN HAUT, périodicité EN DESSOUS (là où l'OT met la
-        // date prévue). Statut masqué tant que les OT chargent (pas de « Non
-        // assigné » trompeur) ; la périodicité, connue d'emblée, reste affichée.
-        badges={
-          <StatutColonne
-            statut={statutPending ? undefined : statut}
-            meta={gamme.periodicites?.libelle ?? '—'}
-          />
-        }
-        mobileMeta={[
-          gamme.description?.trim(),
-          statutPending ? null : statut.label,
-          gamme.periodicites?.libelle,
-        ]
-          .filter(Boolean)
-          .join(' · ')}
+        // Liséré de statut au bord gauche (code couleur lié au statut, comme les
+        // Demandes) — masqué pendant le chargement.
+        tone={statutPending ? undefined : statut.tone}
+        badges={statutColonne}
+        // Sous `sm` : la MÊME colonne de statut (le sous-titre description reste
+        // visible → pas besoin de `mobileMeta`).
+        mobileBadge={statutColonne}
         onClick={onClick}
         menuActions={menuActions}
       />
