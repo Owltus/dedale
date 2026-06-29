@@ -10002,6 +10002,12 @@ COMMENT ON FUNCTION public.get_audit_trail(TEXT, TEXT) IS
 -- date prévue passe en 'planifie' (la date n'est plus dictée par le cycle auto mais
 -- par une décision humaine). Géré par bascule_origine_sur_date_manuelle ci-dessous.
 --
+-- Sens inverse planifie → programme : ouvert aux rôles MÉTIER (admin/manager/
+-- technicien) depuis la migration 070 (décision PO 2026-06-29) pour corriger une
+-- bascule accidentelle. Auparavant admin-only (anti-falsification d'une preuve de
+-- cycle réglementaire) ; assoupli en single-tenant, l'opération restant tracée
+-- dans audit_log.
+--
 -- Sans ce trigger, n'importe quel user pouvait créer un OT avec origine='programme'
 -- alors qu'il n'est pas le cron : preuve de conformité réglementaire faussée.
 -- (Le lien OT↔DI a été retiré : un OT ne référence plus aucune DI.)
@@ -10013,16 +10019,25 @@ CREATE OR REPLACE FUNCTION public.check_ot_origine_coherence()
 RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
+DECLARE
+    v_role text;
 BEGIN
     -- UPDATE : origine figée à la création (sauf admin pour corriger un bug).
-    -- EXCEPTION légitime (décision PO 2026-06-01) : la transition programme →
-    -- planifie est autorisée pour tous. Elle traduit le fait qu'un humain a repris
-    -- la main sur la date d'un OT auto (cf bascule_origine_sur_date_manuelle). Le
-    -- sens inverse (planifie → programme) reste réservé à l'admin : prétendre qu'un
-    -- OT manuel est une preuve de cycle réglementaire automatique serait une falsification.
+    -- DEUX transitions légitimes sont ouvertes hors admin :
+    --   • programme → planifie : pour TOUS (un humain a repris la main sur la date
+    --     d'un OT auto, cf bascule_origine_sur_date_manuelle, décision PO 2026-06-01).
+    --   • planifie → programme : pour les RÔLES MÉTIER (admin/manager/technicien),
+    --     correction d'une bascule accidentelle (décision PO 2026-06-29, migration 070).
+    --     Auparavant admin-only (anti-falsification d'une preuve de cycle réglementaire) ;
+    --     assoupli en single-tenant — l'opération reste tracée dans audit_log.
+    -- Toute autre bascule d'origine reste réservée à l'admin.
     IF TG_OP = 'UPDATE' AND OLD.origine IS DISTINCT FROM NEW.origine THEN
-        IF NOT (OLD.origine = 'programme' AND NEW.origine = 'planifie')
-           AND (SELECT public.current_role()) IS DISTINCT FROM 'admin' THEN
+        v_role := (SELECT public.current_role());
+        IF NOT (
+            (OLD.origine = 'programme' AND NEW.origine = 'planifie')
+            OR (OLD.origine = 'planifie' AND NEW.origine = 'programme'
+                AND v_role IN ('admin', 'manager', 'technicien'))
+        ) AND v_role IS DISTINCT FROM 'admin' THEN
             RAISE EXCEPTION
                 'origine d''un OT est figée après création (% → %). Annulez l''OT et recréez si nécessaire.',
                 OLD.origine, NEW.origine;
@@ -10063,7 +10078,7 @@ CREATE TRIGGER trg_check_ot_origine_coherence
     BEFORE INSERT OR UPDATE OF origine ON ordres_travail
     FOR EACH ROW EXECUTE FUNCTION public.check_ot_origine_coherence();
 COMMENT ON FUNCTION public.check_ot_origine_coherence() IS
-    'F19 + F28 audit : verrouille la sémantique de ot_origine. ''programme'' autorisé pour : trigger système (GUC posée), admin, ou 1er OT de la gamme (amorçage humain). ''planifie'' = OT créé manuellement. Origine figée après création (admin bypass) SAUF la bascule légitime programme → planifie (reprise humaine de la date, v0.28).';
+    'F19 + F28 audit : verrouille la sémantique de ot_origine. ''programme'' autorisé pour : trigger système (GUC posée), admin, ou 1er OT de la gamme (amorçage humain). ''planifie'' = OT créé manuellement. Origine figée après création (admin bypass) SAUF deux bascules légitimes : programme → planifie (reprise humaine de la date, v0.28) pour tous, et planifie → programme (correction, migration 070) pour les rôles métier (admin/manager/technicien).';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Bascule origine programme → planifie sur reprise humaine de la date (v0.28)

@@ -40,6 +40,7 @@ import { useFileDrop } from '@/hooks/use-file-drop'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { formatDate, todayLocal } from '@/lib/date'
 import { deleteErrorMessage, writeErrorMessage } from '@/lib/form'
+import type { Database } from '@/lib/database.types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { PageContainer } from '@/components/common/page-container'
@@ -420,12 +421,28 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     )
   }
 
-  function confirmDatePrevue(datePrevue: string) {
+  function confirmDatePrevue(valeurs: {
+    datePrevue: string
+    origine: Database['public']['Enums']['ot_origine']
+  }) {
+    if (!ot) return
+    // origine envoyée seulement si l'utilisateur l'a changée (sinon on n'arme pas le
+    // trigger backend pour un no-op). La base valide la bascule : planifie → programme
+    // est ouvert aux rôles métier (migration 070), programme → planifie à tous.
+    const origineChange = valeurs.origine !== ot.origine
     updateDatePrevue.mutate(
-      { id: otId, datePrevue },
+      {
+        id: otId,
+        datePrevue: valeurs.datePrevue,
+        origine: origineChange ? valeurs.origine : undefined,
+      },
       {
         onSuccess: () => {
-          toast.success('Date prévue modifiée')
+          toast.success(
+            origineChange
+              ? 'Ordre de travail mis à jour'
+              : 'Date prévue modifiée',
+          )
           setDatePrevueOpen(false)
         },
         onError: (e) => toast.error(writeErrorMessage(e)),
@@ -725,6 +742,7 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
         open={datePrevueOpen}
         onOpenChange={setDatePrevueOpen}
         datePrevue={ot.date_prevue.slice(0, 10)}
+        origine={ot.origine}
         pending={updateDatePrevue.isPending}
         onConfirm={confirmDatePrevue}
       />

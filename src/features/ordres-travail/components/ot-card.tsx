@@ -14,7 +14,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 export interface OtCardData {
   id: string
   statut: string
-  /** Origine (enum ot_origine) — distingue Planifié (plan) / Programmé (ponctuel). */
+  /** Origine (enum ot_origine) — Planifié (date posée par un humain) / Programmé (généré par le cycle). */
   origine: string
   nom_gamme: string
   nom_equipement: string | null

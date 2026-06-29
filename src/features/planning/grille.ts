@@ -4,7 +4,7 @@ import { cleSemaine } from '@/features/planning/semaines'
 export interface PlanningOt {
   id: string
   statut: string
-  /** Origine (enum ot_origine) — distingue Planifié (plan) / Programmé (ponctuel). */
+  /** Origine (enum ot_origine) — Planifié (date posée par un humain) / Programmé (généré par le cycle). */
   origine: string
   /** Fenêtre de tolérance (jours) : pilote la bascule vers les statuts temporels. */
   tolerance_jours: number

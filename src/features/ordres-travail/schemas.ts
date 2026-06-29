@@ -78,9 +78,9 @@ export function variantStatutOt(
  * Tonalité sémantique (pastille teintée `StatusBadge`) du statut OT :
  * En cours = bleu (info, aligné sur les opérations en cours), Rouvert = orange
  * (warning), Clôturé = vert (success, clos), Annulé = rouge (destructive). Le
- * statut « Planifié » se nuance selon l'ORIGINE de l'OT (enum ot_origine) : issu
- * du plan de maintenance (`planifie`) = violet, programmé ponctuellement
- * (`programme`) = gris.
+ * statut « Planifié » se nuance selon l'ORIGINE de l'OT (enum ot_origine) :
+ * `planifie` (date posée par un humain) = violet, `programme` (généré
+ * automatiquement par le cycle de maintenance préventive) = gris.
  */
 export function statutOtTone(statut: string, origine?: string): StatusTone {
   switch (statut) {
@@ -101,8 +101,8 @@ export function statutOtTone(statut: string, origine?: string): StatusTone {
 
 /**
  * Libellé affiché d'un statut OT, qui distingue le statut « Planifié » selon
- * l'origine : un OT programmé ponctuellement (`origine = 'programme'`) s'affiche
- * « Programmé » ; sinon on reprend le libellé standard du statut.
+ * l'origine : un OT généré automatiquement par le cycle (`origine = 'programme'`)
+ * s'affiche « Programmé » ; sinon on reprend le libellé standard du statut.
  */
 export function libelleStatutOt(statut: string, origine?: string): string {
   if (statut === 'planifie' && origine === 'programme') return 'Programmé'

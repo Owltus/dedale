@@ -85,20 +85,40 @@ export function useDeleteOt() {
 }
 
 /**
- * Modifie la DATE PRÉVUE d'un OT (replanification ponctuelle « en cas de besoin »).
+ * Replanifie un OT : DATE PRÉVUE et, optionnellement, ORIGINE (Programmé ↔ Planifié).
  *
- * Simple UPDATE d'une colonne planning : aucune machine à états n'est touchée
- * (le trigger validation_transitions_ot ne réagit qu'à un changement de `statut`).
+ * - `date_prevue` : aucune machine à états n'est touchée (validation_transitions_ot
+ *   ne réagit qu'à un changement de `statut`). À noter : déplacer la date d'un OT
+ *   « Programmé » le passe AUTOMATIQUEMENT en « Planifié » (trigger
+ *   bascule_origine_sur_date_manuelle) — c'est voulu (la date n'est plus dictée par
+ *   le cycle auto mais par un humain).
+ * - `origine` (envoyée seulement si l'utilisateur l'a changée) : la base valide la
+ *   bascule via check_ot_origine_coherence — programme → planifie pour tous, et
+ *   planifie → programme pour les rôles métier (migration 070). Hors de ces cas, la
+ *   base renvoie une erreur (catchée et affichée).
+ *
  * La RLS autorise la modification aux gestionnaires de leurs sites. On invalide
- * liste + détail pour rafraîchir la carte d'en-tête.
+ * liste + détail pour rafraîchir la carte d'en-tête et le badge de statut.
  */
 export function useUpdateDatePrevueOt() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (p: { id: string; datePrevue: string }) => {
+    mutationFn: async (p: {
+      id: string
+      datePrevue: string
+      origine?: Database['public']['Enums']['ot_origine']
+    }) => {
+      // origine n'est envoyée que si elle change : sinon on n'arme pas le trigger
+      // check_ot_origine_coherence (UPDATE OF origine) pour un no-op.
+      const patch: {
+        date_prevue: string
+        origine?: Database['public']['Enums']['ot_origine']
+      } = { date_prevue: p.datePrevue }
+      if (p.origine !== undefined) patch.origine = p.origine
+
       const { data } = await supabase
         .from('ordres_travail')
-        .update({ date_prevue: p.datePrevue })
+        .update(patch)
         .eq('id', p.id)
         .select('id')
         .single()
