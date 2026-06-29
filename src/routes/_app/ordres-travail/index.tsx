@@ -164,6 +164,7 @@ function OrdresTravailContent({
                 onFilterChange={setStatutFilter}
                 options={statutOtFilterOptions()}
                 filterLabel="Filtrer par statut"
+                sticky
               />
               {filtered.length === 0 ? (
                 <NoSearchResults description="Aucun ordre de travail ne correspond à ces critères." />

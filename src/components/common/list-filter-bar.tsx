@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { SearchInput } from '@/components/common/search-input'
 import { Select } from '@/components/ui/select'
 
@@ -26,6 +27,12 @@ interface ListFilterBarProps {
   options?: FilterOption[]
   /** Nom accessible du filtre (défaut « Filtrer »). */
   filterLabel?: string
+  /**
+   * Épingle la barre en HAUT de la zone défilante (`sticky top-0`) : elle reste
+   * visible pendant le défilement de la liste. Fond opaque + `z` au-dessus des cartes
+   * (qui glissent dessous). À utiliser quand la liste est longue (ex. Ordres de travail).
+   */
+  sticky?: boolean
 }
 
 /**
@@ -43,6 +50,7 @@ export function ListFilterBar({
   onFilterChange,
   options,
   filterLabel = 'Filtrer',
+  sticky = false,
 }: ListFilterBarProps) {
   // Filtre présent uniquement si la page fournit options + état contrôlé. Regroupé
   // en objet `const` → narrowing stable jusque dans le closure `onChange`.
@@ -52,7 +60,15 @@ export function ListFilterBar({
       : null
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    <div
+      className={cn(
+        'flex flex-col gap-2 sm:flex-row sm:items-center',
+        // Épinglée : fond opaque (les cartes glissent dessous) et `z` au-dessus des
+        // cartes. `top-0` colle au sommet de la zone défilante (PageContainer body) ;
+        // `pb-2` ménage un fond sous les contrôles → transition nette des cartes.
+        sticky && 'bg-background sticky top-0 z-20 pb-2',
+      )}
+    >
       <SearchInput
         value={search}
         onChange={onSearchChange}
