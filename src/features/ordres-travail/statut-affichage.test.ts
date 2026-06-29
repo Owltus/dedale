@@ -67,6 +67,61 @@ describe('niveauUrgenceOt', () => {
   })
 })
 
+// Proximité CALENDAIRE du libellé, DÉCOUPLÉE de la tolérance (régression de la capture
+// du 29/06 : des OT « semaine prochaine » / « ce mois-ci » s'affichaient « Programmé »).
+describe('statutAffichageOt — proximité calendaire découplée de la tolérance', () => {
+  const aff = (
+    datePrevue: string | null,
+    toleranceJours: number,
+    statut = 'planifie',
+  ) =>
+    statutAffichageOt({
+      statut,
+      origine: 'plan',
+      datePrevue,
+      toleranceJours,
+      aujourdHui: AUJ,
+    })
+
+  it('OT de la semaine prochaine → « Semaine prochaine », même hors tolérance', () => {
+    // 22 jan. = semaine ISO suivante ; tolérance courte (2 j) → AVANT : « Planifié ».
+    expect(aff('2026-01-22', 2).label).toBe('Semaine prochaine')
+  })
+
+  it('OT de la semaine en cours → « Cette semaine », même hors tolérance', () => {
+    expect(aff('2026-01-16', 1).label).toBe('Cette semaine')
+  })
+
+  it('OT à ~3 semaines → « Ce mois-ci », même hors tolérance', () => {
+    // 5 fév. ≈ 21 j ; tolérance 2 → AVANT : « Planifié ».
+    expect(aff('2026-02-05', 2).label).toBe('Ce mois-ci')
+  })
+
+  it('OT à ~6 semaines → « Mois prochain »', () => {
+    expect(aff('2026-02-28', 2).label).toBe('Mois prochain') // ~44 j
+  })
+
+  it('OT à plus de 2 mois → repli « Planifié » (non temporel)', () => {
+    const r = aff('2026-05-01', 2) // ~106 j
+    expect(r.label).toBe('Planifié')
+    expect(r.temporel).toBe(false)
+  })
+
+  it('plus d’inversion : un OT plus PROCHE n’est jamais moins précis qu’un OT plus LOINTAIN', () => {
+    // Reproduit le bug : machine à glaçons (proche, petite tolérance) montrait
+    // « Programmé » tandis que le sas (plus loin, grande tolérance) montrait « Ce mois-ci ».
+    expect(aff('2026-02-02', 2).label).toBe('Ce mois-ci') // ~18 j, tolérance courte
+    expect(aff('2026-02-12', 60).label).toBe('Ce mois-ci') // ~28 j, grande tolérance
+  })
+
+  it('`temporel` suit la TOLÉRANCE (imminence métier), pas le libellé', () => {
+    // Même libellé « Semaine prochaine » dans les deux cas, mais `temporel` ne dépend
+    // que de la tolérance → pilote la synthèse gamme, pas l'affichage de l'OT.
+    expect(aff('2026-01-22', 2).temporel).toBe(false) // hors tolérance
+    expect(aff('2026-01-22', 30).temporel).toBe(true) // dans la tolérance
+  })
+})
+
 // Garantie ANTI-DIVERGENCE : le badge « En retard » et le niveau d'urgence
 // `enRetard` reposent sur le MÊME fait (estPlanifieEnRetard) → ils sont toujours
 // d'accord. Si l'un changeait sans l'autre, ce test casserait.

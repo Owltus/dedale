@@ -86,11 +86,12 @@ export interface StatutAffichage {
   label: string
   tone: StatusTone
   /**
-   * `true` quand le libellé est un statut TEMPOREL dérivé de la date (En retard,
-   * Cette semaine, … Mois prochain) ; `false` pour un statut métier ou le repli
-   * « Planifié / Programmé » (OT encore HORS fenêtre de tolérance). Sert à la
-   * synthèse gamme (`statutAffichageGamme`) : un OT planifié non temporel = encore
-   * loin → ne crée aucune urgence (la gamme se lit « À jour »).
+   * IMMINENCE MÉTIER de l'OT — DÉCOUPLÉE du libellé. Le libellé reflète toujours la
+   * proximité CALENDAIRE réelle (Cette semaine, Ce mois-ci…) ; `temporel` dit si cette
+   * échéance tombe dans la fenêtre de `tolerance_jours` (qui dépend de la périodicité).
+   * Sert UNIQUEMENT à la synthèse gamme (`statutAffichageGamme`) : prochain OT planifié
+   * hors tolérance (`temporel: false`) = rien d'imminent → la gamme se lit « À jour ».
+   * `false` aussi pour tout statut métier ou le repli « Planifié / Programmé ».
    */
   temporel: boolean
 }
@@ -100,14 +101,15 @@ export interface StatutAffichage {
  *
  * - OT déjà engagé ou terminé (en_cours / cloture / annule / reouvert) → statut
  *   MÉTIER tel quel.
- * - OT planifié (pas encore commencé) → statut TEMPOREL selon le temps restant
- *   avant la date prévue, modulé par `tolerance_jours` (qui dépend de la
- *   périodicité) :
- *     • date encore au-delà de la fenêtre de tolérance → fallback « Planifié »
- *       (origine plan de maintenance) / « Programmé » (origine ponctuelle) ;
- *     • date dans la fenêtre (`date_prevue − aujourd'hui ≤ tolerance_jours`) →
- *       statut temporel raffiné : En retard / Cette semaine / Semaine prochaine /
+ * - OT planifié (pas encore commencé) → statut TEMPOREL selon la PROXIMITÉ
+ *   CALENDAIRE de la date prévue, indépendamment de la périodicité :
+ *     • date à plus de ~2 mois → repli « Planifié » (plan de maintenance) /
+ *       « Programmé » (ponctuel) ;
+ *     • sinon, libellé de proximité : En retard / Cette semaine / Semaine prochaine /
  *       Ce mois-ci / Mois prochain.
+ *   `tolerance_jours` ne pilote PLUS le libellé (un OT proche à petite tolérance
+ *   affichait à tort « Programmé », paraissant moins urgent qu'un OT plus lointain à
+ *   grande tolérance) : elle ne renseigne plus que le flag `temporel` (synthèse gamme).
  *
  * 100 % dérivé (aucune donnée backend) : recalculé à chaque rendu → toujours
  * juste, sans table ni job de recalcul.
@@ -137,10 +139,19 @@ export function statutAffichageOt(params: {
     (cible.getTime() - today.getTime()) / JOUR_MS,
   )
 
-  // Hors fenêtre de tolérance (encore trop loin) → fallback Planifié / Programmé.
-  if (joursRestants > toleranceJours) return fallback
+  // Au-delà de ~2 mois : rien d'imminent à signaler → repli « Planifié / Programmé »
+  // (non temporel → la gamme se lira « À jour »). Le SEUIL est désormais CALENDAIRE
+  // (60 j) et non plus la tolérance : sinon un OT proche à petite tolérance retombait
+  // à tort sur « Programmé ». Placé APRÈS l'écart : un OT EN RETARD (jours négatifs)
+  // n'est jamais renvoyé ici.
+  if (joursRestants > 60) return fallback
 
-  // Dans la fenêtre → statut temporel : d'abord par semaine ISO, puis par seuils.
+  // `temporel` = imminence MÉTIER : l'échéance tombe dans la fenêtre de tolérance (qui
+  // dépend de la périodicité). DÉCOUPLÉ du libellé ci-dessous (proximité calendaire) →
+  // ne pilote QUE la synthèse gamme (« À jour » tant que le prochain OT est hors tolérance).
+  const temporel = joursRestants <= toleranceJours
+
+  // Libellé = proximité CALENDAIRE réelle : d'abord par semaine ISO, puis par seuils.
   const lundiCourant = lundiDeLaSemaine(today)
   const lundiProchain = new Date(lundiCourant.getTime() + 7 * JOUR_MS)
   const lundiDans2 = new Date(lundiCourant.getTime() + 14 * JOUR_MS)
@@ -151,12 +162,12 @@ export function statutAffichageOt(params: {
   // repasse `today` (déjà résolu) et pas `params.aujourdHui` → une SEULE lecture
   // d'horloge dans toute la fonction (pas de bascule de semaine à minuit dim.→lun.).
   if (estPlanifieEnRetard({ statut, date_prevue: datePrevue }, today))
-    return { label: 'En retard', tone: 'destructive', temporel: true }
+    return { label: 'En retard', tone: 'destructive', temporel }
   if (t < lundiProchain.getTime())
-    return { label: 'Cette semaine', tone: 'yellow', temporel: true }
+    return { label: 'Cette semaine', tone: 'yellow', temporel }
   if (t < lundiDans2.getTime())
-    return { label: 'Semaine prochaine', tone: 'warning', temporel: true }
+    return { label: 'Semaine prochaine', tone: 'warning', temporel }
   if (joursRestants <= 30)
-    return { label: 'Ce mois-ci', tone: 'warning', temporel: true }
-  return { label: 'Mois prochain', tone: 'neutral', temporel: true }
+    return { label: 'Ce mois-ci', tone: 'warning', temporel }
+  return { label: 'Mois prochain', tone: 'warning', temporel }
 }
