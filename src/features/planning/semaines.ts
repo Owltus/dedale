@@ -90,3 +90,31 @@ export function fenetreSemaines(
   }
   return semaines
 }
+
+/** Décale une date de `n` semaines (n peut être négatif). Ne mute pas l'entrée. */
+export function ajouterSemaines(date: Date, n: number): Date {
+  return new Date(date.getTime() + n * 7 * JOUR_MS)
+}
+
+/**
+ * Libellé compact de la période visible : « 2025 · S10–S22 » (ou
+ * « 2025 · S50 → 2026 · S03 » à cheval sur deux années ISO).
+ */
+export function formatPeriode(semaines: SemaineIso[]): string {
+  const premiere = semaines[0]
+  const derniere = semaines[semaines.length - 1]
+  if (!premiere || !derniere) return ''
+  if (premiere.annee === derniere.annee) {
+    return `${String(premiere.annee)} · S${String(premiere.numero)}–S${String(derniere.numero)}`
+  }
+  return `${String(premiere.annee)} · S${String(premiere.numero)} → ${String(derniere.annee)} · S${String(derniere.numero)}`
+}
+
+/**
+ * Clés de semaine (« annee-numero ») des `nbSemaines` semaines à partir de
+ * `depart` — pour tester l'appartenance d'un OT à une plage (ex. « Focus 12
+ * semaines » : familles ayant au moins un OT dans les 12 prochaines semaines).
+ */
+export function clesProchaines(depart: Date, nbSemaines: number): Set<string> {
+  return new Set(fenetreSemaines(depart, nbSemaines).map((s) => s.cle))
+}

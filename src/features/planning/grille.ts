@@ -8,6 +8,7 @@ export interface PlanningOt {
   origine: string
   /** Fenêtre de tolérance (jours) : pilote la bascule vers les statuts temporels. */
   tolerance_jours: number
+  /** Gamme vivante de l'OT — sert à retrouver sa sous-catégorie. NULL = gamme purgée. */
   gamme_id: string | null
   nom_gamme: string
   nature_gamme: 'controle_reglementaire' | 'maintenance_preventive'
@@ -15,23 +16,56 @@ export interface PlanningOt {
   nom_equipement: string | null
   /** Description (snapshot de la gamme) — sous-titre de repli de la carte `OtCard`. */
   description_gamme: string | null
+  /** Snapshot du nom de catégorie — repli d'étiquette quand la gamme a disparu. */
+  nom_categorie: string | null
   libelle_periodicite: string
   date_prevue: string
-  /** Date de clôture (OT terminé) — utilisée pour le TRI par urgence, pas affichée. */
+  /** Date de début réelle (en cours) — 2ᵉ choix pour positionner l'OT sur la grille. */
+  date_debut: string | null
+  /** Date de clôture (OT terminé) — 1ᵉʳ choix de positionnement ET tri par urgence. */
   date_cloture: string | null
   /** Vignette esthétique de l'OT (héritée de la gamme) — pour la carte `OtCard`. */
   miniature_id: string | null
 }
 
-/** Une ligne de la grille = une gamme, ses OT répartis par clé de semaine. */
-export interface LigneGamme {
-  /** Clé de regroupement : `gamme_id`, ou `nom-gamme:<nom>` à défaut. */
+/**
+ * Famille (= sous-catégorie) + son domaine (= catégorie parente), projetés par la
+ * page depuis la hiérarchie `categories`. Le domaine sert au TRI et à la SÉPARATION
+ * des groupes (son nom n'est PAS affiché — décision PO), pas comme libellé visible.
+ */
+export interface CategorieInfo {
+  familleCle: string
+  familleNom: string
+  familleOrdre: number
+  domaineCle: string
+  domaineOrdre: number
+  /** Chemin splat `domaine/famille` vers l'explorateur, ou `null` si non navigable. */
+  splat: string | null
+}
+
+/** Résout la famille d'un OT (fourni par la page, qui a catégories + gammes). */
+export type ResolveCategorie = (ot: PlanningOt) => CategorieInfo
+
+/** Une ligne de la grille = une FAMILLE (sous-catégorie), ses OT par semaine. */
+export interface LigneFamille {
   cle: string
-  nomGamme: string
-  reglementaire: boolean
-  /** OT indexés par clé de semaine (« annee-numero »). */
+  nomFamille: string
+  /** Chemin splat vers l'explorateur Plan de maintenance, ou `null` (non cliquable). */
+  splat: string | null
+  ordre: number
+  /** OT indexés par clé de semaine (« annee-numero »), positionnés par date effective. */
   parSemaine: Map<string, PlanningOt[]>
-  /** Nombre total d'OT de la ligne dans la fenêtre (pour le tri). */
+  total: number
+}
+
+/**
+ * Un groupe = un DOMAINE (catégorie), ses familles. Sert uniquement à TRIER et
+ * SÉPARER les familles (trait épais entre domaines) — son nom n'est pas rendu.
+ */
+export interface GroupeDomaine {
+  cle: string
+  ordre: number
+  familles: LigneFamille[]
   total: number
 }
 
@@ -41,39 +75,96 @@ function parseDatePrevue(value: string): Date {
   return new Date(a ?? 1970, (m ?? 1) - 1, j ?? 1)
 }
 
-/**
- * Construit les lignes de la grille à partir des OT de la fenêtre.
- * Regroupe par gamme, répartit chaque OT dans la colonne de sa semaine ISO.
- * Tri : réglementaires d'abord, puis par nom de gamme (insensible à la casse).
- */
-export function construireLignes(ots: PlanningOt[]): LigneGamme[] {
-  const lignes = new Map<string, LigneGamme>()
+/** Minuit local d'un timestamp ISO (TIMESTAMPTZ) — on ne garde que le jour civil. */
+function jourLocal(iso: string): Date {
+  const d = new Date(iso)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
 
-  for (const ot of ots) {
-    const cle = ot.gamme_id ?? `nom-gamme:${ot.nom_gamme}`
-    let ligne = lignes.get(cle)
-    if (!ligne) {
-      ligne = {
-        cle,
-        nomGamme: ot.nom_gamme,
-        reglementaire: ot.nature_gamme === 'controle_reglementaire',
+/**
+ * Date la PLUS PERTINENTE pour positionner un OT sur la grille :
+ *   1. `date_cloture` si l'OT est terminé (clôturé ou annulé),
+ *   2. sinon `date_debut` si l'intervention a commencé,
+ *   3. sinon `date_prevue` (cas par défaut, OT à venir).
+ */
+export function dateEffectiveOt(ot: PlanningOt): Date {
+  if (ot.date_cloture) return jourLocal(ot.date_cloture)
+  if (ot.date_debut) return jourLocal(ot.date_debut)
+  return parseDatePrevue(ot.date_prevue)
+}
+
+/**
+ * Construit les groupes (domaine → familles) de la grille.
+ *
+ * Les LIGNES viennent du `skeleton` (TOUTES les sous-catégories = familles),
+ * affichées en permanence même sans OT cette période. Les OT ne font que REMPLIR
+ * les cases, rangés dans la colonne de leur semaine ISO selon leur DATE EFFECTIVE
+ * (`dateEffectiveOt`). Un OT dont la famille n'est pas au squelette (gamme purgée)
+ * crée sa famille à la volée (repli « Non classé »).
+ *
+ * Tri : domaines puis familles par `ordre` (calque de l'explorateur Plan de
+ * maintenance) puis par nom (insensible à la casse).
+ */
+export function construireGroupes(
+  skeleton: CategorieInfo[],
+  ots: PlanningOt[],
+  ofOt: ResolveCategorie,
+): GroupeDomaine[] {
+  const domaines = new Map<string, GroupeDomaine>()
+  const familleParCle = new Map<string, LigneFamille>()
+
+  // Garantit la présence du domaine + de la famille de `info`, et renvoie la ligne.
+  const assurerFamille = (info: CategorieInfo): LigneFamille => {
+    let domaine = domaines.get(info.domaineCle)
+    if (!domaine) {
+      domaine = {
+        cle: info.domaineCle,
+        ordre: info.domaineOrdre,
+        familles: [],
+        total: 0,
+      }
+      domaines.set(info.domaineCle, domaine)
+    }
+    let famille = familleParCle.get(info.familleCle)
+    if (!famille) {
+      famille = {
+        cle: info.familleCle,
+        nomFamille: info.familleNom,
+        splat: info.splat,
+        ordre: info.familleOrdre,
         parSemaine: new Map(),
         total: 0,
       }
-      lignes.set(cle, ligne)
+      familleParCle.set(info.familleCle, famille)
+      domaine.familles.push(famille)
     }
-    const cleSem = cleSemaine(parseDatePrevue(ot.date_prevue))
-    const cellule = ligne.parSemaine.get(cleSem)
-    if (cellule) {
-      cellule.push(ot)
-    } else {
-      ligne.parSemaine.set(cleSem, [ot])
-    }
-    ligne.total += 1
+    return famille
   }
 
-  return [...lignes.values()].sort((a, b) => {
-    if (a.reglementaire !== b.reglementaire) return a.reglementaire ? -1 : 1
-    return a.nomGamme.localeCompare(b.nomGamme, 'fr', { sensitivity: 'base' })
-  })
+  // 1. Squelette : toutes les sous-catégories, toujours présentes (lignes vides ok).
+  for (const info of skeleton) assurerFamille(info)
+
+  // 2. Remplissage : chaque OT dans la case de sa famille × semaine.
+  for (const ot of ots) {
+    const info = ofOt(ot)
+    const famille = assurerFamille(info)
+    const cleSem = cleSemaine(dateEffectiveOt(ot))
+    const cellule = famille.parSemaine.get(cleSem)
+    if (cellule) cellule.push(ot)
+    else famille.parSemaine.set(cleSem, [ot])
+    famille.total += 1
+    const domaine = domaines.get(info.domaineCle)
+    if (domaine) domaine.total += 1
+  }
+
+  const triNom = (a: string, b: string) =>
+    a.localeCompare(b, 'fr', { sensitivity: 'base' })
+
+  const groupes = [...domaines.values()]
+  for (const d of groupes)
+    d.familles.sort(
+      (a, b) => a.ordre - b.ordre || triNom(a.nomFamille, b.nomFamille),
+    )
+  groupes.sort((a, b) => a.ordre - b.ordre)
+  return groupes
 }
