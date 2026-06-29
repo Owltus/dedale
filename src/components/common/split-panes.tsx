@@ -2,18 +2,18 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * Conteneur d'un SPLIT vertical de deux panneaux. Mobile-first : sous `lg`, les
- * panneaux s'empilent dans le flux normal (le PARENT défile) ; à partir de `lg`,
- * ils se partagent la hauteur disponible (50/50 par défaut, ou ÉQUILIBRE
- * DYNAMIQUE si un panneau passe `grow={false}`), chacun défilant indépendamment.
+ * Conteneur d'un SPLIT vertical de deux panneaux qui se partagent la hauteur
+ * disponible — 50/50 par défaut, ou ÉQUILIBRE DYNAMIQUE si un panneau passe
+ * `grow={false}` — chacun défilant indépendamment. Actif à TOUTES les tailles
+ * d'écran (mobile, tablette, bureau).
  *
- * À utiliser dans un conteneur BORNÉ en hauteur à partir de `lg` (parent
- * `flex flex-col` + `lg:overflow-hidden`, cf. `PageContainer fill` ou une zone de
- * contenu dédiée). Place exactement DEUX `SplitPane` en enfants.
+ * À utiliser dans un conteneur BORNÉ en hauteur (parent `flex flex-col` à hauteur
+ * contrainte, cf. `PageContainer fill` sous l'app-shell plein écran, ou une zone
+ * de contenu dédiée). Place exactement DEUX `SplitPane` en enfants.
  */
 export function SplitPanes({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-6">
       {children}
     </div>
   )
@@ -21,16 +21,15 @@ export function SplitPanes({ children }: { children: ReactNode }) {
 
 /**
  * Un panneau de `SplitPanes` : un en-tête FIXE (titre, étiquette, actions…) puis
- * un contenu qui DÉFILE (barre masquée via `no-scrollbar`). Sous `lg`, hauteur
- * naturelle (le parent porte le défilement).
+ * un contenu qui DÉFILE (barre masquée via `no-scrollbar`).
  *
- * `grow` (défaut `true`) pilote le partage de hauteur en `lg` :
- *  - `true`  → le panneau occupe sa part de l'espace (`lg:flex-1`) ; deux
- *    panneaux `grow` ⇒ 50/50 figé.
+ * `grow` (défaut `true`) pilote le partage de hauteur :
+ *  - `true`  → le panneau occupe sa part de l'espace (`flex-1`) ; deux panneaux
+ *    `grow` ⇒ 50/50 figé.
  *  - `false` → le panneau prend sa hauteur NATURELLE, PLAFONNÉE à 50 %
- *    (`lg:flex-initial lg:max-h-[50%]`) : peu de contenu ⇒ panneau compact ;
- *    beaucoup ⇒ plafond à 50 % avec scroll interne. L'AUTRE panneau (`grow`)
- *    absorbe alors tout l'espace restant — équilibre dynamique, pas figé.
+ *    (`max-h-[50%] flex-initial`) : peu de contenu ⇒ panneau compact ; beaucoup ⇒
+ *    plafond à 50 % avec scroll interne. L'AUTRE panneau (`grow`) absorbe alors
+ *    tout l'espace restant — équilibre dynamique, pas figé.
  */
 export function SplitPane({
   header,
@@ -44,12 +43,12 @@ export function SplitPane({
   return (
     <section
       className={cn(
-        'flex flex-col gap-2 lg:min-h-0',
-        grow ? 'lg:flex-1' : 'lg:max-h-[50%] lg:flex-initial',
+        'flex min-h-0 flex-col gap-2',
+        grow ? 'flex-1' : 'max-h-[50%] flex-initial',
       )}
     >
       {header}
-      <div className="no-scrollbar lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
         {children}
       </div>
     </section>

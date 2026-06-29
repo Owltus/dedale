@@ -830,12 +830,12 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
               </div>
             )
             if (isSubcatLevel && gammesInCurrent.length > 0) {
-              // < lg : un seul flux scrollable (gammes puis OT empilés,
-              // mobile-first) ; >= lg : SPLIT 50/50 à double défilement (le
-              // wrapper passe en overflow-hidden). `no-scrollbar` masque la
-              // barre du wrapper en mobile (défilement conservé).
+              // SPLIT 50/50 à double défilement à TOUTES les tailles d'écran : le
+              // wrapper borne la hauteur (overflow-hidden) et chaque panneau (gammes
+              // / OT) défile indépendamment. `no-scrollbar` masque toute barre
+              // résiduelle du wrapper.
               return (
-                <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 sm:px-6 lg:overflow-hidden lg:px-8">
+                <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-6 sm:px-6 lg:px-8">
                   <SousCategorieSplit
                     siteId={siteId}
                     gammeIds={gammesInCurrent.map((g) => g.id)}
