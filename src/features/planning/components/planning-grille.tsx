@@ -8,6 +8,7 @@ import type {
   PlanningOt,
 } from '@/features/planning/grille'
 import { CELL_SIZE } from '@/features/planning/use-colonnes-auto'
+import { labelSemaine } from '@/features/planning/semaines'
 import type { SemaineIso } from '@/features/planning/semaines'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -197,8 +198,15 @@ interface PlanningGrilleProps {
   onAvancer: () => void
   /** Clic sur le libellé de période → retour à aujourd'hui. */
   onAujourdhui: () => void
-  /** Clic sur une cellule pleine → ouverture du dialog des OT. */
-  onSelect: (ots: PlanningOt[], semaine: SemaineIso) => void
+  /** Clic sur une cellule pleine → la page décide (1 OT = nav directe, ≥2 = dialog).
+   *  `nomFamille` = sous-catégorie de la ligne (titre du dialog). */
+  onSelect: (
+    ots: PlanningOt[],
+    semaine: SemaineIso,
+    nomFamille: string,
+  ) => void
+  /** Clic sur un n° de semaine → tous les OT de cette semaine (toutes familles). */
+  onSelectSemaine: (ots: PlanningOt[], semaine: SemaineIso) => void
   /** Clic sur le nom d'une sous-catégorie navigable → explorateur Plan de maintenance. */
   onOuvrirFamille: (famille: LigneFamille) => void
 }
@@ -256,6 +264,7 @@ export function PlanningGrille({
   onAvancer,
   onAujourdhui,
   onSelect,
+  onSelectSemaine,
   onOuvrirFamille,
 }: PlanningGrilleProps) {
   // Colonne survolée : surligne toute la semaine (en-tête + cellules) pour aligner
@@ -266,11 +275,11 @@ export function PlanningGrille({
   const nbColonnes = semaines.length + 1
   const largeurTable = familleWidth + semaines.length * CELL_SIZE
 
-  // Surbrillance d'une colonne (semaine survolée OU semaine courante) : simple TEINTE
-  // de fond (`bg-accent`), MÊME en-tête ET cellules (sinon la colonne paraît décalée).
-  // Plus de traits verticaux d'encadrement (retirés à la demande du PO) : seules les
-  // bordures NORMALES de la grille (bas de cellule, bandes) subsistent.
-  const COL_ACTIVE = 'bg-accent'
+  // Surbrillance d'une colonne (semaine survolée OU semaine courante) : token
+  // `--col-active` (gris DISTINCT de `muted`/`accent`, qui valent le même token que le
+  // badge « Programmé » et s'y confondaient ; défini dans index.css). Opaque → MÊME
+  // teinte en-tête ET cellules, et l'en-tête collant ne laisse pas voir le corps défiler.
+  const COL_ACTIVE = 'bg-col-active'
   // Cellules du CORPS : transparentes hors surbrillance.
   const classeColonne = (cle: string) => (colonneActive(cle) ? COL_ACTIVE : '')
   // Cellules d'EN-TÊTE : fond OPAQUE obligatoire (`bg-card`) — l'en-tête est collant,
@@ -298,6 +307,22 @@ export function PlanningGrille({
       ),
     [semaines],
   )
+
+  // OT par semaine (toutes familles), calculés UNE fois : sert l'affordance du n° de
+  // semaine cliquable (présence) ET la liste passée au clic. Le parcours de la grille
+  // est de toute façon déjà fait pour le rendu du corps.
+  const otsParSemaine = useMemo(() => {
+    const parSemaine = new Map<string, PlanningOt[]>()
+    for (const domaine of groupes)
+      for (const famille of domaine.familles)
+        for (const [cle, cellule] of famille.parSemaine) {
+          if (cellule.length === 0) continue
+          const acc = parSemaine.get(cle)
+          if (acc) acc.push(...cellule)
+          else parSemaine.set(cle, [...cellule])
+        }
+    return parSemaine
+  }, [groupes])
 
   return (
     // Le DÉFILEMENT (vertical des lignes + horizontal des semaines) est porté par le
@@ -388,16 +413,27 @@ export function PlanningGrille({
           {semaines.map((s) => (
             <th
               key={s.cle}
-              title={`S${String(s.numero)} — semaine du ${s.debut.toLocaleDateString('fr-FR')}`}
+              title={labelSemaine(s)}
               className={cn(
                 'border-border overflow-hidden border-b px-0 py-1 text-center',
                 classeEntete(s.cle),
               )}
               onMouseEnter={() => setCleSurvol(s.cle)}
             >
-              <div className="text-foreground text-[10px] leading-none font-semibold">
-                {s.numero}
-              </div>
+              {otsParSemaine.has(s.cle) ? (
+                <button
+                  type="button"
+                  onClick={() => onSelectSemaine(otsParSemaine.get(s.cle) ?? [], s)}
+                  title={`Voir tous les ordres de travail de la semaine S${String(s.numero)}`}
+                  className="text-foreground hover:text-primary w-full text-[10px] leading-none font-semibold hover:underline"
+                >
+                  {s.numero}
+                </button>
+              ) : (
+                <div className="text-foreground text-[10px] leading-none font-semibold">
+                  {s.numero}
+                </div>
+              )}
             </th>
           ))}
         </tr>
@@ -465,7 +501,7 @@ export function PlanningGrille({
                     >
                       <button
                         type="button"
-                        onClick={() => onSelect(ots, s)}
+                        onClick={() => onSelect(ots, s, famille.nomFamille)}
                         title={tooltipCellule(ots)}
                         className="flex h-6 w-full items-center justify-center"
                       >

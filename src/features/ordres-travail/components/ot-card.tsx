@@ -8,6 +8,7 @@ import {
 import { formatDateAvecSemaineIso } from '@/lib/date'
 import { ListRow } from '@/components/common/list-row'
 import { StatutColonne } from '@/components/common/statut-colonne'
+import { StatusBadge } from '@/components/common/status-badge'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 
 /**
@@ -48,6 +49,7 @@ export function OtCard({
   menuActions,
   releve,
   simplifierStatut = false,
+  compact = false,
 }: {
   ot: OtCardData
   urlOf: (id: string | null) => string | null
@@ -57,7 +59,7 @@ export function OtCard({
    * Relevé (somme de consommation, ex. « 80 kWh ») calculé en amont par
    * `calculerRelevesParOt`. Affiché À GAUCHE de la colonne statut/date, masqué si
    * vide. Injecté par CHAQUE conteneur d'OT (page liste, panneau par-gamme, popup
-   * planning) → même valeur partout.
+   * planning) → même valeur partout. IGNORÉ en mode `compact`.
    */
   releve?: string | null
   /**
@@ -67,6 +69,13 @@ export function OtCard({
    * `false` → cartes de liste et fiche détail gardent le statut riche.
    */
   simplifierStatut?: boolean
+  /**
+   * Variante DENSE pour le popup du planning (modal étroit) : ligne `size="sm"`,
+   * badge de statut NU (sans la colonne fixe `w-36`) et SANS relevé → la carte ne
+   * peut plus déborder horizontalement. Défaut `false` → rendu inchangé partout
+   * ailleurs (page liste, fiche gamme).
+   */
+  compact?: boolean
 }) {
   const navigate = useNavigate()
   // Statut d'affichage (métier ou temporel) — calculé UNE fois, partagé entre le
@@ -88,12 +97,19 @@ export function OtCard({
   // l'identique au BUREAU (slot `badges`) ET sur MOBILE (slot `mobileBadge`) → badges
   // et dates centrés et alignés d'une carte à l'autre, à toutes les tailles.
   const statutColonne = <StatutColonne statut={statut} meta={datePrevue} />
+  // Mode COMPACT (popup planning) : badge de statut NU, sans la colonne fixe `w-36`
+  // ni le relevé → la ligne ne peut plus déborder dans un modal étroit.
+  const badgeCompact = (
+    <StatusBadge tone={statut.tone}>{statut.label}</StatusBadge>
+  )
   return (
     <ListRow
       media={
         <MiniatureThumb
           url={urlOf(ot.miniature_id)}
-          fallback={<ClipboardList className="size-10" />}
+          fallback={
+            <ClipboardList className={compact ? 'size-6' : 'size-10'} />
+          }
           alt=""
           onError={refreshMiniatures}
           className="size-full rounded-none"
@@ -104,20 +120,26 @@ export function OtCard({
       // Liséré de statut au bord gauche (code couleur lié au statut, comme les
       // Demandes d'intervention).
       tone={statut.tone}
-      // À droite (bureau) : le relevé (s'il existe) À GAUCHE de la colonne statut/date.
+      size={compact ? 'sm' : 'md'}
+      // À droite (bureau) : le relevé (s'il existe) À GAUCHE de la colonne statut/date ;
+      // en mode compact, un badge de statut nu et pas de relevé.
       badges={
-        <div className="flex items-center gap-4">
-          {releve && (
-            <span className="text-muted-foreground text-sm whitespace-nowrap">
-              {releve}
-            </span>
-          )}
-          {statutColonne}
-        </div>
+        compact ? (
+          badgeCompact
+        ) : (
+          <div className="flex items-center gap-4">
+            {releve && (
+              <span className="text-muted-foreground text-sm whitespace-nowrap">
+                {releve}
+              </span>
+            )}
+            {statutColonne}
+          </div>
+        )
       }
-      // Sous `sm` : la MÊME colonne de statut, réaffichée à droite (le sous-titre
-      // équipement/description reste visible → pas besoin de `mobileMeta`).
-      mobileBadge={statutColonne}
+      // Sous `sm` : la MÊME colonne de statut (ou le badge compact), réaffichée à
+      // droite (le sous-titre équipement/description reste visible → pas de `mobileMeta`).
+      mobileBadge={compact ? badgeCompact : statutColonne}
       onClick={() =>
         void navigate({
           to: '/ordres-travail/$otId',

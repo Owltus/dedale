@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import { OtCard } from '@/features/ordres-travail/components/ot-card'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
@@ -10,35 +9,41 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 
 interface CelluleDialogProps {
-  /** OT de la cellule cliquée (≥ 1), ou `null` si fermé. */
+  /** OT à lister (≥ 2 ; un seul OT redirige direct, cf. page planning), ou `null` si fermé. */
   ots: PlanningOt[] | null
-  /** Relevés du site (`ot_id → « 80 kWh »`) — même map que la page liste. */
-  releveParOt: ReadonlyMap<string, string>
-  /** Libellé de la semaine (« S24 — 09/06 »). */
-  titreSemaine: string
+  /** Titre principal : la sous-catégorie (clic cellule) ou la semaine (clic n° de semaine). */
+  titre: string
+  /** Ligne secondaire optionnelle (la semaine, pour un clic sur une cellule). */
+  sousTitre?: string
   onClose: () => void
 }
 
 /**
- * Petit dialog listant les OT d'une cellule (gamme × semaine).
- * Chaque OT est rendu via `OtCard` — la MÊME carte que la page liste et la fiche
- * gamme — pour qu'une évolution de la carte se répercute ici aussi. Clic sur une
- * carte = ouverture du détail de l'OT.
+ * Dialog listant des OT du planning — soit une cellule (sous-catégorie × semaine),
+ * soit une semaine entière (clic sur le n° de semaine). N'ouvre que pour PLUSIEURS
+ * OT (un seul redirige directement vers sa fiche, cf. `planning.tsx`). Coquille à
+ * TROIS zones (en-tête FIXE / liste DÉFILANTE / pied FIXE, calquée sur `FormDialog`)
+ * bornée à 85vh : seule la liste scrolle, le titre reste visible. Chaque OT est rendu
+ * via `OtCard` en mode `compact` (la MÊME carte que la page liste, variante dense →
+ * pas de débordement dans ce modal étroit). Le statut suit le coloriage de la grille
+ * (`simplifierStatut`). Clic sur une carte = ouverture du détail de l'OT.
  */
 export function CelluleDialog({
   ots,
-  releveParOt,
-  titreSemaine,
+  titre,
+  sousTitre,
   onClose,
 }: CelluleDialogProps) {
   const open = ots !== null && ots.length > 0
   const liste = trierOtParUrgence(ots ?? [])
-  const titreGamme = liste[0]?.nom_gamme ?? ''
   // Vignettes résolues UNE fois pour toute la liste du popup (un seul canal Realtime).
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+  // Le modal ne s'ouvre que pour ≥ 2 OT (1 seul → redirection directe, cf. planning.tsx) :
+  // le compte est donc toujours pluriel. Description = [semaine éventuelle] + compte.
+  const compte = `${String(liste.length)} ordres de travail`
+  const description = [sousTitre, compte].filter(Boolean).join(' — ')
 
   return (
     <Dialog
@@ -47,35 +52,26 @@ export function CelluleDialog({
         if (!o) onClose()
       }}
     >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="truncate">{titreGamme}</DialogTitle>
-          <DialogDescription>
-            {titreSemaine}
-            {liste.length > 1
-              ? ` — ${String(liste.length)} ordres de travail`
-              : ''}
-          </DialogDescription>
+      <DialogContent className="flex max-h-[85vh] max-w-md flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
+          <DialogTitle className="truncate">{titre}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-2">
+        {/* Corps DÉFILANT : seule la liste scrolle (`overflow-x-hidden` en ceinture). */}
+        <div className="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-6 pt-1 pb-6">
           {liste.map((ot) => (
             <OtCard
               key={ot.id}
               ot={ot}
               urlOf={urlOf}
               refreshMiniatures={refreshMiniatures}
-              releve={releveParOt.get(ot.id) ?? null}
-              // Popup du planning : statut simplifié (sans proximité calendaire) →
-              // cohérent avec le coloriage de la grille.
+              // Statut simplifié + carte dense (cohérent avec la grille, sans débordement).
               simplifierStatut
+              compact
             />
           ))}
         </div>
-
-        <Button asChild variant="outline" className="w-full">
-          <Link to="/ordres-travail">Voir les ordres de travail</Link>
-        </Button>
       </DialogContent>
     </Dialog>
   )

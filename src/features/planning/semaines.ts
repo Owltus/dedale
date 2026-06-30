@@ -3,6 +3,7 @@
  * Tout en heure locale : `date_prevue` est une date nue (`YYYY-MM-DD`), on
  * raisonne en jours, sans fuseau.
  */
+import { formatDate } from '@/lib/date'
 
 export interface SemaineIso {
   /** Numéro de semaine ISO (1–53). */
@@ -108,6 +109,11 @@ export function formatPeriode(semaines: SemaineIso[]): string {
     return `${String(premiere.annee)} · S${String(premiere.numero)}–S${String(derniere.numero)}`
   }
   return `${String(premiere.annee)} · S${String(premiere.numero)} → ${String(derniere.annee)} · S${String(derniere.numero)}`
+}
+
+/** Libellé d'une semaine pour un titre / une infobulle : « S24 — semaine du 09/06/2026 ». */
+export function labelSemaine(s: SemaineIso): string {
+  return `S${String(s.numero)} — semaine du ${formatDate(s.debut)}`
 }
 
 /**

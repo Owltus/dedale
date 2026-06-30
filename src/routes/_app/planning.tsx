@@ -4,11 +4,9 @@ import { requireNav } from '@/lib/nav-guard'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { CalendarCheck, CalendarRange, Target } from 'lucide-react'
 import { planningQueries } from '@/features/planning/queries'
-import { ordresTravailQueries } from '@/features/ordres-travail/queries'
-import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import {
   construireGroupes,
-  dateEffectiveOt,
+  dateSemaineOt,
   type CategorieInfo,
   type PlanningOt,
   type ResolveCategorie,
@@ -20,9 +18,9 @@ import {
   fenetreSemaines,
   formatPeriode,
   isoLocale,
+  labelSemaine,
   lundiDeLaSemaine,
 } from '@/features/planning/semaines'
-import type { SemaineIso } from '@/features/planning/semaines'
 import {
   PlanningGrille,
   PlanningLegende,
@@ -35,10 +33,10 @@ import {
 } from '@/features/categories/queries'
 import { gammesQueries } from '@/features/gammes/queries'
 import { useSiteContext } from '@/lib/site-context'
-import { formatDate } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 import { cn } from '@/lib/utils'
 import { useColonnesAuto } from '@/features/planning/use-colonnes-auto'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -182,13 +180,20 @@ function PlanningContent({ siteId }: { siteId: string }) {
   const grilleRef = useRef<HTMLDivElement>(null)
   const { nbSemaines, familleWidth } = useColonnesAuto(grilleRef)
 
+  // Mise à jour LIVE : tout changement d'OT (clôture, statut, date…) — fait ici, dans
+  // un autre onglet ou par un autre utilisateur — rafraîchit la grille sans F5.
+  useRealtimeRefresh('ordres_travail', planningQueries.all())
+
   // `centre` = semaine placée AU MILIEU de la fenêtre (passé à gauche, futur à
   // droite). Défaut : la semaine courante.
   const [centre, setCentre] = useState(() => lundiDeLaSemaine(new Date()))
   const [focus, setFocus] = useState(false)
   const [cellule, setCellule] = useState<{
     ots: PlanningOt[]
-    semaine: SemaineIso
+    /** Titre du modal : la sous-catégorie (clic cellule) ou la semaine (clic n° de semaine). */
+    titre: string
+    /** Ligne secondaire (la semaine), pour un clic sur une cellule. */
+    sousTitre?: string
   } | null>(null)
 
   // Ancre = lundi de la 1ʳᵉ semaine visible : on recule de la moitié de la fenêtre
@@ -229,26 +234,24 @@ function PlanningContent({ siteId }: { siteId: string }) {
   }, [])
 
   // Plage de fetch = fenêtre VISIBLE uniquement (remplit les cases).
-  const { debut, fin, finExclu, clesFenetre } = useMemo(() => {
+  const { debut, fin, clesFenetre } = useMemo(() => {
     const winStart = semaines[0]?.debut ?? ancre
     const winEndExcl = ajouterSemaines(winStart, nbSemaines)
     return {
       debut: isoLocale(winStart),
       fin: isoLocale(new Date(winEndExcl.getTime() - JOUR_MS)),
-      finExclu: isoLocale(winEndExcl),
       clesFenetre: new Set(semaines.map((s) => s.cle)),
     }
   }, [semaines, nbSemaines, ancre])
 
   // Plage du « Focus » : les 12 prochaines semaines depuis AUJOURD'HUI — FIXE, donc
   // le jeu de sous-catégories actives ne change PAS quand on navigue (passé/futur).
-  const { focusDebut, focusFin, focusFinExclu, cles12 } = useMemo(() => {
+  const { focusDebut, focusFin, cles12 } = useMemo(() => {
     const lundiAuj = lundiDeLaSemaine(new Date())
     const endExcl = ajouterSemaines(lundiAuj, FOCUS_SEMAINES)
     return {
       focusDebut: isoLocale(lundiAuj),
       focusFin: isoLocale(new Date(endExcl.getTime() - JOUR_MS)),
-      focusFinExclu: isoLocale(endExcl),
       cles12: clesProchaines(lundiAuj, FOCUS_SEMAINES),
     }
   }, [])
@@ -257,26 +260,18 @@ function PlanningContent({ siteId }: { siteId: string }) {
   // temps que la nouvelle arrive (pas de squelette à chaque clic ; les colonnes qui
   // se chevauchent gardent leurs cases) → transition souple plutôt que brute.
   const query = useQuery({
-    ...planningQueries.fenetre(siteId, debut, fin, finExclu),
+    ...planningQueries.fenetre(siteId, debut, fin),
     placeholderData: keepPreviousData,
   })
   // Requête DÉDIÉE au Focus (plage fixe = aujourd'hui + 12 s), seulement quand actif.
   const focusQuery = useQuery({
-    ...planningQueries.fenetre(siteId, focusDebut, focusFin, focusFinExclu),
+    ...planningQueries.fenetre(siteId, focusDebut, focusFin),
     enabled: focus,
   })
   const categoriesQuery = useQuery(categoriesQueries.list(siteId))
   // Gammes du site = SQUELETTE des lignes (toujours affichées, même sans OT). Même
   // requête que l'explorateur Plan de maintenance ; gammes actives ET inactives.
   const gammesQuery = useQuery(gammesQueries.list(siteId))
-
-  // Relevés du site (même requête groupée et même logique que la page liste) → la
-  // popup d'une cellule affiche le relevé comme partout ailleurs.
-  const relevesQuery = useQuery(ordresTravailQueries.relevesListe(siteId))
-  const releveParOt = useMemo(
-    () => calculerRelevesParOt(relevesQuery.data ?? []),
-    [relevesQuery.data],
-  )
 
   const { skeleton, ofOt } = useResolveCategorie(
     useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]),
@@ -286,9 +281,9 @@ function PlanningContent({ siteId }: { siteId: string }) {
   // OT de la fenêtre (le row shape de la requête EST déjà `PlanningOt`).
   const ots = useMemo<PlanningOt[]>(() => query.data ?? [], [query.data])
 
-  // OT positionnés DANS la fenêtre visible (par date effective) → cellules.
+  // OT positionnés DANS la fenêtre visible (par date PRÉVUE) → cellules.
   const otsFenetre = useMemo(
-    () => ots.filter((ot) => clesFenetre.has(cleSemaine(dateEffectiveOt(ot)))),
+    () => ots.filter((ot) => clesFenetre.has(cleSemaine(dateSemaineOt(ot)))),
     [ots, clesFenetre],
   )
   // Lignes = TOUTES les sous-catégories (squelette), toujours affichées ; les OT
@@ -303,7 +298,7 @@ function PlanningContent({ siteId }: { siteId: string }) {
   const famillesActives12 = useMemo(() => {
     const set = new Set<string>()
     for (const ot of focusQuery.data ?? [])
-      if (cles12.has(cleSemaine(dateEffectiveOt(ot))))
+      if (cles12.has(cleSemaine(dateSemaineOt(ot))))
         set.add(ofOt(ot).familleCle)
     return set
   }, [focusQuery.data, cles12, ofOt])
@@ -321,9 +316,16 @@ function PlanningContent({ siteId }: { siteId: string }) {
       .filter((d) => d.familles.length > 0)
   }, [groupes, focus, focusQuery.data, famillesActives12])
 
-  const titreSemaine = cellule
-    ? `S${String(cellule.semaine.numero)} — semaine du ${formatDate(cellule.semaine.debut)}`
-    : ''
+  // Ouverture directe de la fiche d'un OT (cellule / semaine à un seul OT).
+  const ouvrirOt = (otId: string) =>
+    void navigate({ to: '/ordres-travail/$otId', params: { otId } })
+  // Clic sur une cellule / un n° de semaine : 1 seul OT → fiche directe (pas de
+  // modal) ; ≥ 2 → modal listant les OT (titre = sous-catégorie ou semaine).
+  const ouvrir = (ots: PlanningOt[], titre: string, sousTitre?: string) => {
+    const [premier] = ots
+    if (ots.length === 1 && premier) ouvrirOt(premier.id)
+    else if (ots.length > 1) setCellule({ ots, titre, sousTitre })
+  }
 
   const enChargement =
     query.isPending || categoriesQuery.isPending || gammesQuery.isPending
@@ -362,7 +364,10 @@ function PlanningContent({ siteId }: { siteId: string }) {
         onReculer={reculer}
         onAvancer={avancer}
         onAujourdhui={revenirAujourdhui}
-        onSelect={(ots, semaine) => setCellule({ ots, semaine })}
+        onSelect={(ots, semaine, nomFamille) =>
+          ouvrir(ots, nomFamille, labelSemaine(semaine))
+        }
+        onSelectSemaine={(ots, semaine) => ouvrir(ots, labelSemaine(semaine))}
         onOuvrirFamille={(f) => {
           if (f.splat === null) return
           void navigate({ to: '/gammes/$', params: { _splat: f.splat } })
@@ -429,8 +434,8 @@ function PlanningContent({ siteId }: { siteId: string }) {
 
       <CelluleDialog
         ots={cellule?.ots ?? null}
-        releveParOt={releveParOt}
-        titreSemaine={titreSemaine}
+        titre={cellule?.titre ?? ''}
+        sousTitre={cellule?.sousTitre}
         onClose={() => setCellule(null)}
       />
     </PageContainer>
