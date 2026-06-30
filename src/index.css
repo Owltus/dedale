@@ -37,6 +37,11 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+  /* Surbrillance de colonne du planning : gris DISTINCT de `muted`/`accent` (qui
+     valent le même token que le badge « Programmé ») — plus foncé que la carte en
+     thème clair, plus clair que `muted` en sombre. Dérivé des tokens → s'adapte au
+     thème sans entrée `.dark` dédiée (cf. `--sb-thumb-color`). */
+  --col-active: color-mix(in oklch, var(--muted-foreground) 22%, var(--card));
 }
 
 /* ─── Tokens : valeurs réelles (sombre) ──────────────────────────────────── */
@@ -105,6 +110,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-col-active: var(--col-active);
 }
 
 @layer base {
