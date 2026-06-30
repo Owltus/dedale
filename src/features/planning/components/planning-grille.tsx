@@ -245,6 +245,17 @@ function grouperSemaines(
 }
 
 /**
+ * Jeudi de la semaine `s` — le jour qui DÉFINIT la semaine ISO (son année + son
+ * numéro, cf. `s.annee`/`s.numero`). Les bandes ANNÉE et MOIS de l'en-tête s'y calent,
+ * et NON sur le lundi (`s.debut`) : sinon une semaine à cheval sur deux mois/années
+ * tombait sous la mauvaise étiquette (ex. la semaine ISO 1 affichée sous « décembre »
+ * parce que son lundi est encore en décembre) → décalage visible avec le n° de semaine.
+ */
+function jeudiDe(s: SemaineIso): Date {
+  return new Date(s.debut.getFullYear(), s.debut.getMonth(), s.debut.getDate() + 3)
+}
+
+/**
  * Grille dense : lignes = SOUS-CATÉGORIES (familles), séparées par leur catégorie
  * (domaine) via un TRAIT ÉPAIS, SANS afficher le nom de la catégorie. Colonnes =
  * semaines ISO de largeur FIXE (`CELL_SIZE`) — cases carrées régulières ; la colonne
@@ -293,8 +304,8 @@ export function PlanningGrille({
     () =>
       grouperSemaines(
         semaines,
-        (s) => String(s.debut.getFullYear()),
-        (s) => String(s.debut.getFullYear()),
+        (s) => String(jeudiDe(s).getFullYear()),
+        (s) => String(jeudiDe(s).getFullYear()),
       ),
     [semaines],
   )
@@ -302,8 +313,8 @@ export function PlanningGrille({
     () =>
       grouperSemaines(
         semaines,
-        (s) => `${String(s.debut.getFullYear())}-${String(s.debut.getMonth())}`,
-        (s) => s.debut.toLocaleDateString('fr-FR', { month: 'long' }),
+        (s) => `${String(jeudiDe(s).getFullYear())}-${String(jeudiDe(s).getMonth())}`,
+        (s) => jeudiDe(s).toLocaleDateString('fr-FR', { month: 'long' }),
       ),
     [semaines],
   )
