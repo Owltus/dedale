@@ -4,6 +4,7 @@ import {
   estPlanifieEnRetard,
   niveauUrgenceOt,
   statutAffichageOt,
+  statutPlanningOt,
 } from './statut-affichage'
 
 // « Aujourd'hui » FIXE (jeu. 15 jan. 2026) → statuts temporels déterministes.
@@ -119,6 +120,55 @@ describe('statutAffichageOt — proximité calendaire découplée de la toléran
     // que de la tolérance → pilote la synthèse gamme, pas l'affichage de l'OT.
     expect(aff('2026-01-22', 2).temporel).toBe(false) // hors tolérance
     expect(aff('2026-01-22', 30).temporel).toBe(true) // dans la tolérance
+  })
+})
+
+// Version PLANNING : DÉPOUILLÉE de toute proximité calendaire. Sur un calendrier la
+// position de la case dit déjà « quand » → ne restent que le statut métier, l'origine
+// (Planifié/Programmé) et l'unique fait « En retard ».
+describe('statutPlanningOt — sans proximité calendaire', () => {
+  const plan = (
+    statut: string,
+    datePrevue: string | null,
+    origine = 'planifie',
+  ) => statutPlanningOt({ statut, origine, datePrevue, aujourdHui: AUJ })
+
+  it('planifié à date dépassée → « En retard » (rouge)', () => {
+    expect(plan('planifie', '2020-01-01')).toEqual({
+      label: 'En retard',
+      tone: 'destructive',
+    })
+  })
+
+  it('plus de proximité : « cette semaine » / « semaine prochaine » / « ce mois-ci » → « Planifié »', () => {
+    for (const d of ['2026-01-16', '2026-01-22', '2026-02-05', '2026-05-01'])
+      expect(plan('planifie', d)).toEqual({ label: 'Planifié', tone: 'violet' })
+  })
+
+  it('origine « programme » (généré) → « Programmé » gris (le jaune semaine-courante est géré par la grille)', () => {
+    expect(plan('planifie', '2026-01-16', 'programme')).toEqual({
+      label: 'Programmé',
+      tone: 'neutral',
+    })
+  })
+
+  it('statuts métier conservés tels quels', () => {
+    expect(plan('en_cours', '2020-01-01')).toEqual({
+      label: 'En cours',
+      tone: 'info',
+    })
+    expect(plan('reouvert', '2020-01-01')).toEqual({
+      label: 'Rouvert',
+      tone: 'warning',
+    })
+    expect(plan('cloture', '2020-01-01')).toEqual({
+      label: 'Clôturé',
+      tone: 'success',
+    })
+    expect(plan('annule', '2020-01-01')).toEqual({
+      label: 'Annulé',
+      tone: 'destructive',
+    })
   })
 })
 

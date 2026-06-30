@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { statutAffichageOt } from '@/features/ordres-travail/statut-affichage'
+import { statutPlanningOt } from '@/features/ordres-travail/statut-affichage'
 import type { StatusTone } from '@/components/common/status-badge'
 import type {
   GroupeDomaine,
@@ -14,10 +14,10 @@ import { cn } from '@/lib/utils'
 
 /**
  * Couleur de fond SOLIDE d'une cellule selon la TONALITÉ du statut d'affichage
- * de l'OT — même source que le badge (`statutAffichageOt`), donc toute évolution
- * du code couleur se répercute ici. Remplissage plein (≠ pastille teintée du
- * badge) pour une lecture dense ; chaque tonalité a son couple `-foreground`
- * garantissant le contraste en thème clair comme sombre.
+ * de l'OT — même source que la grille et le popup du planning (`statutPlanningOt`),
+ * donc toute évolution du code couleur se répercute ici. Remplissage plein (≠
+ * pastille teintée du badge) pour une lecture dense ; chaque tonalité a son couple
+ * `-foreground` garantissant le contraste en thème clair comme sombre.
  */
 const TONE_CELL: Record<StatusTone, string> = {
   neutral: 'bg-muted text-muted-foreground',
@@ -29,26 +29,28 @@ const TONE_CELL: Record<StatusTone, string> = {
   yellow: 'bg-yellow text-yellow-foreground',
 }
 
-/** Priorité d'affichage quand une cellule mélange plusieurs tonalités (le plus
- *  urgent d'abord : retard/annulé → cette semaine → à venir → en cours →
- *  planifié → clôturé → repos). */
+/** Priorité d'affichage quand une cellule mélange plusieurs tonalités (le plus « à
+ *  signaler » d'abord : en retard/annulé → rouvert → en cours → planifié → clôturé →
+ *  programmé). Tableau COMPLET de toutes les tonalités (`yellow` n'est pas produit par
+ *  `statutPlanningOt` — il n'apparaît qu'en repeignant Programmé dans la semaine
+ *  courante —, mais le lister évite qu'un ton inattendu domine via `indexOf` = -1). */
 const PRIORITE_TONE: StatusTone[] = [
   'destructive',
-  'yellow',
   'warning',
   'info',
   'violet',
   'success',
   'neutral',
+  'yellow',
 ]
 
-/** Statut d'affichage (libellé + tonalité) d'un OT. */
+/** Statut d'affichage (libellé + tonalité) d'un OT, version PLANNING (dépouillée des
+ *  nuances de proximité calendaire — cf. `statutPlanningOt`). */
 function affichageOt(ot: PlanningOt) {
-  return statutAffichageOt({
+  return statutPlanningOt({
     statut: ot.statut,
     origine: ot.origine,
     datePrevue: ot.date_prevue,
-    toleranceJours: ot.tolerance_jours,
   })
 }
 
@@ -61,6 +63,17 @@ function affichageDominant(ots: PlanningOt[]) {
         ? courant
         : meilleur,
     )
+}
+
+/**
+ * Tonalité de FOND d'une cellule = tonalité dominante (`affichageDominant`), SAUF que
+ * « Programmé » (gris / `neutral`) est repeint en JAUNE dans la SEULE colonne de la
+ * semaine COURANTE : le gris s'y confond avec le surlignage `bg-accent`. Les semaines
+ * FUTURES gardent le gris (décision PO).
+ */
+function toneCellule(ots: PlanningOt[], estSemaineCourante: boolean): StatusTone {
+  const tone = affichageDominant(ots).tone
+  return estSemaineCourante && tone === 'neutral' ? 'yellow' : tone
 }
 
 /** Cellule réglementaire = au moins un OT de contrôle réglementaire. */
@@ -78,16 +91,17 @@ function tooltipCellule(ots: PlanningOt[]): string {
   return lignes.join('\n')
 }
 
-// Légende : tonalité → libellé, dans l'ordre d'urgence. MÊME source de couleur
-// (TONE_CELL) que les cellules de la grille → la légende ne peut plus diverger.
+// Légende : tonalité → libellé, dans l'ordre de priorité d'affichage. MÊME source de
+// couleur (TONE_CELL) que les cellules de la grille → la légende ne peut plus diverger.
+// Plus de proximité calendaire (Cette semaine / À venir / Mois prochain…) : sur un
+// calendrier la position de la case dit déjà « quand » (décision PO).
 const LEGENDE_PLANNING: { tone: StatusTone; libelle: string }[] = [
   { tone: 'destructive', libelle: 'En retard / annulé' },
-  { tone: 'yellow', libelle: 'Cette semaine' },
-  { tone: 'warning', libelle: 'À venir / réouvert' },
   { tone: 'info', libelle: 'En cours' },
+  { tone: 'warning', libelle: 'Rouvert' },
   { tone: 'violet', libelle: 'Planifié' },
+  { tone: 'neutral', libelle: 'Programmé' },
   { tone: 'success', libelle: 'Clôturé' },
-  { tone: 'neutral', libelle: 'Programmé / plus tard' },
 ]
 
 /**
@@ -438,7 +452,7 @@ export function PlanningGrille({
                       />
                     )
                   }
-                  const affichage = affichageDominant(ots)
+                  const tone = toneCellule(ots, s.cle === cleSemaineCourante)
                   return (
                     <td
                       key={s.cle}
@@ -457,7 +471,7 @@ export function PlanningGrille({
                         <span
                           className={cn(
                             'flex size-5 items-center justify-center rounded-[3px] text-[10px] leading-none font-semibold transition-opacity hover:opacity-80',
-                            TONE_CELL[affichage.tone],
+                            TONE_CELL[tone],
                             // Contour réglementaire : au moins un OT de contrôle
                             // réglementaire dans la cellule (obligation légale).
                             aReglementaire(ots) &&

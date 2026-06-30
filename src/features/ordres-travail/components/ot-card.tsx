@@ -1,7 +1,10 @@
 import { useNavigate } from '@tanstack/react-router'
 import { ClipboardList } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
-import { statutAffichageOt } from '@/features/ordres-travail/statut-affichage'
+import {
+  statutAffichageOt,
+  statutPlanningOt,
+} from '@/features/ordres-travail/statut-affichage'
 import { formatDateAvecSemaineIso } from '@/lib/date'
 import { ListRow } from '@/components/common/list-row'
 import { StatutColonne } from '@/components/common/statut-colonne'
@@ -44,6 +47,7 @@ export function OtCard({
   refreshMiniatures,
   menuActions,
   releve,
+  simplifierStatut = false,
 }: {
   ot: OtCardData
   urlOf: (id: string | null) => string | null
@@ -56,16 +60,29 @@ export function OtCard({
    * planning) → même valeur partout.
    */
   releve?: string | null
+  /**
+   * Version PLANNING du statut : dépouillée des nuances de proximité calendaire
+   * (Cette semaine / À venir / Mois prochain…) — cf. `statutPlanningOt`. Réservé au
+   * popup du planning, pour rester cohérent avec le coloriage de la grille. Défaut
+   * `false` → cartes de liste et fiche détail gardent le statut riche.
+   */
+  simplifierStatut?: boolean
 }) {
   const navigate = useNavigate()
   // Statut d'affichage (métier ou temporel) — calculé UNE fois, partagé entre le
   // badge de la colonne et le `mobileMeta` (plus de double calcul via un sous-badge).
-  const statut = statutAffichageOt({
-    statut: ot.statut,
-    origine: ot.origine,
-    datePrevue: ot.date_prevue,
-    toleranceJours: ot.tolerance_jours,
-  })
+  const statut = simplifierStatut
+    ? statutPlanningOt({
+        statut: ot.statut,
+        origine: ot.origine,
+        datePrevue: ot.date_prevue,
+      })
+    : statutAffichageOt({
+        statut: ot.statut,
+        origine: ot.origine,
+        datePrevue: ot.date_prevue,
+        toleranceJours: ot.tolerance_jours,
+      })
   const datePrevue = formatDateAvecSemaineIso(ot.date_prevue)
   // Colonne de statut (badge + date prévue, largeur fixe centrée) — affichée à
   // l'identique au BUREAU (slot `badges`) ET sur MOBILE (slot `mobileBadge`) → badges

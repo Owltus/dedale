@@ -171,3 +171,44 @@ export function statutAffichageOt(params: {
     return { label: 'Ce mois-ci', tone: 'warning', temporel }
   return { label: 'Mois prochain', tone: 'warning', temporel }
 }
+
+/**
+ * Statut d'affichage d'un OT POUR LE PLANNING — volontairement DÉPOUILLÉ des nuances
+ * de proximité calendaire (« Cette semaine », « Semaine prochaine », « Ce mois-ci »,
+ * « Mois prochain », « À venir »). Sur un calendrier mural, la POSITION de la case dit
+ * déjà QUAND tombe l'OT : ces libellés feraient doublon (décision PO). Il ne reste donc
+ * que :
+ *   - le statut MÉTIER : En cours / Clôturé / Annulé / Rouvert ;
+ *   - l'ORIGINE d'un OT à venir : Planifié (violet, date posée par un humain) /
+ *     Programmé (gris) — NB : la grille repeint « Programmé » en JAUNE dans la SEULE
+ *     colonne de la semaine courante (sinon le gris se noie dans son surlignage
+ *     `bg-accent`) ; les semaines futures restent grises (cf. `planning-grille`) ;
+ *   - l'unique fait temporel CONSERVÉ : « En retard » (rouge) pour un OT planifié dont
+ *     la date est dépassée — MÊME fait que `estPlanifieEnRetard`, donc le coloriage du
+ *     planning et le niveau d'urgence / le tri ne peuvent jamais diverger.
+ *
+ * Contrepartie RICHE (cartes de liste + fiche détail) : `statutAffichageOt`, INCHANGÉE.
+ * 100 % dérivé, aucune donnée backend.
+ */
+export function statutPlanningOt(params: {
+  statut: string
+  origine?: string | null
+  datePrevue: string | null
+  /** Aujourd'hui (injectable pour les tests) ; défaut = maintenant. */
+  aujourdHui?: Date
+}): { label: string; tone: StatusTone } {
+  const ori = params.origine ?? undefined
+  // `estPlanifieEnRetard` ne renvoie `true` que pour un OT planifié à date dépassée
+  // (et garde déjà les autres statuts / date absente) → un seul test suffit.
+  if (
+    estPlanifieEnRetard(
+      { statut: params.statut, date_prevue: params.datePrevue },
+      params.aujourdHui,
+    )
+  )
+    return { label: 'En retard', tone: 'destructive' }
+  return {
+    label: libelleStatutOt(params.statut, ori),
+    tone: statutOtTone(params.statut, ori),
+  }
+}

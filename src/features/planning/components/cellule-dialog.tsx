@@ -66,6 +66,9 @@ export function CelluleDialog({
               urlOf={urlOf}
               refreshMiniatures={refreshMiniatures}
               releve={releveParOt.get(ot.id) ?? null}
+              // Popup du planning : statut simplifié (sans proximité calendaire) →
+              // cohérent avec le coloriage de la grille.
+              simplifierStatut
             />
           ))}
         </div>
