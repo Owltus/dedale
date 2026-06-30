@@ -266,10 +266,11 @@ export function PlanningGrille({
   const nbColonnes = semaines.length + 1
   const largeurTable = familleWidth + semaines.length * CELL_SIZE
 
-  // Surbrillance d'une colonne (semaine survolée OU semaine courante) : MÊME teinte
-  // en-tête ET cellules (sinon la colonne paraît décalée) + fins traits verticaux.
-  const COL_ACTIVE =
-    'bg-accent shadow-[inset_1px_0_0_0_var(--ring),inset_-1px_0_0_0_var(--ring)]'
+  // Surbrillance d'une colonne (semaine survolée OU semaine courante) : simple TEINTE
+  // de fond (`bg-accent`), MÊME en-tête ET cellules (sinon la colonne paraît décalée).
+  // Plus de traits verticaux d'encadrement (retirés à la demande du PO) : seules les
+  // bordures NORMALES de la grille (bas de cellule, bandes) subsistent.
+  const COL_ACTIVE = 'bg-accent'
   // Cellules du CORPS : transparentes hors surbrillance.
   const classeColonne = (cle: string) => (colonneActive(cle) ? COL_ACTIVE : '')
   // Cellules d'EN-TÊTE : fond OPAQUE obligatoire (`bg-card`) — l'en-tête est collant,
