@@ -49,11 +49,11 @@ export const Route = createFileRoute('/_app/planning')({
   component: PlanningPage,
 })
 
-const JOUR_MS = 24 * 60 * 60 * 1000
 /** Fenêtre du « Focus » et du sur-fetch : 12 semaines (≈ un trimestre). */
 const FOCUS_SEMAINES = 12
-/** Pas FIXE des flèches de navigation (~1 trimestre), indépendant du nb de colonnes. */
-const PAS_NAV = 13
+/** Pas des flèches / clavier : 4 semaines (~1 mois) par bond — petit pas régulier pour
+ *  un défilement doux et lisible, indépendant de la largeur de l'écran. */
+const PAS_NAV = 4
 
 /** Gamme minimale nécessaire à la résolution OT → sous-catégorie. */
 interface GammeSkelInput {
@@ -208,9 +208,9 @@ function PlanningContent({ siteId }: { siteId: string }) {
   )
   const cleSemaineCourante = useMemo(() => cleSemaine(new Date()), [])
 
-  // Flèches « trimestre » = décalage d'un PAS FIXE (~3 mois) du centre, indépendant
-  // du nombre de colonnes visibles : sur grand écran (jusqu'à ~156 semaines) un
-  // décalage d'une fenêtre entière sauterait plusieurs années. Recouvrement = continuité.
+  // Décalage du centre par les flèches / le clavier (PAS_NAV = 4 s. ≈ 1 mois).
+  // `ajouterSemaines` est CALENDAIRE (insensible au changement d'heure, cf. semaines.ts)
+  // → le centre reste pile sur le lundi de minuit, même en naviguant très loin.
   const reculer = () => setCentre((c) => ajouterSemaines(c, -PAS_NAV))
   const avancer = () => setCentre((c) => ajouterSemaines(c, PAS_NAV))
   const revenirAujourdhui = () => setCentre(lundiDeLaSemaine(new Date()))
@@ -239,7 +239,15 @@ function PlanningContent({ siteId }: { siteId: string }) {
     const winEndExcl = ajouterSemaines(winStart, nbSemaines)
     return {
       debut: isoLocale(winStart),
-      fin: isoLocale(new Date(winEndExcl.getTime() - JOUR_MS)),
+      // Dernier jour visible = veille (calendaire) du lundi exclu → dimanche de la
+      // dernière semaine. Calendaire (pas `- JOUR_MS` en ms) pour rester juste au DST.
+      fin: isoLocale(
+        new Date(
+          winEndExcl.getFullYear(),
+          winEndExcl.getMonth(),
+          winEndExcl.getDate() - 1,
+        ),
+      ),
       clesFenetre: new Set(semaines.map((s) => s.cle)),
     }
   }, [semaines, nbSemaines, ancre])
@@ -251,7 +259,9 @@ function PlanningContent({ siteId }: { siteId: string }) {
     const endExcl = ajouterSemaines(lundiAuj, FOCUS_SEMAINES)
     return {
       focusDebut: isoLocale(lundiAuj),
-      focusFin: isoLocale(new Date(endExcl.getTime() - JOUR_MS)),
+      focusFin: isoLocale(
+        new Date(endExcl.getFullYear(), endExcl.getMonth(), endExcl.getDate() - 1),
+      ),
       cles12: clesProchaines(lundiAuj, FOCUS_SEMAINES),
     }
   }, [])
