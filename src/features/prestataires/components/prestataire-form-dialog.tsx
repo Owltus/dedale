@@ -13,6 +13,8 @@ type Prestataire = Database['public']['Tables']['prestataires']['Row']
 interface PrestataireFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Site actif : périmètre d'upload de l'image (pool du site, pas le commun). */
+  siteId: string
   prestataire?: Prestataire | null
 }
 
@@ -30,6 +32,7 @@ function initialValues(
 export function PrestataireFormDialog({
   open,
   onOpenChange,
+  siteId,
   prestataire,
 }: PrestataireFormDialogProps) {
   const isEdit = Boolean(prestataire)
@@ -91,8 +94,12 @@ export function PrestataireFormDialog({
         image={{
           value: values.miniature_id,
           onChange: (id) => setValues((v) => ({ ...v, miniature_id: id })),
-          // Prestataire = entité transverse → pool commun (entreprise).
-          targetSiteId: null,
+          // Image scopée au SITE ACTIF (décision PO) : un technicien alimente le
+          // pool de SON site, jamais le pool commun entreprise. La fiche prestataire
+          // est de toute façon bornée au site actif (contrats/docs idem). Revers
+          // assumé : l'image n'est visible que depuis ce site (RLS). Le trigger
+          // backend `check_miniature_prestataire` autorise désormais ce scope.
+          targetSiteId: siteId,
           canUpload: true,
         }}
       />

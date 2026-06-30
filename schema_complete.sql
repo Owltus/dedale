@@ -5553,18 +5553,48 @@ CREATE TRIGGER trg_check_miniature_site_locaux
     BEFORE INSERT OR UPDATE OF miniature_id ON locaux
     FOR EACH ROW EXECUTE FUNCTION public.check_miniature_site_local();
 
--- prestataires : entité transverse (pas de site_id) -> miniature ENTREPRISE only
+-- prestataires : entité transverse. Migration 073 — l'image suit le SITE ACTIF
+-- (décision PO) : vignette du pool ENTREPRISE (site_id NULL, posée par admin/manager)
+-- OU d'un site où le prestataire est ACTIF (lié via prestataires_sites ; aucune
+-- liaison = actif sur TOUS les sites) ou son propre site (interne).
 CREATE OR REPLACE FUNCTION public.check_miniature_prestataire()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
+DECLARE v_mini_site UUID;
 BEGIN
-    IF NEW.miniature_id IS NOT NULL
-       AND EXISTS (SELECT 1 FROM public.miniatures m WHERE m.id = NEW.miniature_id AND m.site_id IS NOT NULL)
-    THEN
-        RAISE EXCEPTION 'Un prestataire (transverse) ne peut porter qu''une miniature du pool entreprise.'
-            USING ERRCODE = 'integrity_constraint_violation';
+    IF NEW.miniature_id IS NULL THEN
+        RETURN NEW;
     END IF;
-    RETURN NEW;
+
+    SELECT m.site_id INTO v_mini_site
+      FROM public.miniatures m
+     WHERE m.id = NEW.miniature_id;
+
+    -- Pool entreprise (NULL) : image partagée, toujours autorisée.
+    IF v_mini_site IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    -- Vignette de site : autorisée si ce site est un site où le prestataire est
+    -- actif, ou son propre site (interne).
+    IF v_mini_site = NEW.site_id
+       OR NOT EXISTS (
+           SELECT 1 FROM public.prestataires_sites ps
+            WHERE ps.prestataire_id = NEW.id
+       )
+       OR EXISTS (
+           SELECT 1 FROM public.prestataires_sites ps
+            WHERE ps.prestataire_id = NEW.id
+              AND ps.site_id = v_mini_site
+       )
+    THEN
+        RETURN NEW;
+    END IF;
+
+    RAISE EXCEPTION
+        'Miniature % : le site visé n''est pas un site où ce prestataire est actif.',
+        NEW.miniature_id
+        USING ERRCODE = 'integrity_constraint_violation';
 END;
 $$;
 CREATE TRIGGER trg_check_miniature_prestataire
