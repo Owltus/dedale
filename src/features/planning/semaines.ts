@@ -79,7 +79,16 @@ export function fenetreSemaines(
   const lundi = lundiDeLaSemaine(depart)
   const semaines: SemaineIso[] = []
   for (let i = 0; i < nbSemaines; i++) {
-    const debut = new Date(lundi.getTime() + i * 7 * JOUR_MS)
+    // Arithmétique CALENDAIRE (jour + i×7), PAS `getTime() + i*7*JOUR` en ms : cette
+    // dernière dérive d'±1 h à chaque changement d'heure (été/hiver), si bien que les
+    // semaines lointaines tombaient un DIMANCHE → `numeroSemaineIso` les renvoyait au
+    // mauvais numéro (doublons → clés React en double → affichage corrompu). Le
+    // constructeur `Date` normalise le dépassement de jour et reste à minuit local.
+    const debut = new Date(
+      lundi.getFullYear(),
+      lundi.getMonth(),
+      lundi.getDate() + i * 7,
+    )
     const { numero, annee } = numeroSemaineIso(debut)
     semaines.push({
       numero,
@@ -92,9 +101,15 @@ export function fenetreSemaines(
   return semaines
 }
 
-/** Décale une date de `n` semaines (n peut être négatif). Ne mute pas l'entrée. */
+/**
+ * Décale une date de `n` semaines (n négatif possible). Ne mute pas l'entrée.
+ * Arithmétique CALENDAIRE (jour + n×7) et NON en millisecondes : `getTime() + n*7*JOUR`
+ * dérivait d'±1 h à chaque changement d'heure (été/hiver) traversé → en cumulant
+ * (navigation au loin), le « centre » glissait hors du lundi de minuit. Le constructeur
+ * `Date` reste à minuit local quel que soit le DST.
+ */
 export function ajouterSemaines(date: Date, n: number): Date {
-  return new Date(date.getTime() + n * 7 * JOUR_MS)
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + n * 7)
 }
 
 /**
