@@ -14,6 +14,7 @@ import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import { OtCreateDialog } from '@/features/ordres-travail/components/ot-create-dialog'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import type { RowAction } from '@/components/common/row-actions'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -67,6 +68,8 @@ function OrdresTravailContent({
   canManage: boolean
 }) {
   const { session } = useAuth()
+  // Mise à jour LIVE : un changement d'OT (clôture, statut…) rafraîchit la liste sans F5.
+  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
   const query = useQuery(ordresTravailQueries.list(siteId))
   // Relevés (consommations) des compteurs cumulatifs du site, en UNE requête
   // groupée → map `ot_id → « 80 kWh »` (même règle que la fiche détail).

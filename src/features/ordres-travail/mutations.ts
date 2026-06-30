@@ -1,9 +1,25 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { ordresTravailQueries } from './queries'
+import { planningQueries } from '@/features/planning/queries'
 import type { Database } from '@/lib/database.types'
 
 type GammeNature = Database['public']['Enums']['gamme_nature']
+
+/**
+ * Invalide TOUT ce qu'un changement d'OT impacte : la liste / le détail / les cartes
+ * (clé `ordres_travail`) ET le planning (clé `planning`, qui lit la MÊME table sous
+ * une autre clé). Sans ça, clôturer ou changer un statut ne rafraîchissait PAS la
+ * grille du planning (cache jamais invalidé). Centralisé → impossible d'en oublier un.
+ */
+function invalidateOt(qc: QueryClient) {
+  void qc.invalidateQueries({ queryKey: ordresTravailQueries.all() })
+  void qc.invalidateQueries({ queryKey: planningQueries.all() })
+}
 
 /**
  * Crée un OT depuis une gamme.
@@ -61,8 +77,7 @@ export function useCreateOt() {
         .throwOnError()
       return data
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ordresTravailQueries.all() }),
+    onSuccess: () => invalidateOt(qc),
   })
 }
 
@@ -79,8 +94,7 @@ export function useDeleteOt() {
         .single()
         .throwOnError()
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ordresTravailQueries.all() }),
+    onSuccess: () => invalidateOt(qc),
   })
 }
 
@@ -125,8 +139,7 @@ export function useUpdateDatePrevueOt() {
         .throwOnError()
       return data
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ordresTravailQueries.all() }),
+    onSuccess: () => invalidateOt(qc),
   })
 }
 
@@ -174,8 +187,7 @@ export function useChangerStatutOt() {
         .throwOnError()
       return data
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ordresTravailQueries.all() }),
+    onSuccess: () => invalidateOt(qc),
   })
 }
 
@@ -189,8 +201,7 @@ export function useReouvrirOt() {
         .throwOnError()
       return data
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ordresTravailQueries.all() }),
+    onSuccess: () => invalidateOt(qc),
   })
 }
 
@@ -251,12 +262,9 @@ export function useUpdateOperationExecution() {
         .throwOnError()
       return data
     },
-    onSuccess: (_data, p) => {
-      // Le statut de l'OT a pu basculer (trigger) → invalider liste + détail + ops.
-      void qc.invalidateQueries({ queryKey: ordresTravailQueries.all() })
-      void qc.invalidateQueries({
-        queryKey: ordresTravailQueries.operations(p.otId).queryKey,
-      })
-    },
+    // Le statut de l'OT a pu basculer (trigger gestion_statut_ot) → liste + détail +
+    // planning + opérations, tous couverts par `invalidateOt` (la clé `['ordres_travail']`
+    // invalide par préfixe `['ordres_travail','operations',otId]`).
+    onSuccess: () => invalidateOt(qc),
   })
 }

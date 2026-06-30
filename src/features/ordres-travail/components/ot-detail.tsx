@@ -35,6 +35,7 @@ import { DatePrevueDialog } from './date-prevue-dialog'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useAuth } from '@/auth'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSaveShortcut } from '@/hooks/use-save-shortcut'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -75,6 +76,10 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     refetch,
   } = useQuery(ordresTravailQueries.detail(otId))
   const operationsQuery = useQuery(ordresTravailQueries.operations(otId))
+  // Mise à jour LIVE du détail : changement de l'OT (statut/dates) ou de ses
+  // opérations (saisie d'exécution) — ici, autre onglet ou autre utilisateur — sans F5.
+  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
+  useRealtimeRefresh('operations_execution', ordresTravailQueries.all())
   // Focus auto réservé aux pointeurs fins (desktop) : sur tactile, un focus
   // programmatique ouvrirait le clavier virtuel sans valeur ajoutée (pas de Tab).
   const isFinePointer = useMediaQuery('(hover: hover) and (pointer: fine)')
