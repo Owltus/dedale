@@ -45,7 +45,10 @@ import type { Database } from '@/lib/database.types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { PageContainer } from '@/components/common/page-container'
-import { PageHeader } from '@/components/common/page-header'
+import {
+  PageHeader,
+  type PageHeaderCrumb,
+} from '@/components/common/page-header'
 import { SubTabs } from '@/components/common/sub-tabs'
 import { OtStatutBadge } from './ot-statut-badge'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -330,8 +333,7 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       // Remplacement : tout-ou-rien (miroir du CHECK). Le garde ci-dessus a déjà
       // rejeté le remplissage partiel ; ici on neutralise une date orpheline (date
       // sans index) et, si la date n'a pas été saisie, on défausse au jour du relevé.
-      const aRempl =
-        e.indexDepose.trim() !== '' && e.indexPose.trim() !== ''
+      const aRempl = e.indexDepose.trim() !== '' && e.indexPose.trim() !== ''
       try {
         await updateOp.mutateAsync({
           id: op.id,
@@ -377,7 +379,11 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       setEdits({})
       // `toutesTerminalesApres` (calculé au rendu, AVANT le vidage des edits) reflète
       // bien l'état post-enregistrement. Même mutation/toasts que la clôture manuelle.
-      if (ot?.statut === 'reouvert' && aucunStatutChange && toutesTerminalesApres) {
+      if (
+        ot?.statut === 'reouvert' &&
+        aucunStatutChange &&
+        toutesTerminalesApres
+      ) {
         recloturer()
       }
     } else {
@@ -503,92 +509,92 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       />
       {canManage && (
         <>
-      {onglet === 'operations' &&
-        canEditOps &&
-        (estReouvert && dirtyOps.length === 0 ? (
-          // Rouvert, rien à enregistrer → simple « Clôturer » (uniquement si tout est
-          // terminal : on ne clôt pas un OT incomplet, sinon aucun bouton ici).
-          toutesTerminalesApres && (
+          {onglet === 'operations' &&
+            canEditOps &&
+            (estReouvert && dirtyOps.length === 0 ? (
+              // Rouvert, rien à enregistrer → simple « Clôturer » (uniquement si tout est
+              // terminal : on ne clôt pas un OT incomplet, sinon aucun bouton ici).
+              toutesTerminalesApres && (
+                <TooltipIconButton
+                  icon={<CheckCircle2 />}
+                  label="Clôturer l'OT"
+                  variant="outline"
+                  disabled={changerStatut.isPending}
+                  onClick={recloturer}
+                />
+              )
+            ) : (
+              // Des saisies à enregistrer → « Enregistrer », qui devient « Enregistrer et
+              // clôturer » sur un OT rouvert dont l'enregistrement va tout terminer.
+              <TooltipIconButton
+                icon={<Save />}
+                label={
+                  estReouvert && toutesTerminalesApres
+                    ? 'Enregistrer et clôturer'
+                    : 'Enregistrer les opérations'
+                }
+                variant="outline"
+                disabled={dirtyOps.length === 0 || savingOps}
+                onClick={() => void saveAllOps()}
+              />
+            ))}
+          {onglet === 'documents' && (
             <TooltipIconButton
-              icon={<CheckCircle2 />}
-              label="Clôturer l'OT"
+              icon={<Paperclip />}
+              label="Rattacher un document"
+              variant="outline"
+              onClick={() => {
+                setDroppedFiles([])
+                setUploadOpen(true)
+              }}
+            />
+          )}
+          {statutActif && (
+            <TooltipIconButton
+              icon={<Pencil />}
+              label="Modifier la date prévue"
+              variant="outline"
+              disabled={updateDatePrevue.isPending}
+              onClick={() => setDatePrevueOpen(true)}
+            />
+          )}
+          {statutActif && (
+            <TooltipIconButton
+              icon={<Ban className="text-destructive" />}
+              label="Annuler l'OT"
               variant="outline"
               disabled={changerStatut.isPending}
-              onClick={recloturer}
+              onClick={() => setAnnulerOpen(true)}
             />
-          )
-        ) : (
-          // Des saisies à enregistrer → « Enregistrer », qui devient « Enregistrer et
-          // clôturer » sur un OT rouvert dont l'enregistrement va tout terminer.
-          <TooltipIconButton
-            icon={<Save />}
-            label={
-              estReouvert && toutesTerminalesApres
-                ? 'Enregistrer et clôturer'
-                : 'Enregistrer les opérations'
-            }
-            variant="outline"
-            disabled={dirtyOps.length === 0 || savingOps}
-            onClick={() => void saveAllOps()}
-          />
-        ))}
-      {onglet === 'documents' && (
-        <TooltipIconButton
-          icon={<Paperclip />}
-          label="Rattacher un document"
-          variant="outline"
-          onClick={() => {
-            setDroppedFiles([])
-            setUploadOpen(true)
-          }}
-        />
-      )}
-      {statutActif && (
-        <TooltipIconButton
-          icon={<Pencil />}
-          label="Modifier la date prévue"
-          variant="outline"
-          disabled={updateDatePrevue.isPending}
-          onClick={() => setDatePrevueOpen(true)}
-        />
-      )}
-      {statutActif && (
-        <TooltipIconButton
-          icon={<Ban className="text-destructive" />}
-          label="Annuler l'OT"
-          variant="outline"
-          disabled={changerStatut.isPending}
-          onClick={() => setAnnulerOpen(true)}
-        />
-      )}
-      {ot.statut === 'cloture' && (
-        <TooltipIconButton
-          icon={<RotateCcw />}
-          label="Réouvrir l'OT"
-          variant="outline"
-          disabled={reouvrir.isPending}
-          onClick={handleReouvrir}
-        />
-      )}
-      {ot.statut === 'annule' && (
-        <TooltipIconButton
-          icon={<RotateCcw />}
-          label="Réactiver l'OT"
-          variant="outline"
-          disabled={changerStatut.isPending}
-          onClick={reactiver}
-        />
-      )}
-      {/* Suppression définitive — icône rouge, miroir de l'action « Supprimer »
+          )}
+          {ot.statut === 'cloture' && (
+            <TooltipIconButton
+              icon={<RotateCcw />}
+              label="Réouvrir l'OT"
+              variant="outline"
+              disabled={reouvrir.isPending}
+              onClick={handleReouvrir}
+            />
+          )}
+          {ot.statut === 'annule' && (
+            <TooltipIconButton
+              icon={<RotateCcw />}
+              label="Réactiver l'OT"
+              variant="outline"
+              disabled={changerStatut.isPending}
+              onClick={reactiver}
+            />
+          )}
+          {/* Suppression définitive — icône rouge, miroir de l'action « Supprimer »
           de la liste (même mutation, même confirmation). Disponible quel que
           soit le statut (réservée aux gestionnaires via canManage). */}
-      <TooltipIconButton
-        icon={<Trash2 className="text-destructive" />}
-        label="Supprimer l'OT"
-        variant="outline"
-        disabled={supprimer.isPending}
-        onClick={() => setSupprimerOpen(true)}
-      />
+          <TooltipIconButton
+            icon={<Trash2 className="text-destructive" />}
+            label="Supprimer l'OT"
+            variant="outline"
+            disabled={supprimer.isPending}
+            onClick={() => setSupprimerOpen(true)}
+          />
         </>
       )}
     </>
@@ -619,6 +625,35 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       2,
     ) || null
 
+  // Fil d'Ariane : un OT vient d'une GAMME (décision PO) → on remonte vers le Plan de
+  // maintenance et la gamme (ouverte via `?open`, l'explorateur reconstruit le chemin).
+  // `Breadcrumb` replie automatiquement la racine en « … » → rendu « … › gamme › [OT] ».
+  // OT sans gamme (ad hoc) : repli sur la liste des ordres de travail.
+  const gammeId = ot.gamme_id
+  const otBreadcrumb: PageHeaderCrumb[] = gammeId
+    ? [
+        {
+          label: 'Plan de maintenance',
+          onClick: () =>
+            void navigate({ to: '/gammes/$', params: { _splat: '' } }),
+        },
+        {
+          label: ot.nom_gamme,
+          onClick: () =>
+            void navigate({
+              to: '/gammes/$',
+              params: { _splat: '' },
+              search: { open: gammeId },
+            }),
+        },
+      ]
+    : [
+        {
+          label: 'Ordres de travail',
+          onClick: () => void navigate({ to: '/ordres-travail' }),
+        },
+      ]
+
   return (
     // `no-scrollbar` : seule la zone de contenu (2e enfant) défile, barre masquée.
     // L'en-tête (1er enfant : top bar + carte + onglets) reste FIXE.
@@ -627,6 +662,7 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
         <PageHeader
           title={ot.nom_gamme}
           description={ot.description_gamme ?? undefined}
+          breadcrumb={otBreadcrumb}
           action={headerActions}
         />
 
