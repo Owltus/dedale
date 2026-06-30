@@ -11,8 +11,15 @@ import { NoSiteSelected } from '@/components/common/no-site-selected'
  * slugifiés. La descente puis l'ouverture d'une gamme (feuille) sont résolues par
  * l'explorateur. Chemin nu `/gammes` (splat vide) → racine (liste des catégories).
  * La garde de rôle est portée par le layout parent (`requireNav`).
+ *
+ * `?open=<gammeId>` : ouverture DIRECTE d'une gamme depuis une autre page (ex. onglet
+ * Gammes d'un prestataire) sans avoir à reconstruire le chemin de catégories —
+ * l'explorateur résout l'id et réécrit l'URL sur le chemin propre. Param transitoire.
  */
 export const Route = createFileRoute('/_app/gammes/$')({
+  validateSearch: (search: Record<string, unknown>): { open?: string } => ({
+    open: typeof search.open === 'string' ? search.open : undefined,
+  }),
   component: GammesPage,
 })
 

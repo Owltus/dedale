@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { GammeRow } from '@/features/gammes/components/gamme-detail'
+import type { DocumentMeta } from '@/features/documents/format'
 
 export const prestatairesQueries = {
   all: () => ['prestataires'] as const,
@@ -25,12 +26,11 @@ export const prestatairesQueries = {
     }),
 
   /**
-   * Gammes COUVERTES par les contrats du prestataire sur le site actif (décision
-   * PO : couverture contractuelle, et NON le lien direct `gammes.prestataire_id` ;
-   * compartimentage strict au site). Double `!inner` (`contrats_gammes` →
-   * `contrats`) : le filtre sur le prestataire + le site borne les gammes, sans
-   * dupliquer la ligne gamme. Clé préfixée `gammes` → invalidée par les écritures
-   * de gammes. Pour la liste lecture seule de l'onglet Gammes.
+   * Gammes du prestataire sur le site actif, par le lien DIRECT `gammes.prestataire_id`
+   * (décision PO : la couverture contractuelle via `contrats_gammes` n'étant pas
+   * peuplée, on s'appuie sur le rattachement direct gamme→prestataire ; compartimentage
+   * au site via `site_id`). Clé préfixée `gammes` → invalidée par les écritures de
+   * gammes. Pour la liste lecture seule de l'onglet Gammes.
    */
   gammes: (prestataireId: string, siteId: string) =>
     queryOptions({
@@ -38,22 +38,59 @@ export const prestatairesQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('gammes')
-          // `*` + jointures pour satisfaire `GammeRow` (réutilise `GammeCard`). Le
-          // double `!inner` (`contrats_gammes` → `contrats`) ne sert qu'au FILTRE
-          // (prestataire + site) ; il ne duplique pas la ligne gamme. `overrideTypes`
-          // fixe le type à `GammeRow[]` (le `select` imbriqué brouille l'inférence).
+          // `*` + jointures pour satisfaire `GammeRow` (réutilise `GammeCard`).
+          // `overrideTypes` fixe le type à `GammeRow[]` (le `select` imbriqué
+          // brouille l'inférence).
           .select(
             '*, periodicites(id, libelle, jours_periodicite), ' +
-              'prestataires(id, libelle), ' +
-              'contrats_gammes!inner(contrats!inner(prestataire_id, site_id))',
+              'prestataires(id, libelle)',
           )
-          .eq('contrats_gammes.contrats.prestataire_id', prestataireId)
-          .eq('contrats_gammes.contrats.site_id', siteId)
+          .eq('prestataire_id', prestataireId)
+          .eq('site_id', siteId)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
           .overrideTypes<GammeRow[], { merge: false }>()
         return data ?? []
+      },
+      staleTime: 60_000,
+    }),
+
+  /**
+   * Documents rattachés aux ORDRES DE TRAVAIL du prestataire sur le site actif.
+   * Sert l'onglet Documents : `documents_ordres_travail → ordres_travail!inner`
+   * filtré sur le prestataire + le site, puis jointure du document. Un même
+   * document pouvant être lié à plusieurs OT, on déduplique par `document_id`.
+   * La RLS borne la visibilité au scope (résultat vide hors scope, jamais d'erreur).
+   */
+  documentsViaOt: (prestataireId: string, siteId: string) =>
+    queryOptions({
+      queryKey: [
+        'documents',
+        'par-prestataire-ot',
+        prestataireId,
+        siteId,
+      ] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('documents_ordres_travail')
+          // `ordres_travail!inner` ne sert qu'au FILTRE (prestataire + site).
+          .select(
+            'ordres_travail!inner(prestataire_id, site_id), ' +
+              'documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at)',
+          )
+          .eq('ordres_travail.prestataire_id', prestataireId)
+          .eq('ordres_travail.site_id', siteId)
+          .abortSignal(signal)
+          .throwOnError()
+        const rows = data as unknown as { documents: DocumentMeta | null }[]
+        const parDoc = new Map<string, DocumentMeta>()
+        for (const row of rows) {
+          if (row.documents) parDoc.set(row.documents.id, row.documents)
+        }
+        return [...parDoc.values()].sort((a, b) =>
+          b.uploaded_at.localeCompare(a.uploaded_at),
+        )
       },
       staleTime: 60_000,
     }),

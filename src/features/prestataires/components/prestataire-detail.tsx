@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
   ClipboardList,
+  Download,
   FileText,
-  Paperclip,
   Pencil,
   Plus,
   Trash2,
@@ -13,6 +14,7 @@ import {
 import { toast } from 'sonner'
 import { contratsQueries, prestatairesQueries } from '../queries'
 import { useDeleteContrat } from '../mutations'
+import { useDeleteDocument } from '@/features/documents/mutations'
 import { etatContrat } from '../etat'
 import { PrestataireFormDialog } from './prestataire-form-dialog'
 import { ContratFormDialog } from './contrat-form-dialog'
@@ -21,13 +23,21 @@ import {
   matchStatutOt,
   statutOtFilterOptions,
 } from '@/features/ordres-travail/schemas'
-import { trierOtParUrgence } from '@/features/ordres-travail/tri'
+import {
+  trierOtParUrgence,
+  type OtTriable,
+} from '@/features/ordres-travail/tri'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import { GammeCard } from '@/features/gammes/components/gamme-card'
+import { DocumentRow } from '@/features/documents/components/document-row'
+import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
+import { useDocumentDownload } from '@/features/documents/use-document-download'
+import type { DocumentMeta } from '@/features/documents/format'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
-import { useFileDrop } from '@/hooks/use-file-drop'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { formatDate } from '@/lib/date'
-import { deleteErrorMessage } from '@/lib/form'
+import { deleteErrorMessage, errorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import type { Database } from '@/lib/database.types'
 import type { RowAction } from '@/components/common/row-actions'
@@ -47,8 +57,6 @@ import {
 } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
-import { DocumentsTab } from '@/components/common/documents-tab'
-import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -90,27 +98,11 @@ export function PrestataireDetail({
     open: boolean
     contrat: ContratRow | null
   }>({ open: false, contrat: null })
-  const [contratToDelete, setContratToDelete] = useState<ContratRow | null>(null)
-  const [uploadOpen, setUploadOpen] = useState(false)
-  // Fichiers issus d'un glisser-déposer pleine page → pré-remplissent l'upload.
-  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
+  const [contratToDelete, setContratToDelete] = useState<ContratRow | null>(
+    null,
+  )
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const delContrat = useDeleteContrat()
-
-  // Glisser-déposer sur TOUTE la page (réservé aux gestionnaires) : un dépôt
-  // bascule sur l'onglet Documents et ouvre l'upload pré-rempli des fichiers.
-  const { dragging } = useFileDrop({
-    enabled: canManage,
-    onFiles: (files) => {
-      setDroppedFiles(files)
-      setOnglet('documents')
-      setUploadOpen(true)
-    },
-  })
-  const handleUploadOpenChange = (open: boolean) => {
-    setUploadOpen(open)
-    if (!open) setDroppedFiles([])
-  }
 
   function confirmDeleteContrat() {
     if (!contratToDelete) return
@@ -123,9 +115,10 @@ export function PrestataireDetail({
     })
   }
 
-  // Top bar : action « + » contextuelle à l'onglet (Nouveau contrat / Rattacher un
-  // document), suivie de « Modifier le prestataire », toujours présente. Boutons
-  // icône + tooltip (convention PageHeader), réservés aux gestionnaires.
+  // Top bar : action « + » contextuelle à l'onglet (Nouveau contrat), suivie de
+  // « Modifier le prestataire », toujours présente. Boutons icône + tooltip
+  // (convention PageHeader), réservés aux gestionnaires. L'onglet Documents est en
+  // lecture seule (documents des OT) : pas d'action de rattachement ici.
   const headerAction = canManage ? (
     <>
       {onglet === 'contrats' && (
@@ -134,17 +127,6 @@ export function PrestataireDetail({
           label="Nouveau contrat"
           variant="outline"
           onClick={() => setContratForm({ open: true, contrat: null })}
-        />
-      )}
-      {onglet === 'documents' && (
-        <TooltipIconButton
-          icon={<Paperclip />}
-          label="Rattacher un document"
-          variant="outline"
-          onClick={() => {
-            setDroppedFiles([])
-            setUploadOpen(true)
-          }}
         />
       )}
       <TooltipIconButton
@@ -214,10 +196,9 @@ export function PrestataireDetail({
         />
       </div>
 
-      {/* Zone défilante : `relative` + `min-h-full` → la surcouche de glisser-déposer
-          voile toute la hauteur visible ; colonne flex pour que les états vides se
+      {/* Zone défilante : colonne flex `min-h-full` pour que les états vides se
           centrent verticalement. */}
-      <div className="relative flex min-h-full flex-col">
+      <div className="flex min-h-full flex-col">
         {onglet === 'contrats' && (
           <ContratsPanel
             siteId={siteId}
@@ -245,18 +226,12 @@ export function PrestataireDetail({
           />
         )}
         {onglet === 'documents' && (
-          <DocumentsTab
-            liaison="documents_prestataires"
-            parentColumn="prestataire_id"
-            parentId={prestataire.id}
-            uploadOpen={uploadOpen}
-            onUploadOpenChange={handleUploadOpenChange}
-            uploadInitialFiles={droppedFiles}
-            className="min-h-0 flex-1"
-            namingContext={{ prestataire: prestataire.libelle }}
+          <OtDocumentsPanel
+            prestataireId={prestataire.id}
+            siteId={siteId}
+            canDelete={canManage}
           />
         )}
-        {canManage && <FileDropOverlay show={dragging} />}
       </div>
 
       {canManage && (
@@ -265,6 +240,7 @@ export function PrestataireDetail({
             key={prestataire.id}
             open={editPrestataire}
             onOpenChange={setEditPrestataire}
+            siteId={siteId}
             prestataire={prestataire}
           />
           <ContratFormDialog
@@ -342,7 +318,11 @@ function ContratsPanel({
             const etat = etatContrat(c.date_debut, c.date_fin)
             const actions: RowAction[] = canManage
               ? [
-                  { label: 'Modifier', icon: Pencil, onSelect: () => onEdit(c) },
+                  {
+                    label: 'Modifier',
+                    icon: Pencil,
+                    onSelect: () => onEdit(c),
+                  },
                   {
                     label: 'Supprimer',
                     icon: Trash2,
@@ -361,7 +341,9 @@ function ContratsPanel({
                   <>
                     <Badge variant={etat.variant}>{etat.label}</Badge>
                     {c.types_contrats && (
-                      <Badge variant="outline">{c.types_contrats.libelle}</Badge>
+                      <Badge variant="outline">
+                        {c.types_contrats.libelle}
+                      </Badge>
                     )}
                   </>
                 }
@@ -377,11 +359,11 @@ function ContratsPanel({
 }
 
 /**
- * Onglet Gammes : gammes COUVERTES par les contrats du prestataire sur le site,
- * en LECTURE SEULE. Réutilise `GammeCard` (variante Bibliothèque) — on masque le
- * prestataire (`showPrestataire={false}`) puisqu'on est déjà sur sa fiche. Pas de
- * navigation : la fiche gamme n'a pas de route directe (explorateur Plan de
- * maintenance à paliers d'URL) → liste informative.
+ * Onglet Gammes : gammes du prestataire sur le site (lien direct
+ * `gammes.prestataire_id`), en LECTURE SEULE. Réutilise `GammeCard` (variante
+ * Bibliothèque) — on masque le prestataire (`showPrestataire={false}`) puisqu'on
+ * est déjà sur sa fiche. Le clic ouvre la fiche gamme dans le Plan de maintenance
+ * via `?open=<id>` (l'explorateur reconstruit le chemin d'URL catégorie → gamme).
  */
 function GammesPanel({
   prestataireId,
@@ -389,7 +371,30 @@ function GammesPanel({
   urlOf,
   refreshMiniatures,
 }: { prestataireId: string; siteId: string } & MiniatureAccess) {
+  const navigate = useNavigate()
   const query = useQuery(prestatairesQueries.gammes(prestataireId, siteId))
+
+  // OT des gammes affichées → badge de statut + périodicité sur chaque carte, comme
+  // dans le Plan de maintenance (MÊME variante de `GammeCard` via `statutOts`).
+  const gammeIds = useMemo(
+    () => (query.data ?? []).map((g) => g.id),
+    [query.data],
+  )
+  const otsQuery = useQuery(ordresTravailQueries.byGammes(siteId, gammeIds))
+  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
+  // Badge masqué seulement pendant un vrai fetch / sur erreur (pas de statut trompeur).
+  const otsIndispo = otsQuery.isLoading || otsQuery.isError
+  const otsParGamme = useMemo(() => {
+    const map = new Map<string, OtTriable[]>()
+    for (const ot of otsQuery.data ?? []) {
+      if (ot.gamme_id === null) continue
+      const liste = map.get(ot.gamme_id) ?? []
+      liste.push(ot)
+      map.set(ot.gamme_id, liste)
+    }
+    return map
+  }, [otsQuery.data])
+
   return (
     <QueryState
       query={query}
@@ -398,7 +403,7 @@ function GammesPanel({
         <EmptyState
           icon={Wrench}
           title="Aucune gamme"
-          description="Aucune gamme couverte par les contrats de ce prestataire sur le site actif."
+          description="Aucune gamme rattachée à ce prestataire sur le site actif."
           className="min-h-40 flex-1 justify-center"
         />
       }
@@ -412,8 +417,122 @@ function GammesPanel({
               urlOf={urlOf}
               refreshMiniatures={refreshMiniatures}
               showPrestataire={false}
+              // Variante « Plan de maintenance » : badge de statut + périodicité.
+              statutOts={otsParGamme.get(g.id) ?? []}
+              statutPending={otsIndispo}
+              // Ouvre la fiche gamme dans le Plan de maintenance : on passe l'id via
+              // `?open=` et l'explorateur reconstruit le chemin propre (catégorie →
+              // sous-catégorie → gamme) — pas de duplication de cette logique ici.
+              onClick={() =>
+                void navigate({
+                  to: '/gammes/$',
+                  params: { _splat: '' },
+                  search: { open: g.id },
+                })
+              }
             />
           ))}
+        </div>
+      )}
+    </QueryState>
+  )
+}
+
+/**
+ * Onglet Documents — documents rattachés aux ORDRES DE TRAVAIL du prestataire (sur
+ * le site actif). Réutilise les briques documents standard : `DocumentRow` (rendu
+ * identique partout), aperçu au clic, et menu contextuel `Télécharger` +
+ * `Supprimer` (hard-delete, gestionnaires uniquement). Pas de détache : ces
+ * documents ne sont pas « rattachés au prestataire » mais à ses OT.
+ */
+function OtDocumentsPanel({
+  prestataireId,
+  siteId,
+  canDelete,
+}: {
+  prestataireId: string
+  siteId: string
+  canDelete: boolean
+}) {
+  const query = useQuery(
+    prestatairesQueries.documentsViaOt(prestataireId, siteId),
+  )
+  const [toPreview, setToPreview] = useState<DocumentMeta | null>(null)
+  const [toDelete, setToDelete] = useState<DocumentMeta | null>(null)
+  const download = useDocumentDownload()
+  const del = useDeleteDocument()
+
+  function confirmDelete() {
+    if (!toDelete) return
+    del.mutate(toDelete.id, {
+      onSuccess: () => {
+        toast.success('Document supprimé')
+        setToDelete(null)
+      },
+      onError: (e) => toast.error(errorMessage(e)),
+    })
+  }
+
+  return (
+    <QueryState
+      query={query}
+      pending={<ListRowSkeletons count={4} />}
+      empty={
+        <EmptyState
+          icon={FileText}
+          title="Aucun document"
+          description="Aucun document rattaché aux ordres de travail de ce prestataire sur le site actif."
+          className="min-h-40 flex-1 justify-center"
+        />
+      }
+    >
+      {(list) => (
+        <div className={listStack}>
+          {list.map((doc) => {
+            const actions: RowAction[] = [
+              {
+                label: 'Télécharger',
+                icon: Download,
+                onSelect: () => void download(doc),
+              },
+            ]
+            if (canDelete)
+              actions.push({
+                label: 'Supprimer',
+                icon: Trash2,
+                destructive: true,
+                onSelect: () => setToDelete(doc),
+              })
+            return (
+              <DocumentRow
+                key={doc.id}
+                doc={doc}
+                onClick={() => setToPreview(doc)}
+                menuActions={actions}
+              />
+            )
+          })}
+
+          <DocumentPreviewDialog
+            doc={toPreview}
+            onOpenChange={(open) => {
+              if (!open) setToPreview(null)
+            }}
+          />
+          <ConfirmDeleteDialog
+            open={toDelete !== null}
+            onOpenChange={(open) => {
+              if (!open) setToDelete(null)
+            }}
+            entityLabel={
+              toDelete
+                ? `le document « ${toDelete.nom_original} »`
+                : 'le document'
+            }
+            warning="Suppression définitive : le document est retiré de TOUTES les fiches où il est rattaché et effacé du stockage."
+            loading={del.isPending}
+            onConfirm={confirmDelete}
+          />
         </div>
       )}
     </QueryState>
@@ -432,7 +551,9 @@ function OtPanel({
   urlOf,
   refreshMiniatures,
 }: { prestataireId: string; siteId: string } & MiniatureAccess) {
-  const query = useQuery(prestatairesQueries.ordresTravail(prestataireId, siteId))
+  const query = useQuery(
+    prestatairesQueries.ordresTravail(prestataireId, siteId),
+  )
   const [search, setSearch] = useState('')
   const [statutFilter, setStatutFilter] = useState<string>(FILTRE_NON_TERMINES)
 

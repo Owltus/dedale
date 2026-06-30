@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { getRouteApi } from '@tanstack/react-router'
 import { FolderTree, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { gammesQueries } from '../queries'
@@ -54,6 +55,10 @@ import type {
   TabActionApi,
   TabAddConfig,
 } from '@/components/common/tab-actions'
+
+// API typée de la route SPLAT : pour lire `?open=<gammeId>` (ouverture directe d'une
+// gamme depuis une autre page) sans inverser la dépendance features → routes.
+const gammesRoute = getRouteApi('/_app/gammes/$')
 
 // Id sentinelle du bac « Non classé » (catégorie VIRTUELLE, hors base) : regroupe
 // à la racine les gammes du site sans catégorie visible (legacy/import, ou rangées
@@ -279,7 +284,8 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   // `isPending`, qui reste vrai pour une requête DÉSACTIVÉE quand il n'y a aucune
   // gamme à charger, ce qui masquerait à tort « Vide »), ou en cas d'erreur (on évite
   // d'afficher un statut trompeur calculé sur des OT absents).
-  const otsBadgesIndispo = otsParGammeQuery.isLoading || otsParGammeQuery.isError
+  const otsBadgesIndispo =
+    otsParGammeQuery.isLoading || otsParGammeQuery.isError
   const otsParGamme = useMemo(() => {
     const map = new Map<string, OtTriable[]>()
     for (const ot of otsParGammeQuery.data ?? []) {
@@ -372,6 +378,22 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     if (!fresh) return
     goToGamme(fresh, { replace: true })
   }, [leafSeg, openGamme, gammes, goToGamme])
+
+  // Ouverture DIRECTE par `?open=<gammeId>` (lien depuis une autre page, ex. onglet
+  // Gammes d'un prestataire) : dès que les gammes du site sont chargées, on résout
+  // l'id et on délègue à `goToGamme` — MÊME logique catégorie/orphelin/slug que la
+  // navigation interne, en REPLACE pour réécrire l'URL sur le chemin propre (le param
+  // disparaît). Consommé une seule fois par valeur (ref) → ni boucle, ni ré-ouverture
+  // si l'utilisateur remonte ensuite manuellement.
+  const { open: openGammeId } = gammesRoute.useSearch()
+  const consumedOpenRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!openGammeId || gammesQuery.isPending) return
+    if (consumedOpenRef.current === openGammeId) return
+    consumedOpenRef.current = openGammeId
+    const fresh = gammes.find((g) => g.id === openGammeId)
+    if (fresh) goToGamme(fresh, { replace: true })
+  }, [openGammeId, gammes, gammesQuery.isPending, goToGamme])
 
   // --- Dialogs ---
   const [gammeForm, setGammeForm] = useState<{
