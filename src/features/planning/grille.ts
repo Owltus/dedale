@@ -75,21 +75,15 @@ function parseDatePrevue(value: string): Date {
   return new Date(a ?? 1970, (m ?? 1) - 1, j ?? 1)
 }
 
-/** Minuit local d'un timestamp ISO (TIMESTAMPTZ) — on ne garde que le jour civil. */
-function jourLocal(iso: string): Date {
-  const d = new Date(iso)
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
-}
-
 /**
- * Date la PLUS PERTINENTE pour positionner un OT sur la grille :
- *   1. `date_cloture` si l'OT est terminé (clôturé ou annulé),
- *   2. sinon `date_debut` si l'intervention a commencé,
- *   3. sinon `date_prevue` (cas par défaut, OT à venir).
+ * Semaine où afficher un OT sur la grille = sa **date PRÉVUE** : le planning est un
+ * calendrier PRÉVISIONNEL. On NE positionne PLUS sur la date de clôture/début (décision
+ * PO 2026-06-30) : un OT fait en retard (clôturé une autre semaine) se désalignait sinon
+ * de sa semaine prévue, voire sortait de la fenêtre, et des OT pris ENSEMBLE (ex. relevés
+ * gaz/eau/électricité) se dispersaient. La date réelle d'exécution reste sur la fiche de
+ * l'OT (et le badge En retard / Clôturé reste juste).
  */
-export function dateEffectiveOt(ot: PlanningOt): Date {
-  if (ot.date_cloture) return jourLocal(ot.date_cloture)
-  if (ot.date_debut) return jourLocal(ot.date_debut)
+export function dateSemaineOt(ot: PlanningOt): Date {
   return parseDatePrevue(ot.date_prevue)
 }
 
@@ -148,7 +142,7 @@ export function construireGroupes(
   for (const ot of ots) {
     const info = ofOt(ot)
     const famille = assurerFamille(info)
-    const cleSem = cleSemaine(dateEffectiveOt(ot))
+    const cleSem = cleSemaine(dateSemaineOt(ot))
     const cellule = famille.parSemaine.get(cleSem)
     if (cellule) cellule.push(ot)
     else famille.parSemaine.set(cleSem, [ot])
