@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Breadcrumb, type Crumb } from './breadcrumb'
 
-export interface PageHeaderCrumb {
-  label: string
-  onClick: () => void
-}
+/**
+ * Alias historique du maillon de fil d'Ariane. Le type (et le rendu) vivent
+ * désormais dans `./breadcrumb` ; on réexporte sous l'ancien nom pour ne pas
+ * casser les nombreux appelants qui construisent leurs `PageHeaderCrumb[]`.
+ */
+export type PageHeaderCrumb = Crumb
 
 interface PageHeaderProps {
   title: string
@@ -72,7 +75,7 @@ export function PageHeader({
             variant="ghost"
             size="sm"
             onClick={onBack}
-            className="text-muted-foreground -ml-2 mb-0.5 h-auto gap-1 px-2 py-1"
+            className="text-muted-foreground mb-0.5 -ml-2 h-auto gap-1 px-2 py-1"
           >
             <ChevronLeft className="size-4" />
             {backLabel}
@@ -81,34 +84,7 @@ export function PageHeader({
         {/* Ligne 1 — fil EN TITRE : ancêtres discrets → nœud courant en grand. Une
             seule ligne : les ancêtres et le titre TRONQUENT (pas de retour ligne). */}
         <div className="flex min-w-0 items-center gap-1.5">
-          {hasCrumbs && (
-            <nav
-              aria-label="Fil d’Ariane"
-              className="flex min-w-0 shrink items-center gap-1.5"
-            >
-              {breadcrumb.map((c, i) => (
-                <span
-                  key={i}
-                  className={
-                    // Sous `sm`, on ne garde que le parent IMMÉDIAT (dernier ancêtre).
-                    i < breadcrumb.length - 1
-                      ? 'hidden shrink-0 items-center gap-1.5 sm:flex'
-                      : 'flex min-w-0 items-center gap-1.5'
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={c.onClick}
-                    title={c.label}
-                    className="text-muted-foreground hover:text-foreground truncate text-sm"
-                  >
-                    {c.label}
-                  </button>
-                  <ChevronRight className="text-muted-foreground size-4 shrink-0" />
-                </span>
-              ))}
-            </nav>
-          )}
+          {hasCrumbs && <Breadcrumb items={breadcrumb} />}
           <h1
             title={title}
             className="min-w-0 truncate text-2xl font-semibold tracking-tight"
