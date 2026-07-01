@@ -76,14 +76,24 @@ function parseDatePrevue(value: string): Date {
 }
 
 /**
- * Semaine où afficher un OT sur la grille = sa **date PRÉVUE** : le planning est un
- * calendrier PRÉVISIONNEL. On NE positionne PLUS sur la date de clôture/début (décision
- * PO 2026-06-30) : un OT fait en retard (clôturé une autre semaine) se désalignait sinon
- * de sa semaine prévue, voire sortait de la fenêtre, et des OT pris ENSEMBLE (ex. relevés
- * gaz/eau/électricité) se dispersaient. La date réelle d'exécution reste sur la fiche de
- * l'OT (et le badge En retard / Clôturé reste juste).
+ * Semaine où afficher un OT sur la grille — MÊME règle que la carte `OtCard` : on
+ * prend la BONNE date selon le statut.
+ *  - OT TERMINAL (clôturé ou annulé) → sa **date de clôture réelle** (`date_cloture`
+ *    porte l'horodatage de clôture OU d'annulation, NON NULL sur tout statut terminal,
+ *    cf. contrainte `statut_terminal_a_date_cloture`) → le travail apparaît dans la
+ *    semaine où il a VRAIMENT été fait, pas dans sa semaine prévue.
+ *  - Sinon (planifié, en cours, rouvert) → sa **date PRÉVUE** : l'échéance reste la
+ *    donnée pertinente pour un OT à venir.
+ *
+ * Décision PO 2026-07-01, qui remplace le positionnement « toujours date prévue » du
+ * 2026-06-30 : un OT programmé au futur puis clôturé aujourd'hui restait invisible dans
+ * la semaine en cours (« je vois pas que j'ai fait mon truc »). La date de clôture est
+ * un TIMESTAMPTZ → `new Date(...)` (instant local) ; la semaine ISO est ensuite calculée
+ * en heure locale, comme la semaine courante et la date prévue.
  */
 export function dateSemaineOt(ot: PlanningOt): Date {
+  const estTerminal = ot.statut === 'cloture' || ot.statut === 'annule'
+  if (estTerminal && ot.date_cloture) return new Date(ot.date_cloture)
   return parseDatePrevue(ot.date_prevue)
 }
 
