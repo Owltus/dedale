@@ -48,6 +48,7 @@ import {
   type TabHeader,
 } from '@/components/common/tab-actions'
 import type { PageHeaderCrumb } from '@/components/common/page-header'
+import { drillCrumbs } from '@/components/common/drill-crumbs'
 import {
   ExporterVersSiteDialog,
   type ExportOutcome,
@@ -581,10 +582,11 @@ export function GammesBiblioPanel() {
       // `openGamme` est déjà la donnée FRAÎCHE (issu de `gammes.find`) : pas de
       // re-find. Ancêtres dérivés de la catégorie RÉELLE de la gamme (`gammePath`),
       // pas du chemin brut de l'URL (constat #1).
-      const breadcrumb: PageHeaderCrumb[] = gammePath.map((c, i) => ({
-        label: c.nom,
-        onClick: () => goToCats(gammePath.slice(0, i + 1)),
-      }))
+      const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
+        gammePath,
+        gammeCats,
+        goToCats,
+      )
       return {
         title: openGamme.nom,
         breadcrumb,
@@ -596,10 +598,11 @@ export function GammesBiblioPanel() {
     if (depth === 0) {
       return null
     }
-    const breadcrumb: PageHeaderCrumb[] = validPath.slice(0, -1).map((c, i) => ({
-      label: c.nom,
-      onClick: () => goToCats(validPath.slice(0, i + 1)),
-    }))
+    const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
+      validPath.slice(0, -1),
+      gammeCats,
+      goToCats,
+    )
     return {
       title: current?.nom ?? 'Plan de maintenance',
       breadcrumb,
@@ -607,7 +610,7 @@ export function GammesBiblioPanel() {
         ? current.description.trim()
         : undefined,
     }
-  }, [openGamme, validPath, gammePath, current, depth, goToCats])
+  }, [openGamme, validPath, gammePath, current, depth, goToCats, gammeCats])
 
   useTabHeader(header)
 
@@ -1115,9 +1118,7 @@ function GammeBiblioDetail({
                       seuilMin={op.seuil_minimum}
                       seuilMax={op.seuil_maximum}
                       uniteSymbole={op.unites?.symbole}
-                      menuActions={
-                        rowActions.length ? rowActions : undefined
-                      }
+                      menuActions={rowActions.length ? rowActions : undefined}
                     />
                   )
                 })}

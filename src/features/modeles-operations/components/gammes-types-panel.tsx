@@ -40,6 +40,7 @@ import {
   type TabHeader,
 } from '@/components/common/tab-actions'
 import type { PageHeaderCrumb } from '@/components/common/page-header'
+import { drillCrumbs } from '@/components/common/drill-crumbs'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ScopeSelect } from '@/components/common/scope-select'
 import {
@@ -402,10 +403,11 @@ export function GammesTypesPanel() {
   // › … » rendu par <Tabs>. À la RACINE (depth 0) → `null` (titre de section).
   const header = useMemo<TabHeader | null>(() => {
     if (openModele !== null) {
-      const breadcrumb: PageHeaderCrumb[] = path.map((c, i) => ({
-        label: c.nom,
-        onClick: () => goTo(path.slice(0, i + 1)),
-      }))
+      const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
+        path,
+        operationCats,
+        goTo,
+      )
       return {
         title: openModele.nom,
         breadcrumb,
@@ -415,10 +417,11 @@ export function GammesTypesPanel() {
       }
     }
     if (depth === 0) return null
-    const breadcrumb: PageHeaderCrumb[] = path.slice(0, -1).map((c, i) => ({
-      label: c.nom,
-      onClick: () => goTo(path.slice(0, i + 1)),
-    }))
+    const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
+      path.slice(0, -1),
+      operationCats,
+      goTo,
+    )
     return {
       title: current?.nom ?? 'Modèles d’opérations',
       breadcrumb,
@@ -426,7 +429,7 @@ export function GammesTypesPanel() {
         ? current.description.trim()
         : undefined,
     }
-  }, [openModele, depth, path, current, goTo])
+  }, [openModele, depth, path, current, goTo, operationCats])
   useTabHeader(header)
 
   function confirmDelete() {
@@ -628,9 +631,7 @@ export function GammesTypesPanel() {
                         badges={<ScopeBadges siteId={cat.site_id} />}
                         mobileMeta={<ScopeBadges siteId={cat.site_id} />}
                         onClick={() => goTo([...path, cat])}
-                        menuActions={
-                          rowActions.length ? rowActions : undefined
-                        }
+                        menuActions={rowActions.length ? rowActions : undefined}
                       />
                     )
                   })}
@@ -684,9 +685,7 @@ export function GammesTypesPanel() {
                         badges={<ScopeBadges siteId={modele.site_id} />}
                         mobileMeta={<ScopeBadges siteId={modele.site_id} />}
                         onClick={() => goToModele(modele)}
-                        menuActions={
-                          rowActions.length ? rowActions : undefined
-                        }
+                        menuActions={rowActions.length ? rowActions : undefined}
                       />
                     )
                   })}

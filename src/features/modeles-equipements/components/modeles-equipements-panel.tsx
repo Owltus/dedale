@@ -40,6 +40,7 @@ import {
   type TabHeader,
 } from '@/components/common/tab-actions'
 import type { PageHeaderCrumb } from '@/components/common/page-header'
+import { drillCrumbs } from '@/components/common/drill-crumbs'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ScopeSelect } from '@/components/common/scope-select'
 import {
@@ -408,10 +409,11 @@ export function ModelesEquipementsPanel() {
     // Modèle ouvert : le fil porte TOUT le chemin de catégories, le modèle devient
     // le segment courant (le titre) — comme une gamme ouverte.
     if (openModele !== null) {
-      const breadcrumb: PageHeaderCrumb[] = path.map((c, i) => ({
-        label: c.nom,
-        onClick: () => goTo(path.slice(0, i + 1)),
-      }))
+      const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
+        path,
+        equipmentCats,
+        goTo,
+      )
       return {
         title: openModele.nom,
         breadcrumb,
@@ -421,10 +423,11 @@ export function ModelesEquipementsPanel() {
       }
     }
     if (depth === 0) return null
-    const breadcrumb: PageHeaderCrumb[] = path.slice(0, -1).map((c, i) => ({
-      label: c.nom,
-      onClick: () => goTo(path.slice(0, i + 1)),
-    }))
+    const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
+      path.slice(0, -1),
+      equipmentCats,
+      goTo,
+    )
     return {
       title: current?.nom ?? 'Modèles d’équipements',
       breadcrumb,
@@ -432,7 +435,7 @@ export function ModelesEquipementsPanel() {
         ? current.description.trim()
         : undefined,
     }
-  }, [openModele, depth, path, current, goTo])
+  }, [openModele, depth, path, current, goTo, equipmentCats])
   useTabHeader(header)
 
   function confirmDelete() {
@@ -617,9 +620,7 @@ export function ModelesEquipementsPanel() {
                         // Descendre d'un palier (PUSH) : on ajoute la catégorie au
                         // chemin courant.
                         onClick={() => goTo([...path, cat])}
-                        menuActions={
-                          rowActions.length ? rowActions : undefined
-                        }
+                        menuActions={rowActions.length ? rowActions : undefined}
                       />
                     )
                   })}
@@ -680,9 +681,7 @@ export function ModelesEquipementsPanel() {
                         }
                         // Ouvrir la page de détail du modèle (caractéristiques).
                         onClick={() => goToModele(modele)}
-                        menuActions={
-                          rowActions.length ? rowActions : undefined
-                        }
+                        menuActions={rowActions.length ? rowActions : undefined}
                       />
                     )
                   })}
