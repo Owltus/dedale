@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react'
 import {
   Breadcrumb as BreadcrumbRoot,
   BreadcrumbEllipsis,
@@ -37,6 +38,10 @@ export interface Crumb {
  * Ex. `Plan › Transport › Ascenseur › [titre]` → `… › Ascenseur › [titre]` (le « … »
  * déroule Plan + Transport). Un seul ancêtre (liste → détail) est affiché tel quel. Le
  * nœud COURANT n'y figure pas — c'est le titre de la page. Liste vide → rien (racine).
+ *
+ * MOBILE (< sm) : le fil se condense en « ‹ parent » — un simple retour d'un niveau
+ * vers le parent immédiat (chevron gauche) — pour laisser toute la place au titre. Le
+ * « … » et les séparateurs sont masqués (on remonte alors palier par palier).
  */
 // Anneau de focus CLAVIER cohérent avec le reste de l'app (cf. `ui/button`) :
 // on retire l'outline navigateur et on pose le même anneau `ring` visible.
@@ -56,8 +61,9 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
     <BreadcrumbRoot className="min-w-0 shrink">
       <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-1.5">
         {hidden.length > 0 && (
+          // Repli « … » + son séparateur : DESKTOP seulement (mobile → « ‹ parent »).
           <>
-            <BreadcrumbItem className="shrink-0">
+            <BreadcrumbItem className="hidden shrink-0 sm:inline-flex">
               {soleHidden ? (
                 // Un seul parent replié : lien direct (un clic = on y va).
                 <BreadcrumbLink asChild>
@@ -90,7 +96,7 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
                 </DropdownMenu>
               )}
             </BreadcrumbItem>
-            <BreadcrumbSeparator className="shrink-0" />
+            <BreadcrumbSeparator className="hidden shrink-0 sm:flex" />
           </>
         )}
 
@@ -100,14 +106,16 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
               type="button"
               onClick={tail.onClick}
               title={tail.label}
-              className={`min-w-0 truncate ${focusRing}`}
+              className={`flex min-w-0 items-center gap-1 ${focusRing}`}
             >
-              {tail.label}
+              {/* Chevron « ‹ » de remontée, MOBILE seulement (le fil = « ‹ parent »). */}
+              <ChevronLeft className="size-4 shrink-0 sm:hidden" />
+              <span className="min-w-0 truncate">{tail.label}</span>
             </button>
           </BreadcrumbLink>
         </BreadcrumbItem>
-        {/* Séparateur FINAL : relie le fil au titre de la page (rendu hors du <nav>). */}
-        <BreadcrumbSeparator className="shrink-0" />
+        {/* Séparateur FINAL (vers le titre, hors du <nav>) : DESKTOP seulement. */}
+        <BreadcrumbSeparator className="hidden shrink-0 sm:flex" />
       </BreadcrumbList>
     </BreadcrumbRoot>
   )
