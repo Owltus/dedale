@@ -1,18 +1,18 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarClock } from 'lucide-react'
+import { CalendarClock, Truck } from 'lucide-react'
 import {
-  ChartLegend,
   onKeyActivate,
   toneToken,
 } from '@/components/common/charts/chart-legend'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import type { StatusTone } from '@/components/common/status-badge'
 import {
+  ajouterJoursIso,
   ajouterMoisIso,
-  fenetrePreavisContrat,
   TYPE_CONTRAT,
-  type DonneesContrat,
 } from '@/features/prestataires/etat'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import {
@@ -42,14 +42,14 @@ interface FriseReconductionsProps {
 }
 
 /**
- * Frise chronologique « Reconductions de contrats » (zone 2 du tableau de bord).
- * Ligne de temps HORIZONTALE des événements de contrats (début, reconductions,
- * préavis, résiliation), « aujourd'hui » en pointillés au premier tiers, axe des
- * mois + année en filigrane, points colorés par nature (tokens sémantiques),
- * anti-chevauchement vertical, tooltip riche, clic → fiche prestataire.
- *
- * Le `centre` est PARTAGÉ avec les barres (même `useFenetreTemporelle`) → les
- * flèches clavier déplacent barres ET frise de la même période.
+ * Frise chronologique « Reconductions de contrats » (zone 2 du tableau de bord),
+ * façon mini-Gantt : chaque ÉCHÉANCE (fin d'un déterminé, reconduction d'un tacite)
+ * est précédée d'une BARRE = sa PÉRIODE DE PRÉAVIS (`delai_preavis_jours` avant
+ * l'échéance), avec un jalon coloré à l'échéance. Début et résiliations restent des
+ * POINTS. « Aujourd'hui » en pointillés au premier tiers, axe des mois, année en
+ * filigrane, couleurs par nature (tokens sémantiques), anti-chevauchement vertical,
+ * tooltip (avec vignette prestataire), clic → fiche prestataire. Le `centre` est
+ * PARTAGÉ avec les barres (mêmes flèches clavier).
  */
 export function FriseReconductions({
   siteId,
@@ -71,7 +71,7 @@ function FriseAutonome({ siteId }: { siteId: string }) {
   return <FriseVue siteId={siteId} fenetre={fenetre} mesureRef={mesureRef} />
 }
 
-// ── Natures d'événement (catégories de la légende) ────────────────────────────
+// ── Natures d'événement (couleur) ─────────────────────────────────────────────
 type NatureCle =
   | 'debut'
   | 'renouvellement'
@@ -83,7 +83,6 @@ type NatureCle =
 interface NatureDef {
   label: string
   tone: StatusTone
-  halo?: boolean
   losange?: boolean
 }
 
@@ -92,29 +91,20 @@ const NATURE_DEF: Record<NatureCle, NatureDef> = {
   debut: { label: 'Début', tone: 'success' },
   renouvellement: { label: 'Renouvellement', tone: 'info' },
   imminent: { label: 'Échéance < 30 j', tone: 'destructive' },
-  preavis: { label: 'Préavis ouvert', tone: 'warning', halo: true },
+  preavis: { label: 'Préavis', tone: 'warning' },
   resiliation: { label: 'Résiliation', tone: 'violet', losange: true },
   passe: { label: 'Passé', tone: 'neutral' },
 }
 
-/** Ordre stable des natures dans la légende. */
-const ORDRE_NATURES: NatureCle[] = [
-  'debut',
-  'renouvellement',
-  'imminent',
-  'preavis',
-  'resiliation',
-  'passe',
-]
-
-// ── Géométrie du SVG (unités de viewBox ; largeur réelle = 100%) ──────────────
-const VIEW_W = 1000
-const R = 9
-const LANE_H = 26
-const AXE_H = 30
+// ── Géométrie du SVG (PIXELS RÉELS : le viewBox épouse la largeur mesurée → pas
+// d'agrandissement quand la carte s'élargit ; éléments fins) ───────────────────
+const R = 5
+const LANE_H = 16
+const AXE_H = 22
 const POINTS_TOP = AXE_H + R + 6
-/** Écart X minimal (unités viewBox) sous lequel deux points passent sur des lignes différentes. */
-const MIN_DX = R * 2.4
+const BARRE_H = R * 1.6 // épaisseur de la barre de préavis
+const GAP = R * 1.2 // espace mini entre deux éléments d'une même ligne
+const BAS = 16 // place réservée en bas pour « Aujourd'hui »
 const JOUR = 86_400_000
 
 const FMT_MOIS = new Intl.DateTimeFormat('fr-FR', { month: 'short' })
@@ -137,41 +127,68 @@ function labelEcart(diff: number): string {
   return `il y a ${String(-diff)} j`
 }
 
-type KindEvenement = 'debut' | 'echeance' | 'preavis' | 'resiliation'
+/** Nature d'une ÉCHÉANCE selon sa proximité : passé / imminent (<30 j) / lointain. */
+function natureEcheance(echeanceIso: string, todayIso: string): NatureCle {
+  const diff = joursEntre(todayIso, echeanceIso)
+  if (diff < 0) return 'passe'
+  if (diff < 30) return 'imminent'
+  return 'renouvellement'
+}
 
+type KindPoint = 'debut' | 'resiliation'
+
+/** Jalon ponctuel (point) : début du contrat ou résiliation déclarée. */
 interface PointBrut {
   contratId: string
   prestataireId: string
   prestataireLibelle: string
   date: string
   evenement: string
-  kind: KindEvenement
-  /** Fenêtre de préavis ouverte aujourd'hui (pertinent seulement pour `preavis`). */
-  ouverte: boolean
+  kind: KindPoint
 }
 
-interface PointCalc extends PointBrut {
+/** Barre de préavis d'une échéance : `[echeance − delai_preavis ; echeance]`. */
+interface BarreBrute {
+  contratId: string
+  prestataireId: string
+  prestataireLibelle: string
+  debut: string
+  echeance: string
+  delaiPreavis: number
+  echeanceEvenement: string
+}
+
+/** Élément projeté (point OU barre) prêt au rendu, avec sa ligne (anti-chevauchement). */
+type Element = {
   cle: string
-  ms: number
-  x: number
+  prestataireId: string
+  prestataireLibelle: string
   lane: number
-  nature: NatureCle
-}
-
-/**
- * Nature d'un point selon son type et sa position temporelle :
- * résiliation → violet ; préavis ouvert → warning ; passé → gris ; début à venir →
- * vert ; échéance < 30 j → rouge ; sinon renouvellement lointain → bleu.
- */
-function natureDe(p: PointBrut, todayIso: string): NatureCle {
-  if (p.kind === 'resiliation') return 'resiliation'
-  if (p.kind === 'preavis' && p.ouverte) return 'preavis'
-  const diff = joursEntre(todayIso, p.date)
-  if (diff < 0) return 'passe'
-  if (p.kind === 'debut') return 'debut'
-  if (diff < 30) return 'imminent'
-  return 'renouvellement'
-}
+  /** Centre X (ancrage du tooltip). */
+  xc: number
+  /** Empreinte [gauche, droite] pour l'affectation des lignes. */
+  x0: number
+  x1: number
+} & (
+  | {
+      type: 'point'
+      nature: NatureCle
+      evenement: string
+      date: string
+      forme: 'dot' | 'diamond'
+    }
+  | {
+      type: 'barre'
+      barX0: number
+      barX1: number
+      debut: string
+      echeance: string
+      delaiPreavis: number
+      echeanceEvenement: string
+      echeanceNature: NatureCle
+      ouverte: boolean
+    }
+)
 
 interface FriseVueProps {
   siteId: string
@@ -183,188 +200,246 @@ interface FriseVueProps {
 /**
  * Rendu pur de la frise à partir d'une fenêtre temporelle (fournie ou autonome) :
  * ne monte AUCUN `useFenetreTemporelle` (pas de listener clavier ici) → sûr à
- * afficher aux côtés des barres sans double bond.
+ * afficher aux côtés des barres sans double bond. Mesure sa propre largeur pour
+ * dessiner en pixels réels (pas d'agrandissement sur grand écran).
  */
 function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
   const navigate = useNavigate()
   const { data: contrats } = useQuery(dashboardQueries.contratsFrise(siteId))
   const { data: prestataires } = useQuery(prestatairesQueries.list())
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const [survol, setSurvol] = useState<string | null>(null)
 
+  // Image du prestataire (vignette) par id → affichée dans le tooltip.
+  const miniatureParPresta = useMemo(() => {
+    const m = new Map<string, string | null>()
+    for (const p of prestataires ?? []) m.set(p.id, p.miniature_id)
+    return m
+  }, [prestataires])
+
+  // Largeur réelle du conteneur → `viewW` (le viewBox est en pixels 1:1).
+  const boxRef = useRef<HTMLDivElement | null>(null)
+  const [largeur, setLargeur] = useState(0)
+  useLayoutEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    let raf = 0
+    const relever = () =>
+      setLargeur((p) => (p === el.clientWidth ? p : el.clientWidth))
+    relever()
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(relever)
+    })
+    ro.observe(el)
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+    }
+  }, [])
+  // Ref partagée : mesure interne (viewW) + `mesureRef` du mode autonome (nbSemaines).
+  const setRefs = useCallback(
+    (el: HTMLDivElement | null) => {
+      boxRef.current = el
+      if (mesureRef) mesureRef.current = el
+    },
+    [mesureRef],
+  )
+  const viewW = largeur || 1000
+
   const modele = useMemo(() => {
-    const nbSem = fenetre.semaines.length || 1
-    const porteeJours = nbSem * 7
-    // Layout « aujourd'hui au premier tiers » : ~1/3 de passé à gauche, ~2/3 de
-    // futur à droite. La fenêtre suit le `centre` partagé → les flèches décalent
-    // barres + frise ensemble (même `PAS_NAV`, car même `centre`).
+    // Densité des mois : ~un mois tous les ~60 px → beaucoup de mois, bien rapprochés.
+    // La portée temporelle en découle (indépendante des barres : seul le `centre` est
+    // partagé, pour la navigation clavier).
+    const moisCible = Math.max(6, Math.round(viewW / 60))
+    const porteeJours = Math.round(moisCible * 30.44)
+    // Layout « aujourd'hui au premier tiers » : ~1/3 de passé à gauche, ~2/3 de futur.
     const offsetPasse = Math.round(porteeJours / 3)
     const centreMs = fenetre.centre.getTime()
     const t0ms = centreMs - offsetPasse * JOUR
     const t1ms = centreMs + (porteeJours - offsetPasse) * JOUR
-    const projX = (ms: number) => ((ms - t0ms) / (t1ms - t0ms)) * VIEW_W
+    const projX = (ms: number) => ((ms - t0ms) / (t1ms - t0ms)) * viewW
+    const clampMs = (ms: number) => Math.min(Math.max(ms, t0ms), t1ms)
 
     const todayIso = todayLocal()
     const todayMs = msDeIso(todayIso)
 
-    // ── Dérivation des événements (via l'API `etat.ts`) ────────────────────────
-    const bruts: PointBrut[] = []
+    // ── Dérivation des jalons ──────────────────────────────────────────────────
+    const points: PointBrut[] = []
+    const barres: BarreBrute[] = []
     for (const c of contrats ?? []) {
-      const prestataireLibelle = c.prestataires.libelle
       const base = {
         contratId: c.id,
         prestataireId: c.prestataire_id,
-        prestataireLibelle,
+        prestataireLibelle: c.prestataires.libelle,
       }
-      const donnees: DonneesContrat = {
-        type_contrat_id: c.type_contrat_id,
-        date_debut: c.date_debut,
-        date_fin: c.date_fin,
-        date_signature: c.date_signature,
-        date_resiliation: c.date_resiliation,
-        date_notification: c.date_notification,
-        delai_preavis_jours: c.delai_preavis_jours,
-        duree_cycle_mois: c.duree_cycle_mois,
-        fenetre_resiliation_jours: c.fenetre_resiliation_jours,
-      }
+      const dp = c.delai_preavis_jours || 30
 
       // Début du contrat.
-      bruts.push({
+      points.push({
         ...base,
         date: c.date_debut,
         evenement: 'Début du contrat',
         kind: 'debut',
-        ouverte: false,
       })
 
-      // Échéances : fin (déterminé) ou reconductions MULTIPLES (tacite) couvrant
-      // la fenêtre visible (itère `date_debut + k×cycle` tant que ≤ t1).
+      // Barre de préavis d'une échéance : [échéance − dp ; échéance].
+      const pushEcheance = (echeance: string, evenement: string) => {
+        const debut = ajouterJoursIso(echeance, -dp)
+        if (!debut) return
+        barres.push({
+          ...base,
+          debut,
+          echeance,
+          delaiPreavis: dp,
+          echeanceEvenement: evenement,
+        })
+      }
+
       if (c.type_contrat_id === TYPE_CONTRAT.determine) {
-        if (c.date_fin)
-          bruts.push({
-            ...base,
-            date: c.date_fin,
-            evenement: 'Fin du contrat',
-            kind: 'echeance',
-            ouverte: false,
-          })
+        if (c.date_fin) pushEcheance(c.date_fin, 'Fin du contrat')
       } else if (
         c.type_contrat_id === TYPE_CONTRAT.tacite &&
         c.duree_cycle_mois &&
         c.duree_cycle_mois > 0
       ) {
+        // Reconductions couvrant la fenêtre (barre = préavis en amont de chacune).
         let k = 1
         let d = ajouterMoisIso(c.date_debut, c.duree_cycle_mois * k)
-        while (d && msDeIso(d) <= t1ms && k < 10_000) {
-          if (msDeIso(d) >= t0ms)
-            bruts.push({
-              ...base,
-              date: d,
-              evenement: 'Reconduction',
-              kind: 'echeance',
-              ouverte: false,
-            })
+        while (d && msDeIso(d) <= t1ms + dp * JOUR && k < 10_000) {
+          if (msDeIso(d) >= t0ms) pushEcheance(d, 'Reconduction')
           k += 1
           d = ajouterMoisIso(c.date_debut, c.duree_cycle_mois * k)
         }
       }
 
-      // Fenêtre de préavis de la prochaine échéance.
-      const preavis = fenetrePreavisContrat(donnees, todayIso)
-      if (preavis.fin)
-        bruts.push({
-          ...base,
-          date: preavis.fin,
-          evenement: 'Dernier jour pour résilier',
-          kind: 'preavis',
-          ouverte: preavis.ouverte,
-        })
-      if (preavis.debut)
-        bruts.push({
-          ...base,
-          date: preavis.debut,
-          evenement: 'Ouverture du préavis',
-          kind: 'preavis',
-          ouverte: preavis.ouverte,
-        })
-
-      // Résiliation déclarée (notification puis résiliation).
+      // Résiliation déclarée (notification puis résiliation) → points.
       if (c.date_notification)
-        bruts.push({
+        points.push({
           ...base,
           date: c.date_notification,
           evenement: 'Notification de résiliation',
           kind: 'resiliation',
-          ouverte: false,
         })
       if (c.date_resiliation)
-        bruts.push({
+        points.push({
           ...base,
           date: c.date_resiliation,
           evenement: 'Résiliation',
           kind: 'resiliation',
-          ouverte: false,
         })
     }
 
-    // ── Projection + anti-chevauchement (empilement par collision de X) ────────
-    const dansFenetre = bruts
-      .map((p) => ({ ...p, ms: msDeIso(p.date) }))
-      .filter((p) => p.ms >= t0ms && p.ms <= t1ms)
-      .sort((a, b) => a.ms - b.ms)
+    // ── Projection + empreinte X (points ET barres, lignes communes) ───────────
+    interface Occ {
+      x0: number
+      x1: number
+      build: (lane: number) => Element
+    }
+    const occ: Occ[] = []
 
-    const lanesLastX: number[] = []
-    const points: PointCalc[] = dansFenetre.map((p, i) => {
-      const x = projX(p.ms)
-      let lane = lanesLastX.findIndex((lx) => x - lx >= MIN_DX)
+    for (const p of points) {
+      const ms = msDeIso(p.date)
+      if (ms < t0ms || ms > t1ms) continue
+      const xc = projX(ms)
+      const nature: NatureCle =
+        p.kind === 'resiliation' ? 'resiliation' : 'debut'
+      occ.push({
+        x0: xc - R,
+        x1: xc + R,
+        build: (lane) => ({
+          type: 'point',
+          cle: `pt-${p.contratId}-${p.kind}-${p.date}`,
+          prestataireId: p.prestataireId,
+          prestataireLibelle: p.prestataireLibelle,
+          lane,
+          xc,
+          x0: xc - R,
+          x1: xc + R,
+          nature,
+          evenement: p.evenement,
+          date: p.date,
+          forme: NATURE_DEF[nature].losange ? 'diamond' : 'dot',
+        }),
+      })
+    }
+
+    for (const b of barres) {
+      const msD = msDeIso(b.debut)
+      const msE = msDeIso(b.echeance)
+      if (msE < t0ms || msD > t1ms) continue
+      const bx0 = projX(clampMs(msD))
+      const bx1 = Math.max(projX(clampMs(msE)), bx0 + R * 2)
+      const ouverte = todayMs >= msD && todayMs <= msE
+      const echeanceNature = natureEcheance(b.echeance, todayIso)
+      occ.push({
+        x0: bx0,
+        x1: bx1 + R, // réserve la place du jalon d'échéance au bout droit
+        build: (lane) => ({
+          type: 'barre',
+          cle: `bar-${b.contratId}-${b.echeance}`,
+          prestataireId: b.prestataireId,
+          prestataireLibelle: b.prestataireLibelle,
+          lane,
+          xc: (bx0 + bx1) / 2,
+          x0: bx0,
+          x1: bx1 + R,
+          barX0: bx0,
+          barX1: bx1,
+          debut: b.debut,
+          echeance: b.echeance,
+          delaiPreavis: b.delaiPreavis,
+          echeanceEvenement: b.echeanceEvenement,
+          echeanceNature,
+          ouverte,
+        }),
+      })
+    }
+
+    // ── Affectation des lignes (anti-chevauchement, points ET barres ensemble) ──
+    occ.sort((a, b) => a.x0 - b.x0)
+    const lanesRight: number[] = []
+    const elements: Element[] = occ.map((o) => {
+      let lane = lanesRight.findIndex((r) => o.x0 >= r + GAP)
       if (lane === -1) {
-        lane = lanesLastX.length
-        lanesLastX.push(x)
+        lane = lanesRight.length
+        lanesRight.push(o.x1)
       } else {
-        lanesLastX[lane] = x
+        lanesRight[lane] = o.x1
       }
-      return {
-        ...p,
-        cle: `${p.contratId}-${p.kind}-${p.date}-${String(i)}`,
-        x,
-        lane,
-        nature: natureDe(p, todayIso),
-      }
+      return o.build(lane)
     })
 
-    const nbLanes = Math.max(lanesLastX.length, 1)
-    const hauteur = POINTS_TOP + nbLanes * LANE_H + 6
+    const nbLanes = Math.max(lanesRight.length, 1)
+    const hauteur = POINTS_TOP + nbLanes * LANE_H + BAS
 
-    // ── Axe des mois + année en filigrane ──────────────────────────────────────
+    // ── Axe des mois (anti-chevauchement) + filigrane ──────────────────────────
     const mois: { x: number; label: string }[] = []
     let cur = new Date(
       new Date(t0ms).getFullYear(),
       new Date(t0ms).getMonth(),
       1,
     )
+    let dernierMoisX = -Infinity
     while (cur.getTime() <= t1ms) {
       const x = projX(cur.getTime())
-      if (x >= 0 && x <= VIEW_W) mois.push({ x, label: FMT_MOIS.format(cur) })
+      if (x >= 0 && x <= viewW && x - dernierMoisX >= 34) {
+        mois.push({ x, label: FMT_MOIS.format(cur) })
+        dernierMoisX = x
+      }
       cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
     }
 
     const todayX = projX(todayMs)
     return {
-      points,
+      elements,
       hauteur,
       mois,
       todayX,
-      todayVisible: todayX >= 0 && todayX <= VIEW_W,
+      todayVisible: todayX >= 0 && todayX <= viewW,
       filigrane: String(fenetre.centre.getFullYear()),
     }
-  }, [contrats, fenetre.centre, fenetre.semaines.length])
-
-  const naturesPresentes = useMemo(() => {
-    const set = new Set(modele.points.map((p) => p.nature))
-    return ORDRE_NATURES.filter((n) => set.has(n)).map((n) => ({
-      label: NATURE_DEF[n].label,
-      tone: NATURE_DEF[n].tone,
-    }))
-  }, [modele.points])
+  }, [contrats, fenetre.centre, viewW])
 
   const ouvrir = (prestataireId: string) => {
     const liste = prestataires ?? []
@@ -377,39 +452,41 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
   }
 
   const cyDe = (lane: number) => POINTS_TOP + lane * LANE_H
-  const survolPoint = modele.points.find((p) => p.cle === survol) ?? null
+  const survolElem = modele.elements.find((e) => e.cle === survol) ?? null
 
   return (
     <DashboardCard icon={CalendarClock} title="Reconductions de contrats">
-      <div ref={mesureRef} className="relative">
-        {modele.points.length === 0 ? (
+      <div ref={setRefs} className="relative">
+        {modele.elements.length === 0 ? (
           <p className="text-muted-foreground py-6 text-center text-sm">
             Aucune reconduction de contrat sur la période.
           </p>
         ) : (
           <>
             <svg
-              viewBox={`0 0 ${String(VIEW_W)} ${String(modele.hauteur)}`}
+              viewBox={`0 0 ${String(viewW)} ${String(modele.hauteur)}`}
+              width={viewW}
+              height={modele.hauteur}
               role="img"
               aria-label="Frise des reconductions de contrats"
-              className="block w-full"
+              className="block"
             >
               {/* Année en filigrane. */}
               <text
-                x={VIEW_W / 2}
-                y={modele.hauteur * 0.62}
+                x={viewW / 2}
+                y={modele.hauteur * 0.66}
                 textAnchor="middle"
                 style={{
                   fill: 'var(--muted-foreground)',
                   opacity: 0.07,
-                  fontSize: modele.hauteur * 0.7,
+                  fontSize: modele.hauteur * 0.55,
                   fontWeight: 700,
                 }}
               >
                 {modele.filigrane}
               </text>
 
-              {/* Axe des mois : trait fin + libellé en haut. */}
+              {/* Axe des mois : trait fin + libellé centré en haut. */}
               {modele.mois.map((m, i) => (
                 <g key={`mois-${String(i)}`}>
                   <line
@@ -421,36 +498,36 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
                     strokeWidth={1}
                   />
                   <text
-                    x={m.x + 4}
-                    y={AXE_H - 10}
-                    textAnchor="start"
-                    style={{ fill: 'var(--muted-foreground)', fontSize: 13 }}
+                    x={m.x}
+                    y={AXE_H - 7}
+                    textAnchor="middle"
+                    style={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
                   >
                     {m.label}
                   </text>
                 </g>
               ))}
 
-              {/* « Aujourd'hui » : trait vertical pointillé. */}
+              {/* « Aujourd'hui » : trait vertical pointillé + libellé centré EN BAS. */}
               {modele.todayVisible && (
                 <>
                   <line
                     x1={modele.todayX}
-                    y1={AXE_H - 4}
+                    y1={AXE_H - 3}
                     x2={modele.todayX}
-                    y2={modele.hauteur}
+                    y2={modele.hauteur - BAS + 2}
                     stroke="var(--muted-foreground)"
-                    strokeWidth={1.5}
-                    strokeDasharray="5 5"
+                    strokeWidth={1}
+                    strokeDasharray="4 4"
                     opacity={0.7}
                   />
                   <text
-                    x={modele.todayX + 4}
-                    y={AXE_H + 10}
-                    textAnchor="start"
+                    x={modele.todayX}
+                    y={modele.hauteur - 4}
+                    textAnchor="middle"
                     style={{
                       fill: 'var(--muted-foreground)',
-                      fontSize: 12,
+                      fontSize: 10,
                       fontWeight: 600,
                     }}
                   >
@@ -459,93 +536,127 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
                 </>
               )}
 
-              {/* Points. */}
-              {modele.points.map((p) => {
-                const def = NATURE_DEF[p.nature]
-                const token = toneToken(def.tone)
-                const cy = cyDe(p.lane)
-                const diff = joursEntre(todayLocal(), p.date)
-                const aria = `${p.prestataireLibelle} — ${def.label} · ${p.evenement} · ${formatDate(p.date)} · ${labelEcart(diff)}`
+              {/* Éléments : barres de préavis (+ jalon d'échéance) et points. */}
+              {modele.elements.map((e) => {
+                const aria =
+                  e.type === 'barre'
+                    ? `${e.prestataireLibelle} — Préavis ${String(e.delaiPreavis)} j avant ${e.echeanceEvenement.toLowerCase()} du ${formatDate(e.echeance)}`
+                    : `${e.prestataireLibelle} — ${NATURE_DEF[e.nature].label} · ${e.evenement} · ${formatDate(e.date)} · ${labelEcart(joursEntre(todayLocal(), e.date))}`
+                const cy = cyDe(e.lane)
                 return (
                   <g
-                    key={p.cle}
+                    key={e.cle}
                     role="button"
                     tabIndex={0}
                     aria-label={aria}
                     className="cursor-pointer outline-none"
-                    onClick={() => ouvrir(p.prestataireId)}
-                    onKeyDown={onKeyActivate(() => ouvrir(p.prestataireId))}
-                    onMouseEnter={() => setSurvol(p.cle)}
+                    onClick={() => ouvrir(e.prestataireId)}
+                    onKeyDown={onKeyActivate(() => ouvrir(e.prestataireId))}
+                    onMouseEnter={() => setSurvol(e.cle)}
                     onMouseLeave={() => setSurvol(null)}
-                    onFocus={() => setSurvol(p.cle)}
+                    onFocus={() => setSurvol(e.cle)}
                     onBlur={() => setSurvol(null)}
                   >
-                    {def.halo && (
-                      <>
-                        <circle
-                          cx={p.x}
-                          cy={cy}
-                          r={R * 1.9}
-                          fill={token}
-                          opacity={0.18}
-                        />
-                        <circle
-                          cx={p.x}
-                          cy={cy}
-                          r={R * 1.4}
-                          fill="none"
-                          stroke={token}
-                          strokeWidth={2}
-                          opacity={0.5}
-                        />
-                      </>
-                    )}
-                    {def.losange ? (
+                    {e.type === 'barre' ? (
+                      // Barre continue = période de préavis (couleur = proximité de
+                      // l'échéance, bouts arrondis, sans point final).
+                      <rect
+                        x={e.barX0}
+                        y={cy - BARRE_H / 2}
+                        width={Math.max(e.barX1 - e.barX0, R * 2)}
+                        height={BARRE_H}
+                        rx={BARRE_H / 2}
+                        fill={toneToken(NATURE_DEF[e.echeanceNature].tone)}
+                        opacity={e.ouverte ? 1 : survol === e.cle ? 0.9 : 0.65}
+                      >
+                        <title>{aria}</title>
+                      </rect>
+                    ) : e.forme === 'diamond' ? (
                       <polygon
-                        points={`${String(p.x)},${String(cy - R)} ${String(p.x + R)},${String(cy)} ${String(p.x)},${String(cy + R)} ${String(p.x - R)},${String(cy)}`}
-                        fill={token}
+                        points={`${String(e.xc)},${String(cy - R)} ${String(e.xc + R)},${String(cy)} ${String(e.xc)},${String(cy + R)} ${String(e.xc - R)},${String(cy)}`}
+                        fill={toneToken(NATURE_DEF[e.nature].tone)}
                       >
                         <title>{aria}</title>
                       </polygon>
                     ) : (
-                      <circle cx={p.x} cy={cy} r={R} fill={token}>
+                      <circle
+                        cx={e.xc}
+                        cy={cy}
+                        r={R}
+                        fill={toneToken(NATURE_DEF[e.nature].tone)}
+                      >
                         <title>{aria}</title>
                       </circle>
                     )}
-                    {/* Zone de capture élargie pour un survol/clic confortable. */}
-                    <circle cx={p.x} cy={cy} r={R + 6} fill="transparent" />
+                    {/* Zone de capture élargie (hauteur d'une ligne). */}
+                    <rect
+                      x={e.x0 - 4}
+                      y={cy - LANE_H / 2}
+                      width={e.x1 - e.x0 + 8}
+                      height={LANE_H}
+                      fill="transparent"
+                    />
                   </g>
                 )
               })}
             </svg>
 
-            {survolPoint && (
+            {survolElem && (
               <div
-                className="bg-popover text-popover-foreground pointer-events-none absolute z-10 rounded-md border px-2 py-1 text-xs shadow-md"
+                className="bg-popover text-popover-foreground pointer-events-none absolute z-10 flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs shadow-md"
                 style={{
-                  left: `${String((survolPoint.x / VIEW_W) * 100)}%`,
-                  top: `${String((cyDe(survolPoint.lane) / modele.hauteur) * 100)}%`,
+                  left: `${String((survolElem.xc / viewW) * 100)}%`,
+                  top: `${String((cyDe(survolElem.lane) / modele.hauteur) * 100)}%`,
                   transform: 'translate(-50%, calc(-100% - 8px))',
                 }}
               >
-                <div className="font-medium">
-                  {survolPoint.prestataireLibelle}
+                <div className="bg-muted size-9 shrink-0 overflow-hidden rounded">
+                  <MiniatureThumb
+                    url={urlOf(
+                      miniatureParPresta.get(survolElem.prestataireId) ?? null,
+                    )}
+                    fallback={<Truck className="size-4" />}
+                    alt=""
+                    onError={refreshMiniatures}
+                    className="size-full rounded-none"
+                  />
                 </div>
-                <div className="text-muted-foreground whitespace-nowrap">
-                  {NATURE_DEF[survolPoint.nature].label} ·{' '}
-                  {survolPoint.evenement}
-                </div>
-                <div className="text-muted-foreground whitespace-nowrap">
-                  {formatDate(survolPoint.date)} ·{' '}
-                  {labelEcart(joursEntre(todayLocal(), survolPoint.date))}
+                <div>
+                  <div className="font-medium">
+                    {survolElem.prestataireLibelle}
+                  </div>
+                  {survolElem.type === 'barre' ? (
+                    <>
+                      <div className="text-muted-foreground whitespace-nowrap">
+                        Préavis {survolElem.delaiPreavis} j
+                        {survolElem.ouverte ? ' · en cours' : ''}
+                      </div>
+                      <div className="text-muted-foreground whitespace-nowrap">
+                        {survolElem.echeanceEvenement} le{' '}
+                        {formatDate(survolElem.echeance)} ·{' '}
+                        {labelEcart(
+                          joursEntre(todayLocal(), survolElem.echeance),
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-muted-foreground whitespace-nowrap">
+                        {NATURE_DEF[survolElem.nature].label} ·{' '}
+                        {survolElem.evenement}
+                      </div>
+                      <div className="text-muted-foreground whitespace-nowrap">
+                        {formatDate(survolElem.date)} ·{' '}
+                        {labelEcart(joursEntre(todayLocal(), survolElem.date))}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
           </>
         )}
       </div>
-
-      {naturesPresentes.length > 0 && <ChartLegend items={naturesPresentes} />}
     </DashboardCard>
   )
 }
