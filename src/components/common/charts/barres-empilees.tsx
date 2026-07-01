@@ -99,21 +99,6 @@ export function BarresEmpilees({
           aria-label="Barres empilées par période"
           className="block"
         >
-          {/* Fond de la colonne « en cours » (semaine courante) : MÊME token que le
-              surlignage du planning (`--col-active`), dessiné derrière les barres. */}
-          {colonnes.map((col, i) =>
-            col.enCours ? (
-              <rect
-                key={`col-active-${col.cle}`}
-                x={i * colW}
-                y={0}
-                width={colW}
-                height={h}
-                fill="var(--col-active)"
-              />
-            ) : null,
-          )}
-
           {filigrane && (
             <text
               x={w / 2}
@@ -200,9 +185,13 @@ export function BarresEmpilees({
                   y={baseline + LABEL_H - 7}
                   textAnchor="middle"
                   style={{
-                    fill: 'var(--foreground)',
+                    // Semaine en cours : distinguée UNIQUEMENT ici (numéro en primaire +
+                    // gras) ; les autres semaines restent atténuées.
+                    fill: col.enCours
+                      ? 'var(--primary)'
+                      : 'var(--muted-foreground)',
                     fontSize: 12,
-                    fontWeight: 600,
+                    fontWeight: col.enCours ? 700 : 500,
                   }}
                 >
                   {col.label}

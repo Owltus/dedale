@@ -225,10 +225,7 @@ function BarresVue({
         key: etat.cle,
         label: etat.label,
         value: compte.get(etat.cle) ?? 0,
-        // Semaine en cours : « Programmé » (neutral/gris) repeint en JAUNE pour ne pas
-        // se confondre avec le fond de colonne actif — MÊME règle que le planning
-        // (cf. `toneCellule` / `statutPlanningOt`).
-        tone: enCours && etat.tone === 'neutral' ? 'yellow' : etat.tone,
+        tone: etat.tone,
       }))
       return {
         cle: s.cle,
