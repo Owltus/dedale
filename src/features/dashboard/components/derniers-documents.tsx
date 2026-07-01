@@ -1,41 +1,54 @@
-import { Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
-import { FileText } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Download, FileText } from 'lucide-react'
 import { QueryState } from '@/components/common/query-state'
-import { CardSkeletons } from '@/components/common/card-skeletons'
 import { EmptyState } from '@/components/common/empty-state'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { formatMime } from '@/features/documents/format'
-import { formatDate } from '@/lib/date'
-import { dashboardQueries } from '../queries'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import type { RowAction } from '@/components/common/row-actions'
+import { DocumentRow } from '@/features/documents/components/document-row'
+import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
+import { useDocumentDownload } from '@/features/documents/use-document-download'
+import type { DocumentMeta } from '@/features/documents/format'
+import { listStack } from '@/lib/responsive'
+import { AlerteJustificatifs } from './alerte-justificatifs'
+import { DashboardCard } from './dashboard-card'
+import { useDashboardData } from '../use-dashboard-data'
+import { useLignesVisibles } from '../use-lignes-visibles'
 
 interface DerniersDocumentsProps {
   siteId: string
 }
 
-/** Cinq derniers documents ajoutés au site. */
+/** Hauteur d'une `DocumentRow` (`ListRow` média densité `sm`, `h-14`). */
+const HAUTEUR_LIGNE = 56
+
+/**
+ * Colonne « Documents » du tableau de bord (zone 3, droite) : l'alerte des
+ * justificatifs manquants EN TÊTE, puis les derniers fichiers du site (triés
+ * `uploaded_at` DESC par `documentsQueries.list`). Rendu via la brique partagée
+ * `DocumentRow` ; clic → aperçu (`DocumentPreviewDialog`) ; menu → téléchargement
+ * (`useDocumentDownload`).
+ *
+ * Fit-to-height : la zone de liste (flex-1, `overflow-hidden`) est mesurée par
+ * `useLignesVisibles` → on ne rend que le nombre de lignes qui tiennent.
+ */
 export function DerniersDocuments({ siteId }: DerniersDocumentsProps) {
-  const query = useQuery(dashboardQueries.derniersDocuments(siteId))
+  const { documentsQuery } = useDashboardData(siteId)
+  const download = useDocumentDownload()
+  const [apercu, setApercu] = useState<DocumentMeta | null>(null)
+  const zoneRef = useRef<HTMLDivElement>(null)
+  const nbLignes = useLignesVisibles(zoneRef, HAUTEUR_LIGNE)
 
   return (
-    <Card className="min-w-0">
-      <CardHeader>
-        <CardTitle className="text-base">Derniers documents</CardTitle>
-        <CardDescription>Derniers fichiers ajoutés au site.</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <DashboardCard
+      icon={FileText}
+      title="Documents"
+      contentClassName="flex min-h-0 flex-col gap-3"
+    >
+      <AlerteJustificatifs siteId={siteId} />
+      <div ref={zoneRef} className="min-h-0 flex-1 overflow-hidden">
         <QueryState
-          query={query}
-          pending={
-            <CardSkeletons count={4} height="h-10" container="space-y-2" />
-          }
+          query={documentsQuery}
+          pending={<ListRowSkeletons count={4} dense />}
           errorClassName="py-6"
           empty={
             <EmptyState
@@ -46,35 +59,36 @@ export function DerniersDocuments({ siteId }: DerniersDocumentsProps) {
             />
           }
         >
-          {(data) => (
-            <ul className="divide-y">
-              {data.map((doc) => (
-                <li key={doc.id}>
-                  <Link
-                    to="/documents"
-                    className="hover:bg-accent -mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors"
-                  >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <FileText className="text-muted-foreground size-4 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {doc.nom_original}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {formatDate(doc.uploaded_at)}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="shrink-0">
-                      {formatMime(doc.mime_type)}
-                    </Badge>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          {(docs) => (
+            <div className={listStack}>
+              {docs.slice(0, nbLignes).map((doc) => {
+                const actions: RowAction[] = [
+                  {
+                    label: 'Télécharger',
+                    icon: Download,
+                    onSelect: () => void download(doc),
+                  },
+                ]
+                return (
+                  <DocumentRow
+                    key={doc.id}
+                    doc={doc}
+                    onClick={() => setApercu(doc)}
+                    menuActions={actions}
+                  />
+                )
+              })}
+            </div>
           )}
         </QueryState>
-      </CardContent>
-    </Card>
+      </div>
+
+      <DocumentPreviewDialog
+        doc={apercu}
+        onOpenChange={(o) => {
+          if (!o) setApercu(null)
+        }}
+      />
+    </DashboardCard>
   )
 }

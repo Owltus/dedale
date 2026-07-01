@@ -1,81 +1,113 @@
-import { Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
-import { MessageSquareWarning } from 'lucide-react'
-import { demandesQueries } from '@/features/demandes/queries'
+import { useRef } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { ClipboardList, MessageSquareWarning } from 'lucide-react'
+import { QueryState } from '@/components/common/query-state'
+import { EmptyState } from '@/components/common/empty-state'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { ListRow } from '@/components/common/list-row'
+import { RowMediaIcon } from '@/components/common/row-media-icon'
+import { StatusBadge } from '@/components/common/status-badge'
 import { diTitre } from '@/features/demandes/schemas'
 import { statutLabel, statutTone } from '@/features/demandes/etat'
-import { QueryState } from '@/components/common/query-state'
-import { CardSkeletons } from '@/components/common/card-skeletons'
-import { EmptyState } from '@/components/common/empty-state'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { StatusBadge } from '@/components/common/status-badge'
 import { formatDate } from '@/lib/date'
+import { listStack } from '@/lib/responsive'
+import { segOfUnique } from '@/lib/slug'
+import { DashboardCard } from './dashboard-card'
+import { useDashboardData } from '../use-dashboard-data'
+import { useLignesVisibles } from '../use-lignes-visibles'
 
 interface DernieresDemandesProps {
   siteId: string
 }
 
-/** Cinq dernières demandes d'intervention du site (titre dérivé du constat). */
+/** Hauteur d'une `ListRow` média densité `sm` (`h-14`), pour le fit-to-height. */
+const HAUTEUR_LIGNE = 56
+
+/**
+ * Colonne « Demandes d'intervention » du tableau de bord (zone 3, gauche).
+ * Les DI OUVERTES (`statut_di_id !== 3`) sont affichées EN TÊTE, puis les
+ * RÉSOLUES (`=== 3`) ; l'ordre récence intra-groupe (date_constat DESC, created_at
+ * DESC) est déjà fourni par `demandesQueries.list` et préservé par le filtrage
+ * stable. Clic → fiche de la demande (slug `segOfUnique`, jamais l'UUID).
+ *
+ * Fit-to-height : la zone de liste (flex-1, `overflow-hidden`) est mesurée par
+ * `useLignesVisibles` → on ne rend que le nombre de lignes qui tiennent, sans
+ * scrollbar.
+ */
 export function DernieresDemandes({ siteId }: DernieresDemandesProps) {
-  const query = useQuery(demandesQueries.list(siteId))
+  const { demandesQuery } = useDashboardData(siteId)
+  const navigate = useNavigate()
+  const zoneRef = useRef<HTMLDivElement>(null)
+  const nbLignes = useLignesVisibles(zoneRef, HAUTEUR_LIGNE)
 
   return (
-    <Card className="min-w-0">
-      <CardHeader>
-        <CardTitle className="text-base">Dernières demandes</CardTitle>
-        <CardDescription>Derniers signalements du site.</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <DashboardCard
+      icon={MessageSquareWarning}
+      title="Demandes d'intervention"
+      contentClassName="flex min-h-0 flex-col"
+    >
+      <div ref={zoneRef} className="min-h-0 flex-1 overflow-hidden">
         <QueryState
-          query={query}
-          pending={
-            <CardSkeletons count={4} height="h-10" container="space-y-2" />
-          }
+          query={demandesQuery}
+          pending={<ListRowSkeletons count={4} dense />}
           errorClassName="py-6"
           empty={
             <EmptyState
-              icon={MessageSquareWarning}
+              icon={ClipboardList}
               title="Aucune demande"
               description="Aucun signalement pour ce site."
               className="py-6"
             />
           }
         >
-          {(data) => (
-            <ul className="divide-y">
-              {data.slice(0, 5).map((d) => (
-                <li key={d.id}>
-                  <Link
-                    to="/demandes"
-                    className="hover:bg-accent -mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">
-                        {diTitre(d.constat)}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {formatDate(d.date_constat)}
-                      </p>
-                    </div>
-                    <StatusBadge
-                      tone={statutTone(d.statut_di_id)}
-                      className="shrink-0"
-                    >
-                      {statutLabel(d.statut_di_id)}
-                    </StatusBadge>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          {(demandes) => {
+            // Frères pour le slug d'URL : MÊME ensemble qu'à la résolution dans la
+            // fiche détail (symétrie `segOfUnique`), sur la liste complète.
+            const sibs = demandes.map((d) => ({
+              nom: diTitre(d.constat),
+              id: d.id,
+            }))
+            const ouvertes = demandes.filter((d) => d.statut_di_id !== 3)
+            const resolues = demandes.filter((d) => d.statut_di_id === 3)
+            const ordonnees = [...ouvertes, ...resolues].slice(0, nbLignes)
+            return (
+              <div className={listStack}>
+                {ordonnees.map((d) => (
+                  <ListRow
+                    key={d.id}
+                    size="sm"
+                    tone={statutTone(d.statut_di_id)}
+                    media={<RowMediaIcon icon={ClipboardList} />}
+                    title={diTitre(d.constat)}
+                    subtitle={formatDate(d.date_constat)}
+                    badges={
+                      <StatusBadge tone={statutTone(d.statut_di_id)}>
+                        {statutLabel(d.statut_di_id)}
+                      </StatusBadge>
+                    }
+                    mobileBadge={
+                      <StatusBadge tone={statutTone(d.statut_di_id)}>
+                        {statutLabel(d.statut_di_id)}
+                      </StatusBadge>
+                    }
+                    onClick={() =>
+                      void navigate({
+                        to: '/demandes/$demande',
+                        params: {
+                          demande: segOfUnique(
+                            { nom: diTitre(d.constat), id: d.id },
+                            sibs,
+                          ),
+                        },
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            )
+          }}
         </QueryState>
-      </CardContent>
-    </Card>
+      </div>
+    </DashboardCard>
   )
 }
