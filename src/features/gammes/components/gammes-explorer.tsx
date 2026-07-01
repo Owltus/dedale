@@ -43,6 +43,7 @@ import {
   PageHeader,
   type PageHeaderCrumb,
 } from '@/components/common/page-header'
+import { drillCrumbs } from '@/components/common/drill-crumbs'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import type { RowAction } from '@/components/common/row-actions'
 import { EmptyState } from '@/components/common/empty-state'
@@ -511,13 +512,11 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     d?.trim() ? d.trim() : SECTION_DESCRIPTION
   // Fil d'Ariane « Plan de maintenance › … › nœud ». `segs` est TOUJOURS un préfixe
   // de `path`, donc l'index `i` indexe `path` directement (clic = descente à ce palier).
-  const crumbs = (segs: DrillCat[]): PageHeaderCrumb[] => [
-    { label: 'Plan de maintenance', onClick: () => goTo([]) },
-    ...segs.map((c, i) => ({
-      label: c.nom,
-      onClick: () => goTo(path.slice(0, i + 1)),
-    })),
-  ]
+  const crumbs = (segs: DrillCat[]): PageHeaderCrumb[] =>
+    drillCrumbs(segs, drillCats, goTo, {
+      label: 'Plan de maintenance',
+      onClick: () => goTo([]),
+    })
   let header: React.ReactNode
   if (openGamme !== null) {
     const ancestors = crumbs(path)

@@ -38,10 +38,8 @@ import { deleteErrorMessage } from '@/lib/form'
 import { parseChamps } from '@/lib/champs'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
-import {
-  PageHeader,
-  type PageHeaderCrumb,
-} from '@/components/common/page-header'
+import { PageHeader } from '@/components/common/page-header'
+import { drillCrumbs } from '@/components/common/drill-crumbs'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
 import type { RowAction } from '@/components/common/row-actions'
@@ -453,13 +451,10 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
   const sectionDescription = 'Parc matériel du site, rangé par catégorie.'
   let header: React.ReactNode
   if (openEquipement !== null) {
-    const ancestors: PageHeaderCrumb[] = [
-      { label: 'Équipements', onClick: () => goTo([]) },
-      ...path.map((c, i) => ({
-        label: c.nom,
-        onClick: () => goTo(path.slice(0, i + 1)),
-      })),
-    ]
+    const ancestors = drillCrumbs(path, drillCats, goTo, {
+      label: 'Équipements',
+      onClick: () => goTo([]),
+    })
     header = (
       <PageHeader
         breadcrumb={ancestors}
@@ -469,13 +464,10 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       />
     )
   } else if (depth > 0) {
-    const ancestors: PageHeaderCrumb[] = [
-      { label: 'Équipements', onClick: () => goTo([]) },
-      ...path.slice(0, -1).map((c, i) => ({
-        label: c.nom,
-        onClick: () => goTo(path.slice(0, i + 1)),
-      })),
-    ]
+    const ancestors = drillCrumbs(path.slice(0, -1), drillCats, goTo, {
+      label: 'Équipements',
+      onClick: () => goTo([]),
+    })
     header = (
       <PageHeader
         breadcrumb={ancestors}
@@ -542,7 +534,9 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           open={subcatForm.open}
           onOpenChange={(open) => setSubcatForm((f) => ({ ...f, open }))}
           siteId={siteId}
-          parentId={subcatForm.categorie?.parent_id ?? subcatForm.parentId ?? ''}
+          parentId={
+            subcatForm.categorie?.parent_id ?? subcatForm.parentId ?? ''
+          }
           modeles={modeleOptions}
           categorie={subcatForm.categorie}
           // Équipements de la sous-catégorie éditée : propagation d'un gabarit
@@ -645,7 +639,9 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         {() => {
           if (equipementsQuery.isPending) return <ListRowSkeletons count={4} />
           if (equipementsQuery.isError) {
-            return <ErrorState onRetry={() => void equipementsQuery.refetch()} />
+            return (
+              <ErrorState onRetry={() => void equipementsQuery.refetch()} />
+            )
           }
           if (emptyHere) {
             // Niveau 0 : catégories ; niveau 1 : sous-catégories ; niveau ≥2
@@ -780,7 +776,8 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                               {
                                 label: 'Modifier',
                                 icon: Pencil,
-                                onSelect: () => setEquipForm({ open: true, eq }),
+                                onSelect: () =>
+                                  setEquipForm({ open: true, eq }),
                               },
                               {
                                 label: 'Supprimer',
@@ -804,4 +801,3 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     </>
   )
 }
-
