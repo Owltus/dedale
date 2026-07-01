@@ -34,3 +34,4 @@ Ce que ça implique (avantages, limites, ce qu'on s'interdit).
 - [0002 — Conventions de stack & outillage qualité](0002-conventions-et-outillage.md)
 - [0003 — Design system & conventions modulaires](0003-design-system-et-conventions-modulaires.md)
 - [0004 — Front métier livré (19 étapes)](0004-front-metier-livre.md)
+- [0005 — Graphiques du tableau de bord en SVG maison](0005-charts-svg-maison.md)
