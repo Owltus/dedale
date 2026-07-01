@@ -502,102 +502,112 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
   // haut) → l'enregistrement clôturera l'OT si tout devient terminal.
   const estReouvert = ot.statut === 'reouvert'
 
-  // Top bar : badge de STATUT (toujours visible, même en lecture seule) suivi des
-  // actions en boutons ICÔNE + tooltip (TooltipIconButton, outline). Onglet
-  // Opérations → un bouton de finition adaptatif. Annuler / Réouvrir / Réactiver =
-  // transitions manuelles restantes (la clôture initiale est auto). Les boutons ne
-  // s'affichent que pour un gestionnaire (canManage) ; le badge de statut, lui, est
-  // en `titleBadges` (à côté du titre, comme les autres fiches) — visible par tous.
-  const headerActions = canManage ? (
+  // Top bar : badge de STATUT (toujours visible, même en lecture seule, à côté des
+  // boutons) suivi des actions en boutons ICÔNE + tooltip (TooltipIconButton,
+  // outline). Onglet Opérations → un bouton de finition adaptatif. Annuler / Réouvrir
+  // / Réactiver = transitions manuelles restantes (la clôture initiale est auto). Les
+  // boutons ne s'affichent que pour un gestionnaire (canManage) ; le badge reste pour tous.
+  const headerActions = (
     <>
-      {onglet === 'operations' &&
-        canEditOps &&
-        (estReouvert && dirtyOps.length === 0 ? (
-          // Rouvert, rien à enregistrer → simple « Clôturer » (uniquement si tout est
-          // terminal : on ne clôt pas un OT incomplet, sinon aucun bouton ici).
-          toutesTerminalesApres && (
+      <OtStatutBadge
+        statut={ot.statut}
+        origine={ot.origine}
+        datePrevue={ot.date_prevue}
+        toleranceJours={ot.tolerance_jours}
+        className="h-9 px-3 text-sm font-medium"
+      />
+      {canManage && (
+        <>
+          {onglet === 'operations' &&
+            canEditOps &&
+            (estReouvert && dirtyOps.length === 0 ? (
+              // Rouvert, rien à enregistrer → simple « Clôturer » (uniquement si tout est
+              // terminal : on ne clôt pas un OT incomplet, sinon aucun bouton ici).
+              toutesTerminalesApres && (
+                <TooltipIconButton
+                  icon={<CheckCircle2 />}
+                  label="Clôturer l'OT"
+                  variant="outline"
+                  disabled={changerStatut.isPending}
+                  onClick={recloturer}
+                />
+              )
+            ) : (
+              // Des saisies à enregistrer → « Enregistrer », qui devient « Enregistrer et
+              // clôturer » sur un OT rouvert dont l'enregistrement va tout terminer.
+              <TooltipIconButton
+                icon={<Save />}
+                label={
+                  estReouvert && toutesTerminalesApres
+                    ? 'Enregistrer et clôturer'
+                    : 'Enregistrer les opérations'
+                }
+                variant="outline"
+                disabled={dirtyOps.length === 0 || savingOps}
+                onClick={() => void saveAllOps()}
+              />
+            ))}
+          {onglet === 'documents' && (
             <TooltipIconButton
-              icon={<CheckCircle2 />}
-              label="Clôturer l'OT"
+              icon={<Paperclip />}
+              label="Rattacher un document"
+              variant="outline"
+              onClick={() => {
+                setDroppedFiles([])
+                setUploadOpen(true)
+              }}
+            />
+          )}
+          {statutActif && (
+            <TooltipIconButton
+              icon={<Pencil />}
+              label="Modifier la date prévue"
+              variant="outline"
+              disabled={updateDatePrevue.isPending}
+              onClick={() => setDatePrevueOpen(true)}
+            />
+          )}
+          {statutActif && (
+            <TooltipIconButton
+              icon={<Ban className="text-destructive" />}
+              label="Annuler l'OT"
               variant="outline"
               disabled={changerStatut.isPending}
-              onClick={recloturer}
+              onClick={() => setAnnulerOpen(true)}
             />
-          )
-        ) : (
-          // Des saisies à enregistrer → « Enregistrer », qui devient « Enregistrer et
-          // clôturer » sur un OT rouvert dont l'enregistrement va tout terminer.
-          <TooltipIconButton
-            icon={<Save />}
-            label={
-              estReouvert && toutesTerminalesApres
-                ? 'Enregistrer et clôturer'
-                : 'Enregistrer les opérations'
-            }
-            variant="outline"
-            disabled={dirtyOps.length === 0 || savingOps}
-            onClick={() => void saveAllOps()}
-          />
-        ))}
-      {onglet === 'documents' && (
-        <TooltipIconButton
-          icon={<Paperclip />}
-          label="Rattacher un document"
-          variant="outline"
-          onClick={() => {
-            setDroppedFiles([])
-            setUploadOpen(true)
-          }}
-        />
-      )}
-      {statutActif && (
-        <TooltipIconButton
-          icon={<Pencil />}
-          label="Modifier la date prévue"
-          variant="outline"
-          disabled={updateDatePrevue.isPending}
-          onClick={() => setDatePrevueOpen(true)}
-        />
-      )}
-      {statutActif && (
-        <TooltipIconButton
-          icon={<Ban className="text-destructive" />}
-          label="Annuler l'OT"
-          variant="outline"
-          disabled={changerStatut.isPending}
-          onClick={() => setAnnulerOpen(true)}
-        />
-      )}
-      {ot.statut === 'cloture' && (
-        <TooltipIconButton
-          icon={<RotateCcw />}
-          label="Réouvrir l'OT"
-          variant="outline"
-          disabled={reouvrir.isPending}
-          onClick={handleReouvrir}
-        />
-      )}
-      {ot.statut === 'annule' && (
-        <TooltipIconButton
-          icon={<RotateCcw />}
-          label="Réactiver l'OT"
-          variant="outline"
-          disabled={changerStatut.isPending}
-          onClick={reactiver}
-        />
-      )}
-      {/* Suppression définitive — icône rouge, miroir de l'action « Supprimer »
+          )}
+          {ot.statut === 'cloture' && (
+            <TooltipIconButton
+              icon={<RotateCcw />}
+              label="Réouvrir l'OT"
+              variant="outline"
+              disabled={reouvrir.isPending}
+              onClick={handleReouvrir}
+            />
+          )}
+          {ot.statut === 'annule' && (
+            <TooltipIconButton
+              icon={<RotateCcw />}
+              label="Réactiver l'OT"
+              variant="outline"
+              disabled={changerStatut.isPending}
+              onClick={reactiver}
+            />
+          )}
+          {/* Suppression définitive — icône rouge, miroir de l'action « Supprimer »
           de la liste (même mutation, même confirmation). Disponible quel que
           soit le statut (réservée aux gestionnaires via canManage). */}
-      <TooltipIconButton
-        icon={<Trash2 className="text-destructive" />}
-        label="Supprimer l'OT"
-        variant="outline"
-        disabled={supprimer.isPending}
-        onClick={() => setSupprimerOpen(true)}
-      />
+          <TooltipIconButton
+            icon={<Trash2 className="text-destructive" />}
+            label="Supprimer l'OT"
+            variant="outline"
+            disabled={supprimer.isPending}
+            onClick={() => setSupprimerOpen(true)}
+          />
+        </>
+      )}
     </>
-  ) : undefined
+  )
 
   // Sommes de consommation par unité CUMULATIVE (kVA exclu via estCompteurCumulatif).
   // Réutilise les relevés précédents déjà chargés ; total partiel accepté.
@@ -662,14 +672,6 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
           title={ot.nom_gamme}
           description={ot.description_gamme ?? undefined}
           breadcrumb={otBreadcrumb}
-          titleBadges={
-            <OtStatutBadge
-              statut={ot.statut}
-              origine={ot.origine}
-              datePrevue={ot.date_prevue}
-              toleranceJours={ot.tolerance_jours}
-            />
-          }
           action={headerActions}
         />
 

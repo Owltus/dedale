@@ -582,11 +582,7 @@ export function GammesBiblioPanel() {
       // `openGamme` est déjà la donnée FRAÎCHE (issu de `gammes.find`) : pas de
       // re-find. Ancêtres dérivés de la catégorie RÉELLE de la gamme (`gammePath`),
       // pas du chemin brut de l'URL (constat #1).
-      const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
-        gammePath,
-        gammeCats,
-        goToCats,
-      )
+      const breadcrumb: PageHeaderCrumb[] = drillCrumbs(gammePath, goToCats)
       return {
         title: openGamme.nom,
         breadcrumb,
@@ -600,7 +596,6 @@ export function GammesBiblioPanel() {
     }
     const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
       validPath.slice(0, -1),
-      gammeCats,
       goToCats,
     )
     return {
@@ -610,7 +605,7 @@ export function GammesBiblioPanel() {
         ? current.description.trim()
         : undefined,
     }
-  }, [openGamme, validPath, gammePath, current, depth, goToCats, gammeCats])
+  }, [openGamme, validPath, gammePath, current, depth, goToCats])
 
   useTabHeader(header)
 

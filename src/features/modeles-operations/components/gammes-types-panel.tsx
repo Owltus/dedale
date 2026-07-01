@@ -403,11 +403,7 @@ export function GammesTypesPanel() {
   // › … » rendu par <Tabs>. À la RACINE (depth 0) → `null` (titre de section).
   const header = useMemo<TabHeader | null>(() => {
     if (openModele !== null) {
-      const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
-        path,
-        operationCats,
-        goTo,
-      )
+      const breadcrumb: PageHeaderCrumb[] = drillCrumbs(path, goTo)
       return {
         title: openModele.nom,
         breadcrumb,
@@ -417,11 +413,7 @@ export function GammesTypesPanel() {
       }
     }
     if (depth === 0) return null
-    const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
-      path.slice(0, -1),
-      operationCats,
-      goTo,
-    )
+    const breadcrumb: PageHeaderCrumb[] = drillCrumbs(path.slice(0, -1), goTo)
     return {
       title: current?.nom ?? 'Modèles d’opérations',
       breadcrumb,
@@ -429,7 +421,7 @@ export function GammesTypesPanel() {
         ? current.description.trim()
         : undefined,
     }
-  }, [openModele, depth, path, current, goTo, operationCats])
+  }, [openModele, depth, path, current, goTo])
   useTabHeader(header)
 
   function confirmDelete() {

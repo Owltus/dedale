@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import {
   Breadcrumb as BreadcrumbRoot,
   BreadcrumbEllipsis,
@@ -18,13 +18,6 @@ import {
 export interface Crumb {
   label: string
   onClick: () => void
-  /**
-   * FRÈRES du maillon (mêmes niveau/parent, hors lui-même) : si fournis, un caret ▾
-   * s'ajoute au parent immédiat et ouvre un menu pour SAUTER LATÉRALEMENT vers un
-   * frère (façon path bar) sans repasser par la racine. Optionnel → les fiches
-   * simples ne le fournissent pas (pas de caret).
-   */
-  siblings?: Crumb[]
 }
 
 /**
@@ -120,24 +113,6 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
               <span className="min-w-0 truncate">{tail.label}</span>
             </button>
           </BreadcrumbLink>
-          {/* Caret ▾ des FRÈRES : saut latéral vers un élément de même niveau. */}
-          {tail.siblings && tail.siblings.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={`hover:text-foreground flex shrink-0 items-center ${focusRing}`}
-                aria-label={`Aller à un élément de même niveau que « ${tail.label} »`}
-              >
-                <ChevronDown className="size-3.5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {tail.siblings.map((s, i) => (
-                  <DropdownMenuItem key={i} onClick={s.onClick}>
-                    {s.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </BreadcrumbItem>
         {/* Séparateur FINAL (vers le titre, hors du <nav>) : DESKTOP seulement. */}
         <BreadcrumbSeparator className="hidden shrink-0 sm:flex" />

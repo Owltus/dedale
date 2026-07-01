@@ -209,15 +209,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   if (niveau && batiment) {
     const ancestors: PageHeaderCrumb[] = [
       { label: 'Localisations', onClick: () => goTo([]) },
-      {
-        label: batiment.nom,
-        onClick: () => goToBatiment(batiment),
-        // Frères = autres bâtiments du site → saut latéral (caret ▾) depuis un niveau.
-        siblings: batiments
-          .filter((b) => b.id !== batiment.id)
-          .sort((a, b) => a.nom.localeCompare(b.nom))
-          .map((b) => ({ label: b.nom, onClick: () => goToBatiment(b) })),
-      },
+      { label: batiment.nom, onClick: () => goToBatiment(batiment) },
     ]
     header = (
       <PageHeader

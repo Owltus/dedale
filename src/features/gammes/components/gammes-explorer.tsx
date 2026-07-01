@@ -513,7 +513,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   // Fil d'Ariane « Plan de maintenance › … › nœud ». `segs` est TOUJOURS un préfixe
   // de `path`, donc l'index `i` indexe `path` directement (clic = descente à ce palier).
   const crumbs = (segs: DrillCat[]): PageHeaderCrumb[] =>
-    drillCrumbs(segs, drillCats, goTo, {
+    drillCrumbs(segs, goTo, {
       label: 'Plan de maintenance',
       onClick: () => goTo([]),
     })

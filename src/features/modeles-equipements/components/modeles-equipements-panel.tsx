@@ -409,11 +409,7 @@ export function ModelesEquipementsPanel() {
     // Modèle ouvert : le fil porte TOUT le chemin de catégories, le modèle devient
     // le segment courant (le titre) — comme une gamme ouverte.
     if (openModele !== null) {
-      const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
-        path,
-        equipmentCats,
-        goTo,
-      )
+      const breadcrumb: PageHeaderCrumb[] = drillCrumbs(path, goTo)
       return {
         title: openModele.nom,
         breadcrumb,
@@ -423,11 +419,7 @@ export function ModelesEquipementsPanel() {
       }
     }
     if (depth === 0) return null
-    const breadcrumb: PageHeaderCrumb[] = drillCrumbs(
-      path.slice(0, -1),
-      equipmentCats,
-      goTo,
-    )
+    const breadcrumb: PageHeaderCrumb[] = drillCrumbs(path.slice(0, -1), goTo)
     return {
       title: current?.nom ?? 'Modèles d’équipements',
       breadcrumb,
@@ -435,7 +427,7 @@ export function ModelesEquipementsPanel() {
         ? current.description.trim()
         : undefined,
     }
-  }, [openModele, depth, path, current, goTo, equipmentCats])
+  }, [openModele, depth, path, current, goTo])
   useTabHeader(header)
 
   function confirmDelete() {

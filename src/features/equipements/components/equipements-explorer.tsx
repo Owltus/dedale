@@ -451,7 +451,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
   const sectionDescription = 'Parc matériel du site, rangé par catégorie.'
   let header: React.ReactNode
   if (openEquipement !== null) {
-    const ancestors = drillCrumbs(path, drillCats, goTo, {
+    const ancestors = drillCrumbs(path, goTo, {
       label: 'Équipements',
       onClick: () => goTo([]),
     })
@@ -464,7 +464,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       />
     )
   } else if (depth > 0) {
-    const ancestors = drillCrumbs(path.slice(0, -1), drillCats, goTo, {
+    const ancestors = drillCrumbs(path.slice(0, -1), goTo, {
       label: 'Équipements',
       onClick: () => goTo([]),
     })
