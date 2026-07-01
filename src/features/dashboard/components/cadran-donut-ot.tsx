@@ -144,7 +144,7 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
     >
       <Donut
         segments={segments}
-        epaisseur={20}
+        epaisseur={14}
         className="aspect-square h-full max-h-full w-full"
         centre={
           <span className="text-4xl leading-none font-semibold">{total}</span>
