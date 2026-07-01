@@ -5,7 +5,7 @@ import {
   statutAffichageOt,
   statutPlanningOt,
 } from '@/features/ordres-travail/statut-affichage'
-import { formatDateAvecSemaineIso } from '@/lib/date'
+import { formatDate, formatDateAvecSemaineIso } from '@/lib/date'
 import { ListRow } from '@/components/common/list-row'
 import { StatutColonne } from '@/components/common/statut-colonne'
 import { StatusBadge } from '@/components/common/status-badge'
@@ -25,6 +25,11 @@ export interface OtCardData {
   /** Description (snapshot de la gamme) — sous-titre de repli quand l'OT n'a pas d'équipement. */
   description_gamme: string | null
   date_prevue: string | null
+  /**
+   * Date/heure de clôture (TIMESTAMPTZ, NULL tant que l'OT n'est pas terminal).
+   * Affichée à la place de la date prévue une fois l'OT CLÔTURÉ.
+   */
+  date_cloture: string | null
   /** Fenêtre de tolérance (jours) : pilote la bascule vers les statuts temporels. */
   tolerance_jours: number
   /** Vignette esthétique de l'OT (héritée de la gamme — migration 067). */
@@ -92,11 +97,21 @@ export function OtCard({
         datePrevue: ot.date_prevue,
         toleranceJours: ot.tolerance_jours,
       })
-  const datePrevue = formatDateAvecSemaineIso(ot.date_prevue)
-  // Colonne de statut (badge + date prévue, largeur fixe centrée) — affichée à
-  // l'identique au BUREAU (slot `badges`) ET sur MOBILE (slot `mobileBadge`) → badges
-  // et dates centrés et alignés d'une carte à l'autre, à toutes les tailles.
-  const statutColonne = <StatutColonne statut={statut} meta={datePrevue} />
+  // Date affichée dans la colonne : pour un OT TERMINAL (clôturé ou annulé), la date
+  // de clôture réelle — `date_cloture` porte l'horodatage de clôture OU d'annulation
+  // (le schéma l'impose NON NULL sur tout statut terminal). Sinon (planifié, en cours,
+  // rouvert) la date PRÉVUE — l'échéance reste la donnée pertinente. La date prévue
+  // garde son n° de semaine ISO (repère de planification) ; la date de clôture est un
+  // horodatage passé → format simple, sans semaine.
+  const estTerminal = ot.statut === 'cloture' || ot.statut === 'annule'
+  const dateAffichee =
+    estTerminal && ot.date_cloture
+      ? formatDate(ot.date_cloture)
+      : formatDateAvecSemaineIso(ot.date_prevue)
+  // Colonne de statut (badge + date, largeur fixe centrée) — affichée à l'identique
+  // au BUREAU (slot `badges`) ET sur MOBILE (slot `mobileBadge`) → badges et dates
+  // centrés et alignés d'une carte à l'autre, à toutes les tailles.
+  const statutColonne = <StatutColonne statut={statut} meta={dateAffichee} />
   // Mode COMPACT (popup planning) : badge de statut NU, sans la colonne fixe `w-36`
   // ni le relevé → la ligne ne peut plus déborder dans un modal étroit.
   const badgeCompact = (
