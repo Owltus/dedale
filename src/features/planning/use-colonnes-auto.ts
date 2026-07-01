@@ -33,10 +33,25 @@ const MAX_SEMAINES = 156
  * NB : le conteneur observé ne doit pas porter de PADDING horizontal (`clientWidth`
  * l'inclut, ce qui fausserait la largeur utile de la table).
  */
-export function useColonnesAuto(ref: RefObject<HTMLElement | null>): {
+export function useColonnesAuto(
+  ref: RefObject<HTMLElement | null>,
+  options?: {
+    /** Largeur cible d'une colonne (px). Défaut `CELL_SIZE` (grille dense du planning). */
+    cellSize?: number
+    /** Réserve pour la colonne de gauche. Défaut `FAMILLE_MIN` ; 0 = aucune (dashboard). */
+    familleMin?: number
+    /** Bornes du nombre de colonnes. Défauts = ceux du planning. */
+    minSemaines?: number
+    maxSemaines?: number
+  },
+): {
   nbSemaines: number
   familleWidth: number
 } {
+  const cellSize = options?.cellSize ?? CELL_SIZE
+  const familleMin = options?.familleMin ?? FAMILLE_MIN
+  const minSemaines = options?.minSemaines ?? MIN_SEMAINES
+  const maxSemaines = options?.maxSemaines ?? MAX_SEMAINES
   const [largeur, setLargeur] = useState(0)
 
   useLayoutEffect(() => {
@@ -62,13 +77,13 @@ export function useColonnesAuto(ref: RefObject<HTMLElement | null>): {
 
   return useMemo(() => {
     const utile = Math.floor(largeur)
-    if (utile <= FAMILLE_MIN)
-      return { nbSemaines: MIN_SEMAINES, familleWidth: FAMILLE_MIN }
+    if (utile <= familleMin)
+      return { nbSemaines: minSemaines, familleWidth: familleMin }
     const nbSemaines = Math.min(
-      MAX_SEMAINES,
-      Math.max(MIN_SEMAINES, Math.floor((utile - FAMILLE_MIN) / CELL_SIZE)),
+      maxSemaines,
+      Math.max(minSemaines, Math.floor((utile - familleMin) / cellSize)),
     )
-    const familleWidth = Math.max(FAMILLE_MIN, utile - nbSemaines * CELL_SIZE)
+    const familleWidth = Math.max(familleMin, utile - nbSemaines * cellSize)
     return { nbSemaines, familleWidth }
-  }, [largeur])
+  }, [largeur, cellSize, familleMin, minSemaines, maxSemaines])
 }

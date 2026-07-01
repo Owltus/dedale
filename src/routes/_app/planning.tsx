@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { requireNav } from '@/lib/nav-guard'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
@@ -15,7 +15,6 @@ import {
   ajouterSemaines,
   cleSemaine,
   clesProchaines,
-  fenetreSemaines,
   formatPeriode,
   isoLocale,
   labelSemaine,
@@ -36,6 +35,7 @@ import { useSiteContext } from '@/lib/site-context'
 import { segOfUnique } from '@/lib/slug'
 import { cn } from '@/lib/utils'
 import { useColonnesAuto } from '@/features/planning/use-colonnes-auto'
+import { useFenetreTemporelle } from '@/features/planning/use-fenetre-temporelle'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -51,9 +51,6 @@ export const Route = createFileRoute('/_app/planning')({
 
 /** Fenêtre du « Focus » et du sur-fetch : 12 semaines (≈ un trimestre). */
 const FOCUS_SEMAINES = 12
-/** Pas des flèches / clavier : 4 semaines (~1 mois) par bond — petit pas régulier pour
- *  un défilement doux et lisible, indépendant de la largeur de l'écran. */
-const PAS_NAV = 4
 
 /** Gamme minimale nécessaire à la résolution OT → sous-catégorie. */
 interface GammeSkelInput {
@@ -184,9 +181,6 @@ function PlanningContent({ siteId }: { siteId: string }) {
   // un autre onglet ou par un autre utilisateur — rafraîchit la grille sans F5.
   useRealtimeRefresh('ordres_travail', planningQueries.all())
 
-  // `centre` = semaine placée AU MILIEU de la fenêtre (passé à gauche, futur à
-  // droite). Défaut : la semaine courante.
-  const [centre, setCentre] = useState(() => lundiDeLaSemaine(new Date()))
   const [focus, setFocus] = useState(false)
   const [cellule, setCellule] = useState<{
     ots: PlanningOt[]
@@ -196,42 +190,13 @@ function PlanningContent({ siteId }: { siteId: string }) {
     sousTitre?: string
   } | null>(null)
 
-  // Ancre = lundi de la 1ʳᵉ semaine visible : on recule de la moitié de la fenêtre
-  // pour centrer `centre`. Recentrage automatique au redimensionnement (nbSemaines).
-  const ancre = useMemo(
-    () => ajouterSemaines(centre, -Math.floor(nbSemaines / 2)),
-    [centre, nbSemaines],
-  )
-  const semaines = useMemo(
-    () => fenetreSemaines(ancre, nbSemaines),
-    [ancre, nbSemaines],
-  )
+  // Fenêtre temporelle glissante (centre + `ancre`/`semaines` + navigation
+  // flèches/clavier), factorisée dans `useFenetreTemporelle` (réutilisée par le
+  // tableau de bord). Le recentrage au redimensionnement est porté par `nbSemaines`
+  // (dépendance interne du hook). Comportement strictement identique à l'inline.
+  const { ancre, semaines, reculer, avancer, revenirAujourdhui } =
+    useFenetreTemporelle({ nbSemaines })
   const cleSemaineCourante = useMemo(() => cleSemaine(new Date()), [])
-
-  // Décalage du centre par les flèches / le clavier (PAS_NAV = 4 s. ≈ 1 mois).
-  // `ajouterSemaines` est CALENDAIRE (insensible au changement d'heure, cf. semaines.ts)
-  // → le centre reste pile sur le lundi de minuit, même en naviguant très loin.
-  const reculer = () => setCentre((c) => ajouterSemaines(c, -PAS_NAV))
-  const avancer = () => setCentre((c) => ajouterSemaines(c, PAS_NAV))
-  const revenirAujourdhui = () => setCentre(lundiDeLaSemaine(new Date()))
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
-      const t = e.target
-      if (
-        t instanceof HTMLElement &&
-        (t.tagName === 'INPUT' ||
-          t.tagName === 'TEXTAREA' ||
-          t.isContentEditable)
-      )
-        return
-      if (e.key === 'ArrowLeft') setCentre((c) => ajouterSemaines(c, -PAS_NAV))
-      else if (e.key === 'ArrowRight')
-        setCentre((c) => ajouterSemaines(c, PAS_NAV))
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
 
   // Plage de fetch = fenêtre VISIBLE uniquement (remplit les cases).
   const { debut, fin, clesFenetre } = useMemo(() => {
@@ -260,7 +225,11 @@ function PlanningContent({ siteId }: { siteId: string }) {
     return {
       focusDebut: isoLocale(lundiAuj),
       focusFin: isoLocale(
-        new Date(endExcl.getFullYear(), endExcl.getMonth(), endExcl.getDate() - 1),
+        new Date(
+          endExcl.getFullYear(),
+          endExcl.getMonth(),
+          endExcl.getDate() - 1,
+        ),
       ),
       cles12: clesProchaines(lundiAuj, FOCUS_SEMAINES),
     }
@@ -291,7 +260,8 @@ function PlanningContent({ siteId }: { siteId: string }) {
   // OT de la fenêtre (le row shape de la requête EST déjà `PlanningOt`).
   const ots = useMemo<PlanningOt[]>(() => query.data ?? [], [query.data])
 
-  // OT positionnés DANS la fenêtre visible (par date PRÉVUE) → cellules.
+  // OT positionnés DANS la fenêtre visible (par leur date de positionnement selon le
+  // statut, cf. `dateSemaineOt` : clôture si terminal, sinon prévue) → cellules.
   const otsFenetre = useMemo(
     () => ots.filter((ot) => clesFenetre.has(cleSemaine(dateSemaineOt(ot)))),
     [ots, clesFenetre],
@@ -406,7 +376,9 @@ function PlanningContent({ siteId }: { siteId: string }) {
               <TooltipIconButton
                 icon={<Target />}
                 label={
-                  focus ? 'Désactiver le focus 12 semaines' : 'Focus 12 semaines'
+                  focus
+                    ? 'Désactiver le focus 12 semaines'
+                    : 'Focus 12 semaines'
                 }
                 variant={focus ? 'default' : 'outline'}
                 onClick={() => setFocus((f) => !f)}
@@ -427,7 +399,7 @@ function PlanningContent({ siteId }: { siteId: string }) {
           // (présent ou non) → la table tient pile, sans rien rogner. Seul le
           // défilement VERTICAL est permis. Léger fondu au chargement (nav souple).
           className={cn(
-            'border-border h-full overflow-x-hidden overflow-y-auto rounded-md border transition-opacity duration-200 [scrollbar-gutter:stable]',
+            'border-border h-full [scrollbar-gutter:stable] overflow-x-hidden overflow-y-auto rounded-md border transition-opacity duration-200',
             query.isPlaceholderData && 'opacity-60',
           )}
         >
