@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { Ban, Coins, Paperclip, Pencil, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { statutsCapexQueries } from '@/features/investissements/queries'
-import { etapesInvestissement, ID_REFUSE } from '@/features/investissements/etat'
+import {
+  etapesInvestissement,
+  ID_REFUSE,
+} from '@/features/investissements/etat'
 import { useChangeStatutCapex } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
@@ -33,6 +37,7 @@ export function InvestissementDetail({
   siteId: string
   canManage: boolean
 }) {
+  const navigate = useNavigate()
   const [edit, setEdit] = useState(false)
   const [refuserOpen, setRefuserOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -85,6 +90,12 @@ export function InvestissementDetail({
       <PageHeader
         title={inv.libelle}
         description={`Demandé le ${formatDate(inv.date_demande)}`}
+        breadcrumb={[
+          {
+            label: 'Investissements (CapEx)',
+            onClick: () => void navigate({ to: '/investissements' }),
+          },
+        ]}
         action={
           canManage ? (
             <>
@@ -227,4 +238,3 @@ export function InvestissementDetail({
     </PageContainer>
   )
 }
-

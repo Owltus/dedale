@@ -81,7 +81,10 @@ function InvestissementResolver({
   if (isPending) {
     return (
       <PageContainer>
-        <PageHeader title="Investissement" />
+        <PageHeader
+          title="Investissement"
+          onBack={() => void navigate({ to: '/investissements' })}
+        />
         <ListRowSkeletons count={3} />
       </PageContainer>
     )
@@ -90,7 +93,10 @@ function InvestissementResolver({
   if (isError) {
     return (
       <PageContainer>
-        <PageHeader title="Investissement" />
+        <PageHeader
+          title="Investissement"
+          onBack={() => void navigate({ to: '/investissements' })}
+        />
         <ErrorState onRetry={() => void refetch()} />
       </PageContainer>
     )

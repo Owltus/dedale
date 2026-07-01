@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
   Ban,
   ListChecks,
@@ -54,6 +55,7 @@ export function TravauxDetail({
   siteId,
   canManage,
 }: TravauxDetailProps) {
+  const navigate = useNavigate()
   const { data: statuts = [] } = useQuery(statutsTravauxQueries.list())
   const tachesQuery = useQuery(travauxQueries.taches(travaux.id))
   const change = useChangeStatutTravaux()
@@ -81,8 +83,7 @@ export function TravauxDetail({
   // que la transition vers Annulé est autorisée.
   const canAnnuler = canManage && transitions.includes(STATUT_ANNULE)
   // « Réactiver » : ramène un travaux Annulé vers « Ouvert » (résurrection).
-  const canReactiver =
-    canManage && travaux.statut_travaux_id === STATUT_ANNULE
+  const canReactiver = canManage && travaux.statut_travaux_id === STATUT_ANNULE
 
   // Ouverture manuelle (bouton top bar) : aucun fichier pré-rempli.
   const openUploadEmpty = () => {
@@ -136,6 +137,12 @@ export function TravauxDetail({
       <PageHeader
         title={travaux.titre}
         description={`Créé le ${formatDate(travaux.date_demande)}`}
+        breadcrumb={[
+          {
+            label: 'Travaux',
+            onClick: () => void navigate({ to: '/travaux' }),
+          },
+        ]}
         action={
           canManage ? (
             <>
@@ -252,7 +259,10 @@ export function TravauxDetail({
                 title="Aucune zone concernée"
                 action={
                   !tachesReadOnly ? (
-                    <Button size="sm" onClick={() => setTacheForm({ open: true, tache: null })}>
+                    <Button
+                      size="sm"
+                      onClick={() => setTacheForm({ open: true, tache: null })}
+                    >
                       <ListPlus /> Ajouter une zone
                     </Button>
                   ) : undefined

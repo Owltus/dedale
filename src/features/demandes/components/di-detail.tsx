@@ -115,6 +115,12 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
       <PageHeader
         title={diTitre(demande.constat)}
         description={`Constaté le ${formatDate(demande.date_constat)}`}
+        breadcrumb={[
+          {
+            label: "Demandes d'intervention",
+            onClick: () => void navigate({ to: '/demandes' }),
+          },
+        ]}
         titleBadges={
           <StatusBadge tone={statutTone(statut)}>
             {statutLabel(statut)}

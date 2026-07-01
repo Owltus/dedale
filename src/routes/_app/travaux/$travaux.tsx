@@ -77,7 +77,10 @@ function TravauxResolver({
   if (isPending) {
     return (
       <PageContainer>
-        <PageHeader title="Travaux" />
+        <PageHeader
+          title="Travaux"
+          onBack={() => void navigate({ to: '/travaux' })}
+        />
         <ListRowSkeletons count={3} />
       </PageContainer>
     )
@@ -86,7 +89,10 @@ function TravauxResolver({
   if (isError) {
     return (
       <PageContainer>
-        <PageHeader title="Travaux" />
+        <PageHeader
+          title="Travaux"
+          onBack={() => void navigate({ to: '/travaux' })}
+        />
         <ErrorState onRetry={() => void refetch()} />
       </PageContainer>
     )

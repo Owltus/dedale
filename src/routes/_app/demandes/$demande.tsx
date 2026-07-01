@@ -81,7 +81,10 @@ function DemandeResolver({
   if (isPending) {
     return (
       <PageContainer>
-        <PageHeader title="Demande d'intervention" />
+        <PageHeader
+          title="Demande d'intervention"
+          onBack={() => void navigate({ to: '/demandes' })}
+        />
         <ListRowSkeletons count={3} />
       </PageContainer>
     )
@@ -90,7 +93,10 @@ function DemandeResolver({
   if (isError) {
     return (
       <PageContainer>
-        <PageHeader title="Demande d'intervention" />
+        <PageHeader
+          title="Demande d'intervention"
+          onBack={() => void navigate({ to: '/demandes' })}
+        />
         <ErrorState onRetry={() => void refetch()} />
       </PageContainer>
     )
