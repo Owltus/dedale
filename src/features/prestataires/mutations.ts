@@ -72,13 +72,27 @@ export function useDeletePrestataire() {
 // ── Contrats ──────────────────────────────────────────────────────────────────
 
 function contratPayload(v: ContratFormValues) {
+  const typeId = Number(v.type_contrat_id)
   return {
     reference: v.reference.trim(),
-    type_contrat_id: Number(v.type_contrat_id),
+    type_contrat_id: typeId,
     date_debut: v.date_debut,
     date_fin: v.date_fin || null,
     objet_avenant: v.objet_avenant.trim() || null,
     commentaires: v.commentaires.trim() || null,
+    // Reconduction/résiliation : `null` explicite quand vide, et on n'écrit la
+    // durée de cycle / la fenêtre que pour les types où elles ont un sens (les
+    // champs masqués gardent une valeur en mémoire qu'on ne persiste pas).
+    // 1 = Déterminé, 2 = Tacite, 3 = Indéterminé.
+    duree_cycle_mois: typeId === 2 ? v.duree_cycle_mois : null,
+    fenetre_resiliation_jours:
+      typeId === 3 ? null : v.fenetre_resiliation_jours,
+    // NOT NULL DEFAULT 30 : le refine du schéma garantit une valeur ; `?? 30`
+    // n'est qu'un filet de sécurité pour satisfaire le type de colonne.
+    delai_preavis_jours: v.delai_preavis_jours ?? 30,
+    date_signature: v.date_signature || null,
+    date_resiliation: v.date_resiliation || null,
+    date_notification: v.date_notification || null,
   }
 }
 

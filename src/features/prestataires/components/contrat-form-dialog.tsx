@@ -9,6 +9,7 @@ import { writeErrorMessage, fieldErrors } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
+import { NumberField } from '@/components/common/number-field'
 import type { Database } from '@/lib/database.types'
 
 type Contrat = Database['public']['Tables']['contrats']['Row']
@@ -30,6 +31,12 @@ function initialValues(contrat: Contrat | null | undefined): ContratFormValues {
     date_fin: contrat.date_fin ?? '',
     objet_avenant: contrat.objet_avenant ?? '',
     commentaires: contrat.commentaires ?? '',
+    duree_cycle_mois: contrat.duree_cycle_mois,
+    delai_preavis_jours: contrat.delai_preavis_jours,
+    fenetre_resiliation_jours: contrat.fenetre_resiliation_jours,
+    date_signature: contrat.date_signature ?? '',
+    date_resiliation: contrat.date_resiliation ?? '',
+    date_notification: contrat.date_notification ?? '',
   }
 }
 
@@ -50,9 +57,16 @@ export function ContratFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const pending = create.isPending || update.isPending
 
-  function set(key: keyof ContratFormValues, value: string) {
+  function set<K extends keyof ContratFormValues>(
+    key: K,
+    value: ContratFormValues[K],
+  ) {
     setValues((v) => ({ ...v, [key]: value }))
   }
+
+  // Affichage conditionnel par type (1 = Déterminé, 2 = Tacite, 3 = Indéterminé).
+  const estTacite = values.type_contrat_id === '2'
+  const estIndetermine = values.type_contrat_id === '3'
 
   async function handleSubmit() {
     const parsed = contratSchema.safeParse(values)
@@ -128,6 +142,77 @@ export function ContratFormDialog({
           error={errors.date_fin}
         />
       </div>
+      <TextField
+        label="Date de signature"
+        type="date"
+        value={values.date_signature}
+        onChange={(v) => set('date_signature', v)}
+        error={errors.date_signature}
+      />
+
+      {/* ── Reconduction (tacite uniquement) ─────────────────────────────── */}
+      {estTacite && (
+        <>
+          <p className="text-muted-foreground pt-2 text-sm font-medium">
+            Reconduction
+          </p>
+          <NumberField
+            label="Durée d'un cycle"
+            unite="mois"
+            min={1}
+            step={1}
+            value={values.duree_cycle_mois}
+            onChange={(v) => set('duree_cycle_mois', v)}
+            error={errors.duree_cycle_mois}
+            required
+          />
+        </>
+      )}
+
+      {/* ── Résiliation / préavis ────────────────────────────────────────── */}
+      <p className="text-muted-foreground pt-2 text-sm font-medium">
+        Résiliation
+      </p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <NumberField
+          label="Délai de préavis"
+          unite="jours"
+          min={0}
+          step={1}
+          value={values.delai_preavis_jours}
+          onChange={(v) => set('delai_preavis_jours', v)}
+          error={errors.delai_preavis_jours}
+          required
+        />
+        {!estIndetermine && (
+          <NumberField
+            label="Fenêtre de résiliation"
+            unite="jours"
+            min={1}
+            step={1}
+            value={values.fenetre_resiliation_jours}
+            onChange={(v) => set('fenetre_resiliation_jours', v)}
+            error={errors.fenetre_resiliation_jours}
+          />
+        )}
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <TextField
+          label="Date de résiliation"
+          type="date"
+          value={values.date_resiliation}
+          onChange={(v) => set('date_resiliation', v)}
+          error={errors.date_resiliation}
+        />
+        <TextField
+          label="Date de notification"
+          type="date"
+          value={values.date_notification}
+          onChange={(v) => set('date_notification', v)}
+          error={errors.date_notification}
+        />
+      </div>
+
       <TextField
         label="Objet de l'avenant"
         value={values.objet_avenant}
