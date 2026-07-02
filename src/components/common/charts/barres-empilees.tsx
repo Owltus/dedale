@@ -34,11 +34,13 @@ const BAR_MAX_RATIO = 0.98 // la plus haute barre occupe ~toute la zone de trac�
 /**
  * Barres empilées SVG maison : une barre par colonne, empilée par état, de hauteur
  * proportionnelle au total (échelle commune sur toutes les colonnes). Le composant
- * MESURE son conteneur (largeur + hauteur) et dessine en pixels réels → il occupe
- * toute la place offerte (le conteneur doit donc avoir une hauteur définie, ex.
- * `flex-1`). La colonne `enCours` reçoit une étiquette en gras + accent. Survol →
- * atténuation des autres + infobulle récap ; clic → `onColonneClick`. La navigation
- * temporelle n'est PAS gérée ici : le parent fournit les colonnes.
+ * MESURE son conteneur (largeur + hauteur) et dessine en pixels réels. Il se pose en
+ * ABSOLU (`inset-0`) → à placer dans un parent `relative` AYANT une hauteur réelle
+ * (définie OU `min-height`). L'absolu prend la hauteur RENDUE du parent même quand
+ * celle-ci n'est pas « définie » au sens des pourcentages (ex. `flex-1` dans une
+ * colonne de hauteur indéterminée) → plus de SVG mesuré à 0 (carte vide). La colonne
+ * `enCours` reçoit une étiquette en gras + accent. Survol → atténuation des autres +
+ * infobulle récap ; clic → `onColonneClick`. Le parent fournit les colonnes.
  */
 export function BarresEmpilees({
   colonnes,
@@ -91,7 +93,7 @@ export function BarresEmpilees({
   return (
     <div
       ref={ref}
-      className={cn('relative h-full w-full overflow-hidden', className)}
+      className={cn('absolute inset-0 overflow-hidden', className)}
     >
       {w > 0 && h > 0 && (
         <svg

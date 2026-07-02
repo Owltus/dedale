@@ -280,14 +280,15 @@ function BarresVue({
       className={className}
       contentClassName="flex min-h-0 flex-col gap-3"
     >
-      {/* Zone de tracé : `flex-1` → la carte est étirée à la hauteur de la rangée de la
-          grille intrinsèque (rangées AUTO = hauteur des carrés voisins), et le tracé la
-          remplit. `min-h-[150px]` garantit une hauteur correcte quand les barres sont
-          SEULES sur leur rangée (donut ET sunburst `null`, ou barres pleine largeur en
-          config tablette). Rangées AUTO → la carte n'est jamais comprimée sous ce
-          minimum, donc plus de débordement du SVG (le garde-fou `overflow-hidden` de
-          BarresEmpilees reste en dernier rempart). `mesureRef` = calcul du nb de semaines. */}
-      <div ref={mesureRef} className="min-h-[150px] flex-1">
+      {/* Zone de tracé (conteneur `relative` à hauteur souple) : `flex-1` l'étire à la
+          hauteur de la carte quand celle-ci est définie (mode 3 colonnes → `h-cadran`) ;
+          `min-h-[150px]` garantit une hauteur RÉELLE même quand la carte n'a PAS de
+          hauteur définie (barres pleine largeur sous `@cadrans-trio` : la cascade `h-full`
+          se résolvait alors à `auto` → SVG mesuré à 0 = carte VIDE). `BarresEmpilees` se
+          pose en ABSOLU et remplit CE conteneur → hauteur correcte à toutes les
+          résolutions (et `overflow-hidden` interne = dernier rempart anti-débordement).
+          `mesureRef` = calcul du nb de semaines. */}
+      <div ref={mesureRef} className="relative min-h-[150px] flex-1">
         <BarresEmpilees
           colonnes={colonnes}
           filigrane={filigrane}
