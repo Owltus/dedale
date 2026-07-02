@@ -89,7 +89,10 @@ export function BarresEmpilees({
   const filigraneFont = Math.min(plotH * 0.5, w * 0.28)
 
   return (
-    <div ref={ref} className={cn('relative h-full w-full', className)}>
+    <div
+      ref={ref}
+      className={cn('relative h-full w-full overflow-hidden', className)}
+    >
       {w > 0 && h > 0 && (
         <svg
           viewBox={`0 0 ${String(w)} ${String(h)}`}
