@@ -298,16 +298,13 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
 
   const pct = Math.round((gammesAJour / totalGammes) * 100)
 
-  // Pourcentage seul (sans libellé) ; le « % » fait la moitié de la taille des
-  // chiffres via `text-[0.5em]` (relatif → vaut pour les deux tailles).
-  const centre = (taille: 'normal' | 'grand') => (
-    <span
-      className={
-        taille === 'grand'
-          ? 'text-6xl leading-none font-semibold'
-          : 'text-4xl leading-none font-semibold'
-      }
-    >
+  // Pourcentage seul (sans libellé), taille PROPORTIONNELLE à la largeur du sunburst :
+  // `cqw` (le sunburst est un conteneur `@container`) → lisible et bien calé dans le trou
+  // central aussi bien sur un petit cadran mobile qu'en plein écran, sans taille fixe qui
+  // paraît énorme quand le cadran rétrécit. Le « % » fait la moitié des chiffres
+  // (`text-[0.5em]`, relatif → suit la même échelle).
+  const centre = (
+    <span className="text-[11cqw] leading-none font-semibold">
       {pct}
       <span className="text-[0.5em]">%</span>
     </span>
@@ -323,7 +320,7 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
       <div className="flex min-h-0 flex-1 items-center justify-center">
         <Sunburst
           noeuds={noeuds}
-          centre={centre('normal')}
+          centre={centre}
           onCentreClick={() => setPleinEcran(true)}
           className="aspect-square h-full max-h-full max-w-full"
         />
@@ -341,7 +338,7 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
           </DialogHeader>
           <Sunburst
             noeuds={noeuds}
-            centre={centre('grand')}
+            centre={centre}
             className="mx-auto w-full max-w-xl"
           />
         </DialogContent>

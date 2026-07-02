@@ -151,7 +151,7 @@ export function Sunburst({
   if (total > 0) disposer(noeuds, 0, 360, total, 1, arcs)
 
   return (
-    <div className={cn('relative', className)}>
+    <div className={cn('@container relative', className)}>
       <svg
         viewBox="0 0 100 100"
         role="img"
