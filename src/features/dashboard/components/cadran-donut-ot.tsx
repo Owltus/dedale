@@ -7,6 +7,7 @@ import { cleSemaine } from '@/features/planning/semaines'
 import type { StatusTone } from '@/components/common/status-badge'
 import type { PlanningOt } from '@/features/planning/grille'
 import { DashboardCard } from './dashboard-card'
+import { CLASSE_CARRE_CADRAN } from './synthese-layout'
 import { useDashboardData } from '../use-dashboard-data'
 
 interface CadranDonutOtProps {
@@ -139,7 +140,7 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
     <DashboardCard
       square
       dense
-      className="w-full min-w-0 overflow-hidden @min-[640px]:w-auto @min-[640px]:max-w-[400px] @min-[640px]:grow @min-[640px]:basis-[300px] @min-[1060px]:h-[340px] @min-[1060px]:max-w-none @min-[1060px]:shrink-0 @min-[1060px]:grow-0 @min-[1060px]:basis-auto"
+      className={CLASSE_CARRE_CADRAN}
       contentClassName="flex items-center justify-center"
     >
       <Donut

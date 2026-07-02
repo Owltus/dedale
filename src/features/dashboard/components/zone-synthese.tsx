@@ -2,6 +2,7 @@ import type { FenetreTemporelle } from '@/features/planning/use-fenetre-temporel
 import { CadranDonutOt } from './cadran-donut-ot'
 import { CadranBarresPlanning } from './cadran-barres-planning'
 import { CadranSunburstGammes } from './cadran-sunburst-gammes'
+import { CLASSE_BARRES_SYNTHESE } from './synthese-layout'
 
 interface ZoneSyntheseProps {
   siteId: string
@@ -20,16 +21,19 @@ interface ZoneSyntheseProps {
  *
  * Layout en flexbox À PLAT (`flex-wrap`), 3 comportements selon la place — les barres se
  * placent ENTRE les carrés si ça tient, sinon passent pleine largeur en dessous :
- *   - mobile (< 640px) : tout empilé, chaque carte PLEINE LARGEUR ;
- *   - moyen (640–1060px) : donut · sunburst CÔTE À CÔTE (chacun sa moitié, borné à 400px),
+ *   - mobile (< `@cadrans-duo`) : tout empilé, chaque carte PLEINE LARGEUR ;
+ *   - moyen (`@cadrans-duo`) : donut · sunburst CÔTE À CÔTE (chacun sa moitié, plafonné),
  *     et barres PLEINE LARGEUR en dessous (via `order-last` → elles passent en dernier) ;
- *   - large (≥ 1060px) : `donut │ barres │ sunburst` sur UNE ligne, barres AU MILIEU
- *     (`order-none`) remplissant l'espace restant ; les carrés reviennent à 340×340.
+ *   - large (`@cadrans-trio`) : `donut │ barres │ sunburst` sur UNE ligne, barres AU MILIEU
+ *     (`order-none`) remplissant l'espace restant ; les carrés reviennent à `h-cadran` carré.
  * L'ordre DOM est donut, barres, sunburst → au large (order-none) les barres sont
  * naturellement au centre ; en dessous (order-last) elles descendent sous les deux carrés.
- * Au large, hauteur EXPLICITE `h-[340px]` sur les trois → le SVG des barres mesure une
+ * Au large, hauteur EXPLICITE (`h-cadran`) sur les trois → le SVG des barres mesure une
  * hauteur réelle (sinon la carte restait vide). `justify-center` centre la paire de carrés
  * quand ils sont plafonnés. Aucun chevauchement possible (items flex).
+ *
+ * Curseurs (seuils `@cadrans-duo`/`@cadrans-trio`, taille `--spacing-cadran`) : SOURCE
+ * UNIQUE dans `src/index.css` (@theme) ; classes des cadrans dans `synthese-layout.ts`.
  */
 export function ZoneSynthese({ siteId, fenetre }: ZoneSyntheseProps) {
   return (
@@ -38,7 +42,7 @@ export function ZoneSynthese({ siteId, fenetre }: ZoneSyntheseProps) {
       <CadranBarresPlanning
         siteId={siteId}
         fenetre={fenetre}
-        className="order-last w-full @min-[1060px]:order-none @min-[1060px]:h-[340px] @min-[1060px]:w-auto @min-[1060px]:min-w-[340px] @min-[1060px]:flex-1"
+        className={CLASSE_BARRES_SYNTHESE}
       />
       <CadranSunburstGammes siteId={siteId} />
     </div>
