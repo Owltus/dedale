@@ -45,6 +45,8 @@ interface CadranBarresPlanningProps {
    * colonne étroite.
    */
   fenetre?: FenetreTemporelle
+  /** Classes de positionnement dans la grille de la zone synthèse (cf. `ZoneSynthese`). */
+  className?: string
 }
 
 /**
@@ -58,9 +60,11 @@ interface CadranBarresPlanningProps {
 export function CadranBarresPlanning({
   siteId,
   fenetre,
+  className,
 }: CadranBarresPlanningProps) {
-  if (fenetre) return <BarresVue siteId={siteId} fenetre={fenetre} />
-  return <BarresAutonome siteId={siteId} />
+  if (fenetre)
+    return <BarresVue siteId={siteId} fenetre={fenetre} className={className} />
+  return <BarresAutonome siteId={siteId} className={className} />
 }
 
 /**
@@ -74,9 +78,15 @@ const NB_SEMAINES_HOOK = 12
  * Mode autonome : instancie la fenêtre temporelle (centre + nav clavier). L'affichage
  * se dimensionne ensuite tout seul dans `BarresVue`. Unique branche à poser un listener.
  */
-function BarresAutonome({ siteId }: { siteId: string }) {
+function BarresAutonome({
+  siteId,
+  className,
+}: {
+  siteId: string
+  className?: string
+}) {
   const fenetre = useFenetreTemporelle({ nbSemaines: NB_SEMAINES_HOOK })
-  return <BarresVue siteId={siteId} fenetre={fenetre} />
+  return <BarresVue siteId={siteId} fenetre={fenetre} className={className} />
 }
 
 /** Ordre d'empilement (bas → haut) ET ordre de la légende : les 7 états du planning. */
@@ -164,9 +174,11 @@ function cleEtatOt(ot: PlanningOt, aujourdHui: Date): CleEtat {
 function BarresVue({
   siteId,
   fenetre,
+  className,
 }: {
   siteId: string
   fenetre: FenetreTemporelle
+  className?: string
 }) {
   const { ordresTravail } = useDashboardData(siteId)
   const navigate = useNavigate()
@@ -264,12 +276,18 @@ function BarresVue({
   }
 
   return (
-    <DashboardCard contentClassName="flex flex-col gap-3">
-      {/* Zone de tracé : remplit toute la hauteur de la carte (les barres se mettent à
-          l'échelle en conséquence). `flex-1` prend la hauteur de la rangée sur desktop,
-          `min-h` garantit une hauteur correcte quand les cartes s'empilent (mobile).
-          `mesureRef` sert au calcul du nombre de semaines (largeur). */}
-      <div ref={mesureRef} className="min-h-[200px] flex-1">
+    <DashboardCard
+      className={className}
+      contentClassName="flex min-h-0 flex-col gap-3"
+    >
+      {/* Zone de tracé : `flex-1` → la carte est étirée à la hauteur de la rangée de la
+          grille intrinsèque (rangées AUTO = hauteur des carrés voisins), et le tracé la
+          remplit. `min-h-[150px]` garantit une hauteur correcte quand les barres sont
+          SEULES sur leur rangée (donut ET sunburst `null`, ou barres pleine largeur en
+          config tablette). Rangées AUTO → la carte n'est jamais comprimée sous ce
+          minimum, donc plus de débordement du SVG (le garde-fou `overflow-hidden` de
+          BarresEmpilees reste en dernier rempart). `mesureRef` = calcul du nb de semaines. */}
+      <div ref={mesureRef} className="min-h-[150px] flex-1">
         <BarresEmpilees
           colonnes={colonnes}
           filigrane={filigrane}

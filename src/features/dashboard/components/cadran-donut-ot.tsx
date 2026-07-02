@@ -139,7 +139,7 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
     <DashboardCard
       square
       dense
-      className="w-full max-w-[300px] justify-self-center lg:w-[300px]"
+      className="w-full min-w-0 overflow-hidden @min-[640px]:w-auto @min-[640px]:max-w-[400px] @min-[640px]:grow @min-[640px]:basis-[300px] @min-[1060px]:h-[340px] @min-[1060px]:max-w-none @min-[1060px]:shrink-0 @min-[1060px]:grow-0 @min-[1060px]:basis-auto"
       contentClassName="flex items-center justify-center"
     >
       <Donut
