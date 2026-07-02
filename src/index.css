@@ -117,8 +117,6 @@
    Seuils de réagencement (container queries) + taille de référence d'un cadran.
    Modifier ICI se répercute partout (cf. `synthese-layout.ts`). */
 @theme {
-  /* Donut + sunburst passent côte à côte (→ variant `@cadrans-duo:`). */
-  --container-cadrans-duo: 640px;
   /* donut | barres | sunburst tiennent sur une ligne (→ variant `@cadrans-trio:`). */
   --container-cadrans-trio: 1060px;
   /* Taille de référence d'un cadran carré (→ `h-cadran`, `min-w-cadran`, …). */

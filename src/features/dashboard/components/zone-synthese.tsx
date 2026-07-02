@@ -19,11 +19,11 @@ interface ZoneSyntheseProps {
  * donut « Ordres de travail » (reste à faire), barres empilées par semaine « Charge
  * par semaine », sunburst « Complétion des gammes ».
  *
- * Layout en flexbox À PLAT (`flex-wrap`), 3 comportements selon la place — les barres se
+ * Layout en flexbox À PLAT (`flex-wrap`), 2 comportements selon la place — les barres se
  * placent ENTRE les carrés si ça tient, sinon passent pleine largeur en dessous :
- *   - mobile (< `@cadrans-duo`) : tout empilé, chaque carte PLEINE LARGEUR ;
- *   - moyen (`@cadrans-duo`) : donut · sunburst CÔTE À CÔTE (chacun sa moitié, plafonné),
- *     et barres PLEINE LARGEUR en dessous (via `order-last` → elles passent en dernier) ;
+ *   - sous `@cadrans-trio` (mobile INCLUS) : donut · sunburst CÔTE À CÔTE (chacun sa
+ *     moitié, plafonné à `max-w-[400px]`), et barres PLEINE LARGEUR en dessous (via
+ *     `order-last` → elles passent en dernier) ;
  *   - large (`@cadrans-trio`) : `donut │ barres │ sunburst` sur UNE ligne, barres AU MILIEU
  *     (`order-none`) remplissant l'espace restant ; les carrés reviennent à `h-cadran` carré.
  * L'ordre DOM est donut, barres, sunburst → au large (order-none) les barres sont
@@ -32,8 +32,8 @@ interface ZoneSyntheseProps {
  * hauteur réelle (sinon la carte restait vide). `justify-center` centre la paire de carrés
  * quand ils sont plafonnés. Aucun chevauchement possible (items flex).
  *
- * Curseurs (seuils `@cadrans-duo`/`@cadrans-trio`, taille `--spacing-cadran`) : SOURCE
- * UNIQUE dans `src/index.css` (@theme) ; classes des cadrans dans `synthese-layout.ts`.
+ * Curseurs (seuil `@cadrans-trio`, taille `--spacing-cadran`) : SOURCE UNIQUE dans
+ * `src/index.css` (@theme) ; classes des cadrans dans `synthese-layout.ts`.
  */
 export function ZoneSynthese({ siteId, fenetre }: ZoneSyntheseProps) {
   return (
