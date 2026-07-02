@@ -1,25 +1,21 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type { StatusTone } from '@/components/common/status-badge'
 import { cn } from '@/lib/utils'
-import {
-  onKeyActivate,
-  TONE_LABEL,
-  toneToken,
-} from '@/components/common/charts/chart-legend'
+import { onKeyActivate } from '@/components/common/charts/chart-legend'
 
 /**
  * Nœud d'un sunburst à 3 niveaux (domaine → famille → gamme). L'angle d'un nœud
- * est proportionnel à la somme des `poids` de ses feuilles. `opacite` module la
- * santé d'une feuille, `hachures` superpose un motif rayé (gammes réglementaires),
- * `blink` fait clignoter doucement (remplacé par un liséré statique sous
- * `prefers-reduced-motion`).
+ * est proportionnel à la somme des `poids` de ses feuilles. `couleur` est le
+ * remplissage DÉJÀ RÉSOLU (teinte du domaine éclaircie selon la profondeur, et
+ * modulée par la santé pour les feuilles) ; `statutLabel` complète l'infobulle,
+ * `hachures` superpose un motif rayé (gammes réglementaires), `blink` fait clignoter
+ * doucement (remplacé par un liséré statique sous `prefers-reduced-motion`).
  */
 export interface SunburstNode {
   key: string
   label: string
-  tone: StatusTone
+  couleur: string
   poids: number
-  opacite?: number
+  statutLabel?: string
   hachures?: boolean
   blink?: boolean
   onClick?: () => void
@@ -46,9 +42,9 @@ const RAYONS: Record<number, [number, number]> = {
   2: [28 + GAP_ANNEAU, 38],
   3: [38 + GAP_ANNEAU, 49],
 }
-// Éclaircissement du domaine vers l'extérieur (opacité par profondeur) : anneau interne
-// saturé, familles plus claires, gammes plus claires encore (la santé module ensuite).
-const OPACITE_PROFONDEUR: Record<number, number> = { 1: 1, 2: 0.7, 3: 0.55 }
+// Anneaux à luminosité HOMOGÈNE : plus d'assombrissement par profondeur — les anneaux
+// se distinguent par les interstices (`GAP_ANNEAU`), la santé de la feuille module seule
+// l'opacité (`node.opacite`).
 const GAP_DEG = 0.7
 
 /** Formate une coordonnée SVG (borne la précision). */
@@ -133,11 +129,11 @@ function useReducedMotion() {
 }
 
 /**
- * Sunburst SVG maison à 3 anneaux concentriques. Teinte du domaine éclaircie
- * vers l'extérieur (opacité par profondeur), `opacite` par feuille, `hachures`
- * via `<pattern>` superposé, `blink` via animation d'opacité douce (liséré
- * statique sous reduced-motion). Survol → surbrillance + infobulle, clic
- * feuille/branche → `onClick`, clic centre → `onCentreClick`.
+ * Sunburst SVG maison à 3 anneaux concentriques. Chaque nœud porte sa `couleur`
+ * déjà résolue (teinte du domaine héritée et ÉCLAIRCIE vers l'extérieur, modulée par
+ * la santé des feuilles), `hachures` via `<pattern>` superposé, `blink` via animation
+ * d'opacité douce (liséré statique sous reduced-motion). Survol → surbrillance +
+ * infobulle, clic feuille/branche → `onClick`, clic centre → `onCentreClick`.
  */
 export function Sunburst({
   noeuds,
@@ -162,25 +158,6 @@ export function Sunburst({
         aria-label="Répartition en anneaux (sunburst)"
         className="block w-full"
       >
-        <defs>
-          <pattern
-            id="dedale-sunburst-hachures"
-            patternUnits="userSpaceOnUse"
-            width="3"
-            height="3"
-            patternTransform="rotate(45)"
-          >
-            <line
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="3"
-              stroke="var(--foreground)"
-              strokeWidth="0.7"
-              opacity="0.35"
-            />
-          </pattern>
-        </defs>
         {/* Animation de clignotement ; neutralisée si l'utilisateur réduit les
             mouvements (le liséré statique prend alors le relais). */}
         <style>
@@ -210,17 +187,17 @@ export function Sunburst({
 
           const id = `${String(depth)}:${node.key}`
           const interactif = Boolean(node.onClick)
-          const infobulle = `${node.label} · ${TONE_LABEL[node.tone]}`
+          const infobulle = node.statutLabel
+            ? `${node.label} · ${node.statutLabel}`
+            : node.label
           const d = secteurAnnulaire(cx, cy, rExt, rInt, da0, da1)
-          const opacite = (OPACITE_PROFONDEUR[depth] ?? 1) * (node.opacite ?? 1)
           const clignote = Boolean(node.blink)
 
           return (
             <g key={id}>
               <path
                 d={d}
-                fill={toneToken(node.tone)}
-                fillOpacity={opacite}
+                style={{ fill: node.couleur }}
                 className={cn(
                   'transition-[filter] outline-none focus-visible:brightness-110',
                   interactif && 'cursor-pointer hover:brightness-110',
@@ -235,13 +212,34 @@ export function Sunburst({
                 <title>{infobulle}</title>
               </path>
 
-              {/* Gammes réglementaires : trame rayée superposée. */}
+              {/* Gammes réglementaires : trame rayée superposée, orientée PAR RAPPORT au
+                  secteur (le motif tourne de l'angle médian) → même rendu quelle que soit
+                  la position de la gamme autour du cercle. */}
               {node.hachures && (
-                <path
-                  d={d}
-                  fill="url(#dedale-sunburst-hachures)"
-                  pointerEvents="none"
-                />
+                <>
+                  <pattern
+                    id={`dedale-hachures-${node.key.replace(/:/g, '-')}`}
+                    patternUnits="userSpaceOnUse"
+                    width="1.5"
+                    height="1.5"
+                    patternTransform={`rotate(${String(Math.round((da0 + da1) / 2 + 45))})`}
+                  >
+                    <line
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1.5"
+                      stroke="var(--foreground)"
+                      strokeWidth="1.1"
+                      opacity="0.35"
+                    />
+                  </pattern>
+                  <path
+                    d={d}
+                    fill={`url(#dedale-hachures-${node.key.replace(/:/g, '-')})`}
+                    pointerEvents="none"
+                  />
+                </>
               )}
 
               {/* Liséré statique de remplacement du clignotement (reduced-motion). */}
@@ -249,7 +247,7 @@ export function Sunburst({
                 <path
                   d={d}
                   fill="none"
-                  stroke={toneToken(node.tone)}
+                  style={{ stroke: node.couleur }}
                   strokeWidth="1.4"
                   pointerEvents="none"
                 />

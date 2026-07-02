@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/dialog'
 import { statutAffichageGamme } from '@/features/gammes/statut-affichage'
 import type { StatutAffichage } from '@/features/ordres-travail/statut-affichage'
-import type { StatusTone } from '@/components/common/status-badge'
 import type { PlanningOt } from '@/features/planning/grille'
 import { segOfUnique } from '@/lib/slug'
 import { DashboardCard } from './dashboard-card'
@@ -46,32 +45,45 @@ function classifierSante(aff: StatutAffichage): Sante {
 }
 
 /**
- * Traduction SANTÉ → rendu du secteur : `opacite` module la santé (pleine = à jour,
- * estompée = à traiter, quasi invisible = inactive), `blink` signale un problème.
- * La TEINTE (couleur) reste celle du domaine — la santé ne joue QUE sur l'opacité.
+ * Palette catégorielle des DOMAINES : couleurs CHOISIES et STABLES — un domaine garde
+ * toujours la même (assignation par index), réutilisée en rotation au-delà de douze.
+ * L'ordre est volontairement « en désordre » (les teintes sautent d'un bout à l'autre
+ * de la roue) pour que deux domaines VOISINS sur l'anneau contrastent franchement.
+ * Luminosité et chroma proches → style d'ensemble cohérent. La couleur est REPRISE
+ * telle quelle (pleine) par les familles et les gammes ; seul le statut de la gamme la
+ * module (cf. `couleurGamme`).
  */
-const STYLE_SANTE: Record<Sante, { opacite: number; blink: boolean }> = {
-  bon: { opacite: 1, blink: false },
-  aTraiter: { opacite: 0.55, blink: false },
-  probleme: { opacite: 1, blink: true },
-  inactif: { opacite: 0.12, blink: false },
-}
+const PALETTE_DOMAINES = [
+  'oklch(0.62 0.17 255)', // bleu
+  'oklch(0.68 0.16 40)', // orange
+  'oklch(0.6 0.15 155)', // vert
+  'oklch(0.58 0.2 340)', // magenta
+  'oklch(0.72 0.15 90)', // or
+  'oklch(0.55 0.2 295)', // violet
+  'oklch(0.64 0.13 200)', // sarcelle
+  'oklch(0.58 0.19 20)', // rouge
+  'oklch(0.66 0.15 130)', // vert clair
+  'oklch(0.6 0.16 275)', // indigo
+  'oklch(0.68 0.15 60)', // ambre
+  'oklch(0.6 0.18 320)', // pourpre
+]
+
+/** Base neutre (grise) du repli « Non classé » — hors de la roue catégorielle. */
+const BASE_NON_CLASSE = 'var(--muted-foreground)'
+
+/** Gamme inactive : on l'ÉTEINT vers le fond de carte → segment discret et sombre. */
+const eteindre = (base: string, pct: number) =>
+  `color-mix(in oklab, ${base} ${String(pct)}%, var(--card))`
 
 /**
- * Palette catégorielle : une teinte par DOMAINE (répartie en rotation). On évite
- * `destructive` en tête (réservé aux alertes) — elle ne sert que si le nombre de
- * domaines dépasse la palette. Les tons sont éclaircis vers l'extérieur par le
- * composant `Sunburst` (opacité par profondeur), on ne fournit que la teinte.
+ * Couleur finale d'une GAMME (anneau extérieur) : la couleur PLEINE du domaine (comme
+ * l'anneau intérieur) pour toute gamme active ; seule l'INACTIVE est estompée vers le
+ * fond (segment discret). Le reste du statut se lit HORS couleur : « en retard » CLIGNOTE,
+ * réglementaire = hachures (cf. `feuilleGamme`).
  */
-const TEINTES_DOMAINES: StatusTone[] = [
-  'info',
-  'violet',
-  'success',
-  'warning',
-  'yellow',
-  'neutral',
-  'destructive',
-]
+function couleurGamme(base: string, sante: Sante): string {
+  return sante === 'inactif' ? eteindre(base, 22) : base
+}
 
 /** Nœud interne (domaine / famille) sans santé propre : teinte + navigation. */
 interface ArbreResultat {
@@ -84,11 +96,12 @@ interface ArbreResultat {
 
 /**
  * Cadran « Complétion des gammes » (zone 1 droite du tableau de bord) : un sunburst
- * à trois anneaux domaine → famille → gamme. La SANTÉ de chaque gamme (dérivée des
- * MÊMES helpers que les badges du Plan de maintenance) est rendue par l'OPACITÉ du
- * secteur (à jour = pleine, à traiter = estompée, inactive = quasi invisible), les
- * gammes réglementaires sont HACHURÉES et les gammes en problème CLIGNOTENT. Chaque
- * anneau porte la TEINTE de son domaine, éclaircie vers l'extérieur.
+ * à trois anneaux domaine → famille → gamme. Chaque DOMAINE a sa COULEUR franche, REPRISE
+ * TELLE QUELLE (pleine) par ses familles et ses gammes — les anneaux se distinguent par
+ * les interstices, pas par la luminosité. Sur l'anneau extérieur, le STATUT de chaque
+ * gamme (dérivé des MÊMES helpers que les badges du Plan de maintenance) se lit sans
+ * délaver la couleur : à jour = couleur pleine, inactive = estompée (segment sombre),
+ * « en retard » CLIGNOTE, gammes réglementaires HACHURÉES.
  *
  * Au centre, le POURCENTAGE de gammes « à jour » sur TOUTES les gammes du site (une
  * gamme abandonnée / non maintenue pèse comme un manque — exigence PO). Clic sur un
@@ -153,26 +166,26 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
       enfantsParParent.set(c.parent_id, arr)
     }
 
-    // Feuille « gamme » : santé (opacité + blink) + hachures réglementaire + fiche.
+    // Feuille « gamme » : couleur PLEINE du domaine (estompée si inactive), hachures
+    // réglementaire, clignotement des problèmes, infobulle = état, fiche au clic.
     const feuilleGamme = (
       g: (typeof gammes)[number],
-      tone: StatusTone,
+      base: string,
     ): { noeud: SunburstNode; aJour: boolean } => {
       const aff = statutAffichageGamme({
         estActive: g.est_active,
         ots: otsParGamme.get(g.id) ?? [],
       })
       const sante = classifierSante(aff)
-      const style = STYLE_SANTE[sante]
       return {
         aJour: sante === 'bon',
         noeud: {
           key: `g:${g.id}`,
           label: g.nom,
-          tone,
+          couleur: couleurGamme(base, sante),
+          statutLabel: aff.label,
           poids: 1,
-          opacite: style.opacite,
-          blink: style.blink,
+          blink: sante === 'probleme',
           hachures: g.nature === 'controle_reglementaire',
           onClick: () =>
             void navigate({
@@ -189,9 +202,11 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
     const placees = new Set<string>()
     const noeuds: SunburstNode[] = []
 
-    // Domaines dans l'ordre de l'explorateur ; teinte par rotation de palette.
+    // Domaines dans l'ordre de l'explorateur ; couleur STABLE par index (rotation de la
+    // palette « en désordre » → domaines voisins bien contrastés).
     racines.forEach((racine, i) => {
-      const tone = TEINTES_DOMAINES[i % TEINTES_DOMAINES.length] ?? 'info'
+      const base =
+        PALETTE_DOMAINES[i % PALETTE_DOMAINES.length] ?? 'oklch(0.62 0.17 255)'
       const domSeg = segOfUnique(
         { nom: racine.nom, id: racine.id },
         racinesSlug,
@@ -212,7 +227,7 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
           for (const g of gammesFam) {
             placees.add(g.id)
             totalGammes += 1
-            const { noeud, aJour } = feuilleGamme(g, tone)
+            const { noeud, aJour } = feuilleGamme(g, base)
             if (aJour) gammesAJour += 1
             feuilles.push(noeud)
           }
@@ -220,7 +235,8 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
           famillesNoeuds.push({
             key: `f:${fam.id}`,
             label: fam.nom,
-            tone,
+            // La famille reprend la couleur PLEINE du domaine (séparée par l'interstice).
+            couleur: base,
             poids: 0,
             onClick: () =>
               void navigate({
@@ -235,7 +251,8 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
       noeuds.push({
         key: `d:${racine.id}`,
         label: racine.nom,
-        tone,
+        // Anneau intérieur : couleur pleine et saturée du domaine.
+        couleur: base,
         poids: 0,
         onClick: () =>
           void navigate({ to: '/gammes/$', params: { _splat: domSeg } }),
@@ -252,20 +269,20 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
         .slice()
         .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))) {
         totalGammes += 1
-        const { noeud, aJour } = feuilleGamme(g, 'neutral')
+        const { noeud, aJour } = feuilleGamme(g, BASE_NON_CLASSE)
         if (aJour) gammesAJour += 1
         feuilles.push(noeud)
       }
       noeuds.push({
         key: 'd:__non_classe__',
         label: 'Non classé',
-        tone: 'neutral',
+        couleur: BASE_NON_CLASSE,
         poids: 0,
         enfants: [
           {
             key: 'f:__non_classe__',
             label: 'Non classé',
-            tone: 'neutral',
+            couleur: BASE_NON_CLASSE,
             poids: 0,
             enfants: feuilles,
           },
@@ -317,8 +334,9 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
           <DialogHeader>
             <DialogTitle>Complétion des gammes</DialogTitle>
             <DialogDescription>
-              Santé des gammes par domaine et famille — opacité = état, hachures
-              = contrôle réglementaire, clignotement = à traiter.
+              Une couleur pleine par domaine, reprise par ses familles et
+              gammes. Sur l'anneau extérieur : gammes inactives estompées,
+              contrôles réglementaires hachurés, retards qui clignotent.
             </DialogDescription>
           </DialogHeader>
           <Sunburst
