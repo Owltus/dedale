@@ -73,6 +73,26 @@ export function useDetachDocument() {
   })
 }
 
+/** Modifie les métadonnées d'un document : nom affiché + type. */
+export function useUpdateDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: {
+      id: string
+      values: { nom_original: string; type_document_id: number }
+    }) => {
+      await supabase
+        .from('documents')
+        .update(params.values)
+        .eq('id', params.id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: documentsQueries.all() }),
+  })
+}
+
 /** Suppression définitive (hard-delete) d'un document. */
 export function useDeleteDocument() {
   const qc = useQueryClient()

@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from 'react'
-import { Download, Link2Off, Trash2 } from 'lucide-react'
+import { Download, Link2Off, Pencil, Trash2 } from 'lucide-react'
 import { DocumentRow } from '@/features/documents/components/document-row'
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
+import { DocumentEditDialog } from '@/features/documents/components/document-edit-dialog'
 import { useDocumentDownload } from '@/features/documents/use-document-download'
 import type { DocumentMeta } from '@/features/documents/format'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { deleteErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import type { RowAction } from '@/components/common/row-actions'
@@ -17,6 +19,12 @@ const DEFAULT_DELETE_WARNING =
 interface DocumentsListeProps {
   /** Documents à lister (déjà chargés / filtrés par l'hôte). */
   docs: DocumentMeta[]
+  /**
+   * Autorise l'action « Modifier » (renommer / changer le type). La modale
+   * d'édition est PORTÉE par la liste (mutation + toast internes) : l'hôte n'a
+   * qu'à activer le droit — inutile de câbler quoi que ce soit.
+   */
+  canEdit?: boolean
   /** Autorise l'action « Supprimer » (hard-delete). Requiert `onDelete`. */
   canDelete?: boolean
   /**
@@ -60,6 +68,7 @@ interface DocumentsListeProps {
  */
 export function DocumentsListe({
   docs,
+  canEdit = false,
   canDelete = false,
   onDelete,
   canDetach = false,
@@ -73,6 +82,7 @@ export function DocumentsListe({
 }: DocumentsListeProps) {
   const download = useDocumentDownload()
   const [toPreview, setToPreview] = useState<DocumentMeta | null>(null)
+  const edition = useEntityDialog<DocumentMeta>()
 
   const showDelete = canDelete && onDelete !== undefined
   const showDetach = canDetach && onDetach !== undefined
@@ -100,6 +110,12 @@ export function DocumentsListe({
               onSelect: () => void download(doc),
             },
           ]
+          if (canEdit)
+            actions.push({
+              label: 'Modifier',
+              icon: Pencil,
+              onSelect: () => edition.openEdit(doc),
+            })
           if (showDetach)
             actions.push({
               label: 'Détacher',
@@ -132,6 +148,15 @@ export function DocumentsListe({
           onOpenChange={(open) => {
             if (!open) setToPreview(null)
           }}
+        />
+      )}
+
+      {canEdit && (
+        <DocumentEditDialog
+          key={edition.dialogKey}
+          open={edition.open}
+          onOpenChange={edition.onOpenChange}
+          document={edition.entity}
         />
       )}
 

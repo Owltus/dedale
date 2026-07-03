@@ -457,6 +457,7 @@ function OtDocumentsPanel({
         // rattachés aux OT du prestataire, pas au prestataire lui-même.
         <DocumentsListe
           docs={list}
+          canEdit={canDelete}
           canDelete={canDelete}
           onDelete={(doc) => del.mutateAsync(doc.id)}
         />

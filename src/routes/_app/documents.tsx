@@ -164,6 +164,7 @@ function DocumentsContent({
               return (
                 <DocumentsListe
                   docs={shown}
+                  canEdit={canManage}
                   canDelete={canDelete}
                   onDelete={(doc) => del.mutateAsync(doc.id)}
                   badges={(doc) => (

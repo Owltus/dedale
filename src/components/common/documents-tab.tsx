@@ -183,6 +183,7 @@ export function DocumentsTab({
         {(list) => (
           <DocumentsListe
             docs={list}
+            canEdit={canManage}
             canDetach={canManage}
             onDetach={(doc) =>
               detach.mutateAsync({
