@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { referentielQueryOptions } from '@/lib/referentiel'
 import { invokeFunction } from './edge'
 
 export const utilisateursQueries = {
@@ -60,19 +61,7 @@ export const utilisateursQueries = {
     }),
 
   /** Référentiel des rôles (pour le dropdown de changement de rôle, admin). */
-  roles: () =>
-    queryOptions({
-      queryKey: ['roles'] as const,
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('roles')
-          .select('id, code')
-          .order('id')
-          .throwOnError()
-        return data
-      },
-      staleTime: 60 * 60_000,
-    }),
+  roles: () => referentielQueryOptions('roles', 'id, code', 'id'),
 
   /**
    * Liste des utilisateurs visibles par l'appelant (RLS : admin = tous ;

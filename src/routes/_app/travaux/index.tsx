@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { HardHat, Pencil, Plus, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { HardHat, Plus } from 'lucide-react'
 import {
   travauxQueries,
   statutsTravauxQueries,
@@ -15,8 +14,9 @@ import {
 import { estVerrouille } from '@/features/travaux/schemas'
 import { TravauxFormDialog } from '@/features/travaux/components/travaux-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useSiteContext } from '@/lib/site-context'
-import { deleteErrorMessage } from '@/lib/form'
 import { formatDate } from '@/lib/date'
 import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
@@ -28,7 +28,7 @@ import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
-import type { RowAction } from '@/components/common/row-actions'
+import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import {
@@ -90,11 +90,11 @@ function TravauxContent({
   const query = useQuery(travauxQueries.list(siteId))
   const { data: statuts = [] } = useQuery(statutsTravauxQueries.list())
   const del = useDeleteTravaux()
-  const [form, setForm] = useState<{ open: boolean; travaux: Travaux | null }>({
-    open: false,
-    travaux: null,
+  const dialog = useEntityDialog<Travaux>()
+  const suppression = useConfirmDelete<Travaux>({
+    onDelete: (t) => del.mutateAsync(t.id),
+    successMessage: 'Travaux supprimé',
   })
-  const [toDelete, setToDelete] = useState<Travaux | null>(null)
   const [recherche, setRecherche] = useState('')
   // Défaut : on masque les travaux terminés (Terminé/Annulé) — le filtre permet
   // d'afficher un statut précis ou « Tous les statuts ».
@@ -104,17 +104,6 @@ function TravauxContent({
   const statutOptions = statutFilterOptions(
     [...statuts].sort((a, b) => a.id - b.id),
   )
-
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Travaux supprimé')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
 
   // Après création : rediriger vers la fiche (où l'on ajoute les tâches). On
   // calcule le slug avec les frères ACTUELS + le nouveau (symétrie segOfUnique).
@@ -132,7 +121,7 @@ function TravauxContent({
   }
 
   const newButton = canManage ? (
-    <Button onClick={() => setForm({ open: true, travaux: null })}>
+    <Button onClick={dialog.openCreate}>
       <Plus /> Nouveau travaux
     </Button>
   ) : undefined
@@ -148,7 +137,7 @@ function TravauxContent({
               icon={<Plus />}
               label="Nouveau travaux"
               variant="outline"
-              onClick={() => setForm({ open: true, travaux: null })}
+              onClick={dialog.openCreate}
             />
           ) : undefined
         }
@@ -209,20 +198,14 @@ function TravauxContent({
                     const statutLabel = statutNom.get(c.statut_travaux_id)
                     const editable =
                       canManage && !estVerrouille(c.statut_travaux_id)
-                    const rowActions: RowAction[] = []
-                    if (editable)
-                      rowActions.push({
-                        label: 'Modifier',
-                        icon: Pencil,
-                        onSelect: () => setForm({ open: true, travaux: c }),
-                      })
-                    if (canDelete)
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () => setToDelete(c),
-                      })
+                    const rowActions = actionsEditionSuppression({
+                      onModifier: editable
+                        ? () => dialog.openEdit(c)
+                        : undefined,
+                      onSupprimer: canDelete
+                        ? () => suppression.demander(c)
+                        : undefined,
+                    })
                     return (
                       <ListRow
                         key={c.id}
@@ -282,26 +265,23 @@ function TravauxContent({
 
       {canManage && (
         <TravauxFormDialog
-          key={form.travaux?.id ?? 'new'}
-          open={form.open}
-          onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
+          key={dialog.dialogKey}
+          open={dialog.open}
+          onOpenChange={dialog.onOpenChange}
           siteId={siteId}
-          travaux={form.travaux}
+          travaux={dialog.entity}
           onCreated={handleCreated}
         />
       )}
 
       <ConfirmDeleteDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
+        {...suppression.dialogProps}
         entityLabel={
-          toDelete ? `le travaux « ${toDelete.titre} »` : 'le travaux'
+          suppression.toDelete
+            ? `le travaux « ${suppression.toDelete.titre} »`
+            : 'le travaux'
         }
         warning="Cette suppression est définitive. Le travaux et ses liaisons (locaux, équipements) sont retirés ; les documents rattachés restent dans la bibliothèque du site."
-        loading={del.isPending}
-        onConfirm={confirmDelete}
       />
     </PageContainer>
   )

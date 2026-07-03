@@ -23,6 +23,17 @@ export function emptyDi(): DiFormValues {
   }
 }
 
+// Édition d'une DI : seul le constat est validé (obligatoire) ; la date de
+// constat n'est pas modifiable. Les liaisons (facultatives) ne sont réconciliées
+// que pour les rôles métier — le demandeur n'édite que son constat.
+export const diEditSchema = z.object({
+  constat: z.string().trim().min(1, 'Le constat est obligatoire'),
+  local_id: z.string(), // '' = aucun
+  equipement_id: z.string(), // '' = aucun
+})
+
+export type DiEditFormValues = z.infer<typeof diEditSchema>
+
 /** Titre court dérivé du constat (1re ligne, tronquée) pour l'affichage liste. */
 export function diTitre(constat: string): string {
   const first = (constat.split('\n')[0] ?? '').trim()

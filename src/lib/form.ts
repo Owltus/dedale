@@ -54,14 +54,30 @@ export function exportErrorMessage(e: unknown): string {
 }
 
 /**
+ * Libellés contextuels par code SQLSTATE (ou code PostgREST), pour affiner les
+ * messages génériques de `writeErrorMessage` / `deleteErrorMessage` — ex.
+ * `{ '23505': 'Une catégorie portant ce nom existe déjà à cet emplacement.' }`.
+ * Les codes absents retombent sur les messages génériques.
+ */
+export type SqlstateOverrides = Readonly<Record<string, string>>
+
+/**
  * Message clair pour une SUPPRESSION refusée : traduit les codes Postgres/PostgREST
  * au lieu du message technique brut. À utiliser dans les `onError` des suppressions.
  * - `42501` (RLS) / `PGRST116` (0 ligne touchée) : hors périmètre, ou déjà supprimé.
  * - `23503` : encore référencé par une FK RESTRICT → dissocier d’abord.
  * - `restrict_violation` (23001) : le message FR de la base est déjà explicite → tel quel.
+ *
+ * `overrides` (optionnel) : libellés CONTEXTUELS par code, prioritaires sur les
+ * génériques ci-dessus (cf. `SqlstateOverrides`).
  */
-export function deleteErrorMessage(e: unknown): string {
+export function deleteErrorMessage(
+  e: unknown,
+  overrides?: SqlstateOverrides,
+): string {
   const code = pgCode(e)
+  const override = code !== undefined ? overrides?.[code] : undefined
+  if (override !== undefined) return override
   if (code === '42501' || code === 'PGRST116') {
     return 'Action impossible : élément hors de votre périmètre, ou déjà supprimé.'
   }
@@ -80,9 +96,18 @@ export function deleteErrorMessage(e: unknown): string {
  * - `23514` (CHECK) : valeur refusée par une règle de la base.
  * - `23505` : doublon (contrainte d’unicité).
  * - `23503` : référence FK manquante / supprimée.
+ *
+ * `overrides` (optionnel) : libellés CONTEXTUELS par code, prioritaires sur les
+ * génériques ci-dessus (cf. `SqlstateOverrides`) — remplace les petits
+ * traducteurs locaux dupliqués dans les features.
  */
-export function writeErrorMessage(e: unknown): string {
+export function writeErrorMessage(
+  e: unknown,
+  overrides?: SqlstateOverrides,
+): string {
   const code = pgCode(e)
+  const override = code !== undefined ? overrides?.[code] : undefined
+  if (override !== undefined) return override
   if (code === '42501' || code === 'PGRST116') {
     return 'Action impossible : élément hors de votre périmètre, ou déjà modifié.'
   }

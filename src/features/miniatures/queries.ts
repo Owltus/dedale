@@ -6,6 +6,9 @@ export type Miniature = Database['public']['Tables']['miniatures']['Row']
 
 type PoolRow = Database['public']['Views']['v_miniatures_pool']['Row']
 
+/** Durée de validité des URL signées d'affichage (bucket privé), en secondes. */
+const SIGNATURE_TTL_S = 3600
+
 /** Vignette du pool enrichie de son usage + URL signée d'affichage. */
 export interface MiniatureWithUrl {
   id: string
@@ -67,7 +70,7 @@ export const miniaturesQueries = {
           .from('documents')
           .createSignedUrls(
             rows.map((m) => m.storage_path),
-            3600,
+            SIGNATURE_TTL_S,
           )
         // Erreur de niveau LOT (réseau, JWT, bucket absent…) : on la propage. Les
         // erreurs PAR CHEMIN restent dans `signed[i].error` et retombent
@@ -90,6 +93,13 @@ export const miniaturesQueries = {
           url: urlByPath.get(m.storage_path) ?? null,
         }))
       },
-      staleTime: 60_000,
+      // 45 min : les URL sont signées pour SIGNATURE_TTL_S (1 h), donc bien plus
+      // longtemps qu'un staleTime court ne le supposerait. La fraîcheur du contenu
+      // est déjà couverte autrement — realtime 'miniatures' (voir
+      // use-miniature-urls.ts) invalide le pool à tout ajout/suppression/
+      // remplacement, et l'`onError` des <img> retombe sur l'icône si une URL
+      // casse. On évite ainsi de re-scanner la vue et de re-signer TOUT le pool à
+      // chaque navigation, en restant sous la durée de signature.
+      staleTime: 45 * 60_000,
     }),
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Pencil, Plus, SlidersHorizontal, Tag, Trash2 } from 'lucide-react'
-import { ChampFormDialog } from '@/features/modeles-equipements/components/champ-form-dialog'
+import { ChampFormDialog } from '@/components/common/champ-form-dialog'
 import { CHAMP_TYPES, formatChampValeur, type Champ } from '@/lib/champs'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { listStack } from '@/lib/responsive'
 
 // Sous-titre lisible d'un champ : type, unité (si nombre), valeur par défaut.
-function champResume(c: Champ): string {
+// Exporté : la fiche d'un modèle d'équipement en affiche la même synthèse.
+export function champResume(c: Champ): string {
   const parts: string[] = [
     CHAMP_TYPES.find((t) => t.value === c.type)?.label ?? c.type,
   ]

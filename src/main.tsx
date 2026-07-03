@@ -8,7 +8,10 @@ import { ThemeProvider } from './components/theme'
 import { Toaster } from './components/ui/sonner'
 import './index.css'
 
-const queryClient = new QueryClient()
+// Fraîcheur par défaut 60 s pour TOUTES les queries : évite le re-fetch à chaque montage (c'était déjà le défaut de facto, répété query par query).
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 60_000 } },
+})
 
 // L'auth est injectée à l'exécution via le `context` du RouterProvider (cf. InnerApp).
 const router = createRouter({

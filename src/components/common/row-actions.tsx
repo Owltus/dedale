@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import {
   ContextMenuContent,
   ContextMenuItem,
@@ -23,6 +24,44 @@ export interface RowAction {
   separatorBefore?: boolean
   /** Classe de couleur de l'icône (ex. 'text-warning', 'text-muted-foreground'). */
   iconClassName?: string
+}
+
+/**
+ * Fabrique le duo d'actions standard « Modifier » / « Supprimer » d'une ligne
+ * (libellés, icônes et `destructive` homogènes sur toutes les pages liste).
+ * N'inclut que les entrées dont le callback est fourni — les gardes de
+ * permission restent côté page (on ne passe le callback QUE si autorisé).
+ */
+export function actionsEditionSuppression({
+  onModifier,
+  onSupprimer,
+  separatorBefore,
+}: {
+  onModifier?: () => void
+  onSupprimer?: () => void
+  /** Sépare le duo des actions précédentes (posé sur la 1re entrée rendue). */
+  separatorBefore?: boolean
+}): RowAction[] {
+  const actions: RowAction[] = []
+  if (onModifier) {
+    actions.push({
+      label: 'Modifier',
+      icon: Pencil,
+      onSelect: onModifier,
+      separatorBefore,
+    })
+  }
+  if (onSupprimer) {
+    actions.push({
+      label: 'Supprimer',
+      icon: Trash2,
+      destructive: true,
+      onSelect: onSupprimer,
+      // Le séparateur ne précède que la PREMIÈRE entrée du duo.
+      separatorBefore: separatorBefore === true && actions.length === 0,
+    })
+  }
+  return actions
 }
 
 // L'item destructif passe AUSSI le focus en rouge (sinon focus:text-accent-foreground

@@ -5,19 +5,11 @@ import {
   fetchBlockingChildren,
   localisationsQueries,
 } from './queries'
-import {
-  batimentSchema,
-  localSchema,
-  niveauSchema,
-  type BatimentFormValues,
-  type LocalFormValues,
-  type NiveauFormValues,
-} from './schemas'
+import type { BatimentValues, LocalValues, NiveauValues } from './schemas'
 
 // --- Bâtiments ---
 
-function batimentPayload(values: BatimentFormValues) {
-  const v = batimentSchema.parse(values)
+function batimentPayload(v: BatimentValues) {
   return {
     nom: v.nom,
     description: v.description || null,
@@ -33,7 +25,7 @@ export function useCreateBatiment() {
       values,
     }: {
       siteId: string
-      values: BatimentFormValues
+      values: BatimentValues
     }) => {
       const { data } = await supabase
         .from('batiments')
@@ -56,7 +48,7 @@ export function useUpdateBatiment() {
       values,
     }: {
       id: string
-      values: BatimentFormValues
+      values: BatimentValues
     }) => {
       const { data } = await supabase
         .from('batiments')
@@ -96,8 +88,7 @@ export function useDeleteBatiment() {
 
 // --- Niveaux ---
 
-function niveauPayload(values: NiveauFormValues) {
-  const v = niveauSchema.parse(values)
+function niveauPayload(v: NiveauValues) {
   return {
     nom: v.nom,
     description: v.description || null,
@@ -114,7 +105,7 @@ export function useCreateNiveau() {
       values,
     }: {
       batimentId: string
-      values: NiveauFormValues
+      values: NiveauValues
     }) => {
       const { data } = await supabase
         .from('niveaux')
@@ -132,13 +123,7 @@ export function useCreateNiveau() {
 export function useUpdateNiveau() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({
-      id,
-      values,
-    }: {
-      id: string
-      values: NiveauFormValues
-    }) => {
+    mutationFn: async ({ id, values }: { id: string; values: NiveauValues }) => {
       const { data } = await supabase
         .from('niveaux')
         .update(niveauPayload(values))
@@ -176,8 +161,7 @@ export function useDeleteNiveau() {
 
 // --- Locaux ---
 
-function localPayload(values: LocalFormValues) {
-  const v = localSchema.parse(values)
+function localPayload(v: LocalValues) {
   return {
     nom: v.nom,
     description: v.description || null,
@@ -196,7 +180,7 @@ export function useCreateLocal() {
       values,
     }: {
       niveauId: string
-      values: LocalFormValues
+      values: LocalValues
     }) => {
       const { data } = await supabase
         .from('locaux')
@@ -214,13 +198,7 @@ export function useCreateLocal() {
 export function useUpdateLocal() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({
-      id,
-      values,
-    }: {
-      id: string
-      values: LocalFormValues
-    }) => {
+    mutationFn: async ({ id, values }: { id: string; values: LocalValues }) => {
       const { data } = await supabase
         .from('locaux')
         .update(localPayload(values))

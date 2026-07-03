@@ -1,12 +1,11 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { modelesOperationsQueries } from '../queries'
 import type { ModeleOperation } from '../queries'
 import { useDeleteOperationItem } from '../mutations'
 import { OperationItemFormDialog } from './operation-item-form-dialog'
-import { deleteErrorMessage } from '@/lib/form'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { EmptyState } from '@/components/common/empty-state'
@@ -37,26 +36,15 @@ export function OperationItemsEditor({
   const query = useQuery(modelesOperationsQueries.items(modele.id))
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const del = useDeleteOperationItem()
-  const [form, setForm] = useState<{
-    open: boolean
-    item: OperationItem | null
-  }>({ open: false, item: null })
-  const [toDelete, setToDelete] = useState<OperationItem | null>(null)
+  const dialog = useEntityDialog<OperationItem>()
+  const suppression = useConfirmDelete<OperationItem>({
+    onDelete: (item) => del.mutateAsync(item.id),
+    successMessage: 'Opération supprimée',
+  })
 
   const items = query.data ?? []
   const nextOrdre =
     items.reduce((max, item) => Math.max(max, item.ordre), 0) + 1
-
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Opération supprimée')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -95,7 +83,7 @@ export function OperationItemsEditor({
           <TooltipIconButton
             icon={<Plus />}
             label="Ajouter une opération"
-            onClick={() => setForm({ open: true, item: null })}
+            onClick={dialog.openCreate}
           />
         )}
       </div>
@@ -133,7 +121,7 @@ export function OperationItemsEditor({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setForm({ open: true, item })}
+                        onClick={() => dialog.openEdit(item)}
                         aria-label="Modifier l’opération"
                       >
                         <Pencil />
@@ -141,7 +129,7 @@ export function OperationItemsEditor({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setToDelete(item)}
+                        onClick={() => suppression.demander(item)}
                         aria-label="Supprimer l’opération"
                       >
                         <Trash2 />
@@ -161,30 +149,25 @@ export function OperationItemsEditor({
           // remontage à chaque ouverture pour relire les valeurs initiales (nom,
           // type, et surtout `defaultOrdre`/nextOrdre frais) — sinon ajouter
           // plusieurs opérations à la suite réaffiche la saisie + un ordre périmé.
-          key={`${form.item?.id ?? 'new'}-${String(form.open)}`}
-          open={form.open}
-          onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
+          key={dialog.dialogKey}
+          open={dialog.open}
+          onOpenChange={dialog.onOpenChange}
           modeleId={modele.id}
-          item={form.item}
+          item={dialog.entity}
           defaultOrdre={nextOrdre}
         />
       )}
 
       <ConfirmDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
+        {...suppression.dialogProps}
         title="Supprimer l’opération ?"
         description={
-          toDelete
-            ? `« ${toDelete.nom} » sera retirée du modèle d’opération.`
+          suppression.toDelete
+            ? `« ${suppression.toDelete.nom} » sera retirée du modèle d’opération.`
             : undefined
         }
         confirmLabel="Supprimer"
         destructive
-        loading={del.isPending}
-        onConfirm={confirmDelete}
       />
     </div>
   )

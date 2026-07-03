@@ -1,8 +1,25 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { categoriesQueries } from '@/features/categories/queries'
+import { referentielQueryOptions } from '@/lib/referentiel'
 import { sousCategoriesNiveau2 } from '@/lib/scope'
 import type { Database } from '@/lib/database.types'
+
+/**
+ * Opération d'une gamme, enrichie de son type et de son unité (retour exact de
+ * `gammesQueries.operations`). Partagée par la fiche de gamme de site
+ * (`GammeDetail`) et le détail d'une gamme-template (`GammesBiblioPanel`) via la
+ * section commune `GammeOperationsSection`.
+ */
+export type GammeOperation =
+  Database['public']['Tables']['operations']['Row'] & {
+    types_operations: {
+      id: number
+      libelle: string
+      necessite_seuils: boolean
+    } | null
+    unites: { id: number; nom: string; symbole: string } | null
+  }
 
 /**
  * Gamme-template de la Bibliothèque, enrichie de ses jointures d'affichage
@@ -68,14 +85,13 @@ export const gammesQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
-   * Catalogue COMPLET des gammes (commun + sites accessibles) SANS filtre de
-   * site : le périmètre est appliqué côté composant via le sélecteur de la
-   * Bibliothèque. La RLS arbitre la visibilité réelle. Enrichi de la périodicité,
-   * du prestataire et de la catégorie (arborescence).
+   * Catalogue des gammes-templates COMMUNES (`site_id NULL`) de la Bibliothèque,
+   * SANS filtre de site (le Plan de maintenance est commun-only) : le périmètre
+   * est verrouillé « Commun » côté panneau. La RLS arbitre la visibilité réelle.
+   * Enrichi de la périodicité, du prestataire et de la catégorie (arborescence).
    */
   biblioPool: () =>
     queryOptions({
@@ -86,12 +102,12 @@ export const gammesQueries = {
           .select(
             '*, periodicites(id, libelle, jours_periodicite), prestataires(id, libelle), categories(id, nom, parent_id, scope)',
           )
+          .is('site_id', null)
           .order('nom')
           .abortSignal(signal)
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
@@ -159,7 +175,6 @@ export const gammesQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
@@ -216,49 +231,21 @@ export const gammesQueries = {
 export const referentielsQueries = {
   /** Périodicités (référentiel global, peu mouvant). */
   periodicites: () =>
-    queryOptions({
-      queryKey: ['periodicites', 'list'] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('periodicites')
-          .select('id, libelle, jours_periodicite')
-          .order('jours_periodicite')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
-      staleTime: 5 * 60_000,
-    }),
+    referentielQueryOptions(
+      'periodicites',
+      'id, libelle, jours_periodicite',
+      'jours_periodicite',
+    ),
 
   /** Types d'opération (référentiel global). */
   typesOperations: () =>
-    queryOptions({
-      queryKey: ['types_operations', 'list'] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('types_operations')
-          .select('id, libelle, necessite_seuils')
-          .order('libelle')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
-      staleTime: 5 * 60_000,
-    }),
+    referentielQueryOptions(
+      'types_operations',
+      'id, libelle, necessite_seuils',
+      'libelle',
+    ),
 
   /** Unités de mesure (référentiel global). */
   unites: () =>
-    queryOptions({
-      queryKey: ['unites', 'list'] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('unites')
-          .select('id, nom, symbole, necessite_seuils')
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
-      staleTime: 5 * 60_000,
-    }),
+    referentielQueryOptions('unites', 'id, nom, symbole, necessite_seuils', 'nom'),
 }

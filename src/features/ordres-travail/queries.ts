@@ -22,7 +22,6 @@ export const ordresTravailQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
@@ -55,7 +54,6 @@ export const ordresTravailQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
@@ -86,7 +84,6 @@ export const ordresTravailQueries = {
           .overrideTypes<ReleveLigne[], { merge: false }>()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /** Un OT précis (détail en page). */
@@ -106,7 +103,6 @@ export const ordresTravailQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /** Opérations d'exécution (snapshot) d'un OT, ordonnées. */
@@ -137,9 +133,10 @@ export const ordresTravailQueries = {
    * compris les futurs OT générés par le trigger. Lien immuable, insensible au renommage
    * (063 a corrigé les source_id aléatoires posés par l'import 061).
    *
-   * Requête en 2 temps (OT de la gamme, puis relevés) pour éviter un filtre PostgREST
-   * sur table embarquée. La RLS (opex_site_scoped_select + politique site sur
-   * ordres_travail) cloisonne par site → aucune fuite cross-site.
+   * UNE seule requête (jointure `ordres_travail!inner`) : on filtre les relevés par la
+   * gamme et la date prévue de LEUR OT côté serveur — même patron que `relevesListe`. La
+   * RLS (opex_site_scoped_select + politique site sur ordres_travail) cloisonne par site
+   * → aucune fuite cross-site.
    * Retour : map `${source_type}:${source_id}` → valeur du dernier relevé terminé.
    */
   previousReadings: (
@@ -161,22 +158,16 @@ export const ordresTravailQueries = {
         gammeId !== null && currentDatePrevue !== null && sourceIds.length > 0,
       queryFn: async ({ signal }) => {
         const map: Record<string, number> = {}
-        const { data: ots } = await supabase
-          .from('ordres_travail')
-          .select('id')
-          .eq('gamme_id', gammeId!)
-          // STRICTEMENT antérieurs : uniquement les OT planifiés AVANT le courant →
-          // le 1er relevé d'un compteur n'a pas de « précédent » (rien à afficher).
-          .lt('date_prevue', currentDatePrevue!)
-          .neq('id', otId)
-          .abortSignal(signal)
-          .throwOnError()
-        const otIds = ots.map((o) => o.id)
-        if (otIds.length === 0) return map
         const { data } = await supabase
           .from('operations_execution')
-          .select('source_type, source_id, valeur_mesuree')
-          .in('ordre_travail_id', otIds)
+          .select(
+            'source_type, source_id, valeur_mesuree, ordres_travail!inner(gamme_id, date_prevue)',
+          )
+          .eq('ordres_travail.gamme_id', gammeId!)
+          // STRICTEMENT antérieurs : uniquement les OT planifiés AVANT le courant →
+          // le 1er relevé d'un compteur n'a pas de « précédent » (rien à afficher).
+          .lt('ordres_travail.date_prevue', currentDatePrevue!)
+          .neq('ordre_travail_id', otId)
           .in('source_id', sourceIds)
           .eq('statut', 'terminee')
           .not('valeur_mesuree', 'is', null)
@@ -195,15 +186,16 @@ export const ordresTravailQueries = {
         }
         return map
       },
-      staleTime: 60_000,
     }),
 }
 
 /** Gammes du site sélectionnables pour créer un OT (actives, non supprimées). */
 export const gammesPourOtQueries = {
+  // Clé sous le namespace `gammes` (table réellement lue), non `ordres_travail` :
+  // un changement de gamme reçu en Realtime invalide bien ce cache (convention D4).
   list: (siteId: string | null) =>
     queryOptions({
-      queryKey: ['ordres_travail', 'gammes_creables', siteId] as const,
+      queryKey: ['gammes', 'creables-ot', siteId] as const,
       enabled: siteId !== null,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
@@ -216,6 +208,5 @@ export const gammesPourOtQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 }

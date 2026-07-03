@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ClipboardList, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { useDeleteOt } from '@/features/ordres-travail/mutations'
 import {
   matchStatutOt,
@@ -69,7 +70,7 @@ function OrdresTravailContent({
 }) {
   const { session } = useAuth()
   // Mise à jour LIVE : un changement d'OT (clôture, statut…) rafraîchit la liste sans F5.
-  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
+  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
   const query = useQuery(ordresTravailQueries.list(siteId))
   // Relevés (consommations) des compteurs cumulatifs du site, en UNE requête
   // groupée → map `ot_id → « 80 kWh »` (même règle que la fiche détail).

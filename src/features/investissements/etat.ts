@@ -1,13 +1,11 @@
-import type { StepperStep } from '@/components/common/status-stepper'
+import {
+  construireEtapes,
+  type EtapeStatut,
+} from '@/components/common/status-steps'
 import {
   statusToneById,
   type StatusTone,
 } from '@/components/common/status-badge'
-
-/** Étape de frise enrichie du statut CapEx qu'elle représente (pour le clic). */
-export interface InvestissementEtape extends StepperStep {
-  statutId: number
-}
 
 // Parcours CapEx (ids du seed `statuts_capex`), dans l'ORDRE narratif d'affichage :
 // Demandé(1) → À l'étude(5) → Validé(2) → Engagé(6) → Réalisé(3) → Clôturé(7).
@@ -85,43 +83,16 @@ export function rangStatutCapex(id: number): number {
 export function etapesInvestissement(
   statutId: number,
   noms: Map<number, string>,
-): InvestissementEtape[] | null {
-  const nom = (id: number) => nomStatutCapex(id, noms)
-
-  // Statut LIBRE (aucune machine à états) → toute étape du parcours est
-  // actionnable (clic = on positionne ce statut), sauf l'étape courante.
-  if (statutId === ID_REFUSE) {
-    // Refusé : frise minimale, en lecture seule. La sortie du refus
-    // (réactivation) se fait via le bouton dédié, pas par la frise.
-    return [
-      { label: nom(1), state: 'done', statutId: 1, actionable: false },
-      {
-        label: nom(ID_REFUSE),
-        state: 'rejected',
-        statutId: ID_REFUSE,
-        actionable: false,
-      },
-    ]
-  }
-
-  const idx = PARCOURS_IDS.indexOf(statutId as (typeof PARCOURS_IDS)[number])
-  if (idx === -1) return null
-
-  // Dernier statut du parcours atteint → frise entièrement franchie (✓),
-  // l'investissement se lit comme accompli (et non « en cours »).
-  const dernier = PARCOURS_IDS.length - 1
-  return PARCOURS_IDS.map((id, i) => ({
-    label: nom(id),
-    statutId: id,
-    state:
-      i < idx
-        ? 'done'
-        : i === idx
-          ? i === dernier
-            ? 'done'
-            : 'current'
-          : 'upcoming',
-    // Libre : toutes les étapes sont cliquables sauf celle déjà active.
-    actionable: i !== idx,
-  }))
+): EtapeStatut[] | null {
+  return construireEtapes({
+    parcours: PARCOURS_IDS,
+    statutId,
+    nom: (id) => nomStatutCapex(id, noms),
+    // Statut LIBRE (aucune machine à états) → toute étape du parcours est
+    // actionnable (clic = on positionne ce statut), sauf l'étape courante.
+    actionable: (_id, i, idx) => i !== idx,
+    // Refusé : frise minimale (départ Demandé franchi puis issue refusée), en
+    // lecture seule. La sortie du refus (réactivation) passe par le bouton dédié.
+    rejected: { id: ID_REFUSE, departId: 1 },
+  })
 }

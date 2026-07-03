@@ -1,5 +1,3 @@
-import { useState } from 'react'
-import { toast } from 'sonner'
 import { emptyModeleEquipement, modeleEquipementSchema } from '../schemas'
 import type { ModeleEquipementFormValues } from '../schemas'
 import {
@@ -7,11 +5,13 @@ import {
   useUpdateModeleEquipement,
 } from '../mutations'
 import type { ModeleEquipement } from '../queries'
-import { parseChamps, prepareChamps } from '@/lib/champs'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { parseChamps } from '@/lib/champs'
+import { useFormDialog } from '@/hooks/use-form-dialog'
+import { resolvePorteeScope, type LockedScope } from '@/lib/scope'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
+import { PorteeField } from '@/components/common/portee-field'
 
 interface CategorieOption {
   id: string
@@ -28,13 +28,14 @@ interface ModeleEquipementFormDialogProps {
   siteId: string | null
   siteName: string | null
   /**
-   * Création depuis le + de la page : portée VERROUILLÉE sur le périmètre choisi
-   * (le sélecteur de portée est alors masqué). Ignoré en édition.
+   * Création depuis le + de la page : portée VERROUILLÉE sur le périmètre choisi.
+   * Ignoré en édition. (Ce formulaire garde le sélecteur de portée VISIBLE — la
+   * portée reste éditable des deux côtés — mais la valeur initiale s'en déduit.)
    */
-  lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
+  lockedScope?: LockedScope | null
   /**
-   * Création dans une catégorie imposée (navigation par paliers) : catégorie
-   * verrouillée → le sélecteur de catégorie est masqué. Ignoré en édition.
+   * Création dans une catégorie imposée (navigation par paliers) : sert de valeur
+   * initiale de catégorie. Ignoré en édition.
    */
   lockedCategorieId?: string | null
   /**
@@ -47,19 +48,22 @@ interface ModeleEquipementFormDialogProps {
 function initialValues(
   modele: ModeleEquipement | null | undefined,
   canEntreprise: boolean,
-  lockedScope: { portee: 'entreprise' | 'site' } | null | undefined,
+  lockedScope: LockedScope | null | undefined,
   lockedCategorieId: string | null | undefined,
+  siteId: string | null,
 ): ModeleEquipementFormValues {
   if (!modele)
     return {
       ...emptyModeleEquipement,
       // Portée verrouillée sur le périmètre de la page si fournie ; sinon défaut
       // selon le rôle (un tech ne crée que des modèles de site).
-      portee: lockedScope
-        ? lockedScope.portee
-        : canEntreprise
-          ? emptyModeleEquipement.portee
-          : 'site',
+      portee: resolvePorteeScope({
+        portee: emptyModeleEquipement.portee,
+        siteId,
+        canEntreprise,
+        lockedScope,
+        isEdit: false,
+      }).porteeInitiale,
       // Catégorie imposée par la navigation (sinon choisie dans le formulaire).
       ...(lockedCategorieId ? { categorie_id: lockedCategorieId } : {}),
     }
@@ -89,12 +93,25 @@ export function ModeleEquipementFormDialog({
   const isEdit = Boolean(modele)
   const create = useCreateModeleEquipement()
   const update = useUpdateModeleEquipement()
-  const [values, setValues] = useState<ModeleEquipementFormValues>(() =>
-    initialValues(modele, canEntreprise, lockedScope, lockedCategorieId),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
-  const showEntreprise = canEntreprise || values.portee === 'entreprise'
+
+  const form = useFormDialog({
+    schema: modeleEquipementSchema,
+    initialValues: () =>
+      initialValues(modele, canEntreprise, lockedScope, lockedCategorieId, siteId),
+    // Les CARACTÉRISTIQUES (`specifications`) ne s'éditent pas ici : la création
+    // les écrit vides et l'UPDATE ne les touche jamais (gérées sur la page de
+    // détail, un champ à la fois) — voir `modelePayload` (mutations.ts).
+    onSubmit: async (data) => {
+      if (modele) {
+        await update.mutateAsync({ id: modele.id, values: data, siteId })
+        return
+      }
+      await create.mutateAsync({ values: data, siteId: createSiteId })
+    },
+    successMessage: isEdit ? 'Modèle modifié' : 'Modèle créé',
+    close: () => onOpenChange(false),
+  })
+
   // Catégorie / Portée : VISIBLES et éditables en création ET modification (mêmes
   // champs des deux côtés). À la création, leur valeur par défaut vient du contexte
   // (catégorie du drill, périmètre du sélecteur de site).
@@ -104,48 +121,14 @@ export function ModeleEquipementFormDialog({
   // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
   // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
   // pour tout éditeur (calque du formulaire de catégorie).
-  const miniatureSite = values.portee === 'entreprise' ? null : siteId
-  const canUploadMiniature = miniatureSite === null ? canEntreprise : true
-
-  function set<K extends keyof ModeleEquipementFormValues>(
-    key: K,
-    value: ModeleEquipementFormValues[K],
-  ) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    // Nettoyage + validation fine des champs, mutualisés avec la page de détail.
-    const prepared = prepareChamps(values.specifications)
-    if (!prepared.ok) {
-      setErrors({ specifications: prepared.error })
-      return
-    }
-    const parsed = modeleEquipementSchema.safeParse({
-      ...values,
-      specifications: prepared.champs,
+  const { showEntreprise, miniatureSite, canUploadMiniature, createSiteId } =
+    resolvePorteeScope({
+      portee: form.values.portee,
+      siteId,
+      canEntreprise,
+      lockedScope,
+      isEdit,
     })
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      if (modele) {
-        await update.mutateAsync({ id: modele.id, values: parsed.data, siteId })
-        toast.success('Modèle modifié')
-      } else {
-        await create.mutateAsync({
-          values: parsed.data,
-          siteId: lockedScope ? lockedScope.siteId : siteId,
-        })
-        toast.success('Modèle créé')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
 
   return (
     <FormDialog
@@ -155,25 +138,25 @@ export function ModeleEquipementFormDialog({
         isEdit ? 'Modifier le modèle d’équipement' : 'Nouveau modèle d’équipement'
       }
       description="Un gabarit réutilisable pour instancier rapidement des équipements."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
     >
       <IdentiteFields
         nom={{
-          value: values.nom,
-          onChange: (v) => set('nom', v),
-          error: errors.nom,
+          value: form.values.nom,
+          onChange: (v) => form.set('nom', v),
+          error: form.errors.nom,
         }}
         description={{
-          value: values.description,
-          onChange: (v) => set('description', v),
-          error: errors.description,
+          value: form.values.description,
+          onChange: (v) => form.set('description', v),
+          error: form.errors.description,
         }}
         image={{
-          value: values.miniature_id,
-          onChange: (id) => set('miniature_id', id),
+          value: form.values.miniature_id,
+          onChange: (id) => form.set('miniature_id', id),
           targetSiteId: miniatureSite,
           canUpload: canUploadMiniature,
         }}
@@ -181,9 +164,9 @@ export function ModeleEquipementFormDialog({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <SelectField
           label="Catégorie"
-          value={values.categorie_id}
-          onChange={(v) => set('categorie_id', v)}
-          error={errors.categorie_id}
+          value={form.values.categorie_id}
+          onChange={(v) => form.set('categorie_id', v)}
+          error={form.errors.categorie_id}
           required
         >
           <option value="" disabled>
@@ -195,24 +178,22 @@ export function ModeleEquipementFormDialog({
             </option>
           ))}
         </SelectField>
-        <SelectField
-          label="Portée"
-          value={values.portee}
-          onChange={(v) =>
-            set('portee', v as ModeleEquipementFormValues['portee'])
-          }
-          error={errors.portee}
-          required
-        >
-          {showEntreprise && <option value="entreprise">Commun</option>}
-          {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
-        </SelectField>
+        <PorteeField
+          value={form.values.portee}
+          onChange={(v) => form.set('portee', v)}
+          error={form.errors.portee}
+          showEntreprise={showEntreprise}
+          siteId={siteId}
+          siteName={siteName}
+        />
       </div>
       {!compact && (
         <SelectField
           label="État"
-          value={values.etat}
-          onChange={(v) => set('etat', v as ModeleEquipementFormValues['etat'])}
+          value={form.values.etat}
+          onChange={(v) =>
+            form.set('etat', v as ModeleEquipementFormValues['etat'])
+          }
         >
           <option value="actif">Actif</option>
           <option value="inactif">Masqué</option>

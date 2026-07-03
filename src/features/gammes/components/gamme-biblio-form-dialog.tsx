@@ -1,12 +1,11 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { emptyGammeBiblio, gammeBiblioSchema, gammeNatures } from '../schemas'
 import type { GammeBiblioFormValues } from '../schemas'
 import { useCreateGammeBiblio, useUpdateGammeBiblio } from '../mutations'
 import { referentielsQueries, type GammeBiblioRow } from '../queries'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors, pgCode } from '@/lib/form'
+import { writeErrorMessage, type SqlstateOverrides } from '@/lib/form'
+import { useFormDialog } from '@/hooks/use-form-dialog'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
@@ -16,30 +15,23 @@ const NATURE_LABEL: Record<(typeof gammeNatures)[number], string> = {
   maintenance_preventive: 'Maintenance préventive',
 }
 
+/**
+ * Libellés d'erreur propres à la création/édition d'une gamme-template commune —
+ * surchargent les messages génériques de `writeErrorMessage` (repli automatique
+ * sur ceux-ci pour les autres codes).
+ */
+const GAMME_BIBLIO_ERREURS: SqlstateOverrides = {
+  // unique_violation : index `uniq_gammes_entreprise` (homonyme déjà présent).
+  '23505': 'Une gamme-template portant ce nom existe déjà.',
+  // insufficient_privilege : RLS (hors scope d'écriture).
+  '42501': 'Action non autorisée : vous n’avez pas les droits.',
+  // integrity_constraint_violation (trigger) : miniature hors scope.
+  '23514': 'Cette image n’est pas disponible pour ce périmètre.',
+}
+
 interface CategorieOption {
   id: string
   nom: string
-}
-
-/**
- * Traduit les erreurs Postgres de création/édition d'une gamme-template commune.
- * Évite tout message technique brut : repli sur `errorMessage` pour le reste.
- */
-function gammeBiblioErrorMessage(e: unknown): string {
-  const code = pgCode(e)
-  // unique_violation : index `uniq_gammes_entreprise` (homonyme déjà présent).
-  if (code === '23505') {
-    return 'Une gamme-template portant ce nom existe déjà.'
-  }
-  // insufficient_privilege : RLS (hors scope d'écriture).
-  if (code === '42501') {
-    return 'Action non autorisée : vous n’avez pas les droits.'
-  }
-  // integrity_constraint_violation (trigger) : miniature hors scope.
-  if (code === '23514') {
-    return 'Cette image n’est pas disponible pour ce périmètre.'
-  }
-  return errorMessage(e)
 }
 
 interface GammeBiblioFormDialogProps {
@@ -100,53 +92,26 @@ export function GammeBiblioFormDialog({
   const { data: periodicites = [] } = useQuery(
     referentielsQueries.periodicites(),
   )
-  const [values, setValues] = useState<GammeBiblioFormValues>(() =>
-    initialValues(gamme, lockedCategorieId),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
-
-
-  function set<K extends keyof GammeBiblioFormValues>(
-    key: K,
-    value: GammeBiblioFormValues[K],
-  ) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    const parsed = gammeBiblioSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
+  const form = useFormDialog({
+    schema: gammeBiblioSchema,
+    initialValues: () => initialValues(gamme, lockedCategorieId),
+    onSubmit: async (data) => {
       if (gamme) {
         // Commun : `siteId` NULL (la portée du payload reste entreprise).
-        await update.mutateAsync({
-          id: gamme.id,
-          siteId: null,
-          values: parsed.data,
-        })
-        toast.success('Gamme-template modifiée')
-      } else {
-        if (!session) {
-          toast.error('Session expirée, reconnecte-toi.')
-          return
-        }
-        await create.mutateAsync({
-          siteId: null,
-          createdBy: session.user.id,
-          values: parsed.data,
-        })
-        toast.success('Gamme-template créée')
+        await update.mutateAsync({ id: gamme.id, siteId: null, values: data })
+        return
       }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(gammeBiblioErrorMessage(e))
-    }
-  }
+      if (!session) throw new Error('Session expirée, reconnecte-toi.')
+      await create.mutateAsync({
+        siteId: null,
+        createdBy: session.user.id,
+        values: data,
+      })
+    },
+    successMessage: isEdit ? 'Gamme-template modifiée' : 'Gamme-template créée',
+    close: () => onOpenChange(false),
+    errorMessage: (e) => writeErrorMessage(e, GAMME_BIBLIO_ERREURS),
+  })
 
   return (
     <FormDialog
@@ -154,25 +119,25 @@ export function GammeBiblioFormDialog({
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier la gamme-template' : 'Nouvelle gamme-template'}
       description="Un gabarit commun réutilisable, rangé dans l’arborescence des catégories."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
     >
       <IdentiteFields
         nom={{
-          value: values.nom,
-          onChange: (v) => set('nom', v),
-          error: errors.nom,
+          value: form.values.nom,
+          onChange: (v) => form.set('nom', v),
+          error: form.errors.nom,
         }}
         description={{
-          value: values.description,
-          onChange: (v) => set('description', v),
-          error: errors.description,
+          value: form.values.description,
+          onChange: (v) => form.set('description', v),
+          error: form.errors.description,
         }}
         image={{
-          value: values.miniature_id,
-          onChange: (id) => set('miniature_id', id),
+          value: form.values.miniature_id,
+          onChange: (id) => form.set('miniature_id', id),
           targetSiteId: null,
           canUpload: true,
         }}
@@ -182,9 +147,9 @@ export function GammeBiblioFormDialog({
         label="Nature"
         required
         id="gamme_biblio_nature"
-        value={values.nature}
-        onChange={(v) => set('nature', v as GammeBiblioFormValues['nature'])}
-        error={errors.nature}
+        value={form.values.nature}
+        onChange={(v) => form.set('nature', v as GammeBiblioFormValues['nature'])}
+        error={form.errors.nature}
       >
         {gammeNatures.map((n) => (
           <option key={n} value={n}>
@@ -197,9 +162,9 @@ export function GammeBiblioFormDialog({
         label="Périodicité"
         required
         id="gamme_biblio_periodicite"
-        value={values.periodicite_id}
-        onChange={(v) => set('periodicite_id', v)}
-        error={errors.periodicite_id}
+        value={form.values.periodicite_id}
+        onChange={(v) => form.set('periodicite_id', v)}
+        error={form.errors.periodicite_id}
       >
         <option value="">— Choisir une périodicité —</option>
         {periodicites.map((p) => (
@@ -213,9 +178,9 @@ export function GammeBiblioFormDialog({
         label="Catégorie"
         required
         id="gamme_biblio_categorie"
-        value={values.categorie_id}
-        onChange={(v) => set('categorie_id', v)}
-        error={errors.categorie_id}
+        value={form.values.categorie_id}
+        onChange={(v) => form.set('categorie_id', v)}
+        error={form.errors.categorie_id}
       >
         <option value="">— Choisir une catégorie —</option>
         {categories.map((c) => (

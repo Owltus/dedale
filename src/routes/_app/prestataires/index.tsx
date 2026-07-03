@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2, Truck } from 'lucide-react'
-import { toast } from 'sonner'
+import { Plus, Truck } from 'lucide-react'
 import {
   contratsQueries,
   prestatairesQueries,
@@ -10,8 +9,9 @@ import {
 import { useDeletePrestataire } from '@/features/prestataires/mutations'
 import { PrestataireFormDialog } from '@/features/prestataires/components/prestataire-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useSiteContext } from '@/lib/site-context'
-import { deleteErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
@@ -22,7 +22,7 @@ import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
-import type { RowAction } from '@/components/common/row-actions'
+import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
@@ -73,28 +73,19 @@ function PrestatairesList({
   const { data: counts } = useQuery(contratsQueries.countsBySite(siteId))
   const del = useDeletePrestataire()
   const [search, setSearch] = useState('')
-  const [form, setForm] = useState<{
-    open: boolean
-    prestataire: Prestataire | null
-  }>({ open: false, prestataire: null })
-  const [toDelete, setToDelete] = useState<Prestataire | null>(null)
+  const dialog = useEntityDialog<Prestataire>()
+  const suppression = useConfirmDelete<Prestataire>({
+    onDelete: (p) => del.mutateAsync(p.id),
+    successMessage: 'Prestataire supprimé',
+  })
 
   const nbContratsToDelete =
-    toDelete !== null ? (counts?.get(toDelete.id) ?? 0) : 0
-
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Prestataire supprimé')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
+    suppression.toDelete !== null
+      ? (counts?.get(suppression.toDelete.id) ?? 0)
+      : 0
 
   const newButton = canManage ? (
-    <Button onClick={() => setForm({ open: true, prestataire: null })}>
+    <Button onClick={dialog.openCreate}>
       <Plus /> Nouveau prestataire
     </Button>
   ) : undefined
@@ -110,7 +101,7 @@ function PrestatairesList({
               icon={<Plus />}
               label="Nouveau prestataire"
               variant="outline"
-              onClick={() => setForm({ open: true, prestataire: null })}
+              onClick={dialog.openCreate}
             />
           ) : undefined
         }
@@ -152,22 +143,16 @@ function PrestatairesList({
               ) : (
                 <div className={listStack}>
                   {shown.map((p) => {
+                    const rowActions = actionsEditionSuppression({
+                      onModifier: canManage
+                        ? () => dialog.openEdit(p)
+                        : undefined,
+                      onSupprimer:
+                        canManage && !p.est_interne
+                          ? () => suppression.demander(p)
+                          : undefined,
+                    })
                     const nb = counts?.get(p.id) ?? 0
-                    const rowActions: RowAction[] = []
-                    if (canManage)
-                      rowActions.push({
-                        label: 'Modifier',
-                        icon: Pencil,
-                        onSelect: () =>
-                          setForm({ open: true, prestataire: p }),
-                      })
-                    if (canManage && !p.est_interne)
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () => setToDelete(p),
-                      })
                     return (
                       <ListRow
                         key={p.id}
@@ -217,27 +202,24 @@ function PrestatairesList({
 
       {canManage && (
         <PrestataireFormDialog
-          key={form.prestataire?.id ?? 'new'}
-          open={form.open}
-          onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
+          key={dialog.dialogKey}
+          open={dialog.open}
+          onOpenChange={dialog.onOpenChange}
           siteId={siteId}
-          prestataire={form.prestataire}
+          prestataire={dialog.entity}
         />
       )}
 
       <ConfirmDeleteDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
+        {...suppression.dialogProps}
         entityLabel={
-          toDelete ? `le prestataire « ${toDelete.libelle} »` : 'le prestataire'
+          suppression.toDelete
+            ? `le prestataire « ${suppression.toDelete.libelle} »`
+            : 'le prestataire'
         }
         blocked={nbContratsToDelete > 0}
         blockedReason={`Ce prestataire est rattaché à ${String(nbContratsToDelete)} contrat(s) sur ce site. Supprime-les d'abord pour pouvoir le supprimer.`}
         warning="Si ce prestataire est rattaché à des gammes, la suppression sera refusée : détache-le d'abord."
-        loading={del.isPending}
-        onConfirm={confirmDelete}
       />
     </PageContainer>
   )

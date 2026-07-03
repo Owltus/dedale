@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { siteIdPourPortee } from '@/lib/scope'
 import { categoriesQueries } from './queries'
 import type { CategorieFormValues } from './schemas'
 
@@ -13,7 +14,7 @@ function categoriePayload(v: CategorieFormValues, siteId: string | null) {
     est_actif: v.etat === 'actif',
     miniature_id: v.miniature_id,
     // Portée entreprise → site_id NULL ; portée site → site actif.
-    site_id: v.portee === 'entreprise' ? null : siteId,
+    site_id: siteIdPourPortee(v.portee, siteId),
   }
 }
 

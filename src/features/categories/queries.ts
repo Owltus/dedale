@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { estCommunOuDuSite } from '@/lib/scope'
 import type { Database } from '@/lib/database.types'
 
 export type Categorie = Database['public']['Tables']['categories']['Row']
@@ -15,18 +16,11 @@ export const categoriesQueries = {
    */
   list: (siteId: string | null) =>
     queryOptions({
-      queryKey: [...categoriesQueries.all(), 'list', siteId] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('categories')
-          .select('*')
-          .order('ordre')
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data.filter((c) => c.site_id === null || c.site_id === siteId)
-      },
-      staleTime: 60_000,
+      // Réutilise le fetch de `pool()` (même `queryKey`, un seul aller-retour
+      // partagé) et n'applique le périmètre commun + site que côté client via
+      // `select` : le contenu retourné reste identique à l'ancienne query dédiée.
+      ...categoriesQueries.pool(),
+      select: (rows) => rows.filter((c) => estCommunOuDuSite(c, siteId)),
     }),
 
   /**
@@ -49,7 +43,6 @@ export const categoriesQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
@@ -69,6 +62,5 @@ export const categoriesQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 }

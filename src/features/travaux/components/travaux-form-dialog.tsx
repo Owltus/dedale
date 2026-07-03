@@ -1,10 +1,7 @@
-import { useState } from 'react'
-import { toast } from 'sonner'
 import { travauxSchema, emptyTravaux } from '../schemas'
-import type { TravauxFormValues } from '../schemas'
 import { useCreateTravaux, useUpdateTravaux } from '../mutations'
 import { useAuth } from '@/auth'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useFormDialog } from '@/hooks/use-form-dialog'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { DescriptionField } from '@/components/common/description-field'
@@ -36,51 +33,31 @@ export function TravauxFormDialog({
   const create = useCreateTravaux()
   const update = useUpdateTravaux()
 
-  const [values, setValues] = useState<TravauxFormValues>(() =>
-    travaux
-      ? {
-          titre: travaux.titre,
-          description: travaux.description ?? '',
-        }
-      : emptyTravaux(),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
-
-  function set(key: keyof TravauxFormValues, value: string) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    const parsed = travauxSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
+  const form = useFormDialog({
+    schema: travauxSchema,
+    initialValues: () =>
+      travaux
+        ? { titre: travaux.titre, description: travaux.description ?? '' }
+        : emptyTravaux(),
+    onSubmit: async (data): Promise<Travaux | null> => {
       if (travaux) {
-        await update.mutateAsync({ id: travaux.id, values: parsed.data })
-        toast.success('Travaux modifié')
-        onOpenChange(false)
-      } else {
-        if (!session) {
-          toast.error('Session expirée, reconnecte-toi.')
-          return
-        }
-        const created = await create.mutateAsync({
-          siteId,
-          createdBy: session.user.id,
-          values: parsed.data,
-        })
-        toast.success('Travaux créé')
-        onOpenChange(false)
-        onCreated?.(created)
+        await update.mutateAsync({ id: travaux.id, values: data })
+        return null
       }
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+      if (!session) throw new Error('Session expirée, reconnecte-toi.')
+      return create.mutateAsync({
+        siteId,
+        createdBy: session.user.id,
+        values: data,
+      })
+    },
+    successMessage: isEdit ? 'Travaux modifié' : 'Travaux créé',
+    close: () => onOpenChange(false),
+    // Redirection vers la fiche uniquement après une CRÉATION (édition → null).
+    onSuccess: (created) => {
+      if (created) onCreated?.(created)
+    },
+  })
 
   return (
     <FormDialog
@@ -88,22 +65,22 @@ export function TravauxFormDialog({
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier le travaux' : 'Nouveau travaux'}
       description="Travaux ponctuels du site. Les tâches s'ajoutent ensuite sur la fiche."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
     >
       <TextField
         label="Titre"
-        value={values.titre}
-        onChange={(v) => set('titre', v)}
-        error={errors.titre}
+        value={form.values.titre}
+        onChange={(v) => form.set('titre', v)}
+        error={form.errors.titre}
         required
       />
       <DescriptionField
-        value={values.description}
-        onChange={(v) => set('description', v)}
-        error={errors.description}
+        value={form.values.description}
+        onChange={(v) => form.set('description', v)}
+        error={form.errors.description}
       />
     </FormDialog>
   )

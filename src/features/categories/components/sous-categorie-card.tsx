@@ -1,20 +1,15 @@
-import { Folder } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
-import { ListRow } from '@/components/common/list-row'
-import { ScopeBadges } from '@/components/common/scope-badges'
 import { type StatusTone } from '@/components/common/status-badge'
-import { StatutColonne } from '@/components/common/statut-colonne'
-import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
-import type { CategorieCardData } from './categorie-card'
+import { CategorieCard, type CategorieCardData } from './categorie-card'
 
 /**
- * Carte (ListRow média) d'une SOUS-CATÉGORIE de gammes : vignette dossier + nom +
- * description + (option) badge de STATUT agrégé OU badges de périmètre. Source
- * UNIQUE du rendu d'une sous-catégorie → liste de l'explorateur du Plan de
- * maintenance ET de la Bibliothèque. Distincte de `CategorieCard` (composant
- * séparé) pour pouvoir évoluer indépendamment.
+ * Carte (ListRow média) d'une SOUS-CATÉGORIE de gammes. Rendu STRICTEMENT
+ * identique à `CategorieCard` (variante non virtuelle) : simple façade nommée qui
+ * remappe `sousCategorie` → `categorie` et délègue tout le rendu. Conservée comme
+ * point d'appel distinct (sémantique « sous-catégorie » à l'usage) pour pouvoir
+ * évoluer indépendamment si besoin.
  *
- * Deux variantes :
+ * Deux variantes (héritées de `CategorieCard`) :
  *  - `statut` (ou `statutPending`) FOURNI → mode « Plan de maintenance » : badge de
  *    statut temporel à droite (synthèse du pire cas des gammes, calculée par le
  *    conteneur), badges de périmètre masqués ;
@@ -22,13 +17,7 @@ import type { CategorieCardData } from './categorie-card'
  */
 export function SousCategorieCard({
   sousCategorie,
-  urlOf,
-  refreshMiniatures,
-  onClick,
-  menuActions,
-  showScopeBadges = false,
-  statut,
-  statutPending = false,
+  ...rest
 }: {
   sousCategorie: CategorieCardData
   urlOf: (id: string | null) => string | null
@@ -52,44 +41,5 @@ export function SousCategorieCard({
    */
   statutPending?: boolean
 }) {
-  const statutMode = statut !== undefined || statutPending
-  const description = sousCategorie.description?.trim()
-    ? sousCategorie.description.trim()
-    : undefined
-  const scope = showScopeBadges ? (
-    <ScopeBadges siteId={sousCategorie.site_id} />
-  ) : undefined
-
-  // Mode statut : colonne `StatutColonne` (badge centré, même gabarit aligné que la
-  // carte OT, place réservée pendant le chargement), affichée au BUREAU (`badges`) ET
-  // sur MOBILE (`mobileBadge`) → badges centrés et alignés à toutes les tailles.
-  // Sinon : badges de périmètre (repliés en texte sur mobile via `mobileMeta`).
-  const statutColonne = <StatutColonne statut={statut} />
-  const badges = statutMode ? statutColonne : scope
-  const mobileBadge = statutMode ? statutColonne : undefined
-  const mobileMeta = statutMode ? undefined : scope
-
-  return (
-    <ListRow
-      media={
-        <MiniatureThumb
-          url={urlOf(sousCategorie.miniature_id)}
-          fallback={<Folder className="size-10" />}
-          alt=""
-          onError={refreshMiniatures}
-          className="size-full rounded-none"
-        />
-      }
-      title={sousCategorie.nom}
-      subtitle={description}
-      // Liséré de statut au bord gauche (code couleur lié au statut, comme les
-      // Demandes) — uniquement en mode statut.
-      tone={statut?.tone}
-      badges={badges}
-      mobileBadge={mobileBadge}
-      mobileMeta={mobileMeta}
-      onClick={onClick}
-      menuActions={menuActions}
-    />
-  )
+  return <CategorieCard categorie={sousCategorie} {...rest} />
 }

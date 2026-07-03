@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Download, FileText, Plus, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { FileText, Plus } from 'lucide-react'
 import {
   documentsQueries,
   typesDocumentsQueries,
@@ -11,20 +10,13 @@ import {
   useDeleteDocument,
   useUploadDocument,
 } from '@/features/documents/mutations'
-import type { DocumentMeta } from '@/features/documents/format'
-import { useDocumentDownload } from '@/features/documents/use-document-download'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
-import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
-import { DocumentRow } from '@/features/documents/components/document-row'
-import type { RowAction } from '@/components/common/row-actions'
-import { useFileDrop } from '@/hooks/use-file-drop'
+import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
-import { deleteErrorMessage } from '@/lib/form'
 import { requireNav } from '@/lib/nav-guard'
-import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
-import { PageContainer } from '@/components/common/page-container'
+import { PageContainer, FillHeader } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
@@ -33,7 +25,7 @@ import { NoSiteSelected } from '@/components/common/no-site-selected'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ListFilterBar } from '@/components/common/list-filter-bar'
-import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
+import { DocumentsListe } from '@/components/common/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -83,13 +75,8 @@ function DocumentsContent({
   const { data: types = [] } = useQuery(typesDocumentsQueries.list())
   const upload = useUploadDocument()
   const del = useDeleteDocument()
-  const download = useDocumentDownload()
 
-  const [uploadOpen, setUploadOpen] = useState(false)
-  // Fichiers issus d'un glisser-déposer sur la page → pré-remplis dans le dialogue.
-  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
-  const [toDelete, setToDelete] = useState<DocumentMeta | null>(null)
-  const [toPreview, setToPreview] = useState<DocumentMeta | null>(null)
+  const up = useUploadDrop({ enabled: canManage })
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
 
@@ -98,38 +85,9 @@ function DocumentsContent({
     [types],
   )
 
-  // Ouverture manuelle (bouton) : aucun fichier pré-rempli.
-  function openUploadEmpty() {
-    setDroppedFiles([])
-    setUploadOpen(true)
-  }
-  function handleUploadOpenChange(open: boolean) {
-    setUploadOpen(open)
-    if (!open) setDroppedFiles([])
-  }
-  // Glisser-déposer sur TOUTE la page (réservé aux rôles pouvant ajouter).
-  const { dragging } = useFileDrop({
-    enabled: canManage,
-    onFiles: (files) => {
-      setDroppedFiles(files)
-      setUploadOpen(true)
-    },
-  })
-
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Document supprimé')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
-
   const hasDocuments = (query.data?.length ?? 0) > 0
   const newButton = canManage ? (
-    <Button onClick={openUploadEmpty}>
+    <Button onClick={up.openUploadEmpty}>
       <Plus /> Ajouter un document
     </Button>
   ) : undefined
@@ -137,7 +95,7 @@ function DocumentsContent({
   return (
     <PageContainer fill>
       {/* En-tête + barre de filtres : FIXES (hors de la zone défilante). */}
-      <div className="shrink-0 px-4 pt-6 sm:px-6 lg:px-8">
+      <FillHeader>
         <PageHeader
           title="Documents"
           description="Bibliothèque documentaire du site (PDF, attestations, rapports…)."
@@ -147,7 +105,7 @@ function DocumentsContent({
                 icon={<Plus />}
                 label="Ajouter un document"
                 variant="outline"
-                onClick={openUploadEmpty}
+                onClick={up.openUploadEmpty}
               />
             ) : undefined
           }
@@ -168,7 +126,7 @@ function DocumentsContent({
             />
           </div>
         )}
-      </div>
+      </FillHeader>
 
       {/* Liste : SEULE zone défilante ; se met en valeur pendant le drag (le drop
           reste possible n'importe où sur la page, cf. useFileDrop). */}
@@ -204,78 +162,37 @@ function DocumentsContent({
                   <NoSearchResults description="Aucun document ne correspond à ces critères." />
                 )
               return (
-                <div className={listStack}>
-                  {shown.map((doc) => {
-                    const rowActions: RowAction[] = [
-                      {
-                        label: 'Télécharger',
-                        icon: Download,
-                        onSelect: () => void download(doc),
-                      },
-                    ]
-                    if (canDelete)
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        onSelect: () => setToDelete(doc),
-                        destructive: true,
-                      })
-                    return (
-                      <DocumentRow
-                        key={doc.id}
-                        doc={doc}
-                        onClick={() => setToPreview(doc)}
-                        badges={
-                          <Badge variant="secondary">
-                            {typeNom.get(doc.type_document_id) ?? '—'}
-                          </Badge>
-                        }
-                        mobileMeta={typeNom.get(doc.type_document_id)}
-                        menuActions={rowActions}
-                      />
-                    )
-                  })}
-                </div>
+                <DocumentsListe
+                  docs={shown}
+                  canDelete={canDelete}
+                  onDelete={(doc) => del.mutateAsync(doc.id)}
+                  badges={(doc) => (
+                    <Badge variant="secondary">
+                      {typeNom.get(doc.type_document_id) ?? '—'}
+                    </Badge>
+                  )}
+                  mobileMeta={(doc) => typeNom.get(doc.type_document_id)}
+                />
               )
             }}
           </QueryState>
         </div>
-        <FileDropOverlay show={dragging} />
+        <FileDropOverlay show={up.dragging} />
       </div>
 
       {canManage && (
         <UploadDocumentDialog
-          key={uploadOpen ? 'open' : 'closed'}
-          open={uploadOpen}
-          onOpenChange={handleUploadOpenChange}
+          key={up.uploadOpen ? 'open' : 'closed'}
+          open={up.uploadOpen}
+          onOpenChange={up.onUploadOpenChange}
           siteId={siteId}
-          initialFiles={droppedFiles}
+          initialFiles={up.droppedFiles}
           onUpload={({ file, uploadedBy, typeDocumentId }) =>
             upload.mutateAsync({ file, siteId, uploadedBy, typeDocumentId })
           }
           pending={upload.isPending}
         />
       )}
-
-      <ConfirmDeleteDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
-        entityLabel={
-          toDelete ? `le document « ${toDelete.nom_original} »` : 'le document'
-        }
-        warning="Suppression définitive : le document est retiré de toutes les fiches où il est rattaché et effacé du stockage."
-        loading={del.isPending}
-        onConfirm={confirmDelete}
-      />
-
-      <DocumentPreviewDialog
-        doc={toPreview}
-        onOpenChange={(open) => {
-          if (!open) setToPreview(null)
-        }}
-      />
     </PageContainer>
   )
 }

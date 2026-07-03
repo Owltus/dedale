@@ -2,13 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AlertTriangle, ShieldAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { DialogShell } from '@/components/common/dialog-shell'
 import { ListRow } from '@/components/common/list-row'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { formatDate } from '@/lib/date'
@@ -49,46 +43,38 @@ export function AlerteJustificatifs({ siteId }: AlerteJustificatifsProps) {
         <AlertTriangle /> {libelle}
       </Button>
 
-      <Dialog open={ouvert} onOpenChange={setOuvert}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Contrôles réglementaires sans justificatif
-            </DialogTitle>
-            <DialogDescription>
-              Ces ordres de travail réglementaires sont clôturés mais aucun
-              document de preuve n'y est rattaché. Ouvre chaque OT pour joindre
-              le justificatif.
-            </DialogDescription>
-          </DialogHeader>
-          <div className={cn(listStack, 'max-h-[60vh] overflow-y-auto')}>
-            {manquants.map((ot) => {
-              const parts: string[] = []
-              if (ot.nom_equipement) parts.push(ot.nom_equipement)
-              if (ot.date_cloture)
-                parts.push(`Clôturé le ${formatDate(ot.date_cloture)}`)
-              const sous = parts.length > 0 ? parts.join(' · ') : undefined
-              return (
-                <ListRow
-                  key={ot.id}
-                  size="sm"
-                  tone="destructive"
-                  media={<RowMediaIcon icon={ShieldAlert} />}
-                  title={ot.nom_gamme}
-                  subtitle={sous}
-                  onClick={() => {
-                    setOuvert(false)
-                    void navigate({
-                      to: '/ordres-travail/$otId',
-                      params: { otId: ot.id },
-                    })
-                  }}
-                />
-              )
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DialogShell
+        open={ouvert}
+        onOpenChange={setOuvert}
+        title="Contrôles réglementaires sans justificatif"
+        description="Ces ordres de travail réglementaires sont clôturés mais aucun document de preuve n'y est rattaché. Ouvre chaque OT pour joindre le justificatif."
+        bodyClassName={cn(listStack, 'min-h-0 flex-1 overflow-y-auto px-6 py-1')}
+      >
+        {manquants.map((ot) => {
+          const parts: string[] = []
+          if (ot.nom_equipement) parts.push(ot.nom_equipement)
+          if (ot.date_cloture)
+            parts.push(`Clôturé le ${formatDate(ot.date_cloture)}`)
+          const sous = parts.length > 0 ? parts.join(' · ') : undefined
+          return (
+            <ListRow
+              key={ot.id}
+              size="sm"
+              tone="destructive"
+              media={<RowMediaIcon icon={ShieldAlert} />}
+              title={ot.nom_gamme}
+              subtitle={sous}
+              onClick={() => {
+                setOuvert(false)
+                void navigate({
+                  to: '/ordres-travail/$otId',
+                  params: { otId: ot.id },
+                })
+              }}
+            />
+          )
+        })}
+      </DialogShell>
     </>
   )
 }

@@ -1,11 +1,9 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { emptyOperation, operationSchema } from '../schemas'
 import type { OperationFormValues } from '../schemas'
 import { useCreateOperation, useUpdateOperation } from '../mutations'
 import { referentielsQueries } from '../queries'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useFormDialog } from '@/hooks/use-form-dialog'
 import { FormDialog } from '@/components/common/form-dialog'
 import {
   OperationFormBase,
@@ -52,39 +50,20 @@ export function OperationFormDialog({
   const update = useUpdateOperation()
   const { data: types = [] } = useQuery(referentielsQueries.typesOperations())
   const { data: unites = [] } = useQuery(referentielsQueries.unites())
-  const [values, setValues] = useState<OperationFormValues>(() =>
-    initialValues(operation),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
-
-  async function handleSubmit() {
-    const parsed = operationSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
+  const form = useFormDialog({
+    schema: operationSchema,
+    initialValues: () => initialValues(operation),
     // L'unité dépend du type (Mesure), les seuils de l'unité : on calcule les
     // deux drapeaux pour que le payload coupe les bons champs.
-    const flags = resolveOperationFlags(parsed.data, types, unites)
-    try {
-      if (operation) {
-        await update.mutateAsync({
-          id: operation.id,
-          values: parsed.data,
-          ...flags,
-        })
-        toast.success('Opération modifiée')
-      } else {
-        await create.mutateAsync({ gammeId, values: parsed.data, ...flags })
-        toast.success('Opération ajoutée')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+    onSubmit: (data) => {
+      const flags = resolveOperationFlags(data, types, unites)
+      return operation
+        ? update.mutateAsync({ id: operation.id, values: data, ...flags })
+        : create.mutateAsync({ gammeId, values: data, ...flags })
+    },
+    successMessage: isEdit ? 'Opération modifiée' : 'Opération ajoutée',
+    close: () => onOpenChange(false),
+  })
 
   return (
     <FormDialog
@@ -92,15 +71,15 @@ export function OperationFormDialog({
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier l’opération' : 'Nouvelle opération'}
       description="Le type « Mesure » ajoute une unité ; selon l’unité, des seuils mini/maxi sont demandés (pas pour un relevé de compteur)."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Ajouter'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
     >
       <OperationFormBase
-        values={values}
-        onChange={(v) => setValues(v)}
-        errors={errors}
+        values={form.values}
+        onChange={form.setValues}
+        errors={form.errors}
       />
     </FormDialog>
   )

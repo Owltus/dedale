@@ -1,9 +1,7 @@
-import { useState } from 'react'
-import { toast } from 'sonner'
 import { emptyPrestataire, prestataireSchema } from '../schemas'
 import type { PrestataireFormValues } from '../schemas'
 import { useCreatePrestataire, useUpdatePrestataire } from '../mutations'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useFormDialog } from '@/hooks/use-form-dialog'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import type { Database } from '@/lib/database.types'
@@ -38,36 +36,16 @@ export function PrestataireFormDialog({
   const isEdit = Boolean(prestataire)
   const create = useCreatePrestataire()
   const update = useUpdatePrestataire()
-  const [values, setValues] = useState<PrestataireFormValues>(() =>
-    initialValues(prestataire),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
-
-  function set(key: 'libelle' | 'commentaires', value: string) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    const parsed = prestataireSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      if (prestataire) {
-        await update.mutateAsync({ id: prestataire.id, values: parsed.data })
-        toast.success('Prestataire modifié')
-      } else {
-        await create.mutateAsync(parsed.data)
-        toast.success('Prestataire créé')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+  const form = useFormDialog({
+    schema: prestataireSchema,
+    initialValues: () => initialValues(prestataire),
+    onSubmit: (data) =>
+      prestataire
+        ? update.mutateAsync({ id: prestataire.id, values: data })
+        : create.mutateAsync(data),
+    successMessage: isEdit ? 'Prestataire modifié' : 'Prestataire créé',
+    close: () => onOpenChange(false),
+  })
 
   return (
     <FormDialog
@@ -75,25 +53,26 @@ export function PrestataireFormDialog({
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier le prestataire' : 'Nouveau prestataire'}
       description="Nom, description et image du prestataire."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
     >
       <IdentiteFields
         nom={{
-          value: values.libelle,
-          onChange: (v) => set('libelle', v),
-          error: errors.libelle,
+          value: form.values.libelle,
+          onChange: (v) => form.set('libelle', v),
+          error: form.errors.libelle,
         }}
         description={{
-          value: values.commentaires,
-          onChange: (v) => set('commentaires', v),
-          error: errors.commentaires,
+          value: form.values.commentaires,
+          onChange: (v) => form.set('commentaires', v),
+          error: form.errors.commentaires,
         }}
         image={{
-          value: values.miniature_id,
-          onChange: (id) => setValues((v) => ({ ...v, miniature_id: id })),
+          value: form.values.miniature_id,
+          onChange: (id) =>
+            form.setValues((v) => ({ ...v, miniature_id: id })),
           // Image scopée au SITE ACTIF (décision PO) : un technicien alimente le
           // pool de SON site, jamais le pool commun entreprise. La fiche prestataire
           // est de toute façon bornée au site actif (contrats/docs idem). Revers

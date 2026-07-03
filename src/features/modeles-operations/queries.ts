@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { estCommunOuDuSite } from '@/lib/scope'
 import type { Database } from '@/lib/database.types'
 
 export type ModeleOperation =
@@ -37,17 +38,11 @@ export const modelesOperationsQueries = {
    */
   list: (siteId: string | null) =>
     queryOptions({
-      queryKey: [...modelesOperationsQueries.all(), 'list', siteId] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('modeles_operations')
-          .select('*')
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data.filter((m) => m.site_id === null || m.site_id === siteId)
-      },
-      staleTime: 60_000,
+      // Réutilise le fetch de `pool()` (même `queryKey`, un seul aller-retour
+      // partagé) et n'applique le périmètre commun + site que côté client via
+      // `select` : le contenu retourné reste identique à l'ancienne query dédiée.
+      ...modelesOperationsQueries.pool(),
+      select: (rows) => rows.filter((m) => estCommunOuDuSite(m, siteId)),
     }),
 
   /**
@@ -95,7 +90,6 @@ export const modelesOperationsQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
@@ -114,7 +108,6 @@ export const modelesOperationsQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
@@ -143,6 +136,5 @@ export const modelesOperationsQueries = {
           }),
         )
       },
-      staleTime: 60_000,
     }),
 }

@@ -1,9 +1,7 @@
-import { useState } from 'react'
-import { toast } from 'sonner'
 import { emptyNiveau, niveauSchema } from '../schemas'
 import type { NiveauFormValues } from '../schemas'
 import { useCreateNiveau, useUpdateNiveau } from '../mutations'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useFormDialog } from '@/hooks/use-form-dialog'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { IdentiteFields } from '@/components/common/identite-fields'
@@ -40,36 +38,16 @@ export function NiveauFormDialog({
   const isEdit = Boolean(niveau)
   const create = useCreateNiveau()
   const update = useUpdateNiveau()
-  const [values, setValues] = useState<NiveauFormValues>(() =>
-    initialValues(niveau),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
-
-  function set(key: keyof NiveauFormValues, value: string) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    const parsed = niveauSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      if (niveau) {
-        await update.mutateAsync({ id: niveau.id, values })
-        toast.success('Niveau modifié')
-      } else {
-        await create.mutateAsync({ batimentId, values })
-        toast.success('Niveau créé')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+  const form = useFormDialog({
+    schema: niveauSchema,
+    initialValues: () => initialValues(niveau),
+    onSubmit: (data) =>
+      niveau
+        ? update.mutateAsync({ id: niveau.id, values: data })
+        : create.mutateAsync({ batimentId, values: data }),
+    successMessage: isEdit ? 'Niveau modifié' : 'Niveau créé',
+    close: () => onOpenChange(false),
+  })
 
   return (
     <FormDialog
@@ -77,25 +55,25 @@ export function NiveauFormDialog({
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier le niveau' : 'Nouveau niveau'}
       description="Un niveau du bâtiment, qui regroupe des locaux."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
     >
       <IdentiteFields
         nom={{
-          value: values.nom,
-          onChange: (v) => set('nom', v),
-          error: errors.nom,
+          value: form.values.nom,
+          onChange: (v) => form.set('nom', v),
+          error: form.errors.nom,
         }}
         description={{
-          value: values.description,
-          onChange: (v) => set('description', v),
-          error: errors.description,
+          value: form.values.description,
+          onChange: (v) => form.set('description', v),
+          error: form.errors.description,
         }}
         image={{
-          value: values.miniature_id,
-          onChange: (id) => setValues((v) => ({ ...v, miniature_id: id })),
+          value: form.values.miniature_id,
+          onChange: (id) => form.set('miniature_id', id),
           targetSiteId: siteId,
           canUpload: true,
         }}
@@ -104,9 +82,9 @@ export function NiveauFormDialog({
         label="Ordre"
         type="number"
         inputMode="numeric"
-        value={values.ordre}
-        onChange={(v) => set('ordre', v)}
-        error={errors.ordre}
+        value={form.values.ordre}
+        onChange={(v) => form.set('ordre', v)}
+        error={form.errors.ordre}
       />
     </FormDialog>
   )

@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { requireNav } from '@/lib/nav-guard'
 import { useQuery } from '@tanstack/react-query'
-import { Building2, Pencil, Plus, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { Building2, Plus } from 'lucide-react'
 import { sitesQueries } from '@/features/sites/queries'
 import { useDeleteSite } from '@/features/sites/mutations'
 import { SiteFormDialog } from '@/features/sites/components/site-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { deleteErrorMessage } from '@/lib/form'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
@@ -17,7 +17,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
-import type { RowAction } from '@/components/common/row-actions'
+import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { SearchInput } from '@/components/common/search-input'
@@ -38,26 +38,15 @@ function SitesPage() {
   const isAdmin = perm.isAdmin(role)
   const query = useQuery(sitesQueries.list())
   const del = useDeleteSite()
-  const [form, setForm] = useState<{ open: boolean; site: Site | null }>({
-    open: false,
-    site: null,
+  const form = useEntityDialog<Site>()
+  const suppression = useConfirmDelete<Site>({
+    onDelete: (s) => del.mutateAsync(s.id),
+    successMessage: 'Site supprimé',
   })
-  const [toDelete, setToDelete] = useState<Site | null>(null)
   const [recherche, setRecherche] = useState('')
 
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Site supprimé')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
-
   const newButton = isAdmin ? (
-    <Button onClick={() => setForm({ open: true, site: null })}>
+    <Button onClick={form.openCreate}>
       <Plus /> Nouveau site
     </Button>
   ) : undefined
@@ -73,7 +62,7 @@ function SitesPage() {
               icon={<Plus />}
               label="Nouveau site"
               variant="outline"
-              onClick={() => setForm({ open: true, site: null })}
+              onClick={form.openCreate}
             />
           ) : undefined
         }
@@ -117,37 +106,26 @@ function SitesPage() {
                 <NoSearchResults description="Aucun site ne correspond à cette recherche." />
               ) : (
                 <div className={listStack}>
-                  {shown.map((site) => {
-                    const rowActions: RowAction[] = []
-                    if (isAdmin) {
-                      rowActions.push({
-                        label: 'Modifier',
-                        icon: Pencil,
-                        onSelect: () => setForm({ open: true, site }),
-                      })
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () => setToDelete(site),
-                      })
-                    }
-                    return (
-                      <ListRow
-                        key={site.id}
-                        media={<RowMediaIcon icon={Building2} />}
-                        title={site.nom}
-                        subtitle={
-                          [site.code_postal, site.ville]
-                            .filter(Boolean)
-                            .join(' ') || undefined
-                        }
-                        menuActions={
-                          rowActions.length ? rowActions : undefined
-                        }
-                      />
-                    )
-                  })}
+                  {shown.map((site) => (
+                    <ListRow
+                      key={site.id}
+                      media={<RowMediaIcon icon={Building2} />}
+                      title={site.nom}
+                      subtitle={
+                        [site.code_postal, site.ville]
+                          .filter(Boolean)
+                          .join(' ') || undefined
+                      }
+                      menuActions={
+                        isAdmin
+                          ? actionsEditionSuppression({
+                              onModifier: () => form.openEdit(site),
+                              onSupprimer: () => suppression.demander(site),
+                            })
+                          : undefined
+                      }
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -157,23 +135,22 @@ function SitesPage() {
 
       {isAdmin && (
         <SiteFormDialog
-          key={form.site?.id ?? 'new'}
+          key={form.dialogKey}
           open={form.open}
-          onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
-          site={form.site}
+          onOpenChange={form.onOpenChange}
+          site={form.entity}
         />
       )}
 
       <ConfirmDeleteDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
-        entityLabel={toDelete ? `le site « ${toDelete.nom} »` : 'le site'}
+        {...suppression.dialogProps}
+        entityLabel={
+          suppression.toDelete
+            ? `le site « ${suppression.toDelete.nom} »`
+            : 'le site'
+        }
         warning="Action IRRÉVERSIBLE : le site et TOUT son contenu (bâtiments, locaux, équipements, ordres de travail, demandes, contrats, investissements, documents…) seront supprimés définitivement."
-        confirmPhrase={toDelete?.nom}
-        loading={del.isPending}
-        onConfirm={confirmDelete}
+        confirmPhrase={suppression.toDelete?.nom}
       />
     </PageContainer>
   )

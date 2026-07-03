@@ -74,7 +74,6 @@ export const localisationsQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /** Surface roulée par niveau d'un bâtiment (somme des locaux). */
@@ -95,7 +94,6 @@ export const localisationsQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /** Types de locaux actifs (référentiel global), pour le dropdown. */

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ordresTravailQueries } from '../queries'
+import { OT_QUERY_KEYS } from '../query-keys'
 import { consoOperation, estVerrouille } from '../schemas'
 import { libelleReleve } from '../releves'
 import {
@@ -30,7 +31,7 @@ import {
   estMesureExecution,
   type OperationEdit,
 } from './operation-row'
-import { MotifDialog } from './motif-dialog'
+import { MotifDialog } from '@/components/common/motif-dialog'
 import { DatePrevueDialog } from './date-prevue-dialog'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
@@ -39,8 +40,9 @@ import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSaveShortcut } from '@/hooks/use-save-shortcut'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { formatDate, todayLocal } from '@/lib/date'
-import { deleteErrorMessage, writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import type { Database } from '@/lib/database.types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
@@ -81,7 +83,7 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
   const operationsQuery = useQuery(ordresTravailQueries.operations(otId))
   // Mise à jour LIVE du détail : changement de l'OT (statut/dates) ou de ses
   // opérations (saisie d'exécution) — ici, autre onglet ou autre utilisateur — sans F5.
-  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
+  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
   useRealtimeRefresh('operations_execution', ordresTravailQueries.all())
   // Focus auto réservé aux pointeurs fins (desktop) : sur tactile, un focus
   // programmatique ouvrirait le clavier virtuel sans valeur ajoutée (pas de Tab).
@@ -95,10 +97,17 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
   const updateOp = useUpdateOperationExecution()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
+  // Suppression définitive (hard-delete) confirmée : état `toDelete` + toasts +
+  // fermeture factorisés. Repli navigation vers la liste (l'OT n'existe plus).
+  const suppression = useConfirmDelete<string>({
+    onDelete: (id) => supprimer.mutateAsync(id),
+    successMessage: 'OT supprimé',
+    onSuccess: () => void navigate({ to: '/ordres-travail' }),
+  })
+
   const [onglet, setOnglet] = useState<Onglet>('operations')
   const [annulerOpen, setAnnulerOpen] = useState(false)
   const [datePrevueOpen, setDatePrevueOpen] = useState(false)
-  const [supprimerOpen, setSupprimerOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   // Fichiers issus d'un glisser-déposer pleine page → pré-remplissent l'upload.
   const [droppedFiles, setDroppedFiles] = useState<File[]>([])
@@ -470,19 +479,6 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
     )
   }
 
-  function confirmSupprimer() {
-    // Suppression définitive (hard-delete) — même logique que la liste. Après
-    // succès, l'OT n'existe plus : on retourne à la liste des ordres de travail.
-    supprimer.mutate(otId, {
-      onSuccess: () => {
-        toast.success('OT supprimé')
-        setSupprimerOpen(false)
-        void navigate({ to: '/ordres-travail' })
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
-
   function handleReouvrir() {
     // Réouverture en UN clic (pas de modal). Le motif est imposé par la base
     // (CHECK motif_reouverture_oblig_si_reouvert + RPC, valeur juridique NF EN
@@ -601,8 +597,8 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
             icon={<Trash2 className="text-destructive" />}
             label="Supprimer l'OT"
             variant="outline"
-            disabled={supprimer.isPending}
-            onClick={() => setSupprimerOpen(true)}
+            disabled={suppression.pending}
+            onClick={() => suppression.demander(otId)}
           />
         </>
       )}
@@ -799,16 +795,11 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
 
       {/* Suppression définitive de l'OT — même formulation que la liste. */}
       <ConfirmDialog
-        open={supprimerOpen}
-        onOpenChange={(open) => {
-          if (!open) setSupprimerOpen(false)
-        }}
+        {...suppression.dialogProps}
         title="Supprimer l'ordre de travail ?"
         description={`« ${ot.nom_gamme} » sera supprimé définitivement.`}
         confirmLabel="Supprimer"
         destructive
-        loading={supprimer.isPending}
-        onConfirm={confirmSupprimer}
       />
 
       {/* Garde-fou navigation : saisies d'opérations non enregistrées. */}

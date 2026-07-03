@@ -4,8 +4,7 @@ import {
   type QueryClient,
 } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { ordresTravailQueries } from './queries'
-import { planningQueries } from '@/features/planning/queries'
+import { OT_QUERY_KEYS } from './query-keys'
 import type { Database } from '@/lib/database.types'
 
 type GammeNature = Database['public']['Enums']['gamme_nature']
@@ -14,11 +13,13 @@ type GammeNature = Database['public']['Enums']['gamme_nature']
  * Invalide TOUT ce qu'un changement d'OT impacte : la liste / le détail / les cartes
  * (clé `ordres_travail`) ET le planning (clé `planning`, qui lit la MÊME table sous
  * une autre clé). Sans ça, clôturer ou changer un statut ne rafraîchissait PAS la
- * grille du planning (cache jamais invalidé). Centralisé → impossible d'en oublier un.
+ * grille du planning (cache jamais invalidé). Clés centralisées dans `OT_QUERY_KEYS`
+ * → impossible d'en oublier une (partagées avec les abonnements Realtime).
  */
 function invalidateOt(qc: QueryClient) {
-  void qc.invalidateQueries({ queryKey: ordresTravailQueries.all() })
-  void qc.invalidateQueries({ queryKey: planningQueries.all() })
+  for (const queryKey of OT_QUERY_KEYS) {
+    void qc.invalidateQueries({ queryKey })
+  }
 }
 
 /**

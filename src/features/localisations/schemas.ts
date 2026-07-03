@@ -44,6 +44,8 @@ export const batimentSchema = z.object({
 })
 
 export type BatimentFormValues = z.input<typeof batimentSchema>
+/** Valeurs VALIDÉES (post-parse) transmises aux mutations. */
+export type BatimentValues = z.output<typeof batimentSchema>
 
 export const emptyBatiment: BatimentFormValues = {
   nom: '',
@@ -60,6 +62,8 @@ export const niveauSchema = z.object({
 })
 
 export type NiveauFormValues = z.input<typeof niveauSchema>
+/** Valeurs VALIDÉES (post-parse) transmises aux mutations. */
+export type NiveauValues = z.output<typeof niveauSchema>
 
 export const emptyNiveau: NiveauFormValues = {
   nom: '',
@@ -80,6 +84,8 @@ export const localSchema = z.object({
 })
 
 export type LocalFormValues = z.input<typeof localSchema>
+/** Valeurs VALIDÉES (post-parse) transmises aux mutations. */
+export type LocalValues = z.output<typeof localSchema>
 
 export const emptyLocal: LocalFormValues = {
   nom: '',

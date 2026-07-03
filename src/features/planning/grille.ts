@@ -1,4 +1,8 @@
+import { useMemo } from 'react'
 import { cleSemaine } from '@/features/planning/semaines'
+import { parseDateLocale } from '@/lib/date'
+import { segOfUnique } from '@/lib/slug'
+import type { Categorie } from '@/features/categories/queries'
 
 /** OT minimal nécessaire à la grille (cf. `planningQueries.fenetre`). */
 export interface PlanningOt {
@@ -69,12 +73,6 @@ export interface GroupeDomaine {
   total: number
 }
 
-/** Parse une `date_prevue` (`YYYY-MM-DD`) en Date locale (sans fuseau). */
-function parseDatePrevue(value: string): Date {
-  const [a, m, j] = value.split('-').map(Number)
-  return new Date(a ?? 1970, (m ?? 1) - 1, j ?? 1)
-}
-
 /**
  * Semaine où afficher un OT sur la grille — MÊME règle que la carte `OtCard` : on
  * prend la BONNE date selon le statut.
@@ -94,7 +92,7 @@ function parseDatePrevue(value: string): Date {
 export function dateSemaineOt(ot: PlanningOt): Date {
   const estTerminal = ot.statut === 'cloture' || ot.statut === 'annule'
   if (estTerminal && ot.date_cloture) return new Date(ot.date_cloture)
-  return parseDatePrevue(ot.date_prevue)
+  return parseDateLocale(ot.date_prevue)
 }
 
 /**
@@ -171,4 +169,105 @@ export function construireGroupes(
     )
   groupes.sort((a, b) => a.ordre - b.ordre)
   return groupes
+}
+
+/** Gamme minimale nécessaire à la résolution OT → sous-catégorie. */
+interface GammeSkelInput {
+  id: string
+  categorie_id: string
+}
+
+/**
+ * À partir des catégories + des GAMMES du site, expose :
+ *  - `skeleton` : TOUTES les sous-catégories de gamme (= lignes/familles),
+ *    affichées en permanence même sans OT, rattachées à leur catégorie (domaine) ;
+ *  - `ofOt` : la famille d'un OT (pour remplir les cases) via `gamme_id →
+ *    categorie_id`. Repli « Non classé » si la gamme est purgée / non résolue.
+ *
+ * Famille = sous-catégorie (où pointe `gammes.categorie_id`) ; domaine = sa
+ * catégorie parente — utilisé pour TRIER et SÉPARER les familles (son nom n'est PAS
+ * affiché). Le `splat` (chemin explorateur) n'est calculé que pour une famille
+ * NAVIGABLE (catégorie active, scope gamme, domaine racine).
+ */
+export function useResolveCategorie(
+  categories: Categorie[],
+  gammes: GammeSkelInput[],
+): { skeleton: CategorieInfo[]; ofOt: ResolveCategorie } {
+  return useMemo(() => {
+    const parId = new Map(categories.map((c) => [c.id, c]))
+    const gammeCategorie = new Map(gammes.map((g) => [g.id, g.categorie_id]))
+    // Catégories de GAMME visibles (calque de l'explorateur Plan de maintenance) :
+    // squelette des familles + décide la navigabilité + compose les slugs.
+    const gammeCats = categories.filter(
+      (c) => c.est_actif && (c.scope === 'gamme' || c.scope === 'mixte'),
+    )
+    const gammeCatIds = new Set(gammeCats.map((c) => c.id))
+    const racines = gammeCats
+      .filter((c) => c.parent_id === null)
+      .map((c) => ({ nom: c.nom, id: c.id }))
+    const enfantsParParent = new Map<string, { nom: string; id: string }[]>()
+    for (const c of gammeCats) {
+      if (c.parent_id === null) continue
+      const arr = enfantsParParent.get(c.parent_id) ?? []
+      arr.push({ nom: c.nom, id: c.id })
+      enfantsParParent.set(c.parent_id, arr)
+    }
+
+    // Projette une sous-catégorie (famille) en `CategorieInfo` (domaine = parent).
+    const infoDeCategorie = (fam: Categorie): CategorieInfo => {
+      const parent = fam.parent_id ? parId.get(fam.parent_id) : undefined
+      let splat: string | null = null
+      if (
+        parent &&
+        gammeCatIds.has(fam.id) &&
+        gammeCatIds.has(parent.id) &&
+        parent.parent_id === null
+      ) {
+        const domSeg = segOfUnique({ nom: parent.nom, id: parent.id }, racines)
+        const famSeg = segOfUnique(
+          { nom: fam.nom, id: fam.id },
+          enfantsParParent.get(parent.id) ?? [],
+        )
+        splat = `${domSeg}/${famSeg}`
+      }
+      // Domaine = parent ; cas défensif (sous-cat racine) → son propre domaine.
+      return {
+        familleCle: fam.id,
+        familleNom: fam.nom,
+        familleOrdre: fam.ordre,
+        domaineCle: parent ? parent.id : `racine:${fam.id}`,
+        domaineOrdre: parent ? parent.ordre : fam.ordre,
+        splat,
+      }
+    }
+
+    // Squelette = toutes les sous-catégories de gamme (parent non nul).
+    const skeleton = gammeCats
+      .filter((c) => c.parent_id !== null)
+      .map(infoDeCategorie)
+
+    const nonClasse = (label: string | null): CategorieInfo => ({
+      familleCle: label ? `cat-nom:${label.toLowerCase()}` : '__non_classe__',
+      familleNom: label ?? 'Non classé',
+      familleOrdre: Number.MAX_SAFE_INTEGER,
+      domaineCle: '__non_classe__',
+      domaineOrdre: Number.MAX_SAFE_INTEGER,
+      splat: null,
+    })
+
+    const ofOt = (ot: PlanningOt): CategorieInfo => {
+      const categorieId = ot.gamme_id
+        ? gammeCategorie.get(ot.gamme_id)
+        : undefined
+      const fam = categorieId ? parId.get(categorieId) : undefined
+      if (!fam) {
+        // Chaîne vide → « Non classé » (≠ `??` : `''` doit retomber sur `null`).
+        const label = ot.nom_categorie?.trim()
+        return nonClasse(label && label.length > 0 ? label : null)
+      }
+      return infoDeCategorie(fam)
+    }
+
+    return { skeleton, ofOt }
+  }, [categories, gammes])
 }

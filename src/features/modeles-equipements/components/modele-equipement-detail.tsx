@@ -10,14 +10,9 @@ import {
 import { toast } from 'sonner'
 import type { ModeleEquipement } from '../queries'
 import { useUpdateModeleSpecifications } from '../mutations'
-import { ChampFormDialog } from './champ-form-dialog'
-import {
-  CHAMP_TYPES,
-  formatChampValeur,
-  parseChamps,
-  prepareChamps,
-  type Champ,
-} from '@/lib/champs'
+import { ChampFormDialog } from '@/components/common/champ-form-dialog'
+import { champResume } from '@/components/common/champs-list-editor'
+import { parseChamps, prepareChamps, type Champ } from '@/lib/champs'
 import { writeErrorMessage } from '@/lib/form'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
@@ -28,18 +23,6 @@ import { ListRow } from '@/components/common/list-row'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { listStack } from '@/lib/responsive'
-
-// Sous-titre lisible d'un champ : type, unité (si nombre), valeur par défaut.
-function champResume(c: Champ): string {
-  const parts: string[] = [
-    CHAMP_TYPES.find((t) => t.value === c.type)?.label ?? c.type,
-  ]
-  if (c.type === 'nombre' && c.unite) parts.push(c.unite)
-  if (c.defaut !== null && c.defaut !== '') {
-    parts.push(`défaut : ${formatChampValeur(c, c.defaut)}`)
-  }
-  return parts.join(' · ')
-}
 
 /**
  * Page de détail d'un MODÈLE d'équipement (niveau FEUILLE de la navigation). Le

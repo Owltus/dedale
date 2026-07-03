@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 
 // Les vues v_registre_securite / v_observations_dashboard sont en security_invoker :
 // la RLS des tables sous-jacentes filtre déjà par site accessible, on filtre en
@@ -41,7 +42,6 @@ export const observationsQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /** Compteurs conformité du site (badges). */
@@ -85,7 +85,11 @@ export const observationsQueries = {
 export const otsPourObservationQueries = {
   list: (siteId: string | null) =>
     queryOptions({
-      queryKey: ['observations', 'ots_rattachables', siteId] as const,
+      queryKey: [
+        ...ordresTravailQueries.all(),
+        'rattachables-observation',
+        siteId,
+      ] as const,
       enabled: siteId !== null,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
@@ -97,6 +101,5 @@ export const otsPourObservationQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 }

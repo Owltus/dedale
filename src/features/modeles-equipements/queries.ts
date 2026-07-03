@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { estCommunOuDuSite } from '@/lib/scope'
 import type { Database } from '@/lib/database.types'
 
 export type ModeleEquipement =
@@ -15,23 +16,13 @@ export const modelesEquipementsQueries = {
    */
   list: (siteId: string | null) =>
     queryOptions({
-      queryKey: [...modelesEquipementsQueries.all(), 'list', siteId] as const,
+      // Réutilise le fetch de `pool()` (même `queryKey`, un seul aller-retour
+      // partagé) puis restreint côté client aux modèles ACTIFS du périmètre
+      // commun + site : contenu identique à l'ancienne query dédiée.
+      ...modelesEquipementsQueries.pool(),
       enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('modeles_equipements')
-          // Embed désambiguïsé : depuis 029, il existe DEUX relations
-          // modeles_equipements ↔ categories (categorie_id du modèle, et
-          // categories.modele_equipement_id en sens inverse). On force la 1re via le
-          // nom de contrainte FK, sinon PostgREST refuse l'embed (ambigu).
-          .select('*, categories!modeles_equipements_categorie_id_fkey(id, nom)')
-          .eq('est_actif', true)
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data.filter((m) => m.site_id === null || m.site_id === siteId)
-      },
-      staleTime: 60_000,
+      select: (rows) =>
+        rows.filter((m) => m.est_actif && estCommunOuDuSite(m, siteId)),
     }),
 
   /**
@@ -40,25 +31,11 @@ export const modelesEquipementsQueries = {
    */
   catalogue: (siteId: string | null) =>
     queryOptions({
-      queryKey: [
-        ...modelesEquipementsQueries.all(),
-        'catalogue',
-        siteId,
-      ] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('modeles_equipements')
-          // Embed désambiguïsé : depuis 029, il existe DEUX relations
-          // modeles_equipements ↔ categories (categorie_id du modèle, et
-          // categories.modele_equipement_id en sens inverse). On force la 1re via le
-          // nom de contrainte FK, sinon PostgREST refuse l'embed (ambigu).
-          .select('*, categories!modeles_equipements_categorie_id_fkey(id, nom)')
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data.filter((m) => m.site_id === null || m.site_id === siteId)
-      },
-      staleTime: 60_000,
+      // Réutilise le fetch de `pool()` (même `queryKey`, un seul aller-retour
+      // partagé) et n'applique le périmètre commun + site que côté client via
+      // `select` : contenu identique à l'ancienne query dédiée.
+      ...modelesEquipementsQueries.pool(),
+      select: (rows) => rows.filter((m) => estCommunOuDuSite(m, siteId)),
     }),
 
   /**
@@ -81,6 +58,5 @@ export const modelesEquipementsQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 }

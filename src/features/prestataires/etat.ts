@@ -1,4 +1,4 @@
-import { todayLocal } from '@/lib/date'
+import { isoLocale, todayLocal } from '@/lib/date'
 
 export type EtatContrat = 'a_venir' | 'actif' | 'termine'
 
@@ -60,14 +60,6 @@ export interface DonneesContrat {
   delai_preavis_jours: number
   duree_cycle_mois: number | null
   fenetre_resiliation_jours: number | null
-}
-
-/** `YYYY-MM-DD` d'une date locale (sans décalage de fuseau). */
-function isoLocale(d: Date): string {
-  const a = String(d.getFullYear())
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const j = String(d.getDate()).padStart(2, '0')
-  return `${a}-${m}-${j}`
 }
 
 /** Composantes [année, mois (1-12), jour] d'une date nue, ou null si invalide. */

@@ -29,10 +29,12 @@ import {
 } from '@/features/demandes/etat'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useAuth } from '@/auth'
 import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
-import { deleteErrorMessage, writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
@@ -127,7 +129,9 @@ function DemandesContent({
 
   // Nom du local de chaque DI (di_id → local) : affiché en carte ET cible de
   // recherche. Une seule requête RLS-scopée pour toute la liste (pas de N+1).
-  const { data: locLinks = [] } = useQuery(demandesQueries.locauxParDi())
+  const { data: locLinks = [] } = useQuery(
+    demandesQueries.locauxParDi(siteId),
+  )
   const localParDi = useMemo(() => {
     const m = new Map<string, string>()
     for (const r of locLinks) {
@@ -142,25 +146,17 @@ function DemandesContent({
   // Défaut : on masque les demandes clôturées — le filtre permet d'afficher un
   // statut précis ou « Tous les statuts ».
   const [statutFilter, setStatutFilter] = useState(FILTRE_NON_TERMINES)
-  const [editDemande, setEditDemande] = useState<Demande | null>(null)
-  const [toDelete, setToDelete] = useState<Demande | null>(null)
+  const editDialog = useEntityDialog<Demande>()
+  const suppression = useConfirmDelete<Demande>({
+    onDelete: (d) => del.mutateAsync(d.id),
+    successMessage: 'Demande supprimée',
+  })
 
   const newButton = canCreate ? (
     <Button onClick={() => setFormOpen(true)}>
       <Plus /> Nouvelle demande
     </Button>
   ) : undefined
-
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Demande supprimée')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
 
   return (
     <PageContainer>
@@ -287,7 +283,7 @@ function DemandesContent({
                         label: 'Modifier',
                         icon: Pencil,
                         separatorBefore: sep,
-                        onSelect: () => setEditDemande(d),
+                        onSelect: () => editDialog.openEdit(d),
                       })
                     if (canDelete)
                       rowActions.push({
@@ -295,7 +291,7 @@ function DemandesContent({
                         icon: Trash2,
                         destructive: true,
                         separatorBefore: sep && !canEdit,
-                        onSelect: () => setToDelete(d),
+                        onSelect: () => suppression.demander(d),
                       })
                     const createur = d.created_by
                       ? (usersById.get(d.created_by) ?? null)
@@ -353,30 +349,23 @@ function DemandesContent({
       )}
 
       <DiEditDialog
-        key={editDemande?.id ?? 'none'}
-        open={editDemande !== null}
-        onOpenChange={(o) => {
-          if (!o) setEditDemande(null)
-        }}
-        demande={editDemande}
+        key={editDialog.dialogKey}
+        open={editDialog.open}
+        onOpenChange={editDialog.onOpenChange}
+        demande={editDialog.entity}
         siteId={siteId}
       />
 
       <ConfirmDialog
-        open={toDelete !== null}
-        onOpenChange={(o) => {
-          if (!o) setToDelete(null)
-        }}
+        {...suppression.dialogProps}
         title="Supprimer la demande ?"
         description={
-          toDelete
-            ? `« ${diTitre(toDelete.constat)} » sera supprimée définitivement.`
+          suppression.toDelete
+            ? `« ${diTitre(suppression.toDelete.constat)} » sera supprimée définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"
         destructive
-        loading={del.isPending}
-        onConfirm={confirmDelete}
       />
     </PageContainer>
   )

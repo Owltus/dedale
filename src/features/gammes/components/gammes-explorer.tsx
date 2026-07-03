@@ -1,18 +1,10 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import { FolderTree, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
-import { toast } from 'sonner'
 import { gammesQueries } from '../queries'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import type { OtTriable } from '@/features/ordres-travail/tri'
 import {
   statutAffichageAgrege,
@@ -27,16 +19,21 @@ import {
   categoriesQueries,
   type Categorie,
 } from '@/features/categories/queries'
-import { useDeleteCategorie } from '@/features/categories/mutations'
 import { CategoryFormDialog } from '@/features/categories/components/category-form-dialog'
+import { ConfirmDeleteCategorieDialog } from '@/features/categories/components/confirm-delete-categorie-dialog'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { CategorieCard } from '@/features/categories/components/categorie-card'
 import { SousCategorieCard } from '@/features/categories/components/sous-categorie-card'
 import { useGammesDrill } from '@/hooks/use-gammes-drill'
+import {
+  useCatalogueDrill,
+  type CatalogueDrillCat,
+  NON_CLASSE_ID,
+} from '@/hooks/use-catalogue-drill'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { deleteErrorMessage } from '@/lib/form'
-import { segOfUnique } from '@/lib/slug'
 import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import {
@@ -44,8 +41,9 @@ import {
   type PageHeaderCrumb,
 } from '@/components/common/page-header'
 import { drillCrumbs } from '@/components/common/drill-crumbs'
+import { FillHeader, ScrollBody } from '@/components/common/page-container'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import type { RowAction } from '@/components/common/row-actions'
+import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
@@ -61,52 +59,19 @@ import type {
 // gamme depuis une autre page) sans inverser la dépendance features → routes.
 const gammesRoute = getRouteApi('/_app/gammes/$')
 
-// Id sentinelle du bac « Non classé » (catégorie VIRTUELLE, hors base) : regroupe
-// à la racine les gammes du site sans catégorie visible (legacy/import, ou rangées
-// dans une catégorie non affichée ici) pour ne JAMAIS les cacher.
-const NON_CLASSE_ID = '__non_classe__'
-
 const SECTION_DESCRIPTION =
   'Gammes de maintenance et de contrôle réglementaire du site, rangées par catégorie.'
 
-/**
- * Catégorie pour le DRILL : projection minimale (champs lus à l'affichage +
- * `parent_id` pour l'arbre), plus un drapeau `virtual` pour le bac « Non classé ».
- */
-interface DrillCat {
-  id: string
-  nom: string
-  parent_id: string | null
-  site_id: string | null
-  description: string | null
-  miniature_id: string | null
-  ordre: number
-  virtual: boolean
-}
-
-/** Segment d'URL d'une gamme, désambiguïsé entre frères (même sous-catégorie). */
-function gammeSeg(g: GammeRow, siblings: GammeRow[]): string {
-  return segOfUnique({ id: g.id, nom: g.nom }, siblings)
-}
-
-/**
- * Corps DÉFILANT d'un palier (catégories, gamme ouverte, états vides). En mode
- * `fill`, l'explorateur pose lui-même sa zone scrollable et réintègre le padding
- * que `PageContainer` non-`fill` fournissait. Le palier SPLIT n'utilise PAS ce
- * helper : ses deux panneaux gèrent leur propre défilement.
- */
-function ScrollBody({ children }: { children: ReactNode }) {
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
-      {children}
-    </div>
-  )
-}
+// Accès stables (identité constante) alimentant `useCatalogueDrill` : id, nom et
+// catégorie d'une gamme (`categorie_id` est NOT NULL).
+const gammeId = (g: GammeRow) => g.id
+const gammeNom = (g: GammeRow) => g.nom
+const gammeCategorieId = (g: GammeRow) => g.categorie_id
 
 /**
  * Explorateur du Plan de maintenance du SITE actif : navigation par CATÉGORIE
- * portée par l'URL (même patron que la page Équipements via `useGammesDrill`), mais
- * pour les GAMMES RÉELLES — chemin classique :
+ * portée par l'URL (même patron que la page Équipements via `useCatalogueDrill`),
+ * mais pour les GAMMES RÉELLES — chemin classique :
  * - Racine : catégories de gamme (commun + site) + un bac « Non classé » si des
  *   gammes n'ont pas de catégorie visible. La gestion des catégories vit dans la
  *   Bibliothèque (ici, navigation seule).
@@ -128,7 +93,6 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   useRealtimeRefresh('categories', categoriesQueries.all())
 
   const del = useDeleteGamme()
-  const delCategorie = useDeleteCategorie()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   // Action « ajouter » de la top bar, PILOTÉE par l'onglet actif de la fiche
@@ -155,7 +119,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     [categoriesQuery.data, siteId],
   )
   // Accès rapide à la catégorie COMPLÈTE (pour l'édition via le formulaire) ; le
-  // drill ne manipule qu'une projection `DrillCat`.
+  // drill ne manipule qu'une projection `CatalogueDrillCat`.
   const categoriesById = useMemo(
     () => new Map(gammeCats.map((c) => [c.id, c])),
     [gammeCats],
@@ -166,92 +130,62 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     [gammesQuery.data],
   )
 
-  // Gamme « de racine » : sans catégorie OU rangée dans une catégorie non visible
-  // ici → regroupée dans le bac « Non classé ».
-  const visibleCatIds = useMemo(
-    () => new Set(gammeCats.map((c) => c.id)),
+  // Projection des catégories réelles + fabrique du bac virtuel « Non classé »,
+  // consommées par `useCatalogueDrill` (bac + orphelins, drill, resync).
+  const realCats = useMemo<CatalogueDrillCat[]>(
+    () =>
+      gammeCats.map((c) => ({
+        id: c.id,
+        nom: c.nom,
+        parent_id: c.parent_id,
+        site_id: c.site_id,
+        description: c.description,
+        miniature_id: c.miniature_id,
+        ordre: c.ordre,
+        virtual: false,
+      })),
     [gammeCats],
   )
-  // `categorie_id` est NOT NULL : une gamme « orpheline » est une gamme rangée dans
-  // une catégorie NON visible ici (inactive, autre périmètre, scope ≠ gamme/mixte).
-  const isRootGamme = useCallback(
-    (g: GammeRow) => !visibleCatIds.has(g.categorie_id),
-    [visibleCatIds],
-  )
-  const orphans = useMemo(
-    () => gammes.filter(isRootGamme),
-    [gammes, isRootGamme],
-  )
-
-  // Catégories du drill = catégories projetées + bac « Non classé » (s'il y a des
-  // orphelines).
-  const drillCats = useMemo<DrillCat[]>(() => {
-    const real: DrillCat[] = gammeCats.map((c) => ({
-      id: c.id,
-      nom: c.nom,
-      parent_id: c.parent_id,
-      site_id: c.site_id,
-      description: c.description,
-      miniature_id: c.miniature_id,
-      ordre: c.ordre,
-      virtual: false,
-    }))
-    if (orphans.length > 0) {
-      real.push({
-        id: NON_CLASSE_ID,
-        nom: 'Non classé',
-        parent_id: null,
-        site_id: siteId,
-        description: 'Gammes sans catégorie',
-        miniature_id: null,
-        ordre: Number.MAX_SAFE_INTEGER,
-        virtual: true,
-      })
-    }
-    return real
-  }, [gammeCats, orphans, siteId])
-
-  const { path, current, depth, children, goTo, leafSeg, goToLeaf } =
-    useGammesDrill(drillCats)
-
-  // Sous-catégories du palier courant, triées (le bac « Non classé » finit dernier).
-  const childCategories = useMemo(
-    () =>
-      [...children].sort(
-        (a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom),
-      ),
-    [children],
+  const makeVirtual = useCallback<() => CatalogueDrillCat>(
+    () => ({
+      id: NON_CLASSE_ID,
+      nom: 'Non classé',
+      parent_id: null,
+      site_id: siteId,
+      description: 'Gammes sans catégorie',
+      miniature_id: null,
+      ordre: Number.MAX_SAFE_INTEGER,
+      virtual: true,
+    }),
+    [siteId],
   )
 
-  // Gammes d'un palier : bac « Non classé » → orphelines ; sinon celles qui
-  // référencent la catégorie. Source unique du regroupement (listing + résolution
-  // de feuille + navigation).
-  const gammesUnder = useCallback(
-    (catId: string | null) =>
-      catId === NON_CLASSE_ID
-        ? orphans
-        : catId === null
-          ? []
-          : gammes.filter((g) => g.categorie_id === catId),
-    [gammes, orphans],
-  )
-
-  const gammesInCurrent = useMemo(
-    () =>
-      current === null
-        ? []
-        : [...gammesUnder(current.id)].sort((a, b) =>
-            a.nom.localeCompare(b.nom),
-          ),
-    [gammesUnder, current],
-  )
+  const {
+    path,
+    current,
+    depth,
+    childCategories,
+    goTo,
+    orphans,
+    itemsInCurrent: gammesInCurrent,
+    openItem: openGamme,
+    goToItem: goToGamme,
+  } = useCatalogueDrill<GammeRow, CatalogueDrillCat>({
+    realCats,
+    makeVirtual,
+    items: gammes,
+    getItemId: gammeId,
+    getItemNom: gammeNom,
+    getCategorieId: gammeCategorieId,
+    useDrill: useGammesDrill,
+  })
 
   // Gammes (rows) sous un nœud de l'arbre AFFICHÉ : catégorie (depth 0) → gammes de
   // TOUTES ses sous-catégories ; sous-catégorie (depth 1) → ses gammes directes ; bac
   // « Non classé » virtuel → les orphelines. Sert au calcul des ids à charger ET au
   // badge agrégé de la carte (MÊME règle à tous les niveaux).
   const gammeRowsUnderNode = useCallback(
-    (node: DrillCat): GammeRow[] => {
+    (node: CatalogueDrillCat): GammeRow[] => {
       if (node.virtual) return orphans
       if (depth === 0) {
         const sousCatIds = new Set(
@@ -280,7 +214,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   const otsParGammeQuery = useQuery(
     ordresTravailQueries.byGammes(siteId, gammeIdsBadges),
   )
-  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
+  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
   // Badges INDISPONIBLES : seulement pendant un fetch réel (`isLoading` — PAS
   // `isPending`, qui reste vrai pour une requête DÉSACTIVÉE quand il n'y a aucune
   // gamme à charger, ce qui masquerait à tort « Vide »), ou en cas d'erreur (on évite
@@ -300,7 +234,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   // Gammes (activité + OT) sous un nœud, pour le badge AGRÉGÉ (pire cas — cf.
   // statutAffichageAgrege) de sa CategorieCard / SousCategorieCard.
   const gammesStatutUnderNode = useCallback(
-    (node: DrillCat): GammeStatutInput[] =>
+    (node: CatalogueDrillCat): GammeStatutInput[] =>
       gammeRowsUnderNode(node).map((g) => ({
         estActive: g.est_active,
         ots: otsParGamme.get(g.id) ?? [],
@@ -323,63 +257,6 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     return map
   }, [childCategories, gammesStatutUnderNode, otsBadgesIndispo])
 
-  // Gamme OUVERTE (vue détail, niveau FEUILLE) : résolue parmi les gammes du palier
-  // courant (mêmes frères qu'à la génération → slug stable).
-  const openGamme = useMemo(() => {
-    if (leafSeg === undefined || current === null) return null
-    const siblings = gammesUnder(current.id)
-    return siblings.find((g) => gammeSeg(g, siblings) === leafSeg) ?? null
-  }, [leafSeg, current, gammesUnder])
-
-  // Chaîne de catégories (racine → cat) d'un id réel : pour ouvrir une gamme par son
-  // CHEMIN RÉEL, indépendant du palier courant.
-  const catChain = useCallback(
-    (catId: string | null): DrillCat[] => {
-      const chain: DrillCat[] = []
-      let id = catId
-      while (id) {
-        const c = drillCats.find((x) => x.id === id)
-        if (!c) break
-        chain.unshift(c)
-        id = c.parent_id
-      }
-      return chain
-    },
-    [drillCats],
-  )
-
-  const goToGamme = useCallback(
-    (g: GammeRow, opts?: { replace?: boolean }) => {
-      const orphan = isRootGamme(g)
-      const chain = orphan ? catChain(NON_CLASSE_ID) : catChain(g.categorie_id)
-      const siblings = gammesUnder(orphan ? NON_CLASSE_ID : g.categorie_id)
-      goToLeaf(chain, gammeSeg(g, siblings), { replace: opts?.replace })
-    },
-    [isRootGamme, catChain, gammesUnder, goToLeaf],
-  )
-
-  // Re-synchronise l'URL si la gamme OUVERTE est renommée (« Modifier » ou réception
-  // realtime) : son slug change → l'URL ne la résout plus. On mémorise id + segment
-  // et, si elle existe encore, on réécrit l'URL sur son chemin frais (REPLACE) sans
-  // fermer le détail ; supprimée → repli propre vers la navigation.
-  const lastIdRef = useRef<string | null>(null)
-  const lastLeafRef = useRef<string | undefined>(undefined)
-  useEffect(() => {
-    if (openGamme !== null) {
-      lastIdRef.current = openGamme.id
-      lastLeafRef.current = leafSeg
-    }
-  }, [openGamme, leafSeg])
-  useLayoutEffect(() => {
-    if (leafSeg === undefined || openGamme !== null) return
-    if (leafSeg !== lastLeafRef.current) return
-    const id = lastIdRef.current
-    if (id === null) return
-    const fresh = gammes.find((g) => g.id === id)
-    if (!fresh) return
-    goToGamme(fresh, { replace: true })
-  }, [leafSeg, openGamme, gammes, goToGamme])
-
   // Ouverture DIRECTE par `?open=<gammeId>` (lien depuis une autre page, ex. onglet
   // Gammes d'un prestataire) : dès que les gammes du site sont chargées, on résout
   // l'id et on délègue à `goToGamme` — MÊME logique catégorie/orphelin/slug que la
@@ -397,53 +274,35 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   }, [openGammeId, gammes, gammesQuery.isPending, goToGamme])
 
   // --- Dialogs ---
-  const [gammeForm, setGammeForm] = useState<{
-    open: boolean
-    gamme: GammeRow | null
-  }>({ open: false, gamme: null })
-  const [toDelete, setToDelete] = useState<GammeRow | null>(null)
+  const gammeDialog = useEntityDialog<GammeRow>()
+  const suppression = useConfirmDelete<GammeRow>({
+    onDelete: (g) => del.mutateAsync(g.id),
+    successMessage: 'Gamme supprimée',
+  })
   const [categoryForm, setCategoryForm] = useState<{
     open: boolean
     categorie: Categorie | null
     preset?: { scope: 'gamme'; parent_id?: string }
     lockedScope: { portee: 'site'; siteId: string } | null
   }>({ open: false, categorie: null, lockedScope: null })
-  const [toDeleteCategorie, setToDeleteCategorie] = useState<DrillCat | null>(
-    null,
-  )
-
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Gamme supprimée')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
-
-  function confirmDeleteCategorie() {
-    if (!toDeleteCategorie) return
-    delCategorie.mutate(toDeleteCategorie.id, {
-      onSuccess: () => {
-        toast.success('Catégorie supprimée')
-        setToDeleteCategorie(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
+  const [toDeleteCategorie, setToDeleteCategorie] =
+    useState<CatalogueDrillCat | null>(null)
 
   // La base BLOQUE la suppression d'une catégorie NON VIDE (sous-catégorie ou
-  // gamme rattachée). Pré-calcul pour adapter le message et désactiver.
-  const toDeleteCategorieNonVide =
-    toDeleteCategorie !== null &&
-    (gammeCats.some((c) => c.parent_id === toDeleteCategorie.id) ||
-      gammes.some((g) => g.categorie_id === toDeleteCategorie.id))
+  // gamme rattachée). Pré-calcul pour le message et la désactivation du bouton.
+  const categorieEnfants = {
+    sousCategories:
+      toDeleteCategorie !== null &&
+      gammeCats.some((c) => c.parent_id === toDeleteCategorie.id),
+    contenus:
+      toDeleteCategorie !== null &&
+      gammes.some((g) => g.categorie_id === toDeleteCategorie.id),
+    labelContenu: 'gammes',
+  }
 
   // Catégorie de SITE uniquement gérable ici (le commun, issu de la Bibliothèque,
   // reste navigable mais non modifiable) ; jamais le bac virtuel « Non classé ».
-  const canManageCat = (c: DrillCat) =>
+  const canManageCat = (c: CatalogueDrillCat) =>
     canEdit && !c.virtual && c.site_id !== null
 
   // Racines de gamme DU SITE (parent candidat à l'édition ; masqué en mode minimal).
@@ -500,7 +359,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
       icon={<Plus />}
       label="Nouvelle gamme"
       variant="outline"
-      onClick={() => setGammeForm({ open: true, gamme: null })}
+      onClick={gammeDialog.openCreate}
     />
   ) : null
 
@@ -512,7 +371,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     d?.trim() ? d.trim() : SECTION_DESCRIPTION
   // Fil d'Ariane « Plan de maintenance › … › nœud ». `segs` est TOUJOURS un préfixe
   // de `path`, donc l'index `i` indexe `path` directement (clic = descente à ce palier).
-  const crumbs = (segs: DrillCat[]): PageHeaderCrumb[] =>
+  const crumbs = (segs: CatalogueDrillCat[]): PageHeaderCrumb[] =>
     drillCrumbs(segs, goTo, {
       label: 'Plan de maintenance',
       onClick: () => goTo([]),
@@ -528,7 +387,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
         icon={<Pencil />}
         label="Modifier la gamme"
         variant="outline"
-        onClick={() => setGammeForm({ open: true, gamme: openGamme })}
+        onClick={() => gammeDialog.openEdit(openGamme)}
       />
     ) : null
     // Supprimer : miroir de l'action de la carte de liste (même mutation delete,
@@ -538,7 +397,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
         icon={<Trash2 className="text-destructive" />}
         label="Supprimer la gamme"
         variant="outline"
-        onClick={() => setToDelete(openGamme)}
+        onClick={() => suppression.demander(openGamme)}
       />
     ) : null
     const AddIcon = gammeAddConfig?.icon ?? Plus
@@ -596,14 +455,14 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     <>
       {canEdit && (
         <GammeFormDialog
-          key={`gamme-${gammeForm.gamme?.id ?? 'new'}-${String(gammeForm.open)}`}
-          open={gammeForm.open}
-          onOpenChange={(open) => setGammeForm((f) => ({ ...f, open }))}
+          key={gammeDialog.dialogKey}
+          open={gammeDialog.open}
+          onOpenChange={gammeDialog.onOpenChange}
           siteId={siteId}
-          gamme={gammeForm.gamme}
+          gamme={gammeDialog.entity}
           // À la création depuis une sous-catégorie : la pré-sélectionner.
           presetCategorieId={
-            gammeForm.gamme || current?.virtual ? undefined : current?.id
+            gammeDialog.entity || current?.virtual ? undefined : current?.id
           }
         />
       )}
@@ -640,32 +499,20 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
         />
       )}
 
-      <ConfirmDeleteDialog
-        open={toDeleteCategorie !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDeleteCategorie(null)
-        }}
-        entityLabel={
-          toDeleteCategorie
-            ? `la catégorie « ${toDeleteCategorie.nom} »`
-            : 'la catégorie'
-        }
-        blocked={toDeleteCategorieNonVide}
-        blockedReason="Cette catégorie contient des sous-catégories ou des gammes. Vide-la d’abord pour pouvoir la supprimer."
-        warning="Cette suppression est définitive."
-        loading={delCategorie.isPending}
-        onConfirm={confirmDeleteCategorie}
+      <ConfirmDeleteCategorieDialog
+        categorie={toDeleteCategorie}
+        onClose={() => setToDeleteCategorie(null)}
+        enfants={categorieEnfants}
       />
 
       <ConfirmDeleteDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
-        entityLabel={toDelete ? `la gamme « ${toDelete.nom} »` : 'la gamme'}
+        {...suppression.dialogProps}
+        entityLabel={
+          suppression.toDelete
+            ? `la gamme « ${suppression.toDelete.nom} »`
+            : 'la gamme'
+        }
         warning="Cette suppression est définitive. Les opérations de la gamme sont retirées."
-        loading={del.isPending}
-        onConfirm={confirmDelete}
       />
     </>
   )
@@ -676,7 +523,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     return (
       <TabActionContext.Provider value={gammeActionApi}>
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="shrink-0 px-4 pt-6 sm:px-6 lg:px-8">{header}</div>
+          <FillHeader>{header}</FillHeader>
           <GammeDetail gamme={openGamme} siteId={siteId} canEdit={canEdit} />
         </div>
         {dialogs}
@@ -695,7 +542,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="shrink-0 px-4 pt-6 sm:px-6 lg:px-8">{header}</div>
+        <FillHeader>{header}</FillHeader>
 
         <QueryState
           query={categoriesQuery}
@@ -753,25 +600,14 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
                 {childCategories.length > 0 && (
                   <div className={listStack}>
                     {childCategories.map((cat) => {
-                      const menuActions: RowAction[] | undefined = canManageCat(
-                        cat,
-                      )
-                        ? [
-                            {
-                              label: 'Modifier',
-                              icon: Pencil,
-                              onSelect: () => {
-                                const full = categoriesById.get(cat.id)
-                                if (full) handleEditCategory(full)
-                              },
+                      const menuActions = canManageCat(cat)
+                        ? actionsEditionSuppression({
+                            onModifier: () => {
+                              const full = categoriesById.get(cat.id)
+                              if (full) handleEditCategory(full)
                             },
-                            {
-                              label: 'Supprimer',
-                              icon: Trash2,
-                              destructive: true,
-                              onSelect: () => setToDeleteCategorie(cat),
-                            },
-                          ]
+                            onSupprimer: () => setToDeleteCategorie(cat),
+                          })
                         : undefined
                       const onClick = () => goTo([...path, cat])
                       // Racine (depth 0) = catégories (+ bac « Non classé »
@@ -816,21 +652,12 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
                 {gammesInCurrent.length > 0 && (
                   <div className={listStack}>
                     {gammesInCurrent.map((g) => {
-                      const rowActions: RowAction[] = []
-                      if (canEdit) {
-                        rowActions.push({
-                          label: 'Modifier',
-                          icon: Pencil,
-                          onSelect: () =>
-                            setGammeForm({ open: true, gamme: g }),
-                        })
-                        rowActions.push({
-                          label: 'Supprimer',
-                          icon: Trash2,
-                          destructive: true,
-                          onSelect: () => setToDelete(g),
-                        })
-                      }
+                      const rowActions = canEdit
+                        ? actionsEditionSuppression({
+                            onModifier: () => gammeDialog.openEdit(g),
+                            onSupprimer: () => suppression.demander(g),
+                          })
+                        : []
                       return (
                         <GammeCard
                           key={g.id}

@@ -1,5 +1,3 @@
-import { useState } from 'react'
-import { toast } from 'sonner'
 import { emptyModeleOperation, modeleOperationSchema } from '../schemas'
 import type { ModeleOperationFormValues } from '../schemas'
 import {
@@ -7,7 +5,9 @@ import {
   useUpdateModeleOperation,
 } from '../mutations'
 import type { ModeleOperation } from '../queries'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useFormDialog } from '@/hooks/use-form-dialog'
+import { resolvePorteeScope } from '@/lib/scope'
+import type { LockedScope } from '@/lib/scope'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
@@ -30,7 +30,7 @@ interface GammeTypeFormDialogProps {
    * champ du formulaire : à la création elle vient du sélecteur de la top bar
    * (via `lockedScope`), à l'édition elle reste celle du modèle (inchangée).
    */
-  lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
+  lockedScope?: LockedScope | null
   /**
    * Création dans une catégorie imposée (navigation par paliers) : catégorie
    * verrouillée → le sélecteur de catégorie est masqué. Ignoré en édition.
@@ -41,7 +41,7 @@ interface GammeTypeFormDialogProps {
 function initialValues(
   modele: ModeleOperation | null | undefined,
   canEntreprise: boolean,
-  lockedScope: { portee: 'entreprise' | 'site' } | null | undefined,
+  lockedScope: LockedScope | null | undefined,
   lockedCategorieId: string | null | undefined,
 ): ModeleOperationFormValues {
   if (!modele)
@@ -49,11 +49,15 @@ function initialValues(
       ...emptyModeleOperation,
       // Portée verrouillée sur le périmètre de la page si fournie ; sinon défaut
       // selon le rôle (un tech ne crée que des modèles d’opération de site).
-      portee: lockedScope
-        ? lockedScope.portee
-        : canEntreprise
-          ? emptyModeleOperation.portee
-          : 'site',
+      portee: resolvePorteeScope({
+        portee: emptyModeleOperation.portee,
+        // `porteeInitiale` ne dépend pas du site actif (seulement du rôle et du
+        // périmètre verrouillé).
+        siteId: null,
+        canEntreprise,
+        lockedScope,
+        isEdit: false,
+      }).porteeInitiale,
       // Catégorie imposée par la navigation (sinon choisie dans le formulaire).
       ...(lockedCategorieId ? { categorie_id: lockedCategorieId } : {}),
     }
@@ -79,47 +83,39 @@ export function GammeTypeFormDialog({
   const isEdit = Boolean(modele)
   const create = useCreateModeleOperation()
   const update = useUpdateModeleOperation()
-  const [values, setValues] = useState<ModeleOperationFormValues>(() =>
-    initialValues(modele, canEntreprise, lockedScope, lockedCategorieId),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
+  const form = useFormDialog({
+    schema: modeleOperationSchema,
+    initialValues: () =>
+      initialValues(modele, canEntreprise, lockedScope, lockedCategorieId),
+    onSubmit: (data) => {
+      if (modele)
+        return update.mutateAsync({ id: modele.id, values: data, siteId })
+      // `createSiteId` = périmètre verrouillé si fourni, sinon site actif.
+      const { createSiteId } = resolvePorteeScope({
+        portee: data.portee,
+        siteId,
+        canEntreprise,
+        lockedScope,
+        isEdit,
+      })
+      return create.mutateAsync({ values: data, siteId: createSiteId })
+    },
+    successMessage: isEdit
+      ? 'Modèle d’opération modifié'
+      : 'Modèle d’opération créé',
+    close: () => onOpenChange(false),
+  })
+
   // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
   // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
   // pour tout éditeur (calque du formulaire de modèle d'équipement).
-  const miniatureSite = values.portee === 'entreprise' ? null : siteId
-  const canUploadMiniature = miniatureSite === null ? canEntreprise : true
-
-  function set<K extends keyof ModeleOperationFormValues>(
-    key: K,
-    value: ModeleOperationFormValues[K],
-  ) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    const parsed = modeleOperationSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      if (modele) {
-        await update.mutateAsync({ id: modele.id, values: parsed.data, siteId })
-        toast.success('Modèle d’opération modifié')
-      } else {
-        await create.mutateAsync({
-          values: parsed.data,
-          siteId: lockedScope ? lockedScope.siteId : siteId,
-        })
-        toast.success('Modèle d’opération créé')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+  const { miniatureSite, canUploadMiniature } = resolvePorteeScope({
+    portee: form.values.portee,
+    siteId,
+    canEntreprise,
+    lockedScope,
+    isEdit,
+  })
 
   return (
     <FormDialog
@@ -129,34 +125,34 @@ export function GammeTypeFormDialog({
         isEdit ? 'Modifier le modèle d’opération' : 'Nouveau modèle d’opération'
       }
       description="Un modèle d'opérations réutilisable pour composer des gammes."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
     >
       <IdentiteFields
         nom={{
-          value: values.nom,
-          onChange: (v) => set('nom', v),
-          error: errors.nom,
+          value: form.values.nom,
+          onChange: (v) => form.set('nom', v),
+          error: form.errors.nom,
         }}
         description={{
-          value: values.description,
-          onChange: (v) => set('description', v),
-          error: errors.description,
+          value: form.values.description,
+          onChange: (v) => form.set('description', v),
+          error: form.errors.description,
         }}
         image={{
-          value: values.miniature_id,
-          onChange: (id) => set('miniature_id', id),
+          value: form.values.miniature_id,
+          onChange: (id) => form.set('miniature_id', id),
           targetSiteId: miniatureSite,
           canUpload: canUploadMiniature,
         }}
       />
       <SelectField
         label="Catégorie"
-        value={values.categorie_id}
-        onChange={(v) => set('categorie_id', v)}
-        error={errors.categorie_id}
+        value={form.values.categorie_id}
+        onChange={(v) => form.set('categorie_id', v)}
+        error={form.errors.categorie_id}
         required
       >
         <option value="" disabled>

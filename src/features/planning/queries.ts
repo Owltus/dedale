@@ -1,11 +1,10 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { isoLocale } from '@/features/planning/semaines'
+import { ajouterJours, isoLocale, parseDateLocale } from '@/lib/date'
 
 /** Décale une date ISO nue (`YYYY-MM-DD`) de `delta` jours, en heure locale. */
 function decalerJourIso(iso: string, delta: number): string {
-  const [a, m, j] = iso.split('-').map(Number)
-  return isoLocale(new Date(a ?? 1970, (m ?? 1) - 1, (j ?? 1) + delta))
+  return isoLocale(ajouterJours(parseDateLocale(iso), delta))
 }
 
 /**
@@ -49,6 +48,5 @@ export const planningQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 }

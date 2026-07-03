@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { referentielQueryOptions } from '@/lib/referentiel'
 import { getSignedUrl } from './upload'
 import type { DocumentMeta } from './format'
 
@@ -95,17 +96,5 @@ export const typesDocumentsQueries = {
   all: () => ['types_documents'] as const,
 
   /** Référentiel des types de document (systèmes + créés par l'entreprise). */
-  list: () =>
-    queryOptions({
-      queryKey: [...typesDocumentsQueries.all(), 'list'] as const,
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('types_documents')
-          .select('id, nom')
-          .order('nom')
-          .throwOnError()
-        return data
-      },
-      staleTime: 5 * 60_000,
-    }),
+  list: () => referentielQueryOptions('types_documents', 'id, nom', 'nom'),
 }

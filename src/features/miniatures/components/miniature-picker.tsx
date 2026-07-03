@@ -9,7 +9,8 @@ import { useUploadMiniature } from '../mutations'
 import { MiniatureCropDialog, type CropResult } from './miniature-crop-dialog'
 import { MiniatureFilters } from './miniature-filters'
 import { filterMiniatures } from '../filters'
-import { errorMessage, pgCode } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
+import { estCommunOuDuSite } from '@/lib/scope'
 import { isBitmapImage } from '@/lib/image'
 import {
   Dialog,
@@ -23,16 +24,11 @@ import { cn } from '@/lib/utils'
 
 type Onglet = 'bibliotheque' | 'uploader'
 
-/**
- * Traduit l'erreur d'un téléversement de vignette : 42501 (RLS) → message clair
- * sur les droits du périmètre ; repli sur `errorMessage` pour le reste.
- */
-function miniatureUploadErrorMessage(e: unknown): string {
-  if (pgCode(e) === '42501') {
-    return 'Action non autorisée : vous n’avez pas les droits pour téléverser une image sur ce périmètre.'
-  }
-  return errorMessage(e)
-}
+/** Message d'erreur d'un téléversement de vignette : 42501 (RLS) contextualisé. */
+const MINIATURE_UPLOAD_OVERRIDES = {
+  '42501':
+    'Action non autorisée : vous n’avez pas les droits pour téléverser une image sur ce périmètre.',
+} as const
 
 interface MiniaturePickerProps {
   open: boolean
@@ -91,9 +87,7 @@ export function MiniaturePicker({
   // périmètre (trigger). Pour le commun, seules les vignettes communes restent.
   const compatibles = useMemo(
     () =>
-      (pool ?? []).filter(
-        (m) => m.site_id === null || m.site_id === targetSiteId,
-      ),
+      (pool ?? []).filter((m) => estCommunOuDuSite(m, targetSiteId)),
     [pool, targetSiteId],
   )
 
@@ -126,7 +120,7 @@ export function MiniaturePicker({
       if (id !== null) choisir(id)
       else toast.error('L’image n’a pas pu être résolue après l’envoi.')
     } catch (e) {
-      toast.error(miniatureUploadErrorMessage(e))
+      toast.error(writeErrorMessage(e, MINIATURE_UPLOAD_OVERRIDES))
     }
   }
 

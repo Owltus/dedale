@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList } from 'lucide-react'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { OtCard } from './ot-card'
@@ -45,7 +46,7 @@ export function OtListeParGammes({
     () => trierOtParUrgence(query.data ?? []),
     [query.data],
   )
-  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
+  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
 
   return (
     <QueryState

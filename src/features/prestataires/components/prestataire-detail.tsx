@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
   ClipboardList,
-  Download,
   FileText,
   Pencil,
   Plus,
@@ -11,7 +10,6 @@ import {
   Truck,
   Wrench,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { contratsQueries, prestatairesQueries } from '../queries'
 import { useDeleteContrat } from '../mutations'
 import { useDeleteDocument } from '@/features/documents/mutations'
@@ -28,16 +26,14 @@ import {
   type OtTriable,
 } from '@/features/ordres-travail/tri'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { GammeCard } from '@/features/gammes/components/gamme-card'
-import { DocumentRow } from '@/features/documents/components/document-row'
-import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
-import { useDocumentDownload } from '@/features/documents/use-document-download'
-import type { DocumentMeta } from '@/features/documents/format'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { formatDate } from '@/lib/date'
-import { deleteErrorMessage, errorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import type { Database } from '@/lib/database.types'
 import type { RowAction } from '@/components/common/row-actions'
@@ -50,6 +46,7 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { DocumentsListe } from '@/components/common/documents-liste'
 import { NoSearchResults } from '@/components/common/no-search-results'
 import {
   FILTRE_NON_TERMINES,
@@ -94,26 +91,13 @@ export function PrestataireDetail({
 }) {
   const [onglet, setOnglet] = useState<Onglet>('contrats')
   const [editPrestataire, setEditPrestataire] = useState(false)
-  const [contratForm, setContratForm] = useState<{
-    open: boolean
-    contrat: ContratRow | null
-  }>({ open: false, contrat: null })
-  const [contratToDelete, setContratToDelete] = useState<ContratRow | null>(
-    null,
-  )
+  const contratDialog = useEntityDialog<ContratRow>()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const delContrat = useDeleteContrat()
-
-  function confirmDeleteContrat() {
-    if (!contratToDelete) return
-    delContrat.mutate(contratToDelete.id, {
-      onSuccess: () => {
-        toast.success('Contrat supprimé')
-        setContratToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
+  const suppressionContrat = useConfirmDelete<ContratRow>({
+    onDelete: (c) => delContrat.mutateAsync(c.id),
+    successMessage: 'Contrat supprimé',
+  })
 
   // Top bar : action « + » contextuelle à l'onglet (Nouveau contrat), suivie de
   // « Modifier le prestataire », toujours présente. Boutons icône + tooltip
@@ -126,7 +110,7 @@ export function PrestataireDetail({
           icon={<Plus />}
           label="Nouveau contrat"
           variant="outline"
-          onClick={() => setContratForm({ open: true, contrat: null })}
+          onClick={contratDialog.openCreate}
         />
       )}
       <TooltipIconButton
@@ -204,9 +188,9 @@ export function PrestataireDetail({
             siteId={siteId}
             prestataireId={prestataire.id}
             canManage={canManage}
-            onNew={() => setContratForm({ open: true, contrat: null })}
-            onEdit={(c) => setContratForm({ open: true, contrat: c })}
-            onDelete={(c) => setContratToDelete(c)}
+            onNew={contratDialog.openCreate}
+            onEdit={contratDialog.openEdit}
+            onDelete={suppressionContrat.demander}
           />
         )}
         {onglet === 'gammes' && (
@@ -244,26 +228,21 @@ export function PrestataireDetail({
             prestataire={prestataire}
           />
           <ContratFormDialog
-            key={contratForm.contrat?.id ?? 'new'}
-            open={contratForm.open}
-            onOpenChange={(open) => setContratForm((f) => ({ ...f, open }))}
+            key={contratDialog.dialogKey}
+            open={contratDialog.open}
+            onOpenChange={contratDialog.onOpenChange}
             siteId={siteId}
             prestataireId={prestataire.id}
-            contrat={contratForm.contrat}
+            contrat={contratDialog.entity}
           />
           <ConfirmDeleteDialog
-            open={contratToDelete !== null}
-            onOpenChange={(open) => {
-              if (!open) setContratToDelete(null)
-            }}
+            {...suppressionContrat.dialogProps}
             entityLabel={
-              contratToDelete
-                ? `le contrat « ${contratToDelete.reference} »`
+              suppressionContrat.toDelete
+                ? `le contrat « ${suppressionContrat.toDelete.reference} »`
                 : 'le contrat'
             }
             warning="Cette suppression est définitive."
-            loading={delContrat.isPending}
-            onConfirm={confirmDeleteContrat}
           />
         </>
       )}
@@ -381,7 +360,7 @@ function GammesPanel({
     [query.data],
   )
   const otsQuery = useQuery(ordresTravailQueries.byGammes(siteId, gammeIds))
-  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
+  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
   // Badge masqué seulement pendant un vrai fetch / sur erreur (pas de statut trompeur).
   const otsIndispo = otsQuery.isLoading || otsQuery.isError
   const otsParGamme = useMemo(() => {
@@ -457,21 +436,7 @@ function OtDocumentsPanel({
   const query = useQuery(
     prestatairesQueries.documentsViaOt(prestataireId, siteId),
   )
-  const [toPreview, setToPreview] = useState<DocumentMeta | null>(null)
-  const [toDelete, setToDelete] = useState<DocumentMeta | null>(null)
-  const download = useDocumentDownload()
   const del = useDeleteDocument()
-
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Document supprimé')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(errorMessage(e)),
-    })
-  }
 
   return (
     <QueryState
@@ -487,53 +452,14 @@ function OtDocumentsPanel({
       }
     >
       {(list) => (
-        <div className={listStack}>
-          {list.map((doc) => {
-            const actions: RowAction[] = [
-              {
-                label: 'Télécharger',
-                icon: Download,
-                onSelect: () => void download(doc),
-              },
-            ]
-            if (canDelete)
-              actions.push({
-                label: 'Supprimer',
-                icon: Trash2,
-                destructive: true,
-                onSelect: () => setToDelete(doc),
-              })
-            return (
-              <DocumentRow
-                key={doc.id}
-                doc={doc}
-                onClick={() => setToPreview(doc)}
-                menuActions={actions}
-              />
-            )
-          })}
-
-          <DocumentPreviewDialog
-            doc={toPreview}
-            onOpenChange={(open) => {
-              if (!open) setToPreview(null)
-            }}
-          />
-          <ConfirmDeleteDialog
-            open={toDelete !== null}
-            onOpenChange={(open) => {
-              if (!open) setToDelete(null)
-            }}
-            entityLabel={
-              toDelete
-                ? `le document « ${toDelete.nom_original} »`
-                : 'le document'
-            }
-            warning="Suppression définitive : le document est retiré de TOUTES les fiches où il est rattaché et effacé du stockage."
-            loading={del.isPending}
-            onConfirm={confirmDelete}
-          />
-        </div>
+        // Liste documents mutualisée (DocumentRow + Télécharger/Supprimer + aperçu
+        // + confirmation impact-aware). Pas de détache : ces documents sont
+        // rattachés aux OT du prestataire, pas au prestataire lui-même.
+        <DocumentsListe
+          docs={list}
+          canDelete={canDelete}
+          onDelete={(doc) => del.mutateAsync(doc.id)}
+        />
       )}
     </QueryState>
   )

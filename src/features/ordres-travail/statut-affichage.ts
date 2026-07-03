@@ -1,29 +1,8 @@
 import type { StatusTone } from '@/components/common/status-badge'
 import { libelleStatutOt, statutOtTone } from './schemas'
-
-// Tout en heure LOCALE : `date_prevue` est une date nue (`YYYY-MM-DD`), on
-// raisonne en jours entiers, sans fuseau.
-const JOUR_MS = 24 * 60 * 60 * 1000
-
-/** Minuit local d'une date (copie, sans muter l'entrée). */
-function minuit(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
-}
-
-/** Parse `YYYY-MM-DD` (ou ISO) en Date locale à minuit. */
-function parseDateLocale(value: string): Date {
-  const [a, m, j] = value.slice(0, 10).split('-').map(Number)
-  return new Date(a ?? 1970, (m ?? 1) - 1, j ?? 1)
-}
-
-/** Lundi (00:00 local) de la semaine ISO contenant `date`. */
-function lundiDeLaSemaine(date: Date): Date {
-  const d = minuit(date)
-  // getDay() : 0 = dimanche … 6 = samedi → décalage vers lundi.
-  const jour = (d.getDay() + 6) % 7
-  d.setDate(d.getDate() - jour)
-  return d
-}
+// Dates nues locales (`date_prevue` = `YYYY-MM-DD`) : on raisonne en jours entiers,
+// sans fuseau. Source unique des primitives de date → cf. `@/lib/date`.
+import { JOUR_MS, lundiDeLaSemaine, minuit, parseDateLocale } from '@/lib/date'
 
 /**
  * Niveau d'URGENCE d'un OT, ORDONNÉ du plus urgent (0) au moins urgent (4). C'est la

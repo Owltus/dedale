@@ -1,36 +1,30 @@
-import { useState } from 'react'
-import { toast } from 'sonner'
 import { CATEGORIE_SCOPES, categorieSchema, emptyCategorie } from '../schemas'
 import type { CategorieFormValues } from '../schemas'
 import { useCreateCategorie, useUpdateCategorie } from '../mutations'
 import type { Categorie } from '../queries'
-import { errorMessage, fieldErrors, pgCode } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
+import { resolvePorteeScope } from '@/lib/scope'
+import type { LockedScope } from '@/lib/scope'
+import { useFormDialog } from '@/hooks/use-form-dialog'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
+import { PorteeField } from '@/components/common/portee-field'
 import { SelectField } from '@/components/common/select-field'
 
 /**
- * Traduit les erreurs Postgres de création/édition d'une catégorie (dialog
- * partagé entre les onglets Gammes et Équipement). Évite tout message technique
- * brut : repli sur `errorMessage` pour le reste.
+ * Libellés contextuels des erreurs Postgres de création/édition d'une catégorie
+ * (dialog partagé entre les onglets Gammes et Équipement), passés en surcharge à
+ * `writeErrorMessage` — repli sur ses messages génériques pour le reste.
  */
-function categorieErrorMessage(e: unknown): string {
-  const code = pgCode(e)
+const CATEGORIE_ERREURS = {
   // unique_violation : index `uq_categories_nom` (nom déjà pris à cet emplacement).
-  if (code === '23505') {
-    return 'Une catégorie portant ce nom existe déjà à cet emplacement.'
-  }
+  '23505': 'Une catégorie portant ce nom existe déjà à cet emplacement.',
   // insufficient_privilege : RLS (hors scope d'écriture).
-  if (code === '42501') {
-    return 'Action non autorisée : vous n’avez pas les droits sur ce périmètre.'
-  }
+  '42501': 'Action non autorisée : vous n’avez pas les droits sur ce périmètre.',
   // integrity_constraint_violation (trigger) : miniature hors scope (pool
   // entreprise ou même site que la catégorie requis).
-  if (code === '23514') {
-    return 'Cette image n’est pas disponible pour ce périmètre.'
-  }
-  return errorMessage(e)
-}
+  '23514': 'Cette image n’est pas disponible pour ce périmètre.',
+} as const
 
 interface Preset {
   parent_id?: string
@@ -54,7 +48,7 @@ interface CategoryFormDialogProps {
    * Création depuis le + de la page : portée VERROUILLÉE (les catégories sont en
    * commun) → le sélecteur de portée est masqué. Ignoré en édition.
    */
-  lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
+  lockedScope?: LockedScope | null
   /**
    * Création MINIMALE (navigation par paliers) : ne garde que Nom, Image et
    * Description (Type, Parent, État et Portée masqués). Ignoré en édition.
@@ -98,7 +92,8 @@ function initialValues(
   categorie: Categorie | null | undefined,
   preset: Preset | undefined,
   canEntreprise: boolean,
-  lockedScope: { portee: 'entreprise' | 'site' } | null | undefined,
+  siteId: string | null,
+  lockedScope: LockedScope | null | undefined,
 ): CategorieFormValues {
   if (categorie) {
     return {
@@ -115,11 +110,13 @@ function initialValues(
     ...emptyCategorie,
     // Portée verrouillée sur le périmètre de la page si fournie (Catégories =
     // commun) ; sinon défaut selon le rôle.
-    portee: lockedScope
-      ? lockedScope.portee
-      : canEntreprise
-        ? emptyCategorie.portee
-        : 'site',
+    portee: resolvePorteeScope({
+      portee: emptyCategorie.portee,
+      siteId,
+      canEntreprise,
+      lockedScope,
+      isEdit: false,
+    }).porteeInitiale,
     ...(preset?.parent_id ? { parent_id: preset.parent_id } : {}),
     ...(preset?.scope ? { scope: preset.scope } : {}),
     ...(preset?.portee && !lockedScope ? { portee: preset.portee } : {}),
@@ -169,22 +166,39 @@ export function CategoryFormDialog({
   const isEdit = Boolean(categorie)
   const create = useCreateCategorie()
   const update = useUpdateCategorie()
-  const [values, setValues] = useState<CategorieFormValues>(() =>
-    initialValues(categorie, preset, canEntreprise, lockedScope),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
+  const { values, set, errors, submit, pending } = useFormDialog({
+    schema: categorieSchema,
+    initialValues: () =>
+      initialValues(categorie, preset, canEntreprise, siteId, lockedScope),
+    onSubmit: (data) =>
+      categorie
+        ? update.mutateAsync({ id: categorie.id, values: data, siteId })
+        : create.mutateAsync({
+            values: data,
+            siteId: lockedScope ? lockedScope.siteId : siteId,
+          }),
+    successMessage: isEdit ? 'Catégorie modifiée' : 'Catégorie créée',
+    close: () => onOpenChange(false),
+    errorMessage: (e) => writeErrorMessage(e, CATEGORIE_ERREURS),
+  })
 
   const excluded = categorie
     ? descendantIds(categorie.id, categories)
     : new Set<string>()
   const parentOptions = categories.filter((c) => !excluded.has(c.id))
-  // Option Entreprise visible si on en a le droit, ou si la valeur courante l'est
-  // déjà (lecture d'une entrée entreprise existante).
-  const showEntreprise = canEntreprise || values.portee === 'entreprise'
+  // Dérivés de portée/périmètre (option Commun visible, image, verrouillage)
+  // mutualisés avec les autres modales de catalogue.
+  const scopeResolu = resolvePorteeScope({
+    portee: values.portee,
+    siteId,
+    canEntreprise,
+    lockedScope,
+    isEdit,
+  })
+  const showEntreprise = scopeResolu.showEntreprise
   // Création depuis le + : la portée vient du périmètre de la page → masquée.
   // La prop explicite (ex. onglet Gammes) prime sur cette déduction interne.
-  const hidePortee = hidePorteeProp ?? (!isEdit && lockedScope != null)
+  const hidePortee = hidePorteeProp ?? scopeResolu.hidePortee
   // Mode minimal : juste Nom + Description, en création ET en édition (on
   // n'ajoute jamais à l'édition ce qui n'est pas proposé à la création).
   const compact = minimal === true
@@ -201,8 +215,8 @@ export function CategoryFormDialog({
   const showParentSelect = !compact || showReparent
   // Image : périmètre = celui de la catégorie (portée) ; téléversement autorisé
   // sur le commun pour les rôles entreprise, et sur un site pour tout éditeur.
-  const miniatureSite = values.portee === 'entreprise' ? null : siteId
-  const canUploadMiniature = miniatureSite === null ? canEntreprise : true
+  const miniatureSite = scopeResolu.miniatureSite
+  const canUploadMiniature = scopeResolu.canUploadMiniature
   // Description adaptée au scope : l'équipement reste à un seul niveau (catégorie
   // racine), la gamme distingue catégorie racine et sous-catégorie.
   const compactDescription =
@@ -233,41 +247,6 @@ export function CategoryFormDialog({
     } as Record<CategorieFormValues['scope'], string>
   )[values.scope]
 
-  function set<K extends keyof CategorieFormValues>(
-    key: K,
-    value: CategorieFormValues[K],
-  ) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    const parsed = categorieSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      if (categorie) {
-        await update.mutateAsync({
-          id: categorie.id,
-          values: parsed.data,
-          siteId,
-        })
-        toast.success('Catégorie modifiée')
-      } else {
-        await create.mutateAsync({
-          values: parsed.data,
-          siteId: lockedScope ? lockedScope.siteId : siteId,
-        })
-        toast.success('Catégorie créée')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(categorieErrorMessage(e))
-    }
-  }
-
   return (
     <FormDialog
       open={open}
@@ -282,7 +261,7 @@ export function CategoryFormDialog({
             ? compactDescription
             : 'Une catégorie racine n’a pas de parent ; une sous-catégorie est rattachée à une catégorie parente.'
       }
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
       pending={pending}
@@ -333,20 +312,14 @@ export function CategoryFormDialog({
             </SelectField>
           )}
           {showPortee && (
-            <SelectField
-              label="Portée"
+            <PorteeField
               value={values.portee}
-              onChange={(v) =>
-                set('portee', v as CategorieFormValues['portee'])
-              }
+              onChange={(v) => set('portee', v)}
+              showEntreprise={showEntreprise}
+              siteId={siteId}
+              siteName={siteName}
               error={errors.portee}
-              required
-            >
-              {showEntreprise && <option value="entreprise">Commun</option>}
-              {siteId && (
-                <option value="site">{siteName ?? 'Site actif'}</option>
-              )}
-            </SelectField>
+            />
           )}
         </div>
       )}

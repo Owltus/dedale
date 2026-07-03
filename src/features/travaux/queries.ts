@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { referentielQueryOptions } from '@/lib/referentiel'
 
 export const travauxQueries = {
   all: () => ['travaux'] as const,
@@ -18,7 +19,6 @@ export const travauxQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /** Zones concernées par un travail (local + équipement optionnel + statut). */
@@ -38,26 +38,11 @@ export const travauxQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 }
 
 export const statutsTravauxQueries = {
-  all: () => ['statuts_travaux'] as const,
-
   /** Référentiel des statuts (machine à états, IDs stables). */
   list: () =>
-    queryOptions({
-      queryKey: [...statutsTravauxQueries.all(), 'list'] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('statuts_travaux')
-          .select('id, nom, description')
-          .order('id')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
-      staleTime: 5 * 60_000,
-    }),
+    referentielQueryOptions('statuts_travaux', 'id, nom, description', 'id'),
 }

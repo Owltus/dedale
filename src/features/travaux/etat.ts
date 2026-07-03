@@ -1,8 +1,11 @@
-import type { StepperStep } from '@/components/common/status-stepper'
 import {
   statusToneById,
   type StatusTone,
 } from '@/components/common/status-badge'
+import {
+  construireEtapes,
+  type EtapeStatut,
+} from '@/components/common/status-steps'
 import {
   STATUT_OUVERT,
   STATUT_PLANIFIE,
@@ -23,11 +26,6 @@ const PARCOURS = [
   STATUT_EN_COURS,
   STATUT_TERMINE,
 ] as const
-
-/** Étape de frise enrichie du statut qu'elle représente (pour le clic). */
-export interface TravauxEtape extends StepperStep {
-  statutId: number
-}
 
 /**
  * Statuts TERMINAUX d'un travaux (Terminé, Annulé) : exclus par défaut du filtre
@@ -61,47 +59,17 @@ export function statutTravauxTone(id: number): StatusTone {
 export function etapesTravaux(
   statutId: number,
   noms: Map<number, string>,
-): TravauxEtape[] | null {
-  const nom = (id: number) => noms.get(id) ?? `Statut ${String(id)}`
+): EtapeStatut[] | null {
+  // Actionnable = transition autorisée depuis le statut courant (gère aussi la
+  // réouverture depuis Terminé, où l'étape « En cours » est `done` mais reste
+  // cliquable). « Annulé » = issue défavorable terminale hors parcours (frise
+  // minimale Ouvert → Annulé, gérée par `construireEtapes`).
   const transitions = TRANSITIONS[statutId] ?? []
-
-  // Annulé : on n'a pas l'historique du statut précédent → frise minimale
-  // (départ franchi puis issue défavorable). Terminal → rien d'actionnable.
-  if (statutId === STATUT_ANNULE) {
-    return [
-      {
-        label: nom(STATUT_OUVERT),
-        state: 'done',
-        statutId: STATUT_OUVERT,
-        actionable: false,
-      },
-      {
-        label: nom(STATUT_ANNULE),
-        state: 'rejected',
-        statutId: STATUT_ANNULE,
-        actionable: false,
-      },
-    ]
-  }
-
-  const idx = PARCOURS.indexOf(statutId as (typeof PARCOURS)[number])
-  if (idx === -1) return null
-
-  // Dernier statut atteint (Terminé) → frise entièrement franchie (✓).
-  const dernier = PARCOURS.length - 1
-  return PARCOURS.map((id, i) => ({
-    label: nom(id),
-    statutId: id,
-    state:
-      i < idx
-        ? 'done'
-        : i === idx
-          ? i === dernier
-            ? 'done'
-            : 'current'
-          : 'upcoming',
-    // Actionnable = transition autorisée (gère aussi la réouverture depuis
-    // Terminé, où l'étape « En cours » est `done` mais reste cliquable).
-    actionable: transitions.includes(id),
-  }))
+  return construireEtapes({
+    parcours: PARCOURS,
+    statutId,
+    nom: (id) => noms.get(id) ?? `Statut ${String(id)}`,
+    actionable: (id) => transitions.includes(id),
+    rejected: { id: STATUT_ANNULE, departId: STATUT_OUVERT },
+  })
 }

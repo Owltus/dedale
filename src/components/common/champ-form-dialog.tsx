@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CHAMP_TYPES, type Champ, type ChampType } from '@/lib/champs'
-import { OptionsEditor } from './options-editor'
+import { OptionsEditor } from '@/components/common/options-editor'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
@@ -14,10 +14,10 @@ function champVide(): Champ {
 }
 
 /**
- * Modal d'ajout / d'édition d'UN champ (caractéristique typée) d'un modèle
- * d'équipement. Remplace l'édition inline de toute la liste : chaque champ se
- * crée / se modifie via ce modal, depuis la page de détail du modèle. La
- * persistance (réécriture des `specifications`) est laissée à l'appelant.
+ * Modal d'ajout / d'édition d'UN champ (caractéristique typée) d'un gabarit à
+ * caractéristiques (modèle d'équipement, sous-catégorie de parc…). Chaque champ
+ * se crée / se modifie via ce modal, un à la fois. La persistance (réécriture des
+ * `specifications`) est laissée à l'appelant.
  */
 export function ChampFormDialog({
   open,

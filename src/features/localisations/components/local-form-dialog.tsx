@@ -1,11 +1,9 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { emptyLocal, localSchema } from '../schemas'
 import type { LocalFormValues } from '../schemas'
 import { useCreateLocal, useUpdateLocal } from '../mutations'
 import { localisationsQueries } from '../queries'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useFormDialog } from '@/hooks/use-form-dialog'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
@@ -48,36 +46,16 @@ export function LocalFormDialog({
   const create = useCreateLocal()
   const update = useUpdateLocal()
   const { data: types = [] } = useQuery(localisationsQueries.typesLocaux())
-  const [values, setValues] = useState<LocalFormValues>(() =>
-    initialValues(local),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
-
-  function set(key: keyof LocalFormValues, value: string) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    const parsed = localSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      if (local) {
-        await update.mutateAsync({ id: local.id, values })
-        toast.success('Local modifié')
-      } else {
-        await create.mutateAsync({ niveauId, values })
-        toast.success('Local créé')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+  const form = useFormDialog({
+    schema: localSchema,
+    initialValues: () => initialValues(local),
+    onSubmit: (data) =>
+      local
+        ? update.mutateAsync({ id: local.id, values: data })
+        : create.mutateAsync({ niveauId, values: data }),
+    successMessage: isEdit ? 'Local modifié' : 'Local créé',
+    close: () => onOpenChange(false),
+  })
 
   return (
     <FormDialog
@@ -85,25 +63,25 @@ export function LocalFormDialog({
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier le local' : 'Nouveau local'}
       description="Un local : surface, type et confort thermique."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
     >
       <IdentiteFields
         nom={{
-          value: values.nom,
-          onChange: (v) => set('nom', v),
-          error: errors.nom,
+          value: form.values.nom,
+          onChange: (v) => form.set('nom', v),
+          error: form.errors.nom,
         }}
         description={{
-          value: values.description,
-          onChange: (v) => set('description', v),
-          error: errors.description,
+          value: form.values.description,
+          onChange: (v) => form.set('description', v),
+          error: form.errors.description,
         }}
         image={{
-          value: values.miniature_id,
-          onChange: (id) => setValues((v) => ({ ...v, miniature_id: id })),
+          value: form.values.miniature_id,
+          onChange: (id) => form.set('miniature_id', id),
           targetSiteId: siteId,
           canUpload: true,
         }}
@@ -113,15 +91,15 @@ export function LocalFormDialog({
           label="Surface (m²)"
           type="number"
           inputMode="decimal"
-          value={values.surface_m2}
-          onChange={(v) => set('surface_m2', v)}
-          error={errors.surface_m2}
+          value={form.values.surface_m2}
+          onChange={(v) => form.set('surface_m2', v)}
+          error={form.errors.surface_m2}
         />
         <SelectField
           label="Type de local"
-          value={values.type_local_id}
-          onChange={(v) => set('type_local_id', v)}
-          error={errors.type_local_id}
+          value={form.values.type_local_id}
+          onChange={(v) => form.set('type_local_id', v)}
+          error={form.errors.type_local_id}
         >
           <option value="">— Aucun —</option>
           {types.map((t) => (
@@ -133,10 +111,8 @@ export function LocalFormDialog({
       </div>
       <CheckboxField
         label="Chauffé / climatisé"
-        value={values.chauffe_climatise}
-        onChange={(checked) =>
-          setValues((v) => ({ ...v, chauffe_climatise: checked }))
-        }
+        value={form.values.chauffe_climatise}
+        onChange={(checked) => form.set('chauffe_climatise', checked)}
       />
     </FormDialog>
   )

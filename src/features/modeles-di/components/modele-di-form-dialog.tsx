@@ -1,14 +1,14 @@
-import { useState } from 'react'
-import { toast } from 'sonner'
 import { emptyModeleDi, modeleDiSchema } from '../schemas'
 import type { ModeleDiFormValues } from '../schemas'
 import { useCreateModeleDi, useUpdateModeleDi } from '../mutations'
 import type { ModeleDi } from '../queries'
 import { useAuth } from '@/auth'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useFormDialog } from '@/hooks/use-form-dialog'
+import { resolvePorteeScope, type LockedScope } from '@/lib/scope'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
+import { PorteeField } from '@/components/common/portee-field'
 
 interface ModeleDiFormDialogProps {
   open: boolean
@@ -23,24 +23,27 @@ interface ModeleDiFormDialogProps {
    * Création depuis le + de la page : portée VERROUILLÉE sur le périmètre choisi
    * (le sélecteur de portée est alors masqué). Ignoré en édition.
    */
-  lockedScope?: { portee: 'entreprise' | 'site'; siteId: string | null } | null
+  lockedScope?: LockedScope | null
 }
 
 function initialValues(
   modele: ModeleDi | null | undefined,
   canEntreprise: boolean,
-  lockedScope: { portee: 'entreprise' | 'site' } | null | undefined,
+  lockedScope: LockedScope | null | undefined,
+  siteId: string | null,
 ): ModeleDiFormValues {
   if (!modele)
     return {
       ...emptyModeleDi,
       // Portée verrouillée sur le périmètre de la page si fournie ; sinon défaut
       // selon le rôle (un tech ne crée que des modèles de site).
-      portee: lockedScope
-        ? lockedScope.portee
-        : canEntreprise
-          ? emptyModeleDi.portee
-          : 'site',
+      portee: resolvePorteeScope({
+        portee: emptyModeleDi.portee,
+        siteId,
+        canEntreprise,
+        lockedScope,
+        isEdit: false,
+      }).porteeInitiale,
     }
   return {
     libelle: modele.libelle,
@@ -64,56 +67,38 @@ export function ModeleDiFormDialog({
   const { session } = useAuth()
   const create = useCreateModeleDi()
   const update = useUpdateModeleDi()
-  const [values, setValues] = useState<ModeleDiFormValues>(() =>
-    initialValues(modele, canEntreprise, lockedScope),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
-  const showEntreprise = canEntreprise || values.portee === 'entreprise'
-  // Création depuis le + : la portée vient du périmètre de la page → masquée.
-  const hidePortee = !isEdit && lockedScope != null
+
+  const form = useFormDialog({
+    schema: modeleDiSchema,
+    initialValues: () => initialValues(modele, canEntreprise, lockedScope, siteId),
+    onSubmit: async (data) => {
+      if (modele) {
+        // Édition : la portée (`site_id`) est immuable → non transmise.
+        await update.mutateAsync({ id: modele.id, values: data })
+        return
+      }
+      if (!session) throw new Error('Session expirée, reconnecte-toi.')
+      await create.mutateAsync({
+        values: data,
+        siteId: createSiteId,
+        createdBy: session.user.id,
+      })
+    },
+    successMessage: isEdit ? 'Modèle modifié' : 'Modèle créé',
+    close: () => onOpenChange(false),
+  })
+
   // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
   // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
   // pour tout éditeur (calque du formulaire de modèle d'équipement).
-  const miniatureSite = values.portee === 'entreprise' ? null : siteId
-  const canUploadMiniature = miniatureSite === null ? canEntreprise : true
-
-  function set<K extends keyof ModeleDiFormValues>(
-    key: K,
-    value: ModeleDiFormValues[K],
-  ) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    const parsed = modeleDiSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      if (modele) {
-        // Édition : la portée (`site_id`) est immuable → non transmise.
-        await update.mutateAsync({ id: modele.id, values: parsed.data })
-        toast.success('Modèle modifié')
-      } else {
-        if (!session) {
-          toast.error('Session expirée, reconnecte-toi.')
-          return
-        }
-        await create.mutateAsync({
-          values: parsed.data,
-          siteId: lockedScope ? lockedScope.siteId : siteId,
-          createdBy: session.user.id,
-        })
-        toast.success('Modèle créé')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+  const { showEntreprise, hidePortee, miniatureSite, canUploadMiniature, createSiteId } =
+    resolvePorteeScope({
+      portee: form.values.portee,
+      siteId,
+      canEntreprise,
+      lockedScope,
+      isEdit,
+    })
 
   return (
     <FormDialog
@@ -121,10 +106,10 @@ export function ModeleDiFormDialog({
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier le modèle de DI' : 'Nouveau modèle de DI'}
       description="Un constat pré-rédigé pour accélérer la saisie des demandes d'intervention."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
     >
       {/* Exception : ce modèle n'a pas de « description » — c'est le CONSTAT qui en
           tient lieu. On le place donc comme description du bloc identité, pour que
@@ -132,42 +117,39 @@ export function ModeleDiFormDialog({
       <IdentiteFields
         nom={{
           label: 'Libellé',
-          value: values.libelle,
-          onChange: (v) => set('libelle', v),
-          error: errors.libelle,
+          value: form.values.libelle,
+          onChange: (v) => form.set('libelle', v),
+          error: form.errors.libelle,
         }}
         description={{
           label: 'Constat (modèle)',
-          value: values.constat_modele,
-          onChange: (v) => set('constat_modele', v),
-          error: errors.constat_modele,
+          value: form.values.constat_modele,
+          onChange: (v) => form.set('constat_modele', v),
+          error: form.errors.constat_modele,
           required: true,
         }}
         image={{
-          value: values.miniature_id,
-          onChange: (id) => set('miniature_id', id),
+          value: form.values.miniature_id,
+          onChange: (id) => form.set('miniature_id', id),
           targetSiteId: miniatureSite,
           canUpload: canUploadMiniature,
         }}
       />
-      {!hidePortee && (
-        <SelectField
-          label="Portée"
-          value={values.portee}
-          onChange={(v) => set('portee', v as ModeleDiFormValues['portee'])}
-          error={errors.portee}
-          // Immuable après création (trigger backend) → lecture seule en édition.
-          disabled={isEdit}
-          required
-        >
-          {showEntreprise && <option value="entreprise">Commun</option>}
-          {siteId && <option value="site">{siteName ?? 'Site actif'}</option>}
-        </SelectField>
-      )}
+      <PorteeField
+        value={form.values.portee}
+        onChange={(v) => form.set('portee', v)}
+        error={form.errors.portee}
+        showEntreprise={showEntreprise}
+        siteId={siteId}
+        siteName={siteName}
+        // Immuable après création (trigger backend) → lecture seule en édition.
+        disabled={isEdit}
+        hidden={hidePortee}
+      />
       <SelectField
         label="État"
-        value={values.etat}
-        onChange={(v) => set('etat', v as ModeleDiFormValues['etat'])}
+        value={form.values.etat}
+        onChange={(v) => form.set('etat', v as ModeleDiFormValues['etat'])}
       >
         <option value="actif">Actif</option>
         <option value="inactif">Masqué</option>

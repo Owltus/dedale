@@ -1,6 +1,7 @@
 import { estVerrouille } from '@/features/ordres-travail/schemas'
 import { estPlanifieEnRetard } from '@/features/ordres-travail/statut-affichage'
 import { cleSemaine } from '@/features/planning/semaines'
+import { parseDateLocale } from '@/lib/date'
 
 /** OT tel que renvoyé par `ordresTravailQueries.list` (sous-ensemble utilisé ici). */
 interface OtRow {
@@ -21,12 +22,7 @@ export interface OtKpis {
 // on ne compare JAMAIS en UTC (sinon décalage d'un jour près de minuit, incohérent
 // avec les badges de liste). La définition canonique « en retard » vit dans
 // `statut-affichage.ts` (`estPlanifieEnRetard`) et est réutilisée telle quelle ici.
-
-/** Parse `YYYY-MM-DD` (ou ISO) en Date LOCALE à minuit (sans fuseau). */
-function parseDateLocale(value: string): Date {
-  const [a, m, j] = value.slice(0, 10).split('-').map(Number)
-  return new Date(a ?? 1970, (m ?? 1) - 1, j ?? 1)
-}
+// `parseDateLocale` vient de `@/lib/date` (famille canonique des dates nues).
 
 /**
  * Compteurs d'OT (donut « reste à faire »), DÉRIVÉS des helpers canoniques pour que

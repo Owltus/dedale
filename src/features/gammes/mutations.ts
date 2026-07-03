@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { siteIdPourPortee } from '@/lib/scope'
 import { gammesQueries } from './queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import {
@@ -46,7 +47,7 @@ function gammeBiblioPayload(
     description: v.description || null,
     categorie_id: v.categorie_id,
     miniature_id: v.miniature_id,
-    site_id: v.portee === 'entreprise' ? null : siteId,
+    site_id: siteIdPourPortee(v.portee, siteId),
   }
 }
 

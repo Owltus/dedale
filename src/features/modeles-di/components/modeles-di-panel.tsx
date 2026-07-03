@@ -1,15 +1,15 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileText, Pencil, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { modelesDiQueries, type ModeleDi } from '../queries'
 import { useDeleteModeleDi } from '../mutations'
 import { ModeleDiFormDialog } from './modele-di-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
 import { useSiteContext } from '@/lib/site-context'
-import { deleteErrorMessage } from '@/lib/form'
 import { scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
@@ -42,11 +42,11 @@ export function ModelesDiPanel() {
   // Vignettes (images de cards) : URL signées résolues en lot, live.
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
-  const [form, setForm] = useState<{ open: boolean; modele: ModeleDi | null }>({
-    open: false,
-    modele: null,
+  const dialog = useEntityDialog<ModeleDi>()
+  const suppression = useConfirmDelete<ModeleDi>({
+    onDelete: (m) => del.mutateAsync(m.id),
+    successMessage: 'Modèle supprimé',
   })
-  const [toDelete, setToDelete] = useState<ModeleDi | null>(null)
 
   // Le + adopte le périmètre choisi : Commun (entreprise) ou un site précis.
   // Désactivé sur « Tout » ou sur Commun sans le droit entreprise.
@@ -64,7 +64,14 @@ export function ModelesDiPanel() {
           siteId: targetSiteId,
         }
 
-  const handleAdd = useCallback(() => setForm({ open: true, modele: null }), [])
+  // `openCreate` change d'identité à chaque rendu (fabrique du hook) : on le fige
+  // via une réf (mise à jour en effet) pour garder `handleAdd` stable et éviter
+  // les ré-enregistrements de `useTabAddAction` (cf. son contrat).
+  const openCreateRef = useRef(dialog.openCreate)
+  useEffect(() => {
+    openCreateRef.current = dialog.openCreate
+  })
+  const handleAdd = useCallback(() => openCreateRef.current(), [])
   const scopeControl = useMemo(
     () => <ScopeSelect value={scope} onChange={setScope} fluid />,
     [scope, setScope],
@@ -86,22 +93,11 @@ export function ModelesDiPanel() {
   // Édition : portée verrouillée (immuable). On affiche le site réel du modèle
   // édité ; à la création c'est le site actif qui sert d'option « Site ».
   const editedSiteId =
-    form.modele && form.modele.site_id !== null ? form.modele.site_id : null
-  const dialogSiteId = form.modele ? editedSiteId : activeSiteId
-  const dialogSiteName = form.modele
+    dialog.entity && dialog.entity.site_id !== null ? dialog.entity.site_id : null
+  const dialogSiteId = dialog.entity ? editedSiteId : activeSiteId
+  const dialogSiteName = dialog.entity
     ? (sites.find((s) => s.id === editedSiteId)?.nom ?? null)
     : (activeSite?.nom ?? null)
-
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Modèle supprimé')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -144,13 +140,13 @@ export function ModelesDiPanel() {
                   rowActions.push({
                     label: 'Modifier',
                     icon: Pencil,
-                    onSelect: () => setForm({ open: true, modele }),
+                    onSelect: () => dialog.openEdit(modele),
                   })
                   rowActions.push({
                     label: 'Supprimer',
                     icon: Trash2,
                     destructive: true,
-                    onSelect: () => setToDelete(modele),
+                    onSelect: () => suppression.demander(modele),
                   })
                 }
                 return (
@@ -194,32 +190,27 @@ export function ModelesDiPanel() {
 
       {canManage && (
         <ModeleDiFormDialog
-          key={`${form.modele?.id ?? `new-${scope}`}-${String(form.open)}`}
-          open={form.open}
-          onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
-          modele={form.modele}
+          key={`${dialog.entity?.id ?? `new-${scope}`}-${String(dialog.open)}`}
+          open={dialog.open}
+          onOpenChange={dialog.onOpenChange}
+          modele={dialog.entity}
           canEntreprise={canEntreprise}
           siteId={dialogSiteId}
           siteName={dialogSiteName}
-          lockedScope={form.modele ? undefined : (lockedScope ?? undefined)}
+          lockedScope={dialog.entity ? undefined : (lockedScope ?? undefined)}
         />
       )}
 
       <ConfirmDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
+        {...suppression.dialogProps}
         title="Supprimer le modèle ?"
         description={
-          toDelete
-            ? `« ${toDelete.libelle} » sera supprimé définitivement.`
+          suppression.toDelete
+            ? `« ${suppression.toDelete.libelle} » sera supprimé définitivement.`
             : undefined
         }
         confirmLabel="Supprimer"
         destructive
-        loading={del.isPending}
-        onConfirm={confirmDelete}
       />
     </div>
   )

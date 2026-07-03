@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2, Wallet } from 'lucide-react'
-import { toast } from 'sonner'
+import { Plus, Wallet } from 'lucide-react'
 import {
   investissementsQueries,
   statutsCapexQueries,
@@ -17,8 +16,9 @@ import {
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useSiteContext } from '@/lib/site-context'
-import { deleteErrorMessage } from '@/lib/form'
 import { formatDate } from '@/lib/date'
 import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
@@ -30,7 +30,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
-import type { RowAction } from '@/components/common/row-actions'
+import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import {
@@ -93,11 +93,11 @@ function InvestissementsContent({
   const query = useQuery(investissementsQueries.list(siteId))
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const del = useDeleteInvestissement()
-  const [form, setForm] = useState<{
-    open: boolean
-    investissement: Investissement | null
-  }>({ open: false, investissement: null })
-  const [toDelete, setToDelete] = useState<Investissement | null>(null)
+  const form = useEntityDialog<Investissement>()
+  const suppression = useConfirmDelete<Investissement>({
+    onDelete: (inv) => del.mutateAsync(inv.id),
+    successMessage: 'Investissement supprimé',
+  })
   const [recherche, setRecherche] = useState('')
   // Défaut : on masque les investissements terminés (Réalisé/Clôturé/Refusé) —
   // le filtre permet d'afficher un statut précis ou « Tous les statuts ».
@@ -108,19 +108,8 @@ function InvestissementsContent({
     [...statuts].sort((a, b) => rangStatutCapex(a.id) - rangStatutCapex(b.id)),
   )
 
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Investissement supprimé')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
-
   const newButton = canManage ? (
-    <Button onClick={() => setForm({ open: true, investissement: null })}>
+    <Button onClick={form.openCreate}>
       <Plus /> Nouvel investissement
     </Button>
   ) : undefined
@@ -136,7 +125,7 @@ function InvestissementsContent({
               icon={<Plus />}
               label="Nouvel investissement"
               variant="outline"
-              onClick={() => setForm({ open: true, investissement: null })}
+              onClick={form.openCreate}
             />
           ) : undefined
         }
@@ -202,21 +191,6 @@ function InvestissementsContent({
                       statutNom,
                     )
                     const { label: ecartLabel, depassement } = ecartCapex(inv)
-                    const rowActions: RowAction[] = []
-                    if (canManage)
-                      rowActions.push({
-                        label: 'Modifier',
-                        icon: Pencil,
-                        onSelect: () =>
-                          setForm({ open: true, investissement: inv }),
-                      })
-                    if (canManage && canDelete)
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () => setToDelete(inv),
-                      })
                     return (
                       <ListRow
                         key={inv.id}
@@ -280,7 +254,14 @@ function InvestissementsContent({
                           .filter(Boolean)
                           .join(' · ')}
                         menuActions={
-                          rowActions.length ? rowActions : undefined
+                          canManage
+                            ? actionsEditionSuppression({
+                                onModifier: () => form.openEdit(inv),
+                                onSupprimer: canDelete
+                                  ? () => suppression.demander(inv)
+                                  : undefined,
+                              })
+                            : undefined
                         }
                       />
                     )
@@ -294,27 +275,22 @@ function InvestissementsContent({
 
       {canManage && (
         <InvestissementFormDialog
-          key={`${form.investissement?.id ?? 'new'}-${String(form.open)}`}
+          key={form.dialogKey}
           open={form.open}
-          onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
+          onOpenChange={form.onOpenChange}
           siteId={siteId}
-          investissement={form.investissement}
+          investissement={form.entity}
         />
       )}
 
       <ConfirmDeleteDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
+        {...suppression.dialogProps}
         entityLabel={
-          toDelete
-            ? `l'investissement « ${toDelete.libelle} »`
+          suppression.toDelete
+            ? `l'investissement « ${suppression.toDelete.libelle} »`
             : "l'investissement"
         }
         warning="Cette suppression est définitive et retire le suivi budgétaire de cet investissement."
-        loading={del.isPending}
-        onConfirm={confirmDelete}
       />
     </PageContainer>
   )

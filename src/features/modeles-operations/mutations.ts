@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { siteIdPourPortee } from '@/lib/scope'
 import { gammesQueries } from '@/features/gammes/queries'
 import { modelesOperationsQueries } from './queries'
 import type {
@@ -15,7 +16,7 @@ function modelePayload(v: ModeleOperationFormValues, siteId: string | null) {
     description: v.description.trim() || null,
     categorie_id: v.categorie_id,
     miniature_id: v.miniature_id,
-    site_id: v.portee === 'entreprise' ? null : siteId,
+    site_id: siteIdPourPortee(v.portee, siteId),
   }
 }
 

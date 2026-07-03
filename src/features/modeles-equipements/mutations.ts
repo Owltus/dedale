@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { modelesEquipementsQueries } from './queries'
 import type { ModeleEquipementFormValues } from './schemas'
 import { serializeChamps, type Champ } from '@/lib/champs'
+import { siteIdPourPortee } from '@/lib/scope'
 
 // Payload des champs de BASE d'un modèle (HORS `specifications`). Le JSONB des
 // caractéristiques est écrit à part : à l'INSERT (création) et via
@@ -16,7 +17,7 @@ function modelePayload(v: ModeleEquipementFormValues, siteId: string | null) {
     // (`categorie_id.min(1)`) garantit déjà une valeur non vide.
     categorie_id: v.categorie_id,
     est_actif: v.etat === 'actif',
-    site_id: v.portee === 'entreprise' ? null : siteId,
+    site_id: siteIdPourPortee(v.portee, siteId),
     // Vignette du pool (cohérence de site garantie par trigger côté base).
     miniature_id: v.miniature_id,
   }

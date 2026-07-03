@@ -1,9 +1,7 @@
-import { useState } from 'react'
-import { toast } from 'sonner'
 import { emptySite, siteSchema } from '../schemas'
 import type { SiteFormValues } from '../schemas'
 import { useCreateSite, useUpdateSite } from '../mutations'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useFormDialog } from '@/hooks/use-form-dialog'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/text-field'
 import type { Database } from '@/lib/database.types'
@@ -34,36 +32,16 @@ export function SiteFormDialog({
   const isEdit = Boolean(site)
   const create = useCreateSite()
   const update = useUpdateSite()
-  const [values, setValues] = useState<SiteFormValues>(() =>
-    initialValues(site),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
-
-  function set(key: keyof SiteFormValues, value: string) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    const parsed = siteSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      if (site) {
-        await update.mutateAsync({ id: site.id, values: parsed.data })
-        toast.success('Site modifié')
-      } else {
-        await create.mutateAsync(parsed.data)
-        toast.success('Site créé')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+  const form = useFormDialog({
+    schema: siteSchema,
+    initialValues: () => initialValues(site),
+    onSubmit: (data) =>
+      site
+        ? update.mutateAsync({ id: site.id, values: data })
+        : create.mutateAsync(data),
+    successMessage: isEdit ? 'Site modifié' : 'Site créé',
+    close: () => onOpenChange(false),
+  })
 
   return (
     <FormDialog
@@ -71,36 +49,36 @@ export function SiteFormDialog({
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier le site' : 'Nouveau site'}
       description="Renseigne les informations du site."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
     >
       <TextField
         label="Nom"
-        value={values.nom}
-        onChange={(v) => set('nom', v)}
-        error={errors.nom}
+        value={form.values.nom}
+        onChange={(v) => form.set('nom', v)}
+        error={form.errors.nom}
         required
       />
       <TextField
         label="Adresse"
-        value={values.adresse}
-        onChange={(v) => set('adresse', v)}
-        error={errors.adresse}
+        value={form.values.adresse}
+        onChange={(v) => form.set('adresse', v)}
+        error={form.errors.adresse}
       />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
           label="Code postal"
-          value={values.code_postal}
-          onChange={(v) => set('code_postal', v)}
-          error={errors.code_postal}
+          value={form.values.code_postal}
+          onChange={(v) => form.set('code_postal', v)}
+          error={form.errors.code_postal}
         />
         <TextField
           label="Ville"
-          value={values.ville}
-          onChange={(v) => set('ville', v)}
-          error={errors.ville}
+          value={form.values.ville}
+          onChange={(v) => form.set('ville', v)}
+          error={form.errors.ville}
         />
       </div>
     </FormDialog>

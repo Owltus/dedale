@@ -1,22 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Folder,
-  FolderTree,
-  Inbox,
-  Package,
-  Pencil,
-  Plus,
-  Trash2,
-} from 'lucide-react'
-import { toast } from 'sonner'
+import { Folder, FolderTree, Inbox, Package, Pencil, Plus } from 'lucide-react'
 import { equipementsQueries } from '../queries'
 import { useDeleteEquipement } from '../mutations'
 import { EquipementParcDialog } from './equipement-parc-dialog'
@@ -28,21 +12,26 @@ import {
   type Categorie,
 } from '@/features/categories/queries'
 import { CategoryFormDialog } from '@/features/categories/components/category-form-dialog'
-import { useDeleteCategorie } from '@/features/categories/mutations'
+import { ConfirmDeleteCategorieDialog } from '@/features/categories/components/confirm-delete-categorie-dialog'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useEquipementsDrill } from '@/hooks/use-equipements-drill'
+import {
+  useCatalogueDrill,
+  type CatalogueDrillCat,
+  NON_CLASSE_ID,
+} from '@/hooks/use-catalogue-drill'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { deleteErrorMessage } from '@/lib/form'
 import { parseChamps } from '@/lib/champs'
-import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
 import { PageHeader } from '@/components/common/page-header'
 import { drillCrumbs } from '@/components/common/drill-crumbs'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
-import type { RowAction } from '@/components/common/row-actions'
+import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { listStack } from '@/lib/responsive'
 import { ScopeBadges } from '@/components/common/scope-badges'
 import { EmptyState } from '@/components/common/empty-state'
@@ -54,36 +43,19 @@ import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
 
-// Id sentinelle du bac « Non classé » (catégorie VIRTUELLE, hors base) : regroupe
-// à la racine les équipements du site sans catégorie de site (legacy/import, ou
-// rangés dans une catégorie commune non affichée ici) pour ne JAMAIS les cacher.
-const NON_CLASSE_ID = '__non_classe__'
-
 /**
- * Catégorie pour le DRILL : projection minimale (les champs lus à l'affichage +
- * `parent_id` pour l'arbre), plus un drapeau `virtual` pour le bac « Non classé ».
- * Évite de fabriquer une `Categorie` complète (fragile) pour le nœud virtuel.
+ * Catégorie pour le DRILL du parc : projection commune (`CatalogueDrillCat`) plus
+ * le modèle fixé sur la sous-catégorie (les équipements en sont des copies).
  */
-interface DrillCat {
-  id: string
-  nom: string
-  parent_id: string | null
-  site_id: string | null
-  description: string | null
-  miniature_id: string | null
-  ordre: number
-  /** Modèle fixé sur la sous-catégorie (les équipements en sont des copies). */
+interface DrillCat extends CatalogueDrillCat {
   modeleId: string | null
-  virtual: boolean
 }
 
-/** Segment d'URL d'un équipement, désambiguïsé entre frères (même palier). */
-function equipementSeg(e: Equipement, siblings: Equipement[]): string {
-  return segOfUnique(
-    { id: e.id ?? '', nom: e.nom ?? '' },
-    siblings.map((s) => ({ id: s.id ?? '', nom: s.nom ?? '' })),
-  )
-}
+// Accès stables (identité constante) alimentant `useCatalogueDrill` : id, nom et
+// catégorie d'un équipement. L'id/nom peuvent être null en type (vue) → repli.
+const equipementId = (e: Equipement) => e.id ?? ''
+const equipementNom = (e: Equipement) => e.nom ?? ''
+const equipementCategorieId = (e: Equipement) => e.categorie_id
 
 /**
  * Explorateur des Équipements du SITE actif : navigation par CATÉGORIE portée par
@@ -110,7 +82,6 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
   useRealtimeRefresh('categories', categoriesQueries.all())
 
   const del = useDeleteEquipement()
-  const delCategorie = useDeleteCategorie()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   // Catégories de PARC du site actif (scope 'parc', taxonomie DÉDIÉE aux
@@ -133,156 +104,60 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     [equipementsQuery.data],
   )
 
-  // Équipement « de racine » : sans catégorie OU rangé dans une catégorie non
-  // visible ici (p. ex. commune) → on le regroupe dans le bac « Non classé ».
-  const visibleCatIds = useMemo(
-    () => new Set(equipmentCats.map((c) => c.id)),
+  // Projection des catégories réelles + fabrique du bac virtuel « Non classé »
+  // (avec le champ `modeleId` propre au parc), consommées par `useCatalogueDrill`.
+  const realCats = useMemo<DrillCat[]>(
+    () =>
+      equipmentCats.map((c) => ({
+        id: c.id,
+        nom: c.nom,
+        parent_id: c.parent_id,
+        site_id: c.site_id,
+        description: c.description,
+        miniature_id: c.miniature_id,
+        ordre: c.ordre,
+        modeleId: c.modele_equipement_id,
+        virtual: false,
+      })),
     [equipmentCats],
   )
-  const isRootEquipement = useCallback(
-    (e: Equipement) =>
-      e.categorie_id === null || !visibleCatIds.has(e.categorie_id),
-    [visibleCatIds],
-  )
-  const orphans = useMemo(
-    () => equipements.filter(isRootEquipement),
-    [equipements, isRootEquipement],
-  )
-
-  // Catégories du drill = catégories du site (projetées) + bac « Non classé »
-  // (uniquement s'il y a des orphelins → dataset propre = comme la Bibliothèque).
-  const drillCats = useMemo<DrillCat[]>(() => {
-    const real: DrillCat[] = equipmentCats.map((c) => ({
-      id: c.id,
-      nom: c.nom,
-      parent_id: c.parent_id,
-      site_id: c.site_id,
-      description: c.description,
-      miniature_id: c.miniature_id,
-      ordre: c.ordre,
-      modeleId: c.modele_equipement_id,
-      virtual: false,
-    }))
-    if (orphans.length > 0) {
-      real.push({
-        id: NON_CLASSE_ID,
-        nom: 'Non classé',
-        parent_id: null,
-        site_id: siteId,
-        description: 'Équipements sans catégorie',
-        miniature_id: null,
-        // Toujours en DERNIER dans la liste des catégories racine.
-        ordre: Number.MAX_SAFE_INTEGER,
-        modeleId: null,
-        virtual: true,
-      })
-    }
-    return real
-  }, [equipmentCats, orphans, siteId])
-
-  const { path, current, depth, children, goTo, leafSeg, goToLeaf } =
-    useEquipementsDrill(drillCats)
-
-  // Sous-catégories du palier courant, triées (le bac « Non classé » finit dernier).
-  const childCategories = useMemo(
-    () =>
-      [...children].sort(
-        (a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom),
-      ),
-    [children],
+  const makeVirtual = useCallback<() => DrillCat>(
+    () => ({
+      id: NON_CLASSE_ID,
+      nom: 'Non classé',
+      parent_id: null,
+      site_id: siteId,
+      description: 'Équipements sans catégorie',
+      miniature_id: null,
+      // Toujours en DERNIER dans la liste des catégories racine.
+      ordre: Number.MAX_SAFE_INTEGER,
+      modeleId: null,
+      virtual: true,
+    }),
+    [siteId],
   )
 
-  // Équipements d'un palier : bac « Non classé » → orphelins ; sinon ceux qui
-  // référencent la catégorie. Source unique du regroupement (listing + résolution
-  // de feuille + navigation).
-  const equipementsUnder = useCallback(
-    (catId: string | null) =>
-      catId === NON_CLASSE_ID
-        ? orphans
-        : catId === null
-          ? []
-          : equipements.filter((e) => e.categorie_id === catId),
-    [equipements, orphans],
-  )
-
-  // Équipements du palier courant (uniquement dans une catégorie), triés.
-  const equipementsInCurrent = useMemo(
-    () =>
-      current === null
-        ? []
-        : [...equipementsUnder(current.id)].sort((a, b) =>
-            (a.nom ?? '').localeCompare(b.nom ?? ''),
-          ),
-    [equipementsUnder, current],
-  )
-
-  // Équipement OUVERT (vue détail, niveau FEUILLE) : résolu parmi les équipements
-  // du palier courant (mêmes frères qu'à la génération → slug stable).
-  const openEquipement = useMemo(() => {
-    if (leafSeg === undefined || current === null) return null
-    const siblings = equipementsUnder(current.id)
-    return siblings.find((e) => equipementSeg(e, siblings) === leafSeg) ?? null
-  }, [leafSeg, current, equipementsUnder])
-
-  // Chaîne de catégories (racine → cat) d'un id réel : pour ouvrir un équipement
-  // par son CHEMIN RÉEL, indépendant du palier courant.
-  const catChain = useCallback(
-    (catId: string | null): DrillCat[] => {
-      const chain: DrillCat[] = []
-      let id = catId
-      while (id) {
-        const c = drillCats.find((x) => x.id === id)
-        if (!c) break
-        chain.unshift(c)
-        id = c.parent_id
-      }
-      return chain
-    },
-    [drillCats],
-  )
-
-  const goToEquipement = useCallback(
-    (e: Equipement, opts?: { replace?: boolean }) => {
-      // Orphelin → bac « Non classé » ; sinon le chemin réel de sa catégorie.
-      const orphan = isRootEquipement(e)
-      const chain = orphan ? catChain(NON_CLASSE_ID) : catChain(e.categorie_id)
-      const siblings = equipementsUnder(orphan ? NON_CLASSE_ID : e.categorie_id)
-      goToLeaf(chain, equipementSeg(e, siblings), { replace: opts?.replace })
-    },
-    [isRootEquipement, catChain, equipementsUnder, goToLeaf],
-  )
-
-  // Re-synchronise l'URL si l'équipement OUVERT est renommé (« Modifier » ou
-  // réception realtime) : son slug change → l'URL ne le résout plus. On mémorise
-  // id + segment et, s'il existe encore, on réécrit l'URL sur son chemin frais
-  // (REPLACE) sans fermer le détail ; supprimé → repli propre vers la navigation.
-  const lastIdRef = useRef<string | null>(null)
-  const lastLeafRef = useRef<string | undefined>(undefined)
-  useEffect(() => {
-    if (openEquipement !== null) {
-      lastIdRef.current = openEquipement.id ?? null
-      lastLeafRef.current = leafSeg
-    }
-  }, [openEquipement, leafSeg])
-  // useLayoutEffect (et non useEffect) : la resynchro de l'URL doit se faire AVANT
-  // la peinture, sinon on voit un flash de la liste/catégorie (openEquipement
-  // transitoirement null) le temps que le slug frais remplace l'ancien — au
-  // renommage de l'équipement ouvert comme à l'apparition d'un homonyme (realtime).
-  useLayoutEffect(() => {
-    if (leafSeg === undefined || openEquipement !== null) return
-    if (leafSeg !== lastLeafRef.current) return
-    const id = lastIdRef.current
-    if (id === null) return
-    const fresh = equipements.find((e) => e.id === id)
-    if (!fresh) return
-    goToEquipement(fresh, { replace: true })
-  }, [leafSeg, openEquipement, equipements, goToEquipement])
+  const {
+    path,
+    current,
+    depth,
+    childCategories,
+    goTo,
+    itemsInCurrent: equipementsInCurrent,
+    openItem: openEquipement,
+    goToItem: goToEquipement,
+  } = useCatalogueDrill<Equipement, DrillCat>({
+    realCats,
+    makeVirtual,
+    items: equipements,
+    getItemId: equipementId,
+    getItemNom: equipementNom,
+    getCategorieId: equipementCategorieId,
+    useDrill: useEquipementsDrill,
+  })
 
   // --- Dialogs ---
-  const [categoryForm, setCategoryForm] = useState<{
-    open: boolean
-    categorie: Categorie | null
-  }>({ open: false, categorie: null })
+  const catDialog = useEntityDialog<Categorie>()
   // Sous-catégorie : formulaire UNIQUE création + édition. `categorie` null +
   // `parentId` → création sous ce parent ; `categorie` → édition de cette sous-cat.
   const [subcatForm, setSubcatForm] = useState<{
@@ -295,7 +170,12 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     open: boolean
     eq: Equipement | null
   }>({ open: false, eq: null })
-  const [toDelete, setToDelete] = useState<Equipement | null>(null)
+  const suppression = useConfirmDelete<Equipement>({
+    onDelete: async (e) => {
+      if (e.id) await del.mutateAsync(e.id)
+    },
+    successMessage: 'Équipement supprimé',
+  })
   const [toDeleteCategorie, setToDeleteCategorie] = useState<DrillCat | null>(
     null,
   )
@@ -342,34 +222,18 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     }
   }, [current, categoriesById, modelesQuery.data])
 
-  function confirmDelete() {
-    if (!toDelete?.id) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Équipement supprimé')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
-
-  function confirmDeleteCategorie() {
-    if (!toDeleteCategorie) return
-    delCategorie.mutate(toDeleteCategorie.id, {
-      onSuccess: () => {
-        toast.success('Catégorie supprimée')
-        setToDeleteCategorie(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
-  }
-
   // La base BLOQUE la suppression d'une catégorie NON VIDE (sous-catégorie ou
   // équipement rattaché). Pré-calcul pour adapter le message et désactiver.
-  const toDeleteCategorieNonVide =
-    toDeleteCategorie !== null &&
-    (equipmentCats.some((c) => c.parent_id === toDeleteCategorie.id) ||
-      equipements.some((e) => e.categorie_id === toDeleteCategorie.id))
+  const categorieABloquer = toDeleteCategorie
+  const categorieEnfants = {
+    sousCategories:
+      categorieABloquer !== null &&
+      equipmentCats.some((c) => c.parent_id === categorieABloquer.id),
+    contenus:
+      categorieABloquer !== null &&
+      equipements.some((e) => e.categorie_id === categorieABloquer.id),
+    labelContenu: 'équipements',
+  }
 
   // Catégories racines (parent candidat à l'édition).
   const parentCandidates = useMemo(
@@ -387,7 +251,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       icon={<Plus />}
       label="Nouvelle catégorie"
       variant="outline"
-      onClick={() => setCategoryForm({ open: true, categorie: null })}
+      onClick={catDialog.openCreate}
     />
   ) : null
   const canCreateSubcat = canEdit && depth === 1 && !isVirtualCurrent
@@ -496,14 +360,10 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     <>
       {canEdit && (
         <CategoryFormDialog
-          key={
-            (categoryForm.categorie
-              ? `cat-edit-${categoryForm.categorie.id}`
-              : 'cat-new') + `-${String(categoryForm.open)}`
-          }
-          open={categoryForm.open}
-          onOpenChange={(open) => setCategoryForm((f) => ({ ...f, open }))}
-          categorie={categoryForm.categorie}
+          key={catDialog.dialogKey}
+          open={catDialog.open}
+          onOpenChange={catDialog.onOpenChange}
+          categorie={catDialog.entity}
           // Catégorie RACINE de parc (les sous-catégories passent par leur propre
           // dialog avec modèle fixé).
           preset={{ scope: 'parc' }}
@@ -516,9 +376,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           siteId={siteId}
           siteName={null}
           // Création depuis cette page = catégorie DU SITE actif (portée verrouillée).
-          lockedScope={
-            categoryForm.categorie ? undefined : { portee: 'site', siteId }
-          }
+          lockedScope={catDialog.entity ? undefined : { portee: 'site', siteId }}
           minimal
           // Scope 'parc' imposé : jamais proposé/modifiable dans le formulaire.
           hideScope
@@ -580,30 +438,18 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       )}
 
       <ConfirmDeleteDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
-        entityLabel={`l’équipement « ${toDelete?.nom ?? ''} »`}
+        {...suppression.dialogProps}
+        entityLabel={`l’équipement « ${suppression.toDelete?.nom ?? ''} »`}
         // Le backend refuse la suppression d'un équipement rattaché à une gamme
         // active (FK/trigger). Cette info n'est pas chargée ici → on prévient en
         // amont ; l'erreur 23503/42501 reste catchée en filet (toast onError).
         warning="Si cet équipement est rattaché à une ou plusieurs gammes, la suppression sera refusée : détache-le d’abord."
-        loading={del.isPending}
-        onConfirm={confirmDelete}
       />
 
-      <ConfirmDeleteDialog
-        open={toDeleteCategorie !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDeleteCategorie(null)
-        }}
-        entityLabel={`la catégorie « ${toDeleteCategorie?.nom ?? ''} »`}
-        blocked={toDeleteCategorieNonVide}
-        blockedReason="Cette catégorie contient des sous-catégories ou des équipements. Vide-la d’abord pour pouvoir la supprimer."
-        warning="Cette suppression est définitive."
-        loading={delCategorie.isPending}
-        onConfirm={confirmDeleteCategorie}
+      <ConfirmDeleteCategorieDialog
+        categorie={toDeleteCategorie}
+        onClose={() => setToDeleteCategorie(null)}
+        enfants={categorieEnfants}
       />
     </>
   )
@@ -714,36 +560,26 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                       onClick={() => goTo([...path, cat])}
                       menuActions={
                         canManageCat(cat)
-                          ? ([
-                              {
-                                label: 'Modifier',
-                                icon: Pencil,
-                                onSelect: () => {
-                                  const full =
-                                    categoriesById.get(cat.id) ?? null
-                                  // Sous-catégorie (parent) → formulaire unifié de
-                                  // sous-catégorie ; catégorie racine → form catégorie.
-                                  if (full?.parent_id) {
-                                    setSubcatForm({
-                                      open: true,
-                                      parentId: full.parent_id,
-                                      categorie: full,
-                                    })
-                                  } else {
-                                    setCategoryForm({
-                                      open: true,
-                                      categorie: full,
-                                    })
-                                  }
-                                },
+                          ? actionsEditionSuppression({
+                              onModifier: () => {
+                                const full = categoriesById.get(cat.id)
+                                // `cat` vient d'une catégorie réelle → `full`
+                                // existe toujours (garde défensive).
+                                if (!full) return
+                                // Sous-catégorie (parent) → formulaire unifié de
+                                // sous-catégorie ; catégorie racine → form catégorie.
+                                if (full.parent_id) {
+                                  setSubcatForm({
+                                    open: true,
+                                    parentId: full.parent_id,
+                                    categorie: full,
+                                  })
+                                } else {
+                                  catDialog.openEdit(full)
+                                }
                               },
-                              {
-                                label: 'Supprimer',
-                                icon: Trash2,
-                                destructive: true,
-                                onSelect: () => setToDeleteCategorie(cat),
-                              },
-                            ] satisfies RowAction[])
+                              onSupprimer: () => setToDeleteCategorie(cat),
+                            })
                           : undefined
                       }
                     />
@@ -772,20 +608,11 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                       onClick={() => goToEquipement(eq)}
                       menuActions={
                         canEdit
-                          ? ([
-                              {
-                                label: 'Modifier',
-                                icon: Pencil,
-                                onSelect: () =>
-                                  setEquipForm({ open: true, eq }),
-                              },
-                              {
-                                label: 'Supprimer',
-                                icon: Trash2,
-                                destructive: true,
-                                onSelect: () => setToDelete(eq),
-                              },
-                            ] satisfies RowAction[])
+                          ? actionsEditionSuppression({
+                              onModifier: () =>
+                                setEquipForm({ open: true, eq }),
+                              onSupprimer: () => suppression.demander(eq),
+                            })
                           : undefined
                       }
                     />

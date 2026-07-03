@@ -24,7 +24,9 @@ import { TravauxFormDialog } from './travaux-form-dialog'
 import { ClotureDialog } from './cloture-dialog'
 import { TacheDialog } from './tache-dialog'
 import { TacheRow, type TacheItem } from './tache-row'
-import { useFileDrop } from '@/hooks/use-file-drop'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
+import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
@@ -63,15 +65,16 @@ export function TravauxDetail({
   const [edit, setEdit] = useState(false)
   const [clotureOpen, setClotureOpen] = useState(false)
   const [annulerOpen, setAnnulerOpen] = useState(false)
-  // Modal de zone : `tache` null = ajout, sinon édition de cette zone.
-  const [tacheForm, setTacheForm] = useState<{
-    open: boolean
-    tache: TacheItem | null
-  }>({ open: false, tache: null })
-  const [tacheToDelete, setTacheToDelete] = useState<TacheItem | null>(null)
-  const [uploadOpen, setUploadOpen] = useState(false)
-  // Fichiers issus d'un glisser-déposer sur la page → pré-remplis dans le dialogue.
-  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
+  // Modal de zone : `entity` null = ajout, sinon édition de cette zone.
+  const tacheDialog = useEntityDialog<TacheItem>()
+  const suppressionTache = useConfirmDelete<TacheItem>({
+    onDelete: (t) => delTache.mutateAsync({ id: t.id, travauxId: travaux.id }),
+    successMessage: 'Zone retirée',
+    // Suppression « métier » (trigger backend) → message d'écriture.
+    errorMessage: writeErrorMessage,
+  })
+  // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
+  const upload = useUploadDrop({ enabled: canManage })
 
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const etapes = etapesTravaux(travaux.statut_travaux_id, noms)
@@ -85,25 +88,6 @@ export function TravauxDetail({
   // « Réactiver » : ramène un travaux Annulé vers « Ouvert » (résurrection).
   const canReactiver = canManage && travaux.statut_travaux_id === STATUT_ANNULE
 
-  // Ouverture manuelle (bouton top bar) : aucun fichier pré-rempli.
-  const openUploadEmpty = () => {
-    setDroppedFiles([])
-    setUploadOpen(true)
-  }
-  // Fermeture : on oublie les fichiers déposés pour repartir propre au coup suivant.
-  const handleUploadOpenChange = (open: boolean) => {
-    setUploadOpen(open)
-    if (!open) setDroppedFiles([])
-  }
-  // Glisser-déposer sur TOUTE la page (réservé aux rôles pouvant rattacher).
-  const { dragging } = useFileDrop({
-    enabled: canManage,
-    onFiles: (files) => {
-      setDroppedFiles(files)
-      setUploadOpen(true)
-    },
-  })
-
   function transition(statutId: number) {
     if (statutId === STATUT_TERMINE) {
       setClotureOpen(true)
@@ -113,20 +97,6 @@ export function TravauxDetail({
       { id: travaux.id, statutId },
       {
         onSuccess: () => toast.success('Statut mis à jour'),
-        onError: (e) => toast.error(writeErrorMessage(e)),
-      },
-    )
-  }
-
-  function confirmDeleteTache() {
-    if (!tacheToDelete) return
-    delTache.mutate(
-      { id: tacheToDelete.id, travauxId: travaux.id },
-      {
-        onSuccess: () => {
-          toast.success('Zone retirée')
-          setTacheToDelete(null)
-        },
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
@@ -150,7 +120,7 @@ export function TravauxDetail({
                 icon={<Paperclip />}
                 label="Rattacher un document"
                 variant="outline"
-                onClick={openUploadEmpty}
+                onClick={upload.openUploadEmpty}
               />
               {editable && (
                 <TooltipIconButton
@@ -239,7 +209,7 @@ export function TravauxDetail({
               icon={<ListPlus />}
               label="Ajouter une zone"
               variant="outline"
-              onClick={() => setTacheForm({ open: true, tache: null })}
+              onClick={() => tacheDialog.openCreate()}
             />
           )}
         </CardHeader>
@@ -261,7 +231,7 @@ export function TravauxDetail({
                   !tachesReadOnly ? (
                     <Button
                       size="sm"
-                      onClick={() => setTacheForm({ open: true, tache: null })}
+                      onClick={() => tacheDialog.openCreate()}
                     >
                       <ListPlus /> Ajouter une zone
                     </Button>
@@ -278,8 +248,8 @@ export function TravauxDetail({
                     tache={t}
                     travauxId={travaux.id}
                     readOnly={tachesReadOnly}
-                    onEdit={() => setTacheForm({ open: true, tache: t })}
-                    onDelete={() => setTacheToDelete(t)}
+                    onEdit={() => tacheDialog.openEdit(t)}
+                    onDelete={() => suppressionTache.demander(t)}
                   />
                 ))}
               </div>
@@ -295,11 +265,11 @@ export function TravauxDetail({
           liaison="documents_interventions_travaux"
           parentColumn="travaux_id"
           parentId={travaux.id}
-          uploadOpen={uploadOpen}
-          onUploadOpenChange={handleUploadOpenChange}
-          uploadInitialFiles={droppedFiles}
+          uploadOpen={upload.uploadOpen}
+          onUploadOpenChange={upload.onUploadOpenChange}
+          uploadInitialFiles={upload.droppedFiles}
         />
-        <FileDropOverlay show={dragging} />
+        <FileDropOverlay show={upload.dragging} />
       </div>
 
       {editable && (
@@ -314,30 +284,25 @@ export function TravauxDetail({
 
       {!tachesReadOnly && (
         <TacheDialog
-          key={`${tacheForm.tache?.id ?? 'new'}-${String(tacheForm.open)}`}
-          open={tacheForm.open}
-          onOpenChange={(open) => setTacheForm((f) => ({ ...f, open }))}
+          key={tacheDialog.dialogKey}
+          open={tacheDialog.open}
+          onOpenChange={tacheDialog.onOpenChange}
           travauxId={travaux.id}
           siteId={siteId}
-          tache={tacheForm.tache}
+          tache={tacheDialog.entity}
         />
       )}
 
       <ConfirmDialog
-        open={tacheToDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setTacheToDelete(null)
-        }}
+        {...suppressionTache.dialogProps}
         title="Retirer cette zone ?"
         description={
-          tacheToDelete
-            ? `« ${tacheToDelete.locaux?.nom ?? 'Cette zone'} » sera retirée de ce travaux.`
+          suppressionTache.toDelete
+            ? `« ${suppressionTache.toDelete.locaux?.nom ?? 'Cette zone'} » sera retirée de ce travaux.`
             : undefined
         }
         confirmLabel="Retirer"
         destructive
-        loading={delTache.isPending}
-        onConfirm={confirmDeleteTache}
       />
 
       <ClotureDialog

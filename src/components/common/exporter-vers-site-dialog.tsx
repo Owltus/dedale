@@ -3,15 +3,8 @@ import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 import { useSiteContext } from '@/lib/site-context'
 import { exportErrorMessage } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { DialogShell } from '@/components/common/dialog-shell'
 import { SelectField } from '@/components/common/select-field'
 
 /**
@@ -95,43 +88,15 @@ export function ExporterVersSiteDialog({
   const siteName = sites.find((s) => s.id === siteCible)?.nom ?? null
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !pending && onOpenChange(o)}>
-      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
-          <DialogTitle>{titre}</DialogTitle>
-          <DialogDescription>{resume}</DialogDescription>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-1">
-          {sites.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              Aucun site accessible : la copie n’est pas possible.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <SelectField
-                label="Site de destination"
-                required
-                value={siteCible}
-                onChange={setSiteCible}
-              >
-                {sites.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nom}
-                  </option>
-                ))}
-              </SelectField>
-              <p className="text-muted-foreground text-sm">
-                La copie est <strong>indépendante</strong> : tu pourras la
-                modifier
-                {siteName ? ` sur « ${siteName} »` : ' sur le site'} sans
-                toucher à l’original commun.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <DialogFooter className="shrink-0 px-6 pt-4 pb-6">
+    <DialogShell
+      open={open}
+      // Fermeture bloquée tant que la copie est en cours (non idempotente).
+      onOpenChange={(o) => !pending && onOpenChange(o)}
+      title={titre}
+      description={resume}
+      bodyClassName="min-h-0 flex-1 overflow-y-auto px-6 py-1"
+      footer={
+        <>
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -145,8 +110,34 @@ export function ExporterVersSiteDialog({
           >
             {pending ? '…' : confirmLabel}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      {sites.length === 0 ? (
+        <p className="text-muted-foreground text-sm">
+          Aucun site accessible : la copie n’est pas possible.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <SelectField
+            label="Site de destination"
+            required
+            value={siteCible}
+            onChange={setSiteCible}
+          >
+            {sites.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.nom}
+              </option>
+            ))}
+          </SelectField>
+          <p className="text-muted-foreground text-sm">
+            La copie est <strong>indépendante</strong> : tu pourras la modifier
+            {siteName ? ` sur « ${siteName} »` : ' sur le site'} sans toucher à
+            l’original commun.
+          </p>
+        </div>
+      )}
+    </DialogShell>
   )
 }

@@ -19,7 +19,6 @@ export const equipementsQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
@@ -27,10 +26,15 @@ export const equipementsQueries = {
    * équipements réels se rangent dans une taxonomie DÉDIÉE (scope 'parc'), séparée
    * des catégories de modèles (scope 'equipement', Bibliothèque). Toujours scopées
    * site (le parc appartient à un site) → on filtre sur `site_id`.
+   *
+   * Clé sous le namespace `categories` (et NON `equipements`) : la donnée EST une
+   * table de catégories → un changement de catégories (mutation ou Realtime, qui
+   * invalident `['categories']`) doit la rafraîchir, pas une modification
+   * d'équipement.
    */
   categories: (siteId: string | null) =>
     queryOptions({
-      queryKey: [...equipementsQueries.all(), 'categories', siteId] as const,
+      queryKey: ['categories', 'parc', siteId] as const,
       enabled: siteId !== null,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
@@ -44,16 +48,16 @@ export const equipementsQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /** Locaux actifs du site actif (pour le dropdown emplacement), via la vue chemin. */
   locaux: (siteId: string | null) =>
     queryOptions({
-      // Clé HORS préfixe « equipements » : sinon le realtime et les mutations
-      // d'équipements (qui invalident ['equipements']) refetchent inutilement les
-      // locaux, qui n'ont pas à changer sur une modification d'équipement.
-      queryKey: ['locaux', 'list', siteId] as const,
+      // Clé sous le namespace `localisations` (et NON `equipements`) : la donnée
+      // dépend des localisations, pas des équipements. Ainsi une mutation ou un
+      // Realtime de localisations (qui invalident ['localisations']) rafraîchit ce
+      // chemin, tandis qu'une modification d'équipement ne le refetch pas inutilement.
+      queryKey: ['localisations', 'chemins', siteId] as const,
       enabled: siteId !== null,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
@@ -67,7 +71,6 @@ export const equipementsQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 }
 

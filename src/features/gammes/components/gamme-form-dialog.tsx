@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { emptyGamme, gammeSchema } from '../schemas'
 import type { GammeFormValues } from '../schemas'
 import { useCreateGamme, useUpdateGamme } from '../mutations'
@@ -9,7 +8,7 @@ import type { SousCategorieGamme } from '../queries'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import { useAuth } from '@/auth'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useFormDialog } from '@/hooks/use-form-dialog'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/identite-fields'
 import { SelectField } from '@/components/common/select-field'
@@ -98,11 +97,24 @@ export function GammeFormDialog({
     () => sousCategoriesQuery.data ?? [],
     [sousCategoriesQuery.data],
   )
-  const [values, setValues] = useState<GammeFormValues>(() =>
-    initialValues(gamme, presetCategorieId),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
+  const form = useFormDialog({
+    schema: gammeSchema,
+    initialValues: () => initialValues(gamme, presetCategorieId),
+    onSubmit: async (data) => {
+      if (gamme) {
+        await update.mutateAsync({ id: gamme.id, values: data })
+        return
+      }
+      if (!session) throw new Error('Session expirée, reconnecte-toi.')
+      await create.mutateAsync({
+        siteId,
+        createdBy: session.user.id,
+        values: data,
+      })
+    },
+    successMessage: isEdit ? 'Gamme modifiée' : 'Gamme créée',
+    close: () => onOpenChange(false),
+  })
 
   // Sous-catégorie réellement assignée (édition) : si elle est masquée (inactive)
   // elle n'est pas dans la liste → on la lit pour la réinjecter, afin que le
@@ -127,68 +139,32 @@ export function GammeFormDialog({
     [sousCategories],
   )
 
-  function set<K extends keyof GammeFormValues>(
-    key: K,
-    value: GammeFormValues[K],
-  ) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
-
-  async function handleSubmit() {
-    const parsed = gammeSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      if (gamme) {
-        await update.mutateAsync({ id: gamme.id, values: parsed.data })
-        toast.success('Gamme modifiée')
-      } else {
-        if (!session) {
-          toast.error('Session expirée, reconnecte-toi.')
-          return
-        }
-        await create.mutateAsync({
-          siteId,
-          createdBy: session.user.id,
-          values: parsed.data,
-        })
-        toast.success('Gamme créée')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
-
   return (
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
       title={isEdit ? 'Modifier la gamme' : 'Nouvelle gamme'}
       description="Renseigne la nature, la périodicité (semaines ISO) et le prestataire par défaut."
-      onSubmit={() => void handleSubmit()}
+      onSubmit={() => void form.submit()}
       submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
       pendingLabel="Enregistrement…"
-      pending={pending}
+      pending={form.pending}
       submitDisabled={aucuneOption}
     >
       <IdentiteFields
         nom={{
-          value: values.nom,
-          onChange: (v) => set('nom', v),
-          error: errors.nom,
+          value: form.values.nom,
+          onChange: (v) => form.set('nom', v),
+          error: form.errors.nom,
         }}
         description={{
-          value: values.description,
-          onChange: (v) => set('description', v),
-          error: errors.description,
+          value: form.values.description,
+          onChange: (v) => form.set('description', v),
+          error: form.errors.description,
         }}
         image={{
-          value: values.miniature_id,
-          onChange: (id) => set('miniature_id', id),
+          value: form.values.miniature_id,
+          onChange: (id) => form.set('miniature_id', id),
           // Périmètre = le site de la gamme : le pool propose les vignettes
           // communes + celles de ce site (le trigger backend le garantit).
           targetSiteId: siteId,
@@ -200,9 +176,9 @@ export function GammeFormDialog({
         label="Contrôle réglementaire"
         description="Attend des documents justificatifs."
         id="gamme_nature"
-        checked={values.nature === 'controle_reglementaire'}
+        checked={form.values.nature === 'controle_reglementaire'}
         onChange={(reglementaire) =>
-          set(
+          form.set(
             'nature',
             reglementaire ? 'controle_reglementaire' : 'maintenance_preventive',
           )
@@ -214,8 +190,8 @@ export function GammeFormDialog({
           label="Gamme active"
           description="Une gamme inactive ne génère plus d’ordres de travail."
           id="gamme_active"
-          checked={values.est_active}
-          onChange={(actif) => set('est_active', actif)}
+          checked={form.values.est_active}
+          onChange={(actif) => form.set('est_active', actif)}
         />
       )}
 
@@ -223,9 +199,9 @@ export function GammeFormDialog({
         label="Périodicité"
         required
         id="gamme_periodicite"
-        value={values.periodicite_id}
-        onChange={(v) => set('periodicite_id', v)}
-        error={errors.periodicite_id}
+        value={form.values.periodicite_id}
+        onChange={(v) => form.set('periodicite_id', v)}
+        error={form.errors.periodicite_id}
       >
         <option value="">— Choisir une périodicité —</option>
         {periodicites.map((p) => (
@@ -239,9 +215,9 @@ export function GammeFormDialog({
         label="Prestataire par défaut"
         required
         id="gamme_prestataire"
-        value={values.prestataire_id}
-        onChange={(v) => set('prestataire_id', v)}
-        error={errors.prestataire_id}
+        value={form.values.prestataire_id}
+        onChange={(v) => form.set('prestataire_id', v)}
+        error={form.errors.prestataire_id}
       >
         <option value="">— Choisir un prestataire —</option>
         {prestataires.map((p) => (
@@ -256,9 +232,9 @@ export function GammeFormDialog({
           label="Sous-catégorie"
           required
           id="gamme_categorie"
-          value={values.categorie_id}
-          onChange={(v) => set('categorie_id', v)}
-          error={errors.categorie_id}
+          value={form.values.categorie_id}
+          onChange={(v) => form.set('categorie_id', v)}
+          error={form.errors.categorie_id}
           hint={
             isEdit && !aucuneSousCategorie
               ? 'Choisir une autre sous-catégorie déplace la gamme.'

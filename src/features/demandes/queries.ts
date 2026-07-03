@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { referentielQueryOptions } from '@/lib/referentiel'
 
 export const demandesQueries = {
   all: () => ['demandes_intervention'] as const,
@@ -23,26 +24,29 @@ export const demandesQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
    * Nom du local lié à chaque DI VISIBLE (di_id → local), pour l'afficher en
-   * liste SANS une requête par carte. La RLS des liaisons hérite du scope de leur
-   * DI (un demandeur voit celles de tout son site) → on récupère juste le nom.
+   * liste SANS une requête par carte. On BORNE au site actif via une jointure
+   * `!inner` sur la DI (les liaisons ne portent pas `site_id`) : la RLS suffirait
+   * à cloisonner, mais ce filtre évite de rapatrier les liaisons des autres sites
+   * et scope la clé de cache au site. On récupère juste le nom du local.
    */
-  locauxParDi: () =>
+  locauxParDi: (siteId: string | null) =>
     queryOptions({
-      queryKey: [...demandesQueries.all(), 'locaux-par-di'] as const,
+      queryKey: [...demandesQueries.all(), 'locaux-par-di', siteId] as const,
+      enabled: siteId !== null,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('di_localisations')
-          .select('di_id, locaux(nom)')
+          // `demandes_intervention!inner` ne sert qu'au FILTRE (site actif).
+          .select('di_id, locaux(nom), demandes_intervention!inner(site_id)')
+          .eq('demandes_intervention.site_id', siteId!)
           .abortSignal(signal)
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /** Locaux liés à une DI (avec leur chemin lisible). */
@@ -80,20 +84,7 @@ export const statutsDiQueries = {
   all: () => ['statuts_di'] as const,
 
   /** Référentiel des statuts DI (1 Ouvert, 2 En cours, 3 Clôturé). */
-  list: () =>
-    queryOptions({
-      queryKey: [...statutsDiQueries.all(), 'list'] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('statuts_di')
-          .select('id, nom')
-          .order('id')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
-      staleTime: 5 * 60_000,
-    }),
+  list: () => referentielQueryOptions('statuts_di', 'id, nom', 'id'),
 }
 
 export const modelesDiQueries = {
@@ -120,6 +111,5 @@ export const modelesDiQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 }

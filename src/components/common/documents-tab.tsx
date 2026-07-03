@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Download, FileText, Link2Off, Paperclip, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { FileText, Paperclip } from 'lucide-react'
 import { documentsQueries } from '@/features/documents/queries'
 import type { LiaisonTable } from '@/features/documents/queries'
 import {
@@ -9,24 +8,16 @@ import {
   useDetachDocument,
   useUploadAndAttach,
 } from '@/features/documents/mutations'
-import type { DocumentMeta } from '@/features/documents/format'
-import { useDocumentDownload } from '@/features/documents/use-document-download'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
 import type { DocumentNamingContext } from '@/features/documents/naming'
-import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
-import { DocumentRow } from '@/features/documents/components/document-row'
-import type { RowAction } from '@/components/common/row-actions'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage } from '@/lib/form'
 import { cn } from '@/lib/utils'
-import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
+import { DocumentsListe } from '@/components/common/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 
@@ -115,41 +106,12 @@ export function DocumentsTab({
   const del = useDeleteDocument()
 
   const [internalOpen, setInternalOpen] = useState(false)
-  const [toDetach, setToDetach] = useState<DocumentMeta | null>(null)
-  const [toDelete, setToDelete] = useState<DocumentMeta | null>(null)
-  const [toPreview, setToPreview] = useState<DocumentMeta | null>(null)
 
   // Mode contrôlé si l'hôte fournit le pilotage de l'ouverture (il pose alors
   // son propre déclencheur, ex. dans la barre de titre) ; sinon, état interne.
   const isControlled = onUploadOpenChange !== undefined
   const open = uploadOpen ?? internalOpen
   const setOpen = onUploadOpenChange ?? setInternalOpen
-  const download = useDocumentDownload()
-
-  function confirmDetach() {
-    if (!toDetach) return
-    detach.mutate(
-      { liaison, parentColumn, parentId, documentId: toDetach.id },
-      {
-        onSuccess: () => {
-          toast.success('Document détaché')
-          setToDetach(null)
-        },
-        onError: (e) => toast.error(errorMessage(e)),
-      },
-    )
-  }
-
-  function confirmDelete() {
-    if (!toDelete) return
-    del.mutate(toDelete.id, {
-      onSuccess: () => {
-        toast.success('Document supprimé')
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(errorMessage(e)),
-    })
-  }
 
   const peutAjouter = canManage && activeSiteId
   // En-tête : bouton icône seule + tooltip (style barre de titre réutilisable).
@@ -219,38 +181,20 @@ export function DocumentsTab({
         }
       >
         {(list) => (
-          <div className={listStack}>
-            {list.map((doc) => {
-              const rowActions: RowAction[] = [
-                {
-                  label: 'Télécharger',
-                  icon: Download,
-                  onSelect: () => void download(doc),
-                },
-              ]
-              if (canManage)
-                rowActions.push({
-                  label: 'Détacher',
-                  icon: Link2Off,
-                  onSelect: () => setToDetach(doc),
-                })
-              if (canDelete)
-                rowActions.push({
-                  label: 'Supprimer',
-                  icon: Trash2,
-                  onSelect: () => setToDelete(doc),
-                  destructive: true,
-                })
-              return (
-                <DocumentRow
-                  key={doc.id}
-                  doc={doc}
-                  onClick={() => setToPreview(doc)}
-                  menuActions={rowActions}
-                />
-              )
-            })}
-          </div>
+          <DocumentsListe
+            docs={list}
+            canDetach={canManage}
+            onDetach={(doc) =>
+              detach.mutateAsync({
+                liaison,
+                parentColumn,
+                parentId,
+                documentId: doc.id,
+              })
+            }
+            canDelete={canDelete}
+            onDelete={(doc) => del.mutateAsync(doc.id)}
+          />
         )}
       </QueryState>
 
@@ -280,42 +224,6 @@ export function DocumentsTab({
           namingContext={namingContext}
         />
       )}
-
-      <ConfirmDialog
-        open={toDetach !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDetach(null)
-        }}
-        title="Détacher le document ?"
-        description={
-          toDetach
-            ? `« ${toDetach.nom_original} » sera retiré de cette fiche. Le document reste dans la bibliothèque du site.`
-            : undefined
-        }
-        confirmLabel="Détacher"
-        loading={detach.isPending}
-        onConfirm={confirmDetach}
-      />
-
-      <ConfirmDeleteDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
-        entityLabel={
-          toDelete ? `le document « ${toDelete.nom_original} »` : 'le document'
-        }
-        warning="Suppression définitive : le document est retiré de TOUTES les fiches où il est rattaché et effacé du stockage."
-        loading={del.isPending}
-        onConfirm={confirmDelete}
-      />
-
-      <DocumentPreviewDialog
-        doc={toPreview}
-        onOpenChange={(open) => {
-          if (!open) setToPreview(null)
-        }}
-      />
     </div>
   )
 }

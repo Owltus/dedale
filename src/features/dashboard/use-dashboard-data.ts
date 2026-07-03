@@ -1,11 +1,10 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ordresTravailQueries } from '@/features/ordres-travail/queries'
-import { planningQueries } from '@/features/planning/queries'
 import { demandesQueries } from '@/features/demandes/queries'
 import { documentsQueries } from '@/features/documents/queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import { gammesQueries } from '@/features/gammes/queries'
+import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import type { PlanningOt } from '@/features/planning/grille'
 import { dashboardQueries } from './queries'
@@ -13,27 +12,21 @@ import { calculerKpisOt, type OtKpis } from './stats'
 
 /**
  * Abonnements Realtime du tableau de bord — posés UNE SEULE FOIS par l'orchestrateur
- * (`dashboard.tsx`), jamais par les cadrans/listes.
+ * (`dashboard.tsx`), jamais par les cadrans/listes : un appel par table, chacun
+ * portant la LISTE des clés racines des features qui la présentent. Le canal
+ * Supabase est déjà partagé par table par `useRealtimeRefresh` (registre module),
+ * donc cette centralisation est un choix de lisibilité, pas une contrainte technique.
  *
- * ⚠️ Fuite de canaux : chaque `useRealtimeRefresh` ouvre un canal Supabase dédié
- * (`useId`). Comme `useDashboardData` est appelé par CHAQUE cadran (donut, barres,
- * sunburst) et CHAQUE liste (demandes, documents, justificatifs), y brancher le
- * realtime multiplierait les canaux. On l'isole donc ici et on ne le monte qu'une
- * fois, au niveau de l'orchestrateur — les requêtes, elles, sont dédupliquées par
- * TanStack Query, donc les multiples appels à `useDashboardData` restent sûrs.
- *
- * Chaque table invalide les clés racines des features qui la présentent :
- * - `ordres_travail` → `ordres_travail` + `planning` + `dashboard` (pour que
- *   l'onboarding « Premiers pas » et l'alerte justificatifs se rafraîchissent aussi
- *   dès le 1er OT créé) ;
+ * Correspondance table → clés invalidées :
+ * - `ordres_travail` → `OT_QUERY_KEYS` (`ordres_travail` + `planning`) + `dashboard`
+ *   (pour que l'onboarding « Premiers pas » et l'alerte justificatifs se
+ *   rafraîchissent aussi dès le 1er OT créé) ;
  * - `demandes_intervention` → `demandes` ; `documents` → `documents` ;
  * - `contrats` → `dashboard` (contrats à échéance + frise reconductions) ;
  * - `gammes` → `gammes` (santé du sunburst).
  */
 export function useDashboardRealtime(): void {
-  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
-  useRealtimeRefresh('ordres_travail', planningQueries.all())
-  useRealtimeRefresh('ordres_travail', dashboardQueries.all())
+  useRealtimeRefresh('ordres_travail', [...OT_QUERY_KEYS, dashboardQueries.all()])
   useRealtimeRefresh('demandes_intervention', demandesQueries.all())
   useRealtimeRefresh('documents', documentsQueries.all())
   useRealtimeRefresh('contrats', dashboardQueries.all())

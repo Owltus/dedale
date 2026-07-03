@@ -24,6 +24,5 @@ export const modelesDiQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 }

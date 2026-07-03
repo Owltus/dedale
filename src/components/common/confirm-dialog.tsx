@@ -1,13 +1,7 @@
 import type { ReactNode } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { DialogShell } from '@/components/common/dialog-shell'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -38,19 +32,18 @@ export function ConfirmDialog({
   body,
   onConfirm,
 }: ConfirmDialogProps) {
+  // La description est rendue dans le CORPS (défilant), pas dans l'en-tête, pour
+  // laisser cohabiter un bloc `body` libre (saisie de confirmation…). Sans texte
+  // ni bloc, aucun corps n'est rendu (la coquille s'y adapte).
+  const hasBody = description != null || body != null
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        {(description != null || body != null) && (
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-2">
-            {description && <DialogDescription>{description}</DialogDescription>}
-            {body}
-          </div>
-        )}
-        <DialogFooter className="shrink-0 px-6 pt-4 pb-6">
+    <DialogShell
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      bodyClassName="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-2"
+      footer={
+        <>
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -65,8 +58,15 @@ export function ConfirmDialog({
           >
             {loading ? '…' : confirmLabel}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      {hasBody ? (
+        <>
+          {description && <DialogDescription>{description}</DialogDescription>}
+          {body}
+        </>
+      ) : undefined}
+    </DialogShell>
   )
 }

@@ -44,7 +44,6 @@ export const dashboardQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 
   /**
@@ -106,14 +105,15 @@ export const dashboardQueries = {
           aOt: (ots.count ?? 0) > 0,
         }
       },
-      staleTime: 60_000,
     }),
 
   /**
    * OT réglementaires clôturés SANS justificatif : PostgREST ne fait pas d'anti-jointe,
    * on rapatrie donc (1) les OT `controle_reglementaire` + `cloture` du site et
-   * (2) l'ensemble des `ordre_travail_id` présents dans `documents_ordres_travail`
-   * (bornés par la RLS), puis on diffuse le diff côté front → OT sans preuve.
+   * (2) les `ordre_travail_id` liés dans `documents_ordres_travail` BORNÉS AU SITE
+   * (`ordres_travail!inner(site_id)` + filtre — patron `documentsViaOt` : la jointure
+   * ne sert qu'au filtre, on ne rapatrie plus toutes les liaisons visibles), puis on
+   * diffuse le diff côté front → OT sans preuve.
    */
   justificatifsManquants: (siteId: string | null) =>
     queryOptions({
@@ -136,13 +136,13 @@ export const dashboardQueries = {
         if (otsReglementaires.length === 0) return []
         const { data: liaisons } = await supabase
           .from('documents_ordres_travail')
-          .select('ordre_travail_id')
+          .select('ordre_travail_id, ordres_travail!inner(site_id)')
+          .eq('ordres_travail.site_id', siteId!)
           .abortSignal(signal)
           .throwOnError()
         const avecPreuve = new Set(liaisons.map((l) => l.ordre_travail_id))
         return otsReglementaires.filter((ot) => !avecPreuve.has(ot.id))
       },
-      staleTime: 60_000,
     }),
 
   /**
@@ -174,6 +174,5 @@ export const dashboardQueries = {
           .throwOnError()
         return data
       },
-      staleTime: 60_000,
     }),
 }

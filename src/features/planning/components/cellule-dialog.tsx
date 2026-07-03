@@ -2,13 +2,7 @@ import { OtCard } from '@/features/ordres-travail/components/ot-card'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import type { PlanningOt } from '@/features/planning/grille'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { DialogShell } from '@/components/common/dialog-shell'
 
 interface CelluleDialogProps {
   /** OT à lister (≥ 2 ; un seul OT redirige direct, cf. page planning), ou `null` si fermé. */
@@ -46,33 +40,29 @@ export function CelluleDialog({
   const description = [sousTitre, compte].filter(Boolean).join(' — ')
 
   return (
-    <Dialog
+    <DialogShell
       open={open}
       onOpenChange={(o) => {
         if (!o) onClose()
       }}
+      // `truncate` porté par un bloc interne (le titre reste sur une seule ligne).
+      title={<span className="block truncate">{titre}</span>}
+      description={description}
+      contentClassName="max-w-md"
+      // Corps DÉFILANT : seule la liste scrolle (`overflow-x-hidden` en ceinture).
+      bodyClassName="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-6 pt-1 pb-6"
     >
-      <DialogContent className="flex max-h-[85vh] max-w-md flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
-          <DialogTitle className="truncate">{titre}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-
-        {/* Corps DÉFILANT : seule la liste scrolle (`overflow-x-hidden` en ceinture). */}
-        <div className="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-6 pt-1 pb-6">
-          {liste.map((ot) => (
-            <OtCard
-              key={ot.id}
-              ot={ot}
-              urlOf={urlOf}
-              refreshMiniatures={refreshMiniatures}
-              // Statut simplifié + carte dense (cohérent avec la grille, sans débordement).
-              simplifierStatut
-              compact
-            />
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
+      {liste.map((ot) => (
+        <OtCard
+          key={ot.id}
+          ot={ot}
+          urlOf={urlOf}
+          refreshMiniatures={refreshMiniatures}
+          // Statut simplifié + carte dense (cohérent avec la grille, sans débordement).
+          simplifierStatut
+          compact
+        />
+      ))}
+    </DialogShell>
   )
 }

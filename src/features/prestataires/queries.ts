@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { referentielQueryOptions } from '@/lib/referentiel'
 import type { GammeRow } from '@/features/gammes/components/gamme-detail'
 import type { DocumentMeta } from '@/features/documents/format'
 
@@ -21,9 +22,7 @@ export const prestatairesQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
-      },
-      staleTime: 60_000,
-    }),
+      },    }),
 
   /**
    * Gammes du prestataire sur le site actif, par le lien DIRECT `gammes.prestataire_id`
@@ -52,9 +51,7 @@ export const prestatairesQueries = {
           .throwOnError()
           .overrideTypes<GammeRow[], { merge: false }>()
         return data ?? []
-      },
-      staleTime: 60_000,
-    }),
+      },    }),
 
   /**
    * Documents rattachés aux ORDRES DE TRAVAIL du prestataire sur le site actif.
@@ -91,9 +88,7 @@ export const prestatairesQueries = {
         return [...parDoc.values()].sort((a, b) =>
           b.uploaded_at.localeCompare(a.uploaded_at),
         )
-      },
-      staleTime: 60_000,
-    }),
+      },    }),
 
   /**
    * Ordres de travail du prestataire sur le site actif (compartimentage strict).
@@ -125,9 +120,7 @@ export const prestatairesQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
-      },
-      staleTime: 60_000,
-    }),
+      },    }),
 }
 
 export const contratsQueries = {
@@ -152,9 +145,7 @@ export const contratsQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
-      },
-      staleTime: 60_000,
-    }),
+      },    }),
 
   /** Nombre de contrats par prestataire pour le site actif (pour les cartes). */
   countsBySite: (siteId: string) =>
@@ -175,26 +166,13 @@ export const contratsQueries = {
           )
         }
         return counts
-      },
-      staleTime: 60_000,
-    }),
+      },    }),
 }
 
 export const typesContratsQueries = {
   all: () => ['types_contrats'] as const,
 
-  list: () =>
-    queryOptions({
-      queryKey: [...typesContratsQueries.all(), 'list'] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('types_contrats')
-          .select('id, libelle')
-          .order('libelle')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
-      staleTime: 5 * 60_000,
-    }),
+  // Référentiel (petite table de codes globale) : clé `['types_contrats','list']`
+  // + fraîcheur 5 min, factorisés par `referentielQueryOptions`.
+  list: () => referentielQueryOptions('types_contrats', 'id, libelle', 'libelle'),
 }

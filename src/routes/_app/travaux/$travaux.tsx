@@ -1,19 +1,12 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
 import { HardHat } from 'lucide-react'
 import { travauxQueries } from '@/features/travaux/queries'
 import { TravauxDetail } from '@/features/travaux/components/travaux-detail'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { useSlugResolved } from '@/hooks/use-slug-resolved'
 import { useSiteContext } from '@/lib/site-context'
-import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
-import { PageContainer } from '@/components/common/page-container'
-import { PageHeader } from '@/components/common/page-header'
-import { EmptyState } from '@/components/common/empty-state'
-import { ErrorState } from '@/components/common/error-state'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
-import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { SlugDetailRoute } from '@/components/common/slug-detail-route'
 import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/_app/travaux/$travaux')({
@@ -22,6 +15,7 @@ export const Route = createFileRoute('/_app/travaux/$travaux')({
 
 function TravauxDetailPage() {
   const { travaux: slug } = Route.useParams()
+  const navigate = useNavigate()
   const { data: role } = useCurrentRole()
   // Édition/transitions = rôle métier (admin/manager/technicien), conforme RLS.
   const canManage = perm.canManageMetier(role)
@@ -39,84 +33,37 @@ function TravauxDetailPage() {
   }
 
   return (
-    <TravauxResolver siteId={activeSiteId} slug={slug} canManage={canManage} />
-  )
-}
-
-function TravauxResolver({
-  siteId,
-  slug,
-  canManage,
-}: {
-  siteId: string
-  slug: string
-  canManage: boolean
-}) {
-  const navigate = useNavigate()
-  const { data, isPending, isError, refetch } = useQuery(
-    travauxQueries.list(siteId),
-  )
-
-  // Résolution slug -> travaux (MÊMES frères qu'à la génération du lien, symétrie
-  // segOfUnique) AVEC repli par id : renommer le travaux ouvert ne l'éjecte plus
-  // vers « introuvable », l'URL se resynchronise sur le slug frais.
-  const items = data ?? []
-  const sibs = items.map((c) => ({ nom: c.titre, id: c.id }))
-  const travaux = useSlugResolved(
-    items,
-    slug,
-    (c) => segOfUnique({ nom: c.titre, id: c.id }, sibs),
-    (freshSlug) =>
-      void navigate({
-        to: '/travaux/$travaux',
-        params: { travaux: freshSlug },
-        replace: true,
-      }),
-  )
-
-  if (isPending) {
-    return (
-      <PageContainer>
-        <PageHeader
-          title="Travaux"
-          onBack={() => void navigate({ to: '/travaux' })}
+    <SlugDetailRoute
+      options={travauxQueries.list(activeSiteId)}
+      slug={slug}
+      identity={(c) => ({ nom: c.titre, id: c.id })}
+      onSlugChange={(freshSlug) =>
+        void navigate({
+          to: '/travaux/$travaux',
+          params: { travaux: freshSlug },
+          replace: true,
+        })
+      }
+      title="Travaux"
+      onBack={() => void navigate({ to: '/travaux' })}
+      notFound={{
+        title: 'Travaux introuvable',
+        description: "Ce travaux n'existe plus ou n'est pas accessible.",
+        icon: HardHat,
+        action: (
+          <Button asChild>
+            <Link to="/travaux">Retour aux travaux</Link>
+          </Button>
+        ),
+      }}
+    >
+      {(travaux) => (
+        <TravauxDetail
+          travaux={travaux}
+          siteId={activeSiteId}
+          canManage={canManage}
         />
-        <ListRowSkeletons count={3} />
-      </PageContainer>
-    )
-  }
-
-  if (isError) {
-    return (
-      <PageContainer>
-        <PageHeader
-          title="Travaux"
-          onBack={() => void navigate({ to: '/travaux' })}
-        />
-        <ErrorState onRetry={() => void refetch()} />
-      </PageContainer>
-    )
-  }
-
-  if (!travaux) {
-    return (
-      <PageContainer>
-        <PageHeader title="Travaux introuvable" />
-        <EmptyState
-          icon={HardHat}
-          title="Travaux introuvable"
-          description="Ce travaux n'existe plus ou n'est pas accessible."
-          action={
-            <Button asChild>
-              <Link to="/travaux">Retour aux travaux</Link>
-            </Button>
-          }
-        />
-      </PageContainer>
-    )
-  }
-
-  return (
-    <TravauxDetail travaux={travaux} siteId={siteId} canManage={canManage} />
+      )}
+    </SlugDetailRoute>
   )
 }

@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { referentielQueryOptions } from '@/lib/referentiel'
 
 export const investissementsQueries = {
   all: () => ['investissements'] as const,
@@ -21,20 +22,6 @@ export const investissementsQueries = {
 }
 
 export const statutsCapexQueries = {
-  all: () => ['statuts_capex'] as const,
-
   /** Référentiel des statuts CapEx (statut libre, pas de machine à états). */
-  list: () =>
-    queryOptions({
-      queryKey: [...statutsCapexQueries.all(), 'list'] as const,
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('statuts_capex')
-          .select('id, nom')
-          .order('nom')
-          .throwOnError()
-        return data
-      },
-      staleTime: 5 * 60_000,
-    }),
+  list: () => referentielQueryOptions('statuts_capex', 'id, nom', 'nom'),
 }

@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Building, DoorOpen, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { Building, DoorOpen, Layers, Plus } from 'lucide-react'
 import {
   blockingListTitle,
   blockingReason,
@@ -21,7 +20,8 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useLocalisationsDrill } from '@/hooks/use-localisations-drill'
-import { deleteErrorMessage } from '@/lib/form'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { segOfUnique } from '@/lib/slug'
 import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
@@ -29,9 +29,10 @@ import {
   PageHeader,
   type PageHeaderCrumb,
 } from '@/components/common/page-header'
+import { FillHeader, ScrollBody } from '@/components/common/page-container'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
-import type { RowAction } from '@/components/common/row-actions'
+import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
@@ -46,6 +47,12 @@ type Suppression =
   | { kind: 'batiment'; item: Batiment }
   | { kind: 'niveau'; item: Niveau }
   | { kind: 'local'; item: Local }
+
+const SUPPRESSION_SUCCES: Record<Suppression['kind'], string> = {
+  batiment: 'Bâtiment supprimé',
+  niveau: 'Niveau supprimé',
+  local: 'Local supprimé',
+}
 
 /**
  * Explorateur des Localisations d'un site : navigation par CHEMIN d'URL
@@ -118,23 +125,29 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
       : `${String(total)} m²`
   }
 
+  // Modales de création/édition (une par palier) + confirmation de suppression,
+  // factorisées via les hooks communs (`useEntityDialog` / `useConfirmDelete`).
+  const batDialog = useEntityDialog<Batiment>()
+  const nivDialog = useEntityDialog<Niveau>()
+  const locDialog = useEntityDialog<Local>()
+
   const delBatiment = useDeleteBatiment()
   const delNiveau = useDeleteNiveau()
   const delLocal = useDeleteLocal()
 
-  const [batForm, setBatForm] = useState<{
-    open: boolean
-    batiment: Batiment | null
-  }>({ open: false, batiment: null })
-  const [nivForm, setNivForm] = useState<{
-    open: boolean
-    niveau: Niveau | null
-  }>({ open: false, niveau: null })
-  const [locForm, setLocForm] = useState<{
-    open: boolean
-    local: Local | null
-  }>({ open: false, local: null })
-  const [toDelete, setToDelete] = useState<Suppression | null>(null)
+  const suppression = useConfirmDelete<Suppression>({
+    onDelete: (s) => {
+      const del =
+        s.kind === 'batiment'
+          ? delBatiment
+          : s.kind === 'niveau'
+            ? delNiveau
+            : delLocal
+      return del.mutateAsync(s.item.id)
+    },
+    successMessage: (s) => SUPPRESSION_SUCCES[s.kind],
+  })
+  const toDelete = suppression.toDelete
 
   function goToBatiment(b: Batiment) {
     goTo([segOfUnique(b, batiments)])
@@ -142,28 +155,6 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   function goToNiveau(n: Niveau) {
     if (!batiment) return
     goTo([segOfUnique(batiment, batiments), segOfUnique(n, niveaux)])
-  }
-
-  const del =
-    toDelete?.kind === 'batiment'
-      ? delBatiment
-      : toDelete?.kind === 'niveau'
-        ? delNiveau
-        : delLocal
-  function confirmDelete() {
-    if (!toDelete) return
-    const labels = {
-      batiment: 'Bâtiment supprimé',
-      niveau: 'Niveau supprimé',
-      local: 'Local supprimé',
-    }
-    del.mutate(toDelete.item.id, {
-      onSuccess: () => {
-        toast.success(labels[toDelete.kind])
-        setToDelete(null)
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
-    })
   }
 
   // Enfants BLOQUANTS de la cible (FK RESTRICT) comptés EN AMONT, à l'ouverture
@@ -216,11 +207,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
         breadcrumb={ancestors}
         title={niveau.nom}
         description={sectionDescription}
-        action={
-          newBtn('Nouveau local', () =>
-            setLocForm({ open: true, local: null }),
-          ) ?? undefined
-        }
+        action={newBtn('Nouveau local', locDialog.openCreate) ?? undefined}
       />
     )
   } else if (batiment) {
@@ -232,11 +219,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
         breadcrumb={ancestors}
         title={batiment.nom}
         description={sectionDescription}
-        action={
-          newBtn('Nouveau niveau', () =>
-            setNivForm({ open: true, niveau: null }),
-          ) ?? undefined
-        }
+        action={newBtn('Nouveau niveau', nivDialog.openCreate) ?? undefined}
       />
     )
   } else {
@@ -244,11 +227,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
       <PageHeader
         title="Localisations"
         description={sectionDescription}
-        action={
-          newBtn('Nouveau bâtiment', () =>
-            setBatForm({ open: true, batiment: null }),
-          ) ?? undefined
-        }
+        action={newBtn('Nouveau bâtiment', batDialog.openCreate) ?? undefined}
       />
     )
   }
@@ -257,38 +236,35 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
     <>
       {canEdit && (
         <BatimentFormDialog
-          key={`bat-${batForm.batiment?.id ?? 'new'}-${String(batForm.open)}`}
-          open={batForm.open}
-          onOpenChange={(open) => setBatForm((f) => ({ ...f, open }))}
+          key={batDialog.dialogKey}
+          open={batDialog.open}
+          onOpenChange={batDialog.onOpenChange}
           siteId={siteId}
-          batiment={batForm.batiment}
+          batiment={batDialog.entity}
         />
       )}
       {canEdit && batiment && (
         <NiveauFormDialog
-          key={`niv-${nivForm.niveau?.id ?? 'new'}-${String(nivForm.open)}`}
-          open={nivForm.open}
-          onOpenChange={(open) => setNivForm((f) => ({ ...f, open }))}
+          key={nivDialog.dialogKey}
+          open={nivDialog.open}
+          onOpenChange={nivDialog.onOpenChange}
           batimentId={batiment.id}
           siteId={siteId}
-          niveau={nivForm.niveau}
+          niveau={nivDialog.entity}
         />
       )}
       {canEdit && niveau && (
         <LocalFormDialog
-          key={`loc-${locForm.local?.id ?? 'new'}-${String(locForm.open)}`}
-          open={locForm.open}
-          onOpenChange={(open) => setLocForm((f) => ({ ...f, open }))}
+          key={locDialog.dialogKey}
+          open={locDialog.open}
+          onOpenChange={locDialog.onOpenChange}
           niveauId={niveau.id}
           siteId={siteId}
-          local={locForm.local}
+          local={locDialog.entity}
         />
       )}
       <ConfirmDeleteDialog
-        open={toDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setToDelete(null)
-        }}
+        {...suppression.dialogProps}
         entityLabel={
           toDelete?.kind === 'batiment'
             ? `le bâtiment « ${toDelete.item.nom} »`
@@ -316,8 +292,6 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
             ? `Cette suppression est définitive. ${cascadeWarn}`
             : 'Cette suppression est définitive.'
         }
-        loading={del.isPending}
-        onConfirm={confirmDelete}
       />
     </>
   )
@@ -325,21 +299,8 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   // Actions (modifier / supprimer) d'une ligne, réservées au rôle métier.
   // La suppression d'un conteneur non vide reste arbitrée par la confirmation
   // (`deleteBlocked`) → l'action figure toujours dans le menu, comme avant.
-  const rowActions = (
-    onEdit: () => void,
-    onDelete: () => void,
-  ): RowAction[] | undefined =>
-    canEdit
-      ? [
-          { label: 'Modifier', icon: Pencil, onSelect: onEdit },
-          {
-            label: 'Supprimer',
-            icon: Trash2,
-            destructive: true,
-            onSelect: onDelete,
-          },
-        ]
-      : undefined
+  const rowActions = (onModifier: () => void, onSupprimer: () => void) =>
+    canEdit ? actionsEditionSuppression({ onModifier, onSupprimer }) : undefined
 
   let content: ReactNode
   if (niveau) {
@@ -384,8 +345,8 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                     .join(' · ') || undefined
                 }
                 menuActions={rowActions(
-                  () => setLocForm({ open: true, local: l }),
-                  () => setToDelete({ kind: 'local', item: l }),
+                  () => locDialog.openEdit(l),
+                  () => suppression.demander({ kind: 'local', item: l }),
                 )}
               />
             ))}
@@ -430,8 +391,8 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                 mobileMeta={surfaceLabel(surfaceNiveau.get(n.id))}
                 onClick={() => goToNiveau(n)}
                 menuActions={rowActions(
-                  () => setNivForm({ open: true, niveau: n }),
-                  () => setToDelete({ kind: 'niveau', item: n }),
+                  () => nivDialog.openEdit(n),
+                  () => suppression.demander({ kind: 'niveau', item: n }),
                 )}
               />
             ))}
@@ -476,8 +437,8 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                 mobileMeta={surfaceLabel(surfaceBatiment.get(b.id))}
                 onClick={() => goToBatiment(b)}
                 menuActions={rowActions(
-                  () => setBatForm({ open: true, batiment: b }),
-                  () => setToDelete({ kind: 'batiment', item: b }),
+                  () => batDialog.openEdit(b),
+                  () => suppression.demander({ kind: 'batiment', item: b }),
                 )}
               />
             ))}
@@ -491,10 +452,8 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   // Sites/Documents : seul le corps défile, le PageHeader reste en place.
   return (
     <>
-      <div className="shrink-0 px-4 pt-6 sm:px-6 lg:px-8">{header}</div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
-        {content}
-      </div>
+      <FillHeader>{header}</FillHeader>
+      <ScrollBody>{content}</ScrollBody>
       {dialogs}
     </>
   )

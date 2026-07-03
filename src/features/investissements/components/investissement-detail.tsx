@@ -12,7 +12,8 @@ import { useChangeStatutCapex } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
 import { MIME_PDF } from '@/features/documents/upload'
-import { useFileDrop } from '@/hooks/use-file-drop'
+import { useUploadDrop } from '@/hooks/use-upload-drop'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
@@ -38,11 +39,10 @@ export function InvestissementDetail({
   canManage: boolean
 }) {
   const navigate = useNavigate()
-  const [edit, setEdit] = useState(false)
+  const edit = useEntityDialog<Investissement>()
   const [refuserOpen, setRefuserOpen] = useState(false)
-  const [uploadOpen, setUploadOpen] = useState(false)
-  // Fichiers issus d'un glisser-déposer sur la page → pré-remplis dans le dialogue.
-  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
+  // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
+  const upload = useUploadDrop({ enabled: canManage })
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const change = useChangeStatutCapex()
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
@@ -54,25 +54,6 @@ export function InvestissementDetail({
   // l'investissement n'est pas déjà refusé. « Réactiver » fait l'inverse.
   const canRefuser = canManage && inv.statut_capex_id !== ID_REFUSE
   const canReactiver = canManage && inv.statut_capex_id === ID_REFUSE
-
-  // Ouverture manuelle (bouton top bar) : aucun fichier pré-rempli.
-  const openUploadEmpty = () => {
-    setDroppedFiles([])
-    setUploadOpen(true)
-  }
-  // Fermeture : on oublie les fichiers déposés pour repartir propre au coup suivant.
-  const handleUploadOpenChange = (open: boolean) => {
-    setUploadOpen(open)
-    if (!open) setDroppedFiles([])
-  }
-  // Glisser-déposer sur TOUTE la page (réservé aux rôles pouvant rattacher).
-  const { dragging } = useFileDrop({
-    enabled: canManage,
-    onFiles: (files) => {
-      setDroppedFiles(files)
-      setUploadOpen(true)
-    },
-  })
 
   function changeStatut(statutId: number) {
     if (statutId === inv.statut_capex_id) return
@@ -103,13 +84,13 @@ export function InvestissementDetail({
                 icon={<Paperclip />}
                 label="Rattacher un document"
                 variant="outline"
-                onClick={openUploadEmpty}
+                onClick={upload.openUploadEmpty}
               />
               <TooltipIconButton
                 icon={<Pencil />}
                 label="Modifier l'investissement"
                 variant="outline"
-                onClick={() => setEdit(true)}
+                onClick={() => edit.openEdit(inv)}
               />
               {canRefuser && (
                 <TooltipIconButton
@@ -196,19 +177,19 @@ export function InvestissementDetail({
           parentColumn="investissement_id"
           parentId={inv.id}
           acceptedMimes={MIME_PDF}
-          uploadOpen={uploadOpen}
-          onUploadOpenChange={handleUploadOpenChange}
-          uploadInitialFiles={droppedFiles}
+          uploadOpen={upload.uploadOpen}
+          onUploadOpenChange={upload.onUploadOpenChange}
+          uploadInitialFiles={upload.droppedFiles}
           uploadDefaultTypeNom="Devis"
         />
-        <FileDropOverlay show={dragging} />
+        <FileDropOverlay show={upload.dragging} />
       </div>
 
       {canManage && (
         <InvestissementFormDialog
-          key={`${inv.id}-${String(edit)}`}
-          open={edit}
-          onOpenChange={setEdit}
+          key={edit.dialogKey}
+          open={edit.open}
+          onOpenChange={edit.onOpenChange}
           siteId={siteId}
           investissement={inv}
         />

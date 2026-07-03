@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { siteIdPourPortee } from '@/lib/scope'
 import { modelesDiQueries } from './queries'
 import type { ModeleDiFormValues } from './schemas'
 
@@ -32,7 +33,7 @@ export function useCreateModeleDi() {
         .insert({
           ...modeleDiPayload(values),
           // Commun = site_id NULL ; sinon le site cible.
-          site_id: values.portee === 'entreprise' ? null : siteId,
+          site_id: siteIdPourPortee(values.portee, siteId),
           created_by: createdBy,
         })
         .select()
