@@ -94,6 +94,8 @@ export function ExporterVersSiteDialog({
       onOpenChange={(o) => !pending && onOpenChange(o)}
       title={titre}
       description={resume}
+      // 1 select + note courte → modale compacte (largeur via `size`).
+      size="sm"
       bodyClassName="min-h-0 flex-1 overflow-y-auto px-6 py-1"
       footer={
         <>

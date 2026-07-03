@@ -15,7 +15,7 @@ import { FormDialog } from '@/components/common/form-dialog'
 import { FileDropField } from '@/components/common/file-drop-field'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { Button } from '@/components/ui/button'
 
 interface UploadDocumentDialogProps {
@@ -233,7 +233,7 @@ export function UploadDocumentDialog({
       pendingLabel="Envoi…"
       pending={pending}
       submitDisabled={items.length === 0}
-      contentClassName="sm:max-w-2xl"
+      size="lg"
     >
       <div className="grid gap-2">
         <Label htmlFor="document-fichier">Fichiers *</Label>
@@ -277,19 +277,17 @@ export function UploadDocumentDialog({
               </div>
               {/* Ligne 2 : type (s'étire) + taille à droite (alignée sous la croix). */}
               <div className="flex items-center gap-2.5">
-                <Select
-                  aria-label={`Type de ${item.file.name}`}
+                <SelectDropdown
+                  ariaLabel={`Type de ${item.file.name}`}
                   value={typeEffectif(item)}
-                  onChange={(e) => changerType(item.key, e.target.value)}
+                  onValueChange={(v) => changerType(item.key, v)}
+                  options={types.map((t) => ({
+                    value: String(t.id),
+                    label: t.nom,
+                  }))}
+                  placeholder="Type…"
                   className="min-w-0 flex-1"
-                >
-                  <option value="">Type…</option>
-                  {types.map((t) => (
-                    <option key={t.id} value={String(t.id)}>
-                      {t.nom}
-                    </option>
-                  ))}
-                </Select>
+                />
                 <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                   {formatTaille(item.file.size)}
                 </span>

@@ -1,9 +1,12 @@
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { batimentSchema, emptyBatiment } from '../schemas'
 import type { BatimentFormValues } from '../schemas'
 import { useCreateBatiment, useUpdateBatiment } from '../mutations'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { IdentiteFields } from '@/components/common/identite-fields'
+import { IdentiteFields } from '@/components/common/fields/identite-fields'
 import type { Database } from '@/lib/database.types'
 
 type Batiment = Database['public']['Tables']['batiments']['Row']
@@ -35,9 +38,11 @@ export function BatimentFormDialog({
   const isEdit = Boolean(batiment)
   const create = useCreateBatiment()
   const update = useUpdateBatiment()
-  const form = useFormDialog({
-    schema: batimentSchema,
-    initialValues: () => initialValues(batiment),
+  const form = useForm<BatimentFormValues>({
+    resolver: zodResolver(batimentSchema),
+    defaultValues: initialValues(batiment),
+  })
+  const submit = useSubmitDialog<BatimentFormValues>({
     onSubmit: (data) =>
       batiment
         ? update.mutateAsync({ id: batiment.id, values: data })
@@ -47,34 +52,24 @@ export function BatimentFormDialog({
   })
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le bâtiment' : 'Nouveau bâtiment'}
-      description="Un bâtiment du site, qui regroupe des niveaux."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      <IdentiteFields
-        nom={{
-          value: form.values.nom,
-          onChange: (v) => form.set('nom', v),
-          error: form.errors.nom,
-        }}
-        description={{
-          value: form.values.description,
-          onChange: (v) => form.set('description', v),
-          error: form.errors.description,
-        }}
-        image={{
-          value: form.values.miniature_id,
-          onChange: (id) => form.set('miniature_id', id),
-          targetSiteId: siteId,
-          canUpload: true,
-        }}
-      />
-    </FormDialog>
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={isEdit ? 'Modifier le bâtiment' : 'Nouveau bâtiment'}
+        description="Un bâtiment du site, qui regroupe des niveaux."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+      >
+        <IdentiteFields
+          control={form.control}
+          nomName="nom"
+          descriptionName="description"
+          image={{ name: 'miniature_id', targetSiteId: siteId, canUpload: true }}
+        />
+      </FormDialog>
+    </Form>
   )
 }

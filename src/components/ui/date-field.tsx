@@ -15,9 +15,13 @@ interface DateFieldProps {
   value: string
   onValueChange: (value: string) => void
   disabled?: boolean
-  /** Largeur / hauteur du déclencheur (ex. `h-8 w-[7.25rem]`). */
+  /** Largeur / hauteur du déclencheur (ex. `h-8 w-[7.25rem]`, `w-full`). */
   className?: string
   ariaLabel?: string
+  /** Mois/année en menus déroulants (défaut) ou libellé simple + flèches. */
+  captionLayout?: 'label' | 'dropdown'
+  /** Texte du déclencheur quand aucune date (défaut `jj/mm/aaaa`). */
+  placeholder?: string
 }
 
 // `YYYY-MM-DD` ⇄ Date (locale, sans décalage de fuseau).
@@ -33,11 +37,18 @@ function toIsoDate(date: Date): string {
   return `${y}-${mo}-${d}`
 }
 
+// Bornes du sélecteur d'année (menus déroulants) : large fourchette couvrant
+// dates anciennes … échéances futures.
+const AN_DEBUT = new Date(1950, 0, 1)
+const AN_FIN = new Date(new Date().getFullYear() + 20, 11, 31)
+
 /**
- * Champ DATE : déclencheur stylé (cadre `Input`, date formatée fr) ouvrant un
- * `Popover` qui contient le `Calendar` shadcn (react-day-picker). Pied avec
- * « Effacer » et « Aujourd'hui » (comme le picker natif). La valeur reste au
- * format `YYYY-MM-DD`.
+ * Champ DATE « à la française » : déclencheur stylé (cadre `Input`, date en
+ * `jj/mm/aaaa`) ouvrant un `Popover` avec le `Calendar` shadcn (react-day-picker,
+ * locale fr → **lundi en premier**). Caption en menus déroulants mois/année par
+ * défaut. Pied « Effacer » / « Aujourd'hui ». La valeur reste au format ISO
+ * `YYYY-MM-DD`. Pour un formulaire react-hook-form, utiliser la brique
+ * `@/components/common/fields/date-field` (label + erreur) qui l'enveloppe.
  */
 export function DateField({
   value,
@@ -45,35 +56,43 @@ export function DateField({
   disabled,
   className,
   ariaLabel,
+  captionLayout = 'dropdown',
+  placeholder = 'jj/mm/aaaa',
 }: DateFieldProps) {
   const [open, setOpen] = useState(false)
   const selected = parseIsoDate(value)
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    // `modal` : le popover est portalisé ; sans lui, à l'intérieur d'une modale
+    // Dialog, cliquer un jour est vu comme un « clic extérieur » et FERME la
+    // modale. En modal, Radix reconnaît le calendrier comme couche intérieure.
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <button
           type="button"
           disabled={disabled}
           aria-label={ariaLabel}
           className={cn(
-            'border-input bg-background flex h-9 items-center justify-between gap-1.5 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none',
+            'border-input bg-background flex h-9 items-center justify-between gap-1.5 rounded-md border px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none',
             'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
             'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
             className,
           )}
         >
           <span className={cn('truncate', !selected && 'text-muted-foreground')}>
-            {selected ? selected.toLocaleDateString('fr-FR') : 'jj/mm/aaaa'}
+            {selected ? selected.toLocaleDateString('fr-FR') : placeholder}
           </span>
           <CalendarDays className="text-muted-foreground size-4 shrink-0" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start">
+      <PopoverContent align="start" className="w-auto overflow-hidden p-0">
         <Calendar
           mode="single"
           selected={selected}
           defaultMonth={selected}
+          captionLayout={captionLayout}
+          startMonth={AN_DEBUT}
+          endMonth={AN_FIN}
           onSelect={(d) => {
             if (d) {
               onValueChange(toIsoDate(d))

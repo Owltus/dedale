@@ -1,19 +1,18 @@
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { emptyGammeBiblio, gammeBiblioSchema, gammeNatures } from '../schemas'
+import { emptyGammeBiblio, gammeBiblioSchema } from '../schemas'
 import type { GammeBiblioFormValues } from '../schemas'
 import { useCreateGammeBiblio, useUpdateGammeBiblio } from '../mutations'
 import { referentielsQueries, type GammeBiblioRow } from '../queries'
 import { useAuth } from '@/auth'
 import { writeErrorMessage, type SqlstateOverrides } from '@/lib/form'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { IdentiteFields } from '@/components/common/identite-fields'
-import { SelectField } from '@/components/common/select-field'
-
-const NATURE_LABEL: Record<(typeof gammeNatures)[number], string> = {
-  controle_reglementaire: 'Contrôle réglementaire',
-  maintenance_preventive: 'Maintenance préventive',
-}
+import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { RadioField } from '@/components/common/fields/radio-field'
+import { SelectField } from '@/components/common/fields/select-field'
 
 /**
  * Libellés d'erreur propres à la création/édition d'une gamme-template commune —
@@ -92,9 +91,11 @@ export function GammeBiblioFormDialog({
   const { data: periodicites = [] } = useQuery(
     referentielsQueries.periodicites(),
   )
-  const form = useFormDialog({
-    schema: gammeBiblioSchema,
-    initialValues: () => initialValues(gamme, lockedCategorieId),
+  const form = useForm<GammeBiblioFormValues>({
+    resolver: zodResolver(gammeBiblioSchema),
+    defaultValues: initialValues(gamme, lockedCategorieId),
+  })
+  const submit = useSubmitDialog<GammeBiblioFormValues>({
     onSubmit: async (data) => {
       if (gamme) {
         // Commun : `siteId` NULL (la portée du payload reste entreprise).
@@ -113,82 +114,65 @@ export function GammeBiblioFormDialog({
     errorMessage: (e) => writeErrorMessage(e, GAMME_BIBLIO_ERREURS),
   })
 
+  const periodiciteOptions = [
+    { value: '', label: '— Choisir une périodicité —' },
+    ...periodicites.map((p) => ({ value: String(p.id), label: p.libelle })),
+  ]
+  const categorieOptions = [
+    { value: '', label: '— Choisir une catégorie —' },
+    ...categories.map((c) => ({ value: c.id, label: c.nom })),
+  ]
+
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier la gamme-template' : 'Nouvelle gamme-template'}
-      description="Un gabarit commun réutilisable, rangé dans l’arborescence des catégories."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      <IdentiteFields
-        nom={{
-          value: form.values.nom,
-          onChange: (v) => form.set('nom', v),
-          error: form.errors.nom,
-        }}
-        description={{
-          value: form.values.description,
-          onChange: (v) => form.set('description', v),
-          error: form.errors.description,
-        }}
-        image={{
-          value: form.values.miniature_id,
-          onChange: (id) => form.set('miniature_id', id),
-          targetSiteId: null,
-          canUpload: true,
-        }}
-      />
-
-      <SelectField
-        label="Nature"
-        required
-        id="gamme_biblio_nature"
-        value={form.values.nature}
-        onChange={(v) => form.set('nature', v as GammeBiblioFormValues['nature'])}
-        error={form.errors.nature}
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={isEdit ? 'Modifier la gamme-template' : 'Nouvelle gamme-template'}
+        description="Un gabarit commun réutilisable, rangé dans l’arborescence des catégories."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
       >
-        {gammeNatures.map((n) => (
-          <option key={n} value={n}>
-            {NATURE_LABEL[n]}
-          </option>
-        ))}
-      </SelectField>
+        <IdentiteFields
+          control={form.control}
+          nomName="nom"
+          descriptionName="description"
+          image={{ name: 'miniature_id', targetSiteId: null, canUpload: true }}
+        />
 
-      <SelectField
-        label="Périodicité"
-        required
-        id="gamme_biblio_periodicite"
-        value={form.values.periodicite_id}
-        onChange={(v) => form.set('periodicite_id', v)}
-        error={form.errors.periodicite_id}
-      >
-        <option value="">— Choisir une périodicité —</option>
-        {periodicites.map((p) => (
-          <option key={p.id} value={String(p.id)}>
-            {p.libelle}
-          </option>
-        ))}
-      </SelectField>
+        <RadioField
+          control={form.control}
+          name="nature"
+          label="Nature"
+          required
+          options={[
+            {
+              value: 'controle_reglementaire',
+              label: 'Contrôle réglementaire',
+              description: 'Attend des documents justificatifs.',
+            },
+            { value: 'maintenance_preventive', label: 'Maintenance préventive' },
+          ]}
+        />
 
-      <SelectField
-        label="Catégorie"
-        required
-        id="gamme_biblio_categorie"
-        value={form.values.categorie_id}
-        onChange={(v) => form.set('categorie_id', v)}
-        error={form.errors.categorie_id}
-      >
-        <option value="">— Choisir une catégorie —</option>
-        {categories.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.nom}
-          </option>
-        ))}
-      </SelectField>
-    </FormDialog>
+        <SelectField
+          control={form.control}
+          name="periodicite_id"
+          label="Périodicité"
+          required
+          options={periodiciteOptions}
+        />
+
+        <SelectField
+          control={form.control}
+          name="categorie_id"
+          label="Catégorie"
+          required
+          options={categorieOptions}
+        />
+      </FormDialog>
+    </Form>
   )
 }

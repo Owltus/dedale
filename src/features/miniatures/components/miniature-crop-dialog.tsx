@@ -3,14 +3,7 @@ import { ZoomIn, ZoomOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { canvasToWebp, sha256Hex } from '@/lib/image'
 import { errorMessage } from '@/lib/form'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { DialogShell } from '@/components/common/dialog-shell'
 import { Button } from '@/components/ui/button'
 
 const MAX_ZOOM = 4
@@ -241,85 +234,20 @@ export function MiniatureCropDialog({
   const busy = pending || encoding
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Recadrer la vignette</DialogTitle>
-          <DialogDescription>
-            Glisse pour déplacer, molette ou curseur pour zoomer. Le carré
-            visible devient une image de 150&nbsp;px.
-          </DialogDescription>
-        </DialogHeader>
-
-        {note !== undefined && (
-          <div className="bg-muted/60 text-muted-foreground rounded-md border px-3 py-2 text-xs">
-            {note}
-          </div>
-        )}
-
-        <div
-          ref={containerRef}
-          className="bg-muted relative mx-auto aspect-square w-full max-w-80 cursor-grab touch-none overflow-hidden rounded-lg border"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        >
-          {url !== null && (
-            <img
-              ref={imgRef}
-              src={url}
-              alt=""
-              draggable={false}
-              onLoad={recenter}
-              onError={() => {
-                toast.error("Format d'image non reconnu.")
-                onOpenChange(false)
-              }}
-              className="pointer-events-none absolute top-0 left-0 max-w-none select-none"
-              style={{
-                transform,
-                transformOrigin: 'top left',
-                visibility: ready ? 'visible' : 'hidden',
-              }}
-            />
-          )}
-
-          {/* Repères de cadrage (règle des tiers). Lignes blanches : repères
-              d'image standard, indépendants du thème (exception assumée aux
-              tokens, comme les croppers de photo de profil). */}
-          {ready && (
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute top-1/3 right-0 left-0 border-t border-white/30" />
-              <div className="absolute top-2/3 right-0 left-0 border-t border-white/30" />
-              <div className="absolute top-0 bottom-0 left-1/3 border-l border-white/30" />
-              <div className="absolute top-0 bottom-0 left-2/3 border-l border-white/30" />
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3 px-1">
-          <ZoomOut className="text-muted-foreground size-4 shrink-0" />
-          <input
-            type="range"
-            min={1}
-            max={MAX_ZOOM}
-            step={0.01}
-            value={view.s}
-            onChange={(e) => {
-              const val = Number(e.target.value)
-              setView((prev) =>
-                geom !== null ? applyZoom(prev, val, geom) : prev,
-              )
-            }}
-            className="accent-primary w-full"
-            aria-label="Zoom"
-            disabled={!ready}
-          />
-          <ZoomIn className="text-muted-foreground size-4 shrink-0" />
-        </div>
-
-        <DialogFooter>
+    <DialogShell
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Recadrer la vignette"
+      description={
+        <>
+          Glisse pour déplacer, molette ou curseur pour zoomer. Le carré
+          visible devient une image de 150&nbsp;px.
+        </>
+      }
+      size="sm"
+      footerSeparator
+      footer={
+        <>
           <Button
             type="button"
             variant="outline"
@@ -335,8 +263,76 @@ export function MiniatureCropDialog({
           >
             {busy ? 'Traitement…' : 'Valider'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      {note !== undefined && (
+        <div className="bg-muted/60 text-muted-foreground rounded-md border px-3 py-2 text-xs">
+          {note}
+        </div>
+      )}
+
+      <div
+        ref={containerRef}
+        className="bg-muted relative mx-auto aspect-square w-full max-w-80 cursor-grab touch-none overflow-hidden rounded-lg border"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        {url !== null && (
+          <img
+            ref={imgRef}
+            src={url}
+            alt=""
+            draggable={false}
+            onLoad={recenter}
+            onError={() => {
+              toast.error("Format d'image non reconnu.")
+              onOpenChange(false)
+            }}
+            className="pointer-events-none absolute top-0 left-0 max-w-none select-none"
+            style={{
+              transform,
+              transformOrigin: 'top left',
+              visibility: ready ? 'visible' : 'hidden',
+            }}
+          />
+        )}
+
+        {/* Repères de cadrage (règle des tiers). Lignes blanches : repères
+            d'image standard, indépendants du thème (exception assumée aux
+            tokens, comme les croppers de photo de profil). */}
+        {ready && (
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute top-1/3 right-0 left-0 border-t border-white/30" />
+            <div className="absolute top-2/3 right-0 left-0 border-t border-white/30" />
+            <div className="absolute top-0 bottom-0 left-1/3 border-l border-white/30" />
+            <div className="absolute top-0 bottom-0 left-2/3 border-l border-white/30" />
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3 px-1">
+        <ZoomOut className="text-muted-foreground size-4 shrink-0" />
+        <input
+          type="range"
+          min={1}
+          max={MAX_ZOOM}
+          step={0.01}
+          value={view.s}
+          onChange={(e) => {
+            const val = Number(e.target.value)
+            setView((prev) =>
+              geom !== null ? applyZoom(prev, val, geom) : prev,
+            )
+          }}
+          className="accent-primary w-full"
+          aria-label="Zoom"
+          disabled={!ready}
+        />
+        <ZoomIn className="text-muted-foreground size-4 shrink-0" />
+      </div>
+    </DialogShell>
   )
 }

@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { emptyGamme, gammeSchema } from '../schemas'
 import type { GammeFormValues } from '../schemas'
@@ -8,11 +10,13 @@ import type { SousCategorieGamme } from '../queries'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import { useAuth } from '@/auth'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { IdentiteFields } from '@/components/common/identite-fields'
-import { SelectField } from '@/components/common/select-field'
-import { SwitchField } from '@/components/common/switch-field'
+import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { RadioField } from '@/components/common/fields/radio-field'
+import { SelectField } from '@/components/common/fields/select-field'
+import { SwitchField } from '@/components/common/fields/switch-field'
 import type { Database } from '@/lib/database.types'
 
 type Gamme = Database['public']['Tables']['gammes']['Row']
@@ -97,9 +101,11 @@ export function GammeFormDialog({
     () => sousCategoriesQuery.data ?? [],
     [sousCategoriesQuery.data],
   )
-  const form = useFormDialog({
-    schema: gammeSchema,
-    initialValues: () => initialValues(gamme, presetCategorieId),
+  const form = useForm<GammeFormValues>({
+    resolver: zodResolver(gammeSchema),
+    defaultValues: initialValues(gamme, presetCategorieId),
+  })
+  const submit = useSubmitDialog<GammeFormValues>({
     onSubmit: async (data) => {
       if (gamme) {
         await update.mutateAsync({ id: gamme.id, values: data })
@@ -133,138 +139,126 @@ export function GammeFormDialog({
     !sousCategoriesQuery.isPending && sousCategories.length === 0
   const aucuneOption = aucuneSousCategorie && !assignedMissing
 
-  // Sous-catégories regroupées par catégorie racine (affichage en `<optgroup>`).
+  // Sous-catégories regroupées par catégorie racine. Le Select thémé ne gère pas
+  // les `<optgroup>` → on aplatit en préfixant le libellé par le domaine parent
+  // (`Domaine › Sous-catégorie`) pour conserver le regroupement et lever les
+  // homonymes entre domaines.
   const groupedSousCategories = useMemo(
     () => groupByParent(sousCategories),
     [sousCategories],
   )
 
+  const periodiciteOptions = [
+    { value: '', label: '— Choisir une périodicité —' },
+    ...periodicites.map((p) => ({ value: String(p.id), label: p.libelle })),
+  ]
+  const prestataireOptions = [
+    { value: '', label: '— Choisir un prestataire —' },
+    ...prestataires.map((p) => ({ value: p.id, label: p.libelle })),
+  ]
+  const categorieOptions = [
+    { value: '', label: '— Choisir une sous-catégorie —' },
+    ...(assignedMissing && assignedId
+      ? [
+          {
+            value: assignedId,
+            label: `${assignedCategorie?.nom ?? 'Sous-catégorie actuelle'} (actuelle)`,
+          },
+        ]
+      : []),
+    ...groupedSousCategories.flatMap((group) =>
+      group.subs.map((sc) => ({
+        value: sc.id,
+        label: `${group.parentNom} › ${sc.nom}`,
+      })),
+    ),
+  ]
+
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier la gamme' : 'Nouvelle gamme'}
-      description="Renseigne la nature, la périodicité (semaines ISO) et le prestataire par défaut."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-      submitDisabled={aucuneOption}
-    >
-      <IdentiteFields
-        nom={{
-          value: form.values.nom,
-          onChange: (v) => form.set('nom', v),
-          error: form.errors.nom,
-        }}
-        description={{
-          value: form.values.description,
-          onChange: (v) => form.set('description', v),
-          error: form.errors.description,
-        }}
-        image={{
-          value: form.values.miniature_id,
-          onChange: (id) => form.set('miniature_id', id),
-          // Périmètre = le site de la gamme : le pool propose les vignettes
-          // communes + celles de ce site (le trigger backend le garantit).
-          targetSiteId: siteId,
-          canUpload: true,
-        }}
-      />
-
-      <SwitchField
-        label="Contrôle réglementaire"
-        description="Attend des documents justificatifs."
-        id="gamme_nature"
-        checked={form.values.nature === 'controle_reglementaire'}
-        onChange={(reglementaire) =>
-          form.set(
-            'nature',
-            reglementaire ? 'controle_reglementaire' : 'maintenance_preventive',
-          )
-        }
-      />
-
-      {isEdit && (
-        <SwitchField
-          label="Gamme active"
-          description="Une gamme inactive ne génère plus d’ordres de travail."
-          id="gamme_active"
-          checked={form.values.est_active}
-          onChange={(actif) => form.set('est_active', actif)}
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={isEdit ? 'Modifier la gamme' : 'Nouvelle gamme'}
+        description="Renseigne la nature, la périodicité (semaines ISO) et le prestataire par défaut."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+        submitDisabled={aucuneOption}
+      >
+        <IdentiteFields
+          control={form.control}
+          nomName="nom"
+          descriptionName="description"
+          image={{ name: 'miniature_id', targetSiteId: siteId, canUpload: true }}
         />
-      )}
 
-      <SelectField
-        label="Périodicité"
-        required
-        id="gamme_periodicite"
-        value={form.values.periodicite_id}
-        onChange={(v) => form.set('periodicite_id', v)}
-        error={form.errors.periodicite_id}
-      >
-        <option value="">— Choisir une périodicité —</option>
-        {periodicites.map((p) => (
-          <option key={p.id} value={String(p.id)}>
-            {p.libelle}
-          </option>
-        ))}
-      </SelectField>
-
-      <SelectField
-        label="Prestataire par défaut"
-        required
-        id="gamme_prestataire"
-        value={form.values.prestataire_id}
-        onChange={(v) => form.set('prestataire_id', v)}
-        error={form.errors.prestataire_id}
-      >
-        <option value="">— Choisir un prestataire —</option>
-        {prestataires.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.libelle}
-          </option>
-        ))}
-      </SelectField>
-
-      <div className="grid gap-2">
-        <SelectField
-          label="Sous-catégorie"
+        <RadioField
+          control={form.control}
+          name="nature"
+          label="Nature"
           required
-          id="gamme_categorie"
-          value={form.values.categorie_id}
-          onChange={(v) => form.set('categorie_id', v)}
-          error={form.errors.categorie_id}
-          hint={
-            isEdit && !aucuneSousCategorie
-              ? 'Choisir une autre sous-catégorie déplace la gamme.'
-              : undefined
-          }
-        >
-          <option value="">— Choisir une sous-catégorie —</option>
-          {assignedMissing && (
-            <option value={assignedId}>
-              {assignedCategorie?.nom ?? 'Sous-catégorie actuelle'} (actuelle)
-            </option>
-          )}
-          {groupedSousCategories.map((group) => (
-            <optgroup key={group.parentId} label={group.parentNom}>
-              {group.subs.map((sc) => (
-                <option key={sc.id} value={sc.id}>
-                  {sc.nom}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </SelectField>
-        {aucuneSousCategorie && (
-          <p className="text-muted-foreground text-sm">
-            Aucune sous-catégorie de gamme dans ce périmètre. Pour en créer,
-            passe par <span className="font-medium">Bibliothèque › Plan de maintenance</span>
-            .
-          </p>
+          options={[
+            {
+              value: 'controle_reglementaire',
+              label: 'Contrôle réglementaire',
+              description: 'Attend des documents justificatifs.',
+            },
+            { value: 'maintenance_preventive', label: 'Maintenance préventive' },
+          ]}
+        />
+
+        {isEdit && (
+          <SwitchField
+            control={form.control}
+            name="est_active"
+            label="Gamme active"
+            description="Une gamme inactive ne génère plus d’ordres de travail."
+          />
         )}
-      </div>
-    </FormDialog>
+
+        <SelectField
+          control={form.control}
+          name="periodicite_id"
+          label="Périodicité"
+          required
+          options={periodiciteOptions}
+        />
+
+        <SelectField
+          control={form.control}
+          name="prestataire_id"
+          label="Prestataire par défaut"
+          required
+          options={prestataireOptions}
+        />
+
+        <div className="grid gap-2">
+          <SelectField
+            control={form.control}
+            name="categorie_id"
+            label="Sous-catégorie"
+            required
+            options={categorieOptions}
+            hint={
+              isEdit && !aucuneSousCategorie
+                ? 'Choisir une autre sous-catégorie déplace la gamme.'
+                : undefined
+            }
+          />
+          {aucuneSousCategorie && (
+            <p className="text-muted-foreground text-sm">
+              Aucune sous-catégorie de gamme dans ce périmètre. Pour en créer,
+              passe par{' '}
+              <span className="font-medium">
+                Bibliothèque › Plan de maintenance
+              </span>
+              .
+            </p>
+          )}
+        </div>
+      </FormDialog>
+    </Form>
   )
 }

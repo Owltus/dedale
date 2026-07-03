@@ -4,13 +4,7 @@ import {
   Sunburst,
   type SunburstNode,
 } from '@/components/common/charts/sunburst'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { DialogShell } from '@/components/common/dialog-shell'
 import { statutAffichageGamme } from '@/features/gammes/statut-affichage'
 import type { StatutAffichage } from '@/features/ordres-travail/statut-affichage'
 import type { PlanningOt } from '@/features/planning/grille'
@@ -326,23 +320,20 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
         />
       </div>
 
-      <Dialog open={pleinEcran} onOpenChange={setPleinEcran}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Complétion des gammes</DialogTitle>
-            <DialogDescription>
-              Une couleur pleine par domaine, reprise par ses familles et
-              gammes. Sur l'anneau extérieur : gammes inactives estompées,
-              contrôles réglementaires hachurés, retards qui clignotent.
-            </DialogDescription>
-          </DialogHeader>
-          <Sunburst
-            noeuds={noeuds}
-            centre={centre}
-            className="mx-auto w-full max-w-xl"
-          />
-        </DialogContent>
-      </Dialog>
+      <DialogShell
+        open={pleinEcran}
+        onOpenChange={setPleinEcran}
+        title="Complétion des gammes"
+        description="Une couleur pleine par domaine, reprise par ses familles et gammes. Sur l'anneau extérieur : gammes inactives estompées, contrôles réglementaires hachurés, retards qui clignotent."
+        // Aperçu large (largeur normalisée via `size`, jamais un contentClassName de largeur).
+        size="xl"
+      >
+        <Sunburst
+          noeuds={noeuds}
+          centre={centre}
+          className="mx-auto w-full max-w-xl"
+        />
+      </DialogShell>
     </DashboardCard>
   )
 }

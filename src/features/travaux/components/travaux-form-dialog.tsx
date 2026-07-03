@@ -1,10 +1,14 @@
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { travauxSchema, emptyTravaux } from '../schemas'
+import type { TravauxFormValues } from '../schemas'
 import { useCreateTravaux, useUpdateTravaux } from '../mutations'
 import { useAuth } from '@/auth'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { DescriptionField } from '@/components/common/description-field'
+import { TextField } from '@/components/common/fields/text-field'
+import { DescriptionField } from '@/components/common/fields/description-field'
 import type { Database } from '@/lib/database.types'
 
 type Travaux = Database['public']['Tables']['interventions_travaux']['Row']
@@ -21,6 +25,11 @@ interface TravauxFormDialogProps {
   onCreated?: (travaux: Travaux) => void
 }
 
+function initialValues(travaux: Travaux | null | undefined): TravauxFormValues {
+  if (!travaux) return emptyTravaux()
+  return { titre: travaux.titre, description: travaux.description ?? '' }
+}
+
 export function TravauxFormDialog({
   open,
   onOpenChange,
@@ -33,13 +42,12 @@ export function TravauxFormDialog({
   const create = useCreateTravaux()
   const update = useUpdateTravaux()
 
-  const form = useFormDialog({
-    schema: travauxSchema,
-    initialValues: () =>
-      travaux
-        ? { titre: travaux.titre, description: travaux.description ?? '' }
-        : emptyTravaux(),
-    onSubmit: async (data): Promise<Travaux | null> => {
+  const form = useForm<TravauxFormValues>({
+    resolver: zodResolver(travauxSchema),
+    defaultValues: initialValues(travaux),
+  })
+  const submit = useSubmitDialog<TravauxFormValues, Travaux | null>({
+    onSubmit: async (data) => {
       if (travaux) {
         await update.mutateAsync({ id: travaux.id, values: data })
         return null
@@ -60,28 +68,20 @@ export function TravauxFormDialog({
   })
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le travaux' : 'Nouveau travaux'}
-      description="Travaux ponctuels du site. Les tâches s'ajoutent ensuite sur la fiche."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      <TextField
-        label="Titre"
-        value={form.values.titre}
-        onChange={(v) => form.set('titre', v)}
-        error={form.errors.titre}
-        required
-      />
-      <DescriptionField
-        value={form.values.description}
-        onChange={(v) => form.set('description', v)}
-        error={form.errors.description}
-      />
-    </FormDialog>
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={isEdit ? 'Modifier le travaux' : 'Nouveau travaux'}
+        description="Travaux ponctuels du site. Les tâches s'ajoutent ensuite sur la fiche."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+      >
+        <TextField control={form.control} name="titre" label="Titre" required />
+        <DescriptionField control={form.control} name="description" />
+      </FormDialog>
+    </Form>
   )
 }

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { DialogShell } from '@/components/common/dialog-shell'
+import { DialogShell, type DialogSize } from '@/components/common/dialog-shell'
 
 interface FormDialogProps {
   open: boolean
@@ -17,7 +17,11 @@ interface FormDialogProps {
   submitDisabled?: boolean
   submitVariant?: 'default' | 'destructive'
   cancelLabel?: string
-  /** Classe additionnelle sur DialogContent (ex. sm:max-w-2xl). */
+  /** Largeur normalisée (défaut `md`). Préférer à `contentClassName` pour la largeur. */
+  size?: DialogSize
+  /** Filet de séparation au-dessus des actions (défaut true — ancre la barre). */
+  footerSeparator?: boolean
+  /** Classe additionnelle sur DialogContent (ex. hauteur sur mesure). */
   contentClassName?: string
   /** Les champs du formulaire. */
   children: ReactNode
@@ -41,6 +45,8 @@ export function FormDialog({
   submitDisabled = false,
   submitVariant = 'default',
   cancelLabel = 'Annuler',
+  size,
+  footerSeparator = false,
   contentClassName,
   children,
 }: FormDialogProps) {
@@ -50,6 +56,8 @@ export function FormDialog({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
+      size={size}
+      footerSeparator={footerSeparator}
       contentClassName={contentClassName}
       wrap={(inner) => (
         <form

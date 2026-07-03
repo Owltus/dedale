@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useRef } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { demandesQueries } from '../queries'
 import { useUpdateDemande } from '../mutations'
 import { diEditSchema } from '../schemas'
+import type { DiEditFormValues } from '../schemas'
 import { LocalEquipementFields } from '@/features/equipements/components/local-equipement-fields'
 import { LocalSearchSelect } from '@/features/equipements/components/local-search-select'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import * as perm from '@/lib/permissions'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextareaField } from '@/components/common/textarea-field'
+import { TextareaField } from '@/components/common/fields/textarea-field'
 import type { Database } from '@/lib/database.types'
 
 type Demande = Database['public']['Tables']['demandes_intervention']['Row']
@@ -29,7 +33,7 @@ interface DiEditDialogProps {
  *    DELETE/UPDATE) → on ne lui propose pas de les changer (sinon erreur 42501).
  *
  * Remonter ce dialog (via `key`) à chaque ouverture re-amorce le constat ; les
- * liaisons existantes sont pré-remplies une fois chargées (seed au rendu).
+ * liaisons existantes sont pré-remplies une fois chargées (seed au montage).
  */
 export function DiEditDialog({
   open,
@@ -53,13 +57,15 @@ export function DiEditDialog({
     enabled,
   })
 
-  const form = useFormDialog({
-    schema: diEditSchema,
-    initialValues: () => ({
+  const form = useForm<DiEditFormValues>({
+    resolver: zodResolver(diEditSchema),
+    defaultValues: {
       constat: demande?.constat ?? '',
       local_id: '',
       equipement_id: '',
-    }),
+    },
+  })
+  const submit = useSubmitDialog<DiEditFormValues>({
     onSubmit: (data) =>
       update.mutateAsync({
         id: demande!.id,
@@ -73,70 +79,74 @@ export function DiEditDialog({
     close: () => onOpenChange(false),
   })
 
-  // Pré-remplissage des liaisons une fois chargées : pattern officiel « ajuster
-  // l'état pendant le rendu » (état `seeded`, pas un ref) → seed unique. Le `key`
-  // du parent garantit un montage neuf par demande, donc un re-seed à chaque édition.
-  const [seeded, setSeeded] = useState(false)
-  if (canEditLiaisons && !seeded && locQ.isSuccess && eqQ.isSuccess) {
-    setSeeded(true)
-    form.setValues((v) => ({
-      ...v,
-      local_id: locQ.data[0]?.local_id ?? '',
-      equipement_id: eqQ.data[0]?.equipement_id ?? '',
-    }))
-  }
+  // La cascade Localisation → Équipement est pilotée par un composant impératif
+  // (value/onChange) : on lit l'état RHF via `useWatch` et on l'écrit via `setValue`.
+  const localId = useWatch({ control: form.control, name: 'local_id' })
+  const equipementId = useWatch({ control: form.control, name: 'equipement_id' })
+
+  // Pré-remplissage des liaisons une fois chargées (rôles métier seulement) : seed
+  // UNIQUE gardé par `seeded` → ne réécrit jamais une saisie en cours. Le `key` du
+  // parent garantit un montage neuf par demande, donc un re-seed à chaque édition.
+  // En RHF, `setValue` se fait HORS rendu (effet), jamais pendant.
+  const seeded = useRef(false)
+  useEffect(() => {
+    if (canEditLiaisons && !seeded.current && locQ.isSuccess && eqQ.isSuccess) {
+      seeded.current = true
+      form.setValue('local_id', locQ.data[0]?.local_id ?? '')
+      form.setValue('equipement_id', eqQ.data[0]?.equipement_id ?? '')
+    }
+  }, [canEditLiaisons, locQ.isSuccess, eqQ.isSuccess, locQ.data, eqQ.data, form])
 
   if (!demande) return null
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Modifier la demande"
-      onSubmit={() => void form.submit()}
-      submitLabel="Enregistrer"
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      {/* Ordre calqué sur le modal de création : cascade Localisation → Équipement,
-          puis Constat. Cascade réservée aux rôles métier (RLS). */}
-      {canEditLiaisons && (
-        <LocalEquipementFields
-          siteId={siteId}
-          localId={form.values.local_id}
-          equipementId={form.values.equipement_id}
-          onChange={({ localId, equipementId }) =>
-            form.setValues((v) => ({
-              ...v,
-              local_id: localId,
-              equipement_id: equipementId,
-            }))
-          }
-          errors={{
-            local_id: form.errors.local_id,
-            equipement_id: form.errors.equipement_id,
-          }}
-          equipementSelectId="di-edit-equipement"
-          renderLieu={(p) => (
-            <LocalSearchSelect
-              siteId={p.siteId}
-              label="Localisation"
-              value={p.value}
-              onChange={p.onChange}
-            />
-          )}
-        />
-      )}
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Modifier la demande"
+        description="Corrigez le constat et, selon vos droits, la localisation ou l'équipement."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel="Enregistrer"
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+      >
+        {/* Ordre calqué sur le modal de création : cascade Localisation → Équipement,
+            puis Constat. Cascade réservée aux rôles métier (RLS). */}
+        {canEditLiaisons && (
+          <LocalEquipementFields
+            siteId={siteId}
+            localId={localId}
+            equipementId={equipementId}
+            onChange={({ localId, equipementId }) => {
+              form.setValue('local_id', localId)
+              form.setValue('equipement_id', equipementId)
+            }}
+            errors={{
+              local_id: form.formState.errors.local_id?.message,
+              equipement_id: form.formState.errors.equipement_id?.message,
+            }}
+            equipementSelectId="di-edit-equipement"
+            renderLieu={(p) => (
+              <LocalSearchSelect
+                siteId={p.siteId}
+                label="Localisation"
+                value={p.value}
+                onChange={p.onChange}
+              />
+            )}
+          />
+        )}
 
-      <TextareaField
-        id="di-edit-constat"
-        label="Constat"
-        required
-        rows={5}
-        value={form.values.constat}
-        onChange={(v) => form.set('constat', v)}
-        error={form.errors.constat}
-      />
-    </FormDialog>
+        <TextareaField
+          control={form.control}
+          name="constat"
+          label="Constat"
+          required
+          rows={5}
+          placeholder="Ex. éclairage du 2ᵉ étage à remplacer"
+        />
+      </FormDialog>
+    </Form>
   )
 }

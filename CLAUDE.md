@@ -12,7 +12,7 @@ Le front ne fait que **présenter et consommer** l'API. **Règle d'or : le front
 
 ## Stack
 
-Vite + React 19 + TypeScript · **TanStack** Router (routes file-based) · Query · Table · Form + **Zod** · **Tailwind 4** + **shadcn/ui** · `@supabase/supabase-js`. Alias d'import **`@/`** → `src/`.
+Vite + React 19 + TypeScript · **TanStack** Router (routes file-based) · Query · Table · **react-hook-form** + **Zod** (formulaires, via `zodResolver`) · **Tailwind 4** + **shadcn/ui** · `@supabase/supabase-js`. Alias d'import **`@/`** → `src/`.
 
 ## Conventions détaillées — À LIRE selon le sujet (chargement à la demande)
 

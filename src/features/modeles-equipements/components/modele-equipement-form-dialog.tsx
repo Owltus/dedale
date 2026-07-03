@@ -1,3 +1,5 @@
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { emptyModeleEquipement, modeleEquipementSchema } from '../schemas'
 import type { ModeleEquipementFormValues } from '../schemas'
 import {
@@ -6,12 +8,14 @@ import {
 } from '../mutations'
 import type { ModeleEquipement } from '../queries'
 import { parseChamps } from '@/lib/champs'
-import { useFormDialog } from '@/hooks/use-form-dialog'
 import { resolvePorteeScope, type LockedScope } from '@/lib/scope'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { IdentiteFields } from '@/components/common/identite-fields'
-import { SelectField } from '@/components/common/select-field'
-import { PorteeField } from '@/components/common/portee-field'
+import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { SelectField } from '@/components/common/fields/select-field'
+import { RadioField } from '@/components/common/fields/radio-field'
+import { PorteeField } from '@/components/common/fields/portee-field'
 
 interface CategorieOption {
   id: string
@@ -94,10 +98,37 @@ export function ModeleEquipementFormDialog({
   const create = useCreateModeleEquipement()
   const update = useUpdateModeleEquipement()
 
-  const form = useFormDialog({
-    schema: modeleEquipementSchema,
-    initialValues: () =>
-      initialValues(modele, canEntreprise, lockedScope, lockedCategorieId, siteId),
+  const form = useForm<ModeleEquipementFormValues>({
+    resolver: zodResolver(modeleEquipementSchema),
+    defaultValues: initialValues(
+      modele,
+      canEntreprise,
+      lockedScope,
+      lockedCategorieId,
+      siteId,
+    ),
+  })
+
+  // Catégorie / Portée : VISIBLES et éditables en création ET modification (mêmes
+  // champs des deux côtés). À la création, leur valeur par défaut vient du contexte
+  // (catégorie du drill, périmètre du sélecteur de site).
+  // Mode minimal (optionnel) : masque l'État. Les caractéristiques détaillées se
+  // gèrent de toute façon sur la PAGE de détail du modèle.
+  const compact = minimal === true
+  // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
+  // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
+  // pour tout éditeur (calque du formulaire de catégorie).
+  const portee = useWatch({ control: form.control, name: 'portee' })
+  const { showEntreprise, miniatureSite, canUploadMiniature, createSiteId } =
+    resolvePorteeScope({
+      portee,
+      siteId,
+      canEntreprise,
+      lockedScope,
+      isEdit,
+    })
+
+  const submit = useSubmitDialog<ModeleEquipementFormValues>({
     // Les CARACTÉRISTIQUES (`specifications`) ne s'éditent pas ici : la création
     // les écrit vides et l'UPDATE ne les touche jamais (gérées sur la page de
     // détail, un champ à la fois) — voir `modelePayload` (mutations.ts).
@@ -112,93 +143,66 @@ export function ModeleEquipementFormDialog({
     close: () => onOpenChange(false),
   })
 
-  // Catégorie / Portée : VISIBLES et éditables en création ET modification (mêmes
-  // champs des deux côtés). À la création, leur valeur par défaut vient du contexte
-  // (catégorie du drill, périmètre du sélecteur de site).
-  // Mode minimal (optionnel) : masque l'État. Les caractéristiques détaillées se
-  // gèrent de toute façon sur la PAGE de détail du modèle.
-  const compact = minimal === true
-  // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
-  // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
-  // pour tout éditeur (calque du formulaire de catégorie).
-  const { showEntreprise, miniatureSite, canUploadMiniature, createSiteId } =
-    resolvePorteeScope({
-      portee: form.values.portee,
-      siteId,
-      canEntreprise,
-      lockedScope,
-      isEdit,
-    })
+  const categorieOptions = categories.map((c) => ({
+    value: c.id,
+    label: c.nom,
+  }))
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={
-        isEdit ? 'Modifier le modèle d’équipement' : 'Nouveau modèle d’équipement'
-      }
-      description="Un gabarit réutilisable pour instancier rapidement des équipements."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      <IdentiteFields
-        nom={{
-          value: form.values.nom,
-          onChange: (v) => form.set('nom', v),
-          error: form.errors.nom,
-        }}
-        description={{
-          value: form.values.description,
-          onChange: (v) => form.set('description', v),
-          error: form.errors.description,
-        }}
-        image={{
-          value: form.values.miniature_id,
-          onChange: (id) => form.set('miniature_id', id),
-          targetSiteId: miniatureSite,
-          canUpload: canUploadMiniature,
-        }}
-      />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <SelectField
-          label="Catégorie"
-          value={form.values.categorie_id}
-          onChange={(v) => form.set('categorie_id', v)}
-          error={form.errors.categorie_id}
-          required
-        >
-          <option value="" disabled>
-            — Choisir une catégorie —
-          </option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom}
-            </option>
-          ))}
-        </SelectField>
-        <PorteeField
-          value={form.values.portee}
-          onChange={(v) => form.set('portee', v)}
-          error={form.errors.portee}
-          showEntreprise={showEntreprise}
-          siteId={siteId}
-          siteName={siteName}
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={
+          isEdit
+            ? 'Modifier le modèle d’équipement'
+            : 'Nouveau modèle d’équipement'
+        }
+        description="Un gabarit réutilisable pour instancier rapidement des équipements."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+      >
+        <IdentiteFields
+          control={form.control}
+          nomName="nom"
+          descriptionName="description"
+          image={{
+            name: 'miniature_id',
+            targetSiteId: miniatureSite,
+            canUpload: canUploadMiniature,
+          }}
         />
-      </div>
-      {!compact && (
-        <SelectField
-          label="État"
-          value={form.values.etat}
-          onChange={(v) =>
-            form.set('etat', v as ModeleEquipementFormValues['etat'])
-          }
-        >
-          <option value="actif">Actif</option>
-          <option value="inactif">Masqué</option>
-        </SelectField>
-      )}
-    </FormDialog>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SelectField
+            control={form.control}
+            name="categorie_id"
+            label="Catégorie"
+            required
+            placeholder="— Choisir une catégorie —"
+            options={categorieOptions}
+          />
+          <PorteeField
+            control={form.control}
+            name="portee"
+            showEntreprise={showEntreprise}
+            siteId={siteId}
+            siteName={siteName}
+          />
+        </div>
+        {!compact && (
+          <RadioField
+            control={form.control}
+            name="etat"
+            label="État"
+            options={[
+              { value: 'actif', label: 'Actif' },
+              { value: 'inactif', label: 'Masqué' },
+            ]}
+          />
+        )}
+      </FormDialog>
+    </Form>
   )
 }

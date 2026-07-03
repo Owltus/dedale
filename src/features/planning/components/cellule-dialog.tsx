@@ -48,7 +48,9 @@ export function CelluleDialog({
       // `truncate` porté par un bloc interne (le titre reste sur une seule ligne).
       title={<span className="block truncate">{titre}</span>}
       description={description}
-      contentClassName="max-w-md"
+      // Modale étroite : largeur via `size` (un `contentClassName` de largeur est
+      // neutralisé sur desktop par le `sm:max-w-*` par défaut de DialogShell).
+      size="sm"
       // Corps DÉFILANT : seule la liste scrolle (`overflow-x-hidden` en ceinture).
       bodyClassName="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-6 pt-1 pb-6"
     >

@@ -1,14 +1,8 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { useId, useMemo, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DialogShell } from '@/components/common/dialog-shell'
 import { SearchInput } from '@/components/common/search-input'
 
 export interface CheckRowProps {
@@ -24,9 +18,10 @@ export interface CheckRowProps {
 }
 
 /**
- * Rangée COCHABLE : case à cocher + titre/sous-titre tronqués + badge optionnel.
+ * Rangée COCHABLE : `Checkbox` shadcn + titre/sous-titre tronqués + badge optionnel.
  * Sous-brique de `ChecklistDialog`, exportée pour les listes cochables sur mesure
  * (invitations, copie de contenu…) qui ne veulent que la ligne, pas la modale.
+ * Le libellé (lié par `htmlFor`) coche la case ; la case reste focalisable clavier.
  */
 export function CheckRow({
   titre,
@@ -36,25 +31,30 @@ export function CheckRow({
   onToggle,
   disabled,
 }: CheckRowProps) {
+  const id = useId()
   return (
-    <label className="hover:bg-muted/50 flex cursor-pointer items-center gap-3 px-3 py-2 text-sm">
-      <input
-        type="checkbox"
+    <div className="hover:bg-muted/50 flex items-center gap-3 px-3 py-2 text-sm">
+      <Checkbox
+        id={id}
         checked={checked}
-        onChange={onToggle}
+        onCheckedChange={() => onToggle()}
         disabled={disabled}
-        className="size-4"
       />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-medium">{titre}</span>
-        {sousTitre != null && sousTitre !== '' && (
-          <span className="text-muted-foreground truncate text-xs">
-            {sousTitre}
-          </span>
-        )}
-      </span>
-      {badge}
-    </label>
+      <label
+        htmlFor={id}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
+      >
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate font-medium">{titre}</span>
+          {sousTitre != null && sousTitre !== '' && (
+            <span className="text-muted-foreground truncate text-xs">
+              {sousTitre}
+            </span>
+          )}
+        </span>
+        {badge}
+      </label>
+    </div>
   )
 }
 
@@ -105,9 +105,9 @@ interface ChecklistDialogProps {
  * Modale de MULTI-SÉLECTION cochable avec recherche : en-tête, champ de recherche,
  * liste bornée défilante (squelette / erreur / vide gérés), pied Annuler +
  * validation compteur. Volontairement SANS `<form>` (« Entrée » dans la recherche
- * ne doit pas valider) — d'où une coquille `Dialog` brute plutôt que `FormDialog`.
- * La sélection et la recherche sont réamorcées à chaque ouverture. Construite sur
- * `SearchInput` + `CheckRow`.
+ * ne doit pas valider) : bâtie sur `DialogShell` (et non `FormDialog`). La sélection
+ * et la recherche sont réamorcées à chaque ouverture. Construite sur `SearchInput`
+ * + `CheckRow`.
  */
 export function ChecklistDialog({
   open,
@@ -211,24 +211,13 @@ export function ChecklistDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description != null && (
-            <DialogDescription>{description}</DialogDescription>
-          )}
-        </DialogHeader>
-
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder={searchPlaceholder}
-        />
-
-        <div className="max-h-72 overflow-y-auto rounded-md border">{corps}</div>
-
-        <DialogFooter>
+    <DialogShell
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={description}
+      footer={
+        <>
           <Button
             type="button"
             variant="outline"
@@ -244,8 +233,17 @@ export function ChecklistDialog({
           >
             {pending ? pendingLabel : submitLabel(selected.size)}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder={searchPlaceholder}
+        // Première action = chercher : focus d'emblée sur le champ de recherche.
+        autoFocus
+      />
+      <div className="max-h-72 overflow-y-auto rounded-md border">{corps}</div>
+    </DialogShell>
   )
 }

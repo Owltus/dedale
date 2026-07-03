@@ -12,15 +12,14 @@ import { filterMiniatures } from '../filters'
 import { writeErrorMessage } from '@/lib/form'
 import { estCommunOuDuSite } from '@/lib/scope'
 import { isBitmapImage } from '@/lib/image'
+import { DialogShell } from '@/components/common/dialog-shell'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 
 type Onglet = 'bibliotheque' | 'uploader'
 
@@ -158,7 +157,7 @@ export function MiniaturePicker({
       )
     } else {
       grille = (
-        <div className="max-h-72 overflow-y-auto pr-1">
+        <div className="pr-1">
           <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
             {shown.map((m) => (
             <button
@@ -202,112 +201,101 @@ export function MiniaturePicker({
     )
   }
 
-  const tabClass = (actif: boolean) =>
-    cn(
-      'flex flex-1 items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
-      actif
-        ? 'bg-background shadow-sm'
-        : 'text-muted-foreground hover:text-foreground',
-    )
-
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Choisir une image</DialogTitle>
-            <DialogDescription>
-              Pioche dans la bibliothèque de vignettes
-              {canUpload ? ' ou téléverse une nouvelle image.' : '.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          {canUpload && (
-            <div className="bg-muted flex gap-1 rounded-md p-1">
-              <button
-                type="button"
-                onClick={() => setOnglet('bibliotheque')}
-                className={tabClass(onglet === 'bibliotheque')}
-              >
+      <DialogShell
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Choisir une image"
+        description={
+          <>
+            Pioche dans la bibliothèque de vignettes
+            {canUpload ? ' ou téléverse une nouvelle image.' : '.'}
+          </>
+        }
+        size="md"
+      >
+        {canUpload ? (
+          <Tabs value={onglet} onValueChange={(v) => setOnglet(v as Onglet)}>
+            <TabsList className="w-full">
+              <TabsTrigger value="bibliotheque">
                 <Library className="size-4" /> Bibliothèque
-              </button>
-              <button
-                type="button"
-                onClick={() => setOnglet('uploader')}
-                className={tabClass(onglet === 'uploader')}
-              >
+              </TabsTrigger>
+              <TabsTrigger value="uploader">
                 <Upload className="size-4" /> Téléverser
-              </button>
-            </div>
-          )}
-
-          {onglet === 'bibliotheque' || !canUpload ? (
-            renderBibliotheque()
-          ) : (
-            <div className="py-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) pickFile(f)
-                  e.target.value = ''
-                }}
-              />
-              {/* Input dédié à l'appareil photo : `capture="environment"` ouvre la
-                  caméra ARRIÈRE sur mobile (ignoré sur desktop). */}
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) pickFile(f)
-                  e.target.value = ''
-                }}
-              />
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const f = e.dataTransfer.files[0]
-                  if (f) pickFile(f)
-                }}
-                className="border-muted-foreground/30 hover:border-muted-foreground/60 flex w-full flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center transition-colors"
-              >
-                <Upload className="text-muted-foreground size-6" />
-                <p className="text-muted-foreground text-sm">
-                  Glisse une image ici, ou
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Choisir un fichier
-                  </Button>
-                  {/* Prise de photo : uniquement sur appareil tactile (mobile). */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="hidden [@media(hover:none)]:inline-flex"
-                    onClick={() => cameraInputRef.current?.click()}
-                  >
-                    <Camera /> Prendre une photo
-                  </Button>
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="bibliotheque">
+              {renderBibliotheque()}
+            </TabsContent>
+            <TabsContent value="uploader">
+              <div className="py-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) pickFile(f)
+                    e.target.value = ''
+                  }}
+                />
+                {/* Input dédié à l'appareil photo : `capture="environment"` ouvre la
+                    caméra ARRIÈRE sur mobile (ignoré sur desktop). */}
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) pickFile(f)
+                    e.target.value = ''
+                  }}
+                />
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    const f = e.dataTransfer.files[0]
+                    if (f) pickFile(f)
+                  }}
+                  className="border-muted-foreground/30 hover:border-muted-foreground/60 flex w-full flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center transition-colors"
+                >
+                  <Upload className="text-muted-foreground size-6" />
+                  <p className="text-muted-foreground text-sm">
+                    Glisse une image ici, ou
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Choisir un fichier
+                    </Button>
+                    {/* Prise de photo : uniquement sur appareil tactile (mobile). */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="hidden [@media(hover:none)]:inline-flex"
+                      onClick={() => cameraInputRef.current?.click()}
+                    >
+                      <Camera /> Prendre une photo
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            </TabsContent>
+          </Tabs>
+        ) : (
+          renderBibliotheque()
+        )}
+      </DialogShell>
 
       {cropFile !== null && (
         <MiniatureCropDialog

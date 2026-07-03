@@ -6,8 +6,6 @@ import { TextField } from '@/components/common/text-field'
 import { SelectField } from '@/components/common/select-field'
 import { CheckboxField } from '@/components/common/checkbox-field'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 
 function champVide(): Champ {
   return { cle: '', type: 'texte', requis: false, defaut: null }
@@ -103,7 +101,16 @@ export function ChampFormDialog({
         maxLength={60}
         required
       />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* « Type » pleine largeur par défaut ; on ne passe à deux colonnes que
+          lorsque « Unité » est présent (type = nombre) pour ne pas laisser une
+          colonne vide. */}
+      <div
+        className={
+          value.type === 'nombre'
+            ? 'grid grid-cols-1 gap-4 sm:grid-cols-2'
+            : 'grid grid-cols-1 gap-4'
+        }
+      >
         <SelectField
           label="Type"
           value={value.type}
@@ -125,16 +132,13 @@ export function ChampFormDialog({
           ))}
         </SelectField>
         {value.type === 'nombre' && (
-          <div className="grid gap-2">
-            <Label>Unité</Label>
-            <Input
-              placeholder="ex. kW, bars"
-              value={value.unite ?? ''}
-              onChange={(e) => set({ unite: e.target.value || undefined })}
-              maxLength={20}
-              aria-label="Unité"
-            />
-          </div>
+          <TextField
+            label="Unité"
+            placeholder="ex. kW, bars"
+            value={value.unite ?? ''}
+            onChange={(v) => set({ unite: v || undefined })}
+            maxLength={20}
+          />
         )}
       </div>
       {value.type === 'liste' && (
@@ -158,7 +162,10 @@ export function ChampFormDialog({
         />
       )}
       {error !== undefined && (
-        <p className="text-destructive text-sm">{error}</p>
+        // Dialog en useState (pas RHF) : on annonce l'erreur globale aux lecteurs d'écran.
+        <p role="alert" aria-live="polite" className="text-destructive text-sm">
+          {error}
+        </p>
       )}
     </FormDialog>
   )

@@ -11,6 +11,8 @@ interface SearchInputProps {
   ariaLabel?: string
   /** Classe du CONTENEUR — largeur / marge (ex. `max-w-xs flex-1`, `mb-4 max-w-sm`). */
   className?: string
+  /** Focalise le champ au montage (première action = chercher). */
+  autoFocus?: boolean
 }
 
 /**
@@ -27,6 +29,7 @@ export function SearchInput({
   placeholder = 'Rechercher…',
   ariaLabel,
   className,
+  autoFocus,
 }: SearchInputProps) {
   return (
     <div className={cn('relative', className)}>
@@ -36,6 +39,7 @@ export function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel ?? placeholder}
+        autoFocus={autoFocus}
         className="pl-8"
       />
     </div>

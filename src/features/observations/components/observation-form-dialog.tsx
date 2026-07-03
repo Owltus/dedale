@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { otsPourObservationQueries } from '../queries'
 import {
   GRAVITES,
@@ -10,19 +10,29 @@ import {
   emptyObservationCreate,
   observationCreateSchema,
 } from '../schemas'
-import type { ObservationCreateValues, ObservationSource } from '../schemas'
+import type { ObservationCreateValues } from '../schemas'
 import { useCreateObservation } from '../mutations'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { DescriptionField } from '@/components/common/description-field'
-import { SelectField } from '@/components/common/select-field'
+import { DateField } from '@/components/common/fields/date-field'
+import { DescriptionField } from '@/components/common/fields/description-field'
+import { SelectField } from '@/components/common/fields/select-field'
+import { RadioField } from '@/components/common/fields/radio-field'
 
 interface ObservationFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   siteId: string
   createdBy: string
+}
+
+// Aide brève par source : la ligne « contrôle réglementaire » rappelle l'exigence
+// d'un ordre de travail rattaché (miroir du CHECK backend / validation Zod).
+const DESCRIPTIONS_SOURCE: Record<string, string> = {
+  controle_reglementaire: 'Vérification périodique obligatoire ; impose un ordre de travail.',
+  commission_securite: 'Passage de la commission de sécurité.',
+  inspection_interne: 'Contrôle mené par vos équipes.',
 }
 
 /**
@@ -38,113 +48,86 @@ export function ObservationFormDialog({
 }: ObservationFormDialogProps) {
   const { data: ots = [] } = useQuery(otsPourObservationQueries.list(siteId))
   const create = useCreateObservation()
-  const [values, setValues] = useState<ObservationCreateValues>(() =>
-    emptyObservationCreate(),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  function set<K extends keyof ObservationCreateValues>(
-    key: K,
-    value: ObservationCreateValues[K],
-  ) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
+  const form = useForm<ObservationCreateValues>({
+    resolver: zodResolver(observationCreateSchema),
+    defaultValues: emptyObservationCreate(),
+  })
+  const submit = useSubmitDialog<ObservationCreateValues>({
+    onSubmit: (data) => create.mutateAsync({ siteId, createdBy, values: data }),
+    successMessage: 'Observation créée',
+    close: () => onOpenChange(false),
+  })
 
-  async function handleSubmit() {
-    const parsed = observationCreateSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
+  // Un contrôle réglementaire impose un OT → l'astérisque « requis » suit la source.
+  const source = useWatch({ control: form.control, name: 'source' })
 
-    try {
-      await create.mutateAsync({
-        siteId,
-        createdBy,
-        values: parsed.data,
-      })
-      toast.success('Observation créée')
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+  const sourceOptions = SOURCES.map((s) => ({
+    value: s,
+    label: LIBELLES_SOURCE[s] ?? '',
+    description: DESCRIPTIONS_SOURCE[s],
+  }))
+  const graviteOptions = GRAVITES.map((g) => ({
+    value: g,
+    label: LIBELLES_GRAVITE[g] ?? '',
+  }))
+  const otOptions = [
+    { value: '', label: '— Aucun —' },
+    ...ots.map((o) => ({
+      value: o.id,
+      label: `${o.nom_gamme}${o.nom_equipement ? ` — ${o.nom_equipement}` : ''}`,
+    })),
+  ]
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Nouvelle observation"
-      description="Réserve ou non-conformité de sécurité. Rattachez-la à un ordre de travail si elle découle d'un contrôle."
-      onSubmit={() => void handleSubmit()}
-      submitLabel="Créer"
-      pendingLabel="Création…"
-      pending={create.isPending}
-    >
-      <SelectField
-        id="obs-source"
-        label="Source"
-        required
-        value={values.source}
-        onChange={(v) => set('source', v as ObservationSource)}
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Nouvelle observation"
+        description="Réserve ou non-conformité de sécurité. Rattachez-la à un ordre de travail si elle découle d'un contrôle."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel="Créer"
+        pendingLabel="Création…"
+        pending={form.formState.isSubmitting}
       >
-        {SOURCES.map((s) => (
-          <option key={s} value={s}>
-            {LIBELLES_SOURCE[s]}
-          </option>
-        ))}
-      </SelectField>
+        <RadioField
+          control={form.control}
+          name="source"
+          label="Source"
+          required
+          options={sourceOptions}
+        />
 
-      <SelectField
-        id="obs-gravite"
-        label="Gravité"
-        required
-        value={values.gravite}
-        onChange={(v) =>
-          set('gravite', v as ObservationCreateValues['gravite'])
-        }
-      >
-        {GRAVITES.map((g) => (
-          <option key={g} value={g}>
-            {LIBELLES_GRAVITE[g]}
-          </option>
-        ))}
-      </SelectField>
+        <RadioField
+          control={form.control}
+          name="gravite"
+          label="Gravité"
+          required
+          options={graviteOptions}
+        />
 
-      <DescriptionField
-        id="obs-description"
-        required
-        value={values.description}
-        onChange={(description) => set('description', description)}
-        error={errors.description}
-      />
+        <DescriptionField control={form.control} name="description" required />
 
-      <TextField
-        id="obs-echeance"
-        label="Échéance"
-        type="date"
-        value={values.echeance}
-        onChange={(echeance) => set('echeance', echeance)}
-        error={errors.echeance}
-      />
+        <DateField
+          control={form.control}
+          name="echeance"
+          label="Échéance"
+        />
 
-      <SelectField
-        id="obs-ot"
-        label="Ordre de travail"
-        required={values.source === 'controle_reglementaire'}
-        value={values.ot_id}
-        onChange={(v) => set('ot_id', v)}
-        error={errors.ot_id}
-      >
-        <option value="">— Aucun —</option>
-        {ots.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.nom_gamme}
-            {o.nom_equipement ? ` — ${o.nom_equipement}` : ''}
-          </option>
-        ))}
-      </SelectField>
-    </FormDialog>
+        <SelectField
+          control={form.control}
+          name="ot_id"
+          label="Ordre de travail"
+          required={source === 'controle_reglementaire'}
+          hint={
+            source === 'controle_reglementaire'
+              ? 'Obligatoire pour un contrôle réglementaire'
+              : undefined
+          }
+          options={otOptions}
+        />
+      </FormDialog>
+    </Form>
   )
 }

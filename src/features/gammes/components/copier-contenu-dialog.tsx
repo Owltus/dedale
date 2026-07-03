@@ -5,8 +5,10 @@ import type { GammeBiblioRow } from '../queries'
 import { useCopierCategorie } from '../mutations'
 import { exportErrorMessage } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { SelectField } from '@/components/common/select-field'
+import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 
 interface CopierContenuDialogProps {
   open: boolean
@@ -147,27 +149,23 @@ export function CopierContenuDialog({
       onOpenChange={onOpenChange}
       title={titre}
       description="Choisis le site cible et les parties à inclure (sous-catégories et gammes)."
+      size="lg"
       onSubmit={() => void handleSubmit()}
       submitLabel="Copier"
       pendingLabel="Copie…"
       pending={copier.isPending}
       submitDisabled={siteCible === ''}
     >
-      <SelectField
-        label="Site cible"
-        value={siteCible}
-        onChange={setSiteCible}
-        required
-      >
-        <option value="" disabled>
-          — Choisir un site —
-        </option>
-        {sites.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.nom}
-          </option>
-        ))}
-      </SelectField>
+      <div className="grid gap-2">
+        <Label>Site cible *</Label>
+        <SelectDropdown
+          value={siteCible}
+          onValueChange={setSiteCible}
+          options={sites.map((s) => ({ value: s.id, label: s.nom }))}
+          placeholder="— Choisir un site —"
+          ariaLabel="Site cible"
+        />
+      </div>
 
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">Contenu à copier</span>
@@ -207,14 +205,16 @@ export function CopierContenuDialog({
               return (
                 <div key={sc.id}>
                   <label className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                    <input
-                      type="checkbox"
-                      className="accent-primary size-4 shrink-0"
-                      checked={selSous.has(sc.id)}
-                      ref={(el) => {
-                        if (el) el.indeterminate = partiel
-                      }}
-                      onChange={() => toggleSous(sc.id)}
+                    <Checkbox
+                      className="shrink-0"
+                      checked={
+                        selSous.has(sc.id)
+                          ? true
+                          : partiel
+                            ? 'indeterminate'
+                            : false
+                      }
+                      onCheckedChange={() => toggleSous(sc.id)}
                     />
                     {sc.nom}
                   </label>
@@ -225,11 +225,10 @@ export function CopierContenuDialog({
                           key={g.id}
                           className="text-muted-foreground flex min-w-0 items-center gap-2 text-sm"
                         >
-                          <input
-                            type="checkbox"
-                            className="accent-primary size-4 shrink-0"
+                          <Checkbox
+                            className="shrink-0"
                             checked={selGammes.has(g.id)}
-                            onChange={() => toggleGamme(g.id)}
+                            onCheckedChange={() => toggleGamme(g.id)}
                           />
                           {g.nom}
                         </label>
@@ -251,11 +250,10 @@ export function CopierContenuDialog({
                 key={g.id}
                 className="flex min-w-0 items-center gap-2 text-sm"
               >
-                <input
-                  type="checkbox"
-                  className="accent-primary size-4 shrink-0"
+                <Checkbox
+                  className="shrink-0"
                   checked={selGammes.has(g.id)}
-                  onChange={() => toggleGamme(g.id)}
+                  onCheckedChange={() => toggleGamme(g.id)}
                 />
                 {g.nom}
               </label>

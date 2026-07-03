@@ -67,16 +67,20 @@ export function useUpdateEquipement() {
 
 (a) upload Storage → (b) insert `documents` (avec `site_id` !) → (c) insert dans la table de liaison. Un objet Storage n'est lisible qu'une fois rattaché.
 
-## Formulaires (état contrôlé + Zod)
+## Formulaires (react-hook-form + Zod)
 
-- Pattern projet : un composant `Dialog` + **état contrôlé** (`useState`) + **validation Zod**
-  (`schema.safeParse`) au submit. Schéma défini **au niveau module** (`schemas.ts`).
-- Erreurs de champ : mappées via `fieldErrors()` de `@/lib/form` (première erreur par champ).
-- Ré-initialiser un formulaire d'édition : **keyer** le composant (`key={entité?.id ?? 'new'}`)
+- Pattern projet : **react-hook-form** + `zodResolver(schema)` dans un `<Form {...form}>` (`@/components/ui/form`)
+  + `FormDialog`. Schéma défini **au niveau module** (`schemas.ts`). Patron complet : skill `nouvelle-page` (§4).
+- Champs : briques **`@/components/common/fields/*`** branchées sur `control` + `name` ; l'erreur est rendue
+  par `FormMessage` (lit le resolver Zod) — plus de `value`/`onChange`/`error`.
+- Schéma à **TRANSFORM** (`z.string().transform` → number, `z.coerce`…) : `useForm<z.input, unknown, z.output>`
+  (3 génériques) + `useSubmitDialog<z.output>`. Sinon `useForm<Values>` (2 génériques).
+- Ré-initialiser un formulaire d'édition : **keyer** le composant (`key={dlg.dialogKey}` via `useEntityDialog`)
   plutôt qu'un `useEffect` de reset (évite la règle `react-hooks/set-state-in-effect`).
-- Erreurs serveur (Supabase/RLS) : attrapées au submit → `toast.error(errorMessage(e))`.
-- Modèle de référence : `src/features/sites/components/site-form-dialog.tsx`.
-  (TanStack Form reste disponible si un formulaire complexe le justifie.)
+- Soumission + erreurs serveur : **`useSubmitDialog`** (`@/hooks/use-submit-dialog`) — `try/catch` → toast succès
+  + `close`, ou `toast.error(writeErrorMessage(e))` (dialog laissé ouvert).
+- Composant impératif `value`/`onChange` (ex. `LocalEquipementFields`) : le ponter via `useWatch` + `form.setValue`.
+- Modèle de référence : `src/features/sites/components/site-form-dialog.tsx` (+ `niveau`/`local` pour les transforms).
 
 ## À NE PAS FAIRE
 

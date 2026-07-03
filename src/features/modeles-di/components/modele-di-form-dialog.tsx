@@ -1,14 +1,17 @@
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { emptyModeleDi, modeleDiSchema } from '../schemas'
 import type { ModeleDiFormValues } from '../schemas'
 import { useCreateModeleDi, useUpdateModeleDi } from '../mutations'
 import type { ModeleDi } from '../queries'
 import { useAuth } from '@/auth'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { resolvePorteeScope, type LockedScope } from '@/lib/scope'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { IdentiteFields } from '@/components/common/identite-fields'
-import { SelectField } from '@/components/common/select-field'
-import { PorteeField } from '@/components/common/portee-field'
+import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { RadioField } from '@/components/common/fields/radio-field'
+import { PorteeField } from '@/components/common/fields/portee-field'
 
 interface ModeleDiFormDialogProps {
   open: boolean
@@ -68,9 +71,24 @@ export function ModeleDiFormDialog({
   const create = useCreateModeleDi()
   const update = useUpdateModeleDi()
 
-  const form = useFormDialog({
-    schema: modeleDiSchema,
-    initialValues: () => initialValues(modele, canEntreprise, lockedScope, siteId),
+  const form = useForm<ModeleDiFormValues>({
+    resolver: zodResolver(modeleDiSchema),
+    defaultValues: initialValues(modele, canEntreprise, lockedScope, siteId),
+  })
+
+  // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
+  // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
+  // pour tout éditeur (calque du formulaire de modèle d'équipement).
+  const portee = useWatch({ control: form.control, name: 'portee' })
+  const {
+    showEntreprise,
+    hidePortee,
+    miniatureSite,
+    canUploadMiniature,
+    createSiteId,
+  } = resolvePorteeScope({ portee, siteId, canEntreprise, lockedScope, isEdit })
+
+  const submit = useSubmitDialog<ModeleDiFormValues>({
     onSubmit: async (data) => {
       if (modele) {
         // Édition : la portée (`site_id`) est immuable → non transmise.
@@ -88,72 +106,62 @@ export function ModeleDiFormDialog({
     close: () => onOpenChange(false),
   })
 
-  // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
-  // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
-  // pour tout éditeur (calque du formulaire de modèle d'équipement).
-  const { showEntreprise, hidePortee, miniatureSite, canUploadMiniature, createSiteId } =
-    resolvePorteeScope({
-      portee: form.values.portee,
-      siteId,
-      canEntreprise,
-      lockedScope,
-      isEdit,
-    })
-
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le modèle de DI' : 'Nouveau modèle de DI'}
-      description="Un constat pré-rédigé pour accélérer la saisie des demandes d'intervention."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      {/* Exception : ce modèle n'a pas de « description » — c'est le CONSTAT qui en
-          tient lieu. On le place donc comme description du bloc identité, pour que
-          l'image s'aligne sur Libellé + Constat comme dans les autres modals. */}
-      <IdentiteFields
-        nom={{
-          label: 'Libellé',
-          value: form.values.libelle,
-          onChange: (v) => form.set('libelle', v),
-          error: form.errors.libelle,
-        }}
-        description={{
-          label: 'Constat (modèle)',
-          value: form.values.constat_modele,
-          onChange: (v) => form.set('constat_modele', v),
-          error: form.errors.constat_modele,
-          required: true,
-        }}
-        image={{
-          value: form.values.miniature_id,
-          onChange: (id) => form.set('miniature_id', id),
-          targetSiteId: miniatureSite,
-          canUpload: canUploadMiniature,
-        }}
-      />
-      <PorteeField
-        value={form.values.portee}
-        onChange={(v) => form.set('portee', v)}
-        error={form.errors.portee}
-        showEntreprise={showEntreprise}
-        siteId={siteId}
-        siteName={siteName}
-        // Immuable après création (trigger backend) → lecture seule en édition.
-        disabled={isEdit}
-        hidden={hidePortee}
-      />
-      <SelectField
-        label="État"
-        value={form.values.etat}
-        onChange={(v) => form.set('etat', v as ModeleDiFormValues['etat'])}
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={isEdit ? 'Modifier le modèle de DI' : 'Nouveau modèle de DI'}
+        description="Un constat pré-rédigé pour accélérer la saisie des demandes d'intervention."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
       >
-        <option value="actif">Actif</option>
-        <option value="inactif">Masqué</option>
-      </SelectField>
-    </FormDialog>
+        {/* Exception : ce modèle n'a pas de « description » — c'est le CONSTAT qui en
+            tient lieu. On le place donc comme description du bloc identité, pour que
+            l'image s'aligne sur Libellé + Constat comme dans les autres modals. */}
+        <IdentiteFields
+          control={form.control}
+          nomName="libelle"
+          nomLabel="Libellé"
+          descriptionName="constat_modele"
+          descriptionLabel="Constat (modèle)"
+          descriptionRequired
+          image={{
+            name: 'miniature_id',
+            targetSiteId: miniatureSite,
+            canUpload: canUploadMiniature,
+          }}
+        />
+        <PorteeField
+          control={form.control}
+          name="portee"
+          showEntreprise={showEntreprise}
+          siteId={siteId}
+          siteName={siteName}
+          // Immuable après création (trigger backend) → lecture seule en édition.
+          disabled={isEdit}
+          hidden={hidePortee}
+        />
+        <RadioField
+          control={form.control}
+          name="etat"
+          label="État"
+          options={[
+            {
+              value: 'actif',
+              label: 'Actif',
+              description: 'Proposé dans la liste des problèmes courants.',
+            },
+            {
+              value: 'inactif',
+              label: 'Masqué',
+              description: 'Retiré des choix, sans suppression.',
+            },
+          ]}
+        />
+      </FormDialog>
+    </Form>
   )
 }

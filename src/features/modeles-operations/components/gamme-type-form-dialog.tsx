@@ -1,3 +1,5 @@
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { emptyModeleOperation, modeleOperationSchema } from '../schemas'
 import type { ModeleOperationFormValues } from '../schemas'
 import {
@@ -5,12 +7,13 @@ import {
   useUpdateModeleOperation,
 } from '../mutations'
 import type { ModeleOperation } from '../queries'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { resolvePorteeScope } from '@/lib/scope'
 import type { LockedScope } from '@/lib/scope'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { IdentiteFields } from '@/components/common/identite-fields'
-import { SelectField } from '@/components/common/select-field'
+import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { SelectField } from '@/components/common/fields/select-field'
 
 interface CategorieOption {
   id: string
@@ -83,10 +86,16 @@ export function GammeTypeFormDialog({
   const isEdit = Boolean(modele)
   const create = useCreateModeleOperation()
   const update = useUpdateModeleOperation()
-  const form = useFormDialog({
-    schema: modeleOperationSchema,
-    initialValues: () =>
-      initialValues(modele, canEntreprise, lockedScope, lockedCategorieId),
+  const form = useForm<ModeleOperationFormValues>({
+    resolver: zodResolver(modeleOperationSchema),
+    defaultValues: initialValues(
+      modele,
+      canEntreprise,
+      lockedScope,
+      lockedCategorieId,
+    ),
+  })
+  const submit = useSubmitDialog<ModeleOperationFormValues>({
     onSubmit: (data) => {
       if (modele)
         return update.mutateAsync({ id: modele.id, values: data, siteId })
@@ -109,61 +118,52 @@ export function GammeTypeFormDialog({
   // Image : périmètre = portée du modèle (commun → pool entreprise, sinon site).
   // Téléversement autorisé sur le commun pour les rôles entreprise, sur un site
   // pour tout éditeur (calque du formulaire de modèle d'équipement).
+  const portee = useWatch({ control: form.control, name: 'portee' })
   const { miniatureSite, canUploadMiniature } = resolvePorteeScope({
-    portee: form.values.portee,
+    portee,
     siteId,
     canEntreprise,
     lockedScope,
     isEdit,
   })
 
+  const categorieOptions = [
+    { value: '', label: '— Choisir une catégorie —' },
+    ...categories.map((c) => ({ value: c.id, label: c.nom })),
+  ]
+
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={
-        isEdit ? 'Modifier le modèle d’opération' : 'Nouveau modèle d’opération'
-      }
-      description="Un modèle d'opérations réutilisable pour composer des gammes."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      <IdentiteFields
-        nom={{
-          value: form.values.nom,
-          onChange: (v) => form.set('nom', v),
-          error: form.errors.nom,
-        }}
-        description={{
-          value: form.values.description,
-          onChange: (v) => form.set('description', v),
-          error: form.errors.description,
-        }}
-        image={{
-          value: form.values.miniature_id,
-          onChange: (id) => form.set('miniature_id', id),
-          targetSiteId: miniatureSite,
-          canUpload: canUploadMiniature,
-        }}
-      />
-      <SelectField
-        label="Catégorie"
-        value={form.values.categorie_id}
-        onChange={(v) => form.set('categorie_id', v)}
-        error={form.errors.categorie_id}
-        required
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={
+          isEdit ? 'Modifier le modèle d’opération' : 'Nouveau modèle d’opération'
+        }
+        description="Un modèle d’opérations réutilisable pour composer des gammes."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
       >
-        <option value="" disabled>
-          — Choisir une catégorie —
-        </option>
-        {categories.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.nom}
-          </option>
-        ))}
-      </SelectField>
-    </FormDialog>
+        <IdentiteFields
+          control={form.control}
+          nomName="nom"
+          descriptionName="description"
+          image={{
+            name: 'miniature_id',
+            targetSiteId: miniatureSite,
+            canUpload: canUploadMiniature,
+          }}
+        />
+        <SelectField
+          control={form.control}
+          name="categorie_id"
+          label="Catégorie"
+          required
+          options={categorieOptions}
+        />
+      </FormDialog>
+    </Form>
   )
 }

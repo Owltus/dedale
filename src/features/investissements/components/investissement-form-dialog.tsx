@@ -1,11 +1,15 @@
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { emptyInvestissement, investissementSchema } from '../schemas'
 import type { InvestissementFormValues } from '../schemas'
 import { useCreateInvestissement, useUpdateInvestissement } from '../mutations'
 import { useAuth } from '@/auth'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { DescriptionField } from '@/components/common/description-field'
+import { TextField } from '@/components/common/fields/text-field'
+import { DateField } from '@/components/common/fields/date-field'
+import { DescriptionField } from '@/components/common/fields/description-field'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -45,9 +49,13 @@ export function InvestissementFormDialog({
   const { session } = useAuth()
   const create = useCreateInvestissement()
   const update = useUpdateInvestissement()
-  const form = useFormDialog({
-    schema: investissementSchema,
-    initialValues: () => initialValues(investissement),
+  // Montants gardés en TEXTE (schéma sans transform : `montant` valide une chaîne,
+  // `parseMontant` convertit côté mutation) → deux génériques suffisent.
+  const form = useForm<InvestissementFormValues>({
+    resolver: zodResolver(investissementSchema),
+    defaultValues: initialValues(investissement),
+  })
+  const submit = useSubmitDialog<InvestissementFormValues>({
     onSubmit: (data) => {
       if (investissement) {
         return update.mutateAsync({ id: investissement.id, values: data })
@@ -67,59 +75,52 @@ export function InvestissementFormDialog({
   })
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? "Modifier l'investissement" : 'Nouvel investissement'}
-      description="Renseigne le suivi budgétaire de l'investissement."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      <TextField
-        label="Libellé"
-        value={form.values.libelle}
-        onChange={(v) => form.set('libelle', v)}
-        error={form.errors.libelle}
-        required
-      />
-      <DescriptionField
-        value={form.values.description}
-        onChange={(v) => form.set('description', v)}
-        error={form.errors.description}
-      />
-      <div className="grid grid-cols-3 gap-4">
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={isEdit ? "Modifier l'investissement" : 'Nouvel investissement'}
+        description="Renseigne le suivi budgétaire de l'investissement."
+        size="lg"
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+      >
         <TextField
-          label="Montant demandé (€)"
-          inputMode="decimal"
-          value={form.values.montant_demande}
-          onChange={(v) => form.set('montant_demande', v)}
-          error={form.errors.montant_demande}
+          control={form.control}
+          name="libelle"
+          label="Libellé"
+          required
         />
-        <TextField
-          label="Montant prévu (€)"
-          inputMode="decimal"
-          value={form.values.montant_prevu}
-          onChange={(v) => form.set('montant_prevu', v)}
-          error={form.errors.montant_prevu}
+        <DescriptionField control={form.control} name="description" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <TextField
+            control={form.control}
+            name="montant_demande"
+            label="Montant demandé (€)"
+            inputMode="decimal"
+          />
+          <TextField
+            control={form.control}
+            name="montant_prevu"
+            label="Montant prévu (€)"
+            inputMode="decimal"
+          />
+          <TextField
+            control={form.control}
+            name="depense_reelle"
+            label="Dépense réelle (€)"
+            inputMode="decimal"
+          />
+        </div>
+        <DateField
+          control={form.control}
+          name="date_demande"
+          label="Date de demande"
+          required
         />
-        <TextField
-          label="Dépense réelle (€)"
-          inputMode="decimal"
-          value={form.values.depense_reelle}
-          onChange={(v) => form.set('depense_reelle', v)}
-          error={form.errors.depense_reelle}
-        />
-      </div>
-      <TextField
-        label="Date de demande"
-        type="date"
-        value={form.values.date_demande}
-        onChange={(v) => form.set('date_demande', v)}
-        error={form.errors.date_demande}
-        required
-      />
-    </FormDialog>
+      </FormDialog>
+    </Form>
   )
 }

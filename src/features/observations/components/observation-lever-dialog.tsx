@@ -1,12 +1,13 @@
-import { useState } from 'react'
-import { toast } from 'sonner'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { emptyObservationLever, observationLeverSchema } from '../schemas'
 import type { ObservationLeverValues } from '../schemas'
 import { useLeverObservation } from '../mutations'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { TextareaField } from '@/components/common/textarea-field'
+import { DateField } from '@/components/common/fields/date-field'
+import { TextareaField } from '@/components/common/fields/textarea-field'
 
 interface ObservationLeverDialogProps {
   open: boolean
@@ -29,62 +30,44 @@ export function ObservationLeverDialog({
   leveeBy,
 }: ObservationLeverDialogProps) {
   const lever = useLeverObservation()
-  const [values, setValues] = useState<ObservationLeverValues>(() =>
-    emptyObservationLever(),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-
-  async function handleSubmit() {
-    const parsed = observationLeverSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      await lever.mutateAsync({
-        id: observationId,
-        leveeBy,
-        values: parsed.data,
-      })
-      toast.success('Observation levée')
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+  const form = useForm<ObservationLeverValues>({
+    resolver: zodResolver(observationLeverSchema),
+    defaultValues: emptyObservationLever(),
+  })
+  const submit = useSubmitDialog<ObservationLeverValues>({
+    onSubmit: (data) =>
+      lever.mutateAsync({ id: observationId, leveeBy, values: data }),
+    successMessage: 'Observation levée',
+    close: () => onOpenChange(false),
+  })
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Lever l'observation"
-      description={description}
-      onSubmit={() => void handleSubmit()}
-      submitLabel="Lever"
-      pendingLabel="Levée…"
-      pending={lever.isPending}
-    >
-      <TextField
-        id="lever-date"
-        label="Date de levée"
-        type="date"
-        required
-        value={values.date_levee}
-        onChange={(date_levee) => setValues((v) => ({ ...v, date_levee }))}
-        error={errors.date_levee}
-      />
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Lever l'observation"
+        description={description}
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel="Lever"
+        pendingLabel="Levée…"
+        pending={form.formState.isSubmitting}
+      >
+        <DateField
+          control={form.control}
+          name="date_levee"
+          label="Date de levée"
+          required
+        />
 
-      <TextareaField
-        id="lever-commentaire"
-        label="Commentaire de levée"
-        rows={3}
-        value={values.commentaire_levee}
-        onChange={(commentaire_levee) =>
-          setValues((v) => ({ ...v, commentaire_levee }))
-        }
-        error={errors.commentaire_levee}
-      />
-    </FormDialog>
+        <TextareaField
+          control={form.control}
+          name="commentaire_levee"
+          label="Commentaire de levée"
+          rows={3}
+          placeholder="Précisez l'action corrective réalisée…"
+        />
+      </FormDialog>
+    </Form>
   )
 }

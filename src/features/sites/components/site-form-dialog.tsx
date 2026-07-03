@@ -1,9 +1,12 @@
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { emptySite, siteSchema } from '../schemas'
 import type { SiteFormValues } from '../schemas'
 import { useCreateSite, useUpdateSite } from '../mutations'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
+import { TextField } from '@/components/common/fields/text-field'
 import type { Database } from '@/lib/database.types'
 
 type Site = Database['public']['Tables']['sites']['Row']
@@ -32,9 +35,11 @@ export function SiteFormDialog({
   const isEdit = Boolean(site)
   const create = useCreateSite()
   const update = useUpdateSite()
-  const form = useFormDialog({
-    schema: siteSchema,
-    initialValues: () => initialValues(site),
+  const form = useForm<SiteFormValues>({
+    resolver: zodResolver(siteSchema),
+    defaultValues: initialValues(site),
+  })
+  const submit = useSubmitDialog<SiteFormValues>({
     onSubmit: (data) =>
       site
         ? update.mutateAsync({ id: site.id, values: data })
@@ -44,43 +49,28 @@ export function SiteFormDialog({
   })
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le site' : 'Nouveau site'}
-      description="Renseigne les informations du site."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      <TextField
-        label="Nom"
-        value={form.values.nom}
-        onChange={(v) => form.set('nom', v)}
-        error={form.errors.nom}
-        required
-      />
-      <TextField
-        label="Adresse"
-        value={form.values.adresse}
-        onChange={(v) => form.set('adresse', v)}
-        error={form.errors.adresse}
-      />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TextField
-          label="Code postal"
-          value={form.values.code_postal}
-          onChange={(v) => form.set('code_postal', v)}
-          error={form.errors.code_postal}
-        />
-        <TextField
-          label="Ville"
-          value={form.values.ville}
-          onChange={(v) => form.set('ville', v)}
-          error={form.errors.ville}
-        />
-      </div>
-    </FormDialog>
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={isEdit ? 'Modifier le site' : 'Nouveau site'}
+        description="Renseigne les informations du site."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+      >
+        <TextField control={form.control} name="nom" label="Nom" required />
+        <TextField control={form.control} name="adresse" label="Adresse" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <TextField
+            control={form.control}
+            name="code_postal"
+            label="Code postal"
+          />
+          <TextField control={form.control} name="ville" label="Ville" />
+        </div>
+      </FormDialog>
+    </Form>
   )
 }

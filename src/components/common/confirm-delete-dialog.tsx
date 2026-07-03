@@ -93,6 +93,8 @@ export function ConfirmDeleteDialog({
           onChange={(e) => setSaisie(e.target.value)}
           autoComplete="off"
           placeholder={confirmPhrase}
+          // Saisie de confirmation focalisée d'emblée (rendue seulement si l'action est possible).
+          autoFocus
         />
       </div>
     ) : undefined

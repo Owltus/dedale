@@ -1,14 +1,17 @@
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { emptyLocal, localSchema } from '../schemas'
-import type { LocalFormValues } from '../schemas'
+import type { LocalFormValues, LocalValues } from '../schemas'
 import { useCreateLocal, useUpdateLocal } from '../mutations'
 import { localisationsQueries } from '../queries'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { SelectField } from '@/components/common/select-field'
-import { CheckboxField } from '@/components/common/checkbox-field'
-import { IdentiteFields } from '@/components/common/identite-fields'
+import { TextField } from '@/components/common/fields/text-field'
+import { SelectField } from '@/components/common/fields/select-field'
+import { CheckboxField } from '@/components/common/fields/checkbox-field'
+import { IdentiteFields } from '@/components/common/fields/identite-fields'
 import type { Database } from '@/lib/database.types'
 
 type Local = Database['public']['Tables']['locaux']['Row']
@@ -46,9 +49,11 @@ export function LocalFormDialog({
   const create = useCreateLocal()
   const update = useUpdateLocal()
   const { data: types = [] } = useQuery(localisationsQueries.typesLocaux())
-  const form = useFormDialog({
-    schema: localSchema,
-    initialValues: () => initialValues(local),
+  const form = useForm<LocalFormValues, unknown, LocalValues>({
+    resolver: zodResolver(localSchema),
+    defaultValues: initialValues(local),
+  })
+  const submit = useSubmitDialog<LocalValues>({
     onSubmit: (data) =>
       local
         ? update.mutateAsync({ id: local.id, values: data })
@@ -57,63 +62,50 @@ export function LocalFormDialog({
     close: () => onOpenChange(false),
   })
 
+  const typeOptions = [
+    { value: '', label: '— Aucun —' },
+    ...types.map((t) => ({ value: String(t.id), label: t.libelle })),
+  ]
+
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le local' : 'Nouveau local'}
-      description="Un local : surface, type et confort thermique."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      <IdentiteFields
-        nom={{
-          value: form.values.nom,
-          onChange: (v) => form.set('nom', v),
-          error: form.errors.nom,
-        }}
-        description={{
-          value: form.values.description,
-          onChange: (v) => form.set('description', v),
-          error: form.errors.description,
-        }}
-        image={{
-          value: form.values.miniature_id,
-          onChange: (id) => form.set('miniature_id', id),
-          targetSiteId: siteId,
-          canUpload: true,
-        }}
-      />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TextField
-          label="Surface (m²)"
-          type="number"
-          inputMode="decimal"
-          value={form.values.surface_m2}
-          onChange={(v) => form.set('surface_m2', v)}
-          error={form.errors.surface_m2}
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={isEdit ? 'Modifier le local' : 'Nouveau local'}
+        description="Un local : surface, type et confort thermique."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+      >
+        <IdentiteFields
+          control={form.control}
+          nomName="nom"
+          descriptionName="description"
+          image={{ name: 'miniature_id', targetSiteId: siteId, canUpload: true }}
         />
-        <SelectField
-          label="Type de local"
-          value={form.values.type_local_id}
-          onChange={(v) => form.set('type_local_id', v)}
-          error={form.errors.type_local_id}
-        >
-          <option value="">— Aucun —</option>
-          {types.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.libelle}
-            </option>
-          ))}
-        </SelectField>
-      </div>
-      <CheckboxField
-        label="Chauffé / climatisé"
-        value={form.values.chauffe_climatise}
-        onChange={(checked) => form.set('chauffe_climatise', checked)}
-      />
-    </FormDialog>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <TextField
+            control={form.control}
+            name="surface_m2"
+            label="Surface (m²)"
+            type="number"
+            inputMode="decimal"
+          />
+          <SelectField
+            control={form.control}
+            name="type_local_id"
+            label="Type de local"
+            options={typeOptions}
+          />
+        </div>
+        <CheckboxField
+          control={form.control}
+          name="chauffe_climatise"
+          label="Chauffé / climatisé"
+        />
+      </FormDialog>
+    </Form>
   )
 }

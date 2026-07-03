@@ -1,3 +1,5 @@
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { CATEGORIE_SCOPES, categorieSchema, emptyCategorie } from '../schemas'
 import type { CategorieFormValues } from '../schemas'
 import { useCreateCategorie, useUpdateCategorie } from '../mutations'
@@ -5,11 +7,13 @@ import type { Categorie } from '../queries'
 import { writeErrorMessage } from '@/lib/form'
 import { resolvePorteeScope } from '@/lib/scope'
 import type { LockedScope } from '@/lib/scope'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { IdentiteFields } from '@/components/common/identite-fields'
-import { PorteeField } from '@/components/common/portee-field'
-import { SelectField } from '@/components/common/select-field'
+import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { PorteeField } from '@/components/common/fields/portee-field'
+import { SelectField } from '@/components/common/fields/select-field'
+import { RadioField } from '@/components/common/fields/radio-field'
 
 /**
  * Libellés contextuels des erreurs Postgres de création/édition d'une catégorie
@@ -166,10 +170,17 @@ export function CategoryFormDialog({
   const isEdit = Boolean(categorie)
   const create = useCreateCategorie()
   const update = useUpdateCategorie()
-  const { values, set, errors, submit, pending } = useFormDialog({
-    schema: categorieSchema,
-    initialValues: () =>
-      initialValues(categorie, preset, canEntreprise, siteId, lockedScope),
+  const form = useForm<CategorieFormValues>({
+    resolver: zodResolver(categorieSchema),
+    defaultValues: initialValues(
+      categorie,
+      preset,
+      canEntreprise,
+      siteId,
+      lockedScope,
+    ),
+  })
+  const submit = useSubmitDialog<CategorieFormValues>({
     onSubmit: (data) =>
       categorie
         ? update.mutateAsync({ id: categorie.id, values: data, siteId })
@@ -182,6 +193,11 @@ export function CategoryFormDialog({
     errorMessage: (e) => writeErrorMessage(e, CATEGORIE_ERREURS),
   })
 
+  // Champs réactifs pilotant l'affichage (portée, type, parent).
+  const portee = useWatch({ control: form.control, name: 'portee' })
+  const scope = useWatch({ control: form.control, name: 'scope' })
+  const parentId = useWatch({ control: form.control, name: 'parent_id' })
+
   const excluded = categorie
     ? descendantIds(categorie.id, categories)
     : new Set<string>()
@@ -189,7 +205,7 @@ export function CategoryFormDialog({
   // Dérivés de portée/périmètre (option Commun visible, image, verrouillage)
   // mutualisés avec les autres modales de catalogue.
   const scopeResolu = resolvePorteeScope({
-    portee: values.portee,
+    portee,
     siteId,
     canEntreprise,
     lockedScope,
@@ -220,15 +236,15 @@ export function CategoryFormDialog({
   // Description adaptée au scope : l'équipement reste à un seul niveau (catégorie
   // racine), la gamme distingue catégorie racine et sous-catégorie.
   const compactDescription =
-    values.scope === 'gamme'
-      ? values.parent_id
+    scope === 'gamme'
+      ? parentId
         ? 'Une sous-catégorie, rattachée à sa catégorie de gammes parente.'
         : 'Une catégorie racine pour organiser tes gammes.'
-      : values.scope === 'parc'
-        ? values.parent_id
+      : scope === 'parc'
+        ? parentId
           ? 'Une sous-catégorie rattachée à une catégorie d’équipements.'
           : 'Regroupez vos équipements par grande famille (CVC, électricité, plomberie…).'
-        : values.scope === 'operation'
+        : scope === 'operation'
           ? 'Une catégorie pour ranger tes modèles d’opération.'
           : 'Une catégorie pour ranger tes modèles d’équipement.'
   // Sous-catégorie = présence d'un parent (catégorie existante ou présélection) :
@@ -245,116 +261,108 @@ export function CategoryFormDialog({
       gamme: ' de gammes',
       mixte: '',
     } as Record<CategorieFormValues['scope'], string>
-  )[values.scope]
+  )[scope]
+
+  const scopeOptions = CATEGORIE_SCOPES.map((s) => ({
+    value: s.value,
+    label: s.label,
+  }))
+  // Sélecteur « Parent » : option « racine » proposée hors reparentage (déplacer
+  // une sous-catégorie ne peut la rendre racine), puis les parents autorisés.
+  const parentSelectOptions = [
+    ...(showReparent
+      ? []
+      : [{ value: '', label: '— Aucun (catégorie racine) —' }]),
+    ...parentOptions.map((c) => ({ value: c.id, label: c.nom })),
+  ]
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={`${isEdit ? 'Modifier la' : 'Nouvelle'} ${
-        estSousCat ? 'sous-catégorie' : 'catégorie'
-      }${titreComplement}`}
-      description={
-        hideDescription
-          ? undefined
-          : compact
-            ? compactDescription
-            : 'Une catégorie racine n’a pas de parent ; une sous-catégorie est rattachée à une catégorie parente.'
-      }
-      onSubmit={() => void submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={pending}
-    >
-      <IdentiteFields
-        nom={{
-          value: values.nom,
-          onChange: (v) => set('nom', v),
-          error: errors.nom,
-        }}
-        description={{
-          value: values.description,
-          onChange: (v) => set('description', v),
-          error: errors.description,
-        }}
-        image={
-          hideMiniature
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={`${isEdit ? 'Modifier la' : 'Nouvelle'} ${
+          estSousCat ? 'sous-catégorie' : 'catégorie'
+        }${titreComplement}`}
+        description={
+          hideDescription
             ? undefined
-            : {
-                value: values.miniature_id,
-                onChange: (id) => set('miniature_id', id),
-                targetSiteId: miniatureSite,
-                canUpload: canUploadMiniature,
-              }
+            : compact
+              ? compactDescription
+              : 'Une catégorie racine n’a pas de parent ; une sous-catégorie est rattachée à une catégorie parente.'
         }
-      />
-      {(showScope || showPortee) && (
-        <div
-          className={
-            showScope && showPortee
-              ? 'grid grid-cols-1 gap-4 sm:grid-cols-2'
-              : undefined
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+      >
+        <IdentiteFields
+          control={form.control}
+          nomName="nom"
+          descriptionName="description"
+          image={
+            hideMiniature
+              ? undefined
+              : {
+                  name: 'miniature_id',
+                  targetSiteId: miniatureSite,
+                  canUpload: canUploadMiniature,
+                }
           }
-        >
-          {showScope && (
-            <SelectField
-              label="Type"
-              value={values.scope}
-              onChange={(v) => set('scope', v as CategorieFormValues['scope'])}
-              error={errors.scope}
-              required
-            >
-              {CATEGORIE_SCOPES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </SelectField>
-          )}
-          {showPortee && (
-            <PorteeField
-              value={values.portee}
-              onChange={(v) => set('portee', v)}
-              showEntreprise={showEntreprise}
-              siteId={siteId}
-              siteName={siteName}
-              error={errors.portee}
-            />
-          )}
-        </div>
-      )}
-      {showParentSelect && (
-        <SelectField
-          label={showReparent ? 'Catégorie parente' : 'Parent'}
-          value={values.parent_id}
-          onChange={(v) => set('parent_id', v)}
-          error={errors.parent_id}
-          hint={
-            showReparent
-              ? 'Choisir une autre catégorie déplace la sous-catégorie et ses gammes.'
-              : undefined
-          }
-        >
-          {!showReparent && (
-            <option value="">— Aucun (catégorie racine) —</option>
-          )}
-          {parentOptions.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom}
-            </option>
-          ))}
-        </SelectField>
-      )}
-      {!compact && (
-        <SelectField
-          label="État"
-          value={values.etat}
-          onChange={(v) => set('etat', v as CategorieFormValues['etat'])}
-        >
-          <option value="actif">Actif</option>
-          <option value="inactif">Masqué</option>
-        </SelectField>
-      )}
-    </FormDialog>
+        />
+        {(showScope || showPortee) && (
+          <div
+            className={
+              showScope && showPortee
+                ? 'grid grid-cols-1 gap-4 sm:grid-cols-2'
+                : undefined
+            }
+          >
+            {showScope && (
+              <SelectField
+                control={form.control}
+                name="scope"
+                label="Type"
+                required
+                options={scopeOptions}
+              />
+            )}
+            {showPortee && (
+              <PorteeField
+                control={form.control}
+                name="portee"
+                showEntreprise={showEntreprise}
+                siteId={siteId}
+                siteName={siteName}
+              />
+            )}
+          </div>
+        )}
+        {showParentSelect && (
+          <SelectField
+            control={form.control}
+            name="parent_id"
+            label={showReparent ? 'Catégorie parente' : 'Parent'}
+            options={parentSelectOptions}
+            hint={
+              showReparent
+                ? 'Choisir une autre catégorie déplace la sous-catégorie et ses gammes.'
+                : undefined
+            }
+          />
+        )}
+        {!compact && (
+          <RadioField
+            control={form.control}
+            name="etat"
+            label="État"
+            options={[
+              { value: 'actif', label: 'Actif' },
+              { value: 'inactif', label: 'Masqué' },
+            ]}
+          />
+        )}
+      </FormDialog>
+    </Form>
   )
 }

@@ -1,17 +1,21 @@
-import { useRef, useState } from 'react'
-import { CalendarDays } from 'lucide-react'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { libelleStatutOt } from '../schemas'
+import { DateField } from '@/components/common/fields/date-field'
+import { RadioField } from '@/components/common/fields/radio-field'
 import type { Database } from '@/lib/database.types'
 
 type OtOrigine = Database['public']['Enums']['ot_origine']
 
-// Les deux origines, dans l'ordre d'affichage. Le libellé réutilise `libelleStatutOt`
-// (source unique : Planifié / Programmé), garanti en phase avec le badge de statut.
-const ORIGINES: OtOrigine[] = ['planifie', 'programme']
+// Formulaire local : date prévue (non vide) + type d'OT. `z.enum` correspond
+// exactement à l'énum `ot_origine` du backend (programme / planifie).
+const datePrevueSchema = z.object({
+  datePrevue: z.string().min(1),
+  origine: z.enum(['planifie', 'programme']),
+})
+type DatePrevueValues = z.infer<typeof datePrevueSchema>
 
 interface DatePrevueDialogProps {
   open: boolean
@@ -31,11 +35,8 @@ interface DatePrevueDialogProps {
  * (cf `useUpdateDatePrevueOt`) — et déplacer la date d'un OT « Programmé » le repasse
  * automatiquement en « Planifié » (trigger backend).
  *
- * Date : `<input type="date">` NATIF (composant `Input` stylé) → segments jj/mm/aaaa,
- * flèches ↑↓, masque chiffres, accessible, sans réimplémentation. On masque
- * l'indicateur natif (moche) et on le remplace par un bouton calendrier shadcn propre
- * qui ouvre le SÉLECTEUR NATIF du navigateur via l'API standard `input.showPicker()`.
- * La valeur native est au format `YYYY-MM-DD`, exactement ce qu'attend le modal.
+ * Date : brique `DateField` (sélecteur calendrier custom, valeur ISO `YYYY-MM-DD`),
+ * homogène avec le reste des modales.
  */
 export function DatePrevueDialog({
   open,
@@ -45,84 +46,51 @@ export function DatePrevueDialog({
   pending,
   onConfirm,
 }: DatePrevueDialogProps) {
-  const [valeur, setValeur] = useState(datePrevue)
-  const [origineValeur, setOrigineValeur] = useState<OtOrigine>(origine)
-  const dateRef = useRef<HTMLInputElement>(null)
-
-  function ouvrirCalendrier() {
-    const el = dateRef.current
-    if (!el) return
-    // showPicker() : ouvre le calendrier NATIF du navigateur (API standard). Repli
-    // sur focus si le navigateur ne le supporte pas (au pire : saisie au clavier).
-    if (typeof el.showPicker === 'function') {
-      try {
-        el.showPicker()
-      } catch {
-        el.focus()
-      }
-    } else {
-      el.focus()
-    }
-  }
+  const form = useForm<DatePrevueValues>({
+    resolver: zodResolver(datePrevueSchema),
+    defaultValues: { datePrevue, origine },
+  })
+  const dateValeur = useWatch({ control: form.control, name: 'datePrevue' })
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Modifier la date prévue"
-      description="Replanifie cet ordre de travail et ajuste son type (Programmé / Planifié)."
-      onSubmit={() => onConfirm({ datePrevue: valeur, origine: origineValeur })}
-      submitLabel="Enregistrer"
-      pendingLabel="Enregistrement…"
-      pending={pending}
-      submitDisabled={valeur.trim() === ''}
-    >
-      {/* Date prévue et Type sur la même ligne, chacune sur la MOITIÉ de la largeur
-          du modal (empilées en pleine largeur sous sm — mobile-first). */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="grid gap-2">
-          <Label htmlFor="ot-date-prevue">Date prévue *</Label>
-          <div className="relative">
-            <Input
-              ref={dateRef}
-              id="ot-date-prevue"
-              type="date"
-              aria-label="Date prévue"
-              value={valeur}
-              onChange={(e) => setValeur(e.target.value)}
-              // Suit le thème clair/sombre ; on masque l'indicateur natif (remplacé par
-              // notre bouton calendrier) et on réserve la place à droite (pr-9).
-              className="pr-9 [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden"
-            />
-            <button
-              type="button"
-              onClick={ouvrirCalendrier}
-              aria-label="Ouvrir le calendrier"
-              className="text-muted-foreground hover:text-foreground focus-visible:text-foreground absolute inset-y-0 right-0 flex items-center rounded-r-md px-2 outline-none transition-colors"
-            >
-              <CalendarDays className="size-4" />
-            </button>
-          </div>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="ot-origine">Type</Label>
-          <Select
-            id="ot-origine"
-            value={origineValeur}
-            onChange={(e) => setOrigineValeur(e.target.value as OtOrigine)}
-          >
-            {ORIGINES.map((o) => (
-              <option key={o} value={o}>
-                {libelleStatutOt('planifie', o)}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </div>
-      <div className="text-muted-foreground space-y-0.5 text-xs">
-        <p>« Programmé » : généré automatiquement par le cycle.</p>
-        <p>« Planifié » : date posée manuellement.</p>
-      </div>
-    </FormDialog>
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Modifier la date prévue"
+        description="Replanifie cet ordre de travail et ajuste son type (Programmé / Planifié)."
+        onSubmit={() => void form.handleSubmit(onConfirm)()}
+        submitLabel="Enregistrer"
+        pendingLabel="Enregistrement…"
+        pending={pending}
+        submitDisabled={dateValeur.trim() === ''}
+      >
+        {/* Date en PLEINE largeur puis le Type en radio EMPILÉ dessous : le radio
+            à deux lignes déséquilibrerait une grille 2 colonnes (mobile-first). */}
+        <DateField
+          control={form.control}
+          name="datePrevue"
+          label="Date prévue"
+          required
+        />
+        <RadioField
+          control={form.control}
+          name="origine"
+          label="Type"
+          options={[
+            {
+              value: 'planifie',
+              label: 'Planifié',
+              description: 'Date posée manuellement.',
+            },
+            {
+              value: 'programme',
+              label: 'Programmé',
+              description: 'Généré automatiquement par le cycle.',
+            },
+          ]}
+        />
+      </FormDialog>
+    </Form>
   )
 }

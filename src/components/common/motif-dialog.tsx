@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { fieldErrors } from '@/lib/form'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextareaField } from '@/components/common/textarea-field'
+import { TextareaField } from '@/components/common/fields/textarea-field'
 
 // Motif obligatoire et borné (miroir des garde-fous backend : CHECK
 // motif_annulation, p_motif des RPC). Schéma local : la brique commune ne
@@ -10,6 +11,8 @@ import { TextareaField } from '@/components/common/textarea-field'
 const motifSchema = z.object({
   motif: z.string().trim().min(1, 'Le motif est obligatoire').max(2000),
 })
+
+type MotifValues = z.infer<typeof motifSchema>
 
 interface MotifDialogProps {
   open: boolean
@@ -44,39 +47,42 @@ export function MotifDialog({
   label = 'Motif',
   rows = 4,
 }: MotifDialogProps) {
-  const [motif, setMotif] = useState('')
-  const [error, setError] = useState<string | undefined>()
+  const form = useForm<MotifValues>({
+    resolver: zodResolver(motifSchema),
+    defaultValues: { motif: '' },
+  })
 
-  function handleSubmit() {
-    const parsed = motifSchema.safeParse({ motif })
-    if (!parsed.success) {
-      setError(fieldErrors(parsed.error).motif)
-      return
-    }
-    setError(undefined)
-    onConfirm(parsed.data.motif)
-  }
+  // Contrairement aux autres modales, la plomberie de succès (toast + fermeture)
+  // reste chez l'APPELANT : c'est lui qui pilote `pending` via sa mutation, ferme
+  // le dialogue et notifie. On ne passe donc PAS par `useSubmitDialog` (qui, lui,
+  // toasterait et fermerait) — le resolver valide, puis on relaie à `onConfirm`.
+  const submit = ({ motif }: MotifValues) => onConfirm(motif)
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={title}
-      description={description}
-      onSubmit={() => handleSubmit()}
-      submitLabel={confirmLabel}
-      pendingLabel="En cours…"
-      pending={pending}
-      submitVariant={destructive ? 'destructive' : 'default'}
-    >
-      <TextareaField
-        label={label}
-        required
-        rows={rows}
-        value={motif}
-        onChange={setMotif}
-        error={error}
-      />
-    </FormDialog>
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={title}
+        description={description}
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={confirmLabel}
+        pendingLabel="En cours…"
+        pending={pending}
+        submitVariant={destructive ? 'destructive' : 'default'}
+        // Un seul textarea → modale compacte (largeur via `size`, jamais contentClassName).
+        size="sm"
+      >
+        <TextareaField
+          control={form.control}
+          name="motif"
+          label={label}
+          required
+          rows={rows}
+          // Focus d'emblée sur la saisie (et non le bouton « X » de fermeture).
+          autoFocus
+        />
+      </FormDialog>
+    </Form>
   )
 }

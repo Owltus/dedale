@@ -1,4 +1,5 @@
 import type { Champ, ChampValeur } from '@/lib/champs'
+import { DateField } from '@/components/ui/date-field'
 import { TextField } from './text-field'
 import { NumberField } from './number-field'
 import { CheckboxField } from './checkbox-field'
@@ -36,13 +37,11 @@ export function ChampValeurInput({
       )
     case 'date':
       return (
-        <TextField
-          label={label}
-          required={champ.requis}
-          type="date"
+        <DateField
           value={typeof value === 'string' ? value : ''}
-          onChange={(v) => onChange(v || null)}
-          error={error}
+          onValueChange={(v) => onChange(v || null)}
+          ariaLabel={label}
+          className="w-full"
         />
       )
     case 'oui-non':

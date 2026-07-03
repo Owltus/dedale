@@ -1,9 +1,12 @@
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { emptyOperation, operationSchema } from '../schemas'
 import type { OperationFormValues } from '../schemas'
 import { useCreateOperation, useUpdateOperation } from '../mutations'
 import { referentielsQueries } from '../queries'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import {
   OperationFormBase,
@@ -50,9 +53,11 @@ export function OperationFormDialog({
   const update = useUpdateOperation()
   const { data: types = [] } = useQuery(referentielsQueries.typesOperations())
   const { data: unites = [] } = useQuery(referentielsQueries.unites())
-  const form = useFormDialog({
-    schema: operationSchema,
-    initialValues: () => initialValues(operation),
+  const form = useForm<OperationFormValues>({
+    resolver: zodResolver(operationSchema),
+    defaultValues: initialValues(operation),
+  })
+  const submit = useSubmitDialog<OperationFormValues>({
     // L'unité dépend du type (Mesure), les seuils de l'unité : on calcule les
     // deux drapeaux pour que le payload coupe les bons champs.
     onSubmit: (data) => {
@@ -66,21 +71,19 @@ export function OperationFormDialog({
   })
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier l’opération' : 'Nouvelle opération'}
-      description="Le type « Mesure » ajoute une unité ; selon l’unité, des seuils mini/maxi sont demandés (pas pour un relevé de compteur)."
-      onSubmit={() => void form.submit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Ajouter'}
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      <OperationFormBase
-        values={form.values}
-        onChange={form.setValues}
-        errors={form.errors}
-      />
-    </FormDialog>
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={isEdit ? 'Modifier l’opération' : 'Nouvelle opération'}
+        description="Le type « Mesure » ajoute une unité ; selon l’unité, des seuils mini/maxi sont demandés (pas pour un relevé de compteur)."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Ajouter'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+      >
+        <OperationFormBase />
+      </FormDialog>
+    </Form>
   )
 }

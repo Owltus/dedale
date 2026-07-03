@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { toast } from 'sonner'
 import {
   useCreateParcSousCategorie,
@@ -12,11 +15,23 @@ import {
   type Champ,
 } from '@/lib/champs'
 import { writeErrorMessage } from '@/lib/form'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { IdentiteFields } from '@/components/common/identite-fields'
-import { SelectField } from '@/components/common/select-field'
+import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { SelectField } from '@/components/common/fields/select-field'
 import { ChampsListEditor } from '@/components/common/champs-list-editor'
 import type { Categorie } from '@/features/categories/queries'
+
+const parcSousCategorieSchema = z.object({
+  nom: z.string().trim().min(1, 'Le nom est obligatoire'),
+  description: z.string(),
+  miniatureId: z.string().nullable(),
+  // '' = gabarit spécifique (défini ici) ; sinon id d'un modèle de site.
+  modeleId: z.string(),
+})
+
+type ParcSousCategorieValues = z.input<typeof parcSousCategorieSchema>
 
 interface ParcSousCategorieDialogProps {
   open: boolean
@@ -33,6 +48,17 @@ interface ParcSousCategorieDialogProps {
    * par propagation à l'enregistrement. Ignoré en création.
    */
   equipements?: { id: string; specifications: unknown }[]
+}
+
+function initialValues(
+  categorie: Categorie | null | undefined,
+): ParcSousCategorieValues {
+  return {
+    nom: categorie?.nom ?? '',
+    description: categorie?.description ?? '',
+    miniatureId: categorie?.miniature_id ?? null,
+    modeleId: categorie?.modele_equipement_id ?? '',
+  }
 }
 
 /**
@@ -59,77 +85,65 @@ export function ParcSousCategorieDialog({
   const update = useUpdateParcSousCategorie()
   // Caractéristiques d'un gabarit spécifique EXISTANT : enregistrées au fil de l'eau.
   const persistChamps = useUpdateParcSousCategorieChamps()
-  // « Occupé » inclut la persistance des caractéristiques : footer (Annuler/
-  // Enregistrer) et éditeur de champs désactivés tant qu'une écriture est en vol
-  // → pas de fermeture mid-propagation ni d'écritures concurrentes non sérialisées.
-  const pending =
-    create.isPending || update.isPending || persistChamps.isPending
 
-  const [nom, setNom] = useState(categorie?.nom ?? '')
-  const [description, setDescription] = useState(categorie?.description ?? '')
-  const [miniatureId, setMiniatureId] = useState<string | null>(
-    categorie?.miniature_id ?? null,
-  )
-  // '' = gabarit spécifique (défini ici) ; sinon id d'un modèle de site. Verrouillé
-  // en édition : la valeur initiale est celle de la sous-catégorie existante.
-  const [modeleId, setModeleId] = useState(
-    categorie?.modele_equipement_id ?? '',
-  )
+  const form = useForm<ParcSousCategorieValues>({
+    resolver: zodResolver(parcSousCategorieSchema),
+    defaultValues: initialValues(categorie),
+  })
+
+  // Caractéristiques d'un gabarit spécifique : liste DYNAMIQUE éditée hors
+  // react-hook-form (persistée au fil de l'eau en édition, accumulée en création).
   const [champs, setChamps] = useState<Champ[]>(() =>
     categorie ? parseChamps(categorie.specifications) : [],
   )
-  const [errors, setErrors] = useState<{ nom?: string }>({})
 
+  // « Occupé » inclut la persistance des caractéristiques : footer (Annuler/
+  // Enregistrer) et éditeur de champs désactivés tant qu'une écriture est en vol
+  // → pas de fermeture mid-propagation ni d'écritures concurrentes non sérialisées.
+  const pending = form.formState.isSubmitting || persistChamps.isPending
+
+  // '' = gabarit spécifique (défini ici) ; sinon id d'un modèle de site. Verrouillé
+  // en édition : la valeur initiale est celle de la sous-catégorie existante.
+  const modeleId = useWatch({ control: form.control, name: 'modeleId' })
   const specifique = modeleId === ''
   // Libellé du modèle fixé (édition liée à un modèle), pour l'afficher en lecture.
   const modeleNom = modeles.find((m) => m.id === modeleId)?.nom
 
-  async function handleSubmit() {
-    if (!nom.trim()) {
-      setErrors({ nom: 'Le nom est obligatoire' })
-      return
-    }
-    setErrors({})
-
-    try {
+  const submit = useSubmitDialog<ParcSousCategorieValues>({
+    onSubmit: (data) => {
       if (categorie) {
         // Édition : nom / description / image. Les caractéristiques d'un gabarit
         // spécifique sont déjà enregistrées au fil de l'eau (handleChampsChange).
-        await update.mutateAsync({
+        return update.mutateAsync({
           id: categorie.id,
-          nom,
-          description,
-          miniatureId,
+          nom: data.nom,
+          description: data.description,
+          miniatureId: data.miniatureId,
         })
-        toast.success('Sous-catégorie modifiée')
-      } else {
-        // Création : la sous-catégorie n'existe pas encore → on valide et sérialise
-        // les caractéristiques (gabarit spécifique) pour les écrire d'un bloc.
-        let preparedChamps: Champ[] = []
-        if (specifique) {
-          const prepared = prepareChamps(champs)
-          if (!prepared.ok) {
-            toast.error(prepared.error)
-            return
-          }
-          preparedChamps = prepared.champs
-        }
-        await create.mutateAsync({
-          nom,
-          parentId,
-          siteId,
-          description,
-          miniatureId,
-          modeleId: specifique ? null : modeleId,
-          specifications: specifique ? serializeChamps(preparedChamps) : null,
-        })
-        toast.success('Sous-catégorie créée')
       }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+      // Création : la sous-catégorie n'existe pas encore → on valide et sérialise
+      // les caractéristiques (gabarit spécifique) pour les écrire d'un bloc.
+      const estSpecifique = data.modeleId === ''
+      let preparedChamps: Champ[] = []
+      if (estSpecifique) {
+        const prepared = prepareChamps(champs)
+        // Erreur de préparation → toast (via useSubmitDialog), modal laissé ouvert.
+        if (!prepared.ok) throw new Error(prepared.error)
+        preparedChamps = prepared.champs
+      }
+      return create.mutateAsync({
+        nom: data.nom,
+        parentId,
+        siteId,
+        description: data.description,
+        miniatureId: data.miniatureId,
+        modeleId: estSpecifique ? null : data.modeleId,
+        specifications: estSpecifique ? serializeChamps(preparedChamps) : null,
+      })
+    },
+    successMessage: isEdit ? 'Sous-catégorie modifiée' : 'Sous-catégorie créée',
+    close: () => onOpenChange(false),
+  })
 
   /**
    * Changement de la liste des caractéristiques. Sous-catégorie EXISTANTE (édition)
@@ -160,73 +174,67 @@ export function ParcSousCategorieDialog({
   }
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={
-        isEdit
-          ? 'Modifier la sous-catégorie d’équipements'
-          : 'Nouvelle sous-catégorie d’équipements'
-      }
-      description="Les équipements de cette sous-catégorie partageront les mêmes caractéristiques et la même image."
-      onSubmit={() => void handleSubmit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={pending}
-      contentClassName="sm:max-w-2xl"
-    >
-      <IdentiteFields
-        nom={{ value: nom, onChange: setNom, error: errors.nom }}
-        description={{ value: description, onChange: setDescription }}
-        image={{
-          value: miniatureId,
-          onChange: setMiniatureId,
-          targetSiteId: siteId,
-          canUpload: true,
-        }}
-      />
-
-      <SelectField
-        label="Gabarit des équipements"
-        id="parc_subcat_source"
-        value={modeleId}
-        onChange={setModeleId}
-        // Décision structurelle prise à la création : non modifiable ensuite.
-        disabled={isEdit}
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={
+          isEdit
+            ? 'Modifier la sous-catégorie d’équipements'
+            : 'Nouvelle sous-catégorie d’équipements'
+        }
+        description="Les équipements de cette sous-catégorie partageront les mêmes caractéristiques et la même image."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={pending}
+        size="lg"
       >
-        <option value="">Spécifique (définir les caractéristiques ici)</option>
-        {modeles.map((m) => (
-          <option key={m.id} value={m.id}>
-            Modèle : {m.nom}
-          </option>
-        ))}
-      </SelectField>
-
-      {specifique ? (
-        <ChampsListEditor
-          champs={champs}
-          onChange={handleChampsChange}
-          pending={pending}
-          deleteImpactHint={
-            categorie && equipements.length > 0
-              ? `Sa valeur sera aussi retirée de ${String(equipements.length)} équipement${
-                  equipements.length > 1 ? 's' : ''
-                } de cette sous-catégorie.`
-              : undefined
-          }
-          emptyHint={
-            categorie
-              ? 'Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ; ils s’enregistrent aussitôt et les équipements de cette sous-catégorie en héritent.'
-              : 'Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ; les équipements de cette sous-catégorie en hériteront.'
-          }
+        <IdentiteFields
+          control={form.control}
+          nomName="nom"
+          descriptionName="description"
+          image={{ name: 'miniatureId', targetSiteId: siteId, canUpload: true }}
         />
-      ) : (
-        <p className="text-muted-foreground text-sm">
-          Les caractéristiques sont héritées du modèle
-          {modeleNom ? ` « ${modeleNom} »` : ''} et se modifient dans la
-          Bibliothèque.
-        </p>
-      )}
-    </FormDialog>
+
+        <SelectField
+          control={form.control}
+          name="modeleId"
+          label="Gabarit des équipements"
+          // Décision structurelle prise à la création : non modifiable ensuite.
+          disabled={isEdit}
+          options={[
+            { value: '', label: 'Spécifique (définir les caractéristiques ici)' },
+            ...modeles.map((m) => ({ value: m.id, label: `Modèle : ${m.nom}` })),
+          ]}
+        />
+
+        {specifique ? (
+          <ChampsListEditor
+            champs={champs}
+            onChange={handleChampsChange}
+            pending={pending}
+            deleteImpactHint={
+              categorie && equipements.length > 0
+                ? `Sa valeur sera aussi retirée de ${String(equipements.length)} équipement${
+                    equipements.length > 1 ? 's' : ''
+                  } de cette sous-catégorie.`
+                : undefined
+            }
+            emptyHint={
+              categorie
+                ? 'Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ; ils s’enregistrent aussitôt et les équipements de cette sous-catégorie en héritent.'
+                : 'Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ; les équipements de cette sous-catégorie en hériteront.'
+            }
+          />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Les caractéristiques sont héritées du modèle
+            {modeleNom ? ` « ${modeleNom} »` : ''} et se modifient dans la
+            Bibliothèque.
+          </p>
+        )}
+      </FormDialog>
+    </Form>
   )
 }

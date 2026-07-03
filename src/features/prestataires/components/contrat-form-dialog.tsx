@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { contratSchema, emptyContrat } from '../schemas'
 import type { ContratFormValues } from '../schemas'
 import { useCreateContrat, useUpdateContrat } from '../mutations'
 import { typesContratsQueries } from '../queries'
-import { writeErrorMessage, fieldErrors } from '@/lib/form'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { SelectField } from '@/components/common/select-field'
-import { NumberField } from '@/components/common/number-field'
+import { TextField } from '@/components/common/fields/text-field'
+import { DateField } from '@/components/common/fields/date-field'
+import { TextareaField } from '@/components/common/fields/textarea-field'
+import { DescriptionField } from '@/components/common/fields/description-field'
+import { SelectField } from '@/components/common/fields/select-field'
+import { NumberField } from '@/components/common/fields/number-field'
 import type { Database } from '@/lib/database.types'
 
 type Contrat = Database['public']['Tables']['contrats']['Row']
@@ -51,180 +55,145 @@ export function ContratFormDialog({
   const create = useCreateContrat()
   const update = useUpdateContrat()
   const { data: types = [] } = useQuery(typesContratsQueries.list())
-  const [values, setValues] = useState<ContratFormValues>(() =>
-    initialValues(contrat),
-  )
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const pending = create.isPending || update.isPending
-
-  function set<K extends keyof ContratFormValues>(
-    key: K,
-    value: ContratFormValues[K],
-  ) {
-    setValues((v) => ({ ...v, [key]: value }))
-  }
+  const form = useForm<ContratFormValues>({
+    resolver: zodResolver(contratSchema),
+    defaultValues: initialValues(contrat),
+  })
+  const submit = useSubmitDialog<ContratFormValues>({
+    onSubmit: (data) =>
+      contrat
+        ? update.mutateAsync({ id: contrat.id, values: data })
+        : create.mutateAsync({ siteId, prestataireId, values: data }),
+    successMessage: isEdit ? 'Contrat modifié' : 'Contrat créé',
+    close: () => onOpenChange(false),
+  })
 
   // Affichage conditionnel par type (1 = Déterminé, 2 = Tacite, 3 = Indéterminé).
-  const estTacite = values.type_contrat_id === '2'
-  const estIndetermine = values.type_contrat_id === '3'
+  const typeContratId = useWatch({
+    control: form.control,
+    name: 'type_contrat_id',
+  })
+  const estTacite = typeContratId === '2'
+  const estIndetermine = typeContratId === '3'
 
-  async function handleSubmit() {
-    const parsed = contratSchema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
-    try {
-      if (contrat) {
-        await update.mutateAsync({ id: contrat.id, values: parsed.data })
-        toast.success('Contrat modifié')
-      } else {
-        await create.mutateAsync({
-          siteId,
-          prestataireId,
-          values: parsed.data,
-        })
-        toast.success('Contrat créé')
-      }
-      onOpenChange(false)
-    } catch (e) {
-      toast.error(writeErrorMessage(e))
-    }
-  }
+  const typeOptions = types.map((t) => ({
+    value: String(t.id),
+    label: t.libelle,
+  }))
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? 'Modifier le contrat' : 'Nouveau contrat'}
-      description="Renseigne les informations du contrat."
-      onSubmit={() => void handleSubmit()}
-      submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-      pendingLabel="Enregistrement…"
-      pending={pending}
-    >
-      <TextField
-        label="Référence"
-        value={values.reference}
-        onChange={(v) => set('reference', v)}
-        error={errors.reference}
-        required
-      />
-      <SelectField
-        label="Type de contrat"
-        required
-        value={values.type_contrat_id}
-        onChange={(v) => set('type_contrat_id', v)}
-        error={errors.type_contrat_id}
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={isEdit ? 'Modifier le contrat' : 'Nouveau contrat'}
+        description="Renseigne les informations du contrat."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
+        size="lg"
       >
-        <option value="">— Sélectionner —</option>
-        {types.map((t) => (
-          <option key={t.id} value={String(t.id)}>
-            {t.libelle}
-          </option>
-        ))}
-      </SelectField>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
-          label="Date de début"
-          type="date"
-          value={values.date_debut}
-          onChange={(v) => set('date_debut', v)}
-          error={errors.date_debut}
+          control={form.control}
+          name="reference"
+          label="Référence"
           required
         />
-        <TextField
-          label="Date de fin"
-          type="date"
-          value={values.date_fin}
-          onChange={(v) => set('date_fin', v)}
-          error={errors.date_fin}
+        <SelectField
+          control={form.control}
+          name="type_contrat_id"
+          label="Type de contrat"
+          required
+          placeholder="— Sélectionner —"
+          options={typeOptions}
         />
-      </div>
-      <TextField
-        label="Date de signature"
-        type="date"
-        value={values.date_signature}
-        onChange={(v) => set('date_signature', v)}
-        error={errors.date_signature}
-      />
-
-      {/* ── Reconduction (tacite uniquement) ─────────────────────────────── */}
-      {estTacite && (
-        <>
-          <p className="text-muted-foreground pt-2 text-sm font-medium">
-            Reconduction
-          </p>
-          <NumberField
-            label="Durée d'un cycle"
-            unite="mois"
-            min={1}
-            step={1}
-            value={values.duree_cycle_mois}
-            onChange={(v) => set('duree_cycle_mois', v)}
-            error={errors.duree_cycle_mois}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <DateField
+            control={form.control}
+            name="date_debut"
+            label="Date de début"
             required
           />
-        </>
-      )}
-
-      {/* ── Résiliation / préavis ────────────────────────────────────────── */}
-      <p className="text-muted-foreground pt-2 text-sm font-medium">
-        Résiliation
-      </p>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <NumberField
-          label="Délai de préavis"
-          unite="jours"
-          min={0}
-          step={1}
-          value={values.delai_preavis_jours}
-          onChange={(v) => set('delai_preavis_jours', v)}
-          error={errors.delai_preavis_jours}
-          required
-        />
-        {!estIndetermine && (
-          <NumberField
-            label="Fenêtre de résiliation"
-            unite="jours"
-            min={1}
-            step={1}
-            value={values.fenetre_resiliation_jours}
-            onChange={(v) => set('fenetre_resiliation_jours', v)}
-            error={errors.fenetre_resiliation_jours}
+          <DateField
+            control={form.control}
+            name="date_fin"
+            label="Date de fin"
           />
-        )}
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TextField
-          label="Date de résiliation"
-          type="date"
-          value={values.date_resiliation}
-          onChange={(v) => set('date_resiliation', v)}
-          error={errors.date_resiliation}
+        </div>
+        <DateField
+          control={form.control}
+          name="date_signature"
+          label="Date de signature"
         />
-        <TextField
-          label="Date de notification"
-          type="date"
-          value={values.date_notification}
-          onChange={(v) => set('date_notification', v)}
-          error={errors.date_notification}
-        />
-      </div>
 
-      <TextField
-        label="Objet de l'avenant"
-        value={values.objet_avenant}
-        onChange={(v) => set('objet_avenant', v)}
-        error={errors.objet_avenant}
-      />
-      <TextField
-        label="Commentaires"
-        value={values.commentaires}
-        onChange={(v) => set('commentaires', v)}
-        error={errors.commentaires}
-      />
-    </FormDialog>
+        {/* ── Reconduction (tacite uniquement) ─────────────────────────────── */}
+        {estTacite && (
+          <>
+            <p className="text-muted-foreground pt-2 text-sm font-medium">
+              Reconduction
+            </p>
+            <NumberField
+              control={form.control}
+              name="duree_cycle_mois"
+              label="Durée d'un cycle"
+              unite="mois"
+              min={1}
+              step={1}
+              required
+            />
+          </>
+        )}
+
+        {/* ── Résiliation / préavis ────────────────────────────────────────── */}
+        <p className="text-muted-foreground pt-2 text-sm font-medium">
+          Résiliation
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <NumberField
+            control={form.control}
+            name="delai_preavis_jours"
+            label="Délai de préavis"
+            unite="jours"
+            min={0}
+            step={1}
+            required
+          />
+          {!estIndetermine && (
+            <NumberField
+              control={form.control}
+              name="fenetre_resiliation_jours"
+              label="Fenêtre de résiliation"
+              unite="jours"
+              min={1}
+              step={1}
+            />
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <DateField
+            control={form.control}
+            name="date_resiliation"
+            label="Date de résiliation"
+          />
+          <DateField
+            control={form.control}
+            name="date_notification"
+            label="Date de notification"
+          />
+        </div>
+
+        <TextareaField
+          control={form.control}
+          name="objet_avenant"
+          label="Objet de l'avenant"
+        />
+        <DescriptionField
+          control={form.control}
+          name="commentaires"
+          label="Commentaires"
+        />
+      </FormDialog>
+    </Form>
   )
 }

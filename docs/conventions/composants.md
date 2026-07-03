@@ -76,24 +76,30 @@ const [open, setOpen] = useState(false)
 </Dialog>
 ```
 
-- **Dialog de formulaire** : ne pas recopier cette coquille → utiliser `FormDialog` (`common/form-dialog.tsx`), qui encapsule Dialog + en-tête + `<form>` + pied Annuler/Valider :
+- **Dialog de formulaire** : ne pas recopier cette coquille → **react-hook-form** + `zodResolver` dans un `<Form {...form}>` + `FormDialog` (`common/form-dialog.tsx`, bâti sur `DialogShell`) :
 
 ```tsx
-<FormDialog
-  open={open}
-  onOpenChange={setOpen}
-  title={isEdit ? 'Modifier le X' : 'Nouveau X'}
-  description="…"
-  onSubmit={() => void handleSubmit()}
-  submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
-  pendingLabel="Enregistrement…"
-  pending={mutation.isPending}
->
-  {/* champs (TextField, SelectField…) */}
-</FormDialog>
+const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues })
+const submit = useSubmitDialog<Values>({ onSubmit, successMessage, close: () => setOpen(false) })
+<Form {...form}>
+  <FormDialog
+    open={open}
+    onOpenChange={setOpen}
+    title={isEdit ? 'Modifier le X' : 'Nouveau X'}
+    description="…"
+    size="lg"                                  {/* optionnel : sm|md|lg|xl|full */}
+    onSubmit={() => void form.handleSubmit(submit)()}
+    submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
+    pendingLabel="Enregistrement…"
+    pending={form.formState.isSubmitting}
+  >
+    <TextField control={form.control} name="nom" label="Nom" required />
+    {/* autres champs de @/components/common/fields/* */}
+  </FormDialog>
+</Form>
 ```
 
-La coquille ne gère que le **visuel** : l'état (`useState`), la validation Zod (`safeParse` + `fieldErrors`), les mutations/toasts et le reset restent dans ton composant. Props utiles : `submitVariant="destructive"`, `contentClassName` (ex. `max-h-[90vh] overflow-y-auto`).
+La coquille ne gère que le **visuel** ; l'état + la validation viennent de RHF/`zodResolver`, la soumission (toast + close + traduction d'erreur) de `useSubmitDialog`, le reset du **remontage** (`key`). Props utiles : `submitVariant="destructive"`, `size`, `contentClassName`.
 
 - **Un seul modal visible à la fois** ; ne pas empiler.
 - Modal métier d'édition → composant dédié `features/<domaine>/components/<Entité>Dialog.tsx`.

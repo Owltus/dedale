@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useFormContext, useWatch } from 'react-hook-form'
 import { referentielsQueries } from '@/features/gammes/queries'
-import { TextField } from '@/components/common/text-field'
-import { SelectField } from '@/components/common/select-field'
-import { DescriptionField } from '@/components/common/description-field'
+import { TextField } from '@/components/common/fields/text-field'
+import { SelectField } from '@/components/common/fields/select-field'
+import { DescriptionField } from '@/components/common/fields/description-field'
 
 /**
  * Valeurs du formulaire d'opération, PARTAGÉES par les opérations de gamme et les
@@ -60,139 +62,101 @@ export function resolveOperationFlags(
 }
 
 /**
- * Corps RÉUTILISABLE du formulaire d'opération (gammes + modèles). Cascade :
- * Type → (si « Mesure ») Unité → (si l'unité porte des seuils) Seuil min/max.
- * Au changement de type/unité, les champs devenus masqués sont PURGÉS (un champ
- * masqué ne doit jamais porter de valeur, sinon la validation min ≤ max bloque
- * un submit sur un champ invisible). L'hôte fournit `values`/`onChange`/`errors`
- * et gère sa propre validation + mutation.
+ * Corps RÉUTILISABLE du formulaire d'opération (gammes + modèles), version
+ * react-hook-form : lit son `control`/`setValue` du `FormProvider` parent
+ * (`<Form {...form}>`). Cascade : Type → (si « Mesure ») Unité → (si l'unité
+ * porte des seuils) Seuil min/max. Dès qu'un champ devient masqué, sa valeur est
+ * PURGÉE (un champ masqué ne doit jamais porter de valeur, sinon la validation
+ * min ≤ max bloque un submit sur un champ invisible). L'hôte porte la validation
+ * (Zod) + la mutation.
  */
-export function OperationFormBase({
-  values,
-  onChange,
-  errors,
-}: {
-  values: OperationFormValues
-  onChange: (values: OperationFormValues) => void
-  errors: Record<string, string>
-}) {
+export function OperationFormBase() {
+  const { control, setValue, getValues } = useFormContext<OperationFormValues>()
   const { data: types = [] } = useQuery(referentielsQueries.typesOperations())
   const { data: unites = [] } = useQuery(referentielsQueries.unites())
 
+  const typeId = useWatch({ control, name: 'type_operation_id' })
+  const uniteId = useWatch({ control, name: 'unite_id' })
+
   const { aUnite, requiresSeuils } = resolveOperationFlags(
-    values,
+    { type_operation_id: typeId, unite_id: uniteId },
     types,
     unites,
   )
 
-  function set(key: keyof OperationFormValues, value: string) {
-    onChange({ ...values, [key]: value })
-  }
+  // Type « Mesure » → garde l'unité ; sinon purge unité + seuils. Unité
+  // « compteur » (sans seuils) → purge les seuils. Réactif : dès qu'un champ est
+  // masqué, on efface sa valeur (validation min ≤ max ne doit pas bloquer sur un
+  // champ invisible).
+  useEffect(() => {
+    if (!aUnite && getValues('unite_id') !== '') setValue('unite_id', '')
+    if (!requiresSeuils) {
+      if (getValues('seuil_minimum') !== '') setValue('seuil_minimum', '')
+      if (getValues('seuil_maximum') !== '') setValue('seuil_maximum', '')
+    }
+  }, [aUnite, requiresSeuils, getValues, setValue])
 
-  // Type « Mesure » → garde l'unité ; sinon purge unité + seuils.
-  function onTypeChange(typeId: string) {
-    const nextAUnite =
-      types.find((t) => String(t.id) === typeId)?.necessite_seuils ?? false
-    onChange({
-      ...values,
-      type_operation_id: typeId,
-      unite_id: nextAUnite ? values.unite_id : '',
-      seuil_minimum: nextAUnite ? values.seuil_minimum : '',
-      seuil_maximum: nextAUnite ? values.seuil_maximum : '',
-    })
-  }
-
-  // Unité « compteur » (sans seuils) → purge les seuils.
-  function onUniteChange(uniteId: string) {
-    const nextSeuils =
-      unites.find((u) => String(u.id) === uniteId)?.necessite_seuils ?? false
-    onChange({
-      ...values,
-      unite_id: uniteId,
-      seuil_minimum: nextSeuils ? values.seuil_minimum : '',
-      seuil_maximum: nextSeuils ? values.seuil_maximum : '',
-    })
-  }
+  const typeOptions = [
+    { value: '', label: '— Choisir un type —' },
+    ...types.map((t) => ({ value: String(t.id), label: t.libelle })),
+  ]
+  const uniteOptions = [
+    { value: '', label: '— Choisir une unité —' },
+    ...unites.map((u) => ({
+      value: String(u.id),
+      label: `${u.nom} (${u.symbole})`,
+    })),
+  ]
 
   return (
     <>
-      <TextField
-        label="Libellé"
-        value={values.nom}
-        onChange={(v) => set('nom', v)}
-        error={errors.nom}
-        required
-      />
+      <TextField control={control} name="nom" label="Libellé" required />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <TextField
+          control={control}
+          name="ordre"
           label="Ordre"
           type="number"
           min={0}
-          value={values.ordre}
-          onChange={(v) => set('ordre', v)}
-          error={errors.ordre}
         />
         <SelectField
+          control={control}
+          name="type_operation_id"
           label="Type"
           required
-          id="op_type"
-          value={values.type_operation_id}
-          onChange={onTypeChange}
-          error={errors.type_operation_id}
-        >
-          <option value="">— Choisir un type —</option>
-          {types.map((t) => (
-            <option key={t.id} value={String(t.id)}>
-              {t.libelle}
-            </option>
-          ))}
-        </SelectField>
+          options={typeOptions}
+        />
       </div>
 
       {aUnite && (
         <SelectField
+          control={control}
+          name="unite_id"
           label="Unité"
           required
-          id="op_unite"
-          value={values.unite_id}
-          onChange={onUniteChange}
-          error={errors.unite_id}
-        >
-          <option value="">— Choisir une unité —</option>
-          {unites.map((u) => (
-            <option key={u.id} value={String(u.id)}>
-              {u.nom} ({u.symbole})
-            </option>
-          ))}
-        </SelectField>
+          options={uniteOptions}
+        />
       )}
 
       {requiresSeuils && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField
+            control={control}
+            name="seuil_minimum"
             label="Seuil minimum"
             type="number"
-            value={values.seuil_minimum}
-            onChange={(v) => set('seuil_minimum', v)}
-            error={errors.seuil_minimum}
           />
           <TextField
+            control={control}
+            name="seuil_maximum"
             label="Seuil maximum"
             type="number"
-            value={values.seuil_maximum}
-            onChange={(v) => set('seuil_maximum', v)}
-            error={errors.seuil_maximum}
           />
         </div>
       )}
 
-      <DescriptionField
-        id="op_description"
-        value={values.description}
-        onChange={(v) => set('description', v)}
-        error={errors.description}
-      />
+      <DescriptionField control={control} name="description" />
     </>
   )
 }

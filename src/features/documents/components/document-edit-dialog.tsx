@@ -1,12 +1,15 @@
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { typesDocumentsQueries } from '../queries'
 import { useUpdateDocument } from '../mutations'
 import type { DocumentMeta } from '../format'
-import { useFormDialog } from '@/hooks/use-form-dialog'
+import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { SelectField } from '@/components/common/select-field'
+import { TextField } from '@/components/common/fields/text-field'
+import { SelectField } from '@/components/common/fields/select-field'
 
 const documentEditSchema = z.object({
   nom_original: z.string().trim().min(1, 'Le nom est obligatoire.'),
@@ -23,6 +26,13 @@ interface DocumentEditDialogProps {
   document: DocumentMeta | null
 }
 
+function initialValues(document: DocumentMeta | null): DocumentEditValues {
+  return {
+    nom_original: document?.nom_original ?? '',
+    type_document_id: document ? String(document.type_document_id) : '',
+  }
+}
+
 /**
  * Modale d'édition d'un document : renomme (nom affiché) et change le type.
  * AUTO-SUFFISANTE — porte sa mutation (`useUpdateDocument`) et le référentiel des
@@ -37,12 +47,11 @@ export function DocumentEditDialog({
   const { data: types = [] } = useQuery(typesDocumentsQueries.list())
   const update = useUpdateDocument()
 
-  const form = useFormDialog({
-    schema: documentEditSchema,
-    initialValues: (): DocumentEditValues => ({
-      nom_original: document?.nom_original ?? '',
-      type_document_id: document ? String(document.type_document_id) : '',
-    }),
+  const form = useForm<DocumentEditValues>({
+    resolver: zodResolver(documentEditSchema),
+    defaultValues: initialValues(document),
+  })
+  const submit = useSubmitDialog<DocumentEditValues>({
     onSubmit: (data) =>
       update.mutateAsync({
         id: document?.id ?? '',
@@ -56,37 +65,32 @@ export function DocumentEditDialog({
   })
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Modifier le document"
-      description="Renomme le document ou change son type. Le fichier n'est pas remplacé."
-      onSubmit={() => void form.submit()}
-      submitLabel="Enregistrer"
-      pendingLabel="Enregistrement…"
-      pending={form.pending}
-    >
-      <TextField
-        label="Nom"
-        value={form.values.nom_original}
-        onChange={(v) => form.set('nom_original', v)}
-        error={form.errors.nom_original}
-        required
-      />
-      <SelectField
-        label="Type"
-        value={form.values.type_document_id}
-        onChange={(v) => form.set('type_document_id', v)}
-        error={form.errors.type_document_id}
-        required
+    <Form {...form}>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Modifier le document"
+        description="Renomme le document ou change son type. Le fichier n'est pas remplacé."
+        onSubmit={() => void form.handleSubmit(submit)()}
+        submitLabel="Enregistrer"
+        pendingLabel="Enregistrement…"
+        pending={form.formState.isSubmitting}
       >
-        <option value="">Type…</option>
-        {types.map((t) => (
-          <option key={t.id} value={String(t.id)}>
-            {t.nom}
-          </option>
-        ))}
-      </SelectField>
-    </FormDialog>
+        <TextField
+          control={form.control}
+          name="nom_original"
+          label="Nom"
+          required
+        />
+        <SelectField
+          control={form.control}
+          name="type_document_id"
+          label="Type"
+          required
+          placeholder="Type…"
+          options={types.map((t) => ({ value: String(t.id), label: t.nom }))}
+        />
+      </FormDialog>
+    </Form>
   )
 }
