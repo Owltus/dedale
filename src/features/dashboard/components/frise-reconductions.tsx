@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarClock, Truck } from 'lucide-react'
+import { Truck } from 'lucide-react'
 import {
   onKeyActivate,
   toneToken,
@@ -455,7 +455,7 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
   const survolElem = modele.elements.find((e) => e.cle === survol) ?? null
 
   return (
-    <DashboardCard icon={CalendarClock} title="Reconductions de contrats">
+    <DashboardCard>
       <div ref={setRefs} className="relative">
         {modele.elements.length === 0 ? (
           <p className="text-muted-foreground py-6 text-center text-sm">

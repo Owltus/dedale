@@ -22,7 +22,7 @@ interface ZoneSyntheseProps {
  * Layout en flexbox À PLAT (`flex-wrap`), 2 comportements selon la place — les barres se
  * placent ENTRE les carrés si ça tient, sinon passent pleine largeur en dessous :
  *   - sous `@cadrans-trio` (mobile INCLUS) : donut · sunburst CÔTE À CÔTE (chacun sa
- *     moitié, plafonné à `max-w-[400px]`), et barres PLEINE LARGEUR en dessous (via
+ *     moitié, plafonné à `max-w-[300px]`), et barres PLEINE LARGEUR en dessous (via
  *     `order-last` → elles passent en dernier) ;
  *   - large (`@cadrans-trio`) : `donut │ barres │ sunburst` sur UNE ligne, barres AU MILIEU
  *     (`order-none`) remplissant l'espace restant ; les carrés reviennent à `h-cadran` carré.

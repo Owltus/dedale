@@ -103,10 +103,11 @@ export function Dashboard({ siteId }: DashboardProps) {
       {/* Zone 3 — Action : grille intrinsèque `auto-fit` (2 colonnes dès ~300px de
           place par carte, sinon empilées). `flex-1` + `content-stretch` → elle absorbe
           la hauteur restante et étire les cartes (fit-to-height : plus de lignes quand il
-          y a la place). `md:min-h-[340px]` = MÊME taille de référence que les cadrans :
-          chaque carte de la page fait au moins cette taille, un plancher qui ne « mord »
-          que quand la place manque (sinon la page défile, cf. `md:min-h-full`). */}
-      <div className="grid flex-1 grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] content-stretch gap-4 md:min-h-[340px]">
+          y a la place). `md:min-h-cadran` = MÊME taille de référence que les cadrans
+          (`--spacing-cadran`) : chaque carte de la page fait au moins cette taille, un
+          plancher qui ne « mord » que quand la place manque (sinon la page défile,
+          cf. `md:min-h-full`). */}
+      <div className="grid flex-1 grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] content-stretch gap-4 md:min-h-cadran">
         <div className="min-w-0">
           <DernieresDemandes siteId={siteId} />
         </div>

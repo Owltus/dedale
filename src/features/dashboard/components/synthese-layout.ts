@@ -4,12 +4,12 @@
  *
  * Les « curseurs » de réagencement responsive sont définis UNE SEULE FOIS dans le thème
  * (`src/index.css`, bloc `@theme`) et référencés ici par leur nom sémantique :
- *   - `@cadrans-trio:` → seuil `--container-cadrans-trio` (1060px) : donut | barres |
+ *   - `@cadrans-trio:` → seuil `--container-cadrans-trio` (660px) : donut | barres |
  *     sunburst tiennent sur une ligne (barres au milieu) ; EN DESSOUS (mobile inclus),
  *     donut + sunburst restent côte à côte (chacun sa moitié) et les barres passent
  *     pleine largeur en dessous ;
- *   - `h-cadran` / `min-w-cadran` → taille de référence `--spacing-cadran` (340px).
- * Restent en littéral (spécifiques aux carrés) : le plafond de demi-largeur `max-w-[400px]`
+ *   - `h-cadran` / `min-w-cadran` → taille de référence `--spacing-cadran` (200px).
+ * Restent en littéral (spécifiques aux carrés) : le plafond de demi-largeur `max-w-[300px]`
  * et la largeur préférée `basis-[45%]`.
  *
  * Ces variants exigent un ancêtre `@container` (posé sur le wrapper de la zone 1 dans
@@ -18,12 +18,12 @@
 
 /**
  * Cadran CARRÉ (donut, sunburst). Côte à côte À TOUTES LES TAILLES sous `@cadrans-trio`
- * (chacun ~la moitié via `grow` + `basis-[45%]`, plafonné à `max-w-[400px]`) — y compris
- * en mobile ; 340×340 fixe (hauteur `h-cadran` + `aspect-square` de la carte) dès
- * `@cadrans-trio`.
+ * (chacun ~la moitié via `grow` + `basis-[45%]`, plafonné à `max-w-[300px]`) — y compris
+ * en mobile ; carré fixe `--spacing-cadran` (hauteur `h-cadran` + `aspect-square` de la
+ * carte) dès `@cadrans-trio`.
  */
 export const CLASSE_CARRE_CADRAN =
-  'min-w-0 overflow-hidden grow basis-[45%] max-w-[400px] @cadrans-trio:h-cadran @cadrans-trio:max-w-none @cadrans-trio:grow-0 @cadrans-trio:shrink-0 @cadrans-trio:basis-auto'
+  'min-w-0 overflow-hidden grow basis-[45%] max-w-[300px] @cadrans-trio:h-cadran @cadrans-trio:max-w-none @cadrans-trio:grow-0 @cadrans-trio:shrink-0 @cadrans-trio:basis-auto'
 
 /**
  * Barres « Charge par semaine ». Pleine largeur et EN DESSOUS par défaut (`order-last`) ;

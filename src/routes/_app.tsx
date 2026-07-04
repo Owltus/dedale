@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   createFileRoute,
   redirect,
@@ -16,17 +16,12 @@ import { sitesQueries } from '@/features/sites/queries'
 import { SiteProvider, useSiteContext } from '@/lib/site-context'
 import * as perm from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
-import { AppSidebar, SidebarContent } from '@/components/common/app-sidebar'
+import { AppSidebar } from '@/components/common/app-sidebar'
 import { MobileHeader } from '@/components/common/mobile-header'
 import { TopBar } from '@/components/common/top-bar'
 import { PageContainer } from '@/components/common/page-container'
 import { EmptyState } from '@/components/common/empty-state'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from '@/components/ui/sheet'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useMediaQuery } from '@/hooks/use-media-query'
 
@@ -149,61 +144,39 @@ function LayoutSwitch() {
   return perm.isDemandeur(role) ? <DemandeurLayout /> : <DefaultLayout />
 }
 
+// Bascules manuelles neutralisées : le repli est piloté par la largeur de fenêtre
+// (état `open` contrôlé, cf. DefaultLayout) — pas de bouton ni de poignée.
+const ignoreSidebarToggle = () => undefined
+
 /**
- * Layout par défaut (admin / manager / technicien / lecteur). Le mode de la
- * sidebar est piloté automatiquement par la taille d'écran ET le type de pointeur :
- *  - bureau (>= lg)                           : sidebar pleine
- *  - tablette à pointeur fin (md..lg, souris) : rail d'icônes (tooltips au survol)
- *  - mobile, ou tablette tactile              : drawer (libellés visibles ; un tap
- *    ne déclenche pas de tooltip, donc pas de rail d'icônes sur tactile)
+ * Layout par défaut (admin / manager / technicien / lecteur). Le repli est
+ * AUTOMATIQUE selon la largeur de fenêtre (transitions conservées), sans aucune
+ * bascule manuelle :
+ *  - ≥ 1024 px    : sidebar pleine ;
+ *  - 768–1024 px  : rail d'icônes (réduit, libellés en tooltip au survol) ;
+ *  - < 768 px     : drawer plein écran (ouvert par le burger mobile).
  */
 function DefaultLayout() {
-  const [drawerOpen, setDrawerOpen] = useState(false)
-
-  const isDesktop = useMediaQuery('(min-width: 1024px)')
-  const isWide = useMediaQuery('(min-width: 768px)')
-  const isFinePointer = useMediaQuery('(hover: hover) and (pointer: fine)')
-  const showFixedSidebar = isDesktop || (isWide && isFinePointer)
-  const iconOnly = !isDesktop
-
   const mainRef = useMainFocusRef()
+  // `open` contrôlé par la media query : la sidebar se replie/déplie seule quand la
+  // fenêtre franchit 1024 px, en animant sa largeur (transition CSS de la primitive).
+  const expanded = useMediaQuery('(min-width: 1024px)')
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <SidebarProvider open={expanded} onOpenChange={ignoreSidebarToggle}>
       <SkipLink />
-
-      {/* Sidebar fixe : rail d'icônes (tablette souris) ou pleine (bureau) */}
-      {showFixedSidebar && <AppSidebar iconOnly={iconOnly} />}
-
-      {/* Drawer (mobile + tablette tactile) : sidebar complète en overlay */}
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="left" showCloseButton={false}>
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <SheetDescription className="sr-only">
-            Liens de navigation principale
-          </SheetDescription>
-          <SidebarContent
-            touch
-            showHeader={false}
-            onNavigate={() => setDrawerOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
-
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {!showFixedSidebar && (
-          <MobileHeader onMenu={() => setDrawerOpen(true)} />
-        )}
-        <main
-          ref={mainRef}
-          id="contenu"
-          tabIndex={-1}
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none"
-        >
-          <Outlet />
-        </main>
-      </div>
-    </div>
+      <AppSidebar />
+      <SidebarInset
+        ref={mainRef}
+        id="contenu"
+        tabIndex={-1}
+        className="min-h-0 min-w-0 overflow-hidden outline-none"
+      >
+        {/* Barre mobile (burger + marque) — masquée dès md (sidebar fixe visible). */}
+        <MobileHeader />
+        <Outlet />
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
 

@@ -28,7 +28,7 @@ export function TopBar() {
       </Link>
 
       {/* Site courant, juste après la marque (le séparateur est rendu par SiteSwitcher). */}
-      <SiteSwitcher variant="bar" />
+      <SiteSwitcher />
 
       <UserMenu responsiveText className="ml-auto w-auto max-w-56 shrink-0" />
     </header>

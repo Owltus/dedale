@@ -1,6 +1,14 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Check, LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-react'
+import {
+  Check,
+  ChevronsUpDown,
+  LogOut,
+  Monitor,
+  Moon,
+  Sun,
+  UserRound,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { roleLabel } from '@/lib/permissions'
@@ -16,10 +24,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 
 const THEMES = [
@@ -44,27 +53,10 @@ function computeInitials(name: string, email: string): string {
   return (cleaned.length > 0 ? cleaned : '??').toUpperCase()
 }
 
-/**
- * Bloc compte du pied de sidebar : la ligne entière (avatar + nom + rôle) est le
- * déclencheur du menu (profil, thème, déconnexion). Pas de bouton imbriqué.
- */
-export function UserMenu({
-  onNavigate,
-  iconOnly = false,
-  className,
-  responsiveText = false,
-}: {
-  onNavigate?: () => void
-  iconOnly?: boolean
-  /** Classe appliquée au déclencheur étendu (ex. largeur dans une top bar). */
-  className?: string
-  /** Masque le nom/rôle sous `sm` (top bar mobile : avatar seul). */
-  responsiveText?: boolean
-}) {
+/** Données du compte connecté (nom affiché, initiales, rôle), partagées par les deux variants. */
+function useAccountInfo() {
   const { session } = useAuth()
   const { data: role } = useCurrentRole()
-  const { theme, setTheme } = useTheme()
-  const navigate = useNavigate()
 
   const email = session?.user.email ?? ''
   const userId = session?.user.id ?? ''
@@ -75,8 +67,46 @@ export function UserMenu({
   const name = (me?.nom_complet ?? '').trim()
   // Texte principal : le nom du compte (repli sur l'e-mail le temps du chargement).
   const displayName = name || email
-  // Initiales : à partir du nom (« Jean Dupont » → « JD »), sinon de l'e-mail.
   const initials = computeInitials(name, email)
+
+  return { role, displayName, initials }
+}
+
+/** Pastille d'initiales. */
+function Avatar({
+  initials,
+  className,
+}: {
+  initials: string
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        'bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
+        className,
+      )}
+    >
+      {initials}
+    </div>
+  )
+}
+
+/**
+ * Contenu du menu compte (profil, thème, déconnexion), partagé par les deux
+ * variants. `onNavigate` ferme le drawer mobile après une navigation.
+ */
+function AccountMenuContent({
+  onNavigate,
+  align,
+  side,
+}: {
+  onNavigate?: () => void
+  align?: 'start' | 'end'
+  side?: 'right' | 'bottom' | 'top'
+}) {
+  const { theme, setTheme } = useTheme()
+  const navigate = useNavigate()
 
   async function handleLogout() {
     onNavigate?.()
@@ -84,90 +114,122 @@ export function UserMenu({
     await navigate({ to: '/login' })
   }
 
-  const avatar = (
-    <div className="bg-primary text-primary-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
-      {initials}
-    </div>
+  return (
+    <DropdownMenuContent align={align} side={side} className="min-w-56">
+      <DropdownMenuItem
+        onSelect={() => {
+          onNavigate?.()
+          void navigate({ to: '/profil' })
+        }}
+      >
+        <UserRound />
+        Mon profil
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel className="text-muted-foreground text-xs">
+        Thème
+      </DropdownMenuLabel>
+      {THEMES.map(({ value, label, icon: Icon }) => (
+        <DropdownMenuItem key={value} onSelect={() => setTheme(value)}>
+          <Icon />
+          <span className="flex-1">{label}</span>
+          {theme === value && <Check className="text-muted-foreground" />}
+        </DropdownMenuItem>
+      ))}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onSelect={() => {
+          void handleLogout()
+        }}
+      >
+        <LogOut />
+        Se déconnecter
+      </DropdownMenuItem>
+    </DropdownMenuContent>
   )
+}
+
+/**
+ * Bloc compte de la BARRE SUPÉRIEURE (layout demandeur) : avatar + nom + rôle,
+ * déclencheur du menu. `responsiveText` masque le nom/rôle sous `sm` (avatar seul).
+ */
+export function UserMenu({
+  className,
+  responsiveText = false,
+}: {
+  className?: string
+  responsiveText?: boolean
+}) {
+  const { role, displayName, initials } = useAccountInfo()
 
   return (
     <DropdownMenu>
-      {iconOnly ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger
-              aria-label="Menu du compte"
-              className="hover:bg-accent focus-visible:ring-ring/50 focus-visible:ring-offset-card flex w-full items-center justify-center rounded-md p-1 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            >
-              {avatar}
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="right">{displayName}</TooltipContent>
-        </Tooltip>
-      ) : (
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              'hover:bg-accent focus-visible:ring-ring/50 focus-visible:ring-offset-card flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-              className,
-            )}
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'hover:bg-accent focus-visible:ring-ring/50 focus-visible:ring-offset-card flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+            className,
+          )}
+        >
+          <Avatar initials={initials} className="size-9" />
+          <div
+            className={cn('min-w-0 flex-1', responsiveText && 'hidden sm:block')}
           >
-            {avatar}
-            <div
-              className={cn(
-                'min-w-0 flex-1',
-                responsiveText && 'hidden sm:block',
-              )}
-            >
-              <p className="truncate text-sm font-medium" title={displayName}>
-                {displayName}
-              </p>
-              {role && (
-                <p className="text-muted-foreground text-xs">
-                  {roleLabel(role)}
-                </p>
-              )}
-            </div>
-          </button>
-        </DropdownMenuTrigger>
-      )}
-
-      <DropdownMenuContent
-        align={iconOnly ? 'start' : 'end'}
-        side={iconOnly ? 'right' : 'bottom'}
-        className="min-w-56"
-      >
-        <DropdownMenuItem
-          onSelect={() => {
-            onNavigate?.()
-            void navigate({ to: '/profil' })
-          }}
-        >
-          <UserRound />
-          Mon profil
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-muted-foreground text-xs">
-          Thème
-        </DropdownMenuLabel>
-        {THEMES.map(({ value, label, icon: Icon }) => (
-          <DropdownMenuItem key={value} onSelect={() => setTheme(value)}>
-            <Icon />
-            <span className="flex-1">{label}</span>
-            {theme === value && <Check className="text-muted-foreground" />}
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => {
-            void handleLogout()
-          }}
-        >
-          <LogOut />
-          Se déconnecter
-        </DropdownMenuItem>
-      </DropdownMenuContent>
+            <p className="truncate text-sm font-medium" title={displayName}>
+              {displayName}
+            </p>
+            {role && (
+              <p className="text-muted-foreground text-xs">{roleLabel(role)}</p>
+            )}
+          </div>
+        </button>
+      </DropdownMenuTrigger>
+      <AccountMenuContent align="end" side="bottom" />
     </DropdownMenu>
+  )
+}
+
+/**
+ * Bloc compte du PIED DE SIDEBAR : bouton de menu shadcn (avatar + nom + rôle),
+ * se replie en avatar seul (+ tooltip) en rail. Dropdown à droite (ou en bas sur
+ * mobile). `onNavigate` ferme le drawer après une navigation.
+ */
+export function SidebarUserMenu({ onNavigate }: { onNavigate?: () => void }) {
+  const { role, displayName, initials } = useAccountInfo()
+  const { isMobile } = useSidebar()
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              size="lg"
+              tooltip={displayName}
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            >
+              <Avatar initials={initials} />
+              <div className="grid flex-1 text-left leading-tight">
+                <span className="truncate text-sm font-medium">
+                  {displayName}
+                </span>
+                {role && (
+                  <span className="text-muted-foreground truncate text-xs">
+                    {roleLabel(role)}
+                  </span>
+                )}
+              </div>
+              <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-60" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <AccountMenuContent
+            onNavigate={onNavigate}
+            align="end"
+            side={isMobile ? 'bottom' : 'right'}
+          />
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
   )
 }

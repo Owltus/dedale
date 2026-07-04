@@ -42,6 +42,18 @@
      thème clair, plus clair que `muted` en sombre. Dérivé des tokens → s'adapte au
      thème sans entrée `.dark` dédiée (cf. `--sb-thumb-color`). */
   --col-active: color-mix(in oklch, var(--muted-foreground) 22%, var(--card));
+  /* Barre latérale (shadcn) : dérivée des tokens existants → même rendu qu'avant
+     (surface = carte, survol = accent). Comme elles pointent vers des tokens qui
+     ont déjà leur variante sombre, elles suivent le thème sans bloc `.dark` dédié.
+     Pour faire diverger la palette de la sidebar : éditer ici uniquement. */
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 /* ─── Tokens : valeurs réelles (sombre) ──────────────────────────────────── */
@@ -111,16 +123,28 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-col-active: var(--col-active);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
 /* ─── Tableau de bord · zone Synthèse : curseurs de layout (SOURCE UNIQUE) ─────
    Seuils de réagencement (container queries) + taille de référence d'un cadran.
    Modifier ICI se répercute partout (cf. `synthese-layout.ts`). */
 @theme {
-  /* donut | barres | sunburst tiennent sur une ligne (→ variant `@cadrans-trio:`). */
-  --container-cadrans-trio: 1060px;
-  /* Taille de référence d'un cadran carré (→ `h-cadran`, `min-w-cadran`, …). */
-  --spacing-cadran: 340px;
+  /* Seuil à partir duquel donut │ charge │ complétion s'alignent sur UNE ligne
+     (→ variant `@cadrans-trio:`). Bas volontairement → la rangée alignée est le cas
+     NORMAL (dès ~820px de large : la plupart des laptops/desktop, sidebar repliée
+     comprise) ; en dessous seulement, repli mobile. */
+  --container-cadrans-trio: 660px;
+  /* Taille de référence d'un cadran carré (→ `h-cadran`, `min-w-cadran`, …). Compacte
+     → donut/complétion petits, et la charge (barres) s'aligne à la même hauteur. */
+  --spacing-cadran: 200px;
 }
 
 @layer base {
