@@ -1,4 +1,4 @@
-import { useState, type KeyboardEventHandler } from 'react'
+import { useState } from 'react'
 import { Replace } from 'lucide-react'
 import {
   LIBELLES_STATUT_OP,
@@ -6,6 +6,15 @@ import {
   consoOperation,
   statutOperationTone,
 } from '../schemas'
+import {
+  conformiteLocale,
+  estCompteur,
+  estMesureExecution,
+  placeholderRange,
+  type OperationExecution,
+} from '../operation-predicats'
+import { ChampNombreUnite } from './champ-nombre-unite'
+import { ChangementCompteurPanel } from './changement-compteur-panel'
 import { StatusBadge, type StatusTone } from '@/components/common/status-badge'
 import { cn } from '@/lib/utils'
 import { useLongPress } from '@/hooks/use-long-press'
@@ -15,10 +24,14 @@ import {
   SelectDropdown,
   type SelectOption,
 } from '@/components/ui/select-dropdown'
-import type { Database } from '@/lib/database.types'
 
-type OperationExecution =
-  Database['public']['Tables']['operations_execution']['Row']
+// Prédicats métier exposés au module (déplacés dans ./operation-predicats) —
+// ré-exportés à l'identique pour les consommateurs existants (ex. ot-detail).
+export {
+  estMesureExecution,
+  estCompteur,
+  estCompteurCumulatif,
+} from '../operation-predicats'
 
 /** Valeurs éditables d'une opération d'exécution (état CONTRÔLÉ par le parent). */
 export interface OperationEdit {
@@ -31,76 +44,6 @@ export interface OperationEdit {
   dateRemplacement: string
 }
 
-/**
- * Une opération CAPTE une valeur (type « Mesure ») : a une UNITÉ (compteur,
- * °C, %…), des seuils, ou une valeur déjà relevée. Couvre les relevés de compteur
- * (mesures SANS seuils) et les données historiques.
- */
-export function estMesureExecution(op: OperationExecution): boolean {
-  return (
-    op.unite_symbole !== null ||
-    op.unite_nom !== null ||
-    op.seuil_minimum !== null ||
-    op.seuil_maximum !== null ||
-    op.valeur_mesuree !== null
-  )
-}
-
-/**
- * Un COMPTEUR = une mesure (unité) SANS seuils → relevé d'index cumulatif (eau,
- * électricité, heures…). Aucun flag dédié n'est snapshotté dans operations_execution
- * → on l'infère de l'absence de seuils, comme le distingue le modal de création.
- */
-export function estCompteur(op: OperationExecution): boolean {
-  return (
-    estMesureExecution(op) &&
-    op.seuil_minimum === null &&
-    op.seuil_maximum === null
-  )
-}
-
-/**
- * Un COMPTEUR CUMULATIF = un compteur dont l'unité s'incrémente d'un OT à l'autre
- * (kWh, m³, h) — par opposition à une mesure ponctuelle sans seuils (kVA), remise à
- * zéro à chaque OT. SEULE famille additionnable. Le drapeau `unite_est_cumulatif`
- * est snapshotté à la génération (migration 068) ; NULL (relevés orphelins) → non
- * cumulatif. Réservé aux SOMMES de la carte d'en-tête d'un OT (la saisie utilise
- * encore `estCompteur`, inchangé — décision PO).
- */
-export function estCompteurCumulatif(op: OperationExecution): boolean {
-  return estCompteur(op) && op.unite_est_cumulatif === true
-}
-
-/** Placeholder = plage de seuils attendue (sans unité : elle est affichée en
- *  suffixe du champ). Vide pour un compteur (pas de seuils). */
-function placeholderRange(op: OperationExecution): string | undefined {
-  if (op.seuil_minimum !== null && op.seuil_maximum !== null)
-    return `${String(op.seuil_minimum)} – ${String(op.seuil_maximum)}`
-  if (op.seuil_minimum !== null) return `≥ ${String(op.seuil_minimum)}`
-  if (op.seuil_maximum !== null) return `≤ ${String(op.seuil_maximum)}`
-  return undefined
-}
-
-/**
- * Conformité calculée EN DIRECT (aperçu) depuis la valeur saisie et les seuils :
- * dans la plage → conforme, hors plage → non conforme, sinon (pas de seuils / pas
- * de valeur / valeur invalide) → indéterminé. Le backend recalcule `est_conforme`
- * à l'enregistrement (auto_calcul_conformite) ; ici c'est le retour visuel immédiat.
- */
-function conformiteLocale(
-  valeur: string,
-  op: OperationExecution,
-): boolean | null {
-  if (op.seuil_minimum === null && op.seuil_maximum === null) return null
-  const s = valeur.trim()
-  if (s === '') return null
-  const v = Number(s)
-  if (Number.isNaN(v)) return null
-  if (op.seuil_minimum !== null && v < op.seuil_minimum) return false
-  if (op.seuil_maximum !== null && v > op.seuil_maximum) return false
-  return true
-}
-
 // Liseré de carte (bord gauche) par tonalité — même code couleur que `ListRow` /
 // `StatusBadge` (tokens de thème).
 const TONE_BORDER: Record<StatusTone, string> = {
@@ -111,81 +54,6 @@ const TONE_BORDER: Record<StatusTone, string> = {
   info: 'border-l-info',
   violet: 'border-l-violet',
   yellow: 'border-l-yellow',
-}
-
-/**
- * Saisie numérique avec l'unité accolée en suffixe, dans un cadre aux tokens d'`Input`
- * (nombre aligné à DROITE, l'unité le suit immédiatement). Brique UNIQUE réutilisée
- * pour la valeur mesurée ET les index de remplacement → unité affichée partout, look
- * homogène. Le champ valeur passe `dataOpValue`/`onKeyDown` (navigation Tab en série)
- * et `emphaseClassName` (couleur de conformité) ; les index s'en passent.
- */
-function ChampNombreUnite({
-  value,
-  onValueChange,
-  ariaLabel,
-  unite,
-  widthClassName = 'w-28',
-  disabled,
-  placeholder,
-  title,
-  emphaseClassName,
-  bold,
-  dataOpValue,
-  onKeyDown,
-}: {
-  value: string
-  onValueChange: (v: string) => void
-  ariaLabel: string
-  unite: string | null
-  widthClassName?: string
-  disabled?: boolean
-  placeholder?: string
-  title?: string
-  emphaseClassName?: string
-  bold?: boolean
-  dataOpValue?: boolean
-  onKeyDown?: KeyboardEventHandler<HTMLInputElement>
-}) {
-  return (
-    <div
-      className={cn(
-        'border-input bg-background flex h-8 items-center gap-1 rounded-md border px-2 shadow-xs transition-[color,box-shadow] pointer-coarse:h-10',
-        'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
-        widthClassName,
-        disabled && 'pointer-events-none opacity-50',
-      )}
-    >
-      <input
-        type="number"
-        inputMode="decimal"
-        step="any"
-        className={cn(
-          'no-spinner placeholder:text-muted-foreground w-full min-w-0 border-0 bg-transparent p-0 text-right text-sm outline-none',
-          emphaseClassName,
-          bold && 'font-medium',
-        )}
-        aria-label={ariaLabel}
-        placeholder={placeholder}
-        title={title}
-        value={value}
-        disabled={disabled}
-        data-op-value={dataOpValue ? '' : undefined}
-        onKeyDown={onKeyDown}
-        onChange={(e) => onValueChange(e.target.value)}
-      />
-      {unite && (
-        <span
-          className={cn(
-            'text-muted-foreground shrink-0 text-xs',
-            emphaseClassName,
-          )}
-        >
-          {unite}
-        </span>
-      )}
-    </div>
-  )
 }
 
 interface OperationRowProps {
@@ -498,101 +366,14 @@ export function OperationRow({
       </div>
 
       {!readOnly && estCompteur(operation) && showReplacement && (
-        // stopPropagation : un double-clic / appui long DANS le panneau (labels,
-        // fond) ne doit PAS déclencher la bascule de statut de la carte
-        // (qui effacerait la saisie de remplacement en cours).
-        <div
-          className="bg-muted/40 flex flex-col gap-2 rounded-md border border-dashed p-2 select-none"
-          onPointerDown={(e) => e.stopPropagation()}
-          onDoubleClick={(e) => e.stopPropagation()}
-        >
-          {/* Intro = le POURQUOI, en une phrase. Puis un formulaire vertical : à
-              gauche le libellé + une explication simple, à droite la saisie (w-32,
-              bords droits alignés, lignes espacées régulièrement). */}
-          <p className="text-muted-foreground flex items-start gap-1.5 text-xs">
-            <Replace className="mt-0.5 size-3.5 shrink-0" />
-            <span>
-              Le compteur a été changé pendant la période ? Recopiez les chiffres
-              ci-dessous : la consommation restera juste malgré le changement.
-            </span>
-          </p>
-          {/* Relevé précédent (lecture seule) : base du calcul, lu automatiquement
-              sur l'OT antérieur de la même gamme. Affiché pour que l'écart soit
-              transparent ; « — » si l'app n'a trouvé aucun relevé antérieur. */}
-          <div className="flex items-center gap-4">
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm">Relevé précédent</span>
-              <span className="text-muted-foreground text-xs">
-                Le dernier index relevé avant le changement (OT précédent). Base du
-                calcul de l'écart.
-              </span>
-            </span>
-            <span className="w-32 pr-2 text-right text-sm font-medium tabular-nums">
-              {previousValue != null
-                ? `${previousValue.toLocaleString('fr-FR')}${unite ? ` ${unite}` : ''}`
-                : '—'}
-            </span>
-          </div>
-          <label className="flex items-center gap-4">
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm">Ancien compteur à la dépose</span>
-              <span className="text-muted-foreground text-xs">
-                Le dernier chiffre affiché par l'ancien compteur, juste avant de le
-                retirer.
-              </span>
-            </span>
-            <ChampNombreUnite
-              ariaLabel="Ancien compteur à la dépose"
-              unite={unite}
-              widthClassName="w-32"
-              value={value.indexDepose}
-              onValueChange={(v) => onChange({ ...value, indexDepose: v })}
-            />
-          </label>
-          <label className="flex items-center gap-4">
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm">Nouveau compteur à l'installation</span>
-              <span className="text-muted-foreground text-xs">
-                Le chiffre affiché par le compteur neuf au moment où on le pose
-                (souvent 0).
-              </span>
-            </span>
-            <ChampNombreUnite
-              ariaLabel="Nouveau compteur à l'installation"
-              unite={unite}
-              widthClassName="w-32"
-              value={value.indexPose}
-              onValueChange={(v) => onChange({ ...value, indexPose: v })}
-            />
-          </label>
-          <label className="flex items-center gap-4">
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm">Nouvel index</span>
-              <span className="text-muted-foreground text-xs">
-                Le relevé d'aujourd'hui, lu sur le nouveau compteur.
-              </span>
-            </span>
-            {valeurField}
-          </label>
-          {conso != null && (
-            // Écart = consommation calculée (consciente du remplacement), séparée des
-            // saisies par un filet ; même colonne (w-32) et même unité que ci-dessus.
-            <div className="flex items-center gap-4 border-t pt-2">
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-sm">Écart</span>
-                <span className="text-muted-foreground text-xs">
-                  La consommation de la période, calculée pour vous malgré le
-                  changement de compteur.
-                </span>
-              </span>
-              <span className="w-32 pr-2 text-right text-sm font-medium tabular-nums">
-                {conso > 0 ? '+' : ''}
-                {conso.toLocaleString('fr-FR')}
-                {unite ? ` ${unite}` : ''}
-              </span>
-            </div>
-          )}
-        </div>
+        <ChangementCompteurPanel
+          value={value}
+          onChange={onChange}
+          unite={unite}
+          previousValue={previousValue}
+          conso={conso}
+          valeurField={valeurField}
+        />
       )}
     </div>
   )
