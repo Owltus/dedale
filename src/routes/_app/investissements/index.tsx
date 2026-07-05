@@ -18,6 +18,7 @@ import { InvestissementFormDialog } from '@/features/investissements/components/
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
 import { listStack } from '@/lib/responsive'
@@ -91,6 +92,8 @@ function InvestissementsContent({
 }) {
   const navigate = useNavigate()
   const query = useQuery(investissementsQueries.list(siteId))
+  // Liste en LIVE (création/changement de statut visible sans F5).
+  useRealtimeRefresh('investissements', investissementsQueries.all())
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const del = useDeleteInvestissement()
   const form = useEntityDialog<Investissement>()
