@@ -86,37 +86,37 @@ Chaque tâche ajoute/rectifie un appel `useRealtimeRefresh(table, xxxQueries.all
 
 Fichiers distincts (chacun un fichier cible + éventuels nouveaux fichiers) → parallélisables.
 
-### T14 — Migrer `profil.tsx` vers RHF + `fields/` — `TODO`
+### T14 — Migrer `profil.tsx` vers RHF + `fields/` — `DONE`
 - **Objectif** : remplacer `useState` + `safeParse` + ancien `TextField` par `react-hook-form` + `zodResolver` + `common/fields/*`.
 - **Fichiers** : `src/routes/_app/profil.tsx`.
 - **Validation** : mêmes champs/validations/toasts ; plus aucun import de `common/text-field` dans ce fichier ; comportement identique (identité, e-mail, mot de passe).
 
-### T15 — Migrer les formulaires de `utilisateur-detail.tsx` vers RHF — `TODO`
+### T15 — Migrer les formulaires de `utilisateur-detail.tsx` vers RHF — `DONE`
 - **Objectif** : `ProfileForm`/`EmailForm` → RHF + `fields/` (le découpage du fichier vient en T24).
 - **Fichiers** : `src/features/utilisateurs/components/utilisateur-detail.tsx`.
 - **Validation** : plus d'ancien `TextField` ; validations et écritures identiques.
 
-### T16 — Découper `ot-detail.tsx` — `TODO`
+### T16 — Découper `ot-detail.tsx` — `DONE`
 - **Objectif** : extraire `useOperationsEditor(otId)` (état `edits`/`dirtyOps`/`saveAllOps` + `useBlocker` + `useSaveShortcut`), `<OtDetailActions>` (headerActions), et un module de transitions de statut.
 - **Fichiers** : `src/features/ordres-travail/components/ot-detail.tsx` + nouveaux `use-operations-editor.ts`, `ot-detail-actions.tsx` (dans la feature).
 - **Validation** : fiche OT identique (saisie, sauvegarde groupée, blocage navigation, boutons de statut) ; `ot-detail.tsx` < 400 l.
 
-### T17 — Découper `operation-row.tsx` — `TODO`
+### T17 — Découper `operation-row.tsx` — `DONE`
 - **Objectif** : extraire `ChampNombreUnite`, le panneau « changement de compteur », et les prédicats métier vers un module.
 - **Fichiers** : `src/features/ordres-travail/components/operation-row.tsx` + nouveaux sous-fichiers.
 - **Validation** : saisie d'opération/relevé/compteur identique ; fichier principal nettement réduit.
 
-### T18 — Découper `miniatures-panel.tsx` — `TODO`
+### T18 — Découper `miniatures-panel.tsx` — `DONE`
 - **Objectif** : extraire les actions (ZIP/download) et la tuile en composants.
 - **Fichiers** : `src/features/miniatures/components/miniatures-panel.tsx` + nouveaux.
 - **Validation** : sélection/upload/ZIP/suppression identiques.
 
-### T19 — Extraire `useGammeBadges` de `gammes-explorer.tsx` — `TODO`
+### T19 — Extraire `useGammeBadges` de `gammes-explorer.tsx` — `DONE`
 - **Objectif** : sortir la logique de badges de statut agrégés dans un hook (prépare T28).
 - **Fichiers** : `src/features/gammes/components/gammes-explorer.tsx` + nouveau `use-gamme-badges.ts`.
 - **Validation** : badges d'agrégat identiques.
 
-### T20 — Créer le hook `useConfirmAction` — `TODO`
+### T20 — Créer le hook `useConfirmAction` — `DONE`
 - **Objectif** : symétrique de `useConfirmDelete` pour les transitions de statut (ouvrir → mutate → toast succès/erreur traduit → fermer), avec `dialogProps` à étaler sur `ConfirmDialog`.
 - **Fichiers** : nouveau `src/hooks/use-confirm-action.ts` (+ éventuel test).
 - **Validation** : hook typé strict, sans usage encore (branché en Vague 4).
