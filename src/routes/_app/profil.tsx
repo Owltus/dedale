@@ -1,23 +1,30 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Building2, KeyRound, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { useUpdateUser } from '@/features/utilisateurs/mutations'
-import { profileSchema, roleLabel } from '@/features/utilisateurs/schemas'
+import {
+  profileSchema,
+  roleLabel,
+  type ProfileFormValues,
+} from '@/features/utilisateurs/schemas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors, writeErrorMessage } from '@/lib/form'
+import { errorMessage, writeErrorMessage } from '@/lib/form'
 import { useSiteContext } from '@/lib/site-context'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
-import { TextField } from '@/components/common/text-field'
+import { TextField } from '@/components/common/fields/text-field'
 import { EmptyState } from '@/components/common/empty-state'
 import { InfoNote } from '@/components/common/info-note'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
+import { Form } from '@/components/ui/form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -28,6 +35,15 @@ export const Route = createFileRoute('/_app/profil')({
 })
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const emailFormSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(EMAIL_RE, 'Adresse e-mail invalide.'),
+})
+type EmailFormValues = z.infer<typeof emailFormSchema>
 
 function ProfilPage() {
   const { session } = useAuth()
@@ -87,9 +103,12 @@ function ProfilPage() {
 // --- E-mail (self-service : change l'identifiant de connexion) ---
 
 function EmailBlock({ currentEmail }: { currentEmail: string }) {
-  const [email, setEmail] = useState(currentEmail)
-  const [error, setError] = useState<string | null>(null)
   const [sentTo, setSentTo] = useState<string | null>(null)
+
+  const form = useForm<EmailFormValues>({
+    resolver: zodResolver(emailFormSchema),
+    defaultValues: { email: currentEmail },
+  })
 
   const mutation = useMutation({
     mutationFn: async (newEmail: string) => {
@@ -100,62 +119,46 @@ function EmailBlock({ currentEmail }: { currentEmail: string }) {
     onError: (e) => toast.error(errorMessage(e)),
   })
 
-  function handleSubmit() {
-    setError(null)
+  function onSubmit(values: EmailFormValues) {
     setSentTo(null)
-    const value = email.trim().toLowerCase()
-    if (!EMAIL_RE.test(value)) {
-      setError('Adresse e-mail invalide.')
-      return
-    }
-    mutation.mutate(value)
+    mutation.mutate(values.email)
   }
 
-  const unchanged = email.trim().toLowerCase() === currentEmail.toLowerCase()
+  const emailValue = form.watch('email')
+  const unchanged =
+    emailValue.trim().toLowerCase() === currentEmail.toLowerCase()
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        handleSubmit()
-      }}
-      className="flex flex-col gap-3"
-    >
-      <div className="grid gap-1">
-        <Label htmlFor="email" className="text-base font-semibold">
-          Adresse e-mail
-        </Label>
-        <p className="text-muted-foreground text-xs">
-          Identifiant de connexion. Un e-mail de confirmation sera envoyé à la
-          nouvelle adresse.
-        </p>
-      </div>
-      <div className="grid gap-2">
-        <Input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="h-11 text-base"
-        />
-        {error && <p className="text-destructive text-sm">{error}</p>}
-      </div>
-      {sentTo && (
-        <InfoNote icon={Mail}>
-          Un lien de confirmation a été envoyé à <strong>{sentTo}</strong>.
-          Clique dessus pour valider le changement — ton adresse actuelle reste
-          active tant que ce n’est pas fait.
-        </InfoNote>
-      )}
-      <Button
-        type="submit"
-        variant="outline"
-        disabled={mutation.isPending || unchanged}
-        className="self-start"
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="flex flex-col gap-3"
       >
-        {mutation.isPending ? 'Envoi…' : 'Changer l’e-mail'}
-      </Button>
-    </form>
+        <TextField
+          control={form.control}
+          name="email"
+          type="email"
+          label="Adresse e-mail"
+          className="h-11 text-base"
+          hint="Identifiant de connexion. Un e-mail de confirmation sera envoyé à la nouvelle adresse."
+        />
+        {sentTo && (
+          <InfoNote icon={Mail}>
+            Un lien de confirmation a été envoyé à <strong>{sentTo}</strong>.
+            Clique dessus pour valider le changement — ton adresse actuelle
+            reste active tant que ce n’est pas fait.
+          </InfoNote>
+        )}
+        <Button
+          type="submit"
+          variant="outline"
+          disabled={mutation.isPending || unchanged}
+          className="self-start"
+        >
+          {mutation.isPending ? 'Envoi…' : 'Changer l’e-mail'}
+        </Button>
+      </form>
+    </Form>
   )
 }
 
@@ -173,22 +176,17 @@ function ProfilForm({
   role: string
 }) {
   const update = useUpdateUser()
-  const [nom, setNom] = useState(initialNom)
-  const [telephone, setTelephone] = useState(initialTelephone)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { nom_complet: initialNom, telephone: initialTelephone },
+  })
 
-  async function handleSubmit() {
-    const parsed = profileSchema.safeParse({ nom_complet: nom, telephone })
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
+  async function onSubmit(values: ProfileFormValues) {
     try {
       await update.mutateAsync({
         id: userId,
-        nom_complet: parsed.data.nom_complet,
-        telephone: parsed.data.telephone,
+        nom_complet: values.nom_complet,
+        telephone: values.telephone,
       })
       toast.success('Profil mis à jour')
     } catch (e) {
@@ -197,34 +195,31 @@ function ProfilForm({
   }
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit()
-      }}
-      className="flex flex-col gap-4"
-    >
-      <TextField
-        label="Nom complet"
-        value={nom}
-        onChange={setNom}
-        error={errors.nom_complet}
-        required
-      />
-      <TextField
-        label="Téléphone"
-        value={telephone}
-        onChange={setTelephone}
-        error={errors.telephone}
-      />
-      <div className="grid gap-2">
-        <Label>Rôle</Label>
-        <p className="text-sm">{roleLabel(role)}</p>
-      </div>
-      <Button type="submit" disabled={update.isPending} className="self-start">
-        {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
-      </Button>
-    </form>
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="flex flex-col gap-4"
+      >
+        <TextField
+          control={form.control}
+          name="nom_complet"
+          label="Nom complet"
+          required
+        />
+        <TextField
+          control={form.control}
+          name="telephone"
+          label="Téléphone"
+        />
+        <div className="grid gap-2">
+          <Label>Rôle</Label>
+          <p className="text-sm">{roleLabel(role)}</p>
+        </div>
+        <Button type="submit" disabled={update.isPending} className="self-start">
+          {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
+        </Button>
+      </form>
+    </Form>
   )
 }
 
