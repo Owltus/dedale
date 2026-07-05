@@ -24,12 +24,13 @@ import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
 import { formatDate, formatDateLong } from '@/lib/date'
-import { writeErrorMessage, deleteErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { StatusBadge } from '@/components/common/status-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -71,7 +72,11 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
   const del = useDeleteDemande()
   const cloturer = useCloturerDemande()
   const [editOpen, setEditOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
+  const suppression = useConfirmDelete<string>({
+    onDelete: (id) => del.mutateAsync(id),
+    successMessage: 'Demande supprimée',
+    onSuccess: () => void navigate({ to: '/demandes' }),
+  })
 
   const statut = demande.statut_di_id
   const isCloture = statut === 3
@@ -97,16 +102,6 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
     cloturer.mutate(demande.id, {
       onSuccess: () => toast.success('Demande clôturée'),
       onError: (e) => toast.error(writeErrorMessage(e)),
-    })
-  }
-
-  function confirmDelete() {
-    del.mutate(demande.id, {
-      onSuccess: () => {
-        toast.success('Demande supprimée')
-        void navigate({ to: '/demandes' })
-      },
-      onError: (e) => toast.error(deleteErrorMessage(e)),
     })
   }
 
@@ -172,7 +167,7 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
                   icon={<Trash2 />}
                   label="Supprimer la demande"
                   variant="outline"
-                  onClick={() => setDeleteOpen(true)}
+                  onClick={() => suppression.demander(demande.id)}
                 />
               )}
             </div>
@@ -250,15 +245,10 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
         siteId={demande.site_id}
       />
 
-      <ConfirmDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        title="Supprimer la demande ?"
-        description={`« ${diTitre(demande.constat)} » sera supprimée définitivement.`}
-        confirmLabel="Supprimer"
-        destructive
-        loading={del.isPending}
-        onConfirm={confirmDelete}
+      <ConfirmDeleteDialog
+        {...suppression.dialogProps}
+        entityLabel="la demande"
+        warning={`« ${diTitre(demande.constat)} » sera supprimée définitivement.`}
       />
     </PageContainer>
   )
