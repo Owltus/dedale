@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Ban, Coins, Paperclip, Pencil, RotateCcw } from 'lucide-react'
@@ -14,6 +13,7 @@ import { InvestissementFormDialog } from './investissement-form-dialog'
 import { MIME_PDF } from '@/features/documents/upload'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
@@ -40,7 +40,7 @@ export function InvestissementDetail({
 }) {
   const navigate = useNavigate()
   const edit = useEntityDialog<Investissement>()
-  const [refuserOpen, setRefuserOpen] = useState(false)
+  const confirmAction = useConfirmAction<{ statutId: number }>()
   // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
   const upload = useUploadDrop({ enabled: canManage })
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
@@ -97,7 +97,19 @@ export function InvestissementDetail({
                   icon={<Ban className="text-destructive" />}
                   label="Refuser l'investissement"
                   variant="outline"
-                  onClick={() => setRefuserOpen(true)}
+                  onClick={() =>
+                    confirmAction.demander({
+                      title: "Refuser l'investissement ?",
+                      description:
+                        "L'investissement passera au statut « Refusé ».",
+                      confirmLabel: 'Refuser',
+                      destructive: true,
+                      param: { statutId: ID_REFUSE },
+                      run: ({ statutId }) =>
+                        change.mutateAsync({ id: inv.id, statutId }),
+                      successMessage: 'Investissement refusé',
+                    })
+                  }
                 />
               )}
               {canReactiver && (
@@ -195,27 +207,7 @@ export function InvestissementDetail({
         />
       )}
 
-      <ConfirmDialog
-        open={refuserOpen}
-        onOpenChange={setRefuserOpen}
-        title="Refuser l'investissement ?"
-        description="L'investissement passera au statut « Refusé »."
-        confirmLabel="Refuser"
-        destructive
-        loading={change.isPending}
-        onConfirm={() =>
-          change.mutate(
-            { id: inv.id, statutId: ID_REFUSE },
-            {
-              onSuccess: () => {
-                toast.success('Investissement refusé')
-                setRefuserOpen(false)
-              },
-              onError: (e) => toast.error(writeErrorMessage(e)),
-            },
-          )
-        }
-      />
+      <ConfirmDialog {...confirmAction.dialogProps} />
     </PageContainer>
   )
 }
