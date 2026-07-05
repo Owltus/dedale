@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, Download, ImageOff, ImageUp, Trash2, X } from 'lucide-react'
+import { Download, ImageOff, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { miniaturesQueries, type MiniatureWithUrl } from '../queries'
 import {
@@ -10,16 +10,16 @@ import {
 } from '../mutations'
 import { MiniatureCropDialog, type CropResult } from './miniature-crop-dialog'
 import { MiniatureFilters } from './miniature-filters'
+import { MiniatureTuile } from './miniature-tuile'
+import { useMiniatureDownload } from '../use-miniature-download'
 import { filterMiniatures } from '../filters'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useScope } from '@/hooks/use-scope'
 import { useSiteContext } from '@/lib/site-context'
-import { supabase } from '@/lib/supabase'
-import { deleteErrorMessage, errorMessage, writeErrorMessage } from '@/lib/form'
+import { deleteErrorMessage, writeErrorMessage } from '@/lib/form'
 import { SCOPE_ALL, scopeMatches, scopeTarget } from '@/lib/scope'
-import { cn } from '@/lib/utils'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
 import { ScopeSelect } from '@/components/common/scope-select'
@@ -29,7 +29,6 @@ import { QueryState } from '@/components/common/query-state'
 import { CardSkeletons } from '@/components/common/card-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 // Familles d'usage d'une vignette (origines de v_miniatures_pool) → libellés UI.
@@ -39,23 +38,6 @@ const ORIGINE_LABEL: Record<string, string> = {
   plan_maintenance: 'Plan de maintenance',
   di: 'Demandes d’intervention',
   lieux: 'Lieux',
-}
-
-// Déclenche un téléchargement navigateur d'un blob.
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
-
-function fileNameFor(m: MiniatureWithUrl, index?: number) {
-  const prefix = index === undefined ? '' : `${String(index).padStart(2, '0')}-`
-  return `vignette-${prefix}${m.hash_sha256.slice(0, 8)}.webp`
 }
 
 /**
@@ -85,7 +67,6 @@ export function MiniaturesPanel() {
     null,
   )
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [zipping, setZipping] = useState(false)
   const [massDeleteOpen, setMassDeleteOpen] = useState(false)
   const [massDeleting, setMassDeleting] = useState(false)
   const [toDelete, setToDelete] = useState<MiniatureWithUrl | null>(null)
@@ -139,69 +120,9 @@ export function MiniaturesPanel() {
   const clearSelection = useCallback(() => setSelected(new Set()), [])
   const openMassDelete = useCallback(() => setMassDeleteOpen(true), [])
 
-  // Télécharge UNE vignette (bouton au survol). Passe par le SDK Storage
-  // (pas de souci CORS). Disponible à tous les rôles métier, pas seulement aux
-  // gestionnaires : télécharger n'est pas une action de gestion.
-  const downloadOne = useCallback(async (m: MiniatureWithUrl) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .download(m.storage_path)
-      if (error !== null) {
-        toast.error('Image indisponible.')
-        return
-      }
-      downloadBlob(data, fileNameFor(m))
-    } catch (e) {
-      toast.error(errorMessage(e))
-    }
-  }, [])
-
-  // Télécharge la sélection : un seul fichier WebP, ou un ZIP au-delà (jszip
-  // chargé à la demande). Passe par le SDK Storage (pas de souci CORS).
-  const downloadSelection = useCallback(async () => {
-    const items = selectedMiniatures
-    if (items.length === 0) return
-    setZipping(true)
-    try {
-      // Un seul fichier : téléchargement direct (pas de ZIP).
-      if (items.length === 1) {
-        const m = items[0]
-        if (m === undefined) return
-        const { data, error } = await supabase.storage
-          .from('documents')
-          .download(m.storage_path)
-        if (error !== null) {
-          toast.error('Image indisponible.')
-          return
-        }
-        downloadBlob(data, fileNameFor(m))
-        return
-      }
-      // Plusieurs : ZIP (jszip chargé à la demande).
-      const { default: JSZip } = await import('jszip')
-      const zip = new JSZip()
-      let n = 0
-      for (const m of items) {
-        const { data, error } = await supabase.storage
-          .from('documents')
-          .download(m.storage_path)
-        if (error !== null) continue
-        n += 1
-        zip.file(fileNameFor(m, n), data)
-      }
-      if (n === 0) {
-        toast.error('Aucune image téléchargeable.')
-        return
-      }
-      const archive = await zip.generateAsync({ type: 'blob' })
-      downloadBlob(archive, 'vignettes.zip')
-    } catch (e) {
-      toast.error(errorMessage(e))
-    } finally {
-      setZipping(false)
-    }
-  }, [selectedMiniatures])
+  // Téléchargements (unitaire au survol / sélection en ZIP au-delà d'une image).
+  const { zipping, downloadOne, downloadSelection } =
+    useMiniatureDownload(selectedMiniatures)
 
   // Suppression de masse : supprime chaque vignette supprimable (permissif — les
   // entités liées sont détachées par la base). Les échecs = droits insuffisants /
@@ -456,132 +377,27 @@ export function MiniaturesPanel() {
             }
             return (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12">
-                {shown.map((miniature) => {
-                  const isSelected = selected.has(miniature.id)
-                  const canManageThis =
-                    canManage && (canEntreprise || miniature.site_id !== null)
-                  const siteName =
-                    miniature.site_id === null
-                      ? null
-                      : (sites.find((s) => s.id === miniature.site_id)?.nom ??
-                        null)
-                  return (
-                    <div
-                      key={miniature.id}
-                      role="button"
-                      tabIndex={0}
-                      aria-pressed={isSelected}
-                      aria-label={
-                        isSelected
-                          ? 'Désélectionner la vignette'
-                          : 'Sélectionner la vignette'
-                      }
-                      onClick={() => toggleSelect(miniature.id)}
-                      onKeyDown={(e) => {
-                        // N'agir que si la tuile est elle-même la cible : un
-                        // Entrée/Espace sur le bouton Supprimer interne ne doit pas
-                        // être détourné vers la (dé)sélection.
-                        if (e.target !== e.currentTarget) return
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          toggleSelect(miniature.id)
-                        }
-                      }}
-                      className={cn(
-                        'group focus-visible:ring-ring relative min-w-0 cursor-pointer overflow-hidden rounded-lg border transition focus-visible:ring-2 focus-visible:outline-none',
-                        isSelected
-                          ? 'ring-primary ring-2'
-                          : 'hover:ring-ring/40 hover:ring-2',
-                      )}
-                    >
-                      {miniature.url !== null ? (
-                        <img
-                          src={miniature.url}
-                          alt="Vignette"
-                          className="bg-muted aspect-square w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="bg-muted text-muted-foreground flex aspect-square w-full items-center justify-center">
-                          <ImageOff className="size-6" />
-                        </div>
-                      )}
-
-                      {/* Indicateur de sélection discret. */}
-                      {isSelected && (
-                        <div className="bg-primary text-primary-foreground absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full shadow">
-                          <Check className="size-3.5" />
-                        </div>
-                      )}
-
-                      {/* Badge de périmètre : utile seulement en vue « Tout ». */}
-                      {scope === SCOPE_ALL && (
-                        <div className="absolute right-1 bottom-1 left-1 flex justify-end">
-                          {miniature.site_id === null ? (
-                            <Badge variant="secondary">Commun</Badge>
-                          ) : siteName !== null ? (
-                            <Badge
-                              variant="outline"
-                              className="max-w-full truncate"
-                            >
-                              {siteName}
-                            </Badge>
-                          ) : null}
-                        </div>
-                      )}
-
-                      {/* Actions au survol (n'altèrent pas la sélection) :
-                        télécharger l'image (tous les rôles métier), puis — pour
-                        les gestionnaires — remplacer l'image (répercuté sur
-                        toutes les entités liées) et supprimer. */}
-                      <div className="absolute top-1 right-1 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          className="size-7 pointer-coarse:size-8"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void downloadOne(miniature)
-                          }}
-                          aria-label="Télécharger l’image"
-                          title="Télécharger"
-                        >
-                          <Download className="size-4" />
-                        </Button>
-                        {canManageThis && (
-                          <>
-                            <Button
-                              variant="secondary"
-                              size="icon"
-                              className="size-7 pointer-coarse:size-8"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                startReplace(miniature)
-                              }}
-                              aria-label="Remplacer l’image"
-                              title="Remplacer l’image"
-                            >
-                              <ImageUp className="size-4" />
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="icon"
-                              className="size-7 pointer-coarse:size-8"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setToDelete(miniature)
-                              }}
-                              aria-label="Supprimer la vignette"
-                              title="Supprimer"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+                {shown.map((miniature) => (
+                  <MiniatureTuile
+                    key={miniature.id}
+                    miniature={miniature}
+                    selected={selected.has(miniature.id)}
+                    canManage={
+                      canManage && (canEntreprise || miniature.site_id !== null)
+                    }
+                    siteName={
+                      miniature.site_id === null
+                        ? null
+                        : (sites.find((s) => s.id === miniature.site_id)?.nom ??
+                          null)
+                    }
+                    showScopeBadge={scope === SCOPE_ALL}
+                    onToggle={toggleSelect}
+                    onDownload={(m) => void downloadOne(m)}
+                    onReplace={startReplace}
+                    onDelete={setToDelete}
+                  />
+                ))}
               </div>
             )
           }}
