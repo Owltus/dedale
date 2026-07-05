@@ -20,6 +20,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useLocalisationsDrill } from '@/hooks/use-localisations-drill'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { segOfUnique } from '@/lib/slug'
@@ -66,6 +67,13 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   const canEdit = perm.canManageMetier(role)
   const { segs, goTo } = useLocalisationsDrill()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+
+  // Arbre des lieux en LIVE : ajout/suppression d'un bâtiment, niveau ou local
+  // dans un autre onglet/utilisateur apparaît sans F5 (seul explorer qui n'y était
+  // pas abonné, cf. AUDIT). Un canal partagé par table (refcompté).
+  useRealtimeRefresh('batiments', localisationsQueries.all())
+  useRealtimeRefresh('niveaux', localisationsQueries.all())
+  useRealtimeRefresh('locaux', localisationsQueries.all())
 
   const batimentsQuery = useQuery(localisationsQueries.batiments(siteId))
   const batiments = useMemo(
