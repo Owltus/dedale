@@ -127,20 +127,20 @@ Fichiers distincts (chacun un fichier cible + éventuels nouveaux fichiers) → 
 
 Fichiers distincts → parallélisables.
 
-### T21 — Brancher `useConfirmAction` sur `investissement-detail` — `TODO`
+### T21 — Brancher `useConfirmAction` sur `investissement-detail` — `DONE`
 - **Fichiers** : `src/features/investissements/components/investissement-detail.tsx`.
 - **Validation** : transitions Refuser/Réactiver identiques, moins de `useState` local.
 
-### T22 — Brancher `useConfirmAction` sur `travaux-detail` — `TODO`
+### T22 — Brancher `useConfirmAction` sur `travaux-detail` — `DONE`
 - **Fichiers** : `src/features/travaux/components/travaux-detail.tsx`.
 - **Validation** : transitions Annuler/Réactiver identiques.
 
-### T23 — `di-detail` : delete via `useConfirmDelete` + transitions via `useConfirmAction` — `TODO`
+### T23 — `di-detail` : delete via `useConfirmDelete` + transitions via `useConfirmAction` — `DONE`
 - **Objectif** : supprimer la suppression réimplémentée à la main (C8) et factoriser les transitions.
 - **Fichiers** : `src/features/demandes/components/di-detail.tsx`.
 - **Validation** : suppression + transitions (prise en charge/clôture/réouverture) identiques.
 
-### T24 — Découper `utilisateur-detail.tsx` en sous-composants — `TODO` *(après T15)*
+### T24 — Découper `utilisateur-detail.tsx` en sous-composants — `DONE` *(après T15)*
 - **Objectif** : séparer Identité / Sites / Administration ; brancher `useConfirmAction` (activer/anonymiser).
 - **Fichiers** : `src/features/utilisateurs/components/utilisateur-detail.tsx` + nouveaux sous-composants.
 - **Validation** : fiche utilisateur identique ; fichier principal < 300 l.

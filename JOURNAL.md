@@ -46,3 +46,12 @@ Branche : `refactor/architecture-globale` (jamais de push).
 - **T20** : `use-confirm-action.ts` créé (branchement en Vague 4).
 - Gate : typecheck propre ✅ (tsbuildinfo purgé), build ✅. Tests 133/135 (les 2 échecs = baseline nav.test.ts, aucune régression ; 95 nouveaux tests OK). 1 commit par tâche.
 - Note legacy : `common/text-field`/`select-field`/`checkbox-field`/`number-field` restent utilisés par le sous-système « champs dynamiques » (`champ-form-dialog`, `champ-valeur-input`) — contrôlés non-RHF, légitimes, PAS du code mort (conforme AUDIT).
+
+### Vague 4 — FAIT (useConfirmAction + découpage utilisateur-detail)
+4 sous-agents parallèles.
+- **T21** : `investissement-detail` — transition « Refuser » → `useConfirmAction` (unique `ConfirmDialog`). « Réactiver » (déjà 1-clic sans confirmation) laissée telle quelle.
+- **T22** : `travaux-detail` — transition « Annuler » → `useConfirmAction`. Tâches/zones, `ClotureDialog`, `StatusStepper` intacts.
+- **T23** : `di-detail` — suppression manuelle → `useConfirmDelete` + `ConfirmDeleteDialog` (dette C8 réglée). Transitions DI = mutations 1-clic sans confirmation → laissées inchangées (voir D-06).
+- **T24** : `utilisateur-detail` **648→102 l.** ; extraites `utilisateur-identite-card.tsx` (RHF, e-mail, mdp), `utilisateur-sites-card.tsx`, `utilisateur-admin-card.tsx` (via `useConfirmAction`), `utilisateur-types.ts`. RHF de T15 préservé, export inchangé.
+- **Conformité lint** (voir D-07) : 6 erreurs ESLint introduites par les migrations RHF, toutes corrigées (le hook de garde ne lançait que le typecheck). Commit dédié « fix: conformité ESLint strict ».
+- Gate final V4 : typecheck ✅, **lint ✅ (0 erreur/0 warning)**, build ✅. Tests 133/135 (2 = baseline nav). 1 commit par tâche + 1 commit fix lint.
