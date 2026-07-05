@@ -16,6 +16,7 @@ import { TravauxFormDialog } from '@/features/travaux/components/travaux-form-di
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
 import { listStack } from '@/lib/responsive'
@@ -88,6 +89,8 @@ function TravauxContent({
 }) {
   const navigate = useNavigate()
   const query = useQuery(travauxQueries.list(siteId))
+  // Liste en LIVE (nouveau chantier/travaux visible sans F5).
+  useRealtimeRefresh('interventions_travaux', travauxQueries.all())
   const { data: statuts = [] } = useQuery(statutsTravauxQueries.list())
   const del = useDeleteTravaux()
   const dialog = useEntityDialog<Travaux>()
