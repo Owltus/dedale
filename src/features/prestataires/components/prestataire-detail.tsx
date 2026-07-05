@@ -481,6 +481,9 @@ function OtPanel({
   const query = useQuery(
     prestatairesQueries.ordresTravail(prestataireId, siteId),
   )
+  // Onglet OT en LIVE (clôture/changement de statut ailleurs visible sans F5).
+  // Canal `ordres_travail` partagé/refcompté avec l'onglet Gammes → aucun surcoût.
+  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
   const [search, setSearch] = useState('')
   const [statutFilter, setStatutFilter] = useState<string>(FILTRE_NON_TERMINES)
 
