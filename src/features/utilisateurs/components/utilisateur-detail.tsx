@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   Ban,
@@ -23,19 +26,21 @@ import {
   useUpdateUserEmail,
 } from '../mutations'
 import { profileSchema, roleLabel } from '../schemas'
+import type { ProfileFormValues } from '../schemas'
 import { sitesQueries } from '@/features/sites/queries'
 import { supabase } from '@/lib/supabase'
 import * as perm from '@/lib/permissions'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
-import { errorMessage, fieldErrors, writeErrorMessage } from '@/lib/form'
+import { errorMessage, writeErrorMessage } from '@/lib/form'
 import { InfoNote } from '@/components/common/info-note'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
-import { TextField } from '@/components/common/text-field'
+import { TextField } from '@/components/common/fields/text-field'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { EmptyState } from '@/components/common/empty-state'
+import { Form } from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -195,23 +200,21 @@ function ProfileForm({
 }) {
   const update = useUpdateUser()
   const { data: roles = [] } = useQuery(utilisateursQueries.roles())
-  const [nom, setNom] = useState(user.nom_complet)
-  const [telephone, setTelephone] = useState(initialTelephone)
   const [roleId, setRoleId] = useState(user.role_id)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      nom_complet: user.nom_complet,
+      telephone: initialTelephone,
+    },
+  })
 
-  async function handleSubmit() {
-    const parsed = profileSchema.safeParse({ nom_complet: nom, telephone })
-    if (!parsed.success) {
-      setErrors(fieldErrors(parsed.error))
-      return
-    }
-    setErrors({})
+  async function onSubmit(data: ProfileFormValues) {
     try {
       await update.mutateAsync({
         id: user.id,
-        nom_complet: parsed.data.nom_complet,
-        telephone: parsed.data.telephone,
+        nom_complet: data.nom_complet,
+        telephone: data.telephone,
         role_id: isAdmin ? roleId : undefined,
       })
       toast.success('Profil mis à jour')
@@ -221,56 +224,53 @@ function ProfileForm({
   }
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit()
-      }}
-      className="flex flex-col gap-4"
-    >
-      <TextField
-        label="Nom complet"
-        value={nom}
-        onChange={setNom}
-        error={errors.nom_complet}
-        required
-        disabled={!canEdit}
-      />
-      <TextField
-        label="Téléphone"
-        value={telephone}
-        onChange={setTelephone}
-        error={errors.telephone}
-        disabled={!canEdit}
-      />
-      <div className="grid gap-2">
-        <Label htmlFor="role">Rôle</Label>
-        {isAdmin ? (
-          <Select
-            id="role"
-            value={String(roleId)}
-            onChange={(e) => setRoleId(Number(e.target.value))}
+    <Form {...form}>
+      <form
+        onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
+        className="flex flex-col gap-4"
+      >
+        <TextField
+          control={form.control}
+          name="nom_complet"
+          label="Nom complet"
+          required
+          disabled={!canEdit}
+        />
+        <TextField
+          control={form.control}
+          name="telephone"
+          label="Téléphone"
+          disabled={!canEdit}
+        />
+        <div className="grid gap-2">
+          <Label htmlFor="role">Rôle</Label>
+          {isAdmin ? (
+            <Select
+              id="role"
+              value={String(roleId)}
+              onChange={(e) => setRoleId(Number(e.target.value))}
+            >
+              {roles.map((r) => (
+                <option key={r.id} value={String(r.id)}>
+                  {roleLabel(r.code)}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <p className="text-sm">{roleLabel(user.roles?.code)}</p>
+          )}
+        </div>
+        {canEdit && (
+          <Button
+            type="submit"
+            disabled={update.isPending}
+            className="self-start"
           >
-            {roles.map((r) => (
-              <option key={r.id} value={String(r.id)}>
-                {roleLabel(r.code)}
-              </option>
-            ))}
-          </Select>
-        ) : (
-          <p className="text-sm">{roleLabel(user.roles?.code)}</p>
+            {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
+          </Button>
         )}
-      </div>
-      {canEdit && (
-        <Button
-          type="submit"
-          disabled={update.isPending}
-          className="self-start"
-        >
-          {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
-        </Button>
-      )}
-    </form>
+      </form>
+    </Form>
   )
 }
 
@@ -297,10 +297,22 @@ function EmailBlock({ userId }: { userId: string }) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Schéma e-mail local (pas de source dans schemas.ts) : validation identique à
+// l'ancien contrôle EMAIL_RE sur la valeur détourée, valeur laissée telle quelle.
+const emailSchema = z.object({
+  email: z
+    .string()
+    .refine((v) => EMAIL_RE.test(v.trim()), 'Adresse e-mail invalide.'),
+})
+type EmailFormValues = z.infer<typeof emailSchema>
+
 function EmailForm({ userId, current }: { userId: string; current: string }) {
   const updateEmail = useUpdateUserEmail()
-  const [email, setEmail] = useState(current)
-  const [error, setError] = useState<string | null>(null)
+  const form = useForm<EmailFormValues>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: { email: current },
+  })
+  const email = form.watch('email')
 
   const resetPassword = useMutation({
     mutationFn: async () => {
@@ -315,14 +327,9 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
     onError: (e) => toast.error(errorMessage(e)),
   })
 
-  async function handleSubmit() {
-    setError(null)
-    if (!EMAIL_RE.test(email.trim())) {
-      setError('Adresse e-mail invalide.')
-      return
-    }
+  async function onSubmit(data: EmailFormValues) {
     try {
-      await updateEmail.mutateAsync({ userId, email })
+      await updateEmail.mutateAsync({ userId, email: data.email })
       toast.success('E-mail mis à jour')
     } catch (e) {
       toast.error(errorMessage(e))
@@ -332,10 +339,7 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
   return (
     <div className="flex flex-col gap-4">
       <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          void handleSubmit()
-        }}
+        onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
         className="flex flex-col gap-3"
       >
         <div className="grid gap-1">
@@ -350,11 +354,14 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
           <Input
             id="email"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            {...form.register('email')}
             className="h-11 text-base"
           />
-          {error && <p className="text-destructive text-sm">{error}</p>}
+          {form.formState.errors.email && (
+            <p className="text-destructive text-sm">
+              {form.formState.errors.email.message}
+            </p>
+          )}
         </div>
         <Button
           type="submit"
