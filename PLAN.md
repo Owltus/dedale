@@ -18,27 +18,27 @@
 
 Fichiers tous distincts → parallélisables.
 
-### T01 — Supprimer le code mort confirmé — `TODO`
+### T01 — Supprimer le code mort confirmé — `DONE`
 - **Objectif** : retirer les fichiers sans consommateur.
 - **Fichiers** : suppr. `src/hooks/use-biblio-drill.ts`, `src/components/common/switch-field.tsx`, `src/components/common/description-field.tsx`, `src/components/common/textarea-field.tsx`.
 - **Validation** : `grep -rn "biblio-drill\|/switch-field'\|/description-field'\|/textarea-field'" src` ne renvoie plus rien (formes `./` **et** `@/`) ; typecheck + build OK.
 
-### T02 — Tests unitaires `slug.ts` — `TODO`
+### T02 — Tests unitaires `slug.ts` — `DONE`
 - **Objectif** : verrouiller `slugify` / `segOfUnique` (symétrie génération/résolution, unicité entre frères).
 - **Fichiers** : nouveau `src/lib/slug.test.ts`.
 - **Validation** : `npm run test` vert, cas frères homonymes couverts.
 
-### T03 — Tests unitaires `champs.ts` — `TODO`
+### T03 — Tests unitaires `champs.ts` — `DONE`
 - **Objectif** : verrouiller `prepareChamps` (6 règles + garde-fou taille), `parseChamps`/`serializeChamps`, `formatChampValeur`.
 - **Fichiers** : nouveau `src/lib/champs.test.ts`.
 - **Validation** : `npm run test` vert.
 
-### T04 — Tests unitaires `form.ts` — `TODO`
+### T04 — Tests unitaires `form.ts` — `DONE`
 - **Objectif** : verrouiller le mapping SQLSTATE→FR (`42501`, `23505`, `23503`, `PGRST116`) de `writeErrorMessage`/`deleteErrorMessage`/`fieldErrors`.
 - **Fichiers** : nouveau `src/lib/form.test.ts`.
 - **Validation** : `npm run test` vert.
 
-### T05 — Tests unitaires `scope.ts` — `TODO`
+### T05 — Tests unitaires `scope.ts` — `DONE`
 - **Objectif** : verrouiller `resolvePorteeScope`, `sousCategoriesNiveau2`, `scopeMatches`, `estCommunOuDuSite`.
 - **Fichiers** : nouveau `src/lib/scope.test.ts`.
 - **Validation** : `npm run test` vert.
