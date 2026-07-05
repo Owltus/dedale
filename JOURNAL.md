@@ -25,3 +25,12 @@ Branche : `refactor/architecture-globale` (jamais de push).
 - Réalisation : T01 par moi ; T02–T05 via 4 sous-agents parallèles (worktree partagé, fichiers disjoints).
 
 **Ajustement noté pour T13 (Vague 2)** : `gamme-operations-section` est une brique PARTAGÉE dont le commentaire impose que le realtime soit porté par l'HÔTE → l'abonnement `operations` ira dans `gamme-detail.tsx` (fiche de site), pas dans la brique. Voir DECISIONS D-03.
+
+### Vague 2 — FAIT (couverture Realtime)
+- **T06** Sites, **T07** Utilisateurs (`users`), **T08** Investissements, **T09** Travaux (`interventions_travaux`), **T10** Documents : `useRealtimeRefresh(table, xxxQueries.all())` ajouté sur chaque liste.
+- **T11** Localisations : 3 abonnements (`batiments`/`niveaux`/`locaux`) dans `LocalisationsExplorer` — comble le seul explorer sans live-refresh.
+- **T12** Prestataire : abonnement `ordres_travail` AJOUTÉ dans `OtPanel` (celui du panneau Gammes conservé pour les badges ; canal partagé refcompté → sans surcoût). Voir D-04.
+- **T13** Gamme de site : abonnement `operations` posé dans l'HÔTE `gamme-detail.tsx` (pas dans la brique partagée). Voir D-03.
+- Gate : typecheck ✅, build ✅. 1 commit par tâche (T06…T13).
+- Rappel P0 : l'effet live dépend de la publication `supabase_realtime` côté backend (hors périmètre). Le code front est sûr et inerte si la table n'est pas publiée.
+- Réalisation : par moi-même (insertions triviales, fichiers disjoints), cf. D-02.

@@ -49,33 +49,33 @@ Fichiers tous distincts → parallélisables.
 
 Chaque tâche ajoute/rectifie un appel `useRealtimeRefresh(table, xxxQueries.all())` sur un écran. Fichiers distincts → parallélisables. Modèle à suivre : `OT_QUERY_KEYS`.
 
-### T06 — Realtime liste Sites — `TODO`
+### T06 — Realtime liste Sites — `DONE`
 - **Fichiers** : `src/routes/_app/sites.tsx` — `useRealtimeRefresh('sites', sitesQueries.all())`.
 - **Validation** : création/suppression d'un site dans un 2ᵉ onglet rafraîchit la liste sans F5 (si `sites` publiée) ; sinon aucun effet ni erreur.
 
-### T07 — Realtime liste Utilisateurs — `TODO`
+### T07 — Realtime liste Utilisateurs — `DONE`
 - **Fichiers** : `src/routes/_app/utilisateurs/index.tsx`.
 - **Validation** : idem (table utilisateurs/profils).
 
-### T08 — Realtime liste Investissements — `TODO`
+### T08 — Realtime liste Investissements — `DONE`
 - **Fichiers** : `src/routes/_app/investissements/index.tsx`.
 
-### T09 — Realtime liste Travaux — `TODO`
+### T09 — Realtime liste Travaux — `DONE`
 - **Fichiers** : `src/routes/_app/travaux/index.tsx`.
 
-### T10 — Realtime liste Documents — `TODO`
+### T10 — Realtime liste Documents — `DONE`
 - **Fichiers** : `src/routes/_app/documents.tsx` — aligner sur le dashboard qui s'abonne déjà à `documents`.
 
-### T11 — Realtime explorer Localisations — `TODO`
+### T11 — Realtime explorer Localisations — `DONE`
 - **Fichiers** : `src/features/localisations/components/localisations-explorer.tsx` — abonnements `batiments`/`niveaux`/`locaux` (clés `localisationsQueries.all()`).
 - **Validation** : ajout d'un bâtiment/niveau dans un 2ᵉ onglet apparaît sans F5.
 
-### T12 — Corriger le Realtime dans `prestataire-detail` — `TODO`
+### T12 — Corriger le Realtime dans `prestataire-detail` — `DONE`
 - **Objectif** : déplacer/ajouter l'abonnement `ordres_travail` dans le **panneau OT** (aujourd'hui posé dans le panneau Gammes).
 - **Fichiers** : `src/features/prestataires/components/prestataire-detail.tsx`.
 - **Validation** : clôturer un OT ailleurs met à jour l'onglet OT du prestataire.
 
-### T13 — Realtime opérations de gamme (site) — `TODO`
+### T13 — Realtime opérations de gamme (site) — `DONE`
 - **Objectif** : symétriser avec la version biblio (`operations`).
 - **Fichiers** : `src/features/gammes/components/gamme-operations-section.tsx`.
 - **Validation** : modif d'une opération se reflète en live sur la fiche gamme de site.
