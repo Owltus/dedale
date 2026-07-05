@@ -1,0 +1,165 @@
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Lock, Plus, ShieldCheck, X } from 'lucide-react'
+import { toast } from 'sonner'
+import { utilisateursQueries } from '../queries'
+import { useAssignSite, useUnassignSite } from '../mutations'
+import { sitesQueries } from '@/features/sites/queries'
+import { errorMessage, writeErrorMessage } from '@/lib/form'
+import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+
+// --- Cible admin : pas d'attribution de sites ---
+
+export function AdminSitesNotice() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Accès aux sites</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+          <ShieldCheck className="size-4 shrink-0" />
+          <span>
+            Administrateur : accès à <strong>tous les sites</strong>. Aucune
+            attribution nécessaire.
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// --- Accès aux sites : liste attribuée + dropdown d'ajout ---
+
+export function SitesCard({
+  userId,
+  canEdit,
+}: {
+  userId: string
+  canEdit: boolean
+}) {
+  const { data: assigned = [], isPending } = useQuery(
+    utilisateursQueries.sitesOf(userId),
+  )
+  const { data: mySites = [] } = useQuery(sitesQueries.mine())
+  const assign = useAssignSite()
+  const unassign = useUnassignSite()
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const assignedIds = new Set(assigned.map((a) => a.site_id))
+  const myIds = new Set(mySites.map((s) => s.id))
+  // Sites de l'appelant attribués à la cible : modifiables (croix rouge).
+  const editable = assigned.filter((a) => myIds.has(a.site_id))
+  // Sites attribués hors du périmètre de l'appelant (donnés par un admin) :
+  // affichés en lecture seule, non retirables.
+  const horsPerimetre = assigned.filter((a) => !myIds.has(a.site_id))
+  // Sites de l'appelant pas encore attribués : proposés dans le dropdown.
+  const available = mySites.filter((s) => !assignedIds.has(s.id))
+
+  function handleAdd(siteId: string) {
+    if (!siteId) return
+    setBusy(siteId)
+    assign.mutate(
+      { userId, siteId },
+      {
+        onSuccess: () => toast.success('Site ajouté'),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+        onSettled: () => setBusy(null),
+      },
+    )
+  }
+
+  function handleRemove(siteId: string) {
+    setBusy(siteId)
+    unassign.mutate(
+      { userId, siteId },
+      {
+        onSuccess: () => toast.success('Site retiré'),
+        onError: (e) => toast.error(errorMessage(e)),
+        onSettled: () => setBusy(null),
+      },
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Accès aux sites</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {isPending ? (
+          <Skeleton className="h-24 w-full" />
+        ) : (
+          <>
+            {editable.length === 0 && horsPerimetre.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Aucun site attribué.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {editable.map((a) => (
+                  <li
+                    key={a.site_id}
+                    className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+                  >
+                    <span className="truncate">{a.sites.nom}</span>
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive size-7"
+                        aria-label={`Retirer ${a.sites.nom}`}
+                        disabled={busy === a.site_id}
+                        onClick={() => handleRemove(a.site_id)}
+                      >
+                        <X />
+                      </Button>
+                    )}
+                  </li>
+                ))}
+                {horsPerimetre.map((a) => (
+                  <li
+                    key={a.site_id}
+                    className="text-muted-foreground flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm"
+                  >
+                    <Lock className="size-3.5 shrink-0" />
+                    <span className="truncate">{a.sites.nom}</span>
+                    <span className="ml-auto text-xs">
+                      hors de votre périmètre
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {canEdit && available.length > 0 && (
+              <div className="grid gap-2">
+                <Label htmlFor="add-site">Ajouter un site</Label>
+                <div className="relative">
+                  <Plus className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+                  <Select
+                    id="add-site"
+                    value=""
+                    onChange={(e) => handleAdd(e.target.value)}
+                    className="pl-8"
+                  >
+                    <option value="">Choisir un site à ajouter…</option>
+                    {available.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nom}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
