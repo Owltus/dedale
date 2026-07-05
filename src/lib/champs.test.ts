@@ -220,7 +220,10 @@ describe('prepareChamps — validations', () => {
   })
 
   it('refuse une charge utile trop volumineuse (> 9500 caractères)', () => {
-    const options = Array.from({ length: 400 }, (_, i) => `option-${i}-${'x'.repeat(20)}`)
+    const options = Array.from(
+      { length: 400 },
+      (_, i) => `option-${String(i)}-${'x'.repeat(20)}`,
+    )
     const res = prepareChamps([
       champ({ cle: 'Grande', type: 'liste', options }),
     ])

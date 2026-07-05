@@ -31,6 +31,8 @@ export type ConfirmAction<P = void> = {
   errorMessage?: (e: unknown) => string
   /** Appelé APRÈS le succès (toast + fermeture), ex. navigation de repli. */
   onSuccess?: (param: P) => void
+  // Sentinelle « pas de paramètre » : quand P = void, `param` est absent ; sinon requis.
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 } & ([P] extends [void] ? { param?: undefined } : { param: P })
 
 interface UseConfirmActionOptions {

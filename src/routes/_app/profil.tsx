@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Building2, KeyRound, Mail } from 'lucide-react'
@@ -124,14 +124,14 @@ function EmailBlock({ currentEmail }: { currentEmail: string }) {
     mutation.mutate(values.email)
   }
 
-  const emailValue = form.watch('email')
+  const emailValue = useWatch({ control: form.control, name: 'email' })
   const unchanged =
     emailValue.trim().toLowerCase() === currentEmail.toLowerCase()
 
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={() => void form.handleSubmit(onSubmit)()}
         className="flex flex-col gap-3"
       >
         <TextField
@@ -197,7 +197,7 @@ function ProfilForm({
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={() => void form.handleSubmit(onSubmit)()}
         className="flex flex-col gap-4"
       >
         <TextField

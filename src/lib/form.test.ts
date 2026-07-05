@@ -56,7 +56,7 @@ describe('fieldErrors', () => {
   it('map la première erreur par nom de champ depuis une ZodError', () => {
     const schema = z.object({
       nom: z.string().min(1, 'Le nom est requis'),
-      email: z.string().email('Email invalide'),
+      email: z.email('Email invalide'),
     })
     const res = schema.safeParse({ nom: '', email: 'pas-un-email' })
     expect(res.success).toBe(false)

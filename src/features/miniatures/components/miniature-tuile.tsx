@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
-type MiniatureTuileProps = {
+interface MiniatureTuileProps {
   miniature: MiniatureWithUrl
   selected: boolean
   // Le rôle peut gérer CETTE vignette (remplacer / supprimer).
