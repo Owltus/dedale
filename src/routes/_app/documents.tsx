@@ -13,6 +13,7 @@ import {
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useSiteContext } from '@/lib/site-context'
 import { requireNav } from '@/lib/nav-guard'
 import * as perm from '@/lib/permissions'
@@ -72,6 +73,8 @@ function DocumentsContent({
   canDelete: boolean
 }) {
   const query = useQuery(documentsQueries.list(siteId))
+  // Liste en LIVE (upload/suppression visible sans F5, comme le dashboard).
+  useRealtimeRefresh('documents', documentsQueries.all())
   const { data: types = [] } = useQuery(typesDocumentsQueries.list())
   const upload = useUploadDocument()
   const del = useDeleteDocument()
