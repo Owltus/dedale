@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { useTreeDrill, type TreeDrill, type TreeNode } from './use-tree-drill'
+import { joinSplat, splatCatSegs } from './drill-splat'
 
 // API typée de la route SPLAT `/equipements/<cat>/<sous>/<équipement>`. Via
 // `getRouteApi` pour ne PAS inverser la dépendance features → routes.
@@ -22,17 +23,12 @@ export function useEquipementsDrill<T extends TreeNode>(
 ): TreeDrill<T> {
   const { _splat } = route.useParams()
   const navigate = route.useNavigate()
-  const catSegs = useMemo(
-    () => (_splat ?? '').split('/').filter(Boolean),
-    [_splat],
-  )
+  const catSegs = useMemo(() => splatCatSegs(_splat, false), [_splat])
   const navigateTo = useCallback(
     (segs: string[], leaf: string | undefined, opts: { replace: boolean }) => {
       void navigate({
         to: '/equipements/$',
-        params: {
-          _splat: [...segs, ...(leaf !== undefined ? [leaf] : [])].join('/'),
-        },
+        params: { _splat: joinSplat([], segs, leaf) },
         replace: opts.replace,
       })
     },
