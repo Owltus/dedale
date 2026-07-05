@@ -26,6 +26,7 @@ import { TacheDialog } from './tache-dialog'
 import { TacheRow, type TacheItem } from './tache-row'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
+import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
@@ -64,7 +65,9 @@ export function TravauxDetail({
   const delTache = useDeleteTache()
   const [edit, setEdit] = useState(false)
   const [clotureOpen, setClotureOpen] = useState(false)
-  const [annulerOpen, setAnnulerOpen] = useState(false)
+  // Confirmations de transition de statut du travaux (ex. « Annuler »), toutes
+  // derrière un unique ConfirmDialog.
+  const confirmAction = useConfirmAction()
   // Modal de zone : `entity` null = ajout, sinon édition de cette zone.
   const tacheDialog = useEntityDialog<TacheItem>()
   const suppressionTache = useConfirmDelete<TacheItem>({
@@ -135,7 +138,21 @@ export function TravauxDetail({
                   icon={<Ban className="text-destructive" />}
                   label="Annuler le travaux"
                   variant="outline"
-                  onClick={() => setAnnulerOpen(true)}
+                  onClick={() =>
+                    confirmAction.demander({
+                      title: 'Annuler le travaux ?',
+                      description:
+                        'Le travaux passera au statut « Annulé ». Cette issue est terminale.',
+                      confirmLabel: 'Annuler le travaux',
+                      destructive: true,
+                      run: () =>
+                        change.mutateAsync({
+                          id: travaux.id,
+                          statutId: STATUT_ANNULE,
+                        }),
+                      successMessage: 'Travaux annulé',
+                    })
+                  }
                 />
               )}
               {canReactiver && (
@@ -312,27 +329,8 @@ export function TravauxDetail({
         travauxId={travaux.id}
       />
 
-      <ConfirmDialog
-        open={annulerOpen}
-        onOpenChange={setAnnulerOpen}
-        title="Annuler le travaux ?"
-        description="Le travaux passera au statut « Annulé ». Cette issue est terminale."
-        confirmLabel="Annuler le travaux"
-        destructive
-        loading={change.isPending}
-        onConfirm={() =>
-          change.mutate(
-            { id: travaux.id, statutId: STATUT_ANNULE },
-            {
-              onSuccess: () => {
-                toast.success('Travaux annulé')
-                setAnnulerOpen(false)
-              },
-              onError: (e) => toast.error(writeErrorMessage(e)),
-            },
-          )
-        }
-      />
+      {/* Unique dialog des transitions de statut du travaux (« Annuler »…). */}
+      <ConfirmDialog {...confirmAction.dialogProps} />
     </PageContainer>
   )
 }
