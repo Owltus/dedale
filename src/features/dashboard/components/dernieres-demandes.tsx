@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ClipboardList, MessageSquareWarning } from 'lucide-react'
+import { ClipboardList } from 'lucide-react'
 import { QueryState } from '@/components/common/query-state'
 import { EmptyState } from '@/components/common/empty-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
@@ -20,8 +20,8 @@ interface DernieresDemandesProps {
   siteId: string
 }
 
-/** Hauteur d'une `ListRow` média densité `sm` (`h-14`), pour le fit-to-height. */
-const HAUTEUR_LIGNE = 56
+/** Hauteur d'une `ListRow` média densité `xs` (`h-11`), pour le fit-to-height. */
+const HAUTEUR_LIGNE = 44
 
 /**
  * Colonne « Demandes d'intervention » du tableau de bord (zone 3, gauche).
@@ -42,21 +42,27 @@ export function DernieresDemandes({ siteId }: DernieresDemandesProps) {
 
   return (
     <DashboardCard
-      icon={MessageSquareWarning}
-      title="Demandes d'intervention"
-      contentClassName="flex min-h-0 flex-col"
+      // Marges internes réduites (24 → 12 px) : padding vertical `py-3` (via className,
+      // surcharge le `py-6` de la carte) + horizontal `px-3` (via contentClassName).
+      className="py-3 md:min-h-0 md:flex-1"
+      contentClassName="flex min-h-0 flex-col px-3"
     >
-      <div ref={zoneRef} className="min-h-0 flex-1 overflow-hidden">
+      <div
+        ref={zoneRef}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
         <QueryState
           query={demandesQuery}
           pending={<ListRowSkeletons count={4} dense />}
           errorClassName="py-6"
           empty={
+            // `flex-1` → l'état vide occupe toute la hauteur de la carte ; son
+            // `justify-center` interne le centre alors verticalement (et horizontalement).
             <EmptyState
               icon={ClipboardList}
               title="Aucune demande"
               description="Aucun signalement pour ce site."
-              className="py-6"
+              className="flex-1"
             />
           }
         >
@@ -75,7 +81,7 @@ export function DernieresDemandes({ siteId }: DernieresDemandesProps) {
                 {ordonnees.map((d) => (
                   <ListRow
                     key={d.id}
-                    size="sm"
+                    size="xs"
                     tone={statutTone(d.statut_di_id)}
                     media={<RowMediaIcon icon={ClipboardList} />}
                     title={diTitre(d.constat)}

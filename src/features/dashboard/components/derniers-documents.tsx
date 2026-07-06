@@ -18,8 +18,8 @@ interface DerniersDocumentsProps {
   siteId: string
 }
 
-/** Hauteur d'une `DocumentRow` (`ListRow` média densité `sm`, `h-14`). */
-const HAUTEUR_LIGNE = 56
+/** Hauteur d'une `DocumentRow` (`ListRow` média densité `xs`, `h-11`). */
+const HAUTEUR_LIGNE = 44
 
 /**
  * Colonne « Documents » du tableau de bord (zone 3, droite) : l'alerte des
@@ -40,22 +40,28 @@ export function DerniersDocuments({ siteId }: DerniersDocumentsProps) {
 
   return (
     <DashboardCard
-      icon={FileText}
-      title="Documents"
-      contentClassName="flex min-h-0 flex-col gap-3"
+      // Marges internes réduites (24 → 12 px) : padding vertical `py-3` (via className,
+      // surcharge le `py-6` de la carte) + horizontal `px-3` (via contentClassName).
+      className="py-3 md:min-h-0 md:flex-1"
+      contentClassName="flex min-h-0 flex-col gap-3 px-3"
     >
       <AlerteJustificatifs siteId={siteId} />
-      <div ref={zoneRef} className="min-h-0 flex-1 overflow-hidden">
+      <div
+        ref={zoneRef}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
         <QueryState
           query={documentsQuery}
           pending={<ListRowSkeletons count={4} dense />}
           errorClassName="py-6"
           empty={
+            // `flex-1` → l'état vide occupe toute la hauteur de la carte ; son
+            // `justify-center` interne le centre alors verticalement (et horizontalement).
             <EmptyState
               icon={FileText}
               title="Aucun document"
               description="Aucun fichier n'a encore été ajouté à ce site."
-              className="py-6"
+              className="flex-1"
             />
           }
         >
@@ -73,6 +79,7 @@ export function DerniersDocuments({ siteId }: DerniersDocumentsProps) {
                   <DocumentRow
                     key={doc.id}
                     doc={doc}
+                    size="xs"
                     onClick={() => setApercu(doc)}
                     menuActions={actions}
                   />
