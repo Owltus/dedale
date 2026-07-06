@@ -280,6 +280,7 @@ export function CataloguePanel<T extends CatalogueModele>({
     leafSeg,
     openItem: openModele,
     items: modeles,
+    getItemId: (m) => m.id,
     goToItem: goToModele,
   })
 

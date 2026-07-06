@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useCallback, useMemo } from 'react'
 import { segOfUnique } from '@/lib/slug'
 import type { TreeDrill, TreeNode } from './use-tree-drill'
+import { useLeafResync } from './use-leaf-resync'
 
 /**
  * Id sentinelle du bac « Non classé » (catégorie VIRTUELLE, hors base) : regroupe
@@ -192,30 +193,11 @@ export function useCatalogueDrill<TItem, TCat extends CatalogueDrillCat>({
   )
 
   // Re-synchronise l'URL si l'élément OUVERT est renommé (« Modifier » ou réception
-  // realtime) : son slug change → l'URL ne le résout plus. On mémorise id + segment
-  // et, s'il existe encore, on réécrit l'URL sur son chemin frais (REPLACE) sans
-  // fermer le détail ; supprimé → repli propre vers la navigation.
-  //
-  // `useLayoutEffect` (et non le hook `useLeafResync`, qui est en `useEffect`) : la
-  // resynchro doit se faire AVANT la peinture, sinon on voit un flash de la liste
-  // (openItem transitoirement null) le temps que le slug frais remplace l'ancien.
-  const lastIdRef = useRef<string | null>(null)
-  const lastLeafRef = useRef<string | undefined>(undefined)
-  useEffect(() => {
-    if (openItem !== null) {
-      lastIdRef.current = getItemId(openItem)
-      lastLeafRef.current = leafSeg
-    }
-  }, [openItem, leafSeg, getItemId])
-  useLayoutEffect(() => {
-    if (leafSeg === undefined || openItem !== null) return
-    if (leafSeg !== lastLeafRef.current) return
-    const id = lastIdRef.current
-    if (id === null) return
-    const fresh = items.find((it) => getItemId(it) === id)
-    if (!fresh) return
-    goToItem(fresh, { replace: true })
-  }, [leafSeg, openItem, items, goToItem, getItemId])
+  // realtime) : implémentation UNIQUE partagée (`useLeafResync`). `layout: true` →
+  // `useLayoutEffect` (resynchro AVANT peinture) car l'élément ouvert occupe tout
+  // l'écran : sans ça, flash de la liste (openItem transitoirement null) le temps
+  // que le slug frais remplace l'ancien.
+  useLeafResync({ leafSeg, openItem, items, getItemId, goToItem, layout: true })
 
   return {
     drillCats,

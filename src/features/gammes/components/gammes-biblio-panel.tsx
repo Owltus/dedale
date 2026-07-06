@@ -241,6 +241,7 @@ export function GammesBiblioPanel() {
     leafSeg,
     openItem: openGamme,
     items: gammes,
+    getItemId: (g) => g.id,
     goToItem: goToGamme,
   })
 
