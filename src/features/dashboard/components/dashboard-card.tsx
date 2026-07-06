@@ -26,6 +26,7 @@ export function DashboardCard({
   contentClassName,
   square = false,
   dense = false,
+  stretch = true,
 }: {
   icon?: LucideIcon
   title?: string
@@ -40,6 +41,14 @@ export function DashboardCard({
    */
   square?: boolean
   /**
+   * `true` (défaut) → la carte remplit la hauteur de sa rangée (`h-full`). `false` →
+   * la carte se dimensionne à SON CONTENU (pas de `h-full`) et s'aligne en HAUT de sa
+   * case : utilisé par les colonnes Demandes/Documents pour s'arrêter juste sous la
+   * dernière ligne affichée (le nombre de lignes est calculé par `useLignesVisibles`).
+   * Sans effet si `square`.
+   */
+  stretch?: boolean
+  /**
    * Marges internes réduites (padding + gap) → le contenu (ex. un graphique) occupe
    * davantage de place. Applique la réduction à l'en-tête ET au contenu pour rester
    * aligné. Défaut `false` → padding standard des cartes de l'app.
@@ -49,7 +58,11 @@ export function DashboardCard({
   return (
     <Card
       className={cn(
-        square ? 'aspect-square self-start' : 'h-full',
+        square
+          ? 'aspect-square self-start'
+          : stretch
+            ? 'h-full'
+            : 'self-start',
         dense ? 'gap-2 py-3' : 'gap-4',
         className,
       )}

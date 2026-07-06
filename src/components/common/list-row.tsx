@@ -69,19 +69,23 @@ export interface ListRowProps {
   /**
    * Densité (hauteur) de la carte, cadrée par le composant pour rester homogène :
    * `'md'` par défaut (variante média `h-20`, standard `py-3`), `'sm'` plus
-   * compacte, `'lg'` plus aérée. La vignette média suit (`h-full`).
+   * compacte, `'lg'` plus aérée, `'xs'` la plus dense (variante média `h-11`, texte
+   * réduit — pour les listes très denses type tableau de bord). La vignette média
+   * suit (`h-full`).
    */
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   className?: string
 }
 
 // Hauteur de la carte média / padding vertical de la carte standard, par densité.
 const MEDIA_HEIGHT: Record<NonNullable<ListRowProps['size']>, string> = {
+  xs: 'h-11',
   sm: 'h-14',
   md: 'h-20',
   lg: 'h-24',
 }
 const ROW_PADDING: Record<NonNullable<ListRowProps['size']>, string> = {
+  xs: 'py-1',
   sm: 'py-1.5',
   md: 'py-3',
   lg: 'py-4',
@@ -132,6 +136,9 @@ export function ListRow({
   className,
 }: ListRowProps) {
   const clickable = onClick !== undefined
+  // Densité `xs` : titre/sous-titre et espacements réduits, pour que le contenu reste
+  // proportionné dans une ligne média plus basse (`h-11`).
+  const dense = size === 'xs'
   // Nom accessible du bouton overlay = le TITRE VISIBLE (source unique via
   // `aria-labelledby`), pour ne pas dédoubler l'annonce au lecteur d'écran.
   // `titleLabel` reste une surcharge optionnelle (titre non textuel, etc.).
@@ -171,9 +178,17 @@ export function ListRow({
           />
         )}
         <div className="aspect-square h-full shrink-0">{media}</div>
-        <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
+        <div
+          className={cn(
+            'flex min-w-0 flex-1 items-center',
+            dense ? 'gap-2 px-3' : 'gap-3 px-4',
+          )}
+        >
           <div className="min-w-0 flex-1">
-            <div id={titleId} className="truncate font-medium">
+            <div
+              id={titleId}
+              className={cn('truncate font-medium', dense && 'text-sm')}
+            >
               {title}
             </div>
             {/* Ligne de description TOUJOURS présente (espace insécable si vide) →
@@ -181,7 +196,8 @@ export function ListRow({
                 ou non. Tronquée sur UNE seule ligne. */}
             <div
               className={cn(
-                'text-muted-foreground truncate text-sm',
+                'text-muted-foreground truncate',
+                dense ? 'text-xs' : 'text-sm',
                 // `mobileMeta` fourni → on masque la description sous `sm` pour
                 // libérer la place à l'info clé sans casser la hauteur fixe.
                 mobileMeta !== undefined && 'hidden sm:block',

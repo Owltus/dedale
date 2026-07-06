@@ -9,6 +9,8 @@ import { iconeFormat } from '@/components/common/file-format-icons'
 
 interface DocumentRowProps {
   doc: DocumentMeta
+  /** Densité de la ligne (transmise à `ListRow`). Défaut `sm`. */
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   /** Clic sur la ligne (typiquement : ouvrir l'aperçu). */
   onClick?: () => void
   /** Badges à droite (ex. type métier) — masqués sous `sm`, cf. `mobileMeta`. */
@@ -29,6 +31,7 @@ interface DocumentRowProps {
  */
 export function DocumentRow({
   doc,
+  size = 'sm',
   onClick,
   badges,
   mobileMeta,
@@ -37,7 +40,7 @@ export function DocumentRow({
 }: DocumentRowProps) {
   return (
     <ListRow
-      size="sm"
+      size={size}
       media={<RowMediaIcon icon={iconeFormat(doc.mime_type)} />}
       title={doc.nom_original}
       subtitle={`${formatTaille(doc.taille_octets)} · ${formatDate(doc.uploaded_at)}`}
