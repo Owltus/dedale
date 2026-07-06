@@ -106,19 +106,31 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
       terminal?: boolean
       /** Sous-part collée de la section « Cette semaine ». */
       group?: string
+      /** OT que représente l'arc (dimensionne + colore la part). */
       ots: PlanningOt[]
+      /**
+       * OT ouverts AU CLIC (défaut = `ots`). Les sous-parts « Cette semaine » ouvrent
+       * la section ENTIÈRE (`semaine`) : cliquer « Planifié » liste toute la charge de
+       * la semaine, pas seulement les planifiés — le donut segmente, le clic déplie tout.
+       */
+      clicOts?: PlanningOt[]
+      /** Titre du modal au clic (défaut = `label`). */
+      clicTitre?: string
     }[] = [
       // 1. En retard = rouge (destructive), comme le badge « En retard ».
       { key: 'en-retard', label: 'En retard', tone: 'destructive', ots: enRetard },
       // 2. En cours (semaines passées) = bleu (info), comme `statutOtTone('en_cours')`.
       { key: 'en-cours', label: 'En cours', tone: 'info', ots: enCoursPasses },
       // 3. Cette semaine, subdivisée (sous-parts COLLÉES) — couleurs = statutOtTone.
+      //    Toutes les sous-parts ouvrent la SECTION entière (`semaine` / « Cette semaine »).
       {
         key: 'sem-programme',
         label: 'Cette semaine · Programmé',
         tone: 'neutral', // gris (origine « programme »)
         group: GROUPE_CETTE_SEMAINE,
         ots: csProgramme,
+        clicOts: semaine,
+        clicTitre: 'Cette semaine',
       },
       {
         key: 'sem-planifie',
@@ -126,6 +138,8 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
         tone: 'violet',
         group: GROUPE_CETTE_SEMAINE,
         ots: csPlanifie,
+        clicOts: semaine,
+        clicTitre: 'Cette semaine',
       },
       {
         key: 'sem-en-cours',
@@ -133,6 +147,8 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
         tone: 'info',
         group: GROUPE_CETTE_SEMAINE,
         ots: csEnCours,
+        clicOts: semaine,
+        clicTitre: 'Cette semaine',
       },
       {
         key: 'sem-cloture',
@@ -141,6 +157,8 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
         terminal: true,
         group: GROUPE_CETTE_SEMAINE,
         ots: csCloture,
+        clicOts: semaine,
+        clicTitre: 'Cette semaine',
       },
       {
         key: 'sem-annule',
@@ -149,22 +167,26 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
         terminal: true,
         group: GROUPE_CETTE_SEMAINE,
         ots: csAnnule,
+        clicOts: semaine,
+        clicTitre: 'Cette semaine',
       },
     ]
-    return defs.map(({ key, label, tone, terminal, group, ots }) => ({
-      segment: {
-        key,
-        label,
-        value: ots.length,
-        tone,
-        group,
-        onClick: () => {
-          ouvrir(ots, label)
+    return defs.map(
+      ({ key, label, tone, terminal, group, ots, clicOts, clicTitre }) => ({
+        segment: {
+          key,
+          label,
+          value: ots.length,
+          tone,
+          group,
+          onClick: () => {
+            ouvrir(clicOts ?? ots, clicTitre ?? label)
+          },
         },
-      },
-      terminal: terminal ?? false,
-      ots,
-    }))
+        terminal: terminal ?? false,
+        ots,
+      }),
+    )
   }, [ordresTravail])
 
   // Le centre = RESTE À FAIRE = tous les arcs NON terminaux (Clôturé + Annulé de la
