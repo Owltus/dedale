@@ -18,6 +18,12 @@ export interface SunburstNode {
   statutLabel?: string
   hachures?: boolean
   blink?: boolean
+  /**
+   * Décalage radial vers l'extérieur (unités de viewBox) — effet « part éclatée » qui
+   * fait ressortir un nœud appelant une action (les autres restent collés à l'anneau).
+   * La marge de bord de `RAYONS` réserve la place, sinon la part poussée serait rognée.
+   */
+  decalage?: number
   onClick?: () => void
   enfants?: SunburstNode[]
 }
@@ -37,10 +43,13 @@ const RAYON_TROU = 15
 const GAP_ANNEAU = 1.2
 // Rayons [intérieur, extérieur] par profondeur, en unités de viewBox. Anneau extérieur
 // (gammes) ÉPAIS et détaillé, jusqu'au bord du cadre ; interstice entre chaque anneau.
+// L'anneau extérieur s'arrête à 47 (et non ~49) : les ~3 unités jusqu'au bord (rayon
+// max 50) réservent la place de l'effet « éclaté » (`decalage`) sans que la part
+// poussée soit rognée par le cadre `viewBox`.
 const RAYONS: Record<number, [number, number]> = {
   1: [RAYON_TROU, 28],
   2: [28 + GAP_ANNEAU, 38],
-  3: [38 + GAP_ANNEAU, 49],
+  3: [38 + GAP_ANNEAU, 47],
 }
 // Anneaux à luminosité HOMOGÈNE : plus d'assombrissement par profondeur — les anneaux
 // se distinguent par les interstices (`GAP_ANNEAU`), la santé de la feuille module seule
@@ -193,8 +202,22 @@ export function Sunburst({
           const d = secteurAnnulaire(cx, cy, rExt, rInt, da0, da1)
           const clignote = Boolean(node.blink)
 
+          // Effet « éclaté » : pousse le secteur le long de son angle MÉDIAN, vers
+          // l'extérieur, de `decalage` unités. Toute la `<g>` (fond + hachures +
+          // liséré) se déplace ensemble ; transition douce à l'apparition/maj des
+          // données. Sans décalage → pas de transform (rendu inchangé).
+          const decal = node.decalage ?? 0
+          const dep = decal > 0 ? polar(0, 0, decal, (da0 + da1) / 2) : null
+          const transform = dep
+            ? `translate(${fmt(dep.x)} ${fmt(dep.y)})`
+            : undefined
+
           return (
-            <g key={id}>
+            <g
+              key={id}
+              transform={transform}
+              className={cn(dep && 'transition-transform duration-300')}
+            >
               <path
                 d={d}
                 style={{ fill: node.couleur }}

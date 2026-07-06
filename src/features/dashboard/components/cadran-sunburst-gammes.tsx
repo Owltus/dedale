@@ -21,21 +21,27 @@ interface CadranSunburstGammesProps {
  * SANTÉ d'une gamme réduite à quatre familles d'affichage, DÉRIVÉE de la synthèse
  * partagée `statutAffichageGamme` (mêmes libellés/couleurs que les badges du Plan
  * de maintenance) :
- *   - « bon »       : « À jour » (tous les OT terminaux ou rien d'imminent) ;
  *   - « probleme »  : « En retard » / « Rouvert » (à traiter maintenant) ;
- *   - « aTraiter »  : engagé (« En cours ») ou proximité (« Cette semaine »…) ;
- *   - « inactif »   : gamme désactivée ou sans OT (rien à suivre).
- * On ne teste JAMAIS la couleur du badge pour décider (elle est présentation) sauf
- * comme raccourci de lecture non ambigu : succès ⇒ à jour, neutre ⇒ inactif ; les
- * deux états « problème » sont reconnus par leur libellé canonique.
+ *   - « aTraiter »  : IMMINENT seulement — « En cours » ou « Cette semaine » ;
+ *   - « inactif »   : gamme désactivée ou sans OT (rien à suivre) ;
+ *   - « bon »       : tout le reste — « À jour » MAIS AUSSI une échéance encore
+ *     LOINTAINE (« Semaine prochaine », « Ce mois-ci », « Mois prochain ») : rien à
+ *     faire dans l'immédiat ⇒ la gamme reste « à jour » (couleur pleine, comptée dans
+ *     le %). Une échéance dans trois semaines n'est PAS « à traiter ».
+ * On reconnaît les états par leur LIBELLÉ canonique (En retard / Rouvert / En cours /
+ * Cette semaine) ; le ton `neutral` sert de raccourci non ambigu pour « inactif »
+ * (Inactive / Non assigné). Le reste retombe en « bon ».
  */
 type Sante = 'bon' | 'aTraiter' | 'probleme' | 'inactif'
 
 function classifierSante(aff: StatutAffichage): Sante {
   if (aff.label === 'En retard' || aff.label === 'Rouvert') return 'probleme'
-  if (aff.tone === 'success') return 'bon'
+  // IMMINENT uniquement : engagé (« En cours ») ou échéance dans la semaine courante.
+  // Les proximités plus lointaines (Semaine prochaine / Ce mois-ci / Mois prochain)
+  // restent « bon ».
+  if (aff.label === 'En cours' || aff.label === 'Cette semaine') return 'aTraiter'
   if (aff.tone === 'neutral') return 'inactif'
-  return 'aTraiter'
+  return 'bon'
 }
 
 /**
@@ -65,18 +71,37 @@ const PALETTE_DOMAINES = [
 /** Base neutre (grise) du repli « Non classé » — hors de la roue catégorielle. */
 const BASE_NON_CLASSE = 'var(--muted-foreground)'
 
-/** Gamme inactive : on l'ÉTEINT vers le fond de carte → segment discret et sombre. */
+/**
+ * Décalage radial (unités de viewBox) des gammes qui appellent une action — effet
+ * « part éclatée » du sunburst. ~2 unités ≈ quelques pixels ; la marge de bord de
+ * `RAYONS` (anneau extérieur à 47) réserve la place.
+ */
+const DECALAGE_ATTENTION = 2
+
+/** Éteint une couleur vers le fond de carte (pct = part de couleur conservée). */
 const eteindre = (base: string, pct: number) =>
   `color-mix(in oklab, ${base} ${String(pct)}%, var(--card))`
 
 /**
- * Couleur finale d'une GAMME (anneau extérieur) : la couleur PLEINE du domaine (comme
- * l'anneau intérieur) pour toute gamme active ; seule l'INACTIVE est estompée vers le
- * fond (segment discret). Le reste du statut se lit HORS couleur : « en retard » CLIGNOTE,
- * réglementaire = hachures (cf. `feuilleGamme`).
+ * Couleur finale d'une GAMME (anneau extérieur), sur une échelle de LUMINOSITÉ à TROIS
+ * crans qui rend le statut lisible sans délaver la teinte du domaine :
+ *   - « à jour »    → couleur PLEINE (cran clair, état cible) ;
+ *   - « à traiter » (en cours / cette semaine / proximité) → estompée à mi-chemin
+ *     (cran INTERMÉDIAIRE : sombre mais nettement visible, distinct du plein) ;
+ *   - « inactive / non assignée » → fortement estompée (cran le PLUS SOMBRE, discret).
+ * « Problème » (en retard / rouvert) garde la couleur PLEINE : le CLIGNOTEMENT (blink) le
+ * signale déjà, inutile de l'estomper. Le reste du statut se lit HORS couleur : « en
+ * retard » clignote, réglementaire = hachures (cf. `feuilleGamme`).
  */
 function couleurGamme(base: string, sante: Sante): string {
-  return sante === 'inactif' ? eteindre(base, 22) : base
+  switch (sante) {
+    case 'inactif':
+      return eteindre(base, 22) // cran le plus sombre
+    case 'aTraiter':
+      return eteindre(base, 55) // cran intermédiaire, sombre mais visible
+    default:
+      return base // « bon » et « probleme » : couleur pleine
+  }
 }
 
 /** Nœud interne (domaine / famille) sans santé propre : teinte + navigation. */
@@ -180,6 +205,13 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
           statutLabel: aff.label,
           poids: 1,
           blink: sante === 'probleme',
+          // Effet « éclaté » : les gammes qui appellent une ACTION (en retard / rouvert
+          // et l'imminent en cours / cette semaine) sont poussées hors de l'anneau pour
+          // sauter aux yeux ; « à jour » et « inactif » restent collées.
+          decalage:
+            sante === 'probleme' || sante === 'aTraiter'
+              ? DECALAGE_ATTENTION
+              : undefined,
           hachures: g.nature === 'controle_reglementaire',
           onClick: () =>
             void navigate({
@@ -324,7 +356,7 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
         open={pleinEcran}
         onOpenChange={setPleinEcran}
         title="Complétion des gammes"
-        description="Une couleur pleine par domaine, reprise par ses familles et gammes. Sur l'anneau extérieur : gammes inactives estompées, contrôles réglementaires hachurés, retards qui clignotent."
+        description="Une couleur pleine par domaine, reprise par ses familles et gammes. Sur l'anneau extérieur : gammes à jour en couleur pleine, à traiter estompées à mi-teinte, inactives fortement estompées, contrôles réglementaires hachurés, retards qui clignotent."
         // Aperçu large (largeur normalisée via `size`, jamais un contentClassName de largeur).
         size="xl"
       >
