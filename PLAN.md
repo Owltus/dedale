@@ -149,7 +149,7 @@ Fichiers distincts → parallélisables.
 
 ## Vague 5 — Unifier les adaptateurs de drill *(risque : moyen-élevé — SOLO)*
 
-### T25 — Fusionner les 3 adaptateurs de drill — `TODO`
+### T25 — Fusionner les 3 adaptateurs de drill — `DONE`
 - **Objectif** : un seul hook paramétré par la route, remplaçant `use-gammes-drill` / `use-equipements-drill` / `use-biblio-tree-drill`.
 - **Fichiers** : `src/hooks/use-gammes-drill.ts`, `use-equipements-drill.ts`, `use-biblio-tree-drill.ts` + consommateurs `gammes-explorer.tsx`, `equipements-explorer.tsx`, `catalogue-panel.tsx`, `gammes-biblio-panel.tsx`.
 - **Pourquoi SOLO** : touche des fichiers partagés par plusieurs explorers.
@@ -159,7 +159,7 @@ Fichiers distincts → parallélisables.
 
 ## Vague 6 — Unifier la resync d'URL *(risque : moyen — SOLO)*
 
-### T26 — Unifier `useLeafResync` et la resync inline de `useCatalogueDrill` — `TODO`
+### T26 — Unifier `useLeafResync` et la resync inline de `useCatalogueDrill` — `DONE`
 - **Objectif** : une seule implémentation (option `layout` pour le timing `useLayoutEffect`/`useEffect`).
 - **Fichiers** : `src/hooks/use-leaf-resync.ts`, `src/hooks/use-catalogue-drill.ts`.
 - **Validation** : renommer l'élément ouvert réécrit l'URL sans flash, à l'identique, sur tous les explorers.

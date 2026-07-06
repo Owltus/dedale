@@ -41,7 +41,7 @@ function formatSeuils(
  * SAUF pour une mesure renseignée, où l'on montre directement les seuils. Source
  * unique de cette présentation (esprit composant réutilisable).
  */
-export function OperationRow({
+export function OperationListRow({
   nom,
   description,
   typeLibelle,

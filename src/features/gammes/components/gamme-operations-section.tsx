@@ -11,7 +11,7 @@ import { SplitPane } from '@/components/common/split-panes'
 import { SectionHeader } from '@/components/common/section'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
-import { OperationRow } from '@/components/common/operation-row'
+import { OperationListRow } from '@/components/common/operation-list-row'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
@@ -109,7 +109,7 @@ export function GammeOperationsSection({
               })
             }
             return (
-              <OperationRow
+              <OperationListRow
                 key={op.id}
                 nom={op.nom}
                 description={op.description}

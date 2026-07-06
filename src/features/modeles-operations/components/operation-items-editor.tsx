@@ -13,7 +13,7 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ListRow } from '@/components/common/list-row'
-import { OperationRow } from '@/components/common/operation-row'
+import { OperationListRow } from '@/components/common/operation-list-row'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -106,7 +106,7 @@ export function OperationItemsEditor({
         {(rows) => (
           <div className={listStack}>
             {rows.map((item) => (
-              <OperationRow
+              <OperationListRow
                 key={item.id}
                 nom={item.nom}
                 description={item.description}
