@@ -72,6 +72,18 @@ export function Donut({
   const rExt = 46
   const rInt = Math.max(rExt - epaisseur, 2)
 
+  // Espace angulaire APRÈS chaque part (= avant la suivante, cycliquement) : `gapDeg`
+  // par défaut, mais 0 entre deux parts ADJACENTES d'un même `group` (non vide) →
+  // elles se collent pour se lire comme une seule section subdivisée. Sans `group`
+  // partout, on retombe sur un `gapDeg` uniforme (comportement historique).
+  const n = actifs.length
+  const gapApres = actifs.map((seg, i) => {
+    const suivant = actifs[(i + 1) % n]
+    const memeGroupe =
+      seg.group != null && seg.group !== '' && seg.group === suivant?.group
+    return memeGroupe ? 0 : gapDeg
+  })
+
   const parts = actifs
     .map((seg, i) => {
       const span = (seg.value / total) * 360
@@ -79,10 +91,13 @@ export function Donut({
       const debut = actifs
         .slice(0, i)
         .reduce((acc, s) => acc + (s.value / total) * 360, 0)
-      let a0 = debut + gapDeg / 2
-      let a1 = debut + span - gapDeg / 2
+      // Chaque frontière contribue pour la moitié de son gap de part et d'autre :
+      // avant cette part = gap APRÈS la précédente, après cette part = son propre gap.
+      const gapAvant = gapApres[(i - 1 + n) % n] ?? gapDeg
+      let a0 = debut + gapAvant / 2
+      let a1 = debut + span - (gapApres[i] ?? gapDeg) / 2
       // Part unique couvrant tout le cercle : évite le secteur dégénéré (a0=a1).
-      if (actifs.length === 1) {
+      if (n === 1) {
         a0 = 0.0001
         a1 = 359.999
       }

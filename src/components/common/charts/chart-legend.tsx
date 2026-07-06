@@ -13,6 +13,14 @@ export interface ChartSegment {
   label: string
   value: number
   tone: StatusTone
+  /**
+   * Groupe visuel optionnel : deux parts ADJACENTES partageant le même `group`
+   * (non vide) sont dessinées COLLÉES (sans espace angulaire) par le donut — elles
+   * se lisent alors comme une seule section, subdivisée. Les frontières entre
+   * groupes différents (ou sans groupe) gardent l'espace normal. Ignoré par les
+   * primitives qui ne regroupent pas (barres empilées).
+   */
+  group?: string
   onClick?: () => void
 }
 

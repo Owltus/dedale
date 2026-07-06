@@ -4,6 +4,7 @@ import type { ChartSegment } from '@/components/common/charts/chart-legend'
 import { CelluleDialog } from '@/features/planning/components/cellule-dialog'
 import { estPlanifieEnRetard } from '@/features/ordres-travail/statut-affichage'
 import { cleSemaine } from '@/features/planning/semaines'
+import { dateSemaineOt } from '@/features/planning/grille'
 import type { StatusTone } from '@/components/common/status-badge'
 import type { PlanningOt } from '@/features/planning/grille'
 import { DashboardCard } from './dashboard-card'
@@ -14,30 +15,37 @@ interface CadranDonutOtProps {
   siteId: string
 }
 
-/** Parse `YYYY-MM-DD` en Date LOCALE à minuit (sans fuseau) — cf. `stats.ts`. */
-function parseDateLocale(value: string): Date {
-  const [a, m, j] = value.slice(0, 10).split('-').map(Number)
-  return new Date(a ?? 1970, (m ?? 1) - 1, j ?? 1)
-}
-
 /** Une part du donut : segment de dataviz + la LISTE des OT qu'elle représente. */
 interface PartOt {
   segment: ChartSegment
+  /** Statut terminal (clôturé/annulé) → exclu du « reste à faire » du centre. */
+  terminal: boolean
   ots: PlanningOt[]
 }
 
+/** Clé de groupe des sous-parts « Cette semaine » (collées, sans espace entre elles). */
+const GROUPE_CETTE_SEMAINE = 'cette-semaine'
+
 /**
- * Cadran « Ordres de travail » (zone 1 gauche du tableau de bord) : anneau à quatre
- * parts MUTUELLEMENT EXCLUSIVES — En retard / Cette semaine (planifié échéance cette
- * semaine ISO) / En cours (en_cours ou rouvert) / Clôturé (clôturé cette semaine,
- * contexte « fait »). Au CENTRE, le RESTE À FAIRE = somme des trois premières, les
- * clôturés EXCLUS. Prédicats canoniques (`estPlanifieEnRetard`, `cleSemaine`) +
- * couleurs alignées sur le planning → le donut ne diverge jamais des badges.
+ * Cadran « Ordres de travail » (zone 1 gauche du tableau de bord) : anneau à TROIS
+ * sections MUTUELLEMENT EXCLUSIVES, séparées par un espace —
+ *   1. **En retard** (planifié à date dépassée, rouge) ;
+ *   2. **En cours** (en_cours/rouvert des semaines PASSÉES, bleu) ;
+ *   3. **Cette semaine** : une section SUBDIVISÉE (sous-parts COLLÉES, même `group`)
+ *      par statut, pour lire l'avancement de la charge de la semaine ISO courante —
+ *      Programmé (gris) / Planifié (violet) / En cours (bleu) / Clôturé (vert) /
+ *      Annulé (rouge). Les « En cours de cette semaine » sont DISTINCTS des « En cours »
+ *      des semaines passées (section 2) : on ne les confond pas.
+ *
+ * Appartenance « cette semaine » = `dateSemaineOt` (date de clôture pour un OT terminal,
+ * sinon date prévue) dans la semaine ISO courante — MÊME règle que la grille du planning,
+ * donc le donut ne diverge jamais du calendrier mural.
+ *
+ * Au CENTRE, le RESTE À FAIRE = tous les arcs NON terminaux (clôturé + annulé exclus).
  *
  * Présentation dépouillée (demande PO) : carte SANS titre ni légende, donut agrandi,
  * centre = nombre seul. Survol d'une part → infobulle (gérée par `Donut`). Clic sur
- * une part → coquille `CelluleDialog` du planning listant les OT de la catégorie
- * (chaque `OtCard` du modal ouvre ensuite sa fiche).
+ * une part → coquille `CelluleDialog` du planning listant les OT concernés.
  * **Total à faire = 0 → le cadran ne se rend pas** (l'orchestrateur masque la colonne).
  */
 export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
@@ -59,82 +67,114 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
   const parts = useMemo<PartOt[]>(() => {
     const maintenant = new Date()
     const cleCourante = cleSemaine(maintenant)
+    const estEnCours = (ot: PlanningOt) =>
+      ot.statut === 'en_cours' || ot.statut === 'reouvert'
+    // « Cette semaine » = même règle de date que la grille du planning (clôture pour un
+    // OT terminal, sinon date prévue). Un OT EN RETARD (date prévue passée) n'y tombe
+    // jamais → les deux ne se chevauchent pas.
+    const estCetteSemaine = (ot: PlanningOt) =>
+      cleSemaine(dateSemaineOt(ot)) === cleCourante
 
+    // Section 1 — En retard (planifié à échéance dépassée).
     const enRetard = ordresTravail.filter((ot) =>
       estPlanifieEnRetard(ot, maintenant),
     )
-    const cetteSemaine = ordresTravail.filter(
-      (ot) =>
-        ot.statut === 'planifie' &&
-        cleSemaine(parseDateLocale(ot.date_prevue)) === cleCourante,
+    // Section 2 — En cours des semaines PASSÉES (hors semaine courante, pour ne pas les
+    // confondre avec les « En cours » de la section 3).
+    const enCoursPasses = ordresTravail.filter(
+      (ot) => estEnCours(ot) && !estCetteSemaine(ot),
     )
-    const enCours = ordresTravail.filter(
-      (ot) => ot.statut === 'en_cours' || ot.statut === 'reouvert',
+    // Section 3 — la charge de la semaine courante, subdivisée par statut.
+    const semaine = ordresTravail.filter(
+      (ot) => estCetteSemaine(ot) && !estPlanifieEnRetard(ot, maintenant),
     )
-    // Clôturés CETTE SEMAINE (date de clôture dans la semaine ISO courante) : borne
-    // volontaire — sinon tout l'historique clôturé écraserait le donut. Arc de
-    // CONTEXTE « fait cette semaine », à côté du « reste à faire ».
-    const clotureSemaine = ordresTravail.filter(
-      (ot) =>
-        ot.statut === 'cloture' &&
-        ot.date_cloture !== null &&
-        cleSemaine(new Date(ot.date_cloture)) === cleCourante,
+    const csProgramme = semaine.filter(
+      (ot) => ot.statut === 'planifie' && ot.origine === 'programme',
     )
+    const csPlanifie = semaine.filter(
+      (ot) => ot.statut === 'planifie' && ot.origine !== 'programme',
+    )
+    const csEnCours = semaine.filter(estEnCours)
+    const csCloture = semaine.filter((ot) => ot.statut === 'cloture')
+    const csAnnule = semaine.filter((ot) => ot.statut === 'annule')
 
     const defs: {
       key: string
       label: string
       tone: StatusTone
+      /** Terminal → exclu du « reste à faire » au centre. */
+      terminal?: boolean
+      /** Sous-part collée de la section « Cette semaine ». */
+      group?: string
       ots: PlanningOt[]
     }[] = [
+      // 1. En retard = rouge (destructive), comme le badge « En retard ».
+      { key: 'en-retard', label: 'En retard', tone: 'destructive', ots: enRetard },
+      // 2. En cours (semaines passées) = bleu (info), comme `statutOtTone('en_cours')`.
+      { key: 'en-cours', label: 'En cours', tone: 'info', ots: enCoursPasses },
+      // 3. Cette semaine, subdivisée (sous-parts COLLÉES) — couleurs = statutOtTone.
       {
-        key: 'en-retard',
-        label: 'En retard',
-        tone: 'destructive',
-        ots: enRetard,
+        key: 'sem-programme',
+        label: 'Cette semaine · Programmé',
+        tone: 'neutral', // gris (origine « programme »)
+        group: GROUPE_CETTE_SEMAINE,
+        ots: csProgramme,
       },
       {
-        key: 'cette-semaine',
-        label: 'Cette semaine',
-        // MÊME code couleur que la charge/planning : « Cette semaine » = jaune
-        // (cf. `statutAffichageOt` + surlignage jaune de la semaine courante du planning).
-        tone: 'yellow',
-        ots: cetteSemaine,
+        key: 'sem-planifie',
+        label: 'Cette semaine · Planifié',
+        tone: 'violet',
+        group: GROUPE_CETTE_SEMAINE,
+        ots: csPlanifie,
       },
-      // « En cours » (en_cours/rouvert) = bleu, comme `statutOtTone('en_cours')`.
-      { key: 'en-cours', label: 'En cours', tone: 'info', ots: enCours },
-      // « Clôturé » (cette semaine) = vert, comme `statutOtTone('cloture')`.
       {
-        key: 'cloture',
-        label: 'Clôturé',
+        key: 'sem-en-cours',
+        label: 'Cette semaine · En cours',
+        tone: 'info',
+        group: GROUPE_CETTE_SEMAINE,
+        ots: csEnCours,
+      },
+      {
+        key: 'sem-cloture',
+        label: 'Cette semaine · Clôturé',
         tone: 'success',
-        ots: clotureSemaine,
+        terminal: true,
+        group: GROUPE_CETTE_SEMAINE,
+        ots: csCloture,
+      },
+      {
+        key: 'sem-annule',
+        label: 'Cette semaine · Annulé',
+        tone: 'destructive',
+        terminal: true,
+        group: GROUPE_CETTE_SEMAINE,
+        ots: csAnnule,
       },
     ]
-    return defs.map(({ key, label, tone, ots }) => ({
+    return defs.map(({ key, label, tone, terminal, group, ots }) => ({
       segment: {
         key,
         label,
         value: ots.length,
         tone,
+        group,
         onClick: () => {
           ouvrir(ots, label)
         },
       },
+      terminal: terminal ?? false,
       ots,
     }))
   }, [ordresTravail])
 
-  // Le centre = RESTE À FAIRE = En retard + Cette semaine + En cours (les clôturés en
-  // sont EXCLUS : « Clôturé » est un arc de contexte « fait cette semaine »). Toutes les
-  // catégories sont mutuellement exclusives par statut → pas de double comptage. Cadran
-  // masqué s'il n'y a AUCUNE activité (aucun arc).
+  // Le centre = RESTE À FAIRE = tous les arcs NON terminaux (Clôturé + Annulé de la
+  // semaine EXCLUS : c'est déjà « fait »/abandonné). Cadran masqué s'il n'y a AUCUN arc.
   const segments = parts.map((p) => p.segment)
   const totalArcs = segments.reduce((n, s) => n + s.value, 0)
   if (totalArcs === 0) return null
-  const total = segments
-    .filter((s) => s.key !== 'cloture')
-    .reduce((n, s) => n + s.value, 0)
+  const total = parts
+    .filter((p) => !p.terminal)
+    .reduce((n, p) => n + p.segment.value, 0)
 
   return (
     <DashboardCard
@@ -146,6 +186,9 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
       <Donut
         segments={segments}
         epaisseur={14}
+        // Espace ENTRE sections agrandi (les sous-parts « Cette semaine » d'un même
+        // `group` restent collées, gap 0 → seules les 3 sections se détachent nettement).
+        gapDeg={10}
         className="aspect-square h-full max-h-full w-full"
         centre={
           <span className="text-4xl leading-none font-semibold">{total}</span>
