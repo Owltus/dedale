@@ -10,7 +10,7 @@
 
 ## Prérequis (P0 — hors code, à trancher avec le PO avant la Vague 2)
 
-**P0 — Publication Realtime.** Confirmer quelles tables (`sites`, `utilisateurs`/`profils`, `investissements`, `travaux`, `batiments`/`niveaux`/`locaux`, `documents`) appartiennent à la publication `supabase_realtime` (+ `REPLICA IDENTITY FULL` pour diffuser les DELETE sous RLS). C'est une étape **backend**. Les tâches T06–T13 restent **iso-fonctionnelles et sûres** même si la publication n'est pas encore faite (l'abonnement front reste inerte, sans erreur) — mais le live-refresh ne sera *effectif* qu'une fois la table publiée. **Statut : TODO (backend/PO).**
+**P0 — Publication Realtime.** Confirmer quelles tables (`sites`, `utilisateurs`/`profils`, `investissements`, `travaux`, `batiments`/`niveaux`/`locaux`, `documents`) appartiennent à la publication `supabase_realtime` (+ `REPLICA IDENTITY FULL` pour diffuser les DELETE sous RLS). C'est une étape **backend**. Les tâches T06–T13 restent **iso-fonctionnelles et sûres** même si la publication n'est pas encore faite (l'abonnement front reste inerte, sans erreur) — mais le live-refresh ne sera *effectif* qu'une fois la table publiée. **Statut : à traiter côté backend/PO — HORS périmètre de ce refactor front (non bloquant).**
 
 ---
 
@@ -168,7 +168,7 @@ Fichiers distincts → parallélisables.
 
 ## Vague 7 — Généraliser `CataloguePanel` & fondre `gammes-biblio-panel` *(risque : ÉLEVÉ — SOLO)*
 
-### T27 — Fondre `gammes-biblio-panel` dans `CataloguePanel` généralisé — `TODO`
+### T27 — Fondre `gammes-biblio-panel` dans `CataloguePanel` généralisé — `SKIPPED`
 - **Objectif** : ajouter à `CataloguePanel` les points d'extension `renderCard`, `itemPath`, action « copier conteneur » ; réécrire `gammes-biblio-panel` comme configuration (élimine ~600 l. de duplication, C3/R1).
 - **Fichiers** : `src/features/bibliotheque/components/catalogue-panel.tsx`, `src/features/gammes/components/gammes-biblio-panel.tsx` (+ éventuels sous-composants gammes conservés : `GammeCard`, `CopierContenuDialog`, `GammeBiblioDetail`).
 - **Pourquoi SOLO / ÉLEVÉ** : `catalogue-panel` est consommé aussi par `modeles-equipements` et `modeles-operations` → non-régression à vérifier sur les 4 usages.
@@ -178,7 +178,7 @@ Fichiers distincts → parallélisables.
 
 ## Vague 8 — Shell commun d'explorer *(risque : ÉLEVÉ — SOLO)* — après T19 et T25
 
-### T28 — Extraire `<CatalogueExplorer>` (gammes + équipements) — `TODO`
+### T28 — Extraire `<CatalogueExplorer>` (gammes + équipements) — `SKIPPED`
 - **Objectif** : shell commun paramétré pour `gammes-explorer` et `equipements-explorer` (header par profondeur, dialogs catégorie, états vides, `makeVirtual`/`realCats`).
 - **Fichiers** : `src/features/gammes/components/gammes-explorer.tsx`, `src/features/equipements/components/equipements-explorer.tsx` + nouveau shell commun.
 - **Validation** : les deux explorateurs restent iso-fonctionnels (drill, CRUD catégorie, badges via `useGammeBadges`, realtime).
@@ -187,7 +187,7 @@ Fichiers distincts → parallélisables.
 
 ## Vague 9 — Migrer `ListRow.actions` restants → `menuActions` *(risque : moyen — SOLO)*
 
-### T29 — Basculer les pages liste résiduelles vers `menuActions` — `TODO`
+### T29 — Basculer les pages liste résiduelles vers `menuActions` — `DONE`
 - **Objectif** : uniformiser sur le menu contextuel (retirer l'usage legacy `actions`).
 - **Fichiers** : les pages liste utilisant encore la prop `actions` de `ListRow` (à recenser : `grep -rn "actions=" src | grep ListRow`).
 - **Pourquoi SOLO** : touche plusieurs pages liste déjà modifiées en Vagues 2/4 → éviter tout chevauchement.
@@ -197,7 +197,7 @@ Fichiers distincts → parallélisables.
 
 ## Vague 10 — Désambiguïser les homonymes *(risque : faible mais TRANSVERSE — SOLO)*
 
-### T30 — Renommer les fichiers homonymes — `TODO`
+### T30 — Renommer les fichiers homonymes — `DONE`
 - **Objectif** : lever la confusion `common/operation-row` vs `ordres-travail/operation-row`, et `ui/date-field` vs `fields/date-field`.
 - **Fichiers** : renommages + mise à jour de tous les importateurs.
 - **Pourquoi SOLO** : renommage global touchant de nombreux imports.
@@ -207,7 +207,7 @@ Fichiers distincts → parallélisables.
 
 ## Vague 11 — AlertDialog (sémantique confirmations) *(risque : ÉLEVÉ — SOLO)*
 
-### T31 — Introduire `ui/alert-dialog` et y porter `ConfirmDialog` — `TODO`
+### T31 — Introduire `ui/alert-dialog` et y porter `ConfirmDialog` — `SKIPPED`
 - **Objectif** : ajouter la primitive shadcn `alert-dialog` (absente) et faire porter `ConfirmDialog`/`ConfirmDeleteDialog` dessus (`role="alertdialog"`, focus par défaut).
 - **Fichiers** : nouveau `src/components/ui/alert-dialog.tsx` ; `src/components/common/confirm-dialog.tsx` (+ ajustement éventuel `dialog-shell` ou `confirm-delete-dialog`).
 - **Pourquoi SOLO / ÉLEVÉ** : `ConfirmDialog` est la base de **26 sites** ; parité de comportement (fermeture au clic extérieur, Échap, focus) à valider soigneusement.
@@ -217,17 +217,17 @@ Fichiers distincts → parallélisables.
 
 ## Vague 12 — Nettoyages optionnels *(risque : faible — parallélisables si fichiers distincts)*
 
-### T32 — Variante `Sheet` pour les grands formulaires — `TODO` *(optionnel)*
+### T32 — Variante `Sheet` pour les grands formulaires — `SKIPPED` *(optionnel)*
 - **Objectif** : exposer une variante `as="sheet"` de `DialogShell` (header/corps/pied déjà découplés) et l'appliquer aux `FormDialog size="xl"/"full"` (modèles d'équipement, gammes, contrats).
 - **Fichiers** : `src/components/common/dialog-shell.tsx` + form-dialogs concernés (⚠️ **change le rendu** : panneau latéral — à valider avec le PO, **non iso-fonctionnel visuellement**).
 - **Validation** : décision PO ; formulaires fonctionnellement identiques.
 
-### T33 — Converger les sélecteurs natifs — `TODO` *(optionnel)*
+### T33 — Converger les sélecteurs natifs — `SKIPPED` *(optionnel)*
 - **Objectif** : réduire à un seul style de dropdown là où c'est pertinent (garder le natif seulement là où il est volontaire).
 - **Fichiers** : `common/select-menu.tsx`, usages de `ui/select` nu.
 - **Validation** : rendu/comportement des sélecteurs identiques.
 
-### T34 — Nettoyage `any` & imports inter-couches — `TODO` *(optionnel)*
+### T34 — Nettoyage `any` & imports inter-couches — `SKIPPED` *(optionnel)*
 - **Objectif** : retirer les `any`/`as any` évitables (props typées strictement) et remplacer les imports **inter-couches** relatifs par l'alias `@/` (laisser les imports intra-feature).
 - **Fichiers** : transverse, par petits lots.
 - **Validation** : typecheck OK ; `grep` des `any` en baisse ; ESLint OK.
