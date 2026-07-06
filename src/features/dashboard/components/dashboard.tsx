@@ -77,16 +77,19 @@ export function Dashboard({ siteId }: DashboardProps) {
   }
 
   // Layout INTRINSÈQUEMENT adaptatif (aucun breakpoint viewport codé à la main) :
-  //  - `md:min-h-full` → « fill-or-scroll » : le tableau de bord remplit AU MOINS la
-  //    hauteur du body (la zone 3 en `flex-1` absorbe le vide → pas de trou en bas) mais
-  //    peut GRANDIR au-delà quand la fenêtre est trop basse → le body (`overflow-y-auto`)
-  //    prend alors la scrollbar. C'est le seul cas où une scrollbar réapparaît.
+  //  - `md:flex-1 md:min-h-0` → le tableau REMPLIT son parent (une colonne flex de hauteur
+  //    DÉFINIE, cf. `_app/index.tsx`) via la CHAÎNE FLEX — bornage fiable, sans hauteur en
+  //    pourcentage. La zone 3 (`flex-1`, `min-h-0`) rétrécit alors à la place restante ; ses
+  //    cartes Demandes/Documents la remplissent (`h-full`) jusqu'au bas de la fenêtre et le
+  //    fit-to-height n'affiche QUE des lignes ENTIÈRES (pas de demi-ligne). Le parent
+  //    `md:overflow-hidden` garantit zéro scrollbar. Sur mobile (sans le `md:`) le tableau
+  //    garde sa hauteur naturelle et le parent défile.
   //  - Zones 1 et 3 s'adaptent à la LARGEUR DISPONIBLE via des container queries
   //    (`@container`) : la zone 1 par paliers `[1 col → 2 col → auto|1fr|auto]` (carrés
   //    compacts, barres greedy, zéro vide), la zone 3 par `auto-fit`/`minmax(min(N,100%),1fr)`
   //    (`min(N,100%)` interdit tout débordement horizontal sous N px).
   return (
-    <div className="flex flex-col gap-4 md:min-h-full">
+    <div className="flex flex-col gap-4 md:min-h-0 md:flex-1">
       {/* Zone 1 — Synthèse : simple flexbox (cf. `ZoneSynthese`). `@container` fournit le
           contexte de mesure pour la bascule colonne → ligne selon la place disponible. */}
       <div className="@container shrink-0">
@@ -100,18 +103,25 @@ export function Dashboard({ siteId }: DashboardProps) {
         <FriseReconductions siteId={siteId} fenetre={fenetre} />
       </div>
 
-      {/* Zone 3 — Action : grille intrinsèque `auto-fit` (2 colonnes dès ~300px de
-          place par carte, sinon empilées). `flex-1` + `content-stretch` → elle absorbe
-          la hauteur restante et étire les cartes (fit-to-height : plus de lignes quand il
-          y a la place). `md:min-h-cadran` = MÊME taille de référence que les cadrans
-          (`--spacing-cadran`) : chaque carte de la page fait au moins cette taille, un
-          plancher qui ne « mord » que quand la place manque (sinon la page défile,
-          cf. `md:min-h-full`). */}
-      <div className="grid flex-1 grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] content-stretch gap-4 md:min-h-cadran">
-        <div className="min-w-0">
+      {/* Zone 3 — Action : chaîne 100 % FLEX (zéro grid, zéro hauteur en %). `flex-1` +
+          `min-h-0` → la zone absorbe TOUTE la hauteur restante SANS plancher (bornage
+          fiable hérité de la colonne flex parente de hauteur définie, cf.
+          `_app/index.tsx` en `md:overflow-hidden`). Sous `md` : `flex-col` → les 2 cartes
+          s'empilent à leur hauteur naturelle et le corps de page défile. Dès `md` :
+          `md:flex-row` (sans wrap → TOUJOURS 2 colonnes côte à côte, elles rétrécissent
+          via `min-w-0` au lieu de passer à la ligne) et `align-items:stretch` (défaut)
+          donne à chaque cellule la hauteur DÉFINIE de la zone. Chaque cellule est alors
+          une colonne flex bornée (`md:flex md:flex-col md:min-h-0 md:flex-1`) : la carte
+          (`h-full` + `md:flex-1 md:min-h-0`) la remplit jusqu'au bas de la fenêtre, sa
+          zone de liste (mesurée par `useLignesVisibles`) est enfin contrainte, et le
+          fit-to-height RÉDUIT le nombre de lignes au lieu de laisser la carte déborder
+          puis être rognée. `min-h-0` partout est ESSENTIEL (retire le plancher
+          `min-height:auto` des items flex). */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
+        <div className="min-w-0 md:flex md:min-h-0 md:flex-1 md:flex-col">
           <DernieresDemandes siteId={siteId} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 md:flex md:min-h-0 md:flex-1 md:flex-col">
           <DerniersDocuments siteId={siteId} />
         </div>
       </div>

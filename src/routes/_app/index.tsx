@@ -3,7 +3,11 @@ import { Building2 } from 'lucide-react'
 import { requireNav } from '@/lib/nav-guard'
 import { useSiteContext } from '@/lib/site-context'
 import { Dashboard } from '@/features/dashboard/components/dashboard'
-import { PageContainer } from '@/components/common/page-container'
+import {
+  PageContainer,
+  FillHeader,
+  ScrollBody,
+} from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 
@@ -17,23 +21,39 @@ function HomePage() {
   const { activeSiteId, activeSite } = useSiteContext()
 
   return (
-    <PageContainer>
-      <PageHeader
-        title="Tableau de bord"
-        description={
-          activeSite
-            ? `Vue d'ensemble de la maintenance — ${activeSite.nom}.`
-            : "Vue d'ensemble de la maintenance."
-        }
-      />
-      {activeSiteId ? (
-        <Dashboard siteId={activeSiteId} />
-      ) : (
-        <EmptyState
-          icon={Building2}
-          title="Sélectionne un site"
-          description="Choisis un site pour afficher son tableau de bord."
+    // Mode `fill` : on maîtrise nous-mêmes en-tête fixe + corps, pour que le tableau de
+    // bord soit un conteneur flex de HAUTEUR DÉFINIE (via la chaîne flex de l'app-shell,
+    // sans hauteur en pourcentage). Le `ScrollBody` en `flex flex-col` donne au tableau
+    // une hauteur bornée à la fenêtre → sa zone de cartes rétrécit pour tout faire tenir
+    // (zéro scrollbar tant que ça rentre ; le corps ne défile qu'en dernier recours).
+    <PageContainer fill>
+      <FillHeader>
+        <PageHeader
+          title="Tableau de bord"
+          description={
+            activeSite
+              ? `Vue d'ensemble de la maintenance — ${activeSite.nom}.`
+              : "Vue d'ensemble de la maintenance."
+          }
         />
+      </FillHeader>
+      {activeSiteId ? (
+        // Colonne flex de HAUTEUR DÉFINIE (`min-h-0 flex-1`) : le tableau la remplit en
+        // `flex-1` (bornage par la CHAÎNE FLEX, sans hauteur en pourcentage). Desktop en
+        // `md:overflow-hidden` → la page ne défile jamais, le tableau réduit sa zone de
+        // cartes pour tout faire tenir. Mobile en `overflow-y-auto` → défilement normal
+        // du contenu empilé. `pb-6` = marge du bas des cartes.
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 sm:px-6 md:overflow-hidden lg:px-8">
+          <Dashboard siteId={activeSiteId} />
+        </div>
+      ) : (
+        <ScrollBody className="pt-6">
+          <EmptyState
+            icon={Building2}
+            title="Sélectionne un site"
+            description="Choisis un site pour afficher son tableau de bord."
+          />
+        </ScrollBody>
       )}
     </PageContainer>
   )
