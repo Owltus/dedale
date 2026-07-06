@@ -38,12 +38,12 @@ function HomePage() {
         />
       </FillHeader>
       {activeSiteId ? (
-        // Colonne flex de HAUTEUR DÉFINIE (`min-h-0 flex-1`) : le tableau la remplit en
-        // `flex-1` (bornage par la CHAÎNE FLEX, sans hauteur en pourcentage). Desktop en
-        // `md:overflow-hidden` → la page ne défile jamais, le tableau réduit sa zone de
-        // cartes pour tout faire tenir. Mobile en `overflow-y-auto` → défilement normal
-        // du contenu empilé. `pb-6` = marge du bas des cartes.
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 sm:px-6 md:overflow-hidden lg:px-8">
+        // Colonne flex de hauteur définie (`min-h-0 flex-1`) qui DÉFILE (`overflow-y-auto`).
+        // Le tableau la remplit quand il y a la place (cartes dynamiques), mais garde un
+        // PLANCHER de ~8 lignes par carte : si la fenêtre est trop basse, le tableau
+        // dépasse et c'est CE conteneur qui reprend la scrollbar (fill-or-scroll). `pb-6` =
+        // marge du bas.
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
           <Dashboard siteId={activeSiteId} />
         </div>
       ) : (
