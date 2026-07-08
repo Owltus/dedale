@@ -120,3 +120,73 @@ export const emptyContrat: ContratFormValues = {
   date_resiliation: '',
   date_notification: '',
 }
+
+// ── Avenant ────────────────────────────────────────────────────────────────
+// Un avenant = un nouveau contrat (mêmes champs/contraintes que `contratSchema`)
+// dont l'OBJET est obligatoire (motif de l'avenant). L'INSERT porte
+// `contrat_parent_id` ; le trigger `archive_contrat_parent` archive le parent.
+export const avenantSchema = contratSchema.refine(
+  (v) => v.objet_avenant.trim().length > 0,
+  { message: "L'objet de l'avenant est obligatoire", path: ['objet_avenant'] },
+)
+
+export type AvenantFormValues = z.infer<typeof avenantSchema>
+
+/** Sous-ensemble d'un contrat parent nécessaire pour pré-remplir un avenant. */
+export interface ContratParentPourAvenant {
+  reference: string
+  type_contrat_id: number
+  date_debut: string
+  date_fin: string | null
+  commentaires: string | null
+  duree_cycle_mois: number | null
+  delai_preavis_jours: number
+  fenetre_resiliation_jours: number | null
+}
+
+/**
+ * Valeurs par défaut d'un avenant, reprises du parent : la nouvelle période
+ * démarre à la fin du parent (à défaut, à sa date de début) ; fin/signature/
+ * résiliation/notification remises à blanc ; objet vidé (à saisir).
+ */
+export function emptyAvenant(parent: ContratParentPourAvenant): AvenantFormValues {
+  return {
+    reference: parent.reference,
+    type_contrat_id: String(parent.type_contrat_id),
+    date_debut: parent.date_fin ?? parent.date_debut,
+    date_fin: '',
+    objet_avenant: '',
+    commentaires: parent.commentaires ?? '',
+    duree_cycle_mois: parent.duree_cycle_mois,
+    delai_preavis_jours: parent.delai_preavis_jours,
+    fenetre_resiliation_jours: parent.fenetre_resiliation_jours,
+    date_signature: '',
+    date_resiliation: '',
+    date_notification: '',
+  }
+}
+
+// ── Résiliation ──────────────────────────────────────────────────────────────
+// Dialog dédié : pose `date_notification` + `date_resiliation` sur un contrat
+// non archivé. Miroir du CHECK `date_notification <= date_resiliation`.
+export const resiliationSchema = z
+  .object({
+    date_notification: z.string(),
+    date_resiliation: z
+      .string()
+      .min(1, 'La date de résiliation est obligatoire'),
+  })
+  .refine(
+    (v) => !v.date_notification || v.date_notification <= v.date_resiliation,
+    {
+      message: 'La notification doit précéder (ou égaler) la résiliation',
+      path: ['date_notification'],
+    },
+  )
+
+export type ResiliationFormValues = z.infer<typeof resiliationSchema>
+
+/** Valeurs par défaut : notification à aujourd'hui, résiliation à saisir. */
+export function emptyResiliation(aujourdhui: string): ResiliationFormValues {
+  return { date_notification: aujourdhui, date_resiliation: '' }
+}

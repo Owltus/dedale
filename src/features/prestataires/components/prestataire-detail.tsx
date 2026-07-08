@@ -6,16 +6,21 @@ import {
   FileText,
   Pencil,
   Plus,
-  Trash2,
   Truck,
   Wrench,
 } from 'lucide-react'
 import { contratsQueries, prestatairesQueries } from '../queries'
+import type { ContratRow } from '../queries'
 import { useDeleteContrat } from '../mutations'
 import { useDeleteDocument } from '@/features/documents/mutations'
-import { etatContrat } from '../etat'
+import { chaineDeVersions, nbAvenantsDirects, statutContrat } from '../etat'
 import { PrestataireFormDialog } from './prestataire-form-dialog'
 import { ContratFormDialog } from './contrat-form-dialog'
+import { ContratAvenantDialog } from './contrat-avenant-dialog'
+import { ContratResilierDialog } from './contrat-resilier-dialog'
+import { ContratCard } from './contrat-card'
+import { ContratVersionsHistorique } from './contrat-versions-historique'
+import { DocumentsTab } from '@/components/common/documents-tab'
 import { OtCard } from '@/features/ordres-travail/components/ot-card'
 import {
   matchStatutOt,
@@ -33,18 +38,14 @@ import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
-import { formatDate } from '@/lib/date'
 import { listStack } from '@/lib/responsive'
 import type { Database } from '@/lib/database.types'
-import type { RowAction } from '@/components/common/row-actions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { SubTabs } from '@/components/common/sub-tabs'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
-import { ListRow } from '@/components/common/list-row'
-import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { DocumentsListe } from '@/components/common/documents-liste'
 import { NoSearchResults } from '@/components/common/no-search-results'
@@ -58,9 +59,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 type Prestataire = Database['public']['Tables']['prestataires']['Row']
-type ContratRow = Database['public']['Tables']['contrats']['Row'] & {
-  types_contrats: { id: number; libelle: string } | null
-}
 type Onglet = 'contrats' | 'gammes' | 'ot' | 'documents'
 
 /** Accès partagé aux vignettes (UNE instance pour toute la fiche → un seul canal). */
@@ -92,6 +90,8 @@ export function PrestataireDetail({
   const [onglet, setOnglet] = useState<Onglet>('contrats')
   const [editPrestataire, setEditPrestataire] = useState(false)
   const contratDialog = useEntityDialog<ContratRow>()
+  const avenantDialog = useEntityDialog<ContratRow>()
+  const resilierDialog = useEntityDialog<ContratRow>()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const delContrat = useDeleteContrat()
   const suppressionContrat = useConfirmDelete<ContratRow>({
@@ -187,10 +187,13 @@ export function PrestataireDetail({
           <ContratsPanel
             siteId={siteId}
             prestataireId={prestataire.id}
+            prestataireNom={prestataire.libelle}
             canManage={canManage}
             onNew={contratDialog.openCreate}
             onEdit={contratDialog.openEdit}
             onDelete={suppressionContrat.demander}
+            onAvenant={avenantDialog.openEdit}
+            onResilier={resilierDialog.openEdit}
           />
         )}
         {onglet === 'gammes' && (
@@ -235,6 +238,24 @@ export function PrestataireDetail({
             prestataireId={prestataire.id}
             contrat={contratDialog.entity}
           />
+          {avenantDialog.entity && (
+            <ContratAvenantDialog
+              key={avenantDialog.dialogKey}
+              open={avenantDialog.open}
+              onOpenChange={avenantDialog.onOpenChange}
+              siteId={siteId}
+              prestataireId={prestataire.id}
+              parent={avenantDialog.entity}
+            />
+          )}
+          {resilierDialog.entity && (
+            <ContratResilierDialog
+              key={resilierDialog.dialogKey}
+              open={resilierDialog.open}
+              onOpenChange={resilierDialog.onOpenChange}
+              contrat={resilierDialog.entity}
+            />
+          )}
           <ConfirmDeleteDialog
             {...suppressionContrat.dialogProps}
             entityLabel={
@@ -250,23 +271,39 @@ export function PrestataireDetail({
   )
 }
 
-/** Onglet Contrats : liste + CRUD (les dialogues sont pilotés par la fiche hôte). */
+/**
+ * Onglet Contrats : liste de `ContratCard` riches + CRUD complet (les dialogues
+ * sont pilotés par la fiche hôte). Chaque carte porte statut détaillé, progression,
+ * infos adaptatives, historique des versions (chaîne d'avenants) et documents.
+ * `list` ne renvoie que les VERSIONS COURANTES ; `versions` (archivés inclus)
+ * alimente le comptage d'avenants et l'historique par carte.
+ */
 function ContratsPanel({
   siteId,
   prestataireId,
+  prestataireNom,
   canManage,
   onNew,
   onEdit,
   onDelete,
+  onAvenant,
+  onResilier,
 }: {
   siteId: string
   prestataireId: string
+  prestataireNom: string
   canManage: boolean
   onNew: () => void
   onEdit: (contrat: ContratRow) => void
   onDelete: (contrat: ContratRow) => void
+  onAvenant: (contrat: ContratRow) => void
+  onResilier: (contrat: ContratRow) => void
 }) {
   const query = useQuery(contratsQueries.list(siteId, prestataireId))
+  const versionsQuery = useQuery(
+    contratsQueries.versions(siteId, prestataireId),
+  )
+  const tous = (versionsQuery.data ?? []) as ContratRow[]
   const newButton = canManage ? (
     <Button onClick={onNew}>
       <Plus /> Nouveau contrat
@@ -294,41 +331,50 @@ function ContratsPanel({
       {(contrats) => (
         <div className={listStack}>
           {(contrats as ContratRow[]).map((c) => {
-            const etat = etatContrat(c.date_debut, c.date_fin)
-            const actions: RowAction[] = canManage
-              ? [
-                  {
-                    label: 'Modifier',
-                    icon: Pencil,
-                    onSelect: () => onEdit(c),
-                  },
-                  {
-                    label: 'Supprimer',
-                    icon: Trash2,
-                    destructive: true,
-                    onSelect: () => onDelete(c),
-                  },
-                ]
-              : []
+            const statut = statutContrat(c).statut
+            // Résilié/expiré → documents en lecture seule (archivé accepterait
+            // encore des docs, mais les archivés ne sont pas dans cette liste).
+            const isDocReadonly = statut === 'resilie' || statut === 'expire'
+            const chaine = chaineDeVersions(tous, c.id)
             return (
-              <ListRow
+              <ContratCard
                 key={c.id}
-                media={<RowMediaIcon icon={FileText} />}
-                title={c.reference}
-                subtitle={`Du ${formatDate(c.date_debut)} au ${formatDate(c.date_fin)}${c.objet_avenant ? ` — avenant : ${c.objet_avenant}` : ''}`}
-                badges={
-                  <>
-                    <Badge variant={etat.variant}>{etat.label}</Badge>
-                    {c.types_contrats && (
-                      <Badge variant="outline">
-                        {c.types_contrats.libelle}
-                      </Badge>
-                    )}
-                  </>
-                }
-                mobileMeta={etat.label}
-                menuActions={actions.length ? actions : undefined}
-              />
+                contrat={c}
+                canManage={canManage}
+                nbAvenants={nbAvenantsDirects(tous, c.id)}
+                onEdit={() => {
+                  onEdit(c)
+                }}
+                onAvenant={() => {
+                  onAvenant(c)
+                }}
+                onResilier={() => {
+                  onResilier(c)
+                }}
+                onSupprimer={() => {
+                  onDelete(c)
+                }}
+              >
+                <ContratVersionsHistorique chaine={chaine} courantId={c.id} />
+                <details className="rounded-md border px-3 py-2">
+                  <summary className="text-muted-foreground cursor-pointer text-sm font-medium">
+                    Documents
+                  </summary>
+                  <div className="pt-2">
+                    <DocumentsTab
+                      liaison="documents_contrats"
+                      parentColumn="contrat_id"
+                      parentId={c.id}
+                      canAttach={!isDocReadonly}
+                      uploadDefaultTypeNom="Contrat"
+                      namingContext={{
+                        prestataire: prestataireNom,
+                        objet: c.reference,
+                      }}
+                    />
+                  </div>
+                </details>
+              </ContratCard>
             )
           })}
         </div>

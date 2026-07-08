@@ -9668,6 +9668,19 @@ CREATE POLICY doc_contrats_select ON documents_contrats FOR SELECT
                           AND public.has_site_access(c.site_id)))
     );
 
+-- 074 : le technicien gère (attache/détache) les documents des contrats de ses
+-- sites, comme le manager (doctrine « manager + technicien gèrent leurs sites »).
+DROP POLICY IF EXISTS doc_contrats_technicien ON documents_contrats;
+CREATE POLICY doc_contrats_technicien ON documents_contrats FOR ALL
+    USING ((SELECT public.current_role()) = 'technicien'
+           AND EXISTS (SELECT 1 FROM contrats c
+                       WHERE c.id = documents_contrats.contrat_id
+                         AND public.has_site_access(c.site_id)))
+    WITH CHECK ((SELECT public.current_role()) = 'technicien'
+           AND EXISTS (SELECT 1 FROM contrats c
+                       WHERE c.id = documents_contrats.contrat_id
+                         AND public.has_site_access(c.site_id)));
+
 
 -- =====================================================================
 -- FIX C — Trigger cohérence site ↔ entités liées

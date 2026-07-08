@@ -3,6 +3,12 @@ import { supabase } from '@/lib/supabase'
 import { referentielQueryOptions } from '@/lib/referentiel'
 import type { GammeRow } from '@/features/gammes/components/gamme-detail'
 import type { DocumentMeta } from '@/features/documents/format'
+import type { Database } from '@/lib/database.types'
+
+/** Ligne `contrats` enrichie du libellé de son type (forme renvoyée par `list`/`versions`). */
+export type ContratRow = Database['public']['Tables']['contrats']['Row'] & {
+  types_contrats: { id: number; libelle: string } | null
+}
 
 export const prestatairesQueries = {
   all: () => ['prestataires'] as const,
@@ -126,7 +132,11 @@ export const prestatairesQueries = {
 export const contratsQueries = {
   all: () => ['contrats'] as const,
 
-  /** Contrats du site actif, optionnellement filtrés sur un prestataire. */
+  /**
+   * Contrats du site actif filtrés sur un prestataire — VERSIONS COURANTES
+   * uniquement (`est_archive = false`). Les avenants archivés sont exclus de la
+   * liste ; l'historique se reconstruit via `versions` (chaîne `contrat_parent_id`).
+   */
   list: (siteId: string, prestataireId: string) =>
     queryOptions({
       queryKey: [
@@ -141,13 +151,43 @@ export const contratsQueries = {
           .select('*, types_contrats(id, libelle)')
           .eq('site_id', siteId)
           .eq('prestataire_id', prestataireId)
+          .eq('est_archive', false)
           .order('date_debut', { ascending: false })
           .abortSignal(signal)
           .throwOnError()
         return data
       },    }),
 
-  /** Nombre de contrats par prestataire pour le site actif (pour les cartes). */
+  /**
+   * TOUS les contrats du prestataire sur le site (archivés INCLUS), pour
+   * reconstruire les chaînes d'avenants côté front (chaînage par
+   * `contrat_parent_id`, cf. D5 du plan — pas de RPC récursive). Triés par
+   * `date_debut` croissant (ordre chronologique des versions).
+   */
+  versions: (siteId: string, prestataireId: string) =>
+    queryOptions({
+      queryKey: [
+        ...contratsQueries.all(),
+        'versions',
+        siteId,
+        prestataireId,
+      ] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('contrats')
+          .select('*, types_contrats(id, libelle)')
+          .eq('site_id', siteId)
+          .eq('prestataire_id', prestataireId)
+          .order('date_debut', { ascending: true })
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },    }),
+
+  /**
+   * Nombre de contrats ACTIFS par prestataire pour le site actif (versions
+   * courantes seules, `est_archive = false`) — pour les cartes de la liste.
+   */
   countsBySite: (siteId: string) =>
     queryOptions({
       queryKey: [...contratsQueries.all(), 'counts', siteId] as const,
@@ -156,6 +196,7 @@ export const contratsQueries = {
           .from('contrats')
           .select('prestataire_id')
           .eq('site_id', siteId)
+          .eq('est_archive', false)
           .abortSignal(signal)
           .throwOnError()
         const counts = new Map<string, number>()

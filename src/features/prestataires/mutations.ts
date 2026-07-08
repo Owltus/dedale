@@ -1,7 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { contratsQueries, prestatairesQueries } from './queries'
-import type { ContratFormValues, PrestataireFormValues } from './schemas'
+import type {
+  AvenantFormValues,
+  ContratFormValues,
+  PrestataireFormValues,
+  ResiliationFormValues,
+} from './schemas'
 
 // ── Prestataires ──────────────────────────────────────────────────────────────
 
@@ -152,6 +157,74 @@ export function useDeleteContrat() {
   return useMutation({
     mutationFn: async (id: string) => {
       await supabase.from('contrats').delete().eq('id', id).throwOnError()
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: contratsQueries.all() }),
+  })
+}
+
+/**
+ * Crée un AVENANT : un nouveau contrat lié au parent par `contrat_parent_id`.
+ * Le trigger `archive_contrat_parent` archive automatiquement le parent (et refuse
+ * si le parent est déjà archivé, ou de prestataire/site différent — l'erreur métier
+ * remonte telle quelle). Réutilise `contratPayload` (mêmes règles par type).
+ */
+export function useCreateAvenant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      siteId,
+      prestataireId,
+      parentId,
+      values,
+    }: {
+      siteId: string
+      prestataireId: string
+      parentId: string
+      values: AvenantFormValues
+    }) => {
+      const { data } = await supabase
+        .from('contrats')
+        .insert({
+          ...contratPayload(values),
+          site_id: siteId,
+          prestataire_id: prestataireId,
+          contrat_parent_id: parentId,
+        })
+        .select()
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: contratsQueries.all() }),
+  })
+}
+
+/**
+ * Résilie un contrat : pose `date_notification` + `date_resiliation` (UPDATE). Le
+ * statut « Résilié » en est dérivé côté front. Interdit sur un contrat archivé
+ * (trigger `protection_contrat_archive`) → l'erreur remonte au dialog.
+ */
+export function useResilierContrat() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      values,
+    }: {
+      id: string
+      values: ResiliationFormValues
+    }) => {
+      const { data } = await supabase
+        .from('contrats')
+        .update({
+          date_notification: values.date_notification || null,
+          date_resiliation: values.date_resiliation,
+        })
+        .eq('id', id)
+        .select()
+        .single()
+        .throwOnError()
+      return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: contratsQueries.all() }),
   })

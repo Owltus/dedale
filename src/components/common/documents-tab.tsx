@@ -64,6 +64,13 @@ interface DocumentsTabProps {
    * (éditable). L'hôte le dérive de sa fiche (ex. OT : prestataire + gamme + date).
    */
   namingContext?: DocumentNamingContext
+  /**
+   * Autorise l'AJOUT de documents (défaut `true`). À passer `false` quand l'entité
+   * hôte est en lecture seule pour les pièces jointes (ex. contrat résilié/expiré) :
+   * masque le bouton de rattachement et le dialogue d'upload ; la liste (aperçu,
+   * détache, suppression) reste disponible selon les droits.
+   */
+  canAttach?: boolean
 }
 
 /**
@@ -90,6 +97,7 @@ export function DocumentsTab({
   uploadDefaultTypeNom,
   className,
   namingContext,
+  canAttach = true,
 }: DocumentsTabProps) {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
@@ -113,7 +121,7 @@ export function DocumentsTab({
   const open = uploadOpen ?? internalOpen
   const setOpen = onUploadOpenChange ?? setInternalOpen
 
-  const peutAjouter = canManage && activeSiteId
+  const peutAjouter = canManage && canAttach && activeSiteId
   // En-tête : bouton icône seule + tooltip (style barre de titre réutilisable).
   const headerAction =
     !isControlled && peutAjouter ? (
