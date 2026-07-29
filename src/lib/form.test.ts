@@ -10,7 +10,11 @@ import {
 } from './form'
 
 /** Fabrique une erreur façon supabase-js (`{ code, message, details }`). */
-function pgError(code: string, message = 'erreur technique brute', details = '') {
+function pgError(
+  code: string,
+  message = 'erreur technique brute',
+  details = '',
+) {
   return { code, message, details }
 }
 
@@ -170,6 +174,30 @@ describe('writeErrorMessage', () => {
     expect(writeErrorMessage(pgError('23514'))).toBe(
       'Valeur refusée : elle ne respecte pas une règle.',
     )
+  })
+
+  it('23514 → message métier quand la contrainte violée est connue', () => {
+    expect(
+      writeErrorMessage(
+        pgError(
+          '23514',
+          'new row for relation "ordres_travail" violates check constraint "dates_coherentes"',
+        ),
+      ),
+    ).toBe(
+      'Dates incohérentes : la clôture serait antérieure au démarrage. Corrigez les dates d’exécution des opérations.',
+    )
+  })
+
+  it('23514 → repli générique sur une contrainte inconnue', () => {
+    expect(
+      writeErrorMessage(
+        pgError(
+          '23514',
+          'new row for relation "x" violates check constraint "contrainte_inconnue"',
+        ),
+      ),
+    ).toBe('Valeur refusée : elle ne respecte pas une règle.')
   })
 
   it('23505 → doublon (unicité)', () => {

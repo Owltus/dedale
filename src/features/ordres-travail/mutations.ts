@@ -153,9 +153,18 @@ export function useUpdateDatePrevueOt() {
  * à la main. validation_transitions_ot valide la transition (et bloque si des ops
  * ne sont pas terminées), set_ot_closed_by peuple closed_by.
  *
- * - annule  : nécessite motif_annulation + date_cloture.
- * - cloture : date_cloture (re-clôture manuelle d'un OT rouvert).
+ * - annule  : nécessite motif_annulation.
+ * - cloture : re-clôture manuelle d'un OT rouvert.
  * - planifie (résurrection depuis annule) : pas de champ supplémentaire.
+ *
+ * `date_cloture` n'est JAMAIS envoyée par le front (doctrine « la base valide ») :
+ * le trigger `nettoyage_dates_coherentes` (BEFORE UPDATE OF statut) l'horodate —
+ * MAX des dates d'exécution des opérations à la clôture, `now()` à l'annulation —
+ * donc le CHECK statut_terminal_a_date_cloture est satisfait sans nous. Une
+ * horodate CLIENT posait `now()` alors que les saisies d'exécution sont
+ * enregistrées à MIDI UTC (jour saisi → `T12:00:00Z`) : re-clôturer avant 12 h UTC
+ * produisait une date_cloture ANTÉRIEURE à `date_debut` → CHECK `dates_coherentes`
+ * violé (23514) et OT rouvert impossible à refermer.
  */
 export function useChangerStatutOt() {
   const qc = useQueryClient()
@@ -167,14 +176,9 @@ export function useChangerStatutOt() {
     }) => {
       const patch: {
         statut: string
-        date_cloture?: string
         motif_annulation?: string
       } = { statut: p.statut }
 
-      // Statut terminal → date_cloture obligatoire (CHECK statut_terminal_a_date_cloture).
-      if (p.statut === 'annule' || p.statut === 'cloture') {
-        patch.date_cloture = new Date().toISOString()
-      }
       if (p.statut === 'annule' && p.motifAnnulation !== undefined) {
         patch.motif_annulation = p.motifAnnulation.trim()
       }

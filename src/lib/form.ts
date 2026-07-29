@@ -54,6 +54,42 @@ export function exportErrorMessage(e: unknown): string {
 }
 
 /**
+ * Messages métier par CONTRAINTE CHECK (nom SQL) : « Valeur refusée : elle ne
+ * respecte pas une règle. » ne dit pas QUOI corriger. Postgres nomme la contrainte
+ * violée dans son message (« … violates check constraint "dates_coherentes" »),
+ * que PostgREST transmet tel quel → on le traduit quand on sait le faire.
+ * Les contraintes absentes retombent sur le message générique.
+ */
+const MESSAGES_CONTRAINTE_CHECK: Readonly<Record<string, string>> = {
+  dates_coherentes:
+    'Dates incohérentes : la clôture serait antérieure au démarrage. Corrigez les dates d’exécution des opérations.',
+  statut_terminal_a_date_cloture:
+    'Date de clôture manquante : un OT clôturé ou annulé doit être horodaté.',
+  motif_annulation_oblig_si_annule: 'Motif d’annulation obligatoire.',
+  motif_reouverture_oblig_si_reouvert: 'Motif de réouverture obligatoire.',
+  operations_execution_remplacement_coherent:
+    'Remplacement incomplet : renseignez l’ancien ET le nouvel index.',
+  statut_date_coherents:
+    'Date d’exécution incohérente avec le statut de l’opération.',
+}
+
+/**
+ * Nom de la contrainte CHECK violée, extrait du message Postgres (23514).
+ * `PostgrestError` étend `Error`, mais on lit aussi la propriété `message` d’un
+ * objet brut (erreur sérialisée / test) — même souplesse que `pgCode`.
+ */
+function checkConstraintName(e: unknown): string | undefined {
+  const message =
+    e !== null &&
+    typeof e === 'object' &&
+    'message' in e &&
+    typeof e.message === 'string'
+      ? e.message
+      : errorMessage(e, '')
+  return /violates check constraint "([^"]+)"/.exec(message)?.[1]
+}
+
+/**
  * Libellés contextuels par code SQLSTATE (ou code PostgREST), pour affiner les
  * messages génériques de `writeErrorMessage` / `deleteErrorMessage` — ex.
  * `{ '23505': 'Une catégorie portant ce nom existe déjà à cet emplacement.' }`.
@@ -93,7 +129,8 @@ export function deleteErrorMessage(
  * les `onError` de création/édition/changement de statut.
  * - `42501` (RLS) / `PGRST116` (0 ligne touchée) : hors périmètre, ou déjà modifié.
  * - `22003` : dépassement de capacité d’un montant (numeric overflow).
- * - `23514` (CHECK) : valeur refusée par une règle de la base.
+ * - `23514` (CHECK) : message métier si la contrainte violée est connue
+ *   (cf. `MESSAGES_CONTRAINTE_CHECK`), sinon « valeur refusée par une règle ».
  * - `23505` : doublon (contrainte d’unicité).
  * - `23503` : référence FK manquante / supprimée.
  *
@@ -112,7 +149,14 @@ export function writeErrorMessage(
     return 'Action impossible : élément hors de votre périmètre, ou déjà modifié.'
   }
   if (code === '22003') return 'Montant trop élevé : réduisez la valeur.'
-  if (code === '23514') return 'Valeur refusée : elle ne respecte pas une règle.'
+  if (code === '23514') {
+    const contrainte = checkConstraintName(e)
+    return (
+      (contrainte !== undefined
+        ? MESSAGES_CONTRAINTE_CHECK[contrainte]
+        : undefined) ?? 'Valeur refusée : elle ne respecte pas une règle.'
+    )
+  }
   if (code === '23505') return 'Un élément identique existe déjà.'
   if (code === '23503') {
     return 'Référence manquante : un élément lié est introuvable.'

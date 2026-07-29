@@ -7287,6 +7287,21 @@ BEGIN
         NEW.date_cloture := NULL;
     END IF;
 
+    -- 075 — Borne : une clôture ne peut pas précéder le démarrage. Les saisies
+    -- d'exécution sont horodatées à MIDI UTC (jour saisi → 'T12:00:00Z' côté
+    -- front) et gestion_statut_ot en déduit date_debut : une clôture posée plus
+    -- tôt dans la journée (ou des dates d'exécution corrigées vers le passé)
+    -- violait le CHECK dates_coherentes et laissait un OT ROUVERT impossible à
+    -- refermer. Appliquée en DERNIER : les blocs ci-dessus ont déjà fixé le
+    -- couple (date_debut, date_cloture) de la transition — et sur les
+    -- transitions non terminales (reouvert, résurrection) elle ne s'arme pas.
+    IF NEW.statut IN ('cloture', 'annule')
+       AND NEW.date_debut IS NOT NULL
+       AND NEW.date_cloture IS NOT NULL
+       AND NEW.date_cloture < NEW.date_debut THEN
+        NEW.date_cloture := NEW.date_debut;
+    END IF;
+
     RETURN NEW;
 END;
 $$;
@@ -7296,7 +7311,7 @@ CREATE TRIGGER trg_nettoyage_dates_coherentes
     FOR EACH ROW EXECUTE FUNCTION public.nettoyage_dates_coherentes();
 
 COMMENT ON FUNCTION public.nettoyage_dates_coherentes() IS
-    'Force cohérence date_debut/date_cloture selon les transitions de statut OT.';
+    'Force cohérence date_debut/date_cloture selon les transitions de statut OT. 075 : à l''entrée en statut terminal, date_cloture est bornée à >= date_debut (une clôture ne peut pas précéder le démarrage) — sinon le CHECK dates_coherentes bloquait la re-clôture d''un OT rouvert.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 8bis. reouvrir_ot — RPC standard pour rouvrir un OT clôturé (F28 audit)
