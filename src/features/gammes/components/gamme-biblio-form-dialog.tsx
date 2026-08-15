@@ -115,11 +115,9 @@ export function GammeBiblioFormDialog({
   })
 
   const periodiciteOptions = [
-    { value: '', label: '— Choisir une périodicité —' },
     ...periodicites.map((p) => ({ value: String(p.id), label: p.libelle })),
   ]
   const categorieOptions = [
-    { value: '', label: '— Choisir une catégorie —' },
     ...categories.map((c) => ({ value: c.id, label: c.nom })),
   ]
 
@@ -168,6 +166,7 @@ export function GammeBiblioFormDialog({
           label="Périodicité"
           required
           options={periodiciteOptions}
+          placeholder="— Choisir une périodicité —"
         />
 
         <SelectField
@@ -176,6 +175,7 @@ export function GammeBiblioFormDialog({
           label="Catégorie"
           required
           options={categorieOptions}
+          placeholder="— Choisir une catégorie —"
         />
       </FormDialog>
     </Form>

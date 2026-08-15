@@ -17,7 +17,7 @@ import { TextField } from '@/components/common/fields/text-field'
 import { Form } from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -124,17 +124,19 @@ function ProfileForm({
         <div className="grid gap-2">
           <Label htmlFor="role">Rôle</Label>
           {isAdmin ? (
-            <Select
-              id="role"
+            // Radix, comme le champ « Rôle » de la modale d'invitation dans
+            // cette même feature — qui, lui, était déjà thémé.
+            <SelectDropdown
               value={String(roleId)}
-              onChange={(e) => setRoleId(Number(e.target.value))}
-            >
-              {roles.map((r) => (
-                <option key={r.id} value={String(r.id)}>
-                  {roleLabel(r.code)}
-                </option>
-              ))}
-            </Select>
+              onValueChange={(v) => {
+                setRoleId(Number(v))
+              }}
+              options={roles.map((r) => ({
+                value: String(r.id),
+                label: roleLabel(r.code),
+              }))}
+              ariaLabel="Rôle"
+            />
           ) : (
             <p className="text-sm">{roleLabel(user.roles?.code)}</p>
           )}

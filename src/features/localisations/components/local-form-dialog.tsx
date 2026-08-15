@@ -62,10 +62,12 @@ export function LocalFormDialog({
     close: () => onOpenChange(false),
   })
 
-  const typeOptions = [
-    { value: '', label: '— Aucun —' },
-    ...types.map((t) => ({ value: String(t.id), label: t.libelle })),
-  ]
+  // Option neutre via `optionAucune` (jamais un item à `value: ''` : Radix y
+  // voit « pas de valeur » et le libellé choisi ne s'afficherait jamais).
+  const typeOptions = types.map((t) => ({
+    value: String(t.id),
+    label: t.libelle,
+  }))
 
   return (
     <Form {...form}>
@@ -102,6 +104,7 @@ export function LocalFormDialog({
             name="type_local_id"
             label="Type de local"
             options={typeOptions}
+            optionAucune="— Aucun —"
           />
         </div>
         <CheckboxField

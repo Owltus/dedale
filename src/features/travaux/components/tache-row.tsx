@@ -9,7 +9,7 @@ import {
 import { useUpdateTacheStatut } from '../mutations'
 import { writeErrorMessage } from '@/lib/form'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import { Select } from '@/components/ui/select'
+import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { Badge } from '@/components/ui/badge'
 
 export interface TacheItem {
@@ -79,19 +79,20 @@ export function TacheRow({
           {LIBELLES_STATUT_TACHE[statut]}
         </Badge>
       ) : (
-        <Select
-          aria-label={`Statut — ${localNom}`}
+        <SelectDropdown
+          ariaLabel={`Statut — ${localNom}`}
           value={statut}
           disabled={update.isPending}
-          onChange={(e) => changeStatut(e.target.value as StatutTache)}
+          onValueChange={(v) => {
+            changeStatut(v as StatutTache)
+          }}
+          options={STATUTS_TACHE.map((s) => ({
+            value: s,
+            label: LIBELLES_STATUT_TACHE[s],
+          }))}
           className="w-auto shrink-0"
-        >
-          {STATUTS_TACHE.map((s) => (
-            <option key={s} value={s}>
-              {LIBELLES_STATUT_TACHE[s]}
-            </option>
-          ))}
-        </Select>
+          checkIndicator={false}
+        />
       )}
 
       {!readOnly && (

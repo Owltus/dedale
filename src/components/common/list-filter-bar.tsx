@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import { SearchInput } from '@/components/common/search-input'
-import { Select } from '@/components/ui/select'
+import { SelectDropdown } from '@/components/ui/select-dropdown'
 
 export interface FilterOption {
   value: string
@@ -76,18 +76,19 @@ export function ListFilterBar({
         className="flex-1"
       />
       {filtre && (
-        <Select
+        // Select RADIX (pas le `<select>` natif) : le panneau ouvert suit le
+        // thème clair/sombre et le chevron est celui de l'app. En natif, ce
+        // filtre — le sélecteur le plus vu de l'application, présent sur
+        // 5 pages liste — affichait la flèche du système d'exploitation juste
+        // à côté d'une loupe lucide.
+        <SelectDropdown
           value={filtre.value}
-          onChange={(e) => filtre.onChange(e.target.value)}
-          aria-label={filterLabel}
+          onValueChange={filtre.onChange}
+          options={filtre.options}
+          ariaLabel={filterLabel}
           className="sm:w-52"
-        >
-          {filtre.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
+          checkIndicator={false}
+        />
       )}
     </div>
   )

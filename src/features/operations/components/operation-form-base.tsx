@@ -97,11 +97,9 @@ export function OperationFormBase() {
   }, [aUnite, requiresSeuils, getValues, setValue])
 
   const typeOptions = [
-    { value: '', label: '— Choisir un type —' },
     ...types.map((t) => ({ value: String(t.id), label: t.libelle })),
   ]
   const uniteOptions = [
-    { value: '', label: '— Choisir une unité —' },
     ...unites.map((u) => ({
       value: String(u.id),
       label: `${u.nom} (${u.symbole})`,
@@ -126,6 +124,7 @@ export function OperationFormBase() {
           label="Type"
           required
           options={typeOptions}
+          placeholder="— Choisir un type —"
         />
       </div>
 
@@ -136,6 +135,7 @@ export function OperationFormBase() {
           label="Unité"
           required
           options={uniteOptions}
+          placeholder="— Choisir une unité —"
         />
       )}
 

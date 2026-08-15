@@ -128,7 +128,6 @@ export function GammeTypeFormDialog({
   })
 
   const categorieOptions = [
-    { value: '', label: '— Choisir une catégorie —' },
     ...categories.map((c) => ({ value: c.id, label: c.nom })),
   ]
 
@@ -164,6 +163,7 @@ export function GammeTypeFormDialog({
           label="Catégorie"
           required
           options={categorieOptions}
+          placeholder="— Choisir une catégorie —"
         />
       </FormDialog>
     </Form>

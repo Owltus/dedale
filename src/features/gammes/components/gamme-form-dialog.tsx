@@ -149,15 +149,12 @@ export function GammeFormDialog({
   )
 
   const periodiciteOptions = [
-    { value: '', label: '— Choisir une périodicité —' },
     ...periodicites.map((p) => ({ value: String(p.id), label: p.libelle })),
   ]
   const prestataireOptions = [
-    { value: '', label: '— Choisir un prestataire —' },
     ...prestataires.map((p) => ({ value: p.id, label: p.libelle })),
   ]
   const categorieOptions = [
-    { value: '', label: '— Choisir une sous-catégorie —' },
     ...(assignedMissing && assignedId
       ? [
           {
@@ -231,6 +228,7 @@ export function GammeFormDialog({
           label="Périodicité"
           required
           options={periodiciteOptions}
+          placeholder="— Choisir une périodicité —"
         />
 
         <SelectField
@@ -239,6 +237,7 @@ export function GammeFormDialog({
           label="Prestataire par défaut"
           required
           options={prestataireOptions}
+          placeholder="— Choisir un prestataire —"
         />
 
         <div className="grid gap-2">
@@ -248,6 +247,7 @@ export function GammeFormDialog({
             label="Sous-catégorie"
             required
             options={categorieOptions}
+            placeholder="— Choisir une sous-catégorie —"
             hint={
               isEdit && !aucuneSousCategorie
                 ? 'Choisir une autre sous-catégorie déplace la gamme.'

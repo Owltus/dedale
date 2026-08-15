@@ -270,12 +270,12 @@ export function CategoryFormDialog({
   }))
   // Sélecteur « Parent » : option « racine » proposée hors reparentage (déplacer
   // une sous-catégorie ne peut la rendre racine), puis les parents autorisés.
-  const parentSelectOptions = [
-    ...(showReparent
-      ? []
-      : [{ value: '', label: '— Aucun (catégorie racine) —' }]),
-    ...parentOptions.map((c) => ({ value: c.id, label: c.nom })),
-  ]
+  // L'option « racine » passe par `optionAucune` (un item à `value: ''` serait
+  // avalé par Radix et n'afficherait jamais son libellé une fois choisi).
+  const parentSelectOptions = parentOptions.map((c) => ({
+    value: c.id,
+    label: c.nom,
+  }))
 
   return (
     <Form {...form}>
@@ -345,6 +345,9 @@ export function CategoryFormDialog({
             name="parent_id"
             label={showReparent ? 'Catégorie parente' : 'Parent'}
             options={parentSelectOptions}
+            optionAucune={
+              showReparent ? undefined : '— Aucun (catégorie racine) —'
+            }
             hint={
               showReparent
                 ? 'Choisir une autre catégorie déplace la sous-catégorie et ses gammes.'

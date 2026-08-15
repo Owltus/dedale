@@ -203,16 +203,15 @@ export function ParcSousCategorieDialog({
           label="Gabarit des équipements"
           // Décision structurelle prise à la création : non modifiable ensuite.
           disabled={isEdit}
-          options={[
-            {
-              value: '',
-              label: 'Spécifique (définir les caractéristiques ici)',
-            },
-            ...modeles.map((m) => ({
-              value: m.id,
-              label: `Modèle : ${m.nom}`,
-            })),
-          ]}
+          options={modeles.map((m) => ({
+            value: m.id,
+            label: `Modèle : ${m.nom}`,
+          }))}
+          // « Spécifique » est la valeur PAR DÉFAUT et un choix porteur de sens :
+          // en item à `value: ''` elle ne s'affichait jamais dans le déclencheur
+          // (Radix y voit « pas de valeur »), le champ semblait donc vide alors
+          // qu'il portait le choix le plus courant.
+          optionAucune="Spécifique (définir les caractéristiques ici)"
         />
 
         {specifique ? (

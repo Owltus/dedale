@@ -7,7 +7,7 @@ import { useAssignSite, useUnassignSite } from '../mutations'
 import { sitesQueries } from '@/features/sites/queries'
 import { errorMessage, writeErrorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
+import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -140,20 +140,21 @@ export function SitesCard({
               <div className="grid gap-2">
                 <Label htmlFor="add-site">Ajouter un site</Label>
                 <div className="relative">
-                  <Plus className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Select
-                    id="add-site"
+                  <Plus className="pointer-events-none absolute top-1/2 left-2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
+                  {/* Sélecteur d'ACTION : choisir un site le rattache aussitôt,
+                      la valeur ne reste donc jamais affichée — d'où un `value`
+                      vide et un placeholder permanent. */}
+                  <SelectDropdown
                     value=""
-                    onChange={(e) => handleAdd(e.target.value)}
+                    onValueChange={handleAdd}
+                    options={available.map((s) => ({
+                      value: s.id,
+                      label: s.nom,
+                    }))}
+                    placeholder="Choisir un site à ajouter…"
+                    ariaLabel="Ajouter un site"
                     className="pl-8"
-                  >
-                    <option value="">Choisir un site à ajouter…</option>
-                    {available.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nom}
-                      </option>
-                    ))}
-                  </Select>
+                  />
                 </div>
               </div>
             )}
