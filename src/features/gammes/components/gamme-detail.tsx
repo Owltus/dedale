@@ -132,7 +132,6 @@ export function GammeDetail({
         tabsAriaLabel="Sections de la gamme"
         headerCard={
           <DetailHeaderCard
-            className="mb-4"
             thumbnail={
               <MiniatureThumb
                 url={urlOf(gamme.miniature_id)}

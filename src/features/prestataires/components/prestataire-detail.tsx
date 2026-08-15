@@ -43,7 +43,7 @@ import type { Database } from '@/lib/database.types'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
-import { SubTabs } from '@/components/common/sub-tabs'
+import { DetailTabsShell } from '@/components/common/detail-tabs-shell'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
@@ -123,103 +123,105 @@ export function PrestataireDetail({
   ) : undefined
 
   return (
-    // `no-scrollbar` : seule la zone de contenu (2e enfant) défile, barre masquée.
-    // L'en-tête (1er enfant : top bar + carte + onglets) reste FIXE.
+    // `no-scrollbar` : seule la zone de contenu défile, barre masquée.
     <PageContainer className="no-scrollbar">
-      <div>
-        <PageHeader
-          title={prestataire.libelle}
-          breadcrumb={[{ label: 'Prestataires', onClick: onBack }]}
-          titleBadges={
-            <Badge variant={prestataire.est_interne ? 'default' : 'secondary'}>
-              {prestataire.est_interne ? 'Interne' : 'Externe'}
-            </Badge>
-          }
-          action={headerAction}
-        />
-
-        <DetailHeaderCard
-          className="mb-4"
-          thumbnail={
-            <MiniatureThumb
-              url={urlOf(prestataire.miniature_id)}
-              fallback={<Truck className="size-8" />}
-              alt=""
-              onError={refreshMiniatures}
-              className="size-full rounded-none"
-            />
-          }
-          fields={[
-            prestataire.metier
-              ? { label: 'Métier', value: prestataire.metier }
-              : null,
-            prestataire.ville
-              ? { label: 'Ville', value: prestataire.ville }
-              : null,
-            prestataire.telephone
-              ? { label: 'Téléphone', value: prestataire.telephone }
-              : null,
-            prestataire.email
-              ? { label: 'E-mail', value: prestataire.email }
-              : null,
-          ]}
-          columns={2}
-        />
-
-        <SubTabs
-          ariaLabel="Sections du prestataire"
-          variant="segmented"
-          value={onglet}
-          onValueChange={setOnglet}
-          items={[
-            { id: 'contrats', label: 'Contrats' },
-            { id: 'gammes', label: 'Gammes' },
-            { id: 'ot', label: 'Ordres de travail' },
-            { id: 'documents', label: 'Documents' },
-          ]}
-        />
-      </div>
-
-      {/* Zone défilante : colonne flex `min-h-full` pour que les états vides se
-          centrent verticalement. */}
-      <div className="flex min-h-full flex-col">
-        {onglet === 'contrats' && (
-          <ContratsPanel
-            siteId={siteId}
-            prestataireId={prestataire.id}
-            prestataireNom={prestataire.libelle}
-            canManage={canManage}
-            onNew={contratDialog.openCreate}
-            onEdit={contratDialog.openEdit}
-            onDelete={suppressionContrat.demander}
-            onAvenant={avenantDialog.openEdit}
-            onResilier={resilierDialog.openEdit}
+      {/* Géométrie portée par DetailTabsShell — la MÊME que la fiche gamme et la
+          fiche OT. Ce montage était auparavant réassemblé à la main ici, et
+          avait déjà divergé de la brique (état vide, wrapper de corps). */}
+      <DetailTabsShell
+        tabsAriaLabel="Sections du prestataire"
+        value={onglet}
+        onValueChange={setOnglet}
+        items={[
+          { id: 'contrats', label: 'Contrats' },
+          { id: 'gammes', label: 'Gammes' },
+          { id: 'ot', label: 'Ordres de travail' },
+          { id: 'documents', label: 'Documents' },
+        ]}
+        header={
+          <PageHeader
+            title={prestataire.libelle}
+            breadcrumb={[{ label: 'Prestataires', onClick: onBack }]}
+            titleBadges={
+              <Badge
+                variant={prestataire.est_interne ? 'default' : 'secondary'}
+              >
+                {prestataire.est_interne ? 'Interne' : 'Externe'}
+              </Badge>
+            }
+            action={headerAction}
           />
-        )}
-        {onglet === 'gammes' && (
-          <GammesPanel
-            prestataireId={prestataire.id}
-            siteId={siteId}
-            urlOf={urlOf}
-            refreshMiniatures={refreshMiniatures}
+        }
+        headerCard={
+          <DetailHeaderCard
+            thumbnail={
+              <MiniatureThumb
+                url={urlOf(prestataire.miniature_id)}
+                fallback={<Truck className="size-10" />}
+                alt=""
+                onError={refreshMiniatures}
+                className="size-full rounded-none"
+              />
+            }
+            fields={[
+              prestataire.metier
+                ? { label: 'Métier', value: prestataire.metier }
+                : null,
+              prestataire.ville
+                ? { label: 'Ville', value: prestataire.ville }
+                : null,
+              prestataire.telephone
+                ? { label: 'Téléphone', value: prestataire.telephone }
+                : null,
+              prestataire.email
+                ? { label: 'E-mail', value: prestataire.email }
+                : null,
+            ]}
+            columns={2}
           />
+        }
+      >
+        {(actif) => (
+          <>
+            {actif === 'contrats' && (
+              <ContratsPanel
+                siteId={siteId}
+                prestataireId={prestataire.id}
+                prestataireNom={prestataire.libelle}
+                canManage={canManage}
+                onNew={contratDialog.openCreate}
+                onEdit={contratDialog.openEdit}
+                onDelete={suppressionContrat.demander}
+                onAvenant={avenantDialog.openEdit}
+                onResilier={resilierDialog.openEdit}
+              />
+            )}
+            {actif === 'gammes' && (
+              <GammesPanel
+                prestataireId={prestataire.id}
+                siteId={siteId}
+                urlOf={urlOf}
+                refreshMiniatures={refreshMiniatures}
+              />
+            )}
+            {actif === 'ot' && (
+              <OtPanel
+                prestataireId={prestataire.id}
+                siteId={siteId}
+                urlOf={urlOf}
+                refreshMiniatures={refreshMiniatures}
+              />
+            )}
+            {actif === 'documents' && (
+              <OtDocumentsPanel
+                prestataireId={prestataire.id}
+                siteId={siteId}
+                canDelete={canManage}
+              />
+            )}
+          </>
         )}
-        {onglet === 'ot' && (
-          <OtPanel
-            prestataireId={prestataire.id}
-            siteId={siteId}
-            urlOf={urlOf}
-            refreshMiniatures={refreshMiniatures}
-          />
-        )}
-        {onglet === 'documents' && (
-          <OtDocumentsPanel
-            prestataireId={prestataire.id}
-            siteId={siteId}
-            canDelete={canManage}
-          />
-        )}
-      </div>
+      </DetailTabsShell>
 
       {canManage && (
         <>

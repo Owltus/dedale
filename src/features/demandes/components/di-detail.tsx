@@ -177,7 +177,6 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
 
       {/* En-tête : qui / quand / où (carte partagée) ; le texte du constat suit. */}
       <DetailHeaderCard
-        className="mb-6"
         columns={2}
         fallbackIcon={MessageSquareWarning}
         fields={[

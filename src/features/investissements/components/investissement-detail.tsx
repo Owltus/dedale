@@ -167,7 +167,6 @@ export function InvestissementDetail({
 
       {/* Budget : carte d'en-tête partagée (montants + écart coloré si dépassement). */}
       <DetailHeaderCard
-        className="mb-6"
         columns={2}
         fallbackIcon={Coins}
         fields={[

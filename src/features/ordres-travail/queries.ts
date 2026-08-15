@@ -91,9 +91,9 @@ export const ordresTravailQueries = {
     }),
 
   /** Un OT précis (détail en page). */
-  detail: (id: string) =>
+  detail: (id: string, siteId: string) =>
     queryOptions({
-      queryKey: [...ordresTravailQueries.all(), 'detail', id] as const,
+      queryKey: [...ordresTravailQueries.all(), 'detail', id, siteId] as const,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('ordres_travail')
@@ -102,6 +102,10 @@ export const ordresTravailQueries = {
           // plus l'image VIVANTE de la gamme : un OT terminal garde la sienne.
           .select('*')
           .eq('id', id)
+          // Cloisonnement site REDONDANT avec la RLS : un identifiant d'OT deviné
+          // ou collé depuis un autre site ne résout plus, au lieu de dépendre de
+          // la seule RLS. `maybeSingle` → l'absence est un cas normal.
+          .eq('site_id', siteId)
           .abortSignal(signal)
           .maybeSingle()
           .throwOnError()

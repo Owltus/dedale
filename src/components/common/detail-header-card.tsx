@@ -62,9 +62,14 @@ interface DetailHeaderCardProps {
  * Carte d'en-tête d'une fiche détail : vignette carrée (ou icône de repli) à gauche
  * + grille compacte d'informations (intitulé au-dessus de la valeur), hauteur fixe
  * `h-20`. Brique PARTAGÉE (OT, gamme, équipement, investissement, utilisateur,
- * demande…) — source unique du rendu de la carte d'en-tête. L'hôte fournit la
- * vignette (ou `fallbackIcon`) et les champs ; il ajoute son espacement via
- * `className` (ex. `mb-4`).
+ * demande…) — source unique du rendu de la carte d'en-tête.
+ *
+ * La brique porte AUSSI ses mesures : la marge basse (`mb-4`) et la taille de
+ * l'icône de repli. Laissées à l'appelant, elles avaient divergé — trois marges
+ * (`mb-6`, `mb-4`, aucune) sur sept fiches, et une icône de repli tantôt
+ * `size-8` tantôt `size-10` dans le même carré de 80 px, si bien qu'un
+ * prestataire sans photo avait une icône plus petite sur sa fiche que sur sa
+ * ligne de liste. Un espacement laissé à sept appelants diverge mécaniquement.
  */
 export function DetailHeaderCard({
   thumbnail,
@@ -76,7 +81,7 @@ export function DetailHeaderCard({
   return (
     <div
       className={cn(
-        'flex h-20 items-stretch overflow-hidden rounded-lg border bg-card',
+        'mb-4 flex h-20 items-stretch overflow-hidden rounded-lg border bg-card',
         className,
       )}
     >
@@ -84,7 +89,9 @@ export function DetailHeaderCard({
         <div className="aspect-square h-full shrink-0">{thumbnail}</div>
       ) : FallbackIcon ? (
         <div className="flex aspect-square h-full shrink-0 items-center justify-center bg-muted text-muted-foreground">
-          <FallbackIcon className="size-8" />
+          {/* size-10 : la MÊME taille que RowMediaIcon impose dans les listes,
+              pour qu'une entité sans image ait la même icône des deux côtés. */}
+          <FallbackIcon className="size-10" />
         </div>
       ) : null}
       <div

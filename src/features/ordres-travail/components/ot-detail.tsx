@@ -38,7 +38,7 @@ import {
   PageHeader,
   type PageHeaderCrumb,
 } from '@/components/common/page-header'
-import { SubTabs } from '@/components/common/sub-tabs'
+import { DetailTabsShell } from '@/components/common/detail-tabs-shell'
 import { ErrorState } from '@/components/common/error-state'
 import { EmptyState } from '@/components/common/empty-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -47,18 +47,20 @@ import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 
 interface OtDetailProps {
   otId: string
+  /** Site actif : cloisonne la query en plus de la RLS (défense en profondeur). */
+  siteId: string
   canManage: boolean
 }
 
 type Onglet = 'operations' | 'documents'
 
-export function OtDetail({ otId, canManage }: OtDetailProps) {
+export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
   const {
     data: ot,
     isPending,
     isError,
     refetch,
-  } = useQuery(ordresTravailQueries.detail(otId))
+  } = useQuery(ordresTravailQueries.detail(otId, siteId))
   const operationsQuery = useQuery(ordresTravailQueries.operations(otId))
   // Mise à jour LIVE du détail : changement de l'OT (statut/dates) ou de ses
   // opérations (saisie d'exécution) — ici, autre onglet ou autre utilisateur — sans F5.
@@ -395,114 +397,114 @@ export function OtDetail({ otId, canManage }: OtDetailProps) {
       ]
 
   return (
-    // `no-scrollbar` : seule la zone de contenu (2e enfant) défile, barre masquée.
-    // L'en-tête (1er enfant : top bar + carte + onglets) reste FIXE.
+    // `no-scrollbar` : seule la zone de contenu défile, barre masquée.
     <PageContainer className="no-scrollbar">
-      <div>
-        <PageHeader
-          title={ot.nom_gamme}
-          description={ot.description_gamme ?? undefined}
-          breadcrumb={otBreadcrumb}
-          action={headerActions}
-        />
-
-        {/* Carte d'en-tête (brique partagée DetailHeaderCard) : vignette + infos
-            en grille 3 colonnes (l1 prestataire/périodicité/relevé, l2 dates). Le
-            relevé est masqué par une cellule vide quand il n'y a aucune somme. */}
-        <DetailHeaderCard
-          className="mb-4"
-          thumbnail={
-            <MiniatureThumb
-              url={urlOf(otMiniatureId)}
-              fallback={<ClipboardList className="size-10" />}
-              alt=""
-              onError={refreshMiniatures}
-              className="size-full rounded-none"
-            />
-          }
-          fields={[
-            { label: 'Prestataire', value: ot.nom_prestataire },
-            { label: 'Périodicité', value: ot.libelle_periodicite },
-            releve ? { label: 'Relevé', value: releve } : null,
-            { label: 'Prévue', value: formatDate(ot.date_prevue) },
-            {
-              label: 'Début',
-              value: ot.date_debut ? formatDate(ot.date_debut) : null,
-            },
-            {
-              label: 'Clôture',
-              value: ot.date_cloture ? formatDate(ot.date_cloture) : null,
-            },
-          ]}
-        />
-
-        <SubTabs
-          ariaLabel="Sections de l’ordre de travail"
-          variant="segmented"
-          value={onglet}
-          onValueChange={setOnglet}
-          items={[
-            { id: 'operations', label: 'Opérations' },
-            { id: 'documents', label: 'Documents' },
-          ]}
-        />
-      </div>
-
-      {/* Zone de contenu défilante : `relative` + `min-h-full` → la surcouche de
-          glisser-déposer voile toute la hauteur visible, quel que soit l'onglet
-          (le drop est capté sur la fenêtre entière par `useFileDrop`). Colonne
-          flex pour que l'onglet Documents occupe toute la zone → son état vide
-          « Aucun document » se centre verticalement. */}
-      <div className="relative flex min-h-full flex-col">
-        {onglet === 'operations' ? (
-          operationsQuery.isPending ? (
-            <div className="flex flex-col gap-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-20" />
-              ))}
-            </div>
-          ) : operationsQuery.isError ? (
-            <ErrorState onRetry={() => void operationsQuery.refetch()} />
-          ) : operations.length === 0 ? (
-            <EmptyState
-              icon={ListChecks}
-              title="Aucune opération"
-              className="min-h-40 flex-1 justify-center"
-            />
-          ) : (
-            <div className="flex flex-col gap-3">
-              {operations.map((op) => (
-                <OperationRow
-                  key={op.id}
-                  operation={op}
-                  value={opEdit(op)}
-                  onChange={(v) =>
-                    setEdits((prev) => ({ ...prev, [op.id]: v }))
-                  }
-                  readOnly={opsReadOnly}
-                  previousValue={relevePrecedentDe(op)}
-                />
-              ))}
-            </div>
-          )
-        ) : (
-          <DocumentsTab
-            liaison="documents_ordres_travail"
-            parentColumn="ordre_travail_id"
-            parentId={otId}
-            uploadOpen={uploadOpen}
-            onUploadOpenChange={handleUploadOpenChange}
-            uploadInitialFiles={droppedFiles}
-            className="min-h-0 flex-1"
-            namingContext={{
-              prestataire: ot.nom_prestataire,
-              objet: ot.nom_gamme,
-              date: ot.date_prevue,
-            }}
+      {/* Géométrie portée par DetailTabsShell — la MÊME que les fiches gamme et
+          prestataire. `overlay` rend la surcouche de glisser-déposer DANS la zone
+          défilante (`relative`), qui voile toute la hauteur visible quel que soit
+          l'onglet ; `bodyClassName` garde la colonne flex qui centre l'état vide
+          « Aucun document » et laisse l'onglet Documents occuper la zone. */}
+      <DetailTabsShell
+        tabsAriaLabel="Sections de l’ordre de travail"
+        value={onglet}
+        onValueChange={setOnglet}
+        items={[
+          { id: 'operations', label: 'Opérations' },
+          { id: 'documents', label: 'Documents' },
+        ]}
+        bodyClassName="flex flex-col"
+        overlay={canManage ? <FileDropOverlay show={dragging} /> : undefined}
+        header={
+          <PageHeader
+            title={ot.nom_gamme}
+            description={ot.description_gamme ?? undefined}
+            breadcrumb={otBreadcrumb}
+            action={headerActions}
           />
+        }
+        headerCard={
+          // Vignette + infos en grille 3 colonnes (l1 prestataire/périodicité/
+          // relevé, l2 dates). Le relevé est masqué par une cellule vide quand
+          // il n'y a aucune somme.
+          <DetailHeaderCard
+            thumbnail={
+              <MiniatureThumb
+                url={urlOf(otMiniatureId)}
+                fallback={<ClipboardList className="size-10" />}
+                alt=""
+                onError={refreshMiniatures}
+                className="size-full rounded-none"
+              />
+            }
+            fields={[
+              { label: 'Prestataire', value: ot.nom_prestataire },
+              { label: 'Périodicité', value: ot.libelle_periodicite },
+              releve ? { label: 'Relevé', value: releve } : null,
+              { label: 'Prévue', value: formatDate(ot.date_prevue) },
+              {
+                label: 'Début',
+                value: ot.date_debut ? formatDate(ot.date_debut) : null,
+              },
+              {
+                label: 'Clôture',
+                value: ot.date_cloture ? formatDate(ot.date_cloture) : null,
+              },
+            ]}
+          />
+        }
+      >
+        {(actif) => (
+          <>
+            {actif === 'operations' ? (
+              operationsQuery.isPending ? (
+                <div className="flex flex-col gap-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-20" />
+                  ))}
+                </div>
+              ) : operationsQuery.isError ? (
+                <ErrorState onRetry={() => void operationsQuery.refetch()} />
+              ) : operations.length === 0 ? (
+                <EmptyState
+                  icon={ListChecks}
+                  title="Aucune opération"
+                  className="min-h-40 flex-1 justify-center"
+                />
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {operations.map((op) => (
+                    <OperationRow
+                      key={op.id}
+                      operation={op}
+                      value={opEdit(op)}
+                      onChange={(v) =>
+                        setEdits((prev) => ({ ...prev, [op.id]: v }))
+                      }
+                      readOnly={opsReadOnly}
+                      previousValue={relevePrecedentDe(op)}
+                    />
+                  ))}
+                </div>
+              )
+            ) : (
+              <DocumentsTab
+                liaison="documents_ordres_travail"
+                parentColumn="ordre_travail_id"
+                parentId={otId}
+                uploadOpen={uploadOpen}
+                onUploadOpenChange={handleUploadOpenChange}
+                uploadInitialFiles={droppedFiles}
+                className="min-h-0 flex-1"
+                namingContext={{
+                  prestataire: ot.nom_prestataire,
+                  objet: ot.nom_gamme,
+                  date: ot.date_prevue,
+                }}
+              />
+            )}
+          </>
         )}
-        {canManage && <FileDropOverlay show={dragging} />}
-      </div>
+      </DetailTabsShell>
 
       <MotifDialog
         key={annulerOpen ? 'annuler-open' : 'annuler-closed'}
