@@ -34,7 +34,11 @@ export function DocumentPreviewDialog({
     <DialogShell
       open={doc !== null}
       onOpenChange={onOpenChange}
-      title={<span className="block truncate">{doc?.nom_original ?? 'Document'}</span>}
+      title={
+        <span className="block truncate">
+          {doc?.nom_original ?? 'Document'}
+        </span>
+      }
       description="Aperçu du document"
       headerSeparator
       headerAction={
@@ -61,7 +65,7 @@ export function DocumentPreviewDialog({
             <ErrorState onRetry={() => void refetch()} />
           </div>
         ) : !url ? (
-          <div className="text-muted-foreground flex h-full items-center justify-center gap-2 text-sm">
+          <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-5 animate-spin" />
             Chargement de l'aperçu…
           </div>
@@ -80,7 +84,7 @@ export function DocumentPreviewDialog({
             />
           </div>
         ) : (
-          <div className="text-muted-foreground flex h-full items-center justify-center p-6 text-sm">
+          <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
             Aperçu non disponible pour ce format.
           </div>
         ))}

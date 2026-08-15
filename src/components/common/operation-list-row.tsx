@@ -58,7 +58,7 @@ export function OperationListRow({
     <ListRow
       className="h-12"
       media={
-        <span className="bg-muted text-muted-foreground flex size-full items-center justify-center">
+        <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
           <ClipboardCheck className="size-8" />
         </span>
       }
@@ -71,10 +71,7 @@ export function OperationListRow({
         // `title` = repli pour lire la valeur COMPLÈTE au survol si une mesure
         // dépasse la case fixe (truncate).
         <span className="flex w-32 justify-center" title={typeAffiche}>
-          <Badge
-            variant="outline"
-            className="max-w-full truncate tabular-nums"
-          >
+          <Badge variant="outline" className="max-w-full truncate tabular-nums">
             {typeAffiche}
           </Badge>
         </span>

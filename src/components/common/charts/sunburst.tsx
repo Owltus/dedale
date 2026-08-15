@@ -290,7 +290,7 @@ export function Sunburst({
             <button
               type="button"
               onClick={onCentreClick}
-              className="focus-visible:ring-ring pointer-events-auto flex items-center justify-center rounded-full outline-none focus-visible:ring-2"
+              className="pointer-events-auto flex items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {centre}
             </button>

@@ -62,20 +62,20 @@ export function FileDropField({
           emit(e.dataTransfer.files)
         }}
         className={cn(
-          'border-input flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors',
+          'flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input px-4 py-6 text-center transition-colors',
           'hover:border-ring hover:bg-accent/40',
-          'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none',
+          'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
           dragging && 'border-primary bg-primary/5',
         )}
       >
-        <span className="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-full">
+        <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
           <Upload className="size-5" />
         </span>
         <span className="text-sm font-medium">
           {multiple ? 'Glissez des fichiers ici' : 'Glissez un fichier ici'} ou{' '}
           <span className="text-primary">cliquez pour parcourir</span>
         </span>
-        {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
+        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       </button>
       <input
         ref={inputRef}

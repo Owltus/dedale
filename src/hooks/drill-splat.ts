@@ -29,9 +29,7 @@ export function joinSplat(
   segs: string[],
   leaf: string | undefined,
 ): string {
-  return [
-    ...prefixParts,
-    ...segs,
-    ...(leaf !== undefined ? [leaf] : []),
-  ].join('/')
+  return [...prefixParts, ...segs, ...(leaf !== undefined ? [leaf] : [])].join(
+    '/',
+  )
 }

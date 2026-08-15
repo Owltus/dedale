@@ -9,7 +9,7 @@ import { useSidebar } from '@/components/ui/sidebar'
 export function MobileHeader() {
   const { toggleSidebar } = useSidebar()
   return (
-    <header className="bg-sidebar z-30 flex h-14 shrink-0 items-center gap-2 border-b px-2 md:hidden">
+    <header className="z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-sidebar px-2 md:hidden">
       <Button
         variant="ghost"
         size="icon"

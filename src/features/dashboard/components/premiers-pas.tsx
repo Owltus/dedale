@@ -93,14 +93,14 @@ export function PremiersPas({ siteId }: PremiersPasProps) {
               <li key={etape.to}>
                 <Link
                   to={etape.to}
-                  className="hover:border-ring group flex items-start gap-3 rounded-lg border p-3 transition-colors"
+                  className="group flex items-start gap-3 rounded-lg border p-3 transition-colors hover:border-ring"
                 >
                   {etape.fait ? (
-                    <span className="border-success bg-success text-success-foreground mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-success bg-success text-success-foreground">
                       <Check className="size-3.5" />
                     </span>
                   ) : (
-                    <span className="border-border text-muted-foreground mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-xs font-medium">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border text-xs font-medium text-muted-foreground">
                       {numero}
                     </span>
                   )}
@@ -108,16 +108,16 @@ export function PremiersPas({ siteId }: PremiersPasProps) {
                     <span className="block text-sm font-medium">
                       {etape.label}
                     </span>
-                    <span className="text-muted-foreground block text-xs">
+                    <span className="block text-xs text-muted-foreground">
                       {etape.description}
                     </span>
                   </span>
                   {etape.fait ? (
-                    <span className="text-success mt-0.5 shrink-0 text-xs font-medium">
+                    <span className="mt-0.5 shrink-0 text-xs font-medium text-success">
                       Fait
                     </span>
                   ) : (
-                    <ArrowRight className="text-muted-foreground mt-0.5 size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                    <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                   )}
                 </Link>
               </li>

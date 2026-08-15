@@ -8,7 +8,10 @@ import { writeErrorMessage } from '@/lib/form'
 import type { Database } from '@/lib/database.types'
 import { estVerrouille } from './schemas'
 import { useUpdateOperationExecution } from './mutations'
-import { estMesureExecution, type OperationEdit } from './components/operation-row'
+import {
+  estMesureExecution,
+  type OperationEdit,
+} from './components/operation-row'
 
 type OtRow = Database['public']['Tables']['ordres_travail']['Row']
 type OperationExecution =

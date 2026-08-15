@@ -191,7 +191,11 @@ export function GammeFormDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={{ name: 'miniature_id', targetSiteId: siteId, canUpload: true }}
+          image={{
+            name: 'miniature_id',
+            targetSiteId: siteId,
+            canUpload: true,
+          }}
         />
 
         <RadioField
@@ -205,7 +209,10 @@ export function GammeFormDialog({
               label: 'Contrôle réglementaire',
               description: 'Attend des documents justificatifs.',
             },
-            { value: 'maintenance_preventive', label: 'Maintenance préventive' },
+            {
+              value: 'maintenance_preventive',
+              label: 'Maintenance préventive',
+            },
           ]}
         />
 
@@ -248,7 +255,7 @@ export function GammeFormDialog({
             }
           />
           {aucuneSousCategorie && (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               Aucune sous-catégorie de gamme dans ce périmètre. Pour en créer,
               passe par{' '}
               <span className="font-medium">

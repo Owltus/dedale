@@ -13,9 +13,9 @@ function Toaster(props: ComponentProps<typeof Sonner>) {
       // Icône lucide colorée par type, pour souligner la nature du message.
       icons={{
         success: <CircleCheck className="size-5 text-success" />,
-        error: <CircleX className="text-destructive size-5" />,
-        info: <Info className="text-info size-5" />,
-        warning: <TriangleAlert className="text-warning size-5" />,
+        error: <CircleX className="size-5 text-destructive" />,
+        info: <Info className="size-5 text-info" />,
+        warning: <TriangleAlert className="size-5 text-warning" />,
       }}
       // Surface neutre calée sur les tokens (popover/border) → suit le thème
       // clair/sombre ; seul le TITRE prend la couleur sémantique du type.

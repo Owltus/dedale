@@ -76,7 +76,7 @@ export function OperationItemsEditor({
           Caractéristiques du détail d'un modèle d'équipement). */}
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-medium">
-          <ListChecks className="text-muted-foreground size-4" />
+          <ListChecks className="size-4 text-muted-foreground" />
           Opérations
         </h3>
         {canManage && (

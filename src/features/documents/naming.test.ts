@@ -35,7 +35,10 @@ describe('suggestDocumentName', () => {
 
   it('omet les segments absents', () => {
     expect(
-      suggestDocumentName('Devis', { objet: 'Maintenance CTA', date: '2026-06-27' }),
+      suggestDocumentName('Devis', {
+        objet: 'Maintenance CTA',
+        date: '2026-06-27',
+      }),
     ).toBe('Devis - Maintenance CTA - 27/06/2026')
   })
 
@@ -58,7 +61,11 @@ describe('suggestDocumentName', () => {
 
   it('ignore les chaînes vides ou en blanc', () => {
     expect(
-      suggestDocumentName('  ', { prestataire: '', objet: 'CTA', date: '2026-06-27' }),
+      suggestDocumentName('  ', {
+        prestataire: '',
+        objet: 'CTA',
+        date: '2026-06-27',
+      }),
     ).toBe('CTA - 27/06/2026')
   })
 })

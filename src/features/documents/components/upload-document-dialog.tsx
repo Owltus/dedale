@@ -159,9 +159,7 @@ export function UploadDocumentDialog({
   }
 
   function changerType(key: string, typeId: string) {
-    setItems((prev) =>
-      prev.map((i) => (i.key === key ? { ...i, typeId } : i)),
-    )
+    setItems((prev) => prev.map((i) => (i.key === key ? { ...i, typeId } : i)))
   }
 
   function changerNom(key: string, nom: string) {
@@ -206,11 +204,15 @@ export function UploadDocumentDialog({
         }),
       ),
     )
-    const echecs = items.filter((_, idx) => resultats[idx]?.status === 'rejected')
+    const echecs = items.filter(
+      (_, idx) => resultats[idx]?.status === 'rejected',
+    )
     const reussis = items.length - echecs.length
     if (reussis > 0) {
       toast.success(
-        reussis > 1 ? `${String(reussis)} documents ajoutés` : 'Document ajouté',
+        reussis > 1
+          ? `${String(reussis)} documents ajoutés`
+          : 'Document ajouté',
       )
     }
     if (echecs.length === 0) {
@@ -229,7 +231,9 @@ export function UploadDocumentDialog({
       title={title}
       description={description}
       onSubmit={() => void handleSubmit()}
-      submitLabel={items.length > 1 ? `Ajouter (${String(items.length)})` : 'Ajouter'}
+      submitLabel={
+        items.length > 1 ? `Ajouter (${String(items.length)})` : 'Ajouter'
+      }
       pendingLabel="Envoi…"
       pending={pending}
       submitDisabled={items.length === 0}
@@ -251,7 +255,7 @@ export function UploadDocumentDialog({
           {items.map((item) => (
             <li
               key={item.key}
-              className="bg-card flex flex-col gap-3 rounded-lg border p-3"
+              className="flex flex-col gap-3 rounded-lg border bg-card p-3"
             >
               {/* Ligne 1 : nom (pleine largeur) + croix. Champ ÉDITABLE PARTOUT
                   (cœur réutilisable) : avec contexte → nom suggéré « [Type] - … » ;
@@ -268,7 +272,7 @@ export function UploadDocumentDialog({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="text-muted-foreground hover:text-foreground size-8 shrink-0"
+                  className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
                   aria-label={`Retirer ${item.file.name}`}
                   onClick={() => retirer(item.key)}
                 >
@@ -288,7 +292,7 @@ export function UploadDocumentDialog({
                   placeholder="Type…"
                   className="min-w-0 flex-1"
                 />
-                <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {formatTaille(item.file.size)}
                 </span>
               </div>
@@ -297,7 +301,7 @@ export function UploadDocumentDialog({
         </ul>
       )}
 
-      {error && <p className="text-destructive text-sm">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </FormDialog>
   )
 }

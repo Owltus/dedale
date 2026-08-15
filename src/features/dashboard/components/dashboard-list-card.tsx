@@ -78,7 +78,9 @@ export function DashboardListCard<T>({
             />
           }
         >
-          {(items) => <div className={listStack}>{children(items, nbLignes)}</div>}
+          {(items) => (
+            <div className={listStack}>{children(items, nbLignes)}</div>
+          )}
         </QueryState>
       </div>
       {after}

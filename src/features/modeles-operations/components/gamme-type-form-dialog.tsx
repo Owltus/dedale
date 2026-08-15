@@ -138,7 +138,9 @@ export function GammeTypeFormDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={
-          isEdit ? 'Modifier le modèle d’opération' : 'Nouveau modèle d’opération'
+          isEdit
+            ? 'Modifier le modèle d’opération'
+            : 'Nouveau modèle d’opération'
         }
         description="Un modèle d’opérations réutilisable pour composer des gammes."
         onSubmit={() => void form.handleSubmit(submit)()}

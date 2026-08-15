@@ -18,8 +18,7 @@ export const NIVEAU_URGENCE = {
   aVenir: 3,
   termine: 4,
 } as const
-export type NiveauUrgence =
-  (typeof NIVEAU_URGENCE)[keyof typeof NIVEAU_URGENCE]
+export type NiveauUrgence = (typeof NIVEAU_URGENCE)[keyof typeof NIVEAU_URGENCE]
 
 /**
  * Un OT planifié est-il EN RETARD ? → sa date prévue est antérieure au lundi de la

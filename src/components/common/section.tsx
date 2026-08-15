@@ -22,7 +22,7 @@ export function SectionHeader({
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h3 className="flex items-center gap-2 text-sm font-medium">
-        <Icon className="text-muted-foreground size-4" />
+        <Icon className="size-4 text-muted-foreground" />
         {title}
       </h3>
       {action}

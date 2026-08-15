@@ -149,7 +149,9 @@ export interface ContratParentPourAvenant {
  * démarre à la fin du parent (à défaut, à sa date de début) ; fin/signature/
  * résiliation/notification remises à blanc ; objet vidé (à saisir).
  */
-export function emptyAvenant(parent: ContratParentPourAvenant): AvenantFormValues {
+export function emptyAvenant(
+  parent: ContratParentPourAvenant,
+): AvenantFormValues {
   return {
     reference: parent.reference,
     type_contrat_id: String(parent.type_contrat_id),

@@ -101,7 +101,7 @@ export function ChartLegend({
       {items.map((item, i) => (
         <li
           key={`${item.tone}-${item.label}-${String(i)}`}
-          className="text-muted-foreground flex items-center gap-1.5 text-xs"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground"
         >
           <span
             aria-hidden

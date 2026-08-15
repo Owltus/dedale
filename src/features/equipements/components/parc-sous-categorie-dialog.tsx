@@ -204,8 +204,14 @@ export function ParcSousCategorieDialog({
           // Décision structurelle prise à la création : non modifiable ensuite.
           disabled={isEdit}
           options={[
-            { value: '', label: 'Spécifique (définir les caractéristiques ici)' },
-            ...modeles.map((m) => ({ value: m.id, label: `Modèle : ${m.nom}` })),
+            {
+              value: '',
+              label: 'Spécifique (définir les caractéristiques ici)',
+            },
+            ...modeles.map((m) => ({
+              value: m.id,
+              label: `Modèle : ${m.nom}`,
+            })),
           ]}
         />
 
@@ -228,7 +234,7 @@ export function ParcSousCategorieDialog({
             }
           />
         ) : (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             Les caractéristiques sont héritées du modèle
             {modeleNom ? ` « ${modeleNom} »` : ''} et se modifient dans la
             Bibliothèque.

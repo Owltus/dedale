@@ -83,7 +83,7 @@ function Avatar({
   return (
     <div
       className={cn(
-        'bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
+        'flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground',
         className,
       )}
     >
@@ -126,7 +126,7 @@ function AccountMenuContent({
         Mon profil
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuLabel className="text-muted-foreground text-xs">
+      <DropdownMenuLabel className="text-xs text-muted-foreground">
         Thème
       </DropdownMenuLabel>
       {THEMES.map(({ value, label, icon: Icon }) => (
@@ -168,19 +168,22 @@ export function UserMenu({
         <button
           type="button"
           className={cn(
-            'hover:bg-accent focus-visible:ring-ring/50 focus-visible:ring-offset-card flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+            'flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-card',
             className,
           )}
         >
           <Avatar initials={initials} className="size-9" />
           <div
-            className={cn('min-w-0 flex-1', responsiveText && 'hidden sm:block')}
+            className={cn(
+              'min-w-0 flex-1',
+              responsiveText && 'hidden sm:block',
+            )}
           >
             <p className="truncate text-sm font-medium" title={displayName}>
               {displayName}
             </p>
             {role && (
-              <p className="text-muted-foreground text-xs">{roleLabel(role)}</p>
+              <p className="text-xs text-muted-foreground">{roleLabel(role)}</p>
             )}
           </div>
         </button>
@@ -215,7 +218,7 @@ export function SidebarUserMenu({ onNavigate }: { onNavigate?: () => void }) {
                   {displayName}
                 </span>
                 {role && (
-                  <span className="text-muted-foreground truncate text-xs">
+                  <span className="truncate text-xs text-muted-foreground">
                     {roleLabel(role)}
                   </span>
                 )}

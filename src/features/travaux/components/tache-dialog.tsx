@@ -68,7 +68,10 @@ export function TacheDialog({
   // le fait le resolver sur les champs RHF standards.
   const { errors, isSubmitted, isSubmitting } = form.formState
   const localId = useWatch({ control: form.control, name: 'local_id' })
-  const equipementId = useWatch({ control: form.control, name: 'equipement_id' })
+  const equipementId = useWatch({
+    control: form.control,
+    name: 'equipement_id',
+  })
 
   return (
     <Form {...form}>
@@ -86,7 +89,10 @@ export function TacheDialog({
           siteId={siteId}
           localId={localId}
           equipementId={equipementId}
-          onChange={({ localId: nextLocalId, equipementId: nextEquipementId }) => {
+          onChange={({
+            localId: nextLocalId,
+            equipementId: nextEquipementId,
+          }) => {
             form.setValue('local_id', nextLocalId, {
               shouldValidate: isSubmitted,
             })

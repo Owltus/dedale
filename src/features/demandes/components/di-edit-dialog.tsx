@@ -82,7 +82,10 @@ export function DiEditDialog({
   // La cascade Localisation → Équipement est pilotée par un composant impératif
   // (value/onChange) : on lit l'état RHF via `useWatch` et on l'écrit via `setValue`.
   const localId = useWatch({ control: form.control, name: 'local_id' })
-  const equipementId = useWatch({ control: form.control, name: 'equipement_id' })
+  const equipementId = useWatch({
+    control: form.control,
+    name: 'equipement_id',
+  })
 
   // Pré-remplissage des liaisons une fois chargées (rôles métier seulement) : seed
   // UNIQUE gardé par `seeded` → ne réécrit jamais une saisie en cours. Le `key` du
@@ -95,7 +98,14 @@ export function DiEditDialog({
       form.setValue('local_id', locQ.data[0]?.local_id ?? '')
       form.setValue('equipement_id', eqQ.data[0]?.equipement_id ?? '')
     }
-  }, [canEditLiaisons, locQ.isSuccess, eqQ.isSuccess, locQ.data, eqQ.data, form])
+  }, [
+    canEditLiaisons,
+    locQ.isSuccess,
+    eqQ.isSuccess,
+    locQ.data,
+    eqQ.data,
+    form,
+  ])
 
   if (!demande) return null
 

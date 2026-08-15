@@ -86,8 +86,20 @@ describe('calculerRelevesParOt', () => {
 
   it('ignore un relevé précédent NON terminé', () => {
     const map = calculerRelevesParOt([
-      ligne({ ot: 'ot1', src: 'a', val: 100, date: '2026-01-01', statut: 'en_cours' }),
-      ligne({ ot: 'ot1', src: 'b', val: 200, date: '2026-01-01', statut: 'en_cours' }),
+      ligne({
+        ot: 'ot1',
+        src: 'a',
+        val: 100,
+        date: '2026-01-01',
+        statut: 'en_cours',
+      }),
+      ligne({
+        ot: 'ot1',
+        src: 'b',
+        val: 200,
+        date: '2026-01-01',
+        statut: 'en_cours',
+      }),
       ligne({ ot: 'ot2', src: 'a', val: 130, date: '2026-02-01' }),
       ligne({ ot: 'ot2', src: 'b', val: 250, date: '2026-02-01' }),
     ])

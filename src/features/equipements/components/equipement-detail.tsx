@@ -62,7 +62,9 @@ export function EquipementDetail({ equipement }: { equipement: Equipement }) {
             <dl className="flex flex-col gap-2">
               {specs.map((champ, i) => (
                 <div key={i} className="grid grid-cols-2 gap-2">
-                  <dt className="text-muted-foreground truncate">{champ.cle}</dt>
+                  <dt className="truncate text-muted-foreground">
+                    {champ.cle}
+                  </dt>
                   <dd className="font-medium break-words">
                     {formatChampValeur(champ, champ.valeur ?? null)}
                   </dd>
@@ -86,11 +88,11 @@ function PlaceholderCard({ title }: { title: string }) {
   return (
     <Card className="border-dashed">
       <CardHeader>
-        <CardTitle className="text-muted-foreground text-base">
+        <CardTitle className="text-base text-muted-foreground">
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="text-muted-foreground text-sm">
+      <CardContent className="text-sm text-muted-foreground">
         À venir.
       </CardContent>
     </Card>

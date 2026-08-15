@@ -19,7 +19,7 @@ export function FileDropOverlay({ show, className }: FileDropOverlayProps) {
   return (
     <div
       className={cn(
-        'bg-primary/5 border-primary/40 animate-in fade-in-0 pointer-events-none absolute inset-0 z-20 rounded-lg border border-dashed duration-100',
+        'pointer-events-none absolute inset-0 z-20 animate-in rounded-lg border border-dashed border-primary/40 bg-primary/5 duration-100 fade-in-0',
         className,
       )}
     />

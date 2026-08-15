@@ -171,9 +171,7 @@ describe('lundiDeLaSemaine', () => {
   })
 
   it("traverse le bord d'année (jeudi 01/01/2026 → lundi 29/12/2025)", () => {
-    expect(isoLocale(lundiDeLaSemaine(new Date(2026, 0, 1)))).toBe(
-      '2025-12-29',
-    )
+    expect(isoLocale(lundiDeLaSemaine(new Date(2026, 0, 1)))).toBe('2025-12-29')
   })
 })
 
@@ -188,9 +186,7 @@ describe('minuit / ajouterJours / ajouterSemaines', () => {
     expect(isoLocale(ajouterJours(new Date(2026, 11, 30), 3))).toBe(
       '2027-01-02',
     )
-    expect(isoLocale(ajouterJours(new Date(2026, 0, 1), -1))).toBe(
-      '2025-12-31',
-    )
+    expect(isoLocale(ajouterJours(new Date(2026, 0, 1), -1))).toBe('2025-12-31')
   })
 
   it('ajouterSemaines reste à minuit local malgré les changements d’heure', () => {

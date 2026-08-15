@@ -144,7 +144,7 @@ export function OtCard({
         ) : (
           <div className="flex items-center gap-4">
             {releve && (
-              <span className="text-muted-foreground text-sm whitespace-nowrap">
+              <span className="text-sm whitespace-nowrap text-muted-foreground">
                 {releve}
               </span>
             )}

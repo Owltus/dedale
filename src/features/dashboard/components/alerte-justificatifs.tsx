@@ -48,7 +48,10 @@ export function AlerteJustificatifs({ siteId }: AlerteJustificatifsProps) {
         onOpenChange={setOuvert}
         title="Contrôles réglementaires sans justificatif"
         description="Ces ordres de travail réglementaires sont clôturés mais aucun document de preuve n'y est rattaché. Ouvre chaque OT pour joindre le justificatif."
-        bodyClassName={cn(listStack, 'min-h-0 flex-1 overflow-y-auto px-6 py-1')}
+        bodyClassName={cn(
+          listStack,
+          'min-h-0 flex-1 overflow-y-auto px-6 py-1',
+        )}
       >
         {manquants.map((ot) => {
           const parts: string[] = []

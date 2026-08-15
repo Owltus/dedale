@@ -72,7 +72,11 @@ export function NiveauFormDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={{ name: 'miniature_id', targetSiteId: siteId, canUpload: true }}
+          image={{
+            name: 'miniature_id',
+            targetSiteId: siteId,
+            canUpload: true,
+          }}
         />
         <TextField
           control={form.control}

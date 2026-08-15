@@ -10,11 +10,10 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 
-interface TextFieldProps<T extends FieldValues>
-  extends Omit<
-    ComponentProps<'input'>,
-    'name' | 'value' | 'defaultValue' | 'onChange' | 'onBlur' | 'ref'
-  > {
+interface TextFieldProps<T extends FieldValues> extends Omit<
+  ComponentProps<'input'>,
+  'name' | 'value' | 'defaultValue' | 'onChange' | 'onBlur' | 'ref'
+> {
   control: Control<T, unknown, FieldValues>
   name: FieldPath<T>
   label: string

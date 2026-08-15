@@ -155,9 +155,9 @@ function DocumentsContent({
               const q = search.trim().toLowerCase()
               const shown = documents.filter((d) => {
                 const okType =
-                  typeFilter === '' ||
-                  String(d.type_document_id) === typeFilter
-                const okNom = q === '' || d.nom_original.toLowerCase().includes(q)
+                  typeFilter === '' || String(d.type_document_id) === typeFilter
+                const okNom =
+                  q === '' || d.nom_original.toLowerCase().includes(q)
                 return okType && okNom
               })
               if (shown.length === 0)

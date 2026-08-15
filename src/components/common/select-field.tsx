@@ -44,9 +44,9 @@ export function SelectField({
         {children}
       </Select>
       {error ? (
-        <p className="text-destructive text-sm">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       ) : hint ? (
-        <p className="text-muted-foreground text-sm">{hint}</p>
+        <p className="text-sm text-muted-foreground">{hint}</p>
       ) : null}
     </div>
   )

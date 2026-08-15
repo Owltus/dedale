@@ -187,9 +187,7 @@ function PrestatairesList({
                             },
                           })
                         }
-                        menuActions={
-                          rowActions.length ? rowActions : undefined
-                        }
+                        menuActions={rowActions.length ? rowActions : undefined}
                       />
                     )
                   })}

@@ -95,9 +95,19 @@ export function useTreeDrill<T extends TreeNode>(
 
   const goToLeaf = useCallback(
     (chain: T[], leaf: string, opts?: { replace?: boolean }) =>
-      navigateTo(buildCatSegs(chain), leaf, { replace: opts?.replace ?? false }),
+      navigateTo(buildCatSegs(chain), leaf, {
+        replace: opts?.replace ?? false,
+      }),
     [navigateTo, buildCatSegs],
   )
 
-  return { path, current, depth: path.length, children, goTo, leafSeg, goToLeaf }
+  return {
+    path,
+    current,
+    depth: path.length,
+    children,
+    goTo,
+    leafSeg,
+    goToLeaf,
+  }
 }

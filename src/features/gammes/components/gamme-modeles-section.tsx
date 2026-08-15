@@ -122,7 +122,7 @@ export function GammeModelesSection({
                   // un grand SVG de repli centré (carré muté) à la place de l'image.
                   className="h-12"
                   media={
-                    <span className="bg-muted text-muted-foreground flex size-full items-center justify-center">
+                    <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
                       <Layers className="size-8" />
                     </span>
                   }

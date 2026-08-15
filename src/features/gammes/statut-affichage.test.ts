@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  statutAffichageGamme,
-  statutAffichageAgrege,
-} from './statut-affichage'
+import { statutAffichageGamme, statutAffichageAgrege } from './statut-affichage'
 import type { OtTriable } from '../ordres-travail/tri'
 
 // « Aujourd'hui » FIXE (jeu. 15 jan. 2026) pour rendre les statuts temporels
@@ -30,8 +27,16 @@ describe('statutAffichageGamme', () => {
   })
 
   it('gamme active sans aucun OT → « Non assigné » (gris)', () => {
-    const r = statutAffichageGamme({ estActive: true, ots: [], aujourdHui: AUJ })
-    expect(r).toEqual({ label: 'Non assigné', tone: 'neutral', temporel: false })
+    const r = statutAffichageGamme({
+      estActive: true,
+      ots: [],
+      aujourdHui: AUJ,
+    })
+    expect(r).toEqual({
+      label: 'Non assigné',
+      tone: 'neutral',
+      temporel: false,
+    })
   })
 
   it('remonte l’OT le plus urgent : réouvert prime sur en retard', () => {
@@ -75,7 +80,11 @@ describe('statutAffichageGamme', () => {
       estActive: true,
       // 16 jan. 2026 = dans la semaine ISO courante.
       ots: [
-        ot({ statut: 'planifie', date_prevue: '2026-01-16', tolerance_jours: 30 }),
+        ot({
+          statut: 'planifie',
+          date_prevue: '2026-01-16',
+          tolerance_jours: 30,
+        }),
       ],
       aujourdHui: AUJ,
     })
@@ -98,7 +107,11 @@ describe('statutAffichageGamme', () => {
     const r = statutAffichageGamme({
       estActive: true,
       ots: [
-        ot({ statut: 'planifie', date_prevue: '2030-01-01', tolerance_jours: 7 }),
+        ot({
+          statut: 'planifie',
+          date_prevue: '2030-01-01',
+          tolerance_jours: 7,
+        }),
       ],
       aujourdHui: AUJ,
     })
@@ -113,9 +126,11 @@ describe('statutAffichageAgrege', () => {
   const inactive = (...ots: OtTriable[]) => ({ estActive: false, ots })
 
   it('aucune gamme → « Vide » (gris)', () => {
-    expect(
-      statutAffichageAgrege({ gammes: [], aujourdHui: AUJ }),
-    ).toEqual({ label: 'Vide', tone: 'neutral', temporel: false })
+    expect(statutAffichageAgrege({ gammes: [], aujourdHui: AUJ })).toEqual({
+      label: 'Vide',
+      tone: 'neutral',
+      temporel: false,
+    })
   })
 
   it('toutes les gammes désactivées → « Inactive » (gris)', () => {
@@ -174,7 +189,11 @@ describe('statutAffichageAgrege', () => {
     const r = statutAffichageAgrege({
       gammes: [
         active(
-          ot({ statut: 'planifie', date_prevue: '2026-01-16', tolerance_jours: 30 }),
+          ot({
+            statut: 'planifie',
+            date_prevue: '2026-01-16',
+            tolerance_jours: 30,
+          }),
         ),
       ],
       aujourdHui: AUJ,

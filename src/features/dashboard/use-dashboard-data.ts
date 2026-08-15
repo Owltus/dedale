@@ -26,7 +26,10 @@ import { calculerKpisOt, type OtKpis } from './stats'
  * - `gammes` → `gammes` (santé du sunburst).
  */
 export function useDashboardRealtime(): void {
-  useRealtimeRefresh('ordres_travail', [...OT_QUERY_KEYS, dashboardQueries.all()])
+  useRealtimeRefresh('ordres_travail', [
+    ...OT_QUERY_KEYS,
+    dashboardQueries.all(),
+  ])
   useRealtimeRefresh('demandes_intervention', demandesQueries.all())
   useRealtimeRefresh('documents', documentsQueries.all())
   useRealtimeRefresh('contrats', dashboardQueries.all())

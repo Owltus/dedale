@@ -15,10 +15,7 @@ import { cn } from '@/lib/utils'
 
 /** Normalise pour une recherche TOLÉRANTE aux accents et à la casse. */
 function normalize(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
 /**
@@ -177,7 +174,7 @@ export function LocalSearchSelect({
       </Label>
 
       <div className="relative">
-        <LeftIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+        <LeftIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           id={fieldId}
           value={query}
@@ -196,7 +193,7 @@ export function LocalSearchSelect({
             type="button"
             aria-label="Effacer le lieu"
             onClick={clear}
-            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 rounded p-1"
+            className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
           >
             <X className="size-4" />
           </button>
@@ -205,9 +202,9 @@ export function LocalSearchSelect({
         {/* Dropdown FLOTTANT : en surimpression (absolute), hauteur bornée + scroll
             interne → n'agrandit jamais la modale. */}
         {showList && (
-          <div className="bg-card absolute top-full right-0 left-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-md border p-1 shadow-md">
+          <div className="absolute top-full right-0 left-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-md border bg-card p-1 shadow-md">
             {suggestions.length === 0 ? (
-              <p className="text-muted-foreground px-2 py-1.5 text-sm">
+              <p className="px-2 py-1.5 text-sm text-muted-foreground">
                 Aucun résultat.
               </p>
             ) : (
@@ -229,7 +226,7 @@ export function LocalSearchSelect({
                   >
                     {/* Ordre Bâtiment › Niveau AU-DESSUS du local. */}
                     {ctx && (
-                      <span className="text-muted-foreground text-xs">
+                      <span className="text-xs text-muted-foreground">
                         {ctx}
                       </span>
                     )}
@@ -242,7 +239,7 @@ export function LocalSearchSelect({
         )}
       </div>
 
-      {error && <p className="text-destructive text-sm">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }

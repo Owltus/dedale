@@ -248,7 +248,7 @@ export function OperationRow({
   return (
     <div
       className={cn(
-        'bg-card flex flex-col gap-2 rounded-lg border border-l-4 p-3',
+        'flex flex-col gap-2 rounded-lg border border-l-4 bg-card p-3',
         TONE_BORDER[tone],
       )}
       // Bascule du statut (logique factorisée dans toggleStatut) hors champs
@@ -270,7 +270,7 @@ export function OperationRow({
         <div className="min-w-0 flex-1 select-none">
           <p className="truncate text-sm font-medium">{operation.nom}</p>
           {operation.description?.trim() && (
-            <p className="text-muted-foreground truncate text-xs">
+            <p className="truncate text-xs text-muted-foreground">
               {operation.description}
             </p>
           )}
@@ -299,7 +299,7 @@ export function OperationRow({
                     {valeurAffichee !== '—' && unite ? ` ${unite}` : ''}
                   </span>
                   {estCompteur(operation) && conso != null && (
-                    <span className="text-muted-foreground text-xs tabular-nums">
+                    <span className="text-xs text-muted-foreground tabular-nums">
                       {conso > 0 ? '+' : ''}
                       {conso.toLocaleString('fr-FR')}
                       {unite ? ` ${unite}` : ''}
@@ -309,7 +309,7 @@ export function OperationRow({
               )}
             </div>
             <div className="flex w-28 flex-col items-center justify-center gap-1 text-center leading-tight">
-              <span className="text-muted-foreground text-xs tabular-nums">
+              <span className="text-xs text-muted-foreground tabular-nums">
                 {formatDate(operation.date_execution)}
               </span>
               <StatusBadge tone={tone}>{statutLabel}</StatusBadge>

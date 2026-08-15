@@ -163,7 +163,7 @@ export function ChampFormDialog({
       )}
       {error !== undefined && (
         // Dialog en useState (pas RHF) : on annonce l'erreur globale aux lecteurs d'écran.
-        <p role="alert" aria-live="polite" className="text-destructive text-sm">
+        <p role="alert" aria-live="polite" className="text-sm text-destructive">
           {error}
         </p>
       )}

@@ -37,7 +37,10 @@ export function DernieresDemandes({ siteId }: DernieresDemandesProps) {
       {(demandes, nbLignes) => {
         // Frères pour le slug d'URL : MÊME ensemble qu'à la résolution dans la fiche
         // détail (symétrie `segOfUnique`), sur la liste complète.
-        const sibs = demandes.map((d) => ({ nom: diTitre(d.constat), id: d.id }))
+        const sibs = demandes.map((d) => ({
+          nom: diTitre(d.constat),
+          id: d.id,
+        }))
         const ouvertes = demandes.filter((d) => d.statut_di_id !== 3)
         const resolues = demandes.filter((d) => d.statut_di_id === 3)
         const ordonnees = [...ouvertes, ...resolues].slice(0, nbLignes)

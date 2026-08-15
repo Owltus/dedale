@@ -176,7 +176,13 @@ describe('statutPlanningOt — sans proximité calendaire', () => {
 // `enRetard` reposent sur le MÊME fait (estPlanifieEnRetard) → ils sont toujours
 // d'accord. Si l'un changeait sans l'autre, ce test casserait.
 describe('cohérence badge ↔ niveau d’urgence (planifié)', () => {
-  const dates = ['2020-01-01', '2026-01-11', '2026-01-12', '2026-01-16', '2030-01-01']
+  const dates = [
+    '2020-01-01',
+    '2026-01-11',
+    '2026-01-12',
+    '2026-01-16',
+    '2030-01-01',
+  ]
   for (const date_prevue of dates) {
     it(`« En retard » au badge ⟺ niveau enRetard (${date_prevue})`, () => {
       const badgeEnRetard =

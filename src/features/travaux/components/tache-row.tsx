@@ -60,14 +60,14 @@ export function TacheRow({
   }
 
   return (
-    <div className="bg-card flex items-center gap-3 rounded-md border px-3 py-2">
+    <div className="flex items-center gap-3 rounded-md border bg-card px-3 py-2">
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 truncate text-sm font-medium">
-          <MapPin className="text-muted-foreground size-3.5 shrink-0" />
+          <MapPin className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate">{localNom}</span>
         </p>
         {tache.equipements && (
-          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Wrench className="size-3 shrink-0" />
             <span className="truncate">{tache.equipements.nom}</span>
           </p>

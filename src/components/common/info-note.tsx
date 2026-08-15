@@ -13,8 +13,8 @@ export function InfoNote({
   children: ReactNode
 }) {
   return (
-    <div className="border-primary/20 bg-primary/5 flex items-start gap-2 rounded-md border p-3 text-sm">
-      {Icon && <Icon className="text-primary mt-0.5 size-4 shrink-0" />}
+    <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">
+      {Icon && <Icon className="mt-0.5 size-4 shrink-0 text-primary" />}
       <span>{children}</span>
     </div>
   )

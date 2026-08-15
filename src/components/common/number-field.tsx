@@ -53,12 +53,12 @@ export function NumberField({
           {...props}
         />
         {unite && (
-          <span className="text-muted-foreground shrink-0 text-sm">
+          <span className="shrink-0 text-sm text-muted-foreground">
             {unite}
           </span>
         )}
       </div>
-      {error && <p className="text-destructive text-sm">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }

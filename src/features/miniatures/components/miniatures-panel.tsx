@@ -184,7 +184,7 @@ export function MiniaturesPanel() {
     () =>
       selectedCount > 0 ? (
         <>
-          <span className="text-muted-foreground px-1 text-xs tabular-nums">
+          <span className="px-1 text-xs text-muted-foreground tabular-nums">
             {selectedCount}
           </span>
           <Button

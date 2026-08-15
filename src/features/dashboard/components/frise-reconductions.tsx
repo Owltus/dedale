@@ -458,7 +458,7 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
     <DashboardCard>
       <div ref={setRefs} className="relative">
         {modele.elements.length === 0 ? (
-          <p className="text-muted-foreground py-6 text-center text-sm">
+          <p className="py-6 text-center text-sm text-muted-foreground">
             Aucune reconduction de contrat sur la période.
           </p>
         ) : (
@@ -603,14 +603,14 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
 
             {survolElem && (
               <div
-                className="bg-popover text-popover-foreground pointer-events-none absolute z-10 flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs shadow-md"
+                className="pointer-events-none absolute z-10 flex items-center gap-2 rounded-md border bg-popover px-2 py-1.5 text-xs text-popover-foreground shadow-md"
                 style={{
                   left: `${String((survolElem.xc / viewW) * 100)}%`,
                   top: `${String((cyDe(survolElem.lane) / modele.hauteur) * 100)}%`,
                   transform: 'translate(-50%, calc(-100% - 8px))',
                 }}
               >
-                <div className="bg-muted size-9 shrink-0 overflow-hidden rounded">
+                <div className="size-9 shrink-0 overflow-hidden rounded bg-muted">
                   <MiniatureThumb
                     url={urlOf(
                       miniatureParPresta.get(survolElem.prestataireId) ?? null,
@@ -627,11 +627,11 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
                   </div>
                   {survolElem.type === 'barre' ? (
                     <>
-                      <div className="text-muted-foreground whitespace-nowrap">
+                      <div className="whitespace-nowrap text-muted-foreground">
                         Préavis {survolElem.delaiPreavis} j
                         {survolElem.ouverte ? ' · en cours' : ''}
                       </div>
-                      <div className="text-muted-foreground whitespace-nowrap">
+                      <div className="whitespace-nowrap text-muted-foreground">
                         {survolElem.echeanceEvenement} le{' '}
                         {formatDate(survolElem.echeance)} ·{' '}
                         {labelEcart(
@@ -641,11 +641,11 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
                     </>
                   ) : (
                     <>
-                      <div className="text-muted-foreground whitespace-nowrap">
+                      <div className="whitespace-nowrap text-muted-foreground">
                         {NATURE_DEF[survolElem.nature].label} ·{' '}
                         {survolElem.evenement}
                       </div>
-                      <div className="text-muted-foreground whitespace-nowrap">
+                      <div className="whitespace-nowrap text-muted-foreground">
                         {formatDate(survolElem.date)} ·{' '}
                         {labelEcart(joursEntre(todayLocal(), survolElem.date))}
                       </div>

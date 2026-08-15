@@ -129,7 +129,7 @@ export function MiniatureField({
       <div
         {...dropHandlers}
         className={cn(
-          'group bg-muted relative size-full overflow-hidden rounded-lg border transition-colors',
+          'group relative size-full overflow-hidden rounded-lg border bg-muted transition-colors',
           dragOver && 'border-primary bg-primary/5',
         )}
       >
@@ -195,7 +195,7 @@ export function MiniatureField({
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {boutons}
           {canUpload && (
-            <span className="text-muted-foreground text-xs">
+            <span className="text-xs text-muted-foreground">
               ou glisse une image ici
             </span>
           )}

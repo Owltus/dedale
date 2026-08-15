@@ -91,7 +91,10 @@ export function ImportModeleOperationDialog({
       loading={poolQuery.isPending}
       error={
         poolQuery.isError ? (
-          <ErrorState className="py-6" onRetry={() => void poolQuery.refetch()} />
+          <ErrorState
+            className="py-6"
+            onRetry={() => void poolQuery.refetch()}
+          />
         ) : undefined
       }
       empty="Aucun modèle d’opération disponible à lier."

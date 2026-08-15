@@ -41,7 +41,10 @@ function infosContrat(c: ContratRow): InfoCol[] {
       value: `${String(c.delai_preavis_jours)} j`,
     })
   }
-  if (c.type_contrat_id === TYPE_CONTRAT.tacite && c.fenetre_resiliation_jours) {
+  if (
+    c.type_contrat_id === TYPE_CONTRAT.tacite &&
+    c.fenetre_resiliation_jours
+  ) {
     infos.push({
       label: 'Fenêtre résil.',
       value: `${String(c.fenetre_resiliation_jours)} j`,
@@ -99,12 +102,7 @@ export function ContratCard({
   const typeLabel = c.types_contrats?.libelle ?? 'Contrat'
 
   return (
-    <Card
-      className={cn(
-        'gap-3 py-4',
-        isArchive && 'border-dashed opacity-60',
-      )}
-    >
+    <Card className={cn('gap-3 py-4', isArchive && 'border-dashed opacity-60')}>
       <CardContent className="space-y-3">
         {/* En-tête : titre + alerte à gauche, statut + actions à droite. */}
         <div className="flex items-start justify-between gap-3">
@@ -112,13 +110,15 @@ export function ContratCard({
             <h3 className="truncate font-semibold">
               {typeLabel} — {c.reference}
             </h3>
-            {alerte && <StatusBadge tone={alerte.tone}>{alerte.message}</StatusBadge>}
+            {alerte && (
+              <StatusBadge tone={alerte.tone}>{alerte.message}</StatusBadge>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <div className="flex flex-col items-end gap-0.5">
               <StatusBadge tone={statut.tone}>{statut.label}</StatusBadge>
               {statut.sousStatut && (
-                <span className="text-muted-foreground text-xs">
+                <span className="text-xs text-muted-foreground">
                   {statut.sousStatut}
                 </span>
               )}
@@ -170,13 +170,13 @@ export function ContratCard({
           </p>
         )}
         {c.commentaires && (
-          <p className="text-muted-foreground line-clamp-2 text-sm italic">
+          <p className="line-clamp-2 text-sm text-muted-foreground italic">
             {c.commentaires}
           </p>
         )}
 
         {/* Texte de contexte + barre de progression. */}
-        <p className="text-muted-foreground text-sm">{texteContrat(c)}</p>
+        <p className="text-sm text-muted-foreground">{texteContrat(c)}</p>
         {progression != null && !isArchive && (
           <ProgressBar
             value={progression}
@@ -191,7 +191,7 @@ export function ContratCard({
         <div className="flex flex-wrap gap-y-2 text-sm">
           {infos.map((i) => (
             <div key={i.label} className="min-w-20 flex-1 text-center">
-              <div className="text-muted-foreground text-xs">{i.label}</div>
+              <div className="text-xs text-muted-foreground">{i.label}</div>
               <div className={cn(i.attention && 'text-warning')}>{i.value}</div>
             </div>
           ))}

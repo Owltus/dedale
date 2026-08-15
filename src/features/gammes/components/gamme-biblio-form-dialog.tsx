@@ -128,7 +128,9 @@ export function GammeBiblioFormDialog({
       <FormDialog
         open={open}
         onOpenChange={onOpenChange}
-        title={isEdit ? 'Modifier la gamme-template' : 'Nouvelle gamme-template'}
+        title={
+          isEdit ? 'Modifier la gamme-template' : 'Nouvelle gamme-template'
+        }
         description="Un gabarit commun réutilisable, rangé dans l’arborescence des catégories."
         onSubmit={() => void form.handleSubmit(submit)()}
         submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
@@ -153,7 +155,10 @@ export function GammeBiblioFormDialog({
               label: 'Contrôle réglementaire',
               description: 'Attend des documents justificatifs.',
             },
-            { value: 'maintenance_preventive', label: 'Maintenance préventive' },
+            {
+              value: 'maintenance_preventive',
+              label: 'Maintenance préventive',
+            },
           ]}
         />
 

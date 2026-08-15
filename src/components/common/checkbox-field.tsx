@@ -24,13 +24,13 @@ export function CheckboxField({
           type="checkbox"
           checked={value}
           onChange={(e) => onChange(e.target.checked)}
-          className="accent-primary size-4 cursor-pointer"
+          className="size-4 cursor-pointer accent-primary"
         />
         <Label htmlFor={fieldId} className="cursor-pointer">
           {label}
         </Label>
       </div>
-      {error && <p className="text-destructive text-sm">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }

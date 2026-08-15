@@ -224,10 +224,7 @@ export function CataloguePanel<T extends CatalogueModele>({
   const { path, current, depth, children, goTo, leafSeg, goToLeaf } =
     useBiblioTreeDrill(drillKey, cats)
 
-  const modeles = useMemo(
-    () => modelesQuery.data ?? [],
-    [modelesQuery.data],
-  )
+  const modeles = useMemo(() => modelesQuery.data ?? [], [modelesQuery.data])
 
   // Sous-catégories du palier courant, filtrées par périmètre puis triées.
   const childCategories = useMemo(
@@ -643,7 +640,9 @@ export function CataloguePanel<T extends CatalogueModele>({
                         media={
                           <MiniatureThumb
                             url={urlOf(modele.miniature_id)}
-                            fallback={<ModeleFallbackIcon className="size-10" />}
+                            fallback={
+                              <ModeleFallbackIcon className="size-10" />
+                            }
                             alt=""
                             onError={refreshMiniatures}
                             className="size-full rounded-none"

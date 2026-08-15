@@ -240,8 +240,8 @@ export function MiniatureCropDialog({
       title="Recadrer la vignette"
       description={
         <>
-          Glisse pour déplacer, molette ou curseur pour zoomer. Le carré
-          visible devient une image de 150&nbsp;px.
+          Glisse pour déplacer, molette ou curseur pour zoomer. Le carré visible
+          devient une image de 150&nbsp;px.
         </>
       }
       size="sm"
@@ -267,14 +267,14 @@ export function MiniatureCropDialog({
       }
     >
       {note !== undefined && (
-        <div className="bg-muted/60 text-muted-foreground rounded-md border px-3 py-2 text-xs">
+        <div className="rounded-md border bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
           {note}
         </div>
       )}
 
       <div
         ref={containerRef}
-        className="bg-muted relative mx-auto aspect-square w-full max-w-80 cursor-grab touch-none overflow-hidden rounded-lg border"
+        className="relative mx-auto aspect-square w-full max-w-80 cursor-grab touch-none overflow-hidden rounded-lg border bg-muted"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -314,7 +314,7 @@ export function MiniatureCropDialog({
       </div>
 
       <div className="flex items-center gap-3 px-1">
-        <ZoomOut className="text-muted-foreground size-4 shrink-0" />
+        <ZoomOut className="size-4 shrink-0 text-muted-foreground" />
         <input
           type="range"
           min={1}
@@ -327,11 +327,11 @@ export function MiniatureCropDialog({
               geom !== null ? applyZoom(prev, val, geom) : prev,
             )
           }}
-          className="accent-primary w-full"
+          className="w-full accent-primary"
           aria-label="Zoom"
           disabled={!ready}
         />
-        <ZoomIn className="text-muted-foreground size-4 shrink-0" />
+        <ZoomIn className="size-4 shrink-0 text-muted-foreground" />
       </div>
     </DialogShell>
   )

@@ -52,7 +52,9 @@ export const modelesEquipementsQueries = {
           // modeles_equipements ↔ categories (categorie_id du modèle, et
           // categories.modele_equipement_id en sens inverse). On force la 1re via le
           // nom de contrainte FK, sinon PostgREST refuse l'embed (ambigu).
-          .select('*, categories!modeles_equipements_categorie_id_fkey(id, nom)')
+          .select(
+            '*, categories!modeles_equipements_categorie_id_fkey(id, nom)',
+          )
           .order('nom')
           .abortSignal(signal)
           .throwOnError()

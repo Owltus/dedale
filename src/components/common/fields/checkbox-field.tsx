@@ -42,9 +42,13 @@ export function CheckboxField<T extends FieldValues>({
                 disabled={disabled ?? field.disabled}
               />
             </FormControl>
-            <FormLabel className="cursor-pointer font-normal">{label}</FormLabel>
+            <FormLabel className="cursor-pointer font-normal">
+              {label}
+            </FormLabel>
           </div>
-          {description != null && <FormDescription>{description}</FormDescription>}
+          {description != null && (
+            <FormDescription>{description}</FormDescription>
+          )}
           <FormMessage />
         </FormItem>
       )}

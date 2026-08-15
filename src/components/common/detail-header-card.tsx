@@ -26,7 +26,7 @@ const FIELD_TONE: Record<StatusTone, string> = {
 function Champ({ label, value, tone }: DetailHeaderField) {
   return (
     <div className="flex min-w-0 flex-col leading-tight">
-      <span className="text-muted-foreground text-[10px]">{label}</span>
+      <span className="text-[10px] text-muted-foreground">{label}</span>
       <span
         className={cn(
           'truncate text-sm font-medium tabular-nums',
@@ -76,14 +76,14 @@ export function DetailHeaderCard({
   return (
     <div
       className={cn(
-        'bg-card flex h-20 items-stretch overflow-hidden rounded-lg border',
+        'flex h-20 items-stretch overflow-hidden rounded-lg border bg-card',
         className,
       )}
     >
       {thumbnail !== undefined ? (
         <div className="aspect-square h-full shrink-0">{thumbnail}</div>
       ) : FallbackIcon ? (
-        <div className="bg-muted text-muted-foreground flex aspect-square h-full shrink-0 items-center justify-center">
+        <div className="flex aspect-square h-full shrink-0 items-center justify-center bg-muted text-muted-foreground">
           <FallbackIcon className="size-8" />
         </div>
       ) : null}

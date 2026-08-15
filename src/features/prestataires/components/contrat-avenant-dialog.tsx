@@ -41,7 +41,12 @@ export function ContratAvenantDialog({
   })
   const submit = useSubmitDialog<ContratFormValues>({
     onSubmit: (data) =>
-      create.mutateAsync({ siteId, prestataireId, parentId: parent.id, values: data }),
+      create.mutateAsync({
+        siteId,
+        prestataireId,
+        parentId: parent.id,
+        values: data,
+      }),
     successMessage: 'Avenant créé',
     close: () => onOpenChange(false),
   })

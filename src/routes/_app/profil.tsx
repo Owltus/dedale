@@ -79,7 +79,7 @@ function ProfilPage() {
               </CardHeader>
               <CardContent className="flex flex-col gap-5">
                 <EmailBlock currentEmail={email} />
-                <div className="bg-border h-px" />
+                <div className="h-px bg-border" />
                 <ProfilForm
                   key={userId}
                   userId={userId}
@@ -206,16 +206,16 @@ function ProfilForm({
           label="Nom complet"
           required
         />
-        <TextField
-          control={form.control}
-          name="telephone"
-          label="Téléphone"
-        />
+        <TextField control={form.control} name="telephone" label="Téléphone" />
         <div className="grid gap-2">
           <Label>Rôle</Label>
           <p className="text-sm">{roleLabel(role)}</p>
         </div>
-        <Button type="submit" disabled={update.isPending} className="self-start">
+        <Button
+          type="submit"
+          disabled={update.isPending}
+          className="self-start"
+        >
           {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
       </form>
@@ -236,7 +236,7 @@ function SitesCard() {
         {isPending ? (
           <Skeleton className="h-10 w-full" />
         ) : sites.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             Aucun site ne t’est attribué pour le moment. Contacte un
             administrateur pour obtenir l’accès à un ou plusieurs sites.
           </p>
@@ -244,7 +244,7 @@ function SitesCard() {
           <ul className="flex flex-col gap-2">
             {sites.map((site) => (
               <li key={site.id} className="flex items-center gap-2 text-sm">
-                <Building2 className="text-muted-foreground size-4 shrink-0" />
+                <Building2 className="size-4 shrink-0 text-muted-foreground" />
                 <span className="font-medium">{site.nom}</span>
               </li>
             ))}
@@ -283,7 +283,7 @@ function SecurityCard({ email }: { email: string }) {
             Ouvre-le pour définir un nouveau mot de passe.
           </InfoNote>
         ) : (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             Reçois un lien par e-mail pour définir un nouveau mot de passe en
             toute sécurité.
           </p>

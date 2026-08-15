@@ -2,10 +2,7 @@ import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import {
-  useCreateEquipementParc,
-  useUpdateEquipementParc,
-} from '../mutations'
+import { useCreateEquipementParc, useUpdateEquipementParc } from '../mutations'
 import { EmplacementSelect } from './emplacement-select'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
@@ -200,7 +197,7 @@ export function EquipementParcDialog({
               />
             ))}
             {champsError && (
-              <p className="text-destructive text-sm">{champsError}</p>
+              <p className="text-sm text-destructive">{champsError}</p>
             )}
           </div>
         )}

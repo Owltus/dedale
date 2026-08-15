@@ -58,7 +58,7 @@ export function DashboardCard({
         <CardHeader className={dense ? 'px-3' : undefined}>
           {title ? (
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              {Icon ? <Icon className="text-muted-foreground size-4" /> : null}
+              {Icon ? <Icon className="size-4 text-muted-foreground" /> : null}
               {title}
             </CardTitle>
           ) : null}

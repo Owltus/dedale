@@ -9,10 +9,10 @@ import { UserMenu } from '@/components/common/user-menu'
  */
 export function TopBar() {
   return (
-    <header className="bg-card z-30 flex h-16 shrink-0 items-center gap-3 border-b px-4">
+    <header className="z-30 flex h-16 shrink-0 items-center gap-3 border-b bg-card px-4">
       <Link
         to="/demandes"
-        className="focus-visible:ring-ring/50 focus-visible:ring-offset-card flex shrink-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        className="flex shrink-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
       >
         <img
           src="/logo.svg"
@@ -21,7 +21,7 @@ export function TopBar() {
         />
         <div className="min-w-0 leading-tight">
           <p className="text-xl font-bold tracking-wide uppercase">Dédale</p>
-          <p className="text-muted-foreground hidden text-xs sm:block">
+          <p className="hidden text-xs text-muted-foreground sm:block">
             Gestion de Maintenance
           </p>
         </div>

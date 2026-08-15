@@ -133,7 +133,7 @@ export function ModeleEquipementDetail({
       {/* Section Caractéristiques : cartes + ajout via modal (un champ à la fois). */}
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-medium">
-          <SlidersHorizontal className="text-muted-foreground size-4" />
+          <SlidersHorizontal className="size-4 text-muted-foreground" />
           Caractéristiques
         </h3>
         {canEdit && (

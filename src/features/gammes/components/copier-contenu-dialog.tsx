@@ -192,7 +192,7 @@ export function CopierContenuDialog({
       <div className="max-h-72 space-y-3 overflow-y-auto rounded-md border p-3">
         {isRoot ? (
           sousCats.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               Cette catégorie n’a aucune sous-catégorie.
             </p>
           ) : (
@@ -223,7 +223,7 @@ export function CopierContenuDialog({
                       {gs.map((g) => (
                         <label
                           key={g.id}
-                          className="text-muted-foreground flex min-w-0 items-center gap-2 text-sm"
+                          className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground"
                         >
                           <Checkbox
                             className="shrink-0"
@@ -240,7 +240,7 @@ export function CopierContenuDialog({
             })
           )
         ) : (gammesDe.get(source?.id ?? '') ?? []).length === 0 ? (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             Cette sous-catégorie n’a aucune gamme.
           </p>
         ) : (

@@ -19,7 +19,7 @@ export function ContratVersionsHistorique({
   if (chaine.length <= 1) return null
   return (
     <div className="space-y-1">
-      <p className="text-muted-foreground text-xs font-medium">
+      <p className="text-xs font-medium text-muted-foreground">
         Historique des versions
       </p>
       <ol className="space-y-1">

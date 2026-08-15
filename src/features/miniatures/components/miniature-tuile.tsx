@@ -55,28 +55,26 @@ export function MiniatureTuile({
         }
       }}
       className={cn(
-        'group focus-visible:ring-ring relative min-w-0 cursor-pointer overflow-hidden rounded-lg border transition focus-visible:ring-2 focus-visible:outline-none',
-        selected
-          ? 'ring-primary ring-2'
-          : 'hover:ring-ring/40 hover:ring-2',
+        'group relative min-w-0 cursor-pointer overflow-hidden rounded-lg border transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+        selected ? 'ring-2 ring-primary' : 'hover:ring-2 hover:ring-ring/40',
       )}
     >
       {miniature.url !== null ? (
         <img
           src={miniature.url}
           alt="Vignette"
-          className="bg-muted aspect-square w-full object-cover"
+          className="aspect-square w-full bg-muted object-cover"
           loading="lazy"
         />
       ) : (
-        <div className="bg-muted text-muted-foreground flex aspect-square w-full items-center justify-center">
+        <div className="flex aspect-square w-full items-center justify-center bg-muted text-muted-foreground">
           <ImageOff className="size-6" />
         </div>
       )}
 
       {/* Indicateur de sélection discret. */}
       {selected && (
-        <div className="bg-primary text-primary-foreground absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full shadow">
+        <div className="absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
           <Check className="size-3.5" />
         </div>
       )}

@@ -19,7 +19,10 @@ export interface DocumentNamingContext {
  * (`.pdf`, `.jpeg`…) ; sinon `ext = ''` et `base` = le nom entier. À réutiliser
  * pour ré-accoler l'extension réelle au nom édité au moment de l'envoi.
  */
-export function splitExtension(filename: string): { base: string; ext: string } {
+export function splitExtension(filename: string): {
+  base: string
+  ext: string
+} {
   const m = /\.[a-zA-Z0-9]{1,5}$/.exec(filename)
   if (!m) return { base: filename, ext: '' }
   return { base: filename.slice(0, m.index), ext: filename.slice(m.index) }

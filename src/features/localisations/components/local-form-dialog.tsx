@@ -83,7 +83,11 @@ export function LocalFormDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={{ name: 'miniature_id', targetSiteId: siteId, canUpload: true }}
+          image={{
+            name: 'miniature_id',
+            targetSiteId: siteId,
+            canUpload: true,
+          }}
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField

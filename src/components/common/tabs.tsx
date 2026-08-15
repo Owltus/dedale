@@ -236,7 +236,7 @@ export function Tabs({
                 tabIndex={selected ? 0 : -1}
                 onClick={() => selectTab(tab.id)}
                 className={cn(
-                  'focus-visible:ring-ring flex shrink-0 cursor-pointer items-center justify-center rounded-md px-3 py-1.5 text-center text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none sm:flex-1',
+                  'flex shrink-0 cursor-pointer items-center justify-center rounded-md px-3 py-1.5 text-center text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:flex-1',
                   selected
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'bg-muted text-muted-foreground hover:text-foreground',

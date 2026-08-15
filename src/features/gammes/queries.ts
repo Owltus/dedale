@@ -247,5 +247,9 @@ export const referentielsQueries = {
 
   /** Unités de mesure (référentiel global). */
   unites: () =>
-    referentielQueryOptions('unites', 'id, nom, symbole, necessite_seuils', 'nom'),
+    referentielQueryOptions(
+      'unites',
+      'id, nom, symbole, necessite_seuils',
+      'nom',
+    ),
 }

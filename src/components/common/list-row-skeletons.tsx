@@ -29,7 +29,7 @@ export function ListRowSkeletons({
         <div
           key={i}
           className={cn(
-            'bg-card flex items-stretch overflow-hidden rounded-lg border',
+            'flex items-stretch overflow-hidden rounded-lg border bg-card',
             dense ? 'h-12' : 'h-20',
           )}
         >

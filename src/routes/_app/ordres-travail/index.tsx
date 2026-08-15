@@ -25,10 +25,7 @@ import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
-import {
-  FILTRE_TOUS,
-  ListFilterBar,
-} from '@/components/common/list-filter-bar'
+import { FILTRE_TOUS, ListFilterBar } from '@/components/common/list-filter-bar'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'

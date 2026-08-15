@@ -37,7 +37,9 @@ export function useSlugResolved<T extends { id: string }>(
   // garde ouverte ; sinon (supprimée / deep-link invalide) → null.
   const resolved =
     bySlug ??
-    (lastId !== null ? (items.find((item) => item.id === lastId) ?? null) : null)
+    (lastId !== null
+      ? (items.find((item) => item.id === lastId) ?? null)
+      : null)
 
   useEffect(() => {
     // Slug périmé mais entité retrouvée par id → réécrit l'URL sur le slug frais.

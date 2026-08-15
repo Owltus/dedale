@@ -44,7 +44,11 @@ const SESSION_EXPIREE = 'Session expirée, reconnecte-toi.'
  *   - « Constat » : champ libre obligatoire.
  * La date de constat est figée à aujourd'hui (non saisie, todayLocal côté schéma).
  */
-export function DiFormDialog({ open, onOpenChange, siteId }: DiFormDialogProps) {
+export function DiFormDialog({
+  open,
+  onOpenChange,
+  siteId,
+}: DiFormDialogProps) {
   const { session } = useAuth()
   const create = useCreateDemande()
   const { data: modeles = [] } = useQuery(modelesDiQueries.list(siteId))
@@ -76,7 +80,10 @@ export function DiFormDialog({ open, onOpenChange, siteId }: DiFormDialogProps) 
   // La cascade Localisation → Équipement est pilotée par un composant impératif
   // (value/onChange) : on lit l'état RHF via `useWatch` et on l'écrit via `setValue`.
   const localId = useWatch({ control: form.control, name: 'local_id' })
-  const equipementId = useWatch({ control: form.control, name: 'equipement_id' })
+  const equipementId = useWatch({
+    control: form.control,
+    name: 'equipement_id',
+  })
 
   // Sélection d'un « problème courant » (modèle) : pré-remplit le constat.
   function applyModele(id: string) {

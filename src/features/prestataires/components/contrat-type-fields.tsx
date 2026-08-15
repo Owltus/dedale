@@ -30,7 +30,12 @@ export function ContratTypeFields({
 
   return (
     <>
-      <TextField control={control} name="reference" label="Référence" required />
+      <TextField
+        control={control}
+        name="reference"
+        label="Référence"
+        required
+      />
       <SelectField
         control={control}
         name="type_contrat_id"
@@ -57,7 +62,7 @@ export function ContratTypeFields({
       {/* ── Reconduction (tacite uniquement) ─────────────────────────────── */}
       {estTacite && (
         <>
-          <p className="text-muted-foreground pt-2 text-sm font-medium">
+          <p className="pt-2 text-sm font-medium text-muted-foreground">
             Reconduction
           </p>
           <NumberField
@@ -73,7 +78,7 @@ export function ContratTypeFields({
       )}
 
       {/* ── Résiliation / préavis ────────────────────────────────────────── */}
-      <p className="text-muted-foreground pt-2 text-sm font-medium">
+      <p className="pt-2 text-sm font-medium text-muted-foreground">
         Résiliation
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

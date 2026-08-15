@@ -54,8 +54,8 @@ export function SelectDropdown({
       <SelectPrimitive.Trigger
         aria-label={ariaLabel}
         className={cn(
-          'border-input bg-background data-[placeholder]:text-muted-foreground flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none',
-          'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+          'flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none data-[placeholder]:text-muted-foreground',
+          'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
           'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}
@@ -67,7 +67,7 @@ export function SelectDropdown({
           className={cn(centered && 'flex-1 truncate text-center')}
         />
         <SelectPrimitive.Icon asChild>
-          <ChevronDown className="text-muted-foreground size-4 shrink-0" />
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
 
@@ -77,10 +77,10 @@ export function SelectDropdown({
           sideOffset={4}
           className={cn(
             // Largeur du panneau = largeur EXACTE du déclencheur (pas plus large).
-            'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 z-50 max-h-[18rem] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border shadow-md',
+            'z-50 max-h-[18rem] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           )}
         >
-          <SelectPrimitive.ScrollUpButton className="text-muted-foreground flex cursor-default items-center justify-center py-1">
+          <SelectPrimitive.ScrollUpButton className="flex cursor-default items-center justify-center py-1 text-muted-foreground">
             <ChevronUp className="size-4" />
           </SelectPrimitive.ScrollUpButton>
           <SelectPrimitive.Viewport className="p-1">
@@ -89,10 +89,10 @@ export function SelectDropdown({
                 key={o.value}
                 value={o.value}
                 className={cn(
-                  'focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground relative flex w-full cursor-default items-center rounded-sm py-1.5 pr-2 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+                  'relative flex w-full cursor-default items-center rounded-sm py-1.5 pr-2 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground',
                   checkIndicator
                     ? 'pl-8'
-                    : 'pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:font-medium',
+                    : 'pl-2 data-[state=checked]:bg-accent data-[state=checked]:font-medium data-[state=checked]:text-accent-foreground',
                   centered && 'justify-center',
                 )}
               >
@@ -107,7 +107,7 @@ export function SelectDropdown({
               </SelectPrimitive.Item>
             ))}
           </SelectPrimitive.Viewport>
-          <SelectPrimitive.ScrollDownButton className="text-muted-foreground flex cursor-default items-center justify-center py-1">
+          <SelectPrimitive.ScrollDownButton className="flex cursor-default items-center justify-center py-1 text-muted-foreground">
             <ChevronDown className="size-4" />
           </SelectPrimitive.ScrollDownButton>
         </SelectPrimitive.Content>

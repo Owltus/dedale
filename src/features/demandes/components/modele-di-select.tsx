@@ -59,7 +59,8 @@ export function ModeleDiSelect({
 
   // Index 0 = « Aucun », puis chaque modèle (décalé de 1).
   const count = modeles.length + 1
-  const selectedIndex = value === '' ? 0 : modeles.findIndex((m) => m.id === value) + 1
+  const selectedIndex =
+    value === '' ? 0 : modeles.findIndex((m) => m.id === value) + 1
 
   // Clic hors du composant → on referme.
   useEffect(() => {
@@ -113,8 +114,8 @@ export function ModeleDiSelect({
           onClick={() => (open ? setOpen(false) : openMenu())}
           onKeyDown={onKeyDown}
           className={cn(
-            'border-input flex min-h-12 w-full items-center gap-2 rounded-md border bg-transparent px-2 py-1.5 text-left text-sm shadow-xs transition-[color,box-shadow] outline-none',
-            'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+            'flex min-h-12 w-full items-center gap-2 rounded-md border border-input bg-transparent px-2 py-1.5 text-left text-sm shadow-xs transition-[color,box-shadow] outline-none',
+            'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
           )}
         >
           {selected ? (
@@ -130,17 +131,17 @@ export function ModeleDiSelect({
               </span>
             </>
           ) : (
-            <span className="text-muted-foreground flex-1">
+            <span className="flex-1 text-muted-foreground">
               Aucun problème courant
             </span>
           )}
-          <ChevronsUpDown className="text-muted-foreground size-4 shrink-0" />
+          <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
         </button>
 
         {open && (
           <ul
             role="listbox"
-            className="bg-card absolute top-full right-0 left-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-md border p-1 shadow-md"
+            className="absolute top-full right-0 left-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-md border bg-card p-1 shadow-md"
           >
             {/* Ligne « Aucun » (index 0) : déselectionne le modèle. */}
             <li role="option" aria-selected={value === ''}>
@@ -153,7 +154,7 @@ export function ModeleDiSelect({
                   active === 0 && 'bg-accent text-accent-foreground',
                 )}
               >
-                <span className="text-muted-foreground flex-1">Aucun</span>
+                <span className="flex-1 text-muted-foreground">Aucun</span>
                 {value === '' && <Check className="size-4 shrink-0" />}
               </button>
             </li>
@@ -183,7 +184,7 @@ export function ModeleDiSelect({
                         {m.libelle}
                       </span>
                       {m.constat_modele && (
-                        <span className="text-muted-foreground truncate text-xs">
+                        <span className="truncate text-xs text-muted-foreground">
                           {m.constat_modele}
                         </span>
                       )}

@@ -24,7 +24,8 @@ const CATEGORIE_ERREURS = {
   // unique_violation : index `uq_categories_nom` (nom déjà pris à cet emplacement).
   '23505': 'Une catégorie portant ce nom existe déjà à cet emplacement.',
   // insufficient_privilege : RLS (hors scope d'écriture).
-  '42501': 'Action non autorisée : vous n’avez pas les droits sur ce périmètre.',
+  '42501':
+    'Action non autorisée : vous n’avez pas les droits sur ce périmètre.',
   // integrity_constraint_violation (trigger) : miniature hors scope (pool
   // entreprise ou même site que la catégorie requis).
   '23514': 'Cette image n’est pas disponible pour ce périmètre.',

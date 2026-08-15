@@ -21,7 +21,7 @@ export function AdminSitesNotice() {
         <CardTitle>Accès aux sites</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <ShieldCheck className="size-4 shrink-0" />
           <span>
             Administrateur : accès à <strong>tous les sites</strong>. Aucune
@@ -96,7 +96,7 @@ export function SitesCard({
         ) : (
           <>
             {editable.length === 0 && horsPerimetre.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-sm text-muted-foreground">
                 Aucun site attribué.
               </p>
             ) : (
@@ -111,7 +111,7 @@ export function SitesCard({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="text-destructive hover:text-destructive size-7"
+                        className="size-7 text-destructive hover:text-destructive"
                         aria-label={`Retirer ${a.sites.nom}`}
                         disabled={busy === a.site_id}
                         onClick={() => handleRemove(a.site_id)}
@@ -124,7 +124,7 @@ export function SitesCard({
                 {horsPerimetre.map((a) => (
                   <li
                     key={a.site_id}
-                    className="text-muted-foreground flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm"
+                    className="flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground"
                   >
                     <Lock className="size-3.5 shrink-0" />
                     <span className="truncate">{a.sites.nom}</span>
@@ -140,7 +140,7 @@ export function SitesCard({
               <div className="grid gap-2">
                 <Label htmlFor="add-site">Ajouter un site</Label>
                 <div className="relative">
-                  <Plus className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+                  <Plus className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Select
                     id="add-site"
                     value=""

@@ -153,7 +153,10 @@ export function GammeDetail({
                 label: 'Prestataire',
                 value: gamme.prestataires?.libelle ?? null,
               },
-              { label: 'État', value: gamme.est_active ? 'Active' : 'Inactive' },
+              {
+                label: 'État',
+                value: gamme.est_active ? 'Active' : 'Inactive',
+              },
             ]}
           />
         }

@@ -50,7 +50,7 @@ function LoginPage() {
     // Hors app-shell : le document ne défile pas (html/body overflow-hidden), donc
     // cette page porte SON scroller (plein écran) + un contenu centré qui peut
     // grandir et défiler sur écran court, sans rognage.
-    <div className="bg-muted/40 h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto bg-muted/40">
       <div className="flex min-h-full items-center justify-center px-4 py-8">
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
@@ -62,7 +62,7 @@ function LoginPage() {
             <CardTitle className="text-xl font-bold tracking-wide uppercase">
               Dédale
             </CardTitle>
-            <CardDescription className="text-muted-foreground text-xs">
+            <CardDescription className="text-xs text-muted-foreground">
               Gestion de Maintenance
             </CardDescription>
           </CardHeader>
@@ -98,7 +98,7 @@ function LoginPage() {
                 />
               </div>
 
-              {error && <p className="text-destructive text-sm">{error}</p>}
+              {error && <p className="text-sm text-destructive">{error}</p>}
 
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? 'Connexion…' : 'Se connecter'}

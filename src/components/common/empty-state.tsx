@@ -25,10 +25,10 @@ export function EmptyState({
         className,
       )}
     >
-      {Icon && <Icon className="text-muted-foreground size-10" />}
+      {Icon && <Icon className="size-10 text-muted-foreground" />}
       <h3 className="font-medium">{title}</h3>
       {description && (
-        <p className="text-muted-foreground max-w-sm text-sm">{description}</p>
+        <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       )}
       {action}
     </div>

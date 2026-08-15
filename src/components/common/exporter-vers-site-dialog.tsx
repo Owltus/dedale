@@ -116,7 +116,7 @@ export function ExporterVersSiteDialog({
       }
     >
       {sites.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           Aucun site accessible : la copie n’est pas possible.
         </p>
       ) : (
@@ -133,7 +133,7 @@ export function ExporterVersSiteDialog({
               </option>
             ))}
           </SelectField>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             La copie est <strong>indépendante</strong> : tu pourras la modifier
             {siteName ? ` sur « ${siteName} »` : ' sur le site'} sans toucher à
             l’original commun.

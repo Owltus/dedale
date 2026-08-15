@@ -211,7 +211,7 @@ export function TravauxDetail({
       {travaux.compte_rendu?.trim() && (
         <Card className="mb-6">
           <CardContent className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground text-xs">Compte-rendu</span>
+            <span className="text-xs text-muted-foreground">Compte-rendu</span>
             <p className="whitespace-pre-wrap">{travaux.compte_rendu}</p>
           </CardContent>
         </Card>
@@ -246,10 +246,7 @@ export function TravauxDetail({
                 title="Aucune zone concernée"
                 action={
                   !tachesReadOnly ? (
-                    <Button
-                      size="sm"
-                      onClick={() => tacheDialog.openCreate()}
-                    >
+                    <Button size="sm" onClick={() => tacheDialog.openCreate()}>
                       <ListPlus /> Ajouter une zone
                     </Button>
                   ) : undefined

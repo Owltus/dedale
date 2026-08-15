@@ -33,17 +33,17 @@ function InnerApp() {
   // pour éviter une redirection vers /login au rechargement d'une page protégée.
   if (auth.isLoading) {
     return (
-      <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-6">
+      <div className="flex h-full flex-col items-center justify-center gap-6 text-muted-foreground">
         <img
           src="/logo.svg"
           alt="Logo Dédale"
           className="size-32 shrink-0 animate-pulse dark:invert"
         />
         <div className="text-center leading-tight">
-          <p className="text-foreground text-xl font-bold tracking-wide uppercase">
+          <p className="text-xl font-bold tracking-wide text-foreground uppercase">
             Dédale
           </p>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             Gestion de Maintenance
           </p>
         </div>

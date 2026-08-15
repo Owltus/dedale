@@ -66,7 +66,11 @@ export const ordresTravailQueries = {
    */
   relevesListe: (siteId: string | null) =>
     queryOptions({
-      queryKey: [...ordresTravailQueries.all(), 'releves-liste', siteId] as const,
+      queryKey: [
+        ...ordresTravailQueries.all(),
+        'releves-liste',
+        siteId,
+      ] as const,
       enabled: siteId !== null,
       queryFn: async ({ signal }) => {
         const { data } = await supabase

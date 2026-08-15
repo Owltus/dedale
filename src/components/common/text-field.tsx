@@ -36,7 +36,7 @@ export function TextField({
         aria-invalid={error ? true : undefined}
         {...props}
       />
-      {error && <p className="text-destructive text-sm">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }

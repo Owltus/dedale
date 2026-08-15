@@ -13,12 +13,7 @@ import { writeErrorMessage } from '@/lib/form'
 import { estCommunOuDuSite } from '@/lib/scope'
 import { isBitmapImage } from '@/lib/image'
 import { DialogShell } from '@/components/common/dialog-shell'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 
 type Onglet = 'bibliotheque' | 'uploader'
@@ -85,8 +80,7 @@ export function MiniaturePicker({
   // site) : une vignette de site ne peut pas être liée à une entité d'un autre
   // périmètre (trigger). Pour le commun, seules les vignettes communes restent.
   const compatibles = useMemo(
-    () =>
-      (pool ?? []).filter((m) => estCommunOuDuSite(m, targetSiteId)),
+    () => (pool ?? []).filter((m) => estCommunOuDuSite(m, targetSiteId)),
     [pool, targetSiteId],
   )
 
@@ -128,21 +122,21 @@ export function MiniaturePicker({
   function renderBibliotheque(): ReactNode {
     if (isPending) {
       return (
-        <p className="text-muted-foreground py-10 text-center text-sm">
+        <p className="py-10 text-center text-sm text-muted-foreground">
           Chargement des vignettes…
         </p>
       )
     }
     if (isError) {
       return (
-        <p className="text-muted-foreground py-10 text-center text-sm">
+        <p className="py-10 text-center text-sm text-muted-foreground">
           Impossible de charger les vignettes. Réessaie plus tard.
         </p>
       )
     }
     if (compatibles.length === 0) {
       return (
-        <p className="text-muted-foreground py-10 text-center text-sm">
+        <p className="py-10 text-center text-sm text-muted-foreground">
           Aucune vignette dans ce périmètre.
         </p>
       )
@@ -151,7 +145,7 @@ export function MiniaturePicker({
     let grille: ReactNode
     if (shown.length === 0) {
       grille = (
-        <p className="text-muted-foreground py-6 text-center text-sm">
+        <p className="py-6 text-center text-sm text-muted-foreground">
           Aucune vignette ne correspond.
         </p>
       )
@@ -160,31 +154,31 @@ export function MiniaturePicker({
         <div className="pr-1">
           <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
             {shown.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => choisir(m.id)}
-              aria-label="Choisir cette vignette"
-              className="bg-muted focus-visible:ring-ring hover:ring-ring/60 block overflow-hidden rounded border transition hover:ring-2 focus-visible:ring-2 focus-visible:outline-none"
-            >
-              {/* `aspect-square w-full` porté par l'image (et le placeholder),
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => choisir(m.id)}
+                aria-label="Choisir cette vignette"
+                className="block overflow-hidden rounded border bg-muted transition hover:ring-2 hover:ring-ring/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                {/* `aspect-square w-full` porté par l'image (et le placeholder),
                   pas par le bouton : montage robuste, calqué sur l'onglet
                   Vignettes — évite que l'image prenne sa taille intrinsèque et
                   chevauche ses voisines. */}
-              {m.url !== null && !errored.has(m.id) ? (
-                <img
-                  src={m.url}
-                  alt=""
-                  loading="lazy"
-                  onError={() => setErrored((s) => new Set(s).add(m.id))}
-                  className="aspect-square w-full object-cover"
-                />
-              ) : (
-                <span className="text-muted-foreground flex aspect-square w-full items-center justify-center">
-                  <ImageOff className="size-5" />
-                </span>
-              )}
-            </button>
+                {m.url !== null && !errored.has(m.id) ? (
+                  <img
+                    src={m.url}
+                    alt=""
+                    loading="lazy"
+                    onError={() => setErrored((s) => new Set(s).add(m.id))}
+                    className="aspect-square w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex aspect-square w-full items-center justify-center text-muted-foreground">
+                    <ImageOff className="size-5" />
+                  </span>
+                )}
+              </button>
             ))}
           </div>
         </div>
@@ -262,10 +256,10 @@ export function MiniaturePicker({
                     const f = e.dataTransfer.files[0]
                     if (f) pickFile(f)
                   }}
-                  className="border-muted-foreground/30 hover:border-muted-foreground/60 flex w-full flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center transition-colors"
+                  className="flex w-full flex-col items-center gap-2 rounded-lg border border-dashed border-muted-foreground/30 p-8 text-center transition-colors hover:border-muted-foreground/60"
                 >
-                  <Upload className="text-muted-foreground size-6" />
-                  <p className="text-muted-foreground text-sm">
+                  <Upload className="size-6 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
                     Glisse une image ici, ou
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-2">

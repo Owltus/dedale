@@ -73,7 +73,11 @@ export function PrestataireFormDialog({
           // est de toute façon bornée au site actif (contrats/docs idem). Revers
           // assumé : l'image n'est visible que depuis ce site (RLS). Le trigger
           // backend `check_miniature_prestataire` autorise désormais ce scope.
-          image={{ name: 'miniature_id', targetSiteId: siteId, canUpload: true }}
+          image={{
+            name: 'miniature_id',
+            targetSiteId: siteId,
+            canUpload: true,
+          }}
         />
       </FormDialog>
     </Form>

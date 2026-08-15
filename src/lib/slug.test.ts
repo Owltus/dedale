@@ -42,7 +42,10 @@ describe('slugify', () => {
 
 describe('segOfUnique', () => {
   it('renvoie le slug pur quand il est non vide et sans collision', () => {
-    const obj = { nom: 'Sécurité incendie', id: 'aaaaaaaa-1111-2222-3333-444444444444' }
+    const obj = {
+      nom: 'Sécurité incendie',
+      id: 'aaaaaaaa-1111-2222-3333-444444444444',
+    }
     const siblings = [
       obj,
       { nom: 'Électricité', id: 'bbbbbbbb-1111-2222-3333-444444444444' },

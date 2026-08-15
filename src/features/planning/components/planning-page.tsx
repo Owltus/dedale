@@ -273,7 +273,7 @@ export function PlanningContent({ siteId }: { siteId: string }) {
           // (présent ou non) → la table tient pile, sans rien rogner. Seul le
           // défilement VERTICAL est permis. Léger fondu au chargement (nav souple).
           className={cn(
-            'border-border h-full [scrollbar-gutter:stable] overflow-x-hidden overflow-y-auto rounded-md border transition-opacity duration-200',
+            'h-full [scrollbar-gutter:stable] overflow-x-hidden overflow-y-auto rounded-md border border-border transition-opacity duration-200',
             query.isPlaceholderData && 'opacity-60',
           )}
         >

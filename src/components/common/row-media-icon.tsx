@@ -17,7 +17,7 @@ export function RowMediaIcon({
   icon: ComponentType<{ className?: string }>
 }) {
   return (
-    <span className="bg-muted text-muted-foreground flex size-full items-center justify-center">
+    <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
       <Icon className="size-10" />
     </span>
   )

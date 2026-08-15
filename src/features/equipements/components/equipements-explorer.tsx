@@ -376,7 +376,9 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           siteId={siteId}
           siteName={null}
           // Création depuis cette page = catégorie DU SITE actif (portée verrouillée).
-          lockedScope={catDialog.entity ? undefined : { portee: 'site', siteId }}
+          lockedScope={
+            catDialog.entity ? undefined : { portee: 'site', siteId }
+          }
           minimal
           // Scope 'parc' imposé : jamais proposé/modifiable dans le formulaire.
           hideScope

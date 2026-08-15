@@ -72,7 +72,10 @@ function affichageDominant(ots: PlanningOt[]) {
  * semaine COURANTE : le gris s'y confond avec le surlignage `bg-accent`. Les semaines
  * FUTURES gardent le gris (décision PO).
  */
-function toneCellule(ots: PlanningOt[], estSemaineCourante: boolean): StatusTone {
+function toneCellule(
+  ots: PlanningOt[],
+  estSemaineCourante: boolean,
+): StatusTone {
   const tone = affichageDominant(ots).tone
   return estSemaineCourante && tone === 'neutral' ? 'yellow' : tone
 }
@@ -112,7 +115,7 @@ const LEGENDE_PLANNING: { tone: StatusTone; libelle: string }[] = [
  */
 export function PlanningLegende() {
   return (
-    <div className="text-muted-foreground flex flex-wrap items-center gap-4 text-xs">
+    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
       {LEGENDE_PLANNING.map((i) => (
         <span key={i.tone} className="flex items-center gap-1.5">
           <span className={cn('size-3 rounded', TONE_CELL[i.tone])} />
@@ -120,7 +123,7 @@ export function PlanningLegende() {
         </span>
       ))}
       <span className="flex items-center gap-1.5">
-        <span className="ring-primary inline-block size-3 rounded ring-1 ring-inset" />
+        <span className="inline-block size-3 rounded ring-1 ring-primary ring-inset" />
         Contrôle réglementaire
       </span>
     </div>
@@ -149,7 +152,7 @@ export function PlanningSkeleton({
   return (
     <div className="w-full overflow-hidden">
       {/* En-tête simulé (coin de navigation + bandes/semaines). */}
-      <div className="border-border flex items-end gap-1 border-b py-2">
+      <div className="flex items-end gap-1 border-b border-border py-2">
         <div className="shrink-0 px-2" style={{ width: familleWidth }}>
           <Skeleton className="h-6 w-full rounded" />
         </div>
@@ -161,7 +164,7 @@ export function PlanningSkeleton({
       {rows.map((_, r) => (
         <div
           key={r}
-          className="border-border/60 flex items-center gap-1 border-b py-1"
+          className="flex items-center gap-1 border-b border-border/60 py-1"
         >
           <div className="shrink-0 px-2" style={{ width: familleWidth }}>
             <Skeleton
@@ -200,11 +203,7 @@ interface PlanningGrilleProps {
   onAujourdhui: () => void
   /** Clic sur une cellule pleine → la page décide (1 OT = nav directe, ≥2 = dialog).
    *  `nomFamille` = sous-catégorie de la ligne (titre du dialog). */
-  onSelect: (
-    ots: PlanningOt[],
-    semaine: SemaineIso,
-    nomFamille: string,
-  ) => void
+  onSelect: (ots: PlanningOt[], semaine: SemaineIso, nomFamille: string) => void
   /** Clic sur un n° de semaine → tous les OT de cette semaine (toutes familles). */
   onSelectSemaine: (ots: PlanningOt[], semaine: SemaineIso) => void
   /** Clic sur le nom d'une sous-catégorie navigable → explorateur Plan de maintenance. */
@@ -252,7 +251,11 @@ function grouperSemaines(
  * parce que son lundi est encore en décembre) → décalage visible avec le n° de semaine.
  */
 function jeudiDe(s: SemaineIso): Date {
-  return new Date(s.debut.getFullYear(), s.debut.getMonth(), s.debut.getDate() + 3)
+  return new Date(
+    s.debut.getFullYear(),
+    s.debut.getMonth(),
+    s.debut.getDate() + 3,
+  )
 }
 
 /**
@@ -313,7 +316,8 @@ export function PlanningGrille({
     () =>
       grouperSemaines(
         semaines,
-        (s) => `${String(jeudiDe(s).getFullYear())}-${String(jeudiDe(s).getMonth())}`,
+        (s) =>
+          `${String(jeudiDe(s).getFullYear())}-${String(jeudiDe(s).getMonth())}`,
         (s) => jeudiDe(s).toLocaleDateString('fr-FR', { month: 'long' }),
       ),
     [semaines],
@@ -354,7 +358,7 @@ export function PlanningGrille({
           <col key={s.cle} style={{ width: CELL_SIZE }} />
         ))}
       </colgroup>
-      <thead className="bg-card sticky top-0 z-20">
+      <thead className="sticky top-0 z-20 bg-card">
         {/* Bande des ANNÉES : trait fort + libellé, divise visuellement les années. */}
         <tr>
           {/* Coin haut-gauche figé : navigation par trimestre sur 2 lignes
@@ -362,7 +366,7 @@ export function PlanningGrille({
           <th
             rowSpan={3}
             className={cn(
-              'bg-card border-border sticky left-0 z-30 border-b px-1.5 py-1',
+              'sticky left-0 z-30 border-b border-border bg-card px-1.5 py-1',
               STICKY_SHADOW,
             )}
           >
@@ -371,7 +375,7 @@ export function PlanningGrille({
                 type="button"
                 onClick={onAujourdhui}
                 title="Revenir à aujourd’hui"
-                className="hover:bg-accent truncate rounded px-1 py-0.5 text-center text-xs font-semibold"
+                className="truncate rounded px-1 py-0.5 text-center text-xs font-semibold hover:bg-accent"
               >
                 {periodeLabel}
               </button>
@@ -380,7 +384,7 @@ export function PlanningGrille({
                   type="button"
                   onClick={onReculer}
                   aria-label="Trimestre précédent"
-                  className="hover:bg-accent flex size-6 items-center justify-center rounded"
+                  className="flex size-6 items-center justify-center rounded hover:bg-accent"
                 >
                   <ChevronLeft className="size-4" />
                 </button>
@@ -388,7 +392,7 @@ export function PlanningGrille({
                   type="button"
                   onClick={onAvancer}
                   aria-label="Trimestre suivant"
-                  className="hover:bg-accent flex size-6 items-center justify-center rounded"
+                  className="flex size-6 items-center justify-center rounded hover:bg-accent"
                 >
                   <ChevronRight className="size-4" />
                 </button>
@@ -400,7 +404,7 @@ export function PlanningGrille({
               key={a.cle}
               colSpan={a.count}
               title={a.label}
-              className="border-border bg-card text-muted-foreground truncate border-b border-l px-1 pt-1 pb-0.5 text-center text-[11px] font-semibold"
+              className="truncate border-b border-l border-border bg-card px-1 pt-1 pb-0.5 text-center text-[11px] font-semibold text-muted-foreground"
             >
               {a.label}
             </th>
@@ -413,7 +417,7 @@ export function PlanningGrille({
               key={m.cle}
               colSpan={m.count}
               title={m.label}
-              className="border-border border-l-border/60 bg-card text-muted-foreground truncate border-b border-l px-1 py-0.5 text-center text-[10px] font-medium first-letter:uppercase"
+              className="truncate border-b border-l border-border border-l-border/60 bg-card px-1 py-0.5 text-center text-[10px] font-medium text-muted-foreground first-letter:uppercase"
             >
               {m.label}
             </th>
@@ -426,7 +430,7 @@ export function PlanningGrille({
               key={s.cle}
               title={labelSemaine(s)}
               className={cn(
-                'border-border overflow-hidden border-b px-0 py-1 text-center',
+                'overflow-hidden border-b border-border px-0 py-1 text-center',
                 classeEntete(s.cle),
               )}
               onMouseEnter={() => setCleSurvol(s.cle)}
@@ -434,14 +438,16 @@ export function PlanningGrille({
               {otsParSemaine.has(s.cle) ? (
                 <button
                   type="button"
-                  onClick={() => onSelectSemaine(otsParSemaine.get(s.cle) ?? [], s)}
+                  onClick={() =>
+                    onSelectSemaine(otsParSemaine.get(s.cle) ?? [], s)
+                  }
                   title={`Voir tous les ordres de travail de la semaine S${String(s.numero)}`}
-                  className="text-foreground hover:text-primary w-full text-[10px] leading-none font-semibold hover:underline"
+                  className="w-full text-[10px] leading-none font-semibold text-foreground hover:text-primary hover:underline"
                 >
                   {s.numero}
                 </button>
               ) : (
-                <div className="text-foreground text-[10px] leading-none font-semibold">
+                <div className="text-[10px] leading-none font-semibold text-foreground">
                   {s.numero}
                 </div>
               )}
@@ -458,7 +464,7 @@ export function PlanningGrille({
               <tr aria-hidden>
                 <td
                   colSpan={nbColonnes}
-                  className="border-border h-0 border-t-4 p-0"
+                  className="h-0 border-t-4 border-border p-0"
                 />
               </tr>
             )}
@@ -467,7 +473,7 @@ export function PlanningGrille({
                 <th
                   scope="row"
                   className={cn(
-                    'bg-card border-border sticky left-0 z-10 h-6 truncate border-b px-2 text-left font-normal',
+                    'sticky left-0 z-10 h-6 truncate border-b border-border bg-card px-2 text-left font-normal',
                     STICKY_SHADOW,
                   )}
                 >
@@ -476,7 +482,7 @@ export function PlanningGrille({
                       type="button"
                       onClick={() => onOuvrirFamille(famille)}
                       title={`${famille.nomFamille} — ouvrir dans le Plan de maintenance`}
-                      className="hover:text-primary block w-full truncate text-left hover:underline"
+                      className="block w-full truncate text-left hover:text-primary hover:underline"
                     >
                       {famille.nomFamille}
                     </button>
@@ -493,7 +499,7 @@ export function PlanningGrille({
                       <td
                         key={s.cle}
                         className={cn(
-                          'border-border border-b p-0',
+                          'border-b border-border p-0',
                           classeColonne(s.cle),
                         )}
                         onMouseEnter={() => setCleSurvol(s.cle)}
@@ -505,7 +511,7 @@ export function PlanningGrille({
                     <td
                       key={s.cle}
                       className={cn(
-                        'border-border border-b p-0',
+                        'border-b border-border p-0',
                         classeColonne(s.cle),
                       )}
                       onMouseEnter={() => setCleSurvol(s.cle)}
@@ -523,7 +529,7 @@ export function PlanningGrille({
                             // Contour réglementaire : au moins un OT de contrôle
                             // réglementaire dans la cellule (obligation légale).
                             aReglementaire(ots) &&
-                              'ring-primary ring-1 ring-inset',
+                              'ring-1 ring-primary ring-inset',
                           )}
                         >
                           {ots.length > 1 ? ots.length : ''}

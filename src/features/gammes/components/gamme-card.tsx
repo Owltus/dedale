@@ -130,7 +130,7 @@ export function GammeCard({
           gamme.prestataires ? (
             <span className="text-sm">{gamme.prestataires.libelle}</span>
           ) : (
-            <span className="text-muted-foreground text-sm">
+            <span className="text-sm text-muted-foreground">
               Prestataire à renseigner
             </span>
           )

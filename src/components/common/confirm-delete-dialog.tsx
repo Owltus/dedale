@@ -85,7 +85,7 @@ export function ConfirmDeleteDialog({
       <div className="grid gap-1.5">
         <Label htmlFor="confirm-delete-phrase">
           Pour confirmer, saisis{' '}
-          <span className="text-foreground font-semibold">{confirmPhrase}</span>
+          <span className="font-semibold text-foreground">{confirmPhrase}</span>
         </Label>
         <Input
           id="confirm-delete-phrase"
@@ -113,7 +113,7 @@ export function ConfirmDeleteDialog({
             </span>
           ))}
           {reste > 0 && (
-            <span className="text-muted-foreground block">
+            <span className="block text-muted-foreground">
               • et {reste} autre{reste > 1 ? 's' : ''}
             </span>
           )}
@@ -122,7 +122,9 @@ export function ConfirmDeleteDialog({
     ) : null
 
   const description: ReactNode = loadingImpacts ? (
-    <span className="text-muted-foreground">Vérification des éléments liés…</span>
+    <span className="text-muted-foreground">
+      Vérification des éléments liés…
+    </span>
   ) : blocked ? (
     <span className="grid gap-3">
       <span className="text-destructive">{blockedReason}</span>

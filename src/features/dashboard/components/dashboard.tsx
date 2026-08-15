@@ -76,8 +76,7 @@ export function Dashboard({ siteId }: DashboardProps) {
   const lignesPossibles = Math.floor(
     (dispoZone3 - CHROME_CARTE + GAP_LISTE) / (HAUTEUR_LIGNE_XS + GAP_LISTE),
   )
-  const contraint =
-    hauteurCorps > 0 && hauteurZone1 > 0 && lignesPossibles <= 1
+  const contraint = hauteurCorps > 0 && hauteurZone1 > 0 && lignesPossibles <= 1
 
   if (ordresTravailQuery.isPending) {
     return (

@@ -5,7 +5,7 @@ import { SplitPane, SplitPanes } from '@/components/common/split-panes'
 /** Étiquette discrète de panneau (uppercase atténuée). */
 function PaneLabel({ children }: { children: ReactNode }) {
   return (
-    <h2 className="text-muted-foreground shrink-0 text-xs font-medium tracking-wide uppercase">
+    <h2 className="shrink-0 text-xs font-medium tracking-wide text-muted-foreground uppercase">
       {children}
     </h2>
   )

@@ -293,7 +293,9 @@ export function localCascadeWarning(links: LocalCascadeLinks): string | null {
       `${String(links.travaux)} tâche${links.travaux > 1 ? 's' : ''} de travaux`,
     )
   if (links.documents > 0)
-    parts.push(`${String(links.documents)} document${links.documents > 1 ? 's' : ''}`)
+    parts.push(
+      `${String(links.documents)} document${links.documents > 1 ? 's' : ''}`,
+    )
   if (parts.length === 0) return null
   return `Ce local est référencé par ${joinFr(parts)} : ces liens seront retirés (les éléments eux-mêmes sont conservés).`
 }

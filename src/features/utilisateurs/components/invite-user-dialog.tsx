@@ -88,7 +88,7 @@ export function InviteUserDialog({
         <div className="grid gap-2">
           <Label id="invite-sites-label">Sites</Label>
           {sites.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-sm text-muted-foreground">
               Aucun site disponible.
             </p>
           ) : (
@@ -99,12 +99,12 @@ export function InviteUserDialog({
                 <div
                   role="group"
                   aria-labelledby="invite-sites-label"
-                  className="border-input flex max-h-44 flex-col gap-1 overflow-y-auto rounded-md border p-2"
+                  className="flex max-h-44 flex-col gap-1 overflow-y-auto rounded-md border border-input p-2"
                 >
                   {sites.map((site) => (
                     <label
                       key={site.id}
-                      className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm"
+                      className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted"
                     >
                       <Checkbox
                         checked={field.value.includes(site.id)}
@@ -123,7 +123,7 @@ export function InviteUserDialog({
               )}
             />
           )}
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             {role === 'admin'
               ? 'Un administrateur a accès à tous les sites, le rattachement est facultatif.'
               : 'Les sites définissent le périmètre visible par l’utilisateur.'}

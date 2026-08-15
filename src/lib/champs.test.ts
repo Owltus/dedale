@@ -49,8 +49,12 @@ describe('champSchema', () => {
 
   it('rejette un type inconnu', () => {
     expect(
-      champSchema.safeParse({ cle: 'x', type: 'couleur', requis: false, defaut: null })
-        .success,
+      champSchema.safeParse({
+        cle: 'x',
+        type: 'couleur',
+        requis: false,
+        defaut: null,
+      }).success,
     ).toBe(false)
   })
 
@@ -79,7 +83,13 @@ describe('parseChamps', () => {
       champs: [
         { cle: 'Marque', type: 'texte', requis: false, defaut: null },
         { cle: 'invalide', type: 'couleur', requis: false, defaut: null }, // rejeté
-        { cle: 'Puissance', type: 'nombre', unite: 'kW', requis: true, defaut: 5 },
+        {
+          cle: 'Puissance',
+          type: 'nombre',
+          unite: 'kW',
+          requis: true,
+          defaut: 5,
+        },
       ],
     }
     const champs = parseChamps(specs)
@@ -99,10 +109,34 @@ describe('parseChamps', () => {
       extra: null,
     })
     expect(champs).toEqual([
-      { cle: 'marque', type: 'texte', requis: false, defaut: null, valeur: 'Bosch' },
-      { cle: 'puissance', type: 'texte', requis: false, defaut: null, valeur: '5' },
-      { cle: 'actif', type: 'texte', requis: false, defaut: null, valeur: 'true' },
-      { cle: 'extra', type: 'texte', requis: false, defaut: null, valeur: null },
+      {
+        cle: 'marque',
+        type: 'texte',
+        requis: false,
+        defaut: null,
+        valeur: 'Bosch',
+      },
+      {
+        cle: 'puissance',
+        type: 'texte',
+        requis: false,
+        defaut: null,
+        valeur: '5',
+      },
+      {
+        cle: 'actif',
+        type: 'texte',
+        requis: false,
+        defaut: null,
+        valeur: 'true',
+      },
+      {
+        cle: 'extra',
+        type: 'texte',
+        requis: false,
+        defaut: null,
+        valeur: null,
+      },
     ])
   })
 })
@@ -118,7 +152,13 @@ describe('round-trip parseChamps ↔ serializeChamps', () => {
   it('préserve une liste de champs valides', () => {
     const liste: Champ[] = [
       champ({ cle: 'Marque', type: 'texte', defaut: 'Bosch' }),
-      champ({ cle: 'Puissance', type: 'nombre', unite: 'kW', requis: true, defaut: 5 }),
+      champ({
+        cle: 'Puissance',
+        type: 'nombre',
+        unite: 'kW',
+        requis: true,
+        defaut: 5,
+      }),
       champ({ cle: 'Actif', type: 'oui-non', requis: false, defaut: true }),
       champ({
         cle: 'Classe',
@@ -197,7 +237,8 @@ describe('prepareChamps — validations', () => {
     const long = 'N'.repeat(61)
     const res = prepareChamps([champ({ cle: long })])
     expect(res.ok).toBe(false)
-    if (!res.ok) expect(res.error).toBe(`Le nom « ${long} » dépasse 60 caractères.`)
+    if (!res.ok)
+      expect(res.error).toBe(`Le nom « ${long} » dépasse 60 caractères.`)
   })
 
   it('refuse une unité de plus de 20 caractères', () => {

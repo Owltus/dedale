@@ -30,7 +30,7 @@ function SiteMenuContent({
 }) {
   return (
     <DropdownMenuContent side={side} align="start" className="min-w-56">
-      <DropdownMenuLabel className="text-muted-foreground text-xs">
+      <DropdownMenuLabel className="text-xs text-muted-foreground">
         Site actif
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
@@ -61,18 +61,18 @@ export function SiteSwitcher() {
 
   return (
     <div className="flex min-w-0 flex-1 items-center gap-3">
-      <div className="bg-border h-8 w-px shrink-0" aria-hidden />
+      <div className="h-8 w-px shrink-0 bg-border" aria-hidden />
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(
-            'text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 focus-visible:ring-offset-card rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2',
+            'rounded-md text-foreground transition-colors outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-card',
             'flex h-9 max-w-full min-w-0 items-center gap-1 px-2 text-sm',
           )}
         >
           <span className="min-w-0 flex-1 truncate text-left font-medium">
             {active.nom}
           </span>
-          <ChevronDown className="text-muted-foreground size-4 shrink-0" />
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
         <SiteMenuContent
           sites={sites}

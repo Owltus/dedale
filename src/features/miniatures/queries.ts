@@ -28,9 +28,7 @@ export interface MiniatureWithUrl {
 // Les colonnes d'une VUE sont typées `| null` par Supabase : on écarte les lignes
 // dont les champs structurants manquent (ne devrait jamais arriver : la vue part
 // de la table miniatures où ils sont NOT NULL) pour obtenir un type net ensuite.
-function isComplete(
-  r: PoolRow,
-): r is PoolRow & {
+function isComplete(r: PoolRow): r is PoolRow & {
   id: string
   hash_sha256: string
   storage_path: string

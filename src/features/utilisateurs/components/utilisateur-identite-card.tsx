@@ -46,7 +46,7 @@ export function IdentityCard({
         {isAdmin && (
           <>
             <EmailBlock userId={user.id} />
-            <div className="bg-border h-px" />
+            <div className="h-px bg-border" />
           </>
         )}
 
@@ -165,7 +165,7 @@ function EmailBlock({ userId }: { userId: string }) {
   if (isPending) return <Skeleton className="h-20 w-full" />
   if (isError) {
     return (
-      <p className="text-muted-foreground text-sm">
+      <p className="text-sm text-muted-foreground">
         Lecture de l’e-mail indisponible (l’Edge Function{' '}
         <code>update_user_email</code> n’est peut-être pas déployée).
       </p>
@@ -225,7 +225,7 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
           <Label htmlFor="email" className="text-base font-semibold">
             Adresse e-mail
           </Label>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-xs text-muted-foreground">
             Identifiant de connexion de l’utilisateur.
           </p>
         </div>
@@ -237,7 +237,7 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
             className="h-11 text-base"
           />
           {form.formState.errors.email && (
-            <p className="text-destructive text-sm">
+            <p className="text-sm text-destructive">
               {form.formState.errors.email.message}
             </p>
           )}
@@ -252,11 +252,11 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
         </Button>
       </form>
 
-      <div className="bg-border h-px" />
+      <div className="h-px bg-border" />
 
       <div className="flex flex-col gap-2">
         <Label className="font-medium">Mot de passe</Label>
-        <p className="text-muted-foreground text-xs">
+        <p className="text-xs text-muted-foreground">
           Le mot de passe ne peut jamais être lu. Envoie à l’utilisateur un lien
           pour qu’il définisse un nouveau mot de passe.
         </p>

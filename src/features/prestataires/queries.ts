@@ -28,7 +28,8 @@ export const prestatairesQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
-      },    }),
+      },
+    }),
 
   /**
    * Gammes du prestataire sur le site actif, par le lien DIRECT `gammes.prestataire_id`
@@ -57,7 +58,8 @@ export const prestatairesQueries = {
           .throwOnError()
           .overrideTypes<GammeRow[], { merge: false }>()
         return data ?? []
-      },    }),
+      },
+    }),
 
   /**
    * Documents rattachés aux ORDRES DE TRAVAIL du prestataire sur le site actif.
@@ -94,7 +96,8 @@ export const prestatairesQueries = {
         return [...parDoc.values()].sort((a, b) =>
           b.uploaded_at.localeCompare(a.uploaded_at),
         )
-      },    }),
+      },
+    }),
 
   /**
    * Ordres de travail du prestataire sur le site actif (compartimentage strict).
@@ -126,7 +129,8 @@ export const prestatairesQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
-      },    }),
+      },
+    }),
 }
 
 export const contratsQueries = {
@@ -156,7 +160,8 @@ export const contratsQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
-      },    }),
+      },
+    }),
 
   /**
    * TOUS les contrats du prestataire sur le site (archivés INCLUS), pour
@@ -182,7 +187,8 @@ export const contratsQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
-      },    }),
+      },
+    }),
 
   /**
    * Nombre de contrats ACTIFS par prestataire pour le site actif (versions
@@ -207,7 +213,8 @@ export const contratsQueries = {
           )
         }
         return counts
-      },    }),
+      },
+    }),
 }
 
 export const typesContratsQueries = {
@@ -215,5 +222,6 @@ export const typesContratsQueries = {
 
   // Référentiel (petite table de codes globale) : clé `['types_contrats','list']`
   // + fraîcheur 5 min, factorisés par `referentielQueryOptions`.
-  list: () => referentielQueryOptions('types_contrats', 'id, libelle', 'libelle'),
+  list: () =>
+    referentielQueryOptions('types_contrats', 'id, libelle', 'libelle'),
 }

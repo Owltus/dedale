@@ -41,9 +41,10 @@ export function GammeOperationsSection({
 }) {
   const query = useQuery(gammesQueries.operations(gammeId))
   const del = useDeleteOperation()
-  const [form, setForm] = useState<{ open: boolean; op: GammeOperation | null }>(
-    { open: false, op: null },
-  )
+  const [form, setForm] = useState<{
+    open: boolean
+    op: GammeOperation | null
+  }>({ open: false, op: null })
   const [toDelete, setToDelete] = useState<GammeOperation | null>(null)
 
   function confirmDelete() {
@@ -180,7 +181,7 @@ export function GammeOperationsSection({
       <section className="flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-medium">
-            <ListChecks className="text-muted-foreground size-4" />
+            <ListChecks className="size-4 text-muted-foreground" />
             Opérations spécifiques
           </h3>
           {addButton}

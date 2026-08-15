@@ -39,7 +39,8 @@ function classifierSante(aff: StatutAffichage): Sante {
   // IMMINENT uniquement : engagé (« En cours ») ou échéance dans la semaine courante.
   // Les proximités plus lointaines (Semaine prochaine / Ce mois-ci / Mois prochain)
   // restent « bon ».
-  if (aff.label === 'En cours' || aff.label === 'Cette semaine') return 'aTraiter'
+  if (aff.label === 'En cours' || aff.label === 'Cette semaine')
+    return 'aTraiter'
   if (aff.tone === 'neutral') return 'inactif'
   return 'bon'
 }

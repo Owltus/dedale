@@ -4,7 +4,10 @@ import {
   statutAffichageOt,
   type StatutAffichage,
 } from '@/features/ordres-travail/statut-affichage'
-import { trierOtParUrgence, type OtTriable } from '@/features/ordres-travail/tri'
+import {
+  trierOtParUrgence,
+  type OtTriable,
+} from '@/features/ordres-travail/tri'
 
 /**
  * Statut d'AFFICHAGE d'une gamme (libellé + couleur de pastille `StatusBadge`) :
@@ -59,7 +62,8 @@ export function statutAffichageGamme(input: {
   /** Aujourd'hui (injectable pour les tests) ; défaut = maintenant (via `statutAffichageOt`). */
   aujourdHui?: Date
 }): StatutAffichage {
-  if (!input.estActive) return { label: 'Inactive', tone: 'neutral', temporel: false }
+  if (!input.estActive)
+    return { label: 'Inactive', tone: 'neutral', temporel: false }
   if (input.ots.length === 0)
     return { label: 'Non assigné', tone: 'neutral', temporel: false }
 

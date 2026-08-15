@@ -129,9 +129,7 @@ function DemandesContent({
 
   // Nom du local de chaque DI (di_id → local) : affiché en carte ET cible de
   // recherche. Une seule requête RLS-scopée pour toute la liste (pas de N+1).
-  const { data: locLinks = [] } = useQuery(
-    demandesQueries.locauxParDi(siteId),
-  )
+  const { data: locLinks = [] } = useQuery(demandesQueries.locauxParDi(siteId))
   const localParDi = useMemo(() => {
     const m = new Map<string, string>()
     for (const r of locLinks) {
@@ -196,7 +194,11 @@ function DemandesContent({
           // Filtre statut + recherche (constat ET nom du local).
           const shown = demandes.filter((d) => {
             if (
-              !matchStatutFilter(d.statut_di_id, statutFilter, STATUTS_DI_TERMINAUX)
+              !matchStatutFilter(
+                d.statut_di_id,
+                statutFilter,
+                STATUTS_DI_TERMINAUX,
+              )
             )
               return false
             if (q === '') return true

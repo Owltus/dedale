@@ -1,8 +1,5 @@
 import type { ReactNode } from 'react'
-import {
-  StatusBadge,
-  type StatusTone,
-} from '@/components/common/status-badge'
+import { StatusBadge, type StatusTone } from '@/components/common/status-badge'
 import { cn } from '@/lib/utils'
 
 /**
@@ -38,7 +35,7 @@ export function StatutColonne({
         </StatusBadge>
       )}
       {meta != null && (
-        <span className="text-muted-foreground text-sm">{meta}</span>
+        <span className="text-sm text-muted-foreground">{meta}</span>
       )}
     </div>
   )

@@ -81,7 +81,7 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
                 // Plusieurs parents repliés : menu déroulant, chacun cliquable.
                 <DropdownMenu>
                   <DropdownMenuTrigger
-                    className={`hover:text-foreground flex items-center ${focusRing}`}
+                    className={`flex items-center hover:text-foreground ${focusRing}`}
                     aria-label="Afficher les niveaux parents"
                   >
                     <BreadcrumbEllipsis className="size-4" />

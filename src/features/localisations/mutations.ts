@@ -123,7 +123,13 @@ export function useCreateNiveau() {
 export function useUpdateNiveau() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, values }: { id: string; values: NiveauValues }) => {
+    mutationFn: async ({
+      id,
+      values,
+    }: {
+      id: string
+      values: NiveauValues
+    }) => {
       const { data } = await supabase
         .from('niveaux')
         .update(niveauPayload(values))

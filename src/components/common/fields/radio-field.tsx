@@ -69,7 +69,7 @@ export function RadioField<T extends FieldValues>({
                         {o.label}
                       </Label>
                       {o.description != null && (
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-sm text-muted-foreground">
                           {o.description}
                         </p>
                       )}

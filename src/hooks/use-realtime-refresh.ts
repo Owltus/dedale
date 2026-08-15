@@ -52,17 +52,13 @@ function acquireChannel(table: string): void {
     seq += 1
     const channel = supabase
       .channel(`rt:${table}:${String(seq)}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
-        () => {
-          // Chaque clé enregistrée est invalidée UNE seule fois par événement
-          // (la Map est dédupliquée par hash de clé).
-          for (const { key, qc } of keys.values()) {
-            void qc.invalidateQueries({ queryKey: key })
-          }
-        },
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
+        // Chaque clé enregistrée est invalidée UNE seule fois par événement
+        // (la Map est dédupliquée par hash de clé).
+        for (const { key, qc } of keys.values()) {
+          void qc.invalidateQueries({ queryKey: key })
+        }
+      })
       .subscribe()
     entry = { channel, subscribers: 0, keys }
     registry.set(table, entry)

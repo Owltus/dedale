@@ -51,7 +51,7 @@ function SetPasswordPage() {
 
   return (
     // Hors app-shell : scroller propre + contenu centré défilable sur écran court.
-    <div className="bg-muted/40 h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto bg-muted/40">
       <div className="flex min-h-full items-center justify-center px-4 py-8">
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
@@ -62,11 +62,11 @@ function SetPasswordPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <p className="text-muted-foreground text-center text-sm">
+              <p className="text-center text-sm text-muted-foreground">
                 Chargement…
               </p>
             ) : !session ? (
-              <p className="text-muted-foreground text-center text-sm">
+              <p className="text-center text-sm text-muted-foreground">
                 Lien invalide ou expiré. Demande une nouvelle invitation à un
                 administrateur.
               </p>
@@ -101,7 +101,7 @@ function SetPasswordPage() {
                   />
                 </div>
 
-                {error && <p className="text-destructive text-sm">{error}</p>}
+                {error && <p className="text-sm text-destructive">{error}</p>}
 
                 <Button type="submit" disabled={loading} className="w-full">
                   {loading ? 'Enregistrement…' : 'Activer mon compte'}

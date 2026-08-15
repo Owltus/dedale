@@ -4,10 +4,7 @@ import {
   RowContextMenuContent,
   type RowAction,
 } from '@/components/common/row-actions'
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu'
+import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import type { StatusTone } from '@/components/common/status-badge'
 import { cn } from '@/lib/utils'
 
@@ -161,10 +158,10 @@ export function ListRow({
     card = (
       <div
         className={cn(
-          'bg-card group relative flex items-stretch overflow-hidden rounded-lg border',
+          'group relative flex items-stretch overflow-hidden rounded-lg border bg-card',
           MEDIA_HEIGHT[size],
           tone !== undefined && TONE_ACCENT[tone],
-          clickable && 'hover:bg-accent/40 transition-colors',
+          clickable && 'transition-colors hover:bg-accent/40',
           className,
         )}
       >
@@ -174,7 +171,7 @@ export function ListRow({
             onClick={onClick}
             aria-labelledby={titleLabel === undefined ? titleId : undefined}
             aria-label={titleLabel}
-            className="focus-visible:ring-ring/50 absolute inset-0 focus-visible:ring-[3px] focus-visible:outline-none focus-visible:ring-inset"
+            className="absolute inset-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
           />
         )}
         <div className="aspect-square h-full shrink-0">{media}</div>
@@ -196,7 +193,7 @@ export function ListRow({
                 ou non. Tronquée sur UNE seule ligne. */}
             <div
               className={cn(
-                'text-muted-foreground truncate',
+                'truncate text-muted-foreground',
                 dense ? 'text-xs' : 'text-sm',
                 // `mobileMeta` fourni → on masque la description sous `sm` pour
                 // libérer la place à l'info clé sans casser la hauteur fixe.
@@ -207,7 +204,7 @@ export function ListRow({
             </div>
             {/* Repli mobile : info clé sous le titre (sous `sm` uniquement). */}
             {mobileMeta !== undefined && (
-              <div className="text-muted-foreground truncate text-xs sm:hidden">
+              <div className="truncate text-xs text-muted-foreground sm:hidden">
                 {mobileMeta}
               </div>
             )}
@@ -223,7 +220,7 @@ export function ListRow({
             </div>
           )}
           {meta !== undefined && (
-            <div className="text-muted-foreground hidden shrink-0 text-sm sm:block">
+            <div className="hidden shrink-0 text-sm text-muted-foreground sm:block">
               {meta}
             </div>
           )}
@@ -239,10 +236,10 @@ export function ListRow({
     card = (
       <div
         className={cn(
-          'bg-card group relative flex items-center gap-3 rounded-lg border px-4',
+          'group relative flex items-center gap-3 rounded-lg border bg-card px-4',
           ROW_PADDING[size],
           tone !== undefined && TONE_ACCENT[tone],
-          clickable && 'hover:bg-accent/40 transition-colors',
+          clickable && 'transition-colors hover:bg-accent/40',
           className,
         )}
       >
@@ -252,25 +249,25 @@ export function ListRow({
             onClick={onClick}
             aria-labelledby={titleLabel === undefined ? titleId : undefined}
             aria-label={titleLabel}
-            className="focus-visible:ring-ring/50 absolute inset-0 rounded-lg focus-visible:ring-[3px] focus-visible:outline-none"
+            className="absolute inset-0 rounded-lg focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
           />
         )}
         {icon !== undefined && (
-          <span className="text-muted-foreground shrink-0">{icon}</span>
+          <span className="shrink-0 text-muted-foreground">{icon}</span>
         )}
         <div className="min-w-0 flex-1">
           <div id={titleId} className="truncate font-medium">
             {title}
           </div>
           {subtitle !== undefined && (
-            <div className="text-muted-foreground line-clamp-2 text-sm">
+            <div className="line-clamp-2 text-sm text-muted-foreground">
               {subtitle}
             </div>
           )}
           {/* Repli mobile : info clé (portée, type/seuils…) sous le sous-titre,
               uniquement sous `sm` où `badges`/`meta` à droite sont masqués. */}
           {mobileMeta !== undefined && (
-            <div className="text-muted-foreground truncate text-xs sm:hidden">
+            <div className="truncate text-xs text-muted-foreground sm:hidden">
               {mobileMeta}
             </div>
           )}
@@ -286,7 +283,7 @@ export function ListRow({
           </div>
         )}
         {meta !== undefined && (
-          <div className="text-muted-foreground hidden shrink-0 text-sm sm:block">
+          <div className="hidden shrink-0 text-sm text-muted-foreground sm:block">
             {meta}
           </div>
         )}

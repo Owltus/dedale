@@ -66,7 +66,7 @@ export function ListFilterBar({
         // Épinglée : fond opaque (les cartes glissent dessous) et `z` au-dessus des
         // cartes. `top-0` colle au sommet de la zone défilante (PageContainer body) ;
         // `pb-2` ménage un fond sous les contrôles → transition nette des cartes.
-        sticky && 'bg-background sticky top-0 z-20 pb-2',
+        sticky && 'sticky top-0 z-20 bg-background pb-2',
       )}
     >
       <SearchInput

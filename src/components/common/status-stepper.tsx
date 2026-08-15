@@ -108,13 +108,15 @@ export function StatusStepper({
                   className={cn(
                     PASTILLE_BASE,
                     pastilleStateClass(step.state),
-                    'focus-visible:ring-ring/50 cursor-pointer transition hover:brightness-95 focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60',
+                    'cursor-pointer transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60',
                   )}
                 >
                   {pastilleContenu(step.state, i)}
                 </button>
               ) : (
-                <span className={cn(PASTILLE_BASE, pastilleStateClass(step.state))}>
+                <span
+                  className={cn(PASTILLE_BASE, pastilleStateClass(step.state))}
+                >
                   {pastilleContenu(step.state, i)}
                 </span>
               )}

@@ -93,7 +93,9 @@ export function ModelesDiPanel() {
   // Édition : portée verrouillée (immuable). On affiche le site réel du modèle
   // édité ; à la création c'est le site actif qui sert d'option « Site ».
   const editedSiteId =
-    dialog.entity && dialog.entity.site_id !== null ? dialog.entity.site_id : null
+    dialog.entity && dialog.entity.site_id !== null
+      ? dialog.entity.site_id
+      : null
   const dialogSiteId = dialog.entity ? editedSiteId : activeSiteId
   const dialogSiteName = dialog.entity
     ? (sites.find((s) => s.id === editedSiteId)?.nom ?? null)

@@ -38,8 +38,8 @@ export function ChampNombreUnite({
   return (
     <div
       className={cn(
-        'border-input bg-background flex h-8 items-center gap-1 rounded-md border px-2 shadow-xs transition-[color,box-shadow] pointer-coarse:h-10',
-        'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
+        'flex h-8 items-center gap-1 rounded-md border border-input bg-background px-2 shadow-xs transition-[color,box-shadow] pointer-coarse:h-10',
+        'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
         widthClassName,
         disabled && 'pointer-events-none opacity-50',
       )}
@@ -49,7 +49,7 @@ export function ChampNombreUnite({
         inputMode="decimal"
         step="any"
         className={cn(
-          'no-spinner placeholder:text-muted-foreground w-full min-w-0 border-0 bg-transparent p-0 text-right text-sm outline-none',
+          'no-spinner w-full min-w-0 border-0 bg-transparent p-0 text-right text-sm outline-none placeholder:text-muted-foreground',
           emphaseClassName,
           bold && 'font-medium',
         )}
@@ -65,7 +65,7 @@ export function ChampNombreUnite({
       {unite && (
         <span
           className={cn(
-            'text-muted-foreground shrink-0 text-xs',
+            'shrink-0 text-xs text-muted-foreground',
             emphaseClassName,
           )}
         >

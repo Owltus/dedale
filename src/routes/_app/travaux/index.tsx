@@ -253,9 +253,7 @@ function TravauxContent({
                           </div>
                         }
                         mobileMeta={statutLabel}
-                        menuActions={
-                          rowActions.length ? rowActions : undefined
-                        }
+                        menuActions={rowActions.length ? rowActions : undefined}
                       />
                     )
                   })}

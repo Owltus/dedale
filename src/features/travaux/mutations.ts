@@ -146,7 +146,9 @@ export function useCreateTache() {
       return data
     },
     onSuccess: (_d, vars) =>
-      qc.invalidateQueries({ queryKey: travauxQueries.taches(vars.travauxId).queryKey }),
+      qc.invalidateQueries({
+        queryKey: travauxQueries.taches(vars.travauxId).queryKey,
+      }),
   })
 }
 
@@ -200,7 +202,9 @@ export function useUpdateTacheStatut() {
         .throwOnError()
     },
     onSuccess: (_d, vars) =>
-      qc.invalidateQueries({ queryKey: travauxQueries.taches(vars.travauxId).queryKey }),
+      qc.invalidateQueries({
+        queryKey: travauxQueries.taches(vars.travauxId).queryKey,
+      }),
   })
 }
 
@@ -217,6 +221,8 @@ export function useDeleteTache() {
         .throwOnError()
     },
     onSuccess: (_d, vars) =>
-      qc.invalidateQueries({ queryKey: travauxQueries.taches(vars.travauxId).queryKey }),
+      qc.invalidateQueries({
+        queryKey: travauxQueries.taches(vars.travauxId).queryKey,
+      }),
   })
 }

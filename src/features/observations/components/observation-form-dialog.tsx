@@ -30,7 +30,8 @@ interface ObservationFormDialogProps {
 // Aide brève par source : la ligne « contrôle réglementaire » rappelle l'exigence
 // d'un ordre de travail rattaché (miroir du CHECK backend / validation Zod).
 const DESCRIPTIONS_SOURCE: Record<string, string> = {
-  controle_reglementaire: 'Vérification périodique obligatoire ; impose un ordre de travail.',
+  controle_reglementaire:
+    'Vérification périodique obligatoire ; impose un ordre de travail.',
   commission_securite: 'Passage de la commission de sécurité.',
   inspection_interne: 'Contrôle mené par vos équipes.',
 }
@@ -109,11 +110,7 @@ export function ObservationFormDialog({
 
         <DescriptionField control={form.control} name="description" required />
 
-        <DateField
-          control={form.control}
-          name="echeance"
-          label="Échéance"
-        />
+        <DateField control={form.control} name="echeance" label="Échéance" />
 
         <SelectField
           control={form.control}

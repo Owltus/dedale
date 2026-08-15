@@ -73,16 +73,18 @@ export function DateField({
           disabled={disabled}
           aria-label={ariaLabel}
           className={cn(
-            'border-input bg-background flex h-9 items-center justify-between gap-1.5 rounded-md border px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none',
-            'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+            'flex h-9 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none',
+            'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
             'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
             className,
           )}
         >
-          <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+          <span
+            className={cn('truncate', !selected && 'text-muted-foreground')}
+          >
             {selected ? selected.toLocaleDateString('fr-FR') : placeholder}
           </span>
-          <CalendarDays className="text-muted-foreground size-4 shrink-0" />
+          <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto overflow-hidden p-0">

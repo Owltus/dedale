@@ -357,7 +357,7 @@ function ContratsPanel({
               >
                 <ContratVersionsHistorique chaine={chaine} courantId={c.id} />
                 <details className="rounded-md border px-3 py-2">
-                  <summary className="text-muted-foreground cursor-pointer text-sm font-medium">
+                  <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
                     Documents
                   </summary>
                   <div className="pt-2">

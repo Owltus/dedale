@@ -17,12 +17,12 @@ export function AccountCard({ user }: { user: UserRow }) {
   return (
     <Card className="border-destructive/30">
       <CardHeader>
-        <CardTitle className="text-destructive flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-destructive">
           <ShieldOff className="size-4" /> Administration du compte
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           Actions sensibles. La désactivation coupe l’accès immédiatement ;
           l’anonymisation est irréversible.
         </p>

@@ -33,7 +33,11 @@ export function trierOtParUrgence<T extends OtTriable>(ots: readonly T[]): T[] {
       if (a.niveau !== b.niveau) return a.niveau - b.niveau
       // Terminés : clôture la plus récente d'abord ; sinon prévue la plus proche.
       return a.niveau === NIVEAU_URGENCE.termine
-        ? compareDate(a.ot.date_cloture ?? null, b.ot.date_cloture ?? null, false)
+        ? compareDate(
+            a.ot.date_cloture ?? null,
+            b.ot.date_cloture ?? null,
+            false,
+          )
         : compareDate(a.ot.date_prevue, b.ot.date_prevue, true)
     })
     .map((d) => d.ot)

@@ -241,7 +241,12 @@ function joursEntre(jusqu: string, depuis: string): number {
 export const SEUIL_ALERTE_DANGER_JOURS = 15
 export const SEUIL_ALERTE_WARNING_JOURS = 45
 
-export type StatutContrat = 'archive' | 'resilie' | 'a_venir' | 'expire' | 'actif'
+export type StatutContrat =
+  | 'archive'
+  | 'resilie'
+  | 'a_venir'
+  | 'expire'
+  | 'actif'
 
 export interface StatutContratInfo {
   statut: StatutContrat
@@ -287,7 +292,8 @@ export function statutContrat(
   c: DonneesContrat,
   aujourdhui: string = todayLocal(),
 ): StatutContratInfo {
-  if (c.est_archive) return { statut: 'archive', label: 'Archivé', tone: 'neutral' }
+  if (c.est_archive)
+    return { statut: 'archive', label: 'Archivé', tone: 'neutral' }
   if (c.date_resiliation && c.date_resiliation <= aujourdhui) {
     return { statut: 'resilie', label: 'Résilié', tone: 'neutral' }
   }
@@ -354,7 +360,8 @@ export function alerteContrat(
   const quoi = echeance.type === 'reconduction' ? 'Reconduction' : 'Échéance'
   const message =
     jours === 0 ? `${quoi} aujourd'hui` : `${quoi} dans ${String(jours)} j`
-  if (jours <= SEUIL_ALERTE_DANGER_JOURS) return { tone: 'destructive', message }
+  if (jours <= SEUIL_ALERTE_DANGER_JOURS)
+    return { tone: 'destructive', message }
   if (jours <= SEUIL_ALERTE_WARNING_JOURS) return { tone: 'warning', message }
   return null
 }
@@ -442,7 +449,9 @@ function formatDuree(jours: number): string {
   const ans = Math.floor(jours / 365.25)
   const moisRestants = Math.round((jours - ans * 365.25) / 30.44)
   const anLabel = `${String(ans)} an${ans > 1 ? 's' : ''}`
-  return moisRestants > 0 ? `${anLabel} et ${String(moisRestants)} mois` : anLabel
+  return moisRestants > 0
+    ? `${anLabel} et ${String(moisRestants)} mois`
+    : anLabel
 }
 
 /** Rang d'un cycle (« 1er », « 2e », « 5e »). */

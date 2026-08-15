@@ -75,7 +75,7 @@ export function PageHeader({
             variant="ghost"
             size="sm"
             onClick={onBack}
-            className="text-muted-foreground mb-0.5 -ml-2 h-auto gap-1 px-2 py-1"
+            className="mb-0.5 -ml-2 h-auto gap-1 px-2 py-1 text-muted-foreground"
           >
             <ChevronLeft className="size-4" />
             {backLabel}
@@ -97,7 +97,7 @@ export function PageHeader({
             zone TOUJOURS réservée même si vide (`min-h-5`). */}
         <p
           title={description}
-          className="text-muted-foreground min-h-5 truncate text-sm"
+          className="min-h-5 truncate text-sm text-muted-foreground"
         >
           {description}
         </p>

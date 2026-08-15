@@ -77,7 +77,7 @@ export function NumberField<T extends FieldValues>({
               />
             </FormControl>
             {unite != null && (
-              <span className="text-muted-foreground shrink-0 text-sm">
+              <span className="shrink-0 text-sm text-muted-foreground">
                 {unite}
               </span>
             )}

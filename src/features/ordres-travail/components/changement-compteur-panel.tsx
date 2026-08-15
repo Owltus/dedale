@@ -37,14 +37,14 @@ export function ChangementCompteurPanel({
 }: ChangementCompteurPanelProps) {
   return (
     <div
-      className="bg-muted/40 flex flex-col gap-2 rounded-md border border-dashed p-2 select-none"
+      className="flex flex-col gap-2 rounded-md border border-dashed bg-muted/40 p-2 select-none"
       onPointerDown={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
     >
       {/* Intro = le POURQUOI, en une phrase. Puis un formulaire vertical : à
           gauche le libellé + une explication simple, à droite la saisie (w-32,
           bords droits alignés, lignes espacées régulièrement). */}
-      <p className="text-muted-foreground flex items-start gap-1.5 text-xs">
+      <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
         <Replace className="mt-0.5 size-3.5 shrink-0" />
         <span>
           Le compteur a été changé pendant la période ? Recopiez les chiffres
@@ -57,7 +57,7 @@ export function ChangementCompteurPanel({
       <div className="flex items-center gap-4">
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-sm">Relevé précédent</span>
-          <span className="text-muted-foreground text-xs">
+          <span className="text-xs text-muted-foreground">
             Le dernier index relevé avant le changement (OT précédent). Base du
             calcul de l'écart.
           </span>
@@ -71,7 +71,7 @@ export function ChangementCompteurPanel({
       <label className="flex items-center gap-4">
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-sm">Ancien compteur à la dépose</span>
-          <span className="text-muted-foreground text-xs">
+          <span className="text-xs text-muted-foreground">
             Le dernier chiffre affiché par l'ancien compteur, juste avant de le
             retirer.
           </span>
@@ -87,7 +87,7 @@ export function ChangementCompteurPanel({
       <label className="flex items-center gap-4">
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-sm">Nouveau compteur à l'installation</span>
-          <span className="text-muted-foreground text-xs">
+          <span className="text-xs text-muted-foreground">
             Le chiffre affiché par le compteur neuf au moment où on le pose
             (souvent 0).
           </span>
@@ -103,7 +103,7 @@ export function ChangementCompteurPanel({
       <label className="flex items-center gap-4">
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-sm">Nouvel index</span>
-          <span className="text-muted-foreground text-xs">
+          <span className="text-xs text-muted-foreground">
             Le relevé d'aujourd'hui, lu sur le nouveau compteur.
           </span>
         </span>
@@ -115,7 +115,7 @@ export function ChangementCompteurPanel({
         <div className="flex items-center gap-4 border-t pt-2">
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="text-sm">Écart</span>
-            <span className="text-muted-foreground text-xs">
+            <span className="text-xs text-muted-foreground">
               La consommation de la période, calculée pour vous malgré le
               changement de compteur.
             </span>

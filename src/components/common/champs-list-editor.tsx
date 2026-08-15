@@ -83,7 +83,7 @@ export function ChampsListEditor({
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-sm font-medium">
-          <SlidersHorizontal className="text-muted-foreground size-4" />
+          <SlidersHorizontal className="size-4 text-muted-foreground" />
           Caractéristiques
         </span>
         <TooltipIconButton
@@ -95,7 +95,7 @@ export function ChampsListEditor({
       </div>
 
       {champs.length === 0 ? (
-        <p className="text-muted-foreground text-sm">{emptyHint}</p>
+        <p className="text-sm text-muted-foreground">{emptyHint}</p>
       ) : (
         <div className={listStack}>
           {champs.map((c) => (
@@ -105,10 +105,14 @@ export function ChampsListEditor({
               title={c.cle}
               subtitle={champResume(c)}
               badges={
-                c.requis ? <Badge variant="outline">Obligatoire</Badge> : undefined
+                c.requis ? (
+                  <Badge variant="outline">Obligatoire</Badge>
+                ) : undefined
               }
               onClick={
-                pending ? undefined : () => setChampForm({ open: true, champ: c })
+                pending
+                  ? undefined
+                  : () => setChampForm({ open: true, champ: c })
               }
               actions={
                 <>

@@ -118,7 +118,12 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
       clicTitre?: string
     }[] = [
       // 1. En retard = rouge (destructive), comme le badge « En retard ».
-      { key: 'en-retard', label: 'En retard', tone: 'destructive', ots: enRetard },
+      {
+        key: 'en-retard',
+        label: 'En retard',
+        tone: 'destructive',
+        ots: enRetard,
+      },
       // 2. En cours (semaines passées) = bleu (info), comme `statutOtTone('en_cours')`.
       { key: 'en-cours', label: 'En cours', tone: 'info', ots: enCoursPasses },
       // 3. Cette semaine, subdivisée (sous-parts COLLÉES) — couleurs = statutOtTone.

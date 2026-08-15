@@ -20,7 +20,7 @@ export function ErrorState({
         className,
       )}
     >
-      <p className="text-destructive text-sm">{message}</p>
+      <p className="text-sm text-destructive">{message}</p>
       {onRetry && (
         <Button variant="outline" onClick={onRetry}>
           Réessayer

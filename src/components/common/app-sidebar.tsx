@@ -74,7 +74,8 @@ const REFERENTIELS: NavItem[] = [
 
 // Item actif : fond accentué + texte en gras. Piloté par le routeur (activeProps),
 // pas par `isActive` — cohérent avec le reste de l'app.
-const ACTIVE_CLASS = 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+const ACTIVE_CLASS =
+  'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
 
 function NavGroup({
   title,
@@ -153,7 +154,7 @@ export function AppSidebar() {
                   <span className="truncate text-base font-bold tracking-wide uppercase">
                     Dédale
                   </span>
-                  <span className="text-muted-foreground truncate text-xs">
+                  <span className="truncate text-xs text-muted-foreground">
                     Gestion de Maintenance
                   </span>
                 </div>

@@ -33,7 +33,7 @@ export function CheckRow({
 }: CheckRowProps) {
   const id = useId()
   return (
-    <div className="hover:bg-muted/50 flex items-center gap-3 px-3 py-2 text-sm">
+    <div className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50">
       <Checkbox
         id={id}
         checked={checked}
@@ -47,7 +47,7 @@ export function CheckRow({
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-medium">{titre}</span>
           {sousTitre != null && sousTitre !== '' && (
-            <span className="text-muted-foreground truncate text-xs">
+            <span className="truncate text-xs text-muted-foreground">
               {sousTitre}
             </span>
           )}
@@ -188,7 +188,7 @@ export function ChecklistDialog({
     corps = error
   } else if (filtered.length === 0) {
     corps = (
-      <p className="text-muted-foreground p-4 text-center text-sm">
+      <p className="p-4 text-center text-sm text-muted-foreground">
         {items.length === 0 ? empty : (noResults ?? empty)}
       </p>
     )

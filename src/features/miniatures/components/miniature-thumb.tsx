@@ -53,7 +53,7 @@ export function MiniatureThumb({
   return (
     <span
       className={cn(
-        'bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center overflow-hidden rounded',
+        'flex size-10 shrink-0 items-center justify-center overflow-hidden rounded bg-muted text-muted-foreground',
         className,
       )}
     >
