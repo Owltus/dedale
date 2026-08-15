@@ -27,6 +27,20 @@ Vite + React 19 + TypeScript · **TanStack** Router (routes file-based) · Query
 
 Décisions d'archi tranchées : `docs/decisions/`.
 
+## Skills — les procédures, pas les conventions
+
+Les conventions ci-dessus disent **ce qui est vrai** ; les skills disent **comment faire**. Chacun est la source unique de son sujet : ne pas recopier ses règles ailleurs.
+
+| Tâche                                                | Skill             |
+| ---------------------------------------------------- | ----------------- |
+| créer ou refondre une page / un écran                | `nouvelle-page`   |
+| créer ou câbler une modale                           | `modale`          |
+| extraire ou faire adopter un composant partagé       | `brique-commune`  |
+| écrire une migration SQL et resynchroniser le schéma | `migration-sql`   |
+| vérifier qu'un écran est aligné sur les patrons      | `revue-coherence` |
+
+Le **catalogue des ~60 briques réutilisables** (avec leur nombre réel de consommateurs) vit dans `.claude/skills/nouvelle-page/references/catalogue-composants.md` — **le consulter avant d'écrire un composant**, et le mettre à jour après.
+
 ## Doctrine backend à respecter (NON négociable — toujours active)
 
 1. **Single-tenant** : pas de notion de « client ». Tout appartient à l'unique entreprise.
