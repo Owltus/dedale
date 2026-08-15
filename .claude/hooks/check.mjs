@@ -1,7 +1,12 @@
 #!/usr/bin/env node
-// Hook PostToolUse (Edit|Write) : après modification d'un fichier .ts/.tsx,
-// lance un type-check incrémental. En cas d'erreur, sort en code 2 pour
-// remonter les messages à Claude (non destructif : l'édition a déjà eu lieu).
+// Hook PostToolUse (Edit|Write|MultiEdit) : après modification d'un fichier
+// .ts/.tsx, formate CE fichier avec Prettier puis lance un type-check
+// incrémental. En cas d'erreur de types, sort en code 2 pour remonter les
+// messages à Claude (non destructif : l'édition a déjà eu lieu).
+//
+// Le formatage est le garde-fou qui manquait : le type-check seul a laissé
+// 94 fichiers sur 377 dériver hors format sans qu'aucun signal ne remonte.
+// Il porte sur le SEUL fichier édité (quasi gratuit), jamais sur le projet.
 import { spawnSync } from 'node:child_process'
 
 let raw = ''
@@ -19,6 +24,16 @@ try {
 if (!/\.(ts|tsx)$/.test(filePath)) process.exit(0)
 
 const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
+
+// Formatage du fichier édité. Volontairement silencieux et non bloquant :
+// un échec de Prettier (fichier syntaxiquement invalide en cours d'écriture)
+// ne doit jamais masquer l'erreur de types, qui est le vrai signal.
+spawnSync(
+  process.execPath,
+  ['./node_modules/prettier/bin/prettier.cjs', '--write', filePath],
+  { cwd: projectDir, encoding: 'utf8' },
+)
+
 const res = spawnSync(
   process.execPath,
   ['./node_modules/typescript/bin/tsc', '-b'],

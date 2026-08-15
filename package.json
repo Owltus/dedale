@@ -8,8 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test",
     "preview": "vite preview",
     "gen:types": "npx --yes supabase gen types typescript --project-id ybxuojtyevldrbieaykh --schema public > src/lib/database.types.ts"
   },

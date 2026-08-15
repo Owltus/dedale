@@ -5,3 +5,11 @@ package-lock.json
 contexte
 
 supabase
+
+# Documents clos du refactor architecture (2026-07) : archives figées, pas du
+# code vivant. Les reformater bruiterait le lot d'hygiène sans aucun gain.
+AUDIT.md
+PLAN.md
+JOURNAL.md
+DECISIONS.md
+RAPPORT.md

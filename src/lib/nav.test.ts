@@ -17,6 +17,7 @@ const TOUTES: NavKey[] = [
   '/equipements',
   '/prestataires',
   '/utilisateurs',
+  '/bibliotheque',
 ]
 
 describe('canSeeNav', () => {
@@ -34,15 +35,23 @@ describe('canSeeNav', () => {
     expect(canSeeNav('/planning', 'lecteur')).toBe(true)
     expect(canSeeNav('/gammes', 'lecteur')).toBe(true)
     expect(canSeeNav('/prestataires', 'lecteur')).toBe(true)
-    // Vue produit curatée : pas de budget, ni gestion sites/utilisateurs.
-    expect(canSeeNav('/investissements', 'lecteur')).toBe(false)
+    // Investissements : visible en LECTURE, miroir de la RLS réelle
+    // (capex_site_scoped_select autorise manager/technicien/lecteur sur leurs
+    // sites). L'écriture, elle, reste filtrée dans la page.
+    expect(canSeeNav('/investissements', 'lecteur')).toBe(true)
+    // Gestion réservée : sites (admin) et utilisateurs (administratif).
     expect(canSeeNav('/sites', 'lecteur')).toBe(false)
     expect(canSeeNav('/utilisateurs', 'lecteur')).toBe(false)
+    // Bibliothèque : outil des rôles métier, lecteur exclu.
+    expect(canSeeNav('/bibliotheque', 'lecteur')).toBe(false)
   })
 
-  it('technicien comme lecteur côté visibilité (pas investissements/sites/utilisateurs)', () => {
+  it('technicien voit les écrans métier, pas la gestion sites/utilisateurs', () => {
     expect(canSeeNav('/ordres-travail', 'technicien')).toBe(true)
-    expect(canSeeNav('/investissements', 'technicien')).toBe(false)
+    // Miroir de la RLS : le technicien crée et édite un investissement sur ses
+    // sites (la suppression reste admin, gérée dans la page).
+    expect(canSeeNav('/investissements', 'technicien')).toBe(true)
+    expect(canSeeNav('/bibliotheque', 'technicien')).toBe(true)
     expect(canSeeNav('/sites', 'technicien')).toBe(false)
     expect(canSeeNav('/utilisateurs', 'technicien')).toBe(false)
   })
