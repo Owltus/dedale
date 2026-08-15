@@ -16,8 +16,7 @@ export const equipementQueries = {
         supabase
           .from('equipements')
           .select('id, nom, statut')
-          .eq('site_id', filtres.siteId)
-          .is('deleted_at', null) // soft-delete : toujours filtrer
+          .eq('site_id', filtres.siteId) // cloisonnement redondant avec la RLS
           .abortSignal(signal)
           .throwOnError(), // sinon l'erreur reste invisible pour Query
     }),
@@ -26,7 +25,7 @@ export const equipementQueries = {
 
 - **Toujours `.throwOnError()`** : sinon l'erreur reste dans `{ error }` et Query croit que tout va bien.
 - **`.maybeSingle()`** (pas `.single()`) quand l'absence de ligne est un cas normal (RLS qui filtre → résultat vide, pas erreur).
-- **Toujours filtrer le soft-delete** : `.is('deleted_at', null)` sur les listes.
+- **Jamais de filtre `deleted_at`** : la colonne n'existe plus (hard-delete, migrations 034-036). Cf. `CLAUDE.md` → Doctrine backend, point 4.
 - `staleTime` raisonnable (~60 s) par défaut, pas `0` partout.
 - v5 : c'est `isPending` (pas `isLoading`) ; `onSuccess`/`onError` n'existent plus sur `useQuery`.
 
@@ -60,7 +59,8 @@ export function useUpdateEquipement() {
 
 ## Types Supabase générés
 
-- `npm run gen:types` (après `npx supabase login`) régénère `src/lib/database.types.ts`. **Ne jamais l'éditer à la main**, régénérer après chaque migration backend.
+- `npm run gen:types` (après `npx supabase login`) régénère `src/lib/database.types.ts` : c'est la voie normale, à relancer après chaque migration backend.
+- **Une seule exception à l'édition manuelle** : tant qu'une migration n'est pas déployée en production, `gen:types` ne peut pas la voir. On édite alors le fichier **à la main, en pont**, et on régénère dès le déploiement. Toute autre édition manuelle est une erreur.
 - Une fois généré : `createClient<Database>(...)` dans `src/lib/supabase.ts` → `.from()`/`.rpc()` entièrement typés. En attendant : cast explicite ponctuel.
 
 ## Upload de document = 3 étapes
@@ -84,9 +84,9 @@ export function useUpdateEquipement() {
 
 ## À NE PAS FAIRE
 
-- ❌ Oublier `.throwOnError()` ; oublier le filtre `deleted_at`.
+- ❌ Oublier `.throwOnError()` ; filtrer sur `deleted_at` (colonne supprimée).
 - ❌ `.single()` quand le vide est normal (→ `.maybeSingle()`).
 - ❌ Mettre la session Supabase comme source de vérité dans Query ; `await` dans le callback `onAuthStateChange` (deadlock).
 - ❌ Clés de query incomplètes (sans filtres) ; `staleTime: 0` global.
-- ❌ Éditer `database.types.ts` à la main ; oublier de régénérer après migration.
+- ❌ Éditer `database.types.ts` à la main **hors du cas du pont** ci-dessus ; oublier de régénérer après déploiement.
 - ❌ Recréer le client Supabase dans un composant ; oublier `unsubscribe()` au cleanup.

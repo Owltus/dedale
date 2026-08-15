@@ -15,7 +15,10 @@ Toutes les couleurs vivent dans `src/index.css` (tokens `:root` clair + `.dark` 
 - `bg-primary` / `text-primary-foreground` — action principale
 - `bg-secondary`, `bg-muted` / `text-muted-foreground` — secondaire, atténué
 - `bg-destructive` — danger / suppression
+- `text-warning`, `text-success`, `text-info` — états (défavorable, favorable, informatif)
 - `border`, `border-input`, `ring` — bordures et focus
+
+**Tonalités d'état** : elles ne se choisissent pas à la main, elles viennent du type `StatusTone` (`common/status-badge.tsx`) et du helper `toneToken` pour les graphiques. Deux emplois distincts de `destructive` : **teinté** (`bg-destructive/10`, via `StatusBadge`) = état **critique** ; **solide** (`variant="destructive"`) = **action** destructrice uniquement.
 
 **Jamais** `bg-blue-600` ni `text-[#1a1a1a]`. Changer la marque/palette = éditer `index.css` uniquement.
 
@@ -65,7 +68,7 @@ Densités : `cardGrid.compact` (sites, localisations, prestataires) et `cardGrid
 
 **Mobile-first obligatoire.** On part du mobile, puis on agrandit avec des breakpoints (`sm:`, `md:`, `lg:`…). Breakpoints (défauts Tailwind) : `sm` 640 · `md` 768 · `lg` 1024 · `xl` 1280 · `2xl` 1536.
 
-- **Racine de page** : toujours `<PageContainer>` (`src/components/common/page-container.tsx`), jamais un `p-6` nu. Il gère le padding mobile-first (`px-4 sm:px-6 lg:px-8`).
+- **Racine de page** : toujours `<PageContainer>` (`src/components/common/page-container.tsx`), jamais un `p-6` nu. Il gère le padding mobile-first (`px-4 sm:px-6 lg:px-8`). Par défaut, son **1er enfant est l'en-tête FIXE** et le reste défile — attention : avec un **enfant unique**, tout part dans la zone défilante et l'en-tête défile avec. Écran qui gère lui-même son défilement (explorateur, planning) → `<PageContainer fill>` + les briques **`FillHeader`** et **`ScrollBody`** exportées par le même fichier : ce sont la **source unique** des classes de gouttières, à réutiliser plutôt qu'à recopier.
 - **Grilles de cartes** : via `cardGrid` (cf. ci-dessus), jamais une grille fixe `grid-cols-2/3` sans breakpoint.
 - **En-tête** : `PageHeader` se replie déjà en colonne sous `sm` ; pour un en-tête maison, faire pareil (`flex flex-col gap-4 sm:flex-row`).
 - **Navigation** : la sidebar est fixe à partir de `lg` et devient un drawer (`Sheet`) sous `lg`, ouvert par la barre supérieure mobile. Rien à faire dans les pages.

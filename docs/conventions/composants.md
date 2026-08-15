@@ -21,10 +21,13 @@ Règle : si tu assembles les mêmes `ui/` de la même façon ≥ 2 fois → remo
 
 ## Champs de formulaire
 
-Champs prêts à l'emploi (libellé + champ + message d'erreur), modelés l'un sur l'autre, dans `src/components/common/` :
+Champs prêts à l'emploi (libellé + champ + message d'erreur) dans **`src/components/common/fields/`** — le sous-dossier, pas la racine :
 
-- `TextField`, `SelectField`, `TextareaField`. Signature commune : `label`, `value`, `onChange: (v: string) => void`, `error?`, `required?` (+ props natifs). L'`id` est généré via `useId()` si non fourni.
-- Primitives sous-jacentes : `ui/input`, `ui/select`, `ui/textarea` (style aligné : `px-3`, `text-base md:text-sm`, états focus/erreur/disabled).
+- `TextField`, `SelectField`, `TextareaField`, `DescriptionField`, `NumberField`, `CheckboxField`, `SwitchField`, `RadioField`, `DateField`, `PorteeField`, `IdentiteFields`.
+- Signature commune : **`control={form.control}` + `name="…"`** (+ `label`, `required?`, options du champ). **Plus de `value`/`onChange`/`error`** : l'état et la validation viennent de react-hook-form, et `FormMessage` (inclus dans chaque champ) lit l'erreur du resolver Zod.
+- Primitives sous-jacentes : `ui/input`, `ui/select-dropdown` (**Radix**, pas de `<select>` natif), `ui/textarea` (style aligné : `px-3`, `h-9`, `text-base md:text-sm`, états focus/erreur/disabled).
+
+> **Piège d'homonymie.** `common/text-field.tsx` et `common/fields/text-field.tsx` coexistent (idem `select`, `checkbox`, `number`). Les fichiers de la **racine** `common/` sont la génération 1 (API `value`/`onChange`), en cours de retrait. Toujours importer depuis **`@/components/common/fields/…`**.
 
 → Ne jamais recopier un `<select>`/`<textarea>` natif stylé à la main : utiliser ces champs.
 
@@ -36,7 +39,7 @@ La [règle des 4 états](./ui.md) est factorisée dans `common/query-state.tsx` 
 const query = useQuery(xxxQueries.list(siteId))
 <QueryState
   query={query}
-  pending={<CardSkeletons count={4} height="h-40" />}
+  pending={<ListRowSkeletons />}          {/* grille de cartes → CardSkeletons */}
   empty={<EmptyState icon={Icon} title="Aucun X" action={newButton} />}
 >
   {(items) => <div className={cardGrid.default}>{items.map(/* … */)}</div>}
@@ -57,26 +60,20 @@ const query = useQuery(xxxQueries.list(siteId))
 
 ## Modals (stratégie « simple d'abord »)
 
-Base = `Dialog` shadcn (`src/components/ui/dialog.tsx`) → accessibilité gérée (focus trap, Esc, aria). État d'ouverture local :
+Base = **`DialogShell`** (`common/dialog-shell.tsx`) — coquille « 3 zones » (en-tête fixe / corps défilant / pied fixe, `max-h-85vh`), bâtie sur le `Dialog` shadcn dont elle hérite l'accessibilité (focus trap, Esc, aria). **Aucun `DialogContent` ne doit être monté hors de `DialogShell`** : c'est la base commune des ~45 modales de l'app, y compris les cas plein cadre (aperçu de document, recadrage, canvas).
 
-```tsx
-const [open, setOpen] = useState(false)
-<Dialog open={open} onOpenChange={setOpen}>
-  <DialogContent>
-    <DialogHeader>
-      <DialogTitle>Titre</DialogTitle>            {/* TOUJOURS un titre (sinon warning a11y) */}
-      <DialogDescription>…</DialogDescription>
-    </DialogHeader>
-    {/* contenu / formulaire */}
-    <DialogFooter>
-      <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
-      <Button onClick={…}>Valider</Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-```
+Choisir la coquille selon l'intention, jamais recopier les classes :
 
-- **Dialog de formulaire** : ne pas recopier cette coquille → **react-hook-form** + `zodResolver` dans un `<Form {...form}>` + `FormDialog` (`common/form-dialog.tsx`, bâti sur `DialogShell`) :
+| Intention                      | Coquille                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| Formulaire                     | `FormDialog`                                                                         |
+| Suppression définitive         | `ConfirmDeleteDialog` (impact-aware : `warning`/`impacts`/`blocked`/`confirmPhrase`) |
+| Action ponctuelle réversible   | `ConfirmDialog`                                                                      |
+| Texte obligatoire avant action | `MotifDialog`                                                                        |
+| Multi-sélection cochable       | `ChecklistDialog`                                                                    |
+| Plein cadre (aperçu, canvas)   | `DialogShell` avec `padded`                                                          |
+
+- **Dialog de formulaire** : **react-hook-form** + `zodResolver` dans un `<Form {...form}>` + `FormDialog` (`common/form-dialog.tsx`, bâti sur `DialogShell`) :
 
 ```tsx
 const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues })
@@ -102,14 +99,16 @@ const submit = useSubmitDialog<Values>({ onSubmit, successMessage, close: () => 
 La coquille ne gère que le **visuel** ; l'état + la validation viennent de RHF/`zodResolver`, la soumission (toast + close + traduction d'erreur) de `useSubmitDialog`, le reset du **remontage** (`key`). Props utiles : `submitVariant="destructive"`, `size`, `contentClassName`.
 
 - **Un seul modal visible à la fois** ; ne pas empiler.
-- Modal métier d'édition → composant dédié `features/<domaine>/components/<Entité>Dialog.tsx`.
-- Si le volume de modals devient ingérable ou qu'on veut des vues **partageables par lien**, on réévaluera (gestionnaire global type nice-modal, ou pilotage par l'URL). Pour l'instant : state local + composant dédié.
+- Modal métier d'édition → composant dédié `features/<domaine>/components/<entite>-form-dialog.tsx` (**kebab-case**, comme tout fichier de composant).
+- État d'ouverture via **`useEntityDialog`**, et modale montée avec **`key={dlg.dialogKey}`** — jamais une clé constante, sinon une saisie annulée ressuscite à la réouverture.
+- **Vues partageables par lien** : déjà en place là où c'est utile, via les search params validés (`validateSearch` + `Route.useSearch()`, ouverture en `navigate({ search })`, fermeture en `replace: true`). Le state local reste la règle pour une modale qui n'a pas vocation à être partagée.
 
 ## À NE PAS FAIRE
 
-- ❌ Réécrire l'accessibilité d'un modal à la main ; `DialogContent` sans `DialogTitle`.
+- ❌ Réécrire l'accessibilité d'un modal à la main ; `DialogContent` sans `DialogTitle` ; monter un `DialogContent` hors de `DialogShell`.
 - ❌ Recopier le bloc des 4 états ou la coquille d'un dialog de formulaire → `QueryState` / `FormDialog`.
-- ❌ Recopier un `<select>`/`<textarea>` natif stylé → `SelectField` / `TextareaField`.
+- ❌ Recopier un `<select>`/`<textarea>` natif stylé, ou importer un champ depuis `common/` au lieu de `common/fields/` → génération 1, en retrait.
+- ❌ Monter une modale d'édition avec une clé constante (`key={item.id}`) → `key={dlg.dialogKey}`.
 - ❌ Recopier la garde « sélectionne un site » → `NoSiteSelected` ; hardcoder un rôle (`role === 'admin'`) → `lib/permissions`.
 - ❌ Mettre de la logique métier dans `components/ui`.
 - ❌ Concaténer des classes conditionnelles à la main au lieu de CVA pour les variantes.

@@ -32,7 +32,7 @@ Décisions d'archi tranchées : `docs/decisions/`.
 1. **Single-tenant** : pas de notion de « client ». Tout appartient à l'unique entreprise.
 2. **Sécurité = rôle + sites** (RLS). 5 rôles : `admin` · `manager` · `technicien` · `lecteur` · `demandeur`. On raisonne « mes sites », **jamais** d'assignation nominative.
 3. **RLS = résultat vide, pas erreur** en lecture (→ `.maybeSingle()` si l'absence est normale). Un INSERT/UPDATE hors scope renvoie une **erreur** (`42501`) à catcher.
-4. **Soft-delete** : toujours filtrer `.is('deleted_at', null)` sur les listes.
+4. **Hard-delete** : la colonne `deleted_at` **n'existe plus** (migrations 034-036). Ne jamais filtrer dessus. Les garde-fous sont les FK : `RESTRICT` (conteneur non vide → suppression bloquée, à présenter via `blocked`/`blockedReason`) ou `CASCADE` (liaisons retirées — le dire dans le `warning` de la modale).
 5. **Machines à états** : une transition interdite renvoie une **erreur** → catcher et afficher proprement.
 6. **Upload document = 3 étapes** : Storage → insert `documents` (avec `site_id`) → insert table de liaison.
 7. **Helpers/RPC en `public.`** (jamais `auth.xxx()` sauf `auth.uid()`). RPC : `current_role`, `get_my_sites`, `copier_gamme`, `instancier_equipement`, `reouvrir_ot`…
@@ -48,8 +48,9 @@ Décisions d'archi tranchées : `docs/decisions/`.
 
 ## Garde-fous automatiques
 
-- **Hook** `.claude/hooks/check.mjs` (PostToolUse) : type-check après chaque édition `.ts`/`.tsx`.
-- **Allow-list** `.claude/settings.json` : npm/git (hors push)/tsc/eslint sans confirmation. Push et suppressions confirmés.
+- **Hook** `.claude/hooks/check.mjs` (PostToolUse) : après chaque édition `.ts`/`.tsx`, **formate le fichier édité** (Prettier) puis lance le type-check. Le formatage est non bloquant ; seule une erreur de types remonte.
+- **Gate** : `npm run verify` = typecheck + lint + format + tests. C'est la seule commande à lancer en fin de chantier (avec `npm run build`).
+- **Allow-list** `.claude/settings.json` : npm/git (hors push)/tsc/eslint/prettier sans confirmation. Tout ce qui n'y figure pas — dont `git push` et les suppressions de fichiers — demande une confirmation ; il n'y a pas de liste `deny` explicite.
 
 ## Repères & pièges
 

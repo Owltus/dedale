@@ -42,6 +42,6 @@ src/
 
 ## Nommage
 
-- Composants : `PascalCase`. Convention métier systématique : `<Entité>Card`, `<Entité>Table`, `<Entité>Form`, `<Entité>DetailDialog` → une nouvelle page = remplir le même squelette.
-- Fichiers de composants : `kebab-case.tsx` (aligné shadcn) pour `ui/`/`common/` ; suivre l'existant.
+- Composants (le symbole) : `PascalCase`. Convention métier : `<Entité>Card`, `<Entité>Detail`, `<Entité>FormDialog`.
+- Fichiers de composants (le fichier) : **`kebab-case.tsx` partout**, `ui/`, `common/` **et** `features/` — ex. `site-form-dialog.tsx` exportant `SiteFormDialog`. Aucune exception.
 - Imports : alias **`@/`** pour tout `src/` (pas de `../../../`).
