@@ -62,22 +62,23 @@ export function UtilisateurDetail({
   const canEdit = perm.canEditUser(role, targetRole)
 
   return (
-    <PageContainer>
-      <div className="mx-auto flex max-w-2xl flex-col gap-4">
-        <PageHeader
-          title={user.nom_complet}
-          description={roleLabel(targetRole)}
-          breadcrumb={[{ label: 'Utilisateurs', onClick: onBack }]}
-          titleBadges={
-            <>
-              <Badge variant={user.est_actif ? 'outline' : 'destructive'}>
-                {user.est_actif ? 'Actif' : 'Inactif'}
-              </Badge>
-              {user.anonymized_at && <Badge variant="outline">Anonymisé</Badge>}
-            </>
-          }
-        />
-
+    // `bodyMaxWidth` : le corps est centré, l'en-tête reste pleine largeur ET
+    // épinglé (cf. commentaire de Mon profil — même défaut, même correctif).
+    <PageContainer bodyMaxWidth="max-w-2xl">
+      <PageHeader
+        title={user.nom_complet}
+        description={roleLabel(targetRole)}
+        breadcrumb={[{ label: 'Utilisateurs', onClick: onBack }]}
+        titleBadges={
+          <>
+            <Badge variant="outline">
+              {user.est_actif ? 'Actif' : 'Inactif'}
+            </Badge>
+            {user.anonymized_at && <Badge variant="outline">Anonymisé</Badge>}
+          </>
+        }
+      />
+      <>
         <DetailHeaderCard
           fallbackIcon={User}
           fields={[
@@ -96,7 +97,7 @@ export function UtilisateurDetail({
         )}
 
         {isAdmin && !isSelf && <AccountCard user={user} />}
-      </div>
+      </>
     </PageContainer>
   )
 }

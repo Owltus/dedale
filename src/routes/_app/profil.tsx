@@ -60,13 +60,16 @@ function ProfilPage() {
   })
 
   return (
-    <PageContainer>
-      <div className="mx-auto flex max-w-xl flex-col gap-4">
-        <PageHeader
-          title="Mon profil"
-          description="Gère tes informations personnelles et ta sécurité."
-        />
-
+    // `bodyMaxWidth` centre le CORPS sans emporter l'en-tête : enveloppés
+    // ensemble dans un seul div, ils ne faisaient qu'UN enfant de
+    // PageContainer, qui envoyait alors tout dans la zone défilante — titre
+    // compris. L'en-tête reste désormais épinglé, comme sur les 13 autres pages.
+    <PageContainer bodyMaxWidth="max-w-2xl">
+      <PageHeader
+        title="Mon profil"
+        description="Gère tes informations personnelles et ta sécurité."
+      />
+      <>
         {isPending || telPending ? (
           <Skeleton className="h-64 w-full" />
         ) : !me ? (
@@ -95,7 +98,7 @@ function ProfilPage() {
             <SecurityCard email={email} />
           </>
         )}
-      </div>
+      </>
     </PageContainer>
   )
 }

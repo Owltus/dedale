@@ -20,7 +20,11 @@ function EquipementsPage() {
   return (
     <SiteScopedRoute meta={PAGE_META}>
       {({ siteId }) => (
-        <PageContainer>
+        // `fill` : l'explorateur pose lui-même son en-tête fixe et sa zone
+        // défilante (FillHeader / ScrollBody), comme Localisations et Plan de
+        // maintenance. Sans `fill` et avec un enfant unique, PageContainer
+        // envoyait TOUT dans la zone défilante — en-tête compris.
+        <PageContainer fill>
           {/* key=site : remonte l'explorer à chaque changement de site actif →
               remise à zéro propre des refs/états internes (drill, modaux), pas
               de fuite d'état du site précédent. */}

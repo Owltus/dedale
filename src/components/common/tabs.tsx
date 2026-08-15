@@ -5,6 +5,7 @@ import { SelectMenu } from './select-menu'
 import { cn } from '@/lib/utils'
 import { TooltipIconButton } from './tooltip-icon-button'
 import { PageHeader, type PageHeaderCrumb } from './page-header'
+import { FillHeader, ScrollBody } from './page-container'
 import {
   TabActionContext,
   TabHeaderContext,
@@ -194,7 +195,11 @@ export function Tabs({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 px-4 pt-6 pb-3 sm:px-6 lg:px-8">
+      {/* `pb-3` = seul écart au gabarit standard, justifié : la barre d'onglets
+          se colle sous le titre. Le reste vient de la brique, dont les classes
+          étaient auparavant recopiées ici avec des valeurs divergentes — d'où un
+          rythme vertical différent entre la Bibliothèque et les autres pages. */}
+      <FillHeader className="pb-3">
         {/* Région live : le changement de contexte (onglet actif ou descente dans
             un onglet) est annoncé aux lecteurs d'écran via le titre courant. */}
         <div
@@ -269,18 +274,20 @@ export function Tabs({
             ))}
           </SelectMenu>
         </div>
-      </div>
+      </FillHeader>
 
       <TabActionContext.Provider value={api}>
         <TabHeaderContext.Provider value={headerApi}>
-          <div
+          <ScrollBody
             role="tabpanel"
             id={activeItem ? `panneau-${activeItem.id}` : undefined}
             aria-labelledby={activeItem ? `onglet-${activeItem.id}` : undefined}
-            className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8"
+            // `pt-4` : espace sous la barre d'onglets. Le bas garde le `pb-6`
+            // de la brique, comme toutes les autres pages (il valait `pb-4`).
+            className="pt-4"
           >
             {activeItem?.content}
-          </div>
+          </ScrollBody>
         </TabHeaderContext.Provider>
       </TabActionContext.Provider>
     </div>

@@ -1,4 +1,4 @@
-import { Children, type ReactNode } from 'react'
+import { Children, type ComponentProps, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -8,16 +8,23 @@ import { cn } from '@/lib/utils'
  * mise en page au lieu de recopier les classes.
  */
 
-/** En-tête FIXE d'une page (padding mobile-first, sans padding bas). */
+/**
+ * En-tête FIXE d'une page (padding mobile-first, sans padding bas).
+ *
+ * Accepte les props d'un `div` (rôle ARIA, id…) : sans cela, un appelant ayant
+ * besoin d'un attribut recopiait les classes à côté de la brique — c'est ainsi
+ * que des valeurs divergentes sont apparues.
+ */
 export function FillHeader({
   className,
   children,
-}: {
-  className?: string
-  children: ReactNode
-}) {
+  ...props
+}: ComponentProps<'div'>) {
   return (
-    <div className={cn('shrink-0 px-4 pt-6 sm:px-6 lg:px-8', className)}>
+    <div
+      className={cn('shrink-0 px-4 pt-6 sm:px-6 lg:px-8', className)}
+      {...props}
+    >
       {children}
     </div>
   )
@@ -27,16 +34,15 @@ export function FillHeader({
 export function ScrollBody({
   className,
   children,
-}: {
-  className?: string
-  children: ReactNode
-}) {
+  ...props
+}: ComponentProps<'div'>) {
   return (
     <div
       className={cn(
         'min-h-0 flex-1 overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8',
         className,
       )}
+      {...props}
     >
       {children}
     </div>
@@ -52,6 +58,16 @@ interface PageContainerProps {
    * le reste défile — la scrollbar commence donc SOUS l'en-tête.
    */
   fill?: boolean
+  /**
+   * Borne la largeur du CORPS défilant (ex. `max-w-2xl`) en le centrant, sans
+   * toucher à l'en-tête, qui reste pleine largeur ET fixe.
+   *
+   * À utiliser pour les pages en colonne étroite (réglages, fiche d'une
+   * personne). Sans cette prop, l'appelant est tenté d'envelopper en-tête ET
+   * cartes dans un seul `div` centré — il n'a alors plus qu'UN enfant, tombe
+   * dans le cas ci-dessous, et son en-tête part au défilement.
+   */
+  bodyMaxWidth?: string
 }
 
 /**
@@ -62,6 +78,7 @@ export function PageContainer({
   children,
   className,
   fill = false,
+  bodyMaxWidth,
 }: PageContainerProps) {
   if (fill) {
     // L'enfant gère lui-même son en-tête fixe + son défilement : il DOIT poser
@@ -89,7 +106,15 @@ export function PageContainer({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <FillHeader>{header}</FillHeader>
-      <ScrollBody className={className}>{body}</ScrollBody>
+      <ScrollBody className={className}>
+        {bodyMaxWidth ? (
+          <div className={cn('mx-auto flex flex-col gap-4', bodyMaxWidth)}>
+            {body}
+          </div>
+        ) : (
+          body
+        )}
+      </ScrollBody>
     </div>
   )
 }

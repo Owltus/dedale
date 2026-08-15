@@ -38,6 +38,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { FillHeader, ScrollBody } from '@/components/common/page-container'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import type { Database } from '@/lib/database.types'
 
@@ -471,160 +472,165 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     childCategories.length === 0 &&
     (current === null || equipementsInCurrent.length === 0)
 
+  // En-tête FIXE + corps DÉFILANT via les briques (mode `fill`), comme
+  // localisations-explorer et gammes-explorer. Cet explorateur rendait son
+  // en-tête nu : il partait donc au défilement, seul des trois.
   return (
     <>
-      {header}
-
-      {/* Pas de prop `empty` : on ne court-circuite PAS sur le vide du pool global
-          de catégories. Sinon, un site sans catégorie de parc MAIS avec des
-          équipements orphelins (import legacy) afficherait « Aucune catégorie » et
-          masquerait le bac « Non classé ». La branche interne `emptyHere` gère
-          l'état vide en tenant compte des orphelins. */}
-      <QueryState
-        query={categoriesQuery}
-        pending={<ListRowSkeletons count={4} />}
-      >
-        {() => {
-          if (equipementsQuery.isPending) return <ListRowSkeletons count={4} />
-          if (equipementsQuery.isError) {
+      <FillHeader>{header}</FillHeader>
+      <ScrollBody>
+        {/* Pas de prop `empty` : on ne court-circuite PAS sur le vide du pool
+            global de catégories. Sinon, un site sans catégorie de parc MAIS avec
+            des équipements orphelins (import legacy) afficherait « Aucune
+            catégorie » et masquerait le bac « Non classé ». La branche interne
+            `emptyHere` gère l'état vide en tenant compte des orphelins. */}
+        <QueryState
+          query={categoriesQuery}
+          pending={<ListRowSkeletons count={4} />}
+        >
+          {() => {
+            if (equipementsQuery.isPending)
+              return <ListRowSkeletons count={4} />
+            if (equipementsQuery.isError) {
+              return (
+                <ErrorState onRetry={() => void equipementsQuery.refetch()} />
+              )
+            }
+            if (emptyHere) {
+              // Niveau 0 : catégories ; niveau 1 : sous-catégories ; niveau ≥2
+              // (sous-catégorie) : équipements. Message adapté au palier.
+              const isSubcatLevel = depth >= 2 || isVirtualCurrent
+              return (
+                <EmptyState
+                  icon={isSubcatLevel ? Package : FolderTree}
+                  title={
+                    depth === 0
+                      ? 'Aucune catégorie'
+                      : depth === 1
+                        ? 'Catégorie vide'
+                        : 'Sous-catégorie vide'
+                  }
+                  description={
+                    depth === 0
+                      ? canEdit
+                        ? 'Crée une première catégorie avec le bouton « Nouvelle catégorie ».'
+                        : 'Aucune catégorie pour le moment.'
+                      : depth === 1
+                        ? canCreateSubcat
+                          ? 'Crée une sous-catégorie avec le bouton « Nouvelle sous-catégorie ».'
+                          : 'Aucune sous-catégorie.'
+                        : canCreateEquipHere
+                          ? 'Ajoute un équipement avec les boutons ci-dessus.'
+                          : 'Aucun équipement dans cette sous-catégorie.'
+                  }
+                />
+              )
+            }
             return (
-              <ErrorState onRetry={() => void equipementsQuery.refetch()} />
-            )
-          }
-          if (emptyHere) {
-            // Niveau 0 : catégories ; niveau 1 : sous-catégories ; niveau ≥2
-            // (sous-catégorie) : équipements. Message adapté au palier.
-            const isSubcatLevel = depth >= 2 || isVirtualCurrent
-            return (
-              <EmptyState
-                icon={isSubcatLevel ? Package : FolderTree}
-                title={
-                  depth === 0
-                    ? 'Aucune catégorie'
-                    : depth === 1
-                      ? 'Catégorie vide'
-                      : 'Sous-catégorie vide'
-                }
-                description={
-                  depth === 0
-                    ? canEdit
-                      ? 'Crée une première catégorie avec le bouton « Nouvelle catégorie ».'
-                      : 'Aucune catégorie pour le moment.'
-                    : depth === 1
-                      ? canCreateSubcat
-                        ? 'Crée une sous-catégorie avec le bouton « Nouvelle sous-catégorie ».'
-                        : 'Aucune sous-catégorie.'
-                      : canCreateEquipHere
-                        ? 'Ajoute un équipement avec les boutons ci-dessus.'
-                        : 'Aucun équipement dans cette sous-catégorie.'
-                }
-              />
-            )
-          }
-          return (
-            <div className="flex flex-col gap-6">
-              {childCategories.length > 0 && (
-                <div className={listStack}>
-                  {childCategories.map((cat) => (
-                    <ListRow
-                      key={cat.id}
-                      media={
-                        <MiniatureThumb
-                          url={cat.virtual ? null : urlOf(cat.miniature_id)}
-                          fallback={
-                            cat.virtual ? (
-                              <Inbox className="size-10" />
-                            ) : (
-                              <Folder className="size-10" />
-                            )
-                          }
-                          alt=""
-                          onError={refreshMiniatures}
-                          className="size-full rounded-none"
-                        />
-                      }
-                      title={cat.nom}
-                      subtitle={
-                        cat.description?.trim()
-                          ? cat.description.trim()
-                          : undefined
-                      }
-                      badges={
-                        cat.virtual ? undefined : (
-                          <ScopeBadges siteId={cat.site_id} />
-                        )
-                      }
-                      mobileMeta={
-                        cat.virtual ? undefined : (
-                          <ScopeBadges siteId={cat.site_id} />
-                        )
-                      }
-                      onClick={() => goTo([...path, cat])}
-                      menuActions={
-                        canManageCat(cat)
-                          ? actionsEditionSuppression({
-                              onModifier: () => {
-                                const full = categoriesById.get(cat.id)
-                                // `cat` vient d'une catégorie réelle → `full`
-                                // existe toujours (garde défensive).
-                                if (!full) return
-                                // Sous-catégorie (parent) → formulaire unifié de
-                                // sous-catégorie ; catégorie racine → form catégorie.
-                                if (full.parent_id) {
-                                  setSubcatForm({
-                                    open: true,
-                                    parentId: full.parent_id,
-                                    categorie: full,
-                                  })
-                                } else {
-                                  catDialog.openEdit(full)
-                                }
-                              },
-                              onSupprimer: () => setToDeleteCategorie(cat),
-                            })
-                          : undefined
-                      }
-                    />
-                  ))}
-                </div>
-              )}
+              <div className="flex flex-col gap-6">
+                {childCategories.length > 0 && (
+                  <div className={listStack}>
+                    {childCategories.map((cat) => (
+                      <ListRow
+                        key={cat.id}
+                        media={
+                          <MiniatureThumb
+                            url={cat.virtual ? null : urlOf(cat.miniature_id)}
+                            fallback={
+                              cat.virtual ? (
+                                <Inbox className="size-10" />
+                              ) : (
+                                <Folder className="size-10" />
+                              )
+                            }
+                            alt=""
+                            onError={refreshMiniatures}
+                            className="size-full rounded-none"
+                          />
+                        }
+                        title={cat.nom}
+                        subtitle={
+                          cat.description?.trim()
+                            ? cat.description.trim()
+                            : undefined
+                        }
+                        badges={
+                          cat.virtual ? undefined : (
+                            <ScopeBadges siteId={cat.site_id} />
+                          )
+                        }
+                        mobileMeta={
+                          cat.virtual ? undefined : (
+                            <ScopeBadges siteId={cat.site_id} />
+                          )
+                        }
+                        onClick={() => goTo([...path, cat])}
+                        menuActions={
+                          canManageCat(cat)
+                            ? actionsEditionSuppression({
+                                onModifier: () => {
+                                  const full = categoriesById.get(cat.id)
+                                  // `cat` vient d'une catégorie réelle → `full`
+                                  // existe toujours (garde défensive).
+                                  if (!full) return
+                                  // Sous-catégorie (parent) → formulaire unifié de
+                                  // sous-catégorie ; catégorie racine → form catégorie.
+                                  if (full.parent_id) {
+                                    setSubcatForm({
+                                      open: true,
+                                      parentId: full.parent_id,
+                                      categorie: full,
+                                    })
+                                  } else {
+                                    catDialog.openEdit(full)
+                                  }
+                                },
+                                onSupprimer: () => setToDeleteCategorie(cat),
+                              })
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
 
-              {equipementsInCurrent.length > 0 && (
-                <div className={listStack}>
-                  {equipementsInCurrent.map((eq) => (
-                    <ListRow
-                      key={eq.id}
-                      media={
-                        <MiniatureThumb
-                          url={urlOf(eq.miniature_id)}
-                          fallback={<Package className="size-10" />}
-                          alt=""
-                          onError={refreshMiniatures}
-                          className="size-full rounded-none"
-                        />
-                      }
-                      title={eq.nom ?? 'Équipement'}
-                      subtitle={
-                        eq.localisation_courte ?? eq.local_nom ?? undefined
-                      }
-                      onClick={() => goToEquipement(eq)}
-                      menuActions={
-                        canEdit
-                          ? actionsEditionSuppression({
-                              onModifier: () =>
-                                setEquipForm({ open: true, eq }),
-                              onSupprimer: () => suppression.demander(eq),
-                            })
-                          : undefined
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )
-        }}
-      </QueryState>
+                {equipementsInCurrent.length > 0 && (
+                  <div className={listStack}>
+                    {equipementsInCurrent.map((eq) => (
+                      <ListRow
+                        key={eq.id}
+                        media={
+                          <MiniatureThumb
+                            url={urlOf(eq.miniature_id)}
+                            fallback={<Package className="size-10" />}
+                            alt=""
+                            onError={refreshMiniatures}
+                            className="size-full rounded-none"
+                          />
+                        }
+                        title={eq.nom ?? 'Équipement'}
+                        subtitle={
+                          eq.localisation_courte ?? eq.local_nom ?? undefined
+                        }
+                        onClick={() => goToEquipement(eq)}
+                        menuActions={
+                          canEdit
+                            ? actionsEditionSuppression({
+                                onModifier: () =>
+                                  setEquipForm({ open: true, eq }),
+                                onSupprimer: () => suppression.demander(eq),
+                              })
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          }}
+        </QueryState>
+      </ScrollBody>
 
       {dialogs}
     </>
