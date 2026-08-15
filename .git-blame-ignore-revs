@@ -4,3 +4,6 @@
 #   git config blame.ignoreRevsFile .git-blame-ignore-revs
 #
 # GitHub applique ce fichier automatiquement dans sa vue blame.
+
+# style(format): reformatage Prettier global (170 fichiers)
+8f5a6c45f8fa389e631894992a96f94988aa2610
