@@ -267,13 +267,19 @@ export function PlanningContent({ siteId }: { siteId: string }) {
       <div className="min-h-0 flex-1 px-4 sm:px-6 lg:px-8">
         <div
           ref={grilleRef}
-          // JAMAIS de barre horizontale (`overflow-x-hidden`) : le calcul
-          // auto-colonnes ajuste déjà la table à la largeur. `scrollbar-gutter: stable`
-          // réserve la gouttière de l'ascenseur vertical → `clientWidth` stable
-          // (présent ou non) → la table tient pile, sans rien rogner. Seul le
-          // défilement VERTICAL est permis. Léger fondu au chargement (nav souple).
+          // Le calcul auto-colonnes ajuste la table à la largeur disponible :
+          // au-dessus du seuil, aucune barre horizontale n'apparaît, la table
+          // tient pile. `scrollbar-gutter: stable` réserve la gouttière de
+          // l'ascenseur vertical → `clientWidth` stable → rien n'est rogné.
+          //
+          // MAIS la largeur a un PLANCHER : MIN_SEMAINES (10) × CELL_SIZE (24)
+          // + FAMILLE_MIN (160) = 400 px. Sous ~434 px de viewport, la table
+          // dépasse son conteneur ; en `overflow-x-hidden` les dernières
+          // colonnes devenaient invisibles ET inatteignables (iPhone SE,
+          // 12/13 mini). D'où `overflow-x-auto` : sans effet au-dessus du
+          // seuil, seul recours en dessous. Léger fondu au chargement.
           className={cn(
-            'h-full [scrollbar-gutter:stable] overflow-x-hidden overflow-y-auto rounded-md border border-border transition-opacity duration-200',
+            'h-full [scrollbar-gutter:stable] overflow-x-auto overflow-y-auto rounded-md border border-border transition-opacity duration-200',
             query.isPlaceholderData && 'opacity-60',
           )}
         >

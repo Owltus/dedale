@@ -522,14 +522,17 @@ export function GammesBiblioPanel() {
   // Catégories sélectionnables dans le formulaire de gamme (édition) : même
   // portée que la gamme éditée, pour rester cohérent avec la RLS.
   const editGammeCategories = useMemo(() => {
-    const g = gammeForm.gamme
-    if (!g) return []
     // Sous-catégories de niveau 2 COMMUNES (parent = racine commune). `gammeCats`
     // est déjà restreinte au commun, au scope gamme/mixte et aux catégories
     // actives ; le helper n'arbitre plus que le niveau 2 (périmètre commun, `null`).
+    // Ce calcul ne dépend PAS de la gamme éditée : le placer après un garde
+    // `if (!g) return []` vidait le select en CRÉATION, alors que la catégorie
+    // y est un champ requis.
     const valides = sousCategoriesNiveau2(gammeCats, null).map(
       ({ sous }) => sous,
     )
+    const g = gammeForm.gamme
+    if (!g) return valides
     // Repli : `gammes.categorie_id` est NOT NULL, donc une gamme pointe toujours
     // une sous-catégorie. Si celle-ci est masquée (inactive) et donc absente des
     // candidates, on la réinjecte pour que le select affiche la valeur réelle.

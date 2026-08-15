@@ -63,7 +63,11 @@ export function TravauxDetail({
   const tachesQuery = useQuery(travauxQueries.taches(travaux.id))
   const change = useChangeStatutTravaux()
   const delTache = useDeleteTache()
-  const [edit, setEdit] = useState(false)
+  // Modale d'édition : useEntityDialog pour sa dialogKey, qui inclut l'état
+  // d'ouverture. Une clé constante (key={travaux.id}) laissait react-hook-form
+  // conserver son état d'un cycle à l'autre : une saisie annulée réapparaissait
+  // à la réouverture.
+  const editDialog = useEntityDialog<TravauxRow>()
   const [clotureOpen, setClotureOpen] = useState(false)
   // Confirmations de transition de statut du travaux (ex. « Annuler »), toutes
   // derrière un unique ConfirmDialog.
@@ -130,7 +134,7 @@ export function TravauxDetail({
                   icon={<Pencil />}
                   label="Modifier le travaux"
                   variant="outline"
-                  onClick={() => setEdit(true)}
+                  onClick={() => editDialog.openEdit(travaux)}
                 />
               )}
               {canAnnuler && (
@@ -288,9 +292,9 @@ export function TravauxDetail({
 
       {editable && (
         <TravauxFormDialog
-          key={travaux.id}
-          open={edit}
-          onOpenChange={setEdit}
+          key={editDialog.dialogKey}
+          open={editDialog.open}
+          onOpenChange={editDialog.onOpenChange}
           siteId={siteId}
           travaux={travaux}
         />

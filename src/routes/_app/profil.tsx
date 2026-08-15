@@ -131,7 +131,12 @@ function EmailBlock({ currentEmail }: { currentEmail: string }) {
   return (
     <Form {...form}>
       <form
-        onSubmit={() => void form.handleSubmit(onSubmit)()}
+        // L'événement DOIT être transmis : c'est lui qui porte le
+        // preventDefault de react-hook-form. Sans lui, le navigateur soumet
+        // nativement et recharge la page (l'idiome sans événement n'est
+        // valable que pour le prop onSubmit de FormDialog, dont la coquille
+        // fait déjà preventDefault + stopPropagation).
+        onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
         className="flex flex-col gap-3"
       >
         <TextField
@@ -197,7 +202,9 @@ function ProfilForm({
   return (
     <Form {...form}>
       <form
-        onSubmit={() => void form.handleSubmit(onSubmit)()}
+        // Idem EmailBlock : l'événement porte le preventDefault (cf. commentaire
+        // ci-dessus). Sans lui, « Enregistrer » rechargeait l'application.
+        onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
         className="flex flex-col gap-4"
       >
         <TextField

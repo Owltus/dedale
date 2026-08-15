@@ -25,7 +25,10 @@ import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
-import { FILTRE_TOUS, ListFilterBar } from '@/components/common/list-filter-bar'
+import {
+  FILTRE_NON_TERMINES,
+  ListFilterBar,
+} from '@/components/common/list-filter-bar'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
 import { NoSiteSelected } from '@/components/common/no-site-selected'
@@ -84,7 +87,10 @@ function OrdresTravailContent({
     null,
   )
   const [search, setSearch] = useState('')
-  const [statutFilter, setStatutFilter] = useState<string>(FILTRE_TOUS)
+  // « Non terminés » par défaut, comme Demandes, Travaux, Investissements et
+  // l'onglet OT d'un prestataire : sur un site à historique importé, ouvrir sur
+  // FILTRE_TOUS noyait la page sous des centaines d'OT clôturés.
+  const [statutFilter, setStatutFilter] = useState<string>(FILTRE_NON_TERMINES)
 
   // Filtre (recherche + statut) puis tri par urgence — mémoïsé pour ne PAS
   // refiltrer/retrier tous les OT du site à chaque ouverture de dialog ; seul un

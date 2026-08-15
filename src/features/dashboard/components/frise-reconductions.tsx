@@ -2,6 +2,8 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Truck } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   onKeyActivate,
   toneToken,
@@ -205,7 +207,12 @@ interface FriseVueProps {
  */
 function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
   const navigate = useNavigate()
-  const { data: contrats } = useQuery(dashboardQueries.contratsFrise(siteId))
+  // On garde les objets query entiers : ne déstructurer que `data` (avec un
+  // `?? []` plus bas) faisait afficher « Aucune reconduction » PENDANT le
+  // chargement et EN CAS D'ERREUR — une contre-vérité présentée comme un
+  // constat, sans moyen de réessayer.
+  const contratsQuery = useQuery(dashboardQueries.contratsFrise(siteId))
+  const contrats = contratsQuery.data
   const { data: prestataires } = useQuery(prestatairesQueries.list())
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const [survol, setSurvol] = useState<string | null>(null)
@@ -457,7 +464,22 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
   return (
     <DashboardCard>
       <div ref={setRefs} className="relative">
-        {modele.elements.length === 0 ? (
+        {contratsQuery.isPending ? (
+          <Skeleton className="my-3 h-24 w-full" />
+        ) : contratsQuery.isError ? (
+          <div className="flex flex-col items-center gap-2 py-6">
+            <p className="text-sm text-muted-foreground">
+              Les reconductions n’ont pas pu être chargées.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void contratsQuery.refetch()}
+            >
+              Réessayer
+            </Button>
+          </div>
+        ) : modele.elements.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Aucune reconduction de contrat sur la période.
           </p>
