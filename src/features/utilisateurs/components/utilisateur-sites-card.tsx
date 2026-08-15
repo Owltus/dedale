@@ -8,6 +8,7 @@ import { sitesQueries } from '@/features/sites/queries'
 import { errorMessage, writeErrorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { SelectDropdown } from '@/components/ui/select-dropdown'
+import { ErrorState } from '@/components/common/error-state'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -42,9 +43,11 @@ export function SitesCard({
   userId: string
   canEdit: boolean
 }) {
-  const { data: assigned = [], isPending } = useQuery(
-    utilisateursQueries.sitesOf(userId),
-  )
+  // On garde l'objet query : ne lire que `data` avec un `?? []` faisait afficher
+  // « Aucun site attribué » alors que la requête avait ÉCHOUÉ — une affirmation
+  // fausse sur un écran de droits, sans moyen de réessayer.
+  const sitesQuery = useQuery(utilisateursQueries.sitesOf(userId))
+  const { data: assigned = [], isPending } = sitesQuery
   const { data: mySites = [] } = useQuery(sitesQueries.mine())
   const assign = useAssignSite()
   const unassign = useUnassignSite()
@@ -93,6 +96,8 @@ export function SitesCard({
       <CardContent className="flex flex-col gap-4">
         {isPending ? (
           <Skeleton className="h-24 w-full" />
+        ) : sitesQuery.isError ? (
+          <ErrorState onRetry={() => void sitesQuery.refetch()} />
         ) : (
           <>
             {editable.length === 0 && horsPerimetre.length === 0 ? (

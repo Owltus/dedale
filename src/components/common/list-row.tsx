@@ -70,19 +70,41 @@ export interface ListRowProps {
    * réduit — pour les listes très denses type tableau de bord). La vignette média
    * suit (`h-full`).
    */
-  size?: 'xs' | 'sm' | 'md' | 'lg'
+  /**
+   * Densité de la ligne. `fine` (h-12) nomme la hauteur que les listes
+   * d'opérations et de modèles liés posaient jusqu'ici à la main via
+   * `className="h-12"` — hors du système, donc invisible du squelette.
+   *
+   * À TRANCHER un jour : `xs` (h-11) et `fine` (h-12) ne diffèrent que de 4 px.
+   * Les fusionner retirerait une hauteur au système, au prix d'un changement
+   * visuel sur 4 listes — décision de produit, pas de refactorisation.
+   */
+  size?: 'xs' | 'fine' | 'sm' | 'md' | 'lg'
   className?: string
 }
 
-// Hauteur de la carte média / padding vertical de la carte standard, par densité.
-const MEDIA_HEIGHT: Record<NonNullable<ListRowProps['size']>, string> = {
+/** Densités d'une ligne de liste. */
+export type ListRowSize = NonNullable<ListRowProps['size']>
+
+/**
+ * Hauteur de la carte média / padding vertical de la carte standard, par densité.
+ *
+ * EXPORTÉE : c'est la source unique des hauteurs de ligne, consommée aussi par
+ * `ListRowSkeletons`. La dupliquer approximativement côté squelette produisait
+ * mécaniquement le saut de mise en page que `ui.md` interdit (la brique n'avait
+ * que deux hauteurs pour les quatre densités réelles, dont une — `h-12` — qui ne
+ * correspondait à AUCUNE ligne existante).
+ */
+export const MEDIA_HEIGHT: Record<ListRowSize, string> = {
   xs: 'h-11',
+  fine: 'h-12',
   sm: 'h-14',
   md: 'h-20',
   lg: 'h-24',
 }
-const ROW_PADDING: Record<NonNullable<ListRowProps['size']>, string> = {
+const ROW_PADDING: Record<ListRowSize, string> = {
   xs: 'py-1',
+  fine: 'py-1',
   sm: 'py-1.5',
   md: 'py-3',
   lg: 'py-4',

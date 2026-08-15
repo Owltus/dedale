@@ -90,7 +90,7 @@ export function OperationItemsEditor({
 
       <QueryState
         query={query}
-        pending={<ListRowSkeletons dense count={3} />}
+        pending={<ListRowSkeletons size="fine" count={3} />}
         empty={
           <EmptyState
             icon={Plus}

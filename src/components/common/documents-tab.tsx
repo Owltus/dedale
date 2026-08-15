@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import * as perm from '@/lib/permissions'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
-import { CardSkeletons } from '@/components/common/card-skeletons'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { DocumentsListe } from '@/components/common/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
@@ -172,13 +172,10 @@ export function DocumentsTab({
 
       <QueryState
         query={query}
-        pending={
-          <CardSkeletons
-            count={3}
-            height="h-14"
-            container="flex flex-col gap-2"
-          />
-        }
+        // MÊME brique et MÊME densité que la page Documents : cet onglet rend la
+        // même liste de DocumentRow (h-14). Il utilisait CardSkeletons — une
+        // autre brique, un autre nombre — pour un contenu identique.
+        pending={<ListRowSkeletons size="sm" count={3} />}
         empty={
           <EmptyState
             icon={FileText}

@@ -184,13 +184,29 @@ export function PlanningContent({ siteId }: { siteId: string }) {
   const enChargement =
     query.isPending || categoriesQuery.isPending || gammesQuery.isPending
 
+  // Les TROIS requêtes comptent, pas seulement celle des OT : le chargement en
+  // tenait compte, l'erreur non. Une panne des catégories affichait « aucune
+  // sous-catégorie… configure ton plan de maintenance », et une panne des
+  // gammes faisait basculer 100 % des OT dans la ligne « Non classé » — deux
+  // constats faux, présentés sans le moindre signal.
+  const enErreur =
+    query.isError || categoriesQuery.isError || gammesQuery.isError
+
   let contenu
   if (enChargement) {
     contenu = (
       <PlanningSkeleton familleWidth={familleWidth} nbSemaines={nbSemaines} />
     )
-  } else if (query.isError) {
-    contenu = <ErrorState onRetry={() => void query.refetch()} />
+  } else if (enErreur) {
+    contenu = (
+      <ErrorState
+        onRetry={() => {
+          void query.refetch()
+          void categoriesQuery.refetch()
+          void gammesQuery.refetch()
+        }}
+      />
+    )
   } else if (groupesAffichage.length === 0) {
     contenu = (
       <EmptyState
@@ -288,7 +304,7 @@ export function PlanningContent({ siteId }: { siteId: string }) {
       </div>
 
       {/* Légende TOUJOURS visible en bas (hors zone de défilement). */}
-      {!enChargement && !query.isError && (
+      {!enChargement && !enErreur && (
         <div className="shrink-0 px-4 py-3 sm:px-6 lg:px-8">
           <PlanningLegende />
         </div>

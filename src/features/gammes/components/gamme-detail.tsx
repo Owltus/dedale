@@ -281,7 +281,7 @@ function EquipementsTab({
     <>
       <QueryState
         query={liesQuery}
-        pending={<ListRowSkeletons dense count={3} />}
+        pending={<ListRowSkeletons size="fine" count={3} />}
       >
         {() =>
           lies.length === 0 ? (

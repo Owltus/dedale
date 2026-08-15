@@ -65,7 +65,7 @@ export function DashboardListCard<T>({
       >
         <QueryState
           query={query}
-          pending={<ListRowSkeletons count={4} dense />}
+          pending={<ListRowSkeletons count={4} size="xs" />}
           errorClassName="py-6"
           empty={
             // `flex-1` → l'état vide occupe toute la hauteur ; son `justify-center` interne

@@ -110,7 +110,7 @@ export function GammeModelesSection({
       >
         <QueryState
           query={query}
-          pending={<ListRowSkeletons dense count={2} />}
+          pending={<ListRowSkeletons size="fine" count={2} />}
           empty={<EmptyState icon={Layers} title="Aucun modèle d’opération" />}
         >
           {(modeles) => (

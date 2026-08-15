@@ -126,7 +126,9 @@ function DocumentsContent({
         <div className="h-full overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
           <QueryState
             query={query}
-            pending={<ListRowSkeletons count={6} />}
+            // size sm : la densité réelle des DocumentRow (h-14). Le défaut md
+            // annonçait des lignes h-20, d'où un saut au chargement.
+            pending={<ListRowSkeletons size="sm" />}
             empty={
               <EmptyState
                 icon={FileText}
