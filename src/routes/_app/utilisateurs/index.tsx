@@ -8,19 +8,18 @@ import { roleLabel } from '@/features/utilisateurs/schemas'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
-import { SearchInput } from '@/components/common/search-input'
-import { NoSearchResults } from '@/components/common/no-search-results'
+import { ListPageBody } from '@/components/common/list-page-body'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { StatusBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -111,53 +110,51 @@ function UtilisateursIndexPage() {
                     roleLabel(u.roles.code).toLowerCase().includes(q),
                 )
           return (
-            <div className="flex flex-col gap-4">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Rechercher un utilisateur…"
-              />
-              {shown.length === 0 ? (
-                <NoSearchResults description="Aucun utilisateur ne correspond à cette recherche." />
-              ) : (
-                <div className={listStack}>
-                  {shown.map((u) => (
-                    <ListRow
-                      key={u.id}
-                      media={<RowMediaIcon icon={User} />}
-                      title={u.nom_complet}
-                      badges={
-                        <>
-                          <Badge variant="secondary">
-                            {roleLabel(u.roles.code)}
-                          </Badge>
-                          {u.est_actif ? (
-                            <Badge variant="outline">Actif</Badge>
-                          ) : (
-                            <Badge variant="destructive">Inactif</Badge>
-                          )}
-                          {u.anonymized_at && (
-                            <Badge variant="outline">Anonymisé</Badge>
-                          )}
-                        </>
-                      }
-                      mobileMeta={roleLabel(u.roles.code)}
-                      onClick={() =>
-                        void navigate({
-                          to: '/utilisateurs/$utilisateur',
-                          params: {
-                            utilisateur: segOfUnique(
-                              { nom: u.nom_complet, id: u.id },
-                              sibs,
-                            ),
-                          },
-                        })
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            <ListPageBody
+              search={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Rechercher un utilisateur…"
+              isEmpty={shown.length === 0}
+              emptySearchDescription="Aucun utilisateur ne correspond à cette recherche."
+            >
+              {shown.map((u) => (
+                <ListRow
+                  key={u.id}
+                  media={<RowMediaIcon icon={User} />}
+                  title={u.nom_complet}
+                  badges={
+                    <>
+                      <Badge variant="secondary">
+                        {roleLabel(u.roles.code)}
+                      </Badge>
+                      {u.est_actif ? (
+                        <Badge variant="outline">Actif</Badge>
+                      ) : (
+                        // ÉTAT, donc pastille TEINTÉE (StatusBadge) : l'aplat
+                        // rouge de `Badge variant="destructive"` est réservé aux
+                        // ACTIONS destructrices. C'était le seul de l'app.
+                        <StatusBadge tone="destructive">Inactif</StatusBadge>
+                      )}
+                      {u.anonymized_at && (
+                        <Badge variant="outline">Anonymisé</Badge>
+                      )}
+                    </>
+                  }
+                  mobileMeta={roleLabel(u.roles.code)}
+                  onClick={() =>
+                    void navigate({
+                      to: '/utilisateurs/$utilisateur',
+                      params: {
+                        utilisateur: segOfUnique(
+                          { nom: u.nom_complet, id: u.id },
+                          sibs,
+                        ),
+                      },
+                    })
+                  }
+                />
+              ))}
+            </ListPageBody>
           )
         }}
       </QueryState>

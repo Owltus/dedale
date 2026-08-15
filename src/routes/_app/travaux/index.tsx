@@ -17,12 +17,11 @@ import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { formatDate } from '@/lib/date'
-import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
-import { NoSearchResults } from '@/components/common/no-search-results'
+import { ListPageBody } from '@/components/common/list-page-body'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/travaux/page-meta'
 import { QueryState } from '@/components/common/query-state'
@@ -31,7 +30,6 @@ import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import {
-  ListFilterBar,
   matchStatutFilter,
   statutFilterOptions,
   FILTRE_NON_TERMINES,
@@ -169,83 +167,76 @@ function TravauxContent({
           // fiche détail (symétrie segOfUnique), sur la liste NON filtrée.
           const sibs = travaux.map((c) => ({ nom: c.titre, id: c.id }))
           return (
-            <div className="flex flex-col gap-4">
-              <ListFilterBar
-                search={recherche}
-                onSearchChange={setRecherche}
-                searchPlaceholder="Rechercher un travaux…"
-                filterValue={statutFilter}
-                onFilterChange={setStatutFilter}
-                options={statutOptions}
-                filterLabel="Filtrer par statut"
-              />
-              {shown.length === 0 ? (
-                <NoSearchResults description="Aucun travaux ne correspond à ces critères." />
-              ) : (
-                <div className={listStack}>
-                  {shown.map((c) => {
-                    const statutLabel = statutNom.get(c.statut_travaux_id)
-                    const editable =
-                      canManage && !estVerrouille(c.statut_travaux_id)
-                    const rowActions = actionsEditionSuppression({
-                      onModifier: editable
-                        ? () => dialog.openEdit(c)
-                        : undefined,
-                      onSupprimer: canDelete
-                        ? () => suppression.demander(c)
-                        : undefined,
-                    })
-                    return (
-                      <ListRow
-                        key={c.id}
-                        tone={statutTravauxTone(c.statut_travaux_id)}
-                        media={<RowMediaIcon icon={HardHat} />}
-                        title={c.titre}
-                        subtitle={
-                          c.description?.trim()
-                            ? c.description
-                            : `Créé le ${formatDate(c.date_demande)}`
-                        }
-                        onClick={() =>
-                          void navigate({
-                            to: '/travaux/$travaux',
-                            params: {
-                              travaux: segOfUnique(
-                                { nom: c.titre, id: c.id },
-                                sibs,
-                              ),
-                            },
-                          })
-                        }
-                        badges={
-                          statutLabel ? (
-                            <StatusBadge
-                              tone={statutTravauxTone(c.statut_travaux_id)}
-                            >
-                              {statutLabel}
-                            </StatusBadge>
-                          ) : undefined
-                        }
-                        meta={
-                          <div className="text-right leading-tight tabular-nums">
-                            <div className="text-xs">
-                              Créé le {formatDate(c.date_demande)}
-                            </div>
-                            {c.date_fin && (
-                              <div className="text-xs">
-                                Terminé le {formatDate(c.date_fin)}
-                              </div>
-                            )}
+            <ListPageBody
+              search={recherche}
+              onSearchChange={setRecherche}
+              searchPlaceholder="Rechercher un travaux…"
+              filterValue={statutFilter}
+              onFilterChange={setStatutFilter}
+              options={statutOptions}
+              filterLabel="Filtrer par statut"
+              isEmpty={shown.length === 0}
+              emptySearchDescription="Aucun travaux ne correspond à ces critères."
+            >
+              {shown.map((c) => {
+                const statutLabel = statutNom.get(c.statut_travaux_id)
+                const editable =
+                  canManage && !estVerrouille(c.statut_travaux_id)
+                const rowActions = actionsEditionSuppression({
+                  onModifier: editable ? () => dialog.openEdit(c) : undefined,
+                  onSupprimer: canDelete
+                    ? () => suppression.demander(c)
+                    : undefined,
+                })
+                return (
+                  <ListRow
+                    key={c.id}
+                    tone={statutTravauxTone(c.statut_travaux_id)}
+                    media={<RowMediaIcon icon={HardHat} />}
+                    title={c.titre}
+                    subtitle={
+                      c.description?.trim()
+                        ? c.description
+                        : `Créé le ${formatDate(c.date_demande)}`
+                    }
+                    onClick={() =>
+                      void navigate({
+                        to: '/travaux/$travaux',
+                        params: {
+                          travaux: segOfUnique(
+                            { nom: c.titre, id: c.id },
+                            sibs,
+                          ),
+                        },
+                      })
+                    }
+                    badges={
+                      statutLabel ? (
+                        <StatusBadge
+                          tone={statutTravauxTone(c.statut_travaux_id)}
+                        >
+                          {statutLabel}
+                        </StatusBadge>
+                      ) : undefined
+                    }
+                    meta={
+                      <div className="text-right leading-tight tabular-nums">
+                        <div className="text-xs">
+                          Créé le {formatDate(c.date_demande)}
+                        </div>
+                        {c.date_fin && (
+                          <div className="text-xs">
+                            Terminé le {formatDate(c.date_fin)}
                           </div>
-                        }
-                        mobileMeta={statutLabel}
-                        menuActions={rowActions.length ? rowActions : undefined}
-                      />
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+                        )}
+                      </div>
+                    }
+                    mobileMeta={statutLabel}
+                    menuActions={rowActions.length ? rowActions : undefined}
+                  />
+                )
+              })}
+            </ListPageBody>
           )
         }}
       </QueryState>

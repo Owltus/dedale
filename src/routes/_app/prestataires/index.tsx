@@ -10,12 +10,11 @@ import { useDeletePrestataire } from '@/features/prestataires/mutations'
 import { PrestataireFormDialog } from '@/features/prestataires/components/prestataire-form-dialog'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
-import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
-import { NoSearchResults } from '@/components/common/no-search-results'
+import { ListPageBody } from '@/components/common/list-page-body'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/prestataires/page-meta'
 import { QueryState } from '@/components/common/query-state'
@@ -24,7 +23,6 @@ import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { ListFilterBar } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
@@ -121,68 +119,59 @@ function PrestatairesList({
             ? prestataires.filter((p) => p.libelle.toLowerCase().includes(q))
             : prestataires
           return (
-            <div className="flex flex-col gap-4">
-              <ListFilterBar
-                search={search}
-                onSearchChange={setSearch}
-                searchPlaceholder="Rechercher un prestataire…"
-              />
-              {shown.length === 0 ? (
-                <NoSearchResults description="Aucun prestataire ne correspond à cette recherche." />
-              ) : (
-                <div className={listStack}>
-                  {shown.map((p) => {
-                    const rowActions = actionsEditionSuppression({
-                      onModifier: canManage
-                        ? () => dialog.openEdit(p)
-                        : undefined,
-                      onSupprimer:
-                        canManage && !p.est_interne
-                          ? () => suppression.demander(p)
-                          : undefined,
-                    })
-                    const nb = counts?.get(p.id) ?? 0
-                    return (
-                      <ListRow
-                        key={p.id}
-                        media={
-                          <MiniatureThumb
-                            url={urlOf(p.miniature_id)}
-                            fallback={<Truck className="size-10" />}
-                            alt=""
-                            onError={refreshMiniatures}
-                            className="size-full rounded-none"
-                          />
-                        }
-                        title={p.libelle}
-                        subtitle={p.commentaires ?? undefined}
-                        badges={
-                          <Badge
-                            variant={p.est_interne ? 'default' : 'secondary'}
-                          >
-                            {p.est_interne ? 'Interne' : 'Externe'}
-                          </Badge>
-                        }
-                        meta={`${String(nb)} contrat${nb > 1 ? 's' : ''}`}
-                        mobileMeta={p.est_interne ? 'Interne' : 'Externe'}
-                        onClick={() =>
-                          void navigate({
-                            to: '/prestataires/$prestataire',
-                            params: {
-                              prestataire: segOfUnique(
-                                { nom: p.libelle, id: p.id },
-                                sibs,
-                              ),
-                            },
-                          })
-                        }
-                        menuActions={rowActions.length ? rowActions : undefined}
+            <ListPageBody
+              search={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Rechercher un prestataire…"
+              isEmpty={shown.length === 0}
+              emptySearchDescription="Aucun prestataire ne correspond à cette recherche."
+            >
+              {shown.map((p) => {
+                const rowActions = actionsEditionSuppression({
+                  onModifier: canManage ? () => dialog.openEdit(p) : undefined,
+                  onSupprimer:
+                    canManage && !p.est_interne
+                      ? () => suppression.demander(p)
+                      : undefined,
+                })
+                const nb = counts?.get(p.id) ?? 0
+                return (
+                  <ListRow
+                    key={p.id}
+                    media={
+                      <MiniatureThumb
+                        url={urlOf(p.miniature_id)}
+                        fallback={<Truck className="size-10" />}
+                        alt=""
+                        onError={refreshMiniatures}
+                        className="size-full rounded-none"
                       />
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+                    }
+                    title={p.libelle}
+                    subtitle={p.commentaires ?? undefined}
+                    badges={
+                      <Badge variant={p.est_interne ? 'default' : 'secondary'}>
+                        {p.est_interne ? 'Interne' : 'Externe'}
+                      </Badge>
+                    }
+                    meta={`${String(nb)} contrat${nb > 1 ? 's' : ''}`}
+                    mobileMeta={p.est_interne ? 'Interne' : 'Externe'}
+                    onClick={() =>
+                      void navigate({
+                        to: '/prestataires/$prestataire',
+                        params: {
+                          prestataire: segOfUnique(
+                            { nom: p.libelle, id: p.id },
+                            sibs,
+                          ),
+                        },
+                      })
+                    }
+                    menuActions={rowActions.length ? rowActions : undefined}
+                  />
+                )
+              })}
+            </ListPageBody>
           )
         }}
       </QueryState>

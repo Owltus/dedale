@@ -23,7 +23,12 @@ import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/documents/page-meta'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { ListFilterBar } from '@/components/common/list-filter-bar'
+import {
+  FILTRE_TOUS,
+  ListFilterBar,
+  matchTypeFilter,
+  typeFilterOptions,
+} from '@/components/common/list-filter-bar'
 import { DocumentsListe } from '@/components/common/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Badge } from '@/components/ui/badge'
@@ -68,7 +73,7 @@ function DocumentsContent({
 
   const up = useUploadDrop({ enabled: canManage })
   const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState(FILTRE_TOUS)
 
   const typeNom = useMemo(
     () => new Map(types.map((t) => [t.id, t.nom])),
@@ -108,10 +113,7 @@ function DocumentsContent({
               searchPlaceholder="Rechercher un document…"
               filterValue={typeFilter}
               onFilterChange={setTypeFilter}
-              options={[
-                { value: '', label: 'Tous les types' },
-                ...types.map((t) => ({ value: String(t.id), label: t.nom })),
-              ]}
+              options={typeFilterOptions(types)}
               filterLabel="Filtrer par type de document"
             />
           </div>
@@ -141,8 +143,7 @@ function DocumentsContent({
             {(documents) => {
               const q = search.trim().toLowerCase()
               const shown = documents.filter((d) => {
-                const okType =
-                  typeFilter === '' || String(d.type_document_id) === typeFilter
+                const okType = matchTypeFilter(d.type_document_id, typeFilter)
                 const okNom =
                   q === '' || d.nom_original.toLowerCase().includes(q)
                 return okType && okNom

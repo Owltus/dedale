@@ -126,3 +126,25 @@ export function statutFilterOptions(
     ...statuts.map((s) => ({ value: String(s.id), label: s.nom })),
   ]
 }
+
+/**
+ * Options d'un filtre par TYPE (référentiel sans notion de terminaison) :
+ * « Tous les … » puis chaque type. Calqué sur `statutFilterOptions` pour que
+ * la sentinelle `FILTRE_TOUS` soit la même partout — une page qui passerait
+ * une chaîne vide contournerait la constante et casserait tout prédicat
+ * partagé qui la teste.
+ */
+export function typeFilterOptions(
+  types: { id: number; nom: string }[],
+  labelTous = 'Tous les types',
+): FilterOption[] {
+  return [
+    { value: FILTRE_TOUS, label: labelTous },
+    ...types.map((t) => ({ value: String(t.id), label: t.nom })),
+  ]
+}
+
+/** Prédicat du filtre par type : `FILTRE_TOUS` = tout, sinon égalité d'id. */
+export function matchTypeFilter(typeId: number, filterValue: string): boolean {
+  return filterValue === FILTRE_TOUS || typeId === Number(filterValue)
+}

@@ -19,15 +19,11 @@ import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import type { RowAction } from '@/components/common/row-actions'
 import { useAuth } from '@/auth'
 import { deleteErrorMessage } from '@/lib/form'
-import { listStack } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
-import {
-  FILTRE_NON_TERMINES,
-  ListFilterBar,
-} from '@/components/common/list-filter-bar'
+import { FILTRE_NON_TERMINES } from '@/components/common/list-filter-bar'
 import { EmptyState } from '@/components/common/empty-state'
-import { NoSearchResults } from '@/components/common/no-search-results'
+import { ListPageBody } from '@/components/common/list-page-body'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/ordres-travail/page-meta'
 import { QueryState } from '@/components/common/query-state'
@@ -151,47 +147,42 @@ function OrdresTravailContent({
       >
         {() => {
           return (
-            <div className="flex flex-col gap-4">
-              <ListFilterBar
-                search={search}
-                onSearchChange={setSearch}
-                searchPlaceholder="Rechercher un ordre de travail…"
-                filterValue={statutFilter}
-                onFilterChange={setStatutFilter}
-                options={statutOtFilterOptions()}
-                filterLabel="Filtrer par statut"
-                sticky
-              />
-              {filtered.length === 0 ? (
-                <NoSearchResults description="Aucun ordre de travail ne correspond à ces critères." />
-              ) : (
-                <div className={listStack}>
-                  {filtered.map((ot) => {
-                    const actions: RowAction[] = canManage
-                      ? [
-                          {
-                            label: 'Supprimer',
-                            icon: Trash2,
-                            destructive: true,
-                            onSelect: () =>
-                              setToDelete({ id: ot.id, nom: ot.nom_gamme }),
-                          },
-                        ]
-                      : []
-                    return (
-                      <OtCard
-                        key={ot.id}
-                        ot={ot}
-                        urlOf={urlOf}
-                        refreshMiniatures={refreshMiniatures}
-                        menuActions={actions.length ? actions : undefined}
-                        releve={releveParOt.get(ot.id) ?? null}
-                      />
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+            <ListPageBody
+              search={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Rechercher un ordre de travail…"
+              filterValue={statutFilter}
+              onFilterChange={setStatutFilter}
+              options={statutOtFilterOptions()}
+              filterLabel="Filtrer par statut"
+              sticky
+              isEmpty={filtered.length === 0}
+              emptySearchDescription="Aucun ordre de travail ne correspond à ces critères."
+            >
+              {filtered.map((ot) => {
+                const actions: RowAction[] = canManage
+                  ? [
+                      {
+                        label: 'Supprimer',
+                        icon: Trash2,
+                        destructive: true,
+                        onSelect: () =>
+                          setToDelete({ id: ot.id, nom: ot.nom_gamme }),
+                      },
+                    ]
+                  : []
+                return (
+                  <OtCard
+                    key={ot.id}
+                    ot={ot}
+                    urlOf={urlOf}
+                    refreshMiniatures={refreshMiniatures}
+                    menuActions={actions.length ? actions : undefined}
+                    releve={releveParOt.get(ot.id) ?? null}
+                  />
+                )
+              })}
+            </ListPageBody>
           )
         }}
       </QueryState>

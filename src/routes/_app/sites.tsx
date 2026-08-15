@@ -10,18 +10,16 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
-import { NoSearchResults } from '@/components/common/no-search-results'
+import { ListPageBody } from '@/components/common/list-page-body'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { SearchInput } from '@/components/common/search-input'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
@@ -98,40 +96,33 @@ function SitesPage() {
                     (s.ville ?? '').toLowerCase().includes(q),
                 )
           return (
-            <div className="flex flex-col gap-4">
-              <SearchInput
-                value={recherche}
-                onChange={setRecherche}
-                placeholder="Rechercher un site…"
-                className="max-w-sm"
-              />
-              {shown.length === 0 ? (
-                <NoSearchResults description="Aucun site ne correspond à cette recherche." />
-              ) : (
-                <div className={listStack}>
-                  {shown.map((site) => (
-                    <ListRow
-                      key={site.id}
-                      media={<RowMediaIcon icon={Building2} />}
-                      title={site.nom}
-                      subtitle={
-                        [site.code_postal, site.ville]
-                          .filter(Boolean)
-                          .join(' ') || undefined
-                      }
-                      menuActions={
-                        isAdmin
-                          ? actionsEditionSuppression({
-                              onModifier: () => form.openEdit(site),
-                              onSupprimer: () => suppression.demander(site),
-                            })
-                          : undefined
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            <ListPageBody
+              search={recherche}
+              onSearchChange={setRecherche}
+              searchPlaceholder="Rechercher un site…"
+              isEmpty={shown.length === 0}
+              emptySearchDescription="Aucun site ne correspond à cette recherche."
+            >
+              {shown.map((site) => (
+                <ListRow
+                  key={site.id}
+                  media={<RowMediaIcon icon={Building2} />}
+                  title={site.nom}
+                  subtitle={
+                    [site.code_postal, site.ville].filter(Boolean).join(' ') ||
+                    undefined
+                  }
+                  menuActions={
+                    isAdmin
+                      ? actionsEditionSuppression({
+                          onModifier: () => form.openEdit(site),
+                          onSupprimer: () => suppression.demander(site),
+                        })
+                      : undefined
+                  }
+                />
+              ))}
+            </ListPageBody>
           )
         }}
       </QueryState>

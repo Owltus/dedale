@@ -19,20 +19,18 @@ import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { formatDate } from '@/lib/date'
-import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
 import { cn } from '@/lib/utils'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
-import { NoSearchResults } from '@/components/common/no-search-results'
+import { ListPageBody } from '@/components/common/list-page-body'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import {
-  ListFilterBar,
   matchStatutFilter,
   statutFilterOptions,
   FILTRE_NON_TERMINES,
@@ -161,104 +159,95 @@ function InvestissementsContent({
             id: i.id,
           }))
           return (
-            <div className="flex flex-col gap-4">
-              <ListFilterBar
-                search={recherche}
-                onSearchChange={setRecherche}
-                searchPlaceholder="Rechercher un investissement…"
-                filterValue={statutFilter}
-                onFilterChange={setStatutFilter}
-                options={statutOptions}
-                filterLabel="Filtrer par statut"
-              />
-              {shown.length === 0 ? (
-                <NoSearchResults description="Aucun investissement ne correspond à ces critères." />
-              ) : (
-                <div className={listStack}>
-                  {shown.map((inv) => {
-                    const statutLabel = nomStatutCapex(
-                      inv.statut_capex_id,
-                      statutNom,
-                    )
-                    const { label: ecartLabel, depassement } = ecartCapex(inv)
-                    return (
-                      <ListRow
-                        key={inv.id}
-                        tone={statutCapexTone(inv.statut_capex_id)}
-                        media={<RowMediaIcon icon={Wallet} />}
-                        title={inv.libelle}
-                        subtitle={
-                          inv.description?.trim()
-                            ? inv.description
-                            : `Demandé le ${formatDate(inv.date_demande)}`
-                        }
-                        onClick={() =>
-                          void navigate({
-                            to: '/investissements/$investissement',
-                            params: {
-                              investissement: segOfUnique(
-                                { nom: inv.libelle, id: inv.id },
-                                sibs,
-                              ),
-                            },
-                          })
-                        }
-                        badges={
-                          <StatusBadge
-                            tone={statutCapexTone(inv.statut_capex_id)}
-                          >
-                            {statutLabel}
-                          </StatusBadge>
-                        }
-                        meta={
-                          <div className="text-right leading-tight tabular-nums">
-                            <div className="text-xs">
-                              Demandé {formatEuros(inv.montant_demande)}
-                            </div>
-                            <div className="text-xs">
-                              Prévu {formatEuros(inv.montant_prevu)}
-                            </div>
-                            <div className="text-xs">
-                              Réel {formatEuros(inv.depense_reelle)}
-                            </div>
-                            {ecartLabel !== null && (
-                              <div
-                                className={cn(
-                                  'text-sm font-medium',
-                                  depassement
-                                    ? 'text-warning'
-                                    : 'text-foreground',
-                                )}
-                              >
-                                Écart {ecartLabel}
-                              </div>
+            <ListPageBody
+              search={recherche}
+              onSearchChange={setRecherche}
+              searchPlaceholder="Rechercher un investissement…"
+              filterValue={statutFilter}
+              onFilterChange={setStatutFilter}
+              options={statutOptions}
+              filterLabel="Filtrer par statut"
+              isEmpty={shown.length === 0}
+              emptySearchDescription="Aucun investissement ne correspond à ces critères."
+            >
+              {shown.map((inv) => {
+                const statutLabel = nomStatutCapex(
+                  inv.statut_capex_id,
+                  statutNom,
+                )
+                const { label: ecartLabel, depassement } = ecartCapex(inv)
+                return (
+                  <ListRow
+                    key={inv.id}
+                    tone={statutCapexTone(inv.statut_capex_id)}
+                    media={<RowMediaIcon icon={Wallet} />}
+                    title={inv.libelle}
+                    subtitle={
+                      inv.description?.trim()
+                        ? inv.description
+                        : `Demandé le ${formatDate(inv.date_demande)}`
+                    }
+                    onClick={() =>
+                      void navigate({
+                        to: '/investissements/$investissement',
+                        params: {
+                          investissement: segOfUnique(
+                            { nom: inv.libelle, id: inv.id },
+                            sibs,
+                          ),
+                        },
+                      })
+                    }
+                    badges={
+                      <StatusBadge tone={statutCapexTone(inv.statut_capex_id)}>
+                        {statutLabel}
+                      </StatusBadge>
+                    }
+                    meta={
+                      <div className="text-right leading-tight tabular-nums">
+                        <div className="text-xs">
+                          Demandé {formatEuros(inv.montant_demande)}
+                        </div>
+                        <div className="text-xs">
+                          Prévu {formatEuros(inv.montant_prevu)}
+                        </div>
+                        <div className="text-xs">
+                          Réel {formatEuros(inv.depense_reelle)}
+                        </div>
+                        {ecartLabel !== null && (
+                          <div
+                            className={cn(
+                              'text-sm font-medium',
+                              depassement ? 'text-warning' : 'text-foreground',
                             )}
+                          >
+                            Écart {ecartLabel}
                           </div>
-                        }
-                        mobileMeta={[
-                          statutLabel,
-                          ecartLabel !== null
-                            ? `Écart ${ecartLabel}`
-                            : `Prévu ${formatEuros(inv.montant_prevu)}`,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                        menuActions={
-                          canManage
-                            ? actionsEditionSuppression({
-                                onModifier: () => form.openEdit(inv),
-                                onSupprimer: canDelete
-                                  ? () => suppression.demander(inv)
-                                  : undefined,
-                              })
-                            : undefined
-                        }
-                      />
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+                        )}
+                      </div>
+                    }
+                    mobileMeta={[
+                      statutLabel,
+                      ecartLabel !== null
+                        ? `Écart ${ecartLabel}`
+                        : `Prévu ${formatEuros(inv.montant_prevu)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    menuActions={
+                      canManage
+                        ? actionsEditionSuppression({
+                            onModifier: () => form.openEdit(inv),
+                            onSupprimer: canDelete
+                              ? () => suppression.demander(inv)
+                              : undefined,
+                          })
+                        : undefined
+                    }
+                  />
+                )
+              })}
+            </ListPageBody>
           )
         }}
       </QueryState>
