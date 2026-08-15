@@ -1,9 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Package } from 'lucide-react'
 import { EquipementsExplorer } from '@/features/equipements/components/equipements-explorer'
-import { useSiteContext } from '@/lib/site-context'
 import { PageContainer } from '@/components/common/page-container'
-import { NoSiteSelected } from '@/components/common/no-site-selected'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
+import { PAGE_META } from '@/features/equipements/page-meta'
 
 /**
  * Équipements : page unique du parc, navigation par CATÉGORIE portée par le CHEMIN
@@ -18,25 +17,16 @@ export const Route = createFileRoute('/_app/equipements/$')({
 })
 
 function EquipementsPage() {
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <NoSiteSelected
-        title="Équipements"
-        description="Parc matériel du site, rangé par catégorie."
-        hint="Choisis un site actif pour gérer ses équipements."
-        icon={Package}
-      />
-    )
-  }
-
   return (
-    <PageContainer>
-      {/* key=site : remonte l'explorer à chaque changement de site actif → remise à
-          zéro propre des refs/états internes (drill, modaux), pas de fuite d'état
-          du site précédent. */}
-      <EquipementsExplorer key={activeSiteId} siteId={activeSiteId} />
-    </PageContainer>
+    <SiteScopedRoute meta={PAGE_META}>
+      {({ siteId }) => (
+        <PageContainer>
+          {/* key=site : remonte l'explorer à chaque changement de site actif →
+              remise à zéro propre des refs/états internes (drill, modaux), pas
+              de fuite d'état du site précédent. */}
+          <EquipementsExplorer key={siteId} siteId={siteId} />
+        </PageContainer>
+      )}
+    </SiteScopedRoute>
   )
 }

@@ -13,20 +13,18 @@ import {
 } from '@/features/travaux/etat'
 import { estVerrouille } from '@/features/travaux/schemas'
 import { TravauxFormDialog } from '@/features/travaux/components/travaux-form-dialog'
-import { useCurrentRole } from '@/hooks/use-current-role'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
 import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
-import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
-import { NoSiteSelected } from '@/components/common/no-site-selected'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
+import { PAGE_META } from '@/features/travaux/page-meta'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { actionsEditionSuppression } from '@/components/common/row-actions'
@@ -51,30 +49,18 @@ export const Route = createFileRoute('/_app/travaux/')({
 })
 
 function TravauxPage() {
-  const { data: role } = useCurrentRole()
-  // Travaux = écran MÉTIER (cf. RLS) : manager/technicien créent/éditent ET
-  // SUPPRIMENT sur leurs sites (migration 053), lecteur consulte.
-  const canManage = perm.canManageMetier(role)
-  const canDelete = perm.canManageMetier(role)
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <NoSiteSelected
-        title="Travaux"
-        description="Travaux ponctuels du site."
-        hint="Choisis un site pour voir ses travaux."
-        icon={HardHat}
-      />
-    )
-  }
-
   return (
-    <TravauxContent
-      siteId={activeSiteId}
-      canManage={canManage}
-      canDelete={canDelete}
-    />
+    <SiteScopedRoute meta={PAGE_META}>
+      {({ siteId, canManage }) => (
+        // Travaux = écran MÉTIER (cf. RLS) : manager/technicien créent/éditent
+        // ET SUPPRIMENT sur leurs sites (migration 053), lecteur consulte.
+        <TravauxContent
+          siteId={siteId}
+          canManage={canManage}
+          canDelete={canManage}
+        />
+      )}
+    </SiteScopedRoute>
   )
 }
 
@@ -132,8 +118,8 @@ function TravauxContent({
   return (
     <PageContainer>
       <PageHeader
-        title="Travaux"
-        description="Travaux ponctuels du site."
+        title={PAGE_META.titre}
+        description={PAGE_META.description}
         action={
           canManage ? (
             <TooltipIconButton

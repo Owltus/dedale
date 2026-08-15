@@ -8,18 +8,16 @@ import {
 } from '@/features/prestataires/queries'
 import { useDeletePrestataire } from '@/features/prestataires/mutations'
 import { PrestataireFormDialog } from '@/features/prestataires/components/prestataire-form-dialog'
-import { useCurrentRole } from '@/hooks/use-current-role'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
-import { useSiteContext } from '@/lib/site-context'
 import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
-import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
-import { NoSiteSelected } from '@/components/common/no-site-selected'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
+import { PAGE_META } from '@/features/prestataires/page-meta'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { actionsEditionSuppression } from '@/components/common/row-actions'
@@ -40,24 +38,15 @@ export const Route = createFileRoute('/_app/prestataires/')({
 })
 
 function PrestatairesIndexPage() {
-  const { data: role } = useCurrentRole()
-  // Gérés par manager + technicien sur leurs sites (migration 053) ; le garde
-  // `!est_interne` + le trigger protègent le prestataire interne.
-  const canManage = perm.canManageMetier(role)
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <NoSiteSelected
-        title="Prestataires"
-        description="Prestataires et contrats par site."
-        hint="Choisis un site pour voir ses prestataires et contrats."
-        icon={Truck}
-      />
-    )
-  }
-
-  return <PrestatairesList siteId={activeSiteId} canManage={canManage} />
+  return (
+    <SiteScopedRoute meta={PAGE_META}>
+      {/* Gérés par manager + technicien sur leurs sites (migration 053) ; le
+          garde `!est_interne` + le trigger protègent le prestataire interne. */}
+      {({ siteId, canManage }) => (
+        <PrestatairesList siteId={siteId} canManage={canManage} />
+      )}
+    </SiteScopedRoute>
+  )
 }
 
 function PrestatairesList({
@@ -93,8 +82,8 @@ function PrestatairesList({
   return (
     <PageContainer>
       <PageHeader
-        title="Prestataires"
-        description="Prestataires (externes et régie interne) et leurs contrats."
+        title={PAGE_META.titre}
+        description={PAGE_META.description}
         action={
           canManage ? (
             <TooltipIconButton

@@ -12,17 +12,15 @@ import {
 } from '@/features/documents/mutations'
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
-import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { useSiteContext } from '@/lib/site-context'
 import { requireNav } from '@/lib/nav-guard'
-import * as perm from '@/lib/permissions'
 import { PageContainer, FillHeader } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { NoSearchResults } from '@/components/common/no-search-results'
-import { NoSiteSelected } from '@/components/common/no-site-selected'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
+import { PAGE_META } from '@/features/documents/page-meta'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ListFilterBar } from '@/components/common/list-filter-bar'
@@ -37,29 +35,18 @@ export const Route = createFileRoute('/_app/documents')({
 })
 
 function DocumentsPage() {
-  const { data: role } = useCurrentRole()
-  const canManage = perm.canManageMetier(role)
-  // Hard-delete d'un document = manager + technicien sur leurs sites (migration 053).
-  const canDelete = perm.canManageMetier(role)
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <NoSiteSelected
-        title="Documents"
-        description="Bibliothèque documentaire du site."
-        hint="Choisis un site pour consulter sa bibliothèque documentaire."
-        icon={FileText}
-      />
-    )
-  }
-
   return (
-    <DocumentsContent
-      siteId={activeSiteId}
-      canManage={canManage}
-      canDelete={canDelete}
-    />
+    <SiteScopedRoute meta={PAGE_META}>
+      {({ siteId, canManage }) => (
+        // Hard-delete d'un document = manager + technicien sur leurs sites
+        // (migration 053) : même permission que la gestion.
+        <DocumentsContent
+          siteId={siteId}
+          canManage={canManage}
+          canDelete={canManage}
+        />
+      )}
+    </SiteScopedRoute>
   )
 }
 
@@ -100,8 +87,8 @@ function DocumentsContent({
       {/* En-tête + barre de filtres : FIXES (hors de la zone défilante). */}
       <FillHeader>
         <PageHeader
-          title="Documents"
-          description="Bibliothèque documentaire du site (PDF, attestations, rapports…)."
+          title={PAGE_META.titre}
+          description={PAGE_META.description}
           action={
             canManage ? (
               <TooltipIconButton

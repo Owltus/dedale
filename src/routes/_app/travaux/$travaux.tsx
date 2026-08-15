@@ -1,11 +1,8 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { HardHat } from 'lucide-react'
 import { travauxQueries } from '@/features/travaux/queries'
+import { PAGE_META } from '@/features/travaux/page-meta'
 import { TravauxDetail } from '@/features/travaux/components/travaux-detail'
-import { useCurrentRole } from '@/hooks/use-current-role'
-import { useSiteContext } from '@/lib/site-context'
-import * as perm from '@/lib/permissions'
-import { NoSiteSelected } from '@/components/common/no-site-selected'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { SlugDetailRoute } from '@/components/common/slug-detail-route'
 import { Button } from '@/components/ui/button'
 
@@ -16,54 +13,45 @@ export const Route = createFileRoute('/_app/travaux/$travaux')({
 function TravauxDetailPage() {
   const { travaux: slug } = Route.useParams()
   const navigate = useNavigate()
-  const { data: role } = useCurrentRole()
-  // Édition/transitions = rôle métier (admin/manager/technicien), conforme RLS.
-  const canManage = perm.canManageMetier(role)
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <NoSiteSelected
-        title="Travaux"
-        description="Travaux ponctuels du site."
-        hint="Choisis un site pour voir ses travaux."
-        icon={HardHat}
-      />
-    )
-  }
 
   return (
-    <SlugDetailRoute
-      options={travauxQueries.list(activeSiteId)}
-      slug={slug}
-      identity={(c) => ({ nom: c.titre, id: c.id })}
-      onSlugChange={(freshSlug) =>
-        void navigate({
-          to: '/travaux/$travaux',
-          params: { travaux: freshSlug },
-          replace: true,
-        })
-      }
-      title="Travaux"
-      onBack={() => void navigate({ to: '/travaux' })}
-      notFound={{
-        title: 'Travaux introuvable',
-        description: "Ce travaux n'existe plus ou n'est pas accessible.",
-        icon: HardHat,
-        action: (
-          <Button asChild>
-            <Link to="/travaux">Retour aux travaux</Link>
-          </Button>
-        ),
-      }}
-    >
-      {(travaux) => (
-        <TravauxDetail
-          travaux={travaux}
-          siteId={activeSiteId}
-          canManage={canManage}
-        />
+    <SiteScopedRoute meta={PAGE_META}>
+      {/* Édition et transitions = rôle métier (admin/manager/technicien), conforme RLS. */}
+      {({ siteId, canManage }) => (
+        <SlugDetailRoute
+          options={travauxQueries.list(siteId)}
+          slug={slug}
+          identity={(c) => ({ nom: c.titre, id: c.id })}
+          onSlugChange={(freshSlug) =>
+            void navigate({
+              to: '/travaux/$travaux',
+              params: { travaux: freshSlug },
+              replace: true,
+            })
+          }
+          title={PAGE_META.titre}
+          onBack={() => void navigate({ to: '/travaux' })}
+          notFound={{
+            title: 'Travaux introuvable',
+            description:
+              "Ce travaux n'existe plus ou n'est pas accessible depuis ce site.",
+            icon: PAGE_META.icone,
+            action: (
+              <Button asChild>
+                <Link to="/travaux">Retour aux travaux</Link>
+              </Button>
+            ),
+          }}
+        >
+          {(travaux) => (
+            <TravauxDetail
+              travaux={travaux}
+              siteId={siteId}
+              canManage={canManage}
+            />
+          )}
+        </SlugDetailRoute>
       )}
-    </SlugDetailRoute>
+    </SiteScopedRoute>
   )
 }

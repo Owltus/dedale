@@ -27,12 +27,10 @@ import {
   statutTone,
   STATUTS_DI_TERMINAUX,
 } from '@/features/demandes/etat'
-import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useAuth } from '@/auth'
-import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
@@ -42,7 +40,8 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
-import { NoSiteSelected } from '@/components/common/no-site-selected'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
+import { PAGE_META } from '@/features/demandes/page-meta'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import type { RowAction } from '@/components/common/row-actions'
@@ -67,30 +66,21 @@ export const Route = createFileRoute('/_app/demandes/')({
 })
 
 function DemandesPage() {
-  const { data: role } = useCurrentRole()
   const { session } = useAuth()
-  // lecteur = lecture seule ; les autres rôles peuvent créer une DI (RLS arbitre).
-  const canCreate = perm.canCreateDemande(role)
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <NoSiteSelected
-        title="Demandes d'intervention"
-        description="Signalements curatifs du site."
-        hint="Choisis un site pour voir ses demandes d'intervention."
-        icon={ClipboardList}
-      />
-    )
-  }
 
   return (
-    <DemandesContent
-      siteId={activeSiteId}
-      canCreate={canCreate}
-      role={role}
-      userId={session?.user.id}
-    />
+    <SiteScopedRoute meta={PAGE_META}>
+      {({ siteId, role }) => (
+        <DemandesContent
+          siteId={siteId}
+          // lecteur = lecture seule ; les autres rôles peuvent créer une DI
+          // (la RLS arbitre) — pas le canManage générique de la brique.
+          canCreate={perm.canCreateDemande(role)}
+          role={role}
+          userId={session?.user.id}
+        />
+      )}
+    </SiteScopedRoute>
   )
 }
 
@@ -159,8 +149,8 @@ function DemandesContent({
   return (
     <PageContainer>
       <PageHeader
-        title="Demandes d'intervention"
-        description="Signalements curatifs du site (constat, suivi, résolution)."
+        title={PAGE_META.titre}
+        description={PAGE_META.description}
         action={
           canCreate ? (
             <TooltipIconButton

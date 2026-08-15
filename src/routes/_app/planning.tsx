@@ -1,9 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireNav } from '@/lib/nav-guard'
-import { CalendarRange } from 'lucide-react'
 import { PlanningContent } from '@/features/planning/components/planning-page'
-import { useSiteContext } from '@/lib/site-context'
-import { NoSiteSelected } from '@/components/common/no-site-selected'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
+import { PAGE_META } from '@/features/planning/page-meta'
 
 export const Route = createFileRoute('/_app/planning')({
   beforeLoad: ({ context }) => requireNav('/planning', context.queryClient),
@@ -16,18 +15,9 @@ export const Route = createFileRoute('/_app/planning')({
  * requêtes, modale de cellule — vit dans `PlanningContent`.
  */
 function PlanningPage() {
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <NoSiteSelected
-        title="Planning"
-        description="Charge prévisionnelle par famille de gammes et par semaine."
-        hint="Choisis un site pour voir son planning."
-        icon={CalendarRange}
-      />
-    )
-  }
-
-  return <PlanningContent siteId={activeSiteId} />
+  return (
+    <SiteScopedRoute meta={PAGE_META}>
+      {({ siteId }) => <PlanningContent siteId={siteId} />}
+    </SiteScopedRoute>
+  )
 }

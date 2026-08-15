@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Building2 } from 'lucide-react'
 import { requireNav } from '@/lib/nav-guard'
 import { useSiteContext } from '@/lib/site-context'
 import { Dashboard } from '@/features/dashboard/components/dashboard'
+import { PAGE_META } from '@/features/dashboard/page-meta'
 import {
   PageContainer,
   FillHeader,
@@ -29,11 +29,11 @@ function HomePage() {
     <PageContainer fill>
       <FillHeader>
         <PageHeader
-          title="Tableau de bord"
+          title={PAGE_META.titre}
           description={
             activeSite
               ? `Vue d'ensemble de la maintenance — ${activeSite.nom}.`
-              : "Vue d'ensemble de la maintenance."
+              : PAGE_META.description
           }
         />
       </FillHeader>
@@ -49,9 +49,10 @@ function HomePage() {
       ) : (
         <ScrollBody className="pt-6">
           <EmptyState
-            icon={Building2}
+            // Icône de la PAGE, pas Building2 qui est celle de la page Sites.
+            icon={PAGE_META.icone}
             title="Sélectionne un site"
-            description="Choisis un site pour afficher son tableau de bord."
+            description={PAGE_META.hint}
           />
         </ScrollBody>
       )}

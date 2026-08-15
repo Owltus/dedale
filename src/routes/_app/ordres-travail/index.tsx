@@ -18,11 +18,8 @@ import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import type { RowAction } from '@/components/common/row-actions'
 import { useAuth } from '@/auth'
-import { useCurrentRole } from '@/hooks/use-current-role'
-import { useSiteContext } from '@/lib/site-context'
 import { deleteErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
-import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import {
@@ -31,7 +28,8 @@ import {
 } from '@/components/common/list-filter-bar'
 import { EmptyState } from '@/components/common/empty-state'
 import { NoSearchResults } from '@/components/common/no-search-results'
-import { NoSiteSelected } from '@/components/common/no-site-selected'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
+import { PAGE_META } from '@/features/ordres-travail/page-meta'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -43,22 +41,13 @@ export const Route = createFileRoute('/_app/ordres-travail/')({
 })
 
 function OrdresTravailPage() {
-  const { data: role } = useCurrentRole()
-  const canManage = perm.canManageMetier(role)
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <NoSiteSelected
-        title="Ordres de travail"
-        description="Exécution de la maintenance préventive et réglementaire."
-        hint="Choisis un site pour voir ses ordres de travail."
-        icon={ClipboardList}
-      />
-    )
-  }
-
-  return <OrdresTravailContent siteId={activeSiteId} canManage={canManage} />
+  return (
+    <SiteScopedRoute meta={PAGE_META}>
+      {({ siteId, canManage }) => (
+        <OrdresTravailContent siteId={siteId} canManage={canManage} />
+      )}
+    </SiteScopedRoute>
+  )
 }
 
 function OrdresTravailContent({
@@ -139,8 +128,8 @@ function OrdresTravailContent({
   return (
     <PageContainer>
       <PageHeader
-        title="Ordres de travail"
-        description="Exécution de la maintenance préventive et réglementaire du site."
+        title={PAGE_META.titre}
+        description={PAGE_META.description}
         action={headerAction}
       />
 

@@ -15,16 +15,13 @@ import {
 } from '@/features/investissements/etat'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
-import { useCurrentRole } from '@/hooks/use-current-role'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { useSiteContext } from '@/lib/site-context'
 import { formatDate } from '@/lib/date'
 import { listStack } from '@/lib/responsive'
 import { segOfUnique } from '@/lib/slug'
 import { cn } from '@/lib/utils'
-import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -41,7 +38,8 @@ import {
   FILTRE_NON_TERMINES,
 } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import { NoSiteSelected } from '@/components/common/no-site-selected'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
+import { PAGE_META } from '@/features/investissements/page-meta'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/common/status-badge'
@@ -54,30 +52,19 @@ export const Route = createFileRoute('/_app/investissements/')({
 })
 
 function InvestissementsPage() {
-  const { data: role } = useCurrentRole()
-  // Investissements = écran MÉTIER (cf. RLS) : manager/technicien créent/éditent
-  // ET SUPPRIMENT sur leurs sites (migration 053), lecteur consulte.
-  const canManage = perm.canManageMetier(role)
-  const canDelete = perm.canManageMetier(role)
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <NoSiteSelected
-        title="Investissements (CapEx)"
-        description="Suivi budgétaire des investissements par site."
-        hint="Choisis un site pour voir ses investissements."
-        icon={Wallet}
-      />
-    )
-  }
-
   return (
-    <InvestissementsContent
-      siteId={activeSiteId}
-      canManage={canManage}
-      canDelete={canDelete}
-    />
+    <SiteScopedRoute meta={PAGE_META}>
+      {({ siteId, canManage }) => (
+        // Investissements = écran MÉTIER (cf. RLS) : manager/technicien
+        // créent/éditent ET SUPPRIMENT sur leurs sites (migration 053),
+        // lecteur consulte.
+        <InvestissementsContent
+          siteId={siteId}
+          canManage={canManage}
+          canDelete={canManage}
+        />
+      )}
+    </SiteScopedRoute>
   )
 }
 
@@ -120,8 +107,8 @@ function InvestissementsContent({
   return (
     <PageContainer>
       <PageHeader
-        title="Investissements (CapEx)"
-        description="Suivi budgétaire des investissements du site (montant demandé, prévu, réel)."
+        title={PAGE_META.titre}
+        description={PAGE_META.description}
         action={
           canManage ? (
             <TooltipIconButton

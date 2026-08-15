@@ -1,9 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Building2 } from 'lucide-react'
 import { LocalisationsExplorer } from '@/features/localisations/components/localisations-explorer'
-import { useSiteContext } from '@/lib/site-context'
 import { PageContainer } from '@/components/common/page-container'
-import { NoSiteSelected } from '@/components/common/no-site-selected'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
+import { PAGE_META } from '@/features/localisations/page-meta'
 
 /**
  * Localisations : navigation par CHEMIN d'URL (route splat `$`) :
@@ -16,22 +15,13 @@ export const Route = createFileRoute('/_app/localisations/$')({
 })
 
 function LocalisationsPage() {
-  const { activeSiteId } = useSiteContext()
-
-  if (!activeSiteId) {
-    return (
-      <NoSiteSelected
-        title="Localisations"
-        description="Bâtiments, niveaux et locaux du site."
-        hint="Choisis un site actif pour gérer ses localisations."
-        icon={Building2}
-      />
-    )
-  }
-
   return (
-    <PageContainer fill>
-      <LocalisationsExplorer siteId={activeSiteId} />
-    </PageContainer>
+    <SiteScopedRoute meta={PAGE_META}>
+      {({ siteId }) => (
+        <PageContainer fill>
+          <LocalisationsExplorer siteId={siteId} />
+        </PageContainer>
+      )}
+    </SiteScopedRoute>
   )
 }
