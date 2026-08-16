@@ -2,6 +2,17 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { SubTabs, type SubTabItem } from '@/components/common/sub-tabs'
 
+/**
+ * Classe de l'état vide d'un ONGLET de fiche : hauteur plancher + centrage.
+ *
+ * Source unique, parce que les trois fiches à onglets divergeaient — l'une en
+ * `min-h-full`, les autres en `min-h-40 flex-1`. La seconde forme l'emporte :
+ * elle est majoritaire (cinq emplacements contre un) et ne dépend pas d'un
+ * parent de hauteur définie, là où `min-h-full` déborde si le conteneur n'en a
+ * pas. (Le plan initial retenait l'inverse ; le code a tranché autrement.)
+ */
+export const ONGLET_ETAT_VIDE = 'min-h-40 flex-1 justify-center'
+
 interface DetailTabsShellProps<T extends string> {
   /**
    * En-tête FIXE tout en haut (ex. `<PageHeader … />`). Optionnel : certaines
@@ -9,8 +20,10 @@ interface DetailTabsShellProps<T extends string> {
    */
   header?: ReactNode
   /**
-   * Carte d'en-tête (ex. `<DetailHeaderCard className="mb-4" … />`) rendue sous
-   * l'en-tête, au-dessus des onglets. Optionnelle.
+   * Carte d'en-tête (ex. `<DetailHeaderCard … />`) rendue sous l'en-tête,
+   * au-dessus des onglets. Optionnelle. **Ne pas lui passer de marge** : la
+   * brique porte la sienne (`mb-4`) depuis qu'elle avait divergé sur sept
+   * fiches — une marge ajoutée ici la doublerait.
    */
   headerCard?: ReactNode
   /** Onglets (rendus en `SubTabs` variante `segmented`). */

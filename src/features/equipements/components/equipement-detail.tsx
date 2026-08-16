@@ -20,7 +20,10 @@ export function EquipementDetail({ equipement }: { equipement: Equipement }) {
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   return (
-    <div className="flex flex-col gap-4">
+    // Pas de `gap-4` ici : `DetailHeaderCard` porte déjà sa marge basse (`mb-4`).
+    // Les deux se cumulaient → 32 px sous la carte d'en-tête au lieu des 16 px
+    // des sept autres fiches. Effet de bord du passage de la marge dans la brique.
+    <div className="flex flex-col">
       <DetailHeaderCard
         columns={2}
         thumbnail={

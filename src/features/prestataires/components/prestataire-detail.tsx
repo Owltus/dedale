@@ -44,7 +44,10 @@ import type { Database } from '@/lib/database.types'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
-import { DetailTabsShell } from '@/components/common/detail-tabs-shell'
+import {
+  DetailTabsShell,
+  ONGLET_ETAT_VIDE,
+} from '@/components/common/detail-tabs-shell'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
@@ -331,7 +334,7 @@ function ContratsPanel({
               : 'Aucun contrat sur le site actif.'
           }
           action={newButton}
-          className="min-h-40 flex-1 justify-center"
+          className={ONGLET_ETAT_VIDE}
         />
       }
     >
@@ -436,7 +439,7 @@ function GammesPanel({
           icon={Wrench}
           title="Aucune gamme"
           description="Aucune gamme rattachée à ce prestataire sur le site actif."
-          className="min-h-40 flex-1 justify-center"
+          className={ONGLET_ETAT_VIDE}
         />
       }
     >
@@ -502,7 +505,7 @@ function OtDocumentsPanel({
           icon={FileText}
           title="Aucun document"
           description="Aucun document rattaché aux ordres de travail de ce prestataire sur le site actif."
-          className="min-h-40 flex-1 justify-center"
+          className={ONGLET_ETAT_VIDE}
         />
       }
     >
@@ -564,7 +567,7 @@ function OtPanel({
           icon={ClipboardList}
           title="Aucun ordre de travail"
           description="Aucun OT pour ce prestataire sur le site actif."
-          className="min-h-40 flex-1 justify-center"
+          className={ONGLET_ETAT_VIDE}
         />
       }
     >

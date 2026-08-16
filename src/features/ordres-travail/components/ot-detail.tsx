@@ -39,7 +39,10 @@ import {
   PageHeader,
   type PageHeaderCrumb,
 } from '@/components/common/page-header'
-import { DetailTabsShell } from '@/components/common/detail-tabs-shell'
+import {
+  DetailTabsShell,
+  ONGLET_ETAT_VIDE,
+} from '@/components/common/detail-tabs-shell'
 import { ErrorState } from '@/components/common/error-state'
 import { EmptyState } from '@/components/common/empty-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -475,7 +478,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                 <EmptyState
                   icon={ListChecks}
                   title="Aucune opération"
-                  className="min-h-40 flex-1 justify-center"
+                  className={ONGLET_ETAT_VIDE}
                 />
               ) : (
                 <div className="flex flex-col gap-3">

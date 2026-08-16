@@ -16,7 +16,10 @@ import { useFileDrop } from '@/hooks/use-file-drop'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { listStack } from '@/lib/responsive'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
-import { DetailTabsShell } from '@/components/common/detail-tabs-shell'
+import {
+  DetailTabsShell,
+  ONGLET_ETAT_VIDE,
+} from '@/components/common/detail-tabs-shell'
 import { SplitPanes } from '@/components/common/split-panes'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
@@ -292,7 +295,7 @@ function EquipementsTab({
             <EmptyState
               icon={Wrench}
               title="Aucun équipement"
-              className="min-h-full justify-center"
+              className={ONGLET_ETAT_VIDE}
             />
           ) : (
             <div className={listStack}>
