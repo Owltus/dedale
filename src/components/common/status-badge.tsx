@@ -28,6 +28,23 @@ export function statusToneById(
   return map[id] ?? 'neutral'
 }
 
+/**
+ * Libellé d'un statut par id, depuis le référentiel de la feature ; repli sur un
+ * libellé neutre plutôt que `undefined`.
+ *
+ * Pendant du lookup de tonalité. Sans lui, une page rendait son badge en
+ * `libelle ? <Badge/> : undefined` — le référentiel des statuts arrivant après la
+ * liste, le badge n'existait pas au premier rendu puis apparaissait : la ligne
+ * changeait de contenu sous les yeux de l'utilisateur. Un statut inconnu vaut
+ * mieux qu'un badge qui clignote.
+ */
+export function statusLabelById(
+  id: number,
+  labels: ReadonlyMap<number, string>,
+): string {
+  return labels.get(id) ?? 'Statut inconnu'
+}
+
 // Pastille TEINTÉE : fond doux (couleur à 10 %), texte de la couleur, liseré
 // discret. Les tokens d'état sont foncés en thème clair → texte AA lisible.
 const TONE_CLASSES: Record<StatusTone, string> = {

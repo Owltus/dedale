@@ -11,6 +11,7 @@ import { FormDialog } from '@/components/common/form-dialog'
 import {
   OperationFormBase,
   resolveOperationFlags,
+  verifierUniteRequise,
 } from '@/features/operations/components/operation-form-base'
 import type { Database } from '@/lib/database.types'
 
@@ -77,7 +78,13 @@ export function OperationFormDialog({
         onOpenChange={onOpenChange}
         title={isEdit ? 'Modifier l’opération' : 'Nouvelle opération'}
         description="Le type « Mesure » ajoute une unité ; selon l’unité, des seuils mini/maxi sont demandés (pas pour un relevé de compteur)."
-        onSubmit={() => void form.handleSubmit(submit)()}
+        // L'unité obligatoire ne peut pas être portée par Zod (elle dépend du
+        // référentiel des types, chargé en base) : elle est vérifiée ici, par la
+        // même fonction que l'autre hôte du formulaire.
+        onSubmit={() => {
+          if (!verifierUniteRequise(form, types, unites)) return
+          void form.handleSubmit(submit)()
+        }}
         submitLabel={isEdit ? 'Enregistrer' : 'Ajouter'}
         pendingLabel="Enregistrement…"
         pending={form.formState.isSubmitting}

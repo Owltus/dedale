@@ -128,7 +128,9 @@ function DocumentsContent({
             query={query}
             // size sm : la densité réelle des DocumentRow (h-14). Le défaut md
             // annonçait des lignes h-20, d'où un saut au chargement.
-            pending={<ListRowSkeletons size="sm" />}
+            // count 6 : la page occupe toute la hauteur, 4 lignes (le défaut)
+            // laissaient un grand vide sous le squelette.
+            pending={<ListRowSkeletons size="sm" count={6} />}
             empty={
               <EmptyState
                 icon={FileText}

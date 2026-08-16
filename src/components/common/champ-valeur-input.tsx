@@ -4,7 +4,7 @@ import { DateField } from '@/components/ui/date-field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { SelectDropdown } from '@/components/ui/select-dropdown'
+import { SelectDropdown, SELECT_AUCUN } from '@/components/ui/select-dropdown'
 
 interface ChampValeurInputProps {
   champ: Champ
@@ -133,12 +133,20 @@ export function ChampValeurInput({
           error={error}
         >
           <SelectDropdown
+            id={fieldId}
             value={typeof value === 'string' ? value : ''}
-            onValueChange={(v) => onChange(v || null)}
-            options={(champ.options ?? []).map((o) => ({
-              value: o,
-              label: o,
-            }))}
+            onValueChange={(v) =>
+              onChange(v === SELECT_AUCUN || v === '' ? null : v)
+            }
+            // Champ FACULTATIF → option neutre réellement SÉLECTIONNABLE : un
+            // placeholder ne l'est pas, et une valeur choisie par erreur ne
+            // pourrait alors plus être retirée depuis l'écran.
+            options={[
+              ...(champ.requis
+                ? []
+                : [{ value: SELECT_AUCUN, label: '— Aucun —' }]),
+              ...(champ.options ?? []).map((o) => ({ value: o, label: o })),
+            ]}
             placeholder="— Choisir —"
             ariaLabel={label}
           />

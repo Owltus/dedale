@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useFormContext, useWatch } from 'react-hook-form'
+import { useFormContext, useWatch, type UseFormReturn } from 'react-hook-form'
 import { referentielsQueries } from '@/features/gammes/queries'
 import { TextField } from '@/components/common/fields/text-field'
 import { SelectField } from '@/components/common/fields/select-field'
@@ -59,6 +59,33 @@ export function resolveOperationFlags(
     unites.find((u) => String(u.id) === values.unite_id)?.necessite_seuils ??
     false
   return { aUnite, requiresSeuils: aUnite && uniteSeuils }
+}
+
+/**
+ * L'unité est OBLIGATOIRE dès que le type d'opération en demande une (« Mesure »).
+ *
+ * Cette règle ne peut pas vivre dans le schéma Zod : elle dépend du référentiel
+ * `types_operations`, chargé en base, que le schéma — défini au niveau module —
+ * ne connaît pas. Elle est donc vérifiée à la soumission, par les DEUX hôtes du
+ * formulaire (gammes et modèles), via cette fonction unique.
+ *
+ * Retourne `true` si l'on peut soumettre ; sinon pose l'erreur sur le champ et
+ * retourne `false`. Le champ étant masqué quand aucune unité n'est attendue, sa
+ * valeur est déjà purgée à `''` : aucun faux positif possible.
+ */
+export function verifierUniteRequise(
+  form: UseFormReturn<OperationFormValues>,
+  types: FlaggedRef[],
+  unites: FlaggedRef[],
+): boolean {
+  const values = form.getValues()
+  const { aUnite } = resolveOperationFlags(values, types, unites)
+  if (!aUnite || values.unite_id !== '') return true
+  form.setError('unite_id', {
+    type: 'required',
+    message: 'L’unité est obligatoire pour une mesure',
+  })
+  return false
 }
 
 /**

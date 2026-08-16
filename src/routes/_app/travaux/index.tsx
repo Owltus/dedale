@@ -37,7 +37,7 @@ import {
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
-import { StatusBadge } from '@/components/common/status-badge'
+import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
 import type { Database } from '@/lib/database.types'
 
 type Travaux = Database['public']['Tables']['interventions_travaux']['Row']
@@ -179,7 +179,13 @@ function TravauxContent({
               emptySearchDescription="Aucun travaux ne correspond à ces critères."
             >
               {shown.map((c) => {
-                const statutLabel = statutNom.get(c.statut_travaux_id)
+                // Libellé TOUJOURS défini (repli « Statut inconnu ») : le
+                // référentiel arrive après la liste, et un badge conditionnel
+                // apparaissait donc au second rendu — la ligne bougeait.
+                const statutLabel = statusLabelById(
+                  c.statut_travaux_id,
+                  statutNom,
+                )
                 const editable =
                   canManage && !estVerrouille(c.statut_travaux_id)
                 const rowActions = actionsEditionSuppression({
@@ -211,13 +217,11 @@ function TravauxContent({
                       })
                     }
                     badges={
-                      statutLabel ? (
-                        <StatusBadge
-                          tone={statutTravauxTone(c.statut_travaux_id)}
-                        >
-                          {statutLabel}
-                        </StatusBadge>
-                      ) : undefined
+                      <StatusBadge
+                        tone={statutTravauxTone(c.statut_travaux_id)}
+                      >
+                        {statutLabel}
+                      </StatusBadge>
                     }
                     meta={
                       <div className="text-right leading-tight tabular-nums">
