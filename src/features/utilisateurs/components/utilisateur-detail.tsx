@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/common/page-header'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { EmptyState } from '@/components/common/empty-state'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/common/status-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export function UtilisateurDetail({
@@ -71,9 +72,14 @@ export function UtilisateurDetail({
         breadcrumb={[{ label: 'Utilisateurs', onClick: onBack }]}
         titleBadges={
           <>
-            <Badge variant="outline">
-              {user.est_actif ? 'Actif' : 'Inactif'}
-            </Badge>
+            {/* MÊME traitement que la liste : « Inactif » est un ÉTAT, donc une
+                pastille TEINTÉE. Un `variant="outline"` inconditionnel rendait
+                Actif et Inactif visuellement IDENTIQUES sur cette fiche. */}
+            {user.est_actif ? (
+              <Badge variant="outline">Actif</Badge>
+            ) : (
+              <StatusBadge tone="destructive">Inactif</StatusBadge>
+            )}
             {user.anonymized_at && <Badge variant="outline">Anonymisé</Badge>}
           </>
         }

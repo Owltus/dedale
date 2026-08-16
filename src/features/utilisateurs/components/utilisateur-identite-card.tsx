@@ -127,6 +127,7 @@ function ProfileForm({
             // Radix, comme le champ « Rôle » de la modale d'invitation dans
             // cette même feature — qui, lui, était déjà thémé.
             <SelectDropdown
+              id="role"
               value={String(roleId)}
               onValueChange={(v) => {
                 setRoleId(Number(v))

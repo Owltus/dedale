@@ -150,6 +150,7 @@ export function SitesCard({
                       la valeur ne reste donc jamais affichée — d'où un `value`
                       vide et un placeholder permanent. */}
                   <SelectDropdown
+                    id="add-site"
                     value=""
                     onValueChange={handleAdd}
                     options={available.map((s) => ({

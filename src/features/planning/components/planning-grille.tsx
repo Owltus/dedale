@@ -95,8 +95,12 @@ function tooltipCellule(ots: PlanningOt[]): string {
   return lignes.join('\n')
 }
 
-// Légende : tonalité → libellé, dans l'ordre de priorité d'affichage. MÊME source de
-// couleur (TONE_CELL) que les cellules de la grille → la légende ne peut plus diverger.
+// Légende : tonalité → libellé, dans l'ordre de priorité d'affichage. Les couleurs
+// viennent de TONE_CELL, comme les cellules — mais cette liste reste ÉNUMÉRÉE À LA
+// MAIN, elle peut donc diverger et elle diverge : `toneCellule` repeint « Programmé »
+// en JAUNE dans la colonne de la semaine courante, tonalité absente d'ici. Choix laissé
+// au PO : ajouter une 7e entrée, ou assumer le jaune comme simple variante de lisibilité
+// du gris (ce n'est pas un statut de plus).
 // Plus de proximité calendaire (Cette semaine / À venir / Mois prochain…) : sur un
 // calendrier la position de la case dit déjà « quand » (décision PO).
 const LEGENDE_PLANNING: { tone: StatusTone; libelle: string }[] = [
