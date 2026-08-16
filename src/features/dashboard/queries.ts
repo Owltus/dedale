@@ -58,7 +58,7 @@ export const dashboardQueries = {
       enabled: siteId !== null,
       queryFn: async ({ signal }) => {
         const site = siteId!
-        const [batiments, equipements, prestataires, contrats, gammes, ots] =
+        const [batiments, equipements, prestataires, gammes, ots] =
           await Promise.all([
             supabase
               .from('batiments')
@@ -78,12 +78,6 @@ export const dashboardQueries = {
               .abortSignal(signal)
               .throwOnError(),
             supabase
-              .from('contrats')
-              .select('id', { count: 'exact', head: true })
-              .eq('site_id', site)
-              .abortSignal(signal)
-              .throwOnError(),
-            supabase
               .from('gammes')
               .select('id', { count: 'exact', head: true })
               .eq('site_id', site)
@@ -100,7 +94,6 @@ export const dashboardQueries = {
           aBatiment: (batiments.count ?? 0) > 0,
           aEquipement: (equipements.count ?? 0) > 0,
           aPrestataire: (prestataires.count ?? 0) > 0,
-          aContrat: (contrats.count ?? 0) > 0,
           aGamme: (gammes.count ?? 0) > 0,
           aOt: (ots.count ?? 0) > 0,
         }

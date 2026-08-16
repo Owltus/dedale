@@ -1,14 +1,16 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 /**
  * En-tête de section : titre `h3` (icône atténuée + libellé) et, à droite, une
  * action OPTIONNELLE (ex. bouton « + »). Source UNIQUE de l'en-tête de section
  * répété dans les onglets de fiche (Opérations, Équipements, Ordres de travail,
  * Modèles…). L'icône est passée en COMPOSANT (`LucideIcon`) et instanciée ici →
- * taille/couleur garanties uniformes. À utiliser seul quand l'hôte gère déjà sa
- * propre enveloppe ; sinon préférer `Section`.
+ * taille/couleur garanties uniformes. L'hôte fournit sa propre enveloppe.
+ *
+ * Ce fichier a longtemps exporté aussi un composant `Section` (enveloppe
+ * `<section>` + en-tête + corps) que **personne n'utilisait** : les deux
+ * consommateurs ne prenaient que l'en-tête. Il a été retiré.
  */
 export function SectionHeader({
   icon: Icon,
@@ -27,31 +29,5 @@ export function SectionHeader({
       </h3>
       {action}
     </div>
-  )
-}
-
-/**
- * Section d'onglet/fiche : enveloppe `<section>` + `SectionHeader` + corps.
- * Gabarit homogène (`flex flex-col gap-3`) partagé par les onglets de la fiche
- * gamme (Ordres de travail / Opérations / Équipements) et les fiches Bibliothèque.
- */
-export function Section({
-  icon,
-  title,
-  action,
-  children,
-  className,
-}: {
-  icon: LucideIcon
-  title: string
-  action?: ReactNode
-  children: ReactNode
-  className?: string
-}) {
-  return (
-    <section className={cn('flex flex-col gap-3', className)}>
-      <SectionHeader icon={icon} title={title} action={action} />
-      {children}
-    </section>
   )
 }

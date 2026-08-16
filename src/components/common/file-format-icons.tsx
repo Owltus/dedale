@@ -10,8 +10,12 @@ interface FormatIconProps {
  * fichier identique à `FileImage`/`FileText` + libellé « PDF »), car lucide n'a
  * pas d'icône PDF explicite. Trait `currentColor` → suit la couleur du contexte
  * (ex. tuile `RowMediaIcon`). À utiliser comme une icône lucide (prop `className`).
+ *
+ * PRIVÉE au module : elle n'a jamais eu d'importeur externe et ne s'obtient que
+ * via `iconeFormat`, qui est le point d'entrée unique. L'exporter laissait croire
+ * à un choix d'icône à la main, alors que le format du fichier doit décider.
  */
-export function PdfFileIcon({ className }: FormatIconProps) {
+function PdfFileIcon({ className }: FormatIconProps) {
   return (
     <svg
       className={className}
