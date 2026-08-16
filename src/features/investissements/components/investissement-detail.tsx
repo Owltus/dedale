@@ -150,12 +150,11 @@ export function InvestissementDetail({
         }
       />
 
-      {/* Le budget descend en bas de fiche, à côté des documents (décision PO) :
-          un montant réel se vérifie sur la facture d'à côté. Il reste dans une
-          `Card` ordinaire et non `DetailHeaderCard` — cette brique est faite pour
-          une entité ILLUSTRÉE (équipement, gamme, prestataire) ; un
-          investissement n'a pas de vignette, on lui posait donc une icône de
-          repli dans un carré de 80 px qui ne servait qu'à décaler son contenu. */}
+      {/* Le budget est dans une `Card` ordinaire et non `DetailHeaderCard` :
+          cette brique est faite pour une entité ILLUSTRÉE (équipement, gamme,
+          prestataire) ; un investissement n'a pas de vignette, on lui posait donc
+          une icône de repli dans un carré de 80 px qui ne servait qu'à décaler
+          son contenu. */}
 
       {/* FRISE — seule à rester PLEINE LARGEUR : c'est le résumé de l'état, on
           la lit avant le détail. Statut LIBRE → toute pastille est cliquable
@@ -178,6 +177,48 @@ export function InvestissementDetail({
           </CardContent>
         </Card>
       )}
+
+      {/* BUDGET — une BARRE pleine largeur, juste sous la frise : comme elle,
+          il résume l'état du dossier d'un regard, et comme elle il se lit en
+          travers plutôt qu'en colonne. Les quatre montants tiennent donc sur UNE
+          ligne, dans l'ordre de lecture Demandé → Prévu → Réel → Écart ; à
+          mi-largeur, ils s'enchaînaient en zigzag et « Prévu » se retrouvait
+          séparé de « Réel » — précisément la comparaison qu'on vient chercher.
+
+          Les quatre emplacements sont TOUJOURS rendus, « — » compris : sur un
+          écran de suivi, un montant manquant est une information (contrairement
+          à la liste, qui n'affiche que les montants renseignés). */}
+      <Card className="mb-4 gap-3 py-4">
+        <CardHeader>
+          <CardTitle className="text-base">Budget</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+          {[
+            { label: 'Demandé', value: formatEuros(inv.montant_demande) },
+            { label: 'Prévu', value: formatEuros(inv.montant_prevu) },
+            { label: 'Réel', value: formatEuros(inv.depense_reelle) },
+            {
+              label: 'Écart prévu / réel',
+              value: ecartLabel,
+              alerte: depassement,
+            },
+          ].map((m) => (
+            <div key={m.label} className="min-w-0">
+              <div className="truncate text-xs text-muted-foreground">
+                {m.label}
+              </div>
+              <div
+                className={cn(
+                  'truncate font-medium tabular-nums',
+                  m.alerte && 'text-warning',
+                )}
+              >
+                {m.value}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* LES DEUX BOUTS DU DOSSIER, CÔTE À CÔTE : ce qui était demandé à gauche,
           ce qu'il en est advenu à droite. `lg:` et pas `md:` — à 768 px, deux
@@ -234,78 +275,30 @@ export function InvestissementDetail({
         />
       </div>
 
-      {/* DERNIÈRE LIGNE À DEUX COLONNES : le budget à gauche, ses pièces
-          justificatives à droite. Les deux se consultent ensemble — un montant
-          réel se vérifie sur la facture d'à côté.
-
-          Les quatre montants passent donc en 2 × 2 (Demandé / Prévu au-dessus,
-          Réel / Écart en dessous) : à mi-largeur, quatre colonnes de montants
-          auraient tronqué les libellés. Les quatre emplacements sont TOUJOURS
-          rendus, « — » compris — sur un écran de suivi, un montant manquant est
-          une information (contrairement à la liste, qui n'affiche que les
-          montants renseignés).
-
-          La ligne prend la hauteur RESTANTE de la fiche, pour que la page se
-          déploie jusqu'en bas au lieu de laisser un vide sous les cartes, et les
-          deux cartes font la MÊME hauteur (`stretch`, le défaut de la grille) —
-          une carte courte à côté d'une longue était le « un coup petit, un coup
-          grand » de cet écran. Sous `lg`, hauteur naturelle et défilement de
-          page, comme le reste du mobile-first. */}
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-2">
-        <Card className="flex flex-col gap-3 py-4">
-          <CardHeader>
-            <CardTitle className="text-base">Budget</CardTitle>
-          </CardHeader>
-          <CardContent className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-x-6 gap-y-3 overflow-y-auto">
-            {[
-              { label: 'Demandé', value: formatEuros(inv.montant_demande) },
-              { label: 'Prévu', value: formatEuros(inv.montant_prevu) },
-              { label: 'Réel', value: formatEuros(inv.depense_reelle) },
-              {
-                label: 'Écart prévu / réel',
-                value: ecartLabel,
-                alerte: depassement,
-              },
-            ].map((m) => (
-              <div key={m.label} className="min-w-0">
-                <div className="truncate text-xs text-muted-foreground">
-                  {m.label}
-                </div>
-                <div
-                  className={cn(
-                    'truncate font-medium tabular-nums',
-                    m.alerte && 'text-warning',
-                  )}
-                >
-                  {m.value}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* DOCUMENTS — une carte comme les autres. La liste vivait jusqu'ici à nu
-            sur le fond de page : elle ne se rattachait visuellement à rien et ne
-            disait pas ce qu'elle était. */}
-        <Card className="relative flex flex-col gap-3 py-4">
-          <CardHeader>
-            <CardTitle className="text-base">Documents</CardTitle>
-          </CardHeader>
-          <CardContent className="min-h-0 flex-1 overflow-y-auto">
-            <DocumentsTab
-              liaison="documents_investissements"
-              parentColumn="investissement_id"
-              parentId={inv.id}
-              acceptedMimes={MIME_PDF}
-              uploadOpen={upload.uploadOpen}
-              onUploadOpenChange={upload.onUploadOpenChange}
-              uploadInitialFiles={upload.droppedFiles}
-              uploadDefaultTypeNom="Devis"
-            />
-          </CardContent>
-          <FileDropOverlay show={upload.dragging} />
-        </Card>
-      </div>
+      {/* DOCUMENTS — pleine largeur, et la carte prend la hauteur RESTANTE
+          (`lg:flex-1`) : la fiche se déploie ainsi jusqu'en bas de l'écran au
+          lieu de s'arrêter au milieu. Son contenu défile À L'INTÉRIEUR — sans
+          zone défilante, une carte contrainte en hauteur se réduit sous son
+          contenu et le laisse sortir de la bordure. Même géométrie que la fiche
+          Événement. Sous `lg`, hauteur naturelle et défilement de page. */}
+      <Card className="relative flex flex-col gap-3 py-4 lg:min-h-0 lg:flex-1">
+        <CardHeader>
+          <CardTitle className="text-base">Documents</CardTitle>
+        </CardHeader>
+        <CardContent className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+          <DocumentsTab
+            liaison="documents_investissements"
+            parentColumn="investissement_id"
+            parentId={inv.id}
+            acceptedMimes={MIME_PDF}
+            uploadOpen={upload.uploadOpen}
+            onUploadOpenChange={upload.onUploadOpenChange}
+            uploadInitialFiles={upload.droppedFiles}
+            uploadDefaultTypeNom="Devis"
+          />
+        </CardContent>
+        <FileDropOverlay show={upload.dragging} />
+      </Card>
 
       {canManage && (
         <>
