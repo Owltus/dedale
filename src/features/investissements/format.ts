@@ -27,41 +27,23 @@ export interface EcartCapex {
  * partiel ne doit pas s'afficher comme favorable). Source unique du calcul,
  * partagée par la liste et la fiche détail.
  */
-export interface MontantLigne {
-  label: string
-  valeur: string
-  /** Vrai pour un dépassement de budget — la seule valeur à signaler. */
-  alerte?: boolean
-}
-
 /**
- * Montants à AFFICHER pour un investissement, dans l'ordre de lecture
- * Demandé → Prévu → Réel → Écart.
+ * LE montant à retenir pour un investissement, du plus engageant au moins
+ * engageant : la dépense réelle s'il y en a une, sinon le budget prévu, sinon le
+ * montant demandé.
  *
- * Seuls les montants RENSEIGNÉS sont retournés. La liste affichait auparavant
- * les trois lignes en permanence, dont deux valaient « — » sur la plupart des
- * investissements : trois lignes de 12 px pour ne rien dire, là où une seule
- * portait l'information. Source unique, partagée par la liste et la fiche.
+ * La liste n'en montre qu'un seul — celui qui reflète l'état d'avancement. Elle
+ * en affichait trois, dont deux valaient « — » la plupart du temps. Le détail
+ * complet reste sur la fiche.
  */
-export function montantsLignes(
+export function montantPrincipal(
   inv: Pick<
     Investissement,
     'montant_demande' | 'montant_prevu' | 'depense_reelle'
   >,
-): MontantLigne[] {
-  const lignes: MontantLigne[] = []
-  if (inv.montant_demande !== null)
-    lignes.push({ label: 'Demandé', valeur: formatEuros(inv.montant_demande) })
-  if (inv.montant_prevu !== null)
-    lignes.push({ label: 'Prévu', valeur: formatEuros(inv.montant_prevu) })
-  if (inv.depense_reelle !== null)
-    lignes.push({ label: 'Réel', valeur: formatEuros(inv.depense_reelle) })
-
-  const { label, depassement } = ecartCapex(inv)
-  if (label !== null)
-    lignes.push({ label: 'Écart', valeur: label, alerte: depassement })
-
-  return lignes
+): string {
+  const montant = inv.depense_reelle ?? inv.montant_prevu ?? inv.montant_demande
+  return formatEuros(montant)
 }
 
 export function ecartCapex(

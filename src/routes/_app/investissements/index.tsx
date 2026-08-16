@@ -13,11 +13,7 @@ import {
   rangStatutCapex,
   STATUTS_CAPEX_TERMINAUX,
 } from '@/features/investissements/etat'
-import {
-  ecartCapex,
-  formatEuros,
-  montantsLignes,
-} from '@/features/investissements/format'
+import { ecartCapex, montantPrincipal } from '@/features/investissements/format'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
@@ -179,7 +175,7 @@ function InvestissementsContent({
                   inv.statut_capex_id,
                   statutNom,
                 )
-                const { label: ecartLabel } = ecartCapex(inv)
+                const { depassement } = ecartCapex(inv)
                 return (
                   <ListRow
                     key={inv.id}
@@ -202,43 +198,30 @@ function InvestissementsContent({
                         },
                       })
                     }
-                    badges={
-                      <StatusBadge tone={statutCapexTone(inv.statut_capex_id)}>
-                        {statutLabel}
-                      </StatusBadge>
-                    }
+                    // UN SEUL bloc à droite, empilé : le statut au-dessus, le
+                    // montant en dessous. `badges` et `meta` étaient deux blocs
+                    // CÔTE À CÔTE, et comme la largeur du second suivait la
+                    // longueur du montant, le badge se décalait d'une ligne à
+                    // l'autre. Empilés dans une colonne de largeur fixe, les deux
+                    // s'alignent par construction.
                     meta={
-                      // LARGEUR FIXE (`w-36`) : `badges` et `meta` sont deux
-                      // blocs `shrink-0` côte à côte dans `ListRow`. Sans largeur
-                      // imposée, un montant long pousse le badge vers la gauche et
-                      // les statuts ne s'alignent plus d'une ligne à l'autre — ils
-                      // formaient un escalier.
-                      <div className="w-36 space-y-0.5 text-right leading-tight tabular-nums">
-                        {montantsLignes(inv).map((m) => (
-                          <div key={m.label} className="text-xs">
-                            <span className="text-muted-foreground">
-                              {m.label}{' '}
-                            </span>
-                            <span
-                              className={cn(
-                                'font-medium text-foreground',
-                                m.alerte && 'text-warning',
-                              )}
-                            >
-                              {m.valeur}
-                            </span>
-                          </div>
-                        ))}
+                      <div className="flex w-32 flex-col items-end gap-1">
+                        <StatusBadge
+                          tone={statutCapexTone(inv.statut_capex_id)}
+                        >
+                          {statutLabel}
+                        </StatusBadge>
+                        <span
+                          className={cn(
+                            'text-sm font-medium tabular-nums',
+                            depassement && 'text-warning',
+                          )}
+                        >
+                          {montantPrincipal(inv)}
+                        </span>
                       </div>
                     }
-                    mobileMeta={[
-                      statutLabel,
-                      ecartLabel !== null
-                        ? `Écart ${ecartLabel}`
-                        : `Prévu ${formatEuros(inv.montant_prevu)}`,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
+                    mobileMeta={`${statutLabel} · ${montantPrincipal(inv)}`}
                     menuActions={
                       canManage
                         ? actionsEditionSuppression({
