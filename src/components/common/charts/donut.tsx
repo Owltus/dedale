@@ -4,7 +4,7 @@ import {
   onKeyActivate,
   toneToken,
   type ChartSegment,
-} from '@/components/common/charts/chart-legend'
+} from '@/components/common/charts/chart-tokens'
 
 interface DonutProps {
   /** Parts du donut ; une part de valeur 0 n'est pas dessinée. */

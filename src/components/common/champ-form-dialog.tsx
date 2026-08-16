@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { CHAMP_TYPES, type Champ, type ChampType } from '@/lib/champs'
 import { OptionsEditor } from '@/components/common/options-editor'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/text-field'
-import { SelectField } from '@/components/common/select-field'
-import { CheckboxField } from '@/components/common/checkbox-field'
+import {
+  StandaloneCheckbox,
+  StandaloneSelect,
+  StandaloneText,
+} from '@/components/common/standalone-fields'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
 
 function champVide(): Champ {
@@ -94,7 +96,7 @@ export function ChampFormDialog({
       pendingLabel="Enregistrement…"
       pending={pending}
     >
-      <TextField
+      <StandaloneText
         label="Nom du champ"
         value={value.cle}
         onChange={(v) => set({ cle: v })}
@@ -111,7 +113,7 @@ export function ChampFormDialog({
             : 'grid grid-cols-1 gap-4'
         }
       >
-        <SelectField
+        <StandaloneSelect
           label="Type"
           value={value.type}
           // Changer de type réinitialise la valeur par défaut, et désactive
@@ -124,15 +126,10 @@ export function ChampFormDialog({
                 : { type, defaut: null },
             )
           }}
-        >
-          {CHAMP_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </SelectField>
+          options={CHAMP_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+        />
         {value.type === 'nombre' && (
-          <TextField
+          <StandaloneText
             label="Unité"
             placeholder="ex. kW, bars"
             value={value.unite ?? ''}
@@ -155,7 +152,7 @@ export function ChampFormDialog({
       {/* « Obligatoire » n'a pas de sens pour Oui/Non (false serait toujours
           valide) → masqué pour ce type. */}
       {value.type !== 'oui-non' && (
-        <CheckboxField
+        <StandaloneCheckbox
           label="Champ obligatoire"
           value={value.requis}
           onChange={(requis) => set({ requis })}

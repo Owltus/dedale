@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { onKeyActivate } from '@/components/common/charts/chart-legend'
+import { onKeyActivate } from '@/components/common/charts/chart-tokens'
 
 /**
  * Nœud d'un sunburst à 3 niveaux (domaine → famille → gamme). L'angle d'un nœud

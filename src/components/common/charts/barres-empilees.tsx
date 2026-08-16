@@ -4,7 +4,7 @@ import {
   onKeyActivate,
   toneToken,
   type ChartSegment,
-} from '@/components/common/charts/chart-legend'
+} from '@/components/common/charts/chart-tokens'
 
 export interface BarreColonne {
   cle: string

@@ -9,7 +9,7 @@ import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
+import { CheckRow } from '@/components/common/checklist-dialog'
 import { TextField } from '@/components/common/fields/text-field'
 import { SelectField } from '@/components/common/fields/select-field'
 
@@ -102,22 +102,22 @@ export function InviteUserDialog({
                   className="flex max-h-44 flex-col gap-1 overflow-y-auto rounded-md border border-input p-2"
                 >
                   {sites.map((site) => (
-                    <label
+                    // CheckRow (et non un label recomposé) : elle porte le lien
+                    // htmlFor/useId entre la case et son libellé — le point que
+                    // la version artisanale perdait.
+                    <CheckRow
                       key={site.id}
-                      className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted"
-                    >
-                      <Checkbox
-                        checked={field.value.includes(site.id)}
-                        onCheckedChange={(next) =>
-                          field.onChange(
-                            next === true
-                              ? [...field.value, site.id]
-                              : field.value.filter((s) => s !== site.id),
-                          )
-                        }
-                      />
-                      <span className="truncate">{site.nom}</span>
-                    </label>
+                      titre={site.nom}
+                      checked={field.value.includes(site.id)}
+                      className="rounded px-1 py-1 hover:bg-muted"
+                      onToggle={() => {
+                        field.onChange(
+                          field.value.includes(site.id)
+                            ? field.value.filter((s) => s !== site.id)
+                            : [...field.value, site.id],
+                        )
+                      }}
+                    />
                   ))}
                 </div>
               )}

@@ -1,4 +1,5 @@
 import { useId, useMemo, useState, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -12,9 +13,17 @@ export interface CheckRowProps {
   sousTitre?: ReactNode
   /** Contenu à droite (ex. `<Badge>Commun</Badge>`). */
   badge?: ReactNode
-  checked: boolean
+  /**
+   * `'indeterminate'` = sélection PARTIELLE (une rangée parente dont seuls
+   * certains enfants sont cochés). Sans cet état, une liste hiérarchique devait
+   * recomposer sa propre rangée à la main — et y perdait le lien `htmlFor` qui
+   * rend le libellé cliquable et lisible par un lecteur d'écran.
+   */
+  checked: boolean | 'indeterminate'
   onToggle: () => void
   disabled?: boolean
+  /** Classe de la rangée (densité, indentation d'un niveau enfant…). */
+  className?: string
 }
 
 /**
@@ -30,10 +39,16 @@ export function CheckRow({
   checked,
   onToggle,
   disabled,
+  className,
 }: CheckRowProps) {
   const id = useId()
   return (
-    <div className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50">
+    <div
+      className={cn(
+        'flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50',
+        className,
+      )}
+    >
       <Checkbox
         id={id}
         checked={checked}

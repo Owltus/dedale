@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Donut } from '@/components/common/charts/donut'
-import type { ChartSegment } from '@/components/common/charts/chart-legend'
+import type { ChartSegment } from '@/components/common/charts/chart-tokens'
 import { CelluleDialog } from '@/features/planning/components/cellule-dialog'
 import { estPlanifieEnRetard } from '@/features/ordres-travail/statut-affichage'
 import { cleSemaine } from '@/features/planning/semaines'

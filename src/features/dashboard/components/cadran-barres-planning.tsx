@@ -4,7 +4,7 @@ import {
   BarresEmpilees,
   type BarreColonne,
 } from '@/components/common/charts/barres-empilees'
-import type { ChartSegment } from '@/components/common/charts/chart-legend'
+import type { ChartSegment } from '@/components/common/charts/chart-tokens'
 import { CelluleDialog } from '@/features/planning/components/cellule-dialog'
 import { dateSemaineOt, type PlanningOt } from '@/features/planning/grille'
 import {

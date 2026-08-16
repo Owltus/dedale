@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   onKeyActivate,
   toneToken,
-} from '@/components/common/charts/chart-legend'
+} from '@/components/common/charts/chart-tokens'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import type { StatusTone } from '@/components/common/status-badge'

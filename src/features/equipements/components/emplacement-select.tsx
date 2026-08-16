@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { equipementsQueries } from '../queries'
-import { SelectField } from '@/components/common/select-field'
+import { StandaloneSelect } from '@/components/common/standalone-fields'
 
 interface EmplacementSelectProps {
   siteId: string
@@ -120,35 +120,26 @@ export function EmplacementSelect({
 
   const niveauLocal = (
     <div className="grid gap-4">
-      <SelectField
+      <StandaloneSelect
         label="Niveau"
         required={requiredEmplacement}
-        id="emplacement_niveau"
         value={effNiveau}
         onChange={choisirNiveau}
-      >
-        <option value="">— Choisir un niveau —</option>
-        {niveaux.map((n) => (
-          <option key={n.id} value={n.id}>
-            {n.nom}
-          </option>
-        ))}
-      </SelectField>
-      <SelectField
+        options={niveaux.map((n) => ({ value: n.id, label: n.nom }))}
+        placeholder="— Choisir un niveau —"
+      />
+      <StandaloneSelect
         label="Local"
         required={requiredEmplacement}
-        id="emplacement_local"
         value={value}
         onChange={choisirLocal}
         error={error}
-      >
-        <option value="">— Choisir un local —</option>
-        {locauxNiveau.map((l) => (
-          <option key={l.local_id ?? ''} value={l.local_id ?? ''}>
-            {l.local_nom ?? ''}
-          </option>
-        ))}
-      </SelectField>
+        options={locauxNiveau.map((l) => ({
+          value: l.local_id ?? '',
+          label: l.local_nom ?? '',
+        }))}
+        placeholder="— Choisir un local —"
+      />
     </div>
   )
 
@@ -156,20 +147,14 @@ export function EmplacementSelect({
     <div className="grid gap-4">
       {/* Bâtiment sur TOUTE LA LIGNE (uniquement si plusieurs bâtiments). */}
       {!batimentUnique && (
-        <SelectField
+        <StandaloneSelect
           label="Bâtiment"
           required={requiredEmplacement}
-          id="emplacement_batiment"
           value={effBatiment}
           onChange={choisirBatiment}
-        >
-          <option value="">— Choisir un bâtiment —</option>
-          {batiments.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.nom}
-            </option>
-          ))}
-        </SelectField>
+          options={batiments.map((b) => ({ value: b.id, label: b.nom }))}
+          placeholder="— Choisir un bâtiment —"
+        />
       )}
 
       {/* Avec `aside` (ex. dates) : 2 colonnes — Niveau/Local à gauche, aside à

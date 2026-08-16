@@ -1,6 +1,5 @@
 import type { KeyboardEvent } from 'react'
 import type { StatusTone } from '@/components/common/status-badge'
-import { cn } from '@/lib/utils'
 
 /**
  * Segment générique de graphique, partagé par toutes les primitives de dataviz
@@ -47,21 +46,6 @@ export function toneToken(tone: StatusTone): string {
 }
 
 /**
- * Libellé français par défaut d'une tonalité, pour les infobulles génériques
- * (« Famille X · À surveiller »). Le parent qui connaît son métier peut toujours
- * enrichir le `label` du nœud ; ces valeurs ne sont qu'un repli sémantique.
- */
-export const TONE_LABEL: Record<StatusTone, string> = {
-  neutral: 'Neutre',
-  success: 'Bon',
-  warning: 'À surveiller',
-  destructive: 'Critique',
-  info: 'Information',
-  violet: 'Planifié',
-  yellow: 'Vigilance',
-}
-
-/**
  * Fabrique un gestionnaire clavier « activation » (Entrée / Espace) pour rendre
  * un élément SVG interactif accessible au clavier. Mutualisé par les primitives.
  */
@@ -73,44 +57,4 @@ export function onKeyActivate(cb?: () => void) {
       cb()
     }
   }
-}
-
-export interface ChartLegendItem {
-  label: string
-  tone: StatusTone
-}
-
-/**
- * Légende horizontale réutilisable : une pastille colorée par le token de la
- * tonalité + son libellé. Employée sous le donut, les barres et la frise. La
- * couleur de la pastille est STRICTEMENT celle des segments correspondants
- * (même {@link toneToken}), pour une lecture cohérente graphique ↔ légende.
- */
-export function ChartLegend({
-  items,
-  className,
-}: {
-  items: ChartLegendItem[]
-  className?: string
-}) {
-  if (items.length === 0) return null
-  return (
-    <ul
-      className={cn('flex flex-wrap items-center gap-x-4 gap-y-1.5', className)}
-    >
-      {items.map((item, i) => (
-        <li
-          key={`${item.tone}-${item.label}-${String(i)}`}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground"
-        >
-          <span
-            aria-hidden
-            className="size-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: toneToken(item.tone) }}
-          />
-          <span>{item.label}</span>
-        </li>
-      ))}
-    </ul>
-  )
 }

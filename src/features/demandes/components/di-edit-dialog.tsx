@@ -136,7 +136,6 @@ export function DiEditDialog({
               local_id: form.formState.errors.local_id?.message,
               equipement_id: form.formState.errors.equipement_id?.message,
             }}
-            equipementSelectId="di-edit-equipement"
             renderLieu={(p) => (
               <LocalSearchSelect
                 siteId={p.siteId}

@@ -5,7 +5,7 @@ import { useSiteContext } from '@/lib/site-context'
 import { exportErrorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/common/dialog-shell'
-import { SelectField } from '@/components/common/select-field'
+import { StandaloneSelect } from '@/components/common/standalone-fields'
 
 /**
  * Bilan d'un export commun → site, renvoyé par `onConfirm` pour piloter le toast
@@ -121,18 +121,14 @@ export function ExporterVersSiteDialog({
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          <SelectField
+          <StandaloneSelect
             label="Site de destination"
             required
             value={siteCible}
             onChange={setSiteCible}
-          >
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.nom}
-              </option>
-            ))}
-          </SelectField>
+            options={sites.map((s) => ({ value: s.id, label: s.nom }))}
+            placeholder="— Choisir un site —"
+          />
           <p className="text-sm text-muted-foreground">
             La copie est <strong>indépendante</strong> : tu pourras la modifier
             {siteName ? ` sur « ${siteName} »` : ' sur le site'} sans toucher à

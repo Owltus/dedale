@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { equipementsQueries } from '../queries'
-import { SelectField } from '@/components/common/select-field'
+import { StandaloneSelect } from '@/components/common/standalone-fields'
 
 interface LocalEquipementFieldsProps {
   /** Site actif : périmètre des équipements chargés. */
@@ -31,8 +31,6 @@ interface LocalEquipementFieldsProps {
   errors?: { local_id?: string; equipement_id?: string }
   /** Libellé du champ Équipement (défaut « Équipement »). */
   equipementLabel?: string
-  /** `id` DOM du select Équipement (liaison label ; optionnel). */
-  equipementSelectId?: string
   /**
    * Désactive AUSSI le select Équipement quand le lieu choisi n'a aucun
    * équipement (défaut `false` : il reste actif avec la seule option « Aucun »).
@@ -57,7 +55,6 @@ export function LocalEquipementFields({
   renderLieu,
   errors,
   equipementLabel = 'Équipement',
-  equipementSelectId,
   disableEquipementWhenEmpty = false,
 }: LocalEquipementFieldsProps) {
   const { data: equipements = [] } = useQuery(equipementsQueries.list(siteId))
@@ -79,8 +76,7 @@ export function LocalEquipementFields({
         error: errors?.local_id,
       })}
 
-      <SelectField
-        id={equipementSelectId}
+      <StandaloneSelect
         label={equipementLabel}
         value={equipementId}
         onChange={(id) => onChange({ localId, equipementId: id })}
@@ -89,14 +85,12 @@ export function LocalEquipementFields({
           (disableEquipementWhenEmpty && equipementsDuLocal.length === 0)
         }
         error={errors?.equipement_id}
-      >
-        <option value="">Aucun</option>
-        {equipementsDuLocal.map((eq) => (
-          <option key={eq.id ?? ''} value={eq.id ?? ''}>
-            {eq.nom}
-          </option>
-        ))}
-      </SelectField>
+        options={equipementsDuLocal.map((eq) => ({
+          value: eq.id ?? '',
+          label: eq.nom ?? '',
+        }))}
+        placeholder="Aucun"
+      />
     </>
   )
 }
