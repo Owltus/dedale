@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarClock, Plus } from 'lucide-react'
+import { OctagonAlert, Plus } from 'lucide-react'
 import {
   evenementsQueries,
   statutsEvenementsQueries,
@@ -133,7 +133,7 @@ function EvenementsContent({
         pending={<ListRowSkeletons />}
         empty={
           <EmptyState
-            icon={CalendarClock}
+            icon={OctagonAlert}
             title="Aucun événement"
             description={
               canManage
@@ -193,7 +193,7 @@ function EvenementsContent({
                   <ListRow
                     key={ev.id}
                     tone={statutEvenementTone(ev.statut_evenement_id)}
-                    media={<RowMediaIcon icon={CalendarClock} />}
+                    media={<RowMediaIcon icon={OctagonAlert} />}
                     title={ev.titre}
                     subtitle={
                       situe ||

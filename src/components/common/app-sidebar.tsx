@@ -3,7 +3,6 @@ import { Link } from '@tanstack/react-router'
 import type { LucideProps } from 'lucide-react'
 import {
   Banknote,
-  CalendarClock,
   BookOpen,
   Boxes,
   Briefcase,
@@ -15,6 +14,7 @@ import {
   LayoutDashboard,
   LineChart,
   MapPin,
+  OctagonAlert,
   MessageSquareWarning,
   ShieldCheck,
   Users,
@@ -58,7 +58,7 @@ const OPERATIONNEL: NavItem[] = [
     icon: MessageSquareWarning,
   },
   { to: '/travaux', label: 'Travaux', icon: HardHat },
-  { to: '/evenements', label: 'Événements', icon: CalendarClock },
+  { to: '/evenements', label: 'Événements', icon: OctagonAlert },
   { to: '/releves', label: 'Relevés', icon: LineChart },
   { to: '/registre', label: 'Registre de sécurité', icon: ShieldCheck },
   { to: '/documents', label: 'Documents', icon: FileText },
