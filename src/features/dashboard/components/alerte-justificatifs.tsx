@@ -64,6 +64,9 @@ export function AlerteJustificatifs({ siteId }: AlerteJustificatifsProps) {
         onOpenChange={setOuvert}
         title="Contrôles réglementaires sans justificatif"
         description="Ces ordres de travail réglementaires sont clôturés mais aucun document de preuve n'y est rattaché. Ouvre chaque OT pour joindre le justificatif."
+        // Une liste de contrôles réglementaires : les intitulés sont longs et
+        // doivent se lire en entier, c'est ce qui permet de retrouver l'OT.
+        size="lg"
         bodyClassName={cn(
           listStack,
           'min-h-0 flex-1 overflow-y-auto px-6 py-1',
