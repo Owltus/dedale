@@ -14,6 +14,7 @@ import {
 import { EvenementFormDialog } from '@/features/evenements/components/evenement-form-dialog'
 import { cheminLocal, dateAffichee } from '@/features/evenements/format'
 import { PAGE_META } from '@/features/evenements/page-meta'
+import { localisationsQueries } from '@/features/localisations/queries'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
@@ -83,6 +84,11 @@ function EvenementsContent({
   // Journal en LIVE : un événement consigné par un collègue apparaît sans F5.
   useRealtimeRefresh('evenements', evenementsQueries.all())
   const { data: statuts = [] } = useQuery(statutsEvenementsQueries.list())
+  // Un seul bâtiment sur le site → il n'apparaît pas dans les chemins.
+  const { data: batiments = [] } = useQuery(
+    localisationsQueries.batiments(siteId),
+  )
+  const multiBatiment = batiments.length > 1
   const del = useDeleteEvenement()
   const dialog = useEntityDialog<Evenement>()
   const suppression = useConfirmDelete<Evenement>({
@@ -163,7 +169,7 @@ function EvenementsContent({
             return (
               ev.titre.toLowerCase().includes(q) ||
               (ev.description ?? '').toLowerCase().includes(q) ||
-              cheminLocal(ev.locaux).toLowerCase().includes(q) ||
+              cheminLocal(ev.locaux, true).toLowerCase().includes(q) ||
               (ev.equipements?.nom ?? '').toLowerCase().includes(q)
             )
           })
@@ -190,7 +196,10 @@ function EvenementsContent({
                 )
                 // Le lieu situe l'événement dès la liste ; il est facultatif, on
                 // retombe donc sur la description puis sur la date.
-                const situe = [cheminLocal(ev.locaux), ev.equipements?.nom]
+                const situe = [
+                  cheminLocal(ev.locaux, multiBatiment),
+                  ev.equipements?.nom,
+                ]
                   .filter(Boolean)
                   .join(' · ')
                 return (

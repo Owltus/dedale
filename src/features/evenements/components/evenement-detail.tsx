@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { statutsEvenementsQueries } from '../queries'
 import { etapesEvenement } from '../etat'
 import { cheminLocal } from '../format'
+import { localisationsQueries } from '@/features/localisations/queries'
 import { STATUT_CLOTURE } from '../schemas'
 import { useChangeStatutEvenement } from '../mutations'
 import { EvenementFormDialog } from './evenement-form-dialog'
@@ -46,6 +47,10 @@ export function EvenementDetail({
   const cloture = useEntityDialog<Evenement>()
   const upload = useUploadDrop({ enabled: canManage })
   const { data: statuts = [] } = useQuery(statutsEvenementsQueries.list())
+  // Un seul bâtiment sur le site → inutile de le nommer dans chaque chemin.
+  const { data: batiments = [] } = useQuery(
+    localisationsQueries.batiments(ev.site_id),
+  )
   const change = useChangeStatutEvenement()
 
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
@@ -74,7 +79,7 @@ export function EvenementDetail({
   // Où cela s'est produit — rendu seulement si renseigné, les deux étant
   // facultatifs. Un bloc vide vaut moins qu'un bloc absent. Le local est affiché
   // avec sa hiérarchie : « Stationnement » seul ne situe rien.
-  const chemin = cheminLocal(ev.locaux)
+  const chemin = cheminLocal(ev.locaux, batiments.length > 1)
   const lieu = [
     chemin ? { icone: MapPin, texte: chemin } : null,
     ev.equipements?.nom ? { icone: Package, texte: ev.equipements.nom } : null,
@@ -108,29 +113,28 @@ export function EvenementDetail({
         }
       />
 
-      {lieu.length > 0 && (
-        <Card className="mb-4">
-          <CardContent className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-            {lieu.map(({ icone: Icone, texte }) => (
-              <span key={texte} className="flex items-center gap-2">
-                <Icone className="size-4 shrink-0 text-muted-foreground" />
-                {texte}
-              </span>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* CONSTAT — même gabarit que la carte de clôture plus bas : date en
-          en-tête discret, texte en dessous, crayon à droite. Les deux bouts du
-          cycle se lisent donc pareil, et la frise s'intercale entre eux.
+      {/* CONSTAT — même gabarit que la carte de clôture plus bas : circonstances
+          en en-tête discret, texte en dessous, crayon à droite. Les deux bouts
+          du cycle se lisent donc pareil, et la frise s'intercale entre eux.
           Toujours rendue, description vide comprise : sinon la date de
-          l'événement n'aurait plus d'endroit où vivre. */}
+          l'événement n'aurait plus d'endroit où vivre.
+
+          Le LIEU est ici, sur la même ligne que la date, et non dans une carte à
+          lui seul : c'est une circonstance du constat (quand, où, quoi), pas une
+          information autonome — lui donner une carte lui donnait le poids d'une
+          section. */}
       <Card className="mb-4">
         <CardContent className="flex items-start justify-between gap-3 text-sm">
           <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs text-muted-foreground">
-              Survenu le {formatDate(ev.date_evenement)}
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span>Survenu le {formatDate(ev.date_evenement)}</span>
+              {lieu.map(({ icone: Icone, texte }) => (
+                <span key={texte} className="flex items-center gap-1">
+                  <span aria-hidden="true">·</span>
+                  <Icone className="size-3.5 shrink-0" />
+                  {texte}
+                </span>
+              ))}
             </span>
             <p className="whitespace-pre-wrap">
               {ev.description?.trim() ? (

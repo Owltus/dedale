@@ -39,17 +39,26 @@ export interface LocalAvecChemin {
 /**
  * Chemin lisible d'un local : « Bâtiment › Niveau › Local ».
  *
- * Les segments absents sont omis plutôt que remplacés par un tiret — un chemin
- * troué se lit moins bien qu'un chemin court. Le nom seul (« Stationnement ») ne
- * situe rien dans un établissement à plusieurs bâtiments, d'où l'ordre du plus
- * large au plus précis : on lit comme on se déplace.
+ * **Le bâtiment n'est mentionné que si le site en compte PLUSIEURS**
+ * (`multiBatiment`) : le répéter sur chaque ligne d'un site mono-bâtiment
+ * n'apprend rien et mange la place du reste. Même règle que le sélecteur de lieu
+ * (`LocalSearchSelect.contextOf`), pour qu'un endroit se relise exactement comme
+ * il a été choisi.
  *
- * Même ordre que le sélecteur de lieu (`LocalSearchSelect`), pour qu'un lieu se
- * relise à l'identique là où on l'a choisi.
+ * Les segments absents sont omis plutôt que remplacés par un tiret — un chemin
+ * troué se lit moins bien qu'un chemin court. L'ordre va du plus large au plus
+ * précis : on lit comme on se déplace.
  */
-export function cheminLocal(local: LocalAvecChemin | null | undefined): string {
+export function cheminLocal(
+  local: LocalAvecChemin | null | undefined,
+  multiBatiment = false,
+): string {
   if (!local) return ''
-  return [local.niveaux?.batiments?.nom, local.niveaux?.nom, local.nom]
+  return [
+    multiBatiment ? local.niveaux?.batiments?.nom : null,
+    local.niveaux?.nom,
+    local.nom,
+  ]
     .filter((s) => Boolean(s))
     .join(' › ')
 }
