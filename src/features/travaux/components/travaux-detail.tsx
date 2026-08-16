@@ -269,84 +269,93 @@ export function TravauxDetail({
         )}
       </div>
 
-      {/* Zones concernées : locaux/équipements liés au travaux + statut. Pleine
-          largeur — ce sont des LIGNES, les serrer sur une demi-largeur tronquait
-          les chemins de local. */}
-      <Card className="mb-4">
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-          <CardTitle className="text-base">Zones concernées</CardTitle>
-          {!tachesReadOnly && (
-            <TooltipIconButton
-              icon={<ListPlus />}
-              label="Ajouter une zone"
-              variant="outline"
-              onClick={() => tacheDialog.openCreate()}
-            />
-          )}
-        </CardHeader>
-        <CardContent>
-          <QueryState
-            query={tachesQuery}
-            pending={
-              // Les tâches sont des LIGNES (h-14), pas une grille de cartes :
-              // `CardSkeletons` était détourné avec `container="flex flex-col"`
-              // pour le simuler. `size="sm"` = h-14, depuis MEDIA_HEIGHT.
-              <ListRowSkeletons count={3} size="sm" />
-            }
-            empty={
-              <EmptyState
-                icon={ListChecks}
-                title="Aucune zone concernée"
-                action={
-                  !tachesReadOnly ? (
-                    <Button size="sm" onClick={() => tacheDialog.openCreate()}>
-                      <ListPlus /> Ajouter une zone
-                    </Button>
-                  ) : undefined
-                }
-              />
-            }
-          >
-            {(taches) => (
-              <div className={listStack}>
-                {taches.map((t) => (
-                  <TacheRow
-                    key={t.id}
-                    tache={t}
-                    travauxId={travaux.id}
-                    readOnly={tachesReadOnly}
-                    onEdit={() => tacheDialog.openEdit(t)}
-                    onDelete={() => suppressionTache.demander(t)}
-                  />
-                ))}
-              </div>
-            )}
-          </QueryState>
-        </CardContent>
-      </Card>
+      {/* SECONDE LIGNE À DEUX COLONNES : les deux listes du chantier, côte à
+          côte. Ce sont les mêmes rangées de même hauteur — les empiler faisait
+          descendre les documents sous la ligne de flottaison alors que la moitié
+          droite de l'écran était vide.
 
-      {/* DOCUMENTS — une carte comme les autres, en pleine largeur. La liste
-          vivait jusqu'ici à nu sur le fond de page : elle ne se rattachait
-          visuellement à rien et ne disait pas ce qu'elle était. `flex-1` : la
-          carte prend la hauteur restante, ce qui donne au voile de
-          glisser-déposer une cible franche plutôt qu'un bandeau. */}
-      <Card className="relative flex min-h-0 flex-1 flex-col gap-3 py-4">
-        <CardHeader>
-          <CardTitle className="text-base">Documents</CardTitle>
-        </CardHeader>
-        <CardContent className="flex min-h-0 flex-1 flex-col">
-          <DocumentsTab
-            liaison="documents_interventions_travaux"
-            parentColumn="travaux_id"
-            parentId={travaux.id}
-            uploadOpen={upload.uploadOpen}
-            onUploadOpenChange={upload.onUploadOpenChange}
-            uploadInitialFiles={upload.droppedFiles}
-            className="min-h-0 flex-1"
-          />
-        </CardContent>
-        <FileDropOverlay show={upload.dragging} />
-      </Card>
+          Les deux cartes prennent leur hauteur NATURELLE : c'est la page qui
+          défile. Contraintes à la hauteur restante sans zone de défilement, elles
+          se réduisaient sous leur propre contenu et les rangées sortaient par le
+          bas, posées sur le fond de page hors de toute bordure. */}
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        {/* Zones concernées : locaux/équipements liés au travaux + statut. */}
+        <Card className="gap-3 py-4">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+            <CardTitle className="text-base">Zones concernées</CardTitle>
+            {!tachesReadOnly && (
+              <TooltipIconButton
+                icon={<ListPlus />}
+                label="Ajouter une zone"
+                variant="outline"
+                onClick={() => tacheDialog.openCreate()}
+              />
+            )}
+          </CardHeader>
+          <CardContent>
+            <QueryState
+              query={tachesQuery}
+              pending={
+                // Les tâches sont des LIGNES (h-14), pas une grille de cartes :
+                // `CardSkeletons` était détourné avec `container="flex flex-col"`
+                // pour le simuler. `size="sm"` = h-14, depuis MEDIA_HEIGHT.
+                <ListRowSkeletons count={3} size="sm" />
+              }
+              empty={
+                <EmptyState
+                  icon={ListChecks}
+                  title="Aucune zone concernée"
+                  action={
+                    !tachesReadOnly ? (
+                      <Button
+                        size="sm"
+                        onClick={() => tacheDialog.openCreate()}
+                      >
+                        <ListPlus /> Ajouter une zone
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              }
+            >
+              {(taches) => (
+                <div className={listStack}>
+                  {taches.map((t) => (
+                    <TacheRow
+                      key={t.id}
+                      tache={t}
+                      travauxId={travaux.id}
+                      readOnly={tachesReadOnly}
+                      onEdit={() => tacheDialog.openEdit(t)}
+                      onDelete={() => suppressionTache.demander(t)}
+                    />
+                  ))}
+                </div>
+              )}
+            </QueryState>
+          </CardContent>
+        </Card>
+
+        {/* DOCUMENTS — une carte comme les autres. La liste vivait jusqu'ici à nu
+            sur le fond de page : elle ne se rattachait visuellement à rien et ne
+            disait pas ce qu'elle était. */}
+        <Card className="relative gap-3 py-4">
+          <CardHeader>
+            <CardTitle className="text-base">Documents</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DocumentsTab
+              liaison="documents_interventions_travaux"
+              parentColumn="travaux_id"
+              parentId={travaux.id}
+              uploadOpen={upload.uploadOpen}
+              onUploadOpenChange={upload.onUploadOpenChange}
+              uploadInitialFiles={upload.droppedFiles}
+            />
+          </CardContent>
+          <FileDropOverlay show={upload.dragging} />
+        </Card>
+      </div>
 
       {editable && (
         <TravauxFormDialog

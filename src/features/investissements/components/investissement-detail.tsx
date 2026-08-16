@@ -150,49 +150,12 @@ export function InvestissementDetail({
         }
       />
 
-      {/* BUDGET EN TÊTE : c'est le sujet d'un investissement, il était relégué en
-          troisième position. Une `Card` ordinaire, et non `DetailHeaderCard` : cette
-          brique est faite pour une entité ILLUSTRÉE (équipement, gamme, prestataire).
-          Un investissement n'a pas de vignette, on lui posait donc une icône de repli
-          dans un carré de 80 px qui ne servait qu'à décaler son contenu de 55 px vers
-          la droite — d'où quatre blocs à quatre indentations différentes sur la fiche.
-
-          Les quatre montants passent sur UNE ligne, dans l'ordre de lecture
-          Demandé → Prévu → Réel → Écart. En deux colonnes, ils s'enchaînaient en
-          zigzag avec 740 px de vide au milieu, et « Prévu » se retrouvait séparé de
-          « Réel » — précisément la comparaison qu'on vient chercher.
-
-          Ici les quatre emplacements sont TOUJOURS rendus, « — » compris : sur un
-          écran de suivi, un montant manquant est une information (contrairement à la
-          liste, qui n'affiche que les montants renseignés). */}
-      <Card className="mb-4">
-        <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-          {[
-            { label: 'Demandé', value: formatEuros(inv.montant_demande) },
-            { label: 'Prévu', value: formatEuros(inv.montant_prevu) },
-            { label: 'Réel', value: formatEuros(inv.depense_reelle) },
-            {
-              label: 'Écart prévu / réel',
-              value: ecartLabel,
-              alerte: depassement,
-            },
-          ].map((m) => (
-            <div key={m.label} className="min-w-0">
-              <div className="truncate text-xs text-muted-foreground">
-                {m.label}
-              </div>
-              <div
-                className={cn(
-                  'truncate font-medium tabular-nums',
-                  m.alerte && 'text-warning',
-                )}
-              >
-                {m.value}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      {/* Le budget descend en bas de fiche, à côté des documents (décision PO) :
+          un montant réel se vérifie sur la facture d'à côté. Il reste dans une
+          `Card` ordinaire et non `DetailHeaderCard` — cette brique est faite pour
+          une entité ILLUSTRÉE (équipement, gamme, prestataire) ; un
+          investissement n'a pas de vignette, on lui posait donc une icône de
+          repli dans un carré de 80 px qui ne servait qu'à décaler son contenu. */}
 
       {/* FRISE — seule à rester PLEINE LARGEUR : c'est le résumé de l'état, on
           la lit avant le détail. Statut LIBRE → toute pastille est cliquable
@@ -224,12 +187,6 @@ export function InvestissementDetail({
         {/* DEMANDE — toujours rendue, description vide comprise : sinon la date
             de demande n'aurait plus d'endroit où vivre. */}
         <DetailNoteCard
-          // Tant qu'il n'y a pas de bilan en face, la demande prend toute la
-          // largeur : une carte à mi-largeur suivie d'un demi-écran vide se lit
-          // comme un bloc manquant, pas comme une place réservée.
-          className={
-            inv.statut_capex_id === ID_CLOTURE ? undefined : 'lg:col-span-2'
-          }
           label={`Demandé le ${formatDate(inv.date_demande)}`}
           text={inv.description}
           emptyText="Aucune description."
@@ -245,53 +202,105 @@ export function InvestissementDetail({
           }
         />
 
-        {/* BILAN — apparaît dès que l'investissement est CLÔTURÉ, même sans texte
-            (il est facultatif) : sans lui, la date de clôture ne serait ni
-            visible ni corrigible. Le crayon rouvre le même dialogue, en mode
-            correction. */}
-        {inv.statut_capex_id === ID_CLOTURE && (
-          <DetailNoteCard
-            label={`Clôturé${inv.date_cloture ? ` le ${formatDate(inv.date_cloture)}` : ''}`}
-            text={inv.bilan}
-            emptyText="Aucun bilan."
-            action={
-              canManage && (
-                <TooltipIconButton
-                  icon={<Pencil />}
-                  label="Modifier la clôture"
-                  variant="ghost"
-                  onClick={() => cloture.openEdit(inv)}
-                />
-              )
-            }
-          />
-        )}
+        {/* BILAN — rendu EN PERMANENCE, y compris avant la clôture : la fiche
+            annonce ainsi les deux bouts de son cycle dès l'ouverture du dossier,
+            au lieu de faire apparaître un bloc en fin de course. Le libellé dit
+            alors « Clôture » (l'étape qui reste à venir) et non « Clôturé », qui
+            serait faux ; le crayon n'apparaît qu'une fois la clôture faite —
+            avant, on clôture par la frise. */}
+        <DetailNoteCard
+          label={
+            inv.statut_capex_id === ID_CLOTURE
+              ? `Clôturé${inv.date_cloture ? ` le ${formatDate(inv.date_cloture)}` : ''}`
+              : 'Clôture'
+          }
+          text={inv.statut_capex_id === ID_CLOTURE ? inv.bilan : null}
+          emptyText={
+            inv.statut_capex_id === ID_CLOTURE
+              ? 'Aucun bilan.'
+              : 'Investissement non clôturé.'
+          }
+          action={
+            canManage &&
+            inv.statut_capex_id === ID_CLOTURE && (
+              <TooltipIconButton
+                icon={<Pencil />}
+                label="Modifier la clôture"
+                variant="ghost"
+                onClick={() => cloture.openEdit(inv)}
+              />
+            )
+          }
+        />
       </div>
 
-      {/* DOCUMENTS — une carte comme les autres, en pleine largeur sous les deux
-          notes. La liste vivait jusqu'ici à nu sur le fond de page : elle ne se
-          rattachait visuellement à rien et ne disait pas ce qu'elle était.
-          `flex-1` : la carte prend la hauteur restante, ce qui donne au voile de
-          glisser-déposer une cible franche plutôt qu'un bandeau. */}
-      <Card className="relative flex min-h-0 flex-1 flex-col gap-3 py-4">
-        <CardHeader>
-          <CardTitle className="text-base">Documents</CardTitle>
-        </CardHeader>
-        <CardContent className="flex min-h-0 flex-1 flex-col">
-          <DocumentsTab
-            liaison="documents_investissements"
-            parentColumn="investissement_id"
-            parentId={inv.id}
-            acceptedMimes={MIME_PDF}
-            uploadOpen={upload.uploadOpen}
-            onUploadOpenChange={upload.onUploadOpenChange}
-            uploadInitialFiles={upload.droppedFiles}
-            uploadDefaultTypeNom="Devis"
-            className="min-h-0 flex-1"
-          />
-        </CardContent>
-        <FileDropOverlay show={upload.dragging} />
-      </Card>
+      {/* DERNIÈRE LIGNE À DEUX COLONNES : le budget à gauche, ses pièces
+          justificatives à droite. Les deux se consultent ensemble — un montant
+          réel se vérifie sur la facture d'à côté.
+
+          Les quatre montants passent donc en 2 × 2 (Demandé / Prévu au-dessus,
+          Réel / Écart en dessous) : à mi-largeur, quatre colonnes de montants
+          auraient tronqué les libellés. Les quatre emplacements sont TOUJOURS
+          rendus, « — » compris — sur un écran de suivi, un montant manquant est
+          une information (contrairement à la liste, qui n'affiche que les
+          montants renseignés).
+
+          Hauteur NATURELLE des deux cartes : c'est la page qui défile. */}
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <Card className="gap-3 py-4">
+          <CardHeader>
+            <CardTitle className="text-base">Budget</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3">
+            {[
+              { label: 'Demandé', value: formatEuros(inv.montant_demande) },
+              { label: 'Prévu', value: formatEuros(inv.montant_prevu) },
+              { label: 'Réel', value: formatEuros(inv.depense_reelle) },
+              {
+                label: 'Écart prévu / réel',
+                value: ecartLabel,
+                alerte: depassement,
+              },
+            ].map((m) => (
+              <div key={m.label} className="min-w-0">
+                <div className="truncate text-xs text-muted-foreground">
+                  {m.label}
+                </div>
+                <div
+                  className={cn(
+                    'truncate font-medium tabular-nums',
+                    m.alerte && 'text-warning',
+                  )}
+                >
+                  {m.value}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* DOCUMENTS — une carte comme les autres. La liste vivait jusqu'ici à nu
+            sur le fond de page : elle ne se rattachait visuellement à rien et ne
+            disait pas ce qu'elle était. */}
+        <Card className="relative gap-3 py-4">
+          <CardHeader>
+            <CardTitle className="text-base">Documents</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DocumentsTab
+              liaison="documents_investissements"
+              parentColumn="investissement_id"
+              parentId={inv.id}
+              acceptedMimes={MIME_PDF}
+              uploadOpen={upload.uploadOpen}
+              onUploadOpenChange={upload.onUploadOpenChange}
+              uploadInitialFiles={upload.droppedFiles}
+              uploadDefaultTypeNom="Devis"
+            />
+          </CardContent>
+          <FileDropOverlay show={upload.dragging} />
+        </Card>
+      </div>
 
       {canManage && (
         <>

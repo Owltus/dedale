@@ -201,13 +201,17 @@ export function EvenementDetail({
       {/* DOCUMENTS — une carte comme les autres, en pleine largeur sous les deux
           notes. La liste vivait jusqu'ici à nu sur le fond de page : elle ne se
           rattachait visuellement à rien et ne disait pas ce qu'elle était.
-          `flex-1` : la carte prend la hauteur restante, ce qui donne au voile de
-          glisser-déposer une cible franche plutôt qu'un bandeau. */}
-      <Card className="relative flex min-h-0 flex-1 flex-col gap-3 py-4">
+
+          Hauteur NATURELLE, surtout pas `flex-1` : contrainte à la hauteur
+          restante sans zone de défilement, la carte se réduisait sous son propre
+          contenu et les documents sortaient par le bas, posés sur le fond de page
+          hors de toute bordure. C'est la PAGE qui défile ; une carte se
+          dimensionne sur ce qu'elle contient. */}
+      <Card className="relative gap-3 py-4">
         <CardHeader>
           <CardTitle className="text-base">Documents</CardTitle>
         </CardHeader>
-        <CardContent className="flex min-h-0 flex-1 flex-col">
+        <CardContent>
           <DocumentsTab
             liaison="documents_evenements"
             parentColumn="evenement_id"
@@ -217,7 +221,6 @@ export function EvenementDetail({
             onUploadOpenChange={upload.onUploadOpenChange}
             uploadInitialFiles={upload.droppedFiles}
             uploadDefaultTypeNom="Constat"
-            className="min-h-0 flex-1"
           />
         </CardContent>
         {canManage && <FileDropOverlay show={upload.dragging} />}
