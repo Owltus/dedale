@@ -187,11 +187,14 @@ export function InvestissementDetail({
 
           Les quatre emplacements sont TOUJOURS rendus, « — » compris : sur un
           écran de suivi, un montant manquant est une information (contrairement
-          à la liste, qui n'affiche que les montants renseignés). */}
-      <Card className="mb-4 gap-3 py-4">
-        <CardHeader>
-          <CardTitle className="text-base">Budget</CardTitle>
-        </CardHeader>
+          à la liste, qui n'affiche que les montants renseignés).
+
+          PAS de titre de carte, comme la frise juste au-dessus : les deux barres
+          de tête sont auto-descriptives — « Demandé / Prévu / Réel / Écart » dit
+          déjà qu'il s'agit du budget, et un titre au-dessus n'aurait fait que
+          répéter en occupant une ligne. Les cartes de CONTENU (notes, documents),
+          elles, gardent le leur. */}
+      <Card className="mb-4 py-4">
         <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
           {[
             { label: 'Demandé', value: formatEuros(inv.montant_demande) },
