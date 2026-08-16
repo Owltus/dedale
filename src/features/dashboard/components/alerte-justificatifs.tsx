@@ -26,6 +26,22 @@ export function AlerteJustificatifs({ siteId }: AlerteJustificatifsProps) {
   const navigate = useNavigate()
   const [ouvert, setOuvert] = useState(false)
 
+  // Une PANNE ne doit pas se lire comme « tout est en règle ». Sans cette
+  // branche, `?? []` puis `n === 0` faisait disparaître l'alerte en silence :
+  // sur des justificatifs RÉGLEMENTAIRES, le silence est une affirmation.
+  if (justificatifsQuery.isError) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full justify-start text-muted-foreground"
+        onClick={() => void justificatifsQuery.refetch()}
+      >
+        <AlertTriangle /> Justificatifs : vérification impossible. Réessayer
+      </Button>
+    )
+  }
+
   const manquants = justificatifsQuery.data ?? []
   const n = manquants.length
   if (n === 0) return null

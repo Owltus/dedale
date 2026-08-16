@@ -5,6 +5,7 @@ import {
   type SunburstNode,
 } from '@/components/common/charts/sunburst'
 import { DialogShell } from '@/components/common/dialog-shell'
+import { ErrorState } from '@/components/common/error-state'
 import { statutAffichageGamme } from '@/features/gammes/statut-affichage'
 import type { StatutAffichage } from '@/features/ordres-travail/statut-affichage'
 import type { PlanningOt } from '@/features/planning/grille'
@@ -319,6 +320,22 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
 
     return { noeuds, totalGammes, gammesAJour }
   }, [categories, gammes, ordresTravail, navigate])
+
+  // PANNE ≠ absence de gammes. Sans cette branche, `?? []` ramenait `totalGammes`
+  // à 0 et le cadran disparaissait comme si le site n'avait aucune gamme — la
+  // santé de la maintenance se lisait alors « rien à afficher » au lieu de
+  // « impossible à calculer ». Placé APRÈS les useMemo (règle des hooks).
+  if (categoriesQuery.isError || gammesQuery.isError) {
+    return (
+      <ErrorState
+        message="Santé des gammes indisponible."
+        onRetry={() => {
+          void categoriesQuery.refetch()
+          void gammesQuery.refetch()
+        }}
+      />
+    )
+  }
 
   // Aucune gamme sur le site → cadran masqué (l'orchestrateur retire la colonne).
   if (totalGammes === 0) return null
