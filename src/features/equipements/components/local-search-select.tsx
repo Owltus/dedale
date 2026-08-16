@@ -11,6 +11,7 @@ import { MapPin, Search, X } from 'lucide-react'
 import { equipementsQueries } from '../queries'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { ComboBoxPanel } from '@/components/common/combobox-panel'
 import { cn } from '@/lib/utils'
 
 /** Normalise pour une recherche TOLÉRANTE aux accents et à la casse. */
@@ -67,6 +68,10 @@ export function LocalSearchSelect({
 }: LocalSearchSelectProps) {
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
   const fieldId = useId()
+  // Id du panneau : relie le champ à sa liste (`aria-controls`) et permet de
+  // désigner l'option active (`aria-activedescendant`) — sans quoi un lecteur
+  // d'écran ne sait pas qu'une liste est ouverte ni ce qui y est surligné.
+  const listId = `${fieldId}-liste`
   const boxRef = useRef<HTMLDivElement>(null)
 
   const [query, setQuery] = useState('')
@@ -182,6 +187,17 @@ export function LocalSearchSelect({
           autoComplete="off"
           className="px-9"
           aria-invalid={error ? true : undefined}
+          // Le champ EST le combobox : il annonce l'état de sa liste et l'option
+          // surlignée. Le clavier fonctionnait déjà ; c'est l'annonce qui manquait.
+          role="combobox"
+          aria-expanded={showList}
+          aria-controls={showList ? listId : undefined}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            showList && suggestions.length > 0
+              ? `${listId}-${String(active)}`
+              : undefined
+          }
           // Re-focus d'un lieu déjà choisi : tout sélectionner → retaper repart
           // d'une recherche vierge sans devoir effacer à la main.
           onFocus={(e) => e.currentTarget.select()}
@@ -202,40 +218,47 @@ export function LocalSearchSelect({
         {/* Dropdown FLOTTANT : en surimpression (absolute), hauteur bornée + scroll
             interne → n'agrandit jamais la modale. */}
         {showList && (
-          <div className="absolute top-full right-0 left-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-md border bg-card p-1 shadow-md">
+          <ComboBoxPanel id={listId}>
             {suggestions.length === 0 ? (
-              <p className="px-2 py-1.5 text-sm text-muted-foreground">
+              <li className="px-2 py-1.5 text-sm text-muted-foreground">
                 Aucun résultat.
-              </p>
+              </li>
             ) : (
               suggestions.map((l, i) => {
                 const ctx = contextOf(l, multiBatiment)
                 return (
-                  <button
+                  <li
                     key={l.local_id ?? ''}
-                    type="button"
-                    // mousedown avant le blur : évite que le clic-extérieur ferme
-                    // la liste avant que le clic n'aboutisse.
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => pick(l)}
-                    onMouseEnter={() => setActive(i)}
-                    className={cn(
-                      'flex w-full flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left',
-                      i === active && 'bg-accent text-accent-foreground',
-                    )}
+                    id={`${listId}-${String(i)}`}
+                    role="option"
+                    aria-selected={i === active}
                   >
-                    {/* Ordre Bâtiment › Niveau AU-DESSUS du local. */}
-                    {ctx && (
-                      <span className="text-xs text-muted-foreground">
-                        {ctx}
-                      </span>
-                    )}
-                    <span className="text-sm font-medium">{l.local_nom}</span>
-                  </button>
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      // mousedown avant le blur : évite que le clic-extérieur ferme
+                      // la liste avant que le clic n'aboutisse.
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pick(l)}
+                      onMouseEnter={() => setActive(i)}
+                      className={cn(
+                        'flex w-full flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left',
+                        i === active && 'bg-accent text-accent-foreground',
+                      )}
+                    >
+                      {/* Ordre Bâtiment › Niveau AU-DESSUS du local. */}
+                      {ctx && (
+                        <span className="text-xs text-muted-foreground">
+                          {ctx}
+                        </span>
+                      )}
+                      <span className="text-sm font-medium">{l.local_nom}</span>
+                    </button>
+                  </li>
                 )
               })
             )}
-          </div>
+          </ComboBoxPanel>
         )}
       </div>
 

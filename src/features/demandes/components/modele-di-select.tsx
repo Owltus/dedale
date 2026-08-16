@@ -10,6 +10,7 @@ import { Check, ChevronsUpDown, FileText } from 'lucide-react'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { Label } from '@/components/ui/label'
+import { ComboBoxPanel } from '@/components/common/combobox-panel'
 import { cn } from '@/lib/utils'
 
 /** Modèle de DI tel qu'attendu par le sélecteur (sous-ensemble de la ligne). */
@@ -47,6 +48,9 @@ export function ModeleDiSelect({
 }: ModeleDiSelectProps) {
   const { urlOf, refresh } = useMiniatureUrls()
   const fieldId = useId()
+  // Relie le déclencheur à sa liste et désigne l'option active — les deux seuls
+  // attributs qui manquaient ici (le reste de l'ARIA et le clavier étaient bons).
+  const listId = `${fieldId}-liste`
   const boxRef = useRef<HTMLDivElement>(null)
 
   const [open, setOpen] = useState(false)
@@ -109,12 +113,21 @@ export function ModeleDiSelect({
         <button
           id={fieldId}
           type="button"
+          role="combobox"
           aria-haspopup="listbox"
           aria-expanded={open}
+          aria-controls={open ? listId : undefined}
+          aria-activedescendant={
+            open ? `${listId}-${String(active)}` : undefined
+          }
           onClick={() => (open ? setOpen(false) : openMenu())}
           onKeyDown={onKeyDown}
           className={cn(
-            'flex min-h-12 w-full items-center gap-2 rounded-md border border-input bg-transparent px-2 py-1.5 text-left text-sm shadow-xs transition-[color,box-shadow] outline-none',
+            // `min-h-9` : même hauteur de déclencheur que `SelectDropdown` et que
+            // le champ de recherche de lieu — les trois sélecteurs de la modale
+            // « Nouvelle demande » faisaient 48/36/36 px. Reste un `min-h` (et non
+            // `h`) : la ligne peut grandir quand une vignette est affichée.
+            'flex min-h-9 w-full items-center gap-2 rounded-md border border-input bg-transparent px-2 py-1.5 text-left text-sm shadow-xs transition-[color,box-shadow] outline-none',
             'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
           )}
         >
@@ -139,12 +152,9 @@ export function ModeleDiSelect({
         </button>
 
         {open && (
-          <ul
-            role="listbox"
-            className="absolute top-full right-0 left-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-md border bg-card p-1 shadow-md"
-          >
+          <ComboBoxPanel id={listId}>
             {/* Ligne « Aucun » (index 0) : déselectionne le modèle. */}
-            <li role="option" aria-selected={value === ''}>
+            <li id={`${listId}-0`} role="option" aria-selected={value === ''}>
               <button
                 type="button"
                 onClick={() => selectIndex(0)}
@@ -163,7 +173,12 @@ export function ModeleDiSelect({
               const i = k + 1
               const isSelected = m.id === value
               return (
-                <li key={m.id} role="option" aria-selected={isSelected}>
+                <li
+                  key={m.id}
+                  id={`${listId}-${String(i)}`}
+                  role="option"
+                  aria-selected={isSelected}
+                >
                   <button
                     type="button"
                     onClick={() => selectIndex(i)}
@@ -194,7 +209,7 @@ export function ModeleDiSelect({
                 </li>
               )
             })}
-          </ul>
+          </ComboBoxPanel>
         )}
       </div>
     </div>
