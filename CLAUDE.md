@@ -38,6 +38,8 @@ Les conventions ci-dessus disent **ce qui est vrai** ; les skills disent **comme
 | extraire ou faire adopter un composant partagé       | `brique-commune`  |
 | écrire une migration SQL et resynchroniser le schéma | `migration-sql`   |
 | vérifier qu'un écran est aligné sur les patrons      | `revue-coherence` |
+| vérifier qui voit quoi (RLS, Storage, rôles)         | `audit-rls`       |
+| mettre en production (migrations, types, Vercel)     | `deployer`        |
 
 Le **catalogue des ~60 briques réutilisables** (avec leur nombre réel de consommateurs) vit dans `.claude/skills/nouvelle-page/references/catalogue-composants.md` — **le consulter avant d'écrire un composant**, et le mettre à jour après.
 

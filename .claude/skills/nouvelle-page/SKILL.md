@@ -26,6 +26,8 @@ Typage via `Database['public']['Tables']['xxx']['Row']`.
 | Extraire un composant dans `common/`             | `brique-commune`  |
 | Écrire une migration et resynchroniser le schéma | `migration-sql`   |
 | Vérifier qu'un écran est aligné sur les patrons  | `revue-coherence` |
+| Vérifier qui voit quoi (RLS, Storage, rôles)     | `audit-rls`       |
+| Mettre en production                             | `deployer`        |
 
 Ces skills sont la **source unique** de leur sujet : ne pas recopier leurs règles ici.
 
