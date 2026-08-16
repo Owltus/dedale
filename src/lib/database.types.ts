@@ -1509,6 +1509,9 @@ export type Database = {
       }
       investissements: {
         Row: {
+          bilan: string | null
+          cloture_by: string | null
+          date_cloture: string | null
           created_at: string
           created_by: string
           date_demande: string
@@ -1523,6 +1526,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bilan?: string | null
+          cloture_by?: string | null
+          date_cloture?: string | null
           created_at?: string
           created_by: string
           date_demande?: string
@@ -1537,6 +1543,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bilan?: string | null
+          cloture_by?: string | null
+          date_cloture?: string | null
           created_at?: string
           created_by?: string
           date_demande?: string

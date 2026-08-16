@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { investissementsQueries } from './queries'
+import { ID_CLOTURE } from './etat'
 import { parseMontant } from './schemas'
 import type { InvestissementFormValues } from './schemas'
 
@@ -75,13 +76,42 @@ export function useUpdateInvestissement() {
  * Change le statut CapEx (frise cliquable + bouton « Refuser »). Statut LIBRE :
  * aucune machine à états backend → simple UPDATE du statut_capex_id.
  */
+/**
+ * Change le statut d'un investissement.
+ *
+ * Passer à « Clôturé » pose la date, le bilan et l'auteur ; en repartir les
+ * efface — sinon un investissement rouvert garderait une date de clôture
+ * antérieure à son propre suivi, que la contrainte
+ * `investissements_dates_coherentes` finirait par refuser (migration 079).
+ *
+ * La date est une date NUE construite par l'appelant (`isoLocale`), jamais un
+ * `toISOString()` : c'est ce qui avait produit le 23514 des ordres de travail.
+ */
 export function useChangeStatutCapex() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, statutId }: { id: string; statutId: number }) => {
+    mutationFn: async ({
+      id,
+      statutId,
+      bilan,
+      dateCloture,
+      clotureBy,
+    }: {
+      id: string
+      statutId: number
+      bilan?: string
+      dateCloture?: string
+      clotureBy?: string
+    }) => {
+      const cloture = statutId === ID_CLOTURE
       const { data } = await supabase
         .from('investissements')
-        .update({ statut_capex_id: statutId })
+        .update({
+          statut_capex_id: statutId,
+          bilan: cloture ? (bilan?.trim() ?? '') || null : null,
+          date_cloture: cloture ? (dateCloture ?? null) : null,
+          cloture_by: cloture ? (clotureBy ?? null) : null,
+        })
         .eq('id', id)
         .select()
         .single()

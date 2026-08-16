@@ -5,16 +5,19 @@ import { toast } from 'sonner'
 import { statutsCapexQueries } from '@/features/investissements/queries'
 import {
   etapesInvestissement,
+  ID_CLOTURE,
   ID_REFUSE,
 } from '@/features/investissements/etat'
 import { useChangeStatutCapex } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
+import { ClotureInvestissementDialog } from './cloture-investissement-dialog'
 import { MIME_PDF } from '@/features/documents/upload'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { formatDate } from '@/lib/date'
+import { useAuth } from '@/auth'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -40,6 +43,8 @@ export function InvestissementDetail({
 }) {
   const navigate = useNavigate()
   const edit = useEntityDialog<Investissement>()
+  const cloture = useEntityDialog<Investissement>()
+  const { session } = useAuth()
   const confirmAction = useConfirmAction<{ statutId: number }>()
   // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
   const upload = useUploadDrop({ enabled: canManage })
@@ -57,6 +62,13 @@ export function InvestissementDetail({
 
   function changeStatut(statutId: number) {
     if (statutId === inv.statut_capex_id) return
+    // Clôturer demande un bilan : on passe par le dialogue. Tout autre statut
+    // est immédiat. Le cycle étant libre, on peut rouvrir un investissement
+    // clos — la mutation efface alors date et bilan.
+    if (statutId === ID_CLOTURE) {
+      cloture.openEdit(inv)
+      return
+    }
     change.mutate(
       { id: inv.id, statutId },
       {
@@ -70,7 +82,9 @@ export function InvestissementDetail({
     <PageContainer className="flex flex-col">
       <PageHeader
         title={inv.libelle}
-        description={`Demandé le ${formatDate(inv.date_demande)}`}
+        // Pas de description ici : la date de demande vit dans la carte, en
+        // regard de celle de clôture. La répéter donnerait deux endroits à
+        // corriger pour une seule information (patron de la page Événements).
         breadcrumb={[
           {
             label: 'Investissements (CapEx)',
@@ -179,14 +193,37 @@ export function InvestissementDetail({
         </CardContent>
       </Card>
 
-      {/* Description (sans titre : le contenu parle de lui-même). */}
-      {inv.description?.trim() && (
-        <Card className="mb-4">
-          <CardContent className="text-sm whitespace-pre-wrap">
-            {inv.description}
-          </CardContent>
-        </Card>
-      )}
+      {/* DEMANDE — même gabarit que la carte de bilan plus bas : date en en-tête
+          discret, texte en dessous, crayon à droite. Les deux bouts du cycle se
+          lisent pareil, et la frise s'intercale entre eux (patron repris de la
+          page Événements). Toujours rendue, description vide comprise : sinon la
+          date de demande n'aurait plus d'endroit où vivre. */}
+      <Card className="mb-4">
+        <CardContent className="flex items-start justify-between gap-3 text-sm">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-xs text-muted-foreground">
+              Demandé le {formatDate(inv.date_demande)}
+            </span>
+            <p className="whitespace-pre-wrap">
+              {inv.description?.trim() ? (
+                inv.description
+              ) : (
+                <span className="text-muted-foreground">
+                  Aucune description.
+                </span>
+              )}
+            </p>
+          </div>
+          {canManage && (
+            <TooltipIconButton
+              icon={<Pencil />}
+              label="Modifier l'investissement"
+              variant="ghost"
+              onClick={() => edit.openEdit(inv)}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       {/* Suivi : frise d'avancement. Statut LIBRE → toute pastille est cliquable
           (positionne ce statut) ; « Refuser » est en barre de titre. */}
@@ -209,6 +246,38 @@ export function InvestissementDetail({
         </Card>
       )}
 
+      {/* BILAN — apparaît dès que l'investissement est CLÔTURÉ, même sans texte
+          (il est facultatif) : sans elle, la date de clôture ne serait ni
+          visible ni corrigible. Le crayon rouvre le même dialogue, en mode
+          correction. */}
+      {inv.statut_capex_id === ID_CLOTURE && (
+        <Card className="mb-4">
+          <CardContent className="flex items-start justify-between gap-3 text-sm">
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-xs text-muted-foreground">
+                Clôturé
+                {inv.date_cloture ? ` le ${formatDate(inv.date_cloture)}` : ''}
+              </span>
+              <p className="whitespace-pre-wrap">
+                {inv.bilan?.trim() ? (
+                  inv.bilan
+                ) : (
+                  <span className="text-muted-foreground">Aucun bilan.</span>
+                )}
+              </p>
+            </div>
+            {canManage && (
+              <TooltipIconButton
+                icon={<Pencil />}
+                label="Modifier la clôture"
+                variant="ghost"
+                onClick={() => cloture.openEdit(inv)}
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Zone documents : prend EXACTEMENT l'espace restant (flex-1). */}
       <div className="relative flex-1">
         <DocumentsTab
@@ -225,13 +294,50 @@ export function InvestissementDetail({
       </div>
 
       {canManage && (
-        <InvestissementFormDialog
-          key={edit.dialogKey}
-          open={edit.open}
-          onOpenChange={edit.onOpenChange}
-          siteId={siteId}
-          investissement={inv}
-        />
+        <>
+          <InvestissementFormDialog
+            key={edit.dialogKey}
+            open={edit.open}
+            onOpenChange={edit.onOpenChange}
+            siteId={siteId}
+            investissement={inv}
+          />
+          <ClotureInvestissementDialog
+            key={cloture.dialogKey}
+            open={cloture.open}
+            onOpenChange={cloture.onOpenChange}
+            pending={change.isPending}
+            dateDemande={inv.date_demande}
+            // Déjà clôturé → le dialogue s'ouvre pré-rempli, en correction.
+            initial={
+              inv.statut_capex_id === ID_CLOTURE
+                ? { date_cloture: inv.date_cloture, bilan: inv.bilan }
+                : undefined
+            }
+            onConfirm={({ date_cloture, bilan }) => {
+              change.mutate(
+                {
+                  id: inv.id,
+                  statutId: ID_CLOTURE,
+                  bilan,
+                  dateCloture: date_cloture,
+                  clotureBy: session?.user.id,
+                },
+                {
+                  onSuccess: () => {
+                    toast.success(
+                      inv.statut_capex_id === ID_CLOTURE
+                        ? 'Clôture modifiée'
+                        : 'Investissement clôturé',
+                    )
+                    cloture.onOpenChange(false)
+                  },
+                  onError: (e) => toast.error(writeErrorMessage(e)),
+                },
+              )
+            }}
+          />
+        </>
       )}
 
       <ConfirmDialog {...confirmAction.dialogProps} />

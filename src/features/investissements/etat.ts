@@ -17,6 +17,11 @@ import {
 const PARCOURS_IDS = [1, 5, 2, 6, 3, 7] as const
 /** Statut « Refusé » (issue défavorable, hors parcours linéaire). */
 export const ID_REFUSE = 4
+/**
+ * Statut « Clôturé » : FIN du parcours, et le seul qui porte un bilan.
+ * « Réalisé »(3) reste une étape — les dépenses peuvent encore bouger.
+ */
+export const ID_CLOTURE = 7
 const LABELS_DEFAUT: Record<number, string> = {
   1: 'Demandé',
   5: "À l'étude",

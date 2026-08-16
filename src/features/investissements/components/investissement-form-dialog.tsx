@@ -87,39 +87,53 @@ export function InvestissementFormDialog({
         pendingLabel="Enregistrement…"
         pending={form.formState.isSubmitting}
       >
-        <TextField
-          control={form.control}
-          name="libelle"
-          label="Libellé"
-          required
-        />
-        <DescriptionField control={form.control} name="description" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {/* Ordre de lecture : QUOI → QUAND → COMBIEN → le détail en dernier.
+            La description était coincée entre le libellé et les montants, ce qui
+            séparait l'investissement de son budget ; et la date se retrouvait
+            seule tout en bas, après une ligne à trois champs. */}
+        <div className="grid gap-4">
           <TextField
             control={form.control}
-            name="montant_demande"
-            label="Montant demandé (€)"
-            inputMode="decimal"
+            name="libelle"
+            label="Libellé"
+            required
           />
-          <TextField
+
+          {/* Les trois montants et la date : quatre champs courts en 2 × 2
+              plutôt qu'une ligne de trois suivie d'une ligne d'un seul. */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <DateField
+              control={form.control}
+              name="date_demande"
+              label="Date de demande"
+              required
+            />
+            <TextField
+              control={form.control}
+              name="montant_demande"
+              label="Montant demandé (€)"
+              inputMode="decimal"
+            />
+            <TextField
+              control={form.control}
+              name="montant_prevu"
+              label="Montant prévu (€)"
+              inputMode="decimal"
+            />
+            <TextField
+              control={form.control}
+              name="depense_reelle"
+              label="Dépense réelle (€)"
+              inputMode="decimal"
+            />
+          </div>
+
+          <DescriptionField
             control={form.control}
-            name="montant_prevu"
-            label="Montant prévu (€)"
-            inputMode="decimal"
-          />
-          <TextField
-            control={form.control}
-            name="depense_reelle"
-            label="Dépense réelle (€)"
-            inputMode="decimal"
+            name="description"
+            rows={5}
           />
         </div>
-        <DateField
-          control={form.control}
-          name="date_demande"
-          label="Date de demande"
-          required
-        />
       </FormDialog>
     </Form>
   )

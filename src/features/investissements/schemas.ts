@@ -43,3 +43,18 @@ export function parseMontant(value: string): number | null {
   if (trimmed === '') return null
   return Number(trimmed.replace(',', '.'))
 }
+
+/**
+ * Clôture d'un investissement : date + bilan budgétaire.
+ *
+ * Le bilan n'est PAS obligatoire : un investissement peut se clore sans
+ * commentaire quand le prévu et le réel coïncident. L'exiger pousserait à
+ * écrire « RAS », ce qui ne renseigne personne — même raisonnement que pour le
+ * compte-rendu d'un événement.
+ */
+export const clotureCapexSchema = z.object({
+  date_cloture: z.string().min(1, 'La date de clôture est obligatoire'),
+  bilan: z.string().trim().max(5000),
+})
+
+export type ClotureCapexFormValues = z.infer<typeof clotureCapexSchema>
