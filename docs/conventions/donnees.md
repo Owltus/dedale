@@ -70,7 +70,8 @@ export function useUpdateEquipement() {
 ## Formulaires (react-hook-form + Zod)
 
 - Pattern projet : **react-hook-form** + `zodResolver(schema)` dans un `<Form {...form}>` (`@/components/ui/form`)
-  - `FormDialog`. Schéma défini **au niveau module** (`schemas.ts`). Patron complet : skill `nouvelle-page` (§4).
+  posé autour d'un `FormDialog`. Schéma défini **au niveau module** (`schemas.ts`). Patron complet :
+  skill `nouvelle-page`, référence `patrons-de-page.md`.
 - Champs : briques **`@/components/common/fields/*`** branchées sur `control` + `name` ; l'erreur est rendue
   par `FormMessage` (lit le resolver Zod) — plus de `value`/`onChange`/`error`.
 - Schéma à **TRANSFORM** (`z.string().transform` → number, `z.coerce`…) : `useForm<z.input, unknown, z.output>`
@@ -78,7 +79,7 @@ export function useUpdateEquipement() {
 - Ré-initialiser un formulaire d'édition : **keyer** le composant (`key={dlg.dialogKey}` via `useEntityDialog`)
   plutôt qu'un `useEffect` de reset (évite la règle `react-hooks/set-state-in-effect`).
 - Soumission + erreurs serveur : **`useSubmitDialog`** (`@/hooks/use-submit-dialog`) — `try/catch` → toast succès
-  - `close`, ou `toast.error(writeErrorMessage(e))` (dialog laissé ouvert).
+  puis `close`, ou `toast.error(writeErrorMessage(e))` (dialog laissé ouvert).
 - Composant impératif `value`/`onChange` (ex. `LocalEquipementFields`) : le ponter via `useWatch` + `form.setValue`.
 - Modèle de référence : `src/features/sites/components/site-form-dialog.tsx` (+ `niveau`/`local` pour les transforms).
 

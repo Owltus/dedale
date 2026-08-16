@@ -41,7 +41,7 @@ Les conventions ci-dessus disent **ce qui est vrai** ; les skills disent **comme
 | vérifier qui voit quoi (RLS, Storage, rôles)         | `audit-rls`       |
 | mettre en production (migrations, types, Vercel)     | `deployer`        |
 
-Le **catalogue des ~60 briques réutilisables** (avec leur nombre réel de consommateurs) vit dans `.claude/skills/nouvelle-page/references/catalogue-composants.md` — **le consulter avant d'écrire un composant**, et le mettre à jour après.
+Le **catalogue des briques réutilisables** (~70 documentées, avec leur nombre réel de consommateurs, **mesuré**) vit dans `.claude/skills/nouvelle-page/references/catalogue-composants.md` — **le consulter avant d'écrire un composant**, et le mettre à jour après. Il ne couvre volontairement pas `components/ui/` (primitives shadcn).
 
 ## Doctrine backend à respecter (NON négociable — toujours active)
 
@@ -70,7 +70,7 @@ Le **catalogue des ~60 briques réutilisables** (avec leur nombre réel de conso
 
 ## Repères & pièges
 
-- **Schéma SQL (source de vérité) : `schema_complete.sql` à la racine** (seed unique, versionné) ; historique incrémental dans `migrations/` (racine, **gitignoré / local** — dépôt public : les migrations peuvent contenir des données réelles, on ne les publie pas). À chaque migration → resynchroniser `schema_complete.sql` (**seule source versionnée**). Le projet `C:\Users\Pierre-Louis\Desktop\supa` est **déprécié**. Doc interne du projet : `contexte/` (**gitignoré**).
+- **Schéma SQL (source de vérité) : `schema_complete.sql` à la racine** (seed unique, versionné) ; historique incrémental dans `migrations/` (racine, **gitignoré / local** — dépôt public : les migrations peuvent contenir des données réelles, on ne les publie pas). À chaque migration → resynchroniser `schema_complete.sql` (**seule source versionnée**). Le projet `C:\Users\Pierre-Louis\Desktop\supa` est **déprécié**. `contexte/` est un nom **réservé et gitignoré** pour la doc interne — il peut être absent d'une machine donnée, ne rien y chercher par défaut.
 - Dépôt : `github.com/Owltus/dedale` (public, `main`).
 - Port **5181** (5180 = autre projet de l'utilisateur). `contexte/`, `dev.bat`, `.claude/settings.local.json` gitignorés. `.env.local` jamais commité.
 - Compte créé en SQL à la main → mettre les colonnes de tokens NULL d'`auth.users` à `''` (sinon login 500 GoTrue).

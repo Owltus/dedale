@@ -10,17 +10,18 @@ src/
                      # MINCE : une route compose depuis features/, pas de logique métier ici.
   features/          # Cœur métier. Une feature = un dossier autonome.
     <domaine>/
-      components/    # composants métier (EquipementCard, EquipementTable…)
+      components/    # composants métier (EquipementDetail, ContratCard…)
+      page-meta.ts   # identité de la page : titre / description / hint / icone
       queries.ts     # queryOptions (lecture) — cf. conventions/donnees.md
       mutations.ts   # hooks useMutation (écriture)
       schemas.ts     # schémas Zod (réutilisés par form ET search params)
   components/
     ui/              # composants génériques shadcn/ui (button, card, dialog…). Zéro métier.
-    common/          # transverses maison (EmptyState, ErrorState, ModeToggle, PageHeader…)
+    common/          # transverses maison (EmptyState, ErrorState, PageHeader, SiteScopedRoute…)
     theme.tsx        # ThemeProvider + useTheme (clair/sombre)
   lib/               # transverse : supabase.ts (client), utils.ts (cn), database.types.ts (généré)
   auth.tsx           # AuthProvider + useAuth
-  hooks/             # hooks transverses (useDebounce…)
+  hooks/             # hooks transverses (useEntityDialog, useConfirmDelete, useRealtimeRefresh…)
   main.tsx           # point d'entrée (Query + Theme + Auth + Router)
 ```
 

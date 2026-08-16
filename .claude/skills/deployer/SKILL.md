@@ -70,6 +70,18 @@ Puis, dans l'application : se connecter, ouvrir une page liste, ouvrir une fiche
 - **Supabase met un projet gratuit en pause** après une longue inactivité. Une application qui renvoie des erreurs réseau après plusieurs jours sans usage, c'est souvent ça.
 - **Les URL de redirection Auth** doivent contenir le domaine de production, sinon les liens de réinitialisation de mot de passe renvoient vers l'URL par défaut.
 
-## Ce qui manque encore
+## Pas d'intégration continue — décision assumée
 
-Aucune intégration continue : le seul contrôle distant est le build Vercel, qui n'attrape que les erreurs de types. Le hook local formate et type-vérifie les éditions faites via l'outil, mais rien ne protège une édition faite ailleurs. Un workflow exécutant `npm run verify` sur les poussées reste à trancher.
+**Tranché le 2026-08-16 : le projet n'aura pas de CI.** Ce n'est pas un sujet en attente, c'est un choix, avec sa contrepartie.
+
+Ce qui protège le dépôt :
+
+- le hook `.claude/hooks/check.mjs`, qui **formate puis type-vérifie** chaque fichier édité via l'outil ;
+- le build Vercel, qui refuse de publier si `tsc -b` échoue.
+
+Ce que cela ne couvre pas, et qui devient donc une **discipline** :
+
+- une édition faite **hors de Claude Code** (éditeur, autre machine, correction à la volée) ne passe par aucun garde-fou ;
+- Vercel n'exécute **ni lint, ni format, ni tests** : un test rouge ou 170 fichiers hors format se déploient sans broncher. C'est exactement ce qui s'est produit une fois.
+
+**Règle qui remplace la CI : lancer `npm run verify` à la main avant toute poussée dont une partie n'a pas été écrite via l'outil.** Si cette règle s'avère trop souvent oubliée, la conclusion sera de créer la CI — pas de renforcer le rappel.

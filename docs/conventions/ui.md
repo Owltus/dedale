@@ -24,7 +24,7 @@ Toutes les couleurs vivent dans `src/index.css` (tokens `:root` clair + `.dark` 
 
 ## Mode sombre
 
-Clair + sombre gérés via la classe `.dark` sur `<html>`, pilotée par `ThemeProvider` (`src/components/theme.tsx`, persistance `localStorage`, défaut = préférence système). Bascule : `<ModeToggle />`. Comme on n'utilise que des tokens sémantiques, le sombre est automatique.
+Clair + sombre gérés via la classe `.dark` sur `<html>`, pilotée par `ThemeProvider` (`src/components/theme.tsx`, persistance `localStorage`, défaut = préférence système). La bascule vit dans le **menu utilisateur** (`common/user-menu.tsx`, via `useTheme`) — il n'existe pas de composant `ModeToggle` autonome. Comme on n'utilise que des tokens sémantiques, le sombre est automatique.
 
 ## Composants
 
@@ -43,7 +43,7 @@ return <Liste items={data} />
 
 `EmptyState` et `ErrorState` sont dans `src/components/common/`.
 
-> Cette règle est factorisée dans `common/query-state.tsx` (`QueryState` + `CardSkeletons`) : l'utiliser **par défaut** (cf. [composants.md](./composants.md)). Le pattern manuel ci-dessus ne subsiste que pour les écrans atypiques (registre table, planning, dashboard).
+> Cette règle est factorisée dans `common/query-state.tsx` (`QueryState`) : l'utiliser **par défaut** (cf. [composants.md](./composants.md)). Les squelettes sont des briques distinctes — `ListRowSkeletons` (`common/list-row-skeletons.tsx`) pour une liste, `CardSkeletons` (`common/card-skeletons.tsx`) pour une grille de cartes. Le pattern manuel ci-dessus ne subsiste que pour les écrans atypiques (planning, tableau de bord).
 
 ## Retours utilisateur : toasts Sonner
 

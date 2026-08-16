@@ -55,8 +55,10 @@ const NAV_ROLES: Record<NavKey, readonly string[] | 'tous'> = {
   '/releves': ROLES_METIER_LECTURE,
   '/registre': ROLES_METIER_LECTURE,
   '/documents': ROLES_METIER_LECTURE,
-  // Écran métier (cf. RLS investissements) : technicien crée/édite sur ses
-  // sites, lecteur consulte. La suppression reste admin (gérée dans la page).
+  // Écran métier (cf. RLS investissements) : manager/technicien créent, éditent
+  // ET SUPPRIMENT sur leurs sites (migration 053, `canDelete={canManage}` dans la
+  // page) ; lecteur consulte. Ce commentaire a longtemps annoncé « suppression
+  // admin seul », ce que le code n'a jamais fait — vérifier la RLS, pas la doctrine.
   '/investissements': ROLES_METIER_LECTURE,
   '/sites': ROLES_ADMIN,
   '/localisations': ROLES_METIER_LECTURE,

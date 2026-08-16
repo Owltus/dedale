@@ -4,11 +4,11 @@
 
 ## Où mettre quoi
 
-| Type                          | Emplacement                          | Exemple                                                                                                         |
-| ----------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| Générique, zéro métier        | `src/components/ui/`                 | `button`, `card`, `dialog` (shadcn)                                                                             |
-| Transverse maison, non métier | `src/components/common/`             | `EmptyState`, `ErrorState`, `PageHeader`, `NoSiteSelected`, `QueryState`, `FormDialog`, `TextField`, `InfoNote` |
-| Métier                        | `src/features/<domaine>/components/` | `EquipementCard`, `OtTable`                                                                                     |
+| Type                          | Emplacement                          | Exemple                                                                                                          |
+| ----------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Générique, zéro métier        | `src/components/ui/`                 | `button`, `card`, `dialog` (shadcn)                                                                              |
+| Transverse maison, non métier | `src/components/common/`             | `EmptyState`, `ErrorState`, `PageHeader`, `SiteScopedRoute`, `QueryState`, `FormDialog`, `TextField`, `InfoNote` |
+| Métier                        | `src/features/<domaine>/components/` | `ContratCard`, `EquipementDetail`                                                                                |
 
 Règle : si tu assembles les mêmes `ui/` de la même façon ≥ 2 fois → remonte un composant dans `common/`.
 
@@ -27,7 +27,12 @@ Champs prêts à l'emploi (libellé + champ + message d'erreur) dans **`src/comp
 - Signature commune : **`control={form.control}` + `name="…"`** (+ `label`, `required?`, options du champ). **Plus de `value`/`onChange`/`error`** : l'état et la validation viennent de react-hook-form, et `FormMessage` (inclus dans chaque champ) lit l'erreur du resolver Zod.
 - Primitives sous-jacentes : `ui/input`, `ui/select-dropdown` (**Radix**, pas de `<select>` natif), `ui/textarea` (style aligné : `px-3`, `h-9`, `text-base md:text-sm`, états focus/erreur/disabled).
 
-> **Piège d'homonymie.** `common/text-field.tsx` et `common/fields/text-field.tsx` coexistent (idem `select`, `checkbox`, `number`). Les fichiers de la **racine** `common/` sont la génération 1 (API `value`/`onChange`), en cours de retrait. Toujours importer depuis **`@/components/common/fields/…`**.
+> **Deux familles de champs, un seul critère : qui porte l'état ?**
+>
+> - **`common/fields/*`** (ci-dessus) → **react-hook-form** : `control` + `name`, validation Zod, `FormMessage`.
+> - **`common/standalone-fields.tsx`** (`StandaloneText`, `StandaloneSelect`, `StandaloneCheckbox`) → **état local** : `value` + `onChange`. Pour un champ dont le type n'est connu qu'à l'exécution, une cascade, ou un dialog qui gère son propre état. Ces briques portent aussi l'`id` qui relie le `<Label htmlFor>` au champ — ne pas les remplacer par un `<Label>` + primitive à la main, c'est ainsi que des libellés ont fini par ne désigner aucun champ.
+>
+> Une génération 1 bâtie sur les primitives natives a existé à la racine de `common/` (`text-field.tsx`, `select-field.tsx`, `checkbox-field.tsx`, `number-field.tsx`) : elle a été **supprimée**. Ne pas la recréer.
 
 → Ne jamais recopier un `<select>`/`<textarea>` natif stylé à la main : utiliser ces champs.
 
@@ -47,13 +52,14 @@ const query = useQuery(xxxQueries.list(siteId))
 ```
 
 - `QueryState` gère : chargement → `pending`, erreur → `ErrorState` (avec retry), tableau vide → `empty`, sinon `children(data)` (data garanti défini).
-- Le **conteneur** (grille/liste) reste dans la render-prop ; le « aucun résultat de recherche » (filtrage client) aussi.
-- `CardSkeletons` (`count` / `height` / `container`) pour les squelettes.
+- Le **conteneur** reste dans la render-prop. Sur une page liste, c'est `ListPageBody` (`common/list-page-body.tsx`) qui porte la séquence barre → « aucun résultat » → empilement : le 5ᵉ état ne s'écrit plus à la main.
+- Squelettes : `ListRowSkeletons` (`common/list-row-skeletons.tsx`) pour une liste, **en lui passant le même `size` que les lignes réelles** — les hauteurs viennent de `MEDIA_HEIGHT`, exportée par `ListRow`, donc aucun saut de mise en page n'est possible tant que les deux valeurs viennent de la même source. `CardSkeletons` (`common/card-skeletons.tsx`, fichier distinct de `query-state.tsx`) est réservé aux **grilles de cartes**.
 - Multi-requêtes : `QueryState` pilote la requête liste **principale** ; les lookups restent en `useQuery` à côté.
+- **Ne jamais présenter une panne comme une absence** : déstructurer `isError`, pas seulement `data`. Un `?? []` silencieux transforme une erreur réseau en « aucun élément ».
 
 ## Garde « site » et permissions
 
-- `NoSiteSelected` (`common/no-site-selected.tsx`) : écran « sélectionne un site » des pages métier (props `title` / `description` / `hint` / `icon`). Ne pas recopier la garde `if (!activeSiteId)` à la main.
+- **`SiteScopedRoute`** (`common/site-scoped-route.tsx`) : la garde de site, en render-prop. Elle rend l'écran « sélectionne un site » tant qu'aucun site n'est actif, et n'appelle son enfant qu'ensuite — donc **avant toute query**, sans hook conditionnel. Elle fournit `{ siteId, role, canManage }` et consomme le `PAGE_META` de la feature. À poser sur la route **liste ET détail**. Ne recopier ni la garde `if (!activeSiteId)`, ni `NoSiteSelected` (que la brique a absorbée : elle n'a plus qu'un consommateur).
 - Droits par rôle : fonctions pures `lib/permissions.ts` (`isAdmin`, `canManageMetier`, `canManageAdmin`, `canCreateDemande`, `canResolveDemande`, `canEditUser`), lues via `useCurrentRole()` (`import * as perm from '@/lib/permissions'`). Le front ne fait que **refléter** le rôle ; la sécurité reste portée par la RLS. Ne jamais écrire `role === 'admin'` en dur dans un écran. Jeux de rôles exportés : `ROLES_METIER` (écriture, sans lecteur) vs `ROLES_METIER_LECTURE` (visibilité, avec lecteur) — homonymes à ne pas confondre. Codes et libellés (`ROLE_CODES`, `ROLE_LABELS`, `roleLabel`) y vivent aussi (réexportés par `features/utilisateurs/schemas.ts` pour le domaine) — un composant `common/` n'importe donc jamais ces libellés depuis `features/`.
 - **Visibilité de la navigation par rôle** : source unique `lib/nav.ts` (module pur). `canSeeNav(navKey, role)` décide quelles entrées la sidebar affiche **et** alimente les gardes de route ; `landingFor(role)` donne l'écran d'atterrissage (le demandeur → `/demandes`, pas de tableau de bord). C'est une **vue produit** (« on voit ce dont on doit s'occuper »), volontairement plus restrictive que la RLS si besoin. Ne pas réintroduire de tableau `roles: [...]` dans `app-sidebar.tsx`.
 - `InfoNote` (`common/info-note.tsx`) : encart d'information (icône + texte).
