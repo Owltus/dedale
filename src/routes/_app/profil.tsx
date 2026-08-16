@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { useUpdateUser } from '@/features/utilisateurs/mutations'
 import {
+  passwordSchema,
   profileSchema,
   roleLabel,
   type ProfileFormValues,
@@ -20,6 +21,8 @@ import { useSiteContext } from '@/lib/site-context'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { TextField } from '@/components/common/fields/text-field'
+import { PasswordField } from '@/components/common/fields/password-field'
+import { PasswordRules } from '@/components/common/password-rules'
 import { EmptyState } from '@/components/common/empty-state'
 import { InfoNote } from '@/components/common/info-note'
 import { Button } from '@/components/ui/button'
@@ -268,52 +271,121 @@ function SitesCard() {
   )
 }
 
-// --- Sécurité : réinitialisation du mot de passe par e-mail ---
+// --- Sécurité : changement de son propre mot de passe ---
+
+/**
+ * Le mot de passe actuel s'ajoute au couple partagé : `updateUser` ne le demande
+ * pas (une session valide lui suffit), mais l'exiger protège d'un détournement
+ * de session — un poste laissé déverrouillé ne doit pas permettre de changer le
+ * mot de passe et d'en verrouiller le titulaire dehors.
+ */
+const changerMotDePasseSchema = z
+  .object({
+    current_password: z.string().min(1, 'Le mot de passe actuel est requis.'),
+    password: passwordSchema,
+    password_confirm: z.string(),
+  })
+  .check((ctx) => {
+    if (ctx.value.password !== ctx.value.password_confirm) {
+      ctx.issues.push({
+        code: 'custom',
+        message: 'Les deux mots de passe ne correspondent pas.',
+        path: ['password_confirm'],
+        input: ctx.value.password_confirm,
+      })
+    }
+  })
+
+type ChangerMotDePasseValues = z.infer<typeof changerMotDePasseSchema>
 
 function SecurityCard({ email }: { email: string }) {
-  const [sent, setSent] = useState(false)
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/definir-mot-de-passe`,
-      })
-      if (err) throw err
-    },
-    onSuccess: () => setSent(true),
-    onError: (e) => toast.error(errorMessage(e)),
+  const form = useForm<ChangerMotDePasseValues>({
+    resolver: zodResolver(changerMotDePasseSchema),
+    defaultValues: { current_password: '', password: '', password_confirm: '' },
   })
+  const password = useWatch({ control: form.control, name: 'password' })
+
+  async function onSubmit(data: ChangerMotDePasseValues) {
+    // Vérification de l'ancien mot de passe en le REJOUANT : GoTrue ne le
+    // demande pas pour un changement, il faut donc le contrôler nous-mêmes.
+    // L'appel renouvelle la session en cours sans la rompre — on reste connecté.
+    const { error: authErr } = await supabase.auth.signInWithPassword({
+      email,
+      password: data.current_password,
+    })
+    if (authErr) {
+      form.setError('current_password', {
+        type: 'value',
+        message: 'Mot de passe actuel incorrect.',
+      })
+      return
+    }
+
+    const { error: err } = await supabase.auth.updateUser({
+      password: data.password,
+    })
+    if (err) {
+      toast.error(errorMessage(err))
+      return
+    }
+    toast.success('Mot de passe modifié')
+    form.reset({ current_password: '', password: '', password_confirm: '' })
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Sécurité</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {sent ? (
-          <InfoNote icon={Mail}>
-            Un lien de réinitialisation a été envoyé à <strong>{email}</strong>.
-            Ouvre-le pour définir un nouveau mot de passe.
-          </InfoNote>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Reçois un lien par e-mail pour définir un nouveau mot de passe en
-            toute sécurité.
-          </p>
-        )}
-        <Button
-          variant="outline"
-          disabled={mutation.isPending}
-          onClick={() => mutation.mutate()}
-          className="self-start"
-        >
-          <KeyRound />
-          {mutation.isPending
-            ? 'Envoi…'
-            : sent
-              ? 'Renvoyer le lien'
-              : 'Réinitialiser mon mot de passe'}
-        </Button>
+      <CardContent>
+        <Form {...form}>
+          {/* Formulaire HORS dialogue : l'événement DOIT être transmis. */}
+          <form
+            onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
+            className="flex flex-col gap-4"
+          >
+            <PasswordField
+              control={form.control}
+              name="current_password"
+              label="Mot de passe actuel"
+              autoComplete="current-password"
+              required
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <PasswordField
+                control={form.control}
+                name="password"
+                label="Nouveau mot de passe"
+                autoComplete="new-password"
+                required
+              />
+              <PasswordField
+                control={form.control}
+                name="password_confirm"
+                label="Confirmer"
+                autoComplete="new-password"
+                required
+              />
+            </div>
+            <PasswordRules value={password} />
+            {/* Dit le comportement RÉEL : changer son mot de passe ne déconnecte
+                pas les autres appareils. Le taire donnerait un faux sentiment de
+                sécurité à qui le change justement parce qu'il le croit connu. */}
+            <p className="text-xs text-muted-foreground">
+              Les sessions déjà ouvertes sur d’autres appareils restent actives.
+            </p>
+            <Button
+              type="submit"
+              disabled={form.formState.isSubmitting}
+              className="self-start"
+            >
+              <KeyRound />
+              {form.formState.isSubmitting
+                ? 'Enregistrement…'
+                : 'Changer mon mot de passe'}
+            </Button>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   )
