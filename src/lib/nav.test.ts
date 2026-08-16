@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { canSeeNav, landingFor, type NavKey } from './nav'
+import {
+  canSeeNav,
+  landingFor,
+  NAV_LABELS,
+  sectionDeChemin,
+  type NavKey,
+} from './nav'
 
 const TOUTES: NavKey[] = [
   '/',
@@ -113,5 +119,39 @@ describe('landingFor', () => {
     ]) {
       expect(canSeeNav(landingFor(r), r)).toBe(true)
     }
+  })
+})
+
+describe('sectionDeChemin', () => {
+  it('reconnaît une page de liste', () => {
+    expect(sectionDeChemin('/travaux')).toBe('Travaux')
+    expect(sectionDeChemin('/investissements')).toBe('Investissements')
+  })
+
+  it('rattache une fiche de détail à la section de sa liste', () => {
+    expect(sectionDeChemin('/travaux/remplacement-copieur')).toBe('Travaux')
+    expect(sectionDeChemin('/equipements/securite-incendie/extincteur')).toBe(
+      'Équipements',
+    )
+  })
+
+  it('traite la racine en correspondance EXACTE', () => {
+    // Sans ce cas à part, `/` (préfixe de tout) l'emporterait sur chaque page.
+    expect(sectionDeChemin('/')).toBe('Tableau de bord')
+    expect(sectionDeChemin('/planning')).toBe('Planning')
+  })
+
+  it('renvoie null hors de la navigation', () => {
+    expect(sectionDeChemin('/profil')).toBeNull()
+    expect(sectionDeChemin('/login')).toBeNull()
+  })
+
+  it('ne confond pas deux chemins de même préfixe textuel', () => {
+    // « /documents » ne doit pas capter un hypothétique « /documentsXYZ ».
+    expect(sectionDeChemin('/documentsXYZ')).toBeNull()
+  })
+
+  it('affiche le libellé PRODUIT, pas le nom technique de la route', () => {
+    expect(NAV_LABELS['/gammes']).toBe('Plan de maintenance')
   })
 })

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { supabase } from '@/lib/supabase'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,6 +24,10 @@ export const Route = createFileRoute('/login')({
 })
 
 function LoginPage() {
+  // Écran sans `PageHeader` : c'est donc lui qui remet le titre d'onglet à
+  // « Dédale » seul. Sans cela, se déconnecter depuis une fiche laissait son nom
+  // dans l'onglet, sur un écran qui ne l'affiche plus.
+  useDocumentTitle('Connexion')
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

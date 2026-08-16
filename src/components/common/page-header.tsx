@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Button } from '@/components/ui/button'
 import { Breadcrumb, type Crumb } from './breadcrumb'
 
@@ -59,6 +60,9 @@ export function PageHeader({
   backLabel = 'Retour',
   titleBadges,
 }: PageHeaderProps) {
+  // L'en-tête connaît le titre de CHAQUE écran : c'est donc lui qui alimente le
+  // titre de l'onglet du navigateur, sans avoir à le poser page par page.
+  useDocumentTitle(title)
   const hasCrumbs = breadcrumb !== undefined && breadcrumb.length > 0
   return (
     // `flex-wrap` + `order` : sur mobile, le bloc texte et les actions tiennent sur

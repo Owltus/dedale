@@ -97,3 +97,52 @@ export function canSeeNav(navKey: NavKey, role: Role): boolean {
 export function landingFor(role: Role): '/' | '/demandes' {
   return canSeeNav('/', role) ? '/' : '/demandes'
 }
+
+/**
+ * Libellé de chaque entrée de navigation — SOURCE UNIQUE, au même titre que
+ * `NAV_ROLES` juste au-dessus.
+ *
+ * Il vivait dans `app-sidebar.tsx`, mêlé aux icônes : hors d'atteinte de tout ce
+ * qui n'est pas un composant. Le titre d'onglet du navigateur a besoin des mêmes
+ * libellés — les recopier aurait créé deux vérités destinées à diverger dès le
+ * premier renommage (« Gammes » s'affiche déjà « Plan de maintenance »).
+ */
+export const NAV_LABELS: Record<NavKey, string> = {
+  '/': 'Tableau de bord',
+  '/planning': 'Planning',
+  // La SECTION s'affiche « Plan de maintenance » ; la fiche unitaire et la base
+  // restent « gamme » (décision produit, affichage seul).
+  '/gammes': 'Plan de maintenance',
+  '/ordres-travail': 'Ordres de travail',
+  '/demandes': "Demandes d'intervention",
+  '/travaux': 'Travaux',
+  '/evenements': 'Événements',
+  '/releves': 'Relevés',
+  '/registre': 'Registre de sécurité',
+  '/documents': 'Documents',
+  '/investissements': 'Investissements',
+  '/sites': 'Sites',
+  '/localisations': 'Localisations',
+  '/equipements': 'Équipements',
+  '/prestataires': 'Prestataires',
+  '/utilisateurs': 'Utilisateurs',
+  '/bibliotheque': 'Bibliothèque',
+}
+
+/**
+ * Section de navigation à laquelle appartient un chemin, ou `null` s'il n'est
+ * dans aucune (`/profil`, `/login`…).
+ *
+ * Une fiche de détail appartient à la section de sa liste : `/travaux/le-copieur`
+ * → « Travaux ». On retient donc le préfixe le PLUS LONG qui correspond, sans
+ * quoi `/` (racine, préfixe de tout) l'emporterait sur chaque page ; la racine
+ * est d'ailleurs traitée à part, en correspondance exacte.
+ */
+export function sectionDeChemin(pathname: string): string | null {
+  if (pathname === '/') return NAV_LABELS['/']
+  const cle = (Object.keys(NAV_LABELS) as NavKey[])
+    .filter((k) => k !== '/')
+    .filter((k) => pathname === k || pathname.startsWith(`${k}/`))
+    .sort((a, b) => b.length - a.length)[0]
+  return cle ? NAV_LABELS[cle] : null
+}

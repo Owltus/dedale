@@ -21,7 +21,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { canSeeNav, type NavKey } from '@/lib/nav'
+import { canSeeNav, NAV_LABELS, type NavKey } from '@/lib/nav'
 import { SidebarSiteSwitcher } from '@/components/common/site-switcher'
 import { SidebarUserMenu } from '@/components/common/user-menu'
 import {
@@ -40,38 +40,37 @@ import {
 
 interface NavItem {
   to: NavKey
-  label: string
   icon: ComponentType<LucideProps>
   exact?: boolean
 }
 
 // Visibilité par rôle : pilotée par canSeeNav (lib/nav.ts), source unique partagée
 // avec les gardes de route. Aucun littéral de rôle ici.
+// Les LIBELLÉS viennent de `NAV_LABELS` (lib/nav.ts), au même endroit que la
+// visibilité par rôle : ils sont aussi lus par le titre d'onglet du navigateur.
+// Ici ne restent que l'ordre, le regroupement et les icônes — ce qui est propre
+// à la sidebar.
 const OPERATIONNEL: NavItem[] = [
-  { to: '/', label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
-  { to: '/planning', label: 'Planning', icon: CalendarDays },
-  { to: '/gammes', label: 'Plan de maintenance', icon: ClipboardList },
-  { to: '/ordres-travail', label: 'Ordres de travail', icon: Wrench },
-  {
-    to: '/demandes',
-    label: "Demandes d'intervention",
-    icon: MessageSquareWarning,
-  },
-  { to: '/travaux', label: 'Travaux', icon: HardHat },
-  { to: '/evenements', label: 'Événements', icon: OctagonAlert },
-  { to: '/releves', label: 'Relevés', icon: LineChart },
-  { to: '/registre', label: 'Registre de sécurité', icon: ShieldCheck },
-  { to: '/documents', label: 'Documents', icon: FileText },
-  { to: '/investissements', label: 'Investissements', icon: Banknote },
+  { to: '/', icon: LayoutDashboard, exact: true },
+  { to: '/planning', icon: CalendarDays },
+  { to: '/gammes', icon: ClipboardList },
+  { to: '/ordres-travail', icon: Wrench },
+  { to: '/demandes', icon: MessageSquareWarning },
+  { to: '/travaux', icon: HardHat },
+  { to: '/evenements', icon: OctagonAlert },
+  { to: '/releves', icon: LineChart },
+  { to: '/registre', icon: ShieldCheck },
+  { to: '/documents', icon: FileText },
+  { to: '/investissements', icon: Banknote },
 ]
 
 const REFERENTIELS: NavItem[] = [
-  { to: '/sites', label: 'Sites', icon: Building2 },
-  { to: '/localisations', label: 'Localisations', icon: MapPin },
-  { to: '/equipements', label: 'Équipements', icon: Boxes },
-  { to: '/prestataires', label: 'Prestataires', icon: Briefcase },
-  { to: '/bibliotheque', label: 'Bibliothèque', icon: BookOpen },
-  { to: '/utilisateurs', label: 'Utilisateurs', icon: Users },
+  { to: '/sites', icon: Building2 },
+  { to: '/localisations', icon: MapPin },
+  { to: '/equipements', icon: Boxes },
+  { to: '/prestataires', icon: Briefcase },
+  { to: '/bibliotheque', icon: BookOpen },
+  { to: '/utilisateurs', icon: Users },
 ]
 
 // Item actif : fond accentué + texte en gras. Piloté par le routeur (activeProps),
@@ -101,9 +100,10 @@ function NavGroup({
         <SidebarMenu>
           {visible.map((item) => {
             const Icon = item.icon
+            const label = NAV_LABELS[item.to]
             return (
               <SidebarMenuItem key={item.to}>
-                <SidebarMenuButton asChild tooltip={item.label}>
+                <SidebarMenuButton asChild tooltip={label}>
                   <Link
                     to={item.to}
                     activeOptions={{ exact: item.exact ?? false }}
@@ -112,7 +112,7 @@ function NavGroup({
                     onClick={onNavigate}
                   >
                     <Icon />
-                    <span>{item.label}</span>
+                    <span>{label}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

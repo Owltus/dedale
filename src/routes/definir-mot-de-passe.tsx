@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,6 +20,8 @@ export const Route = createFileRoute('/definir-mot-de-passe')({
 })
 
 function SetPasswordPage() {
+  // Écran sans `PageHeader` : il pose donc lui-même son titre d'onglet.
+  useDocumentTitle('Définir un mot de passe')
   const navigate = useNavigate()
   // La session provient du lien d'invitation (récupérée automatiquement depuis
   // l'URL par le client Supabase). isLoading couvre ce court instant.
