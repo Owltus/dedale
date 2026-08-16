@@ -7,7 +7,8 @@ import { exportErrorMessage } from '@/lib/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
+import { CheckRow } from '@/components/common/checklist-dialog'
+import { CheckboxList } from '@/components/common/checkbox-list'
 import { Label } from '@/components/ui/label'
 
 interface CopierContenuDialogProps {
@@ -189,7 +190,7 @@ export function CopierContenuDialog({
         </div>
       </div>
 
-      <div className="max-h-72 space-y-3 overflow-y-auto rounded-md border p-3">
+      <CheckboxList bordered className="space-y-3">
         {isRoot ? (
           sousCats.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -204,34 +205,32 @@ export function CopierContenuDialog({
               const partiel = cochees > 0 && cochees < gs.length
               return (
                 <div key={sc.id}>
-                  <label className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                    <Checkbox
-                      className="shrink-0"
-                      checked={
-                        selSous.has(sc.id)
-                          ? true
-                          : partiel
-                            ? 'indeterminate'
-                            : false
-                      }
-                      onCheckedChange={() => toggleSous(sc.id)}
-                    />
-                    {sc.nom}
-                  </label>
+                  {/* CheckRow (et non un label recomposé) : elle porte le lien
+                      htmlFor/useId qui rend le libellé cliquable, et accepte
+                      l'état indéterminé — c'est ce qui manquait autrefois et qui
+                      avait justifié ces rangées artisanales. */}
+                  <CheckRow
+                    titre={sc.nom}
+                    className="px-0 py-1 font-medium hover:bg-transparent"
+                    checked={
+                      selSous.has(sc.id)
+                        ? true
+                        : partiel
+                          ? 'indeterminate'
+                          : false
+                    }
+                    onToggle={() => toggleSous(sc.id)}
+                  />
                   {gs.length > 0 && (
                     <div className="mt-1 space-y-1 pl-6">
                       {gs.map((g) => (
-                        <label
+                        <CheckRow
                           key={g.id}
-                          className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground"
-                        >
-                          <Checkbox
-                            className="shrink-0"
-                            checked={selGammes.has(g.id)}
-                            onCheckedChange={() => toggleGamme(g.id)}
-                          />
-                          {g.nom}
-                        </label>
+                          titre={g.nom}
+                          className="px-0 py-1 text-muted-foreground hover:bg-transparent"
+                          checked={selGammes.has(g.id)}
+                          onToggle={() => toggleGamme(g.id)}
+                        />
                       ))}
                     </div>
                   )}
@@ -246,21 +245,17 @@ export function CopierContenuDialog({
         ) : (
           <div className="space-y-1">
             {(gammesDe.get(source?.id ?? '') ?? []).map((g) => (
-              <label
+              <CheckRow
                 key={g.id}
-                className="flex min-w-0 items-center gap-2 text-sm"
-              >
-                <Checkbox
-                  className="shrink-0"
-                  checked={selGammes.has(g.id)}
-                  onCheckedChange={() => toggleGamme(g.id)}
-                />
-                {g.nom}
-              </label>
+                titre={g.nom}
+                className="px-0 py-1 hover:bg-transparent"
+                checked={selGammes.has(g.id)}
+                onToggle={() => toggleGamme(g.id)}
+              />
             ))}
           </div>
         )}
-      </div>
+      </CheckboxList>
     </FormDialog>
   )
 }

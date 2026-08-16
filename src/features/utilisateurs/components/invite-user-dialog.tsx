@@ -10,6 +10,7 @@ import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { Label } from '@/components/ui/label'
 import { CheckRow } from '@/components/common/checklist-dialog'
+import { CheckboxList } from '@/components/common/checkbox-list'
 import { TextField } from '@/components/common/fields/text-field'
 import { SelectField } from '@/components/common/fields/select-field'
 
@@ -96,10 +97,10 @@ export function InviteUserDialog({
               control={form.control}
               name="site_ids"
               render={({ field }) => (
-                <div
+                <CheckboxList
                   role="group"
                   aria-labelledby="invite-sites-label"
-                  className="flex max-h-44 flex-col gap-1 overflow-y-auto rounded-md border border-input p-2"
+                  className="flex flex-col gap-1 rounded-md border border-input p-2"
                 >
                   {sites.map((site) => (
                     // CheckRow (et non un label recomposé) : elle porte le lien
@@ -119,7 +120,7 @@ export function InviteUserDialog({
                       }}
                     />
                   ))}
-                </div>
+                </CheckboxList>
               )}
             />
           )}

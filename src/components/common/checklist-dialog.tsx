@@ -2,6 +2,7 @@ import { useId, useMemo, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { CheckboxList } from '@/components/common/checkbox-list'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DialogShell } from '@/components/common/dialog-shell'
 import { SearchInput } from '@/components/common/search-input'
@@ -258,7 +259,7 @@ export function ChecklistDialog({
         // Première action = chercher : focus d'emblée sur le champ de recherche.
         autoFocus
       />
-      <div className="max-h-72 overflow-y-auto rounded-md border">{corps}</div>
+      <CheckboxList className="rounded-md border">{corps}</CheckboxList>
     </DialogShell>
   )
 }
