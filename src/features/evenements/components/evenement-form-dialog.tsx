@@ -101,63 +101,65 @@ export function EvenementFormDialog({
         // formulaire tient d'un seul regard.
         size="lg"
       >
-        {/* Ordre de lecture : QUOI → QUAND → OÙ → le détail en dernier.
-            La description était auparavant entre la date et le lieu, ce qui
-            coupait le constat de ses circonstances. */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          {/* Titre sur TOUTE la largeur : c'est le champ principal, et le seul
-              en saisie libre longue de la première ligne. Le partager avec la
-              date le bridait à une demi-modale pour rien. */}
-          <div className="sm:col-span-2">
-            <TextField
-              control={form.control}
-              name="titre"
-              label="Que s’est-il passé ?"
-              required
-            />
-          </div>
-          <DateField
+        {/* Deux champs PLEINE LARGEUR (le titre, la description) encadrent un
+            bloc central de quatre champs courts rangés en 2 × 2 :
+
+              Niveau │ Date de l'événement
+              Local  │ Équipement concerné
+
+            La colonne gauche porte la cascade du lieu (du plus large au plus
+            précis), la droite le reste. Chaque ligne est donc pleine — la
+            version précédente alternait une ligne à un champ, une à deux, puis
+            encore une à un. */}
+        <div className="grid gap-4">
+          <TextField
             control={form.control}
-            name="date_evenement"
-            label="Date de l’événement"
+            name="titre"
+            label="Que s’est-il passé ?"
             required
           />
 
-          {/* Lieu à gauche (niveau puis local), équipement à droite : la
-              cascade se lit du plus large au plus précis sans étirer la modale. */}
-          <div className="sm:col-span-2">
-            <LocalEquipementFields
-              siteId={siteId}
-              localId={localId}
-              equipementId={equipementId}
-              onChange={({ localId: l, equipementId: e }) => {
-                form.setValue('local_id', l)
-                form.setValue('equipement_id', e)
-              }}
-              equipementLabel="Équipement concerné"
-              equipementEnAside
-              errors={{
-                local_id: form.formState.errors.local_id?.message,
-                equipement_id: form.formState.errors.equipement_id?.message,
-              }}
-              renderLieu={({ siteId: s, value, onChange, error, aside }) => (
-                <EmplacementSelect
-                  siteId={s}
-                  value={value}
-                  onChange={onChange}
-                  error={error}
-                  aside={aside}
-                  // Le lieu est FACULTATIF pour un événement : on peut consigner
-                  // sans savoir encore où cela s'est produit.
-                  requiredEmplacement={false}
-                />
-              )}
-            />
-          </div>
+          <LocalEquipementFields
+            siteId={siteId}
+            localId={localId}
+            equipementId={equipementId}
+            onChange={({ localId: l, equipementId: e }) => {
+              form.setValue('local_id', l)
+              form.setValue('equipement_id', e)
+            }}
+            equipementLabel="Équipement concerné"
+            equipementEnAside
+            errors={{
+              local_id: form.formState.errors.local_id?.message,
+              equipement_id: form.formState.errors.equipement_id?.message,
+            }}
+            renderLieu={({ siteId: s, value, onChange, error, aside }) => (
+              <EmplacementSelect
+                siteId={s}
+                value={value}
+                onChange={onChange}
+                error={error}
+                // La colonne droite reçoit la date PUIS l'équipement, en regard
+                // de Niveau et Local : c'est ce qui remplit les deux lignes.
+                aside={
+                  <div className="grid gap-4">
+                    <DateField
+                      control={form.control}
+                      name="date_evenement"
+                      label="Date de l’événement"
+                      required
+                    />
+                    {aside}
+                  </div>
+                }
+                // Le lieu est FACULTATIF pour un événement : on peut consigner
+                // sans savoir encore où cela s'est produit.
+                requiredEmplacement={false}
+              />
+            )}
+          />
 
-          <div className="sm:col-span-2">
-            <DescriptionField control={form.control} name="description" />
-          </div>
+          <DescriptionField control={form.control} name="description" />
         </div>
       </FormDialog>
     </Form>
