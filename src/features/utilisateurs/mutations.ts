@@ -2,25 +2,35 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { utilisateursQueries } from './queries'
 import { invokeFunction } from './edge'
-import type { InviteFormValues } from './schemas'
+import type { CreerCompteFormValues } from './schemas'
 import type { Database } from '@/lib/database.types'
 
 type UserUpdate = Database['public']['Tables']['users']['Update']
 
 /**
- * Invitation d'un nouvel utilisateur via l'Edge Function `invite_user`
- * (service_role côté serveur). Le front n'écrit JAMAIS directement dans
- * auth.users ni dans public.users : seul l'Edge Function pose les métadonnées
- * (role, nom_complet, created_by, site_ids) que le trigger consomme.
+ * Création d'un compte via l'Edge Function (service_role côté serveur), avec son
+ * mot de passe. Le front n'écrit JAMAIS directement dans auth.users ni dans
+ * public.users : seule l'Edge Function pose les métadonnées (role, nom_complet,
+ * created_by, site_ids) que le trigger consomme.
+ *
+ * Créer le compte depuis le navigateur serait de toute façon impossible :
+ * `lib/supabase.ts` expose un client UNIQUE et partagé, et un `signUp` y
+ * remplacerait la session de la personne connectée par celle du compte créé.
  */
-export function useInviteUser() {
+export function useCreerCompte() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (values: InviteFormValues): Promise<void> => {
+    mutationFn: async (values: CreerCompteFormValues): Promise<void> => {
+      // Le nom `invite_user` est celui de la fonction DÉPLOYÉE. Elle n'invite
+      // plus depuis l'ADR 0007 ; la renommer imposerait un déploiement en deux
+      // temps sous peine de coupure, pour un gain nul. Ce n'est pas un oubli.
+      //
       // invokeFunction (edge.ts) gère déjà l'inspection de l'erreur HTTP ET du
       // corps `{ error }`, et lève un message lisible.
       await invokeFunction('invite_user', {
         email: values.email.trim().toLowerCase(),
+        // Ni trim ni normalisation : une espace est un caractère de mot de passe.
+        password: values.password,
         role: values.role,
         nom_complet: values.nom_complet.trim(),
         site_ids: values.site_ids,

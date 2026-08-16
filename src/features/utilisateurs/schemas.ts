@@ -99,28 +99,53 @@ export const passwordAvecConfirmation = z
     path: ['password_confirm'],
   })
 
-export const inviteSchema = z.object({
-  email: z
-    .email('Adresse e-mail invalide')
-    .trim()
-    .min(1, 'L’adresse e-mail est obligatoire')
-    .max(255),
-  nom_complet: z
-    .string()
-    .trim()
-    .min(1, 'Le nom complet est obligatoire')
-    .max(200),
-  role: z.enum(ROLE_CODES, { message: 'Choisis un rôle' }),
-  site_ids: z.array(z.uuid()),
-})
+/**
+ * Création d'un compte : identité, accès, et mot de passe posé par la personne
+ * qui crée. Il n'y a plus d'invitation par e-mail — cf. ADR 0007.
+ *
+ * `.check()` plutôt que `.refine()` : le schéma reste un `ZodObject`, donc
+ * `zodResolver` continue de savoir à quel champ rattacher chaque erreur, et le
+ * formulaire garde ses valeurs par défaut typées.
+ */
+export const creerCompteSchema = z
+  .object({
+    email: z
+      .email('Adresse e-mail invalide')
+      .trim()
+      .min(1, 'L’adresse e-mail est obligatoire')
+      .max(255),
+    nom_complet: z
+      .string()
+      .trim()
+      .min(1, 'Le nom complet est obligatoire')
+      .max(200),
+    role: z.enum(ROLE_CODES, { message: 'Choisis un rôle' }),
+    site_ids: z.array(z.uuid()),
+    password: passwordSchema,
+    password_confirm: z.string(),
+  })
+  .check((ctx) => {
+    if (ctx.value.password !== ctx.value.password_confirm) {
+      ctx.issues.push({
+        code: 'custom',
+        message: 'Les deux mots de passe ne correspondent pas.',
+        // Sans ce chemin, l'erreur se pose à la racine : le formulaire refuse de
+        // se soumettre sans qu'aucun message n'apparaisse à l'écran.
+        path: ['password_confirm'],
+        input: ctx.value.password_confirm,
+      })
+    }
+  })
 
-export type InviteFormValues = z.infer<typeof inviteSchema>
+export type CreerCompteFormValues = z.infer<typeof creerCompteSchema>
 
-export const emptyInvite: InviteFormValues = {
+export const emptyCreerCompte: CreerCompteFormValues = {
   email: '',
   nom_complet: '',
   role: 'technicien',
   site_ids: [],
+  password: '',
+  password_confirm: '',
 }
 
 // Format téléphone aligné sur la contrainte CHECK de public.users

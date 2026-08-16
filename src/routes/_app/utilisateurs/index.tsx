@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ShieldOff, User, UserPlus, Users } from 'lucide-react'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
-import { InviteUserDialog } from '@/features/utilisateurs/components/invite-user-dialog'
+import { CreerCompteDialog } from '@/features/utilisateurs/components/creer-compte-dialog'
 import { roleLabel } from '@/features/utilisateurs/schemas'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -33,7 +33,7 @@ function UtilisateursIndexPage() {
   const { data: role, isPending: rolePending } = useCurrentRole()
   const { session } = useAuth()
   const canManage = perm.canManageAdmin(role)
-  const [inviteOpen, setInviteOpen] = useState(false)
+  const [creerOpen, setCreerOpen] = useState(false)
   const [search, setSearch] = useState('')
 
   const query = useQuery({ ...utilisateursQueries.list(), enabled: canManage })
@@ -62,9 +62,9 @@ function UtilisateursIndexPage() {
     )
   }
 
-  const inviteButton = (
-    <Button onClick={() => setInviteOpen(true)}>
-      <UserPlus /> Inviter
+  const creerButton = (
+    <Button onClick={() => setCreerOpen(true)}>
+      <UserPlus /> Nouveau compte
     </Button>
   )
 
@@ -76,9 +76,9 @@ function UtilisateursIndexPage() {
         action={
           <TooltipIconButton
             icon={<UserPlus />}
-            label="Inviter un utilisateur"
+            label="Créer un compte"
             variant="outline"
-            onClick={() => setInviteOpen(true)}
+            onClick={() => setCreerOpen(true)}
           />
         }
       />
@@ -92,8 +92,8 @@ function UtilisateursIndexPage() {
               <EmptyState
                 icon={Users}
                 title="Aucun utilisateur"
-                description="Invite un premier utilisateur pour commencer."
-                action={inviteButton}
+                description="Crée un premier compte pour commencer."
+                action={creerButton}
               />
             )
           }
@@ -159,10 +159,10 @@ function UtilisateursIndexPage() {
         }}
       </QueryState>
 
-      <InviteUserDialog
-        key={inviteOpen ? 'open' : 'closed'}
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
+      <CreerCompteDialog
+        key={creerOpen ? 'open' : 'closed'}
+        open={creerOpen}
+        onOpenChange={setCreerOpen}
         callerRole={role}
       />
     </PageContainer>
