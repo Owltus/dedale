@@ -13,7 +13,11 @@ import {
   rangStatutCapex,
   STATUTS_CAPEX_TERMINAUX,
 } from '@/features/investissements/etat'
-import { ecartCapex, formatEuros } from '@/features/investissements/format'
+import {
+  ecartCapex,
+  formatEuros,
+  montantsLignes,
+} from '@/features/investissements/format'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
@@ -175,7 +179,7 @@ function InvestissementsContent({
                   inv.statut_capex_id,
                   statutNom,
                 )
-                const { label: ecartLabel, depassement } = ecartCapex(inv)
+                const { label: ecartLabel } = ecartCapex(inv)
                 return (
                   <ListRow
                     key={inv.id}
@@ -204,26 +208,27 @@ function InvestissementsContent({
                       </StatusBadge>
                     }
                     meta={
-                      <div className="text-right leading-tight tabular-nums">
-                        <div className="text-xs">
-                          Demandé {formatEuros(inv.montant_demande)}
-                        </div>
-                        <div className="text-xs">
-                          Prévu {formatEuros(inv.montant_prevu)}
-                        </div>
-                        <div className="text-xs">
-                          Réel {formatEuros(inv.depense_reelle)}
-                        </div>
-                        {ecartLabel !== null && (
-                          <div
-                            className={cn(
-                              'text-sm font-medium',
-                              depassement ? 'text-warning' : 'text-foreground',
-                            )}
-                          >
-                            Écart {ecartLabel}
+                      // LARGEUR FIXE (`w-36`) : `badges` et `meta` sont deux
+                      // blocs `shrink-0` côte à côte dans `ListRow`. Sans largeur
+                      // imposée, un montant long pousse le badge vers la gauche et
+                      // les statuts ne s'alignent plus d'une ligne à l'autre — ils
+                      // formaient un escalier.
+                      <div className="w-36 space-y-0.5 text-right leading-tight tabular-nums">
+                        {montantsLignes(inv).map((m) => (
+                          <div key={m.label} className="text-xs">
+                            <span className="text-muted-foreground">
+                              {m.label}{' '}
+                            </span>
+                            <span
+                              className={cn(
+                                'font-medium text-foreground',
+                                m.alerte && 'text-warning',
+                              )}
+                            >
+                              {m.valeur}
+                            </span>
                           </div>
-                        )}
+                        ))}
                       </div>
                     }
                     mobileMeta={[

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Ban, Coins, Paperclip, Pencil, RotateCcw } from 'lucide-react'
+import { Ban, Paperclip, Pencil, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { statutsCapexQueries } from '@/features/investissements/queries'
 import {
@@ -18,7 +18,7 @@ import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
-import { DetailHeaderCard } from '@/components/common/detail-header-card'
+import { cn } from '@/lib/utils'
 import { StatusStepper } from '@/components/common/status-stepper'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
@@ -135,9 +135,53 @@ export function InvestissementDetail({
         }
       />
 
-      {/* Description en tête (sans titre : le contenu parle de lui-même). */}
+      {/* BUDGET EN TÊTE : c'est le sujet d'un investissement, il était relégué en
+          troisième position. Une `Card` ordinaire, et non `DetailHeaderCard` : cette
+          brique est faite pour une entité ILLUSTRÉE (équipement, gamme, prestataire).
+          Un investissement n'a pas de vignette, on lui posait donc une icône de repli
+          dans un carré de 80 px qui ne servait qu'à décaler son contenu de 55 px vers
+          la droite — d'où quatre blocs à quatre indentations différentes sur la fiche.
+
+          Les quatre montants passent sur UNE ligne, dans l'ordre de lecture
+          Demandé → Prévu → Réel → Écart. En deux colonnes, ils s'enchaînaient en
+          zigzag avec 740 px de vide au milieu, et « Prévu » se retrouvait séparé de
+          « Réel » — précisément la comparaison qu'on vient chercher.
+
+          Ici les quatre emplacements sont TOUJOURS rendus, « — » compris : sur un
+          écran de suivi, un montant manquant est une information (contrairement à la
+          liste, qui n'affiche que les montants renseignés). */}
+      <Card className="mb-4">
+        <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+          {[
+            { label: 'Demandé', value: formatEuros(inv.montant_demande) },
+            { label: 'Prévu', value: formatEuros(inv.montant_prevu) },
+            { label: 'Réel', value: formatEuros(inv.depense_reelle) },
+            {
+              label: 'Écart prévu / réel',
+              value: ecartLabel,
+              alerte: depassement,
+            },
+          ].map((m) => (
+            <div key={m.label} className="min-w-0">
+              <div className="truncate text-xs text-muted-foreground">
+                {m.label}
+              </div>
+              <div
+                className={cn(
+                  'truncate font-medium tabular-nums',
+                  m.alerte && 'text-warning',
+                )}
+              >
+                {m.value}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Description (sans titre : le contenu parle de lui-même). */}
       {inv.description?.trim() && (
-        <Card className="mb-6">
+        <Card className="mb-4">
           <CardContent className="text-sm whitespace-pre-wrap">
             {inv.description}
           </CardContent>
@@ -147,7 +191,7 @@ export function InvestissementDetail({
       {/* Suivi : frise d'avancement. Statut LIBRE → toute pastille est cliquable
           (positionne ce statut) ; « Refuser » est en barre de titre. */}
       {etapes && (
-        <Card className="mb-6">
+        <Card className="mb-4">
           <CardContent>
             <StatusStepper
               steps={etapes}
@@ -164,22 +208,6 @@ export function InvestissementDetail({
           </CardContent>
         </Card>
       )}
-
-      {/* Budget : carte d'en-tête partagée (montants + écart coloré si dépassement). */}
-      <DetailHeaderCard
-        columns={2}
-        fallbackIcon={Coins}
-        fields={[
-          { label: 'Demandé', value: formatEuros(inv.montant_demande) },
-          { label: 'Prévu', value: formatEuros(inv.montant_prevu) },
-          { label: 'Réel', value: formatEuros(inv.depense_reelle) },
-          {
-            label: 'Écart prévu / réel',
-            value: ecartLabel,
-            tone: depassement ? 'warning' : undefined,
-          },
-        ]}
-      />
 
       {/* Zone documents : prend EXACTEMENT l'espace restant (flex-1). */}
       <div className="relative flex-1">
