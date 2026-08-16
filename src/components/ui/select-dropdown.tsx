@@ -7,6 +7,16 @@ export interface SelectOption {
   label: string
 }
 
+/**
+ * Sentinelle de l'option NEUTRE (« — Aucun — »). Radix considère `value=""`
+ * comme « rien de choisi » : un item à chaîne vide n'affiche jamais son libellé
+ * une fois sélectionné. On passe donc une valeur non vide au menu et on la
+ * retraduit en `''` vers l'appelant — `''` étant la convention du projet pour
+ * « absence ». SOURCE UNIQUE, partagée par `SelectField` et `StandaloneSelect` :
+ * dupliquée, elle finirait par diverger entre les deux familles de champs.
+ */
+export const SELECT_AUCUN = '__aucun__'
+
 interface SelectDropdownProps {
   value: string
   onValueChange: (value: string) => void
@@ -16,6 +26,12 @@ interface SelectDropdownProps {
   /** Largeur / hauteur du déclencheur (ex. `h-8 w-36`). */
   className?: string
   ariaLabel?: string
+  /**
+   * Id du DÉCLENCHEUR. Indispensable dès qu'un `<Label htmlFor>` visible pointe
+   * sur le champ : sans lui, le libellé ne cible rien et cliquer dessus ne
+   * focalise pas le menu (l'`ariaLabel` seul ne rétablit pas le lien).
+   */
+  id?: string
   /**
    * Affiche la coche à gauche de l'option active (défaut `true`). `false` =
    * l'option active est simplement SURLIGNÉE (fond `accent`), sans coche ni
@@ -44,6 +60,7 @@ export function SelectDropdown({
   ariaLabel,
   checkIndicator = true,
   centered = false,
+  id,
 }: SelectDropdownProps) {
   return (
     <SelectPrimitive.Root
@@ -52,6 +69,7 @@ export function SelectDropdown({
       disabled={disabled}
     >
       <SelectPrimitive.Trigger
+        id={id}
         aria-label={ariaLabel}
         className={cn(
           'flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none data-[placeholder]:text-muted-foreground',

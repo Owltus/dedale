@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   SelectDropdown,
+  SELECT_AUCUN,
   type SelectOption,
 } from '@/components/ui/select-dropdown'
 
@@ -62,6 +63,13 @@ interface StandaloneSelectProps {
   onChange: (value: string) => void
   options: SelectOption[]
   placeholder?: string
+  /**
+   * Ajoute une option neutre EN TÊTE (« Aucun ») réellement SÉLECTIONNABLE, dont
+   * le choix renvoie `''`. À utiliser dès que le champ est facultatif : un
+   * `placeholder` n'est PAS sélectionnable, donc un rattachement fait par erreur
+   * ne pourrait plus être défait depuis l'écran. Miroir de `SelectField`.
+   */
+  optionAucune?: string
   required?: boolean
   disabled?: boolean
   error?: string
@@ -76,6 +84,7 @@ export function StandaloneSelect({
   onChange,
   options,
   placeholder,
+  optionAucune,
   required = false,
   disabled,
   error,
@@ -83,6 +92,11 @@ export function StandaloneSelect({
   className,
 }: StandaloneSelectProps) {
   const fieldId = useId()
+
+  const items = optionAucune
+    ? [{ value: SELECT_AUCUN, label: optionAucune }, ...options]
+    : options
+
   return (
     <Enveloppe
       fieldId={fieldId}
@@ -92,9 +106,10 @@ export function StandaloneSelect({
       hint={hint}
     >
       <SelectDropdown
-        value={value}
-        onValueChange={onChange}
-        options={options}
+        id={fieldId}
+        value={value === '' && optionAucune ? SELECT_AUCUN : value}
+        onValueChange={(v) => onChange(v === SELECT_AUCUN ? '' : v)}
+        options={items}
         placeholder={placeholder}
         disabled={disabled}
         ariaLabel={label}

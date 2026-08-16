@@ -89,7 +89,11 @@ export function LocalEquipementFields({
           value: eq.id ?? '',
           label: eq.nom ?? '',
         }))}
-        placeholder="Aucun"
+        // `optionAucune` et NON `placeholder` : le champ est facultatif (`'' =
+        // aucun` dans les schémas DI et travaux). Un placeholder n'est pas
+        // sélectionnable — un équipement rattaché par erreur ne pourrait plus
+        // être détaché depuis l'écran.
+        optionAucune="Aucun"
       />
     </>
   )
