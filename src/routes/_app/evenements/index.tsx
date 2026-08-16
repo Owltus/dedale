@@ -12,7 +12,7 @@ import {
   STATUTS_EVENEMENTS_TERMINAUX,
 } from '@/features/evenements/etat'
 import { EvenementFormDialog } from '@/features/evenements/components/evenement-form-dialog'
-import { cheminLocal } from '@/features/evenements/format'
+import { cheminLocal, dateAffichee } from '@/features/evenements/format'
 import { PAGE_META } from '@/features/evenements/page-meta'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
@@ -216,12 +216,17 @@ function EvenementsContent({
                         >
                           {statutLabel}
                         </StatusBadge>
+                        {/* La date SUIT le statut affiché juste au-dessus :
+                            clôturé → date de clôture, sinon date de survenue.
+                            Sans cela, un événement clos affichait la date à
+                            laquelle il était arrivé, et le badge démentait la
+                            date. */}
                         <span className="text-xs text-muted-foreground tabular-nums">
-                          {formatDate(ev.date_evenement)}
+                          {formatDate(dateAffichee(ev))}
                         </span>
                       </div>
                     }
-                    mobileMeta={`${statutLabel} · ${formatDate(ev.date_evenement)}`}
+                    mobileMeta={`${statutLabel} · ${formatDate(dateAffichee(ev))}`}
                     menuActions={
                       canManage
                         ? actionsEditionSuppression({
