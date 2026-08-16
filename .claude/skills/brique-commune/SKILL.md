@@ -60,9 +60,27 @@ Créer la brique ne suffit pas — le projet a des briques créées et jamais ad
 - **Ressemblance de surface, divergence de fond** : deux blocs qui se ressemblent aujourd'hui mais obéissent à des règles métier différentes divergeront demain. Une brique paramétrée par cinq drapeaux booléens est un signe qu'il fallait deux composants.
 - **Briques structurellement mono** (un cadran = un graphe, un explorateur = un drill) : légitimes, à marquer comme telles dans le catalogue pour qu'on cesse de les signaler.
 
+## 6. Compter les consommateurs — mesurer, jamais estimer
+
+La colonne « Usages » du catalogue n'a de valeur que si elle est **calculée**. Recopiée d'un plan ou d'une version précédente, elle dérive vite : un audit a trouvé `NoSiteSelected` annoncée à 14 usages pour **1** réel, et deux briques cataloguées à **0** consommateur. Comme c'est cette colonne qui rend la règle D5 applicable, une colonne fausse désarme la règle.
+
+```bash
+# Importeurs réels de chaque brique (imports aliasés ET relatifs), fichier lui-même exclu
+for f in src/components/common/*.tsx src/components/common/fields/*.tsx; do
+  b=$(basename "$f" .tsx)
+  n=$(grep -rlE "from '[^']*/$b'" src/ | grep -v "^$f$" | wc -l)
+  printf "%3d  %s\n" "$n" "$b"
+done | sort -n
+```
+
+Deux pièges de lecture :
+
+- **Un module dont on importe aussi un type** gonfle le chiffre. `site-scoped-route` a 26 importeurs de module pour **15** usages du composant : les 11 autres importent le type `PageMeta`. En cas de doute, compter le symbole : `grep -rl '<MaBrique' src/ | wc -l`.
+- **Un fichier consommé peut contenir un export mort.** `section.tsx` a 2 importeurs, mais ils prennent tous `SectionHeader` — `Section` n'est utilisée nulle part. Le comptage par fichier ne voit pas ça.
+
 ## Vérifier avant de conclure
 
 - `grep` sur l'ancien chemin : plus aucun importeur, et le fichier n'existe plus.
-- La brique est dans le catalogue avec son nombre réel de consommateurs.
+- La brique est dans le catalogue avec son nombre réel de consommateurs, **mesuré** par la commande ci-dessus.
 - Rendu contrôlé sur **deux** consommateurs différents, mobile inclus.
 - `npm run verify`.

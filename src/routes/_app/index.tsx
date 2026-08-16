@@ -43,9 +43,9 @@ function HomePage() {
         // PLANCHER de ~8 lignes par carte : si la fenêtre est trop basse, le tableau
         // dépasse et c'est CE conteneur qui reprend la scrollbar (fill-or-scroll). `pb-6` =
         // marge du bas.
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
+        <ScrollBody className="flex flex-col">
           <Dashboard siteId={activeSiteId} />
-        </div>
+        </ScrollBody>
       ) : (
         <ScrollBody className="pt-6">
           <EmptyState
