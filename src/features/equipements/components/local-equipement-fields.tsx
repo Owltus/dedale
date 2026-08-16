@@ -26,6 +26,8 @@ interface LocalEquipementFieldsProps {
     value: string
     onChange: (localId: string) => void
     error?: string
+    /** Champ Équipement, fourni seulement si `equipementEnAside`. */
+    aside?: ReactNode
   }) => ReactNode
   /** Erreurs de validation par nom de champ de schéma (`local_id` / `equipement_id`). */
   errors?: { local_id?: string; equipement_id?: string }
@@ -36,6 +38,17 @@ interface LocalEquipementFieldsProps {
    * équipement (défaut `false` : il reste actif avec la seule option « Aucun »).
    */
   disableEquipementWhenEmpty?: boolean
+  /**
+   * Rend le champ Équipement DANS le sélecteur de lieu (via son `aside`) plutôt
+   * qu'en dessous. Le lieu occupe alors la colonne gauche, l'équipement la
+   * droite — utile dans un dialogue large, où trois champs empilés étirent la
+   * modale pour rien.
+   *
+   * Défaut `false` : les écrans existants (demandes, travaux) gardent
+   * l'empilement. Suppose un `renderLieu` qui sait placer un `aside`
+   * (`EmplacementSelect` le fait).
+   */
+  equipementEnAside?: boolean
 }
 
 /**
@@ -56,6 +69,7 @@ export function LocalEquipementFields({
   errors,
   equipementLabel = 'Équipement',
   disableEquipementWhenEmpty = false,
+  equipementEnAside = false,
 }: LocalEquipementFieldsProps) {
   const { data: equipements = [] } = useQuery(equipementsQueries.list(siteId))
 
@@ -66,6 +80,28 @@ export function LocalEquipementFields({
     [equipements, localId],
   )
 
+  const champEquipement = (
+    <StandaloneSelect
+      label={equipementLabel}
+      value={equipementId}
+      onChange={(id) => onChange({ localId, equipementId: id })}
+      disabled={
+        localId === '' ||
+        (disableEquipementWhenEmpty && equipementsDuLocal.length === 0)
+      }
+      error={errors?.equipement_id}
+      options={equipementsDuLocal.map((eq) => ({
+        value: eq.id ?? '',
+        label: eq.nom ?? '',
+      }))}
+      // `optionAucune` et NON `placeholder` : le champ est facultatif (`'' =
+      // aucun` dans les schémas DI et travaux). Un placeholder n'est pas
+      // sélectionnable — un équipement rattaché par erreur ne pourrait plus
+      // être détaché depuis l'écran.
+      optionAucune="Aucun"
+    />
+  )
+
   return (
     <>
       {renderLieu({
@@ -74,27 +110,10 @@ export function LocalEquipementFields({
         // Changer de lieu VIDE l'équipement (il doit appartenir au lieu).
         onChange: (id) => onChange({ localId: id, equipementId: '' }),
         error: errors?.local_id,
+        aside: equipementEnAside ? champEquipement : undefined,
       })}
 
-      <StandaloneSelect
-        label={equipementLabel}
-        value={equipementId}
-        onChange={(id) => onChange({ localId, equipementId: id })}
-        disabled={
-          localId === '' ||
-          (disableEquipementWhenEmpty && equipementsDuLocal.length === 0)
-        }
-        error={errors?.equipement_id}
-        options={equipementsDuLocal.map((eq) => ({
-          value: eq.id ?? '',
-          label: eq.nom ?? '',
-        }))}
-        // `optionAucune` et NON `placeholder` : le champ est facultatif (`'' =
-        // aucun` dans les schémas DI et travaux). Un placeholder n'est pas
-        // sélectionnable — un équipement rattaché par erreur ne pourrait plus
-        // être détaché depuis l'écran.
-        optionAucune="Aucun"
-      />
+      {!equipementEnAside && champEquipement}
     </>
   )
 }

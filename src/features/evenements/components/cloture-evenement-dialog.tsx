@@ -79,18 +79,28 @@ export function ClotureEvenementDialog({
         submitLabel={correction ? 'Enregistrer' : 'Clôturer'}
         pendingLabel="Enregistrement…"
         pending={pending}
+        // Même largeur que le dialogue de constat : les deux se répondent, et le
+        // compte-rendu mérite de la place — c'est souvent le champ le plus long
+        // qu'on saisisse sur un événement.
+        size="lg"
       >
-        <DateField
-          control={form.control}
-          name="date_cloture"
-          label="Date de clôture"
-          required
-        />
-        <DescriptionField
-          control={form.control}
-          name="compte_rendu"
-          label="Compte-rendu"
-        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* La date occupe une seule colonne : c'est un champ court, l'étirer
+              sur toute la largeur ne lui donnait rien de plus. */}
+          <DateField
+            control={form.control}
+            name="date_cloture"
+            label="Date de clôture"
+            required
+          />
+          <div className="sm:col-span-2">
+            <DescriptionField
+              control={form.control}
+              name="compte_rendu"
+              label="Compte-rendu"
+            />
+          </div>
+        </div>
       </FormDialog>
     </Form>
   )

@@ -96,43 +96,68 @@ export function EvenementFormDialog({
         submitLabel={isEdit ? 'Enregistrer' : 'Consigner'}
         pendingLabel="Enregistrement…"
         pending={form.formState.isSubmitting}
+        // `lg` : trois champs de lieu empilés dans une modale étroite obligeaient
+        // à faire défiler pour atteindre le bouton. En deux colonnes, le
+        // formulaire tient d'un seul regard.
+        size="lg"
       >
-        <TextField
-          control={form.control}
-          name="titre"
-          label="Que s’est-il passé ?"
-          required
-        />
-        <DateField
-          control={form.control}
-          name="date_evenement"
-          label="Date de l’événement"
-          required
-        />
-        <DescriptionField control={form.control} name="description" />
-
-        <LocalEquipementFields
-          siteId={siteId}
-          localId={localId}
-          equipementId={equipementId}
-          onChange={({ localId: l, equipementId: e }) => {
-            form.setValue('local_id', l)
-            form.setValue('equipement_id', e)
-          }}
-          equipementLabel="Équipement concerné"
-          errors={{
-            local_id: form.formState.errors.local_id?.message,
-            equipement_id: form.formState.errors.equipement_id?.message,
-          }}
-          renderLieu={({ siteId: s, value, onChange, error }) => (
-            <EmplacementSelect
-              siteId={s}
-              value={value}
-              onChange={onChange}
-              error={error}
+        {/* Ordre de lecture : QUOI → QUAND → OÙ → le détail en dernier.
+            La description était auparavant entre la date et le lieu, ce qui
+            coupait le constat de ses circonstances. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Titre et date sur la même ligne : un libellé court à gauche, une
+              date à droite — l'un et l'autre à la mesure de leur contenu. */}
+          <div className="sm:col-span-1">
+            <TextField
+              control={form.control}
+              name="titre"
+              label="Que s’est-il passé ?"
+              required
             />
-          )}
-        />
+          </div>
+          <DateField
+            control={form.control}
+            name="date_evenement"
+            label="Date de l’événement"
+            required
+          />
+
+          {/* Lieu à gauche (niveau puis local), équipement à droite : la
+              cascade se lit du plus large au plus précis sans étirer la modale. */}
+          <div className="sm:col-span-2">
+            <LocalEquipementFields
+              siteId={siteId}
+              localId={localId}
+              equipementId={equipementId}
+              onChange={({ localId: l, equipementId: e }) => {
+                form.setValue('local_id', l)
+                form.setValue('equipement_id', e)
+              }}
+              equipementLabel="Équipement concerné"
+              equipementEnAside
+              errors={{
+                local_id: form.formState.errors.local_id?.message,
+                equipement_id: form.formState.errors.equipement_id?.message,
+              }}
+              renderLieu={({ siteId: s, value, onChange, error, aside }) => (
+                <EmplacementSelect
+                  siteId={s}
+                  value={value}
+                  onChange={onChange}
+                  error={error}
+                  aside={aside}
+                  // Le lieu est FACULTATIF pour un événement : on peut consigner
+                  // sans savoir encore où cela s'est produit.
+                  requiredEmplacement={false}
+                />
+              )}
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <DescriptionField control={form.control} name="description" />
+          </div>
+        </div>
       </FormDialog>
     </Form>
   )
