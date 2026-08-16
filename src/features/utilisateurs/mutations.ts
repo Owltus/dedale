@@ -140,6 +140,28 @@ export function useUnassignSite() {
   })
 }
 
+/**
+ * Redéfinit le mot de passe d'un AUTRE utilisateur (service_role côté serveur).
+ *
+ * Remplace l'ancien envoi de lien par e-mail. Le front ne peut pas le faire
+ * lui-même : `auth.updateUser` n'agit que sur sa propre session.
+ *
+ * Les droits sont portés par l'Edge Function, pas par cet appel : admin sur
+ * tout compte sauf le sien, manager sur ses subordonnés de ses sites. L'interface
+ * ne fait que refléter cette règle — elle ne la fabrique pas.
+ */
+export function useSetUserPassword() {
+  return useMutation({
+    mutationFn: async (p: { userId: string; password: string }) => {
+      await invokeFunction('set_user_password', {
+        user_id: p.userId,
+        password: p.password,
+      })
+    },
+    // Aucune invalidation de cache : un mot de passe n'est lu nulle part.
+  })
+}
+
 /** Change l'e-mail d'un utilisateur via l'Edge Function (service_role, admin). */
 export function useUpdateUserEmail() {
   const qc = useQueryClient()

@@ -94,10 +94,20 @@ export const passwordAvecConfirmation = z
     password: passwordSchema,
     password_confirm: z.string(),
   })
-  .refine((d) => d.password === d.password_confirm, {
-    message: 'Les deux mots de passe ne correspondent pas.',
-    path: ['password_confirm'],
+  .check((ctx) => {
+    if (ctx.value.password !== ctx.value.password_confirm) {
+      ctx.issues.push({
+        code: 'custom',
+        message: 'Les deux mots de passe ne correspondent pas.',
+        path: ['password_confirm'],
+        input: ctx.value.password_confirm,
+      })
+    }
   })
+
+export type PasswordAvecConfirmationValues = z.infer<
+  typeof passwordAvecConfirmation
+>
 
 /**
  * Création d'un compte : identité, accès, et mot de passe posé par la personne

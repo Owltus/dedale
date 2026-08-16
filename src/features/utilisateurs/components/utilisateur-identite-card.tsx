@@ -2,18 +2,25 @@ import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { KeyRound, Mail } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { utilisateursQueries } from '../queries'
-import { useUpdateUser, useUpdateUserEmail } from '../mutations'
-import { profileSchema, roleLabel } from '../schemas'
-import type { ProfileFormValues } from '../schemas'
+import {
+  useSetUserPassword,
+  useUpdateUser,
+  useUpdateUserEmail,
+} from '../mutations'
+import { passwordAvecConfirmation, profileSchema, roleLabel } from '../schemas'
+import type {
+  PasswordAvecConfirmationValues,
+  ProfileFormValues,
+} from '../schemas'
 import type { UserRow } from './utilisateur-types'
-import { supabase } from '@/lib/supabase'
 import { errorMessage, writeErrorMessage } from '@/lib/form'
-import { InfoNote } from '@/components/common/info-note'
 import { TextField } from '@/components/common/fields/text-field'
+import { PasswordField } from '@/components/common/fields/password-field'
+import { PasswordRules } from '@/components/common/password-rules'
 import { Form } from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,6 +53,17 @@ export function IdentityCard({
         {isAdmin && (
           <>
             <EmailBlock userId={user.id} />
+            <div className="h-px bg-border" />
+          </>
+        )}
+
+        {/* Le mot de passe se redéfinit dès qu'on peut éditer le compte, et non
+            seulement en tant qu'admin : un manager dépanne les siens sur ses
+            sites (décision PO). L'autorité reste l'Edge Function — cette
+            condition ne fait que refléter sa règle. */}
+        {canEdit && (
+          <>
+            <PasswordBlock userId={user.id} />
             <div className="h-px bg-border" />
           </>
         )}
@@ -196,19 +214,6 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
   })
   const email = useWatch({ control: form.control, name: 'email' })
 
-  const resetPassword = useMutation({
-    mutationFn: async () => {
-      const { error: err } = await supabase.auth.resetPasswordForEmail(
-        current,
-        {
-          redirectTo: `${window.location.origin}/definir-mot-de-passe`,
-        },
-      )
-      if (err) throw err
-    },
-    onError: (e) => toast.error(errorMessage(e)),
-  })
-
   async function onSubmit(data: EmailFormValues) {
     try {
       await updateEmail.mutateAsync({ userId, email: data.email })
@@ -254,34 +259,84 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
           {updateEmail.isPending ? 'Mise à jour…' : 'Changer l’e-mail'}
         </Button>
       </form>
+    </div>
+  )
+}
 
-      <div className="h-px bg-border" />
+/**
+ * Redéfinition du mot de passe d'un compte, par un administrateur ou par un
+ * manager sur ses subordonnés.
+ *
+ * Il n'y a plus d'envoi de lien : on pose directement le nouveau mot de passe et
+ * on le transmet à la personne (ADR 0007). La phrase « ne peut jamais être lu »
+ * reste vraie et le reste — ce qui change, c'est qu'on peut en poser un nouveau,
+ * pas le consulter.
+ */
+function PasswordBlock({ userId }: { userId: string }) {
+  const setPassword = useSetUserPassword()
 
-      <div className="flex flex-col gap-2">
-        <Label className="font-medium">Mot de passe</Label>
-        <p className="text-xs text-muted-foreground">
-          Le mot de passe ne peut jamais être lu. Envoie à l’utilisateur un lien
-          pour qu’il définisse un nouveau mot de passe.
-        </p>
-        {resetPassword.isSuccess && (
-          <InfoNote icon={Mail}>
-            Lien de réinitialisation envoyé à <strong>{current}</strong>.
-          </InfoNote>
-        )}
+  const form = useForm<PasswordAvecConfirmationValues>({
+    resolver: zodResolver(passwordAvecConfirmation),
+    defaultValues: { password: '', password_confirm: '' },
+  })
+  const password = useWatch({ control: form.control, name: 'password' })
+
+  async function onSubmit(data: PasswordAvecConfirmationValues) {
+    try {
+      await setPassword.mutateAsync({ userId, password: data.password })
+      toast.success('Mot de passe redéfini')
+      // Vider les deux champs : le mot de passe n'a plus à rester à l'écran une
+      // fois posé.
+      form.reset({ password: '', password_confirm: '' })
+    } catch (e) {
+      toast.error(errorMessage(e))
+    }
+  }
+
+  return (
+    <Form {...form}>
+      {/* Formulaire HORS dialogue : l'événement DOIT être transmis à
+          handleSubmit, contrairement aux modales où FormDialog s'en charge. */}
+      <form
+        onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
+        className="flex flex-col gap-3"
+      >
+        <div className="grid gap-1">
+          <Label className="text-base font-semibold">Mot de passe</Label>
+          <p className="text-xs text-muted-foreground">
+            Le mot de passe ne peut jamais être lu. Vous pouvez en définir un
+            nouveau et le transmettre à la personne — aucun e-mail n’est envoyé.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <PasswordField
+            control={form.control}
+            name="password"
+            label="Nouveau mot de passe"
+            autoComplete="new-password"
+            required
+          />
+          <PasswordField
+            control={form.control}
+            name="password_confirm"
+            label="Confirmer"
+            autoComplete="new-password"
+            required
+          />
+        </div>
+        <PasswordRules value={password} />
         <Button
+          type="submit"
           variant="outline"
-          disabled={resetPassword.isPending}
-          onClick={() => resetPassword.mutate()}
+          disabled={setPassword.isPending}
           className="self-start"
         >
           <KeyRound />
-          {resetPassword.isPending
-            ? 'Envoi…'
-            : resetPassword.isSuccess
-              ? 'Renvoyer le lien'
-              : 'Réinitialiser le mot de passe'}
+          {setPassword.isPending
+            ? 'Enregistrement…'
+            : 'Définir le mot de passe'}
         </Button>
-      </div>
-    </div>
+      </form>
+    </Form>
   )
 }
