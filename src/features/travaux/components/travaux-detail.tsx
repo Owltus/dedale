@@ -11,7 +11,11 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { travauxQueries, statutsTravauxQueries } from '../queries'
-import { useChangeStatutTravaux, useDeleteTache } from '../mutations'
+import {
+  useChangeStatutTravaux,
+  useUpdateClotureTravaux,
+  useDeleteTache,
+} from '../mutations'
 import {
   STATUT_ANNULE,
   STATUT_OUVERT,
@@ -62,6 +66,7 @@ export function TravauxDetail({
   const { data: statuts = [] } = useQuery(statutsTravauxQueries.list())
   const tachesQuery = useQuery(travauxQueries.taches(travaux.id))
   const change = useChangeStatutTravaux()
+  const majCloture = useUpdateClotureTravaux()
   const delTache = useDeleteTache()
   // Modale d'édition : useEntityDialog pour sa dialogKey, qui inclut l'état
   // d'ouverture. Une clé constante (key={travaux.id}) laissait react-hook-form
@@ -86,6 +91,10 @@ export function TravauxDetail({
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const etapes = etapesTravaux(travaux.statut_travaux_id, noms)
   const verrouille = estVerrouille(travaux.statut_travaux_id)
+  // Déjà terminé → le dialogue de clôture s'ouvre en CORRECTION (pré-rempli),
+  // et non en clôture : le statut ne bouge pas, seules les deux colonnes de
+  // clôture sont réécrites.
+  const dejaTermine = travaux.statut_travaux_id === STATUT_TERMINE
   const transitions = TRANSITIONS[travaux.statut_travaux_id] ?? []
   const editable = canManage && !verrouille
   const tachesReadOnly = !canManage || verrouille
@@ -113,7 +122,9 @@ export function TravauxDetail({
     <PageContainer className="flex flex-col">
       <PageHeader
         title={travaux.titre}
-        description={`Créé le ${formatDate(travaux.date_demande)}`}
+        // Pas de description ici : la date de création vit dans la carte, en
+        // regard de celle de clôture. La répéter donnerait deux endroits à
+        // corriger pour une seule information (patron de la page Événements).
         breadcrumb={[
           {
             label: 'Travaux',
@@ -181,14 +192,38 @@ export function TravauxDetail({
         }
       />
 
-      {/* Description en tête (sans titre : le contenu parle de lui-même). */}
-      {travaux.description?.trim() && (
-        <Card className="mb-6">
-          <CardContent className="text-sm whitespace-pre-wrap">
-            {travaux.description}
-          </CardContent>
-        </Card>
-      )}
+      {/* DEMANDE — même gabarit que la carte de compte-rendu plus bas : date en
+          en-tête discret, texte en dessous, crayon à droite. Les deux bouts du
+          cycle se lisent pareil, et la frise s'intercale entre eux (patron repris
+          des pages Événements et Investissements). Toujours rendue, description
+          vide comprise : sinon la date de création n'aurait plus d'endroit où
+          vivre — elle était jusqu'ici dans l'en-tête de page. */}
+      <Card className="mb-6">
+        <CardContent className="flex items-start justify-between gap-3 text-sm">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-xs text-muted-foreground">
+              Créé le {formatDate(travaux.date_demande)}
+            </span>
+            <p className="whitespace-pre-wrap">
+              {travaux.description?.trim() ? (
+                travaux.description
+              ) : (
+                <span className="text-muted-foreground">
+                  Aucune description.
+                </span>
+              )}
+            </p>
+          </div>
+          {editable && (
+            <TooltipIconButton
+              icon={<Pencil />}
+              label="Modifier le travaux"
+              variant="ghost"
+              onClick={() => editDialog.openEdit(travaux)}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       {/* Suivi : frise d'avancement. Les pastilles actionnables changent le
           statut directement (clic) ; « Annuler » est en barre de titre. */}
@@ -211,12 +246,39 @@ export function TravauxDetail({
         </Card>
       )}
 
-      {/* Compte-rendu (présent une fois le travaux clôturé). */}
-      {travaux.compte_rendu?.trim() && (
+      {/* CLÔTURE — apparaît dès que le travaux est TERMINÉ. Le libellé porte
+          désormais la date de fin : elle n'était affichée nulle part sur la
+          fiche, alors que c'est l'information qu'on vient y chercher une fois le
+          chantier fini. Le crayon rouvre le dialogue de clôture en mode
+          correction — seul point de la fiche qui reste actif sur un travaux
+          verrouillé, une date ou un compte-rendu erroné devant pouvoir se
+          rattraper sans rouvrir le travaux. */}
+      {travaux.statut_travaux_id === STATUT_TERMINE && (
         <Card className="mb-6">
-          <CardContent className="flex flex-col gap-1 text-sm">
-            <span className="text-xs text-muted-foreground">Compte-rendu</span>
-            <p className="whitespace-pre-wrap">{travaux.compte_rendu}</p>
+          <CardContent className="flex items-start justify-between gap-3 text-sm">
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-xs text-muted-foreground">
+                Terminé
+                {travaux.date_fin ? ` le ${formatDate(travaux.date_fin)}` : ''}
+              </span>
+              <p className="whitespace-pre-wrap">
+                {travaux.compte_rendu?.trim() ? (
+                  travaux.compte_rendu
+                ) : (
+                  <span className="text-muted-foreground">
+                    Aucun compte-rendu.
+                  </span>
+                )}
+              </p>
+            </div>
+            {canManage && (
+              <TooltipIconButton
+                icon={<Pencil />}
+                label="Modifier la clôture"
+                variant="ghost"
+                onClick={() => setClotureOpen(true)}
+              />
+            )}
           </CardContent>
         </Card>
       )}
@@ -322,11 +384,46 @@ export function TravauxDetail({
         destructive
       />
 
+      {/* Un seul dialogue pour clôturer ET corriger : `initial` absent = on
+          clôture (transition de statut, le trigger pose cloture_by), présent =
+          on corrige (UPDATE des seules colonnes de clôture, statut intact). */}
       <ClotureDialog
         key={clotureOpen ? 'open' : 'closed'}
         open={clotureOpen}
         onOpenChange={setClotureOpen}
-        travauxId={travaux.id}
+        pending={change.isPending || majCloture.isPending}
+        dateDemande={travaux.date_demande}
+        initial={
+          dejaTermine
+            ? {
+                date_fin: travaux.date_fin,
+                compte_rendu: travaux.compte_rendu,
+              }
+            : undefined
+        }
+        onConfirm={({ date_fin, compte_rendu }) => {
+          const onSuccess = () => {
+            toast.success(dejaTermine ? 'Clôture modifiée' : 'Travaux clôturé')
+            setClotureOpen(false)
+          }
+          const onError = (e: unknown) => toast.error(writeErrorMessage(e))
+          if (dejaTermine) {
+            majCloture.mutate(
+              { id: travaux.id, dateFin: date_fin, compteRendu: compte_rendu },
+              { onSuccess, onError },
+            )
+            return
+          }
+          change.mutate(
+            {
+              id: travaux.id,
+              statutId: STATUT_TERMINE,
+              compteRendu: compte_rendu,
+              dateFin: date_fin,
+            },
+            { onSuccess, onError },
+          )
+        }}
       />
 
       {/* Unique dialog des transitions de statut du travaux (« Annuler »…). */}

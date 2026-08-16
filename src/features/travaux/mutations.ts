@@ -84,8 +84,13 @@ export function useDeleteTravaux() {
 /**
  * Transition d'état via UPDATE du statut_travaux_id. Le passage « Terminé »
  * exige un compte_rendu : il est envoyé avec le changement. Le trigger backend
- * force cloture_by / date_fin et refuse une transition interdite — on laisse
- * l'erreur remonter pour l'afficher.
+ * force cloture_by et refuse une transition interdite — on laisse l'erreur
+ * remonter pour l'afficher.
+ *
+ * `dateFin` est FACULTATIVE et n'est envoyée qu'à la clôture : le trigger fait
+ * `COALESCE(NEW.date_fin, current_date)`, donc une date fournie est conservée et
+ * l'absence de date retombe sur le jour même. On ne la passe jamais sur les
+ * autres transitions — le trigger l'efface lui-même à la réouverture.
  */
 export function useChangeStatutTravaux() {
   const qc = useQueryClient()
@@ -94,20 +99,64 @@ export function useChangeStatutTravaux() {
       id,
       statutId,
       compteRendu,
+      dateFin,
     }: {
       id: string
       statutId: number
       compteRendu?: string
+      dateFin?: string
     }) => {
-      const patch: { statut_travaux_id: number; compte_rendu?: string } = {
+      const patch: {
+        statut_travaux_id: number
+        compte_rendu?: string
+        date_fin?: string
+      } = {
         statut_travaux_id: statutId,
       }
       if (compteRendu !== undefined) {
         patch.compte_rendu = compteRendu.trim()
       }
+      if (dateFin !== undefined) {
+        patch.date_fin = dateFin
+      }
       const { data } = await supabase
         .from('interventions_travaux')
         .update(patch)
+        .eq('id', id)
+        .select()
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
+  })
+}
+
+/**
+ * CORRIGE une clôture déjà enregistrée : date de fin et/ou compte-rendu, sans
+ * toucher au statut.
+ *
+ * Ne pas passer par `useChangeStatutTravaux` est délibéré : les deux triggers de
+ * clôture sont déclarés `BEFORE UPDATE OF statut_travaux_id`, donc réécrire le
+ * statut à sa propre valeur les réveillerait pour rien. Ici la colonne de statut
+ * n'est pas dans le patch — aucun trigger ne se déclenche, et la correction ne
+ * peut pas se transformer en re-clôture qui écraserait `cloture_by`.
+ */
+export function useUpdateClotureTravaux() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      dateFin,
+      compteRendu,
+    }: {
+      id: string
+      dateFin: string
+      compteRendu: string
+    }) => {
+      const { data } = await supabase
+        .from('interventions_travaux')
+        .update({ date_fin: dateFin, compte_rendu: compteRendu.trim() })
         .eq('id', id)
         .select()
         .single()

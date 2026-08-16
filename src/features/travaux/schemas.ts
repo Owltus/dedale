@@ -87,8 +87,21 @@ export function emptyTache(): TacheFormValues {
   return { local_id: '', equipement_id: '' }
 }
 
-// Compte-rendu obligatoire au passage « Terminé » (contrôlé aussi par trigger).
-export const compteRenduSchema = z.object({
+/**
+ * Clôture d'un travaux : date de fin + compte-rendu.
+ *
+ * **Le compte-rendu reste OBLIGATOIRE ici**, à la différence des événements et
+ * des investissements où il est facultatif : le trigger
+ * `validation_travaux_compte_rendu` refuse le passage à « Terminé » sans texte.
+ * Le front reflète la règle de la base, il ne l'invente pas.
+ *
+ * La date, elle, devient saisissable : le trigger `set_travaux_cloture_by` fait
+ * `COALESCE(NEW.date_fin, current_date)`, donc il respecte une date fournie et
+ * ne met le jour même qu'à défaut. On clôture souvent après coup — sans ce
+ * champ, la fin d'un travaux prenait la date du jour de la saisie.
+ */
+export const clotureTravauxSchema = z.object({
+  date_fin: z.string().min(1, 'La date de fin est obligatoire'),
   compte_rendu: z
     .string()
     .trim()
@@ -96,4 +109,4 @@ export const compteRenduSchema = z.object({
     .max(5000),
 })
 
-export type CompteRenduFormValues = z.infer<typeof compteRenduSchema>
+export type ClotureTravauxFormValues = z.infer<typeof clotureTravauxSchema>

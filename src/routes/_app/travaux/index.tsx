@@ -12,6 +12,7 @@ import {
   STATUTS_TRAVAUX_TERMINAUX,
 } from '@/features/travaux/etat'
 import { estVerrouille } from '@/features/travaux/schemas'
+import { dateAffichee } from '@/features/travaux/format'
 import { TravauxFormDialog } from '@/features/travaux/components/travaux-form-dialog'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
@@ -218,26 +219,28 @@ function TravauxContent({
                         },
                       })
                     }
-                    badges={
-                      <StatusBadge
-                        tone={statutTravauxTone(c.statut_travaux_id)}
-                      >
-                        {statutLabel}
-                      </StatusBadge>
-                    }
+                    // UN SEUL bloc à droite, empilé dans une colonne de largeur
+                    // fixe : statut au-dessus, date en dessous. `badges` et
+                    // `meta` étaient deux blocs CÔTE À CÔTE, et la largeur du
+                    // second suivait celle des dates — un travaux terminé, qui
+                    // en affichait deux, poussait son badge plus à gauche que
+                    // les autres. Empilés, les deux colonnes s'alignent par
+                    // construction (patron Événements / Investissements).
                     meta={
-                      <div className="text-right leading-tight tabular-nums">
-                        <div className="text-xs">
-                          Créé le {formatDate(c.date_demande)}
-                        </div>
-                        {c.date_fin && (
-                          <div className="text-xs">
-                            Terminé le {formatDate(c.date_fin)}
-                          </div>
-                        )}
+                      <div className="flex w-32 flex-col items-end gap-1">
+                        <StatusBadge
+                          tone={statutTravauxTone(c.statut_travaux_id)}
+                        >
+                          {statutLabel}
+                        </StatusBadge>
+                        {/* La date SUIT le statut affiché au-dessus : terminé →
+                            date de fin, sinon date de création. */}
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {formatDate(dateAffichee(c))}
+                        </span>
                       </div>
                     }
-                    mobileMeta={statutLabel}
+                    mobileMeta={`${statutLabel} · ${formatDate(dateAffichee(c))}`}
                     menuActions={rowActions.length ? rowActions : undefined}
                   />
                 )

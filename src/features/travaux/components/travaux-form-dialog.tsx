@@ -78,9 +78,17 @@ export function TravauxFormDialog({
         submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
         pendingLabel="Enregistrement…"
         pending={form.formState.isSubmitting}
+        // Pas de grille à deux colonnes ici : les deux champs sont de la saisie
+        // libre, ils prennent donc toute la largeur (patron de dimensionnement).
+        // C'est la LARGEUR du dialogue qui manquait.
+        size="lg"
       >
         <TextField control={form.control} name="titre" label="Titre" required />
-        <DescriptionField control={form.control} name="description" />
+        {/* La description d'un travaux n'est pas un champ d'appoint : on y
+            consigne le déroulé du chantier, souvent sur plusieurs lignes
+            (livraison, mise en service, enlèvement…). Deux lignes obligeaient à
+            se relire par une fente. */}
+        <DescriptionField control={form.control} name="description" rows={5} />
       </FormDialog>
     </Form>
   )
