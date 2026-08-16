@@ -245,13 +245,18 @@ export function InvestissementDetail({
           une information (contrairement à la liste, qui n'affiche que les
           montants renseignés).
 
-          Hauteur NATURELLE des deux cartes : c'est la page qui défile. */}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <Card className="gap-3 py-4">
+          La ligne prend la hauteur RESTANTE de la fiche, pour que la page se
+          déploie jusqu'en bas au lieu de laisser un vide sous les cartes, et les
+          deux cartes font la MÊME hauteur (`stretch`, le défaut de la grille) —
+          une carte courte à côté d'une longue était le « un coup petit, un coup
+          grand » de cet écran. Sous `lg`, hauteur naturelle et défilement de
+          page, comme le reste du mobile-first. */}
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-2">
+        <Card className="flex flex-col gap-3 py-4">
           <CardHeader>
             <CardTitle className="text-base">Budget</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3">
+          <CardContent className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-x-6 gap-y-3 overflow-y-auto">
             {[
               { label: 'Demandé', value: formatEuros(inv.montant_demande) },
               { label: 'Prévu', value: formatEuros(inv.montant_prevu) },
@@ -282,11 +287,11 @@ export function InvestissementDetail({
         {/* DOCUMENTS — une carte comme les autres. La liste vivait jusqu'ici à nu
             sur le fond de page : elle ne se rattachait visuellement à rien et ne
             disait pas ce qu'elle était. */}
-        <Card className="relative gap-3 py-4">
+        <Card className="relative flex flex-col gap-3 py-4">
           <CardHeader>
             <CardTitle className="text-base">Documents</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-h-0 flex-1 overflow-y-auto">
             <DocumentsTab
               liaison="documents_investissements"
               parentColumn="investissement_id"

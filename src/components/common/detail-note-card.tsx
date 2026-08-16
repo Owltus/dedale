@@ -49,20 +49,25 @@ export function DetailNoteCard({
   className,
 }: DetailNoteCardProps) {
   return (
-    <Card className={cn('gap-3 py-4', className)}>
-      {/* `gap-3 py-4` plutôt que le `gap-6 py-6` par défaut : l'écart standard
-          sépare des SECTIONS d'une carte riche. Ici l'en-tête et le texte sont
-          la même information — les éloigner de 24 px les faisait lire comme
-          deux blocs sans rapport. */}
+    // `gap-3 py-4` plutôt que le `gap-6 py-6` par défaut : l'écart standard
+    // sépare des SECTIONS d'une carte riche. Ici l'en-tête et le texte sont la
+    // même information — les éloigner de 24 px les faisait lire comme deux blocs
+    // sans rapport. Ce gabarit est celui de TOUTES les cartes des fiches détail.
+    <Card className={cn('flex flex-col gap-3 py-4', className)}>
       <CardHeader>
-        {/* Titre volontairement discret (taille et couleur d'une légende) : il
-            annonce le texte, il ne rivalise pas avec le titre de la page. */}
-        <CardTitle className="text-xs font-medium text-muted-foreground">
-          {label}
-        </CardTitle>
+        {/* MÊME gabarit de titre que les autres cartes de la fiche (`text-base`,
+            le standard de l'app). Il était auparavant rendu en légende grise
+            minuscule : sur une fiche qui aligne aussi « Budget » et
+            « Documents » en titres pleins, deux niveaux d'en-tête coexistaient
+            et la page paraissait faite de deux jeux de cartes différents. La
+            date EST le titre de cette carte — elle mérite ce poids. */}
+        <CardTitle className="text-base">{label}</CardTitle>
         {action && <CardAction>{action}</CardAction>}
       </CardHeader>
-      <CardContent className="text-sm whitespace-pre-wrap">
+      {/* Le texte défile DANS la carte quand la place manque, au lieu d'en
+          sortir : deux cartes voisines gardent ainsi la même hauteur quelle que
+          soit la longueur de leur contenu. */}
+      <CardContent className="min-h-0 flex-1 overflow-y-auto text-sm whitespace-pre-wrap">
         {text?.trim() ? (
           text
         ) : (

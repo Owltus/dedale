@@ -202,16 +202,19 @@ export function EvenementDetail({
           notes. La liste vivait jusqu'ici à nu sur le fond de page : elle ne se
           rattachait visuellement à rien et ne disait pas ce qu'elle était.
 
-          Hauteur NATURELLE, surtout pas `flex-1` : contrainte à la hauteur
-          restante sans zone de défilement, la carte se réduisait sous son propre
-          contenu et les documents sortaient par le bas, posés sur le fond de page
-          hors de toute bordure. C'est la PAGE qui défile ; une carte se
-          dimensionne sur ce qu'elle contient. */}
-      <Card className="relative gap-3 py-4">
+          Elle prend la hauteur RESTANTE de la fiche (`lg:flex-1`), pour que la
+          page se déploie jusqu'en bas au lieu de laisser un vide sous les
+          cartes. Son contenu défile À L'INTÉRIEUR (`overflow-y-auto` sur le
+          `CardContent`) : c'est ce qui manquait à ma première version, où la
+          carte était contrainte en hauteur sans zone défilante — elle se
+          réduisait sous son propre contenu et les documents sortaient par le bas,
+          hors de toute bordure. Sous `lg`, hauteur naturelle et défilement de
+          page, comme le reste du mobile-first. */}
+      <Card className="relative flex flex-col gap-3 py-4 lg:min-h-0 lg:flex-1">
         <CardHeader>
           <CardTitle className="text-base">Documents</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           <DocumentsTab
             liaison="documents_evenements"
             parentColumn="evenement_id"

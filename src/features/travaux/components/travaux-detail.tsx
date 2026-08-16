@@ -274,13 +274,17 @@ export function TravauxDetail({
           descendre les documents sous la ligne de flottaison alors que la moitié
           droite de l'écran était vide.
 
-          Les deux cartes prennent leur hauteur NATURELLE : c'est la page qui
-          défile. Contraintes à la hauteur restante sans zone de défilement, elles
-          se réduisaient sous leur propre contenu et les rangées sortaient par le
-          bas, posées sur le fond de page hors de toute bordure. */}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+          La ligne prend la hauteur RESTANTE de la fiche, pour que la page se
+          déploie jusqu'en bas au lieu de laisser un vide sous les cartes, et les
+          deux cartes font la MÊME hauteur (`stretch`, le défaut de la grille).
+          Chacune défile à l'intérieur : c'est ce qui manquait à ma première
+          version, où elles étaient contraintes en hauteur sans zone défilante —
+          elles se réduisaient sous leur propre contenu et les rangées sortaient
+          par le bas, hors de toute bordure. Sous `lg`, hauteur naturelle et
+          défilement de page, comme le reste du mobile-first. */}
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-2">
         {/* Zones concernées : locaux/équipements liés au travaux + statut. */}
-        <Card className="gap-3 py-4">
+        <Card className="flex flex-col gap-3 py-4">
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
             <CardTitle className="text-base">Zones concernées</CardTitle>
             {!tachesReadOnly && (
@@ -292,7 +296,7 @@ export function TravauxDetail({
               />
             )}
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-h-0 flex-1 overflow-y-auto">
             <QueryState
               query={tachesQuery}
               pending={
@@ -339,11 +343,11 @@ export function TravauxDetail({
         {/* DOCUMENTS — une carte comme les autres. La liste vivait jusqu'ici à nu
             sur le fond de page : elle ne se rattachait visuellement à rien et ne
             disait pas ce qu'elle était. */}
-        <Card className="relative gap-3 py-4">
+        <Card className="relative flex flex-col gap-3 py-4">
           <CardHeader>
             <CardTitle className="text-base">Documents</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-h-0 flex-1 overflow-y-auto">
             <DocumentsTab
               liaison="documents_interventions_travaux"
               parentColumn="travaux_id"
