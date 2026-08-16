@@ -281,7 +281,11 @@ function EquipementsTab({
     <>
       <QueryState
         query={liesQuery}
-        pending={<ListRowSkeletons size="fine" count={3} />}
+        // Les `ListRow` ci-dessous ne passent pas de `size` : elles sont donc en
+        // `md` (h-20). Le squelette annonçait `fine` (h-12) — 32 px d'écart par
+        // ligne au chargement. Conversion mécanique `dense` → `fine` qui avait
+        // reconduit le défaut au lieu de le corriger.
+        pending={<ListRowSkeletons count={3} />}
       >
         {() =>
           lies.length === 0 ? (

@@ -15,7 +15,7 @@ import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { EmptyState } from '@/components/common/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/common/status-badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { DetailSkeleton } from '@/components/common/detail-skeleton'
 
 export function UtilisateurDetail({
   userId,
@@ -38,7 +38,9 @@ export function UtilisateurDetail({
   if (isPending) {
     return (
       <PageContainer>
-        <Skeleton className="h-8 w-48" />
+        {/* Fiche, pas une ligne de titre : le squelette annonçait une seule
+            barre de 48 px de large alors que la page rend des cartes. */}
+        <DetailSkeleton headerCard={false} blocs={2} />
       </PageContainer>
     )
   }

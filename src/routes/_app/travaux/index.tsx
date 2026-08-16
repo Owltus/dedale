@@ -132,7 +132,7 @@ function TravauxContent({
 
       <QueryState
         query={query}
-        pending={<ListRowSkeletons count={4} />}
+        pending={<ListRowSkeletons />}
         empty={
           <EmptyState
             icon={HardHat}

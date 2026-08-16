@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label'
 import { Form } from '@/components/ui/form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DetailSkeleton } from '@/components/common/detail-skeleton'
 
 export const Route = createFileRoute('/_app/profil')({
   // Pas de requireNav : « Mon profil » est accessible à tout rôle connecté
@@ -71,7 +72,9 @@ function ProfilPage() {
       />
       <>
         {isPending || telPending ? (
-          <Skeleton className="h-64 w-full" />
+          // Fiche (cartes), pas une liste : `DetailSkeleton` annonce la carte
+          // d'en-tête puis les blocs, au lieu d'un pavé gris de hauteur fixe.
+          <DetailSkeleton headerCard={false} blocs={3} />
         ) : !me ? (
           <EmptyState title="Profil introuvable" />
         ) : (

@@ -8,7 +8,7 @@ import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
-import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { DetailSkeleton } from '@/components/common/detail-skeleton'
 
 interface SlugDetailRouteProps<
   TItem extends { id: string },
@@ -96,7 +96,9 @@ export function SlugDetailRoute<
     return (
       <PageContainer>
         <PageHeader title={title} onBack={onBack} />
-        <ListRowSkeletons count={3} />
+        {/* Une FICHE se charge, pas une liste : `ListRowSkeletons` annonçait ici
+            des lignes de liste pour une page qui rend des cartes. */}
+        <DetailSkeleton />
       </PageContainer>
     )
   }

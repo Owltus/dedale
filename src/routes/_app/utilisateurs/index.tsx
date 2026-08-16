@@ -83,7 +83,7 @@ function UtilisateursIndexPage() {
         }
       />
 
-      <QueryState query={query} pending={<ListRowSkeletons count={4} />}>
+      <QueryState query={query} pending={<ListRowSkeletons />}>
         {(allUsers) => {
           // On ne se liste jamais soi-même : son profil se gère depuis la sidebar.
           const users = allUsers.filter((u) => u.id !== session?.user.id)

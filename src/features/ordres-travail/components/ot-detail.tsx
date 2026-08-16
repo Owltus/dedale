@@ -31,7 +31,8 @@ import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import type { Database } from '@/lib/database.types'
-import { Skeleton } from '@/components/ui/skeleton'
+import { DetailSkeleton } from '@/components/common/detail-skeleton'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { PageContainer } from '@/components/common/page-container'
 import {
@@ -206,7 +207,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
           title="Ordre de travail"
           onBack={() => void navigate({ to: '/ordres-travail' })}
         />
-        <Skeleton className="h-96" />
+        <DetailSkeleton />
       </PageContainer>
     )
   }
@@ -464,9 +465,9 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
             {actif === 'operations' ? (
               operationsQuery.isPending ? (
                 <div className="flex flex-col gap-2">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-20" />
-                  ))}
+                  {/* Les opérations sont des lignes : la brique de liste les
+                      annonce à la bonne hauteur, au lieu d'une boucle maison. */}
+                  <ListRowSkeletons count={3} />
                 </div>
               ) : operationsQuery.isError ? (
                 <ErrorState onRetry={() => void operationsQuery.refetch()} />

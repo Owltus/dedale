@@ -163,7 +163,7 @@ function DemandesContent({
 
       <QueryState
         query={query}
-        pending={<ListRowSkeletons count={4} />}
+        pending={<ListRowSkeletons />}
         empty={
           <EmptyState
             icon={ClipboardList}

@@ -39,7 +39,7 @@ import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
-import { CardSkeletons } from '@/components/common/card-skeletons'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -238,11 +238,10 @@ export function TravauxDetail({
           <QueryState
             query={tachesQuery}
             pending={
-              <CardSkeletons
-                count={3}
-                height="h-14"
-                container="flex flex-col gap-2"
-              />
+              // Les tâches sont des LIGNES (h-14), pas une grille de cartes :
+              // `CardSkeletons` était détourné avec `container="flex flex-col"`
+              // pour le simuler. `size="sm"` = h-14, depuis MEDIA_HEIGHT.
+              <ListRowSkeletons count={3} size="sm" />
             }
             empty={
               <EmptyState

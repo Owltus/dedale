@@ -19,6 +19,7 @@ import { ContratFormDialog } from './contrat-form-dialog'
 import { ContratAvenantDialog } from './contrat-avenant-dialog'
 import { ContratResilierDialog } from './contrat-resilier-dialog'
 import { ContratCard } from './contrat-card'
+import { ContratCardSkeleton } from './contrat-card-skeleton'
 import { ContratVersionsHistorique } from './contrat-versions-historique'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { OtCard } from '@/features/ordres-travail/components/ot-card'
@@ -319,7 +320,7 @@ function ContratsPanel({
   return (
     <QueryState
       query={query}
-      pending={<ListRowSkeletons count={2} />}
+      pending={<ContratCardSkeleton count={2} />}
       empty={
         <EmptyState
           icon={FileText}
@@ -493,7 +494,9 @@ function OtDocumentsPanel({
   return (
     <QueryState
       query={query}
-      pending={<ListRowSkeletons count={4} />}
+      // `size="sm"` : `DocumentsListe` rend des `DocumentRow`, dont le défaut
+      // est `sm` (h-14). Le défaut du squelette est `md` (h-20) → 24 px d'écart.
+      pending={<ListRowSkeletons size="sm" count={4} />}
       empty={
         <EmptyState
           icon={FileText}
