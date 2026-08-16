@@ -98,6 +98,10 @@ export function ClotureEvenementDialog({
               control={form.control}
               name="compte_rendu"
               label="Compte-rendu"
+              // Le compte-rendu est le SUJET de ce dialogue — la date tient sur
+              // une ligne, tout le reste de la place lui revient. Sur deux
+              // lignes, un texte d'intervention se lisait par la fenêtre.
+              rows={8}
             />
           </div>
         </div>

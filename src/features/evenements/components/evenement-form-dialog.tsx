@@ -159,7 +159,13 @@ export function EvenementFormDialog({
             )}
           />
 
-          <DescriptionField control={form.control} name="description" />
+          {/* Plus haut que le défaut de l'app : c'est ici qu'on décrit ce qui
+              s'est passé, et le formulaire a la place. */}
+          <DescriptionField
+            control={form.control}
+            name="description"
+            rows={5}
+          />
         </div>
       </FormDialog>
     </Form>
