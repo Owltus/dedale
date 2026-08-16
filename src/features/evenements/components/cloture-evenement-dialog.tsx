@@ -14,6 +14,12 @@ interface ClotureEvenementDialogProps {
   pending: boolean
   /** Date de l'événement : une clôture ne peut pas la précéder. */
   dateEvenement: string
+  /**
+   * Valeurs déjà enregistrées. Absentes = on clôture ; présentes = on CORRIGE
+   * une clôture existante. Le même dialogue sert aux deux : ce sont les mêmes
+   * champs, et en faire deux composants les aurait fait diverger.
+   */
+  initial?: { date_cloture: string | null; compte_rendu: string | null }
   onConfirm: (values: ClotureFormValues) => void
 }
 
@@ -37,13 +43,16 @@ export function ClotureEvenementDialog({
   onOpenChange,
   pending,
   dateEvenement,
+  initial,
   onConfirm,
 }: ClotureEvenementDialogProps) {
+  const correction = initial !== undefined
+
   const form = useForm<ClotureFormValues>({
     resolver: zodResolver(clotureSchema),
     defaultValues: {
-      date_cloture: isoLocale(new Date()),
-      compte_rendu: '',
+      date_cloture: initial?.date_cloture ?? isoLocale(new Date()),
+      compte_rendu: initial?.compte_rendu ?? '',
     },
   })
 
@@ -52,7 +61,7 @@ export function ClotureEvenementDialog({
       <FormDialog
         open={open}
         onOpenChange={onOpenChange}
-        title="Clôturer l’événement"
+        title={correction ? 'Modifier la clôture' : 'Clôturer l’événement'}
         description="Ce qui a été fait, ou pourquoi il n’y avait rien à faire. Le compte-rendu est facultatif."
         onSubmit={() =>
           void form.handleSubmit((data) => {
@@ -67,8 +76,8 @@ export function ClotureEvenementDialog({
             onConfirm(data)
           })()
         }
-        submitLabel="Clôturer"
-        pendingLabel="Clôture…"
+        submitLabel={correction ? 'Enregistrer' : 'Clôturer'}
+        pendingLabel="Enregistrement…"
         pending={pending}
       >
         <DateField

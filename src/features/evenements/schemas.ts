@@ -5,8 +5,10 @@ import { z } from 'zod'
 // les demandes d'intervention. On peut rouvrir un événement clôturé.
 export const STATUT_OUVERT = 1
 export const STATUT_EN_COURS = 2
-export const STATUT_EN_ATTENTE = 3
 export const STATUT_CLOTURE = 4
+// L'id 3 (« En attente ») a été retiré du cycle (migration 078) : il doublonnait
+// « En cours » à l'usage. L'id 4 reste celui de « Clôturé » — les ids sont
+// STABLES, on ne les renumérote pas sous peine de réécrire les lignes existantes.
 
 export const evenementSchema = z.object({
   titre: z.string().trim().min(1, 'Le titre est obligatoire').max(200),

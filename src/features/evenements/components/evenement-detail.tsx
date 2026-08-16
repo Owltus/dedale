@@ -146,14 +146,36 @@ export function EvenementDetail({
         </Card>
       )}
 
-      {ev.compte_rendu?.trim() && (
+      {/* La carte apparaît dès que l'événement est CLÔTURÉ, même sans
+          compte-rendu (il est facultatif) : sans elle, la date de clôture ne
+          serait ni visible ni corrigible. Le bouton rouvre le même dialogue, en
+          mode correction — c'est le seul endroit où l'on édite une clôture. */}
+      {ev.statut_evenement_id === STATUT_CLOTURE && (
         <Card className="mb-4">
-          <CardContent className="flex flex-col gap-1 text-sm">
-            <span className="text-xs text-muted-foreground">
-              Compte-rendu de clôture
-              {ev.date_cloture ? ` — ${formatDate(ev.date_cloture)}` : ''}
-            </span>
-            <p className="whitespace-pre-wrap">{ev.compte_rendu}</p>
+          <CardContent className="flex items-start justify-between gap-3 text-sm">
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-xs text-muted-foreground">
+                Clôturé
+                {ev.date_cloture ? ` le ${formatDate(ev.date_cloture)}` : ''}
+              </span>
+              <p className="whitespace-pre-wrap">
+                {ev.compte_rendu?.trim() ? (
+                  ev.compte_rendu
+                ) : (
+                  <span className="text-muted-foreground">
+                    Aucun compte-rendu.
+                  </span>
+                )}
+              </p>
+            </div>
+            {canManage && (
+              <TooltipIconButton
+                icon={<Pencil />}
+                label="Modifier la clôture"
+                variant="ghost"
+                onClick={() => cloture.openEdit(ev)}
+              />
+            )}
           </CardContent>
         </Card>
       )}
@@ -189,6 +211,15 @@ export function EvenementDetail({
             onOpenChange={cloture.onOpenChange}
             pending={change.isPending}
             dateEvenement={ev.date_evenement}
+            // Déjà clôturé → le dialogue s'ouvre pré-rempli, en correction.
+            initial={
+              ev.statut_evenement_id === STATUT_CLOTURE
+                ? {
+                    date_cloture: ev.date_cloture,
+                    compte_rendu: ev.compte_rendu,
+                  }
+                : undefined
+            }
             onConfirm={({ date_cloture, compte_rendu }) => {
               change.mutate(
                 {
@@ -203,7 +234,13 @@ export function EvenementDetail({
                 },
                 {
                   onSuccess: () => {
-                    toast.success('Événement clôturé')
+                    // Le message dit ce qui vient de se passer : on ne clôture
+                    // pas deux fois le même événement.
+                    toast.success(
+                      ev.statut_evenement_id === STATUT_CLOTURE
+                        ? 'Clôture modifiée'
+                        : 'Événement clôturé',
+                    )
                     cloture.onOpenChange(false)
                   },
                   onError: (e) => toast.error(writeErrorMessage(e)),
