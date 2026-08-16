@@ -32,7 +32,7 @@ import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import {
   matchStatutFilter,
   statutFilterOptions,
-  FILTRE_NON_TERMINES,
+  FILTRE_TOUS,
 } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
@@ -83,9 +83,11 @@ function TravauxContent({
     successMessage: 'Travaux supprimé',
   })
   const [recherche, setRecherche] = useState('')
-  // Défaut : on masque les travaux terminés (Terminé/Annulé) — le filtre permet
-  // d'afficher un statut précis ou « Tous les statuts ».
-  const [statutFilter, setStatutFilter] = useState(FILTRE_NON_TERMINES)
+  // Défaut « TOUS les statuts » (décision PO) : la liste sert autant à consulter
+  // l'historique des travaux réalisés qu'à suivre ceux en cours. Masquer les
+  // terminés cachait la moitié de l'information au premier coup d'œil. Le filtre
+  // reste là pour isoler les travaux actifs.
+  const [statutFilter, setStatutFilter] = useState(FILTRE_TOUS)
 
   const statutNom = new Map(statuts.map((s) => [s.id, s.nom]))
   const statutOptions = statutFilterOptions(

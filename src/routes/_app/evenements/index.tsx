@@ -90,11 +90,11 @@ function EvenementsContent({
     successMessage: 'Événement supprimé',
   })
   const [recherche, setRecherche] = useState('')
-  // Défaut « TOUS les statuts », contrairement aux autres listes à statuts
-  // (Demandes, Travaux, Investissements, OT) qui s'ouvrent sur « non terminés ».
-  // Un journal se consulte en ENTIER : masquer les événements clôturés cachait
-  // l'essentiel du registre, et la page s'ouvrait souvent sur « Aucun résultat »
-  // alors qu'elle contenait tout l'historique.
+  // Défaut « TOUS les statuts » : un journal se consulte en ENTIER. Masquer les
+  // événements clôturés cachait l'essentiel du registre, et la page s'ouvrait
+  // souvent sur « Aucun résultat » alors qu'elle contenait tout l'historique.
+  // Même défaut sur Travaux ; Demandes, Investissements et OT gardent « non
+  // terminés », ce sont des listes de travail.
   const [statutFilter, setStatutFilter] = useState(FILTRE_TOUS)
 
   const statutNom = new Map(statuts.map((s) => [s.id, s.nom]))
