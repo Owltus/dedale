@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 /**
  * État d'un dialog de formulaire création/édition, générique sur l'entité :
@@ -10,7 +10,12 @@ import { useState } from 'react'
  * - `dialogKey` est la clé de REMONTAGE anti-état-rassis (id de l'entité ou
  *   `'new'`, combinée à `open`) : à poser en `key` sur le dialog pour que le
  *   formulaire reparte des valeurs initiales à chaque ouverture (cf.
- *   docs/conventions/donnees.md — pas de `useEffect` de reset).
+ *   docs/conventions/donnees.md — pas de `useEffect` de reset). Elle est
+ *   préfixée par un identifiant d'INSTANCE (`useId`) : sans lui, deux dialogs
+ *   frères fermés en mode création portaient tous deux la clé `new-false`, et
+ *   React refusait de réconcilier des enfants à clé identique — sur une fiche
+ *   qui en a deux (édition + sous-entité), le dialog suivant pouvait ne plus
+ *   s'ouvrir après un changement de statut, jusqu'au rechargement de la page.
  *
  * Usage :
  * ```tsx
@@ -47,6 +52,9 @@ export function useEntityDialog<T extends { id: string | number }>(): {
     open: false,
     entity: null,
   })
+  // Identifiant STABLE de cette instance de hook, unique dans l'arbre React :
+  // il distingue les clés de deux dialogs frères qui seraient sinon identiques.
+  const instance = useId()
 
   return {
     open: state.open,
@@ -56,6 +64,6 @@ export function useEntityDialog<T extends { id: string | number }>(): {
     openEdit: (entity) => setState({ open: true, entity }),
     onOpenChange: (open) => setState((s) => ({ ...s, open })),
     close: () => setState((s) => ({ ...s, open: false })),
-    dialogKey: `${String(state.entity?.id ?? 'new')}-${String(state.open)}`,
+    dialogKey: `${instance}-${String(state.entity?.id ?? 'new')}-${String(state.open)}`,
   }
 }
