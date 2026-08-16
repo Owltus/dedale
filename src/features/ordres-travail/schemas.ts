@@ -57,23 +57,6 @@ export const LIBELLES_STATUT_OP: Record<string, string> = {
   non_applicable: 'Non applicable',
 }
 
-/** Variante de Badge selon le statut OT (couleurs sémantiques). */
-export function variantStatutOt(
-  statut: string,
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (statut) {
-    case 'cloture':
-      return 'default'
-    case 'annule':
-      return 'destructive'
-    case 'en_cours':
-    case 'reouvert':
-      return 'secondary'
-    default:
-      return 'outline'
-  }
-}
-
 /**
  * Tonalité sémantique (pastille teintée `StatusBadge`) du statut OT :
  * En cours = bleu (info, aligné sur les opérations en cours), Rouvert = orange

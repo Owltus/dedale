@@ -8,7 +8,6 @@ import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import type { PlanningOt } from '@/features/planning/grille'
 import { dashboardQueries } from './queries'
-import { calculerKpisOt, type OtKpis } from './stats'
 
 /**
  * Abonnements Realtime du tableau de bord — posés UNE SEULE FOIS par l'orchestrateur
@@ -63,7 +62,6 @@ export function useDashboardData(siteId: string | null) {
   })
   const categoriesQuery = useQuery(categoriesQueries.list(siteId))
   const gammesQuery = useQuery(gammesQueries.list(siteId))
-  const onboardingQuery = useQuery(dashboardQueries.onboarding(siteId))
   const justificatifsQuery = useQuery(
     dashboardQueries.justificatifsManquants(siteId),
   )
@@ -74,12 +72,6 @@ export function useDashboardData(siteId: string | null) {
     [ordresTravailQuery.data],
   )
 
-  /** Compteurs du donut « Ordres de travail » (reste à faire). */
-  const compteursDonut = useMemo<OtKpis>(
-    () => calculerKpisOt(ordresTravail),
-    [ordresTravail],
-  )
-
   return {
     // Requêtes brutes (états loading/error consommés par l'orchestrateur).
     ordresTravailQuery,
@@ -87,10 +79,8 @@ export function useDashboardData(siteId: string | null) {
     documentsQuery,
     categoriesQuery,
     gammesQuery,
-    onboardingQuery,
     justificatifsQuery,
     // Dérivations mémoïsées.
     ordresTravail,
-    compteursDonut,
   }
 }

@@ -1,6 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { referentielQueryOptions } from '@/lib/referentiel'
 
 export const demandesQueries = {
   all: () => ['demandes_intervention'] as const,
@@ -78,13 +77,6 @@ export const demandesQueries = {
         return data
       },
     }),
-}
-
-export const statutsDiQueries = {
-  all: () => ['statuts_di'] as const,
-
-  /** Référentiel des statuts DI (1 Ouvert, 2 En cours, 3 Clôturé). */
-  list: () => referentielQueryOptions('statuts_di', 'id, nom', 'id'),
 }
 
 export const modelesDiQueries = {
