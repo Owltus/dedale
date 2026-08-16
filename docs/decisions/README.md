@@ -36,3 +36,4 @@ Ce que ça implique (avantages, limites, ce qu'on s'interdit).
 - [0004 — Front métier livré (19 étapes)](0004-front-metier-livre.md)
 - [0005 — Graphiques du tableau de bord en SVG maison](0005-charts-svg-maison.md)
 - [0006 — Briques partagées : adoption mesurée, mesures dans la brique](0006-briques-et-adoption.md)
+- [0007 — Création de comptes sans e-mail](0007-comptes-sans-email.md)

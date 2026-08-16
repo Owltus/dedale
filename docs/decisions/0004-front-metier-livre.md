@@ -22,6 +22,10 @@ Demandes d'intervention, Interventions de chantier ; Pilotage : Planning, Relev�
 Investissements (CapEx) ; Transverse : Documents (upload 3 étapes + `DocumentsTab` réutilisable),
 Observations & registre ; Comptes : Edge Function `invite_user` + écran Utilisateurs.
 
+> **Périmé sur un point (2026-08-17)** : le flux de comptes décrit ici reposait sur une
+> invitation par e-mail. Elle a été abandonnée — voir [0007](0007-comptes-sans-email.md).
+> Le reste de cet ADR est inchangé ; on ne réécrit pas une décision datée.
+
 Une revue de code multi-agents (3 relecteurs) a confirmé l'absence de bug bloquant ; corrigés :
 fiche équipement re-dérivée après édition, gardes null sur la liste des gammes, dialogs de
 résolution/clôture keyés.

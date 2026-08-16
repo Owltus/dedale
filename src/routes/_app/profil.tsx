@@ -1,10 +1,9 @@
-import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Building2, KeyRound, Mail } from 'lucide-react'
+import { Building2, KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { useUpdateUser } from '@/features/utilisateurs/mutations'
@@ -24,7 +23,6 @@ import { TextField } from '@/components/common/fields/text-field'
 import { PasswordField } from '@/components/common/fields/password-field'
 import { PasswordRules } from '@/components/common/password-rules'
 import { EmptyState } from '@/components/common/empty-state'
-import { InfoNote } from '@/components/common/info-note'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Form } from '@/components/ui/form'
@@ -37,17 +35,6 @@ export const Route = createFileRoute('/_app/profil')({
   // (menu utilisateur, hors sidebar).
   component: ProfilPage,
 })
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-const emailFormSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(EMAIL_RE, 'Adresse e-mail invalide.'),
-})
-type EmailFormValues = z.infer<typeof emailFormSchema>
 
 function ProfilPage() {
   const { session } = useAuth()
@@ -109,70 +96,34 @@ function ProfilPage() {
   )
 }
 
-// --- E-mail (self-service : change l'identifiant de connexion) ---
+// --- E-mail : LECTURE SEULE (changer une adresse est une action admin) ---
 
+/**
+ * L'adresse s'affiche, elle ne se modifie plus ici.
+ *
+ * Changer sa propre adresse passait par `auth.updateUser({ email })`, qui envoie
+ * un lien de confirmation à la nouvelle adresse — impossible à désactiver, c'est
+ * la mécanique même de la vérification. C'était le DERNIER e-mail émis par
+ * l'application (ADR 0007). Le retirer était donc la condition du « zéro
+ * e-mail ».
+ *
+ * La modification reste possible, mais depuis la fiche de la personne, par un
+ * administrateur : cette voie passe par une Edge Function qui marque la nouvelle
+ * adresse comme vérifiée d'office, et n'envoie rien.
+ *
+ * Ce n'est pas qu'un contournement technique : l'adresse EST l'identifiant de
+ * connexion. Qu'elle relève de l'administration plutôt que de chacun est aussi
+ * ce qui empêche qu'une session laissée ouverte serve à détourner un compte.
+ */
 function EmailBlock({ currentEmail }: { currentEmail: string }) {
-  const [sentTo, setSentTo] = useState<string | null>(null)
-
-  const form = useForm<EmailFormValues>({
-    resolver: zodResolver(emailFormSchema),
-    defaultValues: { email: currentEmail },
-  })
-
-  const mutation = useMutation({
-    mutationFn: async (newEmail: string) => {
-      const { error: err } = await supabase.auth.updateUser({ email: newEmail })
-      if (err) throw err
-    },
-    onSuccess: (_data, newEmail) => setSentTo(newEmail),
-    onError: (e) => toast.error(errorMessage(e)),
-  })
-
-  function onSubmit(values: EmailFormValues) {
-    setSentTo(null)
-    mutation.mutate(values.email)
-  }
-
-  const emailValue = useWatch({ control: form.control, name: 'email' })
-  const unchanged =
-    emailValue.trim().toLowerCase() === currentEmail.toLowerCase()
-
   return (
-    <Form {...form}>
-      <form
-        // L'événement DOIT être transmis : c'est lui qui porte le
-        // preventDefault de react-hook-form. Sans lui, le navigateur soumet
-        // nativement et recharge la page (l'idiome sans événement n'est
-        // valable que pour le prop onSubmit de FormDialog, dont la coquille
-        // fait déjà preventDefault + stopPropagation).
-        onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
-        className="flex flex-col gap-3"
-      >
-        <TextField
-          control={form.control}
-          name="email"
-          type="email"
-          label="Adresse e-mail"
-          className="h-11 text-base"
-          hint="Identifiant de connexion. Un e-mail de confirmation sera envoyé à la nouvelle adresse."
-        />
-        {sentTo && (
-          <InfoNote icon={Mail}>
-            Un lien de confirmation a été envoyé à <strong>{sentTo}</strong>.
-            Clique dessus pour valider le changement — ton adresse actuelle
-            reste active tant que ce n’est pas fait.
-          </InfoNote>
-        )}
-        <Button
-          type="submit"
-          variant="outline"
-          disabled={mutation.isPending || unchanged}
-          className="self-start"
-        >
-          {mutation.isPending ? 'Envoi…' : 'Changer l’e-mail'}
-        </Button>
-      </form>
-    </Form>
+    <div className="grid gap-2">
+      <Label className="text-base font-semibold">Adresse e-mail</Label>
+      <p className="text-sm">{currentEmail}</p>
+      <p className="text-xs text-muted-foreground">
+        Identifiant de connexion. Pour la modifier, demande à un administrateur.
+      </p>
+    </div>
   )
 }
 

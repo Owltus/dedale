@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as DefinirMotDePasseRouteImport } from './routes/definir-mot-de-passe'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppUtilisateursRouteImport } from './routes/_app/utilisateurs'
@@ -53,11 +52,6 @@ import { Route as AppBibliothequeSplatRouteImport } from './routes/_app/biblioth
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DefinirMotDePasseRoute = DefinirMotDePasseRouteImport.update({
-  id: '/definir-mot-de-passe',
-  path: '/definir-mot-de-passe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -255,7 +249,6 @@ const AppBibliothequeSplatRoute = AppBibliothequeSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
   '/bibliotheque': typeof AppBibliothequeRouteWithChildren
   '/demandes': typeof AppDemandesRouteWithChildren
@@ -295,7 +288,6 @@ export interface FileRoutesByFullPath {
   '/utilisateurs/': typeof AppUtilisateursIndexRoute
 }
 export interface FileRoutesByTo {
-  '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
   '/documents': typeof AppDocumentsRoute
   '/equipements': typeof AppEquipementsRouteWithChildren
@@ -330,7 +322,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
-  '/definir-mot-de-passe': typeof DefinirMotDePasseRoute
   '/login': typeof LoginRoute
   '/_app/bibliotheque': typeof AppBibliothequeRouteWithChildren
   '/_app/demandes': typeof AppDemandesRouteWithChildren
@@ -374,7 +365,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/definir-mot-de-passe'
     | '/login'
     | '/bibliotheque'
     | '/demandes'
@@ -414,7 +404,6 @@ export interface FileRouteTypes {
     | '/utilisateurs/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/definir-mot-de-passe'
     | '/login'
     | '/documents'
     | '/equipements'
@@ -448,7 +437,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
-    | '/definir-mot-de-passe'
     | '/login'
     | '/_app/bibliotheque'
     | '/_app/demandes'
@@ -491,7 +479,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
-  DefinirMotDePasseRoute: typeof DefinirMotDePasseRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -502,13 +489,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/definir-mot-de-passe': {
-      id: '/definir-mot-de-passe'
-      path: '/definir-mot-de-passe'
-      fullPath: '/definir-mot-de-passe'
-      preLoaderRoute: typeof DefinirMotDePasseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -971,7 +951,6 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
-  DefinirMotDePasseRoute: DefinirMotDePasseRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
