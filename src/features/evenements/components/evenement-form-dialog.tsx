@@ -105,9 +105,10 @@ export function EvenementFormDialog({
             La description était auparavant entre la date et le lieu, ce qui
             coupait le constat de ses circonstances. */}
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* Titre et date sur la même ligne : un libellé court à gauche, une
-              date à droite — l'un et l'autre à la mesure de leur contenu. */}
-          <div className="sm:col-span-1">
+          {/* Titre sur TOUTE la largeur : c'est le champ principal, et le seul
+              en saisie libre longue de la première ligne. Le partager avec la
+              date le bridait à une demi-modale pour rien. */}
+          <div className="sm:col-span-2">
             <TextField
               control={form.control}
               name="titre"
