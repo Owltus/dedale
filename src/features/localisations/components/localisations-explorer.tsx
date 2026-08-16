@@ -26,10 +26,8 @@ import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { segOfUnique } from '@/lib/slug'
 import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
-import {
-  PageHeader,
-  type PageHeaderCrumb,
-} from '@/components/common/page-header'
+import type { PageHeaderCrumb } from '@/components/common/page-header'
+import { DrillPageHeader } from '@/components/common/drill-page-header'
 import { FillHeader, ScrollBody } from '@/components/common/page-container'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
@@ -204,41 +202,35 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
 
   // Description de SECTION, affichée à toutes les profondeurs → zone jamais vide.
   const sectionDescription = 'Bâtiments, niveaux et locaux du site.'
-  let header: ReactNode
-  if (niveau && batiment) {
-    const ancestors: PageHeaderCrumb[] = [
-      { label: 'Localisations', onClick: () => goTo([]) },
-      { label: batiment.nom, onClick: () => goToBatiment(batiment) },
-    ]
-    header = (
-      <PageHeader
-        breadcrumb={ancestors}
-        title={niveau.nom}
-        description={sectionDescription}
-        action={newBtn('Nouveau local', locDialog.openCreate) ?? undefined}
-      />
-    )
-  } else if (batiment) {
-    const ancestors: PageHeaderCrumb[] = [
-      { label: 'Localisations', onClick: () => goTo([]) },
-    ]
-    header = (
-      <PageHeader
-        breadcrumb={ancestors}
-        title={batiment.nom}
-        description={sectionDescription}
-        action={newBtn('Nouveau niveau', nivDialog.openCreate) ?? undefined}
-      />
-    )
-  } else {
-    header = (
-      <PageHeader
-        title="Localisations"
-        description={sectionDescription}
-        action={newBtn('Nouveau bâtiment', batDialog.openCreate) ?? undefined}
-      />
-    )
+
+  // Ancêtres cliquables du palier courant, racine incluse. Vide à la racine :
+  // `DrillPageHeader` en déduit qu'il n'y a pas de fil à rendre.
+  const racine: PageHeaderCrumb = {
+    label: 'Localisations',
+    onClick: () => goTo([]),
   }
+  const ancetres: PageHeaderCrumb[] =
+    niveau && batiment
+      ? [racine, { label: batiment.nom, onClick: () => goToBatiment(batiment) }]
+      : batiment
+        ? [racine]
+        : []
+
+  const header = (
+    <DrillPageHeader
+      titreRacine="Localisations"
+      ancetres={ancetres}
+      titre={niveau?.nom ?? batiment?.nom}
+      description={sectionDescription}
+      action={
+        (niveau && batiment
+          ? newBtn('Nouveau local', locDialog.openCreate)
+          : batiment
+            ? newBtn('Nouveau niveau', nivDialog.openCreate)
+            : newBtn('Nouveau bâtiment', batDialog.openCreate)) ?? undefined
+      }
+    />
+  )
 
   const dialogs = (
     <>

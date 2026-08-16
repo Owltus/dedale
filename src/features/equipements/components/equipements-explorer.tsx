@@ -27,7 +27,7 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { parseChamps } from '@/lib/champs'
 import * as perm from '@/lib/permissions'
-import { PageHeader } from '@/components/common/page-header'
+import { DrillPageHeader } from '@/components/common/drill-page-header'
 import { drillCrumbs } from '@/components/common/drill-crumbs'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
@@ -314,48 +314,42 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
   // Description de SECTION, affichée à toutes les profondeurs (le fil-titre situe
   // précisément, la description rappelle ce qu'est la page) → zone jamais vide.
   const sectionDescription = 'Parc matériel du site, rangé par catégorie.'
-  let header: React.ReactNode
-  if (openEquipement !== null) {
-    const ancestors = drillCrumbs(path, goTo, {
-      label: 'Équipements',
-      onClick: () => goTo([]),
-    })
-    header = (
-      <PageHeader
-        breadcrumb={ancestors}
-        title={openEquipement.nom ?? 'Équipement'}
-        description={sectionDescription}
-        action={editEquipBtn}
-      />
-    )
-  } else if (depth > 0) {
-    const ancestors = drillCrumbs(path.slice(0, -1), goTo, {
-      label: 'Équipements',
-      onClick: () => goTo([]),
-    })
-    header = (
-      <PageHeader
-        breadcrumb={ancestors}
-        title={current?.nom ?? 'Catégorie'}
-        description={sectionDescription}
-        action={
+
+  // Un équipement ouvert est une FEUILLE : ses ancêtres sont tout le chemin.
+  // Dans une catégorie, le dernier segment devient le titre, d'où le `slice`.
+  const racine = { label: 'Équipements', onClick: () => goTo([]) }
+  const ancetres =
+    openEquipement !== null
+      ? drillCrumbs(path, goTo, racine)
+      : depth > 0
+        ? drillCrumbs(path.slice(0, -1), goTo, racine)
+        : []
+
+  const header = (
+    <DrillPageHeader
+      titreRacine="Équipements"
+      ancetres={ancetres}
+      titre={
+        openEquipement !== null
+          ? (openEquipement.nom ?? 'Équipement')
+          : (current?.nom ?? 'Catégorie')
+      }
+      description={sectionDescription}
+      action={
+        openEquipement !== null ? (
+          editEquipBtn
+        ) : depth > 0 ? (
           <>
             {newSubCategoryBtn}
             {editSubcatBtn}
             {newEquipBtn}
           </>
-        }
-      />
-    )
-  } else {
-    header = (
-      <PageHeader
-        title="Équipements"
-        description={sectionDescription}
-        action={newCategoryBtn ?? undefined}
-      />
-    )
-  }
+        ) : (
+          (newCategoryBtn ?? undefined)
+        )
+      }
+    />
+  )
 
   const dialogs = (
     <>

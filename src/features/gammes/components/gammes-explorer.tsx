@@ -30,10 +30,8 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
-import {
-  PageHeader,
-  type PageHeaderCrumb,
-} from '@/components/common/page-header'
+import type { PageHeaderCrumb } from '@/components/common/page-header'
+import { DrillPageHeader } from '@/components/common/drill-page-header'
 import { drillCrumbs } from '@/components/common/drill-crumbs'
 import { FillHeader, ScrollBody } from '@/components/common/page-container'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -342,9 +340,13 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
       ) : null
     const gammeActions = modifierBtn ?? supprimerBtn ?? addBtn
     header = (
-      <PageHeader
-        breadcrumb={ancestors}
-        title={openGamme.nom}
+      <DrillPageHeader
+        titreRacine="Plan de maintenance"
+        ancetres={ancestors}
+        titre={openGamme.nom}
+        // Ici la description suit le NŒUD (celle de la gamme), avec repli sur
+        // celle de la section — d'où une description par appel et non une
+        // constante interne à la brique.
         description={nodeDescription(openGamme.description)}
         action={
           gammeActions ? (
@@ -357,26 +359,24 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
         }
       />
     )
-  } else if (depth > 0) {
-    const ancestors = crumbs(path.slice(0, -1))
-    header = (
-      <PageHeader
-        breadcrumb={ancestors}
-        title={current?.nom ?? 'Catégorie'}
-        description={nodeDescription(current?.description)}
-        action={
-          depth >= 2
-            ? (newGammeBtn ?? undefined)
-            : (newSubCategoryBtn ?? undefined)
-        }
-      />
-    )
   } else {
     header = (
-      <PageHeader
-        title="Plan de maintenance"
-        description={SECTION_DESCRIPTION}
-        action={newCategoryBtn ?? undefined}
+      <DrillPageHeader
+        titreRacine="Plan de maintenance"
+        ancetres={depth > 0 ? crumbs(path.slice(0, -1)) : []}
+        titre={current?.nom ?? 'Catégorie'}
+        description={
+          depth > 0
+            ? nodeDescription(current?.description)
+            : SECTION_DESCRIPTION
+        }
+        action={
+          depth === 0
+            ? (newCategoryBtn ?? undefined)
+            : depth >= 2
+              ? (newGammeBtn ?? undefined)
+              : (newSubCategoryBtn ?? undefined)
+        }
       />
     )
   }
