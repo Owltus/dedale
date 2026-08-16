@@ -1,0 +1,262 @@
+import { useState } from 'react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { CalendarClock, Plus } from 'lucide-react'
+import {
+  evenementsQueries,
+  statutsEvenementsQueries,
+} from '@/features/evenements/queries'
+import { useDeleteEvenement } from '@/features/evenements/mutations'
+import {
+  statutEvenementTone,
+  STATUTS_EVENEMENTS_TERMINAUX,
+} from '@/features/evenements/etat'
+import { EvenementFormDialog } from '@/features/evenements/components/evenement-form-dialog'
+import { PAGE_META } from '@/features/evenements/page-meta'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
+import { formatDate } from '@/lib/date'
+import { segOfUnique } from '@/lib/slug'
+import { PageContainer } from '@/components/common/page-container'
+import { PageHeader } from '@/components/common/page-header'
+import { EmptyState } from '@/components/common/empty-state'
+import { ListPageBody } from '@/components/common/list-page-body'
+import { SiteScopedRoute } from '@/components/common/site-scoped-route'
+import { QueryState } from '@/components/common/query-state'
+import { ListRow } from '@/components/common/list-row'
+import { actionsEditionSuppression } from '@/components/common/row-actions'
+import { RowMediaIcon } from '@/components/common/row-media-icon'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import {
+  matchStatutFilter,
+  statutFilterOptions,
+  FILTRE_NON_TERMINES,
+} from '@/components/common/list-filter-bar'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
+import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
+import { Button } from '@/components/ui/button'
+import type { Database } from '@/lib/database.types'
+
+type Evenement = Database['public']['Tables']['evenements']['Row'] & {
+  locaux?: { id: string; nom: string } | null
+  equipements?: { id: string; nom: string } | null
+}
+
+export const Route = createFileRoute('/_app/evenements/')({
+  component: EvenementsPage,
+})
+
+function EvenementsPage() {
+  return (
+    <SiteScopedRoute meta={PAGE_META}>
+      {({ siteId, canManage }) => (
+        // Journal de l'équipe technique (cf. RLS 077) : manager/technicien
+        // consignent, éditent et suppriment sur leurs sites ; lecteur consulte.
+        <EvenementsContent
+          siteId={siteId}
+          canManage={canManage}
+          canDelete={canManage}
+        />
+      )}
+    </SiteScopedRoute>
+  )
+}
+
+function EvenementsContent({
+  siteId,
+  canManage,
+  canDelete,
+}: {
+  siteId: string
+  canManage: boolean
+  canDelete: boolean
+}) {
+  const navigate = useNavigate()
+  const query = useQuery(evenementsQueries.list(siteId))
+  // Journal en LIVE : un événement consigné par un collègue apparaît sans F5.
+  useRealtimeRefresh('evenements', evenementsQueries.all())
+  const { data: statuts = [] } = useQuery(statutsEvenementsQueries.list())
+  const del = useDeleteEvenement()
+  const dialog = useEntityDialog<Evenement>()
+  const suppression = useConfirmDelete<Evenement>({
+    onDelete: (e) => del.mutateAsync(e.id),
+    successMessage: 'Événement supprimé',
+  })
+  const [recherche, setRecherche] = useState('')
+  // Défaut « non terminés » : on ouvre la page sur ce qui reste à traiter.
+  const [statutFilter, setStatutFilter] = useState(FILTRE_NON_TERMINES)
+
+  const statutNom = new Map(statuts.map((s) => [s.id, s.nom]))
+  const statutOptions = statutFilterOptions(
+    [...statuts].sort((a, b) => a.id - b.id),
+  )
+
+  function ouvrir(ev: Evenement, sibs: { nom: string; id: string }[]) {
+    void navigate({
+      to: '/evenements/$evenement',
+      params: { evenement: segOfUnique({ nom: ev.titre, id: ev.id }, sibs) },
+    })
+  }
+
+  const newButton = canManage ? (
+    <Button onClick={dialog.openCreate}>
+      <Plus /> Consigner un événement
+    </Button>
+  ) : undefined
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title={PAGE_META.titre}
+        description={PAGE_META.description}
+        action={
+          canManage ? (
+            <TooltipIconButton
+              icon={<Plus />}
+              label="Consigner un événement"
+              variant="outline"
+              onClick={dialog.openCreate}
+            />
+          ) : undefined
+        }
+      />
+
+      <QueryState
+        query={query}
+        pending={<ListRowSkeletons />}
+        empty={
+          <EmptyState
+            icon={CalendarClock}
+            title="Aucun événement"
+            description={
+              canManage
+                ? 'Consigne un premier événement pour tenir le journal de l’établissement.'
+                : 'Aucun événement consigné pour ce site.'
+            }
+            action={newButton}
+          />
+        }
+      >
+        {(evenements) => {
+          const q = recherche.trim().toLowerCase()
+          const shown = evenements.filter((ev) => {
+            if (
+              !matchStatutFilter(
+                ev.statut_evenement_id,
+                statutFilter,
+                STATUTS_EVENEMENTS_TERMINAUX,
+              )
+            )
+              return false
+            if (q === '') return true
+            return (
+              ev.titre.toLowerCase().includes(q) ||
+              (ev.description ?? '').toLowerCase().includes(q) ||
+              (ev.locaux?.nom ?? '').toLowerCase().includes(q) ||
+              (ev.equipements?.nom ?? '').toLowerCase().includes(q)
+            )
+          })
+          // Frères pour le slug : MÊME ensemble qu'à la résolution du détail
+          // (symétrie segOfUnique), sur la liste NON filtrée.
+          const sibs = evenements.map((e) => ({ nom: e.titre, id: e.id }))
+
+          return (
+            <ListPageBody
+              search={recherche}
+              onSearchChange={setRecherche}
+              searchPlaceholder="Rechercher un événement…"
+              filterValue={statutFilter}
+              onFilterChange={setStatutFilter}
+              options={statutOptions}
+              filterLabel="Filtrer par statut"
+              isEmpty={shown.length === 0}
+              emptySearchDescription="Aucun événement ne correspond à ces critères."
+            >
+              {shown.map((ev) => {
+                const statutLabel = statusLabelById(
+                  ev.statut_evenement_id,
+                  statutNom,
+                )
+                // Le lieu situe l'événement dès la liste ; il est facultatif, on
+                // retombe donc sur la description puis sur la date.
+                const situe = [ev.locaux?.nom, ev.equipements?.nom]
+                  .filter(Boolean)
+                  .join(' · ')
+                return (
+                  <ListRow
+                    key={ev.id}
+                    tone={statutEvenementTone(ev.statut_evenement_id)}
+                    media={<RowMediaIcon icon={CalendarClock} />}
+                    title={ev.titre}
+                    subtitle={
+                      situe ||
+                      (ev.description?.trim()
+                        ? ev.description
+                        : `Survenu le ${formatDate(ev.date_evenement)}`)
+                    }
+                    onClick={() => ouvrir(ev, sibs)}
+                    // Statut au-dessus, date en dessous, dans une colonne de
+                    // largeur fixe : empilés, les deux s'alignent d'une ligne à
+                    // l'autre sans que la longueur de l'un pousse l'autre.
+                    meta={
+                      <div className="flex w-32 flex-col items-end gap-1">
+                        <StatusBadge
+                          tone={statutEvenementTone(ev.statut_evenement_id)}
+                        >
+                          {statutLabel}
+                        </StatusBadge>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {formatDate(ev.date_evenement)}
+                        </span>
+                      </div>
+                    }
+                    mobileMeta={`${statutLabel} · ${formatDate(ev.date_evenement)}`}
+                    menuActions={
+                      canManage
+                        ? actionsEditionSuppression({
+                            onModifier: () => dialog.openEdit(ev),
+                            onSupprimer: canDelete
+                              ? () => suppression.demander(ev)
+                              : undefined,
+                          })
+                        : undefined
+                    }
+                  />
+                )
+              })}
+            </ListPageBody>
+          )
+        }}
+      </QueryState>
+
+      {canManage && (
+        <EvenementFormDialog
+          key={dialog.dialogKey}
+          open={dialog.open}
+          onOpenChange={dialog.onOpenChange}
+          siteId={siteId}
+          evenement={dialog.entity}
+          onCreated={(cree) => {
+            const sibs = [...(query.data ?? []), cree].map((e) => ({
+              nom: e.titre,
+              id: e.id,
+            }))
+            ouvrir(cree, sibs)
+          }}
+        />
+      )}
+
+      <ConfirmDeleteDialog
+        {...suppression.dialogProps}
+        entityLabel={
+          suppression.toDelete
+            ? `l'événement « ${suppression.toDelete.titre} »`
+            : "l'événement"
+        }
+        warning="Cette suppression est définitive. Les documents rattachés restent dans la bibliothèque du site."
+      />
+    </PageContainer>
+  )
+}

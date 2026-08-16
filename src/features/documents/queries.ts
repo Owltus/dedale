@@ -14,6 +14,7 @@ export type LiaisonTable =
   | 'documents_contrats'
   | 'documents_di'
   | 'documents_equipements'
+  | 'documents_evenements'
   | 'documents_gammes'
   | 'documents_interventions_travaux'
   | 'documents_investissements'

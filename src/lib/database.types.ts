@@ -1129,6 +1129,131 @@ export type Database = {
           },
         ]
       }
+      // ─── PONT MANUEL — migration 077 non encore appliquée ───────────────
+      // Seule édition manuelle admise de ce fichier généré (cf. skill
+      // migration-sql §6). À REMPLACER par `npm run gen:types` dès que la
+      // migration 077 est passée en base : la génération écrasera ce bloc, ce
+      // qui est le comportement voulu.
+      evenements: {
+        Row: {
+          cloture_by: string | null
+          compte_rendu: string | null
+          created_at: string
+          created_by: string
+          date_cloture: string | null
+          date_evenement: string
+          description: string | null
+          equipement_id: string | null
+          id: string
+          local_id: string | null
+          site_id: string
+          statut_evenement_id: number
+          titre: string
+          updated_at: string
+        }
+        Insert: {
+          cloture_by?: string | null
+          compte_rendu?: string | null
+          created_at?: string
+          created_by: string
+          date_cloture?: string | null
+          date_evenement?: string
+          description?: string | null
+          equipement_id?: string | null
+          id?: string
+          local_id?: string | null
+          site_id: string
+          statut_evenement_id?: number
+          titre: string
+          updated_at?: string
+        }
+        Update: {
+          cloture_by?: string | null
+          compte_rendu?: string | null
+          created_at?: string
+          created_by?: string
+          date_cloture?: string | null
+          date_evenement?: string
+          description?: string | null
+          equipement_id?: string | null
+          id?: string
+          local_id?: string | null
+          site_id?: string
+          statut_evenement_id?: number
+          titre?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evenements_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "locaux"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_statut_evenement_id_fkey"
+            columns: ["statut_evenement_id"]
+            isOneToOne: false
+            referencedRelation: "statuts_evenements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      statuts_evenements: {
+        Row: {
+          description: string | null
+          id: number
+          nom: string
+        }
+        Insert: {
+          description?: string | null
+          id: number
+          nom: string
+        }
+        Update: {
+          description?: string | null
+          id?: number
+          nom?: string
+        }
+        Relationships: []
+      }
+      documents_evenements: {
+        Row: {
+          commentaire: string | null
+          created_at: string
+          document_id: string
+          evenement_id: string
+        }
+        Insert: {
+          commentaire?: string | null
+          created_at?: string
+          document_id: string
+          evenement_id: string
+        }
+        Update: {
+          commentaire?: string | null
+          created_at?: string
+          document_id?: string
+          evenement_id?: string
+        }
+        Relationships: []
+      }
+      // ─── fin du pont manuel ─────────────────────────────────────────────
       gammes: {
         Row: {
           categorie_id: string

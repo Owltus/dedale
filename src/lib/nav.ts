@@ -21,7 +21,7 @@ import {
  * autoriserait le technicien).
  */
 
-/** Clés de navigation = chemins des 15 écrans listés dans la sidebar. */
+/** Clés de navigation = chemins des 16 écrans listés dans la sidebar. */
 export type NavKey =
   | '/'
   | '/planning'
@@ -29,6 +29,7 @@ export type NavKey =
   | '/ordres-travail'
   | '/demandes'
   | '/travaux'
+  | '/evenements'
   | '/releves'
   | '/registre'
   | '/documents'
@@ -52,6 +53,9 @@ const NAV_ROLES: Record<NavKey, readonly string[] | 'tous'> = {
   '/ordres-travail': ROLES_METIER_LECTURE,
   '/demandes': 'tous', // espace de travail du demandeur
   '/travaux': ROLES_METIER_LECTURE,
+  // Journal de l'équipe technique : le demandeur en est exclu (il a les
+  // demandes d'intervention pour signaler). Lecteur consulte (migration 077).
+  '/evenements': ROLES_METIER_LECTURE,
   '/releves': ROLES_METIER_LECTURE,
   '/registre': ROLES_METIER_LECTURE,
   '/documents': ROLES_METIER_LECTURE,

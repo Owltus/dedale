@@ -25,6 +25,7 @@ import { Route as AppOrdresTravailRouteImport } from './routes/_app/ordres-trava
 import { Route as AppLocalisationsRouteImport } from './routes/_app/localisations'
 import { Route as AppInvestissementsRouteImport } from './routes/_app/investissements'
 import { Route as AppGammesRouteImport } from './routes/_app/gammes'
+import { Route as AppEvenementsRouteImport } from './routes/_app/evenements'
 import { Route as AppEquipementsRouteImport } from './routes/_app/equipements'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppDemandesRouteImport } from './routes/_app/demandes'
@@ -34,6 +35,7 @@ import { Route as AppTravauxIndexRouteImport } from './routes/_app/travaux/index
 import { Route as AppPrestatairesIndexRouteImport } from './routes/_app/prestataires/index'
 import { Route as AppOrdresTravailIndexRouteImport } from './routes/_app/ordres-travail/index'
 import { Route as AppInvestissementsIndexRouteImport } from './routes/_app/investissements/index'
+import { Route as AppEvenementsIndexRouteImport } from './routes/_app/evenements/index'
 import { Route as AppDemandesIndexRouteImport } from './routes/_app/demandes/index'
 import { Route as AppBibliothequeIndexRouteImport } from './routes/_app/bibliotheque/index'
 import { Route as AppUtilisateursUtilisateurRouteImport } from './routes/_app/utilisateurs/$utilisateur'
@@ -43,6 +45,7 @@ import { Route as AppOrdresTravailOtIdRouteImport } from './routes/_app/ordres-t
 import { Route as AppLocalisationsSplatRouteImport } from './routes/_app/localisations/$'
 import { Route as AppInvestissementsInvestissementRouteImport } from './routes/_app/investissements/$investissement'
 import { Route as AppGammesSplatRouteImport } from './routes/_app/gammes/$'
+import { Route as AppEvenementsEvenementRouteImport } from './routes/_app/evenements/$evenement'
 import { Route as AppEquipementsSplatRouteImport } from './routes/_app/equipements/$'
 import { Route as AppDemandesDemandeRouteImport } from './routes/_app/demandes/$demande'
 import { Route as AppBibliothequeSplatRouteImport } from './routes/_app/bibliotheque/$'
@@ -126,6 +129,11 @@ const AppGammesRoute = AppGammesRouteImport.update({
   path: '/gammes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEvenementsRoute = AppEvenementsRouteImport.update({
+  id: '/evenements',
+  path: '/evenements',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEquipementsRoute = AppEquipementsRouteImport.update({
   id: '/equipements',
   path: '/equipements',
@@ -170,6 +178,11 @@ const AppInvestissementsIndexRoute = AppInvestissementsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppInvestissementsRoute,
+} as any)
+const AppEvenementsIndexRoute = AppEvenementsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppEvenementsRoute,
 } as any)
 const AppDemandesIndexRoute = AppDemandesIndexRouteImport.update({
   id: '/',
@@ -219,6 +232,11 @@ const AppGammesSplatRoute = AppGammesSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => AppGammesRoute,
 } as any)
+const AppEvenementsEvenementRoute = AppEvenementsEvenementRouteImport.update({
+  id: '/$evenement',
+  path: '/$evenement',
+  getParentRoute: () => AppEvenementsRoute,
+} as any)
 const AppEquipementsSplatRoute = AppEquipementsSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -243,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/demandes': typeof AppDemandesRouteWithChildren
   '/documents': typeof AppDocumentsRoute
   '/equipements': typeof AppEquipementsRouteWithChildren
+  '/evenements': typeof AppEvenementsRouteWithChildren
   '/gammes': typeof AppGammesRouteWithChildren
   '/investissements': typeof AppInvestissementsRouteWithChildren
   '/localisations': typeof AppLocalisationsRouteWithChildren
@@ -258,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/demandes/$demande': typeof AppDemandesDemandeRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
+  '/evenements/$evenement': typeof AppEvenementsEvenementRoute
   '/gammes/$': typeof AppGammesSplatRoute
   '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
@@ -267,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque/': typeof AppBibliothequeIndexRoute
   '/demandes/': typeof AppDemandesIndexRoute
+  '/evenements/': typeof AppEvenementsIndexRoute
   '/investissements/': typeof AppInvestissementsIndexRoute
   '/ordres-travail/': typeof AppOrdresTravailIndexRoute
   '/prestataires/': typeof AppPrestatairesIndexRoute
@@ -289,6 +310,7 @@ export interface FileRoutesByTo {
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/demandes/$demande': typeof AppDemandesDemandeRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
+  '/evenements/$evenement': typeof AppEvenementsEvenementRoute
   '/gammes/$': typeof AppGammesSplatRoute
   '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
@@ -298,6 +320,7 @@ export interface FileRoutesByTo {
   '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque': typeof AppBibliothequeIndexRoute
   '/demandes': typeof AppDemandesIndexRoute
+  '/evenements': typeof AppEvenementsIndexRoute
   '/investissements': typeof AppInvestissementsIndexRoute
   '/ordres-travail': typeof AppOrdresTravailIndexRoute
   '/prestataires': typeof AppPrestatairesIndexRoute
@@ -313,6 +336,7 @@ export interface FileRoutesById {
   '/_app/demandes': typeof AppDemandesRouteWithChildren
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/equipements': typeof AppEquipementsRouteWithChildren
+  '/_app/evenements': typeof AppEvenementsRouteWithChildren
   '/_app/gammes': typeof AppGammesRouteWithChildren
   '/_app/investissements': typeof AppInvestissementsRouteWithChildren
   '/_app/localisations': typeof AppLocalisationsRouteWithChildren
@@ -329,6 +353,7 @@ export interface FileRoutesById {
   '/_app/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/_app/demandes/$demande': typeof AppDemandesDemandeRoute
   '/_app/equipements/$': typeof AppEquipementsSplatRoute
+  '/_app/evenements/$evenement': typeof AppEvenementsEvenementRoute
   '/_app/gammes/$': typeof AppGammesSplatRoute
   '/_app/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/_app/localisations/$': typeof AppLocalisationsSplatRoute
@@ -338,6 +363,7 @@ export interface FileRoutesById {
   '/_app/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/_app/bibliotheque/': typeof AppBibliothequeIndexRoute
   '/_app/demandes/': typeof AppDemandesIndexRoute
+  '/_app/evenements/': typeof AppEvenementsIndexRoute
   '/_app/investissements/': typeof AppInvestissementsIndexRoute
   '/_app/ordres-travail/': typeof AppOrdresTravailIndexRoute
   '/_app/prestataires/': typeof AppPrestatairesIndexRoute
@@ -354,6 +380,7 @@ export interface FileRouteTypes {
     | '/demandes'
     | '/documents'
     | '/equipements'
+    | '/evenements'
     | '/gammes'
     | '/investissements'
     | '/localisations'
@@ -369,6 +396,7 @@ export interface FileRouteTypes {
     | '/bibliotheque/$'
     | '/demandes/$demande'
     | '/equipements/$'
+    | '/evenements/$evenement'
     | '/gammes/$'
     | '/investissements/$investissement'
     | '/localisations/$'
@@ -378,6 +406,7 @@ export interface FileRouteTypes {
     | '/utilisateurs/$utilisateur'
     | '/bibliotheque/'
     | '/demandes/'
+    | '/evenements/'
     | '/investissements/'
     | '/ordres-travail/'
     | '/prestataires/'
@@ -400,6 +429,7 @@ export interface FileRouteTypes {
     | '/bibliotheque/$'
     | '/demandes/$demande'
     | '/equipements/$'
+    | '/evenements/$evenement'
     | '/gammes/$'
     | '/investissements/$investissement'
     | '/localisations/$'
@@ -409,6 +439,7 @@ export interface FileRouteTypes {
     | '/utilisateurs/$utilisateur'
     | '/bibliotheque'
     | '/demandes'
+    | '/evenements'
     | '/investissements'
     | '/ordres-travail'
     | '/prestataires'
@@ -423,6 +454,7 @@ export interface FileRouteTypes {
     | '/_app/demandes'
     | '/_app/documents'
     | '/_app/equipements'
+    | '/_app/evenements'
     | '/_app/gammes'
     | '/_app/investissements'
     | '/_app/localisations'
@@ -439,6 +471,7 @@ export interface FileRouteTypes {
     | '/_app/bibliotheque/$'
     | '/_app/demandes/$demande'
     | '/_app/equipements/$'
+    | '/_app/evenements/$evenement'
     | '/_app/gammes/$'
     | '/_app/investissements/$investissement'
     | '/_app/localisations/$'
@@ -448,6 +481,7 @@ export interface FileRouteTypes {
     | '/_app/utilisateurs/$utilisateur'
     | '/_app/bibliotheque/'
     | '/_app/demandes/'
+    | '/_app/evenements/'
     | '/_app/investissements/'
     | '/_app/ordres-travail/'
     | '/_app/prestataires/'
@@ -575,6 +609,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGammesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/evenements': {
+      id: '/_app/evenements'
+      path: '/evenements'
+      fullPath: '/evenements'
+      preLoaderRoute: typeof AppEvenementsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/equipements': {
       id: '/_app/equipements'
       path: '/equipements'
@@ -637,6 +678,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/investissements/'
       preLoaderRoute: typeof AppInvestissementsIndexRouteImport
       parentRoute: typeof AppInvestissementsRoute
+    }
+    '/_app/evenements/': {
+      id: '/_app/evenements/'
+      path: '/'
+      fullPath: '/evenements/'
+      preLoaderRoute: typeof AppEvenementsIndexRouteImport
+      parentRoute: typeof AppEvenementsRoute
     }
     '/_app/demandes/': {
       id: '/_app/demandes/'
@@ -701,6 +749,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGammesSplatRouteImport
       parentRoute: typeof AppGammesRoute
     }
+    '/_app/evenements/$evenement': {
+      id: '/_app/evenements/$evenement'
+      path: '/$evenement'
+      fullPath: '/evenements/$evenement'
+      preLoaderRoute: typeof AppEvenementsEvenementRouteImport
+      parentRoute: typeof AppEvenementsRoute
+    }
     '/_app/equipements/$': {
       id: '/_app/equipements/$'
       path: '/$'
@@ -763,6 +818,20 @@ const AppEquipementsRouteChildren: AppEquipementsRouteChildren = {
 
 const AppEquipementsRouteWithChildren = AppEquipementsRoute._addFileChildren(
   AppEquipementsRouteChildren,
+)
+
+interface AppEvenementsRouteChildren {
+  AppEvenementsEvenementRoute: typeof AppEvenementsEvenementRoute
+  AppEvenementsIndexRoute: typeof AppEvenementsIndexRoute
+}
+
+const AppEvenementsRouteChildren: AppEvenementsRouteChildren = {
+  AppEvenementsEvenementRoute: AppEvenementsEvenementRoute,
+  AppEvenementsIndexRoute: AppEvenementsIndexRoute,
+}
+
+const AppEvenementsRouteWithChildren = AppEvenementsRoute._addFileChildren(
+  AppEvenementsRouteChildren,
 )
 
 interface AppGammesRouteChildren {
@@ -861,6 +930,7 @@ interface AppRouteChildren {
   AppDemandesRoute: typeof AppDemandesRouteWithChildren
   AppDocumentsRoute: typeof AppDocumentsRoute
   AppEquipementsRoute: typeof AppEquipementsRouteWithChildren
+  AppEvenementsRoute: typeof AppEvenementsRouteWithChildren
   AppGammesRoute: typeof AppGammesRouteWithChildren
   AppInvestissementsRoute: typeof AppInvestissementsRouteWithChildren
   AppLocalisationsRoute: typeof AppLocalisationsRouteWithChildren
@@ -881,6 +951,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDemandesRoute: AppDemandesRouteWithChildren,
   AppDocumentsRoute: AppDocumentsRoute,
   AppEquipementsRoute: AppEquipementsRouteWithChildren,
+  AppEvenementsRoute: AppEvenementsRouteWithChildren,
   AppGammesRoute: AppGammesRouteWithChildren,
   AppInvestissementsRoute: AppInvestissementsRouteWithChildren,
   AppLocalisationsRoute: AppLocalisationsRouteWithChildren,

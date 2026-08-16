@@ -8,6 +8,7 @@ const TOUTES: NavKey[] = [
   '/ordres-travail',
   '/demandes',
   '/travaux',
+  '/evenements',
   '/releves',
   '/registre',
   '/documents',

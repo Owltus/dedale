@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import type { LucideProps } from 'lucide-react'
 import {
   Banknote,
+  CalendarClock,
   BookOpen,
   Boxes,
   Briefcase,
@@ -57,6 +58,7 @@ const OPERATIONNEL: NavItem[] = [
     icon: MessageSquareWarning,
   },
   { to: '/travaux', label: 'Travaux', icon: HardHat },
+  { to: '/evenements', label: 'Événements', icon: CalendarClock },
   { to: '/releves', label: 'Relevés', icon: LineChart },
   { to: '/registre', label: 'Registre de sécurité', icon: ShieldCheck },
   { to: '/documents', label: 'Documents', icon: FileText },
