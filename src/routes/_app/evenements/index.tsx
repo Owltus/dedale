@@ -12,6 +12,7 @@ import {
   STATUTS_EVENEMENTS_TERMINAUX,
 } from '@/features/evenements/etat'
 import { EvenementFormDialog } from '@/features/evenements/components/evenement-form-dialog'
+import { cheminLocal } from '@/features/evenements/format'
 import { PAGE_META } from '@/features/evenements/page-meta'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
@@ -40,7 +41,11 @@ import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 
 type Evenement = Database['public']['Tables']['evenements']['Row'] & {
-  locaux?: { id: string; nom: string } | null
+  locaux?: {
+    id: string
+    nom: string
+    niveaux?: { id: string; nom: string; batiments?: { nom: string } | null }
+  } | null
   equipements?: { id: string; nom: string } | null
 }
 
@@ -154,7 +159,7 @@ function EvenementsContent({
             return (
               ev.titre.toLowerCase().includes(q) ||
               (ev.description ?? '').toLowerCase().includes(q) ||
-              (ev.locaux?.nom ?? '').toLowerCase().includes(q) ||
+              cheminLocal(ev.locaux).toLowerCase().includes(q) ||
               (ev.equipements?.nom ?? '').toLowerCase().includes(q)
             )
           })
@@ -181,7 +186,7 @@ function EvenementsContent({
                 )
                 // Le lieu situe l'événement dès la liste ; il est facultatif, on
                 // retombe donc sur la description puis sur la date.
-                const situe = [ev.locaux?.nom, ev.equipements?.nom]
+                const situe = [cheminLocal(ev.locaux), ev.equipements?.nom]
                   .filter(Boolean)
                   .join(' · ')
                 return (

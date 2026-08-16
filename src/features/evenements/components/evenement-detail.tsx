@@ -3,6 +3,7 @@ import { MapPin, Package, Paperclip, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { statutsEvenementsQueries } from '../queries'
 import { etapesEvenement } from '../etat'
+import { cheminLocal } from '../format'
 import { STATUT_CLOTURE } from '../schemas'
 import { useChangeStatutEvenement } from '../mutations'
 import { EvenementFormDialog } from './evenement-form-dialog'
@@ -11,7 +12,7 @@ import { MIME_PDF } from '@/features/documents/upload'
 import { useAuth } from '@/auth'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
-import { formatDate, isoLocale } from '@/lib/date'
+import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -23,7 +24,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
 type Evenement = Database['public']['Tables']['evenements']['Row'] & {
-  locaux?: { id: string; nom: string } | null
+  locaux?: {
+    id: string
+    nom: string
+    niveaux?: { id: string; nom: string; batiments?: { nom: string } | null }
+  } | null
   equipements?: { id: string; nom: string } | null
 }
 
@@ -67,9 +72,11 @@ export function EvenementDetail({
   }
 
   // Où cela s'est produit — rendu seulement si renseigné, les deux étant
-  // facultatifs. Un bloc vide vaut moins qu'un bloc absent.
+  // facultatifs. Un bloc vide vaut moins qu'un bloc absent. Le local est affiché
+  // avec sa hiérarchie : « Stationnement » seul ne situe rien.
+  const chemin = cheminLocal(ev.locaux)
   const lieu = [
-    ev.locaux?.nom ? { icone: MapPin, texte: ev.locaux.nom } : null,
+    chemin ? { icone: MapPin, texte: chemin } : null,
     ev.equipements?.nom ? { icone: Package, texte: ev.equipements.nom } : null,
   ].filter((x) => x !== null)
 
@@ -181,15 +188,17 @@ export function EvenementDetail({
             open={cloture.open}
             onOpenChange={cloture.onOpenChange}
             pending={change.isPending}
-            onConfirm={(compteRendu) => {
+            dateEvenement={ev.date_evenement}
+            onConfirm={({ date_cloture, compte_rendu }) => {
               change.mutate(
                 {
                   id: ev.id,
                   statutId: STATUT_CLOTURE,
-                  compteRendu,
-                  // Date NUE locale : jamais `toISOString()`, qui décale d'un
-                  // jour selon le fuseau (cf. 23514 des OT, migration 075).
-                  dateCloture: isoLocale(new Date()),
+                  compteRendu: compte_rendu,
+                  // Date NUE locale saisie par l'utilisateur : jamais
+                  // `toISOString()`, qui décale d'un jour selon le fuseau
+                  // (cf. 23514 des OT, migration 075).
+                  dateCloture: date_cloture,
                   clotureBy: session?.user.id,
                 },
                 {

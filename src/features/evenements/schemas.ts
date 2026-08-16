@@ -36,6 +36,9 @@ export function emptyEvenement(dateDuJour: string): EvenementFormValues {
  * l'absence de `.min(1)` ici.
  */
 export const clotureSchema = z.object({
+  // Saisissable : on consigne souvent un événement après coup, et sa clôture n'a
+  // pas de raison de tomber le jour de la saisie.
+  date_cloture: z.string().min(1, 'La date de clôture est obligatoire'),
   compte_rendu: z.string().trim().max(5000),
 })
 
