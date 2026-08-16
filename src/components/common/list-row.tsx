@@ -95,6 +95,14 @@ export type ListRowSize = NonNullable<ListRowProps['size']>
  * que deux hauteurs pour les quatre densités réelles, dont une — `h-12` — qui ne
  * correspondait à AUCUNE ligne existante).
  */
+/**
+ * `xs` (h-11) et `fine` (h-12) ne diffèrent que de 4 px, et la question de les
+ * fusionner revient à chaque audit. **Tranché : on garde les deux.** Les deux
+ * familles ne se côtoient jamais à l'écran — `xs` ne sert que dans les cartes du
+ * tableau de bord (calibrées au pixel pour le « fill-or-scroll »), `fine` que
+ * dans les sections d'une fiche (opérations, modèles). L'écart est donc invisible
+ * en pratique, et les fusionner ferait bouger six emplacements pour un gain nul.
+ */
 export const MEDIA_HEIGHT: Record<ListRowSize, string> = {
   xs: 'h-11',
   fine: 'h-12',

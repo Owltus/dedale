@@ -41,7 +41,7 @@ export function ContratTypeFields({
         name="type_contrat_id"
         label="Type de contrat"
         required
-        placeholder="— Sélectionner —"
+        placeholder="— Choisir un type —"
         options={typeOptions}
       />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

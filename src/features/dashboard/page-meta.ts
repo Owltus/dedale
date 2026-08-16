@@ -12,6 +12,6 @@ import type { PageMeta } from '@/components/common/site-scoped-route'
 export const PAGE_META: PageMeta = {
   titre: 'Tableau de bord',
   description: "Vue d'ensemble de la maintenance.",
-  hint: 'Choisis un site pour afficher son tableau de bord.',
+  hint: 'Choisis un site pour voir son tableau de bord.',
   icone: LayoutDashboard,
 }

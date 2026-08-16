@@ -87,7 +87,7 @@ export function DocumentEditDialog({
           name="type_document_id"
           label="Type"
           required
-          placeholder="Type…"
+          placeholder="— Choisir un type —"
           options={types.map((t) => ({ value: String(t.id), label: t.nom }))}
         />
       </FormDialog>

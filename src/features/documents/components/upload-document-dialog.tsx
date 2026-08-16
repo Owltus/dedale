@@ -289,7 +289,7 @@ export function UploadDocumentDialog({
                     value: String(t.id),
                     label: t.nom,
                   }))}
-                  placeholder="Type…"
+                  placeholder="— Choisir un type —"
                   className="min-w-0 flex-1"
                 />
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">

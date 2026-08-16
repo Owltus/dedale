@@ -6,6 +6,6 @@ export const PAGE_META: PageMeta = {
   titre: 'Documents',
   description:
     'Bibliothèque documentaire du site (PDF, attestations, rapports…).',
-  hint: 'Choisis un site pour consulter sa bibliothèque documentaire.',
+  hint: 'Choisis un site pour voir sa bibliothèque documentaire.',
   icone: FileText,
 }

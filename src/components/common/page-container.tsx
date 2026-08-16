@@ -59,13 +59,14 @@ interface PageContainerProps {
    */
   fill?: boolean
   /**
-   * Borne la largeur du CORPS défilant (ex. `max-w-2xl`) en le centrant, sans
-   * toucher à l'en-tête, qui reste pleine largeur ET fixe.
+   * Borne la largeur d'une page en colonne étroite (ex. `max-w-2xl`) : le corps
+   * défilant ET l'en-tête fixe sont centrés sur la MÊME colonne, pour qu'ils
+   * restent alignés sur un écran large. L'en-tête reste fixe.
    *
-   * À utiliser pour les pages en colonne étroite (réglages, fiche d'une
-   * personne). Sans cette prop, l'appelant est tenté d'envelopper en-tête ET
-   * cartes dans un seul `div` centré — il n'a alors plus qu'UN enfant, tombe
-   * dans le cas ci-dessous, et son en-tête part au défilement.
+   * À utiliser pour les réglages ou la fiche d'une personne. Sans cette prop,
+   * l'appelant est tenté d'envelopper en-tête ET cartes dans un seul `div`
+   * centré — il n'a alors plus qu'UN enfant, tombe dans le cas ci-dessous, et
+   * son en-tête part au défilement.
    */
   bodyMaxWidth?: string
 }
@@ -105,7 +106,16 @@ export function PageContainer({
   const [header, ...body] = kids
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <FillHeader>{header}</FillHeader>
+      <FillHeader>
+        {bodyMaxWidth ? (
+          // L'en-tête suit la MÊME colonne que le corps : sinon, sur un écran
+          // large, le titre et le fil d'Ariane restent collés au bord gauche
+          // pendant que les cartes sont centrées — les deux ne s'alignent plus.
+          <div className={cn('mx-auto', bodyMaxWidth)}>{header}</div>
+        ) : (
+          header
+        )}
+      </FillHeader>
       <ScrollBody className={className}>
         {bodyMaxWidth ? (
           <div className={cn('mx-auto flex flex-col gap-4', bodyMaxWidth)}>

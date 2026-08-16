@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import { listStack } from '@/lib/responsive'
 import {
   ListFilterBar,
+  FILTRE_TOUS,
   type FilterOption,
 } from '@/components/common/list-filter-bar'
 import { NoSearchResults } from '@/components/common/no-search-results'
@@ -72,7 +73,22 @@ export function ListPageBody({
         sticky={sticky}
       />
       {isEmpty ? (
-        <NoSearchResults description={emptySearchDescription} />
+        <NoSearchResults
+          description={emptySearchDescription}
+          // « Afficher tout » n'apparaît que si quelque chose est effectivement
+          // masqué : un filtre non neutre, ou une recherche en cours. Sur les
+          // listes dont le défaut est « non terminés », l'utilisateur n'a rien
+          // filtré lui-même — sans ce bouton, la page se lit comme vide.
+          onReset={
+            (filterValue !== undefined && filterValue !== FILTRE_TOUS) ||
+            search !== ''
+              ? () => {
+                  onSearchChange('')
+                  if (onFilterChange) onFilterChange(FILTRE_TOUS)
+                }
+              : undefined
+          }
+        />
       ) : (
         <div className={listStack}>{children}</div>
       )}

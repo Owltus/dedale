@@ -108,7 +108,7 @@ export function OtCreateDialog({
           required
           disabled={presetGammeId !== undefined}
           options={gammeOptions}
-          placeholder="— Sélectionner une gamme —"
+          placeholder="— Choisir une gamme —"
           hint={
             gammes.length === 0
               ? "Aucune gamme active sur ce site. Créez d'abord une gamme avec au moins une opération."
