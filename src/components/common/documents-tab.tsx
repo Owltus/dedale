@@ -43,8 +43,10 @@ interface DocumentsTabProps {
   /**
    * Mode CONTRÔLÉ du dialogue d'upload : si l'hôte fournit ce couple, c'est LUI
    * qui ouvre l'upload (typiquement pour poser le bouton « Rattacher » dans sa
-   * propre barre de titre). Dans ce mode, l'en-tête interne (titre + bouton)
-   * N'EST PAS rendu. Omis → état interne + bouton d'en-tête (comportement par défaut).
+   * propre barre de titre). Dans ce mode, seul le BOUTON de l'en-tête interne
+   * disparaît — le `title` reste rendu s'il est fourni, et le rester est utile
+   * dès que la liste n'est plus seule dans sa zone (colonne latérale d'une
+   * fiche). Omis → état interne + bouton d'en-tête (comportement par défaut).
    */
   uploadOpen?: boolean
   onUploadOpenChange?: (open: boolean) => void

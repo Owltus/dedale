@@ -27,7 +27,8 @@ import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { Card, CardContent } from '@/components/ui/card'
+import { DetailNoteCard } from '@/components/common/detail-note-card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -193,39 +194,8 @@ export function InvestissementDetail({
         </CardContent>
       </Card>
 
-      {/* DEMANDE — même gabarit que la carte de bilan plus bas : date en en-tête
-          discret, texte en dessous, crayon à droite. Les deux bouts du cycle se
-          lisent pareil, et la frise s'intercale entre eux (patron repris de la
-          page Événements). Toujours rendue, description vide comprise : sinon la
-          date de demande n'aurait plus d'endroit où vivre. */}
-      <Card className="mb-4">
-        <CardContent className="flex items-start justify-between gap-3 text-sm">
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs text-muted-foreground">
-              Demandé le {formatDate(inv.date_demande)}
-            </span>
-            <p className="whitespace-pre-wrap">
-              {inv.description?.trim() ? (
-                inv.description
-              ) : (
-                <span className="text-muted-foreground">
-                  Aucune description.
-                </span>
-              )}
-            </p>
-          </div>
-          {canManage && (
-            <TooltipIconButton
-              icon={<Pencil />}
-              label="Modifier l'investissement"
-              variant="ghost"
-              onClick={() => edit.openEdit(inv)}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Suivi : frise d'avancement. Statut LIBRE → toute pastille est cliquable
+      {/* FRISE — seule à rester PLEINE LARGEUR : c'est le résumé de l'état, on
+          la lit avant le détail. Statut LIBRE → toute pastille est cliquable
           (positionne ce statut) ; « Refuser » est en barre de titre. */}
       {etapes && (
         <Card className="mb-4">
@@ -246,52 +216,82 @@ export function InvestissementDetail({
         </Card>
       )}
 
-      {/* BILAN — apparaît dès que l'investissement est CLÔTURÉ, même sans texte
-          (il est facultatif) : sans elle, la date de clôture ne serait ni
-          visible ni corrigible. Le crayon rouvre le même dialogue, en mode
-          correction. */}
-      {inv.statut_capex_id === ID_CLOTURE && (
-        <Card className="mb-4">
-          <CardContent className="flex items-start justify-between gap-3 text-sm">
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="text-xs text-muted-foreground">
-                Clôturé
-                {inv.date_cloture ? ` le ${formatDate(inv.date_cloture)}` : ''}
-              </span>
-              <p className="whitespace-pre-wrap">
-                {inv.bilan?.trim() ? (
-                  inv.bilan
-                ) : (
-                  <span className="text-muted-foreground">Aucun bilan.</span>
-                )}
-              </p>
-            </div>
-            {canManage && (
+      {/* LES DEUX BOUTS DU DOSSIER, CÔTE À CÔTE : ce qui était demandé à gauche,
+          ce qu'il en est advenu à droite. `lg:` et pas `md:` — à 768 px, deux
+          colonnes de texte deviennent deux couloirs étroits ; en dessous tout se
+          réempile dans l'ordre de lecture (mobile-first). */}
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+        {/* DEMANDE — toujours rendue, description vide comprise : sinon la date
+            de demande n'aurait plus d'endroit où vivre. */}
+        <DetailNoteCard
+          // Tant qu'il n'y a pas de bilan en face, la demande prend toute la
+          // largeur : une carte à mi-largeur suivie d'un demi-écran vide se lit
+          // comme un bloc manquant, pas comme une place réservée.
+          className={
+            inv.statut_capex_id === ID_CLOTURE ? undefined : 'lg:col-span-2'
+          }
+          label={`Demandé le ${formatDate(inv.date_demande)}`}
+          text={inv.description}
+          emptyText="Aucune description."
+          action={
+            canManage && (
               <TooltipIconButton
                 icon={<Pencil />}
-                label="Modifier la clôture"
+                label="Modifier l'investissement"
                 variant="ghost"
-                onClick={() => cloture.openEdit(inv)}
+                onClick={() => edit.openEdit(inv)}
               />
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Zone documents : prend EXACTEMENT l'espace restant (flex-1). */}
-      <div className="relative flex-1">
-        <DocumentsTab
-          liaison="documents_investissements"
-          parentColumn="investissement_id"
-          parentId={inv.id}
-          acceptedMimes={MIME_PDF}
-          uploadOpen={upload.uploadOpen}
-          onUploadOpenChange={upload.onUploadOpenChange}
-          uploadInitialFiles={upload.droppedFiles}
-          uploadDefaultTypeNom="Devis"
+            )
+          }
         />
-        <FileDropOverlay show={upload.dragging} />
+
+        {/* BILAN — apparaît dès que l'investissement est CLÔTURÉ, même sans texte
+            (il est facultatif) : sans lui, la date de clôture ne serait ni
+            visible ni corrigible. Le crayon rouvre le même dialogue, en mode
+            correction. */}
+        {inv.statut_capex_id === ID_CLOTURE && (
+          <DetailNoteCard
+            label={`Clôturé${inv.date_cloture ? ` le ${formatDate(inv.date_cloture)}` : ''}`}
+            text={inv.bilan}
+            emptyText="Aucun bilan."
+            action={
+              canManage && (
+                <TooltipIconButton
+                  icon={<Pencil />}
+                  label="Modifier la clôture"
+                  variant="ghost"
+                  onClick={() => cloture.openEdit(inv)}
+                />
+              )
+            }
+          />
+        )}
       </div>
+
+      {/* DOCUMENTS — une carte comme les autres, en pleine largeur sous les deux
+          notes. La liste vivait jusqu'ici à nu sur le fond de page : elle ne se
+          rattachait visuellement à rien et ne disait pas ce qu'elle était.
+          `flex-1` : la carte prend la hauteur restante, ce qui donne au voile de
+          glisser-déposer une cible franche plutôt qu'un bandeau. */}
+      <Card className="relative flex min-h-0 flex-1 flex-col gap-3 py-4">
+        <CardHeader>
+          <CardTitle className="text-base">Documents</CardTitle>
+        </CardHeader>
+        <CardContent className="flex min-h-0 flex-1 flex-col">
+          <DocumentsTab
+            liaison="documents_investissements"
+            parentColumn="investissement_id"
+            parentId={inv.id}
+            acceptedMimes={MIME_PDF}
+            uploadOpen={upload.uploadOpen}
+            onUploadOpenChange={upload.onUploadOpenChange}
+            uploadInitialFiles={upload.droppedFiles}
+            uploadDefaultTypeNom="Devis"
+            className="min-h-0 flex-1"
+          />
+        </CardContent>
+        <FileDropOverlay show={upload.dragging} />
+      </Card>
 
       {canManage && (
         <>

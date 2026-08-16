@@ -41,6 +41,7 @@ import { StatusStepper } from '@/components/common/status-stepper'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
+import { DetailNoteCard } from '@/components/common/detail-note-card'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
@@ -192,43 +193,12 @@ export function TravauxDetail({
         }
       />
 
-      {/* DEMANDE — même gabarit que la carte de compte-rendu plus bas : date en
-          en-tête discret, texte en dessous, crayon à droite. Les deux bouts du
-          cycle se lisent pareil, et la frise s'intercale entre eux (patron repris
-          des pages Événements et Investissements). Toujours rendue, description
-          vide comprise : sinon la date de création n'aurait plus d'endroit où
-          vivre — elle était jusqu'ici dans l'en-tête de page. */}
-      <Card className="mb-6">
-        <CardContent className="flex items-start justify-between gap-3 text-sm">
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs text-muted-foreground">
-              Créé le {formatDate(travaux.date_demande)}
-            </span>
-            <p className="whitespace-pre-wrap">
-              {travaux.description?.trim() ? (
-                travaux.description
-              ) : (
-                <span className="text-muted-foreground">
-                  Aucune description.
-                </span>
-              )}
-            </p>
-          </div>
-          {editable && (
-            <TooltipIconButton
-              icon={<Pencil />}
-              label="Modifier le travaux"
-              variant="ghost"
-              onClick={() => editDialog.openEdit(travaux)}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Suivi : frise d'avancement. Les pastilles actionnables changent le
-          statut directement (clic) ; « Annuler » est en barre de titre. */}
+      {/* FRISE — seule à rester PLEINE LARGEUR : c'est le résumé de l'état, on
+          la lit avant le détail, et l'étaler sur les deux colonnes garde ses
+          quatre pastilles lisibles. Les actionnables changent le statut au clic ;
+          « Annuler » est en barre de titre. */}
       {etapes && (
-        <Card className="mb-6">
+        <Card className="mb-4">
           <CardContent>
             <StatusStepper
               steps={etapes}
@@ -246,45 +216,63 @@ export function TravauxDetail({
         </Card>
       )}
 
-      {/* CLÔTURE — apparaît dès que le travaux est TERMINÉ. Le libellé porte
-          désormais la date de fin : elle n'était affichée nulle part sur la
-          fiche, alors que c'est l'information qu'on vient y chercher une fois le
-          chantier fini. Le crayon rouvre le dialogue de clôture en mode
-          correction — seul point de la fiche qui reste actif sur un travaux
-          verrouillé, une date ou un compte-rendu erroné devant pouvoir se
-          rattraper sans rouvrir le travaux. */}
-      {travaux.statut_travaux_id === STATUT_TERMINE && (
-        <Card className="mb-6">
-          <CardContent className="flex items-start justify-between gap-3 text-sm">
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="text-xs text-muted-foreground">
-                Terminé
-                {travaux.date_fin ? ` le ${formatDate(travaux.date_fin)}` : ''}
-              </span>
-              <p className="whitespace-pre-wrap">
-                {travaux.compte_rendu?.trim() ? (
-                  travaux.compte_rendu
-                ) : (
-                  <span className="text-muted-foreground">
-                    Aucun compte-rendu.
-                  </span>
-                )}
-              </p>
-            </div>
-            {canManage && (
+      {/* LES DEUX BOUTS DU CHANTIER, CÔTE À CÔTE : ce qui était à faire à
+          gauche, ce qui a été fait à droite. `lg:` et pas `md:` — à 768 px, deux
+          colonnes de texte deviennent deux couloirs étroits ; en dessous tout se
+          réempile dans l'ordre de lecture (mobile-first). */}
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+        {/* DEMANDE — toujours rendue, description vide comprise : sinon la date
+            de création n'aurait plus d'endroit où vivre (elle était jusqu'ici
+            dans l'en-tête de page). */}
+        <DetailNoteCard
+          // Tant qu'il n'y a pas de compte-rendu en face, la demande prend toute
+          // la largeur : une carte à mi-largeur suivie d'un demi-écran vide se
+          // lit comme un bloc manquant, pas comme une place réservée.
+          className={dejaTermine ? undefined : 'lg:col-span-2'}
+          label={`Créé le ${formatDate(travaux.date_demande)}`}
+          text={travaux.description}
+          emptyText="Aucune description."
+          action={
+            editable && (
               <TooltipIconButton
                 icon={<Pencil />}
-                label="Modifier la clôture"
+                label="Modifier le travaux"
                 variant="ghost"
-                onClick={() => setClotureOpen(true)}
+                onClick={() => editDialog.openEdit(travaux)}
               />
-            )}
-          </CardContent>
-        </Card>
-      )}
+            )
+          }
+        />
 
-      {/* Zones concernées : locaux/équipements liés au travaux + statut. */}
-      <Card className="mb-6">
+        {/* CLÔTURE — apparaît dès que le travaux est TERMINÉ. Le libellé porte
+            la date de fin : elle n'était affichée nulle part, alors que c'est
+            l'information qu'on vient chercher une fois le chantier fini. Le
+            crayon rouvre le dialogue en mode correction — seul point de la fiche
+            qui reste actif sur un travaux verrouillé, une date ou un
+            compte-rendu erroné devant pouvoir se rattraper. */}
+        {travaux.statut_travaux_id === STATUT_TERMINE && (
+          <DetailNoteCard
+            label={`Terminé${travaux.date_fin ? ` le ${formatDate(travaux.date_fin)}` : ''}`}
+            text={travaux.compte_rendu}
+            emptyText="Aucun compte-rendu."
+            action={
+              canManage && (
+                <TooltipIconButton
+                  icon={<Pencil />}
+                  label="Modifier la clôture"
+                  variant="ghost"
+                  onClick={() => setClotureOpen(true)}
+                />
+              )
+            }
+          />
+        )}
+      </div>
+
+      {/* Zones concernées : locaux/équipements liés au travaux + statut. Pleine
+          largeur — ce sont des LIGNES, les serrer sur une demi-largeur tronquait
+          les chemins de local. */}
+      <Card className="mb-4">
         <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
           <CardTitle className="text-base">Zones concernées</CardTitle>
           {!tachesReadOnly && (
@@ -337,19 +325,28 @@ export function TravauxDetail({
         </CardContent>
       </Card>
 
-      {/* Zone documents : prend l'espace restant (flex-1) → surface de dépôt
-          pleine hauteur, mise en valeur en entier pendant le glisser-déposer. */}
-      <div className="relative flex-1">
-        <DocumentsTab
-          liaison="documents_interventions_travaux"
-          parentColumn="travaux_id"
-          parentId={travaux.id}
-          uploadOpen={upload.uploadOpen}
-          onUploadOpenChange={upload.onUploadOpenChange}
-          uploadInitialFiles={upload.droppedFiles}
-        />
+      {/* DOCUMENTS — une carte comme les autres, en pleine largeur. La liste
+          vivait jusqu'ici à nu sur le fond de page : elle ne se rattachait
+          visuellement à rien et ne disait pas ce qu'elle était. `flex-1` : la
+          carte prend la hauteur restante, ce qui donne au voile de
+          glisser-déposer une cible franche plutôt qu'un bandeau. */}
+      <Card className="relative flex min-h-0 flex-1 flex-col gap-3 py-4">
+        <CardHeader>
+          <CardTitle className="text-base">Documents</CardTitle>
+        </CardHeader>
+        <CardContent className="flex min-h-0 flex-1 flex-col">
+          <DocumentsTab
+            liaison="documents_interventions_travaux"
+            parentColumn="travaux_id"
+            parentId={travaux.id}
+            uploadOpen={upload.uploadOpen}
+            onUploadOpenChange={upload.onUploadOpenChange}
+            uploadInitialFiles={upload.droppedFiles}
+            className="min-h-0 flex-1"
+          />
+        </CardContent>
         <FileDropOverlay show={upload.dragging} />
-      </div>
+      </Card>
 
       {editable && (
         <TravauxFormDialog

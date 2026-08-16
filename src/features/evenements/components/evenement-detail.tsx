@@ -21,7 +21,8 @@ import { StatusStepper } from '@/components/common/status-stepper'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import { Card, CardContent } from '@/components/ui/card'
+import { DetailNoteCard } from '@/components/common/detail-note-card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
 type Evenement = Database['public']['Tables']['evenements']['Row'] & {
@@ -120,38 +121,9 @@ export function EvenementDetail({
         }
       />
 
-      {/* CONSTAT — même gabarit que la carte de clôture plus bas : date en
-          en-tête discret, texte en dessous, crayon à droite. Les deux bouts du
-          cycle se lisent donc pareil, et la frise s'intercale entre eux.
-          Toujours rendue, description vide comprise : sinon la date de
-          l'événement n'aurait plus d'endroit où vivre. */}
-      <Card className="mb-4">
-        <CardContent className="flex items-start justify-between gap-3 text-sm">
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs text-muted-foreground">
-              Survenu le {formatDate(ev.date_evenement)}
-            </span>
-            <p className="whitespace-pre-wrap">
-              {ev.description?.trim() ? (
-                ev.description
-              ) : (
-                <span className="text-muted-foreground">
-                  Aucun constat détaillé.
-                </span>
-              )}
-            </p>
-          </div>
-          {canManage && (
-            <TooltipIconButton
-              icon={<Pencil />}
-              label="Modifier l’événement"
-              variant="ghost"
-              onClick={() => edit.openEdit(ev)}
-            />
-          )}
-        </CardContent>
-      </Card>
-
+      {/* FRISE — seule à rester PLEINE LARGEUR : c'est le résumé de l'état, on
+          la lit avant le détail, et l'étaler sur les deux colonnes garde ses
+          pastilles lisibles (à mi-largeur, les libellés se chevauchent). */}
       {etapes && (
         <Card className="mb-4">
           <CardContent>
@@ -171,55 +143,85 @@ export function EvenementDetail({
         </Card>
       )}
 
-      {/* La carte apparaît dès que l'événement est CLÔTURÉ, même sans
-          compte-rendu (il est facultatif) : sans elle, la date de clôture ne
-          serait ni visible ni corrigible. Le bouton rouvre le même dialogue, en
-          mode correction — c'est le seul endroit où l'on édite une clôture. */}
-      {ev.statut_evenement_id === STATUT_CLOTURE && (
-        <Card className="mb-4">
-          <CardContent className="flex items-start justify-between gap-3 text-sm">
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="text-xs text-muted-foreground">
-                Clôturé
-                {ev.date_cloture ? ` le ${formatDate(ev.date_cloture)}` : ''}
-              </span>
-              <p className="whitespace-pre-wrap">
-                {ev.compte_rendu?.trim() ? (
-                  ev.compte_rendu
-                ) : (
-                  <span className="text-muted-foreground">
-                    Aucun compte-rendu.
-                  </span>
-                )}
-              </p>
-            </div>
-            {canManage && (
+      {/* LES DEUX BOUTS DU DOSSIER, CÔTE À CÔTE : ce qui a été constaté à
+          gauche, ce qui a été fait à droite. Ils se répondent, on les compare
+          d'un regard. `lg:` et pas `md:` — à 768 px, deux colonnes de texte
+          deviennent deux couloirs étroits ; en dessous tout se réempile dans
+          l'ordre de lecture (mobile-first). */}
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+        {/* CONSTAT — toujours rendu, description vide comprise : sinon la date
+            de l'événement n'aurait plus d'endroit où vivre. */}
+        <DetailNoteCard
+          // Tant qu'il n'y a pas de clôture en face, le constat prend toute la
+          // largeur : une carte à mi-largeur suivie d'un demi-écran vide se lit
+          // comme un bloc manquant, pas comme une place réservée.
+          className={
+            ev.statut_evenement_id === STATUT_CLOTURE
+              ? undefined
+              : 'lg:col-span-2'
+          }
+          label={`Survenu le ${formatDate(ev.date_evenement)}`}
+          text={ev.description}
+          emptyText="Aucun constat détaillé."
+          action={
+            canManage && (
               <TooltipIconButton
                 icon={<Pencil />}
-                label="Modifier la clôture"
+                label="Modifier l’événement"
                 variant="ghost"
-                onClick={() => cloture.openEdit(ev)}
+                onClick={() => edit.openEdit(ev)}
               />
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Zone documents : prend EXACTEMENT l'espace restant (flex-1). */}
-      <div className="relative flex-1">
-        <DocumentsTab
-          liaison="documents_evenements"
-          parentColumn="evenement_id"
-          parentId={ev.id}
-          acceptedMimes={MIME_PDF}
-          uploadOpen={upload.uploadOpen}
-          onUploadOpenChange={upload.onUploadOpenChange}
-          uploadInitialFiles={upload.droppedFiles}
-          uploadDefaultTypeNom="Constat"
-          className="min-h-0 flex-1"
+            )
+          }
         />
-        {canManage && <FileDropOverlay show={upload.dragging} />}
+
+        {/* La carte apparaît dès que l'événement est CLÔTURÉ, même sans
+            compte-rendu (il est facultatif) : sans elle, la date de clôture ne
+            serait ni visible ni corrigible. Le bouton rouvre le même dialogue,
+            en mode correction — seul endroit où l'on édite une clôture. */}
+        {ev.statut_evenement_id === STATUT_CLOTURE && (
+          <DetailNoteCard
+            label={`Clôturé${ev.date_cloture ? ` le ${formatDate(ev.date_cloture)}` : ''}`}
+            text={ev.compte_rendu}
+            emptyText="Aucun compte-rendu."
+            action={
+              canManage && (
+                <TooltipIconButton
+                  icon={<Pencil />}
+                  label="Modifier la clôture"
+                  variant="ghost"
+                  onClick={() => cloture.openEdit(ev)}
+                />
+              )
+            }
+          />
+        )}
       </div>
+
+      {/* DOCUMENTS — une carte comme les autres, en pleine largeur sous les deux
+          notes. La liste vivait jusqu'ici à nu sur le fond de page : elle ne se
+          rattachait visuellement à rien et ne disait pas ce qu'elle était.
+          `flex-1` : la carte prend la hauteur restante, ce qui donne au voile de
+          glisser-déposer une cible franche plutôt qu'un bandeau. */}
+      <Card className="relative flex min-h-0 flex-1 flex-col gap-3 py-4">
+        <CardHeader>
+          <CardTitle className="text-base">Documents</CardTitle>
+        </CardHeader>
+        <CardContent className="flex min-h-0 flex-1 flex-col">
+          <DocumentsTab
+            liaison="documents_evenements"
+            parentColumn="evenement_id"
+            parentId={ev.id}
+            acceptedMimes={MIME_PDF}
+            uploadOpen={upload.uploadOpen}
+            onUploadOpenChange={upload.onUploadOpenChange}
+            uploadInitialFiles={upload.droppedFiles}
+            uploadDefaultTypeNom="Constat"
+            className="min-h-0 flex-1"
+          />
+        </CardContent>
+        {canManage && <FileDropOverlay show={upload.dragging} />}
+      </Card>
 
       {canManage && (
         <>
