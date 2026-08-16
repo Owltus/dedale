@@ -12,7 +12,7 @@ description: Extrait, crée ou fait adopter un composant partagé de l'app Déda
 Trois vérifications, dans l'ordre. La plupart des doublons du projet viennent de la deuxième, sautée.
 
 1. **Lire le catalogue** : `.claude/skills/nouvelle-page/references/catalogue-composants.md`.
-2. **Vérifier l'homonymie.** `common/select-field.tsx` et `common/fields/select-field.tsx` existent tous les deux ; idem pour `text`, `checkbox`, `number`. Un import « qui marche » peut pointer vers la génération 1. Vérifier le **chemin complet**, pas le nom.
+2. **Vérifier qu'une brique proche n'existe pas sous un autre nom.** Un import « qui marche » peut pointer vers un voisin qui ne fait pas tout à fait la même chose. Comparer le **chemin complet**, pas le nom. Pour les champs de formulaire, le critère est explicite : `common/fields/*` = react-hook-form (`control` + `name`) · `common/standalone-fields.tsx` = état local (`value` + `onChange`). Choisir selon qui porte l'état, jamais par habitude.
 3. **Chercher le rôle, pas le nom.** Une brique qui fait ce dont on a besoin peut s'appeler autrement : `grep` sur les props attendues (`onConfirm`, `breadcrumb`, `pending`…) plutôt que sur le nom qu'on lui aurait donné.
 
 Si une brique proche existe mais ne couvre pas le cas : **l'étendre**, ne pas écrire sa voisine. C'est ainsi que `DetailTabsShell` s'est retrouvée avec un seul consommateur pendant que deux fiches réassemblaient sa géométrie à la main.

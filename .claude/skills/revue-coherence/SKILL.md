@@ -22,21 +22,22 @@ Ne jamais écrire « semble », « pourrait » : ouvrir le fichier et trancher.
 
 ### Coquille et géométrie
 
-- [ ] Racine `PageContainer`. **Un enfant unique fait défiler l'en-tête** — mode `fill` requis pour un écran qui gère son propre défilement.
-- [ ] `FillHeader` / `ScrollBody` **importés**, jamais recopiés (`shrink-0 px-4 pt-6…`).
+- [ ] Racine `PageContainer`. **Un enfant unique fait défiler l'en-tête** — pour une colonne centrée, utiliser `bodyMaxWidth` (jamais un `div` enveloppant) ; pour un écran qui gère son propre défilement, `fill`.
+- [ ] `FillHeader` / `ScrollBody` **importés**, jamais recopiés (`shrink-0 px-4 pt-6…`). Le compteur de recopies dans `src/` doit rester à **zéro**.
 - [ ] Un seul `PageHeader`, actions passées en fragment nu (pas de conteneur intermédiaire qui rajoute un `gap`).
 - [ ] En défilant : titre, fil d'Ariane et boutons restent épinglés.
 
 ### États de données
 
 - [ ] Les 4 états via `QueryState`. Dérogation admise uniquement pour le tableau de bord et le planning — et alors justifiée en commentaire.
-- [ ] **Squelette de la même hauteur que les lignes réelles** (même `size`), et nombre par défaut.
+- [ ] **Squelette de la même hauteur que les lignes réelles** : `ListRowSkeletons` avec le MÊME `size` que les `ListRow` de la liste, et le nombre par défaut.
 - [ ] Le 5ᵉ cas (filtre sans résultat) rendu par `NoSearchResults`, distinct de l'état vide.
 - [ ] `isError` **traité** : chercher tout `?? []` sur une query. Une panne ne doit jamais s'afficher comme « aucun élément ».
 
 ### Liste
 
-- [ ] Barre via `ListFilterBar`, pleine largeur, sentinelle `FILTRE_TOUS`.
+- [ ] Corps via **`ListPageBody`** (barre + « aucun résultat » + `listStack`) — pas de `flex flex-col gap-4` écrit à la main.
+- [ ] Barre via `ListFilterBar`, pleine largeur, sentinelles `FILTRE_TOUS` / `FILTRE_NON_TERMINES` (jamais une chaîne vide).
 - [ ] Défaut « non terminés » si la liste a des statuts terminaux.
 - [ ] `ListRow` avec `mobileMeta` pour l'info discriminante (les `badges`/`meta` disparaissent sous `sm`).
 - [ ] `menuActions` via `actionsEditionSuppression`.
@@ -55,12 +56,13 @@ Ne jamais écrire « semble », « pourrait » : ouvrir le fichier et trancher.
 - [ ] `key={dlg.dialogKey}` — tester : saisir, annuler, rouvrir.
 - [ ] Suppression définitive → `ConfirmDeleteDialog`, pas `ConfirmDialog`.
 - [ ] Libellés d'attente : un verbe, jamais un `…` nu.
-- [ ] Aucun `SelectField` avec une option `value: ''`.
+- [ ] Aucune option `value: ''` : option neutre → `optionAucune`, champ requis → `placeholder`.
+- [ ] Champs pris dans la bonne famille : `common/fields/*` en react-hook-form, `common/standalone-fields.tsx` à état local. Aucun `<select>` natif.
 
 ### Gardes et rôles
 
-- [ ] Garde de site **avant toute query**, sur la liste **et** le détail.
-- [ ] Identité de page (titre, description, indice, icône) saisie **une seule fois**.
+- [ ] Garde de site via **`SiteScopedRoute`**, sur la liste **et** le détail. Aucun appel direct à `NoSiteSelected` dans une route.
+- [ ] Identité de page dans **`features/<x>/page-meta.ts`**, consommée par la liste, le détail, la garde ET le `PageHeader` — jamais saisie deux fois.
 - [ ] Permissions via `perm.*`, jamais `role === 'admin'` en dur.
 - [ ] Calées sur la RLS **réelle** — vérifier `pg_policies`, pas le schéma versionné.
 

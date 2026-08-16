@@ -43,11 +43,11 @@ Un « détail » rendu par dialogue piloté par état local (ex. aperçu d'un do
 
 Quel que soit le patron, une page de Dédale respecte ces sept points. Ils sont non négociables parce que chacun a déjà été enfreint et a produit un défaut visible.
 
-1. **Racine `PageContainer`.** Défaut : le 1er enfant est l'en-tête FIXE, le reste défile. **Avec un enfant unique, tout défile, en-tête compris** — d'où `fill` + `FillHeader`/`ScrollBody` pour les écrans qui gèrent leur propre défilement.
-2. **Deux gardes distinctes.** Rôle au **layout** (`requireNav`, **fail-open** : si la RPC rôle échoue on laisse passer, la RLS tranche) ; site dans la liste **ET** le détail (`NoSiteSelected`, **avant toute query**).
-3. **Une seule identité de page.** Titre, description, indice et icône sont saisis **une fois** et réutilisés par la liste, le détail et les gardes — sinon les textes divergent et le sous-titre change sous l'utilisateur.
-4. **Règle des 4 états = `QueryState`.** Le 5ᵉ cas (« filtre sans résultat ») se traite à la main avec `NoSearchResults`. Le squelette passe le **même `size`** que les lignes réelles.
-5. **Barre de liste = `ListFilterBar`**, pleine largeur, sentinelle `FILTRE_TOUS`. Défaut « non terminés » sur toute liste à statuts terminaux.
+1. **Racine `PageContainer`.** Défaut : le 1er enfant est l'en-tête FIXE, le reste défile. **Avec un enfant unique, tout défile, en-tête compris** — colonne centrée → `bodyMaxWidth` ; écran qui gère son propre défilement → `fill` + `FillHeader`/`ScrollBody`.
+2. **Deux gardes distinctes.** Rôle au **layout** (`requireNav`, **fail-open** : si la RPC rôle échoue on laisse passer, la RLS tranche) ; site via **`SiteScopedRoute`** dans la liste **ET** le détail, **avant toute query**.
+3. **Une seule identité de page** : `features/<x>/page-meta.ts` (`titre`/`description`/`hint`/`icone`), consommé par la liste, le détail, la garde et le `PageHeader`. Saisi deux fois, il diverge — c'est arrivé sur 5 pages sur 6.
+4. **Règle des 4 états = `QueryState`.** Le 5ᵉ cas (« filtre sans résultat ») est porté par `ListPageBody`. Le squelette passe le **même `size`** que les lignes réelles.
+5. **Corps de liste = `ListPageBody`** (barre `ListFilterBar` pleine largeur + aucun résultat + `listStack`). Sentinelles `FILTRE_TOUS`/`FILTRE_NON_TERMINES`, jamais une chaîne vide. Défaut « non terminés » sur toute liste à statuts terminaux.
 6. **`segOfUnique` symétrique** : même ensemble de frères (toute la liste **non filtrée**) en génération ET en résolution. Replis : slug vide → `id` ; collision → suffixe. **Jamais l'UUID brut dans l'URL.**
 7. **Cloisonnement site redondant** côté query (`.eq('site_id', siteId)`) en plus de la RLS.
 
