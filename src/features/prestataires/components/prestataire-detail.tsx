@@ -123,12 +123,16 @@ export function PrestataireDetail({
   ) : undefined
 
   return (
-    // `no-scrollbar` : seule la zone de contenu défile, barre masquée.
-    <PageContainer className="no-scrollbar">
+    // Mode `fill` OBLIGATOIRE : `DetailTabsShell` porte sa PROPRE zone défilante.
+    // Sans `fill`, PageContainer traite son 1er enfant — ici la fiche ENTIÈRE —
+    // comme en-tête FIXE `shrink-0` : le corps cesse de défiler et se fait
+    // clipper par le `main`. Gouttières reprises de `FillHeader`/`ScrollBody`.
+    <PageContainer fill>
       {/* Géométrie portée par DetailTabsShell — la MÊME que la fiche gamme et la
           fiche OT. Ce montage était auparavant réassemblé à la main ici, et
           avait déjà divergé de la brique (état vide, wrapper de corps). */}
       <DetailTabsShell
+        className="px-4 pt-6 pb-6 sm:px-6 lg:px-8"
         tabsAriaLabel="Sections du prestataire"
         value={onglet}
         onValueChange={setOnglet}

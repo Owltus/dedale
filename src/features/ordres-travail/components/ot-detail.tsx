@@ -397,14 +397,20 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
       ]
 
   return (
-    // `no-scrollbar` : seule la zone de contenu défile, barre masquée.
-    <PageContainer className="no-scrollbar">
+    // Mode `fill` OBLIGATOIRE : `DetailTabsShell` porte sa PROPRE zone défilante
+    // (en-tête + onglets fixes, corps `overflow-y-auto no-scrollbar`). Sans
+    // `fill`, PageContainer traite son 1er enfant — ici la fiche ENTIÈRE — comme
+    // en-tête FIXE `shrink-0` : le corps perd sa hauteur bornée, cesse de défiler
+    // et se fait clipper par le `main` (overflow-hidden). Les gouttières sont
+    // reprises de `FillHeader`/`ScrollBody`, que le mode `fill` ne pose pas.
+    <PageContainer fill>
       {/* Géométrie portée par DetailTabsShell — la MÊME que les fiches gamme et
           prestataire. `overlay` rend la surcouche de glisser-déposer DANS la zone
           défilante (`relative`), qui voile toute la hauteur visible quel que soit
           l'onglet ; `bodyClassName` garde la colonne flex qui centre l'état vide
           « Aucun document » et laisse l'onglet Documents occuper la zone. */}
       <DetailTabsShell
+        className="px-4 pt-6 pb-6 sm:px-6 lg:px-8"
         tabsAriaLabel="Sections de l’ordre de travail"
         value={onglet}
         onValueChange={setOnglet}
