@@ -32,7 +32,7 @@ import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import {
   matchStatutFilter,
   statutFilterOptions,
-  FILTRE_NON_TERMINES,
+  FILTRE_TOUS,
 } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
@@ -90,8 +90,12 @@ function EvenementsContent({
     successMessage: 'Événement supprimé',
   })
   const [recherche, setRecherche] = useState('')
-  // Défaut « non terminés » : on ouvre la page sur ce qui reste à traiter.
-  const [statutFilter, setStatutFilter] = useState(FILTRE_NON_TERMINES)
+  // Défaut « TOUS les statuts », contrairement aux autres listes à statuts
+  // (Demandes, Travaux, Investissements, OT) qui s'ouvrent sur « non terminés ».
+  // Un journal se consulte en ENTIER : masquer les événements clôturés cachait
+  // l'essentiel du registre, et la page s'ouvrait souvent sur « Aucun résultat »
+  // alors qu'elle contenait tout l'historique.
+  const [statutFilter, setStatutFilter] = useState(FILTRE_TOUS)
 
   const statutNom = new Map(statuts.map((s) => [s.id, s.nom]))
   const statutOptions = statutFilterOptions(
