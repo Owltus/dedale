@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { MapPin, Package, Paperclip, Pencil } from 'lucide-react'
+import { Paperclip, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { statutsEvenementsQueries } from '../queries'
 import { etapesEvenement } from '../etat'
@@ -76,22 +76,29 @@ export function EvenementDetail({
     )
   }
 
-  // Où cela s'est produit — rendu seulement si renseigné, les deux étant
-  // facultatifs. Un bloc vide vaut moins qu'un bloc absent. Le local est affiché
-  // avec sa hiérarchie : « Stationnement » seul ne situe rien.
-  const chemin = cheminLocal(ev.locaux, batiments.length > 1)
-  const lieu = [
-    chemin ? { icone: MapPin, texte: chemin } : null,
-    ev.equipements?.nom ? { icone: Package, texte: ev.equipements.nom } : null,
-  ].filter((x) => x !== null)
+  /**
+   * Où cela s'est produit, en SOUS-TEXTE de la barre de titre — la zone que les
+   * autres fiches utilisent pour situer leur entité. Le lieu répond à « de quoi
+   * parle-t-on ? », au même titre que le titre : il se lit donc avec lui, pas
+   * dans le corps.
+   *
+   * Les deux segments sont facultatifs ; `undefined` si aucun n'est renseigné,
+   * le `PageHeader` réserve alors sa ligne sans rien afficher.
+   */
+  const lieu =
+    [cheminLocal(ev.locaux, batiments.length > 1), ev.equipements?.nom]
+      .filter(Boolean)
+      .join(' · ') || undefined
 
   return (
     <PageContainer className="flex flex-col">
       <PageHeader
         title={ev.titre}
-        // Pas de description ici : la date de l'événement vit dans la carte de
-        // constat, en regard de celle de clôture. La répéter dans l'en-tête
-        // donnerait deux endroits à mettre à jour pour une seule information.
+        // Le LIEU en sous-texte : il situe l'événement au même titre que son
+        // titre. La DATE, elle, reste dans la carte de constat, en regard de
+        // celle de clôture — la répéter ici donnerait deux endroits à corriger
+        // pour une seule information.
+        description={lieu}
         breadcrumb={[{ label: 'Événements', onClick: onBack }]}
         action={
           canManage ? (
@@ -113,28 +120,16 @@ export function EvenementDetail({
         }
       />
 
-      {/* CONSTAT — même gabarit que la carte de clôture plus bas : circonstances
-          en en-tête discret, texte en dessous, crayon à droite. Les deux bouts
-          du cycle se lisent donc pareil, et la frise s'intercale entre eux.
+      {/* CONSTAT — même gabarit que la carte de clôture plus bas : date en
+          en-tête discret, texte en dessous, crayon à droite. Les deux bouts du
+          cycle se lisent donc pareil, et la frise s'intercale entre eux.
           Toujours rendue, description vide comprise : sinon la date de
-          l'événement n'aurait plus d'endroit où vivre.
-
-          Le LIEU est ici, sur la même ligne que la date, et non dans une carte à
-          lui seul : c'est une circonstance du constat (quand, où, quoi), pas une
-          information autonome — lui donner une carte lui donnait le poids d'une
-          section. */}
+          l'événement n'aurait plus d'endroit où vivre. */}
       <Card className="mb-4">
         <CardContent className="flex items-start justify-between gap-3 text-sm">
           <div className="flex min-w-0 flex-col gap-1">
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-              <span>Survenu le {formatDate(ev.date_evenement)}</span>
-              {lieu.map(({ icone: Icone, texte }) => (
-                <span key={texte} className="flex items-center gap-1">
-                  <span aria-hidden="true">·</span>
-                  <Icone className="size-3.5 shrink-0" />
-                  {texte}
-                </span>
-              ))}
+            <span className="text-xs text-muted-foreground">
+              Survenu le {formatDate(ev.date_evenement)}
             </span>
             <p className="whitespace-pre-wrap">
               {ev.description?.trim() ? (
