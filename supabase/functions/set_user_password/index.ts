@@ -11,10 +11,19 @@
 //   - un MANAGER : uniquement sur un technicien / lecteur / demandeur qui
 //     partage un de ses sites.
 //
-// L'AUTO-MODIFICATION EST INTERDITE par cette voie, pour les deux rôles. On
-// change son propre mot de passe depuis son profil, ce qui exige de connaître
-// l'ancien. Sans ce garde-fou, un administrateur contournerait cette exigence
-// sur son propre compte — et quiconque emprunterait une session ouverte aussi.
+// L'AUTO-MODIFICATION EST INTERDITE par cette voie, pour les deux rôles : on
+// change son propre mot de passe depuis son profil.
+//
+// ⚠ NE PAS SURESTIMER CE GARDE-FOU. Le profil demande l'ancien mot de passe,
+// mais il le vérifie DANS LE NAVIGATEUR : `auth.updateUser({ password })` n'exige
+// rien d'autre qu'une session valide. Qui dispose d'une session ouverte peut
+// donc changer le mot de passe sans connaître l'ancien, en contournant
+// l'interface. Ce refus empêche seulement de le faire *par cette fonction* — il
+// ne rend pas l'opération impossible.
+//
+// Le rendre réel demanderait soit la ré-authentification GoTrue (qui envoie un
+// code PAR E-MAIL, donc exclue par l'ADR 0007), soit une Edge Function dédiée
+// qui rejoue l'ancien mot de passe côté serveur. Non fait à ce jour.
 //
 // PIÈGE : contrairement à `createUser`, `updateUserById` applique bien la
 // politique de mot de passe du projet Supabase. On valide quand même ici, parce
@@ -202,6 +211,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const status = error.status && error.status >= 400 ? error.status : 400
     return json({ error: error.message }, status)
   }
+
+  // ⚠ CHANGER LE MOT DE PASSE NE DÉCONNECTE PAS LA CIBLE.
+  //
+  // Vérifié empiriquement sur ce projet le 17/08/2026, pas supposé : un jeton
+  // de rafraîchissement obtenu AVANT le changement reste accepté APRÈS. Les
+  // sessions déjà ouvertes survivent donc, et se renouvellent d'elles-mêmes.
+  //
+  // Aucune révocation n'est faite ici parce qu'il n'y en a pas de propre :
+  // `auth.admin.signOut` attend un JWT valide de la cible, que cette fonction
+  // ne possède pas, et l'API d'administration n'expose pas de révocation par
+  // identifiant.
+  //
+  // CONSÉQUENCE OPÉRATIONNELLE — pour un compte réellement compromis, remettre
+  // un mot de passe NE SUFFIT PAS : il faut DÉSACTIVER le compte (bouton de la
+  // fiche). Le kill-switch, lui, agit immédiatement : `current_role()` filtre
+  // sur `est_actif`, donc toutes les policies RLS se ferment sur-le-champ.
+  // Vérifié le même jour : session encore ouverte, `current_role()` à NULL, et
+  // zéro ligne lue sur les tables métier (seule sa propre ligne `users` reste
+  // visible, via `users_self_select` qui n'a pas de condition de rôle).
+  // L'ordre correct est donc : désactiver, puis redéfinir, puis réactiver.
 
   // Le mot de passe n'est jamais renvoyé ni journalisé.
   return json({ success: true }, 200)

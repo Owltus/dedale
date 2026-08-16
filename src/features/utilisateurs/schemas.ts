@@ -119,11 +119,16 @@ export type PasswordAvecConfirmationValues = z.infer<
  */
 export const creerCompteSchema = z
   .object({
+    // `.trim()` AVANT `.email()` : Zod 4 exécute les contrôles dans l'ordre de
+    // déclaration. Placé après, le détourage n'agissait jamais — une adresse
+    // collée depuis un tableur, avec son espace de fin, était rejetée comme
+    // « invalide », ce qui accusait l'adresse au lieu de la nettoyer.
     email: z
-      .email('Adresse e-mail invalide')
+      .string()
       .trim()
       .min(1, 'L’adresse e-mail est obligatoire')
-      .max(255),
+      .max(255)
+      .pipe(z.email('Adresse e-mail invalide')),
     nom_complet: z
       .string()
       .trim()

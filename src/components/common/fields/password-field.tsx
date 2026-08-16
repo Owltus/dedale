@@ -1,4 +1,4 @@
-import { useId, useState, type ComponentProps, type ReactNode } from 'react'
+import { useState, type ComponentProps, type ReactNode } from 'react'
 import type { Control, FieldPath, FieldValues } from 'react-hook-form'
 import { Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -50,7 +50,6 @@ export function PasswordField<T extends FieldValues>({
   // L'état visible/masqué est LOCAL au champ : il ne remonte jamais au
   // formulaire, où il n'aurait aucun sens (ce n'est pas une donnée saisie).
   const [visible, setVisible] = useState(false)
-  const descriptionId = useId()
 
   return (
     <FormField
@@ -75,7 +74,6 @@ export function PasswordField<T extends FieldValues>({
                 onBlur={field.onBlur}
                 ref={field.ref}
                 disabled={field.disabled ?? inputProps.disabled}
-                aria-describedby={hint != null ? descriptionId : undefined}
               />
             </FormControl>
             <Button
@@ -90,16 +88,13 @@ export function PasswordField<T extends FieldValues>({
                 visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'
               }
               aria-pressed={visible}
-              tabIndex={-1}
               className="absolute top-1/2 right-1 size-7 -translate-y-1/2 text-muted-foreground"
               onClick={() => setVisible((v) => !v)}
             >
               {visible ? <EyeOff /> : <Eye />}
             </Button>
           </div>
-          {hint != null && (
-            <FormDescription id={descriptionId}>{hint}</FormDescription>
-          )}
+          {hint != null && <FormDescription>{hint}</FormDescription>}
           <FormMessage />
         </FormItem>
       )}

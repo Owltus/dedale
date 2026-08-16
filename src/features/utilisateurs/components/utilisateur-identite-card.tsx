@@ -142,8 +142,8 @@ function ProfileForm({
         <div className="grid gap-2">
           <Label htmlFor="role">Rôle</Label>
           {isAdmin ? (
-            // Radix, comme le champ « Rôle » de la modale d'invitation dans
-            // cette même feature — qui, lui, était déjà thémé.
+            // Radix, comme le champ « Rôle » de la modale de création de compte
+            // dans cette même feature — qui, lui, était déjà thémé.
             <SelectDropdown
               id="role"
               value={String(roleId)}

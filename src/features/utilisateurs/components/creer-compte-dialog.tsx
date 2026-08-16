@@ -51,7 +51,14 @@ export function CreerCompteDialog({
     resolver: zodResolver(creerCompteSchema),
     defaultValues: {
       ...emptyCreerCompte,
-      role: rolesCreables[0] ?? 'technicien',
+      // JAMAIS `rolesCreables[0]` : pour un administrateur, la cascade commence
+      // par « admin ». Qui remplissait nom, e-mail et mot de passe sans ouvrir
+      // le menu fabriquait donc un second administrateur — actif et connectable
+      // sur-le-champ depuis qu'il n'y a plus d'invitation à accepter. Un défaut
+      // ne doit jamais être le privilège maximal.
+      role: rolesCreables.includes('technicien')
+        ? 'technicien'
+        : (rolesCreables.at(-1) ?? 'technicien'),
     },
   })
   const submit = useSubmitDialog<CreerCompteFormValues, string>({

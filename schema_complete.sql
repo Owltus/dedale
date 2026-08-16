@@ -156,7 +156,7 @@
 --   - handle_new_auth_user étendu : lecture app_metadata.created_by +
 --     app_metadata.site_ids[]. Validation cascade (admin → tous, manager →
 --     tech/lecteur/demandeur, tech → lecteur/demandeur). Auto-rattachement
---     user_sites + vérif scope inviteur. L'Edge Function future n'a qu'à
+--     user_sites + vérif scope du créateur. L'Edge Function n'a qu'à
 --     poser ces 4 clés dans app_metadata, le trigger fait le reste.
 --   - cleanup_storage_orphans : 2e cron mensuel (1er à 04h) qui supprime
 --     du bucket documents tout objet non référencé en base
@@ -651,7 +651,7 @@ INSERT INTO types_locaux (id, libelle, description) VALUES
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- users — profils applicatifs (extension de auth.users Supabase)
--- created_by trace la cascade d'invitation
+-- created_by trace la cascade de creation de compte
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -694,7 +694,7 @@ CREATE INDEX idx_users_role ON users(role_id);
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 COMMENT ON TABLE users IS 'Profils applicatifs miroir de auth.users (peuplés par trigger handle_new_auth_user F03). Instance single-tenant : tous les users appartiennent à l''unique entreprise.';
 COMMENT ON COLUMN users.est_actif IS 'Kill-switch : false révoque tous les droits via les helpers Auth sans attendre l''expiration JWT (F02).';
-COMMENT ON COLUMN users.created_by IS 'Trace la cascade d''invitation (Admin -> Manager/Technicien/Lecteur/Demandeur ; Manager -> Technicien/Lecteur/Demandeur ; Technicien -> Lecteur/Demandeur).';
+COMMENT ON COLUMN users.created_by IS 'Trace la cascade de création de compte (Admin -> Manager/Technicien/Lecteur/Demandeur ; Manager -> Technicien/Lecteur/Demandeur ; Technicien -> Lecteur/Demandeur).';
 COMMENT ON COLUMN users.photo_path IS 'F28 (audit) : chemin Storage de l''avatar (bucket documents, sous-arbre users/{user_id}/avatar.webp). WebP uniquement, 1 Mo max (à configurer côté bucket Dashboard). Front compresse avant upload. NULL = pas d''avatar, l''UI affiche les initiales.';
 COMMENT ON COLUMN users.anonymized_at IS 'F29 (patch v0.5) : timestamp d''anonymisation RGPD posé par la RPC anonymize_user(). NULL = compte normal. NOT NULL = compte anonymisé (idempotence robuste de la RPC).';
 
@@ -973,7 +973,7 @@ CREATE TRIGGER set_updated_at_users
 -- Règles :
 --   - role et est_actif ne sont modifiables QUE par un admin (public.current_role()).
 --   - id est immuable (modification refusée pour tout le monde).
---   - created_by est immuable post-création (trace de cascade d'invitation).
+--   - created_by est immuable post-création (trace de cascade de création).
 CREATE OR REPLACE FUNCTION public.protect_users_sensitive_columns()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
@@ -985,7 +985,7 @@ BEGIN
     END IF;
 
     IF NEW.created_by IS DISTINCT FROM OLD.created_by THEN
-        RAISE EXCEPTION 'users.created_by immuable (trace cascade d''invitation)'
+        RAISE EXCEPTION 'users.created_by immuable (trace cascade de création)'
             USING ERRCODE = 'integrity_constraint_violation';
     END IF;
 
@@ -1036,13 +1036,19 @@ CREATE TRIGGER trg_protect_users_sensitive
 -- ╚═════════════════════════════════════════════════════════════════════════╝
 -- =============================================================================
 -- 008b — Trigger on_auth_user_created (provisioning public.users)
--- Pattern Magic Link Supabase : auth.admin.inviteUserByEmail() insère une ligne
--- dans auth.users (géré par Supabase). On a besoin d'une ligne miroir dans
--- public.users avec role pour que tous les helpers Auth fonctionnent.
+-- L'Edge Function de création de compte appelle auth.admin.createUser(), qui
+-- insère une ligne dans auth.users (géré par Supabase). On a besoin d'une ligne
+-- miroir dans public.users avec role pour que tous les helpers Auth fonctionnent.
+--
+-- (Jusqu'à l'ADR 0007, la création passait par une INVITATION par e-mail —
+-- auth.admin.inviteUserByEmail(). Ce flux a été abandonné : l'administrateur
+-- saisit désormais lui-même le mot de passe, et aucun e-mail n'est envoyé. Le
+-- trigger, lui, n'a pas eu à changer : il ne lit que des métadonnées, jamais un
+-- mode de création.)
 --
 -- Le tout premier admin est créé via le Dashboard Supabase, avec son rôle posé
 -- dans app_metadata ({ "role": "admin" }). Le trigger ci-dessous le provisionne
--- exactement comme un user invité — aucun garde-fou ne bloque le 1er user.
+-- exactement comme tout autre compte — aucun garde-fou ne bloque le 1er user.
 --
 -- ⚠️ SÉCURITÉ — SOURCE DES MÉTADONNÉES :
 -- On lit les métadonnées dans raw_app_meta_data EN PRIORITÉ, avec REPLI sur
@@ -1050,7 +1056,7 @@ CREATE TRIGGER trg_protect_users_sensitive
 --   - raw_app_meta_data = app_metadata : modifiable UNIQUEMENT côté serveur
 --     (service_role). Source de vérité préférée pour les claims de sécurité.
 --   - raw_user_meta_data = user_metadata : posé par GoTrue DÈS la création
---     (inviteUserByEmail({ data }) / createUser({ user_metadata })) — ce que
+--     (createUser({ user_metadata }), cf. ADR 0007) — ce que
 --     app_metadata n'est PAS (GoTrue le pose APRÈS l'INSERT, donc trop tard pour
 --     ce trigger AFTER INSERT). On lit donc user_metadata en repli.
 --
@@ -1060,8 +1066,8 @@ CREATE TRIGGER trg_protect_users_sensitive
 -- pose app_metadata). Aucun tiers ne peut donc s'auto-attribuer un rôle via
 -- user_metadata. app_metadata reste prioritaire s'il est présent.
 --
--- L'Edge Function d'invitation passe role/nom_complet/created_by/site_ids via
--- `data` (= user_metadata) de inviteUserByEmail.
+-- L'Edge Function de création passe role/nom_complet/created_by/site_ids via
+-- `user_metadata` de createUser.
 --
 -- SECURITY DEFINER : permet d'insérer dans public.users (que l'user n'a pas
 -- encore le droit d'écrire car ses helpers retournent NULL avant insertion).
@@ -1083,7 +1089,7 @@ DECLARE
 BEGIN
     -- S1 : métadonnées = app_metadata EN PRIORITÉ, repli sur user_metadata.
     -- (app_metadata n'étant pas posé par GoTrue au moment de l'INSERT, l'Edge
-    -- Function d'invitation passe les infos via user_metadata ; app_metadata
+    -- Function de création passe les infos via user_metadata ; app_metadata
     -- reste prioritaire s'il est présent — ex. bootstrap admin par SQL direct.)
     v_meta := COALESCE(NEW.raw_user_meta_data, '{}'::jsonb)
               || COALESCE(NEW.raw_app_meta_data, '{}'::jsonb);
@@ -1221,7 +1227,7 @@ $$;
 COMMENT ON FUNCTION public.handle_new_auth_user() IS 'F03 + F29 (patch v0.5) — peuple public.users + user_sites depuis app_metadata (prioritaire) ou user_metadata (role, nom_complet, created_by, site_ids[]) passés par l''Edge Function d''invitation. Lecture via repli car GoTrue ne pose app_metadata qu''après l''INSERT ; sûr car signup public désactivé. Valide la cascade (admin → tous, manager → tech/lecteur/demandeur, tech → lecteur/demandeur) et le scope sites de l''inviteur.';
 
 -- Trigger sur auth.users : déclenche le miroir public.users après chaque
--- création (via Magic Link ou createUser).
+-- création (via createUser (ADR 0007)).
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   PASSWORD_REGLES,
+  creerCompteSchema,
   octetsDe,
   passwordAvecConfirmation,
   passwordSchema,
@@ -16,9 +17,13 @@ function regle(libelle: string) {
 }
 
 describe('PASSWORD_REGLES', () => {
-  it('exige 12 caractères', () => {
+  it('exige 12 caractères, et pince la borne', () => {
     const r = regle('12 caractères au minimum')
     expect(r.test('Abcdef1!')).toBe(false) // 8
+    // 11 : la valeur juste en dessous. Sans ce cas, le test passerait tel quel
+    // si la règle disait 9, 10 ou 11 — or c'est précisément le seuil qu'il
+    // prétend garantir.
+    expect(r.test('Abcdefgh12!')).toBe(false) // 11
     expect(r.test('Abcdefgh123!')).toBe(true) // 12
   })
 
@@ -101,5 +106,52 @@ describe('passwordAvecConfirmation', () => {
     // lui, l'erreur se pose à la racine et le formulaire refuse de se soumettre
     // sans rien afficher.
     expect(r.error?.issues[0]?.path).toEqual(['password_confirm'])
+  })
+})
+
+describe('creerCompteSchema', () => {
+  const base = {
+    email: 'jean@exemple.fr',
+    nom_complet: 'Jean Dupont',
+    role: 'technicien' as const,
+    site_ids: [],
+    password: VALIDE,
+    password_confirm: VALIDE,
+  }
+
+  it('accepte un formulaire complet et conforme', () => {
+    expect(creerCompteSchema.safeParse(base).success).toBe(true)
+  })
+
+  it('refuse un mot de passe faible, même saisi deux fois à l’identique', () => {
+    const r = creerCompteSchema.safeParse({
+      ...base,
+      password: 'court1!',
+      password_confirm: 'court1!',
+    })
+    expect(r.success).toBe(false)
+    expect(r.error?.issues.some((i) => i.path[0] === 'password')).toBe(true)
+  })
+
+  it('signale la divergence SOUS le champ de confirmation', () => {
+    const r = creerCompteSchema.safeParse({
+      ...base,
+      password_confirm: `${VALIDE}x`,
+    })
+    expect(r.success).toBe(false)
+    expect(r.error?.issues.some((i) => i.path[0] === 'password_confirm')).toBe(
+      true,
+    )
+  })
+
+  it('détoure l’e-mail AVANT de le valider', () => {
+    // Coller une adresse depuis un tableur amène une espace : elle doit être
+    // nettoyée, pas rejetée comme « invalide ».
+    const r = creerCompteSchema.safeParse({
+      ...base,
+      email: '  jean@exemple.fr ',
+    })
+    expect(r.success).toBe(true)
+    expect(r.data?.email).toBe('jean@exemple.fr')
   })
 })

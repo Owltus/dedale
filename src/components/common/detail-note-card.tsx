@@ -52,7 +52,8 @@ export function DetailNoteCard({
     // `gap-3 py-4` plutôt que le `gap-6 py-6` par défaut : l'écart standard
     // sépare des SECTIONS d'une carte riche. Ici l'en-tête et le texte sont la
     // même information — les éloigner de 24 px les faisait lire comme deux blocs
-    // sans rapport. Ce gabarit est celui de TOUTES les cartes des fiches détail.
+    // sans rapport. C'est le gabarit des cartes de CONTENU des fiches détail ;
+    // les cartes de frise gardent le `gap-6 py-6` par défaut.
     <Card className={cn('flex flex-col gap-3 py-4', className)}>
       <CardHeader>
         {/* MÊME gabarit de titre que les autres cartes de la fiche (`text-base`,
@@ -64,9 +65,11 @@ export function DetailNoteCard({
         <CardTitle className="text-base">{label}</CardTitle>
         {action && <CardAction>{action}</CardAction>}
       </CardHeader>
-      {/* Le texte défile DANS la carte quand la place manque, au lieu d'en
-          sortir : deux cartes voisines gardent ainsi la même hauteur quelle que
-          soit la longueur de leur contenu. */}
+      {/* `overflow-y-auto` en filet : il n'entre en jeu que si un hôte borne
+          la hauteur de la carte. Les trois fiches actuelles ne le font pas —
+          leur rangée de notes est en hauteur automatique — donc la carte grandit
+          avec son texte et ce défilement ne se déclenche jamais. Deux cartes
+          voisines gardent la même hauteur par `stretch`, pas par ce réglage. */}
       <CardContent className="min-h-0 flex-1 overflow-y-auto text-sm whitespace-pre-wrap">
         {text?.trim() ? (
           text

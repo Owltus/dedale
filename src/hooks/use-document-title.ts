@@ -21,8 +21,9 @@ const APP = 'Dédale'
  *
  * **Appelé par `PageHeader`**, que porte chaque écran : le titre suit donc
  * automatiquement, y compris dans les explorateurs à paliers où il change à
- * chaque descente. Les rares écrans sans en-tête (connexion) appellent le hook
- * sans argument pour retomber sur « Dédale » seul.
+ * chaque descente. Les écrans SANS en-tête l'appellent eux-mêmes avec leur
+ * propre titre — connexion, page introuvable, « aucun site assigné » — sans
+ * quoi ils garderaient le titre de l'écran précédent.
  */
 export function useDocumentTitle(titrePage?: string): void {
   const { pathname } = useLocation()
@@ -32,8 +33,11 @@ export function useDocumentTitle(titrePage?: string): void {
     const segments = [
       APP,
       section,
-      // Ni vide, ni identique à la section (« Travaux · Travaux »).
-      titrePage?.trim() && titrePage.trim() !== section
+      // Ni vide, ni redondant avec la section. L'égalité stricte ne suffisait
+      // pas : « Investissements (CapEx) » COMMENCE par « Investissements », et
+      // l'onglet bégayait « Dédale · Investissements · Investissements (CapEx) ».
+      titrePage?.trim() &&
+      (section === null || !titrePage.trim().startsWith(section))
         ? titrePage.trim()
         : null,
     ].filter((s): s is string => Boolean(s))

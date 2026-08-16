@@ -5,6 +5,7 @@ import {
 } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import type { AuthState } from '../auth'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 
 export interface RouterContext {
   auth: AuthState
@@ -17,6 +18,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 })
 
 function NotFound() {
+  // Sans en-tête de page, personne ne pose le titre d'onglet : il restait celui
+  // de la page précédente. Arriver sur « Page introuvable » depuis une fiche
+  // laissait donc le nom de cette fiche dans l'onglet.
+  useDocumentTitle('Page introuvable')
   return (
     <div className="h-full overflow-y-auto">
       <div className="flex min-h-full flex-col items-center justify-center gap-2 p-6 text-center">

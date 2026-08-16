@@ -24,6 +24,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { useDocumentTitle } from '@/hooks/use-document-title'
 
 export const Route = createFileRoute('/_app')({
   // Garde d'authentification factorisée pour tous les écrans de l'app.
@@ -208,6 +209,11 @@ function DemandeurLayout() {
  * de sens sans site). Le bloc compte reste accessible (déconnexion, thème).
  */
 function NoSiteLayout() {
+  // Écran sans en-tête de page : il pose lui-même son titre d'onglet. Il peut
+  // remplacer la page en cours SANS changement de route (révocation des sites
+  // pendant la session), donc sans cela l'onglet garderait le nom de l'écran
+  // qu'on ne voit plus.
+  useDocumentTitle('Aucun site assigné')
   const mainRef = useMainFocusRef()
   return (
     <div className="flex h-full flex-col overflow-hidden">
