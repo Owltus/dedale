@@ -84,7 +84,9 @@ export function EvenementDetail({
     <PageContainer className="flex flex-col">
       <PageHeader
         title={ev.titre}
-        description={`Survenu le ${formatDate(ev.date_evenement)}`}
+        // Pas de description ici : la date de l'événement vit dans la carte de
+        // constat, en regard de celle de clôture. La répéter dans l'en-tête
+        // donnerait deux endroits à mettre à jour pour une seule information.
         breadcrumb={[{ label: 'Événements', onClick: onBack }]}
         action={
           canManage ? (
@@ -119,13 +121,37 @@ export function EvenementDetail({
         </Card>
       )}
 
-      {ev.description?.trim() && (
-        <Card className="mb-4">
-          <CardContent className="text-sm whitespace-pre-wrap">
-            {ev.description}
-          </CardContent>
-        </Card>
-      )}
+      {/* CONSTAT — même gabarit que la carte de clôture plus bas : date en
+          en-tête discret, texte en dessous, crayon à droite. Les deux bouts du
+          cycle se lisent donc pareil, et la frise s'intercale entre eux.
+          Toujours rendue, description vide comprise : sinon la date de
+          l'événement n'aurait plus d'endroit où vivre. */}
+      <Card className="mb-4">
+        <CardContent className="flex items-start justify-between gap-3 text-sm">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-xs text-muted-foreground">
+              Survenu le {formatDate(ev.date_evenement)}
+            </span>
+            <p className="whitespace-pre-wrap">
+              {ev.description?.trim() ? (
+                ev.description
+              ) : (
+                <span className="text-muted-foreground">
+                  Aucun constat détaillé.
+                </span>
+              )}
+            </p>
+          </div>
+          {canManage && (
+            <TooltipIconButton
+              icon={<Pencil />}
+              label="Modifier l’événement"
+              variant="ghost"
+              onClick={() => edit.openEdit(ev)}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       {etapes && (
         <Card className="mb-4">
