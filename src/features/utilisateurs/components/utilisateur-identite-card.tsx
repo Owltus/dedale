@@ -126,6 +126,18 @@ function ProfileForm({
         onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
         className="flex flex-col gap-4"
       >
+        {/* Ce bloc avait des champs mais AUCUN titre, alors que ses deux voisins
+            (adresse e-mail, mot de passe) en ont un. Nom, téléphone et rôle
+            paraissaient donc appartenir au même ensemble que l'adresse, et son
+            bouton « Enregistrer » semblait tout valider d'un coup — or chaque
+            bloc a le sien. Un titre, et un bouton qui dit ce qu'il enregistre. */}
+        <div className="grid gap-1">
+          <Label className="text-base font-semibold">Profil</Label>
+          <p className="text-xs text-muted-foreground">
+            Nom, téléphone et rôle. Chaque bloc de cette carte s’enregistre
+            séparément.
+          </p>
+        </div>
         <TextField
           control={form.control}
           name="nom_complet"
@@ -166,7 +178,7 @@ function ProfileForm({
             disabled={update.isPending}
             className="self-start"
           >
-            {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
+            {update.isPending ? 'Enregistrement…' : 'Enregistrer le profil'}
           </Button>
         )}
       </form>
@@ -213,10 +225,16 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
     defaultValues: { email: current },
   })
   const email = useWatch({ control: form.control, name: 'email' })
+  /** Une adresse saisie mais pas encore enregistrée par CE bloc. */
+  const modifie = email.trim() !== current
 
   async function onSubmit(data: EmailFormValues) {
     try {
       await updateEmail.mutateAsync({ userId, email: data.email })
+      // Détoure la valeur affichée : la mutation a enregistré l'adresse détourée,
+      // le champ doit montrer la même chose, sans quoi l'avertissement
+      // « non enregistrée » persisterait à cause d'une espace invisible.
+      form.reset({ email: data.email.trim() })
       toast.success('E-mail mis à jour')
     } catch (e) {
       toast.error(errorMessage(e))
@@ -250,14 +268,24 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
             </p>
           )}
         </div>
-        <Button
-          type="submit"
-          variant="outline"
-          disabled={updateEmail.isPending || email.trim() === current}
-          className="self-start"
-        >
-          {updateEmail.isPending ? 'Mise à jour…' : 'Changer l’e-mail'}
-        </Button>
+        {/* Une saisie non validée se signale d'elle-même. Sans cela, on tape la
+            nouvelle adresse, on clique « Enregistrer le profil » plus bas — qui
+            ne concerne pas ce bloc — et on repart en croyant l'avoir changée. */}
+        <div className="flex items-center gap-3">
+          <Button
+            type="submit"
+            variant="outline"
+            disabled={updateEmail.isPending || !modifie}
+            className="self-start"
+          >
+            {updateEmail.isPending ? 'Mise à jour…' : 'Changer l’e-mail'}
+          </Button>
+          {modifie && (
+            <span className="text-xs text-warning">
+              Modification non enregistrée.
+            </span>
+          )}
+        </div>
       </form>
     </div>
   )
@@ -328,7 +356,10 @@ function PasswordBlock({ userId }: { userId: string }) {
         <Button
           type="submit"
           variant="outline"
-          disabled={setPassword.isPending}
+          // Inactif tant qu'il n'y a rien à enregistrer : un bouton cliquable
+          // qui ne peut que répondre par une erreur de validation fait croire
+          // qu'on a oublié quelque chose, alors qu'on n'a rien saisi.
+          disabled={setPassword.isPending || password.length === 0}
           className="self-start"
         >
           <KeyRound />
