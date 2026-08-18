@@ -6,7 +6,7 @@ import {
   statutAffichageOt,
   statutPlanningOt,
 } from '@/features/ordres-travail/statut-affichage'
-import { formatDate, formatDateAvecSemaineIso } from '@/lib/date'
+import { formatDateAvecSemaineIso } from '@/lib/date'
 import { ListRow } from '@/components/common/list-row'
 import { StatutColonne } from '@/components/common/statut-colonne'
 import { StatusBadge } from '@/components/common/status-badge'
@@ -116,13 +116,14 @@ export function OtCard({
   // Date affichée dans la colonne : pour un OT TERMINAL (clôturé ou annulé), la date
   // de clôture réelle — `date_cloture` porte l'horodatage de clôture OU d'annulation
   // (le schéma l'impose NON NULL sur tout statut terminal). Sinon (planifié, en cours,
-  // rouvert) la date PRÉVUE — l'échéance reste la donnée pertinente. La date prévue
-  // garde son n° de semaine ISO (repère de planification) ; la date de clôture est un
-  // horodatage passé → format simple, sans semaine.
+  // rouvert) la date PRÉVUE — l'échéance reste la donnée pertinente. Toute date
+  // affichée porte SYSTÉMATIQUEMENT son n° de semaine ISO 8601 (convention FR :
+  // la semaine commence le lundi, cf. `formatDateAvecSemaineIso`) — y compris la
+  // date de clôture, qui ne faisait jusqu'ici exception à tort.
   const estTerminal = ot.statut === 'cloture' || ot.statut === 'annule'
   const dateAffichee =
     estTerminal && ot.date_cloture
-      ? formatDate(ot.date_cloture)
+      ? formatDateAvecSemaineIso(ot.date_cloture)
       : formatDateAvecSemaineIso(ot.date_prevue)
   // Colonne de statut (badge + date, largeur fixe centrée) — affichée à l'identique
   // au BUREAU (slot `badges`) ET sur MOBILE (slot `mobileBadge`) → badges et dates
