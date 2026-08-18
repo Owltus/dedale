@@ -358,10 +358,18 @@ export function UploadDocumentDialog({
     () => new Set(linkedDocumentIds),
     [linkedDocumentIds],
   )
-  const candidats = useMemo(
-    () => (liables ?? []).filter((doc) => !linkedSet.has(doc.id)),
-    [liables, linkedSet],
-  )
+  // Même restriction de format que l'onglet « Téléverser » (ex. PDF seul pour
+  // les investissements) : sans ce filtre, lier un document existant contournait
+  // acceptedMimes.
+  const candidats = useMemo(() => {
+    const mimeAccepte = (mime: string) =>
+      acceptedMimes.some((m) =>
+        m === 'image/*' ? mime.startsWith('image/') : mime === m,
+      )
+    return (liables ?? []).filter(
+      (doc) => !linkedSet.has(doc.id) && mimeAccepte(doc.mime_type),
+    )
+  }, [liables, linkedSet, acceptedMimes])
   const filtresExistants = useMemo(() => {
     const q = searchExistants.trim().toLowerCase()
     if (q === '') return candidats
