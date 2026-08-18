@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ClipboardList, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import type { DocumentMeta } from '@/features/documents/format'
 import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { useDeleteOt } from '@/features/ordres-travail/mutations'
 import {
@@ -93,6 +94,13 @@ function OrdresTravailContent({
     )
   }, [query.data, search, statutFilter])
 
+  // Documents rattachés aux OT réellement affichés (après filtre), en UNE
+  // requête groupée → map `ot_id → DocumentMeta[]` (même principe que `releveParOt`).
+  const otIds = useMemo(() => filtered.map((ot) => ot.id), [filtered])
+  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(otIds))
+  const documentsParOt =
+    documentsQuery.data ?? new Map<string, DocumentMeta[]>()
+
   function confirmDelete() {
     if (!toDelete) return
     del.mutate(toDelete.id, {
@@ -179,6 +187,7 @@ function OrdresTravailContent({
                     refreshMiniatures={refreshMiniatures}
                     menuActions={actions.length ? actions : undefined}
                     releve={releveParOt.get(ot.id) ?? null}
+                    documents={documentsParOt.get(ot.id) ?? []}
                   />
                 )
               })}

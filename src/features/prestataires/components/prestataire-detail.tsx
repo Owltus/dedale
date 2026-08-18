@@ -33,6 +33,7 @@ import {
 } from '@/features/ordres-travail/tri'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
+import type { DocumentMeta } from '@/features/documents/format'
 import { GammeCard } from '@/features/gammes/components/gamme-card'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
@@ -558,6 +559,13 @@ function OtPanel({
     )
   }, [query.data, search, statutFilter])
 
+  // Documents rattachés, en UNE requête groupée (même principe que sur la page
+  // liste OT — cf. `ordresTravailQueries.documentsParOt`).
+  const otIds = useMemo(() => filtered.map((ot) => ot.id), [filtered])
+  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(otIds))
+  const documentsParOt =
+    documentsQuery.data ?? new Map<string, DocumentMeta[]>()
+
   return (
     <QueryState
       query={query}
@@ -593,6 +601,7 @@ function OtPanel({
                   ot={ot}
                   urlOf={urlOf}
                   refreshMiniatures={refreshMiniatures}
+                  documents={documentsParOt.get(ot.id) ?? []}
                 />
               ))}
             </div>

@@ -1,4 +1,8 @@
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { OtCard } from '@/features/ordres-travail/components/ot-card'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import type { DocumentMeta } from '@/features/documents/format'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import type { PlanningOt } from '@/features/planning/grille'
@@ -34,6 +38,13 @@ export function CelluleDialog({
   const liste = trierOtParUrgence(ots ?? [])
   // Vignettes résolues UNE fois pour toute la liste du popup (un seul canal Realtime).
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+  // Documents rattachés, en UNE requête groupée (même principe que sur la page
+  // liste OT — cf. `ordresTravailQueries.documentsParOt`). Petit volume ici
+  // (≥ 2 OT d'une cellule/semaine), mais même patron partout.
+  const otIds = useMemo(() => liste.map((ot) => ot.id), [liste])
+  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(otIds))
+  const documentsParOt =
+    documentsQuery.data ?? new Map<string, DocumentMeta[]>()
   // Le modal ne s'ouvre que pour ≥ 2 OT (1 seul → redirection directe, cf. planning.tsx) :
   // le compte est donc toujours pluriel. Description = [semaine éventuelle] + compte.
   const compte = `${String(liste.length)} ordres de travail`
@@ -63,6 +74,7 @@ export function CelluleDialog({
           ot={ot}
           urlOf={urlOf}
           refreshMiniatures={refreshMiniatures}
+          documents={documentsParOt.get(ot.id) ?? []}
           // Statut simplifié + carte dense (cohérent avec la grille, sans débordement).
           simplifierStatut
           compact

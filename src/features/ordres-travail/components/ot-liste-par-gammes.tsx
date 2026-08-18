@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList } from 'lucide-react'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import type { DocumentMeta } from '@/features/documents/format'
 import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
@@ -46,6 +47,11 @@ export function OtListeParGammes({
     () => trierOtParUrgence(query.data ?? []),
     [query.data],
   )
+  // Documents rattachés, en UNE requête groupée (même principe que `releveParOt`).
+  const otIds = useMemo(() => ordresTries.map((ot) => ot.id), [ordresTries])
+  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(otIds))
+  const documentsParOt =
+    documentsQuery.data ?? new Map<string, DocumentMeta[]>()
   useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
 
   return (
@@ -63,6 +69,7 @@ export function OtListeParGammes({
               urlOf={urlOf}
               refreshMiniatures={refreshMiniatures}
               releve={releveParOt.get(ot.id) ?? null}
+              documents={documentsParOt.get(ot.id) ?? []}
             />
           ))}
         </div>
