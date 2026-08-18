@@ -4,6 +4,7 @@ import { FileText, Paperclip } from 'lucide-react'
 import { documentsQueries } from '@/features/documents/queries'
 import type { LiaisonTable } from '@/features/documents/queries'
 import {
+  useAttachExistingDocuments,
   useDeleteDocument,
   useDetachDocument,
   useUploadAndAttach,
@@ -112,6 +113,7 @@ export function DocumentsTab({
   )
 
   const uploadAttach = useUploadAndAttach()
+  const attachExisting = useAttachExistingDocuments()
   const detach = useDetachDocument()
   const del = useDeleteDocument()
 
@@ -230,6 +232,16 @@ export function DocumentsTab({
           initialFiles={uploadInitialFiles}
           defaultTypeNom={uploadDefaultTypeNom}
           namingContext={namingContext}
+          onAttachExisting={(documentIds) =>
+            attachExisting.mutateAsync({
+              liaison,
+              parentColumn,
+              parentId,
+              documentIds,
+            })
+          }
+          attachPending={attachExisting.isPending}
+          linkedDocumentIds={(query.data ?? []).map((doc) => doc.id)}
         />
       )}
     </div>
