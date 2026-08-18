@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, FileText } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
 import {
   statutAffichageOt,
@@ -10,6 +11,9 @@ import { ListRow } from '@/components/common/list-row'
 import { StatutColonne } from '@/components/common/statut-colonne'
 import { StatusBadge } from '@/components/common/status-badge'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
+import { OtDocumentsDialog } from './ot-documents-dialog'
+import type { DocumentMeta } from '@/features/documents/format'
 
 /**
  * Champs nécessaires au rendu d'une carte OT — communs aux requêtes `list`
@@ -53,6 +57,7 @@ export function OtCard({
   refreshMiniatures,
   menuActions,
   releve,
+  documents = [],
   simplifierStatut = false,
   compact = false,
 }: {
@@ -67,6 +72,13 @@ export function OtCard({
    * planning) → même valeur partout. IGNORÉ en mode `compact`.
    */
   releve?: string | null
+  /**
+   * Documents rattachés à cet OT, calculés en amont par le conteneur (une seule
+   * requête groupée pour toute la liste, jamais une par carte — cf.
+   * `ordresTravailQueries.documentsParOt`). Vide/omis → aucune icône. Visible sur
+   * TOUTES les densités (bureau, compact, mobile), contrairement à `releve`.
+   */
+  documents?: DocumentMeta[]
   /**
    * Version PLANNING du statut : dépouillée des nuances de proximité calendaire
    * (Cette semaine / À venir / Mois prochain…) — cf. `statutPlanningOt`. Réservé au
@@ -117,51 +129,106 @@ export function OtCard({
   const badgeCompact = (
     <StatusBadge tone={statut.tone}>{statut.label}</StatusBadge>
   )
+
+  // Icône documents : un seul → aperçu direct ; plusieurs → modal de choix.
+  // Posée dans `badges`/`mobileBadge`, tous deux `relative z-10` dans `ListRow`
+  // → reçoit le clic sans être recouverte par l'overlay de navigation, sans
+  // `stopPropagation` (même mécanisme que le slot `actions`).
+  const [preview, setPreview] = useState<DocumentMeta | null>(null)
+  const [listeOpen, setListeOpen] = useState(false)
+  function ouvrirDocuments() {
+    if (documents.length === 1) setPreview(documents[0] ?? null)
+    else if (documents.length > 1) setListeOpen(true)
+  }
+  const documentIcon =
+    documents.length > 0 ? (
+      <button
+        type="button"
+        onClick={ouvrirDocuments}
+        aria-label={
+          documents.length > 1 ? 'Voir les documents' : 'Voir le document'
+        }
+        className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <FileText className={compact ? 'size-5' : 'size-6'} />
+      </button>
+    ) : null
+
   return (
-    <ListRow
-      media={
-        <MiniatureThumb
-          url={urlOf(ot.miniature_id)}
-          fallback={
-            <ClipboardList className={compact ? 'size-6' : 'size-10'} />
-          }
-          alt=""
-          onError={refreshMiniatures}
-          className="size-full rounded-none"
-        />
-      }
-      title={ot.nom_gamme}
-      subtitle={ot.nom_equipement ?? ot.description_gamme ?? undefined}
-      // Liséré de statut au bord gauche (code couleur lié au statut, comme les
-      // Demandes d'intervention).
-      tone={statut.tone}
-      size={compact ? 'sm' : 'md'}
-      // À droite (bureau) : le relevé (s'il existe) À GAUCHE de la colonne statut/date ;
-      // en mode compact, un badge de statut nu et pas de relevé.
-      badges={
-        compact ? (
-          badgeCompact
-        ) : (
-          <div className="flex items-center gap-4">
-            {releve && (
-              <span className="text-sm whitespace-nowrap text-muted-foreground">
-                {releve}
-              </span>
-            )}
-            {statutColonne}
+    <>
+      <ListRow
+        media={
+          <MiniatureThumb
+            url={urlOf(ot.miniature_id)}
+            fallback={
+              <ClipboardList className={compact ? 'size-6' : 'size-10'} />
+            }
+            alt=""
+            onError={refreshMiniatures}
+            className="size-full rounded-none"
+          />
+        }
+        title={ot.nom_gamme}
+        subtitle={ot.nom_equipement ?? ot.description_gamme ?? undefined}
+        // Liséré de statut au bord gauche (code couleur lié au statut, comme les
+        // Demandes d'intervention).
+        tone={statut.tone}
+        size={compact ? 'sm' : 'md'}
+        // À droite (bureau) : l'icône documents (si des documents existent) puis le
+        // relevé (s'il existe) À GAUCHE de la colonne statut/date ; en mode compact,
+        // même icône puis un badge de statut nu, pas de relevé.
+        badges={
+          compact ? (
+            <div className="flex items-center gap-2">
+              {documentIcon}
+              {badgeCompact}
+            </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              {documentIcon}
+              {releve && (
+                <span className="text-sm whitespace-nowrap text-muted-foreground">
+                  {releve}
+                </span>
+              )}
+              {statutColonne}
+            </div>
+          )
+        }
+        // Sous `sm` : MÊME icône documents (décision : visible aussi sur mobile,
+        // contrairement au relevé) + la colonne de statut (ou le badge compact).
+        mobileBadge={
+          <div className="flex items-center gap-2">
+            {documentIcon}
+            {compact ? badgeCompact : statutColonne}
           </div>
-        )
-      }
-      // Sous `sm` : la MÊME colonne de statut (ou le badge compact), réaffichée à
-      // droite (le sous-titre équipement/description reste visible → pas de `mobileMeta`).
-      mobileBadge={compact ? badgeCompact : statutColonne}
-      onClick={() =>
-        void navigate({
-          to: '/ordres-travail/$otId',
-          params: { otId: ot.id },
-        })
-      }
-      menuActions={menuActions}
-    />
+        }
+        onClick={() =>
+          void navigate({
+            to: '/ordres-travail/$otId',
+            params: { otId: ot.id },
+          })
+        }
+        menuActions={menuActions}
+      />
+      {documents.length > 0 && (
+        <>
+          <DocumentPreviewDialog
+            doc={preview}
+            onOpenChange={(open) => {
+              if (!open) setPreview(null)
+            }}
+          />
+          {documents.length > 1 && (
+            <OtDocumentsDialog
+              open={listeOpen}
+              onOpenChange={setListeOpen}
+              documents={documents}
+              otNom={ot.nom_gamme}
+            />
+          )}
+        </>
+      )}
+    </>
   )
 }
