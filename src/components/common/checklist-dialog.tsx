@@ -8,6 +8,8 @@ import { DialogShell } from '@/components/common/dialog-shell'
 import { SearchInput } from '@/components/common/search-input'
 
 export interface CheckRowProps {
+  /** Média optionnel à gauche (ex. `<RowMediaIcon icon={...} />`), taille libre à l'appelant. */
+  media?: ReactNode
   /** Titre (ligne principale, tronquée). */
   titre: ReactNode
   /** Sous-titre discret (ligne secondaire, tronquée). Masqué si vide. */
@@ -34,6 +36,7 @@ export interface CheckRowProps {
  * Le libellé (lié par `htmlFor`) coche la case ; la case reste focalisable clavier.
  */
 export function CheckRow({
+  media,
   titre,
   sousTitre,
   badge,
@@ -60,6 +63,11 @@ export function CheckRow({
         htmlFor={id}
         className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
       >
+        {media != null && (
+          <span className="size-9 shrink-0 overflow-hidden rounded-md">
+            {media}
+          </span>
+        )}
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-medium">{titre}</span>
           {sousTitre != null && sousTitre !== '' && (
@@ -76,6 +84,8 @@ export function CheckRow({
 
 export interface ChecklistItem {
   id: string
+  /** Média optionnel à gauche (présentation seule). */
+  media?: ReactNode
   /** Texte du titre (aussi filtré par la recherche). */
   titre: string
   /** Sous-titre affiché + filtré par la recherche. */
@@ -214,6 +224,7 @@ export function ChecklistDialog({
         {filtered.map((it) => (
           <li key={it.id}>
             <CheckRow
+              media={it.media}
               titre={it.titre}
               sousTitre={it.sousTitre}
               badge={it.badge}
