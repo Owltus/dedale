@@ -7,6 +7,8 @@ export interface DocumentMeta {
   type_document_id: number
   storage_path: string
   uploaded_at: string
+  /** Présent uniquement quand la requête le sélectionne (ex. liste des documents liables). */
+  site_id?: string | null
 }
 
 /** Taille fichier lisible (Ko / Mo). */

@@ -53,6 +53,30 @@ export function useUploadAndAttach() {
   })
 }
 
+/** Lie un ou plusieurs documents déjà en base à une entité, sans upload (étape (c) seule). */
+export function useAttachExistingDocuments() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: {
+      liaison: LiaisonTable
+      parentColumn: string
+      parentId: string
+      documentIds: string[]
+    }) => {
+      const { liaison, parentColumn, parentId, documentIds } = params
+      await liaisonTable(liaison)
+        .insert(
+          documentIds.map((documentId) => ({
+            document_id: documentId,
+            [parentColumn]: parentId,
+          })) as { document_id: string; ordre_travail_id: string }[],
+        )
+        .throwOnError()
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: documentsQueries.all() }),
+  })
+}
+
 /** Détache un document d'une entité (supprime la ligne de liaison, pas le document). */
 export function useDetachDocument() {
   const qc = useQueryClient()

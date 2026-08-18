@@ -51,6 +51,27 @@ export const documentsQueries = {
     }),
 
   /**
+   * Documents liables à une entité : ceux du site actif + ceux de la
+   * bibliothèque entreprise (site_id NULL, partagés entre tous les sites).
+   */
+  listLiables: (siteId: string) =>
+    queryOptions({
+      queryKey: [...documentsQueries.all(), 'list-liables', siteId] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('documents')
+          .select(
+            'id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at, site_id',
+          )
+          .or(`site_id.is.null,site_id.eq.${siteId}`)
+          .order('uploaded_at', { ascending: false })
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+    }),
+
+  /**
    * Documents rattachés à une entité via sa table de liaison.
    * `liaison` = nom de la table de liaison (ex. 'documents_ordres_travail').
    * `parentColumn` = colonne FK vers l'entité (ex. 'ordre_travail_id').
