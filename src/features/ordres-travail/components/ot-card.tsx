@@ -157,42 +157,45 @@ export function OtCard({
         />
       </button>
     ) : null
-  // Emplacement RÉSERVÉ (compact/mobile, où le relevé n'existe pas) : largeur
-  // FIXE que l'icône soit présente ou non, pour que le badge suivant ne se
-  // décale jamais.
-  const documentIconSlot = (
+  // Emplacement pour compact/mobile (où le relevé n'existe pas) : SANS icône,
+  // ne rend RIEN — pas de largeur à réserver pour un OT sans document, la
+  // place revient au titre/sous-titre (priorité responsive, cf. `indicateurZone`
+  // ci-dessous pour le raisonnement complet).
+  const documentIconSlot = documentIcon ? (
     <div className="flex w-16 shrink-0 items-center justify-center">
       {documentIcon}
     </div>
-  )
+  ) : null
   const releveTexte = releve ? (
     <span className="text-sm whitespace-nowrap text-muted-foreground">
       {releve}
     </span>
   ) : null
-  // Zone à largeur FIXE (`w-28`) et contenu CENTRÉ (`justify-center`), même
-  // convention que `StatutColonne` juste à côté (colonne fixe + centrage) :
-  // la boîte elle-même ne bouge JAMAIS (ses deux bords sont fixes tant que le
-  // contenu tient dans `w-28`), donc l'icône/le relevé restent visuellement à
-  // la même place d'une carte à l'autre — sans le grand vide disgracieux d'un
-  // alignement à droite qui collait tout contre le badge. `w-28` est calibré
-  // large pour qu'un relevé ne dépasse quasiment jamais ; seul le cas RARE où
-  // icône ET relevé coexistent bascule en largeur MINIMALE (la boîte
-  // s'élargit alors pour les deux, le badge peut légèrement bouger sur cette
-  // carte précise — compromis assumé).
+  // Zone à largeur FIXE (`w-28`) et contenu CENTRÉ, MAIS SEULEMENT si un
+  // indicateur existe : un OT SANS document ni relevé (le cas le plus
+  // fréquent) ne réserve plus aucune largeur ici — priorité au titre et au
+  // sous-titre, qui en ont besoin. Réserver une colonne vide sur la majorité
+  // des cartes juste pour garder le badge pixel-aligné sur la minorité de
+  // cartes qui ont un indicateur n'est pas un bon compromis responsive
+  // (texte tronqué inutilement). Quand un indicateur EST présent, la boîte
+  // fixe + centrée garde la même logique que `StatutColonne` juste à côté :
+  // ses bords ne bougent pas tant que le contenu tient dans `w-28`. Seul le
+  // cas RARE où icône ET relevé coexistent bascule en largeur MINIMALE (la
+  // boîte s'élargit pour les deux).
   const indicateurs = [documentIcon, releveTexte].filter(
     (n): n is NonNullable<typeof n> => n !== null,
   )
-  const indicateurZone = (
-    <div
-      className={cn(
-        'flex shrink-0 items-center justify-center gap-2',
-        indicateurs.length > 1 ? 'min-w-28' : 'w-28',
-      )}
-    >
-      {indicateurs}
-    </div>
-  )
+  const indicateurZone =
+    indicateurs.length > 0 ? (
+      <div
+        className={cn(
+          'flex shrink-0 items-center justify-center gap-2',
+          indicateurs.length > 1 ? 'min-w-28' : 'w-28',
+        )}
+      >
+        {indicateurs}
+      </div>
+    ) : null
 
   return (
     <>
