@@ -14,6 +14,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
 import { OtDocumentsDialog } from './ot-documents-dialog'
 import type { DocumentMeta } from '@/features/documents/format'
+import { cn } from '@/lib/utils'
 
 /**
  * Champs nécessaires au rendu d'une carte OT — communs aux requêtes `list`
@@ -169,20 +170,27 @@ export function OtCard({
       {releve}
     </span>
   ) : null
-  // Zone SOUPLE (pas deux emplacements pleinement réservés : ça laissait un
-  // grand vide disgracieux dès qu'un seul des deux indicateurs était présent,
-  // et grignotait la place du titre/sous-titre sur les fenêtres étroites).
-  // Icône et relevé sont tassés à gauche dans UN SEUL conteneur — un OT qui
-  // n'a QUE l'un ou QUE l'autre l'affiche donc au MÊME endroit. Une largeur
-  // MINIMALE (pas fixe) garde ce point de départ stable pour le cas courant
-  // (0 ou 1 indicateur) ; elle ne s'élargit que si les deux coexistent (rare)
-  // ou qu'un relevé est exceptionnellement long — compromis assumé plutôt que
-  // de sacrifier la lisibilité du titre pour un cas marginal.
+  // Zone à largeur FIXE (`w-28`) et contenu ALIGNÉ À DROITE (`justify-end`) :
+  // le bord droit de l'icône/du relevé colle toujours au même endroit, juste
+  // avant le `gap-3` vers la colonne statut — l'écart avec le badge reste donc
+  // PROPRE et CONSTANT quelle que soit la longueur du relevé (ex. « 466 m³ »
+  // vs « 24 964 kWh »), contrairement à un alignement à gauche où un texte
+  // plus long grignote l'écart. `w-28` est calibré large pour ne quasiment
+  // jamais avoir à grandir (un relevé plus long resterait dans les clous) ;
+  // seul le cas RARE où icône ET relevé coexistent bascule en largeur MINIMALE
+  // (le conteneur s'élargit pour les deux, le badge peut alors légèrement
+  // bouger sur cette carte précise — compromis assumé, cf. commentaire plus
+  // haut sur `documentIconSlot`).
   const indicateurs = [documentIcon, releveTexte].filter(
     (n): n is NonNullable<typeof n> => n !== null,
   )
   const indicateurZone = (
-    <div className="flex min-w-16 shrink-0 items-center gap-2">
+    <div
+      className={cn(
+        'flex shrink-0 items-center justify-end gap-2',
+        indicateurs.length > 1 ? 'min-w-28' : 'w-28',
+      )}
+    >
       {indicateurs}
     </div>
   )
