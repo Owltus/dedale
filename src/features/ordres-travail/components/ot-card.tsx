@@ -214,9 +214,9 @@ export function OtCard({
         // Demandes d'intervention).
         tone={statut.tone}
         size={compact ? 'sm' : 'md'}
-        // À droite (bureau) : icône/relevé tassés à gauche (cf. `indicateurZone`)
-        // puis colonne statut/date. En mode compact, même icône puis un badge
-        // de statut nu, pas de relevé.
+        // À droite (bureau) : icône/relevé centrés dans leur colonne fixe (cf.
+        // `indicateurZone`) puis colonne statut/date. En mode compact, même
+        // icône puis un badge de statut nu, pas de relevé.
         badges={
           compact ? (
             <div className="flex items-center gap-2">
