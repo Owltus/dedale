@@ -138,8 +138,10 @@ const TONE_ACCENT: Record<StatusTone, string> = {
  *
  * Cliquable : un vrai `<button>` ÉTIRÉ en overlay (`absolute inset-0`) porte
  * l'action — clavier natif (Entrée/Espace), focus visible sur toute la ligne, et
- * surtout AUCUN élément interactif imbriqué. Les actions, posées au-dessus
- * (`z-10`), restent donc indépendantes du drill-down sans `stopPropagation`.
+ * surtout AUCUN élément interactif imbriqué. Les actions, `badges` et
+ * `mobileBadge`, posés au-dessus (`z-10`), restent donc indépendants du
+ * drill-down sans `stopPropagation` — un élément cliquable peut être glissé
+ * dans `badges`/`mobileBadge` (ex. icône documents) sans conflit de clic.
  *
  * Menu : si `menuActions` est fourni, la card devient déclencheur d'un menu
  * contextuel (clic droit / appui long) et le slot d'actions porte un kebab « ⋮ »
@@ -240,12 +242,12 @@ export function ListRow({
             )}
           </div>
           {mobileBadge !== undefined && (
-            <div className="flex shrink-0 items-center sm:hidden">
+            <div className="relative z-10 flex shrink-0 items-center sm:hidden">
               {mobileBadge}
             </div>
           )}
           {badges !== undefined && (
-            <div className="hidden shrink-0 items-center gap-2 sm:flex">
+            <div className="relative z-10 hidden shrink-0 items-center gap-2 sm:flex">
               {badges}
             </div>
           )}
