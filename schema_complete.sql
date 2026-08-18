@@ -7254,6 +7254,8 @@ CREATE OR REPLACE FUNCTION public.nettoyage_dates_coherentes()
 RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
+DECLARE
+    v_derniere_execution TIMESTAMPTZ;
 BEGIN
     -- Retour à 'planifie' depuis en_cours → on conserve date_debut (preuve métier)
     --   (rien à faire)
@@ -7273,13 +7275,20 @@ BEGIN
         NEW.date_cloture := COALESCE(NEW.date_cloture, now());
     END IF;
 
-    -- Clôture manuelle sans date_cloture → la pose à now()
+    -- Clôture manuelle sans date_cloture → reprend la date du DERNIER relevé.
+    -- 080 : n'accepte plus de repli silencieux sur now() quand aucune opération
+    -- n'a de date d'exécution — lève une erreur à la place (cf. en-tête migration).
     IF NEW.statut = 'cloture' AND NEW.date_cloture IS NULL THEN
-        NEW.date_cloture := COALESCE(
-            (SELECT MAX(date_execution) FROM public.operations_execution
-             WHERE ordre_travail_id = NEW.id),
-            now()
-        );
+        SELECT MAX(date_execution) INTO v_derniere_execution
+        FROM public.operations_execution
+        WHERE ordre_travail_id = NEW.id;
+
+        IF v_derniere_execution IS NULL THEN
+            RAISE EXCEPTION 'Clôture impossible : aucune date d''exécution enregistrée sur les opérations de cet OT. Enregistrez d''abord les relevés/opérations avant de clôturer.'
+                USING ERRCODE = 'check_violation';
+        END IF;
+
+        NEW.date_cloture := v_derniere_execution;
     END IF;
 
     -- Réouverture : on efface date_cloture
@@ -7317,7 +7326,7 @@ CREATE TRIGGER trg_nettoyage_dates_coherentes
     FOR EACH ROW EXECUTE FUNCTION public.nettoyage_dates_coherentes();
 
 COMMENT ON FUNCTION public.nettoyage_dates_coherentes() IS
-    'Force cohérence date_debut/date_cloture selon les transitions de statut OT. 075 : à l''entrée en statut terminal, date_cloture est bornée à >= date_debut (une clôture ne peut pas précéder le démarrage) — sinon le CHECK dates_coherentes bloquait la re-clôture d''un OT rouvert.';
+    'Force cohérence date_debut/date_cloture selon les transitions de statut OT. 075 : à l''entrée en statut terminal, date_cloture est bornée à >= date_debut. 080 : la clôture manuelle SANS date_execution trouvable sur les opérations lève une erreur au lieu d''un repli silencieux sur now() — évite qu''un OT se retrouve clôturé avec une date fictive.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 8bis. reouvrir_ot — RPC standard pour rouvrir un OT clôturé (F28 audit)
