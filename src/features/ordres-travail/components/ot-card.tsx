@@ -150,9 +150,22 @@ export function OtCard({
         }
         className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
       >
-        <FileText className={compact ? 'size-5' : 'size-6'} />
+        <FileText className={compact ? 'size-10' : 'size-12'} />
       </button>
     ) : null
+  // Emplacements RÉSERVÉS (grille) : icône documents et relevé gardent une
+  // largeur FIXE que leur contenu soit présent ou non, pour que le badge de
+  // statut ne se décale jamais selon les OT qui n'ont ni document ni relevé.
+  const documentIconSlot = (
+    <div className="flex w-16 shrink-0 items-center justify-center">
+      {documentIcon}
+    </div>
+  )
+  const releveSlot = (
+    <div className="w-24 shrink-0 truncate text-right text-sm text-muted-foreground">
+      {releve}
+    </div>
+  )
 
   return (
     <>
@@ -174,23 +187,21 @@ export function OtCard({
         // Demandes d'intervention).
         tone={statut.tone}
         size={compact ? 'sm' : 'md'}
-        // À droite (bureau) : l'icône documents (si des documents existent) puis le
-        // relevé (s'il existe) À GAUCHE de la colonne statut/date ; en mode compact,
-        // même icône puis un badge de statut nu, pas de relevé.
+        // À droite (bureau) : grille à emplacements RÉSERVÉS — icône documents,
+        // relevé puis colonne statut/date restent chacun à une place FIXE, qu'ils
+        // aient ou non un contenu à afficher (pas de décalage d'une carte à
+        // l'autre selon la présence de documents/relevé). En mode compact, même
+        // icône puis un badge de statut nu, pas de relevé.
         badges={
           compact ? (
             <div className="flex items-center gap-2">
-              {documentIcon}
+              {documentIconSlot}
               {badgeCompact}
             </div>
           ) : (
-            <div className="flex items-center gap-4">
-              {documentIcon}
-              {releve && (
-                <span className="text-sm whitespace-nowrap text-muted-foreground">
-                  {releve}
-                </span>
-              )}
+            <div className="flex items-center gap-3">
+              {documentIconSlot}
+              {releveSlot}
               {statutColonne}
             </div>
           )
@@ -199,7 +210,7 @@ export function OtCard({
         // contrairement au relevé) + la colonne de statut (ou le badge compact).
         mobileBadge={
           <div className="flex items-center gap-2">
-            {documentIcon}
+            {documentIconSlot}
             {compact ? badgeCompact : statutColonne}
           </div>
         }
