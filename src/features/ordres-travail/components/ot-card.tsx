@@ -165,27 +165,26 @@ export function OtCard({
     </div>
   )
   const releveTexte = releve ? (
-    <span className="truncate text-sm whitespace-nowrap text-muted-foreground">
+    <span className="text-sm whitespace-nowrap text-muted-foreground">
       {releve}
     </span>
   ) : null
-  // Grille à DEUX emplacements RÉSERVÉS, TASSÉS À GAUCHE : la largeur totale
-  // reste fixe (le badge de statut ne bouge jamais), mais un OT qui n'a QUE
-  // l'icône ou QUE le relevé affiche son unique indicateur dans le PREMIER
-  // emplacement — icône seule et relevé seul occupent donc la MÊME place.
-  // Le second emplacement n'apparaît que quand les DEUX coexistent.
+  // Zone SOUPLE (pas deux emplacements pleinement réservés : ça laissait un
+  // grand vide disgracieux dès qu'un seul des deux indicateurs était présent,
+  // et grignotait la place du titre/sous-titre sur les fenêtres étroites).
+  // Icône et relevé sont tassés à gauche dans UN SEUL conteneur — un OT qui
+  // n'a QUE l'un ou QUE l'autre l'affiche donc au MÊME endroit. Une largeur
+  // MINIMALE (pas fixe) garde ce point de départ stable pour le cas courant
+  // (0 ou 1 indicateur) ; elle ne s'élargit que si les deux coexistent (rare)
+  // ou qu'un relevé est exceptionnellement long — compromis assumé plutôt que
+  // de sacrifier la lisibilité du titre pour un cas marginal.
   const indicateurs = [documentIcon, releveTexte].filter(
     (n): n is NonNullable<typeof n> => n !== null,
   )
-  const indicateurSlots = (
-    <>
-      <div className="flex w-20 shrink-0 items-center justify-center">
-        {indicateurs[0] ?? null}
-      </div>
-      <div className="flex w-20 shrink-0 items-center justify-center">
-        {indicateurs[1] ?? null}
-      </div>
-    </>
+  const indicateurZone = (
+    <div className="flex min-w-16 shrink-0 items-center gap-2">
+      {indicateurs}
+    </div>
   )
 
   return (
@@ -208,10 +207,9 @@ export function OtCard({
         // Demandes d'intervention).
         tone={statut.tone}
         size={compact ? 'sm' : 'md'}
-        // À droite (bureau) : grille à emplacements RÉSERVÉS (icône/relevé
-        // tassés à gauche, cf. `indicateurSlots`) puis colonne statut/date — la
-        // largeur totale ne dépend jamais du nombre d'indicateurs présents. En
-        // mode compact, même icône puis un badge de statut nu, pas de relevé.
+        // À droite (bureau) : icône/relevé tassés à gauche (cf. `indicateurZone`)
+        // puis colonne statut/date. En mode compact, même icône puis un badge
+        // de statut nu, pas de relevé.
         badges={
           compact ? (
             <div className="flex items-center gap-2">
@@ -220,7 +218,7 @@ export function OtCard({
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              {indicateurSlots}
+              {indicateurZone}
               {statutColonne}
             </div>
           )
