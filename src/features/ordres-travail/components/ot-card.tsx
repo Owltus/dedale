@@ -170,24 +170,23 @@ export function OtCard({
       {releve}
     </span>
   ) : null
-  // Zone à largeur FIXE (`w-28`) et contenu ALIGNÉ À DROITE (`justify-end`) :
-  // le bord droit de l'icône/du relevé colle toujours au même endroit, juste
-  // avant le `gap-3` vers la colonne statut — l'écart avec le badge reste donc
-  // PROPRE et CONSTANT quelle que soit la longueur du relevé (ex. « 466 m³ »
-  // vs « 24 964 kWh »), contrairement à un alignement à gauche où un texte
-  // plus long grignote l'écart. `w-28` est calibré large pour ne quasiment
-  // jamais avoir à grandir (un relevé plus long resterait dans les clous) ;
-  // seul le cas RARE où icône ET relevé coexistent bascule en largeur MINIMALE
-  // (le conteneur s'élargit pour les deux, le badge peut alors légèrement
-  // bouger sur cette carte précise — compromis assumé, cf. commentaire plus
-  // haut sur `documentIconSlot`).
+  // Zone à largeur FIXE (`w-28`) et contenu CENTRÉ (`justify-center`), même
+  // convention que `StatutColonne` juste à côté (colonne fixe + centrage) :
+  // la boîte elle-même ne bouge JAMAIS (ses deux bords sont fixes tant que le
+  // contenu tient dans `w-28`), donc l'icône/le relevé restent visuellement à
+  // la même place d'une carte à l'autre — sans le grand vide disgracieux d'un
+  // alignement à droite qui collait tout contre le badge. `w-28` est calibré
+  // large pour qu'un relevé ne dépasse quasiment jamais ; seul le cas RARE où
+  // icône ET relevé coexistent bascule en largeur MINIMALE (la boîte
+  // s'élargit alors pour les deux, le badge peut légèrement bouger sur cette
+  // carte précise — compromis assumé).
   const indicateurs = [documentIcon, releveTexte].filter(
     (n): n is NonNullable<typeof n> => n !== null,
   )
   const indicateurZone = (
     <div
       className={cn(
-        'flex shrink-0 items-center justify-end gap-2',
+        'flex shrink-0 items-center justify-center gap-2',
         indicateurs.length > 1 ? 'min-w-28' : 'w-28',
       )}
     >
