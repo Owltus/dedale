@@ -47,9 +47,9 @@ export function OtListeParGammes({
     () => trierOtParUrgence(query.data ?? []),
     [query.data],
   )
-  // Documents rattachés, en UNE requête groupée (même principe que `releveParOt`).
-  const otIds = useMemo(() => ordresTries.map((ot) => ot.id), [ordresTries])
-  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(otIds))
+  // Documents rattachés aux OT du site, en UNE requête groupée filtrée par site
+  // (pas par liste d'ids — cf. `ordresTravailQueries.documentsParOt`).
+  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(siteId))
   const documentsParOt =
     documentsQuery.data ?? new Map<string, DocumentMeta[]>()
   useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)

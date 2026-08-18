@@ -559,10 +559,9 @@ function OtPanel({
     )
   }, [query.data, search, statutFilter])
 
-  // Documents rattachés, en UNE requête groupée (même principe que sur la page
-  // liste OT — cf. `ordresTravailQueries.documentsParOt`).
-  const otIds = useMemo(() => filtered.map((ot) => ot.id), [filtered])
-  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(otIds))
+  // Documents rattachés aux OT du site, en UNE requête groupée filtrée par site
+  // (pas par liste d'ids — cf. `ordresTravailQueries.documentsParOt`).
+  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(siteId))
   const documentsParOt =
     documentsQuery.data ?? new Map<string, DocumentMeta[]>()
 

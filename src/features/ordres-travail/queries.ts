@@ -92,25 +92,29 @@ export const ordresTravailQueries = {
     }),
 
   /**
-   * Documents rattachés à un ensemble d'OT, groupés par `ordre_travail_id` —
-   * UNE seule requête pour tout le conteneur affiché (≠ N+1 par carte), même
-   * patron que `relevesListe`. queryKey STABLE : ids triés + joints.
+   * Documents rattachés aux OT d'un site, groupés par `ordre_travail_id` — UNE
+   * seule requête pour tout le conteneur affiché (≠ N+1 par carte), filtrée par
+   * SITE (comme `relevesListe`) et non par liste d'ids : un `.in()` sur des
+   * centaines d'OT (filtre « Tous les statuts ») produisait une URL de plusieurs
+   * dizaines de milliers de caractères → 400 Bad Request silencieux côté
+   * PostgREST, qui vidait l'icône documents de TOUTE la page (pas seulement des
+   * OT en trop). Filtrer par site élimine la limite de taille d'URL.
    */
-  documentsParOt: (otIds: string[]) =>
+  documentsParOt: (siteId: string | null) =>
     queryOptions({
       queryKey: [
         ...ordresTravailQueries.all(),
         'documents-par-ot',
-        [...otIds].sort().join(','),
+        siteId,
       ] as const,
-      enabled: otIds.length > 0,
+      enabled: siteId !== null,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('documents_ordres_travail')
           .select(
-            'ordre_travail_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at)',
+            'ordre_travail_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at), ordres_travail!inner(site_id)',
           )
-          .in('ordre_travail_id', otIds)
+          .eq('ordres_travail.site_id', siteId!)
           .abortSignal(signal)
           .throwOnError()
         const rows = data as unknown as {

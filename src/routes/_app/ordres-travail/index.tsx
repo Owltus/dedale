@@ -94,10 +94,10 @@ function OrdresTravailContent({
     )
   }, [query.data, search, statutFilter])
 
-  // Documents rattachés aux OT réellement affichés (après filtre), en UNE
-  // requête groupée → map `ot_id → DocumentMeta[]` (même principe que `releveParOt`).
-  const otIds = useMemo(() => filtered.map((ot) => ot.id), [filtered])
-  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(otIds))
+  // Documents rattachés aux OT du site, en UNE requête groupée filtrée par site
+  // (pas par liste d'ids : un `.in()` sur des centaines d'OT dépasse la taille
+  // d'URL autorisée et échoue en 400) → map `ot_id → DocumentMeta[]`.
+  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(siteId))
   const documentsParOt =
     documentsQuery.data ?? new Map<string, DocumentMeta[]>()
 

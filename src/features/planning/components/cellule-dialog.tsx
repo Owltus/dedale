@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { OtCard } from '@/features/ordres-travail/components/ot-card'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import type { DocumentMeta } from '@/features/documents/format'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
+import { useSiteContext } from '@/lib/site-context'
 import type { PlanningOt } from '@/features/planning/grille'
 import { DialogShell } from '@/components/common/dialog-shell'
 
@@ -38,11 +38,14 @@ export function CelluleDialog({
   const liste = trierOtParUrgence(ots ?? [])
   // Vignettes résolues UNE fois pour toute la liste du popup (un seul canal Realtime).
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
-  // Documents rattachés, en UNE requête groupée (même principe que sur la page
-  // liste OT — cf. `ordresTravailQueries.documentsParOt`). Petit volume ici
-  // (≥ 2 OT d'une cellule/semaine), mais même patron partout.
-  const otIds = useMemo(() => liste.map((ot) => ot.id), [liste])
-  const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(otIds))
+  // Documents rattachés aux OT du site actif, en UNE requête groupée filtrée
+  // par site — pas de prop `siteId` ici (popup réutilisée par le planning ET
+  // le tableau de bord) → lu directement via `useSiteContext` (cf.
+  // `ordresTravailQueries.documentsParOt`).
+  const { activeSiteId } = useSiteContext()
+  const documentsQuery = useQuery(
+    ordresTravailQueries.documentsParOt(activeSiteId),
+  )
   const documentsParOt =
     documentsQuery.data ?? new Map<string, DocumentMeta[]>()
   // Le modal ne s'ouvre que pour ≥ 2 OT (1 seul → redirection directe, cf. planning.tsx) :
