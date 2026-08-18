@@ -14,6 +14,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
 import { OtDocumentsDialog } from './ot-documents-dialog'
 import type { DocumentMeta } from '@/features/documents/format'
+import type { ReleveAffiche } from '@/features/ordres-travail/releves'
 import { cn } from '@/lib/utils'
 
 /**
@@ -67,12 +68,14 @@ export function OtCard({
   refreshMiniatures: () => void
   menuActions?: RowAction[]
   /**
-   * Relevé (somme de consommation, ex. « 80 kWh ») calculé en amont par
-   * `calculerRelevesParOt`. Affiché À GAUCHE de la colonne statut/date, masqué si
-   * vide. Injecté par CHAQUE conteneur d'OT (page liste, panneau par-gamme, popup
-   * planning) → même valeur partout. IGNORÉ en mode `compact`.
+   * Relevé (valeur brute + consommation, ex. « 4 455 m³ » / « +219 m³ ») calculé
+   * en amont par `calculerRelevesParOt` — même information que `OperationRow` en
+   * lecture seule, affichée sur deux lignes. Affiché À GAUCHE de la colonne
+   * statut/date, masqué si vide. Injecté par CHAQUE conteneur d'OT (page liste,
+   * panneau par-gamme, popup planning) → même valeur partout. IGNORÉ en mode
+   * `compact`.
    */
-  releve?: string | null
+  releve?: ReleveAffiche | null
   /**
    * Documents rattachés à cet OT, calculés en amont par le conteneur (une seule
    * requête groupée pour toute la liste, jamais une par carte — cf.
@@ -166,9 +169,17 @@ export function OtCard({
       {documentIcon}
     </div>
   ) : null
+  // Valeur brute + consommation en dessous, MÊME style que la colonne valeur
+  // d'`OperationRow` en lecture seule (fiche détail, onglet Opérations) : la
+  // carte de liste montre donc la même information, agrégée au niveau de l'OT.
   const releveTexte = releve ? (
-    <span className="text-sm whitespace-nowrap text-muted-foreground">
-      {releve}
+    <span className="flex flex-col items-center leading-tight">
+      <span className="text-sm font-medium whitespace-nowrap tabular-nums">
+        {releve.valeur}
+      </span>
+      <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+        {releve.conso}
+      </span>
     </span>
   ) : null
   // Zone à largeur FIXE (`w-28`) et contenu CENTRÉ, MAIS SEULEMENT si un

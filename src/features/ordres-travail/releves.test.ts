@@ -32,14 +32,14 @@ function ligne(p: {
 }
 
 describe('calculerRelevesParOt', () => {
-  it('somme les consos (relevé − précédent) par unité présente ≥ 2 fois', () => {
+  it('somme les consos (relevé − précédent) par unité présente ≥ 2 fois, et la valeur brute', () => {
     const map = calculerRelevesParOt([
       ligne({ ot: 'ot1', src: 'a', val: 100, date: '2026-01-01' }),
       ligne({ ot: 'ot1', src: 'b', val: 200, date: '2026-01-01' }),
       ligne({ ot: 'ot2', src: 'a', val: 130, date: '2026-02-01' }), // +30
       ligne({ ot: 'ot2', src: 'b', val: 250, date: '2026-02-01' }), // +50
     ])
-    expect(map.get('ot2')).toBe('80 kWh')
+    expect(map.get('ot2')).toEqual({ valeur: '380 kWh', conso: '+80 kWh' })
     // ot1 n'a aucun précédent → aucune conso calculable → pas de relevé.
     expect(map.has('ot1')).toBe(false)
   })
@@ -49,7 +49,7 @@ describe('calculerRelevesParOt', () => {
       ligne({ ot: 'ot1', src: 'a', val: 100, date: '2026-01-01' }),
       ligne({ ot: 'ot2', src: 'a', val: 130, date: '2026-02-01' }), // +30
     ])
-    expect(map.get('ot2')).toBe('30 kWh')
+    expect(map.get('ot2')).toEqual({ valeur: '130 kWh', conso: '+30 kWh' })
     // ot1 reste sans précédent → rien.
     expect(map.has('ot1')).toBe(false)
   })
@@ -69,7 +69,8 @@ describe('calculerRelevesParOt', () => {
       }),
       ligne({ ot: 'ot2', src: 'b', val: 250, date: '2026-02-01' }), // +50
     ])
-    expect(map.get('ot2')).toBe('120 kWh')
+    // valeur brute = courant après remplacement (20) + 250 = 270 ; conso = 70 + 50.
+    expect(map.get('ot2')).toEqual({ valeur: '270 kWh', conso: '+120 kWh' })
   })
 
   it('ne prend pas un OT futur ou de même date comme précédent (antériorité stricte)', () => {
@@ -105,5 +106,15 @@ describe('calculerRelevesParOt', () => {
     ])
     // Les relevés d'ot1 (en cours) ne comptent pas comme précédent → ot2 sans base.
     expect(map.has('ot2')).toBe(false)
+  })
+
+  it('conso à 0 pile ne porte pas de signe « + » (compteur cumulatif, ne peut pas baisser)', () => {
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot1', src: 'a', val: 100, date: '2026-01-01' }),
+      ligne({ ot: 'ot1', src: 'b', val: 200, date: '2026-01-01' }),
+      ligne({ ot: 'ot2', src: 'a', val: 100, date: '2026-02-01' }), // +0
+      ligne({ ot: 'ot2', src: 'b', val: 200, date: '2026-02-01' }), // +0
+    ])
+    expect(map.get('ot2')).toEqual({ valeur: '300 kWh', conso: '0 kWh' })
   })
 })
