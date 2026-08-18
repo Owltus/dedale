@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { ReleveLigne } from './releves'
+import type { DocumentMeta } from '@/features/documents/format'
 
 export const ordresTravailQueries = {
   all: () => ['ordres_travail'] as const,
@@ -87,6 +88,43 @@ export const ordresTravailQueries = {
           .throwOnError()
           .overrideTypes<ReleveLigne[], { merge: false }>()
         return data
+      },
+    }),
+
+  /**
+   * Documents rattachés à un ensemble d'OT, groupés par `ordre_travail_id` —
+   * UNE seule requête pour tout le conteneur affiché (≠ N+1 par carte), même
+   * patron que `relevesListe`. queryKey STABLE : ids triés + joints.
+   */
+  documentsParOt: (otIds: string[]) =>
+    queryOptions({
+      queryKey: [
+        ...ordresTravailQueries.all(),
+        'documents-par-ot',
+        [...otIds].sort().join(','),
+      ] as const,
+      enabled: otIds.length > 0,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('documents_ordres_travail')
+          .select(
+            'ordre_travail_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at)',
+          )
+          .in('ordre_travail_id', otIds)
+          .abortSignal(signal)
+          .throwOnError()
+        const rows = data as unknown as {
+          ordre_travail_id: string
+          documents: DocumentMeta | null
+        }[]
+        const map = new Map<string, DocumentMeta[]>()
+        for (const row of rows) {
+          if (row.documents == null) continue
+          const liste = map.get(row.ordre_travail_id) ?? []
+          liste.push(row.documents)
+          map.set(row.ordre_travail_id, liste)
+        }
+        return map
       },
     }),
 
