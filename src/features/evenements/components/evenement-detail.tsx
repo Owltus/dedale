@@ -11,6 +11,7 @@ import {
   useCreateLieu,
   useUpdateLieu,
   useUpdateLieuStatut,
+  useUpdateLieuDate,
   useDeleteLieu,
   useReordonnerLieux,
 } from '../mutations'
@@ -69,6 +70,7 @@ export function EvenementDetail({
   const createLieu = useCreateLieu()
   const updateLieu = useUpdateLieu()
   const changeLieuStatut = useUpdateLieuStatut()
+  const changeLieuDate = useUpdateLieuDate()
   const delLieu = useDeleteLieu()
   const reordonnerLieux = useReordonnerLieux()
   const deplacerDoc = useDeplacerDocumentTache()
@@ -110,6 +112,16 @@ export function EvenementDetail({
       { id: lieuId, evenementId: ev.id, statut: next },
       {
         onSuccess: () => toast.success('Statut mis à jour'),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
+  function changeDateLieu(lieuId: string, next: string) {
+    changeLieuDate.mutate(
+      { id: lieuId, evenementId: ev.id, dateTache: next },
+      {
+        onSuccess: () => toast.success('Date mise à jour'),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
@@ -330,6 +342,8 @@ export function EvenementDetail({
                         onDelete={() => suppressionLieu.demander(l)}
                         onChangeStatut={(next) => changeStatutLieu(l.id, next)}
                         statutPending={changeLieuStatut.isPending}
+                        onChangeDate={(next) => changeDateLieu(l.id, next)}
+                        datePending={changeLieuDate.isPending}
                         sortable={canManage && lieux.length > 1}
                         documents={{
                           liaison: 'documents_evenements',

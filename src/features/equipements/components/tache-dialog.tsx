@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/fields/text-field'
 import { TextareaField } from '@/components/common/fields/textarea-field'
+import { DateField } from '@/components/common/fields/date-field'
 
 interface TacheDialogProps {
   open: boolean
@@ -67,6 +68,7 @@ export function TacheDialog({
           local_id: tache.local_id ?? '',
           equipement_id: tache.equipement_id ?? '',
           commentaire: tache.commentaire ?? '',
+          date_tache: tache.date_tache ?? '',
         }
       : emptyTache(),
   })
@@ -108,6 +110,8 @@ export function TacheDialog({
             required
             placeholder="Ex. Livraison et déballage"
           />
+
+          <DateField control={form.control} name="date_tache" label="Date" />
 
           <LocalEquipementFields
             siteId={siteId}

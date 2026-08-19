@@ -40,7 +40,7 @@ export const evenementsQueries = {
         const { data } = await supabase
           .from('evenements_lieux')
           .select(
-            'id, libelle, ordre, statut, local_id, equipement_id, commentaire, created_at, locaux(id, nom), equipements(id, nom)',
+            'id, libelle, ordre, statut, local_id, equipement_id, commentaire, date_tache, created_at, locaux(id, nom), equipements(id, nom)',
           )
           .eq('evenement_id', evenementId)
           .order('ordre')

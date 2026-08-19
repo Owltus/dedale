@@ -1,7 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Paperclip, Pencil, Trash2 } from 'lucide-react'
+import {
+  CalendarDays,
+  GripVertical,
+  Paperclip,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
 import {
   LIBELLES_STATUT_ZONE,
   STATUTS_ZONE,
@@ -13,7 +19,9 @@ import type { LiaisonTable } from '@/features/documents/queries'
 import { DocumentsListe } from '@/components/common/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { SelectDropdown } from '@/components/ui/select-dropdown'
+import { DateField } from '@/components/ui/date-field'
 import { Badge } from '@/components/ui/badge'
+import { formatDateAvecSemaineIso } from '@/lib/date'
 import { cn } from '@/lib/utils'
 
 export interface TacheItem {
@@ -24,6 +32,7 @@ export interface TacheItem {
   local_id: string | null
   equipement_id: string | null
   commentaire: string | null
+  date_tache: string | null
   created_at: string
   locaux: { id: string; nom: string } | null
   equipements: { id: string; nom: string } | null
@@ -37,6 +46,9 @@ interface TacheRowProps {
   onDelete: () => void
   onChangeStatut: (next: StatutZone) => void
   statutPending: boolean
+  /** Date de la tâche (093), éditable EN LIGNE comme le statut. */
+  onChangeDate: (next: string) => void
+  datePending: boolean
   /** Active la poignée de glisser-déposer (réordonnancement, étape 5). */
   sortable?: boolean
   /**
@@ -69,6 +81,8 @@ export function TacheRow({
   onDelete,
   onChangeStatut,
   statutPending,
+  onChangeDate,
+  datePending,
   sortable = false,
   documents,
 }: TacheRowProps) {
@@ -111,7 +125,7 @@ export function TacheRow({
         isOver && 'ring-2 ring-primary',
       )}
     >
-      <div className="flex items-center gap-3 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-3 px-3 py-2">
         {sortable && (
           <button
             type="button"
@@ -134,6 +148,12 @@ export function TacheRow({
               </span>
             )}
           </p>
+          {readOnly && tache.date_tache && (
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+              <CalendarDays className="size-3" />
+              {formatDateAvecSemaineIso(tache.date_tache)}
+            </p>
+          )}
         </div>
 
         {readOnly ? (
@@ -141,22 +161,31 @@ export function TacheRow({
             {LIBELLES_STATUT_ZONE[statut]}
           </Badge>
         ) : (
-          <SelectDropdown
-            ariaLabel={`Statut — ${tache.libelle}`}
-            value={statut}
-            disabled={statutPending}
-            onValueChange={(v) => onChangeStatut(v as StatutZone)}
-            options={STATUTS_ZONE.map((s) => ({
-              value: s,
-              label: LIBELLES_STATUT_ZONE[s],
-            }))}
-            className="w-auto shrink-0"
-            checkIndicator={false}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <DateField
+              ariaLabel={`Date — ${tache.libelle}`}
+              value={tache.date_tache ?? ''}
+              onValueChange={onChangeDate}
+              disabled={datePending}
+              className="h-9 w-[8.5rem] shrink-0"
+            />
+            <SelectDropdown
+              ariaLabel={`Statut — ${tache.libelle}`}
+              value={statut}
+              disabled={statutPending}
+              onValueChange={(v) => onChangeStatut(v as StatutZone)}
+              options={STATUTS_ZONE.map((s) => ({
+                value: s,
+                label: LIBELLES_STATUT_ZONE[s],
+              }))}
+              className="w-auto shrink-0"
+              checkIndicator={false}
+            />
+          </div>
         )}
 
         {!readOnly && (
-          <>
+          <div className="flex shrink-0 items-center">
             <TooltipIconButton
               icon={<Pencil />}
               label="Modifier cette tâche"
@@ -167,7 +196,7 @@ export function TacheRow({
               label="Retirer cette tâche"
               onClick={onDelete}
             />
-          </>
+          </div>
         )}
       </div>
 

@@ -10,6 +10,7 @@ import {
   useCreateTache,
   useUpdateTache,
   useUpdateTacheStatut,
+  useUpdateTacheDate,
   useDeleteTache,
   useReordonnerTaches,
 } from '../mutations'
@@ -72,6 +73,7 @@ export function TravauxDetail({
   const createTache = useCreateTache()
   const updateTache = useUpdateTache()
   const changeTacheStatut = useUpdateTacheStatut()
+  const changeTacheDate = useUpdateTacheDate()
   const delTache = useDeleteTache()
   const reordonnerTaches = useReordonnerTaches()
   const deplacerDoc = useDeplacerDocumentTache()
@@ -126,6 +128,16 @@ export function TravauxDetail({
       { id: tacheId, travauxId: travaux.id, statut: next },
       {
         onSuccess: () => toast.success('Statut mis à jour'),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
+  function changeDateTache(tacheId: string, next: string) {
+    changeTacheDate.mutate(
+      { id: tacheId, travauxId: travaux.id, dateTache: next },
+      {
+        onSuccess: () => toast.success('Date mise à jour'),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
@@ -365,6 +377,8 @@ export function TravauxDetail({
                         onDelete={() => suppressionTache.demander(t)}
                         onChangeStatut={(next) => changeStatutTache(t.id, next)}
                         statutPending={changeTacheStatut.isPending}
+                        onChangeDate={(next) => changeDateTache(t.id, next)}
+                        datePending={changeTacheDate.isPending}
                         sortable={!tachesReadOnly && taches.length > 1}
                         documents={{
                           liaison: 'documents_interventions_travaux',

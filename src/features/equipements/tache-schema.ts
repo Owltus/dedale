@@ -13,10 +13,17 @@ export const tacheSchema = z.object({
   local_id: z.string(), // '' = aucun lieu
   equipement_id: z.string(), // '' = aucun équipement
   commentaire: z.string().trim().max(2000),
+  date_tache: z.string(), // '' = aucune date (093)
 })
 
 export type TacheFormValues = z.infer<typeof tacheSchema>
 
 export function emptyTache(): TacheFormValues {
-  return { libelle: '', local_id: '', equipement_id: '', commentaire: '' }
+  return {
+    libelle: '',
+    local_id: '',
+    equipement_id: '',
+    commentaire: '',
+    date_tache: '',
+  }
 }

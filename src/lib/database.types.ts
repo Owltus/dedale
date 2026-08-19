@@ -1245,6 +1245,7 @@ export type Database = {
           commentaire: string | null
           created_at: string
           created_by: string | null
+          date_tache: string | null
           equipement_id: string | null
           evenement_id: string
           id: string
@@ -1258,6 +1259,7 @@ export type Database = {
           commentaire?: string | null
           created_at?: string
           created_by?: string | null
+          date_tache?: string | null
           equipement_id?: string | null
           evenement_id: string
           id?: string
@@ -1271,6 +1273,7 @@ export type Database = {
           commentaire?: string | null
           created_at?: string
           created_by?: string | null
+          date_tache?: string | null
           equipement_id?: string | null
           evenement_id?: string
           id?: string
@@ -3068,6 +3071,7 @@ export type Database = {
           commentaire: string | null
           created_at: string
           created_by: string | null
+          date_tache: string | null
           equipement_id: string | null
           id: string
           libelle: string
@@ -3081,6 +3085,7 @@ export type Database = {
           commentaire?: string | null
           created_at?: string
           created_by?: string | null
+          date_tache?: string | null
           equipement_id?: string | null
           id?: string
           libelle: string
@@ -3094,6 +3099,7 @@ export type Database = {
           commentaire?: string | null
           created_at?: string
           created_by?: string | null
+          date_tache?: string | null
           equipement_id?: string | null
           id?: string
           libelle?: string

@@ -301,6 +301,7 @@ export function useCreateTache() {
           local_id: values.local_id || null,
           equipement_id: values.equipement_id || null,
           commentaire: values.commentaire.trim() || null,
+          date_tache: values.date_tache || null,
           created_by: createdBy,
         })
         .select('id')
@@ -334,6 +335,7 @@ export function useUpdateTache() {
           local_id: values.local_id || null,
           equipement_id: values.equipement_id || null,
           commentaire: values.commentaire.trim() || null,
+          date_tache: values.date_tache || null,
         })
         .eq('id', id)
         .select('id')
@@ -361,6 +363,33 @@ export function useUpdateTacheStatut() {
       await supabase
         .from('travaux_taches')
         .update({ statut })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({
+        queryKey: travauxQueries.taches(vars.travauxId).queryKey,
+      }),
+  })
+}
+
+/** Modifie la date d'une tâche, éditable EN LIGNE comme le statut (093). */
+export function useUpdateTacheDate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      dateTache,
+    }: {
+      id: string
+      travauxId: string
+      dateTache: string
+    }) => {
+      await supabase
+        .from('travaux_taches')
+        .update({ date_tache: dateTache || null })
         .eq('id', id)
         .select('id')
         .single()

@@ -303,6 +303,7 @@ export function useCreateLieu() {
           local_id: values.local_id || null,
           equipement_id: values.equipement_id || null,
           commentaire: values.commentaire.trim() || null,
+          date_tache: values.date_tache || null,
           created_by: createdBy,
         })
         .select('id')
@@ -336,6 +337,7 @@ export function useUpdateLieu() {
           local_id: values.local_id || null,
           equipement_id: values.equipement_id || null,
           commentaire: values.commentaire.trim() || null,
+          date_tache: values.date_tache || null,
         })
         .eq('id', id)
         .select('id')
@@ -363,6 +365,33 @@ export function useUpdateLieuStatut() {
       await supabase
         .from('evenements_lieux')
         .update({ statut })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({
+        queryKey: evenementsQueries.lieux(vars.evenementId).queryKey,
+      }),
+  })
+}
+
+/** Modifie la date d'une tâche, éditable EN LIGNE comme le statut (093). */
+export function useUpdateLieuDate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      dateTache,
+    }: {
+      id: string
+      evenementId: string
+      dateTache: string
+    }) => {
+      await supabase
+        .from('evenements_lieux')
+        .update({ date_tache: dateTache || null })
         .eq('id', id)
         .select('id')
         .single()

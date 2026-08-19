@@ -29,7 +29,7 @@ export const travauxQueries = {
         const { data } = await supabase
           .from('travaux_taches')
           .select(
-            'id, libelle, statut, ordre, local_id, equipement_id, commentaire, created_at, locaux(id, nom), equipements(id, nom)',
+            'id, libelle, statut, ordre, local_id, equipement_id, commentaire, date_tache, created_at, locaux(id, nom), equipements(id, nom)',
           )
           .eq('travaux_id', travauxId)
           .order('ordre')
