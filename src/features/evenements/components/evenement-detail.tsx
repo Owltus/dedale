@@ -1,19 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
-import { Paperclip, Pencil } from 'lucide-react'
+import { MapPinPlus, Paperclip, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
-import { statutsEvenementsQueries } from '../queries'
+import { evenementsQueries, statutsEvenementsQueries } from '../queries'
 import { etapesEvenement } from '../etat'
-import { cheminLocal } from '../format'
-import { localisationsQueries } from '@/features/localisations/queries'
 import { STATUT_CLOTURE } from '../schemas'
-import { useChangeStatutEvenement } from '../mutations'
+import { useChangeStatutEvenement, useDeleteLieu } from '../mutations'
 import { EvenementFormDialog } from './evenement-form-dialog'
 import { ClotureEvenementDialog } from './cloture-evenement-dialog'
+import { LieuDialog } from './lieu-dialog'
+import { LieuRow, type LieuItem } from './lieu-row'
 import { useAuth } from '@/auth'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
+import { listStack } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusStepper } from '@/components/common/status-stepper'
@@ -21,17 +23,15 @@ import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { DetailNoteCard } from '@/components/common/detail-note-card'
+import { EmptyState } from '@/components/common/empty-state'
+import { QueryState } from '@/components/common/query-state'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
-type Evenement = Database['public']['Tables']['evenements']['Row'] & {
-  locaux?: {
-    id: string
-    nom: string
-    niveaux?: { id: string; nom: string; batiments?: { nom: string } | null }
-  } | null
-  equipements?: { id: string; nom: string } | null
-}
+type Evenement = Database['public']['Tables']['evenements']['Row']
 
 export function EvenementDetail({
   evenement: ev,
@@ -47,11 +47,15 @@ export function EvenementDetail({
   const cloture = useEntityDialog<Evenement>()
   const upload = useUploadDrop({ enabled: canManage })
   const { data: statuts = [] } = useQuery(statutsEvenementsQueries.list())
-  // Un seul bâtiment sur le site → inutile de le nommer dans chaque chemin.
-  const { data: batiments = [] } = useQuery(
-    localisationsQueries.batiments(ev.site_id),
-  )
+  const lieuxQuery = useQuery(evenementsQueries.lieux(ev.id))
   const change = useChangeStatutEvenement()
+  const delLieu = useDeleteLieu()
+  // Modal de lieu : `entity` null = ajout, sinon édition de ce lieu.
+  const lieuDialog = useEntityDialog<LieuItem>()
+  const suppressionLieu = useConfirmDelete<LieuItem>({
+    onDelete: (l) => delLieu.mutateAsync({ id: l.id, evenementId: ev.id }),
+    successMessage: 'Lieu retiré',
+  })
 
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const etapes = etapesEvenement(ev.statut_evenement_id, noms)
@@ -76,29 +80,10 @@ export function EvenementDetail({
     )
   }
 
-  /**
-   * Où cela s'est produit, en SOUS-TEXTE de la barre de titre — la zone que les
-   * autres fiches utilisent pour situer leur entité. Le lieu répond à « de quoi
-   * parle-t-on ? », au même titre que le titre : il se lit donc avec lui, pas
-   * dans le corps.
-   *
-   * Les deux segments sont facultatifs ; `undefined` si aucun n'est renseigné,
-   * le `PageHeader` réserve alors sa ligne sans rien afficher.
-   */
-  const lieu =
-    [cheminLocal(ev.locaux, batiments.length > 1), ev.equipements?.nom]
-      .filter(Boolean)
-      .join(' · ') || undefined
-
   return (
     <PageContainer className="flex flex-col">
       <PageHeader
         title={ev.titre}
-        // Le LIEU en sous-texte : il situe l'événement au même titre que son
-        // titre. La DATE, elle, reste dans la carte de constat, en regard de
-        // celle de clôture — la répéter ici donnerait deux endroits à corriger
-        // pour une seule information.
-        description={lieu}
         breadcrumb={[{ label: 'Événements', onClick: onBack }]}
         action={
           canManage ? (
@@ -197,35 +182,76 @@ export function EvenementDetail({
         )}
       </div>
 
-      {/* DOCUMENTS — une carte comme les autres, en pleine largeur sous les deux
-          notes. La liste vivait jusqu'ici à nu sur le fond de page : elle ne se
-          rattachait visuellement à rien et ne disait pas ce qu'elle était.
+      {/* SECONDE LIGNE À DEUX COLONNES : lieux concernés et documents, côte à
+          côte — même patron que la fiche Travaux (zones + documents). */}
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-2">
+        {/* Lieux concernés : locaux/équipements liés à l'événement (086). */}
+        <Card className="flex flex-col gap-3 py-4">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+            <CardTitle className="text-base">Lieux concernés</CardTitle>
+            {canManage && (
+              <TooltipIconButton
+                icon={<MapPinPlus />}
+                label="Ajouter un lieu"
+                variant="outline"
+                onClick={() => lieuDialog.openCreate()}
+              />
+            )}
+          </CardHeader>
+          <CardContent className="min-h-0 flex-1 overflow-y-auto">
+            <QueryState
+              query={lieuxQuery}
+              pending={<ListRowSkeletons count={3} size="sm" />}
+              empty={
+                <EmptyState
+                  icon={MapPinPlus}
+                  title="Aucun lieu concerné"
+                  action={
+                    canManage ? (
+                      <Button size="sm" onClick={() => lieuDialog.openCreate()}>
+                        <MapPinPlus /> Ajouter un lieu
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              }
+            >
+              {(lieux) => (
+                <div className={listStack}>
+                  {lieux.map((l) => (
+                    <LieuRow
+                      key={l.id}
+                      lieu={l}
+                      readOnly={!canManage}
+                      onEdit={() => lieuDialog.openEdit(l)}
+                      onDelete={() => suppressionLieu.demander(l)}
+                    />
+                  ))}
+                </div>
+              )}
+            </QueryState>
+          </CardContent>
+        </Card>
 
-          Elle prend la hauteur RESTANTE de la fiche (`lg:flex-1`), pour que la
-          page se déploie jusqu'en bas au lieu de laisser un vide sous les
-          cartes. Son contenu défile À L'INTÉRIEUR (`overflow-y-auto` sur le
-          `CardContent`) : c'est ce qui manquait à ma première version, où la
-          carte était contrainte en hauteur sans zone défilante — elle se
-          réduisait sous son propre contenu et les documents sortaient par le bas,
-          hors de toute bordure. Sous `lg`, hauteur naturelle et défilement de
-          page, comme le reste du mobile-first. */}
-      <Card className="relative flex flex-col gap-3 py-4 lg:min-h-0 lg:flex-1">
-        <CardHeader>
-          <CardTitle className="text-base">Documents</CardTitle>
-        </CardHeader>
-        <CardContent className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-          <DocumentsTab
-            liaison="documents_evenements"
-            parentColumn="evenement_id"
-            parentId={ev.id}
-            uploadOpen={upload.uploadOpen}
-            onUploadOpenChange={upload.onUploadOpenChange}
-            uploadInitialFiles={upload.droppedFiles}
-            uploadDefaultTypeNom="Constat"
-          />
-        </CardContent>
-        {canManage && <FileDropOverlay show={upload.dragging} />}
-      </Card>
+        {/* DOCUMENTS — une carte comme les autres. */}
+        <Card className="relative flex flex-col gap-3 py-4">
+          <CardHeader>
+            <CardTitle className="text-base">Documents</CardTitle>
+          </CardHeader>
+          <CardContent className="min-h-0 flex-1 overflow-y-auto">
+            <DocumentsTab
+              liaison="documents_evenements"
+              parentColumn="evenement_id"
+              parentId={ev.id}
+              uploadOpen={upload.uploadOpen}
+              onUploadOpenChange={upload.onUploadOpenChange}
+              uploadInitialFiles={upload.droppedFiles}
+              uploadDefaultTypeNom="Constat"
+            />
+          </CardContent>
+          <FileDropOverlay show={upload.dragging} />
+        </Card>
+      </div>
 
       {canManage && (
         <>
@@ -235,6 +261,14 @@ export function EvenementDetail({
             onOpenChange={edit.onOpenChange}
             siteId={ev.site_id}
             evenement={edit.entity}
+          />
+          <LieuDialog
+            key={lieuDialog.dialogKey}
+            open={lieuDialog.open}
+            onOpenChange={lieuDialog.onOpenChange}
+            evenementId={ev.id}
+            siteId={ev.site_id}
+            lieu={lieuDialog.entity}
           />
           <ClotureEvenementDialog
             key={cloture.dialogKey}
@@ -281,6 +315,18 @@ export function EvenementDetail({
           />
         </>
       )}
+
+      <ConfirmDialog
+        {...suppressionLieu.dialogProps}
+        title="Retirer ce lieu ?"
+        description={
+          suppressionLieu.toDelete
+            ? `« ${suppressionLieu.toDelete.locaux?.nom ?? 'Ce lieu'} » sera retiré de cet événement.`
+            : undefined
+        }
+        confirmLabel="Retirer"
+        destructive
+      />
     </PageContainer>
   )
 }

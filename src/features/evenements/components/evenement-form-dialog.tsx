@@ -3,8 +3,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { evenementSchema, emptyEvenement } from '../schemas'
 import type { EvenementFormValues } from '../schemas'
 import { useCreateEvenement, useUpdateEvenement } from '../mutations'
-import { LocalEquipementFields } from '@/features/equipements/components/local-equipement-fields'
-import { EmplacementSelect } from '@/features/equipements/components/emplacement-select'
+import { evenementsQueries } from '../queries'
+import { useQuery } from '@tanstack/react-query'
+import { LieuxMultiplesField } from '@/features/equipements/components/lieux-multiples-field'
 import { useAuth } from '@/auth'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { isoLocale } from '@/lib/date'
@@ -26,19 +27,6 @@ interface EvenementFormDialogProps {
   onCreated?: (evenement: Evenement) => void
 }
 
-function initialValues(
-  evenement: Evenement | null | undefined,
-): EvenementFormValues {
-  if (!evenement) return emptyEvenement(isoLocale(new Date()))
-  return {
-    titre: evenement.titre,
-    description: evenement.description ?? '',
-    date_evenement: evenement.date_evenement,
-    local_id: evenement.local_id ?? '',
-    equipement_id: evenement.equipement_id ?? '',
-  }
-}
-
 export function EvenementFormDialog({
   open,
   onOpenChange,
@@ -50,20 +38,32 @@ export function EvenementFormDialog({
   const { session } = useAuth()
   const create = useCreateEvenement()
   const update = useUpdateEvenement()
+  // En édition, les lieux DÉJÀ enregistrés préremplissent le tableau — pas de
+  // requête en création (rien à charger, le tableau démarre vide).
+  const { data: lieuxExistants } = useQuery({
+    ...evenementsQueries.lieux(evenement?.id ?? ''),
+    enabled: isEdit,
+  })
 
   const form = useForm<EvenementFormValues>({
     resolver: zodResolver(evenementSchema),
-    defaultValues: initialValues(evenement),
+    values: evenement
+      ? {
+          titre: evenement.titre,
+          description: evenement.description ?? '',
+          date_evenement: evenement.date_evenement,
+          lieux: (lieuxExistants ?? []).map((l) => ({
+            local_id: l.local_id,
+            equipement_id: l.equipement_id ?? '',
+          })),
+        }
+      : undefined,
+    defaultValues: emptyEvenement(isoLocale(new Date())),
   })
 
-  // `LocalEquipementFields` est un composant IMPÉRATIF (`value`/`onChange`) : on
-  // le ponte à react-hook-form par `useWatch` en lecture et `setValue` en
-  // écriture, comme le prescrit la recette des pages.
-  const localId = useWatch({ control: form.control, name: 'local_id' })
-  const equipementId = useWatch({
-    control: form.control,
-    name: 'equipement_id',
-  })
+  // `LieuxMultiplesField` est IMPÉRATIF (`value`/`onChange`) : ponté à
+  // react-hook-form via `useWatch`/`setValue`, comme `LocalEquipementFields`.
+  const lieux = useWatch({ control: form.control, name: 'lieux' })
 
   const submit = useSubmitDialog<EvenementFormValues, Evenement | null>({
     onSubmit: async (data) => {
@@ -91,82 +91,36 @@ export function EvenementFormDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={isEdit ? 'Modifier l’événement' : 'Consigner un événement'}
-        description="Ce qui s’est passé dans l’établissement. Le lieu et l’équipement sont facultatifs."
+        description="Ce qui s’est passé dans l’établissement. Le lieu est facultatif — tu peux en ajouter plusieurs."
         onSubmit={() => void form.handleSubmit(submit)()}
         submitLabel={isEdit ? 'Enregistrer' : 'Consigner'}
         pendingLabel="Enregistrement…"
         pending={form.formState.isSubmitting}
-        // `lg` : trois champs de lieu empilés dans une modale étroite obligeaient
-        // à faire défiler pour atteindre le bouton. En deux colonnes, le
-        // formulaire tient d'un seul regard.
         size="lg"
       >
-        {/* Deux champs PLEINE LARGEUR (le titre, la description) encadrent un
-            bloc central de quatre champs courts rangés en 2 × 2 :
+        <TextField
+          control={form.control}
+          name="titre"
+          label="Que s’est-il passé ?"
+          required
+        />
+        <DateField
+          control={form.control}
+          name="date_evenement"
+          label="Date de l’événement"
+          required
+        />
+        <DescriptionField control={form.control} name="description" rows={5} />
 
-              Niveau │ Date de l'événement
-              Local  │ Équipement concerné
-
-            La colonne gauche porte la cascade du lieu (du plus large au plus
-            précis), la droite le reste. Chaque ligne est donc pleine — la
-            version précédente alternait une ligne à un champ, une à deux, puis
-            encore une à un. */}
-        <div className="grid gap-4">
-          <TextField
-            control={form.control}
-            name="titre"
-            label="Que s’est-il passé ?"
-            required
-          />
-
-          <LocalEquipementFields
-            siteId={siteId}
-            localId={localId}
-            equipementId={equipementId}
-            onChange={({ localId: l, equipementId: e }) => {
-              form.setValue('local_id', l)
-              form.setValue('equipement_id', e)
-            }}
-            equipementLabel="Équipement concerné"
-            equipementEnAside
-            errors={{
-              local_id: form.formState.errors.local_id?.message,
-              equipement_id: form.formState.errors.equipement_id?.message,
-            }}
-            renderLieu={({ siteId: s, value, onChange, error, aside }) => (
-              <EmplacementSelect
-                siteId={s}
-                value={value}
-                onChange={onChange}
-                error={error}
-                // La colonne droite reçoit la date PUIS l'équipement, en regard
-                // de Niveau et Local : c'est ce qui remplit les deux lignes.
-                aside={
-                  <div className="grid gap-4">
-                    <DateField
-                      control={form.control}
-                      name="date_evenement"
-                      label="Date de l’événement"
-                      required
-                    />
-                    {aside}
-                  </div>
-                }
-                // Le lieu est FACULTATIF pour un événement : on peut consigner
-                // sans savoir encore où cela s'est produit.
-                requiredEmplacement={false}
-              />
-            )}
-          />
-
-          {/* Plus haut que le défaut de l'app : c'est ici qu'on décrit ce qui
-              s'est passé, et le formulaire a la place. */}
-          <DescriptionField
-            control={form.control}
-            name="description"
-            rows={5}
-          />
-        </div>
+        {/* 086 : un ou plusieurs lieux, ajoutés/retouchés directement ici —
+            « meilleur des deux mondes » (décision PO) : la commodité déjà
+            présente (choisir le lieu depuis ce formulaire) étendue au
+            multi-lieux (comme Travaux). */}
+        <LieuxMultiplesField
+          siteId={siteId}
+          value={lieux}
+          onChange={(next) => form.setValue('lieux', next)}
+        />
       </FormDialog>
     </Form>
   )

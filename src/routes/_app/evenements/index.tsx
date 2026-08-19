@@ -23,9 +23,8 @@ import {
   STATUTS_EVENEMENTS_TERMINAUX,
 } from '@/features/evenements/etat'
 import { EvenementFormDialog } from '@/features/evenements/components/evenement-form-dialog'
-import { cheminLocal, dateAffichee } from '@/features/evenements/format'
+import { dateAffichee } from '@/features/evenements/format'
 import { PAGE_META } from '@/features/evenements/page-meta'
-import { localisationsQueries } from '@/features/localisations/queries'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
@@ -54,14 +53,7 @@ import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 
-type Evenement = Database['public']['Tables']['evenements']['Row'] & {
-  locaux?: {
-    id: string
-    nom: string
-    niveaux?: { id: string; nom: string; batiments?: { nom: string } | null }
-  } | null
-  equipements?: { id: string; nom: string } | null
-}
+type Evenement = Database['public']['Tables']['evenements']['Row']
 
 export const Route = createFileRoute('/_app/evenements/')({
   component: EvenementsPage,
@@ -98,11 +90,6 @@ function EvenementsContent({
   // Journal en LIVE : un événement consigné par un collègue apparaît sans F5.
   useRealtimeRefresh('evenements', evenementsQueries.all())
   const { data: statuts = [] } = useQuery(statutsEvenementsQueries.list())
-  // Un seul bâtiment sur le site → il n'apparaît pas dans les chemins.
-  const { data: batiments = [] } = useQuery(
-    localisationsQueries.batiments(siteId),
-  )
-  const multiBatiment = batiments.length > 1
   const del = useDeleteEvenement()
   const convertir = useConvertirEnTravaux()
   const [aConvertir, setAConvertir] = useState<Evenement | null>(null)
@@ -182,11 +169,12 @@ function EvenementsContent({
             )
               return false
             if (q === '') return true
+            // 086 : le lieu ne recherche plus ici (déplacé vers
+            // evenements_lieux, 0..N — même choix que Travaux, qui ne
+            // cherche pas non plus dans ses zones).
             return (
               ev.titre.toLowerCase().includes(q) ||
-              (ev.description ?? '').toLowerCase().includes(q) ||
-              cheminLocal(ev.locaux, true).toLowerCase().includes(q) ||
-              (ev.equipements?.nom ?? '').toLowerCase().includes(q)
+              (ev.description ?? '').toLowerCase().includes(q)
             )
           })
           // Frères pour le slug : MÊME ensemble qu'à la résolution du détail
@@ -210,14 +198,6 @@ function EvenementsContent({
                   ev.statut_evenement_id,
                   statutNom,
                 )
-                // Le lieu situe l'événement dès la liste ; il est facultatif, on
-                // retombe donc sur la description puis sur la date.
-                const situe = [
-                  cheminLocal(ev.locaux, multiBatiment),
-                  ev.equipements?.nom,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')
                 // Composé à la main (pas actionsEditionSuppression) pour
                 // insérer « Convertir » entre Modifier et Supprimer.
                 const rowActions: RowAction[] = []
@@ -250,10 +230,9 @@ function EvenementsContent({
                     media={<RowMediaIcon icon={OctagonAlert} />}
                     title={ev.titre}
                     subtitle={
-                      situe ||
-                      (ev.description?.trim()
+                      ev.description?.trim()
                         ? ev.description
-                        : `Survenu le ${formatDate(ev.date_evenement)}`)
+                        : `Survenu le ${formatDate(ev.date_evenement)}`
                     }
                     onClick={() => ouvrir(ev, sibs)}
                     // Statut au-dessus, date en dessous, dans une colonne de

@@ -9,10 +9,9 @@ export const evenementsQueries = {
    * Événements du site actif, du plus récent au plus ancien — c'est un journal :
    * ce qui vient d'arriver se lit en premier.
    *
-   * Le local remonte AVEC sa hiérarchie (niveau, bâtiment) : « Stationnement »
-   * seul ne situe rien dans un établissement qui en compte plusieurs. La
-   * jointure imbriquée évite une requête par ligne — la hiérarchie
-   * `batiments → niveaux → locaux` se parcourt en remontant.
+   * 086 : plus de jointure locaux/équipements ici — le lieu vit désormais dans
+   * `evenements_lieux` (0..N), récupéré séparément via `lieux()`, comme les
+   * zones de travaux (`travauxQueries.taches`).
    */
   list: (siteId: string) =>
     queryOptions({
@@ -20,12 +19,29 @@ export const evenementsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('evenements')
-          .select(
-            '*, locaux(id, nom, niveaux(id, nom, batiments(id, nom))), equipements(id, nom)',
-          )
+          .select('*')
           .eq('site_id', siteId)
           .order('date_evenement', { ascending: false })
           .order('created_at', { ascending: false })
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+    }),
+
+  /** Lieux concernés par un événement (local + équipement optionnel). */
+  lieux: (evenementId: string) =>
+    queryOptions({
+      queryKey: [...evenementsQueries.all(), 'lieux', evenementId] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('evenements_lieux')
+          .select(
+            'id, ordre, local_id, equipement_id, created_at, locaux(id, nom), equipements(id, nom)',
+          )
+          .eq('evenement_id', evenementId)
+          .order('ordre')
+          .order('created_at')
           .abortSignal(signal)
           .throwOnError()
         return data

@@ -15,8 +15,11 @@ export const evenementSchema = z.object({
   description: z.string().trim().max(5000),
   // Date nue locale (jamais `toISOString()`, cf. lib/date).
   date_evenement: z.string().min(1, 'La date est obligatoire'),
-  local_id: z.string(), // '' = aucun
-  equipement_id: z.string(), // '' = aucun
+  // 086 : un ou plusieurs lieux (local + équipement optionnel), plus les
+  // colonnes directes local_id/equipement_id (déplacées vers evenements_lieux).
+  // Disponible en création ET en édition — continuité de la fonctionnalité
+  // d'origine (le lieu se modifiait déjà depuis ce même formulaire).
+  lieux: z.array(z.object({ local_id: z.string(), equipement_id: z.string() })),
 })
 
 export type EvenementFormValues = z.infer<typeof evenementSchema>
@@ -26,8 +29,7 @@ export function emptyEvenement(dateDuJour: string): EvenementFormValues {
     titre: '',
     description: '',
     date_evenement: dateDuJour,
-    local_id: '',
-    equipement_id: '',
+    lieux: [],
   }
 }
 
@@ -45,3 +47,17 @@ export const clotureSchema = z.object({
 })
 
 export type ClotureFormValues = z.infer<typeof clotureSchema>
+
+// ─── Lieux concernés (086, miroir tacheSchema sans statut) ───────────────────
+
+// Un « lieu concerné » : un local (requis) + un équipement précis optionnel.
+export const lieuSchema = z.object({
+  local_id: z.string().min(1, 'Choisis un local'),
+  equipement_id: z.string(), // '' = aucun équipement
+})
+
+export type LieuFormValues = z.infer<typeof lieuSchema>
+
+export function emptyLieu(): LieuFormValues {
+  return { local_id: '', equipement_id: '' }
+}
