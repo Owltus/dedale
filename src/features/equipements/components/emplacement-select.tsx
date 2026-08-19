@@ -97,12 +97,22 @@ export function EmplacementSelect({
     )
   }, [locaux, effBatiment, effNiveau, excludeLocalIds])
 
+  // Aucun de ces trois menus ne propose d'option « Aucun » (Niveau/Local sont
+  // requis dès qu'un lieu est choisi, Bâtiment de même) : leurs items n'ont
+  // donc JAMAIS une valeur vide. Un appel avec `id === ''` ne peut donc pas
+  // venir d'un vrai choix — c'est le <select> caché de Radix (support natif
+  // du remplissage automatique) qui se resynchronise et déclenche un `change`
+  // fantôme à l'ouverture d'un menu prérempli par une valeur externe (édition,
+  // avant toute interaction) — sans ce garde-fou, ce fantôme effaçait le lieu
+  // au premier montage, avant même que l'utilisateur touche quoi que ce soit.
   function choisirBatiment(id: string) {
+    if (id === '') return
     setBatimentId(id)
     setNiveauId('')
     onChange('') // réinitialise niveau + local en aval
   }
   function choisirNiveau(id: string) {
+    if (id === '') return
     // Multi-bâtiments en ÉDITION : le bâtiment n'est encore que DÉRIVÉ du local
     // (batimentId === ''). Le figer en état AVANT de vider le local, sinon
     // `localRow` devient null → `effBatiment` retombe à '' → la cascade s'effondre.
@@ -111,6 +121,7 @@ export function EmplacementSelect({
     onChange('') // réinitialise le local
   }
   function choisirLocal(id: string) {
+    if (id === '') return
     // Idem : revenir à « — Choisir un local — » ne doit pas effondrer bâtiment et
     // niveau encore seulement dérivés du local courant → on les fige d'abord.
     if (batimentId === '' && effBatiment) setBatimentId(effBatiment)
