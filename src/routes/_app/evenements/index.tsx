@@ -1,12 +1,23 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
-import { OctagonAlert, Plus } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import {
+  ArrowRightLeft,
+  OctagonAlert,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import {
   evenementsQueries,
   statutsEvenementsQueries,
 } from '@/features/evenements/queries'
-import { useDeleteEvenement } from '@/features/evenements/mutations'
+import { travauxQueries } from '@/features/travaux/queries'
+import {
+  useDeleteEvenement,
+  useConvertirEnTravaux,
+} from '@/features/evenements/mutations'
 import {
   statutEvenementTone,
   STATUTS_EVENEMENTS_TERMINAUX,
@@ -20,6 +31,7 @@ import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { formatDate } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
+import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -27,7 +39,7 @@ import { ListPageBody } from '@/components/common/list-page-body'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
-import { actionsEditionSuppression } from '@/components/common/row-actions'
+import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import {
@@ -37,6 +49,7 @@ import {
 } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
@@ -80,6 +93,7 @@ function EvenementsContent({
   canDelete: boolean
 }) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const query = useQuery(evenementsQueries.list(siteId))
   // Journal en LIVE : un événement consigné par un collègue apparaît sans F5.
   useRealtimeRefresh('evenements', evenementsQueries.all())
@@ -90,6 +104,8 @@ function EvenementsContent({
   )
   const multiBatiment = batiments.length > 1
   const del = useDeleteEvenement()
+  const convertir = useConvertirEnTravaux()
+  const [aConvertir, setAConvertir] = useState<Evenement | null>(null)
   const dialog = useEntityDialog<Evenement>()
   const suppression = useConfirmDelete<Evenement>({
     onDelete: (e) => del.mutateAsync(e.id),
@@ -202,6 +218,31 @@ function EvenementsContent({
                 ]
                   .filter(Boolean)
                   .join(' · ')
+                // Composé à la main (pas actionsEditionSuppression) pour
+                // insérer « Convertir » entre Modifier et Supprimer.
+                const rowActions: RowAction[] = []
+                if (canManage) {
+                  rowActions.push({
+                    label: 'Modifier',
+                    icon: Pencil,
+                    onSelect: () => dialog.openEdit(ev),
+                  })
+                  rowActions.push({
+                    label: 'Convertir en Travaux',
+                    icon: ArrowRightLeft,
+                    onSelect: () => setAConvertir(ev),
+                    separatorBefore: true,
+                  })
+                }
+                if (canDelete) {
+                  rowActions.push({
+                    label: 'Supprimer',
+                    icon: Trash2,
+                    destructive: true,
+                    onSelect: () => suppression.demander(ev),
+                    separatorBefore: true,
+                  })
+                }
                 return (
                   <ListRow
                     key={ev.id}
@@ -236,16 +277,7 @@ function EvenementsContent({
                       </div>
                     }
                     mobileMeta={`${statutLabel} · ${formatDate(dateAffichee(ev))}`}
-                    menuActions={
-                      canManage
-                        ? actionsEditionSuppression({
-                            onModifier: () => dialog.openEdit(ev),
-                            onSupprimer: canDelete
-                              ? () => suppression.demander(ev)
-                              : undefined,
-                          })
-                        : undefined
-                    }
+                    menuActions={rowActions.length ? rowActions : undefined}
                   />
                 )
               })}
@@ -279,6 +311,42 @@ function EvenementsContent({
             : "l'événement"
         }
         warning="Cette suppression est définitive. Les documents rattachés restent dans la bibliothèque du site."
+      />
+
+      <ConfirmDialog
+        open={aConvertir !== null}
+        onOpenChange={(open) => !open && setAConvertir(null)}
+        title="Convertir en Travaux ?"
+        description={
+          aConvertir
+            ? `« ${aConvertir.titre} » sera supprimé et remplacé par un nouveau Travaux, qui repart avec le statut Ouvert. Les documents rattachés suivent la conversion.`
+            : undefined
+        }
+        confirmLabel="Convertir"
+        loading={convertir.isPending}
+        onConfirm={() => {
+          if (!aConvertir) return
+          const titre = aConvertir.titre
+          void (async () => {
+            try {
+              const nouvelId = await convertir.mutateAsync(aConvertir.id)
+              setAConvertir(null)
+              toast.success('Converti en Travaux')
+              // Slug calculé sur la liste Travaux FRAÎCHE (siblings à jour,
+              // gère une éventuelle collision de titre) — symétrie segOfUnique.
+              const travaux = await qc.fetchQuery(travauxQueries.list(siteId))
+              const sibs = travaux.map((t) => ({ nom: t.titre, id: t.id }))
+              void navigate({
+                to: '/travaux/$travaux',
+                params: {
+                  travaux: segOfUnique({ nom: titre, id: nouvelId }, sibs),
+                },
+              })
+            } catch (e) {
+              toast.error(writeErrorMessage(e))
+            }
+          })()
+        }}
       />
     </PageContainer>
   )

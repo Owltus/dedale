@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { evenementsQueries } from './queries'
+import { travauxQueries } from '../travaux/queries'
 import { STATUT_CLOTURE } from './schemas'
 import type { EvenementFormValues } from './schemas'
 
@@ -103,6 +104,29 @@ export function useDeleteEvenement() {
  * jamais un `toISOString()` : c'est ce qui avait produit le 23514 des ordres de
  * travail (migration 075).
  */
+/**
+ * Convertit cet Événement en Travaux (copie + suppression de l'Événement, RPC
+ * `convertir_evenement_en_travaux`) : documents transférés, statut
+ * réinitialisé, une zone créée si l'Événement avait un lieu (sinon aucune —
+ * un Travaux peut exister sans zone). Retourne l'id du nouveau Travaux (pour
+ * rediriger dessus).
+ */
+export function useConvertirEnTravaux() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await supabase
+        .rpc('convertir_evenement_en_travaux', { p_evenement_id: id })
+        .throwOnError()
+      return data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: evenementsQueries.all() })
+      void qc.invalidateQueries({ queryKey: travauxQueries.all() })
+    },
+  })
+}
+
 export function useChangeStatutEvenement() {
   const qc = useQueryClient()
   return useMutation({

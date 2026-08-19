@@ -1,12 +1,17 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
-import { HardHat, Plus } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { ArrowRightLeft, HardHat, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   travauxQueries,
   statutsTravauxQueries,
 } from '@/features/travaux/queries'
-import { useDeleteTravaux } from '@/features/travaux/mutations'
+import { evenementsQueries } from '@/features/evenements/queries'
+import {
+  useDeleteTravaux,
+  useConvertirEnEvenement,
+} from '@/features/travaux/mutations'
 import {
   statutTravauxTone,
   STATUTS_TRAVAUX_TERMINAUX,
@@ -19,6 +24,7 @@ import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { formatDate } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
+import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -27,7 +33,7 @@ import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/travaux/page-meta'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
-import { actionsEditionSuppression } from '@/components/common/row-actions'
+import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import {
@@ -37,6 +43,7 @@ import {
 } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
 import type { Database } from '@/lib/database.types'
@@ -73,11 +80,14 @@ function TravauxContent({
   canDelete: boolean
 }) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const query = useQuery(travauxQueries.list(siteId))
   // Liste en LIVE (nouveau chantier/travaux visible sans F5).
   useRealtimeRefresh('interventions_travaux', travauxQueries.all())
   const { data: statuts = [] } = useQuery(statutsTravauxQueries.list())
   const del = useDeleteTravaux()
+  const convertir = useConvertirEnEvenement()
+  const [aConvertir, setAConvertir] = useState<Travaux | null>(null)
   const dialog = useEntityDialog<Travaux>()
   const suppression = useConfirmDelete<Travaux>({
     onDelete: (t) => del.mutateAsync(t.id),
@@ -191,12 +201,33 @@ function TravauxContent({
                 )
                 const editable =
                   canManage && !estVerrouille(c.statut_travaux_id)
-                const rowActions = actionsEditionSuppression({
-                  onModifier: editable ? () => dialog.openEdit(c) : undefined,
-                  onSupprimer: canDelete
-                    ? () => suppression.demander(c)
-                    : undefined,
-                })
+                // Composé à la main (pas actionsEditionSuppression) pour
+                // insérer « Convertir » entre Modifier et Supprimer.
+                const rowActions: RowAction[] = []
+                if (editable) {
+                  rowActions.push({
+                    label: 'Modifier',
+                    icon: Pencil,
+                    onSelect: () => dialog.openEdit(c),
+                  })
+                }
+                if (canManage) {
+                  rowActions.push({
+                    label: 'Convertir en Événement',
+                    icon: ArrowRightLeft,
+                    onSelect: () => setAConvertir(c),
+                    separatorBefore: rowActions.length > 0,
+                  })
+                }
+                if (canDelete) {
+                  rowActions.push({
+                    label: 'Supprimer',
+                    icon: Trash2,
+                    destructive: true,
+                    onSelect: () => suppression.demander(c),
+                    separatorBefore: true,
+                  })
+                }
                 return (
                   <ListRow
                     key={c.id}
@@ -269,6 +300,44 @@ function TravauxContent({
             : 'le travaux'
         }
         warning="Cette suppression est définitive. Le travaux et ses liaisons (locaux, équipements) sont retirés ; les documents rattachés restent dans la bibliothèque du site."
+      />
+
+      <ConfirmDialog
+        open={aConvertir !== null}
+        onOpenChange={(open) => !open && setAConvertir(null)}
+        title="Convertir en Événement ?"
+        description={
+          aConvertir
+            ? `« ${aConvertir.titre} » sera supprimé et remplacé par un nouvel Événement, qui repart avec le statut Ouvert. S'il y a plusieurs zones concernées, seule la première sera conservée. Les documents rattachés suivent la conversion.`
+            : undefined
+        }
+        confirmLabel="Convertir"
+        loading={convertir.isPending}
+        onConfirm={() => {
+          if (!aConvertir) return
+          const titre = aConvertir.titre
+          void (async () => {
+            try {
+              const nouvelId = await convertir.mutateAsync(aConvertir.id)
+              setAConvertir(null)
+              toast.success('Converti en Événement')
+              // Slug calculé sur la liste Événements FRAÎCHE (siblings à jour,
+              // gère une éventuelle collision de titre) — symétrie segOfUnique.
+              const evenements = await qc.fetchQuery(
+                evenementsQueries.list(siteId),
+              )
+              const sibs = evenements.map((e) => ({ nom: e.titre, id: e.id }))
+              void navigate({
+                to: '/evenements/$evenement',
+                params: {
+                  evenement: segOfUnique({ nom: titre, id: nouvelId }, sibs),
+                },
+              })
+            } catch (e) {
+              toast.error(writeErrorMessage(e))
+            }
+          })()
+        }}
       />
     </PageContainer>
   )

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { travauxQueries } from './queries'
+import { evenementsQueries } from '../evenements/queries'
 import type { TravauxFormValues, TacheFormValues, StatutTache } from './schemas'
 
 // Convertit les champs du formulaire en payload base (vides → null). Les dates
@@ -254,6 +255,28 @@ export function useUpdateTacheStatut() {
       qc.invalidateQueries({
         queryKey: travauxQueries.taches(vars.travauxId).queryKey,
       }),
+  })
+}
+
+/**
+ * Convertit ce Travaux en Événement (copie + suppression du Travaux, RPC
+ * `convertir_travaux_en_evenement`) : documents transférés, statut
+ * réinitialisé, une seule zone conservée si le Travaux en avait plusieurs.
+ * Retourne l'id du nouvel Événement (pour rediriger dessus).
+ */
+export function useConvertirEnEvenement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await supabase
+        .rpc('convertir_travaux_en_evenement', { p_travaux_id: id })
+        .throwOnError()
+      return data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: travauxQueries.all() })
+      void qc.invalidateQueries({ queryKey: evenementsQueries.all() })
+    },
   })
 }
 
