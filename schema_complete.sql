@@ -487,9 +487,9 @@ CREATE TABLE statuts_operations (
     description TEXT
 );
 
--- Statuts d'une intervention de travaux (v0.33). Machine à états (cf trigger
--- validation_transitions_travaux) : les ids sont STABLES car portés par les
--- transitions. Référentiel consultable (libellé/description ajustables).
+-- Statuts d'une intervention de travaux (v0.33 ; 085 : transitions LIBRES,
+-- plus de machine à états côté base — comme statuts_evenements). Référentiel
+-- consultable (libellé/description ajustables).
 CREATE TABLE statuts_travaux (
     id          SMALLINT PRIMARY KEY,
     nom         TEXT NOT NULL UNIQUE,
@@ -582,13 +582,12 @@ INSERT INTO statuts_operations (id, code, libelle, description) VALUES
     (4, 'annulee',        'Annulée',        'Annulée par cascade système (OT annulé)'),
     (5, 'non_applicable', 'Non applicable', 'Opération sans objet sur cet OT');
 
--- Statuts d'une intervention de travaux (codes/ids STABLES — machine à états)
+-- Statuts d'une intervention de travaux (085 : réduit à 3 états, transitions
+-- LIBRES, ids alignés sur statuts_evenements — id 3 vacant).
 INSERT INTO statuts_travaux (id, nom, description) VALUES
-    (1, 'Ouvert',    'Travaux déclaré, pas encore planifié'),
-    (2, 'Planifié',  'Date d''intervention fixée'),
-    (3, 'En cours',  'Intervention en cours sur le terrain'),
-    (4, 'Terminé',   'Intervention achevée (compte-rendu obligatoire)'),
-    (5, 'Annulé',    'Travaux abandonné (état terminal)');
+    (1, 'Ouvert',    'Travaux déclaré, pas encore pris en charge'),
+    (2, 'En cours',  'Travaux en cours de réalisation'),
+    (4, 'Terminé',   'Travaux achevé');
 
 -- Statuts d'un investissement / CapEx (statut LIBRE — aucune transition imposée ;
 -- l'ordre du parcours d'affichage est porté côté front, cf. etat.ts)
@@ -4271,10 +4270,9 @@ ALTER TABLE di_equipements ENABLE ROW LEVEL SECURITY;
 -- =============================================================================
 -- Interventions de travaux : travaux ponctuels confiés (souvent) à un
 -- prestataire, distincts des OT préventifs (cycle réglementaire) et des DI
--- (signalements curatifs). Modèle calqué sur les DI : scope site, machine à
--- états, liaisons locaux/équipements/documents, soft-delete 90j.
--- Machine à états (statuts_travaux) : 1 Ouvert → {2,3,5} ; 2 Planifié → {3,5} ;
--- 3 En cours → {4,5} ; 4 Terminé → {3} (réouverture) ; 5 Annulé = terminal.
+-- (signalements curatifs). 085 : statut LIBRE (plus de machine à états côté
+-- base, comme Événements) — 3 statuts (Ouvert/En cours/Terminé), transitions
+-- non contraintes, compte-rendu facultatif.
 -- Dépendances : 010_sites, 020_prestataires, 005_users, statuts_travaux,
 --               locaux/equipements (liaisons), set_updated_at()
 -- =============================================================================
@@ -4310,9 +4308,9 @@ CREATE TABLE interventions_travaux (
 );
 
 COMMENT ON TABLE interventions_travaux IS
-    'Travaux ponctuels du site. Machine à états 1→2/3→4 via statuts_travaux.';
+    'Travaux ponctuels du site. 085 : statut libre (Ouvert/En cours/Terminé), plus de machine à états.';
 COMMENT ON COLUMN interventions_travaux.cloture_by IS
-    'Qui a passé les travaux en Terminé. Peuplé par trigger set_travaux_cloture_by (valeur forcée serveur). NULL tant que non terminé ou réouvert.';
+    'Qui a passé les travaux en Terminé. 085 : posé par le FRONT (plus de trigger serveur, comme evenements.cloture_by). NULL tant que non terminé.';
 
 CREATE INDEX idx_travaux_site   ON interventions_travaux(site_id);
 CREATE INDEX idx_travaux_statut ON interventions_travaux(statut_travaux_id);
@@ -5259,10 +5257,8 @@ CREATE TABLE evenements (
     titre             TEXT NOT NULL CHECK (length(trim(titre)) > 0),
     description       TEXT,
     date_evenement    DATE NOT NULL DEFAULT current_date,
-    -- Où cela s'est produit (facultatif). SET NULL et non CASCADE : supprimer un
-    -- local ne doit pas effacer l'historique de ce qui s'y est passé.
-    local_id          UUID REFERENCES locaux(id)      ON DELETE SET NULL,
-    equipement_id     UUID REFERENCES equipements(id) ON DELETE SET NULL,
+    -- Où cela s'est produit : 086 — plus de local_id/equipement_id direct,
+    -- déplacé vers la table enfant evenements_lieux (0..N, comme travaux_taches).
     -- Clôture (le front impose le compte-rendu ; la base ne le contraint pas,
     -- un événement pouvant être clos sans qu'aucune action ait été nécessaire)
     compte_rendu      TEXT,
@@ -5280,7 +5276,6 @@ COMMENT ON TABLE evenements IS 'Journal des événements survenus dans l''établ
 CREATE INDEX idx_evenements_site        ON evenements(site_id);
 CREATE INDEX idx_evenements_statut      ON evenements(statut_evenement_id);
 CREATE INDEX idx_evenements_date        ON evenements(date_evenement DESC);
-CREATE INDEX idx_evenements_equipement  ON evenements(equipement_id) WHERE equipement_id IS NOT NULL;
 
 CREATE TABLE documents_evenements (
     document_id  UUID NOT NULL REFERENCES documents(id)  ON DELETE CASCADE,
@@ -5292,9 +5287,29 @@ CREATE TABLE documents_evenements (
 
 COMMENT ON TABLE documents_evenements IS 'Liaison document ↔ événement (077). CASCADE des deux côtés : retirer la liaison, pas le document lui-même.';
 
+-- 086 : lieux concernés par un événement (0..N), miroir de travaux_taches
+-- SANS le champ statut — un lieu d'événement n'est pas une tâche à réaliser,
+-- juste un endroit constaté.
+CREATE TABLE evenements_lieux (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    evenement_id  UUID NOT NULL REFERENCES evenements(id) ON DELETE CASCADE,
+    local_id      UUID NOT NULL REFERENCES locaux(id)      ON DELETE CASCADE,
+    equipement_id UUID REFERENCES equipements(id)          ON DELETE SET NULL,
+    ordre         INTEGER NOT NULL DEFAULT 0,
+    created_by    UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE evenements_lieux IS
+    '086 : lieux concernés par un événement (0..N), miroir de travaux_taches SANS le champ statut.';
+
+CREATE INDEX idx_evenements_lieux_evenement ON evenements_lieux(evenement_id);
+
 ALTER TABLE statuts_evenements   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evenements           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents_evenements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE evenements_lieux     ENABLE ROW LEVEL SECURITY;
 
 -- 9) documents ↔ investissements (v0.33)
 CREATE TABLE documents_investissements (
@@ -6240,112 +6255,12 @@ COMMENT ON FUNCTION public.reset_di_reouverture() IS
     'Réouverture DI (→3) : efface resolved_by + date_resolution (la DI n''est plus résolue). description_resolution conservée.';
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 1.7 Machine à états des interventions de travaux (v0.33, calque DI)
--- statuts_travaux : 1 Ouvert, 2 Planifié, 3 En cours, 4 Terminé, 5 Annulé.
+-- 1.7 Interventions de travaux : PLUS de machine à états depuis 085 (statut
+-- libre, comme Événements) — validation_statut_initial_travaux,
+-- validation_transitions_travaux, validation_travaux_compte_rendu et
+-- set_travaux_cloture_by ont été retirés. cloture_by/date_fin/compte_rendu
+-- sont désormais posés par le FRONT (miroir useChangeStatutEvenement).
 -- ─────────────────────────────────────────────────────────────────────────────
-
--- validation_statut_initial_travaux : force le statut initial à 'Ouvert' (id=1)
-CREATE OR REPLACE FUNCTION public.validation_statut_initial_travaux()
-RETURNS TRIGGER LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-BEGIN
-    IF NEW.statut_travaux_id IS DISTINCT FROM 1 THEN
-        RAISE EXCEPTION 'Le statut initial de travaux doit être « Ouvert » (id=1)';
-    END IF;
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_validation_statut_initial_travaux
-    BEFORE INSERT ON interventions_travaux
-    FOR EACH ROW EXECUTE FUNCTION public.validation_statut_initial_travaux();
-COMMENT ON FUNCTION public.validation_statut_initial_travaux() IS 'Force tout nouveau lot de travaux à démarrer en statut Ouvert (id=1).';
-
--- validation_transitions_travaux : machine à états
--- 1→{2,3,5}, 2→{3,5}, 3→{4,5}, 4→{3}, 5=terminal.
-CREATE OR REPLACE FUNCTION public.validation_transitions_travaux()
-RETURNS TRIGGER LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-BEGIN
-    IF OLD.statut_travaux_id = NEW.statut_travaux_id THEN
-        RETURN NEW;
-    END IF;
-
-    IF OLD.statut_travaux_id = 1 AND NEW.statut_travaux_id NOT IN (2, 3, 5) THEN
-        RAISE EXCEPTION 'Transition travaux interdite depuis « Ouvert » vers statut %', NEW.statut_travaux_id;
-    END IF;
-    IF OLD.statut_travaux_id = 2 AND NEW.statut_travaux_id NOT IN (3, 5) THEN
-        RAISE EXCEPTION 'Transition travaux interdite depuis « Planifié » vers statut %', NEW.statut_travaux_id;
-    END IF;
-    IF OLD.statut_travaux_id = 3 AND NEW.statut_travaux_id NOT IN (4, 5) THEN
-        RAISE EXCEPTION 'Transition travaux interdite depuis « En cours » vers statut %', NEW.statut_travaux_id;
-    END IF;
-    IF OLD.statut_travaux_id = 4 AND NEW.statut_travaux_id NOT IN (3) THEN
-        RAISE EXCEPTION 'Transition travaux interdite depuis « Terminé » vers statut %', NEW.statut_travaux_id;
-    END IF;
-    -- Annulé : réactivation autorisée UNIQUEMENT vers « Ouvert » (5 → 1).
-    IF OLD.statut_travaux_id = 5 AND NEW.statut_travaux_id NOT IN (1) THEN
-        RAISE EXCEPTION 'Réactivation travaux : depuis « Annulé », seul le retour à « Ouvert » est autorisé (statut %)', NEW.statut_travaux_id;
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_validation_transitions_travaux
-    BEFORE UPDATE OF statut_travaux_id ON interventions_travaux
-    FOR EACH ROW EXECUTE FUNCTION public.validation_transitions_travaux();
-COMMENT ON FUNCTION public.validation_transitions_travaux() IS 'Machine à états travaux : 1→2/3/5, 2→3/5, 3→4/5, 4→3 (réouverture), 5→1 (réactivation).';
-
--- validation_travaux_compte_rendu : passage à Terminé (4) exige un compte_rendu
--- non vide (miroir de validation_resolution_di).
-CREATE OR REPLACE FUNCTION public.validation_travaux_compte_rendu()
-RETURNS TRIGGER LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-BEGIN
-    IF NEW.statut_travaux_id = 4 AND OLD.statut_travaux_id <> 4 THEN
-        IF NEW.compte_rendu IS NULL OR length(trim(NEW.compte_rendu)) = 0 THEN
-            RAISE EXCEPTION 'Clôture impossible : un compte_rendu non vide est obligatoire au passage « Terminé ».';
-        END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_validation_travaux_compte_rendu
-    BEFORE UPDATE OF statut_travaux_id ON interventions_travaux
-    FOR EACH ROW EXECUTE FUNCTION public.validation_travaux_compte_rendu();
-COMMENT ON FUNCTION public.validation_travaux_compte_rendu() IS 'Passage à Terminé exige un compte_rendu non vide (miroir validation_resolution_di).';
-
--- set_travaux_cloture_by : peuple cloture_by + date_fin au passage Terminé (4),
--- les efface à la réouverture (4→3). Valeurs forcées serveur (miroir set_di_resolved_by
--- + reset_di_reouverture).
-CREATE OR REPLACE FUNCTION public.set_travaux_cloture_by()
-RETURNS TRIGGER LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-BEGIN
-    IF NEW.statut_travaux_id = 4 AND OLD.statut_travaux_id IS DISTINCT FROM 4 THEN
-        -- Passage en Terminé : QUI (forcé serveur) + QUAND (date_fin si non fournie).
-        NEW.cloture_by := (SELECT auth.uid());
-        NEW.date_fin   := COALESCE(NEW.date_fin, current_date);
-    ELSIF NEW.statut_travaux_id = 3 AND OLD.statut_travaux_id = 4 THEN
-        -- Réouverture (Terminé → En cours) : les travaux ne sont plus clos.
-        NEW.cloture_by := NULL;
-        NEW.date_fin   := NULL;
-    END IF;
-    RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_travaux_set_cloture_by
-    BEFORE UPDATE OF statut_travaux_id ON interventions_travaux
-    FOR EACH ROW EXECUTE FUNCTION public.set_travaux_cloture_by();
-COMMENT ON FUNCTION public.set_travaux_cloture_by() IS
-    'Peuple cloture_by = (SELECT auth.uid()) + date_fin au passage travaux → Terminé (4) ; les efface à la réouverture (4→3). Valeurs forcées serveur.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 2. PROTECTION DES ENTITÉS TERMINALES
@@ -7179,51 +7094,45 @@ COMMENT ON FUNCTION public.gestion_statut_ot() IS
     'Bascule automatique du statut OT selon l''évolution de ses opérations (planifie ↔ en_cours, clôture auto). 082 : date_debut = MIN(date_execution) des opérations, RECALCULÉ à chaque changement de statut d''opération (plus de valeur figée au premier passage) ; date_cloture est posée par nettoyage_dates_coherentes.';
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Événements (077) : pas de machine à états (transitions libres), juste la
--- cohérence de site du lieu éventuellement rattaché.
+-- Événements (077, 086) : pas de machine à états (transitions libres). La
+-- cohérence de site du lieu vit désormais sur evenements_lieux (086), plus
+-- sur evenements elle-même (local_id/equipement_id déplacés).
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TRIGGER trg_evenements_updated_at
     BEFORE UPDATE ON evenements
     FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-CREATE OR REPLACE FUNCTION public.check_evenement_site()
+CREATE TRIGGER trg_evenements_lieux_updated_at
+    BEFORE UPDATE ON evenements_lieux
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- 086 : miroir de check_travaux_tache_coherence — un local/équipement
+-- rattaché à un lieu d'événement doit appartenir au même site que l'événement.
+CREATE OR REPLACE FUNCTION public.check_evenement_lieu_coherence()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-    v_local_site UUID;
-    v_eq_site    UUID;
+    v_site_evenement UUID;
+    v_site_local     UUID;
+    v_local_du_eq    UUID;
 BEGIN
-    IF NEW.local_id IS NOT NULL THEN
-        SELECT b.site_id INTO v_local_site
-        FROM   public.locaux    l
-        JOIN   public.niveaux   n ON n.id = l.niveau_id
-        JOIN   public.batiments b ON b.id = n.batiment_id
-        WHERE  l.id = NEW.local_id;
+    SELECT site_id INTO v_site_evenement FROM public.evenements WHERE id = NEW.evenement_id;
 
-        IF v_local_site IS NULL THEN
-            RAISE EXCEPTION 'evenements : local_id % introuvable ou hiérarchie incomplète', NEW.local_id;
-        END IF;
-        IF v_local_site <> NEW.site_id THEN
-            RAISE EXCEPTION 'evenements : local_id % (site %) n''appartient pas au site % de l''événement',
-                NEW.local_id, v_local_site, NEW.site_id;
-        END IF;
+    SELECT b.site_id INTO v_site_local
+    FROM public.locaux l
+    JOIN public.niveaux n ON n.id = l.niveau_id
+    JOIN public.batiments b ON b.id = n.batiment_id
+    WHERE l.id = NEW.local_id;
+
+    IF v_site_local IS DISTINCT FROM v_site_evenement THEN
+        RAISE EXCEPTION 'evenements_lieux : local_id % n''appartient pas au site de l''événement', NEW.local_id;
     END IF;
 
     IF NEW.equipement_id IS NOT NULL THEN
-        SELECT b.site_id INTO v_eq_site
-        FROM   public.equipements e
-        JOIN   public.locaux    l ON l.id = e.local_id
-        JOIN   public.niveaux   n ON n.id = l.niveau_id
-        JOIN   public.batiments b ON b.id = n.batiment_id
-        WHERE  e.id = NEW.equipement_id;
-
-        IF v_eq_site IS NULL THEN
-            RAISE EXCEPTION 'evenements : equipement_id % introuvable ou hiérarchie incomplète', NEW.equipement_id;
-        END IF;
-        IF v_eq_site <> NEW.site_id THEN
-            RAISE EXCEPTION 'evenements : equipement_id % (site %) n''appartient pas au site % de l''événement',
-                NEW.equipement_id, v_eq_site, NEW.site_id;
+        SELECT local_id INTO v_local_du_eq FROM public.equipements WHERE id = NEW.equipement_id;
+        IF v_local_du_eq IS DISTINCT FROM NEW.local_id THEN
+            RAISE EXCEPTION 'evenements_lieux : equipement_id % n''appartient pas au local %', NEW.equipement_id, NEW.local_id;
         END IF;
     END IF;
 
@@ -7231,11 +7140,11 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.check_evenement_site() IS 'Un local/équipement rattaché à un événement doit appartenir à son site (077).';
+COMMENT ON FUNCTION public.check_evenement_lieu_coherence() IS '086 : un local/équipement rattaché à un lieu d''événement doit appartenir au même site que l''événement (miroir check_travaux_tache_coherence).';
 
-CREATE TRIGGER trg_evenement_site
-    BEFORE INSERT OR UPDATE OF local_id, equipement_id, site_id ON evenements
-    FOR EACH ROW EXECUTE FUNCTION public.check_evenement_site();
+CREATE TRIGGER trg_check_evenement_lieu_coherence
+    BEFORE INSERT OR UPDATE ON evenements_lieux
+    FOR EACH ROW EXECUTE FUNCTION public.check_evenement_lieu_coherence();
 
 -- Realtime — la liste doit vivre sans F5, comme les travaux et les OT. Note :
 -- les autres ALTER PUBLICATION (ex. 071 sur ordres_travail) manquent aussi de
@@ -9584,6 +9493,33 @@ CREATE POLICY doc_evenements_scoped ON documents_evenements FOR ALL
             WHERE e.id = documents_evenements.evenement_id
               AND public.has_site_access(e.site_id)
         )
+    );
+
+-- evenements_lieux (086) — miroir travaux_taches.
+CREATE POLICY evenements_lieux_admin_all ON evenements_lieux FOR ALL
+    USING ((SELECT public.current_role()) = 'admin')
+    WITH CHECK ((SELECT public.current_role()) = 'admin');
+
+CREATE POLICY evenements_lieux_select ON evenements_lieux FOR SELECT
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
+        AND EXISTS (SELECT 1 FROM public.evenements e
+                    WHERE e.id = evenements_lieux.evenement_id
+                      AND public.has_site_access(e.site_id))
+    );
+
+CREATE POLICY evenements_lieux_scoped ON evenements_lieux FOR ALL
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND EXISTS (SELECT 1 FROM public.evenements e
+                    WHERE e.id = evenements_lieux.evenement_id
+                      AND public.has_site_access(e.site_id))
+    )
+    WITH CHECK (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND EXISTS (SELECT 1 FROM public.evenements e
+                    WHERE e.id = evenements_lieux.evenement_id
+                      AND public.has_site_access(e.site_id))
     );
 
 -- documents_investissements (v0.33) — scope via le site de l'investissement parent.
