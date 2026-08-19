@@ -203,6 +203,73 @@ export async function uploadDocument(params: {
 }
 
 /**
+ * Remplace le CONTENU d'un document existant, en conservant son `id` (donc
+ * toutes ses liaisons — un PDF rattaché à 5 fiches n'a besoin d'être remplacé
+ * qu'UNE fois, pas relié à nouveau partout). Le nom affiché et le type ne sont
+ * pas touchés (ce sont les champs dédiés de la modale d'édition, séparés du
+ * remplacement de fichier).
+ *
+ * (a) upload du nouveau contenu sur un chemin Storage NEUF (jamais utilisé) ;
+ * (b) bascule des métadonnées (storage_path/hash/taille/mime + provenance) vers
+ *     ce nouveau contenu ; en cas d'échec (ex. ce contenu correspond déjà à un
+ *     AUTRE document de la bibliothèque — 23505), rollback du nouvel objet ;
+ * (c) une fois la bascule confirmée, suppression best-effort de l'ANCIEN objet
+ *     Storage (ne fait pas échouer l'opération si ce nettoyage échoue).
+ */
+export async function replaceDocumentFile(params: {
+  documentId: string
+  file: File
+  uploadedBy: string
+}): Promise<UploadResult> {
+  const { documentId, uploadedBy } = params
+
+  const { data: actuel, error: fetchError } = await supabase
+    .from('documents')
+    .select('site_id, storage_path')
+    .eq('id', documentId)
+    .single()
+  if (fetchError) throw fetchError
+
+  const file = await preparerFichier(params.file)
+  const hash = await hashSha256(file)
+  const siteSegment = actuel.site_id ?? 'entreprise'
+  const newStoragePath = `${siteSegment}/${documentId}-${crypto.randomUUID().slice(0, 8)}-${nomFichierSur(file.name)}`
+
+  // (a) Upload du nouveau contenu — chemin neuf, jamais en conflit avec l'ancien.
+  const { error: uploadError } = await supabase.storage
+    .from('documents')
+    .upload(newStoragePath, file, { contentType: file.type, upsert: false })
+  if (uploadError) throw uploadError
+
+  // (b) Bascule des métadonnées vers le nouveau contenu.
+  const { data, error: updateError } = await supabase
+    .from('documents')
+    .update({
+      storage_path: newStoragePath,
+      hash_sha256: hash,
+      taille_octets: file.size,
+      mime_type: file.type,
+      uploaded_by: uploadedBy,
+      uploaded_at: new Date().toISOString(),
+    })
+    .eq('id', documentId)
+    .select('id, storage_path')
+    .single()
+
+  if (updateError) {
+    // Rollback best-effort du nouvel objet — l'ancien document reste inchangé.
+    await supabase.storage.from('documents').remove([newStoragePath])
+    throw updateError
+  }
+
+  // (c) Nettoyage best-effort de l'ANCIEN objet — un échec ici ne remet pas en
+  // cause le remplacement, déjà confirmé en base (juste un blob orphelin).
+  await supabase.storage.from('documents').remove([actuel.storage_path])
+
+  return data
+}
+
+/**
  * Crée une URL signée temporaire pour télécharger/prévisualiser un document.
  * `expiresInSeconds` (défaut 60 s) : à allonger pour un aperçu confortable.
  */

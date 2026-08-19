@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { documentsQueries, liaisonTable } from './queries'
 import type { LiaisonTable } from './queries'
-import { uploadDocument } from './upload'
+import { replaceDocumentFile, uploadDocument } from './upload'
 
 /**
  * Upload bibliothèque : étapes (a) + (b) seulement (pas de rattachement).
@@ -127,6 +127,24 @@ export function useUpdateDocument() {
         .single()
         .throwOnError()
     },
+    onSuccess: () => qc.invalidateQueries({ queryKey: documentsQueries.all() }),
+  })
+}
+
+/**
+ * Remplace le CONTENU d'un document existant (même `id`, donc TOUTES ses
+ * liaisons existantes restent en place — pas besoin de re-rattacher le
+ * document sur chaque fiche où il apparaît). Le nom affiché et le type ne
+ * sont pas touchés — ce sont les champs de `useUpdateDocument`.
+ */
+export function useReplaceDocumentFile() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (params: {
+      documentId: string
+      file: File
+      uploadedBy: string
+    }) => replaceDocumentFile(params),
     onSuccess: () => qc.invalidateQueries({ queryKey: documentsQueries.all() }),
   })
 }
