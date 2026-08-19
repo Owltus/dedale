@@ -782,6 +782,42 @@ export type Database = {
           },
         ]
       }
+      documents_evenements: {
+        Row: {
+          commentaire: string | null
+          created_at: string
+          document_id: string
+          evenement_id: string
+        }
+        Insert: {
+          commentaire?: string | null
+          created_at?: string
+          document_id: string
+          evenement_id: string
+        }
+        Update: {
+          commentaire?: string | null
+          created_at?: string
+          document_id?: string
+          evenement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_evenements_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_evenements_evenement_id_fkey"
+            columns: ["evenement_id"]
+            isOneToOne: false
+            referencedRelation: "evenements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents_gammes: {
         Row: {
           commentaire: string | null
@@ -1096,44 +1132,6 @@ export type Database = {
           },
         ]
       }
-      gamme_modeles: {
-        Row: {
-          created_at: string
-          gamme_id: string
-          modele_operation_id: string
-        }
-        Insert: {
-          created_at?: string
-          gamme_id: string
-          modele_operation_id: string
-        }
-        Update: {
-          created_at?: string
-          gamme_id?: string
-          modele_operation_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gamme_modeles_gamme_id_fkey"
-            columns: ["gamme_id"]
-            isOneToOne: false
-            referencedRelation: "gammes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gamme_modeles_modele_operation_id_fkey"
-            columns: ["modele_operation_id"]
-            isOneToOne: false
-            referencedRelation: "modeles_operations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      // ─── PONT MANUEL — migration 077 non encore appliquée ───────────────
-      // Seule édition manuelle admise de ce fichier généré (cf. skill
-      // migration-sql §6). À REMPLACER par `npm run gen:types` dès que la
-      // migration 077 est passée en base : la génération écrasera ce bloc, ce
-      // qui est le comportement voulu.
       evenements: {
         Row: {
           cloture_by: string | null
@@ -1185,10 +1183,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "evenements_local_id_fkey"
-            columns: ["local_id"]
+            foreignKeyName: "evenements_cloture_by_fkey"
+            columns: ["cloture_by"]
             isOneToOne: false
-            referencedRelation: "locaux"
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -1199,11 +1204,46 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "evenements_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "locaux"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["local_id"]
+          },
+          {
             foreignKeyName: "evenements_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["site_id"]
+          },
+          {
+            foreignKeyName: "evenements_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["site_id"]
           },
           {
             foreignKeyName: "evenements_statut_evenement_id_fkey"
@@ -1214,46 +1254,39 @@ export type Database = {
           },
         ]
       }
-      statuts_evenements: {
+      gamme_modeles: {
         Row: {
-          description: string | null
-          id: number
-          nom: string
-        }
-        Insert: {
-          description?: string | null
-          id: number
-          nom: string
-        }
-        Update: {
-          description?: string | null
-          id?: number
-          nom?: string
-        }
-        Relationships: []
-      }
-      documents_evenements: {
-        Row: {
-          commentaire: string | null
           created_at: string
-          document_id: string
-          evenement_id: string
+          gamme_id: string
+          modele_operation_id: string
         }
         Insert: {
-          commentaire?: string | null
           created_at?: string
-          document_id: string
-          evenement_id: string
+          gamme_id: string
+          modele_operation_id: string
         }
         Update: {
-          commentaire?: string | null
           created_at?: string
-          document_id?: string
-          evenement_id?: string
+          gamme_id?: string
+          modele_operation_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "gamme_modeles_gamme_id_fkey"
+            columns: ["gamme_id"]
+            isOneToOne: false
+            referencedRelation: "gammes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gamme_modeles_modele_operation_id_fkey"
+            columns: ["modele_operation_id"]
+            isOneToOne: false
+            referencedRelation: "modeles_operations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      // ─── fin du pont manuel ─────────────────────────────────────────────
       gammes: {
         Row: {
           categorie_id: string
@@ -1511,9 +1544,9 @@ export type Database = {
         Row: {
           bilan: string | null
           cloture_by: string | null
-          date_cloture: string | null
           created_at: string
           created_by: string
+          date_cloture: string | null
           date_demande: string
           depense_reelle: number | null
           description: string | null
@@ -1528,9 +1561,9 @@ export type Database = {
         Insert: {
           bilan?: string | null
           cloture_by?: string | null
-          date_cloture?: string | null
           created_at?: string
           created_by: string
+          date_cloture?: string | null
           date_demande?: string
           depense_reelle?: number | null
           description?: string | null
@@ -1545,9 +1578,9 @@ export type Database = {
         Update: {
           bilan?: string | null
           cloture_by?: string | null
-          date_cloture?: string | null
           created_at?: string
           created_by?: string
+          date_cloture?: string | null
           date_demande?: string
           depense_reelle?: number | null
           description?: string | null
@@ -1560,6 +1593,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "investissements_cloture_by_fkey"
+            columns: ["cloture_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "investissements_created_by_fkey"
             columns: ["created_by"]
@@ -2857,6 +2897,24 @@ export type Database = {
         Relationships: []
       }
       statuts_di: {
+        Row: {
+          description: string | null
+          id: number
+          nom: string
+        }
+        Insert: {
+          description?: string | null
+          id: number
+          nom: string
+        }
+        Update: {
+          description?: string | null
+          id?: number
+          nom?: string
+        }
+        Relationships: []
+      }
+      statuts_evenements: {
         Row: {
           description: string | null
           id: number

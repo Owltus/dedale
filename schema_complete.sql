@@ -5231,6 +5231,71 @@ CREATE TABLE documents_interventions_travaux (
 CREATE INDEX idx_doc_travaux_travaux ON documents_interventions_travaux(travaux_id);
 ALTER TABLE documents_interventions_travaux ENABLE ROW LEVEL SECURITY;
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Journal des événements (077, 078) — distinct des DI (demandent une action) et
+-- des travaux (en planifient une) : un événement est un constat daté qui peut
+-- n'appeler aucune action. Aucun lien automatique vers DI/travaux (assumé).
+-- ═══════════════════════════════════════════════════════════════════════════
+CREATE TABLE statuts_evenements (
+    id          SMALLINT PRIMARY KEY,
+    nom         TEXT NOT NULL UNIQUE,
+    description TEXT
+);
+
+INSERT INTO statuts_evenements (id, nom, description) VALUES
+    (1, 'Ouvert',     'Événement consigné, pas encore pris en charge (état initial)'),
+    (2, 'En cours',   'Traitement engagé'),
+    (4, 'Clôturé',    'Événement traité et clos');
+-- id 3 (« En attente ») retiré par la migration 078 : doublonnait « En cours ».
+-- Volontairement non renuméroté (les ids sont des clés, pas un classement).
+
+COMMENT ON TABLE statuts_evenements IS 'Référentiel des statuts d''un événement (077, réduit à 3 états par 078). IDs stables, transitions libres. L''id 3 est retiré : « En attente » doublonnait « En cours ».';
+
+CREATE TABLE evenements (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    site_id           UUID NOT NULL REFERENCES sites(id) ON DELETE RESTRICT,
+    created_by        UUID NOT NULL REFERENCES users(id),
+    statut_evenement_id SMALLINT NOT NULL DEFAULT 1 REFERENCES statuts_evenements(id),
+    titre             TEXT NOT NULL CHECK (length(trim(titre)) > 0),
+    description       TEXT,
+    date_evenement    DATE NOT NULL DEFAULT current_date,
+    -- Où cela s'est produit (facultatif). SET NULL et non CASCADE : supprimer un
+    -- local ne doit pas effacer l'historique de ce qui s'y est passé.
+    local_id          UUID REFERENCES locaux(id)      ON DELETE SET NULL,
+    equipement_id     UUID REFERENCES equipements(id) ON DELETE SET NULL,
+    -- Clôture (le front impose le compte-rendu ; la base ne le contraint pas,
+    -- un événement pouvant être clos sans qu'aucune action ait été nécessaire)
+    compte_rendu      TEXT,
+    date_cloture      DATE,
+    cloture_by        UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Une clôture ne peut pas précéder l'événement (cf. 23514 des OT, migration 075)
+    CONSTRAINT evenements_dates_coherentes
+        CHECK (date_cloture IS NULL OR date_cloture >= date_evenement)
+);
+
+COMMENT ON TABLE evenements IS 'Journal des événements survenus dans l''établissement (077). Distinct des DI (qui demandent une action) et des travaux (qui en planifient une).';
+
+CREATE INDEX idx_evenements_site        ON evenements(site_id);
+CREATE INDEX idx_evenements_statut      ON evenements(statut_evenement_id);
+CREATE INDEX idx_evenements_date        ON evenements(date_evenement DESC);
+CREATE INDEX idx_evenements_equipement  ON evenements(equipement_id) WHERE equipement_id IS NOT NULL;
+
+CREATE TABLE documents_evenements (
+    document_id  UUID NOT NULL REFERENCES documents(id)  ON DELETE CASCADE,
+    evenement_id UUID NOT NULL REFERENCES evenements(id) ON DELETE CASCADE,
+    commentaire  TEXT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (document_id, evenement_id)
+);
+
+COMMENT ON TABLE documents_evenements IS 'Liaison document ↔ événement (077). CASCADE des deux côtés : retirer la liaison, pas le document lui-même.';
+
+ALTER TABLE statuts_evenements   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE evenements           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents_evenements ENABLE ROW LEVEL SECURITY;
+
 -- 9) documents ↔ investissements (v0.33)
 CREATE TABLE documents_investissements (
     document_id      UUID NOT NULL REFERENCES documents(id)        ON DELETE CASCADE,
@@ -7112,6 +7177,70 @@ CREATE TRIGGER trg_gestion_statut_ot
 
 COMMENT ON FUNCTION public.gestion_statut_ot() IS
     'Bascule automatique du statut OT selon l''évolution de ses opérations (planifie ↔ en_cours, clôture auto). 082 : date_debut = MIN(date_execution) des opérations, RECALCULÉ à chaque changement de statut d''opération (plus de valeur figée au premier passage) ; date_cloture est posée par nettoyage_dates_coherentes.';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Événements (077) : pas de machine à états (transitions libres), juste la
+-- cohérence de site du lieu éventuellement rattaché.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TRIGGER trg_evenements_updated_at
+    BEFORE UPDATE ON evenements
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE OR REPLACE FUNCTION public.check_evenement_site()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_local_site UUID;
+    v_eq_site    UUID;
+BEGIN
+    IF NEW.local_id IS NOT NULL THEN
+        SELECT b.site_id INTO v_local_site
+        FROM   public.locaux    l
+        JOIN   public.niveaux   n ON n.id = l.niveau_id
+        JOIN   public.batiments b ON b.id = n.batiment_id
+        WHERE  l.id = NEW.local_id;
+
+        IF v_local_site IS NULL THEN
+            RAISE EXCEPTION 'evenements : local_id % introuvable ou hiérarchie incomplète', NEW.local_id;
+        END IF;
+        IF v_local_site <> NEW.site_id THEN
+            RAISE EXCEPTION 'evenements : local_id % (site %) n''appartient pas au site % de l''événement',
+                NEW.local_id, v_local_site, NEW.site_id;
+        END IF;
+    END IF;
+
+    IF NEW.equipement_id IS NOT NULL THEN
+        SELECT b.site_id INTO v_eq_site
+        FROM   public.equipements e
+        JOIN   public.locaux    l ON l.id = e.local_id
+        JOIN   public.niveaux   n ON n.id = l.niveau_id
+        JOIN   public.batiments b ON b.id = n.batiment_id
+        WHERE  e.id = NEW.equipement_id;
+
+        IF v_eq_site IS NULL THEN
+            RAISE EXCEPTION 'evenements : equipement_id % introuvable ou hiérarchie incomplète', NEW.equipement_id;
+        END IF;
+        IF v_eq_site <> NEW.site_id THEN
+            RAISE EXCEPTION 'evenements : equipement_id % (site %) n''appartient pas au site % de l''événement',
+                NEW.equipement_id, v_eq_site, NEW.site_id;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.check_evenement_site() IS 'Un local/équipement rattaché à un événement doit appartenir à son site (077).';
+
+CREATE TRIGGER trg_evenement_site
+    BEFORE INSERT OR UPDATE OF local_id, equipement_id, site_id ON evenements
+    FOR EACH ROW EXECUTE FUNCTION public.check_evenement_site();
+
+-- Realtime — la liste doit vivre sans F5, comme les travaux et les OT. Note :
+-- les autres ALTER PUBLICATION (ex. 071 sur ordres_travail) manquent aussi de
+-- ce fichier — dette de resync préexistante, hors périmètre de ce rattrapage.
+ALTER PUBLICATION supabase_realtime ADD TABLE evenements;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- v0.12 — Index de durcissement : FK created_by/uploaded_by + liaison prestataire
@@ -9292,6 +9421,80 @@ CREATE POLICY doc_travaux_select ON documents_interventions_travaux FOR SELECT
         AND EXISTS (SELECT 1 FROM interventions_travaux ic
                     WHERE ic.id = documents_interventions_travaux.travaux_id
                       AND public.has_site_access(ic.site_id))
+    );
+
+-- Événements (077) — rôles MÉTIER, calqué sur interventions_travaux (suppression
+-- comprise). demandeur : aucun accès (il a les demandes d'intervention).
+CREATE POLICY statuts_evenements_select ON statuts_evenements FOR SELECT
+    USING ((SELECT public.current_role()) IS NOT NULL);
+
+CREATE POLICY statuts_evenements_admin_all ON statuts_evenements FOR ALL
+    USING ((SELECT public.current_role()) = 'admin')
+    WITH CHECK ((SELECT public.current_role()) = 'admin');
+
+CREATE POLICY evenements_admin_all ON evenements FOR ALL
+    USING ((SELECT public.current_role()) = 'admin')
+    WITH CHECK ((SELECT public.current_role()) = 'admin');
+
+CREATE POLICY evenements_site_scoped_select ON evenements FOR SELECT
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
+        AND public.has_site_access(site_id)
+    );
+
+CREATE POLICY evenements_site_scoped_insert ON evenements FOR INSERT
+    WITH CHECK (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND public.has_site_access(site_id)
+    );
+
+CREATE POLICY evenements_site_scoped_update ON evenements FOR UPDATE
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND public.has_site_access(site_id)
+    )
+    WITH CHECK (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND public.has_site_access(site_id)
+    );
+
+CREATE POLICY evenements_site_scoped_delete ON evenements FOR DELETE
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND public.has_site_access(site_id)
+    );
+
+-- Liaison documentaire : scope hérité de l'événement parent.
+CREATE POLICY doc_evenements_admin_all ON documents_evenements FOR ALL
+    USING ((SELECT public.current_role()) = 'admin')
+    WITH CHECK ((SELECT public.current_role()) = 'admin');
+
+CREATE POLICY doc_evenements_select ON documents_evenements FOR SELECT
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
+        AND EXISTS (
+            SELECT 1 FROM public.evenements e
+            WHERE e.id = documents_evenements.evenement_id
+              AND public.has_site_access(e.site_id)
+        )
+    );
+
+CREATE POLICY doc_evenements_scoped ON documents_evenements FOR ALL
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND EXISTS (
+            SELECT 1 FROM public.evenements e
+            WHERE e.id = documents_evenements.evenement_id
+              AND public.has_site_access(e.site_id)
+        )
+    )
+    WITH CHECK (
+        (SELECT public.current_role()) IN ('manager', 'technicien')
+        AND EXISTS (
+            SELECT 1 FROM public.evenements e
+            WHERE e.id = documents_evenements.evenement_id
+              AND public.has_site_access(e.site_id)
+        )
     );
 
 -- documents_investissements (v0.33) — scope via le site de l'investissement parent.
