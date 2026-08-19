@@ -252,9 +252,26 @@ export function UploadDocumentDialog({
       onOpenChange(false)
       return
     }
-    // Échecs partiels : on garde les fichiers en échec pour réessayer.
+    // Échecs partiels : on garde les fichiers en échec pour réessayer. Le
+    // message générique (« n'ont pas pu être ajoutés ») masquait la raison la
+    // plus fréquente — 23505 sur documents_unique_hash (même contenu déjà
+    // présent sur le site) — laissant croire à un bug plutôt qu'à un doublon.
+    // On traduit chaque raison (dédupliquée) au lieu d'un simple décompte.
     setItems(echecs)
-    setError(`${String(echecs.length)} document(s) n'ont pas pu être ajoutés.`)
+    const raisons = [
+      ...new Set(
+        resultats
+          .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+          .map((r) =>
+            writeErrorMessage(r.reason, {
+              '23505': hasExistingTab
+                ? 'Ce fichier existe déjà dans la bibliothèque du site (même contenu) — utilise l’onglet « Documents existants » pour le rattacher au lieu de le téléverser à nouveau.'
+                : 'Ce fichier existe déjà dans la bibliothèque du site (même contenu).',
+            }),
+          ),
+      ),
+    ]
+    setError(raisons.join(' '))
   }
 
   const uploadContent = (
