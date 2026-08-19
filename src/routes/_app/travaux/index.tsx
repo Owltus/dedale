@@ -309,7 +309,7 @@ function TravauxContent({
         title="Convertir en Événement ?"
         description={
           aConvertir
-            ? `« ${aConvertir.titre} » sera supprimé et remplacé par un nouvel Événement, qui repart avec le statut Ouvert. S'il y a plusieurs zones concernées, seule la première sera conservée. Les documents rattachés suivent la conversion.`
+            ? `« ${aConvertir.titre} » sera supprimé et remplacé par un nouvel Événement — toutes les zones concernées et le statut actuel sont conservés. Les documents rattachés suivent la conversion.`
             : undefined
         }
         confirmLabel="Convertir"

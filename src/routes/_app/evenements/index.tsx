@@ -298,7 +298,7 @@ function EvenementsContent({
         title="Convertir en Travaux ?"
         description={
           aConvertir
-            ? `« ${aConvertir.titre} » sera supprimé et remplacé par un nouveau Travaux, qui repart avec le statut Ouvert. Les documents rattachés suivent la conversion.`
+            ? `« ${aConvertir.titre} » sera supprimé et remplacé par un nouveau Travaux — tous les lieux concernés et le statut actuel sont conservés. Les documents rattachés suivent la conversion.`
             : undefined
         }
         confirmLabel="Convertir"
