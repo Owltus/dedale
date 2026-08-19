@@ -49,15 +49,25 @@ export function FileDropField({
         onDragEnter={(e) => {
           if (!hasFiles(e)) return
           e.preventDefault()
+          // Empêche la remontée vers un éventuel `useFileDrop` pleine page de
+          // la page hôte (ex. fiche OT) : sans ça, `preventDefault` seul ne
+          // suffit pas à éviter que CE dépôt local ouvre AUSSI son dialog.
+          e.stopPropagation()
           setDragging(true)
         }}
         onDragOver={(e) => {
-          if (hasFiles(e)) e.preventDefault()
+          if (!hasFiles(e)) return
+          e.preventDefault()
+          e.stopPropagation()
         }}
-        onDragLeave={() => setDragging(false)}
+        onDragLeave={(e) => {
+          e.stopPropagation()
+          setDragging(false)
+        }}
         onDrop={(e) => {
           if (!hasFiles(e)) return
           e.preventDefault()
+          e.stopPropagation()
           setDragging(false)
           emit(e.dataTransfer.files)
         }}
