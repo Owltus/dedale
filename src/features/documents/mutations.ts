@@ -24,6 +24,13 @@ export function useUploadDocument() {
 /**
  * Upload + rattachement : étapes (a) + (b) + (c).
  * (c) insert dans la table de liaison de l'entité parente.
+ *
+ * Si (b) retombe sur un document déjà EXISTANT (doublon de contenu détecté par
+ * `uploadDocument`, cf. `dejaExistant`), (c) tente quand même le rattachement —
+ * ce document n'est peut-être pas encore lié à CETTE fiche précise. Si (c)
+ * échoue à son tour parce qu'il l'est déjà (PK document_id+parent en doublon),
+ * ce n'est pas un échec non plus : le résultat voulu (document lié à la fiche)
+ * est déjà atteint, `dejaLie` le signale à l'appelant pour adapter son message.
  */
 export function useUploadAndAttach() {
   const qc = useQueryClient()
@@ -41,12 +48,19 @@ export function useUploadAndAttach() {
       // (a) + (b)
       const doc = await uploadDocument(uploadParams)
       // (c) rattachement à l'entité
-      await liaisonTable(liaison)
-        .insert({ document_id: doc.id, [parentColumn]: parentId } as {
-          document_id: string
-          ordre_travail_id: string
-        })
-        .throwOnError()
+      const { error: liaisonError } = await liaisonTable(liaison).insert({
+        document_id: doc.id,
+        [parentColumn]: parentId,
+      } as {
+        document_id: string
+        ordre_travail_id: string
+      })
+      if (liaisonError) {
+        if (liaisonError.code === '23505') {
+          return { ...doc, dejaLie: true }
+        }
+        throw liaisonError
+      }
       return doc
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: documentsQueries.all() }),

@@ -240,13 +240,45 @@ export function UploadDocumentDialog({
     const echecs = items.filter(
       (_, idx) => resultats[idx]?.status === 'rejected',
     )
-    const reussis = items.length - echecs.length
-    if (reussis > 0) {
-      toast.success(
-        reussis > 1
-          ? `${String(reussis)} documents ajoutés`
-          : 'Document ajouté',
+    // Un succès n'est pas toujours une CRÉATION : `uploadDocument` réutilise un
+    // document déjà présent (même contenu, cf. `dejaExistant`) au lieu d'échouer,
+    // et la liaison peut elle-même être déjà en place (`dejaLie`, ex. le même
+    // fichier envoyé deux fois). On distingue les trois cas dans le toast plutôt
+    // que d'annoncer « ajouté » à tort.
+    const fulfilled = resultats.filter(
+      (r): r is PromiseFulfilledResult<unknown> => r.status === 'fulfilled',
+    )
+    const estDeja = (v: unknown, cle: 'dejaExistant' | 'dejaLie'): boolean =>
+      typeof v === 'object' &&
+      v !== null &&
+      (v as Record<string, unknown>)[cle] === true
+    const dejaLies = fulfilled.filter((r) => estDeja(r.value, 'dejaLie')).length
+    const reutilises = fulfilled.filter(
+      (r) => estDeja(r.value, 'dejaExistant') && !estDeja(r.value, 'dejaLie'),
+    ).length
+    const crees = fulfilled.length - dejaLies - reutilises
+    const messages: string[] = []
+    if (crees > 0) {
+      messages.push(
+        crees > 1 ? `${String(crees)} documents ajoutés` : 'Document ajouté',
       )
+    }
+    if (reutilises > 0) {
+      messages.push(
+        reutilises > 1
+          ? `${String(reutilises)} documents déjà présents rattachés`
+          : 'Document déjà présent dans la bibliothèque, rattaché à la fiche',
+      )
+    }
+    if (dejaLies > 0) {
+      messages.push(
+        dejaLies > 1
+          ? `${String(dejaLies)} documents étaient déjà rattachés`
+          : 'Document déjà rattaché à cette fiche',
+      )
+    }
+    if (messages.length > 0) {
+      toast.success(messages.join(' · '))
     }
     if (echecs.length === 0) {
       onOpenChange(false)

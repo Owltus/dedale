@@ -109,6 +109,13 @@ function nomFichierSur(nom: string): string {
 export interface UploadResult {
   id: string
   storage_path: string
+  /**
+   * Vrai si un document IDENTIQUE (même site, même contenu — index unique
+   * `documents_unique_hash`) existait déjà : on a réutilisé CET existant au
+   * lieu d'échouer sur un doublon. `id`/`storage_path` sont alors ceux du
+   * document EXISTANT, pas d'un nouvel enregistrement.
+   */
+  dejaExistant?: boolean
 }
 
 /**
@@ -116,8 +123,13 @@ export interface UploadResult {
  *  a) upload du fichier dans le bucket Storage `documents`,
  *  b) insert des métadonnées dans la table `documents` (avec `site_id`).
  *
- * Si l'insert échoue, l'objet Storage est nettoyé pour éviter un orphelin.
- * Retourne l'id du document créé (pour l'étape c — rattachement éventuel).
+ * Si l'insert échoue pour cause de DOUBLON DE CONTENU (même site, même hash —
+ * `documents_unique_hash`), on ne considère pas ça comme un échec : l'objet
+ * Storage tout juste envoyé (redondant) est nettoyé, et on retourne le
+ * document EXISTANT à la place — l'appelant peut alors le rattacher tel quel
+ * (étape c), exactement comme si l'utilisateur l'avait choisi via l'onglet
+ * « Documents existants ». Toute AUTRE erreur d'insert reste un échec avec
+ * rollback Storage (comportement inchangé).
  */
 export async function uploadDocument(params: {
   file: File
@@ -162,7 +174,27 @@ export async function uploadDocument(params: {
     .single()
 
   if (insertError) {
-    // Rollback best-effort de l'objet Storage pour ne pas laisser d'orphelin.
+    // Doublon de CONTENU (documents_unique_hash) : le blob qu'on vient d'envoyer
+    // est redondant (nettoyage), et le document existant est réutilisé plutôt
+    // que de faire échouer tout l'upload sur une erreur que l'utilisateur ne
+    // peut pas résoudre lui-même (le fichier est déjà là, il n'y a rien à « corriger »).
+    if (
+      insertError.code === '23505' &&
+      insertError.message.includes('documents_unique_hash')
+    ) {
+      await supabase.storage.from('documents').remove([storagePath])
+      const { data: existant, error: lookupError } = await supabase
+        .from('documents')
+        .select('id, storage_path')
+        .eq('site_id', siteId)
+        .eq('hash_sha256', hash)
+        .single()
+      // Repli sur l'erreur d'origine si l'existant reste introuvable (ne
+      // devrait pas arriver : la contrainte qu'on vient de violer le prouve).
+      if (lookupError) throw insertError
+      return { ...existant, dejaExistant: true }
+    }
+    // Autre erreur : rollback Storage (comportement existant).
     await supabase.storage.from('documents').remove([storagePath])
     throw insertError
   }
