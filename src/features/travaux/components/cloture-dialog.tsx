@@ -27,10 +27,10 @@ interface ClotureDialogProps {
  * Clôture d'un travaux : date de fin + compte-rendu.
  *
  * Jumeau de `ClotureEvenementDialog` et de `ClotureInvestissementDialog` —
- * même mise en page, à une différence près : **le compte-rendu est ici
- * OBLIGATOIRE**, parce que le trigger `validation_travaux_compte_rendu` refuse
- * le passage à « Terminé » sans texte. Un travaux se solde par ce qui a été
- * fait ; un événement peut se clore sur une fausse alerte.
+ * même mise en page. 085 : le compte-rendu est désormais FACULTATIF (la base
+ * ne l'impose plus, comme pour les événements) — le champ reste là parce que
+ * c'est ce qu'on vient documenter à la clôture, mais rien n'oblige à le
+ * remplir.
  *
  * La date est saisissable et bornée à la date de création : la clôture se fait
  * souvent quelques jours après la fin réelle du chantier, et la date du jour
@@ -62,7 +62,7 @@ export function ClotureDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={correction ? 'Modifier la clôture' : 'Clôturer le travaux'}
-        description="Ce qui a été réalisé, et ce qu'il reste éventuellement à surveiller. Le compte-rendu est obligatoire."
+        description="Ce qui a été réalisé, et ce qu'il reste éventuellement à surveiller."
         onSubmit={() =>
           void form.handleSubmit((data) => {
             // La base n'a pas de CHECK de cohérence sur ce couple de dates
@@ -96,7 +96,6 @@ export function ClotureDialog({
               control={form.control}
               name="compte_rendu"
               label="Compte-rendu"
-              required
               // Le compte-rendu est le SUJET de ce dialogue : la date tient sur
               // une ligne, tout le reste de la place lui revient.
               rows={8}

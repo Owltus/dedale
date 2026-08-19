@@ -1,31 +1,20 @@
 import { z } from 'zod'
 
-// IDs stables de la machine à états (cf. statuts_travaux dans schema_complete.sql).
-// 1 Ouvert → {2,3,5} ; 2 Planifié → {3,5} ; 3 En cours → {4,5} ; 4 Terminé → {3} ;
-// 5 Annulé → {1} (réactivation).
+// IDs stables du référentiel (cf. statuts_travaux dans schema_complete.sql).
+// 085 : statut LIBRE (plus de machine à états côté base), ids alignés sur
+// statuts_evenements (1 Ouvert, 2 En cours, 4 Terminé — id 3 vacant).
 export const STATUT_OUVERT = 1
-export const STATUT_PLANIFIE = 2
-export const STATUT_EN_COURS = 3
+export const STATUT_EN_COURS = 2
 export const STATUT_TERMINE = 4
-export const STATUT_ANNULE = 5
-
-/** Transitions autorisées par la machine à états backend (miroir du trigger). */
-export const TRANSITIONS: Record<number, number[]> = {
-  [STATUT_OUVERT]: [STATUT_PLANIFIE, STATUT_EN_COURS, STATUT_ANNULE],
-  [STATUT_PLANIFIE]: [STATUT_EN_COURS, STATUT_ANNULE],
-  [STATUT_EN_COURS]: [STATUT_TERMINE, STATUT_ANNULE],
-  [STATUT_TERMINE]: [STATUT_EN_COURS],
-  [STATUT_ANNULE]: [STATUT_OUVERT],
-}
-
-/** Un travaux terminé ou annulé est en lecture seule (hors réouverture). */
-export function estVerrouille(statutId: number): boolean {
-  return statutId === STATUT_TERMINE || statutId === STATUT_ANNULE
-}
 
 export const travauxSchema = z.object({
   titre: z.string().trim().min(1, 'Le titre est obligatoire').max(200),
   description: z.string().trim().max(2000),
+  // Lieux ajoutés directement à la création (facultatif, création uniquement
+  // — l'édition des zones se fait depuis la fiche, cf. TacheDialog). Filtrés
+  // par la mutation : une ligne sans local_id est ignorée (l'usager a pu
+  // ajouter puis abandonner une ligne).
+  lieux: z.array(z.object({ local_id: z.string(), equipement_id: z.string() })),
 })
 
 export type TravauxFormValues = z.infer<typeof travauxSchema>
@@ -34,6 +23,7 @@ export function emptyTravaux(): TravauxFormValues {
   return {
     titre: '',
     description: '',
+    lieux: [],
   }
 }
 
@@ -90,23 +80,17 @@ export function emptyTache(): TacheFormValues {
 /**
  * Clôture d'un travaux : date de fin + compte-rendu.
  *
- * **Le compte-rendu reste OBLIGATOIRE ici**, à la différence des événements et
- * des investissements où il est facultatif : le trigger
- * `validation_travaux_compte_rendu` refuse le passage à « Terminé » sans texte.
- * Le front reflète la règle de la base, il ne l'invente pas.
+ * 085 : le compte-rendu est désormais FACULTATIF, comme pour les événements
+ * et les investissements — la base ne le contraint plus (trigger
+ * `validation_travaux_compte_rendu` supprimé). Le front le demande quand même
+ * (c'est ce qu'on vient documenter à la clôture), mais l'autorise vide.
  *
- * La date, elle, devient saisissable : le trigger `set_travaux_cloture_by` fait
- * `COALESCE(NEW.date_fin, current_date)`, donc il respecte une date fournie et
- * ne met le jour même qu'à défaut. On clôture souvent après coup — sans ce
- * champ, la fin d'un travaux prenait la date du jour de la saisie.
+ * La date reste saisissable : le front pose désormais lui-même `date_fin`
+ * (COALESCE côté client), le trigger serveur qui le faisait ayant été retiré.
  */
 export const clotureTravauxSchema = z.object({
   date_fin: z.string().min(1, 'La date de fin est obligatoire'),
-  compte_rendu: z
-    .string()
-    .trim()
-    .min(1, 'Le compte-rendu est obligatoire pour clôturer')
-    .max(5000),
+  compte_rendu: z.string().trim().max(5000),
 })
 
 export type ClotureTravauxFormValues = z.infer<typeof clotureTravauxSchema>

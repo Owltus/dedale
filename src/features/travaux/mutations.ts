@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { travauxQueries } from './queries'
 import { evenementsQueries } from '../evenements/queries'
+import { STATUT_TERMINE } from './schemas'
 import type { TravauxFormValues, TacheFormValues, StatutTache } from './schemas'
 
 // Convertit les champs du formulaire en payload base (vides → null). Les dates
@@ -36,9 +37,33 @@ export function useCreateTravaux() {
         .select()
         .single()
         .throwOnError()
+
+      // Lieux ajoutés directement à la création (facultatif) : une ligne
+      // sans local_id est ignorée (l'usager a pu ajouter puis abandonner).
+      const lieux = values.lieux.filter((l) => l.local_id)
+      if (lieux.length) {
+        await supabase
+          .from('travaux_taches')
+          .insert(
+            lieux.map((l, i) => ({
+              travaux_id: data.id,
+              local_id: l.local_id,
+              equipement_id: l.equipement_id || null,
+              ordre: i,
+              created_by: createdBy,
+            })),
+          )
+          .throwOnError()
+      }
+
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
+    onSuccess: (data) => {
+      void qc.invalidateQueries({ queryKey: travauxQueries.all() })
+      void qc.invalidateQueries({
+        queryKey: travauxQueries.taches(data.id).queryKey,
+      })
+    },
   })
 }
 
@@ -83,15 +108,12 @@ export function useDeleteTravaux() {
 }
 
 /**
- * Transition d'état via UPDATE du statut_travaux_id. Le passage « Terminé »
- * exige un compte_rendu : il est envoyé avec le changement. Le trigger backend
- * force cloture_by et refuse une transition interdite — on laisse l'erreur
- * remonter pour l'afficher.
- *
- * `dateFin` est FACULTATIVE et n'est envoyée qu'à la clôture : le trigger fait
- * `COALESCE(NEW.date_fin, current_date)`, donc une date fournie est conservée et
- * l'absence de date retombe sur le jour même. On ne la passe jamais sur les
- * autres transitions — le trigger l'efface lui-même à la réouverture.
+ * Transition d'état via UPDATE du statut_travaux_id. 085 : plus de machine à
+ * états côté base (statut libre, comme les événements) — `cloture_by`/
+ * `date_fin`/`compte_rendu` sont posés ICI par le front (l'ancien trigger
+ * `set_travaux_cloture_by` a été supprimé), miroir exact de
+ * `useChangeStatutEvenement`. En sortant de « Terminé », les trois champs
+ * sont effacés (un travaux rouvert n'est plus clos).
  */
 export function useChangeStatutTravaux() {
   const qc = useQueryClient()
@@ -101,28 +123,23 @@ export function useChangeStatutTravaux() {
       statutId,
       compteRendu,
       dateFin,
+      clotureBy,
     }: {
       id: string
       statutId: number
       compteRendu?: string
       dateFin?: string
+      clotureBy?: string
     }) => {
-      const patch: {
-        statut_travaux_id: number
-        compte_rendu?: string
-        date_fin?: string
-      } = {
-        statut_travaux_id: statutId,
-      }
-      if (compteRendu !== undefined) {
-        patch.compte_rendu = compteRendu.trim()
-      }
-      if (dateFin !== undefined) {
-        patch.date_fin = dateFin
-      }
+      const cloture = statutId === STATUT_TERMINE
       const { data } = await supabase
         .from('interventions_travaux')
-        .update(patch)
+        .update({
+          statut_travaux_id: statutId,
+          compte_rendu: cloture ? (compteRendu?.trim() ?? '') || null : null,
+          date_fin: cloture ? (dateFin ?? null) : null,
+          cloture_by: cloture ? (clotureBy ?? null) : null,
+        })
         .eq('id', id)
         .select()
         .single()
@@ -135,13 +152,9 @@ export function useChangeStatutTravaux() {
 
 /**
  * CORRIGE une clôture déjà enregistrée : date de fin et/ou compte-rendu, sans
- * toucher au statut.
- *
- * Ne pas passer par `useChangeStatutTravaux` est délibéré : les deux triggers de
- * clôture sont déclarés `BEFORE UPDATE OF statut_travaux_id`, donc réécrire le
- * statut à sa propre valeur les réveillerait pour rien. Ici la colonne de statut
- * n'est pas dans le patch — aucun trigger ne se déclenche, et la correction ne
- * peut pas se transformer en re-clôture qui écraserait `cloture_by`.
+ * toucher au statut. Ne passe pas par `useChangeStatutTravaux` pour ne pas
+ * réécrire `statut_travaux_id` à sa propre valeur (pas de trigger à réveiller
+ * depuis 085, mais garde la même distinction que le patron Événements).
  */
 export function useUpdateClotureTravaux() {
   const qc = useQueryClient()
@@ -157,7 +170,7 @@ export function useUpdateClotureTravaux() {
     }) => {
       const { data } = await supabase
         .from('interventions_travaux')
-        .update({ date_fin: dateFin, compte_rendu: compteRendu.trim() })
+        .update({ date_fin: dateFin, compte_rendu: compteRendu.trim() || null })
         .eq('id', id)
         .select()
         .single()
@@ -258,28 +271,6 @@ export function useUpdateTacheStatut() {
   })
 }
 
-/**
- * Convertit ce Travaux en Événement (copie + suppression du Travaux, RPC
- * `convertir_travaux_en_evenement`) : documents transférés, statut
- * réinitialisé, une seule zone conservée si le Travaux en avait plusieurs.
- * Retourne l'id du nouvel Événement (pour rediriger dessus).
- */
-export function useConvertirEnEvenement() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { data } = await supabase
-        .rpc('convertir_travaux_en_evenement', { p_travaux_id: id })
-        .throwOnError()
-      return data
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: travauxQueries.all() })
-      void qc.invalidateQueries({ queryKey: evenementsQueries.all() })
-    },
-  })
-}
-
 export function useDeleteTache() {
   const qc = useQueryClient()
   return useMutation({
@@ -296,5 +287,27 @@ export function useDeleteTache() {
       qc.invalidateQueries({
         queryKey: travauxQueries.taches(vars.travauxId).queryKey,
       }),
+  })
+}
+
+/**
+ * Convertit ce Travaux en Événement (copie + suppression du Travaux, RPC
+ * `convertir_travaux_en_evenement`) : documents et TOUTES les zones
+ * transférés, statut préservé (087). Retourne l'id du nouvel Événement (pour
+ * rediriger dessus).
+ */
+export function useConvertirEnEvenement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await supabase
+        .rpc('convertir_travaux_en_evenement', { p_travaux_id: id })
+        .throwOnError()
+      return data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: travauxQueries.all() })
+      void qc.invalidateQueries({ queryKey: evenementsQueries.all() })
+    },
   })
 }

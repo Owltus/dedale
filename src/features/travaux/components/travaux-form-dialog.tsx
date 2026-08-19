@@ -1,10 +1,11 @@
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { travauxSchema, emptyTravaux } from '../schemas'
 import type { TravauxFormValues } from '../schemas'
 import { useCreateTravaux, useUpdateTravaux } from '../mutations'
 import { useAuth } from '@/auth'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
+import { LieuxMultiplesField } from '@/features/equipements/components/lieux-multiples-field'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/fields/text-field'
@@ -27,7 +28,13 @@ interface TravauxFormDialogProps {
 
 function initialValues(travaux: Travaux | null | undefined): TravauxFormValues {
   if (!travaux) return emptyTravaux()
-  return { titre: travaux.titre, description: travaux.description ?? '' }
+  // lieux : uniquement en CRÉATION (cf. emptyTravaux) — l'édition des zones
+  // se fait depuis la fiche (TacheDialog), pas ce formulaire.
+  return {
+    titre: travaux.titre,
+    description: travaux.description ?? '',
+    lieux: [],
+  }
 }
 
 export function TravauxFormDialog({
@@ -46,6 +53,9 @@ export function TravauxFormDialog({
     resolver: zodResolver(travauxSchema),
     defaultValues: initialValues(travaux),
   })
+  // `LieuxMultiplesField` est IMPÉRATIF (`value`/`onChange`) : ponté à
+  // react-hook-form via `useWatch`/`setValue`, comme `LocalEquipementFields`.
+  const lieux = useWatch({ control: form.control, name: 'lieux' })
   const submit = useSubmitDialog<TravauxFormValues, Travaux | null>({
     onSubmit: async (data) => {
       if (travaux) {
@@ -73,7 +83,11 @@ export function TravauxFormDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={isEdit ? 'Modifier le travaux' : 'Nouveau travaux'}
-        description="Travaux ponctuels du site. Les tâches s'ajoutent ensuite sur la fiche."
+        description={
+          isEdit
+            ? 'Travaux ponctuels du site.'
+            : 'Ajoute directement une ou plusieurs zones concernées, ou fais-le plus tard depuis la fiche.'
+        }
         onSubmit={() => void form.handleSubmit(submit)()}
         submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
         pendingLabel="Enregistrement…"
@@ -89,6 +103,16 @@ export function TravauxFormDialog({
             (livraison, mise en service, enlèvement…). Deux lignes obligeaient à
             se relire par une fente. */}
         <DescriptionField control={form.control} name="description" rows={5} />
+        {/* Zones à la création : uniquement en CRÉATION (l'édition se fait
+            depuis la fiche, TacheDialog) — « meilleur des deux mondes »
+            (décision PO) : plusieurs zones possibles, choisies dès ici. */}
+        {!isEdit && (
+          <LieuxMultiplesField
+            siteId={siteId}
+            value={lieux}
+            onChange={(next) => form.setValue('lieux', next)}
+          />
+        )}
       </FormDialog>
     </Form>
   )

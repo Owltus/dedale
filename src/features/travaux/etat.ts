@@ -6,46 +6,30 @@ import {
   construireEtapes,
   type EtapeStatut,
 } from '@/components/common/status-steps'
-import {
-  STATUT_OUVERT,
-  STATUT_PLANIFIE,
-  STATUT_EN_COURS,
-  STATUT_TERMINE,
-  STATUT_ANNULE,
-  TRANSITIONS,
-} from './schemas'
-
-// Parcours linéaire d'AFFICHAGE de la frise : Ouvert → Planifié → En cours →
-// Terminé. « Annulé » = issue défavorable terminale, hors parcours (proposé via
-// un bouton dédié, pas une pastille). La machine à états réelle (transitions
-// autorisées) vit dans `schemas.ts` (miroir du trigger backend) ; la frise n'est
-// qu'une lecture visuelle + un raccourci de transition.
-const PARCOURS = [
-  STATUT_OUVERT,
-  STATUT_PLANIFIE,
-  STATUT_EN_COURS,
-  STATUT_TERMINE,
-] as const
+import { STATUT_OUVERT, STATUT_EN_COURS, STATUT_TERMINE } from './schemas'
 
 /**
- * Statuts TERMINAUX d'un travaux (Terminé, Annulé) : exclus par défaut du filtre
- * « Non terminés » des listes (cf. `matchStatutFilter`).
+ * Parcours d'AFFICHAGE de la frise : Ouvert → En cours → Terminé.
+ *
+ * 085 : aucune machine à états côté base (comme les événements) — les
+ * transitions sont LIBRES, toute pastille est donc cliquable. La frise sert
+ * de lecture et de raccourci, elle ne contraint rien.
  */
-export const STATUTS_TRAVAUX_TERMINAUX = [
-  STATUT_TERMINE,
-  STATUT_ANNULE,
-] as const
+const PARCOURS = [STATUT_OUVERT, STATUT_EN_COURS, STATUT_TERMINE] as const
 
 /**
- * Code couleur (tone) d'un statut de travaux, pour la pastille `StatusBadge` et
- * le liseré de card : Ouvert = gris, Planifié = violet, En cours = jaune,
- * Terminé = vert, Annulé = gris atténué (issue terminale, le libellé distingue).
+ * Statuts TERMINAUX d'un travaux : exclus par défaut du filtre « Non
+ * terminés » des listes (cf. `matchStatutFilter`).
+ */
+export const STATUTS_TRAVAUX_TERMINAUX = [STATUT_TERMINE] as const
+
+/**
+ * Code couleur (tone) d'un statut de travaux, pour la pastille `StatusBadge`
+ * et le liseré de card : Ouvert = gris, En cours = jaune, Terminé = vert.
  */
 const TONES: Record<number, StatusTone> = {
-  [STATUT_PLANIFIE]: 'violet',
   [STATUT_EN_COURS]: 'yellow',
   [STATUT_TERMINE]: 'success',
-  [STATUT_ANNULE]: 'neutral', // issue terminale, le libellé distingue
   // STATUT_OUVERT → repli neutral
 }
 export function statutTravauxTone(id: number): StatusTone {
@@ -54,25 +38,18 @@ export function statutTravauxTone(id: number): StatusTone {
 
 /**
  * Construit la frise de suivi d'un travaux depuis son statut courant et le
- * référentiel des statuts (id → nom). Chaque étape porte son `statutId` et un
- * flag `actionable` = transition autorisée depuis le statut courant (miroir de
- * `TRANSITIONS`) → la frise sert aussi de raccourci pour changer de statut.
- * Renvoie `null` si le statut est inconnu → l'appelant retombe sur un badge.
+ * référentiel des statuts (id → nom). Toutes les étapes sont actionnables :
+ * le cycle est libre, on peut rouvrir un travaux terminé. Renvoie `null` si
+ * le statut est inconnu → l'appelant retombe sur un badge.
  */
 export function etapesTravaux(
   statutId: number,
   noms: Map<number, string>,
 ): EtapeStatut[] | null {
-  // Actionnable = transition autorisée depuis le statut courant (gère aussi la
-  // réouverture depuis Terminé, où l'étape « En cours » est `done` mais reste
-  // cliquable). « Annulé » = issue défavorable terminale hors parcours (frise
-  // minimale Ouvert → Annulé, gérée par `construireEtapes`).
-  const transitions = TRANSITIONS[statutId] ?? []
   return construireEtapes({
     parcours: PARCOURS,
     statutId,
     nom: (id) => noms.get(id) ?? `Statut ${String(id)}`,
-    actionable: (id) => transitions.includes(id),
-    rejected: { id: STATUT_ANNULE, departId: STATUT_OUVERT },
+    actionable: () => true,
   })
 }

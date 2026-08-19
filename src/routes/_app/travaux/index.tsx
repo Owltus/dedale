@@ -16,7 +16,6 @@ import {
   statutTravauxTone,
   STATUTS_TRAVAUX_TERMINAUX,
 } from '@/features/travaux/etat'
-import { estVerrouille } from '@/features/travaux/schemas'
 import { dateAffichee } from '@/features/travaux/format'
 import { TravauxFormDialog } from '@/features/travaux/components/travaux-form-dialog'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
@@ -200,7 +199,9 @@ function TravauxContent({
                   statutNom,
                 )
                 const editable =
-                  canManage && !estVerrouille(c.statut_travaux_id)
+                  // 085 : statut libre, plus de verrouillage (comme
+                  // Événements) — un travaux Terminé reste modifiable.
+                  canManage
                 // Composé à la main (pas actionsEditionSuppression) pour
                 // insérer « Convertir » entre Modifier et Supprimer.
                 const rowActions: RowAction[] = []

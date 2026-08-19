@@ -1,14 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import {
-  Ban,
-  ListChecks,
-  ListPlus,
-  Paperclip,
-  Pencil,
-  RotateCcw,
-} from 'lucide-react'
+import { ListChecks, ListPlus, Paperclip, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { travauxQueries, statutsTravauxQueries } from '../queries'
 import {
@@ -16,21 +9,15 @@ import {
   useUpdateClotureTravaux,
   useDeleteTache,
 } from '../mutations'
-import {
-  STATUT_ANNULE,
-  STATUT_OUVERT,
-  STATUT_TERMINE,
-  TRANSITIONS,
-  estVerrouille,
-} from '../schemas'
+import { STATUT_TERMINE } from '../schemas'
 import { etapesTravaux } from '../etat'
 import { TravauxFormDialog } from './travaux-form-dialog'
 import { ClotureDialog } from './cloture-dialog'
 import { TacheDialog } from './tache-dialog'
 import { TacheRow, type TacheItem } from './tache-row'
+import { useAuth } from '@/auth'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
-import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
@@ -64,6 +51,7 @@ export function TravauxDetail({
   canManage,
 }: TravauxDetailProps) {
   const navigate = useNavigate()
+  const { session } = useAuth()
   const { data: statuts = [] } = useQuery(statutsTravauxQueries.list())
   const tachesQuery = useQuery(travauxQueries.taches(travaux.id))
   const change = useChangeStatutTravaux()
@@ -75,9 +63,6 @@ export function TravauxDetail({
   // à la réouverture.
   const editDialog = useEntityDialog<TravauxRow>()
   const [clotureOpen, setClotureOpen] = useState(false)
-  // Confirmations de transition de statut du travaux (ex. « Annuler »), toutes
-  // derrière un unique ConfirmDialog.
-  const confirmAction = useConfirmAction()
   // Modal de zone : `entity` null = ajout, sinon édition de cette zone.
   const tacheDialog = useEntityDialog<TacheItem>()
   const suppressionTache = useConfirmDelete<TacheItem>({
@@ -91,21 +76,17 @@ export function TravauxDetail({
 
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const etapes = etapesTravaux(travaux.statut_travaux_id, noms)
-  const verrouille = estVerrouille(travaux.statut_travaux_id)
+  // 085 : statut libre, plus de verrouillage — un travaux Terminé reste
+  // éditable (comme un événement Clôturé).
+  const editable = canManage
+  const tachesReadOnly = !canManage
   // Déjà terminé → le dialogue de clôture s'ouvre en CORRECTION (pré-rempli),
-  // et non en clôture : le statut ne bouge pas, seules les deux colonnes de
+  // et non en clôture : le statut ne bouge pas, seules les colonnes de
   // clôture sont réécrites.
   const dejaTermine = travaux.statut_travaux_id === STATUT_TERMINE
-  const transitions = TRANSITIONS[travaux.statut_travaux_id] ?? []
-  const editable = canManage && !verrouille
-  const tachesReadOnly = !canManage || verrouille
-  // « Annuler » (statut hors parcours de la frise) : proposé en top bar tant
-  // que la transition vers Annulé est autorisée.
-  const canAnnuler = canManage && transitions.includes(STATUT_ANNULE)
-  // « Réactiver » : ramène un travaux Annulé vers « Ouvert » (résurrection).
-  const canReactiver = canManage && travaux.statut_travaux_id === STATUT_ANNULE
 
   function transition(statutId: number) {
+    if (statutId === travaux.statut_travaux_id) return
     if (statutId === STATUT_TERMINE) {
       setClotureOpen(true)
       return
@@ -149,45 +130,6 @@ export function TravauxDetail({
                   onClick={() => editDialog.openEdit(travaux)}
                 />
               )}
-              {canAnnuler && (
-                <TooltipIconButton
-                  icon={<Ban className="text-destructive" />}
-                  label="Annuler le travaux"
-                  variant="outline"
-                  onClick={() =>
-                    confirmAction.demander({
-                      title: 'Annuler le travaux ?',
-                      description:
-                        'Le travaux passera au statut « Annulé ». Cette issue est terminale.',
-                      confirmLabel: 'Annuler le travaux',
-                      destructive: true,
-                      run: () =>
-                        change.mutateAsync({
-                          id: travaux.id,
-                          statutId: STATUT_ANNULE,
-                        }),
-                      successMessage: 'Travaux annulé',
-                    })
-                  }
-                />
-              )}
-              {canReactiver && (
-                <TooltipIconButton
-                  icon={<RotateCcw />}
-                  label="Réactiver le travaux"
-                  variant="outline"
-                  disabled={change.isPending}
-                  onClick={() =>
-                    change.mutate(
-                      { id: travaux.id, statutId: STATUT_OUVERT },
-                      {
-                        onSuccess: () => toast.success('Travaux réactivé'),
-                        onError: (e) => toast.error(writeErrorMessage(e)),
-                      },
-                    )
-                  }
-                />
-              )}
             </>
           ) : undefined
         }
@@ -195,8 +137,8 @@ export function TravauxDetail({
 
       {/* FRISE — seule à rester PLEINE LARGEUR : c'est le résumé de l'état, on
           la lit avant le détail, et l'étaler sur les deux colonnes garde ses
-          quatre pastilles lisibles. Les actionnables changent le statut au clic ;
-          « Annuler » est en barre de titre. */}
+          pastilles lisibles. 085 : cycle libre, comme les événements — toute
+          pastille est cliquable, on peut rouvrir un travaux terminé. */}
       {etapes && (
         <Card className="mb-4">
           <CardContent>
@@ -395,8 +337,9 @@ export function TravauxDetail({
       />
 
       {/* Un seul dialogue pour clôturer ET corriger : `initial` absent = on
-          clôture (transition de statut, le trigger pose cloture_by), présent =
-          on corrige (UPDATE des seules colonnes de clôture, statut intact). */}
+          clôture (transition de statut, le FRONT pose cloture_by — 085, plus
+          de trigger serveur), présent = on corrige (UPDATE des seules
+          colonnes de clôture, statut intact). */}
       <ClotureDialog
         key={clotureOpen ? 'open' : 'closed'}
         open={clotureOpen}
@@ -430,14 +373,12 @@ export function TravauxDetail({
               statutId: STATUT_TERMINE,
               compteRendu: compte_rendu,
               dateFin: date_fin,
+              clotureBy: session?.user.id,
             },
             { onSuccess, onError },
           )
         }}
       />
-
-      {/* Unique dialog des transitions de statut du travaux (« Annuler »…). */}
-      <ConfirmDialog {...confirmAction.dialogProps} />
     </PageContainer>
   )
 }
