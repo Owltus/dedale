@@ -6948,14 +6948,19 @@ RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-    -- Anti-doublon : pas d'autre OT actif pour la même gamme
+    -- 081 — Anti-doublon borné à la MÊME date : un OT actif pour la gamme à une
+    -- autre date (backfill historique, rattrapage) ne bloque plus la création.
+    -- Le vrai doublon (même gamme + même date_prevue, actifs tous les deux)
+    -- reste refusé ici ET par l'index unique uq_ot_gamme_date_actifs (rempart
+    -- atomique, anti-TOCTOU).
     IF EXISTS (
         SELECT 1 FROM public.ordres_travail
         WHERE gamme_id = NEW.gamme_id
           AND id != NEW.id
+          AND date_prevue = NEW.date_prevue
           AND statut NOT IN ('cloture', 'annule')
     ) THEN
-        RAISE EXCEPTION 'Un OT actif (planifie/en_cours/reouvert) existe déjà pour la gamme %.', NEW.gamme_id;
+        RAISE EXCEPTION 'Un OT actif (planifie/en_cours/reouvert) existe déjà pour la gamme % à la date %.', NEW.gamme_id, NEW.date_prevue;
     END IF;
 
     -- Pattern 3 GUC (perf-patterns). snapshot_ot_from_gamme et
@@ -6977,7 +6982,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.creation_ot_orchestrator() IS
-    'Trigger AFTER INSERT ON ordres_travail : appelle les 3 fonctions de création (snapshot, prestataire, ops). F50 : pose la GUC app.system_ot_generation pour autoriser l''écriture des snapshots.';
+    'Trigger AFTER INSERT ON ordres_travail : appelle les 3 fonctions de création (snapshot, prestataire, ops). F50 : pose la GUC app.system_ot_generation pour autoriser l''écriture des snapshots. 081 : anti-doublon borné à (gamme_id, date_prevue) — un OT actif à une autre date ne bloque plus la création manuelle (backfill historique possible) ; le vrai doublon reste bloqué ici et par uq_ot_gamme_date_actifs.';
 
 CREATE TRIGGER trg_creation_ot_orchestrator
     AFTER INSERT ON ordres_travail
