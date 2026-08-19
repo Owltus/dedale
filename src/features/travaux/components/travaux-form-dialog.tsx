@@ -9,9 +9,9 @@ import { travauxQueries } from '../queries'
 import { useAuth } from '@/auth'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import {
-  LieuxMultiplesField,
-  type LieuEntree,
-} from '@/features/equipements/components/lieux-multiples-field'
+  TachesMultiplesField,
+  type TacheEntree,
+} from '@/features/equipements/components/taches-multiples-field'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/fields/text-field'
@@ -34,11 +34,11 @@ interface TravauxFormDialogProps {
 
 function initialValues(travaux: Travaux | null | undefined): TravauxFormValues {
   if (!travaux) return emptyTravaux()
-  // lieux : jamais peuplé ici — état à part, cf. plus bas.
+  // taches : jamais peuplé ici — état à part, cf. plus bas.
   return {
     titre: travaux.titre,
     description: travaux.description ?? '',
-    lieux: [],
+    taches: [],
   }
 }
 
@@ -59,34 +59,39 @@ export function TravauxFormDialog({
     enabled: isEdit,
   })
 
-  // `lieux` est un état REACT LOCAL, hors react-hook-form — même patron que
+  // `taches` est un état REACT LOCAL, hors react-hook-form — même patron que
   // côté Événements (`EvenementFormDialog`) : le pont `useWatch`/`setValue`
   // sur un tableau s'est révélé instable pour un chargement en masse (rendu
   // final gardant parfois une entrée à moitié vide alors que la donnée
   // chargée était complète). Peuplé PENDANT le rendu (patron « ajuster
   // l'état pendant le rendu » de React, pas un `useEffect`) : dès que
   // `tachesExistantes` change de référence — la requête vient de résoudre —
-  // on resynchronise `lieux` avant que ce rendu ne s'affiche. L'initialiseur
+  // on resynchronise `taches` avant que ce rendu ne s'affiche. L'initialiseur
   // paresseux est indispensable : le dialogue remonte à neuf à chaque
   // ouverture (`key={dlg.dialogKey}`), et la requête est alors souvent déjà
   // résolue en cache (chargée pendant que le dialogue était fermé).
-  const [lieux, setLieux] = useState<LieuEntree[]>(() =>
-    (tachesExistantes ?? []).map((t) => ({
-      local_id: t.local_id,
+  // 090 (étape « création rapide ») : toute tâche existante préremplit
+  // désormais cet éditeur, AVEC ou SANS lieu — `id` inclus, indispensable au
+  // DIFF par identifiant de `useUpdateTravaux` (D11).
+  function depuisTachesExistantes(
+    taches: NonNullable<typeof tachesExistantes>,
+  ): TacheEntree[] {
+    return taches.map((t) => ({
+      id: t.id,
+      libelle: t.libelle,
+      local_id: t.local_id ?? '',
       equipement_id: t.equipement_id ?? '',
-    })),
+    }))
+  }
+  const [taches, setTaches] = useState<TacheEntree[]>(() =>
+    depuisTachesExistantes(tachesExistantes ?? []),
   )
   const [tachesExistantesVues, setTachesExistantesVues] =
     useState(tachesExistantes)
   if (tachesExistantes !== tachesExistantesVues) {
     setTachesExistantesVues(tachesExistantes)
     if (tachesExistantes) {
-      setLieux(
-        tachesExistantes.map((t) => ({
-          local_id: t.local_id,
-          equipement_id: t.equipement_id ?? '',
-        })),
-      )
+      setTaches(depuisTachesExistantes(tachesExistantes))
     }
   }
 
@@ -102,12 +107,13 @@ export function TravauxFormDialog({
         await update.mutateAsync({
           id: travaux.id,
           values: data,
-          lieux,
+          taches,
           createdBy: session.user.id,
           existants: (tachesExistantes ?? []).map((t) => ({
             id: t.id,
-            local_id: t.local_id,
-            equipement_id: t.equipement_id,
+            libelle: t.libelle,
+            local_id: t.local_id ?? '',
+            equipement_id: t.equipement_id ?? '',
           })),
         })
         return null
@@ -115,7 +121,7 @@ export function TravauxFormDialog({
       return create.mutateAsync({
         siteId,
         createdBy: session.user.id,
-        values: { ...data, lieux },
+        values: { ...data, taches },
       })
     },
     successMessage: isEdit ? 'Travaux modifié' : 'Travaux créé',
@@ -132,7 +138,7 @@ export function TravauxFormDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={isEdit ? 'Modifier le travaux' : 'Nouveau travaux'}
-        description="Ajoute, modifie ou retire directement une ou plusieurs zones concernées — ici ou depuis la fiche."
+        description="Ajoute, modifie ou retire directement une ou plusieurs tâches — ici ou depuis la fiche."
         onSubmit={() => void form.handleSubmit(submit)()}
         submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
         pendingLabel="Enregistrement…"
@@ -148,13 +154,13 @@ export function TravauxFormDialog({
             (livraison, mise en service, enlèvement…). Deux lignes obligeaient à
             se relire par une fente. */}
         <DescriptionField control={form.control} name="description" rows={5} />
-        {/* Zones ajoutées/retouchées directement ici, en création COMME en
+        {/* Tâches ajoutées/retouchées directement ici, en création COMME en
             modification — « meilleur des deux mondes » (décision PO) :
             symétrique avec Événements, qui fait de même. */}
-        <LieuxMultiplesField
+        <TachesMultiplesField
           siteId={siteId}
-          value={lieux}
-          onChange={setLieux}
+          value={taches}
+          onChange={setTaches}
         />
       </FormDialog>
     </Form>

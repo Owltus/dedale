@@ -75,24 +75,52 @@ export const documentsQueries = {
    * Documents rattachés à une entité via sa table de liaison.
    * `liaison` = nom de la table de liaison (ex. 'documents_ordres_travail').
    * `parentColumn` = colonne FK vers l'entité (ex. 'ordre_travail_id').
+   *
+   * `tacheFilter` (091, seulement pertinent pour `documents_interventions_travaux`/
+   * `documents_evenements`, qui ont une colonne `tache_id`) : omis → aucun
+   * filtre (comportement historique, pour les 9 autres liaisons qui n'ont pas
+   * cette colonne) ; `null` → documents niveau FICHE seulement
+   * (`tache_id IS NULL`) ; un id → documents de CETTE tâche précise.
    */
-  byEntity: (liaison: LiaisonTable, parentColumn: string, parentId: string) =>
+  byEntity: (
+    liaison: LiaisonTable,
+    parentColumn: string,
+    parentId: string,
+    tacheFilter?: string | null,
+  ) =>
     queryOptions({
       queryKey: [
         ...documentsQueries.all(),
         'by-entity',
         liaison,
         parentId,
+        tacheFilter,
       ] as const,
       queryFn: async ({ signal }) => {
-        const { data } = await liaisonTable(liaison)
+        const base = liaisonTable(liaison)
           // On joint le document parent rattaché à l'entité.
           .select(
             'document_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at)',
           )
           .eq(parentColumn, parentId)
-          .abortSignal(signal)
-          .throwOnError()
+        // `tache_id` (091) n'existe que sur 2 des 10 tables de liaison — le
+        // typage générique de `liaisonTable` ne le connaît pas, on relâche
+        // localement (même principe que `liaisonTable` elle-même).
+        const query =
+          tacheFilter === undefined
+            ? base
+            : tacheFilter === null
+              ? (
+                  base as unknown as {
+                    is: (column: string, value: null) => typeof base
+                  }
+                ).is('tache_id', null)
+              : (
+                  base as unknown as {
+                    eq: (column: string, value: string) => typeof base
+                  }
+                ).eq('tache_id', tacheFilter)
+        const { data } = await query.abortSignal(signal).throwOnError()
         const rows = data as {
           documents: DocumentMeta | null
         }[]

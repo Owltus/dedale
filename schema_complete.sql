@@ -4331,8 +4331,10 @@ ALTER TABLE interventions_travaux ENABLE ROW LEVEL SECURITY;
 CREATE TABLE travaux_taches (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     travaux_id     UUID NOT NULL REFERENCES interventions_travaux(id) ON DELETE CASCADE,
-    local_id       UUID NOT NULL REFERENCES locaux(id)      ON DELETE CASCADE,
+    libelle        TEXT NOT NULL,
+    local_id       UUID REFERENCES locaux(id)      ON DELETE CASCADE,
     equipement_id  UUID REFERENCES equipements(id) ON DELETE SET NULL,
+    commentaire    TEXT,
     statut         TEXT NOT NULL DEFAULT 'en_attente'
                    CHECK (statut IN ('en_attente','en_cours','realise','non_realise','non_applicable')),
     ordre          INTEGER NOT NULL DEFAULT 0,
@@ -4341,7 +4343,9 @@ CREATE TABLE travaux_taches (
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE travaux_taches IS
-    'Zones concernées par un travail : un local (requis), un équipement précis optionnel, et un statut d''avancement.';
+    'Tâches d''un travail : un libellé libre (identité), un lieu (local + équipement) FACULTATIF, un commentaire facultatif, et un statut d''avancement. 090 : généralisation du modèle "zone concernée".';
+COMMENT ON COLUMN travaux_taches.libelle IS '090 : identité de la tâche, texte libre — obligatoire.';
+COMMENT ON COLUMN travaux_taches.commentaire IS '090 : commentaire libre facultatif.';
 CREATE INDEX idx_travaux_taches_travaux    ON travaux_taches(travaux_id);
 CREATE INDEX idx_travaux_taches_local      ON travaux_taches(local_id);
 CREATE INDEX idx_travaux_taches_equipement ON travaux_taches(equipement_id);
@@ -5223,10 +5227,14 @@ CREATE TABLE documents_interventions_travaux (
     document_id UUID NOT NULL REFERENCES documents(id)               ON DELETE CASCADE,
     travaux_id UUID NOT NULL REFERENCES interventions_travaux(id)  ON DELETE CASCADE,
     commentaire TEXT,
+    tache_id    UUID REFERENCES travaux_taches(id) ON DELETE SET NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (document_id, travaux_id)
 );
+COMMENT ON COLUMN documents_interventions_travaux.tache_id IS
+    '091 : tâche précise à laquelle ce document est rattaché — NULL = rattaché à la fiche entière.';
 CREATE INDEX idx_doc_travaux_travaux ON documents_interventions_travaux(travaux_id);
+CREATE INDEX idx_doc_travaux_tache ON documents_interventions_travaux(tache_id);
 ALTER TABLE documents_interventions_travaux ENABLE ROW LEVEL SECURITY;
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -5281,20 +5289,26 @@ CREATE TABLE documents_evenements (
     document_id  UUID NOT NULL REFERENCES documents(id)  ON DELETE CASCADE,
     evenement_id UUID NOT NULL REFERENCES evenements(id) ON DELETE CASCADE,
     commentaire  TEXT,
+    tache_id     UUID REFERENCES evenements_lieux(id) ON DELETE SET NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (document_id, evenement_id)
 );
 
 COMMENT ON TABLE documents_evenements IS 'Liaison document ↔ événement (077). CASCADE des deux côtés : retirer la liaison, pas le document lui-même.';
+COMMENT ON COLUMN documents_evenements.tache_id IS
+    '091 : tâche précise à laquelle ce document est rattaché — NULL = rattaché à la fiche entière.';
 
 -- 086 : lieux concernés par un événement (0..N), miroir de travaux_taches.
 -- 088 : porte désormais aussi un statut d'avancement par lieu, identique à
 -- travaux_taches.statut — Travaux et Événements suivent leurs zones pareil.
+-- 090 : généralisation en tâche — libellé libre (identité), lieu FACULTATIF.
 CREATE TABLE evenements_lieux (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     evenement_id  UUID NOT NULL REFERENCES evenements(id) ON DELETE CASCADE,
-    local_id      UUID NOT NULL REFERENCES locaux(id)      ON DELETE CASCADE,
+    libelle       TEXT NOT NULL,
+    local_id      UUID REFERENCES locaux(id)      ON DELETE CASCADE,
     equipement_id UUID REFERENCES equipements(id)          ON DELETE SET NULL,
+    commentaire   TEXT,
     statut        TEXT NOT NULL DEFAULT 'en_attente'
                   CHECK (statut IN ('en_attente','en_cours','realise','non_realise','non_applicable')),
     ordre         INTEGER NOT NULL DEFAULT 0,
@@ -5304,11 +5318,14 @@ CREATE TABLE evenements_lieux (
 );
 
 COMMENT ON TABLE evenements_lieux IS
-    '086 : lieux concernés par un événement (0..N), miroir de travaux_taches. 088 : + statut d''avancement par lieu.';
+    'Tâches d''un événement : un libellé libre (identité), un lieu (local + équipement) FACULTATIF, un commentaire facultatif, et un statut d''avancement. 090 : généralisation du modèle "lieu concerné", miroir travaux_taches.';
 COMMENT ON COLUMN evenements_lieux.statut IS
     '088 : statut d''avancement du lieu concerné, miroir travaux_taches.statut.';
+COMMENT ON COLUMN evenements_lieux.libelle IS '090 : identité de la tâche, texte libre — obligatoire.';
+COMMENT ON COLUMN evenements_lieux.commentaire IS '090 : commentaire libre facultatif.';
 
 CREATE INDEX idx_evenements_lieux_evenement ON evenements_lieux(evenement_id);
+CREATE INDEX idx_doc_evenements_tache ON documents_evenements(tache_id);
 
 ALTER TABLE statuts_evenements   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evenements           ENABLE ROW LEVEL SECURITY;
@@ -7112,6 +7129,7 @@ CREATE TRIGGER trg_evenements_lieux_updated_at
 
 -- 086 : miroir de check_travaux_tache_coherence — un local/équipement
 -- rattaché à un lieu d'événement doit appartenir au même site que l'événement.
+-- 090 : local_id devenu facultatif — validation SEULEMENT si renseigné.
 CREATE OR REPLACE FUNCTION public.check_evenement_lieu_coherence()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
@@ -7123,14 +7141,16 @@ DECLARE
 BEGIN
     SELECT site_id INTO v_site_evenement FROM public.evenements WHERE id = NEW.evenement_id;
 
-    SELECT b.site_id INTO v_site_local
-    FROM public.locaux l
-    JOIN public.niveaux n ON n.id = l.niveau_id
-    JOIN public.batiments b ON b.id = n.batiment_id
-    WHERE l.id = NEW.local_id;
+    IF NEW.local_id IS NOT NULL THEN
+        SELECT b.site_id INTO v_site_local
+        FROM public.locaux l
+        JOIN public.niveaux n ON n.id = l.niveau_id
+        JOIN public.batiments b ON b.id = n.batiment_id
+        WHERE l.id = NEW.local_id;
 
-    IF v_site_local IS DISTINCT FROM v_site_evenement THEN
-        RAISE EXCEPTION 'evenements_lieux : local_id % n''appartient pas au site de l''événement', NEW.local_id;
+        IF v_site_local IS DISTINCT FROM v_site_evenement THEN
+            RAISE EXCEPTION 'evenements_lieux : local_id % n''appartient pas au site de l''événement', NEW.local_id;
+        END IF;
     END IF;
 
     IF NEW.equipement_id IS NOT NULL THEN
@@ -7144,7 +7164,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.check_evenement_lieu_coherence() IS '086 : un local/équipement rattaché à un lieu d''événement doit appartenir au même site que l''événement (miroir check_travaux_tache_coherence).';
+COMMENT ON FUNCTION public.check_evenement_lieu_coherence() IS '090 : un local/équipement rattaché à une tâche d''événement doit appartenir au même site que l''événement — validé SEULEMENT si local_id est renseigné (le lieu est désormais facultatif). Miroir check_travaux_tache_coherence.';
 
 CREATE TRIGGER trg_check_evenement_lieu_coherence
     BEFORE INSERT OR UPDATE ON evenements_lieux
@@ -7474,7 +7494,7 @@ COMMENT ON FUNCTION public.reouvrir_ot(UUID, TEXT) IS
     'F28 (audit) : RPC standard pour rouvrir un OT clôturé. SECURITY INVOKER — la RLS gère l''autorisation (admin / manager(sites) / tech(sites)). Force le motif (CHECK motif_reouverture_oblig_si_reouvert). Le trigger log_audit() AFTER UPDATE trace l''opération dans audit_log.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 8ter. Conversion croisée Travaux ↔ Événements (084, réécrites par 087)
+-- 8ter. Conversion croisée Travaux ↔ Événements (084, réécrites par 087/089/092)
 -- ═══════════════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION public.convertir_evenement_en_travaux(p_evenement_id UUID)
 RETURNS UUID
@@ -7491,22 +7511,31 @@ BEGIN
         RAISE EXCEPTION 'Événement introuvable ou hors de votre périmètre';
     END IF;
 
-    -- Statut reporté TEL QUEL (087) : les deux référentiels partagent les
-    -- mêmes ids depuis 085/086.
+    -- Statut de la fiche reporté TEL QUEL (087) : les deux référentiels
+    -- partagent les mêmes ids depuis 085/086.
     INSERT INTO public.interventions_travaux (site_id, created_by, titre, description, statut_travaux_id)
     VALUES (v_evenement.site_id, (SELECT auth.uid()), v_evenement.titre, v_evenement.description, v_evenement.statut_evenement_id)
     RETURNING id INTO v_nouveau_id;
 
-    -- TOUTES les zones sont transférées (087), statut de chacune INCLUS (089).
-    INSERT INTO public.travaux_taches (travaux_id, local_id, equipement_id, statut, ordre, created_by)
-    SELECT v_nouveau_id, local_id, equipement_id, statut, ordre, (SELECT auth.uid())
-    FROM public.evenements_lieux
-    WHERE evenement_id = p_evenement_id;
-
-    INSERT INTO public.documents_interventions_travaux (document_id, travaux_id, commentaire)
-    SELECT document_id, v_nouveau_id, commentaire
-    FROM public.documents_evenements
-    WHERE evenement_id = p_evenement_id;
+    -- TOUTES les tâches transférées (087), libellé/commentaire INCLUS (092).
+    -- `anciennes_taches`/`nouvelles_taches` se correspondent par `ordre`
+    -- (unique par fiche) pour réattribuer les documents par tâche ensuite.
+    WITH nouvelles_taches AS (
+        INSERT INTO public.travaux_taches (travaux_id, libelle, local_id, equipement_id, statut, commentaire, ordre, created_by)
+        SELECT v_nouveau_id, libelle, local_id, equipement_id, statut, commentaire, ordre, (SELECT auth.uid())
+        FROM public.evenements_lieux
+        WHERE evenement_id = p_evenement_id
+        RETURNING id, ordre
+    ),
+    anciennes_taches AS (
+        SELECT id, ordre FROM public.evenements_lieux WHERE evenement_id = p_evenement_id
+    )
+    INSERT INTO public.documents_interventions_travaux (document_id, travaux_id, commentaire, tache_id)
+    SELECT d.document_id, v_nouveau_id, d.commentaire, nt.id
+    FROM public.documents_evenements d
+    LEFT JOIN anciennes_taches at ON at.id = d.tache_id
+    LEFT JOIN nouvelles_taches nt ON nt.ordre = at.ordre
+    WHERE d.evenement_id = p_evenement_id;
 
     DELETE FROM public.evenements WHERE id = p_evenement_id;
 
@@ -7515,7 +7544,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.convertir_evenement_en_travaux(UUID) IS
-    '089 : convertit un Événement en Travaux (copie + suppression source). Transfert INTÉGRAL des lieux — statut de chaque lieu INCLUS — et du statut de la fiche (même id). SECURITY INVOKER.';
+    '092 : convertit un Événement en Travaux (copie + suppression source). Transfert INTÉGRAL des tâches — libellé, commentaire, statut INCLUS — et des documents (fiche entière + documents par tâche, réattribués à leur nouvelle tâche). SECURITY INVOKER.';
 
 CREATE OR REPLACE FUNCTION public.convertir_travaux_en_evenement(p_travaux_id UUID)
 RETURNS UUID
@@ -7536,16 +7565,22 @@ BEGIN
     VALUES (v_travaux.site_id, (SELECT auth.uid()), v_travaux.titre, v_travaux.description, v_travaux.statut_travaux_id)
     RETURNING id INTO v_nouveau_id;
 
-    -- TOUTES les zones sont transférées (087), statut de chacune INCLUS (089).
-    INSERT INTO public.evenements_lieux (evenement_id, local_id, equipement_id, statut, ordre, created_by)
-    SELECT v_nouveau_id, local_id, equipement_id, statut, ordre, (SELECT auth.uid())
-    FROM public.travaux_taches
-    WHERE travaux_id = p_travaux_id;
-
-    INSERT INTO public.documents_evenements (document_id, evenement_id, commentaire)
-    SELECT document_id, v_nouveau_id, commentaire
-    FROM public.documents_interventions_travaux
-    WHERE travaux_id = p_travaux_id;
+    WITH nouvelles_taches AS (
+        INSERT INTO public.evenements_lieux (evenement_id, libelle, local_id, equipement_id, statut, commentaire, ordre, created_by)
+        SELECT v_nouveau_id, libelle, local_id, equipement_id, statut, commentaire, ordre, (SELECT auth.uid())
+        FROM public.travaux_taches
+        WHERE travaux_id = p_travaux_id
+        RETURNING id, ordre
+    ),
+    anciennes_taches AS (
+        SELECT id, ordre FROM public.travaux_taches WHERE travaux_id = p_travaux_id
+    )
+    INSERT INTO public.documents_evenements (document_id, evenement_id, commentaire, tache_id)
+    SELECT d.document_id, v_nouveau_id, d.commentaire, nt.id
+    FROM public.documents_interventions_travaux d
+    LEFT JOIN anciennes_taches at ON at.id = d.tache_id
+    LEFT JOIN nouvelles_taches nt ON nt.ordre = at.ordre
+    WHERE d.travaux_id = p_travaux_id;
 
     DELETE FROM public.interventions_travaux WHERE id = p_travaux_id;
 
@@ -7554,7 +7589,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.convertir_travaux_en_evenement(UUID) IS
-    '089 : convertit un Travaux en Événement (copie + suppression source). Transfert INTÉGRAL des zones — statut de chacune INCLUS — et du statut de la fiche (même id). SECURITY INVOKER.';
+    '092 : convertit un Travaux en Événement (copie + suppression source). Transfert INTÉGRAL des tâches — libellé, commentaire, statut INCLUS — et des documents (fiche entière + documents par tâche, réattribués à leur nouvelle tâche). SECURITY INVOKER.';
 
 REVOKE EXECUTE ON FUNCTION public.convertir_evenement_en_travaux(uuid) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.convertir_evenement_en_travaux(uuid) TO authenticated, service_role;

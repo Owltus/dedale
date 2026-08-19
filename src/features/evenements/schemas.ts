@@ -15,11 +15,18 @@ export const evenementSchema = z.object({
   description: z.string().trim().max(5000),
   // Date nue locale (jamais `toISOString()`, cf. lib/date).
   date_evenement: z.string().min(1, 'La date est obligatoire'),
-  // 086 : un ou plusieurs lieux (local + équipement optionnel), plus les
-  // colonnes directes local_id/equipement_id (déplacées vers evenements_lieux).
-  // Disponible en création ET en édition — continuité de la fonctionnalité
-  // d'origine (le lieu se modifiait déjà depuis ce même formulaire).
-  lieux: z.array(z.object({ local_id: z.string(), equipement_id: z.string() })),
+  // 086 : une ou plusieurs tâches (090, généralisées — libellé libre, lieu
+  // facultatif). Disponible en création ET en édition — continuité de la
+  // fonctionnalité d'origine (le lieu se modifiait déjà depuis ce même
+  // formulaire).
+  taches: z.array(
+    z.object({
+      id: z.string().optional(),
+      libelle: z.string(),
+      local_id: z.string(),
+      equipement_id: z.string(),
+    }),
+  ),
 })
 
 export type EvenementFormValues = z.infer<typeof evenementSchema>
@@ -29,7 +36,7 @@ export function emptyEvenement(dateDuJour: string): EvenementFormValues {
     titre: '',
     description: '',
     date_evenement: dateDuJour,
-    lieux: [],
+    taches: [],
   }
 }
 
@@ -48,16 +55,12 @@ export const clotureSchema = z.object({
 
 export type ClotureFormValues = z.infer<typeof clotureSchema>
 
-// ─── Lieux concernés (086 ; statut d'avancement par lieu depuis 088) ─────────
+// ─── Tâches (086 ; statut d'avancement depuis 088 ; généralisées depuis 090) ─
 
-// Un « lieu concerné » : un local (requis) + un équipement précis optionnel.
-export const lieuSchema = z.object({
-  local_id: z.string().min(1, 'Choisis un local'),
-  equipement_id: z.string(), // '' = aucun équipement
-})
-
-export type LieuFormValues = z.infer<typeof lieuSchema>
-
-export function emptyLieu(): LieuFormValues {
-  return { local_id: '', equipement_id: '' }
-}
+// Tâche généralisée (090, module partagé avec Travaux) : un libellé libre
+// (identité, requis) ; local/équipement/commentaire facultatifs.
+export {
+  tacheSchema as lieuSchema,
+  emptyTache as emptyLieu,
+} from '@/features/equipements/tache-schema'
+export type { TacheFormValues as LieuFormValues } from '@/features/equipements/tache-schema'

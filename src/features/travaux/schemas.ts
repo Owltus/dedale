@@ -16,11 +16,19 @@ export const STATUT_TERMINE = 4
 export const travauxSchema = z.object({
   titre: z.string().trim().min(1, 'Le titre est obligatoire').max(200),
   description: z.string().trim().max(2000),
-  // Lieux ajoutés/retouchés directement ici, en création COMME en
-  // modification (la fiche, via TacheDialog, reste une autre façon d'y
-  // accéder). Filtrés par la mutation : une ligne sans local_id est ignorée
-  // (l'usager a pu ajouter puis abandonner une ligne).
-  lieux: z.array(z.object({ local_id: z.string(), equipement_id: z.string() })),
+  // Tâches (090, généralisées) ajoutées/retouchées directement ici, en
+  // création COMME en modification (la fiche, via TacheDialog, reste une
+  // autre façon d'y accéder). Filtrées par la mutation : une ligne sans
+  // libellé NI lieu est ignorée (l'usager a pu ajouter puis abandonner une
+  // ligne).
+  taches: z.array(
+    z.object({
+      id: z.string().optional(),
+      libelle: z.string(),
+      local_id: z.string(),
+      equipement_id: z.string(),
+    }),
+  ),
 })
 
 export type TravauxFormValues = z.infer<typeof travauxSchema>
@@ -29,31 +37,23 @@ export function emptyTravaux(): TravauxFormValues {
   return {
     titre: '',
     description: '',
-    lieux: [],
+    taches: [],
   }
 }
 
-// ─── Tâches (to-do à statut) d'un travail ────────────────────────────────────
+// ─── Tâches (checklist à statut) d'un travail ────────────────────────────────
 
 // Statut d'une tâche = statut de zone (module partagé avec Événements, 088) —
-// réexporté sous ces noms pour ne rien casser côté consommateurs existants
-// (TacheRow, TacheDialog, mutations).
+// réexporté sous ces noms pour ne rien casser côté consommateurs existants.
 export const STATUTS_TACHE = STATUTS_ZONE
 export type StatutTache = StatutZone
 export const LIBELLES_STATUT_TACHE = LIBELLES_STATUT_ZONE
 export const variantStatutTache = variantStatutZone
 
-// Une « zone concernée » : un local (requis) + un équipement précis optionnel.
-export const tacheSchema = z.object({
-  local_id: z.string().min(1, 'Choisis un local'),
-  equipement_id: z.string(), // '' = aucun équipement
-})
-
-export type TacheFormValues = z.infer<typeof tacheSchema>
-
-export function emptyTache(): TacheFormValues {
-  return { local_id: '', equipement_id: '' }
-}
+// Tâche généralisée (090, module partagé avec Événements) : un libellé libre
+// (identité, requis) ; local/équipement/commentaire facultatifs.
+export { tacheSchema, emptyTache } from '@/features/equipements/tache-schema'
+export type { TacheFormValues } from '@/features/equipements/tache-schema'
 
 /**
  * Clôture d'un travaux : date de fin + compte-rendu.

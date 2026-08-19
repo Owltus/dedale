@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { documentsQueries, liaisonTable } from './queries'
 import type { LiaisonTable } from './queries'
+import type { DocumentMeta } from './format'
 import { replaceDocumentFile, uploadDocument } from './upload'
 
 /**
@@ -43,14 +44,18 @@ export function useUploadAndAttach() {
       liaison: LiaisonTable
       parentColumn: string
       parentId: string
+      /** 091 : rattache directement à une tâche précise (sinon niveau fiche). */
+      tacheId?: string | null
     }) => {
-      const { liaison, parentColumn, parentId, ...uploadParams } = params
+      const { liaison, parentColumn, parentId, tacheId, ...uploadParams } =
+        params
       // (a) + (b)
       const doc = await uploadDocument(uploadParams)
       // (c) rattachement à l'entité
       const { error: liaisonError } = await liaisonTable(liaison).insert({
         document_id: doc.id,
         [parentColumn]: parentId,
+        ...(tacheId !== undefined ? { tache_id: tacheId } : {}),
       } as {
         document_id: string
         ordre_travail_id: string
@@ -76,18 +81,98 @@ export function useAttachExistingDocuments() {
       parentColumn: string
       parentId: string
       documentIds: string[]
+      /** 091 : rattache directement à une tâche précise (sinon niveau fiche). */
+      tacheId?: string | null
     }) => {
-      const { liaison, parentColumn, parentId, documentIds } = params
+      const { liaison, parentColumn, parentId, documentIds, tacheId } = params
       await liaisonTable(liaison)
         .insert(
           documentIds.map((documentId) => ({
             document_id: documentId,
             [parentColumn]: parentId,
+            ...(tacheId !== undefined ? { tache_id: tacheId } : {}),
           })) as { document_id: string; ordre_travail_id: string }[],
         )
         .throwOnError()
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: documentsQueries.all() }),
+  })
+}
+
+/**
+ * Rattache un document à une TÂCHE précise de la fiche (091, étape 6), ou le
+ * détache au niveau fiche (`tacheId: null`) — ne touche que `tache_id`, pas
+ * la liaison document↔fiche elle-même (`document_id`/`parentColumn`
+ * inchangés). Mise à jour optimiste : le document change de liste de cache
+ * IMMÉDIATEMENT (retiré de partout où il était affiché pour cette fiche,
+ * ajouté à la liste de destination si déjà en cache), sans attendre la
+ * confirmation serveur — glisser-déposer fluide.
+ */
+export function useDeplacerDocumentTache() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: {
+      liaison: LiaisonTable
+      parentColumn: string
+      parentId: string
+      documentId: string
+      tacheId: string | null
+    }) => {
+      const { liaison, parentColumn, parentId, documentId, tacheId } = params
+      const base = liaisonTable(liaison)
+      // `tache_id` (091) n'existe que sur 2 des 10 tables de liaison — le
+      // typage générique de `liaisonTable` ne le connaît pas, on relâche
+      // localement (même principe que `documentsQueries.byEntity`). Le
+      // filtre retourné par `.update()` chaîne les mêmes méthodes que celui
+      // de `.delete()` (déjà utilisé juste plus bas) — on réutilise son type.
+      await (
+        base as unknown as {
+          update: (values: {
+            tache_id: string | null
+          }) => ReturnType<typeof base.delete>
+        }
+      )
+        .update({ tache_id: tacheId })
+        .eq('document_id', documentId)
+        .eq(parentColumn, parentId)
+        .throwOnError()
+    },
+    onMutate: async (params) => {
+      const { liaison, parentId, documentId, tacheId } = params
+      await qc.cancelQueries({ queryKey: documentsQueries.all() })
+      // Toutes les listes déjà en cache pour CETTE fiche (niveau fiche +
+      // chaque tâche déjà affichée), quel que soit leur filtre `tache_id`.
+      const caches = qc.getQueriesData<DocumentMeta[]>({
+        queryKey: [...documentsQueries.all(), 'by-entity', liaison, parentId],
+      })
+      let movedDoc: DocumentMeta | undefined
+      caches.forEach(([, data]) => {
+        const found = data?.find((d) => d.id === documentId)
+        if (found) movedDoc = found
+      })
+      caches.forEach(([key, data]) => {
+        if (!data) return
+        const entryFilter = key[4] as string | null | undefined
+        const isDestination = (entryFilter ?? null) === tacheId
+        if (isDestination) {
+          if (movedDoc && !data.some((d) => d.id === documentId)) {
+            qc.setQueryData(key, [movedDoc, ...data])
+          }
+        } else if (data.some((d) => d.id === documentId)) {
+          qc.setQueryData(
+            key,
+            data.filter((d) => d.id !== documentId),
+          )
+        }
+      })
+      return { caches }
+    },
+    onError: (_err, _params, context) => {
+      context?.caches.forEach(([key, data]) => {
+        qc.setQueryData(key, data)
+      })
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: documentsQueries.all() }),
   })
 }
 

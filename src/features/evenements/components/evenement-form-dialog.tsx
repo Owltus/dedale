@@ -7,9 +7,9 @@ import { useCreateEvenement, useUpdateEvenement } from '../mutations'
 import { evenementsQueries } from '../queries'
 import { useQuery } from '@tanstack/react-query'
 import {
-  LieuxMultiplesField,
-  type LieuEntree,
-} from '@/features/equipements/components/lieux-multiples-field'
+  TachesMultiplesField,
+  type TacheEntree,
+} from '@/features/equipements/components/taches-multiples-field'
 import { useAuth } from '@/auth'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { isoLocale } from '@/lib/date'
@@ -49,41 +49,46 @@ export function EvenementFormDialog({
     enabled: isEdit,
   })
 
-  // `lieux` est un état REACT LOCAL, hors react-hook-form : le pont habituel
-  // `useWatch`/`setValue` (cf. `LieuxMultiplesField`, utilisé tel quel côté
+  // `taches` est un état REACT LOCAL, hors react-hook-form : le pont habituel
+  // `useWatch`/`setValue` (cf. `TachesMultiplesField`, utilisé tel quel côté
   // Travaux) s'est révélé instable ici pour un CHARGEMENT EN MASSE —
   // plusieurs lignes peuplées d'un coup par un effet, comme en édition. Le
   // rendu final gardait par intermittence une entrée à moitié vide alors que
   // la donnée chargée était complète (course interne à react-hook-form sur un
-  // champ tableau hors `useFieldArray`). `LieuxMultiplesField` restant un
+  // champ tableau hors `useFieldArray`). `TachesMultiplesField` restant un
   // composant contrôlé `value`/`onChange` ordinaire, un état React classique
   // n'a pas ce problème.
   //
   // Peuplé PENDANT le rendu (patron « ajuster l'état pendant le rendu » de
   // React, pas un `useEffect`) : dès que `lieuxExistants` change de référence
-  // — la requête vient de résoudre — on resynchronise `lieux` avant que ce
+  // — la requête vient de résoudre — on resynchronise `taches` avant que ce
   // rendu ne s'affiche, sans rendu intermédiaire visible ni course d'effets.
   // Initialiseur PARESSEUX indispensable : le dialogue remonte à neuf à
   // chaque ouverture (`key={dlg.dialogKey}`), et la requête est alors souvent
   // déjà résolue en cache (chargée pendant que le dialogue était fermé) — sans
-  // lui, `lieux` démarrait toujours vide et la transition ci-dessous ne se
+  // lui, `taches` démarrait toujours vide et la transition ci-dessous ne se
   // déclenchait jamais (les deux états partaient déjà synchronisés).
-  const [lieux, setLieux] = useState<LieuEntree[]>(() =>
-    (lieuxExistants ?? []).map((l) => ({
-      local_id: l.local_id,
+  // 090 (étape « création rapide ») : toute tâche existante préremplit
+  // désormais cet éditeur, AVEC ou SANS lieu — `id` inclus, indispensable au
+  // DIFF par identifiant de `useUpdateEvenement` (D11).
+  function depuisLieuxExistants(
+    lieux: NonNullable<typeof lieuxExistants>,
+  ): TacheEntree[] {
+    return lieux.map((l) => ({
+      id: l.id,
+      libelle: l.libelle,
+      local_id: l.local_id ?? '',
       equipement_id: l.equipement_id ?? '',
-    })),
+    }))
+  }
+  const [taches, setTaches] = useState<TacheEntree[]>(() =>
+    depuisLieuxExistants(lieuxExistants ?? []),
   )
   const [lieuxExistantsVus, setLieuxExistantsVus] = useState(lieuxExistants)
   if (lieuxExistants !== lieuxExistantsVus) {
     setLieuxExistantsVus(lieuxExistants)
     if (lieuxExistants) {
-      setLieux(
-        lieuxExistants.map((l) => ({
-          local_id: l.local_id,
-          equipement_id: l.equipement_id ?? '',
-        })),
-      )
+      setTaches(depuisLieuxExistants(lieuxExistants))
     }
   }
 
@@ -94,8 +99,8 @@ export function EvenementFormDialog({
           titre: evenement.titre,
           description: evenement.description ?? '',
           date_evenement: evenement.date_evenement,
-          // Jamais peuplé ici — `lieux` est un état à part, cf. plus haut.
-          lieux: [],
+          // Jamais peuplé ici — `taches` est un état à part, cf. plus haut.
+          taches: [],
         }
       : undefined,
     defaultValues: emptyEvenement(isoLocale(new Date())),
@@ -108,12 +113,13 @@ export function EvenementFormDialog({
         await update.mutateAsync({
           id: evenement.id,
           values: data,
-          lieux,
+          taches,
           createdBy: session.user.id,
           existants: (lieuxExistants ?? []).map((l) => ({
             id: l.id,
-            local_id: l.local_id,
-            equipement_id: l.equipement_id,
+            libelle: l.libelle,
+            local_id: l.local_id ?? '',
+            equipement_id: l.equipement_id ?? '',
           })),
         })
         return null
@@ -121,7 +127,7 @@ export function EvenementFormDialog({
       return create.mutateAsync({
         siteId,
         createdBy: session.user.id,
-        values: { ...data, lieux },
+        values: { ...data, taches },
       })
     },
     successMessage: isEdit ? 'Événement modifié' : 'Événement consigné',
@@ -153,15 +159,16 @@ export function EvenementFormDialog({
         />
         <DescriptionField control={form.control} name="description" rows={5} />
 
-        {/* 086 : un ou plusieurs lieux, ajoutés/retouchés directement ici —
-            « meilleur des deux mondes » (décision PO) : la commodité déjà
-            présente (choisir le lieu depuis ce formulaire) étendue au
-            multi-lieux (comme Travaux). État local, cf. le commentaire sur
-            `lieux` plus haut — pas de pont react-hook-form ici. */}
-        <LieuxMultiplesField
+        {/* 086 : une ou plusieurs tâches (090, généralisées), ajoutées/
+            retouchées directement ici — « meilleur des deux mondes »
+            (décision PO) : la commodité déjà présente (choisir le lieu depuis
+            ce formulaire) étendue au multi-tâches (comme Travaux). État
+            local, cf. le commentaire sur `taches` plus haut — pas de pont
+            react-hook-form ici. */}
+        <TachesMultiplesField
           siteId={siteId}
-          value={lieux}
-          onChange={setLieux}
+          value={taches}
+          onChange={setTaches}
         />
       </FormDialog>
     </Form>

@@ -30,6 +30,14 @@ interface DocumentsTabProps {
   /** Id de l'entité parente à laquelle rattacher les documents. */
   parentId: string
   /**
+   * Filtre/rattache à une TÂCHE précise de la fiche parente (091, seulement
+   * pertinent pour `documents_interventions_travaux`/`documents_evenements`) :
+   * omis → comportement inchangé (aucun filtre, tous les documents de la
+   * fiche) ; `null` → documents niveau fiche seulement ; un id de tâche →
+   * documents de cette tâche, et tout nouvel ajout lui est rattaché.
+   */
+  tacheId?: string | null
+  /**
    * Restreint les formats acceptés à l'upload (défaut : PDF + WebP). Ex.
    * `MIME_PDF` pour n'autoriser que le PDF (investissements). Transmis tel quel
    * au dialogue d'upload.
@@ -85,6 +93,13 @@ interface DocumentsTabProps {
    * prop, comportement inchangé.
    */
   onLiaisonChanged?: () => void
+  /**
+   * Glisser-déposer (091, étape 6) : chaque ligne devient une source de drag
+   * vers une tâche ou vers la carte "Documents" (`TachesDndContext`). Défaut
+   * `false` — comportement inchangé pour les 8 autres consommateurs, qui
+   * n'ont pas de notion de tâche.
+   */
+  draggable?: boolean
 }
 
 /**
@@ -103,6 +118,7 @@ export function DocumentsTab({
   liaison,
   parentColumn,
   parentId,
+  tacheId,
   acceptedMimes,
   title,
   uploadOpen,
@@ -113,6 +129,7 @@ export function DocumentsTab({
   namingContext,
   canAttach = true,
   onLiaisonChanged,
+  draggable = false,
 }: DocumentsTabProps) {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
@@ -121,7 +138,7 @@ export function DocumentsTab({
   const { activeSiteId } = useSiteContext()
 
   const query = useQuery(
-    documentsQueries.byEntity(liaison, parentColumn, parentId),
+    documentsQueries.byEntity(liaison, parentColumn, parentId, tacheId),
   )
 
   const uploadAttach = useUploadAndAttach()
@@ -204,6 +221,7 @@ export function DocumentsTab({
         {(list) => (
           <DocumentsListe
             docs={list}
+            draggable={draggable}
             canEdit={canManage}
             canDetach={canManage}
             onDetach={(doc) =>
@@ -248,6 +266,7 @@ export function DocumentsTab({
                 liaison,
                 parentColumn,
                 parentId,
+                tacheId,
               })
               .then((r) => {
                 onLiaisonChanged?.()
@@ -266,6 +285,7 @@ export function DocumentsTab({
                 parentColumn,
                 parentId,
                 documentIds,
+                tacheId,
               })
               .then((r) => {
                 onLiaisonChanged?.()

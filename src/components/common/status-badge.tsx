@@ -58,6 +58,15 @@ const TONE_CLASSES: Record<StatusTone, string> = {
 }
 
 /**
+ * Classes de la pastille teintée d'une tonalité, sans le `Badge` shadcn autour
+ * — pour habiller un AUTRE déclencheur (ex. `StatusTransitionSelect`) avec le
+ * même code couleur que `StatusBadge`, sans dupliquer `TONE_CLASSES`.
+ */
+export function toneBadgeClasses(tone: StatusTone): string {
+  return TONE_CLASSES[tone]
+}
+
+/**
  * Badge de statut minimaliste qui PREND LE CODE COULEUR sémantique (pastille
  * teintée). Brique réutilisable partout où un statut porte une tonalité —
  * Demandes, Travaux, Investissements… : la feature mappe son statut métier →

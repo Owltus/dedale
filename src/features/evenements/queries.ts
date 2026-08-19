@@ -30,8 +30,8 @@ export const evenementsQueries = {
     }),
 
   /**
-   * Lieux concernés par un événement : local + équipement optionnel + statut
-   * d'avancement (088, miroir `travaux_taches`).
+   * Tâches d'un événement : libellé (identité), lieu facultatif, statut
+   * d'avancement (088, miroir `travaux_taches` ; généralisées 090).
    */
   lieux: (evenementId: string) =>
     queryOptions({
@@ -40,7 +40,7 @@ export const evenementsQueries = {
         const { data } = await supabase
           .from('evenements_lieux')
           .select(
-            'id, ordre, statut, local_id, equipement_id, created_at, locaux(id, nom), equipements(id, nom)',
+            'id, libelle, ordre, statut, local_id, equipement_id, commentaire, created_at, locaux(id, nom), equipements(id, nom)',
           )
           .eq('evenement_id', evenementId)
           .order('ordre')

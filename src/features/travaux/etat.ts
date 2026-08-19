@@ -2,20 +2,7 @@ import {
   statusToneById,
   type StatusTone,
 } from '@/components/common/status-badge'
-import {
-  construireEtapes,
-  type EtapeStatut,
-} from '@/components/common/status-steps'
-import { STATUT_OUVERT, STATUT_EN_COURS, STATUT_TERMINE } from './schemas'
-
-/**
- * Parcours d'AFFICHAGE de la frise : Ouvert → En cours → Terminé.
- *
- * 085 : aucune machine à états côté base (comme les événements) — les
- * transitions sont LIBRES, toute pastille est donc cliquable. La frise sert
- * de lecture et de raccourci, elle ne contraint rien.
- */
-const PARCOURS = [STATUT_OUVERT, STATUT_EN_COURS, STATUT_TERMINE] as const
+import { STATUT_TERMINE, STATUT_EN_COURS } from './schemas'
 
 /**
  * Statuts TERMINAUX d'un travaux : exclus par défaut du filtre « Non
@@ -34,22 +21,4 @@ const TONES: Record<number, StatusTone> = {
 }
 export function statutTravauxTone(id: number): StatusTone {
   return statusToneById(id, TONES)
-}
-
-/**
- * Construit la frise de suivi d'un travaux depuis son statut courant et le
- * référentiel des statuts (id → nom). Toutes les étapes sont actionnables :
- * le cycle est libre, on peut rouvrir un travaux terminé. Renvoie `null` si
- * le statut est inconnu → l'appelant retombe sur un badge.
- */
-export function etapesTravaux(
-  statutId: number,
-  noms: Map<number, string>,
-): EtapeStatut[] | null {
-  return construireEtapes({
-    parcours: PARCOURS,
-    statutId,
-    nom: (id) => noms.get(id) ?? `Statut ${String(id)}`,
-    actionable: () => true,
-  })
 }

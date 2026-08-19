@@ -4,7 +4,7 @@ import { travauxQueries } from './queries'
 import { evenementsQueries } from '../evenements/queries'
 import { STATUT_TERMINE } from './schemas'
 import type { TravauxFormValues, TacheFormValues, StatutTache } from './schemas'
-import type { LieuEntree } from '@/features/equipements/components/lieux-multiples-field'
+import type { TacheEntree } from '@/features/equipements/components/taches-multiples-field'
 
 // Convertit les champs du formulaire en payload base (vides → null). Les dates
 // ne sont plus saisies : date_demande prend son DEFAULT (date du jour) à
@@ -39,17 +39,21 @@ export function useCreateTravaux() {
         .single()
         .throwOnError()
 
-      // Lieux ajoutés directement à la création (facultatif) : une ligne
-      // sans local_id est ignorée (l'usager a pu ajouter puis abandonner).
-      const lieux = values.lieux.filter((l) => l.local_id)
-      if (lieux.length) {
+      // Tâches ajoutées directement à la création (facultatif) : une ligne
+      // sans libellé NI lieu est ignorée (l'usager a pu ajouter puis
+      // abandonner une ligne).
+      const taches = values.taches.filter(
+        (t) => t.libelle.trim() !== '' || t.local_id !== '',
+      )
+      if (taches.length) {
         await supabase
           .from('travaux_taches')
           .insert(
-            lieux.map((l, i) => ({
+            taches.map((t, i) => ({
               travaux_id: data.id,
-              local_id: l.local_id,
-              equipement_id: l.equipement_id || null,
+              libelle: t.libelle.trim() || 'Tâche',
+              local_id: t.local_id || null,
+              equipement_id: t.equipement_id || null,
               ordre: i,
               created_by: createdBy,
             })),
@@ -69,12 +73,14 @@ export function useCreateTravaux() {
 }
 
 /**
- * `lieux`/`existants` sont FACULTATIFS : les autres appelants (changement de
- * statut ailleurs dans l'app, s'il y en avait) ne touchent pas aux zones.
- * Quand fournis (formulaire de modification), les zones sont resynchronisées
- * par DIFF sur `local_id` — jamais par delete-all/insert-all, qui aurait
- * remis chaque zone conservée à « en attente » à chaque enregistrement, même
+ * `taches`/`existants` sont FACULTATIFS : les autres appelants (changement de
+ * statut ailleurs dans l'app, s'il y en avait) ne touchent pas aux tâches.
+ * Quand fournis (formulaire de modification), les tâches sont resynchronisées
+ * par DIFF sur `id` (D11, 090) — jamais par delete-all/insert-all, qui aurait
+ * remis chaque tâche conservée à « en attente » à chaque enregistrement, même
  * sans y toucher (son statut d'avancement n'existe QUE dans cette ligne).
+ * Comparer par `local_id` (avant 090) ne suffit plus dès qu'une tâche peut
+ * n'avoir AUCUN lieu — plusieurs tâches sans lieu seraient sinon indistinguables.
  */
 export function useUpdateTravaux() {
   const qc = useQueryClient()
@@ -82,18 +88,19 @@ export function useUpdateTravaux() {
     mutationFn: async ({
       id,
       values,
-      lieux,
+      taches,
       createdBy,
       existants,
     }: {
       id: string
       values: TravauxFormValues
-      lieux?: LieuEntree[]
+      taches?: TacheEntree[]
       createdBy?: string
       existants?: {
         id: string
+        libelle: string
         local_id: string
-        equipement_id: string | null
+        equipement_id: string
       }[]
     }) => {
       const { data } = await supabase
@@ -104,14 +111,17 @@ export function useUpdateTravaux() {
         .single()
         .throwOnError()
 
-      if (lieux && existants && createdBy) {
-        const nouvelles = lieux.filter((l) => l.local_id)
-        const nouvellesIds = new Set(nouvelles.map((l) => l.local_id))
-        const existantesIds = new Set(existants.map((e) => e.local_id))
-
-        const aSupprimer = existants.filter(
-          (e) => !nouvellesIds.has(e.local_id),
+      if (taches && existants && createdBy) {
+        // Ligne réellement saisie : libellé ou lieu renseigné.
+        const soumises = taches.filter(
+          (t) => t.libelle.trim() !== '' || t.local_id !== '',
         )
+        const existantsParId = new Map(existants.map((e) => [e.id, e]))
+        const idsConserves = new Set(
+          taches.filter((t) => t.id != null).map((t) => t.id!),
+        )
+
+        const aSupprimer = existants.filter((e) => !idsConserves.has(e.id))
         if (aSupprimer.length) {
           await supabase
             .from('travaux_taches')
@@ -123,15 +133,16 @@ export function useUpdateTravaux() {
             .throwOnError()
         }
 
-        const aAjouter = nouvelles.filter((l) => !existantesIds.has(l.local_id))
+        const aAjouter = soumises.filter((t) => t.id == null)
         if (aAjouter.length) {
           await supabase
             .from('travaux_taches')
             .insert(
-              aAjouter.map((l, i) => ({
+              aAjouter.map((t, i) => ({
                 travaux_id: id,
-                local_id: l.local_id,
-                equipement_id: l.equipement_id || null,
+                libelle: t.libelle.trim() || 'Tâche',
+                local_id: t.local_id || null,
+                equipement_id: t.equipement_id || null,
                 ordre: existants.length + i,
                 created_by: createdBy,
               })),
@@ -139,16 +150,28 @@ export function useUpdateTravaux() {
             .throwOnError()
         }
 
-        // Zone conservée dont l'équipement a changé : seul ce champ bouge,
-        // le statut d'avancement de la zone reste intact.
-        for (const l of nouvelles) {
-          const existant = existants.find((e) => e.local_id === l.local_id)
-          const equipementId = l.equipement_id || null
-          if (existant && existant.equipement_id !== equipementId) {
+        // Tâche conservée dont le libellé/lieu/équipement a changé : seuls ces
+        // champs bougent, le statut d'avancement reste intact.
+        for (const t of taches) {
+          if (t.id == null) continue
+          const existant = existantsParId.get(t.id)
+          if (!existant) continue
+          const libelle = t.libelle.trim() || 'Tâche'
+          const localId = t.local_id || ''
+          const equipementId = t.equipement_id || ''
+          if (
+            existant.libelle !== libelle ||
+            existant.local_id !== localId ||
+            existant.equipement_id !== equipementId
+          ) {
             await supabase
               .from('travaux_taches')
-              .update({ equipement_id: equipementId })
-              .eq('id', existant.id)
+              .update({
+                libelle,
+                local_id: localId || null,
+                equipement_id: equipementId || null,
+              })
+              .eq('id', t.id)
               .throwOnError()
           }
         }
@@ -256,7 +279,7 @@ export function useUpdateClotureTravaux() {
   })
 }
 
-// ─── Tâches (to-do à statut) ──────────────────────────────────────────────────
+// ─── Tâches (checklist à statut, 090) ─────────────────────────────────────────
 
 export function useCreateTache() {
   const qc = useQueryClient()
@@ -274,8 +297,10 @@ export function useCreateTache() {
         .from('travaux_taches')
         .insert({
           travaux_id: travauxId,
-          local_id: values.local_id,
+          libelle: values.libelle.trim(),
+          local_id: values.local_id || null,
           equipement_id: values.equipement_id || null,
+          commentaire: values.commentaire.trim() || null,
           created_by: createdBy,
         })
         .select('id')
@@ -290,7 +315,7 @@ export function useCreateTache() {
   })
 }
 
-/** Modifie le local et/ou l'équipement d'une zone existante (pas son statut). */
+/** Modifie le libellé, le lieu et/ou le commentaire d'une tâche existante (pas son statut). */
 export function useUpdateTache() {
   const qc = useQueryClient()
   return useMutation({
@@ -305,8 +330,10 @@ export function useUpdateTache() {
       await supabase
         .from('travaux_taches')
         .update({
-          local_id: values.local_id,
+          libelle: values.libelle.trim(),
+          local_id: values.local_id || null,
           equipement_id: values.equipement_id || null,
+          commentaire: values.commentaire.trim() || null,
         })
         .eq('id', id)
         .select('id')
@@ -357,6 +384,28 @@ export function useDeleteTache() {
         .select('id')
         .single()
         .throwOnError()
+    },
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({
+        queryKey: travauxQueries.taches(vars.travauxId).queryKey,
+      }),
+  })
+}
+
+/** Réordonnancement par glisser-déposer (étape 5) : réécrit `ordre` selon le nouvel ordre visuel. */
+export function useReordonnerTaches() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ids }: { travauxId: string; ids: string[] }) => {
+      await Promise.all(
+        ids.map((id, ordre) =>
+          supabase
+            .from('travaux_taches')
+            .update({ ordre })
+            .eq('id', id)
+            .throwOnError(),
+        ),
+      )
     },
     onSuccess: (_d, vars) =>
       qc.invalidateQueries({

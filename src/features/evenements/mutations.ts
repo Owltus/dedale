@@ -4,7 +4,7 @@ import { evenementsQueries } from './queries'
 import { travauxQueries } from '../travaux/queries'
 import { STATUT_CLOTURE } from './schemas'
 import type { EvenementFormValues, LieuFormValues } from './schemas'
-import type { LieuEntree } from '@/features/equipements/components/lieux-multiples-field'
+import type { TacheEntree } from '@/features/equipements/components/taches-multiples-field'
 import type { StatutZone } from '@/features/equipements/statut-zone'
 
 /**
@@ -44,17 +44,21 @@ export function useCreateEvenement() {
         .single()
         .throwOnError()
 
-      // Lieux ajoutés directement à la création (facultatif) : une ligne
-      // sans local_id est ignorée (l'usager a pu ajouter puis abandonner).
-      const lieux = values.lieux.filter((l) => l.local_id)
-      if (lieux.length) {
+      // Tâches ajoutées directement à la création (facultatif) : une ligne
+      // sans libellé NI lieu est ignorée (l'usager a pu ajouter puis
+      // abandonner une ligne).
+      const taches = values.taches.filter(
+        (t) => t.libelle.trim() !== '' || t.local_id !== '',
+      )
+      if (taches.length) {
         await supabase
           .from('evenements_lieux')
           .insert(
-            lieux.map((l, i) => ({
+            taches.map((t, i) => ({
               evenement_id: data.id,
-              local_id: l.local_id,
-              equipement_id: l.equipement_id || null,
+              libelle: t.libelle.trim() || 'Tâche',
+              local_id: t.local_id || null,
+              equipement_id: t.equipement_id || null,
               ordre: i,
               created_by: createdBy,
             })),
@@ -74,11 +78,12 @@ export function useCreateEvenement() {
 }
 
 /**
- * `lieux`/`existants` sont FACULTATIFS (les autres appelants ne touchent pas
- * aux lieux). Quand fournis, les lieux sont resynchronisés par DIFF sur
- * `local_id` — jamais par delete-all/insert-all (088) : un lieu conservé sans
- * changement garde son statut d'avancement intact (mêmes raisons que côté
- * Travaux, cf. `useUpdateTravaux` — son statut n'existe QUE dans cette ligne).
+ * `taches`/`existants` sont FACULTATIFS (les autres appelants ne touchent pas
+ * aux tâches). Quand fournis, les tâches sont resynchronisées par DIFF sur
+ * `id` (D11, 090) — jamais par delete-all/insert-all (088) : une tâche
+ * conservée sans changement garde son statut d'avancement intact (mêmes
+ * raisons que côté Travaux, cf. `useUpdateTravaux`). Comparer par `local_id`
+ * (avant 090) ne suffit plus dès qu'une tâche peut n'avoir AUCUN lieu.
  */
 export function useUpdateEvenement() {
   const qc = useQueryClient()
@@ -86,18 +91,19 @@ export function useUpdateEvenement() {
     mutationFn: async ({
       id,
       values,
-      lieux,
+      taches,
       createdBy,
       existants,
     }: {
       id: string
       values: EvenementFormValues
-      lieux?: LieuEntree[]
+      taches?: TacheEntree[]
       createdBy?: string
       existants?: {
         id: string
+        libelle: string
         local_id: string
-        equipement_id: string | null
+        equipement_id: string
       }[]
     }) => {
       const { data } = await supabase
@@ -108,12 +114,17 @@ export function useUpdateEvenement() {
         .single()
         .throwOnError()
 
-      if (lieux && existants && createdBy) {
-        const nouveaux = lieux.filter((l) => l.local_id)
-        const nouveauxIds = new Set(nouveaux.map((l) => l.local_id))
-        const existantsIds = new Set(existants.map((e) => e.local_id))
+      if (taches && existants && createdBy) {
+        // Ligne réellement saisie : libellé ou lieu renseigné.
+        const soumises = taches.filter(
+          (t) => t.libelle.trim() !== '' || t.local_id !== '',
+        )
+        const existantsParId = new Map(existants.map((e) => [e.id, e]))
+        const idsConserves = new Set(
+          taches.filter((t) => t.id != null).map((t) => t.id!),
+        )
 
-        const aSupprimer = existants.filter((e) => !nouveauxIds.has(e.local_id))
+        const aSupprimer = existants.filter((e) => !idsConserves.has(e.id))
         if (aSupprimer.length) {
           await supabase
             .from('evenements_lieux')
@@ -125,15 +136,16 @@ export function useUpdateEvenement() {
             .throwOnError()
         }
 
-        const aAjouter = nouveaux.filter((l) => !existantsIds.has(l.local_id))
+        const aAjouter = soumises.filter((t) => t.id == null)
         if (aAjouter.length) {
           await supabase
             .from('evenements_lieux')
             .insert(
-              aAjouter.map((l, i) => ({
+              aAjouter.map((t, i) => ({
                 evenement_id: id,
-                local_id: l.local_id,
-                equipement_id: l.equipement_id || null,
+                libelle: t.libelle.trim() || 'Tâche',
+                local_id: t.local_id || null,
+                equipement_id: t.equipement_id || null,
                 ordre: existants.length + i,
                 created_by: createdBy,
               })),
@@ -141,16 +153,28 @@ export function useUpdateEvenement() {
             .throwOnError()
         }
 
-        // Lieu conservé dont l'équipement a changé : seul ce champ bouge, le
-        // statut d'avancement du lieu reste intact.
-        for (const l of nouveaux) {
-          const existant = existants.find((e) => e.local_id === l.local_id)
-          const equipementId = l.equipement_id || null
-          if (existant && existant.equipement_id !== equipementId) {
+        // Tâche conservée dont le libellé/lieu/équipement a changé : seuls ces
+        // champs bougent, le statut d'avancement reste intact.
+        for (const t of taches) {
+          if (t.id == null) continue
+          const existant = existantsParId.get(t.id)
+          if (!existant) continue
+          const libelle = t.libelle.trim() || 'Tâche'
+          const localId = t.local_id || ''
+          const equipementId = t.equipement_id || ''
+          if (
+            existant.libelle !== libelle ||
+            existant.local_id !== localId ||
+            existant.equipement_id !== equipementId
+          ) {
             await supabase
               .from('evenements_lieux')
-              .update({ equipement_id: equipementId })
-              .eq('id', existant.id)
+              .update({
+                libelle,
+                local_id: localId || null,
+                equipement_id: equipementId || null,
+              })
+              .eq('id', t.id)
               .throwOnError()
           }
         }
@@ -257,7 +281,7 @@ export function useChangeStatutEvenement() {
   })
 }
 
-// ─── Lieux concernés (086, miroir des mutations de tâches Travaux) ───────────
+// ─── Tâches (086, généralisées 090 — miroir des mutations Travaux) ───────────
 
 export function useCreateLieu() {
   const qc = useQueryClient()
@@ -275,8 +299,10 @@ export function useCreateLieu() {
         .from('evenements_lieux')
         .insert({
           evenement_id: evenementId,
-          local_id: values.local_id,
+          libelle: values.libelle.trim(),
+          local_id: values.local_id || null,
           equipement_id: values.equipement_id || null,
+          commentaire: values.commentaire.trim() || null,
           created_by: createdBy,
         })
         .select('id')
@@ -291,7 +317,7 @@ export function useCreateLieu() {
   })
 }
 
-/** Modifie le local et/ou l'équipement d'un lieu existant. */
+/** Modifie le libellé, le lieu et/ou le commentaire d'une tâche existante (pas son statut). */
 export function useUpdateLieu() {
   const qc = useQueryClient()
   return useMutation({
@@ -306,8 +332,10 @@ export function useUpdateLieu() {
       await supabase
         .from('evenements_lieux')
         .update({
-          local_id: values.local_id,
+          libelle: values.libelle.trim(),
+          local_id: values.local_id || null,
           equipement_id: values.equipement_id || null,
+          commentaire: values.commentaire.trim() || null,
         })
         .eq('id', id)
         .select('id')
@@ -358,6 +386,28 @@ export function useDeleteLieu() {
         .select('id')
         .single()
         .throwOnError()
+    },
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({
+        queryKey: evenementsQueries.lieux(vars.evenementId).queryKey,
+      }),
+  })
+}
+
+/** Réordonnancement par glisser-déposer (étape 5) : réécrit `ordre` selon le nouvel ordre visuel. */
+export function useReordonnerLieux() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ids }: { evenementId: string; ids: string[] }) => {
+      await Promise.all(
+        ids.map((id, ordre) =>
+          supabase
+            .from('evenements_lieux')
+            .update({ ordre })
+            .eq('id', id)
+            .throwOnError(),
+        ),
+      )
     },
     onSuccess: (_d, vars) =>
       qc.invalidateQueries({

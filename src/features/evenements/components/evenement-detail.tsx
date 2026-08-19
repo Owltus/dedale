@@ -1,24 +1,41 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { MapPinPlus, Paperclip, Pencil } from 'lucide-react'
+import { ListChecks, ListPlus, Paperclip, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { evenementsQueries, statutsEvenementsQueries } from '../queries'
-import { etapesEvenement } from '../etat'
+import { statutEvenementTone } from '../etat'
 import { STATUT_CLOTURE } from '../schemas'
-import { useChangeStatutEvenement, useDeleteLieu } from '../mutations'
+import type { TacheFormValues } from '@/features/equipements/tache-schema'
+import {
+  useChangeStatutEvenement,
+  useCreateLieu,
+  useUpdateLieu,
+  useUpdateLieuStatut,
+  useDeleteLieu,
+  useReordonnerLieux,
+} from '../mutations'
 import { EvenementFormDialog } from './evenement-form-dialog'
 import { ClotureEvenementDialog } from './cloture-evenement-dialog'
-import { LieuDialog } from './lieu-dialog'
-import { LieuRow, type LieuItem } from './lieu-row'
+import { TacheDialog } from '@/features/equipements/components/tache-dialog'
+import {
+  TacheRow,
+  type TacheItem,
+} from '@/features/equipements/components/tache-row'
+import { TachesDndContext } from '@/features/equipements/components/taches-dnd-context'
+import { DocumentsFicheDropZone } from '@/features/equipements/components/documents-fiche-drop-zone'
+import type { StatutZone } from '@/features/equipements/statut-zone'
 import { useAuth } from '@/auth'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
+import { useDeplacerDocumentTache } from '@/features/documents/mutations'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import { listStack } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
-import { StatusStepper } from '@/components/common/status-stepper'
+import { StatusTransitionSelect } from '@/components/common/status-transition-select'
+import { ProgressBar } from '@/components/common/progress-bar'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -49,16 +66,56 @@ export function EvenementDetail({
   const { data: statuts = [] } = useQuery(statutsEvenementsQueries.list())
   const lieuxQuery = useQuery(evenementsQueries.lieux(ev.id))
   const change = useChangeStatutEvenement()
+  const createLieu = useCreateLieu()
+  const updateLieu = useUpdateLieu()
+  const changeLieuStatut = useUpdateLieuStatut()
   const delLieu = useDeleteLieu()
-  // Modal de lieu : `entity` null = ajout, sinon édition de ce lieu.
-  const lieuDialog = useEntityDialog<LieuItem>()
-  const suppressionLieu = useConfirmDelete<LieuItem>({
+  const reordonnerLieux = useReordonnerLieux()
+  const deplacerDoc = useDeplacerDocumentTache()
+  const [ordreOptimiste, setOrdreOptimiste] = useState<string[] | null>(null)
+  // Lieux dans leur ordre AFFICHÉ, calculés ici (pas seulement dans le rendu
+  // de `QueryState`) : le `TachesDndContext` doit envelopper AUSSI la carte
+  // Documents (zone de dépôt pour détacher, étape 6), pas seulement la liste.
+  const rawLieux = lieuxQuery.data ?? []
+  const lieux = ordreOptimiste
+    ? ordreOptimiste
+        .map((id) => rawLieux.find((l) => l.id === id))
+        .filter((l): l is (typeof rawLieux)[number] => l != null)
+    : rawLieux
+  // Modal de tâche : `entity` null = ajout, sinon édition de cette tâche.
+  const lieuDialog = useEntityDialog<TacheItem>()
+  const suppressionLieu = useConfirmDelete<TacheItem>({
     onDelete: (l) => delLieu.mutateAsync({ id: l.id, evenementId: ev.id }),
-    successMessage: 'Lieu retiré',
+    successMessage: 'Tâche retirée',
   })
 
-  const noms = new Map(statuts.map((s) => [s.id, s.nom]))
-  const etapes = etapesEvenement(ev.statut_evenement_id, noms)
+  async function submitLieu(values: TacheFormValues) {
+    if (lieuDialog.entity) {
+      return updateLieu.mutateAsync({
+        id: lieuDialog.entity.id,
+        evenementId: ev.id,
+        values,
+      })
+    }
+    if (!session) throw new Error('Session expirée, reconnecte-toi.')
+    return createLieu.mutateAsync({
+      evenementId: ev.id,
+      createdBy: session.user.id,
+      values,
+    })
+  }
+
+  function changeStatutLieu(lieuId: string, next: StatutZone) {
+    changeLieuStatut.mutate(
+      { id: lieuId, evenementId: ev.id, statut: next },
+      {
+        onSuccess: () => toast.success('Statut mis à jour'),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
+  const realisees = lieux.filter((l) => l.statut === 'realise').length
 
   /**
    * Clôturer passe par un dialogue (compte-rendu) ; tout autre statut est
@@ -85,6 +142,19 @@ export function EvenementDetail({
       <PageHeader
         title={ev.titre}
         breadcrumb={[{ label: 'Événements', onClick: onBack }]}
+        titleBadges={
+          <StatusTransitionSelect
+            value={String(ev.statut_evenement_id)}
+            tone={statutEvenementTone(ev.statut_evenement_id)}
+            ariaLabel="Statut de l'événement"
+            disabled={!canManage || change.isPending}
+            options={statuts.map((s) => ({
+              value: String(s.id),
+              label: s.nom,
+            }))}
+            onValueChange={(v) => changeStatut(Number(v))}
+          />
+        }
         action={
           canManage ? (
             <>
@@ -104,28 +174,6 @@ export function EvenementDetail({
           ) : undefined
         }
       />
-
-      {/* FRISE — seule à rester PLEINE LARGEUR : c'est le résumé de l'état, on
-          la lit avant le détail, et l'étaler sur les deux colonnes garde ses
-          pastilles lisibles (à mi-largeur, les libellés se chevauchent). */}
-      {etapes && (
-        <Card className="mb-4">
-          <CardContent>
-            <StatusStepper
-              steps={etapes}
-              disabled={change.isPending}
-              onStepClick={
-                canManage
-                  ? (i) => {
-                      const cible = etapes[i]
-                      if (cible) changeStatut(cible.statutId)
-                    }
-                  : undefined
-              }
-            />
-          </CardContent>
-        </Card>
-      )}
 
       {/* LES DEUX BOUTS DU DOSSIER, CÔTE À CÔTE : ce qui a été constaté à
           gauche, ce qui a été fait à droite. Ils se répondent, on les compare
@@ -185,75 +233,143 @@ export function EvenementDetail({
       {/* Lieux concernés et Documents, EMPILÉS pleine largeur (décision PO,
           même patron que Travaux) : hauteur naturelle, défilement de page
           normal. */}
-      <div className="flex flex-col gap-4">
-        {/* Lieux concernés : locaux/équipements liés à l'événement (086). */}
-        <Card className="gap-3 py-4">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle className="text-base">Lieux concernés</CardTitle>
-            {canManage && (
-              <TooltipIconButton
-                icon={<MapPinPlus />}
-                label="Ajouter un lieu"
-                variant="outline"
-                onClick={() => lieuDialog.openCreate()}
-              />
-            )}
-          </CardHeader>
-          <CardContent>
-            <QueryState
-              query={lieuxQuery}
-              pending={<ListRowSkeletons count={3} size="sm" />}
-              empty={
-                <EmptyState
-                  icon={MapPinPlus}
-                  title="Aucun lieu concerné"
-                  action={
-                    canManage ? (
-                      <Button size="sm" onClick={() => lieuDialog.openCreate()}>
-                        <MapPinPlus /> Ajouter un lieu
-                      </Button>
-                    ) : undefined
-                  }
+      <TachesDndContext
+        tacheIds={lieux.map((l) => l.id)}
+        onReorder={(nextIds) => {
+          setOrdreOptimiste(nextIds)
+          reordonnerLieux.mutate(
+            { evenementId: ev.id, ids: nextIds },
+            {
+              onSuccess: () => setOrdreOptimiste(null),
+              onError: (e) => {
+                setOrdreOptimiste(null)
+                toast.error(writeErrorMessage(e))
+              },
+            },
+          )
+        }}
+        onDropDocumentOnTache={(documentId, tacheId) =>
+          deplacerDoc.mutate({
+            liaison: 'documents_evenements',
+            parentColumn: 'evenement_id',
+            parentId: ev.id,
+            documentId,
+            tacheId,
+          })
+        }
+        onDropDocumentOnFiche={(documentId) =>
+          deplacerDoc.mutate({
+            liaison: 'documents_evenements',
+            parentColumn: 'evenement_id',
+            parentId: ev.id,
+            documentId,
+            tacheId: null,
+          })
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {/* TÂCHES — centre visuel de la fiche (090, étape 7), même patron
+              que Travaux : la checklist porte désormais la progression
+              visible, la frise de statut global n'a plus qu'un rôle discret
+              en en-tête. */}
+          <Card className="gap-3 py-4">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+              <div>
+                <CardTitle className="text-base">
+                  Tâches
+                  {lieux.length > 0 &&
+                    ` (${String(realisees)}/${String(lieux.length)} réalisées)`}
+                </CardTitle>
+                {lieux.length > 0 && (
+                  <ProgressBar
+                    value={realisees / lieux.length}
+                    tone="success"
+                    label="Progression des tâches"
+                    className="mt-2"
+                  />
+                )}
+              </div>
+              {canManage && (
+                <TooltipIconButton
+                  icon={<ListPlus />}
+                  label="Ajouter une tâche"
+                  variant="outline"
+                  onClick={() => lieuDialog.openCreate()}
                 />
-              }
-            >
-              {(lieux) => (
-                <div className={listStack}>
-                  {lieux.map((l) => (
-                    <LieuRow
-                      key={l.id}
-                      lieu={l}
-                      evenementId={ev.id}
-                      readOnly={!canManage}
-                      onEdit={() => lieuDialog.openEdit(l)}
-                      onDelete={() => suppressionLieu.demander(l)}
-                    />
-                  ))}
-                </div>
               )}
-            </QueryState>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent>
+              <QueryState
+                query={lieuxQuery}
+                pending={<ListRowSkeletons count={3} size="sm" />}
+                empty={
+                  <EmptyState
+                    icon={ListChecks}
+                    title="Aucune tâche"
+                    action={
+                      canManage ? (
+                        <Button
+                          size="sm"
+                          onClick={() => lieuDialog.openCreate()}
+                        >
+                          <ListPlus /> Ajouter une tâche
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                }
+              >
+                {() => (
+                  <div className={listStack}>
+                    {lieux.map((l) => (
+                      <TacheRow
+                        key={l.id}
+                        tache={l}
+                        readOnly={!canManage}
+                        onEdit={() => lieuDialog.openEdit(l)}
+                        onDelete={() => suppressionLieu.demander(l)}
+                        onChangeStatut={(next) => changeStatutLieu(l.id, next)}
+                        statutPending={changeLieuStatut.isPending}
+                        sortable={canManage && lieux.length > 1}
+                        documents={{
+                          liaison: 'documents_evenements',
+                          parentColumn: 'evenement_id',
+                          parentId: ev.id,
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </QueryState>
+            </CardContent>
+          </Card>
 
-        {/* DOCUMENTS — une carte comme les autres. */}
-        <Card className="relative gap-3 py-4">
-          <CardHeader>
-            <CardTitle className="text-base">Documents</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DocumentsTab
-              liaison="documents_evenements"
-              parentColumn="evenement_id"
-              parentId={ev.id}
-              uploadOpen={upload.uploadOpen}
-              onUploadOpenChange={upload.onUploadOpenChange}
-              uploadInitialFiles={upload.droppedFiles}
-              uploadDefaultTypeNom="Constat"
-            />
-          </CardContent>
-          <FileDropOverlay show={upload.dragging} />
-        </Card>
-      </div>
+          {/* DOCUMENTS — une carte comme les autres, ET une zone de dépôt
+              (091, étape 6) : glisser un document depuis un lieu jusqu'ici le
+              détache (retour au niveau fiche). */}
+          <DocumentsFicheDropZone>
+            <Card className="relative gap-3 py-4">
+              <CardHeader>
+                <CardTitle className="text-base">Documents</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DocumentsTab
+                  liaison="documents_evenements"
+                  parentColumn="evenement_id"
+                  parentId={ev.id}
+                  tacheId={null}
+                  draggable
+                  uploadOpen={upload.uploadOpen}
+                  onUploadOpenChange={upload.onUploadOpenChange}
+                  uploadInitialFiles={upload.droppedFiles}
+                  uploadDefaultTypeNom="Constat"
+                />
+              </CardContent>
+              <FileDropOverlay show={upload.dragging} />
+            </Card>
+          </DocumentsFicheDropZone>
+        </div>
+      </TachesDndContext>
 
       {canManage && (
         <>
@@ -264,13 +380,18 @@ export function EvenementDetail({
             siteId={ev.site_id}
             evenement={edit.entity}
           />
-          <LieuDialog
+          <TacheDialog
             key={lieuDialog.dialogKey}
             open={lieuDialog.open}
             onOpenChange={lieuDialog.onOpenChange}
-            evenementId={ev.id}
             siteId={ev.site_id}
-            lieu={lieuDialog.entity}
+            tache={lieuDialog.entity}
+            onSubmit={submitLieu}
+            documents={{
+              liaison: 'documents_evenements',
+              parentColumn: 'evenement_id',
+              parentId: ev.id,
+            }}
           />
           <ClotureEvenementDialog
             key={cloture.dialogKey}
@@ -320,10 +441,10 @@ export function EvenementDetail({
 
       <ConfirmDialog
         {...suppressionLieu.dialogProps}
-        title="Retirer ce lieu ?"
+        title="Retirer cette tâche ?"
         description={
           suppressionLieu.toDelete
-            ? `« ${suppressionLieu.toDelete.locaux?.nom ?? 'Ce lieu'} » sera retiré de cet événement.`
+            ? `« ${suppressionLieu.toDelete.libelle} » sera retirée de cet événement.`
             : undefined
         }
         confirmLabel="Retirer"

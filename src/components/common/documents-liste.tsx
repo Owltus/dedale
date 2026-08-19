@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from 'react'
+import { useDraggable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { Download, Link2Off, Pencil, Trash2 } from 'lucide-react'
 import { DocumentRow } from '@/features/documents/components/document-row'
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
@@ -56,6 +58,43 @@ interface DocumentsListeProps {
   errorTranslate?: (e: unknown) => string
   /** Classe du conteneur de liste (défaut : `listStack`). */
   className?: string
+  /**
+   * Glisser-déposer (091, étape 6) : chaque ligne devient une source de
+   * drag (`data: { type: 'document', documentId }`), à destination d'une
+   * `TacheRow` ou de la carte "Documents" (`TachesDndContext`). Défaut
+   * `false` — comportement inchangé pour tous les autres consommateurs.
+   */
+  draggable?: boolean
+}
+
+/** Enveloppe une ligne pour la rendre glissable (091, étape 6) — la ligne
+ * entière est la prise, cohérent avec l'exigence « peu de clics ». */
+function DraggableDocumentRow({
+  doc,
+  children,
+}: {
+  doc: DocumentMeta
+  children: ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: doc.id,
+      data: { type: 'document', documentId: doc.id },
+    })
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        opacity: isDragging ? 0.4 : undefined,
+      }}
+      className="cursor-grab touch-none active:cursor-grabbing"
+    >
+      {children}
+    </div>
+  )
 }
 
 /**
@@ -79,6 +118,7 @@ export function DocumentsListe({
   deleteWarning = DEFAULT_DELETE_WARNING,
   errorTranslate = deleteErrorMessage,
   className,
+  draggable = false,
 }: DocumentsListeProps) {
   const download = useDocumentDownload()
   const [toPreview, setToPreview] = useState<DocumentMeta | null>(null)
@@ -129,15 +169,26 @@ export function DocumentsListe({
               destructive: true,
               onSelect: () => suppression.demander(doc),
             })
-          return (
+          const content = (
             <DocumentRow
-              key={doc.id}
               doc={doc}
               onClick={() => (onPreview ? onPreview(doc) : setToPreview(doc))}
               badges={badges?.(doc)}
               mobileMeta={mobileMeta?.(doc)}
               menuActions={actions}
             />
+          )
+          if (draggable) {
+            return (
+              <DraggableDocumentRow key={doc.id} doc={doc}>
+                {content}
+              </DraggableDocumentRow>
+            )
+          }
+          return (
+            <div key={doc.id} className="contents">
+              {content}
+            </div>
           )
         })}
       </div>

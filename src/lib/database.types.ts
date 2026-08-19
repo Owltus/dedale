@@ -788,18 +788,21 @@ export type Database = {
           created_at: string
           document_id: string
           evenement_id: string
+          tache_id: string | null
         }
         Insert: {
           commentaire?: string | null
           created_at?: string
           document_id: string
           evenement_id: string
+          tache_id?: string | null
         }
         Update: {
           commentaire?: string | null
           created_at?: string
           document_id?: string
           evenement_id?: string
+          tache_id?: string | null
         }
         Relationships: [
           {
@@ -814,6 +817,13 @@ export type Database = {
             columns: ["evenement_id"]
             isOneToOne: false
             referencedRelation: "evenements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_evenements_tache_id_fkey"
+            columns: ["tache_id"]
+            isOneToOne: false
+            referencedRelation: "evenements_lieux"
             referencedColumns: ["id"]
           },
         ]
@@ -859,18 +869,21 @@ export type Database = {
           commentaire: string | null
           created_at: string
           document_id: string
+          tache_id: string | null
           travaux_id: string
         }
         Insert: {
           commentaire?: string | null
           created_at?: string
           document_id: string
+          tache_id?: string | null
           travaux_id: string
         }
         Update: {
           commentaire?: string | null
           created_at?: string
           document_id?: string
+          tache_id?: string | null
           travaux_id?: string
         }
         Relationships: [
@@ -879,6 +892,13 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_interventions_travaux_tache_id_fkey"
+            columns: ["tache_id"]
+            isOneToOne: false
+            referencedRelation: "travaux_taches"
             referencedColumns: ["id"]
           },
           {
@@ -1222,34 +1242,40 @@ export type Database = {
       }
       evenements_lieux: {
         Row: {
+          commentaire: string | null
           created_at: string
           created_by: string | null
           equipement_id: string | null
           evenement_id: string
           id: string
-          local_id: string
+          libelle: string
+          local_id: string | null
           ordre: number
           statut: string
           updated_at: string
         }
         Insert: {
+          commentaire?: string | null
           created_at?: string
           created_by?: string | null
           equipement_id?: string | null
           evenement_id: string
           id?: string
-          local_id: string
+          libelle: string
+          local_id?: string | null
           ordre?: number
           statut?: string
           updated_at?: string
         }
         Update: {
+          commentaire?: string | null
           created_at?: string
           created_by?: string | null
           equipement_id?: string | null
           evenement_id?: string
           id?: string
-          local_id?: string
+          libelle?: string
+          local_id?: string | null
           ordre?: number
           statut?: string
           updated_at?: string
@@ -3039,33 +3065,39 @@ export type Database = {
       }
       travaux_taches: {
         Row: {
+          commentaire: string | null
           created_at: string
           created_by: string | null
           equipement_id: string | null
           id: string
-          local_id: string
+          libelle: string
+          local_id: string | null
           ordre: number
           statut: string
           travaux_id: string
           updated_at: string
         }
         Insert: {
+          commentaire?: string | null
           created_at?: string
           created_by?: string | null
           equipement_id?: string | null
           id?: string
-          local_id: string
+          libelle: string
+          local_id?: string | null
           ordre?: number
           statut?: string
           travaux_id: string
           updated_at?: string
         }
         Update: {
+          commentaire?: string | null
           created_at?: string
           created_by?: string | null
           equipement_id?: string | null
           id?: string
-          local_id?: string
+          libelle?: string
+          local_id?: string | null
           ordre?: number
           statut?: string
           travaux_id?: string
