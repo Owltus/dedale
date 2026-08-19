@@ -135,12 +135,7 @@ export function EvenementFormDialog({
         pending={form.formState.isSubmitting}
         size="lg"
       >
-        <TextField
-          control={form.control}
-          name="titre"
-          label="Que s’est-il passé ?"
-          required
-        />
+        <TextField control={form.control} name="titre" label="Titre" required />
         <DateField
           control={form.control}
           name="date_evenement"

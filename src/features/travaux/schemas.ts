@@ -10,10 +10,10 @@ export const STATUT_TERMINE = 4
 export const travauxSchema = z.object({
   titre: z.string().trim().min(1, 'Le titre est obligatoire').max(200),
   description: z.string().trim().max(2000),
-  // Lieux ajoutés directement à la création (facultatif, création uniquement
-  // — l'édition des zones se fait depuis la fiche, cf. TacheDialog). Filtrés
-  // par la mutation : une ligne sans local_id est ignorée (l'usager a pu
-  // ajouter puis abandonner une ligne).
+  // Lieux ajoutés/retouchés directement ici, en création COMME en
+  // modification (la fiche, via TacheDialog, reste une autre façon d'y
+  // accéder). Filtrés par la mutation : une ligne sans local_id est ignorée
+  // (l'usager a pu ajouter puis abandonner une ligne).
   lieux: z.array(z.object({ local_id: z.string(), equipement_id: z.string() })),
 })
 

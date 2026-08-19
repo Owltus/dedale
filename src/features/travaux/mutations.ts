@@ -4,6 +4,7 @@ import { travauxQueries } from './queries'
 import { evenementsQueries } from '../evenements/queries'
 import { STATUT_TERMINE } from './schemas'
 import type { TravauxFormValues, TacheFormValues, StatutTache } from './schemas'
+import type { LieuEntree } from '@/features/equipements/components/lieux-multiples-field'
 
 // Convertit les champs du formulaire en payload base (vides → null). Les dates
 // ne sont plus saisies : date_demande prend son DEFAULT (date du jour) à
@@ -67,15 +68,33 @@ export function useCreateTravaux() {
   })
 }
 
+/**
+ * `lieux`/`existants` sont FACULTATIFS : les autres appelants (changement de
+ * statut ailleurs dans l'app, s'il y en avait) ne touchent pas aux zones.
+ * Quand fournis (formulaire de modification), les zones sont resynchronisées
+ * par DIFF sur `local_id` — jamais par delete-all/insert-all, qui aurait
+ * remis chaque zone conservée à « en attente » à chaque enregistrement, même
+ * sans y toucher (son statut d'avancement n'existe QUE dans cette ligne).
+ */
 export function useUpdateTravaux() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
       id,
       values,
+      lieux,
+      createdBy,
+      existants,
     }: {
       id: string
       values: TravauxFormValues
+      lieux?: LieuEntree[]
+      createdBy?: string
+      existants?: {
+        id: string
+        local_id: string
+        equipement_id: string | null
+      }[]
     }) => {
       const { data } = await supabase
         .from('interventions_travaux')
@@ -84,9 +103,65 @@ export function useUpdateTravaux() {
         .select()
         .single()
         .throwOnError()
+
+      if (lieux && existants && createdBy) {
+        const nouvelles = lieux.filter((l) => l.local_id)
+        const nouvellesIds = new Set(nouvelles.map((l) => l.local_id))
+        const existantesIds = new Set(existants.map((e) => e.local_id))
+
+        const aSupprimer = existants.filter(
+          (e) => !nouvellesIds.has(e.local_id),
+        )
+        if (aSupprimer.length) {
+          await supabase
+            .from('travaux_taches')
+            .delete()
+            .in(
+              'id',
+              aSupprimer.map((e) => e.id),
+            )
+            .throwOnError()
+        }
+
+        const aAjouter = nouvelles.filter((l) => !existantesIds.has(l.local_id))
+        if (aAjouter.length) {
+          await supabase
+            .from('travaux_taches')
+            .insert(
+              aAjouter.map((l, i) => ({
+                travaux_id: id,
+                local_id: l.local_id,
+                equipement_id: l.equipement_id || null,
+                ordre: existants.length + i,
+                created_by: createdBy,
+              })),
+            )
+            .throwOnError()
+        }
+
+        // Zone conservée dont l'équipement a changé : seul ce champ bouge,
+        // le statut d'avancement de la zone reste intact.
+        for (const l of nouvelles) {
+          const existant = existants.find((e) => e.local_id === l.local_id)
+          const equipementId = l.equipement_id || null
+          if (existant && existant.equipement_id !== equipementId) {
+            await supabase
+              .from('travaux_taches')
+              .update({ equipement_id: equipementId })
+              .eq('id', existant.id)
+              .throwOnError()
+          }
+        }
+      }
+
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
+    onSuccess: (data) => {
+      void qc.invalidateQueries({ queryKey: travauxQueries.all() })
+      void qc.invalidateQueries({
+        queryKey: travauxQueries.taches(data.id).queryKey,
+      })
+    },
   })
 }
 
