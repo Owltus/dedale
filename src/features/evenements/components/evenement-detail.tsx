@@ -9,7 +9,6 @@ import { STATUT_CLOTURE } from '../schemas'
 import { useChangeStatutEvenement } from '../mutations'
 import { EvenementFormDialog } from './evenement-form-dialog'
 import { ClotureEvenementDialog } from './cloture-evenement-dialog'
-import { MIME_PDF } from '@/features/documents/upload'
 import { useAuth } from '@/auth'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
@@ -219,7 +218,6 @@ export function EvenementDetail({
             liaison="documents_evenements"
             parentColumn="evenement_id"
             parentId={ev.id}
-            acceptedMimes={MIME_PDF}
             uploadOpen={upload.uploadOpen}
             onUploadOpenChange={upload.onUploadOpenChange}
             uploadInitialFiles={upload.droppedFiles}
