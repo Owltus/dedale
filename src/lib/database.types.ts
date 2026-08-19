@@ -3575,6 +3575,14 @@ export type Database = {
         Returns: boolean
       }
       cleanup_storage_orphans: { Args: never; Returns: undefined }
+      convertir_evenement_en_travaux: {
+        Args: { p_evenement_id: string }
+        Returns: string
+      }
+      convertir_travaux_en_evenement: {
+        Args: { p_travaux_id: string }
+        Returns: string
+      }
       copier_categorie: {
         Args: {
           p_gamme_ids?: string[]

@@ -7561,6 +7561,95 @@ COMMENT ON FUNCTION public.reouvrir_ot(UUID, TEXT) IS
     'F28 (audit) : RPC standard pour rouvrir un OT clôturé. SECURITY INVOKER — la RLS gère l''autorisation (admin / manager(sites) / tech(sites)). Force le motif (CHECK motif_reouverture_oblig_si_reouvert). Le trigger log_audit() AFTER UPDATE trace l''opération dans audit_log.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
+-- 8ter. Conversion croisée Travaux ↔ Événements (084)
+-- ═══════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.convertir_evenement_en_travaux(p_evenement_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+    v_evenement public.evenements;
+    v_nouveau_id UUID;
+BEGIN
+    SELECT * INTO v_evenement FROM public.evenements WHERE id = p_evenement_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Événement introuvable ou hors de votre périmètre';
+    END IF;
+
+    INSERT INTO public.interventions_travaux (site_id, created_by, titre, description)
+    VALUES (v_evenement.site_id, (SELECT auth.uid()), v_evenement.titre, v_evenement.description)
+    RETURNING id INTO v_nouveau_id;
+
+    IF v_evenement.local_id IS NOT NULL THEN
+        INSERT INTO public.travaux_taches (travaux_id, local_id, equipement_id, created_by)
+        VALUES (v_nouveau_id, v_evenement.local_id, v_evenement.equipement_id, (SELECT auth.uid()));
+    END IF;
+
+    INSERT INTO public.documents_interventions_travaux (document_id, travaux_id, commentaire)
+    SELECT document_id, v_nouveau_id, commentaire
+    FROM public.documents_evenements
+    WHERE evenement_id = p_evenement_id;
+
+    DELETE FROM public.evenements WHERE id = p_evenement_id;
+
+    RETURN v_nouveau_id;
+END;
+$$;
+
+COMMENT ON FUNCTION public.convertir_evenement_en_travaux(UUID) IS
+    '084 : convertit un Événement en Travaux (copie + suppression source). SECURITY INVOKER — RLS des deux tables identique pour admin/manager/technicien. Statut destination réinitialisé (trigger validation_statut_initial_travaux). Une zone créée si local_id renseigné, sinon aucune (un Travaux peut exister sans zone).';
+
+CREATE OR REPLACE FUNCTION public.convertir_travaux_en_evenement(p_travaux_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+    v_travaux public.interventions_travaux;
+    v_zone    public.travaux_taches;
+    v_nouveau_id UUID;
+BEGIN
+    SELECT * INTO v_travaux FROM public.interventions_travaux WHERE id = p_travaux_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Travaux introuvable ou hors de votre périmètre';
+    END IF;
+
+    SELECT * INTO v_zone
+    FROM public.travaux_taches
+    WHERE travaux_id = p_travaux_id
+    ORDER BY ordre, created_at
+    LIMIT 1;
+
+    INSERT INTO public.evenements (site_id, created_by, titre, description, local_id, equipement_id)
+    VALUES (
+        v_travaux.site_id, (SELECT auth.uid()), v_travaux.titre, v_travaux.description,
+        v_zone.local_id, v_zone.equipement_id
+    )
+    RETURNING id INTO v_nouveau_id;
+
+    INSERT INTO public.documents_evenements (document_id, evenement_id, commentaire)
+    SELECT document_id, v_nouveau_id, commentaire
+    FROM public.documents_interventions_travaux
+    WHERE travaux_id = p_travaux_id;
+
+    DELETE FROM public.interventions_travaux WHERE id = p_travaux_id;
+
+    RETURN v_nouveau_id;
+END;
+$$;
+
+COMMENT ON FUNCTION public.convertir_travaux_en_evenement(UUID) IS
+    '084 : convertit un Travaux en Événement (copie + suppression source). SECURITY INVOKER. Une seule zone conservée (la première par ordre) si le Travaux en avait plusieurs — sacrifice assumé (décision PO 19/08/2026).';
+
+REVOKE EXECUTE ON FUNCTION public.convertir_evenement_en_travaux(uuid) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.convertir_evenement_en_travaux(uuid) TO authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.convertir_travaux_en_evenement(uuid) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.convertir_travaux_en_evenement(uuid) TO authenticated, service_role;
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- 9. auto_calcul_conformite : conformité depuis valeur_mesuree + seuils
 -- ═══════════════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION public.auto_calcul_conformite()
