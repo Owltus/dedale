@@ -103,16 +103,25 @@ export function EvenementFormDialog({
 
   const submit = useSubmitDialog<EvenementFormValues, Evenement | null>({
     onSubmit: async (data) => {
-      const values = { ...data, lieux }
+      if (!session) throw new Error('Session expirée, reconnecte-toi.')
       if (evenement) {
-        await update.mutateAsync({ id: evenement.id, values })
+        await update.mutateAsync({
+          id: evenement.id,
+          values: data,
+          lieux,
+          createdBy: session.user.id,
+          existants: (lieuxExistants ?? []).map((l) => ({
+            id: l.id,
+            local_id: l.local_id,
+            equipement_id: l.equipement_id,
+          })),
+        })
         return null
       }
-      if (!session) throw new Error('Session expirée, reconnecte-toi.')
       return create.mutateAsync({
         siteId,
         createdBy: session.user.id,
-        values,
+        values: { ...data, lieux },
       })
     },
     successMessage: isEdit ? 'Événement modifié' : 'Événement consigné',

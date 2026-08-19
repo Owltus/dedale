@@ -48,7 +48,7 @@ export const clotureSchema = z.object({
 
 export type ClotureFormValues = z.infer<typeof clotureSchema>
 
-// ─── Lieux concernés (086, miroir tacheSchema sans statut) ───────────────────
+// ─── Lieux concernés (086 ; statut d'avancement par lieu depuis 088) ─────────
 
 // Un « lieu concerné » : un local (requis) + un équipement précis optionnel.
 export const lieuSchema = z.object({

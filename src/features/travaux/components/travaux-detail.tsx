@@ -211,22 +211,14 @@ export function TravauxDetail({
         )}
       </div>
 
-      {/* SECONDE LIGNE À DEUX COLONNES : les deux listes du chantier, côte à
-          côte. Ce sont les mêmes rangées de même hauteur — les empiler faisait
-          descendre les documents sous la ligne de flottaison alors que la moitié
-          droite de l'écran était vide.
-
-          La ligne prend la hauteur RESTANTE de la fiche, pour que la page se
-          déploie jusqu'en bas au lieu de laisser un vide sous les cartes, et les
-          deux cartes font la MÊME hauteur (`stretch`, le défaut de la grille).
-          Chacune défile à l'intérieur : c'est ce qui manquait à ma première
-          version, où elles étaient contraintes en hauteur sans zone défilante —
-          elles se réduisaient sous leur propre contenu et les rangées sortaient
-          par le bas, hors de toute bordure. Sous `lg`, hauteur naturelle et
-          défilement de page, comme le reste du mobile-first. */}
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-2">
+      {/* Zones concernées et Documents, EMPILÉES pleine largeur (décision PO :
+          plus lisibles l'une sous l'autre que compressées à mi-largeur
+          chacune). Hauteur naturelle, défilement de page normal — plus de
+          calage de hauteur ni de défilement interne, devenus inutiles sans
+          voisin à égaliser. */}
+      <div className="flex flex-col gap-4">
         {/* Zones concernées : locaux/équipements liés au travaux + statut. */}
-        <Card className="flex flex-col gap-3 py-4">
+        <Card className="gap-3 py-4">
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
             <CardTitle className="text-base">Zones concernées</CardTitle>
             {!tachesReadOnly && (
@@ -238,7 +230,7 @@ export function TravauxDetail({
               />
             )}
           </CardHeader>
-          <CardContent className="min-h-0 flex-1 overflow-y-auto">
+          <CardContent>
             <QueryState
               query={tachesQuery}
               pending={
@@ -285,11 +277,11 @@ export function TravauxDetail({
         {/* DOCUMENTS — une carte comme les autres. La liste vivait jusqu'ici à nu
             sur le fond de page : elle ne se rattachait visuellement à rien et ne
             disait pas ce qu'elle était. */}
-        <Card className="relative flex flex-col gap-3 py-4">
+        <Card className="relative gap-3 py-4">
           <CardHeader>
             <CardTitle className="text-base">Documents</CardTitle>
           </CardHeader>
-          <CardContent className="min-h-0 flex-1 overflow-y-auto">
+          <CardContent>
             <DocumentsTab
               liaison="documents_interventions_travaux"
               parentColumn="travaux_id"

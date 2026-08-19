@@ -1,4 +1,10 @@
 import { z } from 'zod'
+import {
+  STATUTS_ZONE,
+  LIBELLES_STATUT_ZONE,
+  variantStatutZone,
+} from '@/features/equipements/statut-zone'
+import type { StatutZone } from '@/features/equipements/statut-zone'
 
 // IDs stables du référentiel (cf. statuts_travaux dans schema_complete.sql).
 // 085 : statut LIBRE (plus de machine à états côté base), ids alignés sur
@@ -29,41 +35,13 @@ export function emptyTravaux(): TravauxFormValues {
 
 // ─── Tâches (to-do à statut) d'un travail ────────────────────────────────────
 
-/** Statuts d'une tâche (codes stables, miroir du CHECK backend). */
-export const STATUTS_TACHE = [
-  'en_attente',
-  'en_cours',
-  'realise',
-  'non_realise',
-  'non_applicable',
-] as const
-export type StatutTache = (typeof STATUTS_TACHE)[number]
-
-/** Libellé lisible d'un statut de tâche. */
-export const LIBELLES_STATUT_TACHE: Record<StatutTache, string> = {
-  en_attente: 'En attente',
-  en_cours: 'En cours',
-  realise: 'Réalisé',
-  non_realise: 'Non réalisé',
-  non_applicable: 'Non applicable',
-}
-
-/** Variante de `Badge` cohérente pour un statut de tâche. */
-export function variantStatutTache(
-  statut: StatutTache,
-): 'default' | 'secondary' | 'outline' | 'destructive' {
-  switch (statut) {
-    case 'realise':
-      return 'default'
-    case 'non_realise':
-      return 'destructive'
-    case 'en_cours':
-    case 'non_applicable':
-      return 'secondary'
-    default: // en_attente
-      return 'outline'
-  }
-}
+// Statut d'une tâche = statut de zone (module partagé avec Événements, 088) —
+// réexporté sous ces noms pour ne rien casser côté consommateurs existants
+// (TacheRow, TacheDialog, mutations).
+export const STATUTS_TACHE = STATUTS_ZONE
+export type StatutTache = StatutZone
+export const LIBELLES_STATUT_TACHE = LIBELLES_STATUT_ZONE
+export const variantStatutTache = variantStatutZone
 
 // Une « zone concernée » : un local (requis) + un équipement précis optionnel.
 export const tacheSchema = z.object({

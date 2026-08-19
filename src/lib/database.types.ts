@@ -1229,6 +1229,7 @@ export type Database = {
           id: string
           local_id: string
           ordre: number
+          statut: string
           updated_at: string
         }
         Insert: {
@@ -1239,6 +1240,7 @@ export type Database = {
           id?: string
           local_id: string
           ordre?: number
+          statut?: string
           updated_at?: string
         }
         Update: {
@@ -1249,6 +1251,7 @@ export type Database = {
           id?: string
           local_id?: string
           ordre?: number
+          statut?: string
           updated_at?: string
         }
         Relationships: [

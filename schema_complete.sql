@@ -5287,14 +5287,16 @@ CREATE TABLE documents_evenements (
 
 COMMENT ON TABLE documents_evenements IS 'Liaison document ↔ événement (077). CASCADE des deux côtés : retirer la liaison, pas le document lui-même.';
 
--- 086 : lieux concernés par un événement (0..N), miroir de travaux_taches
--- SANS le champ statut — un lieu d'événement n'est pas une tâche à réaliser,
--- juste un endroit constaté.
+-- 086 : lieux concernés par un événement (0..N), miroir de travaux_taches.
+-- 088 : porte désormais aussi un statut d'avancement par lieu, identique à
+-- travaux_taches.statut — Travaux et Événements suivent leurs zones pareil.
 CREATE TABLE evenements_lieux (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     evenement_id  UUID NOT NULL REFERENCES evenements(id) ON DELETE CASCADE,
     local_id      UUID NOT NULL REFERENCES locaux(id)      ON DELETE CASCADE,
     equipement_id UUID REFERENCES equipements(id)          ON DELETE SET NULL,
+    statut        TEXT NOT NULL DEFAULT 'en_attente'
+                  CHECK (statut IN ('en_attente','en_cours','realise','non_realise','non_applicable')),
     ordre         INTEGER NOT NULL DEFAULT 0,
     created_by    UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -5302,7 +5304,9 @@ CREATE TABLE evenements_lieux (
 );
 
 COMMENT ON TABLE evenements_lieux IS
-    '086 : lieux concernés par un événement (0..N), miroir de travaux_taches SANS le champ statut.';
+    '086 : lieux concernés par un événement (0..N), miroir de travaux_taches. 088 : + statut d''avancement par lieu.';
+COMMENT ON COLUMN evenements_lieux.statut IS
+    '088 : statut d''avancement du lieu concerné, miroir travaux_taches.statut.';
 
 CREATE INDEX idx_evenements_lieux_evenement ON evenements_lieux(evenement_id);
 
@@ -7493,9 +7497,9 @@ BEGIN
     VALUES (v_evenement.site_id, (SELECT auth.uid()), v_evenement.titre, v_evenement.description, v_evenement.statut_evenement_id)
     RETURNING id INTO v_nouveau_id;
 
-    -- TOUTES les zones sont transférées (087, plus de perte).
-    INSERT INTO public.travaux_taches (travaux_id, local_id, equipement_id, ordre, created_by)
-    SELECT v_nouveau_id, local_id, equipement_id, ordre, (SELECT auth.uid())
+    -- TOUTES les zones sont transférées (087), statut de chacune INCLUS (089).
+    INSERT INTO public.travaux_taches (travaux_id, local_id, equipement_id, statut, ordre, created_by)
+    SELECT v_nouveau_id, local_id, equipement_id, statut, ordre, (SELECT auth.uid())
     FROM public.evenements_lieux
     WHERE evenement_id = p_evenement_id;
 
@@ -7511,7 +7515,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.convertir_evenement_en_travaux(UUID) IS
-    '087 : convertit un Événement en Travaux (copie + suppression source). Transfert INTÉGRAL des lieux (evenements_lieux → travaux_taches) et du statut (même id, 085/086 ont aligné les deux référentiels). SECURITY INVOKER.';
+    '089 : convertit un Événement en Travaux (copie + suppression source). Transfert INTÉGRAL des lieux — statut de chaque lieu INCLUS — et du statut de la fiche (même id). SECURITY INVOKER.';
 
 CREATE OR REPLACE FUNCTION public.convertir_travaux_en_evenement(p_travaux_id UUID)
 RETURNS UUID
@@ -7532,9 +7536,9 @@ BEGIN
     VALUES (v_travaux.site_id, (SELECT auth.uid()), v_travaux.titre, v_travaux.description, v_travaux.statut_travaux_id)
     RETURNING id INTO v_nouveau_id;
 
-    -- TOUTES les zones sont transférées (087, plus de perte).
-    INSERT INTO public.evenements_lieux (evenement_id, local_id, equipement_id, ordre, created_by)
-    SELECT v_nouveau_id, local_id, equipement_id, ordre, (SELECT auth.uid())
+    -- TOUTES les zones sont transférées (087), statut de chacune INCLUS (089).
+    INSERT INTO public.evenements_lieux (evenement_id, local_id, equipement_id, statut, ordre, created_by)
+    SELECT v_nouveau_id, local_id, equipement_id, statut, ordre, (SELECT auth.uid())
     FROM public.travaux_taches
     WHERE travaux_id = p_travaux_id;
 
@@ -7550,7 +7554,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.convertir_travaux_en_evenement(UUID) IS
-    '087 : convertit un Travaux en Événement (copie + suppression source). Transfert INTÉGRAL des zones (travaux_taches → evenements_lieux, sans le champ statut qui n''existe pas côté lieux) et du statut (même id). SECURITY INVOKER.';
+    '089 : convertit un Travaux en Événement (copie + suppression source). Transfert INTÉGRAL des zones — statut de chacune INCLUS — et du statut de la fiche (même id). SECURITY INVOKER.';
 
 REVOKE EXECUTE ON FUNCTION public.convertir_evenement_en_travaux(uuid) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.convertir_evenement_en_travaux(uuid) TO authenticated, service_role;

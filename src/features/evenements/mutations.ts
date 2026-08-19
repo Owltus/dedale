@@ -4,6 +4,8 @@ import { evenementsQueries } from './queries'
 import { travauxQueries } from '../travaux/queries'
 import { STATUT_CLOTURE } from './schemas'
 import type { EvenementFormValues, LieuFormValues } from './schemas'
+import type { LieuEntree } from '@/features/equipements/components/lieux-multiples-field'
+import type { StatutZone } from '@/features/equipements/statut-zone'
 
 /**
  * Formulaire → payload base. Les chaînes vides deviennent `null` : `''` est la
@@ -71,15 +73,32 @@ export function useCreateEvenement() {
   })
 }
 
+/**
+ * `lieux`/`existants` sont FACULTATIFS (les autres appelants ne touchent pas
+ * aux lieux). Quand fournis, les lieux sont resynchronisés par DIFF sur
+ * `local_id` — jamais par delete-all/insert-all (088) : un lieu conservé sans
+ * changement garde son statut d'avancement intact (mêmes raisons que côté
+ * Travaux, cf. `useUpdateTravaux` — son statut n'existe QUE dans cette ligne).
+ */
 export function useUpdateEvenement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
       id,
       values,
+      lieux,
+      createdBy,
+      existants,
     }: {
       id: string
       values: EvenementFormValues
+      lieux?: LieuEntree[]
+      createdBy?: string
+      existants?: {
+        id: string
+        local_id: string
+        equipement_id: string | null
+      }[]
     }) => {
       const { data } = await supabase
         .from('evenements')
@@ -89,28 +108,52 @@ export function useUpdateEvenement() {
         .single()
         .throwOnError()
 
-      // Remplace la liste de lieux par celle du formulaire (retraits + ajouts
-      // en une fois) — volume faible, sans FK entrante sur evenements_lieux.id
-      // depuis une autre table : un DELETE ALL + INSERT ALL est plus simple
-      // et tout aussi sûr qu'un diff ligne à ligne.
-      await supabase
-        .from('evenements_lieux')
-        .delete()
-        .eq('evenement_id', id)
-        .throwOnError()
-      const lieux = values.lieux.filter((l) => l.local_id)
-      if (lieux.length) {
-        await supabase
-          .from('evenements_lieux')
-          .insert(
-            lieux.map((l, i) => ({
-              evenement_id: id,
-              local_id: l.local_id,
-              equipement_id: l.equipement_id || null,
-              ordre: i,
-            })),
-          )
-          .throwOnError()
+      if (lieux && existants && createdBy) {
+        const nouveaux = lieux.filter((l) => l.local_id)
+        const nouveauxIds = new Set(nouveaux.map((l) => l.local_id))
+        const existantsIds = new Set(existants.map((e) => e.local_id))
+
+        const aSupprimer = existants.filter((e) => !nouveauxIds.has(e.local_id))
+        if (aSupprimer.length) {
+          await supabase
+            .from('evenements_lieux')
+            .delete()
+            .in(
+              'id',
+              aSupprimer.map((e) => e.id),
+            )
+            .throwOnError()
+        }
+
+        const aAjouter = nouveaux.filter((l) => !existantsIds.has(l.local_id))
+        if (aAjouter.length) {
+          await supabase
+            .from('evenements_lieux')
+            .insert(
+              aAjouter.map((l, i) => ({
+                evenement_id: id,
+                local_id: l.local_id,
+                equipement_id: l.equipement_id || null,
+                ordre: existants.length + i,
+                created_by: createdBy,
+              })),
+            )
+            .throwOnError()
+        }
+
+        // Lieu conservé dont l'équipement a changé : seul ce champ bouge, le
+        // statut d'avancement du lieu reste intact.
+        for (const l of nouveaux) {
+          const existant = existants.find((e) => e.local_id === l.local_id)
+          const equipementId = l.equipement_id || null
+          if (existant && existant.equipement_id !== equipementId) {
+            await supabase
+              .from('evenements_lieux')
+              .update({ equipement_id: equipementId })
+              .eq('id', existant.id)
+              .throwOnError()
+          }
+        }
       }
 
       return data
@@ -266,6 +309,32 @@ export function useUpdateLieu() {
           local_id: values.local_id,
           equipement_id: values.equipement_id || null,
         })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({
+        queryKey: evenementsQueries.lieux(vars.evenementId).queryKey,
+      }),
+  })
+}
+
+export function useUpdateLieuStatut() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      statut,
+    }: {
+      id: string
+      evenementId: string
+      statut: StatutZone
+    }) => {
+      await supabase
+        .from('evenements_lieux')
+        .update({ statut })
         .eq('id', id)
         .select('id')
         .single()

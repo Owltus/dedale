@@ -182,11 +182,12 @@ export function EvenementDetail({
         )}
       </div>
 
-      {/* SECONDE LIGNE À DEUX COLONNES : lieux concernés et documents, côte à
-          côte — même patron que la fiche Travaux (zones + documents). */}
-      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-2">
+      {/* Lieux concernés et Documents, EMPILÉS pleine largeur (décision PO,
+          même patron que Travaux) : hauteur naturelle, défilement de page
+          normal. */}
+      <div className="flex flex-col gap-4">
         {/* Lieux concernés : locaux/équipements liés à l'événement (086). */}
-        <Card className="flex flex-col gap-3 py-4">
+        <Card className="gap-3 py-4">
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
             <CardTitle className="text-base">Lieux concernés</CardTitle>
             {canManage && (
@@ -198,7 +199,7 @@ export function EvenementDetail({
               />
             )}
           </CardHeader>
-          <CardContent className="min-h-0 flex-1 overflow-y-auto">
+          <CardContent>
             <QueryState
               query={lieuxQuery}
               pending={<ListRowSkeletons count={3} size="sm" />}
@@ -222,6 +223,7 @@ export function EvenementDetail({
                     <LieuRow
                       key={l.id}
                       lieu={l}
+                      evenementId={ev.id}
                       readOnly={!canManage}
                       onEdit={() => lieuDialog.openEdit(l)}
                       onDelete={() => suppressionLieu.demander(l)}
@@ -234,11 +236,11 @@ export function EvenementDetail({
         </Card>
 
         {/* DOCUMENTS — une carte comme les autres. */}
-        <Card className="relative flex flex-col gap-3 py-4">
+        <Card className="relative gap-3 py-4">
           <CardHeader>
             <CardTitle className="text-base">Documents</CardTitle>
           </CardHeader>
-          <CardContent className="min-h-0 flex-1 overflow-y-auto">
+          <CardContent>
             <DocumentsTab
               liaison="documents_evenements"
               parentColumn="evenement_id"

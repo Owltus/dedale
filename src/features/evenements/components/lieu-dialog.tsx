@@ -23,8 +23,8 @@ interface LieuDialogProps {
 /**
  * Ajout OU modification d'un LIEU concerné par un événement : un local REQUIS
  * (cascade Niveau → Local) et, le cas échéant, un équipement DE CE LOCAL
- * (optionnel). Miroir de `TacheDialog`, sans notion de statut (un lieu
- * d'événement n'est pas une tâche à réaliser).
+ * (optionnel). Miroir de `TacheDialog` — le statut d'avancement (088) se gère
+ * EN LIGNE sur `LieuRow`, pas ici, exactement comme `TacheDialog`/`TacheRow`.
  */
 export function LieuDialog({
   open,
