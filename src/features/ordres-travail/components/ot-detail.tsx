@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { ClipboardList, ListChecks } from 'lucide-react'
 import { toast } from 'sonner'
@@ -59,6 +59,7 @@ interface OtDetailProps {
 type Onglet = 'operations' | 'documents'
 
 export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
+  const qc = useQueryClient()
   const {
     data: ot,
     isPending,
@@ -509,6 +510,16 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                   prestataire: ot.nom_prestataire,
                   objet: ot.nom_gamme,
                   date: ot.date_prevue,
+                }}
+                // La carte OT (liste/planning) affiche une icône documents
+                // alimentée par `documentsParOt` — sous la clé `ordres_travail`,
+                // jamais rafraîchie par l'invalidation interne de DocumentsTab
+                // (clé `documents`). Sans ce câblage, la carte restait figée
+                // après un ajout/retrait tant qu'on ne rechargeait pas la page.
+                onLiaisonChanged={() => {
+                  for (const queryKey of OT_QUERY_KEYS) {
+                    void qc.invalidateQueries({ queryKey })
+                  }
                 }}
               />
             )}

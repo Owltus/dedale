@@ -74,6 +74,17 @@ interface DocumentsTabProps {
    * détache, suppression) reste disponible selon les droits.
    */
   canAttach?: boolean
+  /**
+   * Appelé après tout ajout/retrait de document réussi (upload+rattachement,
+   * liaison à un document existant, détachement, ou suppression — qui retire
+   * aussi la liaison par cascade). Sert à l'hôte à invalider ses PROPRES caches
+   * dérivés qui comptent les documents d'une autre façon que `documentsQueries`
+   * (ex. `ordresTravailQueries.documentsParOt`, qui alimente l'icône documents
+   * des cartes OT et n'est pas sous la clé racine `documents`, donc jamais
+   * rafraîchi par l'invalidation interne de ce composant). Optionnel : sans ce
+   * prop, comportement inchangé.
+   */
+  onLiaisonChanged?: () => void
 }
 
 /**
@@ -101,6 +112,7 @@ export function DocumentsTab({
   className,
   namingContext,
   canAttach = true,
+  onLiaisonChanged,
 }: DocumentsTabProps) {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
@@ -195,15 +207,25 @@ export function DocumentsTab({
             canEdit={canManage}
             canDetach={canManage}
             onDetach={(doc) =>
-              detach.mutateAsync({
-                liaison,
-                parentColumn,
-                parentId,
-                documentId: doc.id,
-              })
+              detach
+                .mutateAsync({
+                  liaison,
+                  parentColumn,
+                  parentId,
+                  documentId: doc.id,
+                })
+                .then((r) => {
+                  onLiaisonChanged?.()
+                  return r
+                })
             }
             canDelete={canDelete}
-            onDelete={(doc) => del.mutateAsync(doc.id)}
+            onDelete={(doc) =>
+              del.mutateAsync(doc.id).then((r) => {
+                onLiaisonChanged?.()
+                return r
+              })
+            }
           />
         )}
       </QueryState>
@@ -217,15 +239,20 @@ export function DocumentsTab({
           title="Rattacher un document"
           description="Le document est ajouté à la bibliothèque du site puis rattaché à cette fiche."
           onUpload={({ file, uploadedBy, typeDocumentId }) =>
-            uploadAttach.mutateAsync({
-              file,
-              siteId: activeSiteId,
-              uploadedBy,
-              typeDocumentId,
-              liaison,
-              parentColumn,
-              parentId,
-            })
+            uploadAttach
+              .mutateAsync({
+                file,
+                siteId: activeSiteId,
+                uploadedBy,
+                typeDocumentId,
+                liaison,
+                parentColumn,
+                parentId,
+              })
+              .then((r) => {
+                onLiaisonChanged?.()
+                return r
+              })
           }
           pending={uploadAttach.isPending}
           acceptedMimes={acceptedMimes}
@@ -233,12 +260,17 @@ export function DocumentsTab({
           defaultTypeNom={uploadDefaultTypeNom}
           namingContext={namingContext}
           onAttachExisting={(documentIds) =>
-            attachExisting.mutateAsync({
-              liaison,
-              parentColumn,
-              parentId,
-              documentIds,
-            })
+            attachExisting
+              .mutateAsync({
+                liaison,
+                parentColumn,
+                parentId,
+                documentIds,
+              })
+              .then((r) => {
+                onLiaisonChanged?.()
+                return r
+              })
           }
           attachPending={attachExisting.isPending}
           linkedDocumentIds={(query.data ?? []).map((doc) => doc.id)}
