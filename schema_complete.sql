@@ -7036,12 +7036,18 @@ DECLARE
     v_toutes_terminales     BOOLEAN;
     v_au_moins_une_terminee BOOLEAN;
 BEGIN
-    -- 1) Pose date_debut à la 1ère op démarrée
+    -- 1) date_debut = MIN(date_execution) des opérations, RECALCULÉ à chaque
+    -- changement de statut d'opération (tant que l'OT n'est pas terminal) —
+    -- remplace l'ancienne logique « posée une fois, figée » (082).
     UPDATE public.ordres_travail
-    SET date_debut = COALESCE(date_debut, NEW.date_execution, now())
+    SET date_debut = (
+        SELECT MIN(date_execution)
+        FROM public.operations_execution
+        WHERE ordre_travail_id = NEW.ordre_travail_id
+          AND date_execution IS NOT NULL
+    )
     WHERE id = NEW.ordre_travail_id
-      AND date_debut IS NULL
-      AND NEW.statut IN ('en_cours', 'terminee');
+      AND statut IN ('planifie', 'en_cours', 'reouvert');
 
     -- État global des ops du même OT
     SELECT
@@ -7070,20 +7076,16 @@ BEGIN
           AND statut = 'en_cours';
     END IF;
 
-    -- 4) Auto-clôture si toutes les ops sont en statut terminal
+    -- 4) Auto-clôture si toutes les ops sont en statut terminal. date_cloture
+    -- n'est plus posée ici : nettoyage_dates_coherentes (BEFORE UPDATE OF
+    -- statut ON ordres_travail, déclenché par CET UPDATE) la recalcule avec
+    -- date_debut à l'entrée en 'cloture' (082).
     IF v_toutes_terminales THEN
         UPDATE public.ordres_travail
         SET statut = CASE
                        WHEN v_au_moins_une_terminee THEN 'cloture'
                        ELSE 'annule'
                      END,
-            date_cloture = COALESCE(
-                date_cloture,
-                (SELECT MAX(date_execution) FROM public.operations_execution
-                 WHERE ordre_travail_id = NEW.ordre_travail_id
-                   AND date_execution IS NOT NULL),
-                now()
-            ),
             -- Auto-annulation (toutes ops terminales, aucune 'terminee' → toutes
             -- 'non_applicable') : poser un motif système, sinon le CHECK
             -- motif_annulation_oblig_si_annule rejette l'UPDATE et bloque l'user.
@@ -7109,7 +7111,7 @@ CREATE TRIGGER trg_gestion_statut_ot
     EXECUTE FUNCTION public.gestion_statut_ot();
 
 COMMENT ON FUNCTION public.gestion_statut_ot() IS
-    'Bascule automatique du statut OT selon l''évolution de ses opérations (planifie ↔ en_cours, clôture auto).';
+    'Bascule automatique du statut OT selon l''évolution de ses opérations (planifie ↔ en_cours, clôture auto). 082 : date_debut = MIN(date_execution) des opérations, RECALCULÉ à chaque changement de statut d''opération (plus de valeur figée au premier passage) ; date_cloture est posée par nettoyage_dates_coherentes.';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- v0.12 — Index de durcissement : FK created_by/uploaded_by + liaison prestataire
@@ -7260,6 +7262,7 @@ RETURNS TRIGGER LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 DECLARE
+    v_premiere_execution TIMESTAMPTZ;
     v_derniere_execution TIMESTAMPTZ;
 BEGIN
     -- Retour à 'planifie' depuis en_cours → on conserve date_debut (preuve métier)
@@ -7280,11 +7283,16 @@ BEGIN
         NEW.date_cloture := COALESCE(NEW.date_cloture, now());
     END IF;
 
-    -- Clôture manuelle sans date_cloture → reprend la date du DERNIER relevé.
-    -- 080 : n'accepte plus de repli silencieux sur now() quand aucune opération
-    -- n'a de date d'exécution — lève une erreur à la place (cf. en-tête migration).
-    IF NEW.statut = 'cloture' AND NEW.date_cloture IS NULL THEN
-        SELECT MAX(date_execution) INTO v_derniere_execution
+    -- Clôture (manuelle OU auto via gestion_statut_ot) : date_debut ET
+    -- date_cloture sont TOUJOURS recalculées ensemble depuis les dates
+    -- d'exécution des opérations — jamais mémorisées (082). Couvre le cas où
+    -- une opération a été corrigée vers une date antérieure APRÈS un premier
+    -- passage en 'terminee' : la reclôture reflète alors la correction au lieu
+    -- de garder l'ancienne date figée. 080 : n'accepte pas de repli silencieux
+    -- sur now() quand aucune opération n'a de date d'exécution — lève une erreur.
+    IF NEW.statut = 'cloture' THEN
+        SELECT MIN(date_execution), MAX(date_execution)
+        INTO v_premiere_execution, v_derniere_execution
         FROM public.operations_execution
         WHERE ordre_travail_id = NEW.id;
 
@@ -7293,6 +7301,7 @@ BEGIN
                 USING ERRCODE = 'check_violation';
         END IF;
 
+        NEW.date_debut   := v_premiere_execution;
         NEW.date_cloture := v_derniere_execution;
     END IF;
 
@@ -7331,7 +7340,7 @@ CREATE TRIGGER trg_nettoyage_dates_coherentes
     FOR EACH ROW EXECUTE FUNCTION public.nettoyage_dates_coherentes();
 
 COMMENT ON FUNCTION public.nettoyage_dates_coherentes() IS
-    'Force cohérence date_debut/date_cloture selon les transitions de statut OT. 075 : à l''entrée en statut terminal, date_cloture est bornée à >= date_debut. 080 : la clôture manuelle SANS date_execution trouvable sur les opérations lève une erreur au lieu d''un repli silencieux sur now() — évite qu''un OT se retrouve clôturé avec une date fictive.';
+    'Force cohérence date_debut/date_cloture selon les transitions de statut OT. 082 : à l''entrée en ''cloture'' (manuelle ou auto), date_debut = MIN(date_execution) et date_cloture = MAX(date_execution) des opérations sont TOUJOURS recalculées ensemble (plus de valeur mémorisée figée) — reflète toute correction de date d''exécution faite après un premier passage en terminee. 075 : filet de sécurité clôture >= début (surtout utile pour l''annulation). 080 : clôture manuelle sans date_execution trouvable lève une erreur.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 8bis. reouvrir_ot — RPC standard pour rouvrir un OT clôturé (F28 audit)
