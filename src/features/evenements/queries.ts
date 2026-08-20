@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { referentielQueryOptions } from '@/lib/referentiel'
+import type { DocumentMeta } from '@/features/documents/format'
 
 export const evenementsQueries = {
   all: () => ['evenements'] as const,
@@ -48,6 +49,45 @@ export const evenementsQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
+      },
+    }),
+
+  /**
+   * Documents rattachés aux événements du site, en UNE requête groupée
+   * filtrée par site → map `evenement_id → DocumentMeta[]`. TOUS les
+   * documents remontent, qu'ils soient rattachés au niveau fiche OU à une
+   * tâche précise (`tache_id` non filtré) — même patron que la carte OT
+   * (`ordresTravailQueries.documentsParOt`) / `travauxQueries.documentsParTravaux`.
+   */
+  documentsParEvenement: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [
+        ...evenementsQueries.all(),
+        'documents-par-evenement',
+        siteId,
+      ] as const,
+      enabled: siteId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('documents_evenements')
+          .select(
+            'evenement_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at), evenements!inner(site_id)',
+          )
+          .eq('evenements.site_id', siteId!)
+          .abortSignal(signal)
+          .throwOnError()
+        const rows = data as unknown as {
+          evenement_id: string
+          documents: DocumentMeta | null
+        }[]
+        const map = new Map<string, DocumentMeta[]>()
+        for (const row of rows) {
+          if (row.documents == null) continue
+          const liste = map.get(row.evenement_id) ?? []
+          liste.push(row.documents)
+          map.set(row.evenement_id, liste)
+        }
+        return map
       },
     }),
 }

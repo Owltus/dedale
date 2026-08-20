@@ -1,13 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import {
-  CalendarDays,
-  GripVertical,
-  Paperclip,
-  Pencil,
-  Trash2,
-} from 'lucide-react'
+import { GripVertical, Pencil, Trash2 } from 'lucide-react'
 import {
   LIBELLES_STATUT_ZONE,
   STATUTS_ZONE,
@@ -138,56 +132,14 @@ export function TacheRow({
           </button>
         )}
 
+        {/* Libellé SEUL sur la ligne — plus de compteur de pièces jointes
+            (la mini-liste juste en dessous suffit à le montrer). */}
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 truncate text-sm font-medium">
-            <span className="truncate">{tache.libelle}</span>
-            {docs.length > 0 && (
-              <span className="flex shrink-0 items-center gap-0.5 text-xs font-normal text-muted-foreground">
-                <Paperclip className="size-3" />
-                {docs.length}
-              </span>
-            )}
-          </p>
-          {/* Date TOUJOURS sous le libellé — même emplacement en lecture
-              seule et en édition (093, refonte UI D3), plus de disposition
-              asymétrique entre les deux modes. */}
-          {readOnly ? (
-            tache.date_tache && (
-              <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                <CalendarDays className="size-3" />
-                {formatDateAvecSemaineIso(tache.date_tache)}
-              </p>
-            )
-          ) : (
-            <DateField
-              ariaLabel={`Date — ${tache.libelle}`}
-              value={tache.date_tache ?? ''}
-              onValueChange={onChangeDate}
-              disabled={datePending}
-              className="mt-1 h-7 w-[7.25rem] shrink-0 text-xs"
-            />
-          )}
+          <p className="truncate text-sm font-medium">{tache.libelle}</p>
         </div>
 
-        {readOnly ? (
-          <StatusBadge tone={toneStatutZone(statut)} className="shrink-0">
-            {LIBELLES_STATUT_ZONE[statut]}
-          </StatusBadge>
-        ) : (
-          <SelectDropdown
-            ariaLabel={`Statut — ${tache.libelle}`}
-            value={statut}
-            disabled={statutPending}
-            onValueChange={(v) => onChangeStatut(v as StatutZone)}
-            options={STATUTS_ZONE.map((s) => ({
-              value: s,
-              label: LIBELLES_STATUT_ZONE[s],
-            }))}
-            className="h-9 w-36 shrink-0 px-2"
-            checkIndicator={false}
-          />
-        )}
-
+        {/* Bloc droit, dans l'ordre demandé : actions (Modifier/Supprimer,
+            au survol) d'abord, puis date, puis statut. */}
         {!readOnly && (
           <div
             className={cn(
@@ -208,6 +160,41 @@ export function TacheRow({
             />
           </div>
         )}
+
+        {readOnly ? (
+          <>
+            {tache.date_tache && (
+              <p className="shrink-0 text-xs text-muted-foreground">
+                {formatDateAvecSemaineIso(tache.date_tache)}
+              </p>
+            )}
+            <StatusBadge tone={toneStatutZone(statut)} className="shrink-0">
+              {LIBELLES_STATUT_ZONE[statut]}
+            </StatusBadge>
+          </>
+        ) : (
+          <>
+            <DateField
+              ariaLabel={`Date — ${tache.libelle}`}
+              value={tache.date_tache ?? ''}
+              onValueChange={onChangeDate}
+              disabled={datePending}
+              className="h-9 w-36 shrink-0"
+            />
+            <SelectDropdown
+              ariaLabel={`Statut — ${tache.libelle}`}
+              value={statut}
+              disabled={statutPending}
+              onValueChange={(v) => onChangeStatut(v as StatutZone)}
+              options={STATUTS_ZONE.map((s) => ({
+                value: s,
+                label: LIBELLES_STATUT_ZONE[s],
+              }))}
+              className="h-9 w-36 shrink-0 px-2"
+              checkIndicator={false}
+            />
+          </>
+        )}
       </div>
 
       {docs.length > 0 && (
@@ -215,6 +202,7 @@ export function TacheRow({
           <DocumentsListe
             docs={docs}
             draggable={!readOnly}
+            compact
             className="flex flex-col gap-1"
           />
         </div>

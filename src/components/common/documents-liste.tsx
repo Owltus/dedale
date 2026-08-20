@@ -59,6 +59,12 @@ interface DocumentsListeProps {
   /** Classe du conteneur de liste (défaut : `listStack`). */
   className?: string
   /**
+   * Masque le sous-titre « taille · date » de chaque ligne — pour un contexte
+   * déjà dense où cette info est superflue (ex. mini-liste sous une tâche).
+   * Défaut `false`.
+   */
+  compact?: boolean
+  /**
    * Glisser-déposer (091, étape 6) : chaque ligne devient une source de
    * drag (`data: { type: 'document', documentId }`), à destination d'une
    * `TacheRow` ou de la carte "Documents" (`TachesDndContext`). Défaut
@@ -119,6 +125,7 @@ export function DocumentsListe({
   errorTranslate = deleteErrorMessage,
   className,
   draggable = false,
+  compact = false,
 }: DocumentsListeProps) {
   const download = useDocumentDownload()
   const [toPreview, setToPreview] = useState<DocumentMeta | null>(null)
@@ -172,10 +179,12 @@ export function DocumentsListe({
           const content = (
             <DocumentRow
               doc={doc}
+              size={compact ? 'xs' : 'sm'}
               onClick={() => (onPreview ? onPreview(doc) : setToPreview(doc))}
               badges={badges?.(doc)}
               mobileMeta={mobileMeta?.(doc)}
               menuActions={actions}
+              hideMeta={compact}
             />
           )
           if (draggable) {

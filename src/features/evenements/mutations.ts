@@ -18,6 +18,7 @@ function toPayload(v: EvenementFormValues) {
     titre: v.titre.trim(),
     description: v.description.trim() || null,
     date_evenement: v.date_evenement,
+    taches_activees: v.taches_activees,
   }
 }
 
@@ -269,12 +270,40 @@ export function useChangeStatutEvenement() {
           compte_rendu: cloture ? (compteRendu?.trim() ?? '') || null : null,
           date_cloture: cloture ? (dateCloture ?? null) : null,
           cloture_by: cloture ? (clotureBy ?? null) : null,
+          // 094 : toute clôture (à la main ou après confirmation d'une
+          // clôture déclenchée automatiquement par les tâches) verrouille la
+          // fiche ; une réouverture la déverrouille dans le même geste.
+          verrouille: cloture,
         })
         .eq('id', id)
         .select()
         .single()
         .throwOnError()
       return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: evenementsQueries.all() }),
+  })
+}
+
+/** Verrou anti-erreur (094) : miroir exact `useToggleVerrouTravaux`. */
+export function useToggleVerrouEvenement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      verrouille,
+    }: {
+      id: string
+      verrouille: boolean
+    }) => {
+      await supabase
+        .from('evenements')
+        .update({ verrouille })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
     },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: evenementsQueries.all() }),

@@ -6,13 +6,16 @@ import { STATUT_TERMINE } from './schemas'
 import type { TravauxFormValues, TacheFormValues, StatutTache } from './schemas'
 import type { TacheEntree } from '@/features/equipements/components/taches-multiples-field'
 
-// Convertit les champs du formulaire en payload base (vides → null). Les dates
-// ne sont plus saisies : date_demande prend son DEFAULT (date du jour) à
-// l'insert, date_fin est posée par le trigger de clôture.
+// Convertit les champs du formulaire en payload base (vides → null).
+// `date_demande` est désormais saisissable (symétrie Événements, retour
+// utilisateur : rattrapage d'historique) ; `date_fin` reste posée par le
+// trigger/dialogue de clôture, jamais ici.
 function toPayload(v: TravauxFormValues) {
   return {
     titre: v.titre.trim(),
     description: v.description.trim() || null,
+    date_demande: v.date_demande,
+    taches_activees: v.taches_activees,
   }
 }
 
@@ -237,6 +240,10 @@ export function useChangeStatutTravaux() {
           compte_rendu: cloture ? (compteRendu?.trim() ?? '') || null : null,
           date_fin: cloture ? (dateFin ?? null) : null,
           cloture_by: cloture ? (clotureBy ?? null) : null,
+          // 094 : toute clôture (à la main ou après confirmation d'une
+          // clôture déclenchée automatiquement par les tâches) verrouille la
+          // fiche ; une réouverture la déverrouille dans le même geste.
+          verrouille: cloture,
         })
         .eq('id', id)
         .select()
@@ -274,6 +281,36 @@ export function useUpdateClotureTravaux() {
         .single()
         .throwOnError()
       return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
+  })
+}
+
+/**
+ * Verrou anti-erreur (094) : une fiche clôturée (à la main ou automatiquement
+ * depuis ses tâches) se verrouille — plus aucune modification (tâches
+ * comprises) tant qu'elle n'est pas déverrouillée ICI, explicitement. Ne
+ * touche à rien d'autre : redonner la main à `gestion_statut_travaux` (qui
+ * recalculera le statut au prochain changement de tâche) est un effet, pas
+ * une action de cette mutation.
+ */
+export function useToggleVerrouTravaux() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      verrouille,
+    }: {
+      id: string
+      verrouille: boolean
+    }) => {
+      await supabase
+        .from('interventions_travaux')
+        .update({ verrouille })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: travauxQueries.all() }),
   })

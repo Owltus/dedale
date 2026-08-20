@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { travauxSchema, emptyTravaux } from '../schemas'
@@ -12,9 +12,11 @@ import {
   TachesMultiplesField,
   type TacheEntree,
 } from '@/features/equipements/components/taches-multiples-field'
+import { isoLocale } from '@/lib/date'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/fields/text-field'
+import { DateField } from '@/components/common/fields/date-field'
 import { DescriptionField } from '@/components/common/fields/description-field'
 import type { Database } from '@/lib/database.types'
 
@@ -33,12 +35,14 @@ interface TravauxFormDialogProps {
 }
 
 function initialValues(travaux: Travaux | null | undefined): TravauxFormValues {
-  if (!travaux) return emptyTravaux()
+  if (!travaux) return emptyTravaux(isoLocale(new Date()))
   // taches : jamais peuplé ici — état à part, cf. plus bas.
   return {
     titre: travaux.titre,
     description: travaux.description ?? '',
+    date_demande: travaux.date_demande,
     taches: [],
+    taches_activees: travaux.taches_activees,
   }
 }
 
@@ -99,6 +103,10 @@ export function TravauxFormDialog({
     resolver: zodResolver(travauxSchema),
     defaultValues: initialValues(travaux),
   })
+  const tachesActivees = useWatch({
+    control: form.control,
+    name: 'taches_activees',
+  })
 
   const submit = useSubmitDialog<TravauxFormValues, Travaux | null>({
     onSubmit: async (data) => {
@@ -149,6 +157,15 @@ export function TravauxFormDialog({
         size="lg"
       >
         <TextField control={form.control} name="titre" label="Titre" required />
+        {/* Saisissable (symétrie Événements, retour utilisateur) : un
+            rattrapage d'historique crée plusieurs travaux le même jour,
+            chacun avec sa propre date passée — pas celle de la saisie. */}
+        <DateField
+          control={form.control}
+          name="date_demande"
+          label="Date de déclaration"
+          required
+        />
         {/* La description d'un travaux n'est pas un champ d'appoint : on y
             consigne le déroulé du chantier, souvent sur plusieurs lignes
             (livraison, mise en service, enlèvement…). Deux lignes obligeaient à
@@ -161,6 +178,9 @@ export function TravauxFormDialog({
           siteId={siteId}
           value={taches}
           onChange={setTaches}
+          activees={tachesActivees}
+          onActiveesChange={(v) => form.setValue('taches_activees', v)}
+          labelActivation="Ce travaux comporte des tâches"
         />
       </FormDialog>
     </Form>

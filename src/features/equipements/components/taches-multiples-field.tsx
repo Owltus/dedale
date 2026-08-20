@@ -7,6 +7,7 @@ import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
 export interface TacheEntree {
@@ -23,6 +24,16 @@ interface TachesMultiplesFieldProps {
   /** Tâches déjà ajoutées (contrôlé par l'hôte). */
   value: TacheEntree[]
   onChange: (value: TacheEntree[]) => void
+  /**
+   * Activation des tâches sur cette fiche (094, D2). Décoché : la liste et le
+   * bouton d'ajout disparaissent — mais `value` n'est PAS vidé ici, l'hôte
+   * garde les lignes existantes en mémoire (mises en sommeil, pas
+   * supprimées) tant que l'utilisateur ne les retire pas lui-même.
+   */
+  activees: boolean
+  onActiveesChange: (activees: boolean) => void
+  /** Libellé de l'interrupteur, propre à la feature (« Ce travaux… »/« Cet événement… »). */
+  labelActivation: string
 }
 
 /**
@@ -41,6 +52,9 @@ export function TachesMultiplesField({
   siteId,
   value,
   onChange,
+  activees,
+  onActiveesChange,
+  labelActivation,
 }: TachesMultiplesFieldProps) {
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
 
@@ -55,77 +69,87 @@ export function TachesMultiplesField({
 
   return (
     <div className="space-y-3">
-      <Label>Tâches (facultatif)</Label>
+      <div className="flex items-center justify-between gap-4">
+        <Label htmlFor="taches-activees" className="cursor-pointer">
+          {labelActivation}
+        </Label>
+        <Switch
+          id="taches-activees"
+          checked={activees}
+          onCheckedChange={onActiveesChange}
+        />
+      </div>
 
-      {value.map((entree, i) => (
-        <div
-          key={entree.id ?? `nouvelle-${String(i)}`}
-          className="group flex items-start gap-2 rounded-md border bg-muted/30 p-3"
-        >
-          <div className="flex-1 space-y-3">
-            <p className="text-xs font-medium text-muted-foreground">
-              Tâche {i + 1}
-            </p>
-            <Input
-              value={entree.libelle}
-              onChange={(e) => {
-                const next = [...value]
-                next[i] = { ...entree, libelle: e.target.value }
-                onChange(next)
-              }}
-              placeholder="Ex. Livraison et déballage"
-              aria-label="Libellé de la tâche"
-            />
-            <LocalEquipementFields
-              siteId={siteId}
-              localId={entree.local_id}
-              equipementId={entree.equipement_id}
-              onChange={({ localId, equipementId }) => {
-                const next = [...value]
-                // Propose le nom du local comme libellé SEULEMENT si l'usager
-                // n'a encore rien saisi — ne verrouille jamais un libellé déjà
-                // tapé (cas chronologique : le lieu ne doit pas écraser le nom
-                // de l'étape).
-                const libelle =
-                  entree.libelle === '' && localId !== ''
-                    ? (locaux.find((l) => l.local_id === localId)?.local_nom ??
-                      entree.libelle)
-                    : entree.libelle
-                next[i] = {
-                  ...entree,
-                  local_id: localId,
-                  equipement_id: equipementId,
-                  libelle,
-                }
-                onChange(next)
-              }}
-              equipementLabel="Équipement concerné"
-              equipementEnAside
-              renderLieu={(p) => (
-                <EmplacementSelect
-                  {...p}
-                  requiredEmplacement={false}
-                  excludeLocalIds={autresLocaux(i)}
-                />
-              )}
-            />
-          </div>
+      {activees &&
+        value.map((entree, i) => (
           <div
-            className={cn(
-              'mt-1 opacity-0 transition-opacity',
-              'group-focus-within:opacity-100 group-hover:opacity-100',
-              '[@media(hover:none)]:opacity-100',
-            )}
+            key={entree.id ?? `nouvelle-${String(i)}`}
+            className="group flex items-start gap-2 rounded-md border bg-muted/30 p-3"
           >
-            <TooltipIconButton
-              icon={<Trash2 />}
-              label="Retirer cette tâche"
-              variant="ghost"
-              onClick={() => onChange(value.filter((_, j) => j !== i))}
-            />
+            <div className="flex-1 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground">
+                Tâche {i + 1}
+              </p>
+              <Input
+                value={entree.libelle}
+                onChange={(e) => {
+                  const next = [...value]
+                  next[i] = { ...entree, libelle: e.target.value }
+                  onChange(next)
+                }}
+                placeholder="Ex. Livraison et déballage"
+                aria-label="Libellé de la tâche"
+              />
+              <LocalEquipementFields
+                siteId={siteId}
+                localId={entree.local_id}
+                equipementId={entree.equipement_id}
+                onChange={({ localId, equipementId }) => {
+                  const next = [...value]
+                  // Propose le nom du local comme libellé SEULEMENT si l'usager
+                  // n'a encore rien saisi — ne verrouille jamais un libellé déjà
+                  // tapé (cas chronologique : le lieu ne doit pas écraser le nom
+                  // de l'étape).
+                  const libelle =
+                    entree.libelle === '' && localId !== ''
+                      ? (locaux.find((l) => l.local_id === localId)
+                          ?.local_nom ?? entree.libelle)
+                      : entree.libelle
+                  next[i] = {
+                    ...entree,
+                    local_id: localId,
+                    equipement_id: equipementId,
+                    libelle,
+                  }
+                  onChange(next)
+                }}
+                equipementLabel="Équipement concerné"
+                equipementEnAside
+                renderLieu={(p) => (
+                  <EmplacementSelect
+                    {...p}
+                    requiredEmplacement={false}
+                    excludeLocalIds={autresLocaux(i)}
+                  />
+                )}
+              />
+            </div>
+            <div
+              className={cn(
+                'mt-1 opacity-0 transition-opacity',
+                'group-focus-within:opacity-100 group-hover:opacity-100',
+                '[@media(hover:none)]:opacity-100',
+              )}
+            >
+              <TooltipIconButton
+                icon={<Trash2 />}
+                label="Retirer cette tâche"
+                variant="ghost"
+                onClick={() => onChange(value.filter((_, j) => j !== i))}
+              />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
 
       <Button
         type="button"

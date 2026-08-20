@@ -4302,6 +4302,11 @@ CREATE TABLE interventions_travaux (
     compte_rendu        TEXT,
     cloture_by          UUID REFERENCES users(id) ON DELETE SET NULL,
 
+    -- 094 : verrou anti-erreur, posé à toute clôture (manuelle ou automatique).
+    verrouille          BOOLEAN NOT NULL DEFAULT false,
+    -- 095 : activation des tâches sur cette fiche (D2).
+    taches_activees     BOOLEAN NOT NULL DEFAULT true,
+
     -- Audit
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -4311,6 +4316,10 @@ COMMENT ON TABLE interventions_travaux IS
     'Travaux ponctuels du site. 085 : statut libre (Ouvert/En cours/Terminé), plus de machine à états.';
 COMMENT ON COLUMN interventions_travaux.cloture_by IS
     'Qui a passé les travaux en Terminé. 085 : posé par le FRONT (plus de trigger serveur, comme evenements.cloture_by). NULL tant que non terminé.';
+COMMENT ON COLUMN interventions_travaux.verrouille IS
+    '094 : verrouillée dès la clôture (manuelle ou automatique) — plus aucune modification (tâches comprises) tant que non déverrouillée à la main.';
+COMMENT ON COLUMN interventions_travaux.taches_activees IS
+    '095 : désactivée, la carte Tâches ne s''affiche pas sur la fiche — les tâches déjà enregistrées ne sont jamais supprimées, seulement mises en sommeil.';
 
 CREATE INDEX idx_travaux_site   ON interventions_travaux(site_id);
 CREATE INDEX idx_travaux_statut ON interventions_travaux(statut_travaux_id);
@@ -5274,6 +5283,10 @@ CREATE TABLE evenements (
     compte_rendu      TEXT,
     date_cloture      DATE,
     cloture_by        UUID REFERENCES users(id) ON DELETE SET NULL,
+    -- 094 : verrou anti-erreur, posé à toute clôture (manuelle ou automatique).
+    verrouille        BOOLEAN NOT NULL DEFAULT false,
+    -- 095 : activation des tâches sur cette fiche (D2).
+    taches_activees   BOOLEAN NOT NULL DEFAULT true,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     -- Une clôture ne peut pas précéder l'événement (cf. 23514 des OT, migration 075)
@@ -5282,6 +5295,10 @@ CREATE TABLE evenements (
 );
 
 COMMENT ON TABLE evenements IS 'Journal des événements survenus dans l''établissement (077). Distinct des DI (qui demandent une action) et des travaux (qui en planifient une).';
+COMMENT ON COLUMN evenements.verrouille IS
+    '094 : verrouillé dès la clôture (manuelle ou automatique) — plus aucune modification (tâches comprises) tant que non déverrouillé à la main.';
+COMMENT ON COLUMN evenements.taches_activees IS
+    '095 : désactivées, la carte Tâches ne s''affiche pas sur la fiche — les tâches déjà enregistrées ne sont jamais supprimées, seulement mises en sommeil.';
 
 CREATE INDEX idx_evenements_site        ON evenements(site_id);
 CREATE INDEX idx_evenements_statut      ON evenements(statut_evenement_id);
@@ -7118,10 +7135,71 @@ CREATE TRIGGER trg_gestion_statut_ot
 COMMENT ON FUNCTION public.gestion_statut_ot() IS
     'Bascule automatique du statut OT selon l''évolution de ses opérations (planifie ↔ en_cours, clôture auto). 082 : date_debut = MIN(date_execution) des opérations, RECALCULÉ à chaque changement de statut d''opération (plus de valeur figée au premier passage) ; date_cloture est posée par nettoyage_dates_coherentes.';
 
+-- 094 : miroir gestion_statut_ot pour Travaux — statut dérivé DES QUE la
+-- fiche a au moins une tâche (sinon reste manuel), verrouillage anti-erreur.
+CREATE OR REPLACE FUNCTION public.gestion_statut_travaux()
+RETURNS TRIGGER LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+    v_travaux_id UUID := COALESCE(NEW.travaux_id, OLD.travaux_id);
+    v_verrouille BOOLEAN;
+    v_a_des_taches      BOOLEAN;
+    v_toutes_terminales BOOLEAN;
+    v_progression       BOOLEAN;
+BEGIN
+    SELECT verrouille INTO v_verrouille
+    FROM public.interventions_travaux WHERE id = v_travaux_id;
+
+    IF v_verrouille IS NOT TRUE THEN
+        SELECT
+            EXISTS (SELECT 1 FROM public.travaux_taches
+                    WHERE travaux_id = v_travaux_id),
+            NOT EXISTS (SELECT 1 FROM public.travaux_taches
+                        WHERE travaux_id = v_travaux_id
+                          AND statut IN ('en_attente', 'en_cours')),
+            EXISTS (SELECT 1 FROM public.travaux_taches
+                    WHERE travaux_id = v_travaux_id AND statut <> 'en_attente')
+        INTO v_a_des_taches, v_toutes_terminales, v_progression;
+
+        IF v_a_des_taches THEN
+            IF v_toutes_terminales THEN
+                -- 097 : tout est réalisé → verrouille EN MÊME TEMPS que le
+                -- statut (retour utilisateur : « quelque chose de banal, pas
+                -- problématique », donc automatique plutôt que proposé).
+                UPDATE public.interventions_travaux
+                SET statut_travaux_id = 4,
+                    verrouille = true
+                WHERE id = v_travaux_id
+                  AND (statut_travaux_id <> 4 OR verrouille IS NOT TRUE);
+            ELSIF v_progression THEN
+                UPDATE public.interventions_travaux
+                SET statut_travaux_id = 2
+                WHERE id = v_travaux_id AND statut_travaux_id <> 2;
+            ELSE
+                UPDATE public.interventions_travaux
+                SET statut_travaux_id = 1
+                WHERE id = v_travaux_id AND statut_travaux_id <> 1;
+            END IF;
+        END IF;
+    END IF;
+
+    RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+COMMENT ON FUNCTION public.gestion_statut_travaux() IS
+    '097 : recalcule statut_travaux_id depuis travaux_taches (Ouvert/En cours tant qu''il reste des tâches non terminales, Terminé + verrouille dès que toutes le sont) — SEULEMENT si la fiche a au moins une tâche et n''est pas verrouillée. Miroir gestion_statut_ot.';
+
+CREATE TRIGGER trg_gestion_statut_travaux
+    AFTER INSERT OR DELETE OR UPDATE OF statut ON travaux_taches
+    FOR EACH ROW EXECUTE FUNCTION public.gestion_statut_travaux();
+
 -- ─────────────────────────────────────────────────────────────────────────────
--- Événements (077, 086) : pas de machine à états (transitions libres). La
--- cohérence de site du lieu vit désormais sur evenements_lieux (086), plus
--- sur evenements elle-même (local_id/equipement_id déplacés).
+-- Événements (077, 086) : transitions libres si la fiche n'a aucune tâche.
+-- Avec au moins une tâche, le statut se calcule automatiquement (094, miroir
+-- gestion_statut_travaux) — la cohérence de site du lieu vit sur
+-- evenements_lieux (086), plus sur evenements elle-même.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TRIGGER trg_evenements_updated_at
     BEFORE UPDATE ON evenements
@@ -7130,6 +7208,62 @@ CREATE TRIGGER trg_evenements_updated_at
 CREATE TRIGGER trg_evenements_lieux_updated_at
     BEFORE UPDATE ON evenements_lieux
     FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE OR REPLACE FUNCTION public.gestion_statut_evenement()
+RETURNS TRIGGER LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+    v_evenement_id UUID := COALESCE(NEW.evenement_id, OLD.evenement_id);
+    v_verrouille BOOLEAN;
+    v_a_des_taches      BOOLEAN;
+    v_toutes_terminales BOOLEAN;
+    v_progression       BOOLEAN;
+BEGIN
+    SELECT verrouille INTO v_verrouille
+    FROM public.evenements WHERE id = v_evenement_id;
+
+    IF v_verrouille IS NOT TRUE THEN
+        SELECT
+            EXISTS (SELECT 1 FROM public.evenements_lieux
+                    WHERE evenement_id = v_evenement_id),
+            NOT EXISTS (SELECT 1 FROM public.evenements_lieux
+                        WHERE evenement_id = v_evenement_id
+                          AND statut IN ('en_attente', 'en_cours')),
+            EXISTS (SELECT 1 FROM public.evenements_lieux
+                    WHERE evenement_id = v_evenement_id AND statut <> 'en_attente')
+        INTO v_a_des_taches, v_toutes_terminales, v_progression;
+
+        IF v_a_des_taches THEN
+            IF v_toutes_terminales THEN
+                -- 097 : miroir travaux — verrouille EN MÊME TEMPS que le statut.
+                UPDATE public.evenements
+                SET statut_evenement_id = 4,
+                    verrouille = true
+                WHERE id = v_evenement_id
+                  AND (statut_evenement_id <> 4 OR verrouille IS NOT TRUE);
+            ELSIF v_progression THEN
+                UPDATE public.evenements
+                SET statut_evenement_id = 2
+                WHERE id = v_evenement_id AND statut_evenement_id <> 2;
+            ELSE
+                UPDATE public.evenements
+                SET statut_evenement_id = 1
+                WHERE id = v_evenement_id AND statut_evenement_id <> 1;
+            END IF;
+        END IF;
+    END IF;
+
+    RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+COMMENT ON FUNCTION public.gestion_statut_evenement() IS
+    '097 : recalcule statut_evenement_id depuis evenements_lieux — miroir exact gestion_statut_travaux (097 : verrouille aussi automatiquement).';
+
+CREATE TRIGGER trg_gestion_statut_evenement
+    AFTER INSERT OR DELETE OR UPDATE OF statut ON evenements_lieux
+    FOR EACH ROW EXECUTE FUNCTION public.gestion_statut_evenement();
 
 -- 086 : miroir de check_travaux_tache_coherence — un local/équipement
 -- rattaché à un lieu d'événement doit appartenir au même site que l'événement.
@@ -7174,10 +7308,16 @@ CREATE TRIGGER trg_check_evenement_lieu_coherence
     BEFORE INSERT OR UPDATE ON evenements_lieux
     FOR EACH ROW EXECUTE FUNCTION public.check_evenement_lieu_coherence();
 
--- Realtime — la liste doit vivre sans F5, comme les travaux et les OT. Note :
--- les autres ALTER PUBLICATION (ex. 071 sur ordres_travail) manquent aussi de
--- ce fichier — dette de resync préexistante, hors périmètre de ce rattrapage.
+-- Realtime — les listes/fiches vivent sans F5 (071 : OT ; 077 : événements ;
+-- 096 : travaux, dette de resync du présent bloc comblée à cette occasion).
+ALTER PUBLICATION supabase_realtime ADD TABLE ordres_travail;
+ALTER PUBLICATION supabase_realtime ADD TABLE operations_execution;
 ALTER PUBLICATION supabase_realtime ADD TABLE evenements;
+ALTER PUBLICATION supabase_realtime ADD TABLE interventions_travaux;
+
+ALTER TABLE ordres_travail        REPLICA IDENTITY FULL;
+ALTER TABLE operations_execution  REPLICA IDENTITY FULL;
+ALTER TABLE interventions_travaux REPLICA IDENTITY FULL;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- v0.12 — Index de durcissement : FK created_by/uploaded_by + liaison prestataire
@@ -7498,7 +7638,7 @@ COMMENT ON FUNCTION public.reouvrir_ot(UUID, TEXT) IS
     'F28 (audit) : RPC standard pour rouvrir un OT clôturé. SECURITY INVOKER — la RLS gère l''autorisation (admin / manager(sites) / tech(sites)). Force le motif (CHECK motif_reouverture_oblig_si_reouvert). Le trigger log_audit() AFTER UPDATE trace l''opération dans audit_log.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 8ter. Conversion croisée Travaux ↔ Événements (084, réécrites par 087/089/092/093)
+-- 8ter. Conversion croisée Travaux ↔ Événements (084, réécrites par 087/089/092/093/094/095)
 -- ═══════════════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION public.convertir_evenement_en_travaux(p_evenement_id UUID)
 RETURNS UUID
@@ -7516,9 +7656,10 @@ BEGIN
     END IF;
 
     -- Statut de la fiche reporté TEL QUEL (087) : les deux référentiels
-    -- partagent les mêmes ids depuis 085/086.
-    INSERT INTO public.interventions_travaux (site_id, created_by, titre, description, statut_travaux_id)
-    VALUES (v_evenement.site_id, (SELECT auth.uid()), v_evenement.titre, v_evenement.description, v_evenement.statut_evenement_id)
+    -- partagent les mêmes ids depuis 085/086. verrouille/taches_activees
+    -- transférés à l'identique (094/095).
+    INSERT INTO public.interventions_travaux (site_id, created_by, titre, description, statut_travaux_id, verrouille, taches_activees)
+    VALUES (v_evenement.site_id, (SELECT auth.uid()), v_evenement.titre, v_evenement.description, v_evenement.statut_evenement_id, v_evenement.verrouille, v_evenement.taches_activees)
     RETURNING id INTO v_nouveau_id;
 
     -- TOUTES les tâches transférées (087), libellé/commentaire/date INCLUS (092/093).
@@ -7548,7 +7689,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.convertir_evenement_en_travaux(UUID) IS
-    '093 : convertit un Événement en Travaux (copie + suppression source). Transfert INTÉGRAL des tâches — libellé, commentaire, date, statut INCLUS — et des documents (fiche entière + documents par tâche, réattribués à leur nouvelle tâche). SECURITY INVOKER.';
+    '095 : convertit un Événement en Travaux (copie + suppression source). Transfert INTÉGRAL des tâches — libellé, commentaire, date, statut INCLUS —, du verrouillage, de l''activation des tâches, et des documents (fiche entière + documents par tâche, réattribués à leur nouvelle tâche). SECURITY INVOKER.';
 
 CREATE OR REPLACE FUNCTION public.convertir_travaux_en_evenement(p_travaux_id UUID)
 RETURNS UUID
@@ -7565,8 +7706,8 @@ BEGIN
         RAISE EXCEPTION 'Travaux introuvable ou hors de votre périmètre';
     END IF;
 
-    INSERT INTO public.evenements (site_id, created_by, titre, description, statut_evenement_id)
-    VALUES (v_travaux.site_id, (SELECT auth.uid()), v_travaux.titre, v_travaux.description, v_travaux.statut_travaux_id)
+    INSERT INTO public.evenements (site_id, created_by, titre, description, statut_evenement_id, verrouille, taches_activees)
+    VALUES (v_travaux.site_id, (SELECT auth.uid()), v_travaux.titre, v_travaux.description, v_travaux.statut_travaux_id, v_travaux.verrouille, v_travaux.taches_activees)
     RETURNING id INTO v_nouveau_id;
 
     WITH nouvelles_taches AS (
@@ -7593,7 +7734,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.convertir_travaux_en_evenement(UUID) IS
-    '093 : convertit un Travaux en Événement (copie + suppression source). Transfert INTÉGRAL des tâches — libellé, commentaire, date, statut INCLUS — et des documents (fiche entière + documents par tâche, réattribués à leur nouvelle tâche). SECURITY INVOKER.';
+    '095 : convertit un Travaux en Événement (copie + suppression source). Transfert INTÉGRAL des tâches — libellé, commentaire, date, statut INCLUS —, du verrouillage, de l''activation des tâches, et des documents (fiche entière + documents par tâche, réattribués à leur nouvelle tâche). SECURITY INVOKER.';
 
 REVOKE EXECUTE ON FUNCTION public.convertir_evenement_en_travaux(uuid) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.convertir_evenement_en_travaux(uuid) TO authenticated, service_role;

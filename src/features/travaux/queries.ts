@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { referentielQueryOptions } from '@/lib/referentiel'
+import type { DocumentMeta } from '@/features/documents/format'
 
 export const travauxQueries = {
   all: () => ['travaux'] as const,
@@ -37,6 +38,46 @@ export const travauxQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
+      },
+    }),
+
+  /**
+   * Documents rattachés aux travaux du site, en UNE requête groupée filtrée
+   * par site (pas par liste d'ids : un `.in()` sur des centaines de travaux
+   * dépasse la taille d'URL autorisée) → map `travaux_id → DocumentMeta[]`.
+   * TOUS les documents remontent, qu'ils soient rattachés au niveau fiche OU
+   * à une tâche précise (`tache_id` non filtré) — même logique que la carte
+   * OT (`ordresTravailQueries.documentsParOt`), qui sert de patron ici.
+   */
+  documentsParTravaux: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [
+        ...travauxQueries.all(),
+        'documents-par-travaux',
+        siteId,
+      ] as const,
+      enabled: siteId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('documents_interventions_travaux')
+          .select(
+            'travaux_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at), interventions_travaux!inner(site_id)',
+          )
+          .eq('interventions_travaux.site_id', siteId!)
+          .abortSignal(signal)
+          .throwOnError()
+        const rows = data as unknown as {
+          travaux_id: string
+          documents: DocumentMeta | null
+        }[]
+        const map = new Map<string, DocumentMeta[]>()
+        for (const row of rows) {
+          if (row.documents == null) continue
+          const liste = map.get(row.travaux_id) ?? []
+          liste.push(row.documents)
+          map.set(row.travaux_id, liste)
+        }
+        return map
       },
     }),
 }

@@ -47,6 +47,8 @@ import {
   FILTRE_TOUS,
 } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
+import { DocumentIndicator } from '@/components/common/document-indicator'
+import type { DocumentMeta } from '@/features/documents/format'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
@@ -90,6 +92,13 @@ function EvenementsContent({
   // Journal en LIVE : un événement consigné par un collègue apparaît sans F5.
   useRealtimeRefresh('evenements', evenementsQueries.all())
   const { data: statuts = [] } = useQuery(statutsEvenementsQueries.list())
+  // Documents rattachés aux événements du site, en UNE requête groupée
+  // (fiche ET tâches confondues) — même patron que la carte OT.
+  const documentsQuery = useQuery(
+    evenementsQueries.documentsParEvenement(siteId),
+  )
+  const documentsParEvenement =
+    documentsQuery.data ?? new Map<string, DocumentMeta[]>()
   const del = useDeleteEvenement()
   const convertir = useConvertirEnTravaux()
   const [aConvertir, setAConvertir] = useState<Evenement | null>(null)
@@ -223,6 +232,7 @@ function EvenementsContent({
                     separatorBefore: true,
                   })
                 }
+                const docs = documentsParEvenement.get(ev.id) ?? []
                 return (
                   <ListRow
                     key={ev.id}
@@ -235,24 +245,58 @@ function EvenementsContent({
                         : `Survenu le ${formatDate(ev.date_evenement)}`
                     }
                     onClick={() => ouvrir(ev, sibs)}
-                    // Statut au-dessus, date en dessous, dans une colonne de
-                    // largeur fixe : empilés, les deux s'alignent d'une ligne à
-                    // l'autre sans que la longueur de l'un pousse l'autre.
+                    mobileBadge={
+                      docs.length > 0 ? (
+                        <DocumentIndicator
+                          documents={docs}
+                          entiteNom={ev.titre}
+                          size="sm"
+                        />
+                      ) : undefined
+                    }
+                    // UN SEUL bloc à droite : icône documents (brique commune,
+                    // patron OT — rattachés au niveau fiche OU à une tâche,
+                    // tous confondus) COLLÉE à la colonne statut/date, dans le
+                    // MÊME slot `meta` plutôt qu'un `badges` séparé — sinon les
+                    // deux se retrouvent à deux `gap` d'écart (retour
+                    // utilisateur : l'icône paraissait très éloignée). `meta`
+                    // (contrairement à `badges`/`mobileBadge`) n'est PAS relevé
+                    // au-dessus de l'overlay de clic de `ListRow` — sans son
+                    // propre `relative z-10`, l'icône restait donc SOUS
+                    // l'overlay : le clic ouvrait la fiche au lieu du document
+                    // (retour utilisateur : la modale ne s'ouvrait plus). La
+                    // Statut au-dessus, date en dessous. PAS de largeur fixe
+                    // (`w-32`) sur cette colonne dès qu'une icône la précède :
+                    // un statut court (« Ouvert ») laissait alors un vide
+                    // invisible entre l'icône et le badge, à l'intérieur même
+                    // de la colonne (retour utilisateur : « très grande
+                    // distance » — ce n'était pas le `gap`, déjà réduit).
                     meta={
-                      <div className="flex w-32 flex-col items-end gap-1">
-                        <StatusBadge
-                          tone={statutEvenementTone(ev.statut_evenement_id)}
-                        >
-                          {statutLabel}
-                        </StatusBadge>
-                        {/* La date SUIT le statut affiché juste au-dessus :
-                            clôturé → date de clôture, sinon date de survenue.
-                            Sans cela, un événement clos affichait la date à
-                            laquelle il était arrivé, et le badge démentait la
-                            date. */}
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {formatDate(dateAffichee(ev))}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        {docs.length > 0 && (
+                          <div className="relative z-10">
+                            <DocumentIndicator
+                              documents={docs}
+                              entiteNom={ev.titre}
+                              size="sm"
+                            />
+                          </div>
+                        )}
+                        <div className="flex flex-col items-end gap-1">
+                          <StatusBadge
+                            tone={statutEvenementTone(ev.statut_evenement_id)}
+                          >
+                            {statutLabel}
+                          </StatusBadge>
+                          {/* La date SUIT le statut affiché juste au-dessus :
+                              clôturé → date de clôture, sinon date de survenue.
+                              Sans cela, un événement clos affichait la date à
+                              laquelle il était arrivé, et le badge démentait la
+                              date. */}
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {formatDate(dateAffichee(ev))}
+                          </span>
+                        </div>
                       </div>
                     }
                     mobileMeta={`${statutLabel} · ${formatDate(dateAffichee(ev))}`}

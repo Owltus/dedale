@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -20,6 +21,12 @@ interface TooltipIconButtonProps {
   variant?: ComponentProps<typeof Button>['variant']
   disabled?: boolean
   type?: ComponentProps<typeof Button>['type']
+  /**
+   * Surcharge de classes (ex. accoler ce bouton à un contrôle voisin dans un
+   * même groupe visuel : `rounded-l-none -ml-px`). Fusionné APRÈS `shrink-0`
+   * (`cn`/`twMerge`) — omis, comportement inchangé.
+   */
+  className?: string
 }
 
 /**
@@ -35,6 +42,7 @@ export function TooltipIconButton({
   variant = 'ghost',
   disabled,
   type = 'button',
+  className,
 }: TooltipIconButtonProps) {
   const button = (
     <Button
@@ -44,7 +52,7 @@ export function TooltipIconButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="shrink-0"
+      className={cn('shrink-0', className)}
     >
       {icon}
     </Button>

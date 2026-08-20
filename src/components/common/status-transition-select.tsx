@@ -9,6 +9,14 @@ interface StatusTransitionSelectProps {
   onValueChange: (value: string) => void
   disabled?: boolean
   ariaLabel: string
+  /**
+   * Surcharge des classes par défaut (pastille `h-7 w-28 rounded-full`) — pour
+   * les contextes qui veulent le même mécanisme (statut + transition) mais un
+   * autre habillage (ex. barre de titre, gabarit `h-9` des `TooltipIconButton`
+   * voisins). Fusionné APRÈS les classes par défaut (`cn`/`twMerge`) : peut
+   * donc les remplacer entièrement.
+   */
+  className?: string
 }
 
 /**
@@ -26,6 +34,7 @@ export function StatusTransitionSelect({
   onValueChange,
   disabled,
   ariaLabel,
+  className,
 }: StatusTransitionSelectProps) {
   return (
     <SelectDropdown
@@ -38,6 +47,7 @@ export function StatusTransitionSelect({
       className={cn(
         'h-7 w-28 gap-1 rounded-full border px-3 text-xs font-medium shadow-none',
         toneBadgeClasses(tone),
+        className,
       )}
     />
   )

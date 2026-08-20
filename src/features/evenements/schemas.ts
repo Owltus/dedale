@@ -27,6 +27,10 @@ export const evenementSchema = z.object({
       equipement_id: z.string(),
     }),
   ),
+  // 094 (D2) : activation des tâches sur cette fiche — désactivé masque la
+  // carte Tâches sur la fiche SANS supprimer les tâches déjà enregistrées
+  // (mises en sommeil, récupérables en réactivant).
+  taches_activees: z.boolean(),
 })
 
 export type EvenementFormValues = z.infer<typeof evenementSchema>
@@ -37,6 +41,7 @@ export function emptyEvenement(dateDuJour: string): EvenementFormValues {
     description: '',
     date_evenement: dateDuJour,
     taches: [],
+    taches_activees: true,
   }
 }
 

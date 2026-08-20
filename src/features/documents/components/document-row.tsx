@@ -21,6 +21,12 @@ interface DocumentRowProps {
   actions?: ReactNode
   /** Actions présentées en MENU (clic droit / appui long / kebab). Prime sur `actions`. */
   menuActions?: RowAction[]
+  /**
+   * Masque le sous-titre « taille · date » — pour un contexte déjà dense où
+   * cette info est superflue (ex. mini-liste sous une tâche). Défaut `false`,
+   * comportement inchangé pour la bibliothèque et les onglets Documents.
+   */
+  hideMeta?: boolean
 }
 
 /**
@@ -37,13 +43,18 @@ export function DocumentRow({
   mobileMeta,
   actions,
   menuActions,
+  hideMeta = false,
 }: DocumentRowProps) {
   return (
     <ListRow
       size={size}
-      media={<RowMediaIcon icon={iconeFormat(doc.mime_type)} />}
+      media={<RowMediaIcon icon={iconeFormat(doc.mime_type)} size={size} />}
       title={doc.nom_original}
-      subtitle={`${formatTaille(doc.taille_octets)} · ${formatDate(doc.uploaded_at)}`}
+      subtitle={
+        hideMeta
+          ? undefined
+          : `${formatTaille(doc.taille_octets)} · ${formatDate(doc.uploaded_at)}`
+      }
       onClick={onClick}
       badges={badges}
       mobileMeta={mobileMeta}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { evenementSchema, emptyEvenement } from '../schemas'
 import type { EvenementFormValues } from '../schemas'
@@ -101,9 +101,14 @@ export function EvenementFormDialog({
           date_evenement: evenement.date_evenement,
           // Jamais peuplé ici — `taches` est un état à part, cf. plus haut.
           taches: [],
+          taches_activees: evenement.taches_activees,
         }
       : undefined,
     defaultValues: emptyEvenement(isoLocale(new Date())),
+  })
+  const tachesActivees = useWatch({
+    control: form.control,
+    name: 'taches_activees',
   })
 
   const submit = useSubmitDialog<EvenementFormValues, Evenement | null>({
@@ -169,6 +174,9 @@ export function EvenementFormDialog({
           siteId={siteId}
           value={taches}
           onChange={setTaches}
+          activees={tachesActivees}
+          onActiveesChange={(v) => form.setValue('taches_activees', v)}
+          labelActivation="Cet événement a nécessité des tâches"
         />
       </FormDialog>
     </Form>

@@ -1164,8 +1164,10 @@ export type Database = {
           id: string
           site_id: string
           statut_evenement_id: number
+          taches_activees: boolean
           titre: string
           updated_at: string
+          verrouille: boolean
         }
         Insert: {
           cloture_by?: string | null
@@ -1178,8 +1180,10 @@ export type Database = {
           id?: string
           site_id: string
           statut_evenement_id?: number
+          taches_activees?: boolean
           titre: string
           updated_at?: string
+          verrouille?: boolean
         }
         Update: {
           cloture_by?: string | null
@@ -1192,8 +1196,10 @@ export type Database = {
           id?: string
           site_id?: string
           statut_evenement_id?: number
+          taches_activees?: boolean
           titre?: string
           updated_at?: string
+          verrouille?: boolean
         }
         Relationships: [
           {
@@ -1538,8 +1544,10 @@ export type Database = {
           id: string
           site_id: string
           statut_travaux_id: number
+          taches_activees: boolean
           titre: string
           updated_at: string
+          verrouille: boolean
         }
         Insert: {
           cloture_by?: string | null
@@ -1552,8 +1560,10 @@ export type Database = {
           id?: string
           site_id: string
           statut_travaux_id?: number
+          taches_activees?: boolean
           titre: string
           updated_at?: string
+          verrouille?: boolean
         }
         Update: {
           cloture_by?: string | null
@@ -1566,8 +1576,10 @@ export type Database = {
           id?: string
           site_id?: string
           statut_travaux_id?: number
+          taches_activees?: boolean
           titre?: string
           updated_at?: string
+          verrouille?: boolean
         }
         Relationships: [
           {

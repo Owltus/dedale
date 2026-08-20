@@ -41,6 +41,8 @@ import {
   FILTRE_TOUS,
 } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
+import { DocumentIndicator } from '@/components/common/document-indicator'
+import type { DocumentMeta } from '@/features/documents/format'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -84,6 +86,11 @@ function TravauxContent({
   // Liste en LIVE (nouveau chantier/travaux visible sans F5).
   useRealtimeRefresh('interventions_travaux', travauxQueries.all())
   const { data: statuts = [] } = useQuery(statutsTravauxQueries.list())
+  // Documents rattachés aux travaux du site, en UNE requête groupée (fiche
+  // ET tâches confondues) — même patron que la carte OT.
+  const documentsQuery = useQuery(travauxQueries.documentsParTravaux(siteId))
+  const documentsParTravaux =
+    documentsQuery.data ?? new Map<string, DocumentMeta[]>()
   const del = useDeleteTravaux()
   const convertir = useConvertirEnEvenement()
   const [aConvertir, setAConvertir] = useState<Travaux | null>(null)
@@ -229,6 +236,7 @@ function TravauxContent({
                     separatorBefore: true,
                   })
                 }
+                const docs = documentsParTravaux.get(c.id) ?? []
                 return (
                   <ListRow
                     key={c.id}
@@ -251,25 +259,55 @@ function TravauxContent({
                         },
                       })
                     }
-                    // UN SEUL bloc à droite, empilé dans une colonne de largeur
-                    // fixe : statut au-dessus, date en dessous. `badges` et
-                    // `meta` étaient deux blocs CÔTE À CÔTE, et la largeur du
-                    // second suivait celle des dates — un travaux terminé, qui
-                    // en affichait deux, poussait son badge plus à gauche que
-                    // les autres. Empilés, les deux colonnes s'alignent par
-                    // construction (patron Événements / Investissements).
+                    mobileBadge={
+                      docs.length > 0 ? (
+                        <DocumentIndicator
+                          documents={docs}
+                          entiteNom={c.titre}
+                          size="sm"
+                        />
+                      ) : undefined
+                    }
+                    // UN SEUL bloc à droite : icône documents (brique commune,
+                    // patron OT — rattachés au niveau fiche OU à une tâche,
+                    // tous confondus) COLLÉE à la colonne statut/date, dans le
+                    // MÊME slot `meta` plutôt qu'un `badges` séparé — sinon les
+                    // deux se retrouvent à deux `gap` d'écart (retour
+                    // utilisateur : l'icône paraissait très éloignée). `meta`
+                    // (contrairement à `badges`/`mobileBadge`) n'est PAS relevé
+                    // au-dessus de l'overlay de clic de `ListRow` — sans son
+                    // propre `relative z-10`, l'icône restait donc SOUS
+                    // l'overlay : le clic ouvrait la fiche au lieu du document
+                    // (retour utilisateur : la modale ne s'ouvrait plus). La
+                    // Statut au-dessus, date en dessous. PAS de largeur fixe
+                    // (`w-32`) sur cette colonne dès qu'une icône la précède :
+                    // un statut court (« Ouvert ») laissait alors un vide
+                    // invisible entre l'icône et le badge, à l'intérieur même
+                    // de la colonne (retour utilisateur : « très grande
+                    // distance » — ce n'était pas le `gap`, déjà réduit).
                     meta={
-                      <div className="flex w-32 flex-col items-end gap-1">
-                        <StatusBadge
-                          tone={statutTravauxTone(c.statut_travaux_id)}
-                        >
-                          {statutLabel}
-                        </StatusBadge>
-                        {/* La date SUIT le statut affiché au-dessus : terminé →
-                            date de fin, sinon date de création. */}
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {formatDate(dateAffichee(c))}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        {docs.length > 0 && (
+                          <div className="relative z-10">
+                            <DocumentIndicator
+                              documents={docs}
+                              entiteNom={c.titre}
+                              size="sm"
+                            />
+                          </div>
+                        )}
+                        <div className="flex flex-col items-end gap-1">
+                          <StatusBadge
+                            tone={statutTravauxTone(c.statut_travaux_id)}
+                          >
+                            {statutLabel}
+                          </StatusBadge>
+                          {/* La date SUIT le statut affiché au-dessus : terminé →
+                              date de fin, sinon date de création. */}
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {formatDate(dateAffichee(c))}
+                          </span>
+                        </div>
                       </div>
                     }
                     mobileMeta={`${statutLabel} · ${formatDate(dateAffichee(c))}`}
