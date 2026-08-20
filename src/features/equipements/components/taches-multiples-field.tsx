@@ -7,6 +7,7 @@ import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 
 export interface TacheEntree {
   /** Présent = ligne déjà existante en base (édition) ; absent = nouvelle ligne. */
@@ -59,9 +60,12 @@ export function TachesMultiplesField({
       {value.map((entree, i) => (
         <div
           key={entree.id ?? `nouvelle-${String(i)}`}
-          className="flex items-start gap-2 rounded-md border p-3"
+          className="group flex items-start gap-2 rounded-md border bg-muted/30 p-3"
         >
           <div className="flex-1 space-y-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              Tâche {i + 1}
+            </p>
             <Input
               value={entree.libelle}
               onChange={(e) => {
@@ -106,7 +110,13 @@ export function TachesMultiplesField({
               )}
             />
           </div>
-          <div className="mt-1">
+          <div
+            className={cn(
+              'mt-1 opacity-0 transition-opacity',
+              'group-focus-within:opacity-100 group-hover:opacity-100',
+              '[@media(hover:none)]:opacity-100',
+            )}
+          >
             <TooltipIconButton
               icon={<Trash2 />}
               label="Retirer cette tâche"

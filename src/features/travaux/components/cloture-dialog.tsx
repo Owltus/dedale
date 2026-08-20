@@ -62,7 +62,7 @@ export function ClotureDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={correction ? 'Modifier la clôture' : 'Clôturer le travaux'}
-        description="Ce qui a été réalisé, et ce qu'il reste éventuellement à surveiller."
+        description="Résumé facultatif de ce qui a été réalisé — le détail de chaque étape se documente dans les tâches."
         onSubmit={() =>
           void form.handleSubmit((data) => {
             // La base n'a pas de CHECK de cohérence sur ce couple de dates

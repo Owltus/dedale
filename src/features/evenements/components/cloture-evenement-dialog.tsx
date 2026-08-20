@@ -26,10 +26,11 @@ interface ClotureEvenementDialogProps {
 /**
  * Clôture d'un événement : date + compte-rendu.
  *
- * Le compte-rendu est PROPOSÉ mais pas exigé — contrairement aux travaux, où le
- * backend le refuse vide. Un événement peut être clos sans qu'aucune action ait
- * été nécessaire (fausse alerte, remise en route spontanée) : imposer un texte
- * pousserait à écrire « RAS », ce qui ne renseigne personne.
+ * Le compte-rendu est PROPOSÉ mais pas exigé (comme pour les travaux depuis la
+ * migration 085 — le backend ne l'impose ni pour l'un ni pour l'autre). Un
+ * événement peut être clos sans qu'aucune action ait été nécessaire (fausse
+ * alerte, remise en route spontanée) : imposer un texte pousserait à écrire
+ * « RAS », ce qui ne renseigne personne.
  *
  * La date est saisissable, avec le jour même par défaut. Elle est bornée à la
  * date de l'événement : la contrainte `evenements_dates_coherentes` refuse une
@@ -62,7 +63,7 @@ export function ClotureEvenementDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={correction ? 'Modifier la clôture' : 'Clôturer l’événement'}
-        description="Ce qui a été fait, ou pourquoi il n’y avait rien à faire. Le compte-rendu est facultatif."
+        description="Ce qui a été fait, ou pourquoi il n’y avait rien à faire. Résumé facultatif — le détail de chaque étape se documente dans les tâches."
         onSubmit={() =>
           void form.handleSubmit((data) => {
             // Miroir du CHECK backend : une clôture ne précède pas l'événement.

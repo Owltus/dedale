@@ -36,7 +36,7 @@ export function StatusTransitionSelect({
       ariaLabel={ariaLabel}
       checkIndicator={false}
       className={cn(
-        'h-7 w-auto gap-1 rounded-full border px-3 text-xs font-medium shadow-none',
+        'h-7 w-28 gap-1 rounded-full border px-3 text-xs font-medium shadow-none',
         toneBadgeClasses(tone),
       )}
     />

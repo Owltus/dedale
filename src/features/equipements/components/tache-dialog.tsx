@@ -1,6 +1,5 @@
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Paperclip } from 'lucide-react'
 import {
   tacheSchema,
   emptyTache,
@@ -103,15 +102,16 @@ export function TacheDialog({
         size="lg"
       >
         <div className="grid gap-4">
-          <TextField
-            control={form.control}
-            name="libelle"
-            label="Libellé"
-            required
-            placeholder="Ex. Livraison et déballage"
-          />
-
-          <DateField control={form.control} name="date_tache" label="Date" />
+          <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
+            <TextField
+              control={form.control}
+              name="libelle"
+              label="Libellé"
+              required
+              placeholder="Ex. Livraison et déballage"
+            />
+            <DateField control={form.control} name="date_tache" label="Date" />
+          </div>
 
           <LocalEquipementFields
             siteId={siteId}
@@ -143,24 +143,19 @@ export function TacheDialog({
             control={form.control}
             name="commentaire"
             label="Commentaire"
-            rows={3}
+            rows={5}
           />
 
           {isEdit && tache && documents && (
             <>
               <Separator />
-              <div>
-                <h3 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-                  <Paperclip className="size-3.5" />
-                  Documents de cette tâche
-                </h3>
-                <DocumentsTab
-                  liaison={documents.liaison}
-                  parentColumn={documents.parentColumn}
-                  parentId={documents.parentId}
-                  tacheId={tache.id}
-                />
-              </div>
+              <DocumentsTab
+                title="Documents de cette tâche"
+                liaison={documents.liaison}
+                parentColumn={documents.parentColumn}
+                parentId={documents.parentId}
+                tacheId={tache.id}
+              />
             </>
           )}
         </div>

@@ -36,7 +36,6 @@ import { listStack } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusTransitionSelect } from '@/components/common/status-transition-select'
-import { ProgressBar } from '@/components/common/progress-bar'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -154,35 +153,14 @@ export function EvenementDetail({
       <PageHeader
         title={ev.titre}
         breadcrumb={[{ label: 'Événements', onClick: onBack }]}
-        titleBadges={
-          <StatusTransitionSelect
-            value={String(ev.statut_evenement_id)}
-            tone={statutEvenementTone(ev.statut_evenement_id)}
-            ariaLabel="Statut de l'événement"
-            disabled={!canManage || change.isPending}
-            options={statuts.map((s) => ({
-              value: String(s.id),
-              label: s.nom,
-            }))}
-            onValueChange={(v) => changeStatut(Number(v))}
-          />
-        }
         action={
           canManage ? (
-            <>
-              <TooltipIconButton
-                icon={<Paperclip />}
-                label="Rattacher un document"
-                variant="outline"
-                onClick={upload.openUploadEmpty}
-              />
-              <TooltipIconButton
-                icon={<Pencil />}
-                label="Modifier l’événement"
-                variant="outline"
-                onClick={() => edit.openEdit(ev)}
-              />
-            </>
+            <TooltipIconButton
+              icon={<Pencil />}
+              label="Modifier l’événement"
+              variant="outline"
+              onClick={() => edit.openEdit(ev)}
+            />
           ) : undefined
         }
       />
@@ -281,34 +259,36 @@ export function EvenementDetail({
       >
         <div className="flex flex-col gap-4">
           {/* TÂCHES — centre visuel de la fiche (090, étape 7), même patron
-              que Travaux : la checklist porte désormais la progression
-              visible, la frise de statut global n'a plus qu'un rôle discret
-              en en-tête. */}
+              que Travaux. Le statut global de la fiche vit ICI, à côté
+              (refonte UI, étape 6) — plus dans le titre. */}
           <Card className="gap-3 py-4">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-              <div>
-                <CardTitle className="text-base">
-                  Tâches
-                  {lieux.length > 0 &&
-                    ` (${String(realisees)}/${String(lieux.length)} réalisées)`}
-                </CardTitle>
-                {lieux.length > 0 && (
-                  <ProgressBar
-                    value={realisees / lieux.length}
-                    tone="success"
-                    label="Progression des tâches"
-                    className="mt-2"
+              <CardTitle className="text-base">
+                Tâches
+                {lieux.length > 0 &&
+                  ` (${String(realisees)}/${String(lieux.length)} réalisées)`}
+              </CardTitle>
+              <div className="flex shrink-0 items-center gap-2">
+                <StatusTransitionSelect
+                  value={String(ev.statut_evenement_id)}
+                  tone={statutEvenementTone(ev.statut_evenement_id)}
+                  ariaLabel="Statut de l'événement"
+                  disabled={!canManage || change.isPending}
+                  options={statuts.map((s) => ({
+                    value: String(s.id),
+                    label: s.nom,
+                  }))}
+                  onValueChange={(v) => changeStatut(Number(v))}
+                />
+                {canManage && (
+                  <TooltipIconButton
+                    icon={<ListPlus />}
+                    label="Ajouter une tâche"
+                    variant="outline"
+                    onClick={() => lieuDialog.openCreate()}
                   />
                 )}
               </div>
-              {canManage && (
-                <TooltipIconButton
-                  icon={<ListPlus />}
-                  label="Ajouter une tâche"
-                  variant="outline"
-                  onClick={() => lieuDialog.openCreate()}
-                />
-              )}
             </CardHeader>
             <CardContent>
               <QueryState
@@ -363,8 +343,16 @@ export function EvenementDetail({
               détache (retour au niveau fiche). */}
           <DocumentsFicheDropZone>
             <Card className="relative gap-3 py-4">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
                 <CardTitle className="text-base">Documents</CardTitle>
+                {canManage && (
+                  <TooltipIconButton
+                    icon={<Paperclip />}
+                    label="Rattacher un document"
+                    variant="outline"
+                    onClick={upload.openUploadEmpty}
+                  />
+                )}
               </CardHeader>
               <CardContent>
                 <DocumentsTab

@@ -38,7 +38,6 @@ import { listStack } from '@/lib/responsive'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusTransitionSelect } from '@/components/common/status-transition-select'
-import { ProgressBar } from '@/components/common/progress-bar'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -183,37 +182,14 @@ export function TravauxDetail({
             onClick: () => void navigate({ to: '/travaux' }),
           },
         ]}
-        titleBadges={
-          <StatusTransitionSelect
-            value={String(travaux.statut_travaux_id)}
-            tone={statutTravauxTone(travaux.statut_travaux_id)}
-            ariaLabel="Statut du travaux"
-            disabled={!canManage || change.isPending}
-            options={statuts.map((s) => ({
-              value: String(s.id),
-              label: s.nom,
-            }))}
-            onValueChange={(v) => transition(Number(v))}
-          />
-        }
         action={
-          canManage ? (
-            <>
-              <TooltipIconButton
-                icon={<Paperclip />}
-                label="Rattacher un document"
-                variant="outline"
-                onClick={upload.openUploadEmpty}
-              />
-              {editable && (
-                <TooltipIconButton
-                  icon={<Pencil />}
-                  label="Modifier le travaux"
-                  variant="outline"
-                  onClick={() => editDialog.openEdit(travaux)}
-                />
-              )}
-            </>
+          canManage && editable ? (
+            <TooltipIconButton
+              icon={<Pencil />}
+              label="Modifier le travaux"
+              variant="outline"
+              onClick={() => editDialog.openEdit(travaux)}
+            />
           ) : undefined
         }
       />
@@ -312,33 +288,38 @@ export function TravauxDetail({
       >
         <div className="flex flex-col gap-4">
           {/* TÂCHES — centre visuel de la fiche (090, étape 7) : la checklist
-              porte désormais la progression visible, la frise de statut
-              global n'a plus qu'un rôle discret en en-tête. */}
+              porte désormais la progression visible. Le statut global de la
+              fiche vit ICI, à côté (refonte UI, étape 6) — plus dans le
+              titre — pour être visuellement rattaché à l'avancement des
+              tâches dont il dépend le plus directement. */}
           <Card className="gap-3 py-4">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-              <div>
-                <CardTitle className="text-base">
-                  Tâches
-                  {taches.length > 0 &&
-                    ` (${String(realisees)}/${String(taches.length)} réalisées)`}
-                </CardTitle>
-                {taches.length > 0 && (
-                  <ProgressBar
-                    value={realisees / taches.length}
-                    tone="success"
-                    label="Progression des tâches"
-                    className="mt-2"
+              <CardTitle className="text-base">
+                Tâches
+                {taches.length > 0 &&
+                  ` (${String(realisees)}/${String(taches.length)} réalisées)`}
+              </CardTitle>
+              <div className="flex shrink-0 items-center gap-2">
+                <StatusTransitionSelect
+                  value={String(travaux.statut_travaux_id)}
+                  tone={statutTravauxTone(travaux.statut_travaux_id)}
+                  ariaLabel="Statut du travaux"
+                  disabled={!canManage || change.isPending}
+                  options={statuts.map((s) => ({
+                    value: String(s.id),
+                    label: s.nom,
+                  }))}
+                  onValueChange={(v) => transition(Number(v))}
+                />
+                {!tachesReadOnly && (
+                  <TooltipIconButton
+                    icon={<ListPlus />}
+                    label="Ajouter une tâche"
+                    variant="outline"
+                    onClick={() => tacheDialog.openCreate()}
                   />
                 )}
               </div>
-              {!tachesReadOnly && (
-                <TooltipIconButton
-                  icon={<ListPlus />}
-                  label="Ajouter une tâche"
-                  variant="outline"
-                  onClick={() => tacheDialog.openCreate()}
-                />
-              )}
             </CardHeader>
             <CardContent>
               <QueryState
@@ -398,8 +379,16 @@ export function TravauxDetail({
               le détache (retour au niveau fiche). */}
           <DocumentsFicheDropZone>
             <Card className="relative gap-3 py-4">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
                 <CardTitle className="text-base">Documents</CardTitle>
+                {canManage && (
+                  <TooltipIconButton
+                    icon={<Paperclip />}
+                    label="Rattacher un document"
+                    variant="outline"
+                    onClick={upload.openUploadEmpty}
+                  />
+                )}
               </CardHeader>
               <CardContent>
                 <DocumentsTab

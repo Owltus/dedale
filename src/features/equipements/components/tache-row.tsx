@@ -11,7 +11,7 @@ import {
 import {
   LIBELLES_STATUT_ZONE,
   STATUTS_ZONE,
-  variantStatutZone,
+  toneStatutZone,
   type StatutZone,
 } from '@/features/equipements/statut-zone'
 import { documentsQueries } from '@/features/documents/queries'
@@ -20,7 +20,7 @@ import { DocumentsListe } from '@/components/common/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { DateField } from '@/components/ui/date-field'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/common/status-badge'
 import { formatDateAvecSemaineIso } from '@/lib/date'
 import { cn } from '@/lib/utils'
 
@@ -121,7 +121,7 @@ export function TacheRow({
         zIndex: isDragging ? 1 : undefined,
       }}
       className={cn(
-        'rounded-md border bg-card',
+        'group rounded-md border bg-card',
         isOver && 'ring-2 ring-primary',
       )}
     >
@@ -148,44 +148,54 @@ export function TacheRow({
               </span>
             )}
           </p>
-          {readOnly && tache.date_tache && (
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <CalendarDays className="size-3" />
-              {formatDateAvecSemaineIso(tache.date_tache)}
-            </p>
-          )}
-        </div>
-
-        {readOnly ? (
-          <Badge variant={variantStatutZone(statut)} className="shrink-0">
-            {LIBELLES_STATUT_ZONE[statut]}
-          </Badge>
-        ) : (
-          <div className="flex shrink-0 items-center gap-2">
+          {/* Date TOUJOURS sous le libellé — même emplacement en lecture
+              seule et en édition (093, refonte UI D3), plus de disposition
+              asymétrique entre les deux modes. */}
+          {readOnly ? (
+            tache.date_tache && (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                <CalendarDays className="size-3" />
+                {formatDateAvecSemaineIso(tache.date_tache)}
+              </p>
+            )
+          ) : (
             <DateField
               ariaLabel={`Date — ${tache.libelle}`}
               value={tache.date_tache ?? ''}
               onValueChange={onChangeDate}
               disabled={datePending}
-              className="h-9 w-[8.5rem] shrink-0"
+              className="mt-1 h-7 w-[7.25rem] shrink-0 text-xs"
             />
-            <SelectDropdown
-              ariaLabel={`Statut — ${tache.libelle}`}
-              value={statut}
-              disabled={statutPending}
-              onValueChange={(v) => onChangeStatut(v as StatutZone)}
-              options={STATUTS_ZONE.map((s) => ({
-                value: s,
-                label: LIBELLES_STATUT_ZONE[s],
-              }))}
-              className="w-auto shrink-0"
-              checkIndicator={false}
-            />
-          </div>
+          )}
+        </div>
+
+        {readOnly ? (
+          <StatusBadge tone={toneStatutZone(statut)} className="shrink-0">
+            {LIBELLES_STATUT_ZONE[statut]}
+          </StatusBadge>
+        ) : (
+          <SelectDropdown
+            ariaLabel={`Statut — ${tache.libelle}`}
+            value={statut}
+            disabled={statutPending}
+            onValueChange={(v) => onChangeStatut(v as StatutZone)}
+            options={STATUTS_ZONE.map((s) => ({
+              value: s,
+              label: LIBELLES_STATUT_ZONE[s],
+            }))}
+            className="h-9 w-36 shrink-0 px-2"
+            checkIndicator={false}
+          />
         )}
 
         {!readOnly && (
-          <div className="flex shrink-0 items-center">
+          <div
+            className={cn(
+              'flex shrink-0 items-center opacity-0 transition-opacity',
+              'group-focus-within:opacity-100 group-hover:opacity-100',
+              '[@media(hover:none)]:opacity-100',
+            )}
+          >
             <TooltipIconButton
               icon={<Pencil />}
               label="Modifier cette tâche"

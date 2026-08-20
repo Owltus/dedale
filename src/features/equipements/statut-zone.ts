@@ -38,3 +38,23 @@ export function variantStatutZone(
       return 'outline'
   }
 }
+
+/**
+ * Tonalité sémantique (`StatusTone`, `common/status-badge.tsx`) d'un statut de
+ * zone — pastille discrète (fond teinté 10 %) plutôt que le badge plein de
+ * `variantStatutZone`, pour une ligne de tâche compacte (093, refonte UI).
+ */
+export function toneStatutZone(
+  statut: StatutZone,
+): 'neutral' | 'info' | 'success' | 'destructive' {
+  switch (statut) {
+    case 'realise':
+      return 'success'
+    case 'non_realise':
+      return 'destructive'
+    case 'en_cours':
+      return 'info'
+    default: // en_attente, non_applicable
+      return 'neutral'
+  }
+}

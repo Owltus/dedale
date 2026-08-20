@@ -49,8 +49,9 @@ export interface ListRowProps {
   actions?: ReactNode
   /**
    * Actions présentées en MENU : clic droit / appui long sur la card ouvrent un
-   * menu contextuel, et un kebab « ⋮ » (révélé au survol / permanent au tactile)
-   * ouvre le même menu. Prime sur `actions`. La page filtre selon les permissions.
+   * menu contextuel. Aucun bouton déclencheur visible (kebab retiré, choix PO) —
+   * c'est la seule façon d'y accéder. Prime sur `actions`. La page filtre selon
+   * les permissions.
    */
   menuActions?: RowAction[]
   /**
@@ -144,8 +145,9 @@ const TONE_ACCENT: Record<StatusTone, string> = {
  * dans `badges`/`mobileBadge` (ex. icône documents) sans conflit de clic.
  *
  * Menu : si `menuActions` est fourni, la card devient déclencheur d'un menu
- * contextuel (clic droit / appui long) et le slot d'actions porte un kebab « ⋮ »
- * (le clic droit n'ouvre PAS le drill-down — qui ne réagit qu'au clic gauche).
+ * contextuel (clic droit / appui long), sans aucun bouton visible en
+ * permanence (le clic droit n'ouvre PAS le drill-down — qui ne réagit qu'au
+ * clic gauche).
  */
 export function ListRow({
   icon,
