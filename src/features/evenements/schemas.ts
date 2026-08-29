@@ -15,6 +15,10 @@ export const evenementSchema = z.object({
   description: z.string().trim().max(5000),
   // Date nue locale (jamais `toISOString()`, cf. lib/date).
   date_evenement: z.string().min(1, 'La date est obligatoire'),
+  // 098 : lieu principal de l'événement, facultatif, indépendant des tâches —
+  // même convention que demandes/schemas.ts ('' = aucun).
+  local_id: z.string(),
+  equipement_id: z.string(),
   // 086 : une ou plusieurs tâches (090, généralisées — libellé libre, lieu
   // facultatif). Disponible en création ET en édition — continuité de la
   // fonctionnalité d'origine (le lieu se modifiait déjà depuis ce même
@@ -27,10 +31,6 @@ export const evenementSchema = z.object({
       equipement_id: z.string(),
     }),
   ),
-  // 094 (D2) : activation des tâches sur cette fiche — désactivé masque la
-  // carte Tâches sur la fiche SANS supprimer les tâches déjà enregistrées
-  // (mises en sommeil, récupérables en réactivant).
-  taches_activees: z.boolean(),
 })
 
 export type EvenementFormValues = z.infer<typeof evenementSchema>
@@ -40,8 +40,9 @@ export function emptyEvenement(dateDuJour: string): EvenementFormValues {
     titre: '',
     description: '',
     date_evenement: dateDuJour,
+    local_id: '',
+    equipement_id: '',
     taches: [],
-    taches_activees: true,
   }
 }
 

@@ -18,7 +18,8 @@ function toPayload(v: EvenementFormValues) {
     titre: v.titre.trim(),
     description: v.description.trim() || null,
     date_evenement: v.date_evenement,
-    taches_activees: v.taches_activees,
+    local_id: v.local_id || null,
+    equipement_id: v.equipement_id || null,
   }
 }
 

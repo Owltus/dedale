@@ -15,7 +15,8 @@ function toPayload(v: TravauxFormValues) {
     titre: v.titre.trim(),
     description: v.description.trim() || null,
     date_demande: v.date_demande,
-    taches_activees: v.taches_activees,
+    local_id: v.local_id || null,
+    equipement_id: v.equipement_id || null,
   }
 }
 

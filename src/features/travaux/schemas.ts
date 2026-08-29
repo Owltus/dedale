@@ -21,6 +21,10 @@ export const travauxSchema = z.object({
   // raison de tomber le jour de la saisie. Date nue locale (jamais
   // `toISOString()`, cf. lib/date).
   date_demande: z.string().min(1, 'La date est obligatoire'),
+  // 098 : lieu principal du travaux, facultatif, indépendant des tâches —
+  // même convention que demandes/schemas.ts ('' = aucun).
+  local_id: z.string(),
+  equipement_id: z.string(),
   // Tâches (090, généralisées) ajoutées/retouchées directement ici, en
   // création COMME en modification (la fiche, via TacheDialog, reste une
   // autre façon d'y accéder). Filtrées par la mutation : une ligne sans
@@ -34,10 +38,6 @@ export const travauxSchema = z.object({
       equipement_id: z.string(),
     }),
   ),
-  // 094 (D2) : activation des tâches sur cette fiche — désactivé masque la
-  // carte Tâches sur la fiche SANS supprimer les tâches déjà enregistrées
-  // (mises en sommeil, récupérables en réactivant).
-  taches_activees: z.boolean(),
 })
 
 export type TravauxFormValues = z.infer<typeof travauxSchema>
@@ -47,8 +47,9 @@ export function emptyTravaux(dateDuJour: string): TravauxFormValues {
     titre: '',
     description: '',
     date_demande: dateDuJour,
+    local_id: '',
+    equipement_id: '',
     taches: [],
-    taches_activees: true,
   }
 }
 

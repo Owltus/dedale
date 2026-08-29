@@ -10,9 +10,11 @@ export const evenementsQueries = {
    * Événements du site actif, du plus récent au plus ancien — c'est un journal :
    * ce qui vient d'arriver se lit en premier.
    *
-   * 086 : plus de jointure locaux/équipements ici — le lieu vit désormais dans
-   * `evenements_lieux` (0..N), récupéré séparément via `lieux()`, comme les
-   * zones de travaux (`travauxQueries.taches`).
+   * 086 avait retiré la jointure locaux/équipements (déplacée vers
+   * `evenements_lieux`, 0..N, récupérée via `lieux()`) ; 098 la réintroduit
+   * ICI pour le lieu PRINCIPAL (facultatif, indépendant des tâches) — sert à
+   * la fois la liste et la fiche détail (résolue depuis ce même résultat via
+   * `SlugDetailRoute`).
    */
   list: (siteId: string) =>
     queryOptions({
@@ -20,7 +22,7 @@ export const evenementsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('evenements')
-          .select('*')
+          .select('*, locaux(id, nom), equipements(id, nom)')
           .eq('site_id', siteId)
           .order('date_evenement', { ascending: false })
           .order('created_at', { ascending: false })

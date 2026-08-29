@@ -1161,10 +1161,11 @@ export type Database = {
           date_cloture: string | null
           date_evenement: string
           description: string | null
+          equipement_id: string | null
           id: string
+          local_id: string | null
           site_id: string
           statut_evenement_id: number
-          taches_activees: boolean
           titre: string
           updated_at: string
           verrouille: boolean
@@ -1177,10 +1178,11 @@ export type Database = {
           date_cloture?: string | null
           date_evenement?: string
           description?: string | null
+          equipement_id?: string | null
           id?: string
+          local_id?: string | null
           site_id: string
           statut_evenement_id?: number
-          taches_activees?: boolean
           titre: string
           updated_at?: string
           verrouille?: boolean
@@ -1193,10 +1195,11 @@ export type Database = {
           date_cloture?: string | null
           date_evenement?: string
           description?: string | null
+          equipement_id?: string | null
           id?: string
+          local_id?: string | null
           site_id?: string
           statut_evenement_id?: number
-          taches_activees?: boolean
           titre?: string
           updated_at?: string
           verrouille?: boolean
@@ -1215,6 +1218,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "locaux"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evenements_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["local_id"]
           },
           {
             foreignKeyName: "evenements_site_id_fkey"
@@ -1541,10 +1572,11 @@ export type Database = {
           date_demande: string
           date_fin: string | null
           description: string | null
+          equipement_id: string | null
           id: string
+          local_id: string | null
           site_id: string
           statut_travaux_id: number
-          taches_activees: boolean
           titre: string
           updated_at: string
           verrouille: boolean
@@ -1557,10 +1589,11 @@ export type Database = {
           date_demande?: string
           date_fin?: string | null
           description?: string | null
+          equipement_id?: string | null
           id?: string
+          local_id?: string | null
           site_id: string
           statut_travaux_id?: number
-          taches_activees?: boolean
           titre: string
           updated_at?: string
           verrouille?: boolean
@@ -1573,10 +1606,11 @@ export type Database = {
           date_demande?: string
           date_fin?: string | null
           description?: string | null
+          equipement_id?: string | null
           id?: string
+          local_id?: string | null
           site_id?: string
           statut_travaux_id?: number
-          taches_activees?: boolean
           titre?: string
           updated_at?: string
           verrouille?: boolean
@@ -1595,6 +1629,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interventions_travaux_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interventions_travaux_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interventions_travaux_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "locaux"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interventions_travaux_local_id_fkey"
+            columns: ["local_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["local_id"]
           },
           {
             foreignKeyName: "interventions_travaux_site_id_fkey"

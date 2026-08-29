@@ -62,7 +62,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
-type TravauxRow = Database['public']['Tables']['interventions_travaux']['Row']
+// 098 : `travaux` vient de `travauxQueries.list` (via `SlugDetailRoute`),
+// désormais enrichi de `locaux`/`equipements` (lieu principal) — le type de
+// table brut ne suffit plus pour lire `travaux.locaux?.nom`. Même patron que
+// `TacheItem` (`tache-row.tsx`).
+type TravauxRow =
+  Database['public']['Tables']['interventions_travaux']['Row'] & {
+    locaux: { id: string; nom: string } | null
+    equipements: { id: string; nom: string } | null
+  }
 
 interface TravauxDetailProps {
   travaux: TravauxRow
@@ -181,8 +189,9 @@ export function TravauxDetail({
   // veut dire verrouillé, pièces jointes comprises (retour utilisateur).
   const upload = useUploadDrop({ enabled: editable })
   // Avec des tâches, le statut se calcule tout seul (094, D1) — plus de
-  // sélection manuelle possible, quel que soit le verrou.
-  const statutDerive = travaux.taches_activees && taches.length > 0
+  // sélection manuelle possible, quel que soit le verrou. 098/100 : plus de
+  // `taches_activees`, purement dérivé du nombre de lignes.
+  const statutDerive = taches.length > 0
   const tachesReadOnly = !canManage || travaux.verrouille
   // Fiche verrouillée + carte "Documents" (niveau fiche, PAS les documents
   // des tâches) vide → rien à y faire ni à y voir, on la masque entièrement
@@ -198,6 +207,10 @@ export function TravauxDetail({
   const attendConfirmationCloture =
     travaux.statut_travaux_id === STATUT_TERMINE && travaux.date_fin === null
   const realisees = taches.filter((t) => t.statut === 'realise').length
+  // Lieu principal (098) — sous le titre, à côté de la date de création (D5).
+  const lieuPrincipalTexte = [travaux.locaux?.nom, travaux.equipements?.nom]
+    .filter(Boolean)
+    .join(' · ')
 
   // Ouvre la confirmation de clôture UNE FOIS par fiche fraîchement basculée
   // en Terminé par le trigger (ajustement pendant le rendu, pas un effet : on
@@ -340,7 +353,11 @@ export function TravauxDetail({
               ? undefined
               : 'lg:col-span-2'
           }
-          label={`Créé le ${formatDate(travaux.date_demande)}`}
+          label={
+            lieuPrincipalTexte
+              ? `${lieuPrincipalTexte} · Créé le ${formatDate(travaux.date_demande)}`
+              : `Créé le ${formatDate(travaux.date_demande)}`
+          }
           text={travaux.description}
           emptyText="Aucune description."
           action={
@@ -423,12 +440,10 @@ export function TravauxDetail({
           {/* TÂCHES — centre visuel de la fiche (090, étape 7) : la checklist
               porte désormais la progression visible. Le statut global de la
               fiche vit dans la barre de titre (retour live sur clic —
-              corrigé suite retour utilisateur), plus ici. 094 (D2) : la
-              carte disparaît ENTIÈREMENT si les tâches sont désactivées sur
-              cette fiche — pas même un état vide. Les tâches déjà
-              enregistrées ne sont pas supprimées pour autant, seulement
-              mises en sommeil. */}
-          {travaux.taches_activees && (
+              corrigé suite retour utilisateur), plus ici. 098/100 : plus de
+              `taches_activees` — la carte apparaît dès qu'il y a au moins une
+              tâche, disparaît dès qu'il n'y en a plus (rien à activer). */}
+          {taches.length > 0 && (
             <Card className="gap-3 py-4">
               <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
                 <CardTitle className="text-base">

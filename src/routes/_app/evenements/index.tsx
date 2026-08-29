@@ -55,7 +55,11 @@ import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 
-type Evenement = Database['public']['Tables']['evenements']['Row']
+// 098 : enrichi de locaux/équipements (lieu principal) par evenementsQueries.list.
+type Evenement = Database['public']['Tables']['evenements']['Row'] & {
+  locaux: { id: string; nom: string } | null
+  equipements: { id: string; nom: string } | null
+}
 
 export const Route = createFileRoute('/_app/evenements/')({
   component: EvenementsPage,
@@ -120,7 +124,10 @@ function EvenementsContent({
     [...statuts].sort((a, b) => a.id - b.id),
   )
 
-  function ouvrir(ev: Evenement, sibs: { nom: string; id: string }[]) {
+  function ouvrir(
+    ev: { id: string; titre: string },
+    sibs: { nom: string; id: string }[],
+  ) {
     void navigate({
       to: '/evenements/$evenement',
       params: { evenement: segOfUnique({ nom: ev.titre, id: ev.id }, sibs) },
@@ -178,12 +185,14 @@ function EvenementsContent({
             )
               return false
             if (q === '') return true
-            // 086 : le lieu ne recherche plus ici (déplacé vers
-            // evenements_lieux, 0..N — même choix que Travaux, qui ne
-            // cherche pas non plus dans ses zones).
+            // 098 : le lieu principal (facultatif, à plat) entre à nouveau
+            // dans la recherche — obsolète depuis 086 (lieu déplacé vers
+            // evenements_lieux, 0..N, non cherché), corrigé avec le lieu
+            // principal qui le remplace pour le cas simple.
             return (
               ev.titre.toLowerCase().includes(q) ||
-              (ev.description ?? '').toLowerCase().includes(q)
+              (ev.description ?? '').toLowerCase().includes(q) ||
+              (ev.locaux?.nom ?? '').toLowerCase().includes(q)
             )
           })
           // Frères pour le slug : MÊME ensemble qu'à la résolution du détail
@@ -233,6 +242,14 @@ function EvenementsContent({
                   })
                 }
                 const docs = documentsParEvenement.get(ev.id) ?? []
+                // Lieu principal (098) en préfixe du sous-titre — même patron
+                // que la liste des Demandes d'intervention.
+                const lieuTexte = [ev.locaux?.nom, ev.equipements?.nom]
+                  .filter(Boolean)
+                  .join(' · ')
+                const texteHabituel = ev.description?.trim()
+                  ? ev.description
+                  : `Survenu le ${formatDate(ev.date_evenement)}`
                 return (
                   <ListRow
                     key={ev.id}
@@ -240,9 +257,9 @@ function EvenementsContent({
                     media={<RowMediaIcon icon={OctagonAlert} />}
                     title={ev.titre}
                     subtitle={
-                      ev.description?.trim()
-                        ? ev.description
-                        : `Survenu le ${formatDate(ev.date_evenement)}`
+                      lieuTexte
+                        ? `${lieuTexte} · ${texteHabituel}`
+                        : texteHabituel
                     }
                     onClick={() => ouvrir(ev, sibs)}
                     mobileBadge={

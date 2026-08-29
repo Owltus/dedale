@@ -12,6 +12,8 @@ import {
   TachesMultiplesField,
   type TacheEntree,
 } from '@/features/equipements/components/taches-multiples-field'
+import { LocalEquipementFields } from '@/features/equipements/components/local-equipement-fields'
+import { LocalSearchSelect } from '@/features/equipements/components/local-search-select'
 import { isoLocale } from '@/lib/date'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
@@ -41,8 +43,9 @@ function initialValues(travaux: Travaux | null | undefined): TravauxFormValues {
     titre: travaux.titre,
     description: travaux.description ?? '',
     date_demande: travaux.date_demande,
+    local_id: travaux.local_id ?? '',
+    equipement_id: travaux.equipement_id ?? '',
     taches: [],
-    taches_activees: travaux.taches_activees,
   }
 }
 
@@ -103,9 +106,12 @@ export function TravauxFormDialog({
     resolver: zodResolver(travauxSchema),
     defaultValues: initialValues(travaux),
   })
-  const tachesActivees = useWatch({
+  // Cascade Localisation → Équipement (lieu principal, 098) — même patron
+  // que DiFormDialog : lu via useWatch, écrit via setValue.
+  const localId = useWatch({ control: form.control, name: 'local_id' })
+  const equipementId = useWatch({
     control: form.control,
-    name: 'taches_activees',
+    name: 'equipement_id',
   })
 
   const submit = useSubmitDialog<TravauxFormValues, Travaux | null>({
@@ -171,6 +177,26 @@ export function TravauxFormDialog({
             (livraison, mise en service, enlèvement…). Deux lignes obligeaient à
             se relire par une fente. */}
         <DescriptionField control={form.control} name="description" rows={5} />
+        {/* Lieu principal (098) — TOUJOURS visible, indépendant des tâches :
+            même patron que DiFormDialog (LocalSearchSelect + cascade
+            équipement). */}
+        <LocalEquipementFields
+          siteId={siteId}
+          localId={localId}
+          equipementId={equipementId}
+          onChange={({ localId, equipementId }) => {
+            form.setValue('local_id', localId)
+            form.setValue('equipement_id', equipementId)
+          }}
+          renderLieu={(p) => (
+            <LocalSearchSelect
+              siteId={p.siteId}
+              label="Lieu principal"
+              value={p.value}
+              onChange={p.onChange}
+            />
+          )}
+        />
         {/* Tâches ajoutées/retouchées directement ici, en création COMME en
             modification — « meilleur des deux mondes » (décision PO) :
             symétrique avec Événements, qui fait de même. */}
@@ -178,9 +204,6 @@ export function TravauxFormDialog({
           siteId={siteId}
           value={taches}
           onChange={setTaches}
-          activees={tachesActivees}
-          onActiveesChange={(v) => form.setValue('taches_activees', v)}
-          labelActivation="Ce travaux comporte des tâches"
         />
       </FormDialog>
     </Form>

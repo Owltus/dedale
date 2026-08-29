@@ -10,6 +10,8 @@ import {
   TachesMultiplesField,
   type TacheEntree,
 } from '@/features/equipements/components/taches-multiples-field'
+import { LocalEquipementFields } from '@/features/equipements/components/local-equipement-fields'
+import { LocalSearchSelect } from '@/features/equipements/components/local-search-select'
 import { useAuth } from '@/auth'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { isoLocale } from '@/lib/date'
@@ -99,16 +101,20 @@ export function EvenementFormDialog({
           titre: evenement.titre,
           description: evenement.description ?? '',
           date_evenement: evenement.date_evenement,
+          local_id: evenement.local_id ?? '',
+          equipement_id: evenement.equipement_id ?? '',
           // Jamais peuplé ici — `taches` est un état à part, cf. plus haut.
           taches: [],
-          taches_activees: evenement.taches_activees,
         }
       : undefined,
     defaultValues: emptyEvenement(isoLocale(new Date())),
   })
-  const tachesActivees = useWatch({
+  // Cascade Localisation → Équipement (lieu principal, 098) — même patron
+  // que DiFormDialog : lu via useWatch, écrit via setValue.
+  const localId = useWatch({ control: form.control, name: 'local_id' })
+  const equipementId = useWatch({
     control: form.control,
-    name: 'taches_activees',
+    name: 'equipement_id',
   })
 
   const submit = useSubmitDialog<EvenementFormValues, Evenement | null>({
@@ -164,6 +170,27 @@ export function EvenementFormDialog({
         />
         <DescriptionField control={form.control} name="description" rows={5} />
 
+        {/* Lieu principal (098) — TOUJOURS visible, indépendant des tâches :
+            même patron que DiFormDialog (LocalSearchSelect + cascade
+            équipement). */}
+        <LocalEquipementFields
+          siteId={siteId}
+          localId={localId}
+          equipementId={equipementId}
+          onChange={({ localId, equipementId }) => {
+            form.setValue('local_id', localId)
+            form.setValue('equipement_id', equipementId)
+          }}
+          renderLieu={(p) => (
+            <LocalSearchSelect
+              siteId={p.siteId}
+              label="Lieu principal"
+              value={p.value}
+              onChange={p.onChange}
+            />
+          )}
+        />
+
         {/* 086 : une ou plusieurs tâches (090, généralisées), ajoutées/
             retouchées directement ici — « meilleur des deux mondes »
             (décision PO) : la commodité déjà présente (choisir le lieu depuis
@@ -174,9 +201,6 @@ export function EvenementFormDialog({
           siteId={siteId}
           value={taches}
           onChange={setTaches}
-          activees={tachesActivees}
-          onActiveesChange={(v) => form.setValue('taches_activees', v)}
-          labelActivation="Cet événement a nécessité des tâches"
         />
       </FormDialog>
     </Form>

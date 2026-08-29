@@ -4304,8 +4304,9 @@ CREATE TABLE interventions_travaux (
 
     -- 094 : verrou anti-erreur, posé à toute clôture (manuelle ou automatique).
     verrouille          BOOLEAN NOT NULL DEFAULT false,
-    -- 095 : activation des tâches sur cette fiche (D2).
-    taches_activees     BOOLEAN NOT NULL DEFAULT true,
+    -- 098 : lieu principal, facultatif, indépendant des tâches (remplace 095/taches_activees, retirée en 100).
+    local_id            UUID REFERENCES locaux(id),
+    equipement_id       UUID REFERENCES equipements(id),
 
     -- Audit
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -4318,8 +4319,10 @@ COMMENT ON COLUMN interventions_travaux.cloture_by IS
     'Qui a passé les travaux en Terminé. 085 : posé par le FRONT (plus de trigger serveur, comme evenements.cloture_by). NULL tant que non terminé.';
 COMMENT ON COLUMN interventions_travaux.verrouille IS
     '094 : verrouillée dès la clôture (manuelle ou automatique) — plus aucune modification (tâches comprises) tant que non déverrouillée à la main.';
-COMMENT ON COLUMN interventions_travaux.taches_activees IS
-    '095 : désactivée, la carte Tâches ne s''affiche pas sur la fiche — les tâches déjà enregistrées ne sont jamais supprimées, seulement mises en sommeil.';
+COMMENT ON COLUMN interventions_travaux.local_id IS
+    '098 : lieu principal du travaux, facultatif, indépendant des tâches — même patron que demandes_intervention.local_id.';
+COMMENT ON COLUMN interventions_travaux.equipement_id IS
+    '098 : équipement principal du travaux, facultatif — même patron que demandes_intervention.equipement_id.';
 
 CREATE INDEX idx_travaux_site   ON interventions_travaux(site_id);
 CREATE INDEX idx_travaux_statut ON interventions_travaux(statut_travaux_id);
@@ -5276,8 +5279,12 @@ CREATE TABLE evenements (
     titre             TEXT NOT NULL CHECK (length(trim(titre)) > 0),
     description       TEXT,
     date_evenement    DATE NOT NULL DEFAULT current_date,
-    -- Où cela s'est produit : 086 — plus de local_id/equipement_id direct,
-    -- déplacé vers la table enfant evenements_lieux (0..N, comme travaux_taches).
+    -- Où cela s'est produit : 086 avait déplacé local_id/equipement_id vers la
+    -- table enfant evenements_lieux (0..N) ; 098 les réintroduit ICI comme lieu
+    -- PRINCIPAL, facultatif et indépendant de toute tâche (remplace 095/
+    -- taches_activees, retirée en 100) — une tâche garde SON PROPRE lieu à part.
+    local_id          UUID REFERENCES locaux(id),
+    equipement_id     UUID REFERENCES equipements(id),
     -- Clôture (le front impose le compte-rendu ; la base ne le contraint pas,
     -- un événement pouvant être clos sans qu'aucune action ait été nécessaire)
     compte_rendu      TEXT,
@@ -5285,8 +5292,6 @@ CREATE TABLE evenements (
     cloture_by        UUID REFERENCES users(id) ON DELETE SET NULL,
     -- 094 : verrou anti-erreur, posé à toute clôture (manuelle ou automatique).
     verrouille        BOOLEAN NOT NULL DEFAULT false,
-    -- 095 : activation des tâches sur cette fiche (D2).
-    taches_activees   BOOLEAN NOT NULL DEFAULT true,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     -- Une clôture ne peut pas précéder l'événement (cf. 23514 des OT, migration 075)
@@ -5297,8 +5302,10 @@ CREATE TABLE evenements (
 COMMENT ON TABLE evenements IS 'Journal des événements survenus dans l''établissement (077). Distinct des DI (qui demandent une action) et des travaux (qui en planifient une).';
 COMMENT ON COLUMN evenements.verrouille IS
     '094 : verrouillé dès la clôture (manuelle ou automatique) — plus aucune modification (tâches comprises) tant que non déverrouillé à la main.';
-COMMENT ON COLUMN evenements.taches_activees IS
-    '095 : désactivées, la carte Tâches ne s''affiche pas sur la fiche — les tâches déjà enregistrées ne sont jamais supprimées, seulement mises en sommeil.';
+COMMENT ON COLUMN evenements.local_id IS
+    '098 : lieu principal de l''événement, facultatif, indépendant des tâches.';
+COMMENT ON COLUMN evenements.equipement_id IS
+    '098 : équipement principal de l''événement, facultatif.';
 
 CREATE INDEX idx_evenements_site        ON evenements(site_id);
 CREATE INDEX idx_evenements_statut      ON evenements(statut_evenement_id);
@@ -7656,10 +7663,11 @@ BEGIN
     END IF;
 
     -- Statut de la fiche reporté TEL QUEL (087) : les deux référentiels
-    -- partagent les mêmes ids depuis 085/086. verrouille/taches_activees
-    -- transférés à l'identique (094/095).
-    INSERT INTO public.interventions_travaux (site_id, created_by, titre, description, statut_travaux_id, verrouille, taches_activees)
-    VALUES (v_evenement.site_id, (SELECT auth.uid()), v_evenement.titre, v_evenement.description, v_evenement.statut_evenement_id, v_evenement.verrouille, v_evenement.taches_activees)
+    -- partagent les mêmes ids depuis 085/086. verrouille (094) et lieu
+    -- principal (098) transférés à l'identique ; taches_activees (095)
+    -- retirée en 100, plus rien à transférer à sa place.
+    INSERT INTO public.interventions_travaux (site_id, created_by, titre, description, statut_travaux_id, verrouille, local_id, equipement_id)
+    VALUES (v_evenement.site_id, (SELECT auth.uid()), v_evenement.titre, v_evenement.description, v_evenement.statut_evenement_id, v_evenement.verrouille, v_evenement.local_id, v_evenement.equipement_id)
     RETURNING id INTO v_nouveau_id;
 
     -- TOUTES les tâches transférées (087), libellé/commentaire/date INCLUS (092/093).
@@ -7689,7 +7697,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.convertir_evenement_en_travaux(UUID) IS
-    '095 : convertit un Événement en Travaux (copie + suppression source). Transfert INTÉGRAL des tâches — libellé, commentaire, date, statut INCLUS —, du verrouillage, de l''activation des tâches, et des documents (fiche entière + documents par tâche, réattribués à leur nouvelle tâche). SECURITY INVOKER.';
+    '100 : convertit un Événement en Travaux (copie + suppression source). Transfert INTÉGRAL des tâches — libellé, commentaire, date, statut INCLUS —, du verrouillage, du lieu principal (098), et des documents (fiche entière + documents par tâche, réattribués à leur nouvelle tâche). SECURITY INVOKER.';
 
 CREATE OR REPLACE FUNCTION public.convertir_travaux_en_evenement(p_travaux_id UUID)
 RETURNS UUID
@@ -7706,8 +7714,8 @@ BEGIN
         RAISE EXCEPTION 'Travaux introuvable ou hors de votre périmètre';
     END IF;
 
-    INSERT INTO public.evenements (site_id, created_by, titre, description, statut_evenement_id, verrouille, taches_activees)
-    VALUES (v_travaux.site_id, (SELECT auth.uid()), v_travaux.titre, v_travaux.description, v_travaux.statut_travaux_id, v_travaux.verrouille, v_travaux.taches_activees)
+    INSERT INTO public.evenements (site_id, created_by, titre, description, statut_evenement_id, verrouille, local_id, equipement_id)
+    VALUES (v_travaux.site_id, (SELECT auth.uid()), v_travaux.titre, v_travaux.description, v_travaux.statut_travaux_id, v_travaux.verrouille, v_travaux.local_id, v_travaux.equipement_id)
     RETURNING id INTO v_nouveau_id;
 
     WITH nouvelles_taches AS (
@@ -7734,7 +7742,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.convertir_travaux_en_evenement(UUID) IS
-    '095 : convertit un Travaux en Événement (copie + suppression source). Transfert INTÉGRAL des tâches — libellé, commentaire, date, statut INCLUS —, du verrouillage, de l''activation des tâches, et des documents (fiche entière + documents par tâche, réattribués à leur nouvelle tâche). SECURITY INVOKER.';
+    '100 : convertit un Travaux en Événement (copie + suppression source). Transfert INTÉGRAL des tâches — libellé, commentaire, date, statut INCLUS —, du verrouillage, du lieu principal (098), et des documents (fiche entière + documents par tâche, réattribués à leur nouvelle tâche). SECURITY INVOKER.';
 
 REVOKE EXECUTE ON FUNCTION public.convertir_evenement_en_travaux(uuid) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.convertir_evenement_en_travaux(uuid) TO authenticated, service_role;
@@ -10367,6 +10375,109 @@ CREATE TRIGGER trg_travaux_tache_coherence
     BEFORE INSERT OR UPDATE ON travaux_taches
     FOR EACH ROW EXECUTE FUNCTION public.check_travaux_tache_coherence();
 COMMENT ON FUNCTION public.check_travaux_tache_coherence() IS 'Pattern 6 — local/équipement d''une tâche appartiennent au site du travail ; équipement dans le local indiqué.';
+
+
+-- =====================================================================
+-- 098 — Cohérence de site du lieu principal (Pattern 6, calqué ci-dessus)
+-- =====================================================================
+-- Le lieu principal (098, D1/D7 du plan lieu-principal-travaux-evenements)
+-- est un FK DIRECT sur interventions_travaux/evenements (pas une table de
+-- liaison) : site_id est déjà sur NEW, pas besoin de le retrouver via une
+-- jointure vers la table parente comme ci-dessus.
+
+CREATE OR REPLACE FUNCTION public.check_travaux_lieu_principal_site()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_local_site UUID;
+    v_eq_site    UUID;
+    v_eq_local   UUID;
+BEGIN
+    IF NEW.local_id IS NOT NULL THEN
+        SELECT b.site_id INTO v_local_site
+        FROM public.locaux l
+        JOIN public.niveaux n ON n.id = l.niveau_id
+        JOIN public.batiments b ON b.id = n.batiment_id
+        WHERE l.id = NEW.local_id;
+        IF v_local_site IS NULL OR v_local_site <> NEW.site_id THEN
+            RAISE EXCEPTION 'interventions_travaux : local_id % hors du site % du travail',
+                NEW.local_id, NEW.site_id;
+        END IF;
+    END IF;
+
+    IF NEW.equipement_id IS NOT NULL THEN
+        SELECT b.site_id, e.local_id INTO v_eq_site, v_eq_local
+        FROM public.equipements e
+        JOIN public.locaux l ON l.id = e.local_id
+        JOIN public.niveaux n ON n.id = l.niveau_id
+        JOIN public.batiments b ON b.id = n.batiment_id
+        WHERE e.id = NEW.equipement_id;
+        IF v_eq_site IS NULL OR v_eq_site <> NEW.site_id THEN
+            RAISE EXCEPTION 'interventions_travaux : equipement_id % hors du site % du travail',
+                NEW.equipement_id, NEW.site_id;
+        END IF;
+        IF NEW.local_id IS NOT NULL AND v_eq_local <> NEW.local_id THEN
+            RAISE EXCEPTION 'interventions_travaux : equipement_id % n''est pas dans le local %',
+                NEW.equipement_id, NEW.local_id;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+CREATE TRIGGER trg_travaux_lieu_principal_coherence
+    BEFORE INSERT OR UPDATE OF local_id, equipement_id, site_id ON interventions_travaux
+    FOR EACH ROW EXECUTE FUNCTION public.check_travaux_lieu_principal_site();
+COMMENT ON FUNCTION public.check_travaux_lieu_principal_site() IS
+    '098 : Pattern 6 — le lieu principal d''un travaux doit appartenir à son site ; équipement dans le local indiqué.';
+
+CREATE OR REPLACE FUNCTION public.check_evenement_lieu_principal_site()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_local_site UUID;
+    v_eq_site    UUID;
+    v_eq_local   UUID;
+BEGIN
+    IF NEW.local_id IS NOT NULL THEN
+        SELECT b.site_id INTO v_local_site
+        FROM public.locaux l
+        JOIN public.niveaux n ON n.id = l.niveau_id
+        JOIN public.batiments b ON b.id = n.batiment_id
+        WHERE l.id = NEW.local_id;
+        IF v_local_site IS NULL OR v_local_site <> NEW.site_id THEN
+            RAISE EXCEPTION 'evenements : local_id % hors du site % de l''événement',
+                NEW.local_id, NEW.site_id;
+        END IF;
+    END IF;
+
+    IF NEW.equipement_id IS NOT NULL THEN
+        SELECT b.site_id, e.local_id INTO v_eq_site, v_eq_local
+        FROM public.equipements e
+        JOIN public.locaux l ON l.id = e.local_id
+        JOIN public.niveaux n ON n.id = l.niveau_id
+        JOIN public.batiments b ON b.id = n.batiment_id
+        WHERE e.id = NEW.equipement_id;
+        IF v_eq_site IS NULL OR v_eq_site <> NEW.site_id THEN
+            RAISE EXCEPTION 'evenements : equipement_id % hors du site % de l''événement',
+                NEW.equipement_id, NEW.site_id;
+        END IF;
+        IF NEW.local_id IS NOT NULL AND v_eq_local <> NEW.local_id THEN
+            RAISE EXCEPTION 'evenements : equipement_id % n''est pas dans le local %',
+                NEW.equipement_id, NEW.local_id;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+CREATE TRIGGER trg_evenement_lieu_principal_coherence
+    BEFORE INSERT OR UPDATE OF local_id, equipement_id, site_id ON evenements
+    FOR EACH ROW EXECUTE FUNCTION public.check_evenement_lieu_principal_site();
+COMMENT ON FUNCTION public.check_evenement_lieu_principal_site() IS
+    '098 : Pattern 6 — miroir exact check_travaux_lieu_principal_site.';
 
 
 -- =====================================================================

@@ -60,7 +60,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
-type Evenement = Database['public']['Tables']['evenements']['Row']
+// 098 : `ev` vient de `evenementsQueries.list` (via `SlugDetailRoute`),
+// désormais enrichi de `locaux`/`equipements` (lieu principal) — le type de
+// table brut ne suffit plus pour lire `ev.locaux?.nom`. Même patron que
+// `TacheItem` (`tache-row.tsx`).
+type Evenement = Database['public']['Tables']['evenements']['Row'] & {
+  locaux: { id: string; nom: string } | null
+  equipements: { id: string; nom: string } | null
+}
 
 export function EvenementDetail({
   evenement: ev,
@@ -162,11 +169,16 @@ export function EvenementDetail({
   }
 
   const realisees = lieux.filter((l) => l.statut === 'realise').length
+  // Lieu principal (098) — sous le titre, à côté de la date de survenue (D5).
+  const lieuPrincipalTexte = [ev.locaux?.nom, ev.equipements?.nom]
+    .filter(Boolean)
+    .join(' · ')
 
   // 094 : avec des tâches, le statut se calcule tout seul — plus de choix
   // manuel. Le verrou (posé à toute clôture) bloque tout jusqu'au
-  // déverrouillage explicite.
-  const statutDerive = ev.taches_activees && lieux.length > 0
+  // déverrouillage explicite. 098/100 : plus de `taches_activees`, purement
+  // dérivé du nombre de lignes.
+  const statutDerive = lieux.length > 0
   const tachesReadOnly = !canManage || ev.verrouille
   // Fiche verrouillée + carte "Documents" (niveau fiche, PAS les documents
   // des tâches) vide → rien à y faire ni à y voir, on la masque entièrement
@@ -320,7 +332,11 @@ export function EvenementDetail({
               ? undefined
               : 'lg:col-span-2'
           }
-          label={`Survenu le ${formatDate(ev.date_evenement)}`}
+          label={
+            lieuPrincipalTexte
+              ? `${lieuPrincipalTexte} · Survenu le ${formatDate(ev.date_evenement)}`
+              : `Survenu le ${formatDate(ev.date_evenement)}`
+          }
           text={ev.description}
           emptyText="Aucun constat détaillé."
           action={
@@ -401,9 +417,9 @@ export function EvenementDetail({
           {/* TÂCHES — centre visuel de la fiche (090, étape 7), même patron
               que Travaux. Le statut global de la fiche vit dans la barre de
               titre (retour live sur clic — corrigé suite retour
-              utilisateur), plus ici. 094 (D2) : la carte disparaît
-              ENTIÈREMENT si les tâches sont désactivées sur cette fiche. */}
-          {ev.taches_activees && (
+              utilisateur), plus ici. 098/100 : plus de `taches_activees` — la
+              carte apparaît dès qu'il y a au moins une tâche. */}
+          {lieux.length > 0 && (
             <Card className="gap-3 py-4">
               <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
                 <CardTitle className="text-base">

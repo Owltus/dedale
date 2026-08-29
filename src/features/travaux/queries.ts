@@ -6,14 +6,18 @@ import type { DocumentMeta } from '@/features/documents/format'
 export const travauxQueries = {
   all: () => ['travaux'] as const,
 
-  /** Travaux du site actif. */
+  /**
+   * Travaux du site actif. 098 : jointure locaux/équipements pour afficher le
+   * lieu principal — sert à la fois la liste et la fiche détail (résolue
+   * depuis ce même résultat via `SlugDetailRoute`).
+   */
   list: (siteId: string) =>
     queryOptions({
       queryKey: [...travauxQueries.all(), 'list', siteId] as const,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('interventions_travaux')
-          .select('*')
+          .select('*, locaux(id, nom), equipements(id, nom)')
           .eq('site_id', siteId)
           .order('date_demande', { ascending: false })
           .abortSignal(signal)

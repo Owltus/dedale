@@ -49,7 +49,11 @@ import { Button } from '@/components/ui/button'
 import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
 import type { Database } from '@/lib/database.types'
 
-type Travaux = Database['public']['Tables']['interventions_travaux']['Row']
+// 098 : enrichi de locaux/équipements (lieu principal) par travauxQueries.list.
+type Travaux = Database['public']['Tables']['interventions_travaux']['Row'] & {
+  locaux: { id: string; nom: string } | null
+  equipements: { id: string; nom: string } | null
+}
 
 export const Route = createFileRoute('/_app/travaux/')({
   component: TravauxPage,
@@ -113,7 +117,7 @@ function TravauxContent({
 
   // Après création : rediriger vers la fiche (où l'on ajoute les tâches). On
   // calcule le slug avec les frères ACTUELS + le nouveau (symétrie segOfUnique).
-  function handleCreated(created: Travaux) {
+  function handleCreated(created: { id: string; titre: string }) {
     const sibs = [...(query.data ?? []), created].map((c) => ({
       nom: c.titre,
       id: c.id,
@@ -179,7 +183,8 @@ function TravauxContent({
             if (q === '') return true
             return (
               c.titre.toLowerCase().includes(q) ||
-              (c.description ?? '').toLowerCase().includes(q)
+              (c.description ?? '').toLowerCase().includes(q) ||
+              (c.locaux?.nom ?? '').toLowerCase().includes(q)
             )
           })
           // Frères pour le slug d'URL : MÊME ensemble qu'à la résolution dans la
@@ -237,6 +242,14 @@ function TravauxContent({
                   })
                 }
                 const docs = documentsParTravaux.get(c.id) ?? []
+                // Lieu principal (098) en préfixe du sous-titre — même patron
+                // que la liste des Demandes d'intervention.
+                const lieuTexte = [c.locaux?.nom, c.equipements?.nom]
+                  .filter(Boolean)
+                  .join(' · ')
+                const texteHabituel = c.description?.trim()
+                  ? c.description
+                  : `Créé le ${formatDate(c.date_demande)}`
                 return (
                   <ListRow
                     key={c.id}
@@ -244,9 +257,9 @@ function TravauxContent({
                     media={<RowMediaIcon icon={HardHat} />}
                     title={c.titre}
                     subtitle={
-                      c.description?.trim()
-                        ? c.description
-                        : `Créé le ${formatDate(c.date_demande)}`
+                      lieuTexte
+                        ? `${lieuTexte} · ${texteHabituel}`
+                        : texteHabituel
                     }
                     onClick={() =>
                       void navigate({
