@@ -46,6 +46,7 @@ import {
 import { ErrorState } from '@/components/common/error-state'
 import { EmptyState } from '@/components/common/empty-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 
@@ -552,12 +553,10 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
       />
 
       {/* Suppression définitive de l'OT — même formulation que la liste. */}
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         {...suppression.dialogProps}
-        title="Supprimer l'ordre de travail ?"
-        description={`« ${ot.nom_gamme} » sera supprimé définitivement.`}
-        confirmLabel="Supprimer"
-        destructive
+        entityLabel={`l'ordre de travail « ${ot.nom_gamme} »`}
+        warning="Cette suppression est définitive. L'OT et ses opérations d'exécution sont retirés ; les documents rattachés restent dans la bibliothèque du site."
       />
 
       {/* Garde-fou navigation : saisies d'opérations non enregistrées. */}

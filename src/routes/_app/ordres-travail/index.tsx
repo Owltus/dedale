@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ClipboardList, Plus, Trash2 } from 'lucide-react'
+import { ClipboardList, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import type { DocumentMeta } from '@/features/documents/format'
@@ -17,7 +17,7 @@ import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import { OtCreateDialog } from '@/features/ordres-travail/components/ot-create-dialog'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import type { RowAction } from '@/components/common/row-actions'
+import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { useAuth } from '@/auth'
 import { deleteErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
@@ -29,7 +29,7 @@ import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/ordres-travail/page-meta'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 
@@ -168,16 +168,11 @@ function OrdresTravailContent({
               emptySearchDescription="Aucun ordre de travail ne correspond à ces critères."
             >
               {filtered.map((ot) => {
-                const actions: RowAction[] = canManage
-                  ? [
-                      {
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () =>
-                          setToDelete({ id: ot.id, nom: ot.nom_gamme }),
-                      },
-                    ]
+                const actions = canManage
+                  ? actionsEditionSuppression({
+                      onSupprimer: () =>
+                        setToDelete({ id: ot.id, nom: ot.nom_gamme }),
+                    })
                   : []
                 return (
                   <OtCard
@@ -206,19 +201,17 @@ function OrdresTravailContent({
         />
       )}
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         open={toDelete !== null}
         onOpenChange={(open) => {
           if (!open) setToDelete(null)
         }}
-        title="Supprimer l'ordre de travail ?"
-        description={
+        entityLabel={
           toDelete
-            ? `« ${toDelete.nom} » sera supprimé définitivement.`
-            : undefined
+            ? `l'ordre de travail « ${toDelete.nom} »`
+            : "l'ordre de travail"
         }
-        confirmLabel="Supprimer"
-        destructive
+        warning="Cette suppression est définitive. L'OT et ses opérations d'exécution sont retirés ; les documents rattachés restent dans la bibliothèque du site."
         loading={del.isPending}
         onConfirm={confirmDelete}
       />

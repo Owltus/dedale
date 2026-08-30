@@ -287,6 +287,41 @@ export function useChangeStatutEvenement() {
   })
 }
 
+/**
+ * CORRIGE une clôture déjà enregistrée : date de clôture et/ou compte-rendu,
+ * sans toucher au statut. Ne passe pas par `useChangeStatutEvenement` pour ne
+ * pas réécrire `statut_evenement_id`/`cloture_by`/`verrouille` à leur propre
+ * valeur — miroir exact `useUpdateClotureTravaux`.
+ */
+export function useUpdateClotureEvenement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      dateCloture,
+      compteRendu,
+    }: {
+      id: string
+      dateCloture: string
+      compteRendu: string
+    }) => {
+      const { data } = await supabase
+        .from('evenements')
+        .update({
+          date_cloture: dateCloture,
+          compte_rendu: compteRendu.trim() || null,
+        })
+        .eq('id', id)
+        .select()
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: evenementsQueries.all() }),
+  })
+}
+
 /** Verrou anti-erreur (094) : miroir exact `useToggleVerrouTravaux`. */
 export function useToggleVerrouEvenement() {
   const qc = useQueryClient()

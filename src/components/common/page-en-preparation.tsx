@@ -29,7 +29,7 @@ export function PageEnPreparation({
       <EmptyState
         icon={Construction}
         title="Section en préparation"
-        description="Cette section est annoncée mais pas encore disponible. Elle apparaîtra ici dès qu'elle sera prête."
+        description="Cette section est annoncée mais pas encore disponible. Elle apparaîtra ici dès qu’elle sera prête."
       />
     </PageContainer>
   )

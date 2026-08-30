@@ -3,6 +3,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { parseChamps, formatChampValeur } from '@/lib/champs'
 import { formatDate } from '@/lib/date'
+import { cardGrid } from '@/lib/responsive'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
@@ -78,7 +79,7 @@ export function EquipementDetail({ equipement }: { equipement: Equipement }) {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={cardGrid.default}>
         <PlaceholderCard title="Gammes" />
         <PlaceholderCard title="Ordres de travail" />
         <PlaceholderCard title="Documents" />

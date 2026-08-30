@@ -2,8 +2,8 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Truck } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorState } from '@/components/common/error-state'
 import {
   onKeyActivate,
   toneToken,
@@ -467,18 +467,11 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
         {contratsQuery.isPending ? (
           <Skeleton className="my-3 h-24 w-full" />
         ) : contratsQuery.isError ? (
-          <div className="flex flex-col items-center gap-2 py-6">
-            <p className="text-sm text-muted-foreground">
-              Les reconductions n’ont pas pu être chargées.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void contratsQuery.refetch()}
-            >
-              Réessayer
-            </Button>
-          </div>
+          <ErrorState
+            message="Les reconductions n’ont pas pu être chargées."
+            onRetry={() => void contratsQuery.refetch()}
+            className="py-6"
+          />
         ) : modele.elements.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Aucune reconduction de contrat sur la période.

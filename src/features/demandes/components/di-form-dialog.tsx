@@ -103,6 +103,7 @@ export function DiFormDialog({
         submitLabel="Envoyer ma demande"
         pendingLabel="Envoi…"
         pending={form.formState.isSubmitting}
+        size="lg"
       >
         {modeles.length > 0 && (
           <ModeleDiSelect

@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { CalendarCheck, CalendarRange, Target } from 'lucide-react'
 import { planningQueries } from '@/features/planning/queries'
+import { PAGE_META } from '@/features/planning/page-meta'
 import {
   construireGroupes,
   dateSemaineOt,
@@ -253,8 +254,8 @@ export function PlanningContent({ siteId }: { siteId: string }) {
     <PageContainer fill>
       <FillHeader>
         <PageHeader
-          title="Planning"
-          description="Maintenance par sous-catégorie, semaine par semaine (semaine en cours centrée)."
+          title={PAGE_META.titre}
+          description={PAGE_META.description}
           action={
             <>
               <TooltipIconButton

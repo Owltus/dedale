@@ -64,7 +64,7 @@ export function ContratAvenantDialog({
         title="Nouvel avenant"
         description={`Nouvelle version du contrat « ${parent.reference} ». Le contrat actuel sera archivé.`}
         onSubmit={() => void form.handleSubmit(submit)()}
-        submitLabel="Créer l'avenant"
+        submitLabel="Créer l’avenant"
         pendingLabel="Création…"
         pending={form.formState.isSubmitting}
         size="lg"

@@ -256,12 +256,7 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
           </p>
         </div>
         <div className="grid gap-2">
-          <Input
-            id="email"
-            type="email"
-            {...form.register('email')}
-            className="h-11 text-base"
-          />
+          <Input id="email" type="email" {...form.register('email')} />
           {form.formState.errors.email && (
             <p className="text-sm text-destructive">
               {form.formState.errors.email.message}

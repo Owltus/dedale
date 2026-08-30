@@ -68,7 +68,7 @@ export function ContratTypeFields({
           <NumberField
             control={control}
             name="duree_cycle_mois"
-            label="Durée d'un cycle"
+            label="Durée d’un cycle"
             unite="mois"
             min={1}
             step={1}
@@ -106,7 +106,7 @@ export function ContratTypeFields({
       <TextareaField
         control={control}
         name="objet_avenant"
-        label="Objet de l'avenant"
+        label="Objet de l’avenant"
       />
       <DescriptionField
         control={control}

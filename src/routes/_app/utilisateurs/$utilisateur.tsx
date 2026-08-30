@@ -67,7 +67,7 @@ function UtilisateurDetailPage() {
         showBack: true,
       }}
     >
-      {(user) => <UtilisateurDetail userId={user.id} onBack={goBack} />}
+      {(user) => <UtilisateurDetail user={user} onBack={goBack} />}
     </SlugDetailRoute>
   )
 }

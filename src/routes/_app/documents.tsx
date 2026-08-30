@@ -14,7 +14,11 @@ import { UploadDocumentDialog } from '@/features/documents/components/upload-doc
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { requireNav } from '@/lib/nav-guard'
-import { PageContainer, FillHeader } from '@/components/common/page-container'
+import {
+  PageContainer,
+  FillHeader,
+  ScrollBody,
+} from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
@@ -122,59 +126,69 @@ function DocumentsContent({
 
       {/* Liste : SEULE zone défilante ; se met en valeur pendant le drag (le drop
           reste possible n'importe où sur la page, cf. useFileDrop). */}
-      <div className="relative min-h-0 flex-1">
-        <div className="h-full overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
-          <QueryState
-            query={query}
-            // size sm : la densité réelle des DocumentRow (h-14). Le défaut md
-            // annonçait des lignes h-20, d'où un saut au chargement.
-            // count 6 : la page occupe toute la hauteur, 4 lignes (le défaut)
-            // laissaient un grand vide sous le squelette.
-            pending={<ListRowSkeletons size="sm" count={6} />}
-            empty={
-              <EmptyState
-                icon={FileText}
-                title="Aucun document"
-                description={
-                  canManage
-                    ? 'Ajoute un premier document (ou glisse-le sur la page).'
-                    : 'Aucun document enregistré pour ce site.'
-                }
-                action={newButton}
-              />
-            }
-          >
-            {(documents) => {
-              const q = search.trim().toLowerCase()
-              const shown = documents.filter((d) => {
-                const okType = matchTypeFilter(d.type_document_id, typeFilter)
-                const okNom =
-                  q === '' || d.nom_original.toLowerCase().includes(q)
-                return okType && okNom
-              })
-              if (shown.length === 0)
-                return (
-                  <NoSearchResults description="Aucun document ne correspond à ces critères." />
-                )
+      <ScrollBody className="relative">
+        <QueryState
+          query={query}
+          // size sm : la densité réelle des DocumentRow (h-14). Le défaut md
+          // annonçait des lignes h-20, d'où un saut au chargement.
+          // count 6 : la page occupe toute la hauteur, 4 lignes (le défaut)
+          // laissaient un grand vide sous le squelette.
+          pending={<ListRowSkeletons size="sm" count={6} />}
+          empty={
+            <EmptyState
+              icon={FileText}
+              title="Aucun document"
+              description={
+                canManage
+                  ? 'Ajoute un premier document (ou glisse-le sur la page).'
+                  : 'Aucun document enregistré pour ce site.'
+              }
+              action={newButton}
+            />
+          }
+        >
+          {(documents) => {
+            const q = search.trim().toLowerCase()
+            const shown = documents.filter((d) => {
+              const okType = matchTypeFilter(d.type_document_id, typeFilter)
+              const okNom = q === '' || d.nom_original.toLowerCase().includes(q)
+              return okType && okNom
+            })
+            if (shown.length === 0)
               return (
-                <DocumentsListe
-                  docs={shown}
-                  canEdit={canManage}
-                  canDelete={canDelete}
-                  onDelete={(doc) => del.mutateAsync(doc.id)}
-                  badges={(doc) => (
-                    <Badge variant="secondary">
-                      {typeNom.get(doc.type_document_id) ?? '—'}
-                    </Badge>
-                  )}
-                  mobileMeta={(doc) => typeNom.get(doc.type_document_id)}
+                <NoSearchResults
+                  description="Aucun document ne correspond à ces critères."
+                  // « Afficher tout » n'apparaît que si quelque chose est
+                  // effectivement masqué : un filtre non neutre, ou une
+                  // recherche en cours.
+                  onReset={
+                    typeFilter !== FILTRE_TOUS || search !== ''
+                      ? () => {
+                          setSearch('')
+                          setTypeFilter(FILTRE_TOUS)
+                        }
+                      : undefined
+                  }
                 />
               )
-            }}
-          </QueryState>
-        </div>
+            return (
+              <DocumentsListe
+                docs={shown}
+                canEdit={canManage}
+                canDelete={canDelete}
+                onDelete={(doc) => del.mutateAsync(doc.id)}
+                badges={(doc) => (
+                  <Badge variant="secondary">
+                    {typeNom.get(doc.type_document_id) ?? '—'}
+                  </Badge>
+                )}
+                mobileMeta={(doc) => typeNom.get(doc.type_document_id)}
+              />
+            )
+          }}
+        </QueryState>
         <FileDropOverlay show={up.dragging} />
-      </div>
+      </ScrollBody>
 
       {canManage && (
         <UploadDocumentDialog

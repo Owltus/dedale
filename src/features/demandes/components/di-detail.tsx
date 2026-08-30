@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -26,6 +26,8 @@ import { useAuth } from '@/auth'
 import { formatDate, formatDateLong } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
+import { useEntityDialog } from '@/hooks/use-entity-dialog'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -55,6 +57,11 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
   const navigate = useNavigate()
   const { data: role } = useCurrentRole()
   const { session } = useAuth()
+  // Fiche LIVE : le statut peut changer sans action directe de l'utilisateur
+  // affiché (un autre technicien prend en charge/clôture la même DI depuis la
+  // liste ou sa propre session) — sans ce refresh, la fiche déjà ouverte reste
+  // périmée tant qu'on ne recharge pas la page. Même patron que `TravauxDetail`.
+  useRealtimeRefresh('demandes_intervention', demandesQueries.all())
   const { data: localisations = [] } = useQuery(
     demandesQueries.localisations(demande.id),
   )
@@ -71,7 +78,7 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
   const reopen = useReopenDemande()
   const del = useDeleteDemande()
   const cloturer = useCloturerDemande()
-  const [editOpen, setEditOpen] = useState(false)
+  const editDialog = useEntityDialog<Demande>()
   const suppression = useConfirmDelete<string>({
     onDelete: (id) => del.mutateAsync(id),
     successMessage: 'Demande supprimée',
@@ -129,7 +136,7 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
                   icon={<Pencil />}
                   label="Modifier la demande"
                   variant="outline"
-                  onClick={() => setEditOpen(true)}
+                  onClick={() => editDialog.openEdit(demande)}
                 />
               )}
               {/* Prendre en charge : Ouvert → En cours. */}
@@ -237,10 +244,10 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
       )}
 
       <DiEditDialog
-        key={editOpen ? 'open' : 'closed'}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        demande={demande}
+        key={editDialog.dialogKey}
+        open={editDialog.open}
+        onOpenChange={editDialog.onOpenChange}
+        demande={editDialog.entity}
         siteId={demande.site_id}
       />
 

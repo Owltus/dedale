@@ -12,53 +12,24 @@ import { useAuth } from '@/auth'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
-import { EmptyState } from '@/components/common/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/common/status-badge'
-import { DetailSkeleton } from '@/components/common/detail-skeleton'
 
 export function UtilisateurDetail({
-  userId,
+  user,
   onBack,
 }: {
-  userId: string
+  user: UserRow
   onBack: () => void
 }) {
   const { data: role } = useCurrentRole()
   const isAdmin = perm.isAdmin(role)
   const { session } = useAuth()
-  const isSelf = session?.user.id === userId
+  const isSelf = session?.user.id === user.id
 
-  const { data: users = [], isPending } = useQuery(utilisateursQueries.list())
-  const user = users.find((u) => u.id === userId) as UserRow | undefined
   // Téléphone (résumé du bandeau d'en-tête) ; dédupliqué avec le formulaire Identité
-  // (même clé React Query). Hook AVANT tout early-return.
-  const { data: telephone } = useQuery(utilisateursQueries.telephone(userId))
-
-  if (isPending) {
-    return (
-      <PageContainer>
-        {/* Fiche, pas une ligne de titre : le squelette annonçait une seule
-            barre de 48 px de large alors que la page rend des cartes. */}
-        <DetailSkeleton headerCard={false} blocs={2} />
-      </PageContainer>
-    )
-  }
-  if (!user) {
-    return (
-      <PageContainer>
-        <PageHeader
-          title="Utilisateur introuvable"
-          onBack={onBack}
-          backLabel="Retour aux utilisateurs"
-        />
-        <EmptyState
-          title="Utilisateur introuvable"
-          description="Ce compte n'existe pas ou n'est pas accessible."
-        />
-      </PageContainer>
-    )
-  }
+  // (même clé React Query).
+  const { data: telephone } = useQuery(utilisateursQueries.telephone(user.id))
 
   const targetRole = user.roles?.code ?? ''
   const targetIsAdmin = perm.isAdmin(targetRole)
@@ -101,7 +72,7 @@ export function UtilisateurDetail({
         {targetIsAdmin ? (
           <AdminSitesNotice />
         ) : (
-          <SitesCard userId={userId} canEdit={canEdit} />
+          <SitesCard userId={user.id} canEdit={canEdit} />
         )}
 
         {isAdmin && !isSelf && <AccountCard user={user} />}

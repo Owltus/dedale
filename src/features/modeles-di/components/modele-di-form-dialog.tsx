@@ -112,7 +112,7 @@ export function ModeleDiFormDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={isEdit ? 'Modifier le modèle de DI' : 'Nouveau modèle de DI'}
-        description="Un constat pré-rédigé pour accélérer la saisie des demandes d'intervention."
+        description="Un constat pré-rédigé pour accélérer la saisie des demandes d’intervention."
         onSubmit={() => void form.handleSubmit(submit)()}
         submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
         pendingLabel="Enregistrement…"

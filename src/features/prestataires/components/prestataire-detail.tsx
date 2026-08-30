@@ -53,11 +53,8 @@ import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { DocumentsListe } from '@/components/common/documents-liste'
-import { NoSearchResults } from '@/components/common/no-search-results'
-import {
-  FILTRE_NON_TERMINES,
-  ListFilterBar,
-} from '@/components/common/list-filter-bar'
+import { ListPageBody } from '@/components/common/list-page-body'
+import { FILTRE_NON_TERMINES } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -527,8 +524,8 @@ function OtDocumentsPanel({
 
 /**
  * Onglet Ordres de travail : OT du prestataire sur le site, en LECTURE SEULE.
- * Réutilise `OtCard` (clic → fiche OT), la barre `ListFilterBar` + le filtre statut
- * de la page OT (`matchStatutOt` / `statutOtFilterOptions`) et le tri par urgence.
+ * Réutilise `OtCard` (clic → fiche OT), `ListPageBody` + le filtre statut de la
+ * page OT (`matchStatutOt` / `statutOtFilterOptions`) et le tri par urgence.
  * Défaut « Non terminés » (un prestataire peut cumuler beaucoup d'historique).
  */
 function OtPanel({
@@ -579,33 +576,28 @@ function OtPanel({
       }
     >
       {() => (
-        <div className="flex flex-col gap-4">
-          <ListFilterBar
-            search={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Rechercher un ordre de travail…"
-            filterValue={statutFilter}
-            onFilterChange={setStatutFilter}
-            options={statutOtFilterOptions()}
-            filterLabel="Filtrer par statut"
-            sticky
-          />
-          {filtered.length === 0 ? (
-            <NoSearchResults description="Aucun ordre de travail ne correspond à ces critères." />
-          ) : (
-            <div className={listStack}>
-              {filtered.map((ot) => (
-                <OtCard
-                  key={ot.id}
-                  ot={ot}
-                  urlOf={urlOf}
-                  refreshMiniatures={refreshMiniatures}
-                  documents={documentsParOt.get(ot.id) ?? []}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <ListPageBody
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Rechercher un ordre de travail…"
+          filterValue={statutFilter}
+          onFilterChange={setStatutFilter}
+          options={statutOtFilterOptions()}
+          filterLabel="Filtrer par statut"
+          sticky
+          isEmpty={filtered.length === 0}
+          emptySearchDescription="Aucun ordre de travail ne correspond à ces critères."
+        >
+          {filtered.map((ot) => (
+            <OtCard
+              key={ot.id}
+              ot={ot}
+              urlOf={urlOf}
+              refreshMiniatures={refreshMiniatures}
+              documents={documentsParOt.get(ot.id) ?? []}
+            />
+          ))}
+        </ListPageBody>
       )}
     </QueryState>
   )

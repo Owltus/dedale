@@ -451,12 +451,17 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     </>
   )
 
-  // VUE DÉTAIL : un équipement ouvert.
+  // VUE DÉTAIL : un équipement ouvert. En-tête FIXE + corps DÉFILANT via les
+  // briques (mode `fill`) : `EquipementDetail` ne pose aucune zone scrollable
+  // à lui (contrairement à `GammeDetail`/`DetailTabsShell`), donc `ScrollBody`
+  // l'enveloppe directement ici.
   if (openEquipement !== null) {
     return (
       <>
-        {header}
-        <EquipementDetail equipement={openEquipement} />
+        <FillHeader>{header}</FillHeader>
+        <ScrollBody>
+          <EquipementDetail equipement={openEquipement} />
+        </ScrollBody>
         {dialogs}
       </>
     )

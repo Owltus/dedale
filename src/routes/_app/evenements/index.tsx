@@ -347,8 +347,8 @@ function EvenementsContent({
         {...suppression.dialogProps}
         entityLabel={
           suppression.toDelete
-            ? `l'événement « ${suppression.toDelete.titre} »`
-            : "l'événement"
+            ? `l’événement « ${suppression.toDelete.titre} »`
+            : 'l’événement'
         }
         warning="Cette suppression est définitive. Les documents rattachés restent dans la bibliothèque du site."
       />

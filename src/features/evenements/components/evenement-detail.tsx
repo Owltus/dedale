@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
   ListChecks,
   ListPlus,
@@ -15,6 +16,7 @@ import { STATUT_CLOTURE } from '../schemas'
 import type { TacheFormValues } from '@/features/equipements/tache-schema'
 import {
   useChangeStatutEvenement,
+  useUpdateClotureEvenement,
   useToggleVerrouEvenement,
   useCreateLieu,
   useUpdateLieu,
@@ -72,12 +74,11 @@ type Evenement = Database['public']['Tables']['evenements']['Row'] & {
 export function EvenementDetail({
   evenement: ev,
   canManage,
-  onBack,
 }: {
   evenement: Evenement
   canManage: boolean
-  onBack: () => void
 }) {
+  const navigate = useNavigate()
   const { session } = useAuth()
   // 094 : le statut de la fiche peut désormais changer SANS mutation directe
   // sur `evenements` — le trigger `gestion_statut_evenement` le recalcule
@@ -107,6 +108,7 @@ export function EvenementDetail({
   )
   const lieuxQuery = useQuery(evenementsQueries.lieux(ev.id))
   const change = useChangeStatutEvenement()
+  const majCloture = useUpdateClotureEvenement()
   const toggleVerrou = useToggleVerrouEvenement()
   const createLieu = useCreateLieu()
   const updateLieu = useUpdateLieu()
@@ -130,6 +132,10 @@ export function EvenementDetail({
   const suppressionLieu = useConfirmDelete<TacheItem>({
     onDelete: (l) => delLieu.mutateAsync({ id: l.id, evenementId: ev.id }),
     successMessage: 'Tâche retirée',
+    // Suppression « métier » (trigger backend) → message d'écriture. Même
+    // patron que Travaux (travaux-detail.tsx) : cette table est pilotée par
+    // le même trigger `gestion_statut_evenement`.
+    errorMessage: writeErrorMessage,
   })
 
   async function submitLieu(values: TacheFormValues) {
@@ -233,7 +239,12 @@ export function EvenementDetail({
     <PageContainer className="flex flex-col">
       <PageHeader
         title={ev.titre}
-        breadcrumb={[{ label: 'Événements', onClick: onBack }]}
+        breadcrumb={[
+          {
+            label: 'Événements',
+            onClick: () => void navigate({ to: '/evenements' }),
+          },
+        ]}
         action={
           <>
             {editable && (
@@ -554,7 +565,7 @@ export function EvenementDetail({
             key={cloture.dialogKey}
             open={cloture.open}
             onOpenChange={cloture.onOpenChange}
-            pending={change.isPending}
+            pending={change.isPending || majCloture.isPending}
             dateEvenement={ev.date_evenement}
             // Clôture VRAIMENT enregistrée (date_cloture posée) → le
             // dialogue s'ouvre pré-rempli, en correction. 094 :
@@ -569,6 +580,30 @@ export function EvenementDetail({
                 : undefined
             }
             onConfirm={({ date_cloture, compte_rendu }) => {
+              const onSuccess = () => {
+                // Le message dit ce qui vient de se passer : on ne clôture
+                // pas deux fois le même événement.
+                toast.success(
+                  clotureConfirmee ? 'Clôture modifiée' : 'Événement clôturé',
+                )
+                cloture.onOpenChange(false)
+              }
+              const onError = (e: unknown) => toast.error(writeErrorMessage(e))
+              // Correction d'une clôture déjà enregistrée → seules date/compte-
+              // rendu bougent (statut, cloture_by, verrouille intacts) ; clôture
+              // FRAÎCHE → transition de statut complète, comme aujourd'hui.
+              // Même distinction que le patron Travaux (`useUpdateClotureTravaux`).
+              if (clotureConfirmee) {
+                majCloture.mutate(
+                  {
+                    id: ev.id,
+                    dateCloture: date_cloture,
+                    compteRendu: compte_rendu,
+                  },
+                  { onSuccess, onError },
+                )
+                return
+              }
               change.mutate(
                 {
                   id: ev.id,
@@ -580,19 +615,7 @@ export function EvenementDetail({
                   dateCloture: date_cloture,
                   clotureBy: session?.user.id,
                 },
-                {
-                  onSuccess: () => {
-                    // Le message dit ce qui vient de se passer : on ne clôture
-                    // pas deux fois le même événement.
-                    toast.success(
-                      clotureConfirmee
-                        ? 'Clôture modifiée'
-                        : 'Événement clôturé',
-                    )
-                    cloture.onOpenChange(false)
-                  },
-                  onError: (e) => toast.error(writeErrorMessage(e)),
-                },
+                { onSuccess, onError },
               )
             }}
           />

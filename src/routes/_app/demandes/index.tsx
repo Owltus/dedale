@@ -51,7 +51,7 @@ import {
   statutFilterOptions,
   FILTRE_NON_TERMINES,
 } from '@/components/common/list-filter-bar'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/common/status-badge'
@@ -341,16 +341,14 @@ function DemandesContent({
         siteId={siteId}
       />
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         {...suppression.dialogProps}
-        title="Supprimer la demande ?"
-        description={
+        entityLabel="la demande"
+        warning={
           suppression.toDelete
             ? `« ${diTitre(suppression.toDelete.constat)} » sera supprimée définitivement.`
             : undefined
         }
-        confirmLabel="Supprimer"
-        destructive
       />
     </PageContainer>
   )

@@ -44,11 +44,7 @@ function EvenementDetailPage() {
           }}
         >
           {(evenement) => (
-            <EvenementDetail
-              evenement={evenement}
-              canManage={canManage}
-              onBack={() => void navigate({ to: '/evenements' })}
-            />
+            <EvenementDetail evenement={evenement} canManage={canManage} />
           )}
         </SlugDetailRoute>
       )}

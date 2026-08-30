@@ -17,7 +17,7 @@ import { ScopeSelect } from '@/components/common/scope-select'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ScopeBadges } from '@/components/common/scope-badges'
 import { ListRow } from '@/components/common/list-row'
 import type { RowAction } from '@/components/common/row-actions'
@@ -203,16 +203,14 @@ export function ModelesDiPanel() {
         />
       )}
 
-      <ConfirmDialog
+      <ConfirmDeleteDialog
         {...suppression.dialogProps}
-        title="Supprimer le modèle ?"
-        description={
+        entityLabel={
           suppression.toDelete
-            ? `« ${suppression.toDelete.libelle} » sera supprimé définitivement.`
-            : undefined
+            ? `le modèle « ${suppression.toDelete.libelle} »`
+            : 'le modèle'
         }
-        confirmLabel="Supprimer"
-        destructive
+        warning="Cette suppression est définitive."
       />
     </div>
   )

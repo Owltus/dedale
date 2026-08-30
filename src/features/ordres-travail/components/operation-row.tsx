@@ -322,7 +322,7 @@ export function OperationRow({
             {!showReplacement && valeurField}
 
             <DateField
-              className="h-8 w-[7.25rem] pointer-coarse:h-10"
+              className="h-9 w-[7.25rem] pointer-coarse:h-10"
               ariaLabel="Date d'exécution"
               value={value.dateExec}
               disabled={readOnly}
@@ -331,7 +331,7 @@ export function OperationRow({
 
             <SelectDropdown
               ariaLabel="Statut"
-              className="h-8 w-36 px-2 pointer-coarse:h-10"
+              className="h-9 w-36 px-2 pointer-coarse:h-10"
               value={value.statut}
               disabled={readOnly}
               onValueChange={(v) =>
@@ -352,7 +352,7 @@ export function OperationRow({
                 title="Changement de compteur"
                 aria-pressed={showReplacement}
                 className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors pointer-coarse:h-10 pointer-coarse:w-10',
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors pointer-coarse:h-10 pointer-coarse:w-10',
                   showReplacement
                     ? 'border-info bg-info/10 text-info'
                     : 'border-input text-muted-foreground hover:bg-muted',

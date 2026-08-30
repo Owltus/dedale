@@ -57,7 +57,8 @@ function PrestatairesList({
   const navigate = useNavigate()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const query = useQuery(prestatairesQueries.list())
-  const { data: counts } = useQuery(contratsQueries.countsBySite(siteId))
+  const countsQuery = useQuery(contratsQueries.countsBySite(siteId))
+  const counts = countsQuery.data
   const del = useDeletePrestataire()
   const [search, setSearch] = useState('')
   const dialog = useEntityDialog<Prestataire>()
@@ -70,6 +71,10 @@ function PrestatairesList({
     suppression.toDelete !== null
       ? (counts?.get(suppression.toDelete.id) ?? 0)
       : 0
+  // Le comptage a échoué : on NE PEUT PAS affirmer « 0 contrat » (cf. audit
+  // cohérence, pattern repris de `localisations-explorer`) → suppression bloquée
+  // plutôt que silencieusement autorisée sur un comptage indisponible.
+  const verifFailed = suppression.toDelete !== null && countsQuery.isError
 
   const newButton = canManage ? (
     <Button onClick={dialog.openCreate}>
@@ -193,8 +198,13 @@ function PrestatairesList({
             ? `le prestataire « ${suppression.toDelete.libelle} »`
             : 'le prestataire'
         }
-        blocked={nbContratsToDelete > 0}
-        blockedReason={`Ce prestataire est rattaché à ${String(nbContratsToDelete)} contrat(s) sur ce site. Supprime-les d'abord pour pouvoir le supprimer.`}
+        blocked={nbContratsToDelete > 0 || verifFailed}
+        loadingImpacts={suppression.toDelete !== null && countsQuery.isFetching}
+        blockedReason={
+          verifFailed
+            ? 'Impossible de vérifier les contrats liés à ce prestataire. Réessaie dans un instant.'
+            : `Ce prestataire est rattaché à ${String(nbContratsToDelete)} contrat(s) sur ce site. Supprime-les d'abord pour pouvoir le supprimer.`
+        }
         warning="Si ce prestataire est rattaché à des gammes, la suppression sera refusée : détache-le d'abord."
       />
     </PageContainer>
