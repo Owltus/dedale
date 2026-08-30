@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-30T00:00:00.000Z",
+  "title": "Design System: Dédale",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Graphite",
+        "canonical": "oklch(0.205 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)", "oklch(0.27 0 0)", "oklch(0.38 0 0)", "oklch(0.49 0 0)",
+          "oklch(0.61 0 0)", "oklch(0.72 0 0)", "oklch(0.84 0 0)", "oklch(0.95 0 0)"
+        ]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Toile",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)", "oklch(0.27 0 0)", "oklch(0.38 0 0)", "oklch(0.49 0 0)",
+          "oklch(0.61 0 0)", "oklch(0.72 0 0)", "oklch(0.84 0 0)", "oklch(0.95 0 0)"
+        ]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Gris discret",
+        "canonical": "oklch(0.556 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)", "oklch(0.27 0 0)", "oklch(0.38 0 0)", "oklch(0.49 0 0)",
+          "oklch(0.61 0 0)", "oklch(0.72 0 0)", "oklch(0.84 0 0)", "oklch(0.95 0 0)"
+        ]
+      },
+      "destructive": {
+        "role": "state-danger",
+        "displayName": "Rouge Alerte",
+        "canonical": "oklch(0.577 0.245 27.325)",
+        "tonalRamp": [
+          "oklch(0.15 0.245 27.325)", "oklch(0.27 0.245 27.325)", "oklch(0.38 0.245 27.325)", "oklch(0.49 0.245 27.325)",
+          "oklch(0.61 0.245 27.325)", "oklch(0.72 0.245 27.325)", "oklch(0.84 0.245 27.325)", "oklch(0.95 0.245 27.325)"
+        ]
+      },
+      "info": {
+        "role": "state-info",
+        "displayName": "Bleu Instrument",
+        "canonical": "oklch(0.55 0.2 255)",
+        "tonalRamp": [
+          "oklch(0.15 0.2 255)", "oklch(0.27 0.2 255)", "oklch(0.38 0.2 255)", "oklch(0.49 0.2 255)",
+          "oklch(0.61 0.2 255)", "oklch(0.72 0.2 255)", "oklch(0.84 0.2 255)", "oklch(0.95 0.2 255)"
+        ]
+      },
+      "success": {
+        "role": "state-success",
+        "displayName": "Vert Cadran",
+        "canonical": "oklch(0.52 0.15 150)",
+        "tonalRamp": [
+          "oklch(0.15 0.15 150)", "oklch(0.27 0.15 150)", "oklch(0.38 0.15 150)", "oklch(0.49 0.15 150)",
+          "oklch(0.61 0.15 150)", "oklch(0.72 0.15 150)", "oklch(0.84 0.15 150)", "oklch(0.95 0.15 150)"
+        ]
+      },
+      "warning": {
+        "role": "state-warning",
+        "displayName": "Ambre Prudence",
+        "canonical": "oklch(0.55 0.13 65)",
+        "tonalRamp": [
+          "oklch(0.15 0.13 65)", "oklch(0.27 0.13 65)", "oklch(0.38 0.13 65)", "oklch(0.49 0.13 65)",
+          "oklch(0.61 0.13 65)", "oklch(0.72 0.13 65)", "oklch(0.84 0.13 65)", "oklch(0.95 0.13 65)"
+        ]
+      },
+      "violet": {
+        "role": "state-accent",
+        "displayName": "Violet Signal",
+        "canonical": "oklch(0.52 0.2 300)",
+        "tonalRamp": [
+          "oklch(0.15 0.2 300)", "oklch(0.27 0.2 300)", "oklch(0.38 0.2 300)", "oklch(0.49 0.2 300)",
+          "oklch(0.61 0.2 300)", "oklch(0.72 0.2 300)", "oklch(0.84 0.2 300)", "oklch(0.95 0.2 300)"
+        ]
+      },
+      "yellow": {
+        "role": "state-accent",
+        "displayName": "Jaune Marqueur",
+        "canonical": "oklch(0.55 0.12 95)",
+        "tonalRamp": [
+          "oklch(0.15 0.12 95)", "oklch(0.27 0.12 95)", "oklch(0.38 0.12 95)", "oklch(0.49 0.12 95)",
+          "oklch(0.61 0.12 95)", "oklch(0.72 0.12 95)", "oklch(0.84 0.12 95)", "oklch(0.95 0.12 95)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Titre", "purpose": "Titre de ligne de liste, titre de carte." },
+      "body": { "displayName": "Corps", "purpose": "Texte courant, description." },
+      "label": { "displayName": "Légende", "purpose": "Sous-titre atténué, métadonnée." },
+      "micro": { "displayName": "Micro", "purpose": "Réservé aux grilles denses (planning, en-tête multi-champs) — jamais ailleurs, toujours en poids renforcé." }
+    },
+    "shadows": [
+      { "name": "xs", "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)", "purpose": "Boutons, champs — présence à peine visible." },
+      { "name": "sm", "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)", "purpose": "Cartes — la profondeur la plus marquée du système, reste discrète." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Transition par défaut (couleur, ombre) — 150ms, jamais de rebond/élastique." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Action principale — fond Graphite plein.",
+      "html": "<button class=\"ds-btn-primary\">Enregistrer</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: oklch(0.205 0 0); color: oklch(0.985 0 0); border: none; border-radius: 8px; padding: 8px 16px; font-size: 0.875rem; font-weight: 500; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); cursor: pointer; transition: background-color 0.15s cubic-bezier(0.4,0,0.2,1); } .ds-btn-primary:hover { background: oklch(0.205 0 0 / 0.9); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px oklch(0.708 0 0 / 0.5); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Action secondaire — bordure fine, fond neutre.",
+      "html": "<button class=\"ds-btn-outline\">Annuler</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: oklch(1 0 0); color: oklch(0.145 0 0); border: 1px solid oklch(0.922 0 0); border-radius: 8px; padding: 8px 16px; font-size: 0.875rem; font-weight: 500; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); cursor: pointer; transition: background-color 0.15s cubic-bezier(0.4,0,0.2,1); } .ds-btn-outline:hover { background: oklch(0.97 0 0); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 3px oklch(0.708 0 0 / 0.5); }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Action de suppression — fond Rouge Alerte plein (jamais teinté, voir Règle Teinte/Solide).",
+      "html": "<button class=\"ds-btn-destructive\">Supprimer</button>",
+      "css": ".ds-btn-destructive { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: oklch(0.577 0.245 27.325); color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 0.875rem; font-weight: 500; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); cursor: pointer; transition: background-color 0.15s cubic-bezier(0.4,0,0.2,1); } .ds-btn-destructive:hover { background: oklch(0.577 0.245 27.325 / 0.9); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card-surface",
+      "description": "Conteneur de section — surface élevée, coins généreux.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">Titre de section</div><div class=\"ds-card-body\">Contenu de la carte.</div></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 24px; background: oklch(1 0 0); color: oklch(0.145 0 0); border: 1px solid oklch(0.922 0 0); border-radius: 14px; padding: 24px; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); } .ds-card-title { font-size: 0.875rem; font-weight: 600; } .ds-card-body { font-size: 0.875rem; color: oklch(0.556 0 0); }"
+    },
+    {
+      "name": "List Row",
+      "kind": "custom",
+      "refersTo": "list-row",
+      "description": "Composant signature — carte-ligne pleine largeur avec accent d'état au bord gauche, la brique la plus reproduite de l'app.",
+      "html": "<div class=\"ds-list-row\"><div><div class=\"ds-title\">Rapport - Ortec - Vidange bac à graisse</div><div class=\"ds-subtitle\">300 Ko · 12/08/2026</div></div></div>",
+      "css": ".ds-list-row { display: flex; align-items: center; gap: 12px; position: relative; background: oklch(1 0 0); border: 1px solid oklch(0.922 0 0); border-left: 4px solid oklch(0.52 0.15 150); border-radius: 10px; padding: 12px 16px; cursor: pointer; transition: background-color 0.15s cubic-bezier(0.4,0,0.2,1); } .ds-list-row:hover { background: oklch(0.97 0 0 / 0.4); } .ds-list-row .ds-title { font-size: 0.875rem; font-weight: 500; color: oklch(0.145 0 0); } .ds-list-row .ds-subtitle { font-size: 0.875rem; color: oklch(0.556 0 0); }"
+    },
+    {
+      "name": "Status Badge (tinted)",
+      "kind": "chip",
+      "refersTo": "status-badge-neutral",
+      "description": "Pastille d'état — fond à 10%, texte plein, jamais utilisée en fond solide (réservé aux boutons d'action).",
+      "html": "<span class=\"ds-badge-success\">Réalisé</span>",
+      "css": ".ds-badge-success { display: inline-flex; align-items: center; border-radius: 6px; padding: 2px 10px; font-size: 0.75rem; font-weight: 500; border: 1px solid oklch(0.52 0.15 150 / 0.2); background: oklch(0.52 0.15 150 / 0.1); color: oklch(0.52 0.15 150); }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "description": "Champ de saisie — bordure fine, focus en anneau de 3px.",
+      "html": "<input class=\"ds-input\" placeholder=\"Rechercher…\" />",
+      "css": ".ds-input { display: flex; height: 36px; width: 100%; border-radius: 8px; border: 1px solid oklch(0.922 0 0); background: transparent; padding: 4px 12px; font-size: 0.875rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); transition: border-color 0.15s, box-shadow 0.15s; } .ds-input::placeholder { color: oklch(0.556 0 0); } .ds-input:focus-visible { outline: none; border-color: oklch(0.708 0 0); box-shadow: 0 0 0 3px oklch(0.708 0 0 / 0.5); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Le tableau de bord de l'instrument",
+    "overview": "Dédale ne cherche jamais à séduire — il cherche à ne jamais gêner. L'écran par défaut est presque entièrement gris (fond, texte, bordures, surfaces) : aucune teinte n'apparaît sans raison fonctionnelle. La couleur n'est jamais décorative ; elle est réservée, exclusivement, à signaler un état (un statut, une alerte, une action destructrice) — exactement comme les cadrans colorés d'un tableau de bord technique au milieu d'un habitacle neutre. Le résultat doit se lire d'un coup d'œil, debout, sur un téléphone, entre deux interventions : c'est un outil de travail pour un technicien de terrain, pas une vitrine.",
+    "keyCharacteristics": [
+      "Palette quasi monochrome — même l'accent principal (primary) est un gris pur (chroma 0), jamais une couleur de marque.",
+      "Six teintes sémantiques strictement réservées aux états — jamais utilisées pour décorer une interface autrement neutre.",
+      "Coins arrondis modérés et cohérents (jamais carrés, jamais en pilule) ; profondeur portée par le rayon et la bordure, presque jamais par l'ombre.",
+      "Clair/sombre automatiques : chaque token existe dans les deux thèmes, aucun composant ne code une couleur en dur."
+    ],
+    "rules": [
+      { "name": "La Règle du Cadran", "body": "Une couleur n'apparaît jamais sans porter un sens d'état précis, mappé depuis StatusTone — jamais choisie à l'œil dans un composant.", "section": "colors" },
+      { "name": "La Règle Teinte/Solide", "body": "Chaque couleur d'état a deux emplois distincts : teinté (fond à 10%, texte plein) pour un état constaté, solide (fond plein, texte inverse) réservé à une action déclenchée. Les deux ne s'échangent jamais.", "section": "colors" },
+      { "name": "La Règle Sans Empreinte", "body": "Aucune police web n'est chargée. La pile système suffit — cohérent avec un outil utilisé sur le terrain en conditions réseau incertaines.", "section": "typography" },
+      { "name": "La Règle du Dernier Recours", "body": "Le palier Micro n'est pas une échappatoire pour serrer un écran mal agencé — c'est une exception réservée aux grilles réellement denses, toujours en poids renforcé. Un nouvel usage doit d'abord se demander si Label (12px) suffit.", "section": "typography" },
+      { "name": "La Règle du Presque-Plat", "body": "L'ombre marque une existence, jamais une élévation dramatique. Si une ombre se voit avant la bordure, elle est trop appuyée pour ce système.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do utiliser exclusivement les tokens sémantiques (bg-primary, text-muted-foreground…) — jamais une couleur Tailwind brute ou un hex en dur.",
+      "Do réserver la couleur à un signal d'état précis (Règle du Cadran).",
+      "Do garder les ombres au niveau xs/sm — la profondeur vient du rayon et de la bordure, pas du halo.",
+      "Do utiliser cardGrid pour toute grille de cartes, jamais un grid-cols-N fixe sans repli mobile."
+    ],
+    "donts": [
+      "Don't coder une couleur en dur (bg-blue-600, text-[#1a1a1a]) — toujours passer par index.css.",
+      "Don't afficher un badge de statut en fond plein, ni un bouton destructeur en teinté.",
+      "Don't ouvrir une page sur un conteneur nu (<div className=\"p-6\">) au lieu de PageContainer.",
+      "Don't ajouter un bouton d'action permanent sur une ligne de liste — les actions se révèlent au survol/focus ou passent par le menu contextuel.",
+      "Don't charger une police web : la pile système est un choix délibéré, pas un oubli."
+    ]
+  }
+}

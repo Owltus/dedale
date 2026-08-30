@@ -1,0 +1,32 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "border-l-4",
+        "createdAt": "2026-08-30T10:47:44.598Z",
+        "reason": "Claude a confirmé : accent de statut sémantique (TONE_ACCENT, ListRow/OperationRow), mappé depuis StatusTone, 4px seulement, jamais décoratif — documenté comme motif signature dans DESIGN.md (Règle du Cadran)"
+      },
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "border-b-2",
+        "createdAt": "2026-08-30T10:47:50.471Z",
+        "reason": "Claude a confirmé : SubTabs (onglet souligné) — border-b-2 sur l'arête BASSE plate, rounded-t-sm ne touche que le HAUT ; pas de conflit géométrique réel, motif d'onglet souligné standard"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "2px)",
+        "createdAt": "2026-08-30T10:50:22.893Z",
+        "reason": "Claude a vérifié : calc(var(--radius) - 2px) = calc(10px - 2px) = 8px, exactement rounded-md du ramp DESIGN.md. Le détecteur matche le \"2px\" littéral dans le calc() sans l'évaluer — faux positif de parsing, pas un vrai écart de rayon"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "11px",
+        "createdAt": "2026-08-30T10:51:57.131Z",
+        "reason": "Claude a vérifié : planning-grille.tsx ligne 413, en-tête de colonne (jour) de la grille murale — variante 1px au-dessus du palier Micro (10px) documenté dans DESIGN.md, pour son rôle de libellé de section dans le même contexte de densité extrême. Usage unique, pas de 5e palier créé pour 1px"
+      }
+    ]
+  }
+}
