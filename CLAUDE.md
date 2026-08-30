@@ -39,6 +39,7 @@ Les conventions ci-dessus disent **ce qui est vrai** ; les skills disent **comme
 | écrire une migration SQL et resynchroniser le schéma | `migration-sql`   |
 | vérifier qu'un écran est aligné sur les patrons      | `revue-coherence` |
 | vérifier qui voit quoi (RLS, Storage, rôles)         | `audit-rls`       |
+| tester/vérifier directement sur Supabase (hors migration) | `bob-assistant-supabase` |
 | mettre en production (migrations, types, Vercel)     | `deployer`        |
 
 Le **catalogue des briques réutilisables** (~70 documentées, avec leur nombre réel de consommateurs, **mesuré**) vit dans `.claude/skills/nouvelle-page/references/catalogue-composants.md` — **le consulter avant d'écrire un composant**, et le mettre à jour après. Il ne couvre volontairement pas `components/ui/` (primitives shadcn).

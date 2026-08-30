@@ -606,12 +606,21 @@ INSERT INTO types_contrats (id, libelle, description) VALUES
     (2, 'Tacite',      'Contrat avec reconduction automatique par cycles'),
     (3, 'Indéterminé', 'Contrat sans date de fin, résiliable avec préavis');
 
--- Types de documents systèmes (l'utilisateur en crée d'autres : VGP, CERFA, PV…)
+-- Types de documents systèmes + liste complète demandée par le PO (101, 30/08/2026)
 INSERT INTO types_documents (id, nom, description, est_systeme) VALUES
-    (1, 'Attestation', 'Certificat de conformité, d''assurance, d''habilitation ou de formation', true),
-    (2, 'Rapport',     'Compte-rendu d''intervention, de contrôle ou de maintenance',             true),
-    (3, 'Contrat',     'Document contractuel ou de prestation de service',                        true),
-    (4, 'Devis',       'Devis ou estimation chiffrée (travaux, investissements)',               false);
+    (1,  'Attestation',      'Certificat de conformité, d''assurance, d''habilitation ou de formation', true),
+    (2,  'Rapport',          'Compte-rendu d''intervention, de contrôle ou de maintenance',             true),
+    (3,  'Contrat',          'Document contractuel ou de prestation de service',                        true),
+    (4,  'Devis',            'Devis ou estimation chiffrée (travaux, investissements)',                 false),
+    (5,  'Facture',          'Facture émise par un prestataire ou un fournisseur',                      false),
+    (6,  'CERFA',            'Formulaire administratif officiel (CERFA)',                               false),
+    (7,  'Bon de livraison', 'Bon de livraison de matériel ou d''équipement',                           false),
+    (8,  'Photo',            'Photographie (avant/après intervention, état des lieux, sinistre)',       false),
+    (9,  'Certificat',       'Certificat officiel (garantie, origine, qualité) distinct d''une attestation', false),
+    (10, 'Plan',             'Plan technique ou architectural (bâtiment, réseaux, installations)',      false),
+    (11, 'Schéma',           'Schéma technique ou fonctionnel (électrique, hydraulique, process)',      false),
+    (12, 'Notice',           'Notice d''utilisation, d''entretien ou de montage',                       false),
+    (13, 'Procédure',        'Procédure ou consigne opérationnelle interne',                            false);
 
 -- Types de locaux (liste de départ — l'admin ajuste/complète via l'app)
 -- Liste généraliste et volontairement courte (vaut pour copro/bailleur ET hôtel
