@@ -278,17 +278,13 @@ export function InvestissementDetail({
         />
       </div>
 
-      {/* DOCUMENTS — pleine largeur, et la carte prend la hauteur RESTANTE
-          (`lg:flex-1`) : la fiche se déploie ainsi jusqu'en bas de l'écran au
-          lieu de s'arrêter au milieu. Son contenu défile À L'INTÉRIEUR — sans
-          zone défilante, une carte contrainte en hauteur se réduit sous son
-          contenu et le laisse sortir de la bordure. Même géométrie que la fiche
-          Événement. Sous `lg`, hauteur naturelle et défilement de page. */}
-      <Card className="relative flex flex-col gap-3 py-4 lg:min-h-0 lg:flex-1">
+      {/* DOCUMENTS — pleine largeur, hauteur naturelle et défilement de page :
+          même patron que les fiches Événement et Travaux. */}
+      <Card className="relative gap-3 py-4">
         <CardHeader>
           <CardTitle className="text-base">Documents</CardTitle>
         </CardHeader>
-        <CardContent className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+        <CardContent>
           <DocumentsTab
             liaison="documents_investissements"
             parentColumn="investissement_id"

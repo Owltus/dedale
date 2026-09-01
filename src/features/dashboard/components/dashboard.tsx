@@ -3,6 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/common/error-state'
 import { useColonnesAuto } from '@/features/planning/use-colonnes-auto'
 import { useFenetreTemporelle } from '@/features/planning/use-fenetre-temporelle'
+import { cardGrid } from '@/lib/responsive'
 import { cn } from '@/lib/utils'
 import { useDashboardData, useDashboardRealtime } from '../use-dashboard-data'
 import {
@@ -81,7 +82,7 @@ export function Dashboard({ siteId }: DashboardProps) {
   if (ordresTravailQuery.isPending) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(20rem,100%),1fr))] gap-4">
+        <div className={cardGrid.default}>
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-64 rounded-xl" />
           ))}

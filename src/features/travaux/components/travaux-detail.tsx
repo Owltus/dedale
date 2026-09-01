@@ -69,7 +69,7 @@ import type { Database } from '@/lib/database.types'
 type TravauxRow =
   Database['public']['Tables']['interventions_travaux']['Row'] & {
     locaux: { id: string; nom: string } | null
-    equipements: { id: string; nom: string } | null
+    equipements: { id: string; categories: { nom: string } | null } | null
   }
 
 interface TravauxDetailProps {
@@ -208,7 +208,11 @@ export function TravauxDetail({
     travaux.statut_travaux_id === STATUT_TERMINE && travaux.date_fin === null
   const realisees = taches.filter((t) => t.statut === 'realise').length
   // Lieu principal (098) — sous le titre, à côté de la date de création (D5).
-  const lieuPrincipalTexte = [travaux.locaux?.nom, travaux.equipements?.nom]
+  const lieuPrincipalTexte = [
+    travaux.locaux?.nom,
+    travaux.equipements &&
+      (travaux.equipements.categories?.nom ?? 'Équipement'),
+  ]
     .filter(Boolean)
     .join(' · ')
 

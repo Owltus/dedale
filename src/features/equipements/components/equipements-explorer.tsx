@@ -3,9 +3,16 @@ import { useQuery } from '@tanstack/react-query'
 import { Folder, FolderTree, Inbox, Package, Pencil, Plus } from 'lucide-react'
 import { equipementsQueries } from '../queries'
 import { useDeleteEquipement } from '../mutations'
+import {
+  titreAffiche,
+  secondaireAffiche,
+  tertiaireAffiche,
+  nomAfficheTexte,
+} from '../format'
 import { EquipementParcDialog } from './equipement-parc-dialog'
 import { ParcSousCategorieDialog } from './parc-sous-categorie-dialog'
 import { EquipementDetail } from './equipement-detail'
+import { EquipementBadges } from './equipement-badges'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
 import {
   categoriesQueries,
@@ -29,6 +36,11 @@ import { parseChamps } from '@/lib/champs'
 import * as perm from '@/lib/permissions'
 import { DrillPageHeader } from '@/components/common/drill-page-header'
 import { drillCrumbs } from '@/components/common/drill-crumbs'
+import {
+  TabActionContext,
+  type TabAddConfig,
+  type TabActionApi,
+} from '@/components/common/tab-actions'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
 import { actionsEditionSuppression } from '@/components/common/row-actions'
@@ -55,7 +67,7 @@ interface DrillCat extends CatalogueDrillCat {
 // Accès stables (identité constante) alimentant `useCatalogueDrill` : id, nom et
 // catégorie d'un équipement. L'id/nom peuvent être null en type (vue) → repli.
 const equipementId = (e: Equipement) => e.id ?? ''
-const equipementNom = (e: Equipement) => e.nom ?? ''
+const equipementNom = (e: Equipement) => nomAfficheTexte(e)
 const equipementCategorieId = (e: Equipement) => e.categorie_id
 
 /**
@@ -84,6 +96,16 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
 
   const del = useDeleteEquipement()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+
+  // Action « ajouter » de la top bar, PILOTÉE par l'onglet actif de la fiche
+  // équipement (EquipementDetail → useTabAddAction) : Lier des gammes /
+  // Rattacher un document selon l'onglet. Même patron que gammes-explorer.
+  const [equipAddConfig, setEquipAddConfig] = useState<TabAddConfig | null>(
+    null,
+  )
+  const [equipActionApi] = useState<TabActionApi>(() => ({
+    setAction: setEquipAddConfig,
+  }))
 
   // Catégories de PARC du site actif (scope 'parc', taxonomie DÉDIÉE aux
   // équipements réels — séparée des catégories de modèles depuis 028), actives.
@@ -195,13 +217,17 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     () =>
       (modelesQuery.data ?? [])
         .filter((m) => m.site_id === siteId)
-        .map((m) => ({ id: m.id, nom: m.nom })),
+        .map((m) => ({
+          id: m.id,
+          nom: m.nom,
+          champs: parseChamps(m.specifications),
+        })),
     [modelesQuery.data, siteId],
   )
 
   // Gabarit hérité par un équipement créé dans la sous-catégorie courante :
-  // caractéristiques + image + nom par défaut. Source = le MODÈLE fixé, sinon le
-  // gabarit « spécifique » local de la sous-catégorie. `null` hors sous-catégorie.
+  // caractéristiques + image. Source = le MODÈLE fixé, sinon le gabarit
+  // « spécifique » local de la sous-catégorie. `null` hors sous-catégorie.
   const currentTemplate = useMemo(() => {
     if (!current || current.virtual) return null
     const cat = categoriesById.get(current.id)
@@ -209,14 +235,12 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     if (current.modeleId) {
       const m = (modelesQuery.data ?? []).find((x) => x.id === current.modeleId)
       return {
-        nomDefaut: m?.nom ?? '',
         champs: parseChamps(m?.specifications),
         miniatureId: m?.miniature_id ?? null,
         modeleId: current.modeleId,
       }
     }
     return {
-      nomDefaut: '',
       champs: parseChamps(cat.specifications),
       miniatureId: cat.miniature_id ?? null,
       modeleId: null,
@@ -310,6 +334,19 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         onClick={() => setEquipForm({ open: true, eq: openEquipement })}
       />
     ) : null
+  // Bouton d'ajout DYNAMIQUE de la fiche équipement (Lier des gammes /
+  // Rattacher un document selon l'onglet actif), enregistré par
+  // EquipementDetail via useTabAddAction — même patron que gammes-explorer.
+  const EquipAddIcon = equipAddConfig?.icon ?? Plus
+  const equipAddBtn =
+    equipAddConfig?.action != null ? (
+      <TooltipIconButton
+        icon={<EquipAddIcon />}
+        label={equipAddConfig.label}
+        variant="outline"
+        onClick={equipAddConfig.action}
+      />
+    ) : null
 
   // Description de SECTION, affichée à toutes les profondeurs (le fil-titre situe
   // précisément, la description rappelle ce qu'est la page) → zone jamais vide.
@@ -331,13 +368,26 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       ancetres={ancetres}
       titre={
         openEquipement !== null
-          ? (openEquipement.nom ?? 'Équipement')
+          ? titreAffiche(openEquipement)
           : (current?.nom ?? 'Catégorie')
+      }
+      titreBadges={
+        openEquipement !== null &&
+        (secondaireAffiche(openEquipement) ||
+          tertiaireAffiche(openEquipement)) ? (
+          <EquipementBadges
+            secondaire={secondaireAffiche(openEquipement)}
+            tertiaire={tertiaireAffiche(openEquipement)}
+          />
+        ) : undefined
       }
       description={sectionDescription}
       action={
         openEquipement !== null ? (
-          editEquipBtn
+          <>
+            {editEquipBtn}
+            {equipAddBtn}
+          </>
         ) : depth > 0 ? (
           <>
             {newSubCategoryBtn}
@@ -424,7 +474,6 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           categorieId={current?.id ?? ''}
           template={
             currentTemplate ?? {
-              nomDefaut: '',
               champs: [],
               miniatureId: null,
               modeleId: null,
@@ -436,7 +485,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
 
       <ConfirmDeleteDialog
         {...suppression.dialogProps}
-        entityLabel={`l’équipement « ${suppression.toDelete?.nom ?? ''} »`}
+        entityLabel={`l’équipement « ${suppression.toDelete ? nomAfficheTexte(suppression.toDelete) : ''} »`}
         // Le backend refuse la suppression d'un équipement rattaché à une gamme
         // active (FK/trigger). Cette info n'est pas chargée ici → on prévient en
         // amont ; l'erreur 23503/42501 reste catchée en filet (toast onError).
@@ -451,19 +500,24 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     </>
   )
 
-  // VUE DÉTAIL : un équipement ouvert. En-tête FIXE + corps DÉFILANT via les
-  // briques (mode `fill`) : `EquipementDetail` ne pose aucune zone scrollable
-  // à lui (contrairement à `GammeDetail`/`DetailTabsShell`), donc `ScrollBody`
-  // l'enveloppe directement ici.
+  // VUE DÉTAIL : un équipement ouvert. `EquipementDetail` pose désormais sa
+  // PROPRE coquille à onglets (DetailTabsShell) — comme `GammeDetail` — donc
+  // pas de `ScrollBody` ici, juste l'en-tête fixe. Le Provider permet à
+  // l'onglet actif d'enregistrer son action « ajouter », rendue dans la top bar
+  // (même patron que gammes-explorer).
   if (openEquipement !== null) {
     return (
-      <>
-        <FillHeader>{header}</FillHeader>
-        <ScrollBody>
-          <EquipementDetail equipement={openEquipement} />
-        </ScrollBody>
+      <TabActionContext.Provider value={equipActionApi}>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <FillHeader>{header}</FillHeader>
+          <EquipementDetail
+            equipement={openEquipement}
+            siteId={siteId}
+            canEdit={canEdit}
+          />
+        </div>
         {dialogs}
-      </>
+      </TabActionContext.Provider>
     )
   }
 
@@ -607,9 +661,17 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                             className="size-full rounded-none"
                           />
                         }
-                        title={eq.nom ?? 'Équipement'}
+                        title={titreAffiche(eq)}
                         subtitle={
                           eq.localisation_courte ?? eq.local_nom ?? undefined
+                        }
+                        badges={
+                          secondaireAffiche(eq) || tertiaireAffiche(eq) ? (
+                            <EquipementBadges
+                              secondaire={secondaireAffiche(eq)}
+                              tertiaire={tertiaireAffiche(eq)}
+                            />
+                          ) : undefined
                         }
                         onClick={() => goToEquipement(eq)}
                         menuActions={

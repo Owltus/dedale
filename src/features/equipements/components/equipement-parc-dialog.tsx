@@ -7,7 +7,6 @@ import { EmplacementSelect } from './emplacement-select'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
-import { TextField } from '@/components/common/fields/text-field'
 import { DateField } from '@/components/common/fields/date-field'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
 import { parseChamps, type Champ, type ChampValeur } from '@/lib/champs'
@@ -16,7 +15,6 @@ import type { Database } from '@/lib/database.types'
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
 
 const equipementParcSchema = z.object({
-  nom: z.string().trim().min(1, 'Le nom est obligatoire'),
   localId: z.string().min(1, 'L’emplacement est obligatoire'),
   dateMiseEnService: z.string(),
   dateFinGarantie: z.string(),
@@ -32,7 +30,6 @@ interface EquipementParcDialogProps {
   categorieId: string
   /** Gabarit hérité de la sous-catégorie (source des champs/image À LA CRÉATION). */
   template: {
-    nomDefaut: string
     champs: Champ[]
     miniatureId: string | null
     modeleId: string | null
@@ -43,10 +40,8 @@ interface EquipementParcDialogProps {
 
 function initialValues(
   equipement: Equipement | null | undefined,
-  template: { nomDefaut: string },
 ): EquipementParcValues {
   return {
-    nom: equipement?.nom ?? template.nomDefaut,
     localId: equipement?.local_id ?? '',
     dateMiseEnService: equipement?.date_mise_en_service ?? '',
     dateFinGarantie: equipement?.date_fin_garantie ?? '',
@@ -55,10 +50,17 @@ function initialValues(
 
 /**
  * Formulaire UNIQUE création + édition d'un équipement de parc, ÉPURÉ et identique
- * dans les deux cas : Nom + Emplacement (cascade) + dates + caractéristiques. PAS
- * d'image (héritée de la sous-catégorie/modèle), PAS de code inventaire, PAS de
- * catégorie (c'est la sous-catégorie). En création, les caractéristiques viennent
- * du gabarit ; en édition, de l'équipement (valeurs déjà saisies conservées).
+ * dans les deux cas : Emplacement (cascade) + dates + caractéristiques — PLUS de
+ * nom (105). L'identifiant technique (`code_inventaire`) n'apparaît PAS ici et
+ * n'est PAS modifiable depuis le front (106bis) : la base le génère seule à
+ * l'INSERT (DEFAULT `generate_identifiant_equipement()`), pour garantir son
+ * unicité sans dépendre d'une saisie humaine qui pourrait la casser. L'identité
+ * affichée à l'écran (listes, fiches) vient de la catégorie et, quand
+ * l'utilisateur le souhaite, d'une caractéristique personnalisée — jamais de ce
+ * code technique. PAS d'image (héritée de la sous-catégorie/modèle), PAS de
+ * catégorie (c'est la sous-catégorie). En création, les caractéristiques
+ * viennent du gabarit ; en édition, de l'équipement (valeurs déjà saisies
+ * conservées).
  */
 export function EquipementParcDialog({
   open,
@@ -74,7 +76,7 @@ export function EquipementParcDialog({
 
   const form = useForm<EquipementParcValues>({
     resolver: zodResolver(equipementParcSchema),
-    defaultValues: initialValues(equipement, template),
+    defaultValues: initialValues(equipement),
   })
 
   // Édition : caractéristiques (avec valeurs) de l'équipement ; création :
@@ -101,14 +103,12 @@ export function EquipementParcDialog({
       equipement?.id
         ? update.mutateAsync({
             id: equipement.id,
-            nom: data.nom,
             localId: data.localId,
             champs,
             dateMiseEnService: data.dateMiseEnService,
             dateFinGarantie: data.dateFinGarantie,
           })
         : create.mutateAsync({
-            nom: data.nom,
             localId: data.localId,
             categorieId,
             miniatureId: template.miniatureId,
@@ -118,7 +118,27 @@ export function EquipementParcDialog({
             dateFinGarantie: data.dateFinGarantie,
           }),
     successMessage: isEdit ? 'Équipement modifié' : 'Équipement créé',
-    close: () => onOpenChange(false),
+    // Édition : ferme normalement. Création : le formulaire RESTE OUVERT — pour
+    // plusieurs équipements d'un même local, seul l'onSuccess ci-dessous le
+    // réinitialise (caractéristiques) sans tout refermer à chaque fois.
+    close: isEdit ? () => onOpenChange(false) : () => undefined,
+    onSuccess: () => {
+      if (isEdit) return
+      form.reset({
+        // Emplacement et dates restent tels quels : le cas courant, plusieurs
+        // équipements du même local créés à la suite.
+        localId: form.getValues('localId'),
+        dateMiseEnService: form.getValues('dateMiseEnService'),
+        dateFinGarantie: form.getValues('dateFinGarantie'),
+      })
+      setChamps(
+        template.champs.map((c) => ({
+          ...c,
+          valeur: c.valeur ?? c.defaut ?? null,
+        })),
+      )
+      setChampsError(undefined)
+    },
   })
 
   function handleSubmit() {
@@ -157,7 +177,6 @@ export function EquipementParcDialog({
         pending={form.formState.isSubmitting}
         size="lg"
       >
-        <TextField control={form.control} name="nom" label="Nom" required />
         {/* Emplacement en cascade (bâtiment pleine ligne si >1) ; dates en colonne
             droite, à côté de Niveau/Local, pour compacter. */}
         <Controller

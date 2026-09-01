@@ -22,7 +22,7 @@ export const evenementsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('evenements')
-          .select('*, locaux(id, nom), equipements(id, nom)')
+          .select('*, locaux(id, nom), equipements(id, categories(nom))')
           .eq('site_id', siteId)
           .order('date_evenement', { ascending: false })
           .order('created_at', { ascending: false })
@@ -43,7 +43,7 @@ export const evenementsQueries = {
         const { data } = await supabase
           .from('evenements_lieux')
           .select(
-            'id, libelle, ordre, statut, local_id, equipement_id, commentaire, date_tache, created_at, locaux(id, nom), equipements(id, nom)',
+            'id, libelle, ordre, statut, local_id, equipement_id, commentaire, date_tache, created_at, locaux(id, nom), equipements(id)',
           )
           .eq('evenement_id', evenementId)
           .order('ordre')

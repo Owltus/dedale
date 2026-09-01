@@ -30,6 +30,7 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { formatDate } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
+import { listStack } from '@/lib/responsive'
 import type { Database } from '@/lib/database.types'
 import { DetailSkeleton } from '@/components/common/detail-skeleton'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
@@ -483,7 +484,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                   className={ONGLET_ETAT_VIDE}
                 />
               ) : (
-                <div className="flex flex-col gap-3">
+                <div className={listStack}>
                   {operations.map((op) => (
                     <OperationRow
                       key={op.id}

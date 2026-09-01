@@ -17,7 +17,7 @@ export const travauxQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('interventions_travaux')
-          .select('*, locaux(id, nom), equipements(id, nom)')
+          .select('*, locaux(id, nom), equipements(id, categories(nom))')
           .eq('site_id', siteId)
           .order('date_demande', { ascending: false })
           .abortSignal(signal)
@@ -34,7 +34,7 @@ export const travauxQueries = {
         const { data } = await supabase
           .from('travaux_taches')
           .select(
-            'id, libelle, statut, ordre, local_id, equipement_id, commentaire, date_tache, created_at, locaux(id, nom), equipements(id, nom)',
+            'id, libelle, statut, ordre, local_id, equipement_id, commentaire, date_tache, created_at, locaux(id, nom), equipements(id)',
           )
           .eq('travaux_id', travauxId)
           .order('ordre')

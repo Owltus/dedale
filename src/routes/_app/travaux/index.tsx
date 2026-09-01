@@ -52,7 +52,7 @@ import type { Database } from '@/lib/database.types'
 // 098 : enrichi de locaux/équipements (lieu principal) par travauxQueries.list.
 type Travaux = Database['public']['Tables']['interventions_travaux']['Row'] & {
   locaux: { id: string; nom: string } | null
-  equipements: { id: string; nom: string } | null
+  equipements: { id: string; categories: { nom: string } | null } | null
 }
 
 export const Route = createFileRoute('/_app/travaux/')({
@@ -244,7 +244,11 @@ function TravauxContent({
                 const docs = documentsParTravaux.get(c.id) ?? []
                 // Lieu principal (098) en préfixe du sous-titre — même patron
                 // que la liste des Demandes d'intervention.
-                const lieuTexte = [c.locaux?.nom, c.equipements?.nom]
+                const lieuTexte = [
+                  c.locaux?.nom,
+                  c.equipements &&
+                    (c.equipements.categories?.nom ?? 'Équipement'),
+                ]
                   .filter(Boolean)
                   .join(' · ')
                 const texteHabituel = c.description?.trim()

@@ -315,7 +315,7 @@ export function MiniaturesPanel() {
   }
 
   return (
-    <div className="-mt-4 flex h-full flex-col gap-4 sm:mt-0">
+    <div className="-mt-4 flex flex-col gap-4 sm:mt-0">
       {/* Sous `sm`, on annule le `pt-4` du panneau défilant de <Tabs> pour que la
           barre de recherche soit à la MÊME distance des dropdowns (périmètre /
           section) qu'ils le sont entre eux (~12px). Inchangé en bureau. */}
@@ -334,75 +334,74 @@ export function MiniaturesPanel() {
       <MiniatureFilters
         recherche={recherche}
         onRechercheChange={setRecherche}
+        sticky
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <QueryState
-          query={query}
-          pending={
-            <CardSkeletons
-              count={18}
-              height="aspect-square"
-              container="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12"
-            />
-          }
-          empty={
-            <EmptyState
-              icon={ImageOff}
-              title="Aucune vignette"
-              description={
-                canManage
-                  ? 'Ajoute une image via le bouton + en haut à droite.'
-                  : 'Aucune vignette pour le moment.'
-              }
-            />
-          }
-        >
-          {(all) => {
-            const visible = all.filter((m) => scopeMatches(scope, m.site_id))
-            if (visible.length === 0) {
-              return (
-                <EmptyState
-                  icon={ImageOff}
-                  title="Aucune vignette ici"
-                  description="Aucune vignette dans ce périmètre pour le moment."
-                />
-              )
+      <QueryState
+        query={query}
+        pending={
+          <CardSkeletons
+            count={18}
+            height="aspect-square"
+            container="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12"
+          />
+        }
+        empty={
+          <EmptyState
+            icon={ImageOff}
+            title="Aucune vignette"
+            description={
+              canManage
+                ? 'Ajoute une image via le bouton + en haut à droite.'
+                : 'Aucune vignette pour le moment.'
             }
-            const shown = filterMiniatures(visible, recherche)
-            if (shown.length === 0) {
-              return (
-                <NoSearchResults description="Aucune vignette ne correspond à ce filtre d’origine ou cette recherche." />
-              )
-            }
+          />
+        }
+      >
+        {(all) => {
+          const visible = all.filter((m) => scopeMatches(scope, m.site_id))
+          if (visible.length === 0) {
             return (
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12">
-                {shown.map((miniature) => (
-                  <MiniatureTuile
-                    key={miniature.id}
-                    miniature={miniature}
-                    selected={selected.has(miniature.id)}
-                    canManage={
-                      canManage && (canEntreprise || miniature.site_id !== null)
-                    }
-                    siteName={
-                      miniature.site_id === null
-                        ? null
-                        : (sites.find((s) => s.id === miniature.site_id)?.nom ??
-                          null)
-                    }
-                    showScopeBadge={scope === SCOPE_ALL}
-                    onToggle={toggleSelect}
-                    onDownload={(m) => void downloadOne(m)}
-                    onReplace={startReplace}
-                    onDelete={setToDelete}
-                  />
-                ))}
-              </div>
+              <EmptyState
+                icon={ImageOff}
+                title="Aucune vignette ici"
+                description="Aucune vignette dans ce périmètre pour le moment."
+              />
             )
-          }}
-        </QueryState>
-      </div>
+          }
+          const shown = filterMiniatures(visible, recherche)
+          if (shown.length === 0) {
+            return (
+              <NoSearchResults description="Aucune vignette ne correspond à ce filtre d’origine ou cette recherche." />
+            )
+          }
+          return (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12">
+              {shown.map((miniature) => (
+                <MiniatureTuile
+                  key={miniature.id}
+                  miniature={miniature}
+                  selected={selected.has(miniature.id)}
+                  canManage={
+                    canManage && (canEntreprise || miniature.site_id !== null)
+                  }
+                  siteName={
+                    miniature.site_id === null
+                      ? null
+                      : (sites.find((s) => s.id === miniature.site_id)?.nom ??
+                        null)
+                  }
+                  showScopeBadge={scope === SCOPE_ALL}
+                  onToggle={toggleSelect}
+                  onDownload={(m) => void downloadOne(m)}
+                  onReplace={startReplace}
+                  onDelete={setToDelete}
+                />
+              ))}
+            </div>
+          )
+        }}
+      </QueryState>
 
       {cropFile !== null && (
         <MiniatureCropDialog

@@ -133,6 +133,9 @@ export type Database = {
           site_id: string | null
           specifications: Json | null
           updated_at: string
+          valeur_principale: string | null
+          valeur_secondaire: string | null
+          valeur_tertiaire: string | null
         }
         Insert: {
           copie_depuis_id?: string | null
@@ -150,6 +153,9 @@ export type Database = {
           site_id?: string | null
           specifications?: Json | null
           updated_at?: string
+          valeur_principale?: string | null
+          valeur_secondaire?: string | null
+          valeur_tertiaire?: string | null
         }
         Update: {
           copie_depuis_id?: string | null
@@ -167,6 +173,9 @@ export type Database = {
           site_id?: string | null
           specifications?: Json | null
           updated_at?: string
+          valeur_principale?: string | null
+          valeur_secondaire?: string | null
+          valeur_tertiaire?: string | null
         }
         Relationships: [
           {
@@ -1073,7 +1082,6 @@ export type Database = {
           image_path: string | null
           local_id: string
           miniature_id: string | null
-          nom: string
           specifications: Json
           updated_at: string
         }
@@ -1088,7 +1096,6 @@ export type Database = {
           image_path?: string | null
           local_id: string
           miniature_id?: string | null
-          nom: string
           specifications?: Json
           updated_at?: string
         }
@@ -1103,7 +1110,6 @@ export type Database = {
           image_path?: string | null
           local_id?: string
           miniature_id?: string | null
-          nom?: string
           specifications?: Json
           updated_at?: string
         }
@@ -3477,6 +3483,9 @@ export type Database = {
           categorie_id: string | null
           categorie_nom: string | null
           categorie_scope: Database["public"]["Enums"]["categorie_scope"] | null
+          categorie_valeur_principale: string | null
+          categorie_valeur_secondaire: string | null
+          categorie_valeur_tertiaire: string | null
           code_inventaire: string | null
           copie_depuis_modele_id: string | null
           created_at: string | null
@@ -3491,7 +3500,6 @@ export type Database = {
           miniature_id: string | null
           niveau_id: string | null
           niveau_nom: string | null
-          nom: string | null
           site_id: string | null
           site_nom: string | null
           specifications: Json | null
@@ -3781,6 +3789,7 @@ export type Database = {
         Returns: undefined
       }
       detect_security_anomalies: { Args: never; Returns: undefined }
+      generate_identifiant_equipement: { Args: never; Returns: string }
       generate_next_ot_for_gamme: {
         Args: {
           p_created_by: string

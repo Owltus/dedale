@@ -152,7 +152,12 @@ export function useCatalogueDrill<TItem, TCat extends CatalogueDrillCat>({
       current === null
         ? []
         : [...itemsUnder(current.id)].sort((a, b) =>
-            getItemNom(a).localeCompare(getItemNom(b)),
+            // `numeric: true` = tri NATUREL : les segments numériques sont
+            // comparés par valeur (« 5 » < « 5.1 » < « 6 » < « 10 »), pas
+            // caractère par caractère (qui placerait « 10 » avant « 2 »).
+            getItemNom(a).localeCompare(getItemNom(b), undefined, {
+              numeric: true,
+            }),
           ),
     [itemsUnder, current, getItemNom],
   )

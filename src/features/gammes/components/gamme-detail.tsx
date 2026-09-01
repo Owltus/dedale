@@ -11,6 +11,12 @@ import { OtCreateDialog } from '@/features/ordres-travail/components/ot-create-d
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { equipementsQueries } from '@/features/equipements/queries'
+import {
+  titreAffiche,
+  secondaireAffiche,
+  tertiaireAffiche,
+} from '@/features/equipements/format'
+import { EquipementBadges } from '@/features/equipements/components/equipement-badges'
 import { useAuth } from '@/auth'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
@@ -29,7 +35,6 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { Badge } from '@/components/ui/badge'
 import type { Database } from '@/lib/database.types'
 
 export type GammeRow = Database['public']['Tables']['gammes']['Row'] & {
@@ -303,13 +308,15 @@ function EquipementsTab({
                 <ListRow
                   key={e.id ?? ''}
                   media={<RowMediaIcon icon={Wrench} />}
-                  title={e.nom}
+                  title={titreAffiche(e)}
                   badges={
-                    e.code_inventaire ? (
-                      <Badge variant="secondary">{e.code_inventaire}</Badge>
+                    secondaireAffiche(e) || tertiaireAffiche(e) ? (
+                      <EquipementBadges
+                        secondaire={secondaireAffiche(e)}
+                        tertiaire={tertiaireAffiche(e)}
+                      />
                     ) : undefined
                   }
-                  mobileMeta={e.code_inventaire ?? undefined}
                 />
               ))}
             </div>

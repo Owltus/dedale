@@ -15,6 +15,8 @@ interface DrillPageHeaderProps {
   ancetres?: PageHeaderCrumb[]
   /** Titre du nœud courant. Ignoré à la racine. */
   titre?: string
+  /** Badges affichés à côté du titre (ex. identifiant d'un équipement). Ignoré à la racine. */
+  titreBadges?: ReactNode
   /**
    * Description affichée à toutes les profondeurs, pour que la zone ne soit
    * jamais vide. Constante par section (Localisations, Équipements) ou portée
@@ -50,6 +52,7 @@ export function DrillPageHeader({
   titreRacine,
   ancetres,
   titre,
+  titreBadges,
   description,
   action,
 }: DrillPageHeaderProps) {
@@ -59,6 +62,7 @@ export function DrillPageHeader({
     <PageHeader
       breadcrumb={aDescendu ? ancetres : undefined}
       title={aDescendu ? (titre ?? titreRacine) : titreRacine}
+      titleBadges={aDescendu ? titreBadges : undefined}
       description={description}
       action={action}
     />

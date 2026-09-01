@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useSyncGammeEquipements } from '../mutations'
 import { equipementsQueries } from '@/features/equipements/queries'
+import { nomAfficheTexte } from '@/features/equipements/format'
 import { writeErrorMessage } from '@/lib/form'
 import { ChecklistDialog } from '@/components/common/checklist-dialog'
 
@@ -30,11 +31,10 @@ export function EquipementsLinkDialog({
       onOpenChange={onOpenChange}
       title="Lier des équipements"
       description="Coche les équipements du site concernés par cette gamme."
-      searchPlaceholder="Rechercher par nom ou code…"
+      searchPlaceholder="Rechercher par nom…"
       items={equipements.map((e) => ({
         id: e.id ?? '',
-        titre: e.nom ?? '',
-        sousTitre: e.code_inventaire ?? undefined,
+        titre: nomAfficheTexte(e),
       }))}
       initialSelected={current}
       submitLabel={() => 'Enregistrer'}

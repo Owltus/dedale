@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { equipementsQueries } from './queries'
 import { parseChamps, serializeChamps, type Champ } from '@/lib/champs'
 import { categoriesQueries } from '@/features/categories/queries'
+import { gammesQueries } from '@/features/gammes/queries'
 
 /**
  * ÉDITION des attributs de BASE d'une SOUS-catégorie de parc : nom / description /
@@ -19,11 +20,20 @@ export function useUpdateParcSousCategorie() {
       nom,
       description,
       miniatureId,
+      valeurPrincipale,
+      valeurSecondaire,
+      valeurTertiaire,
     }: {
       id: string
       nom: string
       description?: string
       miniatureId: string | null
+      /** Clé (Champ.cle) collée au type dans les listes ; null = type seul. */
+      valeurPrincipale: string | null
+      /** Clé (Champ.cle) affichée en badge à côté ; null = pas de badge. */
+      valeurSecondaire: string | null
+      /** Clé (Champ.cle) affichée en second badge ; null = pas de badge. */
+      valeurTertiaire: string | null
     }) => {
       await supabase
         .from('categories')
@@ -31,14 +41,24 @@ export function useUpdateParcSousCategorie() {
           nom: nom.trim(),
           description: description?.trim() ? description.trim() : null,
           miniature_id: miniatureId,
+          valeur_principale: valeurPrincipale,
+          valeur_secondaire: valeurSecondaire,
+          valeur_tertiaire: valeurTertiaire,
         })
         .eq('id', id)
         .select('id')
         .single()
         .throwOnError()
     },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: categoriesQueries.all() }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: categoriesQueries.all() })
+      // 107 : categorie_valeur_principale/secondaire/tertiaire sont
+      // DÉNORMALISÉES sur v_equipements_complet (jointure catégorie) — sans
+      // cette invalidation, la liste des équipements reste affichée sous
+      // l'ANCIEN nom tant qu'on ne recharge pas la page, alors que le
+      // changement est déjà en base.
+      void qc.invalidateQueries({ queryKey: equipementsQueries.all() })
+    },
   })
 }
 
@@ -130,6 +150,9 @@ export function useCreateParcSousCategorie() {
       miniatureId,
       modeleId,
       specifications,
+      valeurPrincipale,
+      valeurSecondaire,
+      valeurTertiaire,
     }: {
       nom: string
       parentId: string
@@ -140,6 +163,12 @@ export function useCreateParcSousCategorie() {
       modeleId: string | null
       /** … OU un gabarit local « spécifique » (exclusif avec modeleId). */
       specifications?: { champs: Champ[] } | null
+      /** Clé (Champ.cle) collée au type dans les listes ; défaut aucune. */
+      valeurPrincipale?: string | null
+      /** Clé (Champ.cle) affichée en badge à côté ; défaut aucune. */
+      valeurSecondaire?: string | null
+      /** Clé (Champ.cle) affichée en second badge ; défaut aucune. */
+      valeurTertiaire?: string | null
     }) => {
       const { data } = await supabase
         .from('categories')
@@ -152,6 +181,9 @@ export function useCreateParcSousCategorie() {
           miniature_id: miniatureId ?? null,
           modele_equipement_id: modeleId,
           specifications: specifications ?? null,
+          valeur_principale: valeurPrincipale ?? null,
+          valeur_secondaire: valeurSecondaire ?? null,
+          valeur_tertiaire: valeurTertiaire ?? null,
         })
         .select('id')
         .single()
@@ -173,7 +205,6 @@ export function useCreateEquipementParc() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
-      nom,
       localId,
       categorieId,
       miniatureId,
@@ -182,7 +213,6 @@ export function useCreateEquipementParc() {
       dateMiseEnService,
       dateFinGarantie,
     }: {
-      nom: string
       localId: string
       categorieId: string
       miniatureId: string | null
@@ -195,7 +225,8 @@ export function useCreateEquipementParc() {
       const { data } = await supabase
         .from('equipements')
         .insert({
-          nom: nom.trim(),
+          // code_inventaire NON envoyé (106bis) : jamais saisi côté front,
+          // la base le génère seule (DEFAULT generate_identifiant_equipement()).
           local_id: localId,
           categorie_id: categorieId,
           miniature_id: miniatureId,
@@ -218,22 +249,22 @@ export function useCreateEquipementParc() {
 
 /**
  * Met à jour un équipement de parc depuis le formulaire ÉPURÉ (mêmes champs que la
- * création) : nom, emplacement, dates, valeurs des caractéristiques. Ne TOUCHE PAS
- * l'image (héritée), la catégorie (sa sous-catégorie) ni le lien au modèle.
+ * création) : emplacement, dates, valeurs des caractéristiques. Ne TOUCHE PAS
+ * l'image (héritée), la catégorie (sa sous-catégorie), le lien au modèle NI
+ * `code_inventaire` (106bis) : cet identifiant technique n'est jamais modifiable
+ * depuis le front, pour ne pas casser l'unicité qu'il garantit.
  */
 export function useUpdateEquipementParc() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
       id,
-      nom,
       localId,
       champs,
       dateMiseEnService,
       dateFinGarantie,
     }: {
       id: string
-      nom: string
       localId: string
       champs: Champ[]
       dateMiseEnService?: string
@@ -242,7 +273,6 @@ export function useUpdateEquipementParc() {
       const { data } = await supabase
         .from('equipements')
         .update({
-          nom: nom.trim(),
           local_id: localId,
           specifications: serializeChamps(champs),
           date_mise_en_service: dateMiseEnService?.trim()
@@ -321,5 +351,52 @@ export function useInstancierEquipement() {
     },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: equipementsQueries.all() }),
+  })
+}
+
+/**
+ * Synchronise les gammes liées à un ÉQUIPEMENT (table gammes_equipements) —
+ * miroir exact de `useSyncGammeEquipements` (features/gammes/mutations.ts),
+ * sens inverse. Diff current/selected → INSERT des ajouts, DELETE des retraits.
+ */
+export function useSyncEquipementGammes() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      equipementId,
+      current,
+      selected,
+    }: {
+      equipementId: string
+      current: string[]
+      selected: string[]
+    }) => {
+      const toAdd = selected.filter((id) => !current.includes(id))
+      const toRemove = current.filter((id) => !selected.includes(id))
+
+      if (toAdd.length > 0) {
+        await supabase
+          .from('gammes_equipements')
+          .insert(
+            toAdd.map((gamme_id) => ({
+              gamme_id,
+              equipement_id: equipementId,
+            })),
+          )
+          .throwOnError()
+      }
+      if (toRemove.length > 0) {
+        await supabase
+          .from('gammes_equipements')
+          .delete()
+          .eq('equipement_id', equipementId)
+          .in('gamme_id', toRemove)
+          .throwOnError()
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: equipementsQueries.all() })
+      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+    },
   })
 }

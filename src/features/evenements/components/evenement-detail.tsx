@@ -68,7 +68,7 @@ import type { Database } from '@/lib/database.types'
 // `TacheItem` (`tache-row.tsx`).
 type Evenement = Database['public']['Tables']['evenements']['Row'] & {
   locaux: { id: string; nom: string } | null
-  equipements: { id: string; nom: string } | null
+  equipements: { id: string; categories: { nom: string } | null } | null
 }
 
 export function EvenementDetail({
@@ -176,7 +176,10 @@ export function EvenementDetail({
 
   const realisees = lieux.filter((l) => l.statut === 'realise').length
   // Lieu principal (098) — sous le titre, à côté de la date de survenue (D5).
-  const lieuPrincipalTexte = [ev.locaux?.nom, ev.equipements?.nom]
+  const lieuPrincipalTexte = [
+    ev.locaux?.nom,
+    ev.equipements && (ev.equipements.categories?.nom ?? 'Équipement'),
+  ]
     .filter(Boolean)
     .join(' · ')
 

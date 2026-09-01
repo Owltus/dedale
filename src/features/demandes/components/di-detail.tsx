@@ -21,6 +21,7 @@ import { DiEditDialog } from './di-edit-dialog'
 import { statutLabel, statutTone } from '../etat'
 import { diTitre } from '../schemas'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
+import { nomAfficheTexte } from '@/features/equipements/format'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
 import { formatDate, formatDateLong } from '@/lib/date'
@@ -201,7 +202,20 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
           equipements.length > 0
             ? {
                 label: 'Équipements',
-                value: equipements.map((e) => e.equipements.nom).join(', '),
+                value: equipements
+                  .map((e) =>
+                    nomAfficheTexte({
+                      categorie_nom: e.equipements.categories?.nom,
+                      categorie_valeur_principale:
+                        e.equipements.categories?.valeur_principale,
+                      categorie_valeur_secondaire:
+                        e.equipements.categories?.valeur_secondaire,
+                      categorie_valeur_tertiaire:
+                        e.equipements.categories?.valeur_tertiaire,
+                      specifications: e.equipements.specifications,
+                    }),
+                  )
+                  .join(', '),
               }
             : null,
         ]}

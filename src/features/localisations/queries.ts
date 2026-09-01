@@ -171,8 +171,12 @@ const CHILD_NOUN: Record<DeleteKind, { sing: string; plur: string }> = {
   local: { sing: 'équipement', plur: 'équipements' },
 }
 
-function toBlocking(data: { nom: string }[] | null) {
-  const names = (data ?? []).map((r) => r.nom)
+function toBlocking(data: { nom: string | null }[] | null) {
+  // `equipements.nom` est facultatif (104) : un équipement sans nom
+  // personnalisé s'affiche sous un libellé générique dans ce cas précis
+  // (liste de blocage, pas de sous-catégorie disponible ici pour un repli
+  // plus précis).
+  const names = (data ?? []).map((r) => r.nom ?? 'Équipement')
   return { count: names.length, names }
 }
 
@@ -208,11 +212,14 @@ export async function fetchBlockingChildren(
       return toBlocking(data)
     }
     case 'local': {
+      // 105 : plus de colonne nom sur equipements — l'identifiant
+      // (code_inventaire, généré par la base) en tient lieu pour cette
+      // liste de blocage. Alias `nom` : réutilise toBlocking tel quel.
       const q = supabase
         .from('equipements')
-        .select('nom')
+        .select('nom:code_inventaire')
         .eq('local_id', target.id)
-        .order('nom')
+        .order('code_inventaire')
       const { data } = await (signal ? q.abortSignal(signal) : q).throwOnError()
       return toBlocking(data)
     }

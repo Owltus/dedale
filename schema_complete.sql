@@ -1422,7 +1422,8 @@ COMMENT ON TABLE locaux IS 'Locaux (appartement, partie commune, local technique
 -- -----------------------------------------------------------------------------
 -- VIEW v_locaux_chemin
 -- Libellé contextuel à la volée. Remplace nom_localisation_calc legacy.
--- Chemin court : on omet le site si l'entreprise n'a qu'un seul site.
+-- Chemin court : on omet le site si l'entreprise n'a qu'un seul site, ET le
+-- bâtiment si le SITE du local n'en a qu'un seul (110).
 -- -----------------------------------------------------------------------------
 -- WITH (security_invoker = true) EN LIGNE : la vue applique la RLS de
 -- l'appelant. Posé à la création pour qu'un CREATE OR REPLACE ne puisse plus
@@ -1439,23 +1440,32 @@ SELECT
     l.nom              AS local_nom,
     l.type_local_id    AS type_local_id,
     tl.libelle         AS type_local,
-    -- chemin complet (toujours non ambigu)
+    -- chemin complet (toujours non ambigu) : INCHANGÉ.
     s.nom || ' / ' || b.nom || ' / ' || n.nom || ' / ' || l.nom AS chemin_complet,
-    -- chemin court : on omet le site si l'entreprise n'en a qu'un seul
+    -- chemin court : omet le site si l'entreprise n'en a qu'un, ET omet en
+    -- plus le bâtiment si CE site n'en a qu'un seul (110).
     CASE
-        WHEN (
-            SELECT count(*) FROM sites s2
-        ) = 1
-            THEN b.nom || ' / ' || n.nom || ' / ' || l.nom
-        ELSE     s.nom || ' / ' || b.nom || ' / ' || n.nom || ' / ' || l.nom
+        WHEN (SELECT count(*) FROM sites s2) = 1 THEN
+            CASE
+                WHEN nb.nb_batiments = 1 THEN n.nom || ' / ' || l.nom
+                ELSE b.nom || ' / ' || n.nom || ' / ' || l.nom
+            END
+        ELSE
+            CASE
+                WHEN nb.nb_batiments = 1 THEN s.nom || ' / ' || n.nom || ' / ' || l.nom
+                ELSE s.nom || ' / ' || b.nom || ' / ' || n.nom || ' / ' || l.nom
+            END
     END AS chemin_court
 FROM locaux l
 JOIN niveaux   n ON n.id = l.niveau_id
 JOIN batiments b ON b.id = n.batiment_id
 JOIN sites     s ON s.id = b.site_id
-LEFT JOIN types_locaux tl ON tl.id = l.type_local_id;
+LEFT JOIN types_locaux tl ON tl.id = l.type_local_id
+LEFT JOIN LATERAL (
+    SELECT count(*) AS nb_batiments FROM batiments b2 WHERE b2.site_id = s.id
+) nb ON true;
 
-COMMENT ON VIEW v_locaux_chemin IS 'Chemin spatial dénormalisé à la volée (remplace nom_localisation_calc legacy + 6 triggers).';
+COMMENT ON VIEW v_locaux_chemin IS 'Chemin spatial dénormalisé à la volée (remplace nom_localisation_calc legacy + 6 triggers). chemin_court omet le site si l''entreprise n''en a qu''un, et le bâtiment si le site n''en a qu''un (110).';
 
 -- 032 : surfaces agrégées (remontée) — un niveau hérite de la somme de ses locaux,
 -- un bâtiment de la somme de ses niveaux. security_invoker → RLS des tables.
@@ -1515,6 +1525,14 @@ CREATE TABLE categories (
     nom             TEXT NOT NULL,
     scope           categorie_scope NOT NULL DEFAULT 'mixte',
     description     TEXT,
+    -- 109 (ex champ_principal, 108) : sous-catégorie de PARC uniquement — clé
+    -- (Champ.cle) de la caractéristique dont la valeur est collée au nom du
+    -- type dans les listes (ex. « Extincteur N°1 »). NULL = le type seul.
+    valeur_principale TEXT,
+    -- 109 (ex champ_secondaire, 108) : seconde caractéristique, en badge.
+    valeur_secondaire TEXT,
+    -- 109 : troisième caractéristique, second badge.
+    valeur_tertiaire  TEXT,
     image_path       TEXT,
     ordre           SMALLINT NOT NULL DEFAULT 0,
     est_actif       BOOLEAN NOT NULL DEFAULT true,
@@ -1717,15 +1735,16 @@ CREATE TABLE equipements (
     -- l'équipement devient "non classé" (categorie_id NULL) — jamais détruit,
     -- jamais bloquant. Un équipement est un actif physique autonome.
     categorie_id         UUID          REFERENCES categories(id) ON DELETE SET NULL,
-    nom                  TEXT NOT NULL,
-    code_inventaire      TEXT,                                   -- code-barres / QR scan terrain
+    -- Plus de nom (migration 105) : identité = catégorie + code_inventaire,
+    -- généré automatiquement (public.generate_identifiant_equipement()) si
+    -- omis à la création — jamais à inventer par l'utilisateur.
+    code_inventaire      TEXT DEFAULT public.generate_identifiant_equipement(),
     specifications       JSONB NOT NULL DEFAULT '{}'::jsonb,     -- libre, Zod côté app + CHECK ci-dessous
     date_mise_en_service DATE,
     date_fin_garantie    DATE,
     image_path            TEXT,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CHECK (length(trim(nom)) > 0),
     CHECK (date_fin_garantie IS NULL OR date_mise_en_service IS NULL
            OR date_fin_garantie >= date_mise_en_service),
     -- F08 (audit sécu) — défense en profondeur sur JSONB libre :
@@ -1851,13 +1870,17 @@ ALTER TABLE equipements ENABLE ROW LEVEL SECURITY;
 -- VIEW v_equipements_complet — équipement + contexte spatial + catégorie
 -- Évite à l'app de refaire 4 JOIN à chaque liste d'équipements.
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE VIEW v_equipements_complet AS
+CREATE OR REPLACE VIEW v_equipements_complet
+    WITH (security_invoker = true) AS
 SELECT
     e.*,
-    c.nom              AS categorie_nom,
-    c.scope            AS categorie_scope,
-    v.chemin_court     AS localisation_courte,
-    v.chemin_complet   AS localisation_complete,
+    c.nom                  AS categorie_nom,
+    c.scope                AS categorie_scope,
+    c.valeur_principale    AS categorie_valeur_principale,
+    c.valeur_secondaire    AS categorie_valeur_secondaire,
+    c.valeur_tertiaire     AS categorie_valeur_tertiaire,
+    v.chemin_court         AS localisation_courte,
+    v.chemin_complet       AS localisation_complete,
     v.site_id,
     v.batiment_id,
     v.niveau_id,
@@ -1871,7 +1894,7 @@ LEFT JOIN v_locaux_chemin  v ON v.local_id = e.local_id;
 
 COMMENT ON TABLE equipements         IS 'Actifs physiques maintenables. JSONB specifications libre (validé Zod côté app).';
 COMMENT ON COLUMN equipements.specifications IS 'Caractéristiques techniques libres (marque, modèle, puissance…). Indexé GIN.';
-COMMENT ON VIEW  v_equipements_complet IS 'Équipement enrichi du chemin spatial + libellé catégorie.';
+COMMENT ON VIEW  v_equipements_complet IS 'Équipement enrichi du chemin spatial + valeurs principale/secondaire/tertiaire catégorie (109). nom retiré (105) : identité = categorie_nom + categorie_valeur_principale (si désignée), secondaire/tertiaire en complément.';
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
@@ -2208,6 +2231,57 @@ COMMENT ON FUNCTION public.protect_copie_depuis_modele_immutable() IS
 --   copier_gamme (matrice de droits identique).
 -- =============================================================================
 
+-- =============================================================================
+-- 105 — Identifiant d'équipement généré par la base
+-- =============================================================================
+-- generate_identifiant_equipement() — 8 caractères, alphabet de 32 (26
+--   lettres + 10 chiffres, moins O/0 et I/1 — ambiguïté de lecture terrain),
+--   soit 32^8 = 1 099 511 627 776 combinaisons. Unicité vérifiée sur TOUS les
+--   équipements (SECURITY DEFINER, contourne le cloisonnement par site de
+--   equipements). Sert de DEFAULT à equipements.code_inventaire : un INSERT
+--   qui omet la colonne reçoit un identifiant généré sans rien calculer côté
+--   front.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.generate_identifiant_equipement()
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_alphabet   CONSTANT TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    v_longueur   CONSTANT INT  := 8;
+    v_code       TEXT;
+    v_i          INT;
+    v_tentative  INT := 0;
+BEGIN
+    LOOP
+        v_code := '';
+        FOR v_i IN 1..v_longueur LOOP
+            v_code := v_code || substr(
+                v_alphabet,
+                1 + floor(random() * length(v_alphabet))::int,
+                1
+            );
+        END LOOP;
+        EXIT WHEN NOT EXISTS (
+            SELECT 1 FROM public.equipements WHERE code_inventaire = v_code
+        );
+        v_tentative := v_tentative + 1;
+        IF v_tentative > 20 THEN
+            RAISE EXCEPTION
+                'generate_identifiant_equipement : espace de codes épuisé après % tentatives (improbable sur 32^8 combinaisons — alerte réelle si ça se produit).',
+                v_tentative;
+        END IF;
+    END LOOP;
+    RETURN v_code;
+END;
+$$;
+
+COMMENT ON FUNCTION public.generate_identifiant_equipement() IS
+    'Génère un identifiant équipement aléatoire unique (8 car., alphabet de 32 sans O/0/I/1 — migration 105). SECURITY DEFINER : l''unicité se vérifie sur TOUS les équipements de l''entreprise, pas seulement ceux visibles par le rôle appelant.';
+
 CREATE OR REPLACE FUNCTION public.instancier_equipement(
     p_modele_id        UUID,
     p_local_id         UUID,
@@ -2282,12 +2356,12 @@ BEGIN
     --    commentaires sur equipements.)
     INSERT INTO public.equipements (
         id, local_id, categorie_id,
-        nom, code_inventaire,
+        code_inventaire,
         specifications, image_path,
         copie_depuis_modele_id
     ) VALUES (
         gen_random_uuid(), p_local_id, p_categorie_id,
-        v_modele.nom, p_code_inventaire,
+        p_code_inventaire,
         v_modele.specifications, v_modele.image_path,
         p_modele_id
     )
@@ -6848,14 +6922,37 @@ BEGIN
         -- (Sous-SELECT scalaire : on garde 1 ligne max via LIMIT 1, et on filtre
         --  le cas multi-équipements par CASE/COUNT pour ne pas planter "more than
         --  one row returned by a subquery used as an expression").
+        -- 109 : plus de code_inventaire (106 l'avait mis en repli, choix produit
+        -- revu) — même logique que le front : la caractéristique désignée par
+        -- categories.valeur_principale (si l'utilisateur en a choisi une), sinon
+        -- le nom de la catégorie. Renommé depuis champ_principal/champ_identifiant.
         nom_equipement = CASE
             WHEN (SELECT COUNT(*) FROM public.gammes_equipements WHERE gamme_id = g.id) = 1
             THEN (
-                SELECT e.nom
-                FROM public.gammes_equipements ge
-                JOIN public.equipements e ON e.id = ge.equipement_id
-                WHERE ge.gamme_id = g.id
-                LIMIT 1
+                SELECT COALESCE(
+                    (
+                        SELECT elem->>'valeur'
+                        FROM public.gammes_equipements ge2
+                        JOIN public.equipements e2 ON e2.id = ge2.equipement_id
+                        JOIN public.categories cat2 ON cat2.id = e2.categorie_id
+                        CROSS JOIN LATERAL jsonb_array_elements(
+                            COALESCE(e2.specifications->'champs', '[]'::jsonb)
+                        ) elem
+                        WHERE ge2.gamme_id = g.id
+                          AND cat2.valeur_principale IS NOT NULL
+                          AND elem->>'cle' = cat2.valeur_principale
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT cat3.nom
+                        FROM public.gammes_equipements ge3
+                        JOIN public.equipements e3 ON e3.id = ge3.equipement_id
+                        LEFT JOIN public.categories cat3 ON cat3.id = e3.categorie_id
+                        WHERE ge3.gamme_id = g.id
+                        LIMIT 1
+                    ),
+                    'Équipement'
+                )
             )
             ELSE NULL
         END,

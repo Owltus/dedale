@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { cardGrid } from '@/lib/responsive'
 import { dashboardQueries } from '../queries'
 
 interface EtapeAmorcage {
@@ -86,7 +87,7 @@ export function PremiersPas({ siteId }: PremiersPasProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ol className="grid grid-cols-[repeat(auto-fill,minmax(min(16rem,100%),1fr))] gap-3">
+        <ol className={cardGrid.compact}>
           {etapes.map((etape) => {
             const numero = etape.fait ? null : ++numeroRestant
             return (

@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { equipementsQueries } from '../queries'
+import { nomAfficheTexte } from '../format'
 import { StandaloneSelect } from '@/components/common/standalone-fields'
 
 interface LocalEquipementFieldsProps {
@@ -92,7 +93,7 @@ export function LocalEquipementFields({
       error={errors?.equipement_id}
       options={equipementsDuLocal.map((eq) => ({
         value: eq.id ?? '',
-        label: eq.nom ?? '',
+        label: nomAfficheTexte(eq),
       }))}
       // `optionAucune` et NON `placeholder` : le champ est facultatif (`'' =
       // aucun` dans les schémas DI et travaux). Un placeholder n'est pas

@@ -29,6 +29,15 @@ const parcSousCategorieSchema = z.object({
   miniatureId: z.string().nullable(),
   // '' = gabarit spécifique (défini ici) ; sinon id d'un modèle de site.
   modeleId: z.string(),
+  // '' = aucune (le type seul) ; sinon la clé (Champ.cle) de la caractéristique
+  // collée au type dans les listes (ex. « Extincteur N°1 »).
+  valeurPrincipale: z.string(),
+  // '' = aucun badge ; sinon la clé (Champ.cle) d'une seconde caractéristique
+  // affichée en badge à côté du nom (ex. « CO2 »).
+  valeurSecondaire: z.string(),
+  // '' = aucun second badge ; sinon la clé (Champ.cle) d'une troisième
+  // caractéristique affichée en badge sous celui de valeurSecondaire.
+  valeurTertiaire: z.string(),
 })
 
 type ParcSousCategorieValues = z.input<typeof parcSousCategorieSchema>
@@ -40,7 +49,7 @@ interface ParcSousCategorieDialogProps {
   /** Catégorie parente (niveau 1) sous laquelle créer la sous-catégorie. */
   parentId: string
   /** Modèles DU SITE proposés (un modèle commun doit d'abord être exporté). */
-  modeles: { id: string; nom: string }[]
+  modeles: { id: string; nom: string; champs: Champ[] }[]
   /** Sous-catégorie à MODIFIER. Absent = création. */
   categorie?: Categorie | null
   /**
@@ -58,6 +67,9 @@ function initialValues(
     description: categorie?.description ?? '',
     miniatureId: categorie?.miniature_id ?? null,
     modeleId: categorie?.modele_equipement_id ?? '',
+    valeurPrincipale: categorie?.valeur_principale ?? '',
+    valeurSecondaire: categorie?.valeur_secondaire ?? '',
+    valeurTertiaire: categorie?.valeur_tertiaire ?? '',
   }
 }
 
@@ -108,6 +120,28 @@ export function ParcSousCategorieDialog({
   const specifique = modeleId === ''
   // Libellé du modèle fixé (édition liée à un modèle), pour l'afficher en lecture.
   const modeleNom = modeles.find((m) => m.id === modeleId)?.nom
+  // Caractéristiques éligibles comme valeur principale/secondaire/tertiaire :
+  // celles du gabarit actif (liste DYNAMIQUE `champs` si spécifique, sinon
+  // celles du modèle choisi).
+  const champsCandidats = specifique
+    ? champs
+    : (modeles.find((m) => m.id === modeleId)?.champs ?? [])
+  // Chaque niveau exclut les caractéristiques déjà choisies aux niveaux
+  // précédents (les badges afficheraient sinon deux fois la même valeur).
+  const valeurPrincipale = useWatch({
+    control: form.control,
+    name: 'valeurPrincipale',
+  })
+  const valeurSecondaire = useWatch({
+    control: form.control,
+    name: 'valeurSecondaire',
+  })
+  const champsSecondaireCandidats = champsCandidats.filter(
+    (c) => c.cle !== valeurPrincipale,
+  )
+  const champsTertiaireCandidats = champsCandidats.filter(
+    (c) => c.cle !== valeurPrincipale && c.cle !== valeurSecondaire,
+  )
 
   const submit = useSubmitDialog<ParcSousCategorieValues>({
     onSubmit: (data) => {
@@ -119,6 +153,9 @@ export function ParcSousCategorieDialog({
           nom: data.nom,
           description: data.description,
           miniatureId: data.miniatureId,
+          valeurPrincipale: data.valeurPrincipale || null,
+          valeurSecondaire: data.valeurSecondaire || null,
+          valeurTertiaire: data.valeurTertiaire || null,
         })
       }
       // Création : la sous-catégorie n'existe pas encore → on valide et sérialise
@@ -139,6 +176,9 @@ export function ParcSousCategorieDialog({
         miniatureId: data.miniatureId,
         modeleId: estSpecifique ? null : data.modeleId,
         specifications: estSpecifique ? serializeChamps(preparedChamps) : null,
+        valeurPrincipale: data.valeurPrincipale || null,
+        valeurSecondaire: data.valeurSecondaire || null,
+        valeurTertiaire: data.valeurTertiaire || null,
       })
     },
     successMessage: isEdit ? 'Sous-catégorie modifiée' : 'Sous-catégorie créée',
@@ -212,6 +252,39 @@ export function ParcSousCategorieDialog({
           // (Radix y voit « pas de valeur »), le champ semblait donc vide alors
           // qu'il portait le choix le plus courant.
           optionAucune="Spécifique (définir les caractéristiques ici)"
+        />
+
+        <SelectField
+          control={form.control}
+          name="valeurPrincipale"
+          label="Valeur principale"
+          options={champsCandidats.map((c) => ({ value: c.cle, label: c.cle }))}
+          optionAucune="Aucune (le type seul, ex. « Extincteur »)"
+          hint="La caractéristique dont la valeur est collée au nom dans les listes (ex. « Extincteur N°1 »)."
+        />
+
+        <SelectField
+          control={form.control}
+          name="valeurSecondaire"
+          label="Valeur secondaire"
+          options={champsSecondaireCandidats.map((c) => ({
+            value: c.cle,
+            label: c.cle,
+          }))}
+          optionAucune="Aucune (pas de badge)"
+          hint="Une seconde caractéristique affichée en badge à côté du nom (ex. « CO2 »)."
+        />
+
+        <SelectField
+          control={form.control}
+          name="valeurTertiaire"
+          label="Valeur tertiaire"
+          options={champsTertiaireCandidats.map((c) => ({
+            value: c.cle,
+            label: c.cle,
+          }))}
+          optionAucune="Aucune (pas de second badge)"
+          hint="Une troisième caractéristique, affichée en second badge sous celui de la valeur secondaire."
         />
 
         {specifique ? (

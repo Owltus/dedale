@@ -58,7 +58,7 @@ import type { Database } from '@/lib/database.types'
 // 098 : enrichi de locaux/équipements (lieu principal) par evenementsQueries.list.
 type Evenement = Database['public']['Tables']['evenements']['Row'] & {
   locaux: { id: string; nom: string } | null
-  equipements: { id: string; nom: string } | null
+  equipements: { id: string; categories: { nom: string } | null } | null
 }
 
 export const Route = createFileRoute('/_app/evenements/')({
@@ -244,7 +244,11 @@ function EvenementsContent({
                 const docs = documentsParEvenement.get(ev.id) ?? []
                 // Lieu principal (098) en préfixe du sous-titre — même patron
                 // que la liste des Demandes d'intervention.
-                const lieuTexte = [ev.locaux?.nom, ev.equipements?.nom]
+                const lieuTexte = [
+                  ev.locaux?.nom,
+                  ev.equipements &&
+                    (ev.equipements.categories?.nom ?? 'Équipement'),
+                ]
                   .filter(Boolean)
                   .join(' · ')
                 const texteHabituel = ev.description?.trim()

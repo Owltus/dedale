@@ -29,7 +29,9 @@ export interface TacheItem {
   date_tache: string | null
   created_at: string
   locaux: { id: string; nom: string } | null
-  equipements: { id: string; nom: string } | null
+  // 105 : equipements n'a plus de nom — seul equipement_id/locaux servent à
+  // TacheDialog (LocalEquipementFields résout son propre affichage).
+  equipements: { id: string } | null
 }
 
 interface TacheRowProps {

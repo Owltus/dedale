@@ -70,7 +70,9 @@ export const demandesQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('di_equipements')
-          .select('equipement_id, equipements(id, nom)')
+          .select(
+            'equipement_id, equipements(id, specifications, categories(nom, valeur_principale, valeur_secondaire, valeur_tertiaire))',
+          )
           .eq('di_id', diId)
           .abortSignal(signal)
           .throwOnError()

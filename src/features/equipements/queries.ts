@@ -14,7 +14,11 @@ export const equipementsQueries = {
           .from('v_equipements_complet')
           .select('*')
           .eq('site_id', siteId!)
-          .order('nom')
+          // 105 : plus de colonne nom sur equipements — tri par nom de
+          // catégorie (regroupe les équipements du même type), puis par
+          // identifiant à l'intérieur d'un même type.
+          .order('categorie_nom')
+          .order('code_inventaire')
           .abortSignal(signal)
           .throwOnError()
         return data
@@ -48,6 +52,22 @@ export const equipementsQueries = {
           .throwOnError()
         return data
       },
+    }),
+
+  /** Ids des gammes liées à un équipement (table de liaison gammes_equipements). */
+  gammesLiees: (equipementId: string) =>
+    queryOptions({
+      queryKey: [...equipementsQueries.all(), 'gammes', equipementId] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('gammes_equipements')
+          .select('gamme_id')
+          .eq('equipement_id', equipementId)
+          .abortSignal(signal)
+          .throwOnError()
+        return data.map((r) => r.gamme_id)
+      },
+      staleTime: 60_000,
     }),
 
   /** Locaux actifs du site actif (pour le dropdown emplacement), via la vue chemin. */
