@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Paperclip, Plus, Wrench } from 'lucide-react'
+import { Package, Paperclip, Plus, Wrench } from 'lucide-react'
 import { gammesQueries } from '@/features/gammes/queries'
 import { NATURE_GAMME_LABEL } from '@/features/gammes/schemas'
 import { EquipementsLinkDialog } from '@/features/gammes/components/equipements-link-dialog'
@@ -33,7 +33,6 @@ import { useTabAddAction } from '@/components/common/tab-actions'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
-import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import type { Database } from '@/lib/database.types'
 
@@ -199,6 +198,8 @@ export function GammeDetail({
                 canEdit={canEdit}
                 linkOpen={linkOpen}
                 onLinkOpenChange={setLinkOpen}
+                urlOf={urlOf}
+                refreshMiniatures={refreshMiniatures}
               />
             )}
             {tab === 'documents' && (
@@ -268,12 +269,16 @@ function EquipementsTab({
   canEdit,
   linkOpen,
   onLinkOpenChange,
+  urlOf,
+  refreshMiniatures,
 }: {
   siteId: string
   gammeId: string
   canEdit: boolean
   linkOpen: boolean
   onLinkOpenChange: (open: boolean) => void
+  urlOf: (id: string | null) => string | null
+  refreshMiniatures: () => void
 }) {
   const equipementsQuery = useQuery(equipementsQueries.list(siteId))
   const liesQuery = useQuery(gammesQueries.equipementsLies(gammeId))
@@ -307,7 +312,15 @@ function EquipementsTab({
               {lies.map((e) => (
                 <ListRow
                   key={e.id ?? ''}
-                  media={<RowMediaIcon icon={Wrench} />}
+                  media={
+                    <MiniatureThumb
+                      url={urlOf(e.miniature_id)}
+                      fallback={<Package className="size-10" />}
+                      alt=""
+                      onError={refreshMiniatures}
+                      className="size-full rounded-none"
+                    />
+                  }
                   title={titreAffiche(e)}
                   badges={
                     secondaireAffiche(e) || tertiaireAffiche(e) ? (

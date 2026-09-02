@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
-import { ClipboardList, Package, Paperclip, Plus, Wrench } from 'lucide-react'
+import {
+  ClipboardList,
+  Package,
+  Paperclip,
+  Plus,
+  Tag,
+  Wrench,
+} from 'lucide-react'
 import { equipementsQueries } from '../queries'
 import { gammesQueries } from '@/features/gammes/queries'
 import { OtListeParGammes } from '@/features/ordres-travail/components/ot-liste-par-gammes'
@@ -209,11 +216,17 @@ function CaracteristiquesTab({
     )
   }
   return (
-    <dl className="flex flex-col gap-2 text-sm">
+    <dl className={listStack}>
       {specs.map((champ, i) => (
-        <div key={i} className="grid grid-cols-2 gap-2">
-          <dt className="truncate text-muted-foreground">{champ.cle}</dt>
-          <dd className="font-medium break-words">
+        <div
+          key={i}
+          className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3"
+        >
+          <Tag className="size-4 shrink-0 text-muted-foreground" />
+          <dt className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+            {champ.cle}
+          </dt>
+          <dd className="max-w-[60%] text-right text-sm font-medium break-words">
             {formatChampValeur(champ, champ.valeur ?? null)}
           </dd>
         </div>

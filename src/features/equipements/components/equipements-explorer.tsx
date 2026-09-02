@@ -1,6 +1,18 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Folder, FolderTree, Inbox, Package, Pencil, Plus } from 'lucide-react'
+import {
+  Check,
+  Folder,
+  FolderTree,
+  Inbox,
+  Package,
+  Pencil,
+  Plus,
+  SquareCheck,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react'
 import { equipementsQueries } from '../queries'
 import { useDeleteEquipement } from '../mutations'
 import {
@@ -13,6 +25,7 @@ import { EquipementParcDialog } from './equipement-parc-dialog'
 import { ParcSousCategorieDialog } from './parc-sous-categorie-dialog'
 import { EquipementDetail } from './equipement-detail'
 import { EquipementBadges } from './equipement-badges'
+import { ImportCsvDialog } from './import-csv-dialog'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
 import {
   categoriesQueries,
@@ -33,6 +46,7 @@ import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { parseChamps } from '@/lib/champs'
+import { deleteErrorMessage } from '@/lib/form'
 import * as perm from '@/lib/permissions'
 import { DrillPageHeader } from '@/components/common/drill-page-header'
 import { drillCrumbs } from '@/components/common/drill-crumbs'
@@ -52,9 +66,32 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { FillHeader, ScrollBody } from '@/components/common/page-container'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
+import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
+
+/**
+ * Case à cocher VISUELLE (pas Radix) posée dans le slot `media` d'une
+ * `ListRow` en mode sélection : la card entière porte déjà le clic (bascule
+ * la sélection), donc PAS d'élément interactif imbriqué — `media` n'est ici
+ * qu'un rendu, cf. contrat de `ListRow` (variante média = bouton overlay).
+ */
+function CaseSelection({ selected }: { selected: boolean }) {
+  return (
+    <div className="flex size-full items-center justify-center bg-muted">
+      <div
+        className={
+          selected
+            ? 'flex size-5 items-center justify-center rounded-[4px] border border-primary bg-primary text-primary-foreground'
+            : 'flex size-5 items-center justify-center rounded-[4px] border border-input bg-background'
+        }
+      >
+        {selected && <Check className="size-3.5" />}
+      </div>
+    </div>
+  )
+}
 
 /**
  * Catégorie pour le DRILL du parc : projection commune (`CatalogueDrillCat`) plus
@@ -193,11 +230,54 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     open: boolean
     eq: Equipement | null
   }>({ open: false, eq: null })
+  const [importCsvOpen, setImportCsvOpen] = useState(false)
   const suppression = useConfirmDelete<Equipement>({
     onDelete: async (e) => {
       if (e.id) await del.mutateAsync(e.id)
     },
     successMessage: 'Équipement supprimé',
+  })
+  // Mode sélection multiple : масque tout le temps sauf activation explicite
+  // (bouton « Sélectionner ») — cf. échange PO, « simple sans surcharger
+  // l'interface ». `selectedIds` vide en dehors du mode, jamais affichée.
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+  const quitterSelection = useCallback(() => {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }, [])
+  // Suppression GROUPÉE : même mutation unitaire que la suppression simple,
+  // en parallèle. `Promise.allSettled` (pas `all`) : un refus isolé (ex.
+  // équipement rattaché à une gamme) ne doit pas faire échouer tout le lot
+  // ni laisser l'utilisateur sans retour sur ce qui a réellement été fait.
+  const suppressionGroupee = useConfirmDelete<Equipement[]>({
+    onDelete: async (items) => {
+      const avecId = items.filter(
+        (e): e is Equipement & { id: string } => e.id !== null,
+      )
+      const resultats = await Promise.allSettled(
+        avecId.map((e) => del.mutateAsync(e.id)),
+      )
+      const echecs = resultats.filter((r) => r.status === 'rejected')
+      if (echecs.length > 0) {
+        throw new Error(
+          `${String(items.length - echecs.length)} supprimé(s), ${String(echecs.length)} refusé(s) (probablement rattaché(s) à une gamme).`,
+        )
+      }
+    },
+    successMessage: (items) =>
+      `${String(items.length)} équipement${items.length > 1 ? 's' : ''} supprimé${items.length > 1 ? 's' : ''}`,
+    errorMessage: (e) =>
+      e instanceof Error ? e.message : deleteErrorMessage(e),
+    onSuccess: quitterSelection,
   })
   const [toDeleteCategorie, setToDeleteCategorie] = useState<DrillCat | null>(
     null,
@@ -308,6 +388,64 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
       onClick={() => setEquipForm({ open: true, eq: null })}
     />
   ) : null
+  // Import en masse (CSV généré via IA générative) : même gabarit que la
+  // création manuelle, réservé à une sous-catégorie déjà existante.
+  const importCsvBtn = canCreateEquipHere ? (
+    <TooltipIconButton
+      icon={<Upload />}
+      label="Importer un CSV"
+      variant="outline"
+      onClick={() => setImportCsvOpen(true)}
+    />
+  ) : null
+  // Sélection multiple : un SEUL bouton en permanence — le reste (cases à
+  // cocher, barre d'action groupée) n'existe que le temps du mode, jamais
+  // visible par défaut (retour PO : rester simple, ne pas surcharger l'écran).
+  const selectBtn = canCreateEquipHere ? (
+    <TooltipIconButton
+      icon={<SquareCheck />}
+      label="Sélectionner"
+      variant="outline"
+      onClick={() => setSelectionMode(true)}
+    />
+  ) : null
+  const selectedEquipements = equipementsInCurrent.filter(
+    (eq) => eq.id !== null && selectedIds.has(eq.id),
+  )
+  const idsAvecId = equipementsInCurrent
+    .map((eq) => eq.id)
+    .filter((id): id is string => id !== null)
+  const tousSelectionnes =
+    idsAvecId.length > 0 && idsAvecId.every((id) => selectedIds.has(id))
+  const selectionBar = (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() =>
+          setSelectedIds(tousSelectionnes ? new Set() : new Set(idsAvecId))
+        }
+      >
+        {tousSelectionnes ? 'Tout désélectionner' : 'Tout sélectionner'}
+      </Button>
+      <span className="text-sm text-muted-foreground">
+        {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
+      </span>
+      <TooltipIconButton
+        icon={<Trash2 />}
+        label="Supprimer la sélection"
+        variant="outline"
+        disabled={selectedEquipements.length === 0}
+        onClick={() => suppressionGroupee.demander(selectedEquipements)}
+      />
+      <TooltipIconButton
+        icon={<X />}
+        label="Annuler la sélection"
+        variant="outline"
+        onClick={quitterSelection}
+      />
+    </div>
+  )
   // Édition de la sous-catégorie courante (nom, description, image, gabarit) via le
   // MÊME formulaire que la création. Disponible dès qu'on est DANS une sous-catégorie.
   const editSubcatBtn =
@@ -389,11 +527,17 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
             {equipAddBtn}
           </>
         ) : depth > 0 ? (
-          <>
-            {newSubCategoryBtn}
-            {editSubcatBtn}
-            {newEquipBtn}
-          </>
+          selectionMode ? (
+            selectionBar
+          ) : (
+            <>
+              {newSubCategoryBtn}
+              {editSubcatBtn}
+              {newEquipBtn}
+              {importCsvBtn}
+              {selectBtn}
+            </>
+          )
         ) : (
           (newCategoryBtn ?? undefined)
         )
@@ -483,6 +627,26 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         />
       )}
 
+      {/* Import en masse (CSV) : réservé à une sous-catégorie EXISTANTE avec
+          un gabarit résolu — pas de repli comme EquipementParcDialog, pas de
+          sens de générer un prompt sans caractéristiques ciblées. */}
+      {canEdit && current && !current.virtual && currentTemplate && (
+        <ImportCsvDialog
+          open={importCsvOpen}
+          onOpenChange={setImportCsvOpen}
+          siteId={siteId}
+          categorieId={current.id}
+          sousCategorieNom={current.nom}
+          template={currentTemplate}
+          champPrincipalCle={
+            categoriesById.get(current.id)?.valeur_principale ?? null
+          }
+          equipementsExistants={equipements.filter(
+            (e) => e.categorie_id === current.id,
+          )}
+        />
+      )}
+
       <ConfirmDeleteDialog
         {...suppression.dialogProps}
         entityLabel={`l’équipement « ${suppression.toDelete ? nomAfficheTexte(suppression.toDelete) : ''} »`}
@@ -490,6 +654,16 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         // active (FK/trigger). Cette info n'est pas chargée ici → on prévient en
         // amont ; l'erreur 23503/42501 reste catchée en filet (toast onError).
         warning="Si cet équipement est rattaché à une ou plusieurs gammes, la suppression sera refusée : détache-le d’abord."
+      />
+
+      <ConfirmDeleteDialog
+        {...suppressionGroupee.dialogProps}
+        entityLabel={`${String(suppressionGroupee.toDelete?.length ?? 0)} équipement${(suppressionGroupee.toDelete?.length ?? 0) > 1 ? 's' : ''}`}
+        impactsTitle="Équipements concernés :"
+        impacts={(suppressionGroupee.toDelete ?? []).map((e) =>
+          nomAfficheTexte(e),
+        )}
+        warning="Si l'un de ces équipements est rattaché à une ou plusieurs gammes, sa suppression sera refusée (les autres seront tout de même supprimés) : détache-le d'abord."
       />
 
       <ConfirmDeleteCategorieDialog
@@ -653,29 +827,42 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                       <ListRow
                         key={eq.id}
                         media={
-                          <MiniatureThumb
-                            url={urlOf(eq.miniature_id)}
-                            fallback={<Package className="size-10" />}
-                            alt=""
-                            onError={refreshMiniatures}
-                            className="size-full rounded-none"
-                          />
+                          selectionMode ? (
+                            <CaseSelection
+                              selected={
+                                eq.id !== null && selectedIds.has(eq.id)
+                              }
+                            />
+                          ) : (
+                            <MiniatureThumb
+                              url={urlOf(eq.miniature_id)}
+                              fallback={<Package className="size-10" />}
+                              alt=""
+                              onError={refreshMiniatures}
+                              className="size-full rounded-none"
+                            />
+                          )
                         }
                         title={titreAffiche(eq)}
                         subtitle={
                           eq.localisation_courte ?? eq.local_nom ?? undefined
                         }
                         badges={
-                          secondaireAffiche(eq) || tertiaireAffiche(eq) ? (
+                          !selectionMode &&
+                          (secondaireAffiche(eq) || tertiaireAffiche(eq)) ? (
                             <EquipementBadges
                               secondaire={secondaireAffiche(eq)}
                               tertiaire={tertiaireAffiche(eq)}
                             />
                           ) : undefined
                         }
-                        onClick={() => goToEquipement(eq)}
+                        onClick={() =>
+                          selectionMode
+                            ? eq.id !== null && toggleSelection(eq.id)
+                            : goToEquipement(eq)
+                        }
                         menuActions={
-                          canEdit
+                          canEdit && !selectionMode
                             ? actionsEditionSuppression({
                                 onModifier: () =>
                                   setEquipForm({ open: true, eq }),
