@@ -31,6 +31,7 @@ import { Route as AppDemandesRouteImport } from './routes/_app/demandes'
 import { Route as AppBibliothequeRouteImport } from './routes/_app/bibliotheque'
 import { Route as AppUtilisateursIndexRouteImport } from './routes/_app/utilisateurs/index'
 import { Route as AppTravauxIndexRouteImport } from './routes/_app/travaux/index'
+import { Route as AppRelevesIndexRouteImport } from './routes/_app/releves/index'
 import { Route as AppPrestatairesIndexRouteImport } from './routes/_app/prestataires/index'
 import { Route as AppOrdresTravailIndexRouteImport } from './routes/_app/ordres-travail/index'
 import { Route as AppInvestissementsIndexRouteImport } from './routes/_app/investissements/index'
@@ -39,6 +40,7 @@ import { Route as AppDemandesIndexRouteImport } from './routes/_app/demandes/ind
 import { Route as AppBibliothequeIndexRouteImport } from './routes/_app/bibliotheque/index'
 import { Route as AppUtilisateursUtilisateurRouteImport } from './routes/_app/utilisateurs/$utilisateur'
 import { Route as AppTravauxTravauxRouteImport } from './routes/_app/travaux/$travaux'
+import { Route as AppRelevesReleveRouteImport } from './routes/_app/releves/$releve'
 import { Route as AppPrestatairesPrestataireRouteImport } from './routes/_app/prestataires/$prestataire'
 import { Route as AppOrdresTravailOtIdRouteImport } from './routes/_app/ordres-travail/$otId'
 import { Route as AppLocalisationsSplatRouteImport } from './routes/_app/localisations/$'
@@ -158,6 +160,11 @@ const AppTravauxIndexRoute = AppTravauxIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppTravauxRoute,
 } as any)
+const AppRelevesIndexRoute = AppRelevesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRelevesRoute,
+} as any)
 const AppPrestatairesIndexRoute = AppPrestatairesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -198,6 +205,11 @@ const AppTravauxTravauxRoute = AppTravauxTravauxRouteImport.update({
   id: '/$travaux',
   path: '/$travaux',
   getParentRoute: () => AppTravauxRoute,
+} as any)
+const AppRelevesReleveRoute = AppRelevesReleveRouteImport.update({
+  id: '/$releve',
+  path: '/$releve',
+  getParentRoute: () => AppRelevesRoute,
 } as any)
 const AppPrestatairesPrestataireRoute =
   AppPrestatairesPrestataireRouteImport.update({
@@ -263,7 +275,7 @@ export interface FileRoutesByFullPath {
   '/prestataires': typeof AppPrestatairesRouteWithChildren
   '/profil': typeof AppProfilRoute
   '/registre': typeof AppRegistreRoute
-  '/releves': typeof AppRelevesRoute
+  '/releves': typeof AppRelevesRouteWithChildren
   '/sites': typeof AppSitesRoute
   '/travaux': typeof AppTravauxRouteWithChildren
   '/utilisateurs': typeof AppUtilisateursRouteWithChildren
@@ -276,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/localisations/$': typeof AppLocalisationsSplatRoute
   '/ordres-travail/$otId': typeof AppOrdresTravailOtIdRoute
   '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
+  '/releves/$releve': typeof AppRelevesReleveRoute
   '/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque/': typeof AppBibliothequeIndexRoute
@@ -284,6 +297,7 @@ export interface FileRoutesByFullPath {
   '/investissements/': typeof AppInvestissementsIndexRoute
   '/ordres-travail/': typeof AppOrdresTravailIndexRoute
   '/prestataires/': typeof AppPrestatairesIndexRoute
+  '/releves/': typeof AppRelevesIndexRoute
   '/travaux/': typeof AppTravauxIndexRoute
   '/utilisateurs/': typeof AppUtilisateursIndexRoute
 }
@@ -296,7 +310,6 @@ export interface FileRoutesByTo {
   '/planning': typeof AppPlanningRoute
   '/profil': typeof AppProfilRoute
   '/registre': typeof AppRegistreRoute
-  '/releves': typeof AppRelevesRoute
   '/sites': typeof AppSitesRoute
   '/': typeof AppIndexRoute
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
@@ -308,6 +321,7 @@ export interface FileRoutesByTo {
   '/localisations/$': typeof AppLocalisationsSplatRoute
   '/ordres-travail/$otId': typeof AppOrdresTravailOtIdRoute
   '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
+  '/releves/$releve': typeof AppRelevesReleveRoute
   '/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/bibliotheque': typeof AppBibliothequeIndexRoute
@@ -316,6 +330,7 @@ export interface FileRoutesByTo {
   '/investissements': typeof AppInvestissementsIndexRoute
   '/ordres-travail': typeof AppOrdresTravailIndexRoute
   '/prestataires': typeof AppPrestatairesIndexRoute
+  '/releves': typeof AppRelevesIndexRoute
   '/travaux': typeof AppTravauxIndexRoute
   '/utilisateurs': typeof AppUtilisateursIndexRoute
 }
@@ -336,7 +351,7 @@ export interface FileRoutesById {
   '/_app/prestataires': typeof AppPrestatairesRouteWithChildren
   '/_app/profil': typeof AppProfilRoute
   '/_app/registre': typeof AppRegistreRoute
-  '/_app/releves': typeof AppRelevesRoute
+  '/_app/releves': typeof AppRelevesRouteWithChildren
   '/_app/sites': typeof AppSitesRoute
   '/_app/travaux': typeof AppTravauxRouteWithChildren
   '/_app/utilisateurs': typeof AppUtilisateursRouteWithChildren
@@ -350,6 +365,7 @@ export interface FileRoutesById {
   '/_app/localisations/$': typeof AppLocalisationsSplatRoute
   '/_app/ordres-travail/$otId': typeof AppOrdresTravailOtIdRoute
   '/_app/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
+  '/_app/releves/$releve': typeof AppRelevesReleveRoute
   '/_app/travaux/$travaux': typeof AppTravauxTravauxRoute
   '/_app/utilisateurs/$utilisateur': typeof AppUtilisateursUtilisateurRoute
   '/_app/bibliotheque/': typeof AppBibliothequeIndexRoute
@@ -358,6 +374,7 @@ export interface FileRoutesById {
   '/_app/investissements/': typeof AppInvestissementsIndexRoute
   '/_app/ordres-travail/': typeof AppOrdresTravailIndexRoute
   '/_app/prestataires/': typeof AppPrestatairesIndexRoute
+  '/_app/releves/': typeof AppRelevesIndexRoute
   '/_app/travaux/': typeof AppTravauxIndexRoute
   '/_app/utilisateurs/': typeof AppUtilisateursIndexRoute
 }
@@ -392,6 +409,7 @@ export interface FileRouteTypes {
     | '/localisations/$'
     | '/ordres-travail/$otId'
     | '/prestataires/$prestataire'
+    | '/releves/$releve'
     | '/travaux/$travaux'
     | '/utilisateurs/$utilisateur'
     | '/bibliotheque/'
@@ -400,6 +418,7 @@ export interface FileRouteTypes {
     | '/investissements/'
     | '/ordres-travail/'
     | '/prestataires/'
+    | '/releves/'
     | '/travaux/'
     | '/utilisateurs/'
   fileRoutesByTo: FileRoutesByTo
@@ -412,7 +431,6 @@ export interface FileRouteTypes {
     | '/planning'
     | '/profil'
     | '/registre'
-    | '/releves'
     | '/sites'
     | '/'
     | '/bibliotheque/$'
@@ -424,6 +442,7 @@ export interface FileRouteTypes {
     | '/localisations/$'
     | '/ordres-travail/$otId'
     | '/prestataires/$prestataire'
+    | '/releves/$releve'
     | '/travaux/$travaux'
     | '/utilisateurs/$utilisateur'
     | '/bibliotheque'
@@ -432,6 +451,7 @@ export interface FileRouteTypes {
     | '/investissements'
     | '/ordres-travail'
     | '/prestataires'
+    | '/releves'
     | '/travaux'
     | '/utilisateurs'
   id:
@@ -465,6 +485,7 @@ export interface FileRouteTypes {
     | '/_app/localisations/$'
     | '/_app/ordres-travail/$otId'
     | '/_app/prestataires/$prestataire'
+    | '/_app/releves/$releve'
     | '/_app/travaux/$travaux'
     | '/_app/utilisateurs/$utilisateur'
     | '/_app/bibliotheque/'
@@ -473,6 +494,7 @@ export interface FileRouteTypes {
     | '/_app/investissements/'
     | '/_app/ordres-travail/'
     | '/_app/prestataires/'
+    | '/_app/releves/'
     | '/_app/travaux/'
     | '/_app/utilisateurs/'
   fileRoutesById: FileRoutesById
@@ -638,6 +660,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTravauxIndexRouteImport
       parentRoute: typeof AppTravauxRoute
     }
+    '/_app/releves/': {
+      id: '/_app/releves/'
+      path: '/'
+      fullPath: '/releves/'
+      preLoaderRoute: typeof AppRelevesIndexRouteImport
+      parentRoute: typeof AppRelevesRoute
+    }
     '/_app/prestataires/': {
       id: '/_app/prestataires/'
       path: '/'
@@ -693,6 +722,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/travaux/$travaux'
       preLoaderRoute: typeof AppTravauxTravauxRouteImport
       parentRoute: typeof AppTravauxRoute
+    }
+    '/_app/releves/$releve': {
+      id: '/_app/releves/$releve'
+      path: '/$releve'
+      fullPath: '/releves/$releve'
+      preLoaderRoute: typeof AppRelevesReleveRouteImport
+      parentRoute: typeof AppRelevesRoute
     }
     '/_app/prestataires/$prestataire': {
       id: '/_app/prestataires/$prestataire'
@@ -877,6 +913,20 @@ const AppPrestatairesRouteWithChildren = AppPrestatairesRoute._addFileChildren(
   AppPrestatairesRouteChildren,
 )
 
+interface AppRelevesRouteChildren {
+  AppRelevesReleveRoute: typeof AppRelevesReleveRoute
+  AppRelevesIndexRoute: typeof AppRelevesIndexRoute
+}
+
+const AppRelevesRouteChildren: AppRelevesRouteChildren = {
+  AppRelevesReleveRoute: AppRelevesReleveRoute,
+  AppRelevesIndexRoute: AppRelevesIndexRoute,
+}
+
+const AppRelevesRouteWithChildren = AppRelevesRoute._addFileChildren(
+  AppRelevesRouteChildren,
+)
+
 interface AppTravauxRouteChildren {
   AppTravauxTravauxRoute: typeof AppTravauxTravauxRoute
   AppTravauxIndexRoute: typeof AppTravauxIndexRoute
@@ -919,7 +969,7 @@ interface AppRouteChildren {
   AppPrestatairesRoute: typeof AppPrestatairesRouteWithChildren
   AppProfilRoute: typeof AppProfilRoute
   AppRegistreRoute: typeof AppRegistreRoute
-  AppRelevesRoute: typeof AppRelevesRoute
+  AppRelevesRoute: typeof AppRelevesRouteWithChildren
   AppSitesRoute: typeof AppSitesRoute
   AppTravauxRoute: typeof AppTravauxRouteWithChildren
   AppUtilisateursRoute: typeof AppUtilisateursRouteWithChildren
@@ -940,7 +990,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPrestatairesRoute: AppPrestatairesRouteWithChildren,
   AppProfilRoute: AppProfilRoute,
   AppRegistreRoute: AppRegistreRoute,
-  AppRelevesRoute: AppRelevesRoute,
+  AppRelevesRoute: AppRelevesRouteWithChildren,
   AppSitesRoute: AppSitesRoute,
   AppTravauxRoute: AppTravauxRouteWithChildren,
   AppUtilisateursRoute: AppUtilisateursRouteWithChildren,

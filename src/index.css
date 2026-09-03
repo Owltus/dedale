@@ -37,6 +37,15 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+  /* Palette CATÉGORIELLE des graphiques (ordre fixe, jamais cyclé au hasard) —
+     identité de série (≠ tons de statut ci-dessus, réservés conforme/non
+     conforme…). Valeurs validées par le skill dataviz (5 premiers tons d'une
+     palette à 8, seuils CVD/contraste vérifiés par `validate_palette.js`). */
+  --chart-1: #2a78d6; /* bleu */
+  --chart-2: #eb6834; /* orange */
+  --chart-3: #1baf7a; /* turquoise */
+  --chart-4: #eda100; /* jaune */
+  --chart-5: #e87ba4; /* magenta */
   /* Surbrillance de colonne du planning : gris DISTINCT de `muted`/`accent` (qui
      valent le même token que le badge « Programmé ») — plus foncé que la carte en
      thème clair, plus clair que `muted` en sombre. Dérivé des tokens → s'adapte au
@@ -86,6 +95,12 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+  /* Mêmes 5 tons, marche « sombre » de la même palette catégorielle (cf. clair). */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
 }
 
 /* ─── Mapping sémantique : génère les utilitaires Tailwind (bg-primary…) ──── */
@@ -122,6 +137,11 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
   --color-col-active: var(--col-active);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
