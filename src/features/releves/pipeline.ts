@@ -7,7 +7,7 @@ import {
   consoOperation,
   sommesCompteursParUnite,
 } from '@/features/ordres-travail/schemas'
-import { isoLocale, parseDateLocale } from '@/lib/date'
+import { formatDate, isoLocale, parseDateLocale } from '@/lib/date'
 import type { Database } from '@/lib/database.types'
 
 type OperationExecution =
@@ -309,6 +309,56 @@ export function chartGroups(series: SerieReleve[]): GroupeUnite[] {
     if (a.estCompteur !== b.estCompteur) return a.estCompteur ? -1 : 1
     return a.uniteSymbole.localeCompare(b.uniteSymbole, 'fr')
   })
+}
+
+/**
+ * En-têtes + lignes CSV d'un graphique (un groupe d'unité) — l'export brut des
+ * MÊMES points réels que ceux tracés, jamais une valeur recalculée : une ligne
+ * par date réelle, une colonne par série (+ conformité en mode « ligne », +
+ * changement de compteur en mode compteur cumulatif). Utilisé par le bouton
+ * d'export CSV de chaque graphique (`releve-detail.tsx`).
+ */
+export function csvGroupe(g: GroupeUnite): {
+  entetes: string[]
+  lignes: string[][]
+} {
+  const dates = [
+    ...new Set(g.series.flatMap((s) => s.points.map((p) => p.date))),
+  ].sort()
+  const avecConformite = !g.estCompteur
+  const avecRemplacement = g.estCompteurCumulatif
+
+  const entetes = [
+    'Date',
+    ...g.series.flatMap((s) => [
+      `${s.nom} (${g.uniteSymbole})`,
+      ...(avecConformite ? [`${s.nom} — conforme`] : []),
+      ...(avecRemplacement ? [`${s.nom} — changement de compteur`] : []),
+    ]),
+  ]
+
+  const lignes = dates.map((date) => [
+    formatDate(date),
+    ...g.series.flatMap((s) => {
+      const point = s.points.find((p) => p.date === date)
+      const valeur = g.estCompteurCumulatif ? point?.conso : point?.valeur
+      return [
+        valeur !== null && valeur !== undefined ? String(valeur) : '',
+        ...(avecConformite
+          ? [
+              point?.conforme === true
+                ? 'Oui'
+                : point?.conforme === false
+                  ? 'Non'
+                  : '',
+            ]
+          : []),
+        ...(avecRemplacement ? [point?.remplacement ? 'Oui' : ''] : []),
+      ]
+    }),
+  ])
+
+  return { entetes, lignes }
 }
 
 /**

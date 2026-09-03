@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, Gauge } from 'lucide-react'
+import { ChevronLeft, Download, Gauge } from 'lucide-react'
 import { relevesQueries } from '../queries'
 import {
   calculerBandeau,
   chartGroups,
+  csvGroupe,
   fenetrePeriode,
   filtrerParPeriode,
   seriesParGamme,
   PERIODE_OPTIONS,
   type GammeReleveResume,
+  type GroupeUnite,
   type Periode,
 } from '../pipeline'
 import { ChartTemporel } from '@/components/common/charts/serie-temporelle'
@@ -20,6 +22,8 @@ import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { EmptyState } from '@/components/common/empty-state'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { SelectDropdown } from '@/components/ui/select-dropdown'
+import { telechargerCsv } from '@/lib/csv'
+import { slugify } from '@/lib/slug'
 
 export function ReleveDetail({
   gamme,
@@ -58,6 +62,16 @@ export function ReleveDetail({
 
   const allerVersOt = (otId: string) =>
     void navigate({ to: '/ordres-travail/$otId', params: { otId } })
+
+  // Export CSV d'UN graphique — les mêmes points réels que ceux tracés dans
+  // ce groupe précis, jamais toute la gamme (chaque graphique a son unité).
+  const exporterCsv = (g: GroupeUnite) => {
+    const { entetes, lignes } = csvGroupe(g)
+    const nomSerie =
+      g.series.length === 1 ? g.series[0]!.nom : (g.uniteNom ?? g.uniteSymbole)
+    const nomFichier = `${slugify(gamme.nomGamme)}_${slugify(nomSerie)}.csv`
+    telechargerCsv(nomFichier, entetes, lignes)
+  }
 
   return (
     <PageContainer>
@@ -132,15 +146,22 @@ export function ReleveDetail({
               key={g.uniteSymbole}
               className="flex h-80 flex-col rounded-lg border bg-card p-3"
             >
-              <div className="mb-1 flex shrink-0 items-baseline justify-between gap-2">
+              <div className="mb-1 flex shrink-0 items-center justify-between gap-2">
                 <span className="truncate text-sm font-medium">
                   {g.series.length === 1
                     ? g.series[0]!.nom
                     : (g.uniteNom ?? g.uniteSymbole)}
                 </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {g.uniteSymbole}
-                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  <span className="text-xs text-muted-foreground">
+                    {g.uniteSymbole}
+                  </span>
+                  <TooltipIconButton
+                    icon={<Download />}
+                    label="Exporter ce graphique en CSV"
+                    onClick={() => exporterCsv(g)}
+                  />
+                </div>
               </div>
               <div className="relative min-h-0 flex-1">
                 <ChartTemporel

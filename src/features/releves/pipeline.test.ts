@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   calculerBandeau,
   chartGroups,
+  csvGroupe,
   domaineDates,
   fenetrePeriode,
   filtrerParPeriode,
@@ -332,6 +333,80 @@ describe('chartGroups', () => {
       },
     ])
     expect(groupes.map((g) => g.uniteSymbole)).toEqual(['m³', '°C'])
+  })
+})
+
+describe('csvGroupe', () => {
+  it('mode mesure : une colonne valeur + une colonne conforme par série', () => {
+    const { entetes, lignes } = csvGroupe({
+      uniteSymbole: '°C',
+      uniteNom: null,
+      estCompteur: false,
+      estCompteurCumulatif: false,
+      series: [
+        {
+          nom: 'Température E.C.S',
+          uniteSymbole: '°C',
+          uniteNom: null,
+          seuilMinimum: 55,
+          seuilMaximum: null,
+          estCompteur: false,
+          estCompteurCumulatif: false,
+          points: [
+            {
+              otId: 'ot1',
+              date: '2026-01-10T10:00:00Z',
+              valeur: 58,
+              conso: null,
+              conforme: true,
+              remplacement: false,
+            },
+          ],
+        },
+      ],
+    })
+    expect(entetes).toEqual([
+      'Date',
+      'Température E.C.S (°C)',
+      'Température E.C.S — conforme',
+    ])
+    expect(lignes).toEqual([['10/01/2026', '58', 'Oui']])
+  })
+
+  it('mode compteur cumulatif : valeur = consommation, colonne remplacement', () => {
+    const { entetes, lignes } = csvGroupe({
+      uniteSymbole: 'kWh',
+      uniteNom: null,
+      estCompteur: true,
+      estCompteurCumulatif: true,
+      series: [
+        {
+          nom: 'Compteur électrique',
+          uniteSymbole: 'kWh',
+          uniteNom: null,
+          seuilMinimum: null,
+          seuilMaximum: null,
+          estCompteur: true,
+          estCompteurCumulatif: true,
+          points: [
+            {
+              otId: 'ot2',
+              date: '2026-02-10T10:00:00Z',
+              valeur: 20,
+              conso: 70,
+              conforme: null,
+              remplacement: true,
+            },
+          ],
+        },
+      ],
+    })
+    expect(entetes).toEqual([
+      'Date',
+      'Compteur électrique (kWh)',
+      'Compteur électrique — changement de compteur',
+    ])
+    expect(lignes).toEqual([['10/02/2026', '70', 'Oui']])
   })
 })
 
