@@ -79,7 +79,12 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
                 </BreadcrumbLink>
               ) : (
                 // Plusieurs parents repliés : menu déroulant, chacun cliquable.
-                <DropdownMenu>
+                // `modal={false}` : chaque item NAVIGUE, ce qui recalcule
+                // `hidden` et démonte ce menu pendant qu'il est ouvert. En
+                // modal, il tiendrait alors le verrou `pointer-events` du
+                // body au moment de disparaître (même précaution que
+                // `list-row.tsx`).
+                <DropdownMenu modal={false}>
                   <DropdownMenuTrigger
                     className={`flex items-center hover:text-foreground ${focusRing}`}
                     aria-label="Afficher les niveaux parents"

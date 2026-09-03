@@ -136,6 +136,12 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   const batDialog = useEntityDialog<Batiment>()
   const nivDialog = useEntityDialog<Niveau>()
   const locDialog = useEntityDialog<Local>()
+  // `batiment`/`niveau` viennent de l'URL : le bouton Précédent du navigateur
+  // (ou un renommage en temps réel) peut les annuler pendant qu'un dialog est
+  // ouvert. On le ferme (ajustement pendant le rendu) plutôt que de le
+  // démonter ouvert — il resurgirait seul au retour sur le palier.
+  if (nivDialog.open && !batiment) nivDialog.close()
+  if (locDialog.open && !niveau) locDialog.close()
 
   const delBatiment = useDeleteBatiment()
   const delNiveau = useDeleteNiveau()

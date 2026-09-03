@@ -195,6 +195,11 @@ export function EvenementDetail({
   // PAS comme vide : mieux vaut un instant la montrer que la faire clignoter.
   const ficheDocsVides = ficheDocsQuery.data?.length === 0
   const masquerCarteDocuments = ev.verrouille && ficheDocsVides
+  // Le verrou peut tomber À CHAUD (trigger de clôture relayé en temps réel)
+  // pendant que le dialog d'upload est ouvert : la carte Documents se masque
+  // et l'emporterait ouvert → il resurgirait au déverrouillage. On le ferme
+  // (ajustement pendant le rendu, même patron que TravauxDetail).
+  if (!editable && upload.uploadOpen) upload.onUploadOpenChange(false)
   // « Clôturé pour de bon » = date_cloture VRAIMENT posée — pas seulement le
   // statut basculé par le trigger, qui laisse date_cloture NULL en attendant
   // confirmation (cf. `attendConfirmationCloture`).
@@ -203,19 +208,18 @@ export function EvenementDetail({
   const attendConfirmationCloture =
     ev.statut_evenement_id === STATUT_CLOTURE && ev.date_cloture === null
 
-  // Ouvre la confirmation de clôture UNE FOIS par fiche fraîchement basculée
-  // en Clôturé par le trigger (ajustement pendant le rendu plutôt qu'un effet
-  // — cf. le même patron sur TravauxDetail).
-  const [clotureAutoVuePour, setClotureAutoVuePour] = useState<string | null>(
-    null,
-  )
-  if (
-    attendConfirmationCloture &&
-    clotureAutoVuePour !== ev.id &&
-    !cloture.open
-  ) {
-    setClotureAutoVuePour(ev.id)
-    cloture.openEdit(ev)
+  // Ouvre la confirmation de clôture UNE FOIS, au moment où la bascule en
+  // Clôturé par le trigger se produit SOUS LES YEUX de l'utilisateur (on
+  // compare à la valeur du rendu précédent — ajustement pendant le rendu, pas
+  // un effet, cf. le même patron sur TravauxDetail). Une fiche ouverte DÉJÀ en
+  // attente ne rouvre rien : la carte « Clôturé · clôture à confirmer » porte
+  // le rappel et le bouton (décision PO du 03/09/2026).
+  const [attenteVue, setAttenteVue] = useState(attendConfirmationCloture)
+  if (attendConfirmationCloture !== attenteVue) {
+    setAttenteVue(attendConfirmationCloture)
+    if (attendConfirmationCloture && canManage && !cloture.open) {
+      cloture.openEdit(ev)
+    }
   }
 
   /**
@@ -373,14 +377,29 @@ export function EvenementDetail({
             en premier. */}
         {ev.statut_evenement_id === STATUT_CLOTURE && (
           <DetailNoteCard
-            label={`Clôturé${ev.date_cloture ? ` le ${formatDate(ev.date_cloture)}` : ''}`}
+            label={
+              attendConfirmationCloture
+                ? 'Clôturé · clôture à confirmer'
+                : `Clôturé${ev.date_cloture ? ` le ${formatDate(ev.date_cloture)}` : ''}`
+            }
             text={ev.compte_rendu}
-            emptyText="Aucun compte-rendu."
+            emptyText={
+              attendConfirmationCloture
+                ? 'Date de clôture et compte-rendu à renseigner pour confirmer la clôture.'
+                : 'Aucun compte-rendu.'
+            }
+            // Clôture EN ATTENTE : le bouton reste accessible malgré le verrou
+            // (posé par le trigger en même temps que Clôturé) — même geste que
+            // la modale automatique, pas de déverrouillage à exiger.
             action={
-              editable && (
+              (editable || (canManage && attendConfirmationCloture)) && (
                 <TooltipIconButton
                   icon={<Pencil />}
-                  label="Modifier la clôture"
+                  label={
+                    attendConfirmationCloture
+                      ? 'Confirmer la clôture'
+                      : 'Modifier la clôture'
+                  }
                   variant="ghost"
                   onClick={() => cloture.openEdit(ev)}
                 />

@@ -327,6 +327,18 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     }
   }, [current, categoriesById, modelesQuery.data])
 
+  // La descente vient de l'URL : le bouton Précédent du navigateur peut
+  // changer de palier pendant qu'un dialog est ouvert (voire avec un Select ou
+  // un calendrier ouvert dedans). On ferme le dialog dont la condition de
+  // montage tombe (ajustement pendant le rendu) plutôt que de le démonter
+  // ouvert — il resurgirait seul au retour sur le palier.
+  if (equipForm.open && !(currentTemplate ?? equipForm.eq)) {
+    setEquipForm((f) => ({ ...f, open: false }))
+  }
+  if (importCsvOpen && !(current && !current.virtual && currentTemplate)) {
+    setImportCsvOpen(false)
+  }
+
   // La base BLOQUE la suppression d'une catégorie NON VIDE (sous-catégorie ou
   // équipement rattaché). Pré-calcul pour adapter le message et désactiver.
   const categorieABloquer = toDeleteCategorie
@@ -611,7 +623,10 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
           template ne sert pas (les champs viennent de equipement.specifications). */}
       {canEdit && (currentTemplate ?? equipForm.eq) && (
         <EquipementParcDialog
-          key={`equip-${current?.id ?? 'root'}-${equipForm.eq?.id ?? 'new'}-${String(equipForm.open)}`}
+          // Clé = identité du formulaire (équipement + ouverture), SANS le
+          // palier courant : `current.id` vient de l'URL et remonterait le
+          // dialog en pleine saisie sur un simple Précédent du navigateur.
+          key={`equip-${equipForm.eq?.id ?? 'new'}-${String(equipForm.open)}`}
           open={equipForm.open}
           onOpenChange={(open) => setEquipForm((f) => ({ ...f, open }))}
           siteId={siteId}

@@ -339,7 +339,10 @@ function EquipementsTab({
 
       {canEdit && (
         <EquipementsLinkDialog
-          key={liesIds.join(',')}
+          // Remontage à chaque OUVERTURE (repart des liaisons du moment) —
+          // jamais sur `liesIds` : une donnée vivante en `key` remonterait le
+          // dialog en pleine sélection au premier rafraîchissement temps réel.
+          key={linkOpen ? 'open' : 'closed'}
           open={linkOpen}
           onOpenChange={onLinkOpenChange}
           siteId={siteId}

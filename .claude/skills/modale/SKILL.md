@@ -54,12 +54,13 @@ const submit = useSubmitDialog<FormValues>({
 
 Répartition des rôles, à ne pas mélanger : **RHF** porte l'état et la validation · **`useSubmitDialog`** porte la soumission (try/catch → toast + fermeture, ou toast d'erreur traduit) · **`FormDialog`** ne porte que le visuel.
 
-### Les quatre pièges vérifiés
+### Les cinq pièges vérifiés
 
 1. **`key={dlg.dialogKey}`, jamais `key={item.id}`.** La clé vaut `` `${id}-${open}` `` : c'est le `-${open}` qui purge l'état à la fermeture. Avec une clé constante, **une saisie annulée réapparaît à la réouverture** — le défaut qu'avait la fiche Travaux.
 2. **Ne pas re-wrapper le `<form>`.** Celui de `FormDialog` fait déjà `preventDefault` + `stopPropagation` (les formulaires imbriqués fonctionnent). Un bouton icône dans un formulaire prend `type="button"`, sinon il soumet.
 3. **Sur un `<form>` NU (hors `FormDialog`), passer l'événement** : `onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}`. Sans lui, pas de `preventDefault`, donc **soumission native et rechargement de la page** — le bug qu'avait Mon profil.
 4. **Jamais d'option `{ value: '' }`** dans un `SelectField` : Radix y voit « pas de valeur » et le libellé choisi ne s'affiche jamais. Utiliser `optionAucune`.
+5. **Un dialog ne vit jamais sous une garde qui peut tomber pendant qu'il est ouvert** (verrou arrivé en temps réel, palier d'URL via le bouton Précédent, liste devenue vide, panneau d'onglet). Démonté ouvert, son état `open` reste `true` et **il resurgit tout seul** quand la garde revient — et il tenait une couche Radix au moment de disparaître. Le monter sous une garde **stable** (`canManage`) et, si la condition métier tombe, le **fermer par ajustement pendant le rendu** : `if (!editable && dlg.open) dlg.close()`. Même logique pour la `key` : elle ne dépend que de `open` et de l'id d'entité, **jamais d'une donnée de requête ni de l'URL** (`key={liesIds.join(',')}` remontait le dialog en pleine sélection au premier rafraîchissement). Un menu (`DropdownMenu`/`ContextMenu`) dont un item navigue ou ouvre un dialog prend `modal={false}`.
 
 ### Reset
 

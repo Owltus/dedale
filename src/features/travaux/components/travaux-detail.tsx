@@ -193,6 +193,13 @@ export function TravauxDetail({
   // `taches_activees`, purement dérivé du nombre de lignes.
   const statutDerive = taches.length > 0
   const tachesReadOnly = !canManage || travaux.verrouille
+  // Le verrou peut tomber À CHAUD (trigger de clôture relayé en temps réel)
+  // pendant qu'un dialog d'édition est ouvert : on le ferme (ajustement
+  // pendant le rendu) au lieu de le laisser ouvert « en attente » — il
+  // resurgirait tout seul au déverrouillage, avec un état obsolète.
+  if (!editable && editDialog.open) editDialog.close()
+  if (tachesReadOnly && tacheDialog.open) tacheDialog.close()
+  if (!editable && upload.uploadOpen) upload.onUploadOpenChange(false)
   // Fiche verrouillée + carte "Documents" (niveau fiche, PAS les documents
   // des tâches) vide → rien à y faire ni à y voir, on la masque entièrement
   // (retour utilisateur). `undefined` (requête pas encore résolue) ne compte
@@ -216,19 +223,16 @@ export function TravauxDetail({
     .filter(Boolean)
     .join(' · ')
 
-  // Ouvre la confirmation de clôture UNE FOIS par fiche fraîchement basculée
-  // en Terminé par le trigger (ajustement pendant le rendu, pas un effet : on
-  // compare à la dernière fiche vue plutôt que d'utiliser useEffect).
-  const [clotureAutoVuePour, setClotureAutoVuePour] = useState<string | null>(
-    null,
-  )
-  if (
-    attendConfirmationCloture &&
-    clotureAutoVuePour !== travaux.id &&
-    !clotureOpen
-  ) {
-    setClotureAutoVuePour(travaux.id)
-    setClotureOpen(true)
+  // Ouvre la confirmation de clôture UNE FOIS, au moment où la bascule en
+  // Terminé par le trigger se produit SOUS LES YEUX de l'utilisateur (on
+  // compare à la valeur du rendu précédent — ajustement pendant le rendu, pas
+  // un effet). Une fiche ouverte DÉJÀ en attente ne rouvre rien : c'est la
+  // carte « Terminé · clôture à confirmer » qui porte le rappel et le bouton
+  // (décision PO du 03/09/2026 — avant, la modale revenait à chaque visite).
+  const [attenteVue, setAttenteVue] = useState(attendConfirmationCloture)
+  if (attendConfirmationCloture !== attenteVue) {
+    setAttenteVue(attendConfirmationCloture)
+    if (attendConfirmationCloture && !clotureOpen) setClotureOpen(true)
   }
 
   function transition(statutId: number) {
@@ -384,14 +388,30 @@ export function TravauxDetail({
             carte Tâches doit être levé en premier. */}
         {travaux.statut_travaux_id === STATUT_TERMINE && (
           <DetailNoteCard
-            label={`Terminé${travaux.date_fin ? ` le ${formatDate(travaux.date_fin)}` : ''}`}
+            label={
+              attendConfirmationCloture
+                ? 'Terminé · clôture à confirmer'
+                : `Terminé${travaux.date_fin ? ` le ${formatDate(travaux.date_fin)}` : ''}`
+            }
             text={travaux.compte_rendu}
-            emptyText="Aucun compte-rendu."
+            emptyText={
+              attendConfirmationCloture
+                ? 'Date de fin et compte-rendu à renseigner pour confirmer la clôture.'
+                : 'Aucun compte-rendu.'
+            }
+            // Clôture EN ATTENTE : le bouton reste accessible malgré le verrou
+            // (posé par le trigger en même temps que Terminé) — c'est le même
+            // geste que la modale automatique, on ne demande pas de déverrouiller
+            // pour confirmer ce que la fiche attend.
             action={
-              editable && (
+              (editable || (canManage && attendConfirmationCloture)) && (
                 <TooltipIconButton
                   icon={<Pencil />}
-                  label="Modifier la clôture"
+                  label={
+                    attendConfirmationCloture
+                      ? 'Confirmer la clôture'
+                      : 'Modifier la clôture'
+                  }
                   variant="ghost"
                   onClick={() => setClotureOpen(true)}
                 />
@@ -560,7 +580,11 @@ export function TravauxDetail({
         </div>
       </TachesDndContext>
 
-      {editable && (
+      {/* Dialogs sous `canManage` (stable pour la session), JAMAIS sous
+          `editable`/`tachesReadOnly` : le verrou arrive en temps réel et
+          démonterait un dialog ouvert, qui resurgirait au déverrouillage.
+          C'est l'ajustement de rendu plus haut qui les ferme. */}
+      {canManage && (
         <TravauxFormDialog
           key={editDialog.dialogKey}
           open={editDialog.open}
@@ -570,7 +594,7 @@ export function TravauxDetail({
         />
       )}
 
-      {!tachesReadOnly && (
+      {canManage && (
         <TacheDialog
           key={tacheDialog.dialogKey}
           open={tacheDialog.open}

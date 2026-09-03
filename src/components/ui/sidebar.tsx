@@ -84,6 +84,10 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = useState(false)
+  // Élargir la fenêtre au-delà du seuil mobile démonte le drawer (`Sheet`)
+  // sans passer par `onOpenChange` : on referme l'état nous-mêmes (ajustement
+  // pendant le rendu), sinon le drawer se rouvre seul en repassant en dessous.
+  if (!isMobile && openMobile) setOpenMobile(false)
 
   // État interne (non contrôlé) — surchargeable via `open` contrôlé.
   const [_open, _setOpen] = useState(defaultOpen)

@@ -34,7 +34,11 @@ export function DocumentIndicator({
   const [preview, setPreview] = useState<DocumentMeta | null>(null)
   const [listeOpen, setListeOpen] = useState(false)
 
-  if (documents.length === 0) return null
+  // `documents` est une donnée VIVANTE (rafraîchie en temps réel) : si un
+  // détachement ramène la liste sous deux éléments pendant que la modale de
+  // choix est ouverte, on la ferme (ajustement pendant le rendu) plutôt que de
+  // la démonter ouverte — elle resurgirait seule au prochain rattachement.
+  if (listeOpen && documents.length < 2) setListeOpen(false)
 
   function ouvrir() {
     if (documents.length === 1) setPreview(documents[0] ?? null)
@@ -43,36 +47,38 @@ export function DocumentIndicator({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={ouvrir}
-        aria-label={
-          documents.length > 1 ? 'Voir les documents' : 'Voir le document'
-        }
-        className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <FileText
-          strokeWidth={1.25}
-          className={size === 'sm' ? 'size-10' : 'size-12'}
-        />
-      </button>
+      {documents.length > 0 && (
+        <button
+          type="button"
+          onClick={ouvrir}
+          aria-label={
+            documents.length > 1 ? 'Voir les documents' : 'Voir le document'
+          }
+          className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <FileText
+            strokeWidth={1.25}
+            className={size === 'sm' ? 'size-10' : 'size-12'}
+          />
+        </button>
+      )}
+      {/* Dialogs TOUJOURS montés (jamais sous une garde qui peut tomber) :
+          seul `open` décide. */}
       <DocumentPreviewDialog
         doc={preview}
         onOpenChange={(open) => {
           if (!open) setPreview(null)
         }}
       />
-      {documents.length > 1 && (
-        <DialogShell
-          open={listeOpen}
-          onOpenChange={setListeOpen}
-          title={`Documents — ${entiteNom}`}
-          description="Clique sur un document pour l'afficher."
-          size="md"
-        >
-          <DocumentsListe docs={documents} />
-        </DialogShell>
-      )}
+      <DialogShell
+        open={listeOpen}
+        onOpenChange={setListeOpen}
+        title={`Documents — ${entiteNom}`}
+        description="Clique sur un document pour l'afficher."
+        size="md"
+      >
+        <DocumentsListe docs={documents} />
+      </DialogShell>
     </>
   )
 }

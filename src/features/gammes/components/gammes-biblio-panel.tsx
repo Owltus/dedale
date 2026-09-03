@@ -146,6 +146,13 @@ export function GammesBiblioPanel() {
     open: boolean
     gamme: GammeBiblioRow | null
   }>({ open: false, gamme: null })
+  // La descente vient de l'URL : le bouton Précédent du navigateur peut quitter
+  // le palier 2 pendant que le formulaire de gamme est ouvert. On le ferme
+  // (ajustement pendant le rendu) plutôt que de le démonter ouvert — il
+  // resurgirait seul au retour sur le palier.
+  if (gammeForm.open && (depth !== 2 || current === null)) {
+    setGammeForm((f) => ({ ...f, open: false }))
+  }
   const [toDeleteGamme, setToDeleteGamme] = useState<GammeBiblioRow | null>(
     null,
   )
