@@ -67,6 +67,7 @@ export function DocumentIndicator({
           open={listeOpen}
           onOpenChange={setListeOpen}
           title={`Documents — ${entiteNom}`}
+          description="Clique sur un document pour l'afficher."
           size="md"
         >
           <DocumentsListe docs={documents} />

@@ -41,6 +41,8 @@ export function ConfirmDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={title}
+      // La description vit dans le corps (ci-dessous) : pas de repli masqué.
+      descriptionInBody={description != null}
       bodyClassName="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-2"
       footer={
         <>

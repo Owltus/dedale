@@ -35,6 +35,13 @@ interface DialogShellProps {
   title: ReactNode
   /** Rendue dans l'EN-TÊTE fixe, sous le titre (uniquement si fournie). */
   description?: ReactNode
+  /**
+   * Le CORPS fournit lui-même la `DialogDescription` (cf. `ConfirmDialog`, qui
+   * la rend dans le corps pour cohabiter avec un bloc libre). La coquille ne
+   * pose alors pas le descriptif masqué de repli — sinon deux descriptions
+   * partageraient le même id.
+   */
+  descriptionInBody?: boolean
   /** Largeur normalisée (défaut `md` = `sm:max-w-lg`). Remplace un `contentClassName` de largeur. */
   size?: DialogSize
   /** Padding du corps défilant (défaut vrai). `false` = corps plein cadre. Ignoré si `bodyClassName` fourni. */
@@ -75,6 +82,7 @@ export function DialogShell({
   onOpenChange,
   title,
   description,
+  descriptionInBody = false,
   size = 'md',
   padded = true,
   headerAction,
@@ -102,8 +110,18 @@ export function DialogShell({
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 flex-col gap-1.5">
               <DialogTitle>{title}</DialogTitle>
-              {description != null && (
+              {description != null ? (
                 <DialogDescription>{description}</DialogDescription>
+              ) : (
+                // Sans `Description`, Radix journalise « Missing `Description`
+                // or `aria-describedby={undefined}` » à chaque ouverture. Un
+                // descriptif MASQUÉ garde la console propre et donne au
+                // lecteur d'écran au moins l'intitulé du dialogue.
+                !descriptionInBody && (
+                  <DialogDescription className="sr-only">
+                    {typeof title === 'string' ? title : 'Boîte de dialogue'}
+                  </DialogDescription>
+                )
               )}
             </div>
             {headerAction != null && (
