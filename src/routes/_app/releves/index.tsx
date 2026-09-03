@@ -13,8 +13,9 @@ import { ListPageBody } from '@/components/common/list-page-body'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
-import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 
 export const Route = createFileRoute('/_app/releves/')({
   component: RelevesIndexPage,
@@ -32,6 +33,7 @@ function RelevesList({ siteId }: { siteId: string }) {
   const navigate = useNavigate()
   const query = useQuery(relevesQueries.gammesListe(siteId))
   const [search, setSearch] = useState('')
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   return (
     <PageContainer>
@@ -65,7 +67,15 @@ function RelevesList({ siteId }: { siteId: string }) {
               {shown.map((g) => (
                 <ListRow
                   key={g.id}
-                  media={<RowMediaIcon icon={Gauge} />}
+                  media={
+                    <MiniatureThumb
+                      url={urlOf(g.miniatureId)}
+                      fallback={<Gauge className="size-10" />}
+                      alt=""
+                      onError={refreshMiniatures}
+                      className="size-full rounded-none"
+                    />
+                  }
                   title={g.nomGamme}
                   subtitle={`${String(g.nbTypes)} type${g.nbTypes > 1 ? 's' : ''} de relevé`}
                   meta={`${String(g.nbOt)} OT`}

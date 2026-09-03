@@ -59,7 +59,12 @@ function ligne(p: {
 
 function avecOt(
   l: HistoriqueLigne,
-  p: { gamme?: string; datePrevue?: string; dateCloture?: string | null },
+  p: {
+    gamme?: string
+    datePrevue?: string
+    dateCloture?: string | null
+    miniature?: string | null
+  },
 ): HistoriqueLigne {
   return {
     ...l,
@@ -69,6 +74,7 @@ function avecOt(
       nom_gamme: 'Chaudière principale',
       date_prevue: p.datePrevue ?? l.date_execution ?? '2026-01-01',
       date_cloture: p.dateCloture ?? l.date_execution ?? null,
+      miniature_id: p.miniature ?? null,
     },
   }
 }
@@ -632,7 +638,7 @@ describe('calculerBandeau', () => {
 })
 
 describe('gammesAvecReleves', () => {
-  it('agrège par gamme : types, OT distincts, dernier relevé', () => {
+  it('agrège par gamme : types, OT distincts, dernier relevé, vignette du plus récent', () => {
     const lignes = [
       avecOt(
         ligne({
@@ -644,6 +650,7 @@ describe('gammesAvecReleves', () => {
         {
           gamme: 'g1',
           dateCloture: '2026-01-10T12:00:00Z',
+          miniature: 'min-ancienne',
         },
       ),
       avecOt(
@@ -656,6 +663,7 @@ describe('gammesAvecReleves', () => {
         {
           gamme: 'g1',
           dateCloture: '2026-03-10T12:00:00Z',
+          miniature: 'min-recente',
         },
       ),
     ]
@@ -667,6 +675,9 @@ describe('gammesAvecReleves', () => {
         nbTypes: 2,
         nbOt: 2,
         dernierReleve: '2026-03-10T12:00:00Z',
+        // Vignette de l'OT le plus RÉCENT (ot2), jamais celle d'un OT plus
+        // ancien — même si la gamme a changé d'image entre-temps.
+        miniatureId: 'min-recente',
       },
     ])
   })

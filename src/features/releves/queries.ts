@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { gammesAvecReleves, type HistoriqueLigne } from './pipeline'
 
 const SELECT_HISTORIQUE =
-  '*, ordres_travail!inner(id, gamme_id, nom_gamme, date_prevue, date_cloture, site_id)'
+  '*, ordres_travail!inner(id, gamme_id, nom_gamme, date_prevue, date_cloture, site_id, miniature_id)'
 
 async function fetchHistorique(
   siteId: string,

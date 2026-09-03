@@ -26,6 +26,10 @@ export interface HistoriqueLigne extends OperationExecution {
     nom_gamme: string | null
     date_prevue: string
     date_cloture: string | null
+    /** Snapshot souple hérité de la gamme (migration 067) — même mécanisme que
+     * les cartes OT (`ot-card.tsx`) : un OT garde son image même si la gamme en
+     * change ensuite. Sert ici à illustrer la gamme dans Relevés. */
+    miniature_id: string | null
   } | null
 }
 
@@ -40,6 +44,10 @@ export interface GammeReleveResume {
   nbTypes: number
   nbOt: number
   dernierReleve: string | null
+  /** Vignette de l'OT le plus RÉCENT (snapshot souple hérité de la gamme —
+   * migration 067, cf. `HistoriqueLigne`) : la meilleure approximation dispo
+   * de « l'image actuelle de la gamme » sans requête supplémentaire. */
+  miniatureId: string | null
 }
 
 export function gammesAvecReleves(
@@ -50,6 +58,7 @@ export function gammesAvecReleves(
     noms: Set<string>
     ots: Set<string>
     dernier: string | null
+    miniatureId: string | null
   }
   const parGamme = new Map<string, Acc>()
   for (const l of lignes) {
@@ -60,11 +69,15 @@ export function gammesAvecReleves(
       noms: new Set<string>(),
       ots: new Set<string>(),
       dernier: null,
+      miniatureId: null,
     }
     acc.noms.add(l.nom)
     acc.ots.add(l.ordre_travail_id)
     const date = l.ordres_travail?.date_cloture ?? l.date_execution
-    if (date && (acc.dernier === null || date > acc.dernier)) acc.dernier = date
+    if (date && (acc.dernier === null || date > acc.dernier)) {
+      acc.dernier = date
+      acc.miniatureId = l.ordres_travail?.miniature_id ?? null
+    }
     parGamme.set(gammeId, acc)
   }
   return [...parGamme.entries()]
@@ -74,6 +87,7 @@ export function gammesAvecReleves(
       nbTypes: acc.noms.size,
       nbOt: acc.ots.size,
       dernierReleve: acc.dernier,
+      miniatureId: acc.miniatureId,
     }))
     .sort((a, b) => a.nomGamme.localeCompare(b.nomGamme, 'fr'))
 }

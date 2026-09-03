@@ -22,6 +22,8 @@ import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import { EmptyState } from '@/components/common/empty-state'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { SelectDropdown } from '@/components/ui/select-dropdown'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { telechargerCsv } from '@/lib/csv'
 import { slugify } from '@/lib/slug'
 
@@ -38,6 +40,7 @@ export function ReleveDetail({
   const historiqueQuery = useQuery(relevesQueries.historique(siteId))
   const localisationQuery = useQuery(relevesQueries.localisationGamme(gamme.id))
   const [periode, setPeriode] = useState<Periode>('12m')
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   const toutesSeries = useMemo(
     () => seriesParGamme(historiqueQuery.data ?? [], gamme.id),
@@ -98,7 +101,15 @@ export function ReleveDetail({
       />
 
       <DetailHeaderCard
-        fallbackIcon={Gauge}
+        thumbnail={
+          <MiniatureThumb
+            url={urlOf(gamme.miniatureId)}
+            fallback={<Gauge className="size-10" />}
+            alt=""
+            onError={refreshMiniatures}
+            className="size-full rounded-none"
+          />
+        }
         columns={3}
         fields={[
           { label: 'Localisation', value: bandeau.localisation },
