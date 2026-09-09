@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FileText, Pencil, Trash2 } from 'lucide-react'
+import { FileText, PackagePlus, Pencil, Trash2, Upload } from 'lucide-react'
 import { modelesDiQueries, type ModeleDi } from '../queries'
-import { useDeleteModeleDi } from '../mutations'
+import { useCreateModeleDi, useDeleteModeleDi } from '../mutations'
 import { ModeleDiFormDialog } from './modele-di-form-dialog'
+import { ImportCsvDialog } from './import-csv-dialog'
+import { ImporterDuCommunDialog } from '@/components/common/importer-du-commun-dialog'
+import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
@@ -14,6 +17,7 @@ import { scopeMatches, scopeTarget } from '@/lib/scope'
 import * as perm from '@/lib/permissions'
 import { useTabAddAction } from '@/components/common/tab-actions'
 import { ScopeSelect } from '@/components/common/scope-select'
+import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
@@ -38,6 +42,8 @@ export function ModelesDiPanel() {
   const { sites, activeSiteId, activeSite } = useSiteContext()
   const query = useQuery(modelesDiQueries.pool())
   const del = useDeleteModeleDi()
+  const creer = useCreateModeleDi()
+  const { session } = useAuth()
   const { scope, setScope } = useScope()
   // Vignettes (images de cards) : URL signées résolues en lot, live.
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
@@ -76,6 +82,34 @@ export function ModelesDiPanel() {
     () => <ScopeSelect value={scope} onChange={setScope} fluid />,
     [scope, setScope],
   )
+  // Import en masse (CSV généré via IA générative) : même chemin d'écriture que
+  // le +, donc mêmes conditions — un périmètre créable (pas « Tout »).
+  const [importOpen, setImportOpen] = useState(false)
+  // « Importer depuis le commun » : le site se sert dans le catalogue du siège.
+  const [importCommunOpen, setImportCommunOpen] = useState(false)
+  const importAction = useMemo(
+    () =>
+      canAdd ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sans objet sous « Commun » (on y est déjà) ni sous « Tout ». */}
+          {typeof targetSiteId === 'string' && (
+            <TooltipIconButton
+              icon={<PackagePlus />}
+              label="Importer depuis le commun"
+              variant="outline"
+              onClick={() => setImportCommunOpen(true)}
+            />
+          )}
+          <TooltipIconButton
+            icon={<Upload />}
+            label="Importer un CSV"
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+          />
+        </div>
+      ) : undefined,
+    [canAdd, targetSiteId],
+  )
   // Bouton toujours visible pour un rôle métier, mais DÉSACTIVÉ si le périmètre
   // n'est pas créable (Tout, ou Commun sans le droit) → UX stable.
   useTabAddAction(
@@ -84,8 +118,25 @@ export function ModelesDiPanel() {
     {
       disabled: !canAdd,
       extra: scopeControl,
+      actions: importAction,
     },
   )
+
+  // Candidats à l'installation : modèles COMMUNS actifs dont aucun homonyme
+  // n'est déjà sur le site (on ne propose jamais d'y créer un doublon).
+  const communsAImporter = useMemo(() => {
+    const tous = query.data ?? []
+    const surLeSite = new Set(
+      tous
+        .filter((m) => m.site_id === targetSiteId)
+        .map((m) => m.libelle.trim().toLowerCase()),
+    )
+    const communs = tous.filter((m) => m.site_id === null && m.est_actif)
+    const candidats = communs.filter(
+      (m) => !surLeSite.has(m.libelle.trim().toLowerCase()),
+    )
+    return { candidats, nbDejaInstalles: communs.length - candidats.length }
+  }, [query.data, targetSiteId])
 
   // Mises à jour live entre fenêtres / comptes (Realtime).
   useRealtimeRefresh('modeles_di', modelesDiQueries.all())
@@ -200,6 +251,68 @@ export function ModelesDiPanel() {
           siteId={dialogSiteId}
           siteName={dialogSiteName}
           lockedScope={dialog.entity ? undefined : (lockedScope ?? undefined)}
+        />
+      )}
+
+      {/* `canAdd` implique déjà un périmètre créable (donc `targetSiteId`
+          défini) : TypeScript le sait, pas de test redondant. */}
+      {canAdd && (
+        <ImportCsvDialog
+          // Remonté à chaque ouverture ET à chaque changement de périmètre :
+          // le prompt et la liste des existants en dépendent entièrement.
+          key={`import-${String(targetSiteId)}-${String(importOpen)}`}
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          siteId={targetSiteId}
+          siteNom={
+            targetSiteId === null
+              ? null
+              : (sites.find((s) => s.id === targetSiteId)?.nom ?? null)
+          }
+          // Modèles du périmètre CIBLE (pas de l'écran) : ce sont eux qu'il ne
+          // faut ni reproposer à l'IA ni recréer.
+          existants={(query.data ?? []).filter(
+            (m) => m.site_id === targetSiteId,
+          )}
+        />
+      )}
+
+      {/* Installation de modèles COMMUNS sur le site regardé : une copie par
+          modèle, écrite par le MÊME chemin que la création manuelle (il n'existe
+          pas de RPC de copie pour les modèles de DI). */}
+      {canAdd && typeof targetSiteId === 'string' && session && (
+        <ImporterDuCommunDialog
+          key={`commun-${targetSiteId}-${String(importCommunOpen)}`}
+          open={importCommunOpen}
+          onOpenChange={setImportCommunOpen}
+          titre="Importer des modèles de DI"
+          siteNom={sites.find((s) => s.id === targetSiteId)?.nom ?? null}
+          elements={communsAImporter.candidats.map((m) => ({
+            id: m.id,
+            nom: m.libelle,
+            description: m.constat_modele,
+          }))}
+          nbDejaInstalles={communsAImporter.nbDejaInstalles}
+          importer={(id) => {
+            const source = communsAImporter.candidats.find((m) => m.id === id)
+            if (!source) throw new Error('Modèle introuvable.')
+            return creer.mutateAsync({
+              values: {
+                libelle: source.libelle,
+                constat_modele: source.constat_modele,
+                // Vignette du pool commun : utilisable telle quelle par un site
+                // (garde `miniature_scope_ok`), donc conservée.
+                miniature_id: source.miniature_id,
+                etat: 'actif',
+                portee: 'site',
+              },
+              siteId: targetSiteId,
+              createdBy: session.user.id,
+            })
+          }}
+          motSingulier="modèle"
+          motPluriel="modèles"
+          loading={query.isPending}
         />
       )}
 

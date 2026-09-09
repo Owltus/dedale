@@ -38,3 +38,4 @@ Ce que ça implique (avantages, limites, ce qu'on s'interdit).
 - [0006 — Briques partagées : adoption mesurée, mesures dans la brique](0006-briques-et-adoption.md)
 - [0007 — Création de comptes sans e-mail](0007-comptes-sans-email.md)
 - [0008 — Tâche généralisée (checklist) pour Travaux / Événements](0008-taches-generalisees.md)
+- [0009 — Le catalogue commun est une réserve, pas une source vive](0009-catalogue-commun-reserve.md)

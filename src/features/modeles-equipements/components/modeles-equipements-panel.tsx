@@ -9,23 +9,27 @@ import {
 } from '../mutations'
 import { ModeleEquipementFormDialog } from './modele-equipement-form-dialog'
 import { ModeleEquipementDetail } from './modele-equipement-detail'
+import { ImportCsvDialog } from './import-csv-dialog'
+import { ImporterDuCommunDialog } from '@/components/common/importer-du-commun-dialog'
 import { CataloguePanel } from '@/features/bibliotheque/components/catalogue-panel'
+import { parseChamps } from '@/lib/champs'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
 import { deleteErrorMessage } from '@/lib/form'
 import * as perm from '@/lib/permissions'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 
-// Nombre de caractéristiques d'un modèle (clés de l'objet JSON).
+// Nombre de caractéristiques d'un modèle. Le JSONB a la forme
+// `{ champs: [...] }` : compter ses CLÉS renvoyait toujours 1 (une seule clé,
+// `champs`) quel que soit le nombre réel de caractéristiques.
 function specCount(specifications: ModeleEquipement['specifications']): number {
-  if (
-    specifications &&
-    typeof specifications === 'object' &&
-    !Array.isArray(specifications)
-  ) {
-    return Object.keys(specifications).length
-  }
-  return 0
+  return parseChamps(specifications).length
+}
+
+/** « 4 caractéristiques » — sous-titre partagé cards / liste d'import. */
+function modeleSpecsLabel(m: ModeleEquipement): string {
+  const n = specCount(m.specifications)
+  return `${String(n)} caractéristique${n > 1 ? 's' : ''}`
 }
 
 /**
@@ -94,11 +98,63 @@ export function ModelesEquipementsPanel() {
       labelModifierModele="Modifier le modèle"
       labelEmptyAddModele="Ajoute un modèle ci-dessus."
       labelEmptyNoneModele="Aucun modèle pour le moment."
-      modeleSubtitle={(m) => {
-        const specs = specCount(m.specifications)
-        return `${String(specs)} caractéristique${specs > 1 ? 's' : ''}`
-      }}
+      modeleSubtitle={modeleSpecsLabel}
       modeleMasque={(m) => !m.est_actif}
+      renderImportCommun={({ open, onOpenChange, siteCible, modeles }) => {
+        // Candidats = catalogue commun ACTIF dont aucun homonyme n'est déjà
+        // installé sur le site (on ne propose jamais d'y créer un doublon).
+        const surLeSite = new Set(
+          modeles
+            .filter((m) => m.site_id === siteCible)
+            .map((m) => m.nom.trim().toLowerCase()),
+        )
+        const communs = modeles.filter((m) => m.site_id === null && m.est_actif)
+        const candidats = communs.filter(
+          (m) => !surLeSite.has(m.nom.trim().toLowerCase()),
+        )
+        return (
+          <ImporterDuCommunDialog
+            key={`commun-${siteCible}-${String(open)}`}
+            open={open}
+            onOpenChange={onOpenChange}
+            titre="Importer des modèles d’équipements"
+            siteNom={sites.find((s) => s.id === siteCible)?.nom ?? null}
+            elements={candidats.map((m) => ({
+              id: m.id,
+              nom: m.nom,
+              description: m.description,
+              badge: (
+                <span className="text-xs text-muted-foreground">
+                  {modeleSpecsLabel(m)}
+                </span>
+              ),
+            }))}
+            nbDejaInstalles={communs.length - candidats.length}
+            importer={(id) =>
+              copierModele.mutateAsync({
+                sourceModeleId: id,
+                siteCible,
+              })
+            }
+            motSingulier="modèle"
+            motPluriel="modèles"
+            loading={modelesQuery.isPending}
+          />
+        )
+      }}
+      renderImportCsv={({ open, onOpenChange, current, modeles }) => (
+        <ImportCsvDialog
+          key={`import-${current.id}-${String(open)}`}
+          open={open}
+          onOpenChange={onOpenChange}
+          categorie={{
+            id: current.id,
+            nom: current.nom,
+            site_id: current.site_id,
+          }}
+          existants={modeles}
+        />
+      )}
       renderModeleForm={({ open, onOpenChange, modele, current, cats }) => (
         <ModeleEquipementFormDialog
           key={`${modele?.id ?? `new-${current.id}`}-${String(open)}`}

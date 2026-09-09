@@ -1,6 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { estCommunOuDuSite } from '@/lib/scope'
 import type { Database } from '@/lib/database.types'
 
 export type ModeleEquipement =
@@ -10,32 +9,20 @@ export const modelesEquipementsQueries = {
   all: () => ['modeles_equipements'] as const,
 
   /**
-   * Modèles ACTIFS visibles, pour l'instanciation depuis l'écran Équipements.
-   * Scope entreprise (site_id NULL) + scope du site actif. La RLS filtre déjà ;
-   * on restreint en plus au site courant côté client.
+   * Modèles ACTIFS **DU SITE**, pour les écrans opérationnels (gabarit d'une
+   * sous-catégorie d'équipements). Le catalogue COMMUN en est volontairement
+   * exclu : un écran de site ne propose jamais un template non déployé — on
+   * l'installe d'abord depuis la Bibliothèque (« Importer depuis le commun »),
+   * ce qui en dépose une copie sur le site. Même règle, au même endroit, que
+   * les modèles de DI proposés à la création d'une demande.
    */
   list: (siteId: string | null) =>
     queryOptions({
       // Réutilise le fetch de `pool()` (même `queryKey`, un seul aller-retour
-      // partagé) puis restreint côté client aux modèles ACTIFS du périmètre
-      // commun + site : contenu identique à l'ancienne query dédiée.
+      // partagé) puis restreint côté client. La RLS reste l'arbitre réel.
       ...modelesEquipementsQueries.pool(),
       enabled: siteId !== null,
-      select: (rows) =>
-        rows.filter((m) => m.est_actif && estCommunOuDuSite(m, siteId)),
-    }),
-
-  /**
-   * Catalogue COMPLET (modèles actifs et masqués) pour la gestion en
-   * bibliothèque. Inclut la catégorie liée (jointure) pour l'affichage.
-   */
-  catalogue: (siteId: string | null) =>
-    queryOptions({
-      // Réutilise le fetch de `pool()` (même `queryKey`, un seul aller-retour
-      // partagé) et n'applique le périmètre commun + site que côté client via
-      // `select` : contenu identique à l'ancienne query dédiée.
-      ...modelesEquipementsQueries.pool(),
-      select: (rows) => rows.filter((m) => estCommunOuDuSite(m, siteId)),
+      select: (rows) => rows.filter((m) => m.est_actif && m.site_id === siteId),
     }),
 
   /**

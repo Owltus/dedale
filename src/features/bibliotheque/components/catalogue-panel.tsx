@@ -1,7 +1,15 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CopyPlus, Folder, FolderTree, Pencil, Trash2 } from 'lucide-react'
+import {
+  CopyPlus,
+  Folder,
+  FolderTree,
+  PackagePlus,
+  Pencil,
+  Trash2,
+  Upload,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
   categoriesQueries,
@@ -134,6 +142,30 @@ export interface CataloguePanelProps<T extends CatalogueModele> {
   onAskDeleteModele: (m: T) => void
   /** Dialog de suppression d'un modèle (câblé par l'hôte, rendu ici). */
   deleteModeleDialog: ReactNode
+  /**
+   * Import CSV en masse dans la catégorie ouverte (bouton dédié dans la barre
+   * d'onglet, à côté du +). Absent = la famille de modèles n'en propose pas.
+   * `current` est la catégorie d'accueil : elle donne le rangement ET le
+   * périmètre, exactement comme la création manuelle.
+   */
+  renderImportCsv?: (ctx: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    current: Categorie
+    modeles: T[]
+  }) => ReactNode
+  /**
+   * « Importer depuis le commun » : le site va se servir dans le catalogue de
+   * l'entreprise (bouton visible dès qu'un SITE est le périmètre choisi, à tous
+   * les paliers). `siteCible` est ce site, `modeles` le pool complet — la
+   * famille trie elle-même communs et déjà installés.
+   */
+  renderImportCommun?: (ctx: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    siteCible: string
+    modeles: T[]
+  }) => ReactNode
 }
 
 /**
@@ -168,6 +200,8 @@ export function CataloguePanel<T extends CatalogueModele>({
   renderDetail,
   onAskDeleteModele,
   deleteModeleDialog,
+  renderImportCsv,
+  renderImportCommun,
 }: CataloguePanelProps<T>) {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
@@ -196,6 +230,10 @@ export function CataloguePanel<T extends CatalogueModele>({
   const [toDeleteCategorie, setToDeleteCategorie] = useState<Categorie | null>(
     null,
   )
+  // Import CSV en masse dans la catégorie ouverte (généré via IA générative).
+  const [importOpen, setImportOpen] = useState(false)
+  // « Importer depuis le commun » : installation d'éléments communs sur le site.
+  const [importCommunOpen, setImportCommunOpen] = useState(false)
   // Export d'un modèle COMMUN vers un site choisi (snapshot indépendant).
   const [exportState, setExportState] = useState<{
     open: boolean
@@ -368,6 +406,23 @@ export function CataloguePanel<T extends CatalogueModele>({
   //   • racine (depth 0)       → + « Nouvelle catégorie » (+ sélecteur de périmètre) ;
   //   • catégorie ouverte      → + « Nouveau modèle » (rangé dans cette catégorie) ;
   //   • modèle ouvert (détail) → « Modifier » / « Copier » (pas de création).
+  // « Importer depuis le commun » : MÊME bouton, MÊME place (barre d'onglet) à
+  // tous les paliers — on le cherche toujours au même endroit. Proposé dès qu'on
+  // REGARDE un site : sans objet sous « Commun » (on y est déjà) et sans
+  // destination unique sous « Tout ».
+  const importCommunBtn = useMemo(
+    () =>
+      renderImportCommun && canManage && typeof targetSiteId === 'string' ? (
+        <TooltipIconButton
+          icon={<PackagePlus />}
+          label="Importer depuis le commun"
+          variant="outline"
+          onClick={() => setImportCommunOpen(true)}
+        />
+      ) : null,
+    [renderImportCommun, canManage, targetSiteId],
+  )
+
   const tabAddConfig = useMemo<{
     action: (() => void) | null
     label: string
@@ -419,6 +474,7 @@ export function CataloguePanel<T extends CatalogueModele>({
           : 'Création indisponible pour ce périmètre',
         disabled: !canAddCategory,
         extra: scopeDisplay,
+        actions: importCommunBtn ?? undefined,
       }
     }
     return {
@@ -429,6 +485,22 @@ export function CataloguePanel<T extends CatalogueModele>({
         : 'Création indisponible pour ce périmètre',
       disabled: !canManageHere,
       extra: scopeDisplay,
+      // Import CSV (mêmes conditions que la création manuelle, dont il emprunte
+      // le chemin d'écriture) et import depuis le commun, côte à côte.
+      actions:
+        (importCommunBtn ?? (renderImportCsv && canManageHere)) ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {importCommunBtn}
+            {renderImportCsv && canManageHere && (
+              <TooltipIconButton
+                icon={<Upload />}
+                label="Importer un CSV"
+                variant="outline"
+                onClick={() => setImportOpen(true)}
+              />
+            )}
+          </div>
+        ) : undefined,
     }
   }, [
     depth,
@@ -442,6 +514,8 @@ export function CataloguePanel<T extends CatalogueModele>({
     canEditModele,
     labelModifierModele,
     labelNouveauModele,
+    renderImportCsv,
+    importCommunBtn,
   ])
   useTabAddAction(tabAddConfig.action, tabAddConfig.label, {
     disabled: tabAddConfig.disabled,
@@ -722,6 +796,29 @@ export function CataloguePanel<T extends CatalogueModele>({
       />
 
       {exportDialog}
+
+      {/* Installation d'éléments communs sur le site regardé. Monté seulement
+          sous un périmètre de site : le pool complet est passé, la famille trie. */}
+      {renderImportCommun &&
+        typeof targetSiteId === 'string' &&
+        renderImportCommun({
+          open: importCommunOpen,
+          onOpenChange: setImportCommunOpen,
+          siteCible: targetSiteId,
+          modeles,
+        })}
+
+      {/* Import CSV en masse : uniquement dans une catégorie OUVERTE — c'est elle
+          qui donne le rangement et le périmètre des modèles créés. Remonté à
+          chaque ouverture/fermeture pour repartir d'un formulaire vierge. */}
+      {renderImportCsv &&
+        current !== null &&
+        renderImportCsv({
+          open: importOpen,
+          onOpenChange: setImportOpen,
+          current,
+          modeles: modelesInCurrent,
+        })}
     </div>
   )
 }

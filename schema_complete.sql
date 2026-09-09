@@ -6851,6 +6851,50 @@ CREATE TRIGGER trg_validation_gamme_type_non_vide
     FOR EACH ROW EXECUTE FUNCTION public.validation_gamme_type_non_vide();
 COMMENT ON FUNCTION public.validation_gamme_type_non_vide() IS 'Bloque le rattachement d''un modèle vide à une gamme (un modèle sans item ne génère aucune opération).';
 
+-- ---------------------------------------------------------------------------
+-- 4.5bis check_gamme_modele_meme_perimetre (113) : périmètre IDENTIQUE des deux
+-- côtés d'une liaison gamme ↔ modèle d'opérations. Le catalogue commun est une
+-- RÉSERVE : un site en installe une COPIE (copier_modele_operation) et rattache
+-- la copie — le siège ne change ainsi jamais le contenu des OT d'un site.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.check_gamme_modele_meme_perimetre()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_gamme_site  UUID;
+    v_modele_site UUID;
+BEGIN
+    SELECT site_id INTO v_gamme_site
+      FROM public.gammes WHERE id = NEW.gamme_id;
+    SELECT site_id INTO v_modele_site
+      FROM public.modeles_operations WHERE id = NEW.modele_operation_id;
+
+    -- IS DISTINCT FROM : NULL = NULL (deux éléments communs) est ACCEPTÉ, alors
+    -- que `<>` aurait renvoyé NULL et laissé passer la ligne.
+    IF v_gamme_site IS DISTINCT FROM v_modele_site THEN
+        IF v_gamme_site IS NULL THEN
+            RAISE EXCEPTION 'Rattachement interdit : une gamme de la bibliothèque commune ne peut porter qu''un modèle d''opérations commun.'
+                USING ERRCODE = 'check_violation';
+        ELSE
+            RAISE EXCEPTION 'Rattachement interdit : ce modèle d''opérations n''appartient pas au site de la gamme. Installe-le d''abord sur le site depuis la Bibliothèque (« Importer depuis le commun »), puis rattache la copie.'
+                USING ERRCODE = 'check_violation';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_gamme_modele_meme_perimetre ON public.gamme_modeles;
+CREATE TRIGGER trg_gamme_modele_meme_perimetre
+    BEFORE INSERT OR UPDATE OF gamme_id, modele_operation_id ON public.gamme_modeles
+    FOR EACH ROW EXECUTE FUNCTION public.check_gamme_modele_meme_perimetre();
+COMMENT ON FUNCTION public.check_gamme_modele_meme_perimetre() IS
+    'Valide une liaison gamme ↔ modèle d''opérations : périmètre IDENTIQUE des deux côtés (113). Gamme de site → modèle du même site ; gamme commune → modèle commun. Le catalogue commun est une réserve : on en installe une copie sur le site (copier_modele_operation), et c''est la copie qui se rattache.';
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 5. PROTECTIONS DIVERSES
 -- ═══════════════════════════════════════════════════════════════════════════

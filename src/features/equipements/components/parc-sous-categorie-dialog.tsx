@@ -51,9 +51,9 @@ interface ParcSousCategorieDialogProps {
   /** Catégorie parente (niveau 1) sous laquelle créer la sous-catégorie. */
   parentId: string
   /**
-   * Modèles proposés comme point de départ : ceux du site ET ceux de la
-   * Bibliothèque commune. Leur gabarit est COPIÉ (jamais lié) → aucun besoin
-   * d'exporter d'abord un modèle commun vers le site.
+   * Modèles proposés comme point de départ : ceux DU SITE uniquement (le
+   * catalogue commun se pioche depuis la Bibliothèque, qui en dépose une copie
+   * sur le site). Leur gabarit est COPIÉ ici, jamais lié.
    */
   modeles: {
     id: string
@@ -61,7 +61,6 @@ interface ParcSousCategorieDialogProps {
     description: string | null
     champs: Champ[]
     miniatureId: string | null
-    commun: boolean
   }[]
   /** Sous-catégorie à MODIFIER. Absent = création. */
   categorie?: Categorie | null
@@ -274,10 +273,7 @@ export function ParcSousCategorieDialog({
             control={form.control}
             name="sourceModeleId"
             label="Partir d’un modèle"
-            options={modeles.map((m) => ({
-              value: m.id,
-              label: m.commun ? `${m.nom} (commun)` : m.nom,
-            }))}
+            options={modeles.map((m) => ({ value: m.id, label: m.nom }))}
             // Valeur PAR DÉFAUT et choix porteur de sens : en item à `value: ''`
             // elle ne s'afficherait jamais dans le déclencheur (Radix y voit
             // « pas de valeur »), le champ semblerait vide alors qu'il porte le
@@ -286,6 +282,15 @@ export function ParcSousCategorieDialog({
             onValueChange={appliquerModele}
             hint="Reprend le nom, la description, l’image et les caractéristiques du modèle (sans écraser ce que tu as déjà saisi) ; tu peux tout ajuster ensuite. La sous-catégorie reste indépendante du modèle."
           />
+        )}
+
+        {!lieAUnModele && modeles.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            Aucun modèle d’équipement sur ce site. Définis les caractéristiques
+            ci-dessous, ou va d’abord en chercher un dans la Bibliothèque
+            (onglet « Modèles d’équipements », bouton « Importer depuis le
+            commun ») : la copie déposée sur le site apparaîtra alors ici.
+          </p>
         )}
 
         <SelectField

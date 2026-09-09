@@ -1,7 +1,15 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CopyPlus, FolderTree, Pencil, Trash2, Wrench } from 'lucide-react'
+import {
+  CopyPlus,
+  FolderTree,
+  PackagePlus,
+  Pencil,
+  Trash2,
+  Upload,
+  Wrench,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { gammesQueries, type GammeBiblioRow } from '../queries'
 import { useCopierGamme, useDeleteGamme } from '../mutations'
@@ -10,6 +18,8 @@ import { GammeBiblioFormDialog } from './gamme-biblio-form-dialog'
 import { GammeModelesSection } from './gamme-modeles-section'
 import { GammeOperationsSection } from './gamme-operations-section'
 import { CopierContenuDialog } from './copier-contenu-dialog'
+import { ImportCsvDialog } from './import-csv-dialog'
+import { ImporterDuCommunDialog } from '@/components/common/importer-du-commun-dialog'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import {
@@ -91,7 +101,7 @@ export function GammesBiblioPanel() {
   // seulement « Copier vers un site » (export commun → site).
   const canEntreprise = perm.canManageAdmin(role)
   // `sites` (get_my_sites) : cibles possibles d'une copie commun → site.
-  const { sites } = useSiteContext()
+  const { sites, activeSiteId, activeSite } = useSiteContext()
   const canExport = perm.canManageMetier(role) && sites.length > 0
 
   const gammesQuery = useQuery(gammesQueries.biblioPool())
@@ -164,6 +174,10 @@ export function GammesBiblioPanel() {
   // C'est l'UNIQUE chemin de copie d'une sous-catégorie (card depth 1 ET barre
   // d'onglet depth 2).
   const [copierContenu, setCopierContenu] = useState<Categorie | null>(null)
+  // Import CSV en masse dans la sous-catégorie courante (généré via IA).
+  const [importOpen, setImportOpen] = useState(false)
+  // « Importer sur mon site » : installation de gammes communes sur le site actif.
+  const [importCommunOpen, setImportCommunOpen] = useState(false)
   // Export commun → site d'une GAMME-template (sa copie fine via RPC copier_gamme).
   // `target` survit à la fermeture (la `key` du dialog reste stable) ; il change
   // quand on ouvre une autre gamme source.
@@ -425,20 +439,45 @@ export function GammesBiblioPanel() {
     return {
       action: canEntreprise ? handleAddGamme : null,
       label: 'Nouvelle gamme',
-      extra:
-        canExport && gammesInCurrent.length > 0 ? (
-          <TooltipIconButton
-            icon={<CopyPlus />}
-            label="Copier vers un site"
-            variant="outline"
-            // Même chemin que la card depth 1 : copie FINE de la sous-catégorie
-            // courante via CopierContenuDialog → RPC copier_categorie (image
-            // comprise). `current` est non nul ici (depth 2).
-            onClick={() => {
-              if (current !== null) setCopierContenu(current)
-            }}
-          />
-        ) : undefined,
+      extra: (
+        <div className="flex flex-wrap items-center gap-2">
+          {canExport && gammesInCurrent.length > 0 && (
+            <TooltipIconButton
+              icon={<CopyPlus />}
+              label="Copier vers un site"
+              variant="outline"
+              // Même chemin que la card depth 1 : copie FINE de la sous-catégorie
+              // courante via CopierContenuDialog → RPC copier_categorie (image
+              // comprise). `current` est non nul ici (depth 2).
+              onClick={() => {
+                if (current !== null) setCopierContenu(current)
+              }}
+            />
+          )}
+          {/* « Installer sur mon site » : le geste par lequel un site se sert
+              dans le catalogue du siège (RPC copier_gamme, ouverte aux rôles
+              métier ayant accès au site). Le site visé est le site ACTIF —
+              l'onglet, lui, est verrouillé sur le commun. */}
+          {canExport && activeSiteId !== null && gammesInCurrent.length > 0 && (
+            <TooltipIconButton
+              icon={<PackagePlus />}
+              label="Importer depuis le commun"
+              variant="outline"
+              onClick={() => setImportCommunOpen(true)}
+            />
+          )}
+          {/* Import CSV (généré via IA générative) : mêmes droits que la
+              création manuelle, dont il emprunte le chemin d'écriture. */}
+          {canEntreprise && (
+            <TooltipIconButton
+              icon={<Upload />}
+              label="Importer un CSV"
+              variant="outline"
+              onClick={() => setImportOpen(true)}
+            />
+          )}
+        </div>
+      ),
     }
   }, [
     openGamme,
@@ -452,6 +491,7 @@ export function GammesBiblioPanel() {
     handleAddGamme,
     handleEditOpenGamme,
     openExportOpenGamme,
+    activeSiteId,
   ])
 
   // Périmètre VERROUILLÉ « Commun » : le Plan de maintenance est commun-only, mais
@@ -846,6 +886,55 @@ export function GammesBiblioPanel() {
           sousCats={gammeCats.filter((c) => c.parent_id === copierContenu.id)}
           gammes={gammes}
           sites={sites}
+        />
+      )}
+
+      {/* Installation de gammes communes sur le site ACTIF : une copie par
+          gamme via la RPC `copier_gamme` (qui emporte opérations et modèles
+          liés). La copie vit ensuite dans le plan de maintenance du site, pas
+          dans la Bibliothèque. */}
+      {canExport &&
+        activeSiteId !== null &&
+        depth === 2 &&
+        current !== null && (
+          <ImporterDuCommunDialog
+            key={`commun-${current.id}-${String(importCommunOpen)}`}
+            open={importCommunOpen}
+            onOpenChange={setImportCommunOpen}
+            titre="Installer des gammes sur mon site"
+            siteNom={activeSite?.nom ?? null}
+            elements={gammesInCurrent.map((g) => ({
+              id: g.id,
+              nom: g.nom,
+              description: g.description,
+              // La périodicité est jointe et NOT NULL côté base : toujours là.
+              badge: (
+                <span className="text-xs text-muted-foreground">
+                  {g.periodicites.libelle}
+                </span>
+              ),
+            }))}
+            importer={(id) =>
+              copierGamme.mutateAsync({
+                sourceGammeId: id,
+                siteCible: activeSiteId,
+              })
+            }
+            motSingulier="gamme"
+            motPluriel="gammes"
+          />
+        )}
+
+      {/* Import CSV : uniquement dans une SOUS-catégorie ouverte (niveau 2) —
+          c'est elle qui range les gammes créées. Remonté à chaque ouverture
+          pour repartir d'un formulaire vierge. */}
+      {canEntreprise && depth === 2 && current !== null && (
+        <ImportCsvDialog
+          key={`import-${current.id}-${String(importOpen)}`}
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          sousCategorie={{ id: current.id, nom: current.nom }}
+          existants={gammesInCurrent.map((g) => ({ id: g.id, nom: g.nom }))}
         />
       )}
     </div>

@@ -10,6 +10,9 @@ import {
 } from '../mutations'
 import { GammeTypeFormDialog } from './gamme-type-form-dialog'
 import { OperationItemsEditor } from './operation-items-editor'
+import { ImportCsvDialog } from './import-csv-dialog'
+import { ImporterDuCommunDialog } from '@/components/common/importer-du-commun-dialog'
+import { useSiteContext } from '@/lib/site-context'
 import { CataloguePanel } from '@/features/bibliotheque/components/catalogue-panel'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { errorMessage, pgCode } from '@/lib/form'
@@ -47,6 +50,7 @@ export function GammesTypesPanel() {
   const modelesQuery = useQuery(modelesOperationsQueries.pool())
   const detachEtSupprime = useDetacherEtSupprimerModeleOperation()
   const copierModele = useCopierModeleOperation()
+  const { sites } = useSiteContext()
   const [toDelete, setToDelete] = useState<ModeleOperation | null>(null)
 
   // Gammes liées au modèle à supprimer : on anticipe le RESTRICT FK plutôt que de
@@ -134,6 +138,53 @@ export function GammesTypesPanel() {
       modeleSubtitle={(m) =>
         m.description?.trim() ? m.description.trim() : undefined
       }
+      renderImportCommun={({ open, onOpenChange, siteCible, modeles }) => {
+        // Candidats = catalogue commun dont aucun homonyme n'est déjà installé
+        // sur le site (on ne propose jamais d'y créer un doublon).
+        const surLeSite = new Set(
+          modeles
+            .filter((m) => m.site_id === siteCible)
+            .map((m) => m.nom.trim().toLowerCase()),
+        )
+        const communs = modeles.filter((m) => m.site_id === null)
+        const candidats = communs.filter(
+          (m) => !surLeSite.has(m.nom.trim().toLowerCase()),
+        )
+        return (
+          <ImporterDuCommunDialog
+            key={`commun-${siteCible}-${String(open)}`}
+            open={open}
+            onOpenChange={onOpenChange}
+            titre="Importer des modèles d’opérations"
+            siteNom={sites.find((s) => s.id === siteCible)?.nom ?? null}
+            elements={candidats.map((m) => ({
+              id: m.id,
+              nom: m.nom,
+              description: m.description,
+            }))}
+            nbDejaInstalles={communs.length - candidats.length}
+            importer={(id) =>
+              copierModele.mutateAsync({ sourceModeleId: id, siteCible })
+            }
+            motSingulier="modèle"
+            motPluriel="modèles"
+            loading={modelesQuery.isPending}
+          />
+        )
+      }}
+      renderImportCsv={({ open, onOpenChange, current, modeles }) => (
+        <ImportCsvDialog
+          key={`import-${current.id}-${String(open)}`}
+          open={open}
+          onOpenChange={onOpenChange}
+          categorie={{
+            id: current.id,
+            nom: current.nom,
+            site_id: current.site_id,
+          }}
+          existants={modeles}
+        />
+      )}
       renderModeleForm={({ open, onOpenChange, modele, current, cats }) => (
         <GammeTypeFormDialog
           key={`${modele?.id ?? `new-${current.id}`}-${String(open)}`}

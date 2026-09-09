@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { Check, Copy, TriangleAlert, X } from 'lucide-react'
+import { Check, Copy, Minus, TriangleAlert, X } from 'lucide-react'
 import { DialogShell } from '@/components/common/dialog-shell'
 import { StatusBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,13 @@ export interface CsvImportLigne {
   texte: string
   /** Ligne valide mais à vérifier (doublon probable…) : badge d'alerte. */
   avertissement?: string
+  /**
+   * Ligne volontairement NON importée parce qu'elle est déjà en base (et qu'il
+   * n'y a rien à y compléter) : ni une réussite, ni une erreur de l'utilisateur
+   * → badge neutre, et elle ne compte pas dans « N en erreur ». Toujours avec
+   * `ok: false` (rien ne sera écrit pour elle).
+   */
+  ignoree?: boolean
 }
 
 interface CsvImportDialogProps {
@@ -65,7 +72,8 @@ export function CsvImportDialog({
 }: CsvImportDialogProps) {
   const [etape, setEtape] = useState<'prompt' | 'csv'>('prompt')
   const nbValides = lignes.filter((l) => l.ok).length
-  const nbErreurs = lignes.length - nbValides
+  const nbIgnorees = lignes.filter((l) => l.ignoree).length
+  const nbErreurs = lignes.length - nbValides - nbIgnorees
 
   async function copierPrompt() {
     try {
@@ -149,6 +157,7 @@ export function CsvImportDialog({
                   <>
                     {nbValides} ligne{nbValides > 1 ? 's' : ''} valide
                     {nbValides > 1 ? 's' : ''}
+                    {nbIgnorees > 0 && ` · ${String(nbIgnorees)} déjà en base`}
                     {nbErreurs > 0 && ` · ${String(nbErreurs)} en erreur`}
                   </>
                 )}
@@ -159,7 +168,14 @@ export function CsvImportDialog({
                     key={l.ligne}
                     className="flex items-start gap-2 border-b px-3 py-2 text-sm last:border-b-0"
                   >
-                    {l.ok && l.avertissement ? (
+                    {l.ignoree ? (
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 gap-1 text-muted-foreground"
+                      >
+                        <Minus className="size-3" /> L{l.ligne}
+                      </Badge>
+                    ) : l.ok && l.avertissement ? (
                       <StatusBadge tone="warning" className="shrink-0 gap-1">
                         <TriangleAlert className="size-3" /> L{l.ligne}
                       </StatusBadge>

@@ -6,7 +6,6 @@ import { modelesOperationsQueries } from '@/features/modeles-operations/queries'
 import { writeErrorMessage } from '@/lib/form'
 import { ChecklistDialog } from '@/components/common/checklist-dialog'
 import { ErrorState } from '@/components/common/error-state'
-import { Badge } from '@/components/ui/badge'
 
 interface ImportModeleOperationDialogProps {
   open: boolean
@@ -49,24 +48,17 @@ export function ImportModeleOperationDialog({
   liesIds,
 }: ImportModeleOperationDialogProps) {
   const lier = useLierModelesOperation()
-  const poolQuery = useQuery(modelesOperationsQueries.poolImport())
-
-  // Candidats = modèles accessibles, NON VIDES, non déjà liés, dans la portée
-  // de la gamme.
+  // Le PÉRIMÈTRE (modèles du même scope que la gamme) est porté par la query ;
+  // ici on n'écarte que ce qui relève de ce dialog : les modèles VIDES (non
+  // liables, trigger 23514 — ils feraient échouer l'INSERT groupé atomique) et
+  // ceux déjà rattachés à la gamme.
+  const poolQuery = useQuery(modelesOperationsQueries.liables(gammeSiteId))
   const candidates = useMemo(() => {
     const lies = new Set(liesIds)
-    return (poolQuery.data ?? []).filter((m) => {
-      // Modèle vide : non liable (trigger 23514) → exclu pour ne pas faire
-      // échouer tout l'import groupé (INSERT atomique).
-      if (m.nbItems === 0) return false
-      if (lies.has(m.id)) return false
-      // Cohérence de portée : commun pour toute gamme ; le site exact sinon.
-      const compatible =
-        m.site_id === null ||
-        (gammeSiteId !== null && m.site_id === gammeSiteId)
-      return compatible
-    })
-  }, [poolQuery.data, liesIds, gammeSiteId])
+    return (poolQuery.data ?? []).filter(
+      (m) => m.nbItems > 0 && !lies.has(m.id),
+    )
+  }, [poolQuery.data, liesIds])
 
   return (
     <ChecklistDialog
@@ -79,10 +71,6 @@ export function ImportModeleOperationDialog({
         id: m.id,
         titre: m.nom,
         sousTitre: m.description ?? undefined,
-        badge:
-          m.site_id === null ? (
-            <Badge variant="secondary">Commun</Badge>
-          ) : undefined,
       }))}
       submitLabel={(count) => `Lier${count > 0 ? ` (${String(count)})` : ''}`}
       pendingLabel="Liaison…"
@@ -97,7 +85,7 @@ export function ImportModeleOperationDialog({
           />
         ) : undefined
       }
-      empty="Aucun modèle d’opération disponible à lier."
+      empty="Aucun modèle d’opération sur ce site. Va en chercher un dans la Bibliothèque (onglet « Modèles d’opérations », bouton « Importer depuis le commun »)."
       noResults="Aucun modèle ne correspond à ta recherche."
       onSubmit={async (ids) => {
         try {

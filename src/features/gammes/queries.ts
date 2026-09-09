@@ -178,6 +178,31 @@ export const gammesQueries = {
     }),
 
   /**
+   * Libellés des opérations de PLUSIEURS gammes d'un coup (`gamme_id`
+   * conservé). Sert à l'import CSV : annoncer à l'IA ce qui existe déjà et
+   * repérer les doublons sans une requête par gamme.
+   */
+  operationsDesGammes: (gammeIds: string[]) =>
+    queryOptions({
+      queryKey: [
+        ...gammesQueries.all(),
+        'operations-multi',
+        [...gammeIds].sort().join(','),
+      ] as const,
+      enabled: gammeIds.length > 0,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('operations')
+          .select('gamme_id, nom')
+          .in('gamme_id', gammeIds)
+          .order('ordre')
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+    }),
+
+  /**
    * Modèles d'opération liés à une gamme (via `gamme_modeles`), avec leur
    * origine (commun/site) et le nombre d'items. La RLS arbitre la visibilité
    * (la liaison n'est lisible que si la gamme parente l'est).

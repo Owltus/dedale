@@ -1,6 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { estCommunOuDuSite } from '@/lib/scope'
 import type { Database } from '@/lib/database.types'
 
 export type ModeleOperation =
@@ -31,19 +30,6 @@ export interface GammeLieeAModele {
 
 export const modelesOperationsQueries = {
   all: () => ['modeles_operations'] as const,
-
-  /**
-   * Modèles d'opérations (gammes-types) visibles : scope entreprise (site_id
-   * NULL) + scope du site actif.
-   */
-  list: (siteId: string | null) =>
-    queryOptions({
-      // Réutilise le fetch de `pool()` (même `queryKey`, un seul aller-retour
-      // partagé) et n'applique le périmètre commun + site que côté client via
-      // `select` : le contenu retourné reste identique à l'ancienne query dédiée.
-      ...modelesOperationsQueries.pool(),
-      select: (rows) => rows.filter((m) => estCommunOuDuSite(m, siteId)),
-    }),
 
   /**
    * Gammes liées à un modèle d'opération via `gamme_modeles`. Sert UNIQUEMENT à
@@ -93,6 +79,31 @@ export const modelesOperationsQueries = {
     }),
 
   /**
+   * Libellés des items de PLUSIEURS modèles d'un coup (`modele_operation_id`
+   * conservé). Sert à l'import CSV : dire à l'IA ce qui existe déjà et repérer
+   * les opérations en double sans une requête par modèle.
+   */
+  itemsDesModeles: (modeleIds: string[]) =>
+    queryOptions({
+      queryKey: [
+        ...modelesOperationsQueries.all(),
+        'items-multi',
+        [...modeleIds].sort().join(','),
+      ] as const,
+      enabled: modeleIds.length > 0,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('modeles_operations_items')
+          .select('modele_operation_id, nom')
+          .in('modele_operation_id', modeleIds)
+          .order('ordre')
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+    }),
+
+  /**
    * Tout l'accessible (RLS) SANS filtre de site : le périmètre (Tout / Commun /
    * site) est appliqué côté composant.
    */
@@ -111,19 +122,31 @@ export const modelesOperationsQueries = {
     }),
 
   /**
-   * Pool des modèles d'opération pour l'IMPORT dans une gamme : comme `pool()`
-   * mais enrichi du nombre d'items (jointure comptée). L'appelant exclut les
-   * modèles vides, non liables (trigger `check_violation`). Query dédiée pour
-   * ne pas alourdir les autres consommateurs de `pool()`.
+   * Modèles d'opération LIABLES à une gamme : ceux du MÊME périmètre qu'elle —
+   * une gamme de site ne rattache que des modèles de ce site, un template
+   * commun que des modèles communs. Le catalogue du siège s'installe d'abord
+   * sur le site depuis la Bibliothèque (« Importer depuis le commun »), ce qui
+   * en dépose une copie ; c'est cette copie qui devient liable. Enrichi du
+   * nombre d'items : l'appelant écarte les modèles VIDES, non liables (trigger
+   * `check_violation`).
    */
-  poolImport: () =>
+  liables: (gammeSiteId: string | null) =>
     queryOptions({
-      queryKey: [...modelesOperationsQueries.all(), 'pool-import'] as const,
+      queryKey: [
+        ...modelesOperationsQueries.all(),
+        'liables',
+        gammeSiteId,
+      ] as const,
       queryFn: async ({ signal }) => {
-        const { data } = await supabase
+        const requete = supabase
           .from('modeles_operations')
           .select('id, nom, description, site_id, modeles_operations_items(id)')
           .order('nom')
+        const { data } = await (
+          gammeSiteId === null
+            ? requete.is('site_id', null)
+            : requete.eq('site_id', gammeSiteId)
+        )
           .abortSignal(signal)
           .throwOnError()
         return data.map(

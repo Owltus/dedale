@@ -59,7 +59,6 @@ import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ListRow } from '@/components/common/list-row'
 import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { listStack } from '@/lib/responsive'
-import { ScopeBadges } from '@/components/common/scope-badges'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
@@ -291,10 +290,9 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     [canEdit, canEntreprise],
   )
 
-  // Modèles proposés comme POINT DE DÉPART d'une sous-catégorie : ceux du site
-  // ET ceux de la Bibliothèque commune (la query filtre déjà sur ce périmètre).
-  // Leur gabarit est recopié par valeur, jamais lié — un modèle commun n'a donc
-  // plus besoin d'être exporté vers le site au préalable.
+  // Modèles proposés comme POINT DE DÉPART d'une sous-catégorie. Le périmètre
+  // (site uniquement, jamais le catalogue commun) est porté par la query
+  // `modelesEquipementsQueries.list` — ici on ne fait que la mise en forme.
   const modeleOptions = useMemo(
     () =>
       (modelesQuery.data ?? []).map((m) => ({
@@ -303,7 +301,6 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
         description: m.description,
         champs: parseChamps(m.specifications),
         miniatureId: m.miniature_id,
-        commun: m.site_id === null,
       })),
     [modelesQuery.data],
   )
@@ -799,16 +796,10 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
                             ? cat.description.trim()
                             : undefined
                         }
-                        badges={
-                          cat.virtual ? undefined : (
-                            <ScopeBadges siteId={cat.site_id} />
-                          )
-                        }
-                        mobileMeta={
-                          cat.virtual ? undefined : (
-                            <ScopeBadges siteId={cat.site_id} />
-                          )
-                        }
+                        // Pas de badge de périmètre ici : une catégorie de PARC
+                        // est toujours rattachée à un site (scope 'parc') — le
+                        // badge « Site » n'apprenait rien. Le périmètre reste
+                        // affiché là où il VARIE : la Bibliothèque.
                         onClick={() => goTo([...path, cat])}
                         menuActions={
                           canManageCat(cat)
