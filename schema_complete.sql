@@ -457,8 +457,11 @@ CREATE TABLE types_locaux (
     id          SMALLINT PRIMARY KEY,
     libelle     TEXT NOT NULL UNIQUE,
     description TEXT,
-    actif       BOOLEAN NOT NULL DEFAULT true
+    actif       BOOLEAN NOT NULL DEFAULT true,
+    -- 112 : gabarit des caractéristiques du type (même format que categories).
+    specifications JSONB
 );
+COMMENT ON COLUMN types_locaux.specifications IS 'Gabarit des caractéristiques du type de local (112) : {champs:[{cle,type,unite,options,requis,defaut}]}. NULL = aucune caractéristique.';
 
 -- Rôles applicatifs (référentiel) — décision PO 2026-06-01 : TABLE de référence
 -- consultable/documentée plutôt qu'un ENUM. Les codes (admin/manager/...) restent
@@ -1398,6 +1401,12 @@ CREATE TABLE locaux (
     surface_m2    NUMERIC(8,2),
     -- 033 : local chauffé / climatisé (pour la remontée de surface chauffée).
     chauffe_climatise BOOLEAN NOT NULL DEFAULT false,
+    -- 111 : socle physique / réglementaire ERP. NULL = inconnu.
+    hauteur_m     NUMERIC(4,2) CONSTRAINT locaux_hauteur_positive CHECK (hauteur_m IS NULL OR hauteur_m > 0),
+    capacite_personnes SMALLINT CONSTRAINT locaux_capacite_positive CHECK (capacite_personnes IS NULL OR capacite_personnes >= 0),
+    accessible_pmr BOOLEAN NOT NULL DEFAULT false,
+    -- 112 : snapshot du gabarit du type + valeurs saisies pour CE local.
+    specifications JSONB NOT NULL DEFAULT '{}'::jsonb,
     image_path    TEXT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -1418,6 +1427,10 @@ CREATE TRIGGER trg_locaux_updated_at
 ALTER TABLE locaux ENABLE ROW LEVEL SECURITY;
 
 COMMENT ON TABLE locaux IS 'Locaux (appartement, partie commune, local technique). Feuille de la hiérarchie spatiale.';
+COMMENT ON COLUMN locaux.hauteur_m IS 'Hauteur sous plafond en mètres (111). NULL = inconnue. Volume = surface_m2 × hauteur_m.';
+COMMENT ON COLUMN locaux.capacite_personnes IS 'Effectif admissible du local (111). NULL = inconnu. Base du calcul d''effectif ERP.';
+COMMENT ON COLUMN locaux.accessible_pmr IS 'Local accessible aux personnes à mobilité réduite (111).';
+COMMENT ON COLUMN locaux.specifications IS 'Caractéristiques du local (112) : snapshot du gabarit de son type + valeurs saisies. Même format que equipements.specifications.';
 
 -- -----------------------------------------------------------------------------
 -- VIEW v_locaux_chemin
@@ -1475,27 +1488,31 @@ SELECT
     n.id                            AS niveau_id,
     n.batiment_id,
     COALESCE(SUM(l.surface_m2), 0)  AS surface_m2,
-    COALESCE(SUM(l.surface_m2) FILTER (WHERE l.chauffe_climatise), 0) AS surface_chauffee_m2
+    COALESCE(SUM(l.surface_m2) FILTER (WHERE l.chauffe_climatise), 0) AS surface_chauffee_m2,
+    COALESCE(SUM(l.surface_m2 * l.hauteur_m), 0) AS volume_m3,                 -- 111
+    COALESCE(SUM(l.capacite_personnes), 0)::INTEGER AS capacite_personnes      -- 111
 FROM niveaux n
 LEFT JOIN locaux l ON l.niveau_id = n.id
 GROUP BY n.id, n.batiment_id;
 ALTER VIEW v_niveaux_surface SET (security_invoker = true);
 GRANT SELECT ON v_niveaux_surface TO anon, authenticated;
-COMMENT ON VIEW v_niveaux_surface IS 'Surface (totale + chauffée) roulée d''un niveau = somme des surfaces de ses locaux (vivants).';
+COMMENT ON VIEW v_niveaux_surface IS 'Surface (totale + chauffée), volume et effectif roulés d''un niveau = somme de ses locaux (111 : volume_m3, capacite_personnes).';
 
 CREATE VIEW v_batiments_surface AS
 SELECT
     b.id                            AS batiment_id,
     b.site_id,
     COALESCE(SUM(l.surface_m2), 0)  AS surface_m2,
-    COALESCE(SUM(l.surface_m2) FILTER (WHERE l.chauffe_climatise), 0) AS surface_chauffee_m2
+    COALESCE(SUM(l.surface_m2) FILTER (WHERE l.chauffe_climatise), 0) AS surface_chauffee_m2,
+    COALESCE(SUM(l.surface_m2 * l.hauteur_m), 0) AS volume_m3,                 -- 111
+    COALESCE(SUM(l.capacite_personnes), 0)::INTEGER AS capacite_personnes      -- 111
 FROM batiments b
 LEFT JOIN niveaux n ON n.batiment_id = b.id
 LEFT JOIN locaux  l ON l.niveau_id = n.id
 GROUP BY b.id, b.site_id;
 ALTER VIEW v_batiments_surface SET (security_invoker = true);
 GRANT SELECT ON v_batiments_surface TO anon, authenticated;
-COMMENT ON VIEW v_batiments_surface IS 'Surface (totale + chauffée) roulée d''un bâtiment = somme des surfaces de tous ses locaux (vivants).';
+COMMENT ON VIEW v_batiments_surface IS 'Surface (totale + chauffée), volume et effectif roulés d''un bâtiment = somme de tous ses locaux (111 : volume_m3, capacite_personnes).';
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗

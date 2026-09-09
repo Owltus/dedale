@@ -1,5 +1,10 @@
 import { parseCsv } from '@/lib/csv'
-import type { Champ, ChampValeur } from '@/lib/champs'
+import {
+  parseDateFrVersIso,
+  resoudreValeurTexte,
+  type Champ,
+  type ChampValeur,
+} from '@/lib/champs'
 
 /** Séparateur imposé du CSV d'import (virgule = décimale en France). */
 export const CSV_DELIMITER = ';'
@@ -132,27 +137,6 @@ export interface CsvImportResult {
 
 const norm = (s: string) => s.trim().toLowerCase()
 
-/** Convertit un JJ/MM/AAAA en ISO YYYY-MM-DD, ou `null` si invalide. */
-function parseDateFr(s: string): string | null {
-  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s.trim())
-  if (!m) return null
-  const [, jj, mm, aaaa] = m as unknown as [string, string, string, string]
-  const j = Number(jj)
-  const mo = Number(mm)
-  const iso = `${aaaa}-${mo.toString().padStart(2, '0')}-${j.toString().padStart(2, '0')}`
-  const d = new Date(iso)
-  // Rejette les dates qui « débordent » (ex. 31/02) — Date les recale silencieusement.
-  if (
-    Number.isNaN(d.getTime()) ||
-    d.getUTCFullYear() !== Number(aaaa) ||
-    d.getUTCMonth() !== mo - 1 ||
-    d.getUTCDate() !== j
-  ) {
-    return null
-  }
-  return iso
-}
-
 /** Résout un nom (ou chemin) de local vers un `local_id`, ou une erreur explicite. */
 function resoudreLocal(
   valeur: string,
@@ -182,63 +166,6 @@ function resoudreLocal(
   return {
     ok: false,
     erreur: `${COL_LOCAL} « ${valeur} » introuvable sur ce site.`,
-  }
-}
-
-/** Valide et convertit la valeur brute d'une cellule pour un champ du gabarit. */
-function resoudreChamp(
-  champ: Champ,
-  brut: string | undefined,
-): { ok: true; valeur: ChampValeur } | { ok: false; erreur: string } {
-  const v = (brut ?? '').trim()
-  if (v === '') {
-    if (champ.requis) {
-      return { ok: false, erreur: `« ${champ.cle} » est obligatoire.` }
-    }
-    return { ok: true, valeur: champ.defaut }
-  }
-  switch (champ.type) {
-    case 'liste': {
-      const option = (champ.options ?? []).find((o) => norm(o) === norm(v))
-      if (!option) {
-        return {
-          ok: false,
-          erreur: `« ${champ.cle} » : « ${v} » n'est pas une valeur autorisée (${(champ.options ?? []).join(', ')}).`,
-        }
-      }
-      return { ok: true, valeur: option }
-    }
-    case 'nombre': {
-      const n = Number(v.replace(',', '.'))
-      if (!Number.isFinite(n)) {
-        return {
-          ok: false,
-          erreur: `« ${champ.cle} » : « ${v} » n'est pas un nombre.`,
-        }
-      }
-      return { ok: true, valeur: n }
-    }
-    case 'oui-non': {
-      if (norm(v) === 'oui') return { ok: true, valeur: true }
-      if (norm(v) === 'non') return { ok: true, valeur: false }
-      return {
-        ok: false,
-        erreur: `« ${champ.cle} » : « ${v} » doit être « Oui » ou « Non ».`,
-      }
-    }
-    case 'date': {
-      const iso = parseDateFr(v)
-      if (!iso) {
-        return {
-          ok: false,
-          erreur: `« ${champ.cle} » : « ${v} » n'est pas une date valide (JJ/MM/AAAA).`,
-        }
-      }
-      return { ok: true, valeur: iso }
-    }
-    case 'texte':
-    default:
-      return { ok: true, valeur: v }
   }
 }
 
@@ -326,7 +253,7 @@ export function parseImportCsv(
 
     const champsResolus: Champ[] = []
     for (const { champ, idx } of idxChamps) {
-      const r = resoudreChamp(champ, cells[idx])
+      const r = resoudreValeurTexte(champ, cells[idx])
       if (!r.ok) {
         erreurs.push(r.erreur)
       } else {
@@ -338,7 +265,7 @@ export function parseImportCsv(
     if (idxMiseEnService !== -1) {
       const brut = (cells[idxMiseEnService] ?? '').trim()
       if (brut !== '') {
-        const iso = parseDateFr(brut)
+        const iso = parseDateFrVersIso(brut)
         if (!iso)
           erreurs.push(
             `${COL_MISE_EN_SERVICE} : « ${brut} » invalide (JJ/MM/AAAA).`,
@@ -350,7 +277,7 @@ export function parseImportCsv(
     if (idxFinGarantie !== -1) {
       const brut = (cells[idxFinGarantie] ?? '').trim()
       if (brut !== '') {
-        const iso = parseDateFr(brut)
+        const iso = parseDateFrVersIso(brut)
         if (!iso)
           erreurs.push(
             `${COL_FIN_GARANTIE} : « ${brut} » invalide (JJ/MM/AAAA).`,

@@ -56,6 +56,70 @@ export const localisationsQueries = {
       },
     }),
 
+  /**
+   * Nombre de locaux par type de local, TOUS sites confondus visibles (la RLS
+   * arbitre). Sert à chiffrer l'impact d'une modification de gabarit.
+   */
+  nbLocauxParType: () =>
+    queryOptions({
+      queryKey: [...localisationsQueries.all(), 'nb-locaux-par-type'] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('locaux')
+          .select('type_local_id')
+          .not('type_local_id', 'is', null)
+          .abortSignal(signal)
+          .throwOnError()
+        const counts = new Map<number, number>()
+        for (const l of data) {
+          counts.set(l.type_local_id, (counts.get(l.type_local_id) ?? 0) + 1)
+        }
+        return counts
+      },
+    }),
+
+  /**
+   * Arbre COMPLET des lieux du site (bâtiments → niveaux → locaux, noms et
+   * rattachements seulement) : sert à l'import CSV pour réutiliser l'existant
+   * et repérer les doublons avant de créer.
+   */
+  arbre: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [...localisationsQueries.all(), 'arbre', siteId] as const,
+      enabled: siteId !== null,
+      queryFn: async ({ signal }) => {
+        const { data: batiments } = await supabase
+          .from('batiments')
+          .select('id, nom')
+          .eq('site_id', siteId!)
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        const batimentIds = batiments.map((b) => b.id)
+        if (batimentIds.length === 0) {
+          return { batiments, niveaux: [], locaux: [] }
+        }
+        const { data: niveaux } = await supabase
+          .from('niveaux')
+          .select('id, nom, batiment_id')
+          .in('batiment_id', batimentIds)
+          .order('ordre')
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        const niveauIds = niveaux.map((n) => n.id)
+        if (niveauIds.length === 0) return { batiments, niveaux, locaux: [] }
+        const { data: locaux } = await supabase
+          .from('locaux')
+          .select('id, nom, niveau_id')
+          .in('niveau_id', niveauIds)
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+        return { batiments, niveaux, locaux }
+      },
+    }),
+
   /** Surface roulée par bâtiment du site (somme des locaux). */
   batimentsSurface: (siteId: string | null) =>
     queryOptions({
@@ -68,7 +132,9 @@ export const localisationsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('v_batiments_surface')
-          .select('batiment_id, surface_m2, surface_chauffee_m2')
+          .select(
+            'batiment_id, surface_m2, surface_chauffee_m2, volume_m3, capacite_personnes',
+          )
           .eq('site_id', siteId!)
           .abortSignal(signal)
           .throwOnError()
@@ -88,7 +154,9 @@ export const localisationsQueries = {
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('v_niveaux_surface')
-          .select('niveau_id, surface_m2, surface_chauffee_m2')
+          .select(
+            'niveau_id, surface_m2, surface_chauffee_m2, volume_m3, capacite_personnes',
+          )
           .eq('batiment_id', batimentId!)
           .abortSignal(signal)
           .throwOnError()

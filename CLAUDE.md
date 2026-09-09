@@ -54,6 +54,7 @@ Le **catalogue des briques réutilisables** (~70 documentées, avec leur nombre 
 6. **Upload document = 3 étapes** : Storage → insert `documents` (avec `site_id`) → insert table de liaison.
 7. **Helpers/RPC en `public.`** (jamais `auth.xxx()` sauf `auth.uid()`). RPC : `current_role`, `get_my_sites`, `copier_gamme`, `instancier_equipement`, `reouvrir_ot`…
 8. Hiérarchie des lieux : `sites → batiments → niveaux → locaux → equipements`.
+9. **Caractéristiques libres** : le gabarit vit sur le CONTENEUR (`categories.specifications` pour un équipement, `types_locaux.specifications` pour un local), les valeurs sur l'objet (`equipements.specifications`, `locaux.specifications`) qui en garde un **snapshot**. Ne jamais ajouter une colonne fixe pour un besoin propre à un type.
 
 ## Conventions de code (toujours actives)
 

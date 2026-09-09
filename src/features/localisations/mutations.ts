@@ -1,11 +1,37 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { serializeChamps, type Champ } from '@/lib/champs'
 import {
   blockingReason,
   fetchBlockingChildren,
   localisationsQueries,
 } from './queries'
 import type { BatimentValues, LocalValues, NiveauValues } from './schemas'
+
+// --- Types de locaux (référentiel, gabarit de caractéristiques) ---
+
+/**
+ * Écrit le GABARIT de caractéristiques d'un type de local (112). Réservé à
+ * l'admin côté base (policy `types_locaux_admin_write`) : un rôle métier
+ * reçoit une erreur 42501, que l'appelant catche et affiche.
+ */
+export function useUpdateTypeLocalGabarit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, champs }: { id: number; champs: Champ[] }) => {
+      const { data } = await supabase
+        .from('types_locaux')
+        .update({ specifications: serializeChamps(champs) })
+        .eq('id', id)
+        .select()
+        .single()
+        .throwOnError()
+      return data
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: localisationsQueries.all() }),
+  })
+}
 
 // --- Bâtiments ---
 
@@ -167,7 +193,14 @@ export function useDeleteNiveau() {
 
 // --- Locaux ---
 
-function localPayload(v: LocalValues) {
+/**
+ * Caractéristiques (112) : gabarit + valeurs, sérialisées. Paramètre DÉDIÉ et
+ * non membre de `LocalValues` — elles ne viennent pas de react-hook-form mais
+ * du gabarit du type choisi. `undefined` = ne pas toucher à la colonne.
+ */
+type Specifications = ReturnType<typeof serializeChamps>
+
+function localPayload(v: LocalValues, specifications?: Specifications) {
   return {
     nom: v.nom,
     description: v.description || null,
@@ -175,6 +208,10 @@ function localPayload(v: LocalValues) {
     type_local_id: v.type_local_id ?? null,
     miniature_id: v.miniature_id,
     chauffe_climatise: v.chauffe_climatise,
+    hauteur_m: v.hauteur_m ?? null,
+    capacite_personnes: v.capacite_personnes ?? null,
+    accessible_pmr: v.accessible_pmr,
+    ...(specifications === undefined ? {} : { specifications }),
   }
 }
 
@@ -184,13 +221,18 @@ export function useCreateLocal() {
     mutationFn: async ({
       niveauId,
       values,
+      specifications,
     }: {
       niveauId: string
       values: LocalValues
+      specifications?: Specifications
     }) => {
       const { data } = await supabase
         .from('locaux')
-        .insert({ ...localPayload(values), niveau_id: niveauId })
+        .insert({
+          ...localPayload(values, specifications),
+          niveau_id: niveauId,
+        })
         .select()
         .single()
         .throwOnError()
@@ -204,10 +246,18 @@ export function useCreateLocal() {
 export function useUpdateLocal() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, values }: { id: string; values: LocalValues }) => {
+    mutationFn: async ({
+      id,
+      values,
+      specifications,
+    }: {
+      id: string
+      values: LocalValues
+      specifications?: Specifications
+    }) => {
       const { data } = await supabase
         .from('locaux')
-        .update(localPayload(values))
+        .update(localPayload(values, specifications))
         .eq('id', id)
         .select()
         .single()

@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Building, DoorOpen, Layers, Plus } from 'lucide-react'
+import { Building, DoorOpen, Layers, Plus, Upload } from 'lucide-react'
 import {
   blockingListTitle,
   blockingReason,
@@ -16,6 +16,7 @@ import {
 import { BatimentFormDialog } from './batiment-form-dialog'
 import { NiveauFormDialog } from './niveau-form-dialog'
 import { LocalFormDialog } from './local-form-dialog'
+import { ImportCsvDialog } from './import-csv-dialog'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useCurrentRole } from '@/hooks/use-current-role'
@@ -24,6 +25,7 @@ import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { segOfUnique } from '@/lib/slug'
+import { formatChampValeur, parseChamps } from '@/lib/champs'
 import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import type { PageHeaderCrumb } from '@/components/common/page-header'
@@ -117,18 +119,25 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
       new Map((niveauxSurfaceQuery.data ?? []).map((r) => [r.niveau_id, r])),
     [niveauxSurfaceQuery.data],
   )
-  // Libellé surface roulée : « X m² » (+ « · Y m² chauffé » si chauffé > 0).
-  // `undefined` si surface nulle → pas de bruit « 0 m² ».
+  // Libellé roulé : « X m² · Y m² chauffé · Z m³ · N pers. » — chaque terme
+  // n'apparaît que s'il est > 0 (pas de bruit « 0 m² » sur un conteneur vide).
   const surfaceLabel = (row?: {
     surface_m2: number | null
     surface_chauffee_m2: number | null
+    volume_m3: number | null
+    capacite_personnes: number | null
   }) => {
-    const total = row?.surface_m2 ?? 0
-    if (total <= 0) return undefined
-    const chauffee = row?.surface_chauffee_m2 ?? 0
-    return chauffee > 0
-      ? `${String(total)} m² · ${String(chauffee)} m² chauffé`
-      : `${String(total)} m²`
+    const parts = [
+      (row?.surface_m2 ?? 0) > 0 ? `${String(row?.surface_m2)} m²` : null,
+      (row?.surface_chauffee_m2 ?? 0) > 0
+        ? `${String(row?.surface_chauffee_m2)} m² chauffé`
+        : null,
+      (row?.volume_m3 ?? 0) > 0 ? `${String(row?.volume_m3)} m³` : null,
+      (row?.capacite_personnes ?? 0) > 0
+        ? `${String(row?.capacite_personnes)} pers.`
+        : null,
+    ].filter((p): p is string => p !== null)
+    return parts.length > 0 ? parts.join(' · ') : undefined
   }
 
   // Modales de création/édition (une par palier) + confirmation de suppression,
@@ -142,6 +151,9 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   // démonter ouvert — il resurgirait seul au retour sur le palier.
   if (nivDialog.open && !batiment) nivDialog.close()
   if (locDialog.open && !niveau) locDialog.close()
+  // Import en masse (CSV généré via IA générative) : disponible à tous les
+  // paliers, le palier ouvert pré-remplit bâtiment/niveau dans le prompt.
+  const [importCsvOpen, setImportCsvOpen] = useState(false)
 
   const delBatiment = useDeleteBatiment()
   const delNiveau = useDeleteNiveau()
@@ -206,6 +218,15 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
       />
     ) : null
 
+  const importCsvBtn = canEdit ? (
+    <TooltipIconButton
+      icon={<Upload />}
+      label="Importer un CSV"
+      variant="outline"
+      onClick={() => setImportCsvOpen(true)}
+    />
+  ) : null
+
   // Description de SECTION, affichée à toutes les profondeurs → zone jamais vide.
   const sectionDescription = 'Bâtiments, niveaux et locaux du site.'
 
@@ -229,11 +250,16 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
       titre={niveau?.nom ?? batiment?.nom}
       description={sectionDescription}
       action={
-        (niveau && batiment
-          ? newBtn('Nouveau local', locDialog.openCreate)
-          : batiment
-            ? newBtn('Nouveau niveau', nivDialog.openCreate)
-            : newBtn('Nouveau bâtiment', batDialog.openCreate)) ?? undefined
+        canEdit ? (
+          <>
+            {niveau && batiment
+              ? newBtn('Nouveau local', locDialog.openCreate)
+              : batiment
+                ? newBtn('Nouveau niveau', nivDialog.openCreate)
+                : newBtn('Nouveau bâtiment', batDialog.openCreate)}
+            {importCsvBtn}
+          </>
+        ) : undefined
       }
     />
   )
@@ -257,6 +283,15 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
           batimentId={batiment.id}
           siteId={siteId}
           niveau={nivDialog.entity}
+        />
+      )}
+      {canEdit && (
+        <ImportCsvDialog
+          open={importCsvOpen}
+          onOpenChange={setImportCsvOpen}
+          siteId={siteId}
+          batiment={batiment}
+          niveau={niveau}
         />
       )}
       {canEdit && niveau && (
@@ -345,7 +380,25 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                   [
                     typeLabel(l.type_local_id),
                     l.surface_m2 === null ? null : `${String(l.surface_m2)} m²`,
+                    l.hauteur_m === null ? null : `${String(l.hauteur_m)} m`,
+                    l.capacite_personnes === null
+                      ? null
+                      : `${String(l.capacite_personnes)} pers.`,
                     l.chauffe_climatise ? 'Chauffé/climatisé' : null,
+                    l.accessible_pmr ? 'PMR' : null,
+                    // Caractéristiques du type (112) : seules celles qui portent
+                    // une valeur, pour ne pas allonger la ligne inutilement.
+                    ...parseChamps(l.specifications)
+                      .filter(
+                        (c) =>
+                          c.valeur !== null &&
+                          c.valeur !== undefined &&
+                          c.valeur !== '',
+                      )
+                      .map(
+                        (c) =>
+                          `${c.cle} : ${formatChampValeur(c, c.valeur ?? null)}`,
+                      ),
                   ]
                     .filter(Boolean)
                     .join(' · ') || undefined

@@ -168,3 +168,93 @@ export function formatChampValeur(champ: Champ, valeur: ChampValeur): string {
     return champ.unite ? `${txt} ${champ.unite}` : txt
   return txt
 }
+
+/**
+ * Convertit la valeur BRUTE d'une cellule (import CSV) vers la valeur typée
+ * d'un champ, ou rend une erreur en clair. Source unique des règles de saisie
+ * « à la française » : virgule décimale pour les nombres, `JJ/MM/AAAA` pour
+ * les dates, « Oui » / « Non » pour les booléens, valeur de liste recopiée
+ * (insensible à la casse). Vide → valeur par défaut du champ, sauf si requis.
+ * Partagée par les imports d'équipements et de locaux : leurs formats ne
+ * doivent jamais diverger.
+ */
+export function resoudreValeurTexte(
+  champ: Champ,
+  brut: string | undefined,
+): { ok: true; valeur: ChampValeur } | { ok: false; erreur: string } {
+  const v = (brut ?? '').trim()
+  if (v === '') {
+    if (champ.requis) {
+      return { ok: false, erreur: `« ${champ.cle} » est obligatoire.` }
+    }
+    return { ok: true, valeur: champ.defaut }
+  }
+  switch (champ.type) {
+    case 'liste': {
+      const option = (champ.options ?? []).find(
+        (o) => o.trim().toLowerCase() === v.toLowerCase(),
+      )
+      if (!option) {
+        return {
+          ok: false,
+          erreur: `« ${champ.cle} » : « ${v} » n'est pas une valeur autorisée (${(champ.options ?? []).join(', ')}).`,
+        }
+      }
+      return { ok: true, valeur: option }
+    }
+    case 'nombre': {
+      const n = Number(v.replace(',', '.'))
+      if (!Number.isFinite(n)) {
+        return {
+          ok: false,
+          erreur: `« ${champ.cle} » : « ${v} » n'est pas un nombre.`,
+        }
+      }
+      return { ok: true, valeur: n }
+    }
+    case 'oui-non': {
+      if (v.toLowerCase() === 'oui') return { ok: true, valeur: true }
+      if (v.toLowerCase() === 'non') return { ok: true, valeur: false }
+      return {
+        ok: false,
+        erreur: `« ${champ.cle} » : « ${v} » doit être « Oui » ou « Non ».`,
+      }
+    }
+    case 'date': {
+      const iso = parseDateFrVersIso(v)
+      if (iso === null) {
+        return {
+          ok: false,
+          erreur: `« ${champ.cle} » : « ${v} » n'est pas une date valide (JJ/MM/AAAA).`,
+        }
+      }
+      return { ok: true, valeur: iso }
+    }
+    case 'texte':
+    default:
+      return { ok: true, valeur: v }
+  }
+}
+
+/**
+ * `JJ/MM/AAAA` → `YYYY-MM-DD`, ou `null` si la date n'existe pas. Rejette les
+ * dates qui « débordent » (31/02), que `Date` recalerait en silence.
+ */
+export function parseDateFrVersIso(s: string): string | null {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s.trim())
+  if (!m) return null
+  const [, jj, mm, aaaa] = m as unknown as [string, string, string, string]
+  const j = Number(jj)
+  const mo = Number(mm)
+  const iso = `${aaaa}-${mo.toString().padStart(2, '0')}-${j.toString().padStart(2, '0')}`
+  const d = new Date(iso)
+  if (
+    Number.isNaN(d.getTime()) ||
+    d.getUTCFullYear() !== Number(aaaa) ||
+    d.getUTCMonth() !== mo - 1 ||
+    d.getUTCDate() !== j
+  ) {
+    return null
+  }
+  return iso
+}

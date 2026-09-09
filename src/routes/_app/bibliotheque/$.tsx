@@ -8,12 +8,14 @@ import { GammesTypesPanel } from '@/features/modeles-operations/components/gamme
 import { GammesBiblioPanel } from '@/features/gammes/components/gammes-biblio-panel'
 import { ModelesDiPanel } from '@/features/modeles-di/components/modeles-di-panel'
 import { MiniaturesPanel } from '@/features/miniatures/components/miniatures-panel'
+import { TypesLocauxPanel } from '@/features/localisations/components/types-locaux-panel'
 import { categoriesQueries } from '@/features/categories/queries'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
 import { modelesOperationsQueries } from '@/features/modeles-operations/queries'
 import { gammesQueries } from '@/features/gammes/queries'
 import { modelesDiQueries } from '@/features/modeles-di/queries'
 import { miniaturesQueries } from '@/features/miniatures/queries'
+import { localisationsQueries } from '@/features/localisations/queries'
 
 // Ids des onglets = source unique. Ce SONT déjà des slugs : ils servent à la fois
 // de 1er segment du chemin (`/bibliotheque/<onglet>/…`) ET à typer le tableau
@@ -23,6 +25,7 @@ export const ONGLET_IDS = [
   'gammes-types',
   'gammes',
   'modeles-di',
+  'types-locaux',
   'vignettes',
 ] as const
 
@@ -60,6 +63,7 @@ export const Route = createFileRoute('/_app/bibliotheque/$')({
         qc.ensureQueryData(gammesQueries.biblioPool()),
         qc.ensureQueryData(modelesDiQueries.pool()),
         qc.ensureQueryData(miniaturesQueries.pool()),
+        qc.ensureQueryData(localisationsQueries.typesLocaux()),
       ])
     } catch {
       // préchargement best-effort : on n'empêche pas l'affichage
@@ -114,6 +118,12 @@ function BibliothequePage() {
       label: 'Modèles DI',
       description: 'Modèles de demandes d’intervention prêts à réutiliser.',
       content: <ModelesDiPanel />,
+    },
+    'types-locaux': {
+      label: 'Types de locaux',
+      description:
+        'Types de locaux du référentiel et caractéristiques que porte chaque type.',
+      content: <TypesLocauxPanel />,
     },
     vignettes: {
       label: 'Vignettes',

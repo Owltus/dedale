@@ -20,6 +20,22 @@ const optionalNumber = (label: string) =>
     return n
   })
 
+// Entier optionnel >= 0 saisi en texte (effectif admissible).
+const optionalInt = (label: string) =>
+  z.string().transform((raw, ctx): number | undefined => {
+    const trimmed = raw.trim()
+    if (trimmed === '') return undefined
+    const n = Number(trimmed)
+    if (!Number.isInteger(n) || n < 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `${label} doit être un entier positif`,
+      })
+      return z.NEVER
+    }
+    return n
+  })
+
 // Identifiant numérique optionnel (référentiel) saisi en texte.
 const optionalIntId = z.string().transform((raw, ctx): number | undefined => {
   const trimmed = raw.trim()
@@ -81,6 +97,12 @@ export const localSchema = z.object({
   miniature_id: miniature,
   /** Local chauffé / climatisé (remontée de la surface chauffée). */
   chauffe_climatise: z.boolean(),
+  /** Hauteur sous plafond (m) → volume roulé par niveau / bâtiment (111). */
+  hauteur_m: optionalNumber('La hauteur'),
+  /** Effectif admissible (base du calcul d'effectif ERP) (111). */
+  capacite_personnes: optionalInt('L’effectif'),
+  /** Accessible aux personnes à mobilité réduite (111). */
+  accessible_pmr: z.boolean(),
 })
 
 export type LocalFormValues = z.input<typeof localSchema>
@@ -94,4 +116,7 @@ export const emptyLocal: LocalFormValues = {
   type_local_id: '',
   miniature_id: null,
   chauffe_climatise: false,
+  hauteur_m: '',
+  capacite_personnes: '',
+  accessible_pmr: false,
 }
