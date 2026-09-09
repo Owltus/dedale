@@ -43,6 +43,13 @@ interface SelectFieldProps<T extends FieldValues> {
   /** Texte d'aide discret sous le champ. */
   hint?: ReactNode
   disabled?: boolean
+  /**
+   * Notifié APRÈS l'enregistrement de la valeur dans le formulaire (`''` pour
+   * l'option neutre). Pour un choix qui déclenche un effet de bord ailleurs
+   * dans la modale (ex. recopier un gabarit) — la valeur reste pilotée par
+   * react-hook-form.
+   */
+  onValueChange?: (value: string) => void
 }
 
 /**
@@ -60,6 +67,7 @@ export function SelectField<T extends FieldValues>({
   optionAucune,
   hint,
   disabled,
+  onValueChange,
 }: SelectFieldProps<T>) {
   // Garde-fou de développement : une option vide serait avalée par Radix.
   if (import.meta.env.DEV && options.some((o) => o.value === '')) {
@@ -95,7 +103,9 @@ export function SelectField<T extends FieldValues>({
                 : String(field.value)
             }
             onValueChange={(v) => {
-              field.onChange(v === AUCUN ? '' : v)
+              const valeur = v === AUCUN ? '' : v
+              field.onChange(valeur)
+              onValueChange?.(valeur)
             }}
             options={items}
             placeholder={placeholder}

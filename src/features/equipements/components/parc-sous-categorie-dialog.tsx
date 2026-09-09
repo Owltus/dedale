@@ -27,8 +27,10 @@ const parcSousCategorieSchema = z.object({
   nom: z.string().trim().min(1, 'Le nom est obligatoire'),
   description: z.string(),
   miniatureId: z.string().nullable(),
-  // '' = gabarit spécifique (défini ici) ; sinon id d'un modèle de site.
-  modeleId: z.string(),
+  // '' = aucun modèle de départ ; sinon l'id du modèle dont les caractéristiques
+  // viennent d'être RECOPIÉES ci-dessous. Rien de tout cela n'est enregistré en
+  // base : la copie est un point de départ, jamais un lien.
+  sourceModeleId: z.string(),
   // '' = aucune (le type seul) ; sinon la clé (Champ.cle) de la caractéristique
   // collée au type dans les listes (ex. « Extincteur N°1 »).
   valeurPrincipale: z.string(),
@@ -48,8 +50,19 @@ interface ParcSousCategorieDialogProps {
   siteId: string
   /** Catégorie parente (niveau 1) sous laquelle créer la sous-catégorie. */
   parentId: string
-  /** Modèles DU SITE proposés (un modèle commun doit d'abord être exporté). */
-  modeles: { id: string; nom: string; champs: Champ[] }[]
+  /**
+   * Modèles proposés comme point de départ : ceux du site ET ceux de la
+   * Bibliothèque commune. Leur gabarit est COPIÉ (jamais lié) → aucun besoin
+   * d'exporter d'abord un modèle commun vers le site.
+   */
+  modeles: {
+    id: string
+    nom: string
+    description: string | null
+    champs: Champ[]
+    miniatureId: string | null
+    commun: boolean
+  }[]
   /** Sous-catégorie à MODIFIER. Absent = création. */
   categorie?: Categorie | null
   /**
@@ -66,7 +79,9 @@ function initialValues(
     nom: categorie?.nom ?? '',
     description: categorie?.description ?? '',
     miniatureId: categorie?.miniature_id ?? null,
-    modeleId: categorie?.modele_equipement_id ?? '',
+    // Toujours vide : le modèle n'est qu'une source de copie, pas un état de la
+    // sous-catégorie — rien à réafficher en édition.
+    sourceModeleId: '',
     valeurPrincipale: categorie?.valeur_principale ?? '',
     valeurSecondaire: categorie?.valeur_secondaire ?? '',
     valeurTertiaire: categorie?.valeur_tertiaire ?? '',
@@ -75,13 +90,16 @@ function initialValues(
 
 /**
  * Formulaire UNIQUE création + édition d'une SOUS-catégorie de parc, identique dans
- * les deux cas : Nom + Description + Image + GABARIT dont héritent ses équipements :
- * - « Spécifique » → caractéristiques définies ICI (comme un modèle, mais local :
- *   rien ne va dans la Bibliothèque ; en édition elles se propagent aux équipements) ;
- * - un MODÈLE du site → les équipements en sont des copies (gabarit géré en Biblio).
+ * les deux cas : Nom + Description + Image + GABARIT dont héritent ses équipements.
  *
- * Le TYPE de gabarit (modèle ↔ spécifique) est une décision STRUCTURELLE prise à la
- * création : en édition il est verrouillé (affiché, non modifiable).
+ * Le gabarit vit TOUJOURS sur la sous-catégorie (`specifications`) : on peut le
+ * saisir de zéro, ou partir d'un modèle de la Bibliothèque (commun OU du site),
+ * dont les caractéristiques sont alors RECOPIÉES dans l'éditeur ci-dessous. La
+ * copie est un point de départ modifiable : la sous-catégorie ne garde aucun lien
+ * vers le modèle, et modifier ce dernier plus tard ne la touche pas. C'est ce qui
+ * permet de piocher directement un modèle commun (« BAES ») sans devoir d'abord
+ * l'exporter vers le site — la base refuse en effet qu'une sous-catégorie de site
+ * POINTE vers un modèle commun (`check_categorie_modele`).
  */
 export function ParcSousCategorieDialog({
   open,
@@ -114,18 +132,12 @@ export function ParcSousCategorieDialog({
   // → pas de fermeture mid-propagation ni d'écritures concurrentes non sérialisées.
   const pending = form.formState.isSubmitting || persistChamps.isPending
 
-  // '' = gabarit spécifique (défini ici) ; sinon id d'un modèle de site. Verrouillé
-  // en édition : la valeur initiale est celle de la sous-catégorie existante.
-  const modeleId = useWatch({ control: form.control, name: 'modeleId' })
-  const specifique = modeleId === ''
-  // Libellé du modèle fixé (édition liée à un modèle), pour l'afficher en lecture.
-  const modeleNom = modeles.find((m) => m.id === modeleId)?.nom
+  // Sous-catégorie HÉRITÉE d'un ancien gabarit lié à un modèle (avant la bascule
+  // en copie) : son gabarit se gère en Bibliothèque, on ne l'édite pas ici.
+  const lieAUnModele = Boolean(categorie?.modele_equipement_id)
   // Caractéristiques éligibles comme valeur principale/secondaire/tertiaire :
-  // celles du gabarit actif (liste DYNAMIQUE `champs` si spécifique, sinon
-  // celles du modèle choisi).
-  const champsCandidats = specifique
-    ? champs
-    : (modeles.find((m) => m.id === modeleId)?.champs ?? [])
+  // celles du gabarit de la sous-catégorie (liste DYNAMIQUE `champs`).
+  const champsCandidats = champs
   // Chaque niveau exclut les caractéristiques déjà choisies aux niveaux
   // précédents (les badges afficheraient sinon deux fois la même valeur).
   const valeurPrincipale = useWatch({
@@ -159,23 +171,20 @@ export function ParcSousCategorieDialog({
         })
       }
       // Création : la sous-catégorie n'existe pas encore → on valide et sérialise
-      // les caractéristiques (gabarit spécifique) pour les écrire d'un bloc.
-      const estSpecifique = data.modeleId === ''
-      let preparedChamps: Champ[] = []
-      if (estSpecifique) {
-        const prepared = prepareChamps(champs)
-        // Erreur de préparation → toast (via useSubmitDialog), modal laissé ouvert.
-        if (!prepared.ok) throw new Error(prepared.error)
-        preparedChamps = prepared.champs
-      }
+      // les caractéristiques pour les écrire d'un bloc. Le gabarit est TOUJOURS
+      // porté par la sous-catégorie, qu'il ait été saisi ici ou recopié d'un
+      // modèle (`modeleId` reste donc null : aucun lien).
+      const prepared = prepareChamps(champs)
+      // Erreur de préparation → toast (via useSubmitDialog), modal laissé ouvert.
+      if (!prepared.ok) throw new Error(prepared.error)
       return create.mutateAsync({
         nom: data.nom,
         parentId,
         siteId,
         description: data.description,
         miniatureId: data.miniatureId,
-        modeleId: estSpecifique ? null : data.modeleId,
-        specifications: estSpecifique ? serializeChamps(preparedChamps) : null,
+        modeleId: null,
+        specifications: serializeChamps(prepared.champs),
         valeurPrincipale: data.valeurPrincipale || null,
         valeurSecondaire: data.valeurSecondaire || null,
         valeurTertiaire: data.valeurTertiaire || null,
@@ -213,6 +222,29 @@ export function ParcSousCategorieDialog({
     )
   }
 
+  /**
+   * Choix d'un modèle de départ : ses caractéristiques sont RECOPIÉES dans
+   * l'éditeur (elles remplacent celles en cours) ; son nom, sa description et son
+   * image servent de défaut tant que la sous-catégorie n'a rien saisi — une
+   * valeur déjà écrite n'est JAMAIS écrasée. Rien n'est lié : le modèle peut
+   * ensuite changer ou disparaître sans effet ici. « Aucun » ne fait rien —
+   * effacer un gabarit déjà saisi serait une perte silencieuse.
+   */
+  function appliquerModele(id: string) {
+    const modele = modeles.find((m) => m.id === id)
+    if (!modele) return
+    handleChampsChange(modele.champs.map((c) => ({ ...c })))
+    // `shouldValidate` : le nom repris efface l'erreur « Le nom est obligatoire »
+    // si elle était déjà affichée.
+    if (!form.getValues('nom').trim())
+      form.setValue('nom', modele.nom, { shouldValidate: true })
+    if (!form.getValues('description').trim() && modele.description)
+      form.setValue('description', modele.description)
+    if (!form.getValues('miniatureId') && modele.miniatureId) {
+      form.setValue('miniatureId', modele.miniatureId)
+    }
+  }
+
   return (
     <Form {...form}>
       <FormDialog
@@ -237,22 +269,24 @@ export function ParcSousCategorieDialog({
           image={{ name: 'miniatureId', targetSiteId: siteId, canUpload: true }}
         />
 
-        <SelectField
-          control={form.control}
-          name="modeleId"
-          label="Gabarit des équipements"
-          // Décision structurelle prise à la création : non modifiable ensuite.
-          disabled={isEdit}
-          options={modeles.map((m) => ({
-            value: m.id,
-            label: `Modèle : ${m.nom}`,
-          }))}
-          // « Spécifique » est la valeur PAR DÉFAUT et un choix porteur de sens :
-          // en item à `value: ''` elle ne s'affichait jamais dans le déclencheur
-          // (Radix y voit « pas de valeur »), le champ semblait donc vide alors
-          // qu'il portait le choix le plus courant.
-          optionAucune="Spécifique (définir les caractéristiques ici)"
-        />
+        {!lieAUnModele && modeles.length > 0 && (
+          <SelectField
+            control={form.control}
+            name="sourceModeleId"
+            label="Partir d’un modèle"
+            options={modeles.map((m) => ({
+              value: m.id,
+              label: m.commun ? `${m.nom} (commun)` : m.nom,
+            }))}
+            // Valeur PAR DÉFAUT et choix porteur de sens : en item à `value: ''`
+            // elle ne s'afficherait jamais dans le déclencheur (Radix y voit
+            // « pas de valeur »), le champ semblerait vide alors qu'il porte le
+            // cas courant.
+            optionAucune="Aucun (caractéristiques définies ici)"
+            onValueChange={appliquerModele}
+            hint="Reprend le nom, la description, l’image et les caractéristiques du modèle (sans écraser ce que tu as déjà saisi) ; tu peux tout ajuster ensuite. La sous-catégorie reste indépendante du modèle."
+          />
+        )}
 
         <SelectField
           control={form.control}
@@ -287,7 +321,12 @@ export function ParcSousCategorieDialog({
           hint="Une troisième caractéristique, affichée en second badge sous celui de la valeur secondaire."
         />
 
-        {specifique ? (
+        {lieAUnModele ? (
+          <p className="text-sm text-muted-foreground">
+            Les caractéristiques de cette sous-catégorie sont héritées d’un
+            modèle et se modifient dans la Bibliothèque.
+          </p>
+        ) : (
           <ChampsListEditor
             champs={champs}
             onChange={handleChampsChange}
@@ -302,15 +341,9 @@ export function ParcSousCategorieDialog({
             emptyHint={
               categorie
                 ? 'Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ; ils s’enregistrent aussitôt et les équipements de cette sous-catégorie en héritent.'
-                : 'Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ; les équipements de cette sous-catégorie en hériteront.'
+                : 'Aucune caractéristique. Ajoute des champs (ex. Puissance, Marque…) ou pars d’un modèle ci-dessus ; les équipements de cette sous-catégorie en hériteront.'
             }
           />
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Les caractéristiques sont héritées du modèle
-            {modeleNom ? ` « ${modeleNom} »` : ''} et se modifient dans la
-            Bibliothèque.
-          </p>
         )}
       </FormDialog>
     </Form>

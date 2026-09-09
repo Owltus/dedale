@@ -291,18 +291,21 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
     [canEdit, canEntreprise],
   )
 
-  // « Créer depuis un modèle » ne propose QUE les modèles DU SITE. Un modèle
-  // commun doit d'abord être exporté vers le site depuis la Bibliothèque.
+  // Modèles proposés comme POINT DE DÉPART d'une sous-catégorie : ceux du site
+  // ET ceux de la Bibliothèque commune (la query filtre déjà sur ce périmètre).
+  // Leur gabarit est recopié par valeur, jamais lié — un modèle commun n'a donc
+  // plus besoin d'être exporté vers le site au préalable.
   const modeleOptions = useMemo(
     () =>
-      (modelesQuery.data ?? [])
-        .filter((m) => m.site_id === siteId)
-        .map((m) => ({
-          id: m.id,
-          nom: m.nom,
-          champs: parseChamps(m.specifications),
-        })),
-    [modelesQuery.data, siteId],
+      (modelesQuery.data ?? []).map((m) => ({
+        id: m.id,
+        nom: m.nom,
+        description: m.description,
+        champs: parseChamps(m.specifications),
+        miniatureId: m.miniature_id,
+        commun: m.site_id === null,
+      })),
+    [modelesQuery.data],
   )
 
   // Gabarit hérité par un équipement créé dans la sous-catégorie courante :
