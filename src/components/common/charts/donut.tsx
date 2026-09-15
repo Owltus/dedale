@@ -51,6 +51,32 @@ function secteurAnnulaire(
 }
 
 /**
+ * Anneau COMPLET — une part unique qui couvre les 360°. Un secteur annulaire ne
+ * sait PAS décrire ce cas : ses deux extrémités coïncident, et la spec SVG
+ * demande alors d'omettre l'arc (« if the endpoints are identical, this is
+ * equivalent to omitting the elliptical arc segment entirely »). Le contournement
+ * historique — partir de 0,0001° pour finir à 359,999° — ne suffit pas non plus :
+ * les deux points redeviennent IDENTIQUES une fois arrondis au centième par
+ * `fmt`, et l'anneau disparaissait purement et simplement dès qu'il ne restait
+ * qu'une seule catégorie (cadran OT du tableau de bord : plus que le chiffre du
+ * centre, sans anneau autour).
+ *
+ * D'où deux cercles concentriques dans un même chemin, le trou étant creusé par
+ * `fill-rule: evenodd`. Chaque cercle est tracé en deux demi-arcs, seule façon
+ * d'obtenir un cercle entier avec la commande `A`.
+ */
+function anneauComplet(cx: number, cy: number, rExt: number, rInt: number) {
+  const cercle = (r: number) =>
+    [
+      `M${fmt(cx)} ${fmt(cy - r)}`,
+      `A${fmt(r)} ${fmt(r)} 0 1 1 ${fmt(cx)} ${fmt(cy + r)}`,
+      `A${fmt(r)} ${fmt(r)} 0 1 1 ${fmt(cx)} ${fmt(cy - r)}`,
+      'Z',
+    ].join(' ')
+  return `${cercle(rExt)} ${cercle(rInt)}`
+}
+
+/**
  * Donut SVG maison, proportionnel et sans dépendance. Parts colorées par les
  * tokens sémantiques (via `tone`), survol → surbrillance de la part + infobulle
  * `label : valeur`, clic → `segment.onClick`. Rien n'est rendu si toutes les
@@ -94,16 +120,13 @@ export function Donut({
       // Chaque frontière contribue pour la moitié de son gap de part et d'autre :
       // avant cette part = gap APRÈS la précédente, après cette part = son propre gap.
       const gapAvant = gapApres[(i - 1 + n) % n] ?? gapDeg
-      let a0 = debut + gapAvant / 2
-      let a1 = debut + span - (gapApres[i] ?? gapDeg) / 2
-      // Part unique couvrant tout le cercle : évite le secteur dégénéré (a0=a1).
-      if (n === 1) {
-        a0 = 0.0001
-        a1 = 359.999
-      }
-      return { seg, a0, a1 }
+      const a0 = debut + gapAvant / 2
+      const a1 = debut + span - (gapApres[i] ?? gapDeg) / 2
+      // Part unique : elle couvre le cercle entier, et se trace alors comme un
+      // anneau (cf. `anneauComplet`) — pas comme un secteur, qui dégénérerait.
+      return { seg, a0, a1, complet: n === 1 }
     })
-    .filter((p) => p.a1 > p.a0)
+    .filter((p) => p.complet || p.a1 > p.a0)
 
   return (
     <div className={cn('relative', className)}>
@@ -113,13 +136,19 @@ export function Donut({
         aria-label="Répartition en anneau"
         className="block w-full"
       >
-        {parts.map(({ seg, a0, a1 }) => {
+        {parts.map(({ seg, a0, a1, complet }) => {
           const interactif = Boolean(seg.onClick)
           const infobulle = `${seg.label} : ${String(seg.value)}`
           return (
             <path
               key={seg.key}
-              d={secteurAnnulaire(cx, cy, rExt, rInt, a0, a1)}
+              d={
+                complet
+                  ? anneauComplet(cx, cy, rExt, rInt)
+                  : secteurAnnulaire(cx, cy, rExt, rInt, a0, a1)
+              }
+              // Creuse le trou central de l'anneau complet (deux sous-chemins).
+              fillRule={complet ? 'evenodd' : undefined}
               fill={toneToken(seg.tone)}
               className={cn(
                 'transition-[filter] outline-none focus-visible:brightness-110',
