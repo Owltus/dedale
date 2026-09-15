@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { demandesQueries } from '@/features/demandes/queries'
+import { travauxQueries } from '@/features/travaux/queries'
+import { evenementsQueries } from '@/features/evenements/queries'
 import { documentsQueries } from '@/features/documents/queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import { gammesQueries } from '@/features/gammes/queries'
@@ -20,7 +22,9 @@ import { dashboardQueries } from './queries'
  * - `ordres_travail` → `OT_QUERY_KEYS` (`ordres_travail` + `planning`) + `dashboard`
  *   (pour que l'onboarding « Premiers pas » et l'alerte justificatifs se
  *   rafraîchissent aussi dès le 1er OT créé) ;
- * - `demandes_intervention` → `demandes` ; `documents` → `documents` ;
+ * - `demandes_intervention` → `demandes`, `interventions_travaux` → `travaux` et
+ *   `evenements` → `evenements` (les trois onglets de la carte Activité) ;
+ *   `documents` → `documents` ;
  * - `contrats` → `dashboard` (contrats à échéance + frise reconductions) ;
  * - `gammes` → `gammes` (santé du sunburst).
  */
@@ -30,6 +34,8 @@ export function useDashboardRealtime(): void {
     dashboardQueries.all(),
   ])
   useRealtimeRefresh('demandes_intervention', demandesQueries.all())
+  useRealtimeRefresh('interventions_travaux', travauxQueries.all())
+  useRealtimeRefresh('evenements', evenementsQueries.all())
   useRealtimeRefresh('documents', documentsQueries.all())
   useRealtimeRefresh('contrats', dashboardQueries.all())
   useRealtimeRefresh('gammes', gammesQueries.all())
@@ -37,8 +43,9 @@ export function useDashboardRealtime(): void {
 
 /**
  * Hook agrégateur du tableau de bord : centralise les requêtes du site actif (OT
- * unifiés, DI, documents, catégories, gammes, counts d'onboarding, justificatifs
- * manquants) et expose des dérivations mémoïsées. Les cadrans consomment ce hook
+ * unifiés, documents, catégories, gammes, counts d'onboarding, justificatifs
+ * manquants — les trois journaux de la carte Activité ont les leurs, normalisées
+ * par un `select` qui leur est propre) et expose des dérivations mémoïsées. Les cadrans consomment ce hook
  * plutôt que des requêtes dispersées → une seule source, un seul recalcul, et les
  * appels multiples sont dédupliqués par TanStack Query.
  *
@@ -53,7 +60,6 @@ export function useDashboardData(siteId: string | null) {
   // OT UNIFIÉS : alimentent à eux seuls donut + barres + sunburst (row shape
   // compatible `PlanningOt`).
   const ordresTravailQuery = useQuery(dashboardQueries.ordresTravail(siteId))
-  const demandesQuery = useQuery(demandesQueries.list(siteId))
   // `documentsQueries.list` attend un `string` sans garde `enabled` → on la spread
   // et on borne l'exécution au site résolu.
   const documentsQuery = useQuery({
@@ -75,7 +81,6 @@ export function useDashboardData(siteId: string | null) {
   return {
     // Requêtes brutes (états loading/error consommés par l'orchestrateur).
     ordresTravailQuery,
-    demandesQuery,
     documentsQuery,
     categoriesQuery,
     gammesQuery,

@@ -14,6 +14,14 @@ export const HAUTEUR_LIGNE_XS = 44
 export const GAP_LISTE = 8
 /** Part NON-liste d'une carte (padding `py-3` = 12 + 12). */
 export const CHROME_CARTE = 24
+/**
+ * Part NON-liste SUPPLÉMENTAIRE de la carte Activité : son bandeau d'onglets à
+ * ras (`TabsList`, `h-10` = 40, filet de séparation compris). La bascule
+ * fill-or-scroll raisonne sur la carte la plus exigeante des deux — sinon elle
+ * jugerait la place suffisante alors que la carte à onglets n'affiche plus une
+ * seule ligne.
+ */
+export const CHROME_ONGLETS = 41
 
 /**
  * Hauteur RÉELLE (clientHeight) d'un élément, suivie en continu par un

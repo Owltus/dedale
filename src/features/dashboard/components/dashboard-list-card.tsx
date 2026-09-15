@@ -21,6 +21,14 @@ interface DashboardListCardProps<T> {
    * `gap-3` entre lui et la liste (calque du `contentClassName` d'origine des Documents).
    */
   header?: ReactNode
+  /**
+   * L'en-tête est un BANDEAU À RAS : il occupe toute la largeur de la carte et
+   * touche son bord haut (aucune marge autour de lui), les marges internes étant
+   * reportées sur la seule zone de liste. C'est ce que demande une barre
+   * d'onglets, qui se lit comme l'en-tête de la carte ; un contenu qui reste un
+   * élément parmi d'autres (une alerte, p. ex.) garde le réglage par défaut.
+   */
+  headerFlush?: boolean
   /** Contenu rendu APRÈS la zone de liste, dans la carte (ex. dialog d'aperçu). */
   after?: ReactNode
   /**
@@ -45,6 +53,7 @@ export function DashboardListCard<T>({
   emptyTitle,
   emptyDescription,
   header,
+  headerFlush = false,
   after,
   children,
 }: DashboardListCardProps<T>) {
@@ -55,13 +64,25 @@ export function DashboardListCard<T>({
     <DashboardCard
       // Marges internes réduites (24 → 12 px) : `py-3` (surcharge le `py-6` de la carte)
       // + `px-3` via le contentClassName. `md:min-h-0 md:flex-1` = bornage fill-or-scroll.
-      className="py-3 md:min-h-0 md:flex-1"
-      contentClassName={cn('flex min-h-0 flex-col px-3', header && 'gap-3')}
+      // En-tête à ras : la carte ne porte plus aucune marge, elles passent sur la
+      // zone de liste pour que le bandeau aille d'un bord à l'autre.
+      className={cn(
+        'md:min-h-0 md:flex-1',
+        headerFlush ? 'gap-0 py-0' : 'py-3',
+      )}
+      contentClassName={cn(
+        'flex min-h-0 flex-col',
+        headerFlush ? 'px-0' : 'px-3',
+        !headerFlush && header && 'gap-3',
+      )}
     >
       {header}
       <div
         ref={zoneRef}
-        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        className={cn(
+          'flex min-h-0 flex-1 flex-col overflow-hidden',
+          headerFlush && 'p-3',
+        )}
       >
         <QueryState
           query={query}

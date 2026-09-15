@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useDashboardData, useDashboardRealtime } from '../use-dashboard-data'
 import {
   CHROME_CARTE,
+  CHROME_ONGLETS,
   GAP_LISTE,
   HAUTEUR_LIGNE_XS,
   useElementHeight,
@@ -15,7 +16,7 @@ import {
 } from '../use-lignes-visibles'
 import { ZoneSynthese } from './zone-synthese'
 import { FriseReconductions } from './frise-reconductions'
-import { DernieresDemandes } from './dernieres-demandes'
+import { ZoneActivite } from './zone-activite'
 import { DerniersDocuments } from './derniers-documents'
 import { PremiersPas } from './premiers-pas'
 
@@ -35,7 +36,8 @@ const GAP_ZONE = 16
  * (du général au concret) :
  *   Zone 1 — Synthèse : donut OT / barres planning / sunburst gammes ;
  *   Zone 2 — Échéances : frise des reconductions de contrats ;
- *   Zone 3 — Action : listes Demandes d'intervention + Documents récents.
+ *   Zone 3 — Action : journaux du site (demandes, travaux, événements, sous
+ *   onglets) + Documents récents.
  * Base quasi vierge (aucun OT) → le guide « Premiers pas » REMPLACE tout le tableau.
  *
  * Deux responsabilités transverses sont portées ICI, une seule fois, pour ne pas les
@@ -74,8 +76,10 @@ export function Dashboard({ siteId }: DashboardProps) {
   const hauteurZone2 = useElementHeight(mesureRef)
   const dispoZone3 =
     hauteurCorps - PB_PAGE - hauteurZone1 - hauteurZone2 - 2 * GAP_ZONE
+  // Chrome de la carte la plus exigeante des deux : celle à onglets (Activité).
   const lignesPossibles = Math.floor(
-    (dispoZone3 - CHROME_CARTE + GAP_LISTE) / (HAUTEUR_LIGNE_XS + GAP_LISTE),
+    (dispoZone3 - CHROME_CARTE - CHROME_ONGLETS + GAP_LISTE) /
+      (HAUTEUR_LIGNE_XS + GAP_LISTE),
   )
   const contraint = hauteurCorps > 0 && hauteurZone1 > 0 && lignesPossibles <= 1
 
@@ -173,7 +177,7 @@ export function Dashboard({ siteId }: DashboardProps) {
         )}
       >
         <div className={classeCellule}>
-          <DernieresDemandes siteId={siteId} />
+          <ZoneActivite siteId={siteId} />
         </div>
         <div className={classeCellule}>
           <DerniersDocuments siteId={siteId} />
