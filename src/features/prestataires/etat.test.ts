@@ -282,12 +282,15 @@ describe('ajouterMoisIso', () => {
     }
   })
 
-  // ── BUG CANDIDAT ───────────────────────────────────────────────────────────
-  it.fails('rabote sur la fin du mois cible (31/01 + 1 mois = 28/02)', () => {
-    // BUG CANDIDAT Martin : attendu 2026-02-28 / observé 2026-03-03.
+  // ── RÉGRESSION COUVERTE ────────────────────────────────────────────────────
+  it('rabote sur la fin du mois cible (31/01 + 1 mois = 28/02)', () => {
+    // RÉGRESSION COUVERTE : `new Date(a, m + n, j)` laissait DÉBORDER le
+    // quantième sur le mois suivant — le 31 janvier + 1 mois devenait le
+    // 3 mars. `ajouterMoisIso` rabote désormais sur le dernier jour du mois
+    // cible, ce qui fixe l'échéance de reconduction, la fenêtre de préavis et
+    // le rang de cycle de tout contrat ancré en fin de mois.
     // ORACLE : règle de quantième à quantième avec rabotage (PostgreSQL,
-    // date-fns, droit français). `new Date(a, m + n, j)` laisse DÉBORDER le
-    // jour sur le mois suivant : le 31 janvier + 1 mois devient le 3 mars.
+    // date-fns, droit français).
     expect(ajouterMoisIso('2026-01-31', 1)).toBe('2026-02-28')
     expect(ajouterMoisIso('2024-01-31', 1)).toBe('2024-02-29') // année bissextile
     expect(ajouterMoisIso('2026-03-31', -1)).toBe('2026-02-28')
@@ -297,29 +300,30 @@ describe('ajouterMoisIso', () => {
     expect(ajouterMoisIso('2026-08-31', 1)).toBe('2026-09-30')
   })
 
-  // ── BUG CANDIDAT ───────────────────────────────────────────────────────────
-  it.fails(
-    'rabote pour chaque décalage de 1 à 24 mois depuis une fin de mois',
-    () => {
-      // ORACLE : depuis le dernier jour d'un mois, la reconduction n mois plus
-      // tard tombe au plus tard le dernier jour du mois cible — jamais dans le
-      // mois d'après. Balayage EXHAUSTIF (pas aléatoire) de n = 1..24 sur les
-      // douze mois de 2026 (année commune) et 2024 (bissextile).
-      for (const annee of [2024, 2026]) {
-        for (let mois = 1; mois <= 12; mois++) {
-          const depart = iso(annee, mois, joursDansMois(annee, mois))
-          for (let n = 1; n <= 24; n++) {
-            expect(ajouterMoisIso(depart, n)).toBe(ajouterMoisOracle(depart, n))
-          }
+  // ── RÉGRESSION COUVERTE ────────────────────────────────────────────────────
+  it('rabote pour chaque décalage de 1 à 24 mois depuis une fin de mois', () => {
+    // RÉGRESSION COUVERTE : le débordement de quantième faisait sortir la date
+    // du mois cible pour tout ancrage de fin de mois. Balayage EXHAUSTIF (pas
+    // aléatoire) de n = 1..24 sur les douze mois de 2026 (année commune) et
+    // 2024 (bissextile) — 576 combinaisons.
+    // ORACLE : depuis le dernier jour d'un mois, la reconduction n mois plus
+    // tard tombe au plus tard le dernier jour du mois cible — jamais dans le
+    // mois d'après.
+    for (const annee of [2024, 2026]) {
+      for (let mois = 1; mois <= 12; mois++) {
+        const depart = iso(annee, mois, joursDansMois(annee, mois))
+        for (let n = 1; n <= 24; n++) {
+          expect(ajouterMoisIso(depart, n)).toBe(ajouterMoisOracle(depart, n))
         }
       }
-    },
-  )
+    }
+  })
 
-  // ── BUG CANDIDAT ───────────────────────────────────────────────────────────
-  it.fails('suit l’oracle calendaire pour toute date et tout décalage', () => {
-    // Version propriété du même bug : fast-check cherche le plus petit
-    // contre-exemple sur l'ensemble du domaine.
+  // ── RÉGRESSION COUVERTE ────────────────────────────────────────────────────
+  it('suit l’oracle calendaire pour toute date et tout décalage', () => {
+    // RÉGRESSION COUVERTE (version propriété du débordement de quantième) :
+    // fast-check cherche le plus petit contre-exemple sur l'ensemble du
+    // domaine, toute date de 1990 à 2100 et tout décalage de ±20 ans.
     fc.assert(
       fc.property(arbDateIso, fc.integer({ min: -240, max: 240 }), (d, n) => {
         expect(ajouterMoisIso(d, n)).toBe(ajouterMoisOracle(d, n))
@@ -559,27 +563,24 @@ describe('prochaineEcheanceContrat', () => {
     expect(r.date).toBe('2026-10-01')
   })
 
-  // ── BUG CANDIDAT ───────────────────────────────────────────────────────────
-  it.fails(
-    'ne renvoie jamais une échéance DÉJÀ PASSÉE quand la garde est atteinte',
-    () => {
-      // BUG CANDIDAT Martin : attendu une date > 2026-09-16 (ou null, faute de
-      // pouvoir calculer) / observé 1833-05-01, soit une échéance vieille de
-      // 193 ans, renvoyée SILENCIEUSEMENT.
-      // ORACLE : la garde à 10 000 itérations sort de la boucle sans signaler
-      // l'abandon ; le résultat est alors début + 10 000 × cycle, qui reste dans
-      // le passé. Une « prochaine échéance » est par définition future.
-      const r = prochaineEcheanceContrat(
-        {
-          ...CONTRAT_BASE,
-          date_debut: '1000-01-01',
-          duree_cycle_mois: 1,
-        },
-        '2026-09-16',
-      )
-      expect(r.date === null || r.date > '2026-09-16').toBe(true)
-    },
-  )
+  // ── RÉGRESSION COUVERTE ────────────────────────────────────────────────────
+  it('ne renvoie jamais une échéance DÉJÀ PASSÉE quand la garde est atteinte', () => {
+    // RÉGRESSION COUVERTE : la garde à 10 000 itérations sortait de la boucle
+    // sans distinguer « trouvé » de « abandonné » et rendait alors début +
+    // 10 000 × cycle, soit ici le 1er mai 1833 — une échéance vieille de
+    // 193 ans, renvoyée SILENCIEUSEMENT et affichée telle quelle. La fonction
+    // rend désormais `null` quand la garde a coupé le calcul.
+    // ORACLE : une « prochaine échéance » est par définition future.
+    const r = prochaineEcheanceContrat(
+      {
+        ...CONTRAT_BASE,
+        date_debut: '1000-01-01',
+        duree_cycle_mois: 1,
+      },
+      '2026-09-16',
+    )
+    expect(r.date === null || r.date > '2026-09-16').toBe(true)
+  })
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -908,12 +909,14 @@ describe('progressionContrat', () => {
     expect(progressionContrat(c, '2026-07-01')).toBeCloseTo(181 / 364, 6)
   })
 
-  // ── BUG CANDIDAT ───────────────────────────────────────────────────────────
-  it.fails('ne renvoie jamais NaN sur une date de début illisible', () => {
-    // BUG CANDIDAT Martin : attendu null (ou une fraction) / observé NaN.
+  // ── RÉGRESSION COUVERTE ────────────────────────────────────────────────────
+  it('ne renvoie jamais NaN sur une date de début illisible', () => {
+    // RÉGRESSION COUVERTE : `joursEntre` propageait NaN sans filtre jusqu'au
+    // résultat, alors que `total <= 0` et `Math.min/max` laissent NaN passer.
+    // La fonction écarte désormais les écarts non finis et rend `null`.
     // ORACLE : le résultat alimente `width: ${p*100}%` ; NaN casse le rendu au
-    // lieu de masquer la barre. La cascade ne sait pas dire « incalculable »
-    // autrement que par null, mais `joursEntre` propage NaN sans filtre.
+    // lieu de masquer la barre — la cascade ne sait dire « incalculable »
+    // qu'avec null.
     const p = progressionContrat(
       {
         ...CONTRAT_BASE,
@@ -1207,14 +1210,15 @@ describe('chaineDeVersions', () => {
     )
   })
 
-  // ── BUG CANDIDAT ───────────────────────────────────────────────────────────
-  it.fails('contient toujours la version demandée', () => {
-    // BUG CANDIDAT Martin : attendu une chaîne contenant « B » / observé
-    // ['R', 'A'] — la version cible est ABSENTE de sa propre chaîne.
+  // ── RÉGRESSION COUVERTE ────────────────────────────────────────────────────
+  it('contient toujours la version demandée', () => {
+    // RÉGRESSION COUVERTE : la descente ne suit que l'enfant le PLUS ANCIEN ;
+    // dès qu'un parent porte deux avenants (donnée corrompue ou trigger
+    // `archive_contrat_parent` contourné), l'autre branche disparaissait et la
+    // chaîne rendue — ['R', 'A'] — n'incluait pas sa propre cible. Un filet en
+    // fin de fonction retombe désormais sur la cible seule.
     // ORACLE : « chaîne des versions à laquelle appartient cibleId » — la cible
-    // en fait partie par définition (sinon la fonction renvoie []). La descente
-    // ne suit que l'enfant le PLUS ANCIEN : dès qu'un parent porte deux avenants
-    // (donnée corrompue ou trigger contourné), l'autre branche disparaît.
+    // en fait partie par définition (sinon la fonction renvoie []).
     const tous: NoeudVersion[] = [
       { id: 'R', contrat_parent_id: null, date_debut: '2020-01-01' },
       { id: 'A', contrat_parent_id: 'R', date_debut: '2021-01-01' },
@@ -1311,39 +1315,37 @@ describe('texteContrat', () => {
     )
   })
 
-  // ── BUG CANDIDAT ───────────────────────────────────────────────────────────
-  it.fails(
-    'n’invite jamais à résilier « à tout moment » un contrat à fenêtre',
-    () => {
-      // BUG CANDIDAT Martin : contrat tacite mensuel démarré le 01/01/2025, vu le
-      // 01/03/2025 → attendu « La fenêtre de résiliation… » ou « il faudra
-      // attendre la fenêtre… » / observé « Vous pouvez le résilier à tout moment
-      // en respectant un préavis de 30 jours. »
-      // ORACLE : le cycle COURANT contient aujourd'hui, donc sa date de fin est
-      // ≥ aujourd'hui ; avec une fenêtre de résiliation définie, on est forcément
-      // avant ou dans cette fenêtre. Le code calcule le rang du cycle avec
-      // l'approximation « cycle × 30,44 jours » : au 01/03 il croit être dans le
-      // 2e cycle (fini le 28/02, donc DÉJÀ passé) au lieu du 3e.
-      // Conséquence métier : on annonce à l'exploitant qu'il peut résilier quand
-      // il veut, alors que le contrat n'est résiliable que dans une fenêtre.
-      const c: DonneesContrat = {
-        ...CONTRAT_BASE,
-        est_archive: false,
-        type_contrat_id: TYPE_CONTRAT.tacite,
-        date_debut: '2025-01-01',
-        duree_cycle_mois: 1,
-        fenetre_resiliation_jours: 30,
-      }
-      expect(texteContrat(c, '2025-03-01')).not.toContain('à tout moment')
-    },
-  )
+  // ── RÉGRESSION COUVERTE ────────────────────────────────────────────────────
+  it('n’invite jamais à résilier « à tout moment » un contrat à fenêtre', () => {
+    // RÉGRESSION COUVERTE : le rang du cycle était calculé avec l'approximation
+    // « cycle × 30,44 jours ». Au 01/03, ce contrat mensuel était réputé dans
+    // son 2e cycle — fini le 28/02, donc DÉJÀ passé — au lieu du 3e ; la fin de
+    // cycle tombait dans le passé et la phrase basculait sur « Vous pouvez le
+    // résilier à tout moment en respectant un préavis de 30 jours. » On
+    // annonçait à l'exploitant qu'il pouvait résilier quand il voulait, alors
+    // que le contrat n'est résiliable que dans une fenêtre. Le rang se compte
+    // désormais en mois calendaires.
+    // ORACLE : le cycle COURANT contient aujourd'hui, donc sa date de fin est
+    // ≥ aujourd'hui ; avec une fenêtre de résiliation définie, on est forcément
+    // avant ou dans cette fenêtre.
+    const c: DonneesContrat = {
+      ...CONTRAT_BASE,
+      est_archive: false,
+      type_contrat_id: TYPE_CONTRAT.tacite,
+      date_debut: '2025-01-01',
+      duree_cycle_mois: 1,
+      fenetre_resiliation_jours: 30,
+    }
+    expect(texteContrat(c, '2025-03-01')).not.toContain('à tout moment')
+  })
 
-  // ── BUG CANDIDAT ───────────────────────────────────────────────────────────
-  it.fails('annonce le bon rang de cycle (compté en mois calendaires)', () => {
-    // BUG CANDIDAT Martin : même famille — le rang est calculé par
-    // `floor(jours écoulés / (cycle × 30,44)) + 1`, une approximation qui
-    // décroche des mois réels. Propriété générale : le rang affiché doit être
-    // celui du décompte calendaire.
+  // ── RÉGRESSION COUVERTE ────────────────────────────────────────────────────
+  it('annonce le bon rang de cycle (compté en mois calendaires)', () => {
+    // RÉGRESSION COUVERTE (version propriété de la même famille) : le rang
+    // valait `floor(jours écoulés / (cycle × 30,44)) + 1`, une approximation qui
+    // décroche des mois réels — pour un cycle de 12 mois, 12 × 30,44 = 365,28
+    // alors qu'une année commune fait 365 jours. Le rang affiché est désormais
+    // celui du décompte calendaire, sur tout le domaine.
     fc.assert(
       fc.property(
         arbDateIso,
@@ -1373,13 +1375,15 @@ describe('texteContrat', () => {
     )
   })
 
-  // ── BUG CANDIDAT ───────────────────────────────────────────────────────────
-  it.fails('n’affiche jamais « NaN » ni « undefined » à l’utilisateur', () => {
-    // BUG CANDIDAT Martin : attendu un texte sans marqueur technique / observé
+  // ── RÉGRESSION COUVERTE ────────────────────────────────────────────────────
+  it('n’affiche jamais « NaN » ni « undefined » à l’utilisateur', () => {
+    // RÉGRESSION COUVERTE : `formatDuree(NaN)` remontait jusqu'à l'écran —
     // « Ce contrat est en attente d'activation. Il entrera en vigueur le —,
-    // soit dans NaN an. »
-    // ORACLE : le texte est lu par un exploitant ; `formatDuree(NaN)` remonte
-    // jusqu'à l'écran au lieu d'être neutralisé.
+    // soit dans NaN an. » `formatDuree` écarte désormais les écarts non finis
+    // et dit « une durée indéterminée », comme `fmtLong` dit « date non
+    // définie ».
+    // ORACLE : le texte est lu tel quel par un exploitant ; aucun marqueur
+    // technique n'y a sa place.
     const t = texteContrat(
       {
         ...CONTRAT_BASE,
@@ -1476,20 +1480,25 @@ describe('ajouterMoisIso / ajouterJoursIso — forme stricte de la date nue', ()
 })
 
 describe('prochaineEcheanceContrat — garde-fou d’itérations', () => {
-  it('borne le calcul à 10 000 reconductions exactement', () => {
+  it('calcule jusqu’à 10 000 reconductions, puis renonce', () => {
     // ORACLE : le garde-fou du code plafonne le nombre de reconductions
     // calculées à 10 000 — c'est lui qui garantit que l'appel rend la main sur
-    // un ancrage aberrant. L'échéance rendue vaut donc début + 10 000 × cycle,
-    // ni une de plus : 1000-01-01 + 10 000 mois = mois n° 12 000 + 10 000
-    // = 22 000 → année 1833 (22 000 / 12 = 1833, reste 4), mois 5.
-    // (Qu'une telle date soit dans le PASSÉ est le bug candidat documenté plus
-    // haut ; on vérifie ici la borne, pas la pertinence du résultat.)
+    // un ancrage aberrant. 1000-01-01 + 10 000 mois = mois n° 12 000 + 10 000
+    // = 22 000 → année 1833 (22 000 / 12 = 1833, reste 4), mois 5. La borne se
+    // lit à un jour près, de part et d'autre de cette 10 000e reconduction.
     expect(ajouterMoisOracle('1000-01-01', 10_000)).toBe('1833-05-01')
-    const r = prochaineEcheanceContrat(
-      { ...CONTRAT_BASE, date_debut: '1000-01-01', duree_cycle_mois: 1 },
-      '2026-09-16',
+    const vieux = {
+      ...CONTRAT_BASE,
+      date_debut: '1000-01-01',
+      duree_cycle_mois: 1,
+    }
+    // Sous la borne : la 10 000e reconduction est encore future, on la rend.
+    expect(prochaineEcheanceContrat(vieux, '1833-04-15').date).toBe(
+      '1833-05-01',
     )
-    expect(r.date).toBe('1833-05-01')
+    // À la borne : le calcul est abandonné — et un abandon ne se déguise pas
+    // en échéance passée (cf. « ne renvoie jamais une échéance DÉJÀ PASSÉE »).
+    expect(prochaineEcheanceContrat(vieux, '1833-05-01').date).toBeNull()
   })
 })
 
@@ -1614,9 +1623,8 @@ describe('statutContrat — sous-statut du contrat actif', () => {
   it('n’annonce pas d’imminence pour une échéance située dans le PASSÉ', () => {
     // ORACLE : « imminent » signifie à venir sous 45 jours ; un écart NÉGATIF
     // n'est pas une imminence. Sur un contrat tacite très ancien, le garde-fou
-    // des 10 000 itérations rend une échéance de 1833 (cf. bug candidat) : le
-    // sous-statut doit rester vide plutôt que d'annoncer une reconduction pour
-    // demain.
+    // des 10 000 itérations renonce à calculer l'échéance : le sous-statut doit
+    // rester vide plutôt que d'annoncer une reconduction pour demain.
     const c = contratTacite('1000-01-01', 1, {
       fenetre_resiliation_jours: null,
     })
@@ -1756,19 +1764,20 @@ describe('texteContrat — durée d’activité en toutes lettres', () => {
     expect(dureeApres(500, '2024-01-01')).toBe('1 an et 4 mois')
   })
 
-  // ── BUG CANDIDAT ───────────────────────────────────────────────────────────
-  it.fails('dit « 1 an » pour une année commune complète (365 jours)', () => {
-    // BUG CANDIDAT Martin : attendu « 1 an » / observé « 0 an et 12 mois ».
+  // ── RÉGRESSION COUVERTE ────────────────────────────────────────────────────
+  it('dit « 1 an » pour une année commune complète (365 jours)', () => {
+    // RÉGRESSION COUVERTE : `formatDuree` mêlait DEUX diviseurs en huit lignes.
+    // moisTotal = round(365 / 30,44) = 12, donc `moisTotal < 12` était FAUX et
+    // on basculait sur la branche « années » ; là ans = floor(365 / 365,25) = 0
+    // et moisRestants = round(365 / 30,44) = 12 → « 0 an et 12 mois » sur la
+    // carte contrat, pour le contrat annuel le plus banal de la GMAO. Même
+    // famille : 730 jours (deux années communes) donnaient « 1 an et 12 mois »
+    // au lieu de « 2 ans ». Les années sont désormais dérivées du MÊME
+    // `moisTotal`, ce qui interdit structurellement un reste de 12 mois.
     // ORACLE : du 01/01/2025 au 01/01/2026 il s'est écoulé une année civile
-    // complète — 365 jours, 2025 n'étant pas bissextile. C'est le contrat
-    // annuel le plus banal de la GMAO.
-    // Mécanique : moisTotal = round(365 / 30,44) = 12, donc `moisTotal < 12`
-    // est FAUX et on bascule sur la branche « années » ; là ans = floor(365 /
-    // 365,25) = 0 et moisRestants = round(365 / 30,44) = 12 → « 0 an et
-    // 12 mois » s'affiche sur la carte contrat.
-    // Même famille : 730 jours (deux années communes) → « 1 an et 12 mois »
-    // au lieu de « 2 ans ».
+    // complète — 365 jours, 2025 n'étant pas bissextile.
     expect(dureeApres(365, '2025-01-01')).toBe('1 an')
+    expect(dureeApres(730, '2025-01-01')).toBe('2 ans')
   })
 })
 
@@ -1969,5 +1978,192 @@ describe('alerteContrat — résiliation datée', () => {
     const future = alerteContrat(c('2026-06-20'), '2026-06-15')
     expect(future?.message).toBe('Échéance dans 10 j')
     expect(future?.tone).toBe('destructive')
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+// NON-RÉGRESSION — les formes de contrat réellement présentes en base
+// Les 18 contrats de production sont TOUS à cycle multiple de 12 mois : le mois
+// cible d'une reconduction est donc toujours le mois d'ancrage, et le rabotage
+// de `ajouterMoisIso` n'y a jamais rien à raboter. C'est ce qui rend la
+// correction de l'arithmétique calendaire sans effet à l'écran — et ce bloc en
+// est le filet : si une échéance, une fenêtre de préavis, une progression ou un
+// statut bouge un jour sur ces formes-là, ce n'est pas un bug corrigé, c'est
+// une régression introduite.
+// Comme partout dans ce fichier, les attendus sont recalculés par les oracles
+// indépendants du haut de fichier, jamais recopiés d'une sortie observée.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Formes présentes en base : cycle 12 ou 36 mois, ancrage 1er ou milieu de mois. */
+const CONTRATS_PRODUCTION: { nom: string; c: DonneesContrat }[] = [
+  {
+    nom: 'tacite 12 mois, ancrage 1er janvier',
+    c: contratTacite('2022-01-01', 12, {
+      delai_preavis_jours: 30,
+      fenetre_resiliation_jours: 30,
+    }),
+  },
+  {
+    nom: 'tacite 12 mois, ancrage 1er juillet, préavis 90 j',
+    c: contratTacite('2021-07-01', 12, {
+      date_signature: '2021-06-15',
+      delai_preavis_jours: 90,
+      fenetre_resiliation_jours: 60,
+    }),
+  },
+  {
+    nom: 'tacite 12 mois, ancrage en milieu de mois',
+    c: contratTacite('2023-05-15', 12, {
+      delai_preavis_jours: 30,
+      fenetre_resiliation_jours: 30,
+    }),
+  },
+  {
+    nom: 'tacite 36 mois, ancrage 1er avril',
+    c: contratTacite('2020-04-01', 36, {
+      delai_preavis_jours: 60,
+      fenetre_resiliation_jours: 90,
+    }),
+  },
+  {
+    nom: 'tacite 24 mois, sans fenêtre de résiliation',
+    c: contratTacite('2022-09-01', 24, { fenetre_resiliation_jours: null }),
+  },
+  {
+    nom: 'déterminé, un an',
+    c: contratDetermine('2025-01-01', '2026-01-01'),
+  },
+  {
+    nom: 'déterminé, trois ans, échu',
+    c: contratDetermine('2019-02-01', '2022-01-31'),
+  },
+  {
+    nom: 'tacite 12 mois, résilié',
+    c: contratTacite('2021-01-01', 12, {
+      date_notification: '2024-03-01',
+      date_resiliation: '2024-06-30',
+    }),
+  },
+]
+
+/** Journées d'observation : bords de cycle, anniversaires, milieu de période. */
+const JOURS_OBSERVATION = [
+  '2024-02-29',
+  '2025-06-15',
+  '2025-12-31',
+  '2026-01-01',
+  '2026-06-15',
+  '2026-09-16',
+  '2026-12-15',
+  '2027-03-01',
+]
+
+describe('non-régression — arithmétique des contrats de production', () => {
+  it('un cycle multiple de 12 mois retombe sur le mois ET le quantième d’ancrage', () => {
+    // ORACLE : ajouter un multiple de 12 mois, c'est ajouter des années
+    // entières — le mois cible EST le mois d'ancrage, donc le quantième y
+    // existe et il n'y a rien à raboter. Seule exception calendaire : le
+    // 29 février, absent des années communes. C'est exactement la raison pour
+    // laquelle la correction du rabotage ne touche aucun contrat en base.
+    fc.assert(
+      fc.property(arbDateIso, fc.integer({ min: 1, max: 5 }), (d, n) => {
+        const [a, m, j] = comp(d)
+        const r = comp(String(ajouterMoisIso(d, 12 * n)))
+        expect(r[0]).toBe(a + n)
+        expect(r[1]).toBe(m)
+        expect(r[2]).toBe(m === 2 && j === 29 && !estBissextile(a + n) ? 28 : j)
+      }),
+      PARAMS,
+    )
+  })
+
+  it('pose l’échéance, la fenêtre de préavis et le statut aux dates de l’oracle', () => {
+    // ORACLE, recalculé pour chaque forme et chaque jour d'observation :
+    //  - tacite   : plus petite occurrence ancrage + k×cycle STRICTEMENT future
+    //               (rang k reconstruit à la main par l'oracle calendaire) ;
+    //  - déterminé: la date de fin, telle quelle ;
+    //  - fenêtre  : [échéance − préavis − fenêtre ; échéance − préavis], en
+    //               arithmétique UTC, ouverte bornes incluses ;
+    //  - statut   : cascade archivé → résilié → à venir → expiré → actif.
+    for (const { nom, c } of CONTRATS_PRODUCTION) {
+      for (const auj of JOURS_OBSERVATION) {
+        const contexte = `${nom} @ ${auj}`
+        let echeance: string | null
+        if (c.type_contrat_id === TYPE_CONTRAT.determine) {
+          echeance = c.date_fin
+        } else {
+          let k = 1
+          const cycle = c.duree_cycle_mois ?? 0
+          while (k < 500 && ajouterMoisOracle(c.date_debut, cycle * k) <= auj) {
+            k += 1
+          }
+          echeance = ajouterMoisOracle(c.date_debut, cycle * k)
+        }
+        expect(prochaineEcheanceContrat(c, auj).date, contexte).toBe(echeance)
+
+        const fin =
+          echeance == null
+            ? null
+            : ajouterJoursOracle(echeance, -c.delai_preavis_jours)
+        const debut =
+          fin == null || c.fenetre_resiliation_jours == null
+            ? null
+            : ajouterJoursOracle(fin, -c.fenetre_resiliation_jours)
+        const f = fenetrePreavisContrat(c, auj)
+        expect(f.fin, contexte).toBe(fin)
+        expect(f.debut, contexte).toBe(debut)
+        expect(f.ouverte, contexte).toBe(
+          debut != null && fin != null && auj >= debut && auj <= fin,
+        )
+
+        const attendu =
+          c.date_resiliation != null && c.date_resiliation <= auj
+            ? 'resilie'
+            : c.date_debut > auj
+              ? 'a_venir'
+              : c.type_contrat_id === TYPE_CONTRAT.determine &&
+                  c.date_fin != null &&
+                  c.date_fin < auj
+                ? 'expire'
+                : 'actif'
+        expect(statutContrat(c, auj).statut, contexte).toBe(attendu)
+      }
+    }
+  })
+
+  it('mesure la progression dans le cycle courant, en jours calendaires', () => {
+    // ORACLE : la période courante d'un tacite va de la reconduction précédente
+    // (échéance − cycle) à l'échéance ; la fraction écoulée se compte en jours
+    // calendaires (oracle UTC). Contrat annuel ancré au 01/01, lu le 15/06/2026 :
+    // période 01/01/2026 → 01/01/2027 = 365 jours, 165 jours écoulés
+    // (31 + 28 + 31 + 30 + 31 = 151 jusqu'au 1er juin, + 14).
+    const annuel = contratTacite('2022-01-01', 12)
+    expect(progressionContrat(annuel, '2026-06-15')).toBeCloseTo(165 / 365, 9)
+    // Le jour de la reconduction, la période repart de zéro.
+    expect(progressionContrat(annuel, '2026-01-01')).toBe(0)
+    // Contrat triennal ancré au 01/04/2020 : cycle courant 01/04/2026 →
+    // 01/04/2029, soit 1 096 jours (2028 bissextile) ; au 15/06/2026 il s'est
+    // écoulé 75 jours (30 d'avril + 31 de mai + 14).
+    const triennal = contratTacite('2020-04-01', 36, {
+      delai_preavis_jours: 60,
+      fenetre_resiliation_jours: 90,
+    })
+    expect(ecartJoursOracle('2029-04-01', '2026-04-01')).toBe(1096)
+    expect(progressionContrat(triennal, '2026-06-15')).toBeCloseTo(75 / 1096, 9)
+  })
+
+  it('décrit la carte d’un contrat annuel mot pour mot', () => {
+    // ORACLE : contrat annuel ancré au 01/01/2022, lu le 15/06/2026. Il est
+    // dans son 5e cycle (quatre reconductions passées : 2023, 2024, 2025, 2026),
+    // actif depuis 4 ans et 5 mois (1 626 jours → round(1 626 / 30,44) = 53 mois
+    // = 4 ans et 5 mois), et sa fenêtre de 30 jours se referme la veille de la
+    // reconduction du 01/01/2027, donc du 02/12 au 31/12/2026.
+    expect(ecartJoursOracle('2026-06-15', '2022-01-01')).toBe(1626)
+    expect(texteContrat(contratTacite('2022-01-01', 12), '2026-06-15')).toBe(
+      'Ce contrat se renouvelle automatiquement tous les 12 mois. ' +
+        'Il est actif depuis 4 ans et 5 mois et entre dans son 5e cycle. ' +
+        'Pour résilier, il faudra attendre la fenêtre du 2 décembre 2026 ' +
+        'au 31 décembre 2026, avec un préavis de 30 jours.',
+    )
   })
 })

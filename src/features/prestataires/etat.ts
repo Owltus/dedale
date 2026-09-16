@@ -83,11 +83,45 @@ function composantes(iso: string | null): [number, number, number] | null {
   return [Number(m[1]), Number(m[2]), Number(m[3])]
 }
 
-/** Ajoute `mois` mois à une date nue (heure locale). Null si l'entrée est invalide. */
+/** Dernier quantième du mois `mois` (1-12) de l'année `annee` (heure locale). */
+function dernierJourDuMois(annee: number, mois: number): number {
+  // Jour 0 du mois suivant = dernier jour du mois demandé.
+  return new Date(annee, mois, 0).getDate()
+}
+
+/**
+ * Ajoute `mois` mois à une date nue (heure locale). Null si l'entrée est invalide.
+ * RABOTAGE en fin de mois : on garde le quantième s'il existe dans le mois cible,
+ * sinon on le ramène au dernier jour de ce mois — la règle de PostgreSQL
+ * (`date '2026-01-31' + interval '1 month'` = 2026-02-28) et du droit français
+ * des contrats. Sans ce rabotage, `new Date(a, m + n, j)` laisse DÉBORDER le
+ * quantième et le 31 janvier + 1 mois devient le 3 mars.
+ */
 export function ajouterMoisIso(iso: string, mois: number): string | null {
   const c = composantes(iso)
   if (!c) return null
-  return isoLocale(new Date(c[0], c[1] - 1 + mois, c[2]))
+  const cible = new Date(c[0], c[1] - 1 + mois, 1)
+  const dernier = dernierJourDuMois(cible.getFullYear(), cible.getMonth() + 1)
+  cible.setDate(Math.min(c[2], dernier))
+  return isoLocale(cible)
+}
+
+/**
+ * Nombre de mois CALENDAIRES entiers écoulés de `depuis` vers `jusqu` : le plus
+ * grand `m` tel que `ajouterMoisIso(depuis, m) <= jusqu`. Cohérent avec le
+ * rabotage ci-dessus (du 31/01 au 28/02 il s'est écoulé UN mois entier, puisque
+ * c'est là que tombe la reconduction). Null si une date n'est pas une date nue.
+ * Jamais de « mois moyen » de 30,44 jours : un cycle de 12 mois vaut 365 jours
+ * en année commune, pas 365,28.
+ */
+function moisEntre(jusqu: string, depuis: string): number | null {
+  const a = composantes(depuis)
+  const b = composantes(jusqu)
+  if (!a || !b) return null
+  const brut = (b[0] - a[0]) * 12 + (b[1] - a[1])
+  // Le quantième d'ancrage, raboté sur le mois d'arrivée, est-il déjà atteint ?
+  const ancre = Math.min(a[2], dernierJourDuMois(b[0], b[1]))
+  return brut - (ancre > b[2] ? 1 : 0)
 }
 
 /** Ajoute `jours` jours à une date nue (heure locale). Null si l'entrée est invalide. */
@@ -133,6 +167,9 @@ export function prochaineEcheanceContrat(
       k += 1
       date = ajouterMoisIso(c.date_debut, cycle * k)
     }
+    // La garde a coupé la boucle sans atteindre le futur : on ne sait pas dire
+    // quelle est la prochaine échéance, on ne rend surtout pas une date PASSÉE.
+    if (date && date <= aujourdhui) return { type: 'reconduction', date: null }
     return { type: 'reconduction', date }
   }
   return { type: 'aucune', date: null }
@@ -332,8 +369,12 @@ export function progressionContrat(
     debut = ajouterMoisIso(echeance.date, -c.duree_cycle_mois) ?? c.date_debut
   }
   const total = joursEntre(echeance.date, debut)
-  if (total <= 0) return 1
   const ecoule = joursEntre(aujourdhui, debut)
+  // Une date illisible propage NaN à travers `joursEntre` : la progression est
+  // alors INCALCULABLE, ce que la cascade ne sait dire que par `null`. Rendre
+  // NaN casserait le rendu de `ProgressBar` au lieu de masquer la barre.
+  if (!Number.isFinite(total) || !Number.isFinite(ecoule)) return null
+  if (total <= 0) return 1
   return Math.min(1, Math.max(0, ecoule / total))
 }
 
@@ -426,28 +467,41 @@ export function chaineDeVersions<T extends NoeudVersion>(
       .sort((a, b) => a.date_debut.localeCompare(b.date_debut))
     courant = enfants[0]
   }
-  return chaine
+  // Filet : si un parent porte DEUX avenants (donnée corrompue — le trigger
+  // `archive_contrat_parent` l'interdit), la descente par l'enfant le plus
+  // ancien peut abandonner la branche de la cible. Une chaîne qui n'inclut pas
+  // sa propre cible ne répond pas à la question posée : on retombe alors sur la
+  // cible seule, qui est au moins exacte.
+  return chaine.some((c) => c.id === cibleId) ? chaine : [parId.get(cibleId)!]
 }
 
 // ── Texte explicatif du statut (phrase en langage naturel — doc #16) ──────────
 // Décrit EN TOUTES LETTRES où en est le contrat, pour la carte. Cascade et
-// gabarits repris mot pour mot du doc #16. Approximations de durée assumées
-// (mois via /30,44, années via /365,25) ; bornes de cycle en mois calendaires.
+// gabarits repris mot pour mot du doc #16. Approximation de durée assumée : UN
+// SEUL diviseur, le mois moyen de 30,44 jours, dont les années sont dérivées ;
+// bornes et rang de cycle en mois calendaires (`moisEntre`), jamais en jours.
 
 /** Date en toutes lettres (« 15 juin 2026 »), ou « date non définie » si absente. */
 function fmtLong(iso: string | null): string {
   return iso ? formatDateLong(parseDateLocale(iso)) : 'date non définie'
 }
 
-/** Durée lisible à partir d'un nombre de jours (approximations assumées). */
+/**
+ * Durée lisible à partir d'un nombre de jours (approximations assumées).
+ * Les années sont dérivées du MÊME `moisTotal` que la branche « mois » : mêler
+ * deux diviseurs (30,44 puis 365,25) rendait « 0 an et 12 mois » pour 365 jours,
+ * l'année commune étant à la fois « 12 mois » et « 0 an ».
+ */
 function formatDuree(jours: number): string {
+  // Une date illisible propage NaN : on ne l'écrit pas sur la carte.
+  if (!Number.isFinite(jours)) return 'une durée indéterminée'
   if (jours < 1) return "moins d'un jour"
   if (jours === 1) return '1 jour'
   if (jours < 30) return `${String(jours)} jours`
   const moisTotal = Math.round(jours / 30.44)
   if (moisTotal < 12) return `${String(moisTotal)} mois`
-  const ans = Math.floor(jours / 365.25)
-  const moisRestants = Math.round((jours - ans * 365.25) / 30.44)
+  const ans = Math.floor(moisTotal / 12)
+  const moisRestants = moisTotal - ans * 12
   const anLabel = `${String(ans)} an${ans > 1 ? 's' : ''}`
   return moisRestants > 0
     ? `${anLabel} et ${String(moisRestants)} mois`
@@ -499,9 +553,13 @@ function texteTacite(
   if (!cycle || cycle <= 0) {
     return `Ce contrat fonctionne par tacite reconduction et est actif depuis ${dureeEcoulee}. Pour résilier, un préavis de ${String(c.delai_preavis_jours)} jours est nécessaire.`
   }
-  // 8.B — tacite par cycles.
-  const joursEcoules = joursEntre(aujourdhui, c.date_debut)
-  const cycleActuel = Math.floor(joursEcoules / (cycle * 30.44)) + 1
+  // 8.B — tacite par cycles. Le rang se compte en MOIS CALENDAIRES : compté en
+  // « cycle × 30,44 jours », un cycle de 12 mois vaudrait 365,28 jours alors
+  // qu'une année commune en fait 365 — le jour anniversaire, la formule rendait
+  // encore le cycle précédent, dont la fin est déjà passée, et la phrase
+  // basculait sur « résiliable à tout moment » pour un contrat à fenêtre.
+  const moisEcoules = Math.max(0, moisEntre(aujourdhui, c.date_debut) ?? 0)
+  const cycleActuel = Math.floor(moisEcoules / cycle) + 1
   const finCycleBrut = ajouterMoisIso(c.date_debut, cycleActuel * cycle)
   const finCycle = finCycleBrut ? ajouterJoursIso(finCycleBrut, -1) : null
   const debut = `Ce contrat se renouvelle automatiquement tous les ${String(cycle)} mois. Il est actif depuis ${dureeEcoulee} et entre dans son ${ordinal(cycleActuel)} cycle.`
