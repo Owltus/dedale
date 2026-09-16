@@ -93,9 +93,13 @@ Jouer la requête de vérification de l'en-tête. Elle doit prouver le résultat
 
 C'est la seule source versionnée : une migration non répercutée y crée une divergence invisible qui piégera le prochain audit.
 
+La dérive n'est plus invisible : `npm run test` compare les tables, les colonnes et les contraintes CHECK **nommées** de `schema_complete.sql` à l'instantané de la production (`src/lib/concordance-sql.test.ts`). Une migration non répercutée y devient rouge.
+
 ### 6. Répercuter côté front
 
 - `npm run gen:types` (après `npx supabase login`).
+- **`npm run contraintes:instantane`** dès que la migration touche un type de colonne ou une contrainte CHECK : elle relit la production et met à jour `src/lib/contraintes-sql.json`, l'oracle du test de concordance Zod / SQL. Puis `npm run test` : une contrainte ajoutée reste rouge tant qu'elle n'est pas sondée ou déclarée non sondable (cf. `docs/conventions/donnees.md`).
+- **Migration touchant une policy, un trigger de sécurité ou une fonction `SECURITY DEFINER`** : rejouer `tests/securite/escalade.mjs` sur une base locale jetable — le miroir front des droits et la RLS se confrontent, ils ne se supposent pas (ADR 0011).
 - Migration **non encore déployée** ? Éditer `database.types.ts` **à la main en pont**, et régénérer au déploiement. C'est la seule édition manuelle admise.
 - **Chercher ce que la migration invalide dans la doctrine** : `CLAUDE.md`, `docs/conventions/*`, `.claude/skills/*`. Une colonne supprimée, une policy élargie, un statut ajouté changent souvent une règle écrite. **Cette recherche n'est pas optionnelle** — c'est l'omission qui a produit la contradiction du soft-delete.
 - Le front ne réimplémente pas la validation : il **catche** l'erreur et l'affiche (`writeErrorMessage`, `deleteErrorMessage`).

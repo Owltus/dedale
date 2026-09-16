@@ -1,0 +1,4284 @@
+{
+  "_lecture": "Instantané des contraintes de colonnes lues sur la PRODUCTION. Régénéré par `npm run contraintes:instantane`. Ne pas éditer à la main.",
+  "tables": {
+    "audit_log": {
+      "checks": {
+        "audit_log_action_check": "CHECK ((action = ANY (ARRAY['INSERT'::text, 'UPDATE'::text, 'DELETE'::text])))"
+      },
+      "colonnes": {
+        "action": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "after": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "jsonb"
+        },
+        "at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "before": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "jsonb"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 64,
+          "type": "bigint"
+        },
+        "row_pk": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "table_name": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "user_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "batiments": {
+      "checks": {
+        "batiments_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "chk_batiments_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))"
+      },
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "image_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "categories": {
+      "checks": {
+        "categories_check": "CHECK (((parent_id IS NULL) OR (parent_id <> id)))",
+        "categories_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "chk_categorie_modele_xor_specs": "CHECK (((modele_equipement_id IS NULL) OR (specifications IS NULL)))",
+        "chk_categorie_specs_objet": "CHECK (((specifications IS NULL) OR ((jsonb_typeof(specifications) = 'object'::text) AND (NOT (specifications ? '__proto__'::text)) AND (NOT (specifications ? 'constructor'::text)) AND (NOT (specifications ? 'prototype'::text)))))",
+        "chk_categories_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
+        "chk_equipement_categorie_racine": "CHECK (((scope <> ALL (ARRAY['equipement'::categorie_scope, 'operation'::categorie_scope])) OR (parent_id IS NULL)))"
+      },
+      "colonnes": {
+        "copie_depuis_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "est_actif": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "image_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "modele_equipement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "ordre": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "parent_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "scope": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "USER-DEFINED"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "specifications": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "jsonb"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "valeur_principale": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "valeur_secondaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "valeur_tertiaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "contrats": {
+      "checks": {
+        "contrats_cycle_positif": "CHECK (((duree_cycle_mois IS NULL) OR (duree_cycle_mois > 0)))",
+        "contrats_date_fin_apres_debut": "CHECK (((date_fin IS NULL) OR (date_debut <= date_fin)))",
+        "contrats_date_notification_avant_resiliation": "CHECK (((date_notification IS NULL) OR (date_resiliation IS NULL) OR (date_notification <= date_resiliation)))",
+        "contrats_date_resiliation_apres_debut": "CHECK (((date_resiliation IS NULL) OR (date_resiliation >= date_debut)))",
+        "contrats_date_signature_avant_debut": "CHECK (((date_signature IS NULL) OR (date_signature <= date_debut)))",
+        "contrats_fenetre_positive": "CHECK (((fenetre_resiliation_jours IS NULL) OR (fenetre_resiliation_jours > 0)))",
+        "contrats_preavis_positif": "CHECK ((delai_preavis_jours >= 0))",
+        "contrats_reference_non_vide": "CHECK ((length(TRIM(BOTH FROM reference)) > 0))"
+      },
+      "colonnes": {
+        "commentaires": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "contrat_parent_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "date_debut": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "date"
+        },
+        "date_fin": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "date_notification": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "date_resiliation": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "date_signature": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "delai_preavis_jours": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        },
+        "duree_cycle_mois": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 32,
+          "type": "integer"
+        },
+        "est_archive": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "fenetre_resiliation_jours": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 32,
+          "type": "integer"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "objet_avenant": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "prestataire_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "reference": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "type_contrat_id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "contrats_gammes": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "contrat_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "gamme_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "demandes_intervention": {
+      "checks": {
+        "demandes_intervention_constat_check": "CHECK ((length(TRIM(BOTH FROM constat)) > 0))",
+        "di_constat_taille": "CHECK ((length(constat) <= 5000))"
+      },
+      "colonnes": {
+        "constat": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "date_constat": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "date"
+        },
+        "date_resolution": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "description_resolution": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "resolved_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "statut_di_id": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "di_equipements": {
+      "checks": {},
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "di_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "equipement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "di_localisations": {
+      "checks": {},
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "di_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "local_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "document_chapitres": {
+      "checks": {
+        "document_chapitres_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))"
+      },
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "ordre": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "parent_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "documents": {
+      "checks": {
+        "documents_hash_sha256_check": "CHECK ((length(hash_sha256) = 64))",
+        "documents_mime_whitelist": "CHECK ((mime_type = ANY (ARRAY['application/pdf'::text, 'image/jpeg'::text, 'image/png'::text, 'image/webp'::text])))",
+        "documents_nom_original_check": "CHECK ((length(TRIM(BOTH FROM nom_original)) > 0))",
+        "documents_storage_path_check": "CHECK ((length(TRIM(BOTH FROM storage_path)) > 0))",
+        "documents_storage_path_safe": "CHECK (((POSITION(('..'::text) IN (storage_path)) = 0) AND (POSITION(('\\'::text) IN (storage_path)) = 0) AND (storage_path !~~ '/%'::text) AND (length(storage_path) < 500)))",
+        "documents_taille_octets_check": "CHECK ((taille_octets > 0))"
+      },
+      "colonnes": {
+        "chapitre_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "hash_sha256": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "mime_type": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "nom_original": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "storage_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "taille_octets": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 64,
+          "type": "bigint"
+        },
+        "type_document_id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "uploaded_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "uploaded_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "documents_contrats": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "contrat_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "documents_di": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "di_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "documents_equipements": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "equipement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "documents_evenements": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "evenement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "tache_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "documents_gammes": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "gamme_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "documents_interventions_travaux": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "tache_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "travaux_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "documents_investissements": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "investissement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "documents_locaux": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "local_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "documents_ordres_travail": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "ordre_travail_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "documents_prestataires": {
+      "checks": {},
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "prestataire_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "equipements": {
+      "checks": {
+        "chk_equipements_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
+        "chk_equipements_specs_structure": "CHECK (((jsonb_typeof(specifications) = 'object'::text) AND (NOT (specifications ? '__proto__'::text)) AND (NOT (specifications ? 'constructor'::text)) AND (NOT (specifications ? 'prototype'::text)) AND (length((specifications)::text) < 10000)))",
+        "equipements_check": "CHECK (((date_fin_garantie IS NULL) OR (date_mise_en_service IS NULL) OR (date_fin_garantie >= date_mise_en_service)))"
+      },
+      "colonnes": {
+        "categorie_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "code_inventaire": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "copie_depuis_modele_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "date_fin_garantie": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "date_mise_en_service": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "image_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "local_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "specifications": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "jsonb"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "evenements": {
+      "checks": {
+        "evenements_dates_coherentes": "CHECK (((date_cloture IS NULL) OR (date_cloture >= date_evenement)))",
+        "evenements_titre_check": "CHECK ((length(TRIM(BOTH FROM titre)) > 0))"
+      },
+      "colonnes": {
+        "cloture_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "compte_rendu": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "date_cloture": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "date_evenement": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "date"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "equipement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "local_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "statut_evenement_id": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "titre": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "verrouille": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        }
+      }
+    },
+    "evenements_lieux": {
+      "checks": {
+        "evenements_lieux_statut_check": "CHECK ((statut = ANY (ARRAY['en_attente'::text, 'en_cours'::text, 'realise'::text, 'non_realise'::text, 'non_applicable'::text])))"
+      },
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "date_tache": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "equipement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "evenement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "local_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "ordre": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        },
+        "statut": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "gamme_modeles": {
+      "checks": {},
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "gamme_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "modele_operation_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "gammes": {
+      "checks": {
+        "chk_gammes_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
+        "gammes_nom_non_vide": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))"
+      },
+      "colonnes": {
+        "categorie_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "copie_depuis_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "est_active": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "image_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nature": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "USER-DEFINED"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "periodicite_id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "prestataire_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "gammes_equipements": {
+      "checks": {},
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "equipement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "gamme_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "interventions_travaux": {
+      "checks": {
+        "interventions_travaux_titre_check": "CHECK ((length(TRIM(BOTH FROM titre)) > 0))"
+      },
+      "colonnes": {
+        "cloture_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "compte_rendu": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "date_demande": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "date"
+        },
+        "date_fin": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "equipement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "local_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "statut_travaux_id": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "titre": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "verrouille": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        }
+      }
+    },
+    "investissements": {
+      "checks": {
+        "investissements_dates_coherentes": "CHECK (((date_cloture IS NULL) OR (date_cloture >= date_demande)))",
+        "investissements_depense_reelle_check": "CHECK (((depense_reelle IS NULL) OR (depense_reelle >= (0)::numeric)))",
+        "investissements_libelle_check": "CHECK ((length(TRIM(BOTH FROM libelle)) > 0))",
+        "investissements_montant_demande_check": "CHECK (((montant_demande IS NULL) OR (montant_demande >= (0)::numeric)))",
+        "investissements_montant_prevu_check": "CHECK (((montant_prevu IS NULL) OR (montant_prevu >= (0)::numeric)))"
+      },
+      "colonnes": {
+        "bilan": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "cloture_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "date_cloture": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "date_demande": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "date"
+        },
+        "depense_reelle": {
+          "aUnDefaut": false,
+          "echelle": 2,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 12,
+          "type": "numeric"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "montant_demande": {
+          "aUnDefaut": false,
+          "echelle": 2,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 12,
+          "type": "numeric"
+        },
+        "montant_prevu": {
+          "aUnDefaut": false,
+          "echelle": 2,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 12,
+          "type": "numeric"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "statut_capex_id": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "locaux": {
+      "checks": {
+        "chk_locaux_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
+        "locaux_capacite_positive": "CHECK (((capacite_personnes IS NULL) OR (capacite_personnes >= 0)))",
+        "locaux_hauteur_positive": "CHECK (((hauteur_m IS NULL) OR (hauteur_m > (0)::numeric)))",
+        "locaux_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "locaux_surface_m2_check": "CHECK (((surface_m2 IS NULL) OR (surface_m2 > (0)::numeric)))"
+      },
+      "colonnes": {
+        "accessible_pmr": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "capacite_personnes": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "chauffe_climatise": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "hauteur_m": {
+          "aUnDefaut": false,
+          "echelle": 2,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 4,
+          "type": "numeric"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "image_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "niveau_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "specifications": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "jsonb"
+        },
+        "surface_m2": {
+          "aUnDefaut": false,
+          "echelle": 2,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 8,
+          "type": "numeric"
+        },
+        "type_local_id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "miniatures": {
+      "checks": {
+        "miniatures_hash_sha256_check": "CHECK ((length(hash_sha256) = 64))",
+        "miniatures_storage_path_check": "CHECK ((length(TRIM(BOTH FROM storage_path)) > 0))",
+        "miniatures_storage_path_safe": "CHECK (((POSITION(('..'::text) IN (storage_path)) = 0) AND (POSITION(('\\'::text) IN (storage_path)) = 0) AND (storage_path !~~ '/%'::text) AND (length(storage_path) < 500)))"
+      },
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "hash_sha256": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "storage_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "modeles_di": {
+      "checks": {
+        "modeles_di_constat_modele_check": "CHECK ((length(TRIM(BOTH FROM constat_modele)) > 0))",
+        "modeles_di_libelle_check": "CHECK ((length(TRIM(BOTH FROM libelle)) > 0))"
+      },
+      "colonnes": {
+        "constat_modele": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "est_actif": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "modeles_equipements": {
+      "checks": {
+        "chk_modeles_equipements_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
+        "chk_modeles_equipements_specs_structure": "CHECK (((jsonb_typeof(specifications) = 'object'::text) AND (NOT (specifications ? '__proto__'::text)) AND (NOT (specifications ? 'constructor'::text)) AND (NOT (specifications ? 'prototype'::text)) AND (length((specifications)::text) < 10000)))",
+        "modeles_equipements_nom_non_vide": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))"
+      },
+      "colonnes": {
+        "categorie_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "est_actif": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "image_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "specifications": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "jsonb"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "modeles_operations": {
+      "checks": {
+        "chk_modeles_operations_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
+        "modeles_operations_nom_non_vide": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))"
+      },
+      "colonnes": {
+        "categorie_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "image_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "modeles_operations_items": {
+      "checks": {
+        "modeles_operations_items_nom_non_vide": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "modeles_operations_items_seuils_coherents": "CHECK (((seuil_minimum IS NULL) OR (seuil_maximum IS NULL) OR (seuil_minimum <= seuil_maximum)))"
+      },
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "modele_operation_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "ordre": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        },
+        "seuil_maximum": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        },
+        "seuil_minimum": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        },
+        "type_operation_id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "unite_id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "niveaux": {
+      "checks": {
+        "chk_niveaux_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
+        "niveaux_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))"
+      },
+      "colonnes": {
+        "batiment_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "image_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "ordre": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "observations": {
+      "checks": {
+        "obs_description_taille": "CHECK ((length(description) <= 5000))",
+        "observations_description_check": "CHECK ((length(TRIM(BOTH FROM description)) > 0))",
+        "observations_levee_coherente": "CHECK ((((statut = 'levee'::observation_statut) AND (date_levee IS NOT NULL) AND (levee_by IS NOT NULL)) OR ((statut <> 'levee'::observation_statut) AND (date_levee IS NULL) AND (levee_by IS NULL) AND (document_levee_id IS NULL) AND (commentaire_levee IS NULL))))",
+        "observations_source_controle_ot": "CHECK ((((source = 'controle_reglementaire'::observation_source) AND (ot_id IS NOT NULL)) OR (source <> 'controle_reglementaire'::observation_source)))"
+      },
+      "colonnes": {
+        "commentaire_levee": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "date_levee": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "document_levee_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "echeance": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "equipement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "gravite": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "USER-DEFINED"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "levee_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "ot_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "source": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "USER-DEFINED"
+        },
+        "statut": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "USER-DEFINED"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "operations": {
+      "checks": {
+        "operations_nom_non_vide": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "operations_seuils_coherents": "CHECK (((seuil_minimum IS NULL) OR (seuil_maximum IS NULL) OR (seuil_minimum <= seuil_maximum)))"
+      },
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "gamme_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "ordre": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        },
+        "seuil_maximum": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        },
+        "seuil_minimum": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        },
+        "type_operation_id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "unite_id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "operations_execution": {
+      "checks": {
+        "operations_execution_remplacement_coherent": "CHECK ((((index_depose IS NULL) = (index_pose IS NULL)) AND ((date_remplacement IS NULL) OR (index_depose IS NOT NULL))))",
+        "opex_commentaires_taille": "CHECK (((commentaires IS NULL) OR (length(commentaires) <= 5000)))",
+        "source_type_valide": "CHECK ((source_type = ANY (ARRAY[1, 2])))",
+        "statut_date_coherents": "CHECK ((((statut = 'en_attente'::text) AND (date_execution IS NULL)) OR ((statut = ANY (ARRAY['en_cours'::text, 'terminee'::text])) AND (date_execution IS NOT NULL)) OR (statut = ANY (ARRAY['annulee'::text, 'non_applicable'::text]))))"
+      },
+      "colonnes": {
+        "commentaires": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "date_execution": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "date_remplacement": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "est_conforme": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "boolean"
+        },
+        "executed_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "index_depose": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        },
+        "index_pose": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "ordre": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        },
+        "ordre_travail_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "seuil_maximum": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        },
+        "seuil_minimum": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        },
+        "source_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "source_type": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "statut": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "type_operation": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "unite_est_cumulatif": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "boolean"
+        },
+        "unite_nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "unite_symbole": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "valeur_mesuree": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        }
+      }
+    },
+    "ordres_travail": {
+      "checks": {
+        "chk_ordres_travail_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
+        "dates_coherentes": "CHECK (((date_debut IS NULL) OR (date_cloture IS NULL) OR (date_debut <= date_cloture)))",
+        "motif_annulation_oblig_si_annule": "CHECK (((statut <> 'annule'::text) OR ((motif_annulation IS NOT NULL) AND (length(TRIM(BOTH FROM motif_annulation)) > 0))))",
+        "motif_reouverture_oblig_si_reouvert": "CHECK (((statut <> 'reouvert'::text) OR ((motif_reouverture IS NOT NULL) AND (length(TRIM(BOTH FROM motif_reouverture)) > 0))))",
+        "ot_commentaires_taille": "CHECK (((commentaires IS NULL) OR (length(commentaires) <= 5000)))",
+        "statut_terminal_a_date_cloture": "CHECK (((statut <> ALL (ARRAY['cloture'::text, 'annule'::text])) OR (date_cloture IS NOT NULL)))"
+      },
+      "colonnes": {
+        "closed_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "commentaires": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "date_cloture": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "date_debut": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "date_prevue": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "date"
+        },
+        "description_gamme": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "gamme_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "image_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "jours_periodicite": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        },
+        "libelle_periodicite": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "motif_annulation": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "motif_reouverture": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "nature_gamme": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "USER-DEFINED"
+        },
+        "nom_categorie": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "nom_equipement": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "nom_gamme": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "nom_localisation": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "nom_prestataire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "origine": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "USER-DEFINED"
+        },
+        "prestataire_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "statut": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "tolerance_jours": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "periodicites": {
+      "checks": {
+        "periodicites_coherence": "CHECK (((jours_periodicite > 0) AND (jours_valide > 0) AND (tolerance_jours >= 0) AND (jours_valide <= jours_periodicite) AND (tolerance_jours <= jours_periodicite)))"
+      },
+      "colonnes": {
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "jours_periodicite": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        },
+        "jours_valide": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "tolerance_jours": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        }
+      }
+    },
+    "prestataires": {
+      "checks": {
+        "chk_prestataires_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
+        "prestataires_code_postal_format": "CHECK (((code_postal IS NULL) OR (code_postal ~ '^[0-9]{5}$'::text)))",
+        "prestataires_commentaires_taille": "CHECK (((commentaires IS NULL) OR (length(commentaires) <= 5000)))",
+        "prestataires_email_format": "CHECK (((email IS NULL) OR (email ~ '^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$'::text)))",
+        "prestataires_interne_site": "CHECK ((est_interne = (site_id IS NOT NULL)))",
+        "prestataires_libelle_non_vide": "CHECK ((length(TRIM(BOTH FROM libelle)) > 0))",
+        "prestataires_siret_format": "CHECK (((siret IS NULL) OR (siret ~ '^[0-9]{14}$'::text)))"
+      },
+      "colonnes": {
+        "adresse": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "code_postal": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "commentaires": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "email": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "est_interne": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "image_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "metier": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "miniature_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "siret": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "telephone": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "ville": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "prestataires_sites": {
+      "checks": {},
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "prestataire_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "roles": {
+      "checks": {},
+      "colonnes": {
+        "code": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        }
+      }
+    },
+    "security_alerts": {
+      "checks": {
+        "security_alerts_severity_check": "CHECK ((severity = ANY (ARRAY['info'::text, 'warning'::text, 'critical'::text])))"
+      },
+      "colonnes": {
+        "details": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "jsonb"
+        },
+        "detected_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 64,
+          "type": "bigint"
+        },
+        "indicator": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "observed_value": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        },
+        "severity": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "threshold": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "numeric"
+        }
+      }
+    },
+    "sites": {
+      "checks": {
+        "sites_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))"
+      },
+      "colonnes": {
+        "adresse": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "code_postal": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "ville": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "statuts_capex": {
+      "checks": {},
+      "colonnes": {
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "statuts_di": {
+      "checks": {},
+      "colonnes": {
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "statuts_evenements": {
+      "checks": {},
+      "colonnes": {
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "statuts_operations": {
+      "checks": {},
+      "colonnes": {
+        "code": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "statuts_ot": {
+      "checks": {},
+      "colonnes": {
+        "code": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "statuts_travaux": {
+      "checks": {},
+      "colonnes": {
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "travaux_taches": {
+      "checks": {
+        "travaux_taches_statut_check": "CHECK ((statut = ANY (ARRAY['en_attente'::text, 'en_cours'::text, 'realise'::text, 'non_realise'::text, 'non_applicable'::text])))"
+      },
+      "colonnes": {
+        "commentaire": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "date_tache": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
+        "equipement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "local_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "ordre": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        },
+        "statut": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "travaux_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "types_contrats": {
+      "checks": {},
+      "colonnes": {
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "types_documents": {
+      "checks": {},
+      "colonnes": {
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "est_systeme": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "types_locaux": {
+      "checks": {},
+      "colonnes": {
+        "actif": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "specifications": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "jsonb"
+        }
+      }
+    },
+    "types_operations": {
+      "checks": {},
+      "colonnes": {
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "libelle": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "necessite_seuils": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        }
+      }
+    },
+    "unites": {
+      "checks": {},
+      "colonnes": {
+        "description": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "est_cumulatif": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "necessite_seuils": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "nom": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "symbole": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        }
+      }
+    },
+    "user_sites": {
+      "checks": {},
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "user_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        }
+      }
+    },
+    "users": {
+      "checks": {
+        "users_nom_complet_non_vide": "CHECK ((length(TRIM(BOTH FROM nom_complet)) > 0))",
+        "users_nom_complet_taille": "CHECK ((length(nom_complet) <= 200))",
+        "users_photo_path_format": "CHECK (((photo_path IS NULL) OR (photo_path ~ '^users/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/avatar\\.webp$'::text)))",
+        "users_telephone_format": "CHECK (((telephone IS NULL) OR (telephone ~ '^\\+?[0-9][0-9 .\\-]{4,19}$'::text)))"
+      },
+      "colonnes": {
+        "anonymized_at": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "created_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "est_actif": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "nom_complet": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "photo_path": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "role_id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
+        "telephone": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    }
+  }
+}

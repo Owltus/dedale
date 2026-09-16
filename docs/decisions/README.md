@@ -39,3 +39,5 @@ Ce que ça implique (avantages, limites, ce qu'on s'interdit).
 - [0007 — Création de comptes sans e-mail](0007-comptes-sans-email.md)
 - [0008 — Tâche généralisée (checklist) pour Travaux / Événements](0008-taches-generalisees.md)
 - [0009 — Le catalogue commun est une réserve, pas une source vive](0009-catalogue-commun-reserve.md)
+- [0010 — `source_id` n'est pas une clé de corrélation stable](0010-source-id-cle-de-correlation.md)
+- [0011 — Le miroir front des droits se confronte à la RLS](0011-miroir-front-des-droits-confronte-a-la-rls.md)

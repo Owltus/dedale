@@ -1,0 +1,41 @@
+{
+  "sites": {
+    "A": "14cd2b47-d0af-4cd6-b8bd-d00f2f5fbd41",
+    "B": "ee6d8cd4-cf5b-46b8-ac7c-67ec8fb7b242"
+  },
+  "users": {
+    "admin": "0fb87c3e-7926-4a35-be12-e69dfc920803",
+    "managerA": "715397b3-29fe-4e39-8e7a-6212b5b261df",
+    "technicienA": "b7f8d835-7f7d-43e7-ba7f-d5441697cba9",
+    "lecteurA": "75d8e479-e8b9-408c-a4d4-1325afaec95f",
+    "demandeurA": "8e75211b-29f0-4612-9451-c55d1aad23c7",
+    "managerB": "1a2ed4b6-9d7c-4a74-94c4-4e5e90b661f6",
+    "technicienB": "da615e6f-5788-4e1b-ada7-47744e23cdd7"
+  },
+  "A": {
+    "site": "14cd2b47-d0af-4cd6-b8bd-d00f2f5fbd41",
+    "batiment": "eca51808-dc1a-461d-bbf9-3a8468fcccaf",
+    "niveau": "f4262929-1d86-4125-b24b-7bd086f4defc",
+    "local": "6b7351f4-b1b1-49c9-b8ab-4770d45ede71",
+    "equipement": "01942d5c-ce88-4de8-ab4f-3bd68a57ba81",
+    "demandes_intervention": "f916cf2c-dc0c-43d9-a876-e9076d0cf7d4",
+    "interventions_travaux": "88b1b47d-99c6-4325-88b5-f698d8dc7ebb",
+    "evenements": "a5dd3c4b-45f5-4b03-97a6-1b167279f147",
+    "investissements": "1f6eac06-6ad0-4d8e-934f-0be6cdf4bcc2",
+    "contrats": "8f5de971-bb00-4f8f-96ca-2b651106636f",
+    "documents": "1fe7524d-72b7-4fcc-a9f3-21784970d507"
+  },
+  "B": {
+    "site": "ee6d8cd4-cf5b-46b8-ac7c-67ec8fb7b242",
+    "batiment": "ed378ccb-c2ab-488c-b3f4-f7587204b9c9",
+    "niveau": "122b1d79-65a5-4d31-990e-7a98aa2ce338",
+    "local": "1cddc1d0-ed0b-4f6a-8f6e-51e8388b244e",
+    "equipement": "06fe0b02-b6cd-407c-8ae2-c7d42ec3a50b",
+    "demandes_intervention": "844f1c14-e71f-4ee6-8b9c-ab46d9905799",
+    "interventions_travaux": "c65b2a49-4666-4fe1-ad2c-1420492a34f5",
+    "evenements": "e2240575-d0bd-40b1-ab72-da43f9b2b3e4",
+    "investissements": "9a7e460f-aca2-429a-b5ed-923a0308d829",
+    "contrats": "a37a5639-9db1-4581-9f34-5fa8e43be6ca",
+    "documents": "a316bcc2-a496-467e-8a5e-428c826e519b"
+  }
+}

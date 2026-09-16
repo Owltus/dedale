@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
-import type { Control, FieldValues } from 'react-hook-form'
+import type { Control, FieldPath, FieldValues } from 'react-hook-form'
 import { TextField } from './fields/text-field'
 import { NumberField } from './fields/number-field'
 import { TextareaField } from './fields/textarea-field'
@@ -12,6 +12,7 @@ import { SwitchField } from './fields/switch-field'
 import { RadioField } from './fields/radio-field'
 import { SelectField } from './fields/select-field'
 import { DateField } from './fields/date-field'
+import { PasswordField } from './fields/password-field'
 import { FormulaireTest } from '@/test/harness'
 
 /**
@@ -30,6 +31,7 @@ interface Valeurs extends FieldValues {
   portee: string
   statut: string
   date_prevue: string
+  motdepasse: string
 }
 
 const DEFAUTS: Valeurs = {
@@ -42,6 +44,7 @@ const DEFAUTS: Valeurs = {
   portee: 'site',
   statut: '',
   date_prevue: '',
+  motdepasse: '',
 }
 
 /**
@@ -77,62 +80,114 @@ function labelDuChamp(container: HTMLElement): HTMLLabelElement {
   return label
 }
 
+/**
+ * CATALOGUE des champs de `common/fields/` : la liste sur laquelle tournent les
+ * contrôles d'accessibilité GÉNÉRIQUES ci-dessous. Tout champ ajouté à
+ * `fields/` doit y entrer — c'est ce qui empêchera le prochain de naître cassé
+ * comme les deux précédents (`SelectField` et `DateField` rendaient leur
+ * contrôle HORS de `FormControl` : leur libellé ne désignait alors AUCUN
+ * élément, et leur message d'erreur n'était rattaché à rien).
+ *
+ * Deux absents, volontaires : `PorteeField`, qui n'est qu'un `SelectField`
+ * préconfiguré (aucune structure propre), et `IdentiteFields`, qui compose
+ * `TextField` + `DescriptionField` + `MiniatureField`, déjà couverts un à un.
+ */
+const CHAMPS: [
+  string,
+  FieldPath<Valeurs>,
+  (control: Control<Valeurs, unknown, FieldValues>) => ReactElement,
+][] = [
+  [
+    'TextField',
+    'nom',
+    (c) => <TextField control={c} name="nom" label="Libellé" />,
+  ],
+  [
+    'NumberField',
+    'puissance',
+    (c) => <NumberField control={c} name="puissance" label="Libellé" />,
+  ],
+  [
+    'TextareaField',
+    'notes',
+    (c) => <TextareaField control={c} name="notes" label="Libellé" />,
+  ],
+  [
+    'DescriptionField',
+    'description',
+    (c) => <DescriptionField control={c} name="description" label="Libellé" />,
+  ],
+  [
+    'PasswordField',
+    'motdepasse',
+    (c) => <PasswordField control={c} name="motdepasse" label="Libellé" />,
+  ],
+  [
+    'CheckboxField',
+    'actif',
+    (c) => <CheckboxField control={c} name="actif" label="Libellé" />,
+  ],
+  [
+    'SwitchField',
+    'notifications',
+    (c) => <SwitchField control={c} name="notifications" label="Libellé" />,
+  ],
+  [
+    'RadioField',
+    'portee',
+    (c) => (
+      <RadioField
+        control={c}
+        name="portee"
+        label="Libellé"
+        options={[{ value: 'site', label: 'Site' }]}
+      />
+    ),
+  ],
+  [
+    'SelectField',
+    'statut',
+    (c) => (
+      <SelectField
+        control={c}
+        name="statut"
+        label="Libellé"
+        options={[{ value: '1', label: 'Ouvert' }]}
+      />
+    ),
+  ],
+  [
+    'DateField',
+    'date_prevue',
+    (c) => <DateField control={c} name="date_prevue" label="Libellé" />,
+  ],
+]
+
+/**
+ * Champs dont le contrôle n'est PAS un élément étiquetable au sens HTML, donc
+ * pour lesquels « cliquer le libellé donne le focus » n'a pas de sens.
+ *
+ * `RadioField` est le seul : ce que `FormControl` habille est le GROUPE
+ * (`div[role=radiogroup]`), et un `<label for>` ne transmet son clic qu'à un
+ * élément étiquetable (input, textarea, select, button). Chaque option porte
+ * son propre libellé, lui bien cliquable — c'est testé plus bas.
+ */
+const SANS_FOCUS_PAR_LIBELLE = new Set(['RadioField'])
+
 describe('fields/ — le libellé désigne le champ', () => {
   // ORACLE (accessibilité, WCAG 1.3.1 / 3.3.2, et docs/conventions/composants.md :
   // « c'est ainsi que des libellés ont fini par ne désigner aucun champ ») :
   // l'attribut `for` d'un libellé DOIT pointer sur un élément existant, sinon
   // cliquer le libellé ne focalise rien et l'association n'est pas programmatique.
-  it.each([
-    [
-      'TextField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <TextField control={c} name="nom" label="Libellé" />
-      ),
-    ],
-    [
-      'NumberField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <NumberField control={c} name="puissance" label="Libellé" />
-      ),
-    ],
-    [
-      'TextareaField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <TextareaField control={c} name="notes" label="Libellé" />
-      ),
-    ],
-    [
-      'DescriptionField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <DescriptionField control={c} name="description" label="Libellé" />
-      ),
-    ],
-    [
-      'CheckboxField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <CheckboxField control={c} name="actif" label="Libellé" />
-      ),
-    ],
-    [
-      'SwitchField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <SwitchField control={c} name="notifications" label="Libellé" />
-      ),
-    ],
-    [
-      'RadioField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <RadioField
-          control={c}
-          name="portee"
-          label="Libellé"
-          options={[{ value: 'site', label: 'Site' }]}
-        />
-      ),
-    ],
-  ])(
+  //
+  // RÉGRESSIONS COUVERTES : `SelectField` (le champ le plus utilisé de l'app
+  // après `TextField`) et `DateField` rendaient leur contrôle hors de
+  // `FormControl` — la primitive `ui/date-field` n'acceptait même pas d'`id` à
+  // poser sur son déclencheur. Le balayage vaut désormais pour TOUS les champs,
+  // le onzième compris.
+  it.each(CHAMPS)(
     '%s : le `for` du libellé pointe sur un élément existant',
-    (_nom, champ) => {
+    (_nom, _cle, champ) => {
       const { container } = rendreChamp(champ)
       const label = labelDuChamp(container)
       expect(label.htmlFor).not.toBe('')
@@ -140,99 +195,45 @@ describe('fields/ — le libellé désigne le champ', () => {
     },
   )
 
-  // RÉGRESSION COUVERTE : `SelectField` rend son `FormLabel` (dont le `for`
-  // vaut `${id}-form-item`) ; tant qu'il ne passait pas le `SelectDropdown` par
-  // `FormControl`, ce `for` ne désignait AUCUN élément et cliquer « Statut » ne
-  // focalisait pas le menu. Le pendant autonome, `StandaloneSelect`, pose bien
-  // `id={fieldId}` — la doctrine maison existait, seul ce champ-ci s'en écartait.
-  // `SelectField` est le champ le plus utilisé de l'app après `TextField`.
-  it('SelectField : le `for` du libellé pointe sur un élément existant', () => {
-    const { container } = rendreChamp((c) => (
-      <SelectField
-        control={c}
-        name="statut"
-        label="Statut"
-        options={[{ value: '1', label: 'Ouvert' }]}
-      />
-    ))
-    const label = labelDuChamp(container)
-    expect(document.getElementById(label.htmlFor)).not.toBeNull()
-  })
-
-  // RÉGRESSION COUVERTE : même défaut, même cause — `fields/date-field.tsx`
-  // rendait le `DatePicker` hors de `FormControl`, et la primitive `ui/date-field`
-  // n'acceptait même pas d'`id` à poser sur son déclencheur.
-  it('DateField : le `for` du libellé pointe sur un élément existant', () => {
-    const { container } = rendreChamp((c) => (
-      <DateField control={c} name="date_prevue" label="Date prévue" />
-    ))
-    const label = labelDuChamp(container)
-    expect(document.getElementById(label.htmlFor)).not.toBeNull()
-  })
-
   // ORACLE (le geste de l'utilisateur, WCAG 1.3.1 / 3.3.2) : un `for` résolu ne
-  // vaut que par ce qu'il permet — CLIQUER LE LIBELLÉ DOIT OUVRIR LE CHAMP. Sur
-  // tablette, la cible tactile du libellé est plus large que le champ : sans ce
-  // lien, c'est un tap perdu à chaque fois. Test GÉNÉRIQUE : il vaut pour le
-  // sixième champ à menu qui naîtra, pas seulement pour ces deux-là.
-  it.each([
-    [
-      'SelectField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <SelectField
-          control={c}
-          name="statut"
-          label="Libellé"
-          options={[{ value: '1', label: 'Ouvert' }]}
-        />
-      ),
-      'Ouvert',
-    ],
-    [
-      'DateField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <DateField control={c} name="date_prevue" label="Libellé" />
-      ),
-      "Aujourd'hui",
-    ],
-  ])('%s : cliquer le libellé ouvre le champ', async (_nom, champ, revele) => {
-    const utilisateur = userEvent.setup()
-    const { container } = rendreChamp(champ)
+  // vaut que par ce qu'il permet — CLIQUER LE LIBELLÉ DOIT ATTEINDRE LE CHAMP.
+  // Sur tablette, la cible tactile du libellé est plus large que le champ :
+  // sans ce lien, c'est un tap perdu à chaque fois.
+  //
+  // « Atteindre » recouvre les deux réponses possibles d'un contrôle au clic que
+  // le navigateur lui transmet : il prend le FOCUS (saisie directe), ou il
+  // S'OUVRE et le focus part dans ce qu'il vient d'ouvrir (`SelectField`,
+  // `DateField` — Radix déplace alors le focus dans le panneau, ce qui est le
+  // comportement attendu, pas un défaut).
+  it.each(CHAMPS.filter(([nom]) => !SANS_FOCUS_PAR_LIBELLE.has(nom)))(
+    '%s : cliquer le libellé atteint le champ',
+    async (_nom, _cle, champ) => {
+      const utilisateur = userEvent.setup()
+      const { container } = rendreChamp(champ)
+      const label = labelDuChamp(container)
+      const controle = document.getElementById(label.htmlFor)
 
-    await utilisateur.click(labelDuChamp(container))
-    expect(await screen.findByText(revele)).toBeVisible()
-  })
+      await utilisateur.click(label)
+      const focalise = document.activeElement === controle
+      const ouvert = controle?.getAttribute('aria-expanded') === 'true'
+      expect(focalise || ouvert).toBe(true)
+    },
+  )
 
   // ORACLE (WCAG 3.3.1) : un champ en erreur doit l'ANNONCER lui-même
   // (`aria-invalid`) et DÉSIGNER le texte qui l'explique (`aria-describedby` →
   // `FormMessage`). Un message affiché à l'écran mais non rattaché n'est pas lu
   // au focus : l'utilisateur au lecteur d'écran sait qu'il y a une erreur
   // quelque part, jamais laquelle ni sur quel champ.
-  it.each([
-    [
-      'SelectField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <SelectField
-          control={c}
-          name="statut"
-          label="Libellé"
-          options={[{ value: '1', label: 'Ouvert' }]}
-        />
-      ),
-      'combobox' as const,
-    ],
-    [
-      'DateField',
-      (c: Control<Valeurs, unknown, FieldValues>) => (
-        <DateField control={c} name="date_prevue" label="Libellé" />
-      ),
-      'button' as const,
-    ],
-  ])(
+  //
+  // Le contrôle examiné est celui que le libellé DÉSIGNE : c'est le seul moyen
+  // générique de vérifier que les attributs sont posés sur le champ lui-même et
+  // non sur une enveloppe — la faute exacte de `SelectField` et `DateField`.
+  it.each(CHAMPS)(
     '%s : en erreur, le champ est marqué invalide et désigne son message',
-    async (_nom, champ, role) => {
+    async (_nom, cle, champ) => {
       const utilisateur = userEvent.setup()
-      render(
+      const { container } = render(
         <FormulaireTest<Valeurs> defaultValues={DEFAUTS}>
           {(form) => (
             <>
@@ -240,10 +241,7 @@ describe('fields/ — le libellé désigne le champ', () => {
               <button
                 type="button"
                 onClick={() => {
-                  form.setError('statut', { message: 'Choix obligatoire.' })
-                  form.setError('date_prevue', {
-                    message: 'Choix obligatoire.',
-                  })
+                  form.setError(cle, { message: 'Choix obligatoire.' })
                 }}
               >
                 Soumettre
@@ -254,14 +252,29 @@ describe('fields/ — le libellé désigne le champ', () => {
       )
 
       await utilisateur.click(screen.getByRole('button', { name: 'Soumettre' }))
-      const controle = screen.getByRole(role, { name: 'Libellé' })
+      const controle = document.getElementById(labelDuChamp(container).htmlFor)
       expect(controle).toHaveAttribute('aria-invalid', 'true')
-      const decrit = (controle.getAttribute('aria-describedby') ?? '')
+      const decrit = (controle?.getAttribute('aria-describedby') ?? '')
         .split(' ')
         .map((id) => document.getElementById(id)?.textContent)
       expect(decrit).toContain('Choix obligatoire.')
     },
   )
+
+  // ORACLE : le geste attendu d'un champ à MENU — cliquer son libellé doit
+  // l'ouvrir, pas seulement le focaliser. C'est la régression d'origine.
+  it.each([
+    ['SelectField', 'Ouvert'],
+    ['DateField', "Aujourd'hui"],
+  ])('%s : cliquer le libellé ouvre le menu', async (nom, revele) => {
+    const entree = CHAMPS.find(([n]) => n === nom)
+    if (entree === undefined) throw new Error(`${nom} absent du catalogue`)
+    const utilisateur = userEvent.setup()
+    const { container } = rendreChamp(entree[2])
+
+    await utilisateur.click(labelDuChamp(container))
+    expect(await screen.findByText(revele)).toBeVisible()
+  })
 
   // ORACLE : malgré tout, chaque champ doit être ATTEIGNABLE par son nom
   // accessible — c'est le minimum pour piloter un formulaire au lecteur d'écran.

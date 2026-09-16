@@ -477,6 +477,115 @@ describe('part unique couvrant tout le tour (bug de l’arc dégénéré)', () =
   })
 })
 
+// ── Géométrie RÉELLE du secteur annulaire ────────────────────────────────────
+
+describe('secteurAnnulaire — portion de couronne rendue', () => {
+  /**
+   * Boîte englobante ANALYTIQUE d'une portion de couronne : l'ensemble des points
+   * polaires (r, θ) pour r ∈ {rInt, rExt} et θ parcourant [a0, a1].
+   * Échantillonnage dense — l'erreur de corde vaut r·(Δθ)²/8, soit moins de
+   * 1e-3 ici. La conversion polaire est réécrite sur place (0° = haut, sens
+   * horaire) pour n'emprunter AUCUN calcul au code de production.
+   */
+  function boiteCouronne(
+    cx: number,
+    cy: number,
+    rExt: number,
+    rInt: number,
+    a0: number,
+    a1: number,
+  ): Boite {
+    const N = 2000
+    const xs: number[] = []
+    const ys: number[] = []
+    for (let i = 0; i <= N; i += 1) {
+      const rad = (((a1 - a0) * (i / N) + a0) * Math.PI) / 180
+      for (const r of [rInt, rExt]) {
+        xs.push(cx + r * Math.sin(rad))
+        ys.push(cy - r * Math.cos(rad))
+      }
+    }
+    return {
+      xMin: Math.min(...xs),
+      xMax: Math.max(...xs),
+      yMin: Math.min(...ys),
+      yMax: Math.max(...ys),
+    }
+  }
+
+  it('couvre EXACTEMENT la portion de couronne demandée', () => {
+    // ORACLE : géométrie du secteur — la portion de couronne balayée entre a0 et
+    // a1 occupe la boîte englobante des points (r, θ) pour r ∈ {rInt, rExt} et
+    // θ ∈ [a0, a1]. Cette boîte est RECALCULÉE ici par échantillonnage dense,
+    // puis confrontée à celle qu'on LIT du chemin produit (`boiteEnglobante`
+    // applique la spec SVG des arcs, drapeau « grand arc » compris). Un drapeau
+    // mal posé fait tracer au moteur l'arc complémentaire — la part déborde de
+    // l'autre côté du cadran ; un arc absent ampute la couronne d'une extrémité.
+    //
+    // TOLÉRANCE : `fmt` arrondit chaque coordonnée au centième, et le moteur SVG
+    // RECONSTRUIT le centre de l'arc à partir de ces extrémités arrondies. Cette
+    // reconstruction est mal conditionnée aux deux bouts : quand la corde frôle
+    // le diamètre (étendue ≈ 180°, facteur 1/|cos(span/2)|) et quand elle est
+    // minuscule (étendue ≈ 0° ou 360°, facteur 1/|sin(span/2)|). La tolérance
+    // suit donc CES deux facteurs plutôt qu'un chiffre plat, et les étendues à
+    // moins de 25° du demi-tour — où le facteur diverge — sont écartées
+    // franchement : c'est l'imprécision déjà documentée par le `it.fails`
+    // ci-dessus, pas une affaire de drapeau.
+    fc.assert(
+      fc.property(
+        fc.double({ min: -40, max: 40, noNaN: true }),
+        fc.double({ min: -40, max: 40, noNaN: true }),
+        fc.double({ min: 40, max: 120, noNaN: true }),
+        fc.double({ min: 0.2, max: 0.8, noNaN: true }),
+        fc.double({ min: -180, max: 540, noNaN: true }),
+        fc.double({ min: 1, max: 359, noNaN: true }),
+        (cx, cy, rExt, ratio, a0, span) => {
+          fc.pre(Math.abs(span - 180) > 25)
+          const rInt = rExt * ratio
+          const a1 = a0 + span
+          const demi = (span * Math.PI) / 360
+          const tolerance =
+            0.05 +
+            0.03 * (1 / Math.abs(Math.sin(demi)) + 1 / Math.abs(Math.cos(demi)))
+          const lue = boiteEnglobante(
+            secteurAnnulaire(cx, cy, rExt, rInt, a0, a1),
+          )
+          const attendue = boiteCouronne(cx, cy, rExt, rInt, a0, a1)
+          expect(lue).not.toBeNull()
+          for (const cote of ['xMin', 'xMax', 'yMin', 'yMax'] as const) {
+            expect(Math.abs(lue![cote] - attendue[cote])).toBeLessThan(
+              tolerance,
+            )
+          }
+        },
+      ),
+      { numRuns: 300, seed: 42 },
+    )
+  })
+
+  it('une part étroite est bornée par ses QUATRE coins, rayon intérieur compris', () => {
+    // ORACLE : géométrie — un secteur qui tient dans un même quadrant ne
+    // rencontre aucun extrême d'axe du cercle : sa boîte est donnée par ses
+    // quatre coins, et chaque côté par un coin différent. Le coin le plus proche
+    // du centre (rayon INTÉRIEUR, angle de départ) borne la boîte à gauche :
+    // oublier l'arc intérieur ferait grossir la part vers l'extérieur. Les
+    // quatre bornes sont recalculées en trigonométrie pure, jamais relevées sur
+    // une sortie.
+    const rExt = 100
+    const rInt = 40
+    const a0 = 10
+    const a1 = 80
+    const sin = (deg: number) => Math.sin((deg * Math.PI) / 180)
+    const cos = (deg: number) => Math.cos((deg * Math.PI) / 180)
+    const boite = boiteEnglobante(secteurAnnulaire(0, 0, rExt, rInt, a0, a1))
+    expect(boite).not.toBeNull()
+    expect(boite!.xMin).toBeCloseTo(rInt * sin(a0), 1) // coin intérieur de départ
+    expect(boite!.xMax).toBeCloseTo(rExt * sin(a1), 1) // coin extérieur d'arrivée
+    expect(boite!.yMin).toBeCloseTo(-rExt * cos(a0), 1) // coin extérieur de départ
+    expect(boite!.yMax).toBeCloseTo(-rInt * cos(a1), 1) // coin intérieur d'arrivée
+  })
+})
+
 // ── Conservation des parts du donut ──────────────────────────────────────────
 
 describe('calculerPartsDonut', () => {
@@ -559,6 +668,106 @@ describe('calculerPartsDonut', () => {
   })
 })
 
+// ── Espacement entre parts du donut ──────────────────────────────────────────
+
+describe('espacement des parts du donut', () => {
+  it('sans groupe, l’écart entre deux parts voisines vaut EXACTEMENT gapDeg', () => {
+    // ORACLE : `gapDeg` est l'espace angulaire laissé à chaque frontière, et
+    // chaque part en cède la moitié de part et d'autre. Il en découle : l'écart
+    // entre la fin d'une part et le début de la suivante vaut gapDeg, la
+    // première part commence à gapDeg/2 (sa moitié de la frontière cyclique avec
+    // la dernière), la dernière finit à 360 - gapDeg/2, et parts + espaces
+    // refont exactement le tour. Aucune part n'est « complète » dès qu'il y en a
+    // plusieurs : un anneau entier ne sait décrire qu'une part UNIQUE.
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 100, max: 200 }), {
+          minLength: 2,
+          maxLength: 6,
+        }),
+        fc.double({ min: 0.5, max: 5, noNaN: true }),
+        (valeurs, gap) => {
+          const { parts } = calculerPartsDonut(
+            valeurs.map((v, i) => segment(`s${String(i)}`, v)),
+            gap,
+          )
+          expect(parts).toHaveLength(valeurs.length)
+          expect(parts[0]!.a0).toBeCloseTo(gap / 2, 9)
+          expect(parts[parts.length - 1]!.a1).toBeCloseTo(360 - gap / 2, 9)
+          for (let i = 0; i + 1 < parts.length; i += 1) {
+            expect(parts[i + 1]!.a0 - parts[i]!.a1).toBeCloseTo(gap, 9)
+          }
+          const somme = parts.reduce((acc, p) => acc + (p.a1 - p.a0), 0)
+          expect(somme).toBeCloseTo(360 - valeurs.length * gap, 9)
+          for (const p of parts) expect(p.complet).toBe(false)
+        },
+      ),
+      CFG,
+    )
+  })
+
+  it('deux parts VOISINES d’un même groupe se soudent, sans espace', () => {
+    // ORACLE : un `group` non vide partagé par deux parts ADJACENTES les soude
+    // en une seule section subdivisée — la frontière INTERNE au groupe ne
+    // consomme aucun espace. Toute autre frontière en consomme un entier :
+    // groupes différents, groupe absent, ou chaîne vide (qui n'est pas un
+    // groupe). Et le tour est CYCLIQUE : la frontière entre la dernière part et
+    // la première obéit à la même règle, à cheval sur le 0°.
+    const gap = 12
+    const groupes = ['a', 'a', 'b', undefined, undefined, '', '', 'a']
+    // Écarts attendus, frontière par frontière — la dernière est la frontière
+    // cyclique entre la dernière part et la première.
+    const ECARTS = [
+      0, // s0|s1 : même groupe « a » → soudées
+      gap, // s1|s2 : « a » → « b »
+      gap, // s2|s3 : « b » → aucun groupe
+      gap, // s3|s4 : deux parts SANS groupe ne forment pas un groupe
+      gap, // s4|s5 : aucun groupe → chaîne vide
+      gap, // s5|s6 : deux chaînes VIDES ne forment pas un groupe non plus
+      gap, // s6|s7 : chaîne vide → « a »
+      0, // s7|s0 : même groupe « a », à cheval sur le 0°
+    ]
+    const { parts } = calculerPartsDonut(
+      groupes.map((g, i) => segment(`s${String(i)}`, 100, g)),
+      gap,
+    )
+    expect(parts).toHaveLength(groupes.length)
+    for (let i = 0; i < parts.length; i += 1) {
+      const suivante = parts[(i + 1) % parts.length]!
+      const ecart =
+        i + 1 < parts.length
+          ? suivante.a0 - parts[i]!.a1
+          : suivante.a0 + 360 - parts[i]!.a1
+      expect(ecart).toBeCloseTo(ECARTS[i]!, 9)
+    }
+  })
+
+  it('une catégorie à zéro (ou négative) n’occupe AUCUNE part', () => {
+    // ORACLE : un donut représente des effectifs positifs. Une catégorie vide ou
+    // aberrante n'a pas de part à occuper et ne compte pas dans le total ; un
+    // donut dont une SEULE catégorie est non nulle est donc un anneau complet,
+    // et son total vaut la valeur de cette seule catégorie.
+    const { total, parts } = calculerPartsDonut(
+      [segment('vide', 0), segment('negatif', -3), segment('seule', 5)],
+      4,
+    )
+    expect(total).toBe(5)
+    expect(parts).toHaveLength(1)
+    expect(parts[0]!.seg.key).toBe('seule')
+    expect(parts[0]!.complet).toBe(true)
+  })
+
+  it('une part dont l’espacement absorbe toute l’étendue disparaît', () => {
+    // ORACLE : une part n'existe que si son arc a une étendue STRICTEMENT
+    // positive — un arc d'angle nul n'a rien à dessiner. Deux catégories égales
+    // séparées par un espacement de 180° voient chacune leurs 180° entièrement
+    // mangés (90° de chaque côté) : il ne reste aucune part.
+    expect(
+      calculerPartsDonut([segment('a', 1), segment('b', 1)], 180).parts,
+    ).toHaveLength(0)
+  })
+})
+
 // ── Sunburst : poids et disposition ──────────────────────────────────────────
 
 describe('poidsFeuilles', () => {
@@ -574,6 +783,26 @@ describe('poidsFeuilles', () => {
         )
         expect(Math.abs(poidsFeuilles(node) - attendu)).toBeLessThan(1e-9)
         expect(poidsFeuilles(node)).toBeGreaterThanOrEqual(0)
+      }),
+      CFG,
+    )
+  })
+
+  it('un nœud à liste d’enfants VIDE est sa propre feuille', () => {
+    // ORACLE : définition — un nœud sans enfant EST une feuille, que la
+    // propriété `enfants` soit absente ou présente mais vide. Traiter une liste
+    // vide comme un nœud interne donnerait un poids nul : la part
+    // disparaîtrait du sunburst alors que la donnée, elle, existe.
+    fc.assert(
+      fc.property(fc.double({ min: -5, max: 100, noNaN: true }), (poids) => {
+        const base: SunburstNode = {
+          key: 'k',
+          label: 'n',
+          couleur: 'var(--chart-1)',
+          poids,
+        }
+        expect(poidsFeuilles({ ...base, enfants: [] })).toBe(Math.max(poids, 0))
+        expect(poidsFeuilles(base)).toBe(Math.max(poids, 0))
       }),
       CFG,
     )
@@ -684,6 +913,38 @@ describe('disposer', () => {
     )
   })
 
+  it('chaque nœud produit UN arc, à la profondeur de son niveau dans l’arbre', () => {
+    // ORACLE : un sunburst est une pile d'anneaux concentriques — l'anneau d'un
+    // nœud est donné par sa distance à la racine. La racine reçoit la profondeur
+    // de départ, ses enfants celle-ci + 1, leurs enfants + 2, et chaque nœud de
+    // l'arbre apparaît une fois et une seule. Le niveau attendu est lu ici dans
+    // la CLÉ du nœud (« r » → 1, « r.1 » → 2, « r.1.1 » → 3), qui l'encode
+    // indépendamment du calcul mesuré.
+    const feuille = (key: string, poids: number): SunburstNode => ({
+      key,
+      label: key,
+      couleur: 'var(--chart-1)',
+      poids,
+    })
+    const arbre: SunburstNode = {
+      ...feuille('r', 0),
+      enfants: [
+        {
+          ...feuille('r.1', 0),
+          enfants: [feuille('r.1.1', 3), feuille('r.1.2', 1)],
+        },
+        feuille('r.2', 2),
+      ],
+    }
+    const arcs: Arc[] = []
+    disposer([arbre], 0, 360, poidsFeuilles(arbre), 1, arcs)
+    expect(arcs).toHaveLength(5)
+    expect(new Set(arcs.map((a) => a.node.key)).size).toBe(5)
+    for (const a of arcs) {
+      expect(a.depth).toBe(a.node.key.split('.').length)
+    }
+  })
+
   it('chaque enfant reste contenu dans la part de son parent', () => {
     // ORACLE : hiérarchie — un sunburst est un pavage imbriqué ; l'angle d'un
     // enfant est toujours un sous-intervalle de celui de son parent.
@@ -702,3 +963,52 @@ describe('disposer', () => {
     )
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MUTANTS ÉQUIVALENTS — inutile de rouvrir l'enquête
+//
+// Le rapport Stryker de ce module signale dix mutants « survivants ». Ils sont
+// tous ÉQUIVALENTS : aucune exécution ne peut les distinguer du code d'origine
+// (ou, pour deux d'entre eux, aucun RENDU), donc aucun test ne peut les tuer
+// sans devenir tautologique.
+//
+// — geometrie.ts L27 · `a1 - a0 > 180` → `>= 180` (drapeau « grand arc »)
+//   Les deux ne divergent que si l'étendue vaut EXACTEMENT 180°. Dans ce cas la
+//   corde relie deux points diamétralement opposés, donc |P1P2| = 2r : dans la
+//   conversion « endpoint → center » de la spec SVG (1.1 annexe F.6.5), le terme
+//   `num = rx²·ry² - rx²·y1'² - ry²·x1'²` s'annule, le coefficient ±√(num/den)
+//   vaut 0, et le centre reconstruit est le milieu de la corde QUEL QUE SOIT le
+//   drapeau. Les deux valeurs décrivent alors le même demi-cercle.
+//
+// — geometrie.ts L38 et L68 · `].join(' ')` → `].join("")`
+//   Chaque élément joint commence par une lettre de commande (M, A, L, A, Z), et
+//   la grammaire des chemins SVG rend l'espace entre un nombre et la lettre de
+//   commande SUIVANTE facultatif. Le chemin produit diffère caractère pour
+//   caractère mais est strictement identique au rendu ; seule une comparaison de
+//   chaîne attendue — c'est-à-dire un test tautologique — les séparerait.
+//
+// — geometrie.ts L95 · `if (total <= 0)` → `if (false)`, et `total <= 0` → `< 0`
+//   `actifs` ne retient que des segments de valeur > 0, donc `total > 0` dès que
+//   `actifs` est non vide, et `total === 0` exactement quand il est vide. Dans ce
+//   dernier cas, sauter le retour anticipé fait exécuter `actifs.map(…).filter(…)`
+//   sur un tableau VIDE, qui rend `[]` : exactement `{ total: 0, parts: [] }`.
+//
+// — geometrie.ts L105 · `suivant?.group` → `suivant.group`
+//   `suivant = actifs[(i + 1) % n]` avec `0 ≤ (i + 1) % n < n = actifs.length` :
+//   l'index est toujours dans les bornes, `suivant` n'est jamais `undefined`. Le
+//   chaînage optionnel ne protège rien — il n'est là que pour `noUncheckedIndexedAccess`.
+//
+// — geometrie.ts L118 et L120 · `gapApres[…] ?? gapDeg` → `gapApres[…] && gapDeg`
+//   Mêmes index toujours dans les bornes : `??` ne se déclenche jamais. Et chaque
+//   élément de `gapApres` vaut soit 0 soit `gapDeg` ; or `0 && gapDeg === 0` et
+//   `gapDeg && gapDeg === gapDeg` (et si `gapDeg === 0`, tous les éléments valent
+//   0 et `0 && 0 === 0`). Résultat identique dans tous les cas.
+//
+// — geometrie.ts L189 · `node.enfants.length > 0` → `true`, et → `>= 0`
+//   La garde `node.enfants &&` reste en place : la seule entrée nouvellement
+//   admise est `enfants: []`, qui déclenche `disposer([], …)`, une boucle sur zéro
+//   élément qui ne pousse aucun arc. Résultat identique.
+//   ⚠️ Les MÊMES mutations à la L160, dans `poidsFeuilles`, ne sont PAS
+//   équivalentes (`[].reduce(…, 0)` vaut 0 au lieu de `Math.max(poids, 0)`) : la
+//   propriété « un nœud à liste d'enfants VIDE est sa propre feuille » les tue.
+// ─────────────────────────────────────────────────────────────────────────────

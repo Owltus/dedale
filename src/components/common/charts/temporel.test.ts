@@ -2,15 +2,23 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   choisirGranularite,
+  cleConforme,
+  cleDates,
+  cleOt,
+  cleRemplacement,
+  cleValeur,
   construireDonneesColonnes,
   construireDonneesLigne,
   dateLogique,
   debutPeriode,
   echantillonner,
   genererReperes,
+  labelDateComplete,
+  labelRepere,
   periodeSuivante,
   reperesEtiquettesColonnes,
   type Granularite,
+  type LigneDonnees,
   type SerieTemporelle,
 } from './temporel'
 
@@ -78,6 +86,70 @@ const arbDate = fc.date({
   noInvalidDate: true,
 })
 const arbGranularite = fc.constantFrom<Granularite>(...GRANULARITES)
+
+// ── Étiquettes formatées (Intl) ──────────────────────────────────────────────
+
+describe('labelRepere', () => {
+  it('à l’année, l’étiquette EST le millésime du repère', () => {
+    // ORACLE : calendrier — un repère annuel doit nommer son année sans
+    // ambiguïté possible, donc valoir exactement le millésime (4 chiffres) de
+    // la date qu'il repère.
+    fc.assert(
+      fc.property(arbDate, (d) => {
+        expect(labelRepere(d.getTime(), 'annee')).toBe(String(d.getFullYear()))
+      }),
+      CFG,
+    )
+  })
+
+  it('au mois et au trimestre, l’étiquette nomme le mois et ABRÈGE l’année', () => {
+    // ORACLE : calendrier — un repère infra-annuel doit distinguer deux mois
+    // d'une même année ET deux mois homonymes d'années voisines, sans manger la
+    // largeur de l'axe. Son étiquette porte donc un nom de mois (en lettres,
+    // jamais un quantième numérique) et l'année abrégée à DEUX chiffres, pas le
+    // millésime complet.
+    for (const g of ['mois', 'trimestre'] as const) {
+      fc.assert(
+        fc.property(arbDate, (d) => {
+          const label = labelRepere(d.getTime(), g)
+          const annee = String(d.getFullYear())
+          expect(label).toMatch(/\p{L}/u)
+          expect(label).toContain(annee.slice(-2))
+          expect(label).not.toContain(annee)
+        }),
+        CFG,
+      )
+      const l = (a: number, m: number, j: number) =>
+        labelRepere(new Date(a, m, j).getTime(), g)
+      // Deux jours du MÊME mois : même étiquette.
+      expect(l(2024, 2, 2)).toBe(l(2024, 2, 28))
+      // Deux mois voisins, puis deux mois homonymes d'années voisines :
+      // étiquettes forcément différentes.
+      expect(l(2024, 2, 2)).not.toBe(l(2024, 3, 2))
+      expect(l(2024, 2, 2)).not.toBe(l(2025, 2, 2))
+    }
+  })
+})
+
+describe('labelDateComplete', () => {
+  it('donne le quantième, le mois EN LETTRES et le millésime complet', () => {
+    // ORACLE : l'info-bulle doit lever toute ambiguïté sur la date d'un relevé —
+    // un « 03/04 » laisserait le doute entre le 3 avril et le 4 mars, et une
+    // année abrégée entre deux passages à dix ans d'écart. Le libellé porte donc
+    // le quantième, un mois en lettres et l'année sur quatre chiffres, et jamais
+    // une date tout-numérique à séparateurs.
+    fc.assert(
+      fc.property(arbDate, (d) => {
+        const s = labelDateComplete(d.getTime())
+        expect(s).toContain(String(d.getDate()))
+        expect(s).toContain(String(d.getFullYear()))
+        expect(s).toMatch(/\p{L}/u)
+        expect(s).not.toMatch(/\d\/\d/)
+      }),
+      CFG,
+    )
+  })
+})
 
 // ── dateLogique ──────────────────────────────────────────────────────────────
 
@@ -509,11 +581,17 @@ describe('echantillonner', () => {
   })
 
   it('rend l’entrée telle quelle quand elle tient déjà dans le budget', () => {
-    // ORACLE : rien à réduire ⇒ rien n'est retiré (identité).
+    // ORACLE : rien à réduire ⇒ rien n'est retiré (identité) — et la liste
+    // d'entrée est renvoyée TELLE QUELLE, sans être recopiée : ces repères
+    // alimentent l'axe à chaque rendu, une nouvelle référence à chaque appel
+    // ferait retracer l'axe alors que rien n'a changé.
     fc.assert(
       fc.property(arbItems, fc.integer({ min: 1, max: 300 }), (items, max) => {
         if (items.length > max) return
         expect(echantillonner(items, max)).toEqual(items)
+        // Liste vide exceptée : elle passe par le garde-fou d'entrée, qui rend
+        // une liste neuve — il n'y a de toute façon rien à retracer.
+        if (items.length > 0) expect(echantillonner(items, max)).toBe(items)
       }),
       CFG,
     )
@@ -693,6 +771,45 @@ describe('reperesEtiquettesColonnes', () => {
     )
   })
 
+  it('donne une étiquette à CHAQUE période couverte quand le budget le permet', () => {
+    // ORACLE : l'axe doit nommer TOUTES les périodes qu'il affiche — sans quoi
+    // des colonnes resteraient anonymes sous l'axe. Avec un budget illimité, le
+    // nombre d'étiquettes vaut donc exactement le nombre de périodes de
+    // calendrier distinctes couvertes par les colonnes (recompté ici en mois
+    // absolus, sans relire la fonction), et chaque étiquette tombe sur la
+    // PREMIÈRE colonne de sa période.
+    fc.assert(
+      fc.property(arbSeries, arbGranularite, (series, g) => {
+        // Fenêtre de deux ans, plus étroite que l'étendue des relevés tirés :
+        // les colonnes portent donc à la fois des périodes remplies par des
+        // repères vides et des périodes nées de relevés hors fenêtre.
+        const debut = new Date(2020, 0, 1).getTime()
+        const fin = new Date(2022, 0, 1).getTime()
+        const dates = construireDonneesColonnes(series, g, debut, fin).map(
+          (l) => l.date as string,
+        )
+        const periode = (d: string) => {
+          const logique = dateLogique(parseLocal(d))
+          return debutAbsolu(logique.getFullYear(), logique.getMonth(), g)
+        }
+        const attendues = [...new Set(dates.map(periode))]
+        const ticks = reperesEtiquettesColonnes(dates, g, 10_000)
+        expect(attendues.length).toBeGreaterThan(0)
+        expect(ticks).toHaveLength(attendues.length)
+        expect(ticks.map(periode)).toEqual(attendues)
+        for (const t of ticks) {
+          expect(t).toBe(dates.find((d) => periode(d) === periode(t)))
+        }
+      }),
+      // Propriété LOURDE (elle reconstruit sept ans de colonnes à chaque
+      // tirage) : même budget réduit que les propriétés calendaires plus haut,
+      // pour la même raison — à 1 000 tirages elle frôle le délai d'attente dès
+      // que la suite tourne en parallèle, et un test qui ne rougit que sous
+      // charge est instable, pas révélateur.
+      CFG_LOURD,
+    )
+  })
+
   it('pose au plus une étiquette par période de calendrier', () => {
     // ORACLE : l'axe affiche une étiquette PAR période (mois/trimestre/année) ;
     // deux étiquettes pour la même période feraient croire à deux périodes.
@@ -714,3 +831,228 @@ describe('reperesEtiquettesColonnes', () => {
     )
   })
 })
+
+// ── Oracle local : conversion date ISO nue ⇄ Date locale ─────────────────────
+
+/** `YYYY-MM-DD` → minuit LOCAL (réimplémenté ici, sans `parseDateLocale`). */
+function parseLocal(iso: string): Date {
+  const [a, m, j] = iso.split('-').map(Number)
+  return new Date(a!, m! - 1, j)
+}
+
+/** Date → `YYYY-MM-DD` LOCAL (réimplémenté ici, sans `isoLocale`). */
+function isoLocal(d: Date): string {
+  const deux = (n: number) => String(n).padStart(2, '0')
+  return `${String(d.getFullYear())}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}`
+}
+
+/** Indexe les lignes produites par leur date, pour interroger une colonne. */
+function parDate(lignes: LigneDonnees[]): Map<string, LigneDonnees> {
+  return new Map(lignes.map((l) => [l.date as string, l]))
+}
+
+// ── Clés d'accès aux valeurs d'une série ─────────────────────────────────────
+
+describe('clés d’une série', () => {
+  it('une série pose CINQ clés distinctes, toutes préfixées par la sienne', () => {
+    // ORACLE : les cinq informations d'une série (valeur, conformité, OT, date
+    // lisible, remplacement de compteur) cohabitent dans le MÊME objet de ligne.
+    // Deux clés identiques s'écraseraient l'une l'autre — la valeur effacerait
+    // la conformité — et une clé ne portant pas celle de la série ferait
+    // collision entre deux séries du même graphique.
+    fc.assert(
+      fc.property(fc.string({ minLength: 1, maxLength: 6 }), (cle) => {
+        const cles = [
+          cleValeur(cle),
+          cleConforme(cle),
+          cleOt(cle),
+          cleDates(cle),
+          cleRemplacement(cle),
+        ]
+        expect(new Set(cles).size).toBe(cles.length)
+        for (const k of cles) expect(k.startsWith(cle)).toBe(true)
+      }),
+      CFG,
+    )
+  })
+})
+
+// ── Contenu des lignes (mode ligne) ──────────────────────────────────────────
+
+describe('construireDonneesLigne — contenu des lignes', () => {
+  const series: SerieTemporelle[] = [
+    {
+      cle: 'a',
+      label: 'Température',
+      points: [
+        { date: '2024-01-10', valeur: 7, conforme: true, otId: 'ot-1' },
+        { date: '2024-02-10', valeur: 0, conforme: false, otId: 'ot-2' },
+        { date: '2024-03-10', valeur: null, conforme: null, otId: 'ot-3' },
+      ],
+    },
+    {
+      cle: 'b',
+      label: 'Pression',
+      points: [{ date: '2024-02-10', valeur: 42, otId: 'ot-9' }],
+    },
+  ]
+
+  it('reporte la valeur et l’OT du relevé de CETTE date, série par série', () => {
+    // ORACLE : une ligne = une date réelle ; elle porte, pour chaque série, la
+    // valeur du relevé de CETTE date — 0 compris, car un compteur à zéro est une
+    // mesure et non une absence — et l'OT qui l'a produit. Une série sans relevé
+    // à cette date reste vide (null) plutôt que d'emprunter le point d'une autre
+    // date ou d'une autre série.
+    const par = parDate(construireDonneesLigne(series))
+    expect(par.get('2024-01-10')![cleValeur('a')]).toBe(7)
+    expect(par.get('2024-01-10')![cleOt('a')]).toBe('ot-1')
+    expect(par.get('2024-02-10')![cleValeur('a')]).toBe(0)
+    expect(par.get('2024-02-10')![cleOt('a')]).toBe('ot-2')
+    expect(par.get('2024-03-10')![cleValeur('a')]).toBeNull()
+    expect(par.get('2024-02-10')![cleValeur('b')]).toBe(42)
+    expect(par.get('2024-02-10')![cleOt('b')]).toBe('ot-9')
+    // Série muette à cette date : ni valeur, ni OT emprunté.
+    expect(par.get('2024-01-10')![cleValeur('b')]).toBeNull()
+    expect(par.get('2024-01-10')![cleOt('b')]).toBeNull()
+  })
+
+  it('traduit la conformité en 1 / 0 / null, trois états DISTINCTS', () => {
+    // ORACLE : contrat de sérialisation vers Recharts, qui ne sait pas lire un
+    // booléen — conforme = 1, NON conforme = 0, inconnu (null ou non renseigné)
+    // = null. Les trois états doivent rester distincts : confondre « non
+    // conforme » et « non renseigné » afficherait un point conforme là où le
+    // relevé est hors seuil.
+    const par = parDate(construireDonneesLigne(series))
+    expect(par.get('2024-01-10')![cleConforme('a')]).toBe(1)
+    expect(par.get('2024-02-10')![cleConforme('a')]).toBe(0)
+    expect(par.get('2024-03-10')![cleConforme('a')]).toBeNull()
+    // Compteur : aucune conformité déclarée ⇒ inconnu, pas « non conforme ».
+    expect(par.get('2024-02-10')![cleConforme('b')]).toBeNull()
+  })
+})
+
+// ── Contenu des colonnes (mode colonnes) ─────────────────────────────────────
+
+describe('construireDonneesColonnes — contenu des colonnes', () => {
+  const debut = new Date(2024, 0, 1).getTime()
+  const fin = new Date(2024, 2, 31).getTime()
+  const series: SerieTemporelle[] = [
+    {
+      cle: 'm',
+      label: 'Compteur',
+      points: [
+        { date: '2024-01-20', valeur: 100, otId: 'ot-1', remplacement: true },
+        { date: '2024-02-20', valeur: null, otId: 'ot-2' },
+        { date: '2024-03-20', valeur: 250, otId: 'ot-3' },
+      ],
+    },
+  ]
+
+  it('ne retient qu’un relevé CHIFFRÉ et laisse la colonne vide sinon', () => {
+    // ORACLE : une barre représente une mesure ; un relevé sans valeur n'a
+    // aucune hauteur à dessiner. Sa colonne reste donc entièrement vide (ni
+    // valeur, ni OT) et n'emprunte surtout pas la mesure d'une autre date, ce
+    // qui dupliquerait une consommation dans l'historique.
+    const par = parDate(construireDonneesColonnes(series, 'mois', debut, fin))
+    expect(par.get('2024-01-20')![cleValeur('m')]).toBe(100)
+    expect(par.get('2024-01-20')![cleOt('m')]).toBe('ot-1')
+    expect(par.get('2024-03-20')![cleValeur('m')]).toBe(250)
+    expect(par.get('2024-03-20')![cleOt('m')]).toBe('ot-3')
+    expect(par.get('2024-02-20')![cleValeur('m')]).toBeNull()
+    expect(par.get('2024-02-20')![cleOt('m')]).toBeNull()
+  })
+
+  it('porte la date RÉELLE du relevé, en clair, pour l’info-bulle', () => {
+    // ORACLE : l'info-bulle d'une barre annonce la date du relevé qu'elle
+    // représente — son quantième et son millésime doivent s'y retrouver, avec un
+    // mois en lettres pour lever l'ambiguïté jour/mois. Une colonne sans mesure
+    // n'annonce aucune date.
+    const par = parDate(construireDonneesColonnes(series, 'mois', debut, fin))
+    const texte = par.get('2024-01-20')![cleDates('m')]
+    expect(typeof texte).toBe('string')
+    expect(texte as string).toContain('20')
+    expect(texte as string).toContain('2024')
+    expect(texte as string).toMatch(/\p{L}/u)
+    expect(par.get('2024-02-20')![cleDates('m')]).toBeNull()
+  })
+
+  it('ajoute une colonne VIDE à chaque période de calendrier sans relevé', () => {
+    // ORACLE : une fenêtre de trois mois doit montrer ses trois mois. Avec un
+    // seul relevé en janvier, février et mars n'ont aucune donnée : chacun
+    // reçoit malgré tout sa colonne, posée sur sa frontière de calendrier (le
+    // 1er du mois), sinon la barre unique resterait collée à un bord et la
+    // fenêtre paraîtrait vide. Janvier, lui, est DÉJÀ représenté par son relevé
+    // réel : lui ajouter une colonne ferait doublon.
+    const uneSeule: SerieTemporelle[] = [
+      {
+        cle: 'm',
+        label: 'Compteur',
+        points: [{ date: '2024-01-20', valeur: 100, otId: 'ot-1' }],
+      },
+    ]
+    const dates = construireDonneesColonnes(uneSeule, 'mois', debut, fin).map(
+      (l) => l.date as string,
+    )
+    const frontieres = genererReperes('mois', debut, fin).map((ms) =>
+      isoLocal(new Date(ms)),
+    )
+    expect(frontieres).toHaveLength(3)
+    // Les trois mois de la fenêtre sont représentés par au moins une colonne.
+    for (const f of frontieres) {
+      const mois = f.slice(0, 7)
+      expect(dates.some((d) => d.startsWith(mois))).toBe(true)
+    }
+    expect(dates).not.toContain(frontieres[0]) // janvier : le relevé réel suffit
+    expect(dates).toContain(frontieres[1]) // février : colonne vide ajoutée
+    expect(dates).toContain(frontieres[2]) // mars : colonne vide ajoutée
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MUTANTS ÉQUIVALENTS — inutile de rouvrir l'enquête
+//
+// Le rapport Stryker de ce module signale cinq mutants « survivants ». Ils sont
+// tous ÉQUIVALENTS : aucune exécution ne peut les distinguer du code d'origine,
+// donc aucun test ne peut les tuer. Ils vivent tous dans `echantillonner`
+// (lignes 133-138), dont les deux garde-fous d'entrée se recouvrent.
+//
+// 1. L133 `if (max < 1 || items.length === 0) return []` → `if (false)`
+// 2. L133 `max < 1` → `false`
+// 3. L133 `||` → `&&`
+//    Les trois font sauter (ou rétrécir) le retour anticipé. Par cas :
+//    · `items` vide et `max ≥ 1` → la ligne suivante, `items.length <= max`,
+//      rend `items`, c'est-à-dire la même liste vide.
+//    · `items` vide et `max < 1` → soit `0 <= max` (cas max = 0) rend `items`,
+//      soit la boucle `for (i = 0; i < max)` ne tourne pas (borne ≤ 0), `retenus`
+//      reste vide et `filter` rend `[]`.
+//    · `items` non vide et `max < 1` → `items.length <= max` est faux,
+//      `max === 1` est faux, la boucle ne tourne pas : `filter` rend `[]`.
+//    Dans tous les cas la valeur rendue est la même liste vide que le retour
+//    anticipé.
+//
+// 4. L133 `items.length === 0` → `false`
+//    Seul cas touché : `items` vide avec `max ≥ 1`. L'original rend un `[]`
+//    NEUF, le mutant rend la liste d'entrée — vide elle aussi. Les deux valeurs
+//    sont égales ; seule une assertion d'identité de référence SUR UNE LISTE
+//    VIDE les séparerait, et une telle assertion ne traduirait aucune propriété
+//    de l'axe. (L'identité de référence est bien vérifiée, elle, dans le cas
+//    utile : « rend l'entrée telle quelle », liste non vide.)
+//
+// 5. L138 `for (let i = 0; i < max; i += 1)` → `i <= max`
+//    Le tour supplémentaire ajoute l'index `Math.round(max × pas)` avec
+//    `pas = (items.length - 1) / (max - 1)`. À ce point du code on a
+//    `items.length > max ≥ 2`, donc `pas > 1` et
+//    `max × pas = (max / (max - 1)) × (items.length - 1) > items.length - 1`,
+//    l'excédent valant `pas`, lui-même > 1 > 0,5 : l'arrondi tombe donc TOUJOURS
+//    au-delà du dernier index. `retenus` gagne un index hors bornes, que
+//    `items.filter((_, i) => retenus.has(i))` n'atteint jamais. Sortie
+//    rigoureusement identique.
+//
+// ATTENTION si un jour ces mutants apparaissent « tués » : ce n'est pas un
+// progrès, c'est un test devenu instable. Une propriété qui dépasse le délai
+// d'attente sous les workers parallèles de Stryker rougit au hasard et fait
+// passer n'importe quel mutant pour mort. C'est ce qui s'était produit avec la
+// propriété « une étiquette à CHAQUE période couverte » tant qu'elle tournait à
+// 1 000 tirages sur une fenêtre de sept ans (3,6 s) — d'où son budget
+// `CFG_LOURD` et sa fenêtre de deux ans.
+// ─────────────────────────────────────────────────────────────────────────────

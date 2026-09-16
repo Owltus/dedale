@@ -92,43 +92,37 @@ describe('diEditSchema — édition', () => {
   testeRejetBlanc('diEditSchema', diEditSchema, DI_EDIT, ['constat'])
   testeIdempotence('diEditSchema', diEditSchema, DI_EDIT)
 
-  it.fails(
-    'BUG CANDIDAT Martin : le constat n’est PAS borné en édition (aucun .max())',
-    () => {
-      // Attendu : la même borne qu'à la création, et au plus la borne de la base
-      // (`di_constat_taille` : length(constat) <= 5000).
-      // Observé : `diEditSchema.constat` n'a AUCUN `.max()` → 100 000 caractères
-      // acceptés par le formulaire d'édition alors que la création en refuse
-      // 4 001. Conséquence : l'UPDATE part, la base lève 23514 sur une contrainte
-      // ABSENTE de `MESSAGES_CONTRAINTE_CHECK` (lib/form.ts) → l'usager lit
-      // « Valeur refusée : elle ne respecte pas une règle. » et perd sa saisie.
-      // Contre-exemples : 'x'.repeat(4001) (asymétrie) et 'x'.repeat(5001)
-      // (rejet garanti par la base).
-      expect(
-        rejette(diEditSchema, { ...DI_EDIT, constat: 'x'.repeat(5001) }),
-      ).toBe(true)
-    },
-  )
+  it('borne le constat comme la base le fait', () => {
+    // ORACLE : `di_constat_taille` (`length(constat) <= 5000`).
+    //
+    // RÉGRESSION COUVERTE : `diEditSchema.constat` n'avait AUCUN `.max()` →
+    // 100 000 caractères acceptés par le formulaire d'édition alors que la
+    // création en refuse 4 001. L'UPDATE partait, la base levait un 23514 et
+    // l'usager lisait « Valeur refusée : elle ne respecte pas une règle. » en
+    // perdant sa saisie. C'est le test de concordance Zod / SQL
+    // (`src/lib/concordance-sql.test.ts`) qui a trouvé cette divergence — celle
+    // que le présent fichier avait pourtant consignée sans jamais la corriger.
+    expect(
+      rejette(diEditSchema, { ...DI_EDIT, constat: 'x'.repeat(5001) }),
+    ).toBe(true)
+  })
 
-  it.fails(
-    'BUG CANDIDAT Martin : création et édition ne partagent pas la même borne',
-    () => {
-      // Propriété d'ALIGNEMENT : ce que la création refuse, l'édition doit le
-      // refuser aussi — sinon la règle dépend de l'écran par lequel on passe.
-      fc.assert(
-        fc.property(fc.integer({ min: 4001, max: 6000 }), (n) => {
-          const texte = 'x'.repeat(n)
-          const creation = diSchema.safeParse({ ...DI, constat: texte }).success
-          const edition = diEditSchema.safeParse({
-            ...DI_EDIT,
-            constat: texte,
-          }).success
-          expect(edition).toBe(creation)
-        }),
-        RUNS,
-      )
-    },
-  )
+  it('applique la même borne que la création', () => {
+    // Propriété d'ALIGNEMENT : ce que la création refuse, l'édition doit le
+    // refuser aussi — sinon la règle dépend de l'écran par lequel on passe.
+    fc.assert(
+      fc.property(fc.integer({ min: 4001, max: 6000 }), (n) => {
+        const texte = 'x'.repeat(n)
+        const creation = diSchema.safeParse({ ...DI, constat: texte }).success
+        const edition = diEditSchema.safeParse({
+          ...DI_EDIT,
+          constat: texte,
+        }).success
+        expect(edition).toBe(creation)
+      }),
+      RUNS,
+    )
+  })
 })
 
 describe('diTitre', () => {

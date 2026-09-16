@@ -29,7 +29,11 @@ export function emptyDi(): DiFormValues {
 // constat n'est pas modifiable. Les liaisons (facultatives) ne sont réconciliées
 // que pour les rôles métier — le demandeur n'édite que son constat.
 export const diEditSchema = z.object({
-  constat: texteObligatoire('Le constat est obligatoire', 'constat'),
+  // Même borne que `diSchema` : la colonne porte `CHECK (length(constat) <=
+  // 5000)`, et le champ de création s'arrête à 4 000. Sans ce `.max()`, l'écran
+  // d'ÉDITION était plus permissif que celui de création ET que la base — un
+  // constat rallongé au-delà de 5 000 caractères partait chercher un 23514.
+  constat: texteObligatoire('Le constat est obligatoire', 'constat').max(4000),
   local_id: z.string(), // '' = aucun
   equipement_id: z.string(), // '' = aucun
 })

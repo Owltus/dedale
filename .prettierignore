@@ -18,6 +18,12 @@ RAPPORT.md
 .stryker-tmp/
 reports/
 
+# Jeu de données SEMÉ par `tests/securite/semis.mjs` sur la base locale jetable :
+# généré, réécrit à chaque semis, jamais relu à la main. ESLint l'ignore déjà
+# (tout `tests/securite`) ; sans cette ligne, un semis fait virer `verify` au
+# rouge pour une raison qui n'en est pas une.
+tests/securite/seed-data.json
+
 # Outillage de skills et document de design : generes, ou figes depuis longtemps
 # et jamais relus a la main. Les reformater bruiterait la gate sans aucun gain --
 # or toute la methode du chantier de correction repose sur un `npm run verify`

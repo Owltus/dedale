@@ -20,9 +20,16 @@ import { execFileSync } from 'node:child_process'
  */
 function statutLocal(dossier) {
   const brut = execFileSync(
-    'npx',
+    // Windows ne résout pas `npx` sans extension hors shell.
+    process.platform === 'win32' ? 'npx.cmd' : 'npx',
     ['--yes', 'supabase', 'status', '-o', 'json'],
-    { cwd: dossier, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+    {
+      cwd: dossier,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // Node refuse de lancer un `.cmd` hors shell depuis la 18.20 (EINVAL).
+      shell: process.platform === 'win32',
+    },
   )
   return JSON.parse(brut)
 }

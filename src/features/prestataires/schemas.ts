@@ -26,6 +26,15 @@ export const emptyPrestataire: PrestataireFormValues = {
 // Identifiants de `types_contrats` (source : base). Réutilisés par `etat.ts`.
 export const TYPE_CONTRAT_TACITE = '2'
 
+/**
+ * Plafond des compteurs de contrat (`duree_cycle_mois`, `delai_preavis_jours`,
+ * `fenetre_resiliation_jours`) : ce sont des colonnes INTEGER. Au-delà,
+ * Postgres répond 22003 (`integer out of range`), une erreur brute qui ne
+ * désigne aucun champ — on refuse donc AVANT l'aller-retour réseau.
+ */
+const ENTIER_MAX = 2_147_483_647
+const ENTIER_MAX_TEXTE = '2 147 483 647'
+
 // Les champs de reconduction/résiliation existent en base ; le schéma reflète les
 // contraintes CHECK (sinon erreur backend 23514) et conditionne la durée de cycle
 // au type « tacite reconduction ». Les dates nues (`YYYY-MM-DD`) se comparent en
@@ -46,6 +55,7 @@ export const contratSchema = z
       .number()
       .int('La durée du cycle doit être un nombre entier de mois')
       .positive('La durée du cycle doit être supérieure à 0')
+      .max(ENTIER_MAX, `La durée du cycle doit rester sous ${ENTIER_MAX_TEXTE}`)
       .nullable(),
     // Résiliation / préavis. Nullable côté formulaire (le champ peut être vidé) ;
     // rendu obligatoire par un refine (la colonne est NOT NULL DEFAULT 30).
@@ -53,11 +63,19 @@ export const contratSchema = z
       .number()
       .int('Le délai de préavis doit être un nombre entier de jours')
       .min(0, 'Le délai de préavis doit être positif ou nul')
+      .max(
+        ENTIER_MAX,
+        `Le délai de préavis doit rester sous ${ENTIER_MAX_TEXTE} jours`,
+      )
       .nullable(),
     fenetre_resiliation_jours: z
       .number()
       .int('La fenêtre de résiliation doit être un nombre entier de jours')
       .positive('La fenêtre de résiliation doit être supérieure à 0')
+      .max(
+        ENTIER_MAX,
+        `La fenêtre de résiliation doit rester sous ${ENTIER_MAX_TEXTE} jours`,
+      )
       .nullable(),
     date_signature: dateFacultative(),
     date_resiliation: dateFacultative(),
