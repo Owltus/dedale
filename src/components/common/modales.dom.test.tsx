@@ -7,6 +7,7 @@ import { FormDialog } from './form-dialog'
 import { ConfirmDialog } from './confirm-dialog'
 import { ConfirmDeleteDialog } from './confirm-delete-dialog'
 import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 
 /**
  * MODALES communes. Trois promesses s'y jouent, dans cet ordre de gravité :
@@ -194,17 +195,19 @@ describe('DialogShell', () => {
   // à la fermeture, le focus REVIENT au déclencheur. Sinon l'utilisateur au
   // clavier est renvoyé à `<body>`, donc au tout début de la page.
   //
-  // BUG CANDIDAT Martin : attendu le focus sur le bouton « Ouvrir » après Échap
-  // / observé le focus sur `<body>`. Cause : `DialogContent` en mode MODAL de
-  // Radix fait `event.preventDefault()` sur `onCloseAutoFocus` (ce qui ANNULE la
-  // restauration du FocusScope) puis focalise `context.triggerRef.current` —
-  // référence renseignée par `<DialogTrigger>`. Or l'application n'utilise
-  // JAMAIS `DialogTrigger` : toutes les modales sont pilotées par un `open`
-  // contrôlé depuis un bouton externe. Le ref est donc toujours nul et le focus
-  // n'est rendu à personne — sur TOUTES les modales de Dédale, pas seulement
-  // celle-ci. Correctif possible côté `DialogShell` : mémoriser l'élément actif
-  // à l'ouverture et le refocaliser via `onCloseAutoFocus`.
-  it.fails('le focus revient au déclencheur à la fermeture', async () => {
+  // ORACLE (WCAG 2.4.3, « Focus Order ») : fermer une modale doit rendre le
+  // focus à ce qui l'a ouverte, sinon la tabulation suivante repart du haut de
+  // la page.
+  //
+  // RÉGRESSION COUVERTE : `DialogContent` en mode modal appelle
+  // `preventDefault()` sur `onCloseAutoFocus` — ce qui annule la restauration du
+  // `FocusScope` — puis focalise `context.triggerRef`, une référence que seul
+  // `<DialogTrigger>` renseigne. Or aucune modale de Dédale ne l'utilise : elles
+  // sont toutes pilotées par un `open` contrôlé depuis un bouton extérieur. Le
+  // ref restait donc nul et le focus n'était rendu à personne, sur TOUTES les
+  // modales de l'application. `ui/dialog.tsx` mémorise désormais l'élément actif
+  // à l'ouverture et le refocalise à la fermeture.
+  it('le focus revient au déclencheur à la fermeture', async () => {
     const utilisateur = userEvent.setup()
     render(<HoteAvecDeclencheur />)
 
@@ -216,6 +219,140 @@ describe('DialogShell', () => {
     await waitFor(() => {
       expect(declencheur).toHaveFocus()
     })
+  })
+
+  /*
+   * Les trois cas de fermeture que la restauration du focus doit franchir sans
+   * jeter. Ce correctif touche `ui/dialog.tsx`, donc 100 % des modales de
+   * l'application : c'est le seul endroit du chantier où une régression ne
+   * serait pas locale à un écran.
+   */
+
+  /** Deux modales empilées, la seconde ouverte depuis la première. */
+  function HoteImbrique() {
+    const [parent, setParent] = useState(false)
+    const [enfant, setEnfant] = useState(false)
+    return (
+      <>
+        <button type="button" onClick={() => setParent(true)}>
+          Ouvrir le parent
+        </button>
+        <DialogShell open={parent} onOpenChange={setParent} title="Parent">
+          <button type="button" onClick={() => setEnfant(true)}>
+            Ouvrir l’enfant
+          </button>
+          <DialogShell open={enfant} onOpenChange={setEnfant} title="Enfant">
+            <Input aria-label="Champ de l’enfant" />
+          </DialogShell>
+        </DialogShell>
+      </>
+    )
+  }
+
+  // ORACLE : chaque modale rend le focus à SON déclencheur. Fermer l'enfant doit
+  // ramener sur le bouton du parent, pas sur celui qui a ouvert le parent — sans
+  // quoi la pile de modales perd son fil.
+  it('modale imbriquée : fermer l’enfant rend le focus au bouton du parent', async () => {
+    const utilisateur = userEvent.setup()
+    render(<HoteImbrique />)
+
+    await utilisateur.click(
+      screen.getByRole('button', { name: 'Ouvrir le parent' }),
+    )
+    const boutonEnfant = await screen.findByRole('button', {
+      name: 'Ouvrir l’enfant',
+    })
+    await utilisateur.click(boutonEnfant)
+    await screen.findByLabelText('Champ de l’enfant')
+
+    await utilisateur.keyboard('{Escape}')
+    await waitFor(() => {
+      expect(boutonEnfant).toHaveFocus()
+    })
+  })
+
+  /** Le déclencheur DISPARAÎT pendant que la modale est ouverte. */
+  function HoteDeclencheurVolatil() {
+    const [open, setOpen] = useState(false)
+    const [visible, setVisible] = useState(true)
+    return (
+      <>
+        {visible && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(true)
+              // La ligne qui a ouvert la modale est retirée juste après : c'est
+              // le cas d'un élément de menu contextuel démonté à la fermeture,
+              // ou d'une ligne de liste supprimée par la modale elle-même.
+              setVisible(false)
+            }}
+          >
+            Ouvrir depuis une ligne
+          </button>
+        )}
+        <DialogShell open={open} onOpenChange={setOpen} title="Suppression">
+          <Input aria-label="Motif" />
+        </DialogShell>
+      </>
+    )
+  }
+
+  // ORACLE : un déclencheur détaché du document ne se focalise pas. La
+  // fermeture doit rester silencieuse — ni exception, ni focus rendu à un nœud
+  // fantôme.
+  it('déclencheur disparu : la fermeture ne jette pas', async () => {
+    const utilisateur = userEvent.setup()
+    render(<HoteDeclencheurVolatil />)
+
+    await utilisateur.click(
+      screen.getByRole('button', { name: 'Ouvrir depuis une ligne' }),
+    )
+    await screen.findByLabelText('Motif')
+    expect(
+      screen.queryByRole('button', { name: 'Ouvrir depuis une ligne' }),
+    ).toBeNull()
+
+    await utilisateur.keyboard('{Escape}')
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+  })
+
+  // ORACLE : la restauration du focus COMPOSE avec le gestionnaire d'un
+  // appelant, elle ne l'écrase pas — les deux handlers sont posés après le
+  // spread des props, précisément pour ça. Testé sur la primitive : `DialogShell`
+  // n'expose pas les props de `DialogContent`, et c'est la primitive qui porte
+  // le contrat.
+  it('le gestionnaire de fermeture d’un appelant est appelé', async () => {
+    const utilisateur = userEvent.setup()
+    const onCloseAutoFocus = vi.fn()
+    function Hote() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Ouvrir
+          </button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
+              <DialogTitle>Avec gestionnaire</DialogTitle>
+              <Input aria-label="Nom" />
+            </DialogContent>
+          </Dialog>
+        </>
+      )
+    }
+    render(<Hote />)
+    const declencheur = screen.getByRole('button', { name: 'Ouvrir' })
+    await utilisateur.click(declencheur)
+    await screen.findByRole('dialog')
+    await utilisateur.keyboard('{Escape}')
+    await waitFor(() => {
+      expect(onCloseAutoFocus).toHaveBeenCalledTimes(1)
+    })
+    // Et la restauration a bien eu lieu malgré le gestionnaire de l'appelant.
+    expect(declencheur).toHaveFocus()
   })
 })
 

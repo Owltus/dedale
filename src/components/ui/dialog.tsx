@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react'
+import { useRef, type ComponentProps } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { XIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -43,6 +43,29 @@ function DialogContent({
 }: ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  // Élément qui avait le focus au moment de l'OUVERTURE, pour le lui rendre à
+  // la fermeture.
+  //
+  // Pourquoi c'est à nous de le faire : `DialogContent` en mode modal appelle
+  // `preventDefault()` sur `onCloseAutoFocus` — ce qui ANNULE la restauration
+  // du `FocusScope` — puis focalise `context.triggerRef`, une référence que
+  // seul `<DialogTrigger>` renseigne. Or aucune modale de Dédale ne l'utilise :
+  // toutes sont pilotées par un `open` contrôlé depuis un bouton extérieur. Le
+  // ref est donc toujours nul, et le focus n'est rendu à personne.
+  //
+  // Sans cela, fermer une modale au clavier renvoie sur `<body>` : la
+  // tabulation suivante repart du haut de la page. Sur une fiche d'ordre de
+  // travail à quinze opérations, c'est vingt tabulations à refaire à chaque
+  // saisie.
+  //
+  // La capture se fait sur `onOpenAutoFocus` et NON au premier rendu : la
+  // plupart des appelants (`DialogShell`) montent ce composant en permanence et
+  // laissent Radix décider de l'affichage. Au premier rendu, le focus est donc
+  // encore sur `<body>` — une valeur non nulle, qu'un `??=` figerait pour de
+  // bon. `onOpenAutoFocus` est dispatché AVANT que le `FocusScope` ne déplace
+  // le focus : l'élément lu est bien le déclencheur.
+  const declencheurRef = useRef<HTMLElement | null>(null)
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -53,6 +76,24 @@ function DialogContent({
           className,
         )}
         {...props}
+        // Après `{...props}`, donc ces deux gestionnaires COMPOSENT avec ceux
+        // d'un appelant au lieu d'être écrasés par le spread : le sien est
+        // appelé, et la restauration du focus a lieu dans tous les cas.
+        onOpenAutoFocus={(e) => {
+          declencheurRef.current = document.activeElement as HTMLElement | null
+          props.onOpenAutoFocus?.(e)
+        }}
+        onCloseAutoFocus={(e) => {
+          props.onCloseAutoFocus?.(e)
+          if (e.defaultPrevented) return
+          e.preventDefault()
+          // `isConnected` : le déclencheur peut avoir disparu pendant que la
+          // modale était ouverte — une ligne de liste supprimée, un élément de
+          // menu contextuel démonté à la fermeture. On ne focalise alors rien
+          // plutôt que de jeter.
+          const el = declencheurRef.current
+          if (el?.isConnected) el.focus()
+        }}
       >
         {children}
         {showCloseButton && (
