@@ -54,13 +54,49 @@ export function exportErrorMessage(e: unknown): string {
 }
 
 /**
+ * Champ texte refusé parce qu’il ne contient QUE des blancs (contraintes
+ * `length(trim(...)) > 0`). Le cas est réel et déroutant : les espaces de
+ * largeur nulle collés depuis Word ou un PDF passent le `.trim()` de
+ * JavaScript mais pas celui de Postgres. L’utilisateur voit un champ
+ * apparemment rempli — d’où l’explication, et pas seulement le refus.
+ */
+const VIDE_NOM =
+  'Ce nom est vide : il ne contient que des espaces ou des caractères invisibles. Saisissez un nom lisible.'
+const VIDE_TITRE =
+  'Ce titre est vide : il ne contient que des espaces ou des caractères invisibles. Saisissez un titre lisible.'
+const VIDE_LIBELLE =
+  'Ce libellé est vide : il ne contient que des espaces ou des caractères invisibles. Saisissez un libellé lisible.'
+const VIDE_REFERENCE =
+  'Cette référence est vide : elle ne contient que des espaces ou des caractères invisibles. Saisissez une référence lisible.'
+const VIDE_CONSTAT =
+  'Ce constat est vide : il ne contient que des espaces ou des caractères invisibles. Décrivez le problème en quelques mots.'
+
+/** Seuils min/max inversés (opérations et items de modèles d’opérations). */
+const SEUILS_INVERSES =
+  'Seuils inversés : le seuil minimum doit être inférieur ou égal au seuil maximum. Corrigez l’un des deux.'
+
+/**
  * Messages métier par CONTRAINTE CHECK (nom SQL) : « Valeur refusée : elle ne
  * respecte pas une règle. » ne dit pas QUOI corriger. Postgres nomme la contrainte
  * violée dans son message (« … violates check constraint "dates_coherentes" »),
  * que PostgREST transmet tel quel → on le traduit quand on sait le faire.
  * Les contraintes absentes retombent sur le message générique.
+ *
+ * La liste couvre les 41 contraintes CHECK atteignables depuis un formulaire,
+ * relevées en PRODUCTION le 16/09/2026 (`pg_constraint`, et non
+ * `schema_complete.sql` qui avait dérivé) — cf.
+ * `plan/correction-findings-martin/contraintes-check-reelles.md` —, plus les
+ * contraintes d’ordres de travail déjà traduites. Écrire ici plutôt que dans un
+ * écran profite aux 66 points d’appel de `writeErrorMessage` d’un seul coup, y
+ * compris aux imports CSV.
+ *
+ * Les gardes purement structurelles (format d’un chemin d’image, structure du
+ * JSONB de caractéristiques, `source_type_valide`…) restent volontairement
+ * absentes : une saisie ne peut pas les déclencher, et sur un appel
+ * programmatique fautif le message brut de Postgres est plus utile.
  */
 const MESSAGES_CONTRAINTE_CHECK: Readonly<Record<string, string>> = {
+  // ── Ordres de travail et opérations ───────────────────────────────────────
   dates_coherentes:
     'Dates incohérentes : la clôture serait antérieure au démarrage. Corrigez les dates d’exécution des opérations.',
   statut_terminal_a_date_cloture:
@@ -71,6 +107,83 @@ const MESSAGES_CONTRAINTE_CHECK: Readonly<Record<string, string>> = {
     'Remplacement incomplet : renseignez l’ancien ET le nouvel index.',
   statut_date_coherents:
     'Date d’exécution incohérente avec le statut de l’opération.',
+  opex_commentaires_taille:
+    'Commentaire trop long : 5 000 caractères au maximum. Raccourcissez le texte, ou joignez le détail en document.',
+  operations_nom_non_vide: VIDE_NOM,
+  operations_seuils_coherents: SEUILS_INVERSES,
+  modeles_operations_items_nom_non_vide: VIDE_NOM,
+  modeles_operations_items_seuils_coherents: SEUILS_INVERSES,
+
+  // ── Lieux : sites, bâtiments, niveaux, locaux ─────────────────────────────
+  sites_nom_check: VIDE_NOM,
+  batiments_nom_check: VIDE_NOM,
+  niveaux_nom_check: VIDE_NOM,
+  locaux_nom_check: VIDE_NOM,
+  locaux_hauteur_positive:
+    'Hauteur sous plafond invalide : saisissez une valeur supérieure à 0, ou laissez le champ vide si elle n’est pas connue.',
+  // Contrainte nommée par Postgres : elle refuse aussi 0, que le front accepte.
+  locaux_surface_m2_check:
+    'Surface invalide : saisissez une valeur supérieure à 0 (0 n’est pas accepté), ou laissez le champ vide si elle n’est pas connue.',
+  locaux_capacite_positive:
+    'Effectif invalide : saisissez 0 ou plus, ou laissez le champ vide si l’effectif n’est pas connu.',
+
+  // ── Catégories, gammes, équipements ───────────────────────────────────────
+  categories_nom_check: VIDE_NOM,
+  // Contrainte nommée par Postgres : `parent_id IS NULL OR parent_id <> id`.
+  categories_check:
+    'Catégorie parente invalide : une catégorie ne peut pas être sa propre parente. Choisissez une autre catégorie parente, ou laissez le champ vide pour une catégorie racine.',
+  gammes_nom_non_vide: VIDE_NOM,
+  // Contrainte nommée par Postgres : `date_fin_garantie >= date_mise_en_service`.
+  equipements_check:
+    'Dates incohérentes : la fin de garantie ne peut pas précéder la mise en service. Corrigez l’une des deux dates.',
+
+  // ── Demandes d’intervention, événements, travaux ──────────────────────────
+  demandes_intervention_constat_check: VIDE_CONSTAT,
+  di_constat_taille:
+    'Constat trop long : 5 000 caractères au maximum. Raccourcissez le texte, ou joignez le détail en document.',
+  evenements_titre_check: VIDE_TITRE,
+  evenements_dates_coherentes:
+    'Dates incohérentes : la clôture ne peut pas précéder la date de l’événement. Corrigez l’une des deux dates.',
+  interventions_travaux_titre_check: VIDE_TITRE,
+
+  // ── Investissements ───────────────────────────────────────────────────────
+  investissements_libelle_check: VIDE_LIBELLE,
+  investissements_dates_coherentes:
+    'Dates incohérentes : la clôture ne peut pas précéder la date de demande. Corrigez l’une des deux dates.',
+  investissements_montant_demande_check:
+    'Montant demandé invalide : saisissez 0 ou plus, ou laissez le champ vide s’il n’est pas encore chiffré.',
+  investissements_montant_prevu_check:
+    'Montant prévu invalide : saisissez 0 ou plus, ou laissez le champ vide s’il n’est pas encore chiffré.',
+  investissements_depense_reelle_check:
+    'Dépense réelle invalide : saisissez 0 ou plus, ou laissez le champ vide tant que la dépense n’est pas connue.',
+
+  // ── Contrats ──────────────────────────────────────────────────────────────
+  contrats_reference_non_vide: VIDE_REFERENCE,
+  contrats_date_fin_apres_debut:
+    'Dates incohérentes : la fin du contrat ne peut pas précéder son début. Corrigez l’une des deux dates.',
+  contrats_date_signature_avant_debut:
+    'Dates incohérentes : la signature ne peut pas être postérieure au début du contrat. Corrigez l’une des deux dates.',
+  contrats_date_resiliation_apres_debut:
+    'Dates incohérentes : la résiliation ne peut pas précéder le début du contrat. Corrigez l’une des deux dates.',
+  contrats_date_notification_avant_resiliation:
+    'Dates incohérentes : la notification doit précéder la résiliation, ou tomber le même jour. Corrigez l’une des deux dates.',
+  contrats_cycle_positif:
+    'Durée de cycle invalide : saisissez au moins 1 mois, ou laissez le champ vide si le contrat n’est pas reconductible.',
+  contrats_fenetre_positive:
+    'Fenêtre de résiliation invalide : saisissez au moins 1 jour, ou laissez le champ vide si le contrat n’en prévoit pas.',
+  contrats_preavis_positif:
+    'Préavis invalide : saisissez 0 jour ou plus, jamais une valeur négative.',
+
+  // ── Prestataires ──────────────────────────────────────────────────────────
+  prestataires_libelle_non_vide: VIDE_LIBELLE,
+  prestataires_email_format:
+    'Adresse e-mail invalide : elle doit ressembler à nom@domaine.fr, sans espace. Corrigez-la, ou laissez le champ vide.',
+  prestataires_siret_format:
+    'SIRET invalide : saisissez les 14 chiffres, sans espace ni séparateur, ou laissez le champ vide.',
+  prestataires_code_postal_format:
+    'Code postal invalide : saisissez 5 chiffres (par exemple 75001), ou laissez le champ vide.',
+  prestataires_commentaires_taille:
+    'Commentaire trop long : 5 000 caractères au maximum. Raccourcissez le texte.',
 }
 
 /**
@@ -129,6 +242,10 @@ export function deleteErrorMessage(
  * les `onError` de création/édition/changement de statut.
  * - `42501` (RLS) / `PGRST116` (0 ligne touchée) : hors périmètre, ou déjà modifié.
  * - `22003` : dépassement de capacité d’un montant (numeric overflow).
+ * - `22001` : texte plus long que la colonne ne l’accepte (troncature refusée).
+ * - `22P02` : valeur mal formée envoyée à la base — typiquement un identifiant
+ *   qui n’est pas un UUID (lien périmé, import CSV, référence copiée à la main).
+ * - `23502` : colonne obligatoire laissée vide (NOT NULL).
  * - `23514` (CHECK) : message métier si la contrainte violée est connue
  *   (cf. `MESSAGES_CONTRAINTE_CHECK`), sinon « valeur refusée par une règle ».
  * - `23505` : doublon (contrainte d’unicité).
@@ -149,6 +266,15 @@ export function writeErrorMessage(
     return 'Action impossible : élément hors de votre périmètre, ou déjà modifié.'
   }
   if (code === '22003') return 'Montant trop élevé : réduisez la valeur.'
+  if (code === '22001') {
+    return 'Texte trop long : il dépasse la longueur autorisée pour ce champ. Raccourcissez-le.'
+  }
+  if (code === '22P02') {
+    return 'Donnée mal formée : une valeur ou un identifiant n’a pas le format attendu. Rafraîchissez la page puis réessayez, ou vérifiez les valeurs saisies.'
+  }
+  if (code === '23502') {
+    return 'Champ obligatoire vide : renseignez tous les champs requis avant d’enregistrer.'
+  }
   if (code === '23514') {
     const contrainte = checkConstraintName(e)
     return (

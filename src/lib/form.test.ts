@@ -172,6 +172,35 @@ describe('writeErrorMessage', () => {
     )
   })
 
+  it('22001 → texte plus long que la colonne', () => {
+    expect(writeErrorMessage(pgError('22001'))).toBe(
+      'Texte trop long : il dépasse la longueur autorisée pour ce champ. Raccourcissez-le.',
+    )
+  })
+
+  it('22P02 → valeur mal formée (identifiant qui n’est pas un UUID)', () => {
+    expect(
+      writeErrorMessage(
+        pgError('22P02', 'invalid input syntax for type uuid: "abc"'),
+      ),
+    ).toBe(
+      'Donnée mal formée : une valeur ou un identifiant n’a pas le format attendu. Rafraîchissez la page puis réessayez, ou vérifiez les valeurs saisies.',
+    )
+  })
+
+  it('23502 → champ obligatoire laissé vide (NOT NULL)', () => {
+    expect(
+      writeErrorMessage(
+        pgError(
+          '23502',
+          'null value in column "nom" of relation "locaux" violates not-null constraint',
+        ),
+      ),
+    ).toBe(
+      'Champ obligatoire vide : renseignez tous les champs requis avant d’enregistrer.',
+    )
+  })
+
   it('23514 → valeur refusée par une règle (CHECK)', () => {
     expect(writeErrorMessage(pgError('23514'))).toBe(
       'Valeur refusée : elle ne respecte pas une règle.',
@@ -239,6 +268,8 @@ function pgErrorReel(code: string, message: string): Error & { code: string } {
 }
 
 const GENERIQUE = 'Une erreur est survenue'
+/** Repli de `writeErrorMessage` quand la contrainte CHECK violée est inconnue. */
+const CHECK_GENERIQUE = 'Valeur refusée : elle ne respecte pas une règle.'
 
 describe('pgCode — entrées hostiles', () => {
   it('ne jette jamais et ne rend qu’une string ou undefined', () => {
@@ -362,8 +393,10 @@ describe('traducteurs d’erreur — totalité', () => {
 
 describe('writeErrorMessage — contraintes CHECK', () => {
   /**
-   * Oracle : les six entrées de `MESSAGES_CONTRAINTE_CHECK` (lib/form.ts). Une
-   * entrée non testée est une traduction qu'on peut casser sans s'en apercevoir.
+   * Oracle : les entrées « ordres de travail » de `MESSAGES_CONTRAINTE_CHECK`
+   * (lib/form.ts), dont le libellé exact est figé ici. Une entrée non testée est
+   * une traduction qu'on peut casser sans s'en apercevoir. Les contraintes des
+   * autres tables sont couvertes plus bas, à partir de la liste de production.
    */
   const TRADUITES: [string, string][] = [
     [
@@ -433,50 +466,200 @@ describe('writeErrorMessage — contraintes CHECK', () => {
     // Un usager peut écrire n'importe quoi dans un champ texte ; ce texte ne
     // doit pas pouvoir piloter le message affiché. Ici le code n'est pas 23514,
     // donc la traduction ne s'applique pas, quoi que dise le message.
+    // (Code neutre : `22012`, sans message générique dédié — `22001` en a un.)
     expect(
       writeErrorMessage(
         pgError(
-          '22001',
+          '22012',
           'violates check constraint "motif_annulation_oblig_si_annule"',
         ),
       ),
     ).toBe(GENERIQUE)
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : des contraintes CHECK atteignables depuis un formulaire ne sont pas traduites',
-    () => {
-      // Attendu : toute contrainte que le front peut provoquer — parce qu'il ne
-      // la reproduit PAS côté saisie — doit avoir un message métier, sinon
-      // l'usager lit « Valeur refusée : elle ne respecte pas une règle. » sans
-      // savoir quoi corriger, et perd sa saisie.
-      // Observé : les contraintes ci-dessous (toutes vérifiables dans
-      // schema_complete.sql) tombent sur le message générique. Chacune
-      // correspond à un trou de validation documenté par les tests de schéma :
-      //   di_constat_taille            ← diEditSchema.constat sans .max()
-      //   evenements_dates_coherentes  ← clotureSchema ignore date_evenement
-      //   locaux_hauteur_positive      ← hauteur_m accepte 0
-      //   locaux_capacite_positive     ← capacite_personnes non bornée
-      //   contrats_date_fin_apres_debut ← si la saisie contourne le refine
-      const generique = 'Valeur refusée : elle ne respecte pas une règle.'
-      for (const contrainte of [
-        'di_constat_taille',
-        'evenements_dates_coherentes',
-        'locaux_hauteur_positive',
-        'locaux_capacite_positive',
-        'contrats_date_fin_apres_debut',
-      ]) {
-        expect(
-          writeErrorMessage(
-            pgError(
-              '23514',
-              `new row for relation "x" violates check constraint "${contrainte}"`,
-            ),
+  it('traduit les contraintes que le front ne reproduit pas côté saisie', () => {
+    // Régression couverte : ces cinq contraintes tombaient sur « Valeur refusée :
+    // elle ne respecte pas une règle. », un message qui ne désigne aucun champ et
+    // ne propose aucune action — au moment précis où l'usager croit avoir fini.
+    // Chacune correspond à un trou de validation front documenté :
+    //   di_constat_taille             ← diEditSchema.constat sans .max()
+    //   evenements_dates_coherentes   ← clotureSchema ignore date_evenement
+    //   locaux_hauteur_positive       ← hauteur_m accepte 0
+    //   locaux_capacite_positive      ← capacite_personnes non bornée
+    //   contrats_date_fin_apres_debut ← si la saisie contourne le refine
+    // ORACLE : toute contrainte que le front peut provoquer doit avoir un message
+    // métier, sinon l'usager ne sait pas quoi corriger et perd sa saisie.
+    for (const contrainte of [
+      'di_constat_taille',
+      'evenements_dates_coherentes',
+      'locaux_hauteur_positive',
+      'locaux_capacite_positive',
+      'contrats_date_fin_apres_debut',
+    ]) {
+      expect(
+        writeErrorMessage(
+          pgError(
+            '23514',
+            `new row for relation "x" violates check constraint "${contrainte}"`,
           ),
-        ).not.toBe(generique)
-      }
-    },
+        ),
+      ).not.toBe(CHECK_GENERIQUE)
+    }
+  })
+})
+
+/**
+ * ORACLE : les 41 contraintes CHECK atteignables depuis un formulaire, relevées
+ * dans `pg_constraint` SUR LA PRODUCTION le 16/09/2026 (et non dans
+ * `schema_complete.sql`, qui avait dérivé) — cf.
+ * `plan/correction-findings-martin/contraintes-check-reelles.md`.
+ * Cette liste est celle de la BASE, pas celle de la table du front : elle échoue
+ * donc si une contrainte perd sa traduction, ce qu'une itération sur les clés de
+ * `MESSAGES_CONTRAINTE_CHECK` ne pourrait jamais détecter.
+ */
+const CONTRAINTES_FORMULAIRE = [
+  'batiments_nom_check',
+  'categories_check',
+  'categories_nom_check',
+  'contrats_cycle_positif',
+  'contrats_date_fin_apres_debut',
+  'contrats_date_notification_avant_resiliation',
+  'contrats_date_resiliation_apres_debut',
+  'contrats_date_signature_avant_debut',
+  'contrats_fenetre_positive',
+  'contrats_preavis_positif',
+  'contrats_reference_non_vide',
+  'demandes_intervention_constat_check',
+  'di_constat_taille',
+  'equipements_check',
+  'evenements_dates_coherentes',
+  'evenements_titre_check',
+  'gammes_nom_non_vide',
+  'interventions_travaux_titre_check',
+  'investissements_dates_coherentes',
+  'investissements_depense_reelle_check',
+  'investissements_libelle_check',
+  'investissements_montant_demande_check',
+  'investissements_montant_prevu_check',
+  'locaux_capacite_positive',
+  'locaux_hauteur_positive',
+  'locaux_nom_check',
+  'locaux_surface_m2_check',
+  'modeles_operations_items_nom_non_vide',
+  'modeles_operations_items_seuils_coherents',
+  'niveaux_nom_check',
+  'operations_execution_remplacement_coherent',
+  'operations_nom_non_vide',
+  'operations_seuils_coherents',
+  'opex_commentaires_taille',
+  'prestataires_code_postal_format',
+  'prestataires_commentaires_taille',
+  'prestataires_email_format',
+  'prestataires_libelle_non_vide',
+  'prestataires_siret_format',
+  'sites_nom_check',
+  'statut_date_coherents',
+] as const
+
+/** Erreur 23514 telle que PostgREST la transmet pour une contrainte donnée. */
+function violationCheck(contrainte: string) {
+  return pgError(
+    '23514',
+    `new row for relation "x" violates check constraint "${contrainte}"`,
   )
+}
+
+describe('writeErrorMessage — couverture des contraintes de production', () => {
+  it('couvre les 41 contraintes atteignables depuis un formulaire', () => {
+    expect(CONTRAINTES_FORMULAIRE).toHaveLength(41)
+  })
+
+  it('rend pour CHACUNE un message métier, jamais le repli générique', () => {
+    const sansMessage = CONTRAINTES_FORMULAIRE.filter(
+      (c) => writeErrorMessage(violationCheck(c)) === CHECK_GENERIQUE,
+    )
+    // On liste les manquantes plutôt que d'échouer sur la première : le rapport
+    // d'échec dit alors exactement ce qu'il reste à traduire.
+    expect(sansMessage).toEqual([])
+  })
+
+  it('rend des messages non vides et lisibles (pas un code technique)', () => {
+    for (const contrainte of CONTRAINTES_FORMULAIRE) {
+      const msg = writeErrorMessage(violationCheck(contrainte))
+      expect(msg.length).toBeGreaterThan(0)
+      // Un message utile nomme le champ et dit quoi faire : il ne répète pas le
+      // nom SQL de la contrainte, que l'usager ne connaît pas.
+      expect(msg).not.toContain(contrainte)
+      expect(msg).not.toContain('check constraint')
+    }
+  })
+
+  it('explique le cas des champs « apparemment remplis » (blancs invisibles)', () => {
+    // Régression couverte : un nom composé d'espaces insécables ou de caractères
+    // de largeur nulle passe le `.trim()` de JavaScript mais pas celui de
+    // Postgres. Le message doit EXPLIQUER, sinon l'usager réessaie à l'identique.
+    // ORACLE : groupe `length(trim(...)) > 0` de la production.
+    for (const contrainte of [
+      'sites_nom_check',
+      'batiments_nom_check',
+      'niveaux_nom_check',
+      'locaux_nom_check',
+      'categories_nom_check',
+      'gammes_nom_non_vide',
+      'operations_nom_non_vide',
+      'modeles_operations_items_nom_non_vide',
+    ]) {
+      expect(writeErrorMessage(violationCheck(contrainte))).toBe(
+        'Ce nom est vide : il ne contient que des espaces ou des caractères invisibles. Saisissez un nom lisible.',
+      )
+    }
+  })
+
+  it('donne la borne chiffrée quand la contrainte en porte une', () => {
+    // ORACLE : `length(constat) <= 5000` → « 5 000 caractères au maximum ».
+    for (const contrainte of [
+      'di_constat_taille',
+      'opex_commentaires_taille',
+      'prestataires_commentaires_taille',
+    ]) {
+      expect(writeErrorMessage(violationCheck(contrainte))).toContain(
+        '5 000 caractères au maximum',
+      )
+    }
+    expect(
+      writeErrorMessage(violationCheck('prestataires_siret_format')),
+    ).toContain('14 chiffres')
+    expect(
+      writeErrorMessage(violationCheck('prestataires_code_postal_format')),
+    ).toContain('5 chiffres')
+  })
+
+  it('traduit les deux contraintes nommées par Postgres', () => {
+    // Régression couverte : `locaux_surface_m2_check` et `equipements_check` sont
+    // des noms auto-générés, longtemps introuvables dans `schema_complete.sql`.
+    // La première refuse `surface_m2 = 0`, que le front accepte encore.
+    expect(
+      writeErrorMessage(violationCheck('locaux_surface_m2_check')),
+    ).toContain('Surface invalide')
+    expect(writeErrorMessage(violationCheck('equipements_check'))).toContain(
+      'fin de garantie',
+    )
+    expect(writeErrorMessage(violationCheck('categories_check'))).toContain(
+      'sa propre parente',
+    )
+  })
+
+  it('ne traduit une contrainte connue QUE sous le code 23514', () => {
+    // Le nom d'une contrainte apparaît dans un message texte ; seul le SQLSTATE
+    // fait foi, sinon un usager pourrait piloter l'affichage depuis un champ.
+    expect(
+      writeErrorMessage(
+        pgError('22001', violationCheck('locaux_nom_check').message),
+      ),
+    ).toBe(
+      'Texte trop long : il dépasse la longueur autorisée pour ce champ. Raccourcissez-le.',
+    )
+  })
 })
 
 describe('deleteErrorMessage — codes non traduits', () => {
