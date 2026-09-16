@@ -252,8 +252,8 @@ describe('parseImportCsv (équipements) — en-têtes', () => {
 
   it('les en-têtes sont insensibles à la casse et aux blancs (BOM compris)', () => {
     // ORACLE : Excel préfixe ses exports d'un BOM UTF-8 (`telechargerCsv` en
-    // écrit un lui-même). Comme `parseCsv` ne le retire PAS, c'est le trim des
-    // en-têtes qui sauve l'import — ce test verrouille ce filet.
+    // écrit un lui-même). `parseCsv` le retire désormais lui-même, et le trim
+    // des en-têtes reste un second filet — ce test verrouille les deux.
     const entete = `${BOM}  ${COL_LOCAL.toUpperCase()} ;marque; Puissance;CLASSE;sous garantie;${COL_MES};${COL_GARANTIE}`
     const r = parseImportCsv(
       `${entete}\nAccueil;Bosch;6,5;b;OUI;01/02/2026;`,
@@ -661,15 +661,16 @@ describe('parseImportCsv (équipements) — fuzzing', () => {
     })
   })
 
-  // BUG CANDIDAT Martin : le numéro de ligne affiché à l'utilisateur DEVRAIT
-  // désigner la ligne du texte qu'il a collé / il désigne le rang après
-  // filtrage, car `parseCsv` supprime les lignes blanches avant que
-  // `parseImportCsv` ne numérote (`ligne = i + 2`). Contre-exemple exact :
+  // RÉGRESSION : le numéro de ligne affiché à l'utilisateur désigne la ligne
+  // du texte qu'il a collé, et non le rang après filtrage. `parseCsv`
+  // supprimait les lignes blanches avant que `parseImportCsv` ne numérote
+  // (`ligne = i + 2`) : dans
   //   "<en-tête>\nAccueil;Bosch;;;;;\n\nCave;Bosch;;;;;"
-  // la 4e ligne du collage (« Cave », local introuvable) est rapportée comme
-  // « ligne 3 ». Avec plusieurs lignes blanches, le décalage s'accumule et
-  // l'utilisateur corrige la mauvaise ligne de son fichier.
-  it.fails('numérote les lignes comme dans le texte collé', () => {
+  // la 4e ligne du collage (« Cave », local introuvable) était rapportée
+  // « ligne 3 ». Avec plusieurs lignes blanches le décalage s'accumulait, et
+  // l'utilisateur corrigeait la mauvaise ligne de son fichier. `parseCsvIndexe`
+  // conserve désormais le numéro d'origine.
+  it('numérote les lignes comme dans le texte collé', () => {
     const r = parseImportCsv(
       `${ENTETE}\nAccueil;Bosch;;;;;\n\nCave;Bosch;;;;;`,
       gabarit,

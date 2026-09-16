@@ -1,5 +1,5 @@
 import { NATURE_GAMME_LABEL, gammeNatures } from './schemas'
-import { parseCsv } from '@/lib/csv'
+import { parseCsvIndexe } from '@/lib/csv'
 import {
   COL_OPERATION,
   COL_OP_DESCRIPTION,
@@ -148,10 +148,10 @@ export function parseImportCsv(
   periodicites: PeriodiciteRef[],
   existants: GammeExistante[] = [],
 ): GammeCsvResult {
-  const rows = parseCsv(texte, CSV_DELIMITER)
+  const rows = parseCsvIndexe(texte, CSV_DELIMITER)
   if (rows.length === 0) return { colonnesManquantes: [], lignes: [] }
 
-  const header = (rows[0] ?? []).map((h) => h.trim())
+  const header = (rows[0]?.cellules ?? []).map((h) => h.trim())
   const indexOf = (nom: string) =>
     header.findIndex((h) => norm(h) === norm(nom))
   const idxGamme = indexOf(COL_GAMME)
@@ -176,8 +176,10 @@ export function parseImportCsv(
   // lue qu'une fois, les lignes suivantes n'ont plus à la répéter.
   const nouvellesDecrites = new Set<string>()
 
-  const lignes: GammeCsvRow[] = rows.slice(1).map((cells, i) => {
-    const ligne = i + 2 // 1 = en-tête, l'humain compte à partir de 1
+  const lignes: GammeCsvRow[] = rows.slice(1).map((enr) => {
+    // `ligne` = numéro dans le TEXTE COLLÉ (1 = en-tête) : les lignes
+    // blanches, écartées par le lecteur, ne le décalent pas.
+    const { cellules: cells, ligne } = enr
     const lire = (colonne: string) => {
       const index = indexOf(colonne)
       return index === -1 ? '' : (cells[index] ?? '')

@@ -1,6 +1,6 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { formaterCsv, parseCsv } from './csv'
+import { formaterCsv, parseCsv, parseCsvIndexe } from './csv'
 
 // Tests de PROPRIÉTÉS (fast-check) sur le lecteur/écrivain CSV. L'oracle de
 // référence est la RFC 4180 : le couple (formaterCsv, parseCsv) doit se
@@ -300,13 +300,13 @@ describe('parseCsv — fins de ligne', () => {
     )
   })
 
-  // BUG CANDIDAT Martin : une cellule contenant un `\r` isolé DEVRAIT être
-  // protégée par des guillemets (RFC 4180 : CR est un caractère de fin de
-  // ligne) / `formaterCsv` ne teste que `["<délimiteur>\n]`, donc la cellule
-  // sort NUE et `parseCsv` (qui normalise `\r` → `\n`) COUPE la ligne en deux.
-  // Contre-exemple : formaterCsv(['a'], [['x\ry']]) → "a\r\nx\ry" → relu
-  // [['a'], ['x'], ['y']] : une ligne devient deux, les données sont décalées.
-  it.fails('protège une cellule contenant un retour chariot isolé', () => {
+  // RÉGRESSION : une cellule contenant un `\r` isolé (copier-coller d'un vieux
+  // tableur ou d'un PDF) est protégée par des guillemets — RFC 4180 : CR est
+  // un caractère de fin de ligne. Tant que `formaterCsv` ne testait que
+  // `["<délimiteur>\n]`, la cellule sortait NUE et `parseCsv` (qui normalise
+  // `\r` → `\n`) COUPAIT la ligne en deux : formaterCsv(['a'], [['x\ry']])
+  // relu [['a'], ['x'], ['y']], donc tout le reste du fichier décalé.
+  it('ne coupe pas la ligne d’une cellule à retour chariot isolé', () => {
     fc.assert(
       fc.property(
         fc.string({
@@ -320,18 +320,32 @@ describe('parseCsv — fins de ligne', () => {
           maxLength: 3,
         }),
         (avant, apres) => {
-          const s = `${avant}\r${apres}`
-          expect(parseCsv(formaterCsv(['a'], [[s]]))).toEqual([['a'], [s]])
+          const relu = parseCsv(formaterCsv(['a'], [[`${avant}\r${apres}`]]))
+          // Deux lignes (l'en-tête et la donnée), une seule cellule chacune :
+          // le contenu reste d'un bloc, aucune colonne ne glisse.
+          expect(relu).toHaveLength(2)
+          expect(relu[1]).toHaveLength(1)
+          expect(relu[1]?.[0]).toContain(avant)
+          expect(relu[1]?.[0]).toContain(apres)
         },
       ),
       { numRuns: 200, seed: 42 },
     )
   })
 
-  // BUG CANDIDAT Martin : une cellule contenant `\r\n` (texte multi-lignes
-  // saisi sous Windows, ex. une description) DEVRAIT revenir à l'identique /
-  // `parseCsv` normalise le texte AVANT de parser, guillemets compris : le
-  // `\r\n` intérieur revient en `\n`. Contre-exemple :
+  // BUG CANDIDAT Martin (résiduel, connu et assumé) : une cellule protégée
+  // DEVRAIT revenir à l'identique, `\r` compris / `parseCsv` normalise le
+  // texte AVANT de parser, guillemets compris : un `\r` intérieur — isolé ou
+  // en `\r\n` — revient en `\n`. La cellule n'est plus COUPÉE (cf. le test
+  // ci-dessus), mais le CR est encore perdu. Déplacer cette normalisation dans
+  // la boucle de lecture est un autre chantier, non ouvert ici.
+  it.fails('préserve un retour chariot isolé dans une cellule protégée', () => {
+    const s = 'Ligne 1\rLigne 2'
+    expect(parseCsv(formaterCsv(['a'], [[s]]))).toEqual([['a'], [s]])
+  })
+
+  // BUG CANDIDAT Martin (résiduel) : même cause que ci-dessus, pour un texte
+  // multi-lignes saisi sous Windows (ex. une description).
   // formaterCsv(['a'], [['x\r\ny']]) → relu 'x\ny' (le CR est perdu).
   it.fails('préserve un CRLF à l’intérieur d’une cellule protégée', () => {
     const s = 'Ligne 1\r\nLigne 2'
@@ -343,14 +357,12 @@ describe('parseCsv — BOM UTF-8', () => {
   /** Marque d'ordre des octets U+FEFF, en échappement (invisible autrement). */
   const BOM = '\uFEFF'
 
-  // BUG CANDIDAT Martin : un CSV préfixé du BOM UTF-8 (ce que produit Excel —
-  // et ce que `telechargerCsv` écrit lui-même !) DEVRAIT se lire comme le même
-  // CSV sans BOM / `parseCsv` ne retire pas le BOM : il reste collé à la
-  // PREMIÈRE cellule d'en-tête. Contre-exemple :
-  // parseCsv(BOM + 'Local;Marque') → [[BOM + 'Local', 'Marque']] au lieu de
-  // [['Local', 'Marque']] → toute comparaison d'en-tête non « trimée » rate
-  // la première colonne.
-  it.fails('lit un CSV préfixé du BOM comme le même CSV sans BOM', () => {
+  // RÉGRESSION : un CSV préfixé du BOM UTF-8 (ce que produit Excel — et ce que
+  // `telechargerCsv` écrit lui-même !) se lit comme le même CSV sans BOM.
+  // Sans ce retrait, le BOM resterait collé à la PREMIÈRE cellule d'en-tête
+  // (parseCsv(BOM + 'Local;Marque') → [[BOM + 'Local', 'Marque']]) et toute
+  // comparaison d'en-tête non « trimée » raterait la première colonne.
+  it('lit un CSV préfixé du BOM comme le même CSV sans BOM', () => {
     fc.assert(
       fc.property(matrice, ({ entetes, lignes }) => {
         const csv = formaterCsv(entetes, lignes)
@@ -360,36 +372,94 @@ describe('parseCsv — BOM UTF-8', () => {
     )
   })
 
-  it('le BOM reste collé à la première cellule (caractérisation du défaut)', () => {
-    // ORACLE : tant que le BOM n'est pas retiré, il appartient au texte de la
-    // première cellule. On l'écrit noir sur blanc pour que le jour où le BOM
-    // sera pris en charge, CE test tombe et signale le changement.
+  it('le BOM n’atteint jamais la première cellule', () => {
+    // ORACLE : le BOM est une marque d'encodage, pas une donnée — il n'a rien
+    // à faire dans le texte de la première cellule, quel que soit cet en-tête.
     fc.assert(
       fc.property(
         fc.string({ unit: fc.constantFrom('L', 'o', 'é'), minLength: 1 }),
         (entete) => {
-          expect(parseCsv(`${BOM}${entete};b`)[0]?.[0]).toBe(`${BOM}${entete}`)
+          expect(parseCsv(`${BOM}${entete};b`)[0]?.[0]).toBe(entete)
         },
       ),
       RUNS,
     )
   })
 
-  it('le trim des en-têtes rattrape le BOM (filet de sécurité des imports)', () => {
+  it('le trim des en-têtes reste un second filet (imports)', () => {
     // ORACLE : String.prototype.trim traite U+FEFF comme un blanc (ECMA-262,
     // production WhiteSpace). Les modules d'import comparent des en-têtes
-    // trimés : c'est CE détail — et lui seul — qui les sauve du défaut ci-dessus.
+    // trimés : ce filet-là couvrait SEUL le défaut avant son correctif ; il ne
+    // couvre plus désormais que les blancs parasites, et le retrait du BOM ne
+    // dépend plus de lui.
     expect((parseCsv(`${BOM}Local;Marque`)[0]?.[0] ?? '').trim()).toBe('Local')
   })
 })
 
+describe('parseCsvIndexe — numéros de ligne d’origine', () => {
+  it('rend exactement les mêmes cellules que parseCsv', () => {
+    // ORACLE : les deux fonctions sont deux VUES du même lecteur ; elles ne
+    // peuvent pas diverger sur le découpage, quel que soit le texte.
+    fc.assert(
+      fc.property(
+        fc.string({
+          unit: fc.constantFrom(...CARACTERES, '\r'),
+          maxLength: 40,
+        }),
+        (texte) => {
+          expect(parseCsvIndexe(texte).map((r) => r.cellules)).toEqual(
+            parseCsv(texte),
+          )
+        },
+      ),
+      RUNS,
+    )
+  })
+
+  it('numérote chaque enregistrement comme dans le texte collé', () => {
+    // ORACLE : le numéro rapporté à l'utilisateur désigne la ligne de SON
+    // fichier. Les lignes blanches sont écartées du résultat mais occupent un
+    // rang dans le texte : elles ne doivent décaler aucun numéro suivant.
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.oneof(
+            fc.constantFrom('', '   ', '\t'), // lignes blanches
+            fc.constantFrom('a', 'é', 'b'),
+          ),
+          { minLength: 1, maxLength: 10 },
+        ),
+        (valeurs) => {
+          const attendu = valeurs
+            .map((v, i) => ({ cellules: [v], ligne: i + 1 }))
+            .filter((r) => (r.cellules[0] ?? '').trim() !== '')
+          expect(parseCsvIndexe(valeurs.join('\n'))).toEqual(attendu)
+        },
+      ),
+      RUNS,
+    )
+  })
+
+  it('numérote un enregistrement multi-lignes par la ligne où il COMMENCE', () => {
+    // ORACLE : une cellule protégée peut porter des sauts de ligne ; le numéro
+    // annoncé reste celui de sa première ligne, et les lignes qu'elle occupe
+    // comptent pour les enregistrements suivants.
+    const texte = 'Nom;Note\r\nA;"deux\r\nlignes"\r\n\r\nB;fin'
+    expect(parseCsvIndexe(texte)).toEqual([
+      { cellules: ['Nom', 'Note'], ligne: 1 },
+      { cellules: ['A', 'deux\nlignes'], ligne: 2 },
+      { cellules: ['B', 'fin'], ligne: 5 },
+    ])
+  })
+})
+
 describe('formaterCsv — délimiteur', () => {
-  // BUG CANDIDAT Martin : le délimiteur est une DONNÉE, il devrait être
-  // échappé avant d'entrer dans une expression régulière / il est interpolé
-  // brut dans `new RegExp(`["${delimiter}\n]`)`. Contre-exemple exact :
-  // formaterCsv(['a'], [['b']], '-') jette « Range out of order in character
-  // class » (la classe devient ["-\n], soit l'intervalle 0x22..0x0A).
-  it.fails('ne jette pour aucun délimiteur d’un caractère', () => {
+  // RÉGRESSION : le délimiteur est une DONNÉE, il est échappé avant d'entrer
+  // dans la classe de caractères de l'expression régulière. Interpolé brut,
+  // `formaterCsv(['a'], [['b']], '-')` jetait « Range out of order in
+  // character class » (la classe devenait ["-\n], soit l'intervalle
+  // 0x22..0x0A).
+  it('ne jette pour aucun délimiteur d’un caractère', () => {
     fc.assert(
       fc.property(
         fc.string({ minLength: 1, maxLength: 1 }),

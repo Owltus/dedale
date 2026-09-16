@@ -1,4 +1,4 @@
-import { parseCsv } from '@/lib/csv'
+import { parseCsvIndexe } from '@/lib/csv'
 import { CHAMP_TYPES, resoudreValeurTexte, type Champ } from '@/lib/champs'
 import { parseOuiNon } from '@/features/operations/csv-import'
 
@@ -133,10 +133,10 @@ export function parseImportCsv(
   texte: string,
   existants: ModeleEquipementExistant[] = [],
 ): ModeleEquipementCsvResult {
-  const rows = parseCsv(texte, CSV_DELIMITER)
+  const rows = parseCsvIndexe(texte, CSV_DELIMITER)
   if (rows.length === 0) return { colonnesManquantes: [], lignes: [] }
 
-  const header = (rows[0] ?? []).map((h) => h.trim())
+  const header = (rows[0]?.cellules ?? []).map((h) => h.trim())
   const indexOf = (nom: string) =>
     header.findIndex((h) => norm(h) === norm(nom))
   const idx = {
@@ -162,8 +162,10 @@ export function parseImportCsv(
     clesParModele.set(norm(m.nom), new Set(m.champs.map((c) => norm(c.cle))))
   }
 
-  const lignes: ModeleEquipementCsvRow[] = rows.slice(1).map((cells, i) => {
-    const ligne = i + 2 // 1 = en-tête, l'humain compte à partir de 1
+  const lignes: ModeleEquipementCsvRow[] = rows.slice(1).map((enr) => {
+    // `ligne` = numéro dans le TEXTE COLLÉ (1 = en-tête) : les lignes
+    // blanches, écartées par le lecteur, ne le décalent pas.
+    const { cellules: cells, ligne } = enr
     const lire = (index: number) => (index === -1 ? '' : (cells[index] ?? ''))
     const erreurs: string[] = []
 

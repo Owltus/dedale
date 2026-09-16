@@ -1,4 +1,4 @@
-import { parseCsv } from '@/lib/csv'
+import { parseCsvIndexe } from '@/lib/csv'
 
 /** Séparateur imposé du CSV d'import (la virgule reste la décimale française). */
 export const CSV_DELIMITER = ';'
@@ -93,10 +93,10 @@ export function parseImportCsv(
   texte: string,
   existants: ModeleDiExistant[] = [],
 ): ModeleDiCsvResult {
-  const rows = parseCsv(texte, CSV_DELIMITER)
+  const rows = parseCsvIndexe(texte, CSV_DELIMITER)
   if (rows.length === 0) return { colonnesManquantes: [], lignes: [] }
 
-  const header = (rows[0] ?? []).map((h) => h.trim())
+  const header = (rows[0]?.cellules ?? []).map((h) => h.trim())
   const indexOf = (nom: string) =>
     header.findIndex((h) => norm(h) === norm(nom))
   const idxLibelle = indexOf(COL_LIBELLE)
@@ -111,8 +111,10 @@ export function parseImportCsv(
   // même ligne répétée deux fois ne crée pas deux modèles.
   const dejaPris = new Set(existants.map((m) => norm(m.libelle)))
 
-  const lignes: ModeleDiCsvRow[] = rows.slice(1).map((cells, i) => {
-    const ligne = i + 2 // 1 = en-tête, l'humain compte à partir de 1
+  const lignes: ModeleDiCsvRow[] = rows.slice(1).map((enr) => {
+    // `ligne` = numéro dans le TEXTE COLLÉ (1 = en-tête) : les lignes
+    // blanches, écartées par le lecteur, ne le décalent pas.
+    const { cellules: cells, ligne } = enr
     const erreurs: string[] = []
     const libelle = (cells[idxLibelle] ?? '').trim()
     const constat = (cells[idxConstat] ?? '').trim()

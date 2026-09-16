@@ -759,7 +759,8 @@ describe('resoudreValeurTexte — nombres « à la française »', () => {
   })
 
   it('accepte quelques écritures « JavaScript » (caractérisation des tolérances)', () => {
-    // ORACLE : ces formes viennent du `Number()` sous-jacent, pas d'une règle
+    // ORACLE : ces formes sont des tolérances d'écriture (reprises telles
+    // quelles par le filtre de forme qui précède la conversion), pas une règle
     // métier. On les fige pour que toute évolution du parseur soit VISIBLE.
     expect(resoudre('+5')).toEqual({ ok: true, valeur: 5 }) // signe + explicite
     expect(resoudre('5.')).toEqual({ ok: true, valeur: 5 }) // point final
@@ -769,27 +770,23 @@ describe('resoudreValeurTexte — nombres « à la française »', () => {
     expect(resoudre('1e3')).toEqual({ ok: true, valeur: 1000 }) // notation scientifique
   })
 
-  // BUG CANDIDAT Martin : un champ « nombre » d'un CSV français ne DEVRAIT
-  // accepter qu'un décimal (signe optionnel, chiffres, virgule ou point) /
-  // `Number()` reconnaît aussi les littéraux JavaScript non décimaux et les
-  // convertit en silence. Contre-exemples exacts :
+  // RÉGRESSION : un champ « nombre » d'un CSV français n'accepte qu'un décimal
+  // (signe optionnel, chiffres, virgule ou point). `Number()` reconnaît aussi
+  // les littéraux JavaScript non décimaux et les convertissait en silence :
   //   « 0x10 » → 16 · « 0b101 » → 5 · « 0o17 » → 15
   // Une référence d'équipement comme « 0x10 » saisie dans une colonne
-  // numérique devient donc la valeur 16, sans le moindre avertissement.
-  it.fails(
-    'refuse les littéraux non décimaux (hexadécimal, binaire, octal)',
-    () => {
-      fc.assert(
-        fc.property(
-          fc.integer({ min: 1, max: 255 }),
-          fc.constantFrom('0x', '0b', '0o'),
-          (n, prefixe) => {
-            const base = prefixe === '0x' ? 16 : prefixe === '0b' ? 2 : 8
-            expect(resoudre(`${prefixe}${n.toString(base)}`).ok).toBe(false)
-          },
-        ),
-        { numRuns: 200, seed: 42 },
-      )
-    },
-  )
+  // numérique devenait donc la valeur 16, sans le moindre avertissement.
+  it('refuse les littéraux non décimaux (hexadécimal, binaire, octal)', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 255 }),
+        fc.constantFrom('0x', '0b', '0o'),
+        (n, prefixe) => {
+          const base = prefixe === '0x' ? 16 : prefixe === '0b' ? 2 : 8
+          expect(resoudre(`${prefixe}${n.toString(base)}`).ok).toBe(false)
+        },
+      ),
+      { numRuns: 200, seed: 42 },
+    )
+  })
 })

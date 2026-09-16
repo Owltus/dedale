@@ -203,7 +203,18 @@ export function resoudreValeurTexte(
       return { ok: true, valeur: option }
     }
     case 'nombre': {
-      const n = Number(v.replace(',', '.'))
+      // Forme VALIDÉE avant conversion : `Number()` reconnaît aussi les
+      // littéraux JavaScript non décimaux et les convertit en silence
+      // (« 0x10 » → 16, « 0b101 » → 5, « 0o17 » → 15). Une référence
+      // d'équipement saisie dans une colonne numérique deviendrait donc un
+      // nombre faux, sans le moindre avertissement. Seul un décimal est
+      // accepté : signe optionnel, chiffres, virgule ou point décimal,
+      // notation scientifique. `Infinity` et les débordements (« 1e400 »)
+      // restent traités par le `Number.isFinite` ci-dessous.
+      const nombreBrut = v.replace(',', '.')
+      const n = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(nombreBrut)
+        ? Number(nombreBrut)
+        : Number.NaN
       if (!Number.isFinite(n)) {
         return {
           ok: false,
