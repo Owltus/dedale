@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { todayLocal } from '@/lib/date'
+import { dateObligatoire } from '@/lib/dates-zod'
 
 // Création d'une DI. Le constat est obligatoire ; liaisons et prestataire
 // optionnels. La table demandes_intervention n'a PAS de colonne `titre` :
@@ -7,7 +8,7 @@ import { todayLocal } from '@/lib/date'
 // liste est dérivé de la 1re ligne du constat, cf. route).
 export const diSchema = z.object({
   constat: z.string().trim().min(1, 'Le constat est obligatoire').max(4000),
-  date_constat: z.string().min(1, 'La date de constat est obligatoire'),
+  date_constat: dateObligatoire('La date de constat est obligatoire'),
   local_id: z.string(), // '' = aucun
   equipement_id: z.string(), // '' = aucun
 })

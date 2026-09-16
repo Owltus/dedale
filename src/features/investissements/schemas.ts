@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { todayLocal } from '@/lib/date'
+import { formatDate, todayLocal } from '@/lib/date'
+import { dateObligatoire } from '@/lib/dates-zod'
 
 // Champ montant : texte numérique optionnel (≥ 0, max 2 décimales).
 // Vide accepté → converti en null à l'enregistrement (cf. mutations).
@@ -21,7 +22,7 @@ export const investissementSchema = z.object({
   montant_demande: montant,
   montant_prevu: montant,
   depense_reelle: montant,
-  date_demande: z.string().min(1, 'La date de demande est obligatoire'),
+  date_demande: dateObligatoire('La date de demande est obligatoire'),
 })
 
 export type InvestissementFormValues = z.infer<typeof investissementSchema>
@@ -52,9 +53,36 @@ export function parseMontant(value: string): number | null {
  * écrire « RAS », ce qui ne renseigne personne — même raisonnement que pour le
  * compte-rendu d'un événement.
  */
-export const clotureCapexSchema = z.object({
-  date_cloture: z.string().min(1, 'La date de clôture est obligatoire'),
-  bilan: z.string().trim().max(5000),
-})
+export const clotureCapexSchema = z
+  .object({
+    date_cloture: dateObligatoire('La date de clôture est obligatoire'),
+    bilan: z.string().trim().max(5000),
+    /**
+     * Date de demande de l'investissement clôturé. Elle n'est PAS saisie ici
+     * (le dialogue la reçoit de la fiche et la pose en valeur par défaut) :
+     * elle est là pour que le schéma puisse honorer lui-même la contrainte
+     * `investissements_dates_coherentes`. Champ REQUIS à dessein — sans elle,
+     * le contrôle redeviendrait silencieusement inopérant.
+     */
+    date_demande: dateObligatoire('La date de demande est obligatoire'),
+  })
+  // Miroir du CHECK `investissements_dates_coherentes`
+  // (date_cloture IS NULL OR date_cloture >= date_demande) : on refuse AVANT
+  // l'aller-retour réseau plutôt que de laisser remonter un 23514. La
+  // comparaison lexicographique est exacte : les deux champs sont des dates
+  // nues `YYYY-MM-DD` garanties par `dateObligatoire`.
+  .refine((v) => v.date_cloture >= v.date_demande, {
+    // Le message CITE la date butoir : « antérieure à la demande » n'aide pas
+    // si l'on ne se rappelle plus de quand date la demande.
+    error: (issue) => {
+      const saisie = issue.input as { date_demande?: unknown }
+      const date =
+        typeof saisie.date_demande === 'string' ? saisie.date_demande : ''
+      return date === ''
+        ? 'La clôture ne peut pas précéder la date de demande.'
+        : `La clôture ne peut pas précéder la demande (${formatDate(date)}).`
+    },
+    path: ['date_cloture'],
+  })
 
 export type ClotureCapexFormValues = z.infer<typeof clotureCapexSchema>

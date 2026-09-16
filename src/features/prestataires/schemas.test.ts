@@ -271,28 +271,26 @@ describe('contratSchema — cohérence des dates', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : les champs date acceptent n’importe quel texte',
-    () => {
-      // Attendu : `contrats.date_debut` est une colonne DATE → le front doit
-      // refuser ce qui n'est pas une date nue `YYYY-MM-DD`. Observé :
-      // `z.string().min(1)` laisse passer '<script>alert(1)</script>',
-      // '0000-00-00', '2026-13-45'… → erreur Postgres 22007
-      // (invalid_datetime_format) affichée en brut, et surtout : les quatre
-      // `refine` de cohérence comparent alors des chaînes quelconques, donc
-      // ne garantissent plus rien.
-      fc.assert(
-        fc.property(arbChaineHostile(), (texte) => {
-          if (/^\d{4}-\d{2}-\d{2}$/.test(texte.trim())) return
-          if (texte === '') return // vide = « non renseigné », légitime ici
-          expect(
-            rejette(contratSchema, { ...CONTRAT, date_debut: texte }),
-          ).toBe(true)
-        }),
-        RUNS,
-      )
-    },
-  )
+  it('refuse un champ date qui n’est pas une date nue', () => {
+    // ORACLE : `contrats.date_debut` est une colonne DATE → le front refuse ce
+    // qui n'est pas une date nue `YYYY-MM-DD`.
+    // Régression couverte : `z.string().min(1)` laissait passer
+    // '<script>alert(1)</script>', '0000-00-00', '2026-13-45'… → erreur Postgres
+    // 22007 (invalid_datetime_format) affichée en brut, et surtout : les quatre
+    // `refine` de cohérence comparaient alors des chaînes quelconques, donc ne
+    // garantissaient plus rien. C'est le format qui rend la comparaison
+    // lexicographique légitime — d'où l'ordre de la correction.
+    fc.assert(
+      fc.property(arbChaineHostile(), (texte) => {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(texte.trim())) return
+        if (texte === '') return // vide = « non renseigné », légitime ici
+        expect(rejette(contratSchema, { ...CONTRAT, date_debut: texte })).toBe(
+          true,
+        )
+      }),
+      RUNS,
+    )
+  })
 
   it.fails(
     'BUG CANDIDAT Martin : type_contrat_id n’a aucune borne ni format',

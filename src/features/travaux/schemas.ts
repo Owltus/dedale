@@ -5,6 +5,8 @@ import {
   variantStatutZone,
 } from '@/features/equipements/statut-zone'
 import type { StatutZone } from '@/features/equipements/statut-zone'
+import { tachesInlineSchema } from '@/features/equipements/tache-schema'
+import { dateObligatoire } from '@/lib/dates-zod'
 
 // IDs stables du référentiel (cf. statuts_travaux dans schema_complete.sql).
 // 085 : statut LIBRE (plus de machine à états côté base), ids alignés sur
@@ -20,7 +22,7 @@ export const travauxSchema = z.object({
   // déclare souvent après coup (rattrapage d'historique), sa date n'a pas de
   // raison de tomber le jour de la saisie. Date nue locale (jamais
   // `toISOString()`, cf. lib/date).
-  date_demande: z.string().min(1, 'La date est obligatoire'),
+  date_demande: dateObligatoire('La date est obligatoire'),
   // 098 : lieu principal du travaux, facultatif, indépendant des tâches —
   // même convention que demandes/schemas.ts ('' = aucun).
   local_id: z.string(),
@@ -30,14 +32,10 @@ export const travauxSchema = z.object({
   // autre façon d'y accéder). Filtrées par la mutation : une ligne sans
   // libellé NI lieu est ignorée (l'usager a pu ajouter puis abandonner une
   // ligne).
-  taches: z.array(
-    z.object({
-      id: z.string().optional(),
-      libelle: z.string(),
-      local_id: z.string(),
-      equipement_id: z.string(),
-    }),
-  ),
+  // La forme vient de `tachesInlineSchema` (dérivé de la brique `tacheSchema`)
+  // et NON d'une redéclaration locale : une tâche est la même chose ici et
+  // ailleurs — libellé lisible, ≤ 200 caractères, tableau borné.
+  taches: tachesInlineSchema,
 })
 
 export type TravauxFormValues = z.infer<typeof travauxSchema>
@@ -79,7 +77,7 @@ export type { TacheFormValues } from '@/features/equipements/tache-schema'
  * (COALESCE côté client), le trigger serveur qui le faisait ayant été retiré.
  */
 export const clotureTravauxSchema = z.object({
-  date_fin: z.string().min(1, 'La date de fin est obligatoire'),
+  date_fin: dateObligatoire('La date de fin est obligatoire'),
   compte_rendu: z.string().trim().max(5000),
 })
 

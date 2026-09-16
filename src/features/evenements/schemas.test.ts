@@ -78,66 +78,64 @@ describe('evenementSchema', () => {
     },
   )
 
-  it.fails(
-    'BUG CANDIDAT Martin : date_evenement accepte n’importe quel texte',
-    () => {
-      // Attendu : colonne DATE. Observé : `z.string().min(1)` → 22007 brut.
-      fc.assert(
-        fc.property(arbChaineHostile(), (texte) => {
-          if (texte.trim() === '') return
-          if (/^\d{4}-\d{2}-\d{2}$/.test(texte.trim())) return
-          expect(
-            rejette(evenementSchema, { ...EVENEMENT, date_evenement: texte }),
-          ).toBe(true)
-        }),
-        RUNS,
-      )
-    },
-  )
+  it('refuse une date d’événement qui n’est pas une date nue', () => {
+    // ORACLE : `evenements.date_evenement` est une colonne DATE.
+    // Régression couverte : le champ était un `z.string().min(1)` — tout texte
+    // non vide passait et Postgres répondait 22007 en brut. Il s'appuie
+    // désormais sur `dateObligatoire` (lib/dates-zod).
+    fc.assert(
+      fc.property(arbChaineHostile(), (texte) => {
+        if (texte.trim() === '') return
+        if (/^\d{4}-\d{2}-\d{2}$/.test(texte.trim())) return
+        expect(
+          rejette(evenementSchema, { ...EVENEMENT, date_evenement: texte }),
+        ).toBe(true)
+      }),
+      RUNS,
+    )
+  })
 
-  it.fails(
-    'BUG CANDIDAT Martin : le libellé de tâche INLINE ignore la définition de référence',
-    () => {
-      // Attendu : `tacheSchema` — la brique partagée qui définit CE QU'EST une
-      // tâche — exige `libelle` non blanc et ≤ 200 caractères. Le tableau
-      // `taches` du formulaire d'événement doit dire la même chose.
-      // Observé : il redéclare `libelle: z.string()` NU → ni minimum ni maximum.
-      // Contre-exemples : libellé de 100 000 caractères, et libellé '   '.
-      // Conséquence : `evenements_lieux.libelle` (TEXT NOT NULL, sans CHECK de
-      // non-vacuité) accepte la ligne — une tâche sans intitulé, impossible à
-      // pointer dans la checklist.
-      fc.assert(
-        fc.property(
-          fc.oneof(
-            fc.constant('   '),
-            fc.constant('x'.repeat(100_000)),
-            fc.constant('x'.repeat(201)),
-          ),
-          (libelle) => {
-            const viaReference = tacheSchema.safeParse({
-              libelle,
-              local_id: '',
-              equipement_id: '',
-              commentaire: '',
-              date_tache: '',
-            }).success
-            const viaFormulaire = evenementSchema.safeParse({
-              ...EVENEMENT,
-              taches: [{ libelle, local_id: '', equipement_id: '' }],
-            }).success
-            expect(viaFormulaire).toBe(viaReference)
-          },
+  it('juge le libellé de tâche INLINE comme la définition de référence', () => {
+    // ORACLE : `tacheSchema` — la brique partagée qui définit CE QU'EST une
+    // tâche — exige `libelle` non blanc et ≤ 200 caractères. Le tableau
+    // `taches` du formulaire d'événement dit la même chose.
+    // Régression couverte : le formulaire redéclarait `libelle: z.string()` NU
+    // (ni minimum ni maximum), donc `evenements_lieux.libelle` (TEXT NOT NULL,
+    // sans CHECK de non-vacuité) acceptait une tâche sans intitulé, impossible
+    // à pointer dans la checklist. Le tableau est désormais dérivé de la brique
+    // (`tachesInlineSchema`) et ne peut plus en diverger.
+    fc.assert(
+      fc.property(
+        fc.oneof(
+          fc.constant('   '),
+          fc.constant('x'.repeat(100_000)),
+          fc.constant('x'.repeat(201)),
         ),
-        RUNS,
-      )
-    },
-  )
+        (libelle) => {
+          const viaReference = tacheSchema.safeParse({
+            libelle,
+            local_id: '',
+            equipement_id: '',
+            commentaire: '',
+            date_tache: '',
+          }).success
+          const viaFormulaire = evenementSchema.safeParse({
+            ...EVENEMENT,
+            taches: [{ libelle, local_id: '', equipement_id: '' }],
+          }).success
+          expect(viaFormulaire).toBe(viaReference)
+        },
+      ),
+      RUNS,
+    )
+  })
 
-  it.fails('BUG CANDIDAT Martin : le nombre de tâches n’est pas borné', () => {
-    // Attendu : une checklist d'événement se borne (l'écran en affiche une
+  it('borne le nombre de tâches', () => {
+    // ORACLE : une checklist d'événement se borne (l'écran en affiche une
     // liste, la mutation les insère une par une).
-    // Observé : `z.array(...)` sans `.max()` → 10 000 tâches acceptées, soit
-    // 10 000 INSERT déclenchés par une seule soumission.
+    // Régression couverte : `z.array(...)` était écrit sans `.max()` — 10 000
+    // tâches étaient acceptées, soit 10 000 INSERT déclenchés par une seule
+    // soumission. La borne vit dans `tachesInlineSchema` (MAX_TACHES).
     expect(
       rejette(evenementSchema, {
         ...EVENEMENT,
@@ -150,30 +148,32 @@ describe('evenementSchema', () => {
 describe('clotureSchema — événement', () => {
   testeTotalite('clotureSchema', clotureSchema)
 
+  // `date_evenement` fait désormais PARTIE du schéma de clôture (elle n'est pas
+  // saisie : le dialogue la reçoit de la fiche et la pose en valeur par défaut)
+  // — c'est ce qui lui permet d'honorer `evenements_dates_coherentes`.
+  const CLOTURE = {
+    date_cloture: '2026-03-13',
+    compte_rendu: '',
+    date_evenement: EVENEMENT.date_evenement,
+  }
+
   it('exige la date de clôture, PAS le compte-rendu', () => {
     // Oracle : commentaire du schéma — « la BASE ne l'impose pas : un événement
     // peut être clos sans qu'aucune action ait été nécessaire ».
-    expect(
-      rejette(clotureSchema, { date_cloture: '', compte_rendu: 'RAS' }),
-    ).toBe(true)
-    expect(
-      clotureSchema.safeParse({ date_cloture: '2026-03-13', compte_rendu: '' })
-        .success,
-    ).toBe(true)
+    expect(rejette(clotureSchema, { ...CLOTURE, date_cloture: '' })).toBe(true)
+    expect(clotureSchema.safeParse(CLOTURE).success).toBe(true)
   })
 
   it('borne le compte-rendu à 5000 caractères', () => {
     expect(
-      clotureSchema.safeParse({
-        date_cloture: '2026-03-13',
-        compte_rendu: 'a'.repeat(5000),
-      }).success,
+      clotureSchema.safeParse({ ...CLOTURE, compte_rendu: 'a'.repeat(5000) })
+        .success,
     ).toBe(true)
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 5000 }), (surplus) => {
         expect(
           rejette(clotureSchema, {
-            date_cloture: '2026-03-13',
+            ...CLOTURE,
             compte_rendu: 'a'.repeat(5000 + surplus),
           }),
         ).toBe(true)
@@ -182,24 +182,28 @@ describe('clotureSchema — événement', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : la clôture n’est pas comparée à la date de l’événement',
-    () => {
-      // Attendu : CONSTRAINT evenements_dates_coherentes
-      //   CHECK (date_cloture IS NULL OR date_cloture >= date_evenement).
-      // Le front doit refuser une clôture ANTÉRIEURE à l'événement, comme il le
-      // fait pour les contrats (quatre `refine` de cohérence de dates).
-      // Observé : `clotureSchema` ne reçoit même pas `date_evenement` — il ne
-      // peut rien vérifier. L'UPDATE part, la base lève 23514 sur une contrainte
-      // ABSENTE de `MESSAGES_CONTRAINTE_CHECK` → message générique.
-      // Contre-exemple : événement du 2026-03-12 clos au 1990-01-01.
-      expect(
-        rejette(clotureSchema, {
-          date_cloture: '1990-01-01',
-          compte_rendu: '',
-          date_evenement: EVENEMENT.date_evenement,
-        }),
-      ).toBe(true)
-    },
-  )
+  it('refuse une clôture antérieure à la date de l’événement', () => {
+    // ORACLE : CONSTRAINT evenements_dates_coherentes
+    //   CHECK (date_cloture IS NULL OR date_cloture >= date_evenement).
+    // Régression couverte : `clotureSchema` ne recevait même pas
+    // `date_evenement` — il ne pouvait rien vérifier, l'UPDATE partait et la
+    // base levait un 23514 traduit en message générique. La date de l'événement
+    // fait maintenant partie du schéma, et un `refine` la compare, comme le font
+    // depuis toujours les quatre `refine` de cohérence des contrats.
+    expect(
+      rejette(clotureSchema, {
+        date_cloture: '1990-01-01',
+        compte_rendu: '',
+        date_evenement: EVENEMENT.date_evenement,
+      }),
+    ).toBe(true)
+    // Même jour : accepté (le CHECK est un `>=`).
+    expect(
+      clotureSchema.safeParse({
+        date_cloture: EVENEMENT.date_evenement,
+        compte_rendu: '',
+        date_evenement: EVENEMENT.date_evenement,
+      }).success,
+    ).toBe(true)
+  })
 })

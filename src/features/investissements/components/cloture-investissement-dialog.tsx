@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { clotureCapexSchema } from '../schemas'
 import type { ClotureCapexFormValues } from '../schemas'
-import { formatDate, isoLocale } from '@/lib/date'
+import { isoLocale } from '@/lib/date'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { DateField } from '@/components/common/fields/date-field'
@@ -49,6 +49,10 @@ export function ClotureInvestissementDialog({
     defaultValues: {
       date_cloture: initial?.date_cloture ?? isoLocale(new Date()),
       bilan: initial?.bilan ?? '',
+      // Pas un champ de saisie : la date de demande voyage dans le formulaire
+      // pour que `clotureCapexSchema` puisse comparer lui-même les deux dates
+      // (miroir du CHECK `investissements_dates_coherentes`).
+      date_demande: dateDemande,
     },
   })
 
@@ -59,19 +63,11 @@ export function ClotureInvestissementDialog({
         onOpenChange={onOpenChange}
         title={correction ? 'Modifier la clôture' : "Clôturer l'investissement"}
         description="Le budget a-t-il été tenu ? Ce qui explique l'écart, s'il y en a un. Le bilan est facultatif."
-        onSubmit={() =>
-          void form.handleSubmit((data) => {
-            // Miroir du CHECK backend : une clôture ne précède pas la demande.
-            if (data.date_cloture < dateDemande) {
-              form.setError('date_cloture', {
-                type: 'min',
-                message: `La clôture ne peut pas précéder la demande (${formatDate(dateDemande)}).`,
-              })
-              return
-            }
-            onConfirm(data)
-          })()
-        }
+        // Le contrôle « la clôture ne précède pas la demande » n'est plus fait
+        // ici : il vit dans `clotureCapexSchema`, qui reçoit `date_demande` en
+        // valeur par défaut — une seule écriture de la règle, et elle protège
+        // aussi les appels qui ne passent pas par ce dialogue.
+        onSubmit={() => void form.handleSubmit(onConfirm)()}
         submitLabel={correction ? 'Enregistrer' : 'Clôturer'}
         pendingLabel="Enregistrement…"
         pending={pending}

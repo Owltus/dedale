@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { clotureSchema } from '../schemas'
 import type { ClotureFormValues } from '../schemas'
-import { formatDate, isoLocale } from '@/lib/date'
+import { isoLocale } from '@/lib/date'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { DateField } from '@/components/common/fields/date-field'
@@ -54,6 +54,10 @@ export function ClotureEvenementDialog({
     defaultValues: {
       date_cloture: initial?.date_cloture ?? isoLocale(new Date()),
       compte_rendu: initial?.compte_rendu ?? '',
+      // Pas un champ de saisie : la date de l'événement voyage dans le
+      // formulaire pour que `clotureSchema` puisse comparer lui-même les deux
+      // dates (miroir du CHECK `evenements_dates_coherentes`).
+      date_evenement: dateEvenement,
     },
   })
 
@@ -64,19 +68,11 @@ export function ClotureEvenementDialog({
         onOpenChange={onOpenChange}
         title={correction ? 'Modifier la clôture' : 'Clôturer l’événement'}
         description="Ce qui a été fait, ou pourquoi il n’y avait rien à faire. Résumé facultatif — le détail de chaque étape se documente dans les tâches."
-        onSubmit={() =>
-          void form.handleSubmit((data) => {
-            // Miroir du CHECK backend : une clôture ne précède pas l'événement.
-            if (data.date_cloture < dateEvenement) {
-              form.setError('date_cloture', {
-                type: 'min',
-                message: `La clôture ne peut pas précéder l’événement (${formatDate(dateEvenement)}).`,
-              })
-              return
-            }
-            onConfirm(data)
-          })()
-        }
+        // Le contrôle « la clôture ne précède pas l'événement » n'est plus fait
+        // ici : il vit dans `clotureSchema`, qui reçoit `date_evenement` en
+        // valeur par défaut — une seule écriture de la règle, et elle protège
+        // aussi les appels qui ne passent pas par ce dialogue.
+        onSubmit={() => void form.handleSubmit(onConfirm)()}
         submitLabel={correction ? 'Enregistrer' : 'Clôturer'}
         pendingLabel="Enregistrement…"
         pending={pending}

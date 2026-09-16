@@ -9,16 +9,43 @@ import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { DateField } from '@/components/common/fields/date-field'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
+import { formatDate } from '@/lib/date'
+import { dateFacultative } from '@/lib/dates-zod'
 import { parseChamps, type Champ, type ChampValeur } from '@/lib/champs'
 import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
 
-const equipementParcSchema = z.object({
-  localId: z.string().min(1, 'L’emplacement est obligatoire'),
-  dateMiseEnService: z.string(),
-  dateFinGarantie: z.string(),
-})
+const equipementParcSchema = z
+  .object({
+    localId: z.string().min(1, 'L’emplacement est obligatoire'),
+    dateMiseEnService: dateFacultative(),
+    dateFinGarantie: dateFacultative(),
+  })
+  // Miroir du CHECK `equipements_check`
+  // (date_fin_garantie >= date_mise_en_service) : on refuse AVANT
+  // l'aller-retour réseau plutôt que de laisser remonter un 23514. Les deux
+  // dates étant facultatives, le contrôle ne s'applique que si TOUTES DEUX
+  // sont renseignées — comme en base, où un NULL neutralise le CHECK.
+  .refine(
+    (v) =>
+      v.dateMiseEnService === '' ||
+      v.dateFinGarantie === '' ||
+      v.dateFinGarantie >= v.dateMiseEnService,
+    {
+      // Le message CITE la date butoir : sans elle, il faut refermer le
+      // calendrier pour comprendre ce qui coince.
+      error: (issue) => {
+        const saisie = issue.input as { dateMiseEnService?: unknown }
+        const date =
+          typeof saisie.dateMiseEnService === 'string'
+            ? saisie.dateMiseEnService
+            : ''
+        return `La fin de garantie ne peut pas précéder la mise en service (${formatDate(date)}).`
+      },
+      path: ['dateFinGarantie'],
+    },
+  )
 
 type EquipementParcValues = z.input<typeof equipementParcSchema>
 

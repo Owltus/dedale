@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { todayLocal } from '@/lib/date'
+import { dateObligatoire } from '@/lib/dates-zod'
 import {
   FILTRE_NON_TERMINES,
   FILTRE_TOUS,
@@ -268,7 +269,7 @@ export function matchStatutOt(statut: string, filterValue: string): boolean {
 
 export const otCreateSchema = z.object({
   gamme_id: z.string().min(1, 'Sélectionnez une gamme'),
-  date_prevue: z.string().min(1, 'La date prévue est obligatoire'),
+  date_prevue: dateObligatoire('La date prévue est obligatoire'),
 })
 
 export type OtCreateFormValues = z.infer<typeof otCreateSchema>

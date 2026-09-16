@@ -59,20 +59,20 @@ describe('diSchema — création', () => {
     },
   )
 
-  it.fails(
-    'BUG CANDIDAT Martin : date_constat accepte n’importe quel texte',
-    () => {
-      // Attendu : colonne DATE. Observé : `z.string().min(1)` → 22007 en brut.
-      fc.assert(
-        fc.property(arbChaineHostile(), (texte) => {
-          if (texte.trim() === '') return
-          if (/^\d{4}-\d{2}-\d{2}$/.test(texte.trim())) return
-          expect(rejette(diSchema, { ...DI, date_constat: texte })).toBe(true)
-        }),
-        RUNS,
-      )
-    },
-  )
+  it('refuse une date de constat qui n’est pas une date nue', () => {
+    // ORACLE : `demandes_intervention.date_constat` est une colonne DATE.
+    // Régression couverte : le champ était un `z.string().min(1)` — tout texte
+    // non vide passait et Postgres répondait 22007 en brut. Il s'appuie
+    // désormais sur `dateObligatoire` (lib/dates-zod).
+    fc.assert(
+      fc.property(arbChaineHostile(), (texte) => {
+        if (texte.trim() === '') return
+        if (/^\d{4}-\d{2}-\d{2}$/.test(texte.trim())) return
+        expect(rejette(diSchema, { ...DI, date_constat: texte })).toBe(true)
+      }),
+      RUNS,
+    )
+  })
 
   it.fails(
     'BUG CANDIDAT Martin : local_id / equipement_id ne sont ni bornés ni typés',

@@ -229,60 +229,82 @@ describe('investissementSchema — montants', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : date_demande accepte n’importe quel texte',
-    () => {
-      // Attendu : `investissements.date_demande` est une colonne DATE.
-      // Observé : `z.string().min(1)` laisse passer tout texte non vide
-      // ('<script>alert(1)</script>', '2026-13-45'…) → 22007 en brut.
-      fc.assert(
-        fc.property(arbChaineHostile(), (texte) => {
-          if (texte.trim() === '') return
-          if (/^\d{4}-\d{2}-\d{2}$/.test(texte.trim())) return
-          expect(
-            rejette(investissementSchema, { ...BASE, date_demande: texte }),
-          ).toBe(true)
-        }),
-        RUNS,
-      )
-    },
-  )
+  it('refuse une date de demande qui n’est pas une date nue', () => {
+    // ORACLE : `investissements.date_demande` est une colonne DATE.
+    // Régression couverte : `z.string().min(1)` laissait passer tout texte non
+    // vide ('<script>alert(1)</script>', '2026-13-45'…) → 22007 en brut. Le
+    // champ s'appuie désormais sur `dateObligatoire` (lib/dates-zod).
+    fc.assert(
+      fc.property(arbChaineHostile(), (texte) => {
+        if (texte.trim() === '') return
+        if (/^\d{4}-\d{2}-\d{2}$/.test(texte.trim())) return
+        expect(
+          rejette(investissementSchema, { ...BASE, date_demande: texte }),
+        ).toBe(true)
+      }),
+      RUNS,
+    )
+  })
 })
 
 describe('clotureCapexSchema', () => {
   testeTotalite('clotureCapexSchema', clotureCapexSchema)
 
+  // `date_demande` fait désormais PARTIE du schéma de clôture (elle n'est pas
+  // saisie : le dialogue la reçoit de la fiche et la pose en valeur par défaut)
+  // — c'est ce qui lui permet d'honorer `investissements_dates_coherentes`.
+  const CLOTURE = {
+    date_cloture: '2026-06-30',
+    bilan: '',
+    date_demande: BASE.date_demande,
+  }
+
   it('exige la date de clôture, pas le bilan', () => {
     // Oracle : commentaire du schéma — « le bilan n'est PAS obligatoire ».
     expect(
       rejette(clotureCapexSchema, {
+        ...CLOTURE,
         date_cloture: '',
         bilan: 'rien à signaler',
       }),
     ).toBe(true)
-    expect(
-      clotureCapexSchema.safeParse({ date_cloture: '2026-06-30', bilan: '' })
-        .success,
-    ).toBe(true)
+    expect(clotureCapexSchema.safeParse(CLOTURE).success).toBe(true)
   })
 
   it('borne le bilan à 5000 caractères', () => {
     expect(
-      clotureCapexSchema.safeParse({
-        date_cloture: '2026-06-30',
-        bilan: 'a'.repeat(5000),
-      }).success,
+      clotureCapexSchema.safeParse({ ...CLOTURE, bilan: 'a'.repeat(5000) })
+        .success,
     ).toBe(true)
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 5000 }), (surplus) => {
         expect(
           rejette(clotureCapexSchema, {
-            date_cloture: '2026-06-30',
+            ...CLOTURE,
             bilan: 'a'.repeat(5000 + surplus),
           }),
         ).toBe(true)
       }),
       RUNS,
     )
+  })
+
+  it('refuse une clôture antérieure à la date de demande', () => {
+    // ORACLE : CONSTRAINT investissements_dates_coherentes
+    //   CHECK (date_cloture IS NULL OR date_cloture >= date_demande).
+    // Régression couverte : `clotureCapexSchema` ne recevait pas
+    // `date_demande` — il ne pouvait rien vérifier, l'UPDATE partait et la base
+    // levait un 23514. La date de demande fait maintenant partie du schéma, et
+    // un `refine` la compare.
+    expect(
+      rejette(clotureCapexSchema, { ...CLOTURE, date_cloture: '1990-01-01' }),
+    ).toBe(true)
+    // Même jour : accepté (le CHECK est un `>=`).
+    expect(
+      clotureCapexSchema.safeParse({
+        ...CLOTURE,
+        date_cloture: BASE.date_demande,
+      }).success,
+    ).toBe(true)
   })
 })

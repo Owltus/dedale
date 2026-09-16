@@ -70,51 +70,63 @@ describe('travauxSchema', () => {
     },
   )
 
-  it.fails(
-    'BUG CANDIDAT Martin : date_demande accepte n’importe quel texte',
-    () => {
-      // Attendu : colonne DATE. Observé : `z.string().min(1)` → 22007 brut.
-      fc.assert(
-        fc.property(arbChaineHostile(), (texte) => {
-          if (texte.trim() === '') return
-          if (/^\d{4}-\d{2}-\d{2}$/.test(texte.trim())) return
-          expect(
-            rejette(travauxSchema, { ...TRAVAUX, date_demande: texte }),
-          ).toBe(true)
-        }),
-        RUNS,
-      )
-    },
-  )
+  it('refuse une date de demande qui n’est pas une date nue', () => {
+    // ORACLE : `interventions_travaux.date_demande` est une colonne DATE.
+    // Régression couverte : le champ était un `z.string().min(1)` — tout texte
+    // non vide passait et Postgres répondait 22007 en brut. Il s'appuie
+    // désormais sur `dateObligatoire` (lib/dates-zod).
+    fc.assert(
+      fc.property(arbChaineHostile(), (texte) => {
+        if (texte.trim() === '') return
+        if (/^\d{4}-\d{2}-\d{2}$/.test(texte.trim())) return
+        expect(
+          rejette(travauxSchema, { ...TRAVAUX, date_demande: texte }),
+        ).toBe(true)
+      }),
+      RUNS,
+    )
+  })
 
-  it.fails(
-    'BUG CANDIDAT Martin : le libellé de tâche INLINE ignore `tacheSchema`',
-    () => {
-      // Même défaut que côté Événements : le formulaire redéclare
-      // `libelle: z.string()` nu au lieu de réutiliser la brique partagée.
-      // Contre-exemples : '   ' (blanc) et 'x'.repeat(100000).
-      fc.assert(
-        fc.property(
-          fc.constantFrom('   ', 'x'.repeat(201), 'x'.repeat(100_000)),
-          (libelle) => {
-            const viaReference = tacheSchema.safeParse({
-              libelle,
-              local_id: '',
-              equipement_id: '',
-              commentaire: '',
-              date_tache: '',
-            }).success
-            const viaFormulaire = travauxSchema.safeParse({
-              ...TRAVAUX,
-              taches: [{ libelle, local_id: '', equipement_id: '' }],
-            }).success
-            expect(viaFormulaire).toBe(viaReference)
-          },
-        ),
-        RUNS,
-      )
-    },
-  )
+  it('juge le libellé de tâche INLINE comme `tacheSchema`', () => {
+    // ORACLE : `tacheSchema`, la brique partagée 090, définit CE QU'EST une
+    // tâche — libellé non blanc, ≤ 200 caractères.
+    // Régression couverte : le formulaire redéclarait `libelle: z.string()` nu
+    // au lieu de réutiliser la brique (mêmes contre-exemples que côté
+    // Événements : '   ' et 'x'.repeat(100000)). Le tableau est désormais dérivé
+    // de la brique (`tachesInlineSchema`) et ne peut plus en diverger.
+    fc.assert(
+      fc.property(
+        fc.constantFrom('   ', 'x'.repeat(201), 'x'.repeat(100_000)),
+        (libelle) => {
+          const viaReference = tacheSchema.safeParse({
+            libelle,
+            local_id: '',
+            equipement_id: '',
+            commentaire: '',
+            date_tache: '',
+          }).success
+          const viaFormulaire = travauxSchema.safeParse({
+            ...TRAVAUX,
+            taches: [{ libelle, local_id: '', equipement_id: '' }],
+          }).success
+          expect(viaFormulaire).toBe(viaReference)
+        },
+      ),
+      RUNS,
+    )
+  })
+
+  it('borne le nombre de tâches', () => {
+    // ORACLE : la mutation insère les tâches UNE PAR UNE — un tableau non borné
+    // est autant d'INSERT déclenchés par une seule soumission. Même borne que
+    // côté Événements, portée par `tachesInlineSchema` (MAX_TACHES).
+    expect(
+      rejette(travauxSchema, {
+        ...TRAVAUX,
+        taches: Array.from({ length: 10_000 }, () => ({ ...TACHE_INLINE })),
+      }),
+    ).toBe(true)
+  })
 })
 
 describe('tacheSchema — brique partagée 090', () => {
@@ -138,16 +150,16 @@ describe('tacheSchema — brique partagée 090', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : date_tache accepte n’importe quel texte',
-    () => {
-      // Attendu : `travaux_taches.date_tache` est une colonne DATE.
-      // Observé : `z.string()` nu — même 'demain' passe.
-      expect(rejette(tacheSchema, { ...TACHE, date_tache: 'demain' })).toBe(
-        true,
-      )
-    },
-  )
+  it('refuse une date de tâche qui n’est pas une date nue', () => {
+    // ORACLE : `travaux_taches.date_tache` est une colonne DATE.
+    // Régression couverte : le champ était un `z.string()` nu — même 'demain'
+    // passait. Il s'appuie désormais sur `dateFacultative` (lib/dates-zod), qui
+    // n'accepte que `''` (aucune date, 093) ou une date nue réelle.
+    expect(rejette(tacheSchema, { ...TACHE, date_tache: 'demain' })).toBe(true)
+    expect(rejette(tacheSchema, { ...TACHE, date_tache: '2026-02-30' })).toBe(
+      true,
+    )
+  })
 })
 
 describe('clotureTravauxSchema', () => {

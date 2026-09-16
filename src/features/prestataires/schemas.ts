@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { dateFacultative, dateObligatoire } from '@/lib/dates-zod'
 
 // ── Prestataire ─────────────────────────────────────────────────────────────
 
@@ -36,8 +37,8 @@ export const contratSchema = z
       .min(1, 'La référence est obligatoire')
       .max(200),
     type_contrat_id: z.string().min(1, 'Le type de contrat est obligatoire'),
-    date_debut: z.string().min(1, 'La date de début est obligatoire'),
-    date_fin: z.string(),
+    date_debut: dateObligatoire('La date de début est obligatoire'),
+    date_fin: dateFacultative(),
     objet_avenant: z.string().trim().max(500),
     commentaires: z.string().trim().max(2000),
     // Reconduction (tacite) : durée d'un cycle de reconduction, en mois.
@@ -58,9 +59,9 @@ export const contratSchema = z
       .int('La fenêtre de résiliation doit être un nombre entier de jours')
       .positive('La fenêtre de résiliation doit être supérieure à 0')
       .nullable(),
-    date_signature: z.string(),
-    date_resiliation: z.string(),
-    date_notification: z.string(),
+    date_signature: dateFacultative(),
+    date_resiliation: dateFacultative(),
+    date_notification: dateFacultative(),
   })
   // CHECK `date_debut <= date_fin`.
   .refine((v) => !v.date_fin || v.date_fin >= v.date_debut, {
@@ -173,10 +174,8 @@ export function emptyAvenant(
 // non archivé. Miroir du CHECK `date_notification <= date_resiliation`.
 export const resiliationSchema = z
   .object({
-    date_notification: z.string(),
-    date_resiliation: z
-      .string()
-      .min(1, 'La date de résiliation est obligatoire'),
+    date_notification: dateFacultative(),
+    date_resiliation: dateObligatoire('La date de résiliation est obligatoire'),
   })
   .refine(
     (v) => !v.date_notification || v.date_notification <= v.date_resiliation,
