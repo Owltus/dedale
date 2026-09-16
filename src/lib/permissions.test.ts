@@ -1,11 +1,18 @@
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
+import { RUNS, arbChaineHostile } from './hostile-inputs.test'
 import {
+  ROLE_CODES,
   canCreateDemande,
+  canDeleteDemande,
+  canEditDemande,
   canEditUser,
   canManageAdmin,
   canManageMetier,
   canResolveDemande,
   isAdmin,
+  isDemandeur,
+  roleLabel,
 } from './permissions'
 
 describe('isAdmin', () => {
@@ -69,5 +76,232 @@ describe('canEditUser', () => {
   it('les autres rôles n’éditent personne', () => {
     expect(canEditUser('technicien', 'lecteur')).toBe(false)
     expect(canEditUser(null, 'lecteur')).toBe(false)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ajouts Martin — couverture des helpers non testés et MATRICE exhaustive des
+// droits sur une demande d'intervention (miroir RLS).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('roleLabel', () => {
+  it('rend le libellé français de chaque code du référentiel', () => {
+    // Oracle : ROLE_LABELS — 5 rôles (doctrine backend §2).
+    expect(ROLE_CODES.map(roleLabel)).toEqual([
+      'Administrateur',
+      'Manager',
+      'Technicien',
+      'Lecteur',
+      'Demandeur',
+    ])
+  })
+
+  it('replie sur le code brut pour un rôle inconnu, et sur « — » sans rôle', () => {
+    // Oracle : commentaire de la fonction — « repli sur le code brut, puis « — » ».
+    expect(roleLabel('superviseur')).toBe('superviseur')
+    expect(roleLabel(null)).toBe('—')
+    expect(roleLabel(undefined)).toBe('—')
+  })
+
+  it.fails(
+    'BUG CANDIDAT Martin : roleLabel ne rend pas toujours une chaîne (propriétés héritées)',
+    () => {
+      // Attendu : `roleLabel` rend TOUJOURS une chaîne — sa valeur part
+      // directement dans le JSX (badge de rôle, colonne « Rôle » de la liste des
+      // utilisateurs) — et un code hors référentiel est rendu tel quel, comme la
+      // fonction le documente elle-même.
+      // Observé : `code in ROLE_LABELS` est vrai pour TOUTE propriété héritée
+      // d'Object.prototype. `ROLE_LABELS['toString']` rend la FONCTION native ;
+      // `ROLE_LABELS['__proto__']` rend Object.prototype, un OBJET (typeof
+      // 'object') — que React affiche comme rien du tout.
+      // Contre-exemples trouvés par le générateur : '__proto__', 'constructor' ;
+      // à la main : 'toString', 'valueOf', 'hasOwnProperty'.
+      // Correctif : `Object.hasOwn(ROLE_LABELS, code)` au lieu de `code in …`.
+      for (const cle of [
+        'toString',
+        'constructor',
+        '__proto__',
+        'hasOwnProperty',
+        'valueOf',
+      ]) {
+        expect(roleLabel(cle)).toBe(cle)
+      }
+      fc.assert(
+        fc.property(
+          fc.oneof(
+            arbChaineHostile(),
+            fc.constant(null),
+            fc.constant(undefined),
+          ),
+          (code) => {
+            expect(typeof roleLabel(code)).toBe('string')
+          },
+        ),
+        RUNS,
+      )
+    },
+  )
+
+  it.fails(
+    'BUG CANDIDAT Martin : un code de rôle VIDE s’affiche vide au lieu de « — »',
+    () => {
+      // Attendu : '' n'est pas un code de rôle → même repli que null/undefined,
+      // le tiret cadratin qui signale « pas de rôle ».
+      // Observé : `code && …` est faux, puis `code ?? '—'` rend '' (qui n'est ni
+      // null ni undefined) → cellule vide, indiscernable d'un bug d'affichage.
+      expect(roleLabel('')).toBe('—')
+    },
+  )
+})
+
+describe('isDemandeur', () => {
+  it('vrai pour demandeur uniquement', () => {
+    // Oracle : « rôle « externe » (signale des demandes) ; layout dédié ».
+    for (const r of ROLE_CODES) {
+      expect(isDemandeur(r)).toBe(r === 'demandeur')
+    }
+    expect(isDemandeur(null)).toBe(false)
+    expect(isDemandeur(undefined)).toBe(false)
+    expect(isDemandeur('demandeurs')).toBe(false) // pas de correspondance partielle
+    expect(isDemandeur('Demandeur')).toBe(false) // codes sensibles à la casse
+  })
+})
+
+// ─── Matrice rôle × statut × auteur, pour canEditDemande / canDeleteDemande ──
+
+/** Statuts du cycle d'une DI (référentiel `statuts_di`, transitions libres / 052). */
+const STATUTS_DI = [
+  { id: 1, libelle: 'Ouvert' },
+  { id: 2, libelle: 'En cours' },
+  { id: 3, libelle: 'Clôturé' },
+] as const
+
+const MOI = '11111111-1111-4111-8111-111111111111'
+const AUTRUI = '22222222-2222-4222-8222-222222222222'
+
+/**
+ * ORACLE — règle écrite, PAS la sortie de la fonction. Source :
+ *  - doctrine CLAUDE.md §2 (5 rôles, « mes sites », jamais d'assignation nominative) ;
+ *  - commentaires de `canEditDemande` / `canDeleteDemande` ;
+ *  - policies RLS citées : `di_site_scoped_update` / `di_site_scoped_delete`
+ *    (admin/manager/technicien, tout le périmètre) et `di_demandeur_update` /
+ *    `di_demandeur_delete` (own + statut_di_id = 1).
+ * Le lecteur (lecture seule) et l'absence de rôle ne peuvent jamais écrire.
+ */
+function oracleDroitDi(
+  role: string | null | undefined,
+  statutId: number,
+  auteur: string | null,
+  userId: string | undefined,
+): boolean {
+  if (role === 'admin' || role === 'manager' || role === 'technicien')
+    return true
+  if (role === 'demandeur') {
+    return userId !== undefined && auteur === userId && statutId === 1
+  }
+  return false
+}
+
+describe('canEditDemande / canDeleteDemande — matrice rôle × statut × auteur', () => {
+  const ROLES: (string | null | undefined)[] = [...ROLE_CODES, null, undefined]
+
+  for (const role of ROLES) {
+    for (const statut of STATUTS_DI) {
+      for (const [quiLabel, auteur] of [
+        ['SA demande', MOI],
+        ['la demande d’un autre', AUTRUI],
+        ['une demande sans auteur', null],
+      ] as const) {
+        const nom = `${roleLabel(role)} · ${statut.libelle} · ${quiLabel}`
+
+        it(`${nom} — édition`, () => {
+          const attendu = oracleDroitDi(role, statut.id, auteur, MOI)
+          expect(
+            canEditDemande(
+              role,
+              { created_by: auteur, statut_di_id: statut.id },
+              MOI,
+            ),
+          ).toBe(attendu)
+        })
+
+        it(`${nom} — suppression`, () => {
+          const attendu = oracleDroitDi(role, statut.id, auteur, MOI)
+          expect(
+            canDeleteDemande(
+              role,
+              { created_by: auteur, statut_di_id: statut.id },
+              MOI,
+            ),
+          ).toBe(attendu)
+        })
+      }
+    }
+  }
+
+  it('un demandeur SANS session (userId absent) n’édite ni ne supprime RIEN', () => {
+    // Oracle : `di_demandeur_update` compare `created_by = auth.uid()` ; sans
+    // identité, la comparaison ne peut pas réussir. Le front doit refuser au
+    // lieu de comparer `created_by` à `undefined` (qui vaudrait vrai si la
+    // demande n'avait pas d'auteur).
+    for (const auteur of [MOI, AUTRUI, null]) {
+      const di = { created_by: auteur, statut_di_id: 1 }
+      expect(canEditDemande('demandeur', di, undefined)).toBe(false)
+      expect(canDeleteDemande('demandeur', di, undefined)).toBe(false)
+    }
+  })
+
+  it('édition et suppression restent équivalentes, quel que soit le cas', () => {
+    // Oracle : « Logique identique à canEditDemande aujourd'hui, mais gardée
+    // distincte ». Ce test documente l'équivalence : le jour où elle cesse
+    // d'être vraie, il devient rouge et force à mettre à jour le commentaire
+    // ET la policy correspondante.
+    for (const role of ROLES) {
+      for (const statutId of [1, 2, 3, 4, 0, -1]) {
+        for (const auteur of [MOI, AUTRUI, null]) {
+          for (const userId of [MOI, AUTRUI, undefined]) {
+            const di = { created_by: auteur, statut_di_id: statutId }
+            expect(canDeleteDemande(role, di, userId)).toBe(
+              canEditDemande(role, di, userId),
+            )
+          }
+        }
+      }
+    }
+  })
+
+  it('aucun statut non ouvert ne redonne la main au demandeur', () => {
+    // Oracle : `statut_di_id = 1` EXACTEMENT. Un statut ajouté plus tard au
+    // référentiel ne doit pas rouvrir le droit par accident.
+    for (const statutId of [0, 2, 3, 4, 5, 99, -1, 1.0000001]) {
+      expect(
+        canEditDemande(
+          'demandeur',
+          { created_by: MOI, statut_di_id: statutId },
+          MOI,
+        ),
+      ).toBe(false)
+    }
+    // Et le seul statut qui l'autorise reste le 1.
+    expect(
+      canEditDemande('demandeur', { created_by: MOI, statut_di_id: 1 }, MOI),
+    ).toBe(true)
+  })
+
+  it('un rôle inconnu (ou renommé côté base) n’obtient AUCUN droit', () => {
+    // Oracle : durcissement volontaire — « un rôle absent ne peut PAS créer ».
+    // La même prudence doit valoir pour un rôle qu'on ne connaît pas.
+    for (const role of [
+      'root',
+      'superadmin',
+      'ADMIN',
+      'admin ',
+      'technicien2',
+      '',
+    ]) {
+      const di = { created_by: MOI, statut_di_id: 1 }
+      expect(canEditDemande(role, di, MOI)).toBe(false)
+      expect(canDeleteDemande(role, di, MOI)).toBe(false)
+    }
   })
 })

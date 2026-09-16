@@ -13,6 +13,9 @@ export default tseslint.config(
       'src/routeTree.gen.ts',
       'src/lib/database.types.ts',
       'supabase',
+      'tests/securite',
+      '.stryker-tmp',
+      'reports',
     ],
   },
   {

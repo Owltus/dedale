@@ -1,0 +1,52 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing de la LOGIQUE PURE. La couverture prouve qu'une ligne a été exécutée ; le mutation score prouve qu'elle a été vérifiée. On ne mute que les modules sans DOM ni réseau — Stryker ne sait pas piloter le Browser Mode de Vitest.",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "reporters": ["json", "html", "clear-text", "progress"],
+  "coverageAnalysis": "perTest",
+  "incremental": true,
+  "incrementalFile": ".stryker-tmp/incremental.json",
+  "timeoutMS": 20000,
+  "concurrency": 4,
+  "mutate": [
+    "src/lib/slug.ts",
+    "src/lib/date.ts",
+    "src/lib/csv.ts",
+    "src/lib/champs.ts",
+    "src/lib/form.ts",
+    "src/lib/nav.ts",
+    "src/lib/permissions.ts",
+    "src/lib/scope.ts",
+    "src/hooks/drill-splat.ts",
+    "src/features/dashboard/activite.ts",
+    "src/features/prestataires/etat.ts",
+    "src/features/ordres-travail/tri.ts",
+    "src/features/ordres-travail/releves.ts",
+    "src/features/ordres-travail/statut-affichage.ts",
+    "src/features/ordres-travail/operation-predicats.ts",
+    "src/features/gammes/statut-affichage.ts",
+    "src/features/releves/pipeline.ts",
+    "src/features/documents/naming.ts",
+    "src/features/investissements/etat.ts",
+    "src/components/common/status-steps.ts",
+    "src/features/*/csv-import.ts",
+    "src/components/common/charts/geometrie.ts",
+    "src/components/common/charts/temporel.ts",
+    "src/features/ordres-travail/schemas.ts",
+    "src/features/documents/format.ts",
+    "src/features/travaux/format.ts",
+    "src/features/evenements/format.ts",
+    "src/features/investissements/format.ts"
+  ],
+  "thresholds": {
+    "high": 85,
+    "low": 70,
+    "break": null
+  },
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": true,
+  "vitest": {
+    "configFile": "vitest.stryker.config.ts"
+  }
+}

@@ -1,32 +1,19 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { onKeyActivate } from '@/components/common/charts/chart-tokens'
+import {
+  disposer,
+  fmt,
+  poidsFeuilles,
+  polar,
+  secteurAnnulaire,
+  type Arc,
+  type SunburstNode,
+} from '@/components/common/charts/geometrie'
 
-/**
- * Nœud d'un sunburst à 3 niveaux (domaine → famille → gamme). L'angle d'un nœud
- * est proportionnel à la somme des `poids` de ses feuilles. `couleur` est le
- * remplissage DÉJÀ RÉSOLU (teinte du domaine éclaircie selon la profondeur, et
- * modulée par la santé pour les feuilles) ; `statutLabel` complète l'infobulle,
- * `hachures` superpose un motif rayé (gammes réglementaires), `blink` fait clignoter
- * doucement (remplacé par un liséré statique sous `prefers-reduced-motion`).
- */
-export interface SunburstNode {
-  key: string
-  label: string
-  couleur: string
-  poids: number
-  statutLabel?: string
-  hachures?: boolean
-  blink?: boolean
-  /**
-   * Décalage radial vers l'extérieur (unités de viewBox) — effet « part éclatée » qui
-   * fait ressortir un nœud appelant une action (les autres restent collés à l'anneau).
-   * La marge de bord de `RAYONS` réserve la place, sinon la part poussée serait rognée.
-   */
-  decalage?: number
-  onClick?: () => void
-  enfants?: SunburstNode[]
-}
+// Le modèle de nœud et la géométrie vivent dans `geometrie.ts` (fonctions pures,
+// testables) ; le type reste exporté ici pour les consommateurs historiques.
+export type { SunburstNode }
 
 interface SunburstProps {
   noeuds: SunburstNode[]
@@ -55,74 +42,6 @@ const RAYONS: Record<number, [number, number]> = {
 // se distinguent par les interstices (`GAP_ANNEAU`), la santé de la feuille module seule
 // l'opacité (`node.opacite`).
 const GAP_DEG = 0.7
-
-/** Formate une coordonnée SVG (borne la précision). */
-const fmt = (v: number) => v.toFixed(2)
-
-function polar(cx: number, cy: number, r: number, deg: number) {
-  const a = ((deg - 90) * Math.PI) / 180
-  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }
-}
-
-function secteurAnnulaire(
-  cx: number,
-  cy: number,
-  rExt: number,
-  rInt: number,
-  a0: number,
-  a1: number,
-) {
-  const grand = a1 - a0 > 180 ? 1 : 0
-  const oe0 = polar(cx, cy, rExt, a0)
-  const oe1 = polar(cx, cy, rExt, a1)
-  const oi1 = polar(cx, cy, rInt, a1)
-  const oi0 = polar(cx, cy, rInt, a0)
-  return [
-    `M${fmt(oe0.x)} ${fmt(oe0.y)}`,
-    `A${fmt(rExt)} ${fmt(rExt)} 0 ${String(grand)} 1 ${fmt(oe1.x)} ${fmt(oe1.y)}`,
-    `L${fmt(oi1.x)} ${fmt(oi1.y)}`,
-    `A${fmt(rInt)} ${fmt(rInt)} 0 ${String(grand)} 0 ${fmt(oi0.x)} ${fmt(oi0.y)}`,
-    'Z',
-  ].join(' ')
-}
-
-/** Somme des poids des feuilles d'un nœud (un nœud sans enfant est sa feuille). */
-function poidsFeuilles(node: SunburstNode): number {
-  if (node.enfants && node.enfants.length > 0) {
-    return node.enfants.reduce((acc, n) => acc + poidsFeuilles(n), 0)
-  }
-  return Math.max(node.poids, 0)
-}
-
-interface Arc {
-  node: SunburstNode
-  depth: number
-  a0: number
-  a1: number
-}
-
-/** Répartit récursivement l'angle disponible entre les nœuds, par poids. */
-function disposer(
-  nodes: SunburstNode[],
-  angleDebut: number,
-  spanTotal: number,
-  poidsTotal: number,
-  depth: number,
-  acc: Arc[],
-) {
-  let curseur = angleDebut
-  for (const node of nodes) {
-    const poids = poidsFeuilles(node)
-    const span = poidsTotal > 0 ? (poids / poidsTotal) * spanTotal : 0
-    const a0 = curseur
-    const a1 = curseur + span
-    acc.push({ node, depth, a0, a1 })
-    if (node.enfants && node.enfants.length > 0) {
-      disposer(node.enfants, a0, span, poids, depth + 1, acc)
-    }
-    curseur = a1
-  }
-}
 
 /** Détecte `prefers-reduced-motion: reduce` et suit ses changements. */
 function useReducedMotion() {

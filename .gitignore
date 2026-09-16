@@ -60,3 +60,7 @@ dev.bat
 
 # Supabase CLI — état local lié au projet
 supabase/.temp/
+
+# Mutation testing — rapports et cache incrémental (régénérés par `npx stryker run`)
+.stryker-tmp/
+reports/

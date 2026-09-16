@@ -5,6 +5,11 @@ import {
   toneToken,
   type ChartSegment,
 } from '@/components/common/charts/chart-tokens'
+import {
+  anneauComplet,
+  calculerPartsDonut,
+  secteurAnnulaire,
+} from '@/components/common/charts/geometrie'
 
 interface DonutProps {
   /** Parts du donut ; une part de valeur 0 n'est pas dessinée. */
@@ -18,69 +23,12 @@ interface DonutProps {
   className?: string
 }
 
-/** Formate une coordonnée SVG (borne la précision). */
-const fmt = (v: number) => v.toFixed(2)
-
-/** Coordonnées d'un point sur un cercle ; 0° = haut, sens horaire. */
-function polar(cx: number, cy: number, r: number, deg: number) {
-  const a = ((deg - 90) * Math.PI) / 180
-  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }
-}
-
-/** Chemin d'un secteur annulaire (part de donut) entre deux angles. */
-function secteurAnnulaire(
-  cx: number,
-  cy: number,
-  rExt: number,
-  rInt: number,
-  a0: number,
-  a1: number,
-) {
-  const grand = a1 - a0 > 180 ? 1 : 0
-  const oe0 = polar(cx, cy, rExt, a0)
-  const oe1 = polar(cx, cy, rExt, a1)
-  const oi1 = polar(cx, cy, rInt, a1)
-  const oi0 = polar(cx, cy, rInt, a0)
-  return [
-    `M${fmt(oe0.x)} ${fmt(oe0.y)}`,
-    `A${fmt(rExt)} ${fmt(rExt)} 0 ${String(grand)} 1 ${fmt(oe1.x)} ${fmt(oe1.y)}`,
-    `L${fmt(oi1.x)} ${fmt(oi1.y)}`,
-    `A${fmt(rInt)} ${fmt(rInt)} 0 ${String(grand)} 0 ${fmt(oi0.x)} ${fmt(oi0.y)}`,
-    'Z',
-  ].join(' ')
-}
-
-/**
- * Anneau COMPLET — une part unique qui couvre les 360°. Un secteur annulaire ne
- * sait PAS décrire ce cas : ses deux extrémités coïncident, et la spec SVG
- * demande alors d'omettre l'arc (« if the endpoints are identical, this is
- * equivalent to omitting the elliptical arc segment entirely »). Le contournement
- * historique — partir de 0,0001° pour finir à 359,999° — ne suffit pas non plus :
- * les deux points redeviennent IDENTIQUES une fois arrondis au centième par
- * `fmt`, et l'anneau disparaissait purement et simplement dès qu'il ne restait
- * qu'une seule catégorie (cadran OT du tableau de bord : plus que le chiffre du
- * centre, sans anneau autour).
- *
- * D'où deux cercles concentriques dans un même chemin, le trou étant creusé par
- * `fill-rule: evenodd`. Chaque cercle est tracé en deux demi-arcs, seule façon
- * d'obtenir un cercle entier avec la commande `A`.
- */
-function anneauComplet(cx: number, cy: number, rExt: number, rInt: number) {
-  const cercle = (r: number) =>
-    [
-      `M${fmt(cx)} ${fmt(cy - r)}`,
-      `A${fmt(r)} ${fmt(r)} 0 1 1 ${fmt(cx)} ${fmt(cy + r)}`,
-      `A${fmt(r)} ${fmt(r)} 0 1 1 ${fmt(cx)} ${fmt(cy - r)}`,
-      'Z',
-    ].join(' ')
-  return `${cercle(rExt)} ${cercle(rInt)}`
-}
-
 /**
  * Donut SVG maison, proportionnel et sans dépendance. Parts colorées par les
  * tokens sémantiques (via `tone`), survol → surbrillance de la part + infobulle
  * `label : valeur`, clic → `segment.onClick`. Rien n'est rendu si toutes les
- * valeurs sont nulles (le cadran gère alors sa propre disparition).
+ * valeurs sont nulles (le cadran gère alors sa propre disparition). Toute la
+ * géométrie (angles, parts, chemins) vit dans `geometrie.ts`.
  */
 export function Donut({
   segments,
@@ -89,44 +37,13 @@ export function Donut({
   gapDeg = 2,
   className,
 }: DonutProps) {
-  const actifs = segments.filter((s) => s.value > 0)
-  const total = actifs.reduce((acc, s) => acc + s.value, 0)
+  const { total, parts } = calculerPartsDonut(segments, gapDeg)
   if (total <= 0) return null
 
   const cx = 50
   const cy = 50
   const rExt = 46
   const rInt = Math.max(rExt - epaisseur, 2)
-
-  // Espace angulaire APRÈS chaque part (= avant la suivante, cycliquement) : `gapDeg`
-  // par défaut, mais 0 entre deux parts ADJACENTES d'un même `group` (non vide) →
-  // elles se collent pour se lire comme une seule section subdivisée. Sans `group`
-  // partout, on retombe sur un `gapDeg` uniforme (comportement historique).
-  const n = actifs.length
-  const gapApres = actifs.map((seg, i) => {
-    const suivant = actifs[(i + 1) % n]
-    const memeGroupe =
-      seg.group != null && seg.group !== '' && seg.group === suivant?.group
-    return memeGroupe ? 0 : gapDeg
-  })
-
-  const parts = actifs
-    .map((seg, i) => {
-      const span = (seg.value / total) * 360
-      // Début = somme des parts précédentes (évite toute mutation en rendu).
-      const debut = actifs
-        .slice(0, i)
-        .reduce((acc, s) => acc + (s.value / total) * 360, 0)
-      // Chaque frontière contribue pour la moitié de son gap de part et d'autre :
-      // avant cette part = gap APRÈS la précédente, après cette part = son propre gap.
-      const gapAvant = gapApres[(i - 1 + n) % n] ?? gapDeg
-      const a0 = debut + gapAvant / 2
-      const a1 = debut + span - (gapApres[i] ?? gapDeg) / 2
-      // Part unique : elle couvre le cercle entier, et se trace alors comme un
-      // anneau (cf. `anneauComplet`) — pas comme un secteur, qui dégénérerait.
-      return { seg, a0, a1, complet: n === 1 }
-    })
-    .filter((p) => p.complet || p.a1 > p.a0)
 
   return (
     <div className={cn('relative', className)}>

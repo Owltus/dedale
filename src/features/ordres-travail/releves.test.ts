@@ -1,17 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { calculerRelevesParOt, type ReleveLigne } from './releves'
+import {
+  calculerRelevesParOt,
+  libelleReleve,
+  type ReleveLigne,
+} from './releves'
 
 function ligne(p: {
   ot: string
-  src: string
+  /** `null` = relevé orphelin (opération source supprimée, cf. migration 063). */
+  src: string | null
   val: number | null
   gamme?: string | null
   date?: string | null
   statut?: string
   depose?: number | null
   pose?: number | null
-  symbole?: string
+  symbole?: string | null
   dateExec?: string | null
+  /** Horodatage de création — départage deux relevés de MÊME date d'exécution. */
+  creeLe?: string
+  /** Relevé dont la jointure OT est absente (gamme supprimée, vue partielle). */
+  sansOt?: boolean
 }): ReleveLigne {
   return {
     ordre_travail_id: p.ot,
@@ -21,13 +30,17 @@ function ligne(p: {
     index_depose: p.depose ?? null,
     index_pose: p.pose ?? null,
     statut: p.statut ?? 'terminee',
-    date_execution: p.dateExec ?? p.date ?? null,
-    created_at: '2026-01-01T00:00:00Z',
-    unite_symbole: p.symbole ?? 'kWh',
-    ordres_travail: {
-      gamme_id: p.gamme ?? 'g1',
-      date_prevue: p.date ?? null,
-    },
+    // `dateExec: null` doit rester NULL (relevé jamais exécuté) — d'où le test
+    // sur `undefined` plutôt qu'un `??` qui retomberait sur la date prévue.
+    date_execution: p.dateExec === undefined ? (p.date ?? null) : p.dateExec,
+    created_at: p.creeLe ?? '2026-01-01T00:00:00Z',
+    unite_symbole: p.symbole === undefined ? 'kWh' : p.symbole,
+    ordres_travail: p.sansOt
+      ? null
+      : {
+          gamme_id: p.gamme ?? 'g1',
+          date_prevue: p.date ?? null,
+        },
   }
 }
 
@@ -116,5 +129,367 @@ describe('calculerRelevesParOt', () => {
       ligne({ ot: 'ot2', src: 'b', val: 200, date: '2026-02-01' }), // +0
     ])
     expect(map.get('ot2')).toEqual({ valeur: '300 kWh', conso: '0 kWh' })
+  })
+})
+describe('calculerRelevesParOt — choix du relevé précédent', () => {
+  // Trois OT de la même gamme et du même compteur, aux dates prévues croissantes.
+  // Le relevé de `ot-c` doit se comparer au PLUS RÉCENT des relevés antérieurs.
+  // ORACLE arithmétique commun : conso(ot-c) = 200 − 130 = 70 si le précédent
+  // retenu est `ot-b` (le bon), et 200 − 100 = 100 s'il retenait `ot-a`.
+  const RECENT = { valeur: '200 kWh', conso: '+70 kWh' }
+  const TROP_ANCIEN = { valeur: '200 kWh', conso: '+100 kWh' }
+
+  it('retient le relevé antérieur de date d’exécution la PLUS RÉCENTE', () => {
+    // `created_at` est volontairement en ordre INVERSE des dates d'exécution :
+    // seule la date d'exécution doit décider (le created_at n'est qu'un
+    // départage de second rang).
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot-a',
+        src: 'c1',
+        val: 100,
+        date: '2026-01-01',
+        dateExec: '2026-01-05',
+        creeLe: '2026-01-05T10:00:00Z',
+      }),
+      ligne({
+        ot: 'ot-b',
+        src: 'c1',
+        val: 130,
+        date: '2026-02-01',
+        dateExec: '2026-02-05',
+        creeLe: '2026-01-01T10:00:00Z',
+      }),
+      ligne({
+        ot: 'ot-c',
+        src: 'c1',
+        val: 200,
+        date: '2026-03-01',
+        dateExec: '2026-03-05',
+        creeLe: '2026-03-05T10:00:00Z',
+      }),
+    ])
+    expect(map.get('ot-c')).toEqual(RECENT)
+    expect(map.get('ot-c')).not.toEqual(TROP_ANCIEN)
+  })
+
+  it('le choix ne dépend pas de l’ordre d’arrivée des lignes', () => {
+    // Mêmes données que ci-dessus, relevés fournis du plus récent au plus
+    // ancien. ORACLE : la comparaison est un ORDRE, pas un « dernier vu gagne ».
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot-b',
+        src: 'c1',
+        val: 130,
+        date: '2026-02-01',
+        dateExec: '2026-02-05',
+        creeLe: '2026-01-01T10:00:00Z',
+      }),
+      ligne({
+        ot: 'ot-a',
+        src: 'c1',
+        val: 100,
+        date: '2026-01-01',
+        dateExec: '2026-01-05',
+        creeLe: '2026-01-05T10:00:00Z',
+      }),
+      ligne({
+        ot: 'ot-c',
+        src: 'c1',
+        val: 200,
+        date: '2026-03-01',
+        dateExec: '2026-03-05',
+        creeLe: '2026-03-05T10:00:00Z',
+      }),
+    ])
+    expect(map.get('ot-c')).toEqual(RECENT)
+  })
+
+  it('à date d’exécution ÉGALE, départage par l’horodatage de création', () => {
+    // ORACLE (doc de `plusRecent`) : « même ordre que la requête
+    // previousReadings » = (date_execution NULLS LAST, created_at). Deux relevés
+    // saisis pour le même jour d'exécution : le dernier ENREGISTRÉ fait foi.
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot-a',
+        src: 'c1',
+        val: 100,
+        date: '2026-01-01',
+        dateExec: '2026-01-15',
+        creeLe: '2026-01-15T08:00:00Z',
+      }),
+      ligne({
+        ot: 'ot-b',
+        src: 'c1',
+        val: 130,
+        date: '2026-02-01',
+        dateExec: '2026-01-15',
+        creeLe: '2026-01-15T09:00:00Z',
+      }),
+      ligne({ ot: 'ot-c', src: 'c1', val: 200, date: '2026-03-01' }),
+    ])
+    expect(map.get('ot-c')).toEqual(RECENT)
+  })
+
+  it('le départage par horodatage ne dépend pas non plus de l’ordre d’arrivée', () => {
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot-b',
+        src: 'c1',
+        val: 130,
+        date: '2026-02-01',
+        dateExec: '2026-01-15',
+        creeLe: '2026-01-15T09:00:00Z',
+      }),
+      ligne({
+        ot: 'ot-a',
+        src: 'c1',
+        val: 100,
+        date: '2026-01-01',
+        dateExec: '2026-01-15',
+        creeLe: '2026-01-15T08:00:00Z',
+      }),
+      ligne({ ot: 'ot-c', src: 'c1', val: 200, date: '2026-03-01' }),
+    ])
+    expect(map.get('ot-c')).toEqual(RECENT)
+  })
+
+  it('à horodatages strictement identiques, le résultat reste stable', () => {
+    // ORACLE : « plus récent que » est un ordre STRICT — un relevé n'est jamais
+    // plus récent qu'un autre de mêmes date d'exécution ET date de création.
+    // Le premier rencontré est donc conservé, et le calcul est reproductible
+    // (sans quoi deux rendus de la même liste pourraient différer).
+    const memes = { dateExec: '2026-01-15', creeLe: '2026-01-15T08:00:00Z' }
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot-a', src: 'c1', val: 100, date: '2026-01-01', ...memes }),
+      ligne({ ot: 'ot-b', src: 'c1', val: 130, date: '2026-02-01', ...memes }),
+      ligne({ ot: 'ot-c', src: 'c1', val: 200, date: '2026-03-01' }),
+    ])
+    expect(map.get('ot-c')).toEqual(TROP_ANCIEN)
+  })
+
+  it('un relevé SANS date d’exécution passe après un relevé daté (NULLS LAST)', () => {
+    // ORACLE (doc de `plusRecent`) : ordre « date_execution NULLS LAST ». Un
+    // relevé antérieur jamais exécuté ne peut pas évincer un relevé exécuté,
+    // même si sa ligne a été créée plus tard. 200 − 100 = 100 : c'est le relevé
+    // DATÉ qui sert de base, dans les deux ordres d'arrivée possibles.
+    const nonDate = {
+      ot: 'ot-b',
+      src: 'c1',
+      val: 130,
+      date: '2026-02-01',
+      dateExec: null,
+      creeLe: '2026-02-20T10:00:00Z',
+    }
+    const date = {
+      ot: 'ot-a',
+      src: 'c1',
+      val: 100,
+      date: '2026-01-01',
+      dateExec: '2026-01-10',
+      creeLe: '2026-01-10T10:00:00Z',
+    }
+    const courant = { ot: 'ot-c', src: 'c1', val: 200, date: '2026-03-01' }
+    expect(
+      calculerRelevesParOt([ligne(date), ligne(nonDate), ligne(courant)]).get(
+        'ot-c',
+      ),
+    ).toEqual(TROP_ANCIEN)
+    expect(
+      calculerRelevesParOt([ligne(nonDate), ligne(date), ligne(courant)]).get(
+        'ot-c',
+      ),
+    ).toEqual(TROP_ANCIEN)
+  })
+
+  it('un relevé plus récent mais SANS valeur ne masque pas le dernier relevé chiffré', () => {
+    // ORACLE (doc) : le précédent est le dernier relevé « terminé ET VALUÉ ».
+    // Un passage où le compteur n'a pas pu être lu ne doit pas rendre la
+    // consommation incalculable : on remonte au dernier index réellement relevé.
+    // 200 − 100 = 100.
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot-a', src: 'c1', val: 100, date: '2026-01-01' }),
+      ligne({ ot: 'ot-b', src: 'c1', val: null, date: '2026-02-01' }),
+      ligne({ ot: 'ot-c', src: 'c1', val: 200, date: '2026-03-01' }),
+    ])
+    expect(map.get('ot-c')).toEqual(TROP_ANCIEN)
+    expect(map.has('ot-b')).toBe(false)
+  })
+
+  it('un OT sans date prévue n’a pas de base de comparaison', () => {
+    // ORACLE (doc) : le précédent se cherche « sur un OT STRICTEMENT antérieur
+    // (par date prévue) ». Sans date prévue, l'antériorité est indéterminable →
+    // aucune consommation, plutôt qu'une consommation prise au hasard.
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot-a', src: 'c1', val: 100, date: '2026-01-01' }),
+      ligne({ ot: 'ot-b', src: 'c1', val: 130, date: null }),
+    ])
+    expect(map.has('ot-b')).toBe(false)
+  })
+
+  it('un relevé antérieur sans date prévue n’est pas retenu comme précédent', () => {
+    // ORACLE (symétrique du précédent) : l'antériorité doit être PROUVÉE. Un
+    // candidat dont l'OT n'a pas de date prévue ne peut pas l'être.
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot-a', src: 'c1', val: 100, date: null }),
+      ligne({ ot: 'ot-b', src: 'c1', val: 200, date: '2026-03-01' }),
+    ])
+    expect(map.has('ot-b')).toBe(false)
+  })
+
+  it('deux gammes ne se servent jamais de précédent l’une à l’autre', () => {
+    // ORACLE (doc de `cleSource`) : la série d'un compteur est identifiée par
+    // (gamme, source). Un relevé d'une AUTRE gamme, même sur la même source,
+    // décrit un autre suivi : l'emprunter fabriquerait une consommation fausse
+    // (ici 200 − 50 = 150, qui n'a aucun sens physique).
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot-a',
+        gamme: 'g2',
+        src: 'c1',
+        val: 50,
+        date: '2026-01-01',
+      }),
+      ligne({
+        ot: 'ot-b',
+        gamme: 'g1',
+        src: 'c1',
+        val: 200,
+        date: '2026-03-01',
+      }),
+    ])
+    expect(map.has('ot-b')).toBe(false)
+  })
+
+  it('un compteur sans historique indexé ne fait pas tomber le calcul des autres', () => {
+    // ORACLE (robustesse) : la source « zz » n'a qu'un relevé non valué, donc
+    // aucune entrée dans l'index des précédents. Le calcul doit l'ignorer et
+    // rendre la consommation du compteur c1 : 130 − 100 = 30.
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot-a', src: 'c1', val: 100, date: '2026-01-01' }),
+      ligne({ ot: 'ot-b', src: 'c1', val: 130, date: '2026-02-01' }),
+      ligne({ ot: 'ot-b', src: 'zz', val: null, date: '2026-02-01' }),
+    ])
+    expect(map.get('ot-b')).toEqual({ valeur: '130 kWh', conso: '+30 kWh' })
+  })
+
+  it('des relevés ORPHELINS (sans opération source) forment quand même une série', () => {
+    // ORACLE (doc de `cleSource` + données réelles, migration 063) : un relevé
+    // dont l'opération source a été supprimée porte `source_id = NULL`. Deux
+    // relevés orphelins de la même gamme et du même type restent le suivi d'un
+    // même compteur : 200 − 150 = 50.
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot-a', src: null, val: 150, date: '2026-01-01' }),
+      ligne({ ot: 'ot-b', src: null, val: 200, date: '2026-02-01' }),
+    ])
+    expect(map.get('ot-b')).toEqual({ valeur: '200 kWh', conso: '+50 kWh' })
+  })
+
+  it('un relevé dont la jointure OT est absente est ignoré sans erreur', () => {
+    // ORACLE (robustesse) : la jointure `ordres_travail` est nullable côté type
+    // (gamme supprimée, ligne orpheline). Le pipeline doit l'écarter, pas
+    // planter la liste entière des OT.
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot-a', src: 'c1', val: 100, date: '2026-01-01' }),
+      ligne({ ot: 'ot-b', src: 'c1', val: 130, date: '2026-02-01' }),
+      ligne({ ot: 'ot-orphelin', src: 'c1', val: 999, sansOt: true }),
+    ])
+    expect(map.get('ot-b')).toEqual({ valeur: '130 kWh', conso: '+30 kWh' })
+    expect(map.has('ot-orphelin')).toBe(false)
+  })
+})
+
+describe('calculerRelevesParOt — agrégation par unité', () => {
+  it('un relevé sans unité n’est pas agrégé (ni sous une unité vide)', () => {
+    // ORACLE (doc de `sommesReleves`) : « Jamais de somme entre unités
+    // différentes » — et une unité ABSENTE n'est pas une unité. Un relevé sans
+    // symbole ne doit apparaître ni seul, ni fondu dans un autre total.
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot-a', src: 'c1', val: 100, date: '2026-01-01' }),
+      ligne({
+        ot: 'ot-a',
+        src: 'c2',
+        val: 40,
+        date: '2026-01-01',
+        symbole: null,
+      }),
+      ligne({ ot: 'ot-b', src: 'c1', val: 130, date: '2026-02-01' }),
+      ligne({
+        ot: 'ot-b',
+        src: 'c2',
+        val: 55,
+        date: '2026-02-01',
+        symbole: null,
+      }),
+    ])
+    // Seul le compteur kWh compte : 130 brut, 130 − 100 = 30 de consommation.
+    expect(map.get('ot-b')).toEqual({ valeur: '130 kWh', conso: '+30 kWh' })
+  })
+
+  it('deux unités sont affichées séparément, jointes par « · », au format français', () => {
+    // ORACLE arithmétique : kWh 130 − 100 = 30 ; m³ 32,5 − 20 = 12,5. Les deux
+    // totaux restent distincts (jamais 42,5) et la décimale s'écrit à la
+    // française (virgule), comme partout dans l'app.
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot-a', src: 'c1', val: 100, date: '2026-01-01' }),
+      ligne({
+        ot: 'ot-a',
+        src: 'c2',
+        val: 20,
+        date: '2026-01-01',
+        symbole: 'm³',
+      }),
+      ligne({ ot: 'ot-b', src: 'c1', val: 130, date: '2026-02-01' }),
+      ligne({
+        ot: 'ot-b',
+        src: 'c2',
+        val: 32.5,
+        date: '2026-02-01',
+        symbole: 'm³',
+      }),
+    ])
+    expect(map.get('ot-b')).toEqual({
+      valeur: '130 kWh · 32,5 m³',
+      conso: '+30 kWh · +12,5 m³',
+    })
+  })
+})
+
+describe('libelleReleve', () => {
+  it('somme par unité et formate « total symbole », unités jointes par « · »', () => {
+    // ORACLE arithmétique : kWh 30 + 50 = 80 ; m³ 12,5 + 0,25 = 12,75 (écrit à
+    // la française). Deux occurrences par unité → le seuil par défaut (2) est
+    // atteint pour chacune.
+    expect(
+      libelleReleve([
+        { symbole: 'kWh', conso: 30 },
+        { symbole: 'kWh', conso: 50 },
+        { symbole: 'm³', conso: 12.5 },
+        { symbole: 'm³', conso: 0.25 },
+      ]),
+    ).toBe('80 kWh · 12,75 m³')
+  })
+
+  it('par défaut, une unité vue une seule fois n’est pas affichée', () => {
+    // ORACLE (doc) : « minOccurrences = 2 » par défaut — la carte d'EN-TÊTE
+    // d'un OT ne somme pas un compteur isolé. Avec le seuil abaissé à 1, les
+    // mêmes données s'affichent.
+    const items = [
+      { symbole: 'kWh', conso: 30 },
+      { symbole: 'm³', conso: 12 },
+    ]
+    expect(libelleReleve(items)).toBe('')
+    expect(libelleReleve(items, 1)).toBe('30 kWh · 12 m³')
+  })
+
+  it('rien à afficher rend la chaîne vide', () => {
+    // ORACLE (doc) : « Renvoie '' si rien à afficher ».
+    expect(libelleReleve([])).toBe('')
+    expect(
+      libelleReleve([
+        { symbole: 'kWh', conso: null },
+        { symbole: 'kWh', conso: null },
+      ]),
+    ).toBe('')
   })
 })

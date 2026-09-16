@@ -154,4 +154,29 @@ describe('sectionDeChemin', () => {
   it('affiche le libellé PRODUIT, pas le nom technique de la route', () => {
     expect(NAV_LABELS['/gammes']).toBe('Plan de maintenance')
   })
+
+  it('ne rattache pas un chemin à double barre oblique à la racine', () => {
+    // ORACLE : la racine est reconnue en correspondance EXACTE. Aucune autre
+    // entrée n'a `/` pour préfixe de section — c'est précisément pourquoi `/`
+    // est retiré de la liste des préfixes candidats. Un chemin dégénéré `//…`
+    // (double barre produite par une concaténation d'URL) n'est une route
+    // d'aucune section : il ne doit surtout pas passer pour le tableau de bord.
+    expect(sectionDeChemin('//')).toBeNull()
+    expect(sectionDeChemin('//planning')).toBeNull()
+  })
+})
+
+describe('NAV_LABELS', () => {
+  it('donne à chaque entrée un libellé affichable et distinct', () => {
+    // ORACLE : NAV_LABELS est la SOURCE UNIQUE du libellé de la sidebar ET du
+    // titre d'onglet du navigateur (c'est la raison d'être de sa sortie de
+    // `app-sidebar.tsx`). Un libellé vide afficherait une entrée de menu sans
+    // nom et un onglet anonyme ; deux entrées portant le même libellé rendraient
+    // le fil d'Ariane ambigu — `sectionDeChemin` ne rend QUE le libellé, on ne
+    // saurait plus de quelle section on parle.
+    for (const k of TOUTES) {
+      expect(NAV_LABELS[k].trim(), `libellé vide pour ${k}`).not.toBe('')
+    }
+    expect(new Set(TOUTES.map((k) => NAV_LABELS[k])).size).toBe(TOUTES.length)
+  })
 })
