@@ -84,7 +84,7 @@ export function NiveauFormDialog({
           label="Ordre"
           type="number"
           inputMode="numeric"
-          hint="Ordre d'affichage dans la liste"
+          hint="Sous-sol : −2, −1 · Rez-de-chaussée : 0 · Étages : 1, 2, 3…"
         />
       </FormDialog>
     </Form>

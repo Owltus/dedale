@@ -103,21 +103,24 @@ describe('niveauSchema — ordre', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : l’ordre d’un niveau ne peut pas être NÉGATIF',
-    () => {
-      // Attendu : le schéma SQL documente lui-même l'usage — « tri logique
-      // (SS=-1, RDC=0, R+1=1…) » sur une colonne SMALLINT SIGNÉE. Un sous-sol
-      // doit donc pouvoir porter l'ordre −1.
-      // Observé : `optionalNumber` refuse tout `n < 0` → impossible de placer un
-      // sous-sol AVANT le rez-de-chaussée depuis le formulaire ; l'usager est
-      // contraint de renuméroter tout le bâtiment.
-      // Contre-exemple : ordre = '-1'.
-      const r = niveauSchema.safeParse({ ...NIVEAU, ordre: '-1' })
-      expect(r.success).toBe(true)
-      expect(r.data).toMatchObject({ ordre: -1 })
-    },
-  )
+  it('accepte un ordre NÉGATIF, pour ranger un sous-sol avant le rez-de-chaussée', () => {
+    // ORACLE : le schéma SQL documente lui-même l'usage — « tri logique
+    // (SS=-1, RDC=0, R+1=1…) » sur une colonne SMALLINT SIGNÉE.
+    // Régression couverte : un helper qui refuserait `n < 0` rend impossible le
+    // placement d'un sous-sol AVANT le rez-de-chaussée depuis le formulaire, et
+    // contraint l'usager à renuméroter tout le bâtiment de +1.
+    fc.assert(
+      fc.property(fc.integer({ min: -32_768, max: -1 }), (n) => {
+        const r = niveauSchema.safeParse({ ...NIVEAU, ordre: String(n) })
+        expect(r.success).toBe(true)
+        expect(r.data).toMatchObject({ ordre: n })
+      }),
+      RUNS,
+    )
+    const sousSol = niveauSchema.safeParse({ ...NIVEAU, ordre: '-1' })
+    expect(sousSol.success).toBe(true)
+    expect(sousSol.data).toMatchObject({ ordre: -1 })
+  })
 
   it.fails(
     'BUG CANDIDAT Martin : l’ordre accepte l’infini, l’hexadécimal et le hors-borne SMALLINT',

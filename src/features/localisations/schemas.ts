@@ -20,6 +20,37 @@ const optionalNumber = (label: string) =>
     return n
   })
 
+/**
+ * Rang d'affichage d'un niveau. La base documente la convention : SS = -1,
+ * RDC = 0, R+1 = 1 (`schema_complete.sql`). Le champ doit donc accepter les
+ * négatifs — `optionalNumber` les refuse, ce qui a déjà conduit un utilisateur
+ * à renuméroter tout son immeuble de +1.
+ */
+const ORDRE_MIN = -32_768
+const ORDRE_MAX = 32_767
+const ordreNiveau = z.string().transform((raw, ctx): number | undefined => {
+  const trimmed = raw.trim()
+  if (trimmed === '') return undefined
+  const n = Number(trimmed)
+  if (!Number.isInteger(n)) {
+    ctx.addIssue({
+      code: 'custom',
+      message:
+        'L’ordre doit être un entier : sous-sol −2 ou −1, rez-de-chaussée 0, étages 1, 2, 3…',
+    })
+    return z.NEVER
+  }
+  if (n < ORDRE_MIN || n > ORDRE_MAX) {
+    ctx.addIssue({
+      code: 'custom',
+      message:
+        'L’ordre doit rester un numéro d’étage plausible, entre −32 768 et 32 767',
+    })
+    return z.NEVER
+  }
+  return n
+})
+
 // Entier optionnel >= 0 saisi en texte (effectif admissible).
 const optionalInt = (label: string) =>
   z.string().transform((raw, ctx): number | undefined => {
@@ -73,7 +104,7 @@ export const emptyBatiment: BatimentFormValues = {
 export const niveauSchema = z.object({
   nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
   description: z.string().trim().max(2000),
-  ordre: optionalNumber('L’ordre'),
+  ordre: ordreNiveau,
   miniature_id: miniature,
 })
 
