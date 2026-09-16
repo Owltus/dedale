@@ -109,10 +109,31 @@ const MESSAGES_CONTRAINTE_CHECK: Readonly<Record<string, string>> = {
     'Date d’exécution incohérente avec le statut de l’opération.',
   opex_commentaires_taille:
     'Commentaire trop long : 5 000 caractères au maximum. Raccourcissez le texte, ou joignez le détail en document.',
+  // Migration 118. Posée NOT VALID : les relevés historiques sans valeur
+  // survivent, mais toute écriture qui les laisserait en l'état est refusée.
+  opex_mesure_terminee_a_valeur:
+    'Valeur manquante : une mesure terminée doit porter un relevé. Saisissez la valeur, ou passez l’opération en « Non applicable ».',
   operations_nom_non_vide: VIDE_NOM,
   operations_seuils_coherents: SEUILS_INVERSES,
   modeles_operations_items_nom_non_vide: VIDE_NOM,
   modeles_operations_items_seuils_coherents: SEUILS_INVERSES,
+
+  // ── Caractères invisibles (migration 117) ─────────────────────────────────
+  // Les CHECK historiques testent `length(trim(...)) > 0`, or `trim()` ne retire
+  // que les blancs ASCII : un espace de largeur nulle ou une marque d'inversion
+  // d'écriture passait des deux côtés. Ces contraintes-ci ferment les chemins
+  // que le formulaire ne contrôle pas — import CSV, appel direct à l'API.
+  sites_nom_visible: VIDE_NOM,
+  batiments_nom_visible: VIDE_NOM,
+  niveaux_nom_visible: VIDE_NOM,
+  locaux_nom_visible: VIDE_NOM,
+  categories_nom_visible: VIDE_NOM,
+  gammes_nom_visible: VIDE_NOM,
+  prestataires_libelle_visible: VIDE_LIBELLE,
+  types_locaux_libelle_visible: VIDE_LIBELLE,
+  evenements_titre_visible: VIDE_TITRE,
+  interventions_travaux_titre_visible: VIDE_TITRE,
+  demandes_intervention_constat_visible: VIDE_CONSTAT,
 
   // ── Lieux : sites, bâtiments, niveaux, locaux ─────────────────────────────
   sites_nom_check: VIDE_NOM,
