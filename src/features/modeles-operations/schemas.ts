@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 /**
  * Identifiants de lignes : colonnes UUID côté base, listes déroulantes côté
@@ -10,7 +11,7 @@ const REFERENCE_INVALIDE =
   'Référence invalide : rechargez la page puis réessayez.'
 
 export const modeleOperationSchema = z.object({
-  nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
+  nom: texteObligatoire('Le nom est obligatoire').max(200),
   description: z.string().trim().max(2000),
   /** Catégorie de rattachement, OBLIGATOIRE : tout modèle est rangé sous une catégorie. */
   categorie_id: z
@@ -68,7 +69,7 @@ const ordreItem = z
 
 export const operationItemSchema = z
   .object({
-    nom: z.string().trim().min(1, 'Le libellé est obligatoire').max(200),
+    nom: texteObligatoire('Le libellé est obligatoire', 'libelle').max(200),
     ordre: ordreItem,
     type_operation_id: z.string().min(1, 'Le type est obligatoire'),
     unite_id: z.string(),

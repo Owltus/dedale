@@ -55,20 +55,20 @@ describe('batimentSchema', () => {
   )
   testeIdempotence('batimentSchema', batimentSchema, BATIMENT)
 
-  it.fails(
-    'BUG CANDIDAT Martin : un nom fait de caractères invisibles est accepté',
-    () => {
-      // Attendu : un bâtiment doit porter un nom lisible.
-      // Observé : U+200B / U+202E survivent au `.trim()` JS ET au `trim()` SQL
-      // du CHECK `length(trim(nom)) > 0` → un bâtiment « sans nom » dans l'arbre
-      // des localisations, introuvable par la recherche.
-      for (const invisible of CHAINES_INVISIBLES) {
-        expect(rejette(batimentSchema, { ...BATIMENT, nom: invisible })).toBe(
-          true,
-        )
-      }
-    },
-  )
+  it('refuse un nom fait de seuls caractères invisibles', () => {
+    // ORACLE : un bâtiment doit porter un nom lisible (CHECK
+    // `length(trim(nom)) > 0`).
+    // Régression couverte : U+200B / U+202E survivaient au `.trim()` JS ET au
+    // `trim()` SQL — un bâtiment « sans nom » dans l'arbre des localisations,
+    // introuvable par la recherche. `texteObligatoire` (lib/texte-zod) exige
+    // désormais au moins un caractère visible — ici comme sur le niveau et le
+    // local, qui partagent le même contrôle.
+    for (const invisible of CHAINES_INVISIBLES) {
+      expect(rejette(batimentSchema, { ...BATIMENT, nom: invisible })).toBe(
+        true,
+      )
+    }
+  })
 })
 
 // ─── niveauSchema ────────────────────────────────────────────────────────────

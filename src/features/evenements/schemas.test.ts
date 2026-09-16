@@ -65,18 +65,18 @@ describe('evenementSchema', () => {
     ).toBe(true)
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un titre fait de caractères invisibles est accepté',
-    () => {
-      // Attendu : CHECK (length(trim(titre)) > 0) veut un titre lisible.
-      // Observé : U+200B / U+202E passent le `.trim()` JS et le `trim()` SQL.
-      for (const invisible of CHAINES_INVISIBLES) {
-        expect(
-          rejette(evenementSchema, { ...EVENEMENT, titre: invisible }),
-        ).toBe(true)
-      }
-    },
-  )
+  it('refuse un titre fait de seuls caractères invisibles', () => {
+    // ORACLE : CHECK (length(trim(titre)) > 0) veut un titre lisible.
+    // Régression couverte : U+200B / U+202E passaient le `.trim()` JS ET le
+    // `trim()` SQL — un événement sans intitulé lisible dans la liste.
+    // `texteObligatoire` (lib/texte-zod) exige désormais au moins un caractère
+    // visible.
+    for (const invisible of CHAINES_INVISIBLES) {
+      expect(rejette(evenementSchema, { ...EVENEMENT, titre: invisible })).toBe(
+        true,
+      )
+    }
+  })
 
   it('refuse une date d’événement qui n’est pas une date nue', () => {
     // ORACLE : `evenements.date_evenement` est une colonne DATE.

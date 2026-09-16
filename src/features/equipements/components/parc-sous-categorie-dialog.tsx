@@ -22,9 +22,10 @@ import { IdentiteFields } from '@/components/common/fields/identite-fields'
 import { SelectField } from '@/components/common/fields/select-field'
 import { ChampsListEditor } from '@/components/common/champs-list-editor'
 import type { Categorie } from '@/features/categories/queries'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 const parcSousCategorieSchema = z.object({
-  nom: z.string().trim().min(1, 'Le nom est obligatoire'),
+  nom: texteObligatoire('Le nom est obligatoire'),
   description: z.string(),
   miniatureId: z.string().nullable(),
   // '' = aucun modèle de départ ; sinon l'id du modèle dont les caractéristiques

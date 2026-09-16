@@ -1,8 +1,9 @@
 import { z } from 'zod'
 import { champSchema } from '@/lib/champs'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 export const modeleEquipementSchema = z.object({
-  nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
+  nom: texteObligatoire('Le nom est obligatoire').max(200),
   description: z.string().trim().max(2000),
   /** Catégorie de rattachement, OBLIGATOIRE : tout modèle est rangé sous une catégorie. */
   categorie_id: z.string().min(1, 'La catégorie est obligatoire'),

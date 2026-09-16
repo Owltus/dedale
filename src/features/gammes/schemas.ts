@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 export const gammeNatures = [
   'controle_reglementaire',
@@ -47,7 +48,7 @@ const periodiciteObligatoire = z
   })
 
 export const gammeSchema = z.object({
-  nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
+  nom: texteObligatoire('Le nom est obligatoire').max(200),
   nature: z.enum(gammeNatures),
   periodicite_id: periodiciteObligatoire,
   prestataire_id: uuidObligatoire('Le prestataire est obligatoire'),
@@ -140,7 +141,7 @@ const ordreOperation = z
 
 export const operationSchema = z
   .object({
-    nom: z.string().trim().min(1, 'Le libellé est obligatoire').max(200),
+    nom: texteObligatoire('Le libellé est obligatoire', 'libelle').max(200),
     ordre: ordreOperation,
     type_operation_id: z.string().min(1, 'Le type est obligatoire'),
     unite_id: z.string(),

@@ -17,9 +17,10 @@ import { TextField } from '@/components/common/fields/text-field'
 import { SelectField } from '@/components/common/fields/select-field'
 import { FileDropField } from '@/components/common/file-drop-field'
 import { Label } from '@/components/ui/label'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 const documentEditSchema = z.object({
-  nom_original: z.string().trim().min(1, 'Le nom est obligatoire.'),
+  nom_original: texteObligatoire('Le nom est obligatoire.'),
   // Le Select renvoie une chaîne ; convertie en nombre à l'écriture.
   type_document_id: z.string().min(1, 'Choisis un type.'),
 })

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { formatDate, todayLocal } from '@/lib/date'
 import { dateObligatoire } from '@/lib/dates-zod'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 // Champ montant : texte numérique optionnel (≥ 0, max 2 décimales).
 // Vide accepté → converti en null à l'enregistrement (cf. mutations).
@@ -17,7 +18,7 @@ const montant = z
   })
 
 export const investissementSchema = z.object({
-  libelle: z.string().trim().min(1, 'Le libellé est obligatoire').max(200),
+  libelle: texteObligatoire('Le libellé est obligatoire', 'libelle').max(200),
   description: z.string().trim().max(2000),
   montant_demande: montant,
   montant_prevu: montant,

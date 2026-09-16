@@ -69,18 +69,17 @@ describe('siteSchema', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un nom de site fait de caractères invisibles est accepté',
-    () => {
-      // Attendu : CHECK (length(trim(nom)) > 0) + index UNIQUE sur lower(nom).
-      // Observé : U+200B / U+202E passent le `.trim()` JS et le `trim()` SQL →
-      // un site apparaît « vide » dans le sélecteur de site (SiteSwitcher), et
-      // toute la navigation « mes sites » se fait sur une entrée non nommée.
-      for (const invisible of CHAINES_INVISIBLES) {
-        expect(rejette(siteSchema, { ...SITE, nom: invisible })).toBe(true)
-      }
-    },
-  )
+  it('refuse un nom de site fait de seuls caractères invisibles', () => {
+    // ORACLE : CHECK (length(trim(nom)) > 0) + index UNIQUE sur lower(nom).
+    // Régression couverte : U+200B / U+202E passaient le `.trim()` JS ET le
+    // `trim()` SQL — un site apparaissait « vide » dans le sélecteur de site
+    // (SiteSwitcher) et toute la navigation « mes sites » se faisait sur une
+    // entrée non nommée. `texteObligatoire` (lib/texte-zod) exige désormais au
+    // moins un caractère visible.
+    for (const invisible of CHAINES_INVISIBLES) {
+      expect(rejette(siteSchema, { ...SITE, nom: invisible })).toBe(true)
+    }
+  })
 
   it.fails('BUG CANDIDAT Martin : le code postal n’a aucun format', () => {
     // Attendu : un code postal est une suite de chiffres/lettres/espaces/

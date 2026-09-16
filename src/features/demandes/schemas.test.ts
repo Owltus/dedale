@@ -46,18 +46,17 @@ describe('diSchema — création', () => {
     expect(diSchema.safeParse(DI).success).toBe(true)
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un constat fait de caractères invisibles est accepté',
-    () => {
-      // Attendu : le constat EST la demande (il n'y a pas de colonne `titre`,
-      // le titre de liste est dérivé du constat). Un constat invisible produit
-      // une demande sans intitulé lisible dans la liste.
-      // Observé : U+200B / U+202E survivent au `.trim()` et au CHECK SQL.
-      for (const invisible of CHAINES_INVISIBLES) {
-        expect(rejette(diSchema, { ...DI, constat: invisible })).toBe(true)
-      }
-    },
-  )
+  it('refuse un constat fait de seuls caractères invisibles', () => {
+    // ORACLE : le constat EST la demande (il n'y a pas de colonne `titre`, le
+    // titre de liste est dérivé du constat) — il doit être lisible.
+    // Régression couverte : U+200B / U+202E survivaient au `.trim()` comme au
+    // CHECK SQL, et produisaient une demande sans intitulé lisible dans la
+    // liste. `texteObligatoire` (lib/texte-zod) exige désormais au moins un
+    // caractère visible.
+    for (const invisible of CHAINES_INVISIBLES) {
+      expect(rejette(diSchema, { ...DI, constat: invisible })).toBe(true)
+    }
+  })
 
   it('refuse une date de constat qui n’est pas une date nue', () => {
     // ORACLE : `demandes_intervention.date_constat` est une colonne DATE.

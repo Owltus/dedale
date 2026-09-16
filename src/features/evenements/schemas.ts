@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { tachesInlineSchema } from '@/features/equipements/tache-schema'
 import { formatDate } from '@/lib/date'
 import { dateObligatoire } from '@/lib/dates-zod'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 // IDs stables du référentiel (cf. `statuts_evenements`, migration 077).
 // Transitions LIBRES : aucun trigger de machine à états côté base, comme pour
@@ -14,7 +15,7 @@ export const STATUT_CLOTURE = 4
 // STABLES, on ne les renumérote pas sous peine de réécrire les lignes existantes.
 
 export const evenementSchema = z.object({
-  titre: z.string().trim().min(1, 'Le titre est obligatoire').max(200),
+  titre: texteObligatoire('Le titre est obligatoire', 'titre').max(200),
   description: z.string().trim().max(5000),
   // Date nue locale (jamais `toISOString()`, cf. lib/date).
   date_evenement: dateObligatoire('La date est obligatoire'),

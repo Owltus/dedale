@@ -7,6 +7,7 @@ import {
 import type { StatutZone } from '@/features/equipements/statut-zone'
 import { tachesInlineSchema } from '@/features/equipements/tache-schema'
 import { dateObligatoire } from '@/lib/dates-zod'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 // IDs stables du référentiel (cf. statuts_travaux dans schema_complete.sql).
 // 085 : statut LIBRE (plus de machine à états côté base), ids alignés sur
@@ -16,7 +17,7 @@ export const STATUT_EN_COURS = 2
 export const STATUT_TERMINE = 4
 
 export const travauxSchema = z.object({
-  titre: z.string().trim().min(1, 'Le titre est obligatoire').max(200),
+  titre: texteObligatoire('Le titre est obligatoire', 'titre').max(200),
   description: z.string().trim().max(2000),
   // Saisissable (comme `date_evenement` côté Événements) : un travaux se
   // déclare souvent après coup (rattrapage d'historique), sa date n'a pas de

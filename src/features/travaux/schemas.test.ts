@@ -56,19 +56,18 @@ describe('travauxSchema', () => {
     ).toBe(true)
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un titre fait de caractères invisibles est accepté',
-    () => {
-      // Attendu : un travaux doit porter un intitulé lisible (c'est la clé de
-      // lecture de la liste et de la fiche).
-      // Observé : U+200B / U+202E survivent au `.trim()`.
-      for (const invisible of CHAINES_INVISIBLES) {
-        expect(rejette(travauxSchema, { ...TRAVAUX, titre: invisible })).toBe(
-          true,
-        )
-      }
-    },
-  )
+  it('refuse un titre fait de seuls caractères invisibles', () => {
+    // ORACLE : un travaux doit porter un intitulé lisible (c'est la clé de
+    // lecture de la liste et de la fiche).
+    // Régression couverte : U+200B / U+202E survivaient au `.trim()`.
+    // `texteObligatoire` (lib/texte-zod) exige désormais au moins un caractère
+    // visible.
+    for (const invisible of CHAINES_INVISIBLES) {
+      expect(rejette(travauxSchema, { ...TRAVAUX, titre: invisible })).toBe(
+        true,
+      )
+    }
+  })
 
   it('refuse une date de demande qui n’est pas une date nue', () => {
     // ORACLE : `interventions_travaux.date_demande` est une colonne DATE.

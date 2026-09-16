@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 /**
  * Notation décimale usuelle — celle qu'un clavier produit dans un champ de
@@ -119,7 +120,7 @@ const optionalIntId = optionalInt({
 const miniature = z.uuid('Vignette invalide : rechargez la page.').nullable()
 
 export const batimentSchema = z.object({
-  nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
+  nom: texteObligatoire('Le nom est obligatoire').max(200),
   description: z.string().trim().max(2000),
   miniature_id: miniature,
 })
@@ -136,7 +137,7 @@ export const emptyBatiment: BatimentFormValues = {
 
 // --- Niveau ---
 export const niveauSchema = z.object({
-  nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
+  nom: texteObligatoire('Le nom est obligatoire').max(200),
   description: z.string().trim().max(2000),
   ordre: ordreNiveau,
   miniature_id: miniature,
@@ -155,7 +156,7 @@ export const emptyNiveau: NiveauFormValues = {
 
 // --- Local ---
 export const localSchema = z.object({
-  nom: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
+  nom: texteObligatoire('Le nom est obligatoire').max(200),
   description: z.string().trim().max(2000),
   /** `NUMERIC(8,2)` + `CHECK (surface_m2 IS NULL OR surface_m2 > 0)`. */
   surface_m2: optionalNumber({

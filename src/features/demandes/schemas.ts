@@ -1,13 +1,14 @@
 import { z } from 'zod'
 import { todayLocal } from '@/lib/date'
 import { dateObligatoire } from '@/lib/dates-zod'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 // Création d'une DI. Le constat est obligatoire ; liaisons et prestataire
 // optionnels. La table demandes_intervention n'a PAS de colonne `titre` :
 // le constat tient lieu de description du signalement (le titre affiché en
 // liste est dérivé de la 1re ligne du constat, cf. route).
 export const diSchema = z.object({
-  constat: z.string().trim().min(1, 'Le constat est obligatoire').max(4000),
+  constat: texteObligatoire('Le constat est obligatoire', 'constat').max(4000),
   date_constat: dateObligatoire('La date de constat est obligatoire'),
   local_id: z.string(), // '' = aucun
   equipement_id: z.string(), // '' = aucun
@@ -28,7 +29,7 @@ export function emptyDi(): DiFormValues {
 // constat n'est pas modifiable. Les liaisons (facultatives) ne sont réconciliées
 // que pour les rôles métier — le demandeur n'édite que son constat.
 export const diEditSchema = z.object({
-  constat: z.string().trim().min(1, 'Le constat est obligatoire'),
+  constat: texteObligatoire('Le constat est obligatoire', 'constat'),
   local_id: z.string(), // '' = aucun
   equipement_id: z.string(), // '' = aucun
 })

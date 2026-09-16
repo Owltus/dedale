@@ -105,20 +105,19 @@ describe('categorieSchema', () => {
     ).toBe(true)
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un nom fait de caractères invisibles est accepté',
-    () => {
-      // Attendu : une catégorie structure l'arborescence de la Bibliothèque —
-      // son nom doit être lisible et sert de segment d'URL (slugifié).
-      // Observé : U+200B / U+202E passent le `.trim()` → un nœud sans nom
-      // visible dans l'explorateur, et un slug vide dans l'URL de descente.
-      for (const invisible of CHAINES_INVISIBLES) {
-        expect(rejette(categorieSchema, { ...CATEGORIE, nom: invisible })).toBe(
-          true,
-        )
-      }
-    },
-  )
+  it('refuse un nom fait de seuls caractères invisibles', () => {
+    // ORACLE : une catégorie structure l'arborescence de la Bibliothèque — son
+    // nom doit être lisible et sert de segment d'URL (slugifié).
+    // Régression couverte : U+200B / U+202E passaient le `.trim()` — un nœud
+    // sans nom visible dans l'explorateur, et un slug vide dans l'URL de
+    // descente. `texteObligatoire` (lib/texte-zod) exige désormais au moins un
+    // caractère visible.
+    for (const invisible of CHAINES_INVISIBLES) {
+      expect(rejette(categorieSchema, { ...CATEGORIE, nom: invisible })).toBe(
+        true,
+      )
+    }
+  })
 
   it.fails(
     'BUG CANDIDAT Martin : parent_id et miniature_id ne sont ni bornés ni typés',

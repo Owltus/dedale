@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { dateFacultative } from '@/lib/dates-zod'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 /**
  * Tâche généralisée (090) : un libellé libre est son IDENTITÉ (seul champ
@@ -10,7 +11,7 @@ import { dateFacultative } from '@/lib/dates-zod'
  * taches-checklist-travaux-evenements).
  */
 export const tacheSchema = z.object({
-  libelle: z.string().trim().min(1, 'Le libellé est obligatoire').max(200),
+  libelle: texteObligatoire('Le libellé est obligatoire', 'libelle').max(200),
   local_id: z.string(), // '' = aucun lieu
   equipement_id: z.string(), // '' = aucun équipement
   commentaire: z.string().trim().max(2000),

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { formatDate } from '@/lib/date'
+import { estLisible, messageIllisible, texteObligatoire } from '@/lib/texte-zod'
 
 // Champs typés des caractéristiques (modèles + équipements), stockés dans le
 // JSONB `specifications`. Voir plan/champs-types-equipements/.
@@ -29,7 +30,7 @@ const champValeurSchema = z.union([
  * garde un snapshot de la définition et remplit `valeur`.
  */
 export const champSchema = z.object({
-  cle: z.string().trim().max(60),
+  cle: texteObligatoire('Le nom du champ est obligatoire').max(60),
   type: z.enum(['texte', 'nombre', 'date', 'oui-non', 'liste']),
   /** Pertinent si type = nombre (ex. kW, bars). */
   unite: z.string().trim().max(20).optional(),
@@ -109,6 +110,13 @@ export function prepareChamps(
   const cles = cleaned.map((c) => c.cle.toLowerCase())
   if (cles.some((k) => k === '')) {
     return { ok: false, error: 'Chaque champ doit avoir un nom.' }
+  }
+  // Un nom fait de seuls caractères invisibles (largeur nulle, joignoirs…)
+  // survit au `.trim()` ci-dessus : il s'écrirait, puis `parseChamps` le
+  // JETTERAIT en silence à la relecture (champSchema exige du lisible).
+  const invisible = cleaned.find((c) => !estLisible(c.cle))
+  if (invisible) {
+    return { ok: false, error: messageIllisible('nom') }
   }
   if (new Set(cles).size !== cles.length) {
     return { ok: false, error: 'Les noms de champ doivent être uniques.' }

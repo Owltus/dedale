@@ -117,24 +117,23 @@ describe('prestataireSchema', () => {
     }
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un libellé fait de caractères invisibles est accepté',
-    () => {
-      // Attendu : un prestataire doit porter un nom LISIBLE — un libellé
-      // composé du seul U+200B (largeur nulle) ou U+202E (RTL override) n'en est
-      // pas un. Observé : accepté, et le CHECK SQL `length(trim(nom)) > 0` ne le
-      // rattrape pas non plus (trim SQL ne retire que l'espace ASCII) → une
-      // fiche prestataire au nom invisible, impossible à retrouver en recherche.
-      for (const invisible of CHAINES_INVISIBLES) {
-        expect(
-          rejette(prestataireSchema, {
-            ...PRESTATAIRE,
-            libelle: invisible,
-          }),
-        ).toBe(true)
-      }
-    },
-  )
+  it('refuse un libellé fait de seuls caractères invisibles', () => {
+    // ORACLE : un prestataire doit porter un nom LISIBLE — un libellé composé
+    // du seul U+200B (largeur nulle) ou U+202E (RTL override) n'en est pas un.
+    // Régression couverte : il était accepté, et le CHECK SQL
+    // `length(trim(nom)) > 0` ne le rattrapait pas non plus (le trim SQL ne
+    // retire que l'espace ASCII) — une fiche prestataire au nom invisible,
+    // impossible à retrouver en recherche. `texteObligatoire` (lib/texte-zod)
+    // exige désormais au moins un caractère visible.
+    for (const invisible of CHAINES_INVISIBLES) {
+      expect(
+        rejette(prestataireSchema, {
+          ...PRESTATAIRE,
+          libelle: invisible,
+        }),
+      ).toBe(true)
+    }
+  })
 
   it.fails(
     'BUG CANDIDAT Martin : miniature_id n’a aucune borne de longueur',

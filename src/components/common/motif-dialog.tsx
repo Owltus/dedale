@@ -4,12 +4,13 @@ import { z } from 'zod'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextareaField } from '@/components/common/fields/textarea-field'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 // Motif obligatoire et borné (miroir des garde-fous backend : CHECK
 // motif_annulation, p_motif des RPC). Schéma local : la brique commune ne
 // dépend d'aucune feature.
 const motifSchema = z.object({
-  motif: z.string().trim().min(1, 'Le motif est obligatoire').max(2000),
+  motif: texteObligatoire('Le motif est obligatoire', 'motif').max(2000),
 })
 
 type MotifValues = z.infer<typeof motifSchema>

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { dateFacultative, dateObligatoire } from '@/lib/dates-zod'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 // ── Prestataire ─────────────────────────────────────────────────────────────
 
@@ -7,7 +8,7 @@ import { dateFacultative, dateObligatoire } from '@/lib/dates-zod'
 // une IMAGE. Les coordonnées (métier, SIRET, contact, adresse…) restent en base
 // mais ne sont plus saisies ici. `commentaires` porte la description.
 export const prestataireSchema = z.object({
-  libelle: z.string().trim().min(1, 'Le nom est obligatoire').max(200),
+  libelle: texteObligatoire('Le nom est obligatoire').max(200),
   commentaires: z.string().trim().max(2000),
   miniature_id: z.string().nullable(),
 })
@@ -31,11 +32,10 @@ export const TYPE_CONTRAT_TACITE = '2'
 // string ; les compteurs sont saisis via `NumberField` (donc `number | null`).
 export const contratSchema = z
   .object({
-    reference: z
-      .string()
-      .trim()
-      .min(1, 'La référence est obligatoire')
-      .max(200),
+    reference: texteObligatoire(
+      'La référence est obligatoire',
+      'reference',
+    ).max(200),
     type_contrat_id: z.string().min(1, 'Le type de contrat est obligatoire'),
     date_debut: dateObligatoire('La date de début est obligatoire'),
     date_fin: dateFacultative(),

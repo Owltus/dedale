@@ -5,6 +5,7 @@ import {
   roleLabel,
   type RoleCode,
 } from '@/lib/permissions'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 // Codes et libellés de rôle : source unique dans lib/permissions (sens de
 // dépendance correct, features → lib). Réexportés ici par commodité pour les
@@ -129,11 +130,7 @@ export const creerCompteSchema = z
       .min(1, 'L’adresse e-mail est obligatoire')
       .max(255)
       .pipe(z.email('Adresse e-mail invalide')),
-    nom_complet: z
-      .string()
-      .trim()
-      .min(1, 'Le nom complet est obligatoire')
-      .max(200),
+    nom_complet: texteObligatoire('Le nom complet est obligatoire').max(200),
     role: z.enum(ROLE_CODES, { message: 'Choisis un rôle' }),
     site_ids: z.array(z.uuid()),
     password: passwordSchema,
@@ -168,11 +165,7 @@ export const emptyCreerCompte: CreerCompteFormValues = {
 const TELEPHONE_RE = /^\+?[0-9][0-9 .-]{4,19}$/
 
 export const profileSchema = z.object({
-  nom_complet: z
-    .string()
-    .trim()
-    .min(1, 'Le nom complet est obligatoire')
-    .max(200),
+  nom_complet: texteObligatoire('Le nom complet est obligatoire').max(200),
   telephone: z.union([
     z.literal(''),
     z

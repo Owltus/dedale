@@ -7,6 +7,7 @@ import {
   type FilterOption,
 } from '@/components/common/list-filter-bar'
 import type { StatusTone } from '@/components/common/status-badge'
+import { texteObligatoire } from '@/lib/texte-zod'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Machine à états OT — miroir du trigger validation_transitions_ot.
@@ -280,7 +281,7 @@ export function emptyOtCreate(): OtCreateFormValues {
 
 // Motif obligatoire pour annuler ou rouvrir un OT (CHECK + RPC backend).
 export const motifSchema = z.object({
-  motif: z.string().trim().min(1, 'Le motif est obligatoire').max(2000),
+  motif: texteObligatoire('Le motif est obligatoire', 'motif').max(2000),
 })
 
 export type MotifFormValues = z.infer<typeof motifSchema>
