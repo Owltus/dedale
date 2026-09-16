@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import type { Champ, ChampValeur } from '@/lib/champs'
+import { cn } from '@/lib/utils'
 import { DateField } from '@/components/ui/date-field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,27 +14,50 @@ interface ChampValeurInputProps {
   error?: string
 }
 
-/** Libellé + widget + message d'erreur, gabarit commun aux cinq types. */
+/**
+ * Libellé + widget + message d'erreur, gabarit commun aux CINQ types — aucune
+ * branche ne compose son libellé à la main, c'est ainsi qu'un type (`date`)
+ * avait fini par n'en afficher aucun.
+ *
+ * `inline` = disposition de la CASE À COCHER (widget à gauche, libellé à droite
+ * sur la même ligne, libellé non gras), reprise telle quelle de `CheckboxField`.
+ * Tout le reste — `htmlFor`, astérisque « requis », message d'erreur — est
+ * strictement identique aux quatre autres types.
+ */
 function Enveloppe({
   fieldId,
   label,
   required,
   error,
+  inline = false,
   children,
 }: {
   fieldId: string
   label: string
   required?: boolean
   error?: string
+  inline?: boolean
   children: React.ReactNode
 }) {
+  const libelle = (
+    <Label htmlFor={fieldId} className={cn(inline && 'font-normal')}>
+      {label}
+      {required ? ' *' : ''}
+    </Label>
+  )
   return (
     <div className="grid gap-2">
-      <Label htmlFor={fieldId}>
-        {label}
-        {required ? ' *' : ''}
-      </Label>
-      {children}
+      {inline ? (
+        <div className="flex items-center gap-2">
+          {children}
+          {libelle}
+        </div>
+      ) : (
+        <>
+          {libelle}
+          {children}
+        </>
+      )}
       {error != null && error !== '' && (
         <p className="text-sm text-destructive">{error}</p>
       )}
@@ -97,31 +121,39 @@ export function ChampValeurInput({
 
     case 'date':
       return (
-        <DateField
-          value={typeof value === 'string' ? value : ''}
-          onValueChange={(v) => onChange(v || null)}
-          ariaLabel={label}
-          className="w-full"
-        />
+        <Enveloppe
+          fieldId={fieldId}
+          label={label}
+          required={champ.requis}
+          error={error}
+        >
+          <DateField
+            id={fieldId}
+            value={typeof value === 'string' ? value : ''}
+            onValueChange={(v) => onChange(v || null)}
+            ariaLabel={label}
+            aria-invalid={error != null && error !== ''}
+            className="w-full"
+          />
+        </Enveloppe>
       )
 
     case 'oui-non':
       return (
-        <div className="grid gap-2">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id={fieldId}
-              checked={value === true}
-              onCheckedChange={(c) => onChange(c === true)}
-            />
-            <Label htmlFor={fieldId} className="font-normal">
-              {label}
-            </Label>
-          </div>
-          {error != null && error !== '' && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
-        </div>
+        <Enveloppe
+          fieldId={fieldId}
+          label={label}
+          required={champ.requis}
+          error={error}
+          inline
+        >
+          <Checkbox
+            id={fieldId}
+            checked={value === true}
+            onCheckedChange={(c) => onChange(c === true)}
+            aria-invalid={error != null && error !== ''}
+          />
+        </Enveloppe>
       )
 
     case 'liste':
@@ -149,6 +181,7 @@ export function ChampValeurInput({
             ]}
             placeholder="— Choisir —"
             ariaLabel={label}
+            aria-invalid={error != null && error !== ''}
           />
         </Enveloppe>
       )

@@ -33,6 +33,19 @@ interface SelectDropdownProps {
    */
   id?: string
   /**
+   * Id(s) des textes qui DÉCRIVENT le champ (aide, message d'erreur). Poussé
+   * automatiquement par `FormControl` : sans cette prop, le message d'erreur
+   * s'affiche à l'écran sans jamais être rattaché au champ — donc jamais lu au
+   * focus par un lecteur d'écran.
+   */
+  'aria-describedby'?: string
+  /**
+   * Champ EN ERREUR. Poussé automatiquement par `FormControl` : annonce le champ
+   * invalide et teinte son cadre (`aria-invalid:border-destructive`), pour que
+   * l'erreur ne soit pas portée par le seul texte sous le champ.
+   */
+  'aria-invalid'?: boolean
+  /**
    * Affiche la coche à gauche de l'option active (défaut `true`). `false` =
    * l'option active est simplement SURLIGNÉE (fond `accent`), sans coche ni
    * retrait à gauche — pour un rendu de sélection standard/compact.
@@ -61,6 +74,8 @@ export function SelectDropdown({
   checkIndicator = true,
   centered = false,
   id,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
 }: SelectDropdownProps) {
   return (
     <SelectPrimitive.Root
@@ -71,9 +86,14 @@ export function SelectDropdown({
       <SelectPrimitive.Trigger
         id={id}
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
         className={cn(
           'flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none data-[placeholder]:text-muted-foreground',
           'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+          // Même signalement d'erreur que l'`Input` : le cadre lui-même vire au
+          // destructive, l'erreur n'est pas portée par le seul texte sous le champ.
+          'aria-invalid:border-destructive aria-invalid:ring-destructive/20',
           'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}

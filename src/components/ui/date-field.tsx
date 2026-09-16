@@ -18,6 +18,23 @@ interface DateFieldProps {
   /** Largeur / hauteur du déclencheur (ex. `h-8 w-[7.25rem]`, `w-full`). */
   className?: string
   ariaLabel?: string
+  /**
+   * Id du DÉCLENCHEUR. Indispensable dès qu'un `<Label htmlFor>` visible pointe
+   * sur le champ : sans lui, le libellé ne cible rien et cliquer dessus n'ouvre
+   * pas le calendrier (l'`ariaLabel` seul ne rétablit pas le lien).
+   */
+  id?: string
+  /**
+   * Id(s) des textes qui DÉCRIVENT le champ (aide, message d'erreur). Poussé
+   * automatiquement par `FormControl` : sans cette prop, le message d'erreur
+   * s'affiche sans jamais être rattaché au champ, donc jamais lu au focus.
+   */
+  'aria-describedby'?: string
+  /**
+   * Champ EN ERREUR. Poussé automatiquement par `FormControl` : annonce le champ
+   * invalide et teinte son cadre (`aria-invalid:border-destructive`).
+   */
+  'aria-invalid'?: boolean
   /** Mois/année en menus déroulants (défaut) ou libellé simple + flèches. */
   captionLayout?: 'label' | 'dropdown'
   /** Texte du déclencheur quand aucune date (défaut `jj/mm/aaaa`). */
@@ -56,6 +73,9 @@ export function DateField({
   disabled,
   className,
   ariaLabel,
+  id,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
   captionLayout = 'dropdown',
   placeholder = 'jj/mm/aaaa',
 }: DateFieldProps) {
@@ -70,11 +90,17 @@ export function DateField({
       <PopoverTrigger asChild>
         <button
           type="button"
+          id={id}
           disabled={disabled}
           aria-label={ariaLabel}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
           className={cn(
             'flex h-9 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none',
             'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+            // Même signalement d'erreur que l'`Input` : le cadre lui-même vire au
+            // destructive, l'erreur n'est pas portée par le seul texte sous le champ.
+            'aria-invalid:border-destructive aria-invalid:ring-destructive/20',
             'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
             className,
           )}

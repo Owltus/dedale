@@ -5,6 +5,7 @@ import {
   type SelectOption,
 } from '@/components/ui/select-dropdown'
 import {
+  FormControl,
   FormDescription,
   FormField,
   FormItem,
@@ -90,28 +91,34 @@ export function SelectField<T extends FieldValues>({
             {label}
             {required ? ' *' : ''}
           </FormLabel>
-          <SelectDropdown
-            // Valeur absente (`''`/`null`/`undefined`) → la sentinelle, pour
-            // que « — Aucun — » s'affiche quand c'est le choix courant.
-            value={
-              field.value === null ||
-              field.value === undefined ||
-              field.value === ''
-                ? optionAucune
-                  ? AUCUN
-                  : ''
-                : String(field.value)
-            }
-            onValueChange={(v) => {
-              const valeur = v === AUCUN ? '' : v
-              field.onChange(valeur)
-              onValueChange?.(valeur)
-            }}
-            options={items}
-            placeholder={placeholder}
-            disabled={disabled}
-            ariaLabel={label}
-          />
+          {/* `FormControl` (un `Slot` : AUCUN nœud DOM ajouté) pose sur le
+              déclencheur l'`id` que `FormLabel` vise déjà (`${id}-form-item`) —
+              sans lui, cliquer le libellé ne focalise rien — ainsi que
+              `aria-describedby` vers le `FormMessage` et `aria-invalid`. */}
+          <FormControl>
+            <SelectDropdown
+              // Valeur absente (`''`/`null`/`undefined`) → la sentinelle, pour
+              // que « — Aucun — » s'affiche quand c'est le choix courant.
+              value={
+                field.value === null ||
+                field.value === undefined ||
+                field.value === ''
+                  ? optionAucune
+                    ? AUCUN
+                    : ''
+                  : String(field.value)
+              }
+              onValueChange={(v) => {
+                const valeur = v === AUCUN ? '' : v
+                field.onChange(valeur)
+                onValueChange?.(valeur)
+              }}
+              options={items}
+              placeholder={placeholder}
+              disabled={disabled}
+              ariaLabel={label}
+            />
+          </FormControl>
           {hint != null && <FormDescription>{hint}</FormDescription>}
           <FormMessage />
         </FormItem>

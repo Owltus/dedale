@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { Control, FieldPath, FieldValues } from 'react-hook-form'
 import { DateField as DatePicker } from '@/components/ui/date-field'
 import {
+  FormControl,
   FormDescription,
   FormField,
   FormItem,
@@ -43,13 +44,19 @@ export function DateField<T extends FieldValues>({
             {label}
             {required ? ' *' : ''}
           </FormLabel>
-          <DatePicker
-            value={field.value ?? ''}
-            onValueChange={field.onChange}
-            disabled={disabled}
-            ariaLabel={label}
-            className="w-full"
-          />
+          {/* `FormControl` (un `Slot` : AUCUN nœud DOM ajouté) pose sur le
+              déclencheur l'`id` que `FormLabel` vise déjà (`${id}-form-item`) —
+              sans lui, cliquer le libellé n'ouvre pas le calendrier — ainsi que
+              `aria-describedby` vers le `FormMessage` et `aria-invalid`. */}
+          <FormControl>
+            <DatePicker
+              value={field.value ?? ''}
+              onValueChange={field.onChange}
+              disabled={disabled}
+              ariaLabel={label}
+              className="w-full"
+            />
+          </FormControl>
           {hint != null && <FormDescription>{hint}</FormDescription>}
           <FormMessage />
         </FormItem>

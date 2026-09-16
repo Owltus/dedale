@@ -140,41 +140,126 @@ describe('fields/ — le libellé désigne le champ', () => {
     },
   )
 
-  // BUG CANDIDAT Martin : attendu `document.getElementById(label.htmlFor)` non
-  // nul / observé `null` — `SelectField` rend son `FormLabel` (dont le `for`
-  // vaut `${id}-form-item`) mais ne passe PAS le `SelectDropdown` par
-  // `FormControl` et ne lui donne aucun `id`. Le libellé visible ne désigne donc
-  // AUCUN élément : cliquer « Statut » ne focalise pas le menu. Le pendant
-  // autonome, `StandaloneSelect`, passe bien `id={fieldId}` — la doctrine maison
-  // existe, seul ce champ-ci s'en écarte. `SelectField` est le champ le plus
-  // utilisé de l'app après `TextField`.
-  it.fails(
-    'SelectField : le `for` du libellé pointe sur un élément existant',
-    () => {
-      const { container } = rendreChamp((c) => (
+  // RÉGRESSION COUVERTE : `SelectField` rend son `FormLabel` (dont le `for`
+  // vaut `${id}-form-item`) ; tant qu'il ne passait pas le `SelectDropdown` par
+  // `FormControl`, ce `for` ne désignait AUCUN élément et cliquer « Statut » ne
+  // focalisait pas le menu. Le pendant autonome, `StandaloneSelect`, pose bien
+  // `id={fieldId}` — la doctrine maison existait, seul ce champ-ci s'en écartait.
+  // `SelectField` est le champ le plus utilisé de l'app après `TextField`.
+  it('SelectField : le `for` du libellé pointe sur un élément existant', () => {
+    const { container } = rendreChamp((c) => (
+      <SelectField
+        control={c}
+        name="statut"
+        label="Statut"
+        options={[{ value: '1', label: 'Ouvert' }]}
+      />
+    ))
+    const label = labelDuChamp(container)
+    expect(document.getElementById(label.htmlFor)).not.toBeNull()
+  })
+
+  // RÉGRESSION COUVERTE : même défaut, même cause — `fields/date-field.tsx`
+  // rendait le `DatePicker` hors de `FormControl`, et la primitive `ui/date-field`
+  // n'acceptait même pas d'`id` à poser sur son déclencheur.
+  it('DateField : le `for` du libellé pointe sur un élément existant', () => {
+    const { container } = rendreChamp((c) => (
+      <DateField control={c} name="date_prevue" label="Date prévue" />
+    ))
+    const label = labelDuChamp(container)
+    expect(document.getElementById(label.htmlFor)).not.toBeNull()
+  })
+
+  // ORACLE (le geste de l'utilisateur, WCAG 1.3.1 / 3.3.2) : un `for` résolu ne
+  // vaut que par ce qu'il permet — CLIQUER LE LIBELLÉ DOIT OUVRIR LE CHAMP. Sur
+  // tablette, la cible tactile du libellé est plus large que le champ : sans ce
+  // lien, c'est un tap perdu à chaque fois. Test GÉNÉRIQUE : il vaut pour le
+  // sixième champ à menu qui naîtra, pas seulement pour ces deux-là.
+  it.each([
+    [
+      'SelectField',
+      (c: Control<Valeurs, unknown, FieldValues>) => (
         <SelectField
           control={c}
           name="statut"
-          label="Statut"
+          label="Libellé"
           options={[{ value: '1', label: 'Ouvert' }]}
         />
-      ))
-      const label = labelDuChamp(container)
-      expect(document.getElementById(label.htmlFor)).not.toBeNull()
-    },
-  )
+      ),
+      'Ouvert',
+    ],
+    [
+      'DateField',
+      (c: Control<Valeurs, unknown, FieldValues>) => (
+        <DateField control={c} name="date_prevue" label="Libellé" />
+      ),
+      "Aujourd'hui",
+    ],
+  ])('%s : cliquer le libellé ouvre le champ', async (_nom, champ, revele) => {
+    const utilisateur = userEvent.setup()
+    const { container } = rendreChamp(champ)
 
-  // BUG CANDIDAT Martin : même défaut, même cause — `fields/date-field.tsx`
-  // rend le `DatePicker` hors de `FormControl`, sans `id`. Attendu un `for`
-  // résolu / observé `null`.
-  it.fails(
-    'DateField : le `for` du libellé pointe sur un élément existant',
-    () => {
-      const { container } = rendreChamp((c) => (
-        <DateField control={c} name="date_prevue" label="Date prévue" />
-      ))
-      const label = labelDuChamp(container)
-      expect(document.getElementById(label.htmlFor)).not.toBeNull()
+    await utilisateur.click(labelDuChamp(container))
+    expect(await screen.findByText(revele)).toBeVisible()
+  })
+
+  // ORACLE (WCAG 3.3.1) : un champ en erreur doit l'ANNONCER lui-même
+  // (`aria-invalid`) et DÉSIGNER le texte qui l'explique (`aria-describedby` →
+  // `FormMessage`). Un message affiché à l'écran mais non rattaché n'est pas lu
+  // au focus : l'utilisateur au lecteur d'écran sait qu'il y a une erreur
+  // quelque part, jamais laquelle ni sur quel champ.
+  it.each([
+    [
+      'SelectField',
+      (c: Control<Valeurs, unknown, FieldValues>) => (
+        <SelectField
+          control={c}
+          name="statut"
+          label="Libellé"
+          options={[{ value: '1', label: 'Ouvert' }]}
+        />
+      ),
+      'combobox' as const,
+    ],
+    [
+      'DateField',
+      (c: Control<Valeurs, unknown, FieldValues>) => (
+        <DateField control={c} name="date_prevue" label="Libellé" />
+      ),
+      'button' as const,
+    ],
+  ])(
+    '%s : en erreur, le champ est marqué invalide et désigne son message',
+    async (_nom, champ, role) => {
+      const utilisateur = userEvent.setup()
+      render(
+        <FormulaireTest<Valeurs> defaultValues={DEFAUTS}>
+          {(form) => (
+            <>
+              {champ(form.control as Control<Valeurs, unknown, FieldValues>)}
+              <button
+                type="button"
+                onClick={() => {
+                  form.setError('statut', { message: 'Choix obligatoire.' })
+                  form.setError('date_prevue', {
+                    message: 'Choix obligatoire.',
+                  })
+                }}
+              >
+                Soumettre
+              </button>
+            </>
+          )}
+        </FormulaireTest>,
+      )
+
+      await utilisateur.click(screen.getByRole('button', { name: 'Soumettre' }))
+      const controle = screen.getByRole(role, { name: 'Libellé' })
+      expect(controle).toHaveAttribute('aria-invalid', 'true')
+      const decrit = (controle.getAttribute('aria-describedby') ?? '')
+        .split(' ')
+        .map((id) => document.getElementById(id)?.textContent)
+      expect(decrit).toContain('Choix obligatoire.')
     },
   )
 

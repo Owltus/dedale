@@ -76,20 +76,21 @@ describe('ChampValeurInput — libellé et accessibilité', () => {
 
   // ORACLE : même règle pour le cinquième type.
   //
-  // BUG CANDIDAT Martin : attendu un libellé « Puissance » VISIBLE au-dessus du
-  // sélecteur de date / observé aucun libellé — la branche `case 'date'` de
-  // `ChampValeurInput` rend le `DateField` SANS passer par `Enveloppe`. Le nom
-  // du champ n'existe que dans l'`ariaLabel` : dans une fiche qui liste
-  // plusieurs caractéristiques, l'utilisateur voyant voit des sélecteurs de
-  // date anonymes les uns sous les autres.
-  it.fails('type date : le nom du champ est affiché comme libellé', () => {
+  // RÉGRESSION COUVERTE : la branche `case 'date'` rendait le `DateField` SANS
+  // passer par `Enveloppe`. Le nom du champ n'existait alors que dans
+  // l'`ariaLabel` : dans une fiche qui liste plusieurs caractéristiques,
+  // l'utilisateur voyant voyait des sélecteurs de date anonymes les uns sous
+  // les autres — et basculer une caractéristique sur « Date » dans un gabarit
+  // faisait disparaître son libellé sous ses yeux.
+  it('type date : le nom du champ est affiché comme libellé', () => {
     render(<HoteChamp definition={champ({ type: 'date', cle: 'Puissance' })} />)
     expect(screen.getByText('Puissance')).toBeVisible()
   })
 
   // ORACLE : accessibilité — le `<label for>` doit désigner un élément qui
-  // EXISTE, sinon cliquer le libellé ne focalise rien.
-  it.each<ChampType>(['texte', 'nombre', 'oui-non', 'liste'])(
+  // EXISTE, sinon cliquer le libellé ne focalise rien. Les CINQ types y passent :
+  // c'est ce filet générique qui empêchera le sixième de naître sans libellé.
+  it.each<ChampType>(['texte', 'nombre', 'date', 'oui-non', 'liste'])(
     'type %s : le libellé désigne un élément existant',
     (type) => {
       const { container } = render(
@@ -119,10 +120,10 @@ describe('ChampValeurInput — libellé et accessibilité', () => {
     },
   )
 
-  // BUG CANDIDAT Martin : attendu le message « Valeur obligatoire. » affiché /
-  // observé rien — la branche `case 'date'` ignore complètement la prop
-  // `error`. Une date invalide ou manquante est donc refusée en silence.
-  it.fails('type date : le message d’erreur est affiché', () => {
+  // RÉGRESSION COUVERTE : la branche `case 'date'`, hors `Enveloppe`, ignorait
+  // complètement la prop `error` — une date invalide ou manquante était refusée
+  // en silence, sans un mot à l'écran.
+  it('type date : le message d’erreur est affiché', () => {
     render(
       <HoteChamp
         definition={champ({ type: 'date' })}
