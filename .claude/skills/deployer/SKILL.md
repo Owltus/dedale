@@ -62,11 +62,29 @@ curl -sS -o /dev/null -w "HTTP %{http_code}\n" https://dedale.naostack.com/ordre
 
 Puis, dans l'application : se connecter, ouvrir une page liste, ouvrir une fiche détail, vérifier que le site actif filtre bien.
 
+### 5 bis. Après une RESTAURATION — le trigger que le dump ne transporte pas
+
+Le contrôle ci-dessus vérifie que l'application répond. Il ne dit rien de la seule chose qui casse silencieusement après une restauration : **le trigger qui crée le profil applicatif vit dans le schéma `auth`, pas dans `public`.**
+
+```sql
+SELECT tgname, tgenabled, n.nspname AS schema_cible
+FROM   pg_trigger t
+JOIN   pg_class c ON c.oid = t.tgrelid
+JOIN   pg_namespace n ON n.oid = c.relnamespace
+WHERE  t.tgname = 'on_auth_user_created' AND NOT t.tgisinternal;
+-- attendu : 1 ligne, schema_cible = 'auth', tgenabled = 'O'.
+```
+
+Sans lui, les comptes se créent dans `auth.users` sans jamais avoir de miroir dans `public.users` : des utilisateurs qui se connectent et **ne sont rien**. Le symptôme n'apparaît qu'à la première invitation, potentiellement des jours après la restauration.
+
+Le contrôle continu correspondant existe déjà : l'invariant `US03` de `tests/securite/coherence-donnees.sql` (« compte auth sans profil applicatif ») détecte exactement cet état. Il suffit de le jouer.
+
 ## Pièges vérifiés
 
 - **Les variables `VITE_*` sont figées au build.** Les modifier dans Vercel ne change rien tant qu'on n'a pas **redéployé**. C'est l'erreur qui fait perdre une heure.
 - **Ne jamais mettre de secret derrière `VITE_`** : tout ce préfixe finit en clair dans le bundle téléchargeable. La clé `service_role` de Supabase n'a rien à faire dans ce projet ; la clé publique, si — la sécurité repose sur la RLS.
 - **Ne jamais réactiver le proxy Cloudflare** (nuage orange) sur l'enregistrement `dedale` : Vercel ne peut plus émettre son certificat, et un mode SSL « Flexible » provoque une boucle de redirection. Cloudflare affiche un bandeau qui incite à l'activer — l'ignorer.
+- **Un `supabase db dump` ne suffit pas à reconstruire Dédale.** Par défaut il ne dumpe que le schéma `public` : le trigger `on_auth_user_created` (schéma `auth`) et les policies du bucket Storage (schéma `storage`) sont laissés derrière. La source de reprise est `schema_complete.sql`, seule à porter ces objets — encore faut-il qu'elle soit à jour, d'où l'étape 5 du skill `migration-sql`. Vérifié le 16/09/2026 en reconstruisant une base locale : le schéma s'applique, et aucun compte ne se crée.
 - **Supabase met un projet gratuit en pause** après une longue inactivité. Une application qui renvoie des erreurs réseau après plusieurs jours sans usage, c'est souvent ça.
 - **Les URL de redirection Auth** doivent contenir le domaine de production, sinon les liens de réinitialisation de mot de passe renvoient vers l'URL par défaut.
 

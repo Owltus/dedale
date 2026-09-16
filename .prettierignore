@@ -13,3 +13,15 @@ PLAN.md
 JOURNAL.md
 DECISIONS.md
 RAPPORT.md
+
+# Artefacts de mutation testing (générés, jamais relus à la main)
+.stryker-tmp/
+reports/
+
+# Outillage de skills et document de design : generes, ou figes depuis longtemps
+# et jamais relus a la main. Les reformater bruiterait la gate sans aucun gain --
+# or toute la methode du chantier de correction repose sur un `npm run verify`
+# qui ne vire au rouge que pour une vraie raison.
+.claude/skills/impeccable/
+.impeccable/
+DESIGN.md
