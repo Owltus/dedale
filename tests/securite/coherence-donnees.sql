@@ -30,7 +30,12 @@ union all select 'OT19 snapshot libelle_periodicite derive (OT non cloture)', co
 
 -- Operations d execution
 union all select 'OP01 terminee sans date_execution', count(*) from operations_execution where statut='terminee' and date_execution is null
-union all select 'OP02 date_execution posee hors execution', count(*) from operations_execution where statut in ('en_attente','annulee') and date_execution is not null
+-- OP02a : seul 'en_attente' interdit une date_execution. 'annulee' est
+-- volontairement exclu : le CHECK statut_date_coherents dit lui-meme
+-- « annulee / non_applicable : indifferent (peut avoir ete demarree puis
+-- annulee) », et cascade_annulation_ot bascule les operations en_cours en
+-- annulee sans toucher a leur date. Les compter ici produisait un faux finding.
+union all select 'OP02a en_attente avec une date_execution', count(*) from operations_execution where statut = 'en_attente' and date_execution is not null
 union all select 'OP03 date_execution dans le futur', count(*) from operations_execution where date_execution > now()
 union all select 'OP04 mesure terminee sans valeur ni index', count(*) from operations_execution where statut='terminee' and type_operation='Mesure' and valeur_mesuree is null and index_pose is null
 union all select 'OP05 seuil_minimum > seuil_maximum', count(*) from operations_execution where seuil_minimum is not null and seuil_maximum is not null and seuil_minimum > seuil_maximum

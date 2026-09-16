@@ -4,8 +4,14 @@
 -- ║   GMAO mono-entreprise (single-tenant) pour Établissements Recevant      ║
 -- ║   du Public (ERP)                                                         ║
 -- ║                                                                           ║
--- ║   Tout-en-un : exécutable directement sur une base Supabase neuve.        ║
--- ║   Concaténation ordonnée des 36 fichiers de migrations/*.sql              ║
+-- ║   Concaténation des migrations/*.sql (113 au 2026-09-16), resynchronisée  ║
+-- ║   sur la PRODUCTION — c'est la seule source versionnée du schéma.         ║
+-- ║                                                                           ║
+-- ║   ⚠ PAS rejouable d'une traite sur une base neuve : quelques objets sont  ║
+-- ║   déclarés avant leur dépendance (equipements.code_inventaire appelle     ║
+-- ║   generate_identifiant_equipement(), définie ~500 lignes plus bas). Il    ║
+-- ║   faut deux passages pour que tout se pose. Le fichier vaut comme SOURCE  ║
+-- ║   DE VÉRITÉ LISIBLE, pas comme programme d'installation.                  ║
 -- ║                                                                           ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 --
@@ -110,17 +116,18 @@
 --    061  Fix compartimentage (override doc_*_select + triggers cohérence site)
 --    070  Cron jobs Supabase (storage orphans, comptes inactifs, anomalies)
 --
--- COMPTEURS (single-tenant, 2026-06-03 — patch v0.33, interventions de travaux + CapEx) :
---   tables (+statuts_travaux, statuts_capex, interventions_travaux,
---   travaux_taches, investissements,
---   documents_interventions_travaux, documents_investissements),
---   6 ENUMs, 108 fonctions, 110 triggers, 214 policies RLS (209 public
---   + 5 storage ; inclut les policies générées par boucle DO sur les référentiels),
---   160 index (dont 1 UNIQUE partiel uq_ot_gamme_date_actifs anti-TOCTOU ; +idx_locaux_type ;
---   +14 index travaux/capex en v0.33, dont les 4 index de FK ajoutés post-audit),
+-- COMPTEURS — RELEVÉS SUR LA PRODUCTION le 2026-09-16 (resynchronisation) :
+--   59 tables, 6 ENUMs, 119 fonctions, 119 triggers (114 public + 1 sur
+--   auth.users + 4 posés par Supabase sur storage), 236 policies RLS
+--   (231 public + 5 storage ; inclut les policies générées par boucle DO sur
+--   les référentiels), 234 index (dont 1 UNIQUE partiel
+--   uq_ot_gamme_date_actifs anti-TOCTOU),
 --   3 cron jobs (cleanup_storage_orphans mensuel + deactivate_inactive_users
---   mensuel + detect_security_anomalies horaire), 4 VIEWs (toutes en
+--   mensuel + detect_security_anomalies horaire), 7 VIEWs (toutes en
 --   security_invoker), 5 rôles utilisateur.
+--   Les compteurs précédents (v0.33, 2026-06-03 : 108 fonctions, 110 triggers,
+--   214 policies, 160 index, 4 VIEWs) dataient d'avant une cinquantaine de
+--   migrations et étaient devenus faux.
 --   Bibliothèque de gammes : gammes.site_id (scope 2 niveaux) +
 --   copier_gamme() + check_ot_gamme_site() (modèle inerte).
 --   Hard-delete (035/036 : soft-delete retiré, colonne de corbeille supprimée) :
@@ -395,6 +402,13 @@ CREATE TABLE unites (
     est_cumulatif BOOLEAN NOT NULL DEFAULT false
 );
 
+-- Les deux commentaires ci-dessous existent en base (et pas seulement dans ce
+-- fichier) : l'app les lit pour expliquer la colonne dans l'éditeur d'unités.
+COMMENT ON COLUMN unites.necessite_seuils IS
+    'false = relevé d''index sans mini/maxi. NE distingue PAS cumulatif (kWh/m³/h) de ponctuel (kVA) → voir est_cumulatif. C''est l''UNITÉ qui pilote l''affichage des seuils.';
+COMMENT ON COLUMN unites.est_cumulatif IS
+    'true = compteur CUMULATIF (index croissant, consommation entre relevés : m³, kWh, h). false = mesure ponctuelle (kVA) ou unité à seuils (°C, %, TH). Pilote la somme de consommations de la carte d''en-tête d''un OT.';
+
 -- Périodicités de maintenance avec tolérance intelligente
 -- jours_periodicite : intervalle nominal entre deux passages
 -- jours_valide      : durée de validité réglementaire après réalisation
@@ -498,6 +512,8 @@ CREATE TABLE statuts_travaux (
     nom         TEXT NOT NULL UNIQUE,
     description TEXT
 );
+COMMENT ON TABLE statuts_travaux IS
+    'Référentiel des statuts d''un travaux (085, réduit à 3 états, ids alignés sur statuts_evenements). Transitions libres — plus de machine à états côté base.';
 
 -- Statuts d'un investissement / CapEx (v0.33). Statut LIBRE (aucune machine à
 -- états, aucun trigger de transition) : purement descriptif, l'admin ajuste.
@@ -996,7 +1012,7 @@ BEGIN
     END IF;
 
     IF NEW.created_by IS DISTINCT FROM OLD.created_by THEN
-        RAISE EXCEPTION 'users.created_by immuable (trace cascade de création)'
+        RAISE EXCEPTION 'users.created_by immuable (trace cascade d''invitation)'
             USING ERRCODE = 'integrity_constraint_violation';
     END IF;
 
@@ -1732,6 +1748,14 @@ COMMENT ON COLUMN categories.site_id         IS 'NULL = scope entreprise (global
 COMMENT ON COLUMN categories.scope           IS 'Usage : equipement seul, gamme seule, ou mixte (défaut).';
 COMMENT ON COLUMN categories.copie_depuis_id IS
     'Étiquette molle : catégorie d''origine si celle-ci provient d''une copie bibliothèque. Auto-référence. ON DELETE SET NULL — si l''originale disparaît, la copie reste intacte (l''étiquette se vide).';
+-- 109 (ex-champ_identifiant de 107) : les trois clés qui composent l'identité
+-- affichée d'un équipement de parc, l'équipement n'ayant plus de nom depuis 105.
+COMMENT ON COLUMN categories.valeur_principale IS
+    'Sous-catégorie de PARC uniquement : clé (Champ.cle, dans specifications) de la caractéristique dont la valeur est affichée COLLÉE au nom du type (ex. « Extincteur N°1 »). NULL = le nom du type seul.';
+COMMENT ON COLUMN categories.valeur_secondaire IS
+    'Sous-catégorie de PARC uniquement : clé (Champ.cle, dans specifications) d''une SECONDE caractéristique affichée en badge à côté du nom (ex. « CO2 »). NULL = pas de badge secondaire.';
+COMMENT ON COLUMN categories.valeur_tertiaire IS
+    'Sous-catégorie de PARC uniquement : clé (Champ.cle, dans specifications) d''une TROISIÈME caractéristique affichée en badge (ex. sous celui de valeur_secondaire). NULL = pas de badge tertiaire.';
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
@@ -1866,7 +1890,7 @@ BEGIN
         WHERE l.id = NEW.local_id;
 
         IF eq_site IS DISTINCT FROM c_site THEN
-            RAISE EXCEPTION 'Catégorie % scopée site % mais equipement sur site %',
+            RAISE EXCEPTION 'Catégorie % scopée site % mais équipement sur site %',
                 NEW.categorie_id, c_site, eq_site;
         END IF;
     END IF;
@@ -1910,6 +1934,7 @@ LEFT JOIN categories       c ON c.id = e.categorie_id
 LEFT JOIN v_locaux_chemin  v ON v.local_id = e.local_id;
 
 COMMENT ON TABLE equipements         IS 'Actifs physiques maintenables. JSONB specifications libre (validé Zod côté app).';
+COMMENT ON COLUMN equipements.code_inventaire IS 'Identifiant de l''équipement : généré automatiquement (public.generate_identifiant_equipement(), 8 car. uniques) si omis à la création. Devient le SEUL identifiant individuel depuis le retrait de nom (105) — l''affichage retombe sur la catégorie sinon.';
 COMMENT ON COLUMN equipements.specifications IS 'Caractéristiques techniques libres (marque, modèle, puissance…). Indexé GIN.';
 COMMENT ON VIEW  v_equipements_complet IS 'Équipement enrichi du chemin spatial + valeurs principale/secondaire/tertiaire catégorie (109). nom retiré (105) : identité = categorie_nom + categorie_valeur_principale (si désignée), secondaire/tertiaire en complément.';
 
@@ -4477,7 +4502,8 @@ ALTER TABLE travaux_taches ENABLE ROW LEVEL SECURITY;
 -- Investissements / CapEx : suivi budgétaire des dépenses d'investissement
 -- d'un site (remplacement chaudière, réfection toiture…). Statut LIBRE (aucune
 -- machine à états, aucun trigger de transition) : l'utilisateur passe le statut
--- de Demandé à Validé/Réalisé/Refusé sans contrainte. Scope site, soft-delete.
+-- de Demandé à Validé/Réalisé/Refusé sans contrainte. Scope site, hard-delete
+-- (la corbeille a disparu en 034-036).
 -- Dépendances : 010_sites, 005_users, statuts_capex, set_updated_at()
 -- =============================================================================
 
@@ -4500,12 +4526,30 @@ CREATE TABLE investissements (
 
     date_demande      DATE NOT NULL DEFAULT current_date,
 
+    -- Clôture (079) : le statut restant libre, la clôture n'est PAS une machine
+    -- à états — ce sont trois colonnes descriptives posées par le front quand
+    -- l'investissement atteint son statut terminal.
+    date_cloture      DATE,
+    bilan             TEXT,
+    cloture_by        UUID REFERENCES users(id) ON DELETE SET NULL,
+
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    -- On ne clôture pas avant d'avoir demandé (079).
+    CONSTRAINT investissements_dates_coherentes CHECK (
+        date_cloture IS NULL OR date_cloture >= date_demande
+    )
 );
 
 COMMENT ON TABLE investissements IS
     'Suivi budgétaire CapEx par site. Statut LIBRE (statuts_capex, sans machine à états).';
+COMMENT ON COLUMN investissements.date_cloture IS
+    'Date de clôture de l''investissement, posée par le front au passage au statut terminal (079).';
+COMMENT ON COLUMN investissements.bilan IS
+    'Bilan budgétaire de fin (facultatif) : budget tenu, écart et sa raison (079).';
+COMMENT ON COLUMN investissements.cloture_by IS
+    'Qui a clôturé l''investissement (079). SET NULL : la suppression d''un compte n''efface pas l''historique budgétaire.';
 
 CREATE INDEX idx_capex_site   ON investissements(site_id);
 CREATE INDEX idx_capex_statut ON investissements(statut_capex_id);
@@ -4770,6 +4814,7 @@ COMMENT ON COLUMN ordres_travail.motif_annulation IS
     'F28 (audit) : motif obligatoire au passage en annule (CHECK motif_annulation_oblig_si_annule). Reste figé en cas de résurrection (annule → planifie) pour conserver la trace de la décision originelle.';
 COMMENT ON COLUMN ordres_travail.motif_reouverture IS
     'F28 (audit) : motif de réouverture (cloture → reouvert) renseigné par la RPC reouvrir_ot(). Conserve l''historique sur les OT ayant fait l''objet d''une réouverture (sensible juridiquement : un OT clôturé est une preuve légale NF EN 13306).';
+-- (ordres_travail.miniature_id est commentée plus bas, là où 067 l'ajoute.)
 
 -- ----------------------------------------------------------------------
 -- Index
@@ -4926,6 +4971,8 @@ COMMENT ON COLUMN operations_execution.index_pose IS
     'Remplacement manuel : index initial du nouveau compteur (pose). NULL hors remplacement.';
 COMMENT ON COLUMN operations_execution.date_remplacement IS
     'Remplacement manuel : date du swap physique du compteur. NULL hors remplacement.';
+COMMENT ON COLUMN operations_execution.unite_est_cumulatif IS
+    'Snapshot de unites.est_cumulatif à la génération. NULL = pas d''unité (ou relevé orphelin) → traité comme non cumulatif. Sert à la somme de consommations de la carte OT.';
 
 -- ----------------------------------------------------------------------
 -- Index
@@ -5582,6 +5629,9 @@ CREATE INDEX idx_modeles_equipements_miniature ON modeles_equipements(miniature_
 CREATE INDEX idx_equipements_miniature ON equipements(miniature_id) WHERE miniature_id IS NOT NULL;
 CREATE INDEX idx_ordres_travail_miniature ON ordres_travail(miniature_id) WHERE miniature_id IS NOT NULL;
 
+COMMENT ON COLUMN ordres_travail.miniature_id IS
+    'Vignette ESTHÉTIQUE de l''OT (pool miniatures). Snapshot SOUPLE : copiée de la gamme à la création, rafraîchie pour les OT ouverts si la gamme change d''image, déliée partout si la vignette est supprimée du pool. PAS un snapshot légal figé (≠ nom_gamme & co). (067)';
+
 -- 5. Comptage de références : suppression sûre du fichier Storage (refcount = 0).
 CREATE OR REPLACE FUNCTION public.count_miniature_refs(p_miniature_id UUID)
 RETURNS BIGINT LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = ''
@@ -5722,14 +5772,23 @@ CREATE TRIGGER trg_check_miniature_site_equipements
 -- miniature_id. Le « SELECT e.* » du bloc 013b (plus haut) a figé la liste des
 -- colonnes AVANT l'ajout de la colonne ci-dessus → on recrée la vue ici, une fois
 -- la colonne présente. (security_invoker ré-appliqué plus bas en bloc « FIX A ».)
+--
+-- ATTENTION — c'est CE bloc qui fixe la forme finale de la vue (il passe après
+-- celui du bloc 013b). Toute colonne ajoutée à la définition d'en haut doit être
+-- répercutée ici, sinon le fichier rejoué produit une vue en retard sur la prod.
+-- C'est ce qui est arrivé aux trois colonnes categorie_valeur_* (109), ajoutées
+-- en haut seulement et rétablies ici.
 DROP VIEW public.v_equipements_complet;
 CREATE VIEW public.v_equipements_complet AS
 SELECT
     e.*,
-    c.nom              AS categorie_nom,
-    c.scope            AS categorie_scope,
-    v.chemin_court     AS localisation_courte,
-    v.chemin_complet   AS localisation_complete,
+    c.nom                  AS categorie_nom,
+    c.scope                AS categorie_scope,
+    c.valeur_principale    AS categorie_valeur_principale,
+    c.valeur_secondaire    AS categorie_valeur_secondaire,
+    c.valeur_tertiaire     AS categorie_valeur_tertiaire,
+    v.chemin_court         AS localisation_courte,
+    v.chemin_complet       AS localisation_complete,
     v.site_id,
     v.batiment_id,
     v.niveau_id,
@@ -5743,7 +5802,7 @@ LEFT JOIN public.v_locaux_chemin  v ON v.local_id = e.local_id;
 ALTER VIEW public.v_equipements_complet SET (security_invoker = true);
 GRANT SELECT ON public.v_equipements_complet TO anon, authenticated;
 COMMENT ON VIEW public.v_equipements_complet IS
-    'Équipement enrichi du chemin spatial + libellé catégorie + vignette (miniature_id via e.*).';
+    'Équipement enrichi du chemin spatial + valeurs principale/secondaire/tertiaire catégorie (109) + vignette (miniature_id via e.*). nom retiré (105) : identité = categorie_nom + categorie_valeur_principale (si désignée), secondaire/tertiaire en complément.';
 
 -- niveaux : site dérivé via batiments
 CREATE OR REPLACE FUNCTION public.check_miniature_site_niveau()
@@ -6146,7 +6205,7 @@ BEGIN
     -- Résurrection bloquée si gamme inactive
     IF OLD.statut = 'annule' AND NEW.statut = 'planifie'
        AND NOT EXISTS (SELECT 1 FROM public.gammes WHERE id = NEW.gamme_id AND est_active) THEN
-        RAISE EXCEPTION 'Résurrection impossible : la gamme est inactive ou supprimée';
+        RAISE EXCEPTION 'Résurrection impossible : la gamme est inactive';
     END IF;
 
     -- Clôture manuelle bloquée si des ops sont en attente / en cours
@@ -6227,7 +6286,7 @@ BEGIN
     FROM public.gammes WHERE id = NEW.gamme_id;
 
     IF v_nature IS NULL THEN
-        RAISE EXCEPTION 'Gamme % introuvable ou supprimée', NEW.gamme_id;
+        RAISE EXCEPTION 'Gamme % introuvable', NEW.gamme_id;
     END IF;
 
     IF NOT v_est_active THEN
@@ -7489,9 +7548,30 @@ ALTER PUBLICATION supabase_realtime ADD TABLE operations_execution;
 ALTER PUBLICATION supabase_realtime ADD TABLE evenements;
 ALTER PUBLICATION supabase_realtime ADD TABLE interventions_travaux;
 
+-- Les six tables ci-dessous sont publiées en production mais ne venaient
+-- d'aucune migration : elles ont été activées à la main (Dashboard Supabase →
+-- Database → Replication), d'où leur absence de ce fichier jusqu'au resync
+-- 16/09/2026. Elles couvrent les demandes d'intervention et le catalogue
+-- (Bibliothèque), dont les écrans se rafraîchissent en direct.
+ALTER PUBLICATION supabase_realtime ADD TABLE demandes_intervention;
+ALTER PUBLICATION supabase_realtime ADD TABLE categories;
+ALTER PUBLICATION supabase_realtime ADD TABLE miniatures;
+ALTER PUBLICATION supabase_realtime ADD TABLE modeles_equipements;
+ALTER PUBLICATION supabase_realtime ADD TABLE modeles_operations;
+ALTER PUBLICATION supabase_realtime ADD TABLE modeles_di;
+
+-- REPLICA IDENTITY FULL : le payload Realtime porte l'ancienne ligne entière,
+-- indispensable pour filtrer un DELETE côté client. `evenements` en est la
+-- seule exception en production (identité par défaut = clé primaire).
 ALTER TABLE ordres_travail        REPLICA IDENTITY FULL;
 ALTER TABLE operations_execution  REPLICA IDENTITY FULL;
 ALTER TABLE interventions_travaux REPLICA IDENTITY FULL;
+ALTER TABLE demandes_intervention REPLICA IDENTITY FULL;
+ALTER TABLE categories            REPLICA IDENTITY FULL;
+ALTER TABLE miniatures            REPLICA IDENTITY FULL;
+ALTER TABLE modeles_equipements   REPLICA IDENTITY FULL;
+ALTER TABLE modeles_operations    REPLICA IDENTITY FULL;
+ALTER TABLE modeles_di            REPLICA IDENTITY FULL;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- v0.12 — Index de durcissement : FK created_by/uploaded_by + liaison prestataire
@@ -9612,10 +9692,14 @@ CREATE POLICY documents_manager_update ON documents FOR UPDATE
 -- Le demandeur (gouvernante…) doit pouvoir attacher une photo à SA DI (cas
 -- d'usage métier : photo d'une fuite). Il ne voit QUE les documents qu'il a
 -- lui-même uploadés.
+-- 076 (audit RLS 15/08/2026) : le scope site manquait ici. Sans has_site_access,
+-- un demandeur pouvait poser un document portant le site_id d'un site qui n'est
+-- pas le sien — seule policy d'INSERT de `documents` à l'avoir oublié.
 CREATE POLICY documents_demandeur_insert ON documents FOR INSERT
     WITH CHECK (
         (SELECT public.current_role()) = 'demandeur'
         AND uploaded_by = (SELECT auth.uid())
+        AND public.has_site_access(site_id)
     );
 
 CREATE POLICY documents_demandeur_select ON documents FOR SELECT
@@ -10301,15 +10385,16 @@ CREATE POLICY doc_contrats_select ON documents_contrats FOR SELECT
 -- 074 : le technicien gère (attache/détache) les documents des contrats de ses
 -- sites, comme le manager (doctrine « manager + technicien gèrent leurs sites »).
 DROP POLICY IF EXISTS doc_contrats_technicien ON documents_contrats;
+-- Alias `ctr` (et non `c`) : c'est celui figé en production par 074.
 CREATE POLICY doc_contrats_technicien ON documents_contrats FOR ALL
     USING ((SELECT public.current_role()) = 'technicien'
-           AND EXISTS (SELECT 1 FROM contrats c
-                       WHERE c.id = documents_contrats.contrat_id
-                         AND public.has_site_access(c.site_id)))
+           AND EXISTS (SELECT 1 FROM contrats ctr
+                       WHERE ctr.id = documents_contrats.contrat_id
+                         AND public.has_site_access(ctr.site_id)))
     WITH CHECK ((SELECT public.current_role()) = 'technicien'
-           AND EXISTS (SELECT 1 FROM contrats c
-                       WHERE c.id = documents_contrats.contrat_id
-                         AND public.has_site_access(c.site_id)));
+           AND EXISTS (SELECT 1 FROM contrats ctr
+                       WHERE ctr.id = documents_contrats.contrat_id
+                         AND public.has_site_access(ctr.site_id)));
 
 
 -- =====================================================================
@@ -12033,12 +12118,14 @@ SELECT cron.schedule(
 -- Couverture d'index sur les FK (patch v0.19 — Advisor 0001 unindexed_foreign_keys)
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Postgres ne crée pas d'index sur les colonnes de FK. Règle perf Dédale :
--- indexer TOUTE FK (JOINs, cascades, contrôles RESTRICT, scope). Ces 12 FK
+-- indexer TOUTE FK (JOINs, cascades, contrôles RESTRICT, scope). Ces FK
 -- (tables récentes v0.14b + lineage copie_depuis + created_by / prestataire /
 -- unite oubliés) n'en avaient pas. IF NOT EXISTS : idempotent, sûr à rejouer.
+-- (L'index idx_demandes_intervention_prestataire_id de ce lot a été retiré :
+-- demandes_intervention n'a pas — et n'a jamais eu ici — de colonne
+-- prestataire_id ; l'index n'existe pas en production.)
 CREATE INDEX IF NOT EXISTS idx_categories_copie_depuis_id           ON public.categories (copie_depuis_id);
 CREATE INDEX IF NOT EXISTS idx_contrats_type_contrat_id             ON public.contrats (type_contrat_id);
-CREATE INDEX IF NOT EXISTS idx_demandes_intervention_prestataire_id ON public.demandes_intervention (prestataire_id);
 CREATE INDEX IF NOT EXISTS idx_document_chapitres_created_by        ON public.document_chapitres (created_by);
 CREATE INDEX IF NOT EXISTS idx_gammes_copie_depuis_id               ON public.gammes (copie_depuis_id);
 CREATE INDEX IF NOT EXISTS idx_miniatures_created_by                ON public.miniatures (created_by);
@@ -12643,50 +12730,52 @@ WITH refs AS (
       FROM public.modeles_equipements
      WHERE miniature_id IS NOT NULL
     UNION ALL
-    SELECT miniature_id, 'equipement', nom
+    -- L'équipement n'a plus de nom depuis 105 : son libellé de recherche est
+    -- son code inventaire.
+    SELECT miniature_id, 'equipement'::text, code_inventaire
       FROM public.equipements
      WHERE miniature_id IS NOT NULL
     UNION ALL
-    SELECT miniature_id, 'equipement', nom
+    SELECT miniature_id, 'equipement'::text, nom
       FROM public.categories
      WHERE miniature_id IS NOT NULL
        AND scope IN ('equipement', 'mixte')
     UNION ALL
-    SELECT miniature_id, 'operation', nom
+    SELECT miniature_id, 'operation'::text, nom
       FROM public.modeles_operations
      WHERE miniature_id IS NOT NULL
     UNION ALL
-    SELECT miniature_id, 'operation', nom
+    SELECT miniature_id, 'operation'::text, nom
       FROM public.categories
      WHERE miniature_id IS NOT NULL
        AND scope = 'operation'
     UNION ALL
-    SELECT miniature_id, 'plan_maintenance', nom
+    SELECT miniature_id, 'plan_maintenance'::text, nom
       FROM public.gammes
      WHERE miniature_id IS NOT NULL
     UNION ALL
-    SELECT miniature_id, 'plan_maintenance', nom
+    SELECT miniature_id, 'plan_maintenance'::text, nom
       FROM public.categories
      WHERE miniature_id IS NOT NULL
        AND scope IN ('gamme', 'mixte')
     UNION ALL
-    SELECT miniature_id, 'di', libelle
+    SELECT miniature_id, 'di'::text, libelle
       FROM public.modeles_di
      WHERE miniature_id IS NOT NULL
     UNION ALL
-    SELECT miniature_id, 'lieux', libelle
+    SELECT miniature_id, 'lieux'::text, libelle
       FROM public.prestataires
      WHERE miniature_id IS NOT NULL
     UNION ALL
-    SELECT miniature_id, 'lieux', nom
+    SELECT miniature_id, 'lieux'::text, nom
       FROM public.batiments
      WHERE miniature_id IS NOT NULL
     UNION ALL
-    SELECT miniature_id, 'lieux', nom
+    SELECT miniature_id, 'lieux'::text, nom
       FROM public.niveaux
      WHERE miniature_id IS NOT NULL
     UNION ALL
-    SELECT miniature_id, 'lieux', nom
+    SELECT miniature_id, 'lieux'::text, nom
       FROM public.locaux
      WHERE miniature_id IS NOT NULL
 ),
