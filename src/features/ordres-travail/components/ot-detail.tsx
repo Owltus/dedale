@@ -22,6 +22,7 @@ import {
 import { OtDetailActions } from './ot-detail-actions'
 import { MotifDialog } from '@/components/common/motif-dialog'
 import { DatePrevueDialog } from './date-prevue-dialog'
+import { dashboardQueries } from '@/features/dashboard/queries'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
@@ -518,8 +519,15 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                 // jamais rafraîchie par l'invalidation interne de DocumentsTab
                 // (clé `documents`). Sans ce câblage, la carte restait figée
                 // après un ajout/retrait tant qu'on ne rechargeait pas la page.
+                // `dashboard` pour la même raison : l'alerte « justificatifs
+                // manquants » lit `documents_ordres_travail`. Le canal temps
+                // réel `documents` ne suffit pas — rattacher un document DÉJÀ
+                // existant n'écrit que la table de liaison, aucun événement.
                 onLiaisonChanged={() => {
-                  for (const queryKey of OT_QUERY_KEYS) {
+                  for (const queryKey of [
+                    ...OT_QUERY_KEYS,
+                    dashboardQueries.all(),
+                  ]) {
                     void qc.invalidateQueries({ queryKey })
                   }
                 }}

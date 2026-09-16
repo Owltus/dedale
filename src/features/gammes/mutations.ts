@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { siteIdPourPortee } from '@/lib/scope'
 import { gammesQueries } from './queries'
 import { categoriesQueries } from '@/features/categories/queries'
+import { modelesOperationsQueries } from '@/features/modeles-operations/queries'
 import {
   gammeBiblioSchema,
   gammeSchema,
@@ -195,7 +196,14 @@ export function useCopierGamme() {
         .throwOnError()
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+      // La copie recrée les liaisons `gamme_modeles` : une gamme de plus dans
+      // `modelesOperationsQueries.liens` pour chaque modèle partagé.
+      void qc.invalidateQueries({
+        queryKey: modelesOperationsQueries.all(),
+      })
+    },
   })
 }
 
@@ -235,6 +243,10 @@ export function useCopierCategorie() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: gammesQueries.all() })
       void qc.invalidateQueries({ queryKey: categoriesQueries.all() })
+      // Les gammes copiées emportent leurs liaisons `gamme_modeles`.
+      void qc.invalidateQueries({
+        queryKey: modelesOperationsQueries.all(),
+      })
     },
   })
 }
@@ -328,6 +340,12 @@ export function useDeleteOperation() {
 }
 
 // --- Liaison modèles d'opération (gamme_modeles) ---
+//
+// Toute écriture sur `gamme_modeles` se lit des DEUX côtés du lien : côté gamme
+// (`gammesQueries.modelesLies`) et côté modèle (`modelesOperationsQueries.liens`,
+// qui énumère les gammes concernées avant une suppression). Les deux clés
+// racines sont donc invalidées ensemble — le pendant exact de ce que font déjà
+// les mutations d'items de `modeles-operations`.
 
 /**
  * Lie en masse des modèles d'opération à une gamme (INSERT `gamme_modeles`).
@@ -354,7 +372,12 @@ export function useLierModelesOperation() {
         )
         .throwOnError()
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+      void qc.invalidateQueries({
+        queryKey: modelesOperationsQueries.all(),
+      })
+    },
   })
 }
 
@@ -380,7 +403,12 @@ export function useDelierModeleOperation() {
         .eq('modele_operation_id', modeleId)
         .throwOnError()
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+      void qc.invalidateQueries({
+        queryKey: modelesOperationsQueries.all(),
+      })
+    },
   })
 }
 

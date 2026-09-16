@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
   ListChecks,
@@ -84,6 +84,7 @@ export function TravauxDetail({
   canManage,
 }: TravauxDetailProps) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { session } = useAuth()
   // 094 : le statut de la fiche peut désormais changer SANS mutation directe
   // sur `interventions_travaux` — le trigger `gestion_statut_travaux` le
@@ -571,6 +572,17 @@ export function TravauxDetail({
                     uploadOpen={upload.uploadOpen}
                     onUploadOpenChange={upload.onUploadOpenChange}
                     uploadInitialFiles={upload.droppedFiles}
+                    // La carte de la liste affiche un indicateur documents
+                    // alimenté par `documentsParTravaux` — sous la clé
+                    // `travaux`, que l'invalidation interne de DocumentsTab
+                    // (clé `documents`) n'atteint pas. Même câblage que
+                    // `OtDetail`, sans quoi le badge restait figé après un
+                    // rattachement ou un détachement.
+                    onLiaisonChanged={() => {
+                      void qc.invalidateQueries({
+                        queryKey: travauxQueries.all(),
+                      })
+                    }}
                   />
                 </CardContent>
                 <FileDropOverlay show={upload.dragging} />

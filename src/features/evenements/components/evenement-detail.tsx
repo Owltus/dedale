@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
   ListChecks,
@@ -79,6 +79,7 @@ export function EvenementDetail({
   canManage: boolean
 }) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { session } = useAuth()
   // 094 : le statut de la fiche peut désormais changer SANS mutation directe
   // sur `evenements` — le trigger `gestion_statut_evenement` le recalcule
@@ -552,6 +553,17 @@ export function EvenementDetail({
                     onUploadOpenChange={upload.onUploadOpenChange}
                     uploadInitialFiles={upload.droppedFiles}
                     uploadDefaultTypeNom="Constat"
+                    // La carte de la liste affiche un indicateur documents
+                    // alimenté par `documentsParEvenement` — sous la clé
+                    // `evenements`, que l'invalidation interne de DocumentsTab
+                    // (clé `documents`) n'atteint pas. Même câblage que
+                    // `OtDetail`, sans quoi le badge restait figé après un
+                    // rattachement ou un détachement.
+                    onLiaisonChanged={() => {
+                      void qc.invalidateQueries({
+                        queryKey: evenementsQueries.all(),
+                      })
+                    }}
                   />
                 </CardContent>
                 <FileDropOverlay show={upload.dragging} />

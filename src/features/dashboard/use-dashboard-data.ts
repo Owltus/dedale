@@ -24,7 +24,9 @@ import { dashboardQueries } from './queries'
  *   rafraîchissent aussi dès le 1er OT créé) ;
  * - `demandes_intervention` → `demandes`, `interventions_travaux` → `travaux` et
  *   `evenements` → `evenements` (les trois onglets de la carte Activité) ;
- *   `documents` → `documents` ;
+ *   `documents` → `documents` + `dashboard` (l'alerte « justificatifs manquants »
+ *   lit `documents_ordres_travail` mais vit sous `dashboard` : sans cette clé,
+ *   joindre un justificatif laissait l'alerte affichée) ;
  * - `contrats` → `dashboard` (contrats à échéance + frise reconductions) ;
  * - `gammes` → `gammes` (santé du sunburst).
  */
@@ -36,7 +38,10 @@ export function useDashboardRealtime(): void {
   useRealtimeRefresh('demandes_intervention', demandesQueries.all())
   useRealtimeRefresh('interventions_travaux', travauxQueries.all())
   useRealtimeRefresh('evenements', evenementsQueries.all())
-  useRealtimeRefresh('documents', documentsQueries.all())
+  useRealtimeRefresh('documents', [
+    documentsQueries.all(),
+    dashboardQueries.all(),
+  ])
   useRealtimeRefresh('contrats', dashboardQueries.all())
   useRealtimeRefresh('gammes', gammesQueries.all())
 }

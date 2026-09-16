@@ -4,6 +4,7 @@ import { Layers, Link2Off, Plus } from 'lucide-react'
 import { gammesQueries, type ModeleOperationLie } from '../queries'
 import { useDelierModeleOperation } from '../mutations'
 import { ImportModeleOperationDialog } from './import-modele-operation-dialog'
+import { modelesOperationsQueries } from '@/features/modeles-operations/queries'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { writeErrorMessage, type SqlstateOverrides } from '@/lib/form'
@@ -63,8 +64,14 @@ export function GammeModelesSection({
   fill = false,
 }: GammeModelesSectionProps) {
   const query = useQuery(gammesQueries.modelesLies(gammeId))
-  // Rafraîchissement live des liaisons (entre onglets / comptes).
-  useRealtimeRefresh('gamme_modeles', gammesQueries.all())
+  // Rafraîchissement live des liaisons (entre onglets / comptes). DEUX clés :
+  // `gamme_modeles` est lu des deux côtés du lien — par `gammesQueries.modelesLies`
+  // (les modèles d'une gamme) ET par `modelesOperationsQueries.liens` (les gammes
+  // d'un modèle, qui formule la confirmation de suppression).
+  useRealtimeRefresh('gamme_modeles', [
+    gammesQueries.all(),
+    modelesOperationsQueries.all(),
+  ])
   const delier = useDelierModeleOperation()
 
   const [importOpen, setImportOpen] = useState(false)

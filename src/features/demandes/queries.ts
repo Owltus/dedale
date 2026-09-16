@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { modelesDiQueries as modelesDiCatalogueQueries } from '@/features/modeles-di/queries'
 
 export const demandesQueries = {
   all: () => ['demandes_intervention'] as const,
@@ -81,8 +82,17 @@ export const demandesQueries = {
     }),
 }
 
+/**
+ * Vue « demandeur » des modèles de DI. Elle coexiste avec celle de la
+ * Bibliothèque (`@/features/modeles-di/queries`) : deux objets homonymes sur la
+ * MÊME table, dont les clés racines DOIVENT coïncider — sinon une écriture
+ * depuis la Bibliothèque n'invaliderait plus la liste proposée à la création
+ * d'une DI. La clé est donc DÉRIVÉE du module catalogue, jamais recopiée : un
+ * renommage du littéral là-bas se propage ici au lieu de rompre l'invalidation
+ * en silence (verrouillé par `fraicheur.test.ts`).
+ */
 export const modelesDiQueries = {
-  all: () => ['modeles_di'] as const,
+  all: () => modelesDiCatalogueQueries.all(),
 
   /**
    * Modèles actifs DU SITE actif, pour la suggestion « souci courant » à la
