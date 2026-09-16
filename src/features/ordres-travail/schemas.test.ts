@@ -84,40 +84,41 @@ describe('consoOperation — totalité', () => {
     )
   })
 
-  it.fails(
-    'ne renvoie jamais NaN ni Infinity, quelles que soient les entrées',
-    () => {
-      // ORACLE : une consommation est une grandeur physique affichée telle quelle
-      // à l'utilisateur (« 1 234 kWh »). Une fonction totale ne doit donc rendre
-      // qu'un nombre FINI ou `null` (= non calculable) — jamais une valeur qui
-      // s'affiche « NaN kWh » ou « Infinity kWh ».
-      //
-      // BUG CANDIDAT Martin : attendu `null` ou un nombre fini / observé `NaN`.
-      // Le helper garde `Number.isNaN` sur `courant`, `depose` et `pose`, mais
-      // PAS sur `precedent` : un précédent NaN traverse la soustraction.
-      fc.assert(
-        fc.property(
-          indexQuelconque,
-          indexQuelconque,
-          indexQuelconque,
-          indexQuelconque,
-          (precedent, courant, depose, pose) => {
-            const conso = consoOperation({ precedent, courant, depose, pose })
-            if (conso === null) return
-            expect(Number.isFinite(conso)).toBe(true)
-          },
-        ),
-        TIRAGES,
-      )
-    },
-  )
+  it('ne renvoie jamais NaN ni Infinity, quelles que soient les entrées', () => {
+    // ORACLE : une consommation est une grandeur physique affichée telle quelle
+    // à l'utilisateur (« 1 234 kWh »). Une fonction totale ne doit donc rendre
+    // qu'un nombre FINI ou `null` (= non calculable) — jamais une valeur qui
+    // s'affiche « NaN kWh » ou « Infinity kWh ».
+    //
+    // RÉGRESSION COUVERTE : le helper gardait `Number.isNaN` sur `courant`,
+    // `depose` et `pose`, mais PAS sur `precedent` — un précédent NaN traversait
+    // la soustraction. Les gardes sont désormais des `Number.isFinite`, qui
+    // ferment aussi la porte des infinis, et le total rendu est vérifié fini.
+    fc.assert(
+      fc.property(
+        indexQuelconque,
+        indexQuelconque,
+        indexQuelconque,
+        indexQuelconque,
+        (precedent, courant, depose, pose) => {
+          const conso = consoOperation({ precedent, courant, depose, pose })
+          if (conso === null) return
+          expect(Number.isFinite(conso)).toBe(true)
+        },
+      ),
+      TIRAGES,
+    )
+  })
 
-  it.fails('un précédent NaN ne contamine pas la consommation', () => {
+  it('un précédent NaN ne contamine pas la consommation', () => {
     // ORACLE : identique au précédent, sur le contre-exemple MINIMAL isolé.
     // Un index précédent illisible équivaut à une absence de base de comparaison
     // → la consommation doit être `null`, pas `NaN`.
     //
-    // BUG CANDIDAT Martin : attendu `null` / observé `NaN`.
+    // RÉGRESSION COUVERTE : `precedent !== null` est VRAI pour NaN (colonne
+    // `numeric`, qui accepte 'NaN' côté PostgreSQL) ; la soustraction rendait
+    // alors NaN, que `sommesCompteursParUnite` retenait (NaN !== null) et qui
+    // contaminait le total de toute l'unité.
     // Rejouable : consoOperation({ precedent: NaN, courant: 10, depose: null, pose: null })
     expect(
       consoOperation({
@@ -129,12 +130,12 @@ describe('consoOperation — totalité', () => {
     ).toBeNull()
   })
 
-  it.fails('un remplacement à index infinis ne produit pas NaN', () => {
+  it('un remplacement à index infinis ne produit pas NaN', () => {
     // ORACLE : même règle de totalité, par la branche « remplacement ».
-    // Infinity − Infinity = NaN : la garde `Number.isNaN` sur `depose`/`pose`
-    // ne protège pas des infinis, qui la franchissent puis se soustraient.
     //
-    // BUG CANDIDAT Martin : attendu `null` ou fini / observé `NaN`.
+    // RÉGRESSION COUVERTE : Infinity − Infinity = NaN, et la garde
+    // `Number.isNaN` sur `depose`/`pose` ne protégeait pas des infinis, qui la
+    // franchissaient puis se soustrayaient.
     // Rejouable : consoOperation({ precedent: 0, courant: Infinity, depose: 5, pose: Infinity })
     const conso = consoOperation({
       precedent: 0,
@@ -499,18 +500,19 @@ describe('statutOtTone / libelleStatutOt / estVerrouille', () => {
     )
   })
 
-  it.fails('le libellé est TOUJOURS une chaîne non vide', () => {
+  it('le libellé est TOUJOURS une chaîne non vide', () => {
     // ORACLE (totalité) : `libelleStatutOt` est typée `=> string` et son
     // résultat part directement dans le rendu (badge, en-tête d'OT). Quelle que
     // soit la chaîne reçue, elle doit rendre une chaîne non vide — au pire le
     // statut brut, comme le prévoit son repli `?? statut`.
     //
-    // BUG CANDIDAT Martin : attendu la chaîne 'toString' / observé la FONCTION
-    // `Function.prototype.toString`. `LIBELLES_STATUT_OT` est un objet littéral :
-    // `LIBELLES_STATUT_OT['toString']` remonte la chaîne de prototypes et rend
-    // une fonction, donc non nulle → le repli `??` ne se déclenche jamais.
-    // Même faille sur `LIBELLES_STATUT_OP` (consommé par `OperationRow` avec le
-    // `statut` texte brut de `operations_execution`).
+    // RÉGRESSION COUVERTE : `LIBELLES_STATUT_OT` était un objet littéral, donc
+    // `LIBELLES_STATUT_OT['toString']` remontait la chaîne de prototypes et
+    // rendait la FONCTION `Function.prototype.toString` — truthy, si bien que le
+    // repli `??` ne se déclenchait jamais et que la fonction rendait autre chose
+    // qu'une chaîne. Le helper filtre désormais par `Object.hasOwn`, et les deux
+    // tables de libellés sont sans prototype (`LIBELLES_STATUT_OP` est consommé
+    // par `OperationRow` avec le `statut` texte brut de `operations_execution`).
     // Rejouable : libelleStatutOt('toString') / libelleStatutOt('constructor')
     expect(typeof libelleStatutOt('toString')).toBe('string')
     fc.assert(

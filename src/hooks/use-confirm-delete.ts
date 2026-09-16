@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { deleteErrorMessage } from '@/lib/form'
 
@@ -69,10 +69,20 @@ export function useConfirmDelete<T>({
 } {
   const [toDelete, setToDelete] = useState<T | null>(null)
   const [pending, setPending] = useState(false)
+  /**
+   * Même garde que `pending`, mais lue SYNCHRONEMENT : l'état, lui, est figé
+   * dans la closure du rendu courant, si bien que deux appels à `confirmer()`
+   * dans le MÊME tick (bouton + `submit` d'un formulaire parent qui remonte à
+   * travers le portail) voyaient tous deux `pending === false` et lançaient
+   * DEUX suppressions — la seconde échouant en affichant une erreur alors que
+   * la première avait réussi. L'état reste nécessaire pour le spinner du dialog.
+   */
+  const pendingRef = useRef(false)
 
   function confirmer(): void {
-    if (toDelete === null || pending) return
+    if (toDelete === null || pendingRef.current) return
     const item = toDelete
+    pendingRef.current = true
     setPending(true)
     void (async () => {
       try {
@@ -87,15 +97,22 @@ export function useConfirmDelete<T>({
       } catch (e) {
         toast.error(errorMessage(e))
       } finally {
+        pendingRef.current = false
         setPending(false)
       }
     })()
   }
 
+  /** Referme la confirmation ; la suppression en cours, elle, va jusqu'au bout
+   *  et remettra la garde à faux dans son `finally`. */
+  function annuler(): void {
+    setToDelete(null)
+  }
+
   return {
     toDelete,
     demander: (item) => setToDelete(item),
-    annuler: () => setToDelete(null),
+    annuler,
     confirmer,
     pending,
     dialogProps: {

@@ -27,11 +27,16 @@ export const ROLE_LABELS: Record<RoleCode, string> = {
   demandeur: 'Demandeur',
 }
 
-/** Libellé affiché d'un code de rôle (repli sur le code brut, puis « — »). */
+/**
+ * Libellé affiché d'un code de rôle (repli sur le code brut, puis « — »).
+ * Absence de rôle = null, undefined… mais AUSSI chaîne vide : '' n'est pas un
+ * code de rôle, il doit afficher le tiret cadratin et non une cellule vide.
+ * `Object.hasOwn` et non `in` : ce dernier est vrai pour toute propriété HÉRITÉE
+ * d'`Object.prototype` (`toString` rendrait une fonction, `__proto__` un objet).
+ */
 export function roleLabel(code: Role): string {
-  return code && code in ROLE_LABELS
-    ? ROLE_LABELS[code as RoleCode]
-    : (code ?? '—')
+  if (!code) return '—'
+  return Object.hasOwn(ROLE_LABELS, code) ? ROLE_LABELS[code as RoleCode] : code
 }
 
 /**

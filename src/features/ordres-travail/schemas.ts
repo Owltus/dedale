@@ -39,23 +39,36 @@ export function estVerrouille(statut: string): boolean {
   return statut === 'cloture' || statut === 'annule'
 }
 
+/**
+ * Table de libellés indexée par une chaîne venue de la BASE (enum susceptible
+ * d'évoluer). Sans prototype : un statut nommé comme une propriété d'
+ * `Object.prototype` (`toString`, `constructor`, `__proto__`…) ne peut PAS
+ * remonter la chaîne de prototypes et rendre une fonction ou un objet là où le
+ * front attend une chaîne. Le type public reste `Record<string, string>`.
+ */
+function tableLibelles(
+  libelles: Record<string, string>,
+): Record<string, string> {
+  return Object.assign(Object.create(null) as Record<string, string>, libelles)
+}
+
 /** Libellé lisible d'un statut OT. */
-export const LIBELLES_STATUT_OT: Record<string, string> = {
+export const LIBELLES_STATUT_OT: Record<string, string> = tableLibelles({
   planifie: 'Planifié',
   en_cours: 'En cours',
   cloture: 'Clôturé',
   annule: 'Annulé',
   reouvert: 'Rouvert',
-}
+})
 
 /** Libellé lisible d'un statut d'opération. */
-export const LIBELLES_STATUT_OP: Record<string, string> = {
+export const LIBELLES_STATUT_OP: Record<string, string> = tableLibelles({
   en_attente: 'En attente',
   en_cours: 'En cours',
   terminee: 'Terminée',
   annulee: 'Annulée',
   non_applicable: 'Non applicable',
-}
+})
 
 /**
  * Tonalité sémantique (pastille teintée `StatusBadge`) du statut OT :
@@ -89,7 +102,12 @@ export function statutOtTone(statut: string, origine?: string): StatusTone {
  */
 export function libelleStatutOt(statut: string, origine?: string): string {
   if (statut === 'planifie' && origine === 'programme') return 'Programmé'
-  return LIBELLES_STATUT_OT[statut] ?? statut
+  // `Object.hasOwn` et non l'accès direct : le repli `?? statut` ne se
+  // déclencherait pas sur une propriété HÉRITÉE (statut « toString » &c.).
+  const libelle = Object.hasOwn(LIBELLES_STATUT_OT, statut)
+    ? LIBELLES_STATUT_OT[statut]
+    : undefined
+  return libelle ?? statut
 }
 
 /**
@@ -138,18 +156,31 @@ export function consoOperation(p: {
   pose: number | null
 }): number | null {
   const { precedent, courant, depose, pose } = p
-  if (courant === null || Number.isNaN(courant)) return null
+  // `Number.isFinite` et non `!Number.isNaN` : ferme d'un seul mot les deux
+  // portes — un index illisible (`numeric 'NaN'`, champ vidé) ET un infini, qui
+  // franchissait la garde NaN puis produisait `Infinity − Infinity = NaN`.
+  // `precedent` est gardé comme les autres : sans base de comparaison LISIBLE,
+  // la consommation est non calculable, pas `NaN` (qui s'afficherait « NaN kWh »
+  // et contaminerait le total de toute l'unité via `sommesCompteursParUnite`).
+  if (courant === null || !Number.isFinite(courant)) return null
+  const basePrecedente =
+    precedent !== null && Number.isFinite(precedent) ? precedent : null
   if (
     depose !== null &&
-    !Number.isNaN(depose) &&
+    Number.isFinite(depose) &&
     pose !== null &&
-    !Number.isNaN(pose)
+    Number.isFinite(pose)
   ) {
     const partNeuf = courant - pose
-    const partAncien = precedent !== null ? depose - precedent : 0
-    return partAncien + partNeuf
+    const partAncien = basePrecedente !== null ? depose - basePrecedente : 0
+    const total = partAncien + partNeuf
+    // Deux index extrêmes mais finis peuvent déborder à l'addition : on ne rend
+    // jamais un total non fini.
+    return Number.isFinite(total) ? total : null
   }
-  return precedent !== null ? courant - precedent : null
+  if (basePrecedente === null) return null
+  const conso = courant - basePrecedente
+  return Number.isFinite(conso) ? conso : null
 }
 
 /**
@@ -160,6 +191,10 @@ export function consoOperation(p: {
  * afficher la valeur même avec un seul compteur. Jamais de somme entre unités
  * différentes. L'appelant ne passe QUE des compteurs cumulatifs (estCompteurCumulatif)
  * — le kVA est déjà exclu en amont.
+ * « Calculable » se lit au sens strict : une consommation non FINIE n'en est pas
+ * une et n'entre pas dans le total — un seul item abîmé afficherait sinon
+ * « NaN kWh » sur toute l'unité. Garde de second rideau : `consoOperation`, seule
+ * source de ces `conso` dans l'app, ne rend déjà qu'un nombre fini ou `null`.
  */
 export function sommesCompteursParUnite(
   items: { symbole: string; conso: number | null }[],
@@ -173,7 +208,7 @@ export function sommesCompteursParUnite(
     if (it.symbole === '') continue
     const g = groupes.get(it.symbole) ?? { count: 0, total: 0, aConso: false }
     g.count += 1
-    if (it.conso !== null) {
+    if (it.conso !== null && Number.isFinite(it.conso)) {
       g.total += it.conso
       g.aConso = true
     }

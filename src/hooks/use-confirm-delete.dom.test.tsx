@@ -313,35 +313,32 @@ describe('useConfirmDelete — double déclenchement (O4)', () => {
     })
   })
 
-  // BUG CANDIDAT Martin : attendu = une suppression déclenchée deux fois dans le
-  // MÊME tick ne s'exécute qu'une fois ; observé = la garde lit `pending` dans la
-  // closure du rendu courant (pas une ref), donc tant que React n'a pas re-rendu,
-  // `pending` vaut encore false et `onDelete` part DEUX fois. Reproduction réelle :
-  // `dialogProps.onConfirm` câblé à la fois sur le clic du bouton et sur le
-  // `submit` du formulaire parent (bubbling à travers le portail, piège déjà
-  // rencontré sur les FormDialog imbriqués) → double DELETE, dont le second
-  // affiche une erreur à l'utilisateur alors que tout s'est bien passé.
-  it.fails(
-    'n’exécute l’action qu’une fois si confirmer est appelé deux fois dans le même tick',
-    async () => {
-      const { promesse, resoudre } = differee()
-      const onDelete = vi.fn(() => promesse)
-      const { result } = renderHook(() =>
-        useConfirmDelete<Site>({ onDelete, successMessage: 'Site supprimé' }),
-      )
-      act(() => {
-        result.current.demander(site)
-      })
-      act(() => {
-        result.current.confirmer()
-        result.current.confirmer()
-      })
-      expect(onDelete).toHaveBeenCalledTimes(1)
+  // RÉGRESSION COUVERTE (O4) : la garde lisait `pending` dans la closure du
+  // rendu courant (et non une ref), si bien que tant que React n'avait pas
+  // re-rendu, les deux appels voyaient `pending === false` et `onDelete` partait
+  // DEUX fois. Reproduction réelle : `dialogProps.onConfirm` câblé à la fois sur
+  // le clic du bouton et sur le `submit` du formulaire parent (bubbling à
+  // travers le portail, piège déjà rencontré sur les FormDialog imbriqués) →
+  // double DELETE, dont le second affiche une erreur à l'utilisateur alors que
+  // tout s'est bien passé. Le hook garde désormais une `pendingRef` synchrone.
+  it('n’exécute l’action qu’une fois si confirmer est appelé deux fois dans le même tick', async () => {
+    const { promesse, resoudre } = differee()
+    const onDelete = vi.fn(() => promesse)
+    const { result } = renderHook(() =>
+      useConfirmDelete<Site>({ onDelete, successMessage: 'Site supprimé' }),
+    )
+    act(() => {
+      result.current.demander(site)
+    })
+    act(() => {
+      result.current.confirmer()
+      result.current.confirmer()
+    })
+    expect(onDelete).toHaveBeenCalledTimes(1)
 
-      await act(async () => {
-        resoudre()
-        await promesse
-      })
-    },
-  )
+    await act(async () => {
+      resoudre()
+      await promesse
+    })
+  })
 })

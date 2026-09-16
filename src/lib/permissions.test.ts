@@ -103,55 +103,46 @@ describe('roleLabel', () => {
     expect(roleLabel(undefined)).toBe('—')
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : roleLabel ne rend pas toujours une chaîne (propriétés héritées)',
-    () => {
-      // Attendu : `roleLabel` rend TOUJOURS une chaîne — sa valeur part
-      // directement dans le JSX (badge de rôle, colonne « Rôle » de la liste des
-      // utilisateurs) — et un code hors référentiel est rendu tel quel, comme la
-      // fonction le documente elle-même.
-      // Observé : `code in ROLE_LABELS` est vrai pour TOUTE propriété héritée
-      // d'Object.prototype. `ROLE_LABELS['toString']` rend la FONCTION native ;
-      // `ROLE_LABELS['__proto__']` rend Object.prototype, un OBJET (typeof
-      // 'object') — que React affiche comme rien du tout.
-      // Contre-exemples trouvés par le générateur : '__proto__', 'constructor' ;
-      // à la main : 'toString', 'valueOf', 'hasOwnProperty'.
-      // Correctif : `Object.hasOwn(ROLE_LABELS, code)` au lieu de `code in …`.
-      for (const cle of [
-        'toString',
-        'constructor',
-        '__proto__',
-        'hasOwnProperty',
-        'valueOf',
-      ]) {
-        expect(roleLabel(cle)).toBe(cle)
-      }
-      fc.assert(
-        fc.property(
-          fc.oneof(
-            arbChaineHostile(),
-            fc.constant(null),
-            fc.constant(undefined),
-          ),
-          (code) => {
-            expect(typeof roleLabel(code)).toBe('string')
-          },
-        ),
-        RUNS,
-      )
-    },
-  )
+  it('rend toujours une chaîne, propriétés héritées comprises', () => {
+    // Oracle : `roleLabel` rend TOUJOURS une chaîne — sa valeur part directement
+    // dans le JSX (badge de rôle, colonne « Rôle » de la liste des
+    // utilisateurs) — et un code hors référentiel est rendu tel quel, comme la
+    // fonction le documente elle-même.
+    // RÉGRESSION COUVERTE : `code in ROLE_LABELS` est vrai pour TOUTE propriété
+    // héritée d'Object.prototype. `ROLE_LABELS['toString']` rendait la FONCTION
+    // native ; `ROLE_LABELS['__proto__']` rendait Object.prototype, un OBJET
+    // (typeof 'object') — que React affiche comme rien du tout. La garde est
+    // désormais `Object.hasOwn(ROLE_LABELS, code)`.
+    // Contre-exemples trouvés par le générateur : '__proto__', 'constructor' ;
+    // à la main : 'toString', 'valueOf', 'hasOwnProperty'.
+    for (const cle of [
+      'toString',
+      'constructor',
+      '__proto__',
+      'hasOwnProperty',
+      'valueOf',
+    ]) {
+      expect(roleLabel(cle)).toBe(cle)
+    }
+    fc.assert(
+      fc.property(
+        fc.oneof(arbChaineHostile(), fc.constant(null), fc.constant(undefined)),
+        (code) => {
+          expect(typeof roleLabel(code)).toBe('string')
+        },
+      ),
+      RUNS,
+    )
+  })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un code de rôle VIDE s’affiche vide au lieu de « — »',
-    () => {
-      // Attendu : '' n'est pas un code de rôle → même repli que null/undefined,
-      // le tiret cadratin qui signale « pas de rôle ».
-      // Observé : `code && …` est faux, puis `code ?? '—'` rend '' (qui n'est ni
-      // null ni undefined) → cellule vide, indiscernable d'un bug d'affichage.
-      expect(roleLabel('')).toBe('—')
-    },
-  )
+  it('un code de rôle VIDE s’affiche « — »', () => {
+    // Oracle : '' n'est pas un code de rôle → même repli que null/undefined, le
+    // tiret cadratin qui signale « pas de rôle ».
+    // RÉGRESSION COUVERTE : `code && …` était faux, puis `code ?? '—'` rendait ''
+    // (qui n'est ni null ni undefined) → cellule vide, indiscernable d'un bug
+    // d'affichage. Le repli est maintenant piloté par `if (!code) return '—'`.
+    expect(roleLabel('')).toBe('—')
+  })
 })
 
 describe('isDemandeur', () => {
