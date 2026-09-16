@@ -2,6 +2,7 @@ import { NATURE_GAMME_LABEL, gammeNatures } from './schemas'
 import { parseCsv } from '@/lib/csv'
 import {
   COL_OPERATION,
+  COL_OP_DESCRIPTION,
   COL_ORDRE,
   COL_SEUIL_MAX,
   COL_SEUIL_MIN,
@@ -241,6 +242,10 @@ export function parseImportCsv(
         lire(COL_UNITE).trim() !== '' ? COL_UNITE : null,
         lire(COL_SEUIL_MIN).trim() !== '' ? COL_SEUIL_MIN : null,
         lire(COL_SEUIL_MAX).trim() !== '' ? COL_SEUIL_MAX : null,
+        // La description d'opération manquait à ce garde : une ligne « gamme
+        // seule » qui en portait une était acceptée, et le texte jeté SANS un
+        // mot — alors que le prompt annonce que ces colonnes doivent être vides.
+        lire(COL_OP_DESCRIPTION).trim() !== '' ? COL_OP_DESCRIPTION : null,
       ].filter((c): c is string => c !== null)
       if (remplies.length > 0) {
         erreurs.push(

@@ -382,24 +382,21 @@ describe('parseImportCsv — ligne « gamme seule » et colonnes d’opération'
     ])
   })
 
-  // BUG CANDIDAT Martin : attendu « Description de l'opération ne s'applique
-  // qu'à une opération — Opération est vide. » / observé : la ligne est
-  // ACCEPTÉE et le texte saisi par l'utilisateur disparaît sans un mot.
-  // Le prompt annonce « avec Opération et les colonnes suivantes vides », mais
-  // `remplies` ne contrôle que 5 des 6 colonnes d'opération : `COL_OP_DESCRIPTION`
-  // n'y figure pas (csv-import.ts, lignes 238-244), et sur une ligne « gamme
-  // seule » `resoudreOperation` n'est jamais appelée — la cellule est perdue.
-  // Reproduction : coller ENTETE puis
-  //   Gamme A;Maintenance;Annuel;;;;;;;;Purger avant contrôle
-  it.fails(
-    'signale une description d’opération posée sur une ligne sans opération',
-    () => {
-      const r = lire('Gamme A;Maintenance;Annuel;;;;;;;;Purger avant contrôle')
-      expect(erreursLigne(r, 0)).toEqual([
-        "Description de l'opération ne s'applique qu'à une opération — Opération est vide.",
-      ])
-    },
-  )
+  // ORACLE : le prompt d'import annonce « une gamme sans opération détaillée
+  // s'écrit sur une seule ligne, avec Opération et les colonnes suivantes
+  // vides ». Une cellule remplie dans ce bloc est donc une erreur de saisie, et
+  // doit être signalée en nommant la colonne fautive.
+  //
+  // Régression couverte : le garde `remplies` ne contrôlait que 5 des 6
+  // colonnes d'opération — la description n'y figurait pas. Sur une ligne
+  // « gamme seule », `resoudreOperation` n'est jamais appelée : la ligne était
+  // acceptée et le texte saisi disparaissait SANS un mot.
+  it('signale une description d’opération posée sur une ligne sans opération', () => {
+    const r = lire('Gamme A;Maintenance;Annuel;;;;;;;;Purger avant contrôle')
+    expect(erreursLigne(r, 0)).toEqual([
+      "Description de l'opération ne s'applique qu'à une opération — Opération est vide.",
+    ])
+  })
 
   it('ne considère pas comme « remplie » une colonne d’opération blanche', () => {
     // Oracle : des espaces laissés par le tableur dans les colonnes d'opération

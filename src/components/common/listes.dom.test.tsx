@@ -264,12 +264,12 @@ describe('ProgressBar', () => {
   // illisible — `progressionContrat` (features/prestataires/etat.ts) renvoie
   // alors `NaN`, qui passe son garde `progression != null` et arrive ici.
   //
-  // BUG CANDIDAT Martin : attendu `aria-valuenow` numérique (et une largeur
-  // exploitable) / observé `aria-valuenow="NaN"` et `style="width: NaN%"` —
-  // `Math.round(Math.min(1, Math.max(0, NaN)) * 100)` vaut `NaN`, que le
-  // bornage ne rattrape pas. Correctif côté brique : `Number.isFinite(value)
-  // ? value : 0` avant le bornage.
-  it.fails('valeur NaN (0/0) : aria-valuenow reste un nombre valide', () => {
+  // Régression couverte : `Math.round(Math.min(1, Math.max(0, NaN)) * 100)`
+  // vaut `NaN` — le bornage à [0..1] ne rattrape pas ce qui n'est pas un
+  // nombre. La barre rendait alors `aria-valuenow="NaN"` et
+  // `style="width: NaN%"`. Le contrat de la brique vaut désormais aussi pour
+  // `NaN` et les infinis.
+  it('valeur NaN (0/0) : aria-valuenow reste un nombre valide', () => {
     render(<ProgressBar value={0 / 0} label="Avancement" />)
     const now = screen.getByRole('progressbar').getAttribute('aria-valuenow')
     expect(Number.isNaN(Number(now))).toBe(false)

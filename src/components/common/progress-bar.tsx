@@ -29,7 +29,14 @@ export function ProgressBar({
   className?: string
   label?: string
 }) {
-  const pct = Math.round(Math.min(1, Math.max(0, value)) * 100)
+  // `Math.min`/`Math.max` ne rattrapent PAS `NaN` : il traverse le bornage et
+  // ressort en `aria-valuenow="NaN"` et `style="width: NaN%"`. Un appelant peut
+  // en produire sans le savoir — une division par une durée nulle, une date
+  // illisible. Le contrat « borné à [0..1] » doit donc valoir aussi pour ce qui
+  // n'est pas un nombre.
+  const pct = Number.isFinite(value)
+    ? Math.round(Math.min(1, Math.max(0, value)) * 100)
+    : 0
   return (
     <div
       className={cn(

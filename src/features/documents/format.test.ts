@@ -79,20 +79,17 @@ describe('formatTaille', () => {
     )
   })
 
-  it.fails('une taille exprimée en Ko reste strictement sous 1024 Ko', () => {
+  it('une taille exprimée en Ko reste strictement sous 1024 Ko', () => {
     // ORACLE (définition d'un changement d'unité) : on passe aux Mo à 1024 Ko.
     // Afficher « 1024 Ko » est la marque d'un arrondi appliqué APRÈS le choix de
     // l'unité : la valeur mérite alors le cran supérieur. Même règle pour les
     // octets, qui ne doivent pas atteindre 1024 o.
     //
-    // BUG CANDIDAT Martin : attendu « 1,0 Mo » / observé « 1024 Ko ».
-    // Rejouable : formatTaille(1_048_064) === '1024 Ko' (et jusqu'à 1_048_575).
-    // Le seuil de bascule est comparé sur les octets (< 1024 * 1024) alors que
-    // l'affichage arrondit ensuite à l'entier : tout fichier de 1 023,5 Ko à
-    // 1 024 Ko s'affiche « 1024 Ko ».
-    // Conséquence métier : mineure et cosmétique — une plage de 512 octets sur
-    // laquelle la taille d'un document (souvent un PDF autour du méga) s'affiche
-    // dans une unité qu'elle a déjà dépassée.
+    // Régression couverte : le seuil de bascule était comparé sur les octets
+    // bruts (< 1024 * 1024) alors que l'affichage arrondit ensuite à l'entier.
+    // Tout fichier entre 1 023,5 Ko et 1 024 Ko s'affichait donc « 1024 Ko »,
+    // une taille qui n'existe pas. Fenêtre étroite — 512 octets — mais elle
+    // tombe là où les PDF sont nombreux.
     expect(lire(formatTaille(1_048_064)).unite).toBe('Mo')
     fc.assert(
       fc.property(tailleAuxBords, (octets) => {
