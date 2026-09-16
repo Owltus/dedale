@@ -6,12 +6,7 @@
 // Martin) ; l attaque, elle, se fera avec la cle publique et de vrais JWT.
 // =============================================================================
 import { writeFileSync } from 'node:fs'
-
-export const API = 'http://127.0.0.1:54521'
-export const ANON =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
-const SVC =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
+import { API, SERVICE } from './cible.mjs'
 
 const h = (k, extra = {}) => ({
   apikey: k,
@@ -23,7 +18,7 @@ const h = (k, extra = {}) => ({
 async function ins(table, row) {
   const r = await fetch(`${API}/rest/v1/${table}`, {
     method: 'POST',
-    headers: h(SVC, { Prefer: 'return=representation' }),
+    headers: h(SERVICE, { Prefer: 'return=representation' }),
     body: JSON.stringify(row),
   })
   const t = await r.text()
@@ -34,7 +29,7 @@ async function ins(table, row) {
 async function creerUtilisateur(email, meta) {
   const r = await fetch(`${API}/auth/v1/admin/users`, {
     method: 'POST',
-    headers: h(SVC),
+    headers: h(SERVICE),
     body: JSON.stringify({
       email,
       password: 'MartinTest!2026#aB',

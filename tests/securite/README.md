@@ -6,8 +6,8 @@ la contredisent ou la confirment, ce qui est l'inverse d'une relecture de code.
 
 > **Ils ne tournent JAMAIS contre la production.** Ils écrivent, créent des comptes et
 > tentent des élévations de privilèges. Leur seule cible est une pile Supabase **locale
-> et jetable**. Les scripts pointent en dur sur `127.0.0.1:54521` ; ne changez pas cette
-> adresse.
+> et jetable**. Un garde-fou dans `cible.mjs` refuse de démarrer si l'adresse obtenue
+> n'est pas `127.0.0.1` ou `localhost`.
 
 ## Monter la cible locale
 
@@ -47,6 +47,20 @@ on conflict (id) do nothing;
 ```
 
 ## Dérouler les sondes
+
+Les sondes ne portent **aucune clé** : elles interrogent `supabase status` pour
+obtenir l'adresse et les clés de la pile qui tourne sur cette machine. Le dépôt
+étant public, même les clés de démonstration — identiques sur toutes les
+installations et sans pouvoir hors de `127.0.0.1` — n'y ont pas leur place : un
+JWT `service_role` en clair déclenche tous les scanners de secrets.
+
+Il faut donc leur dire où vit le projet local monté plus haut :
+
+```bash
+export MARTIN_LOCAL_DIR=/tmp/dedale-local
+```
+
+Un garde-fou refuse de démarrer si l'adresse obtenue n'est pas locale.
 
 ```bash
 node semis.mjs             # 2 sites, 7 comptes (les 5 rôles), données en miroir

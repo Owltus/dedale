@@ -7,12 +7,8 @@
 // ligne n a pas les valeurs demandees non plus.
 // =============================================================================
 import { readFileSync } from 'node:fs'
+import { API, ANON, SERVICE } from './cible.mjs'
 
-const API = 'http://127.0.0.1:54521'
-const ANON =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
-const SVC =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
 const d = JSON.parse(
   readFileSync(new URL('./seed-data.json', import.meta.url), 'utf8'),
 )
@@ -54,7 +50,7 @@ async function req(jwt, m, p, b) {
 /** Verite terrain : relue avec service_role, donc hors de portee de la RLS. */
 async function verite(chemin) {
   const r = await fetch(`${API}/rest/v1/${chemin}`, {
-    headers: { apikey: SVC, Authorization: `Bearer ${SVC}` },
+    headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` },
   })
   return await r.json()
 }
@@ -144,8 +140,8 @@ async function main() {
       await fetch(`${API}/rest/v1/users?id=eq.${cible}`, {
         method: 'PATCH',
         headers: {
-          apikey: SVC,
-          Authorization: `Bearer ${SVC}`,
+          apikey: SERVICE,
+          Authorization: `Bearer ${SERVICE}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ [cle]: avant?.[cle] ?? null }),
@@ -229,7 +225,7 @@ async function main() {
       if (cree)
         await fetch(`${API}/rest/v1/${table}?id=eq.${r.corps[0].id}`, {
           method: 'DELETE',
-          headers: { apikey: SVC, Authorization: `Bearer ${SVC}` },
+          headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` },
         })
     }
     const stable = new Set(resultats).size === 1
@@ -259,7 +255,7 @@ async function main() {
         `${API}/rest/v1/demandes_intervention?id=eq.${r.corps[0].id}`,
         {
           method: 'DELETE',
-          headers: { apikey: SVC, Authorization: `Bearer ${SVC}` },
+          headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` },
         },
       )
   }

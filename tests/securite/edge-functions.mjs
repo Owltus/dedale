@@ -11,22 +11,33 @@
 // different ne doit pas suffire a ouvrir la porte.
 // =============================================================================
 import { readFileSync } from 'node:fs'
+import { API, FN, ANON } from './cible.mjs'
 
-const FN = 'http://127.0.0.1:54521/functions/v1'
-const API = 'http://127.0.0.1:54521'
-const ANON =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
 const d = JSON.parse(
   readFileSync(new URL('./seed-data.json', import.meta.url), 'utf8'),
 )
 
-// JWT arbitraire, signe avec le secret de DEMO de la pile locale, portant un
-// role Postgres eleve : il teste si une fonction fait confiance au CONTENU du
-// jeton plutot qu a une verification serveur.
-const JWT_FORGE =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
-const JWT_EXPIRE =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJleHAiOjF9.invalide'
+// Deux jetons d attaque, FABRIQUES ici plutot qu ecrits en dur : le depot est
+// public, et un JWT en clair y serait a la fois illisible et alarmant.
+const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url')
+
+/** Jeton EXPIRE (exp dans le passe), signature volontairement invalide. */
+const JWT_EXPIRE = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({
+  iss: 'supabase-demo',
+  role: 'authenticated',
+  exp: 1,
+})}.signature-invalide`
+
+/**
+ * Jeton FORGE : il se reclame du role Postgres le plus eleve, mais n est pas
+ * signe par la pile. Il teste si une fonction fait confiance au CONTENU du
+ * jeton plutot qu a une verification serveur.
+ */
+const JWT_FORGE = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({
+  iss: 'supabase-demo',
+  role: 'service_role',
+  exp: 1983812996,
+})}.signature-invalide`
 
 async function jeton(email) {
   const r = await fetch(`${API}/auth/v1/token?grant_type=password`, {

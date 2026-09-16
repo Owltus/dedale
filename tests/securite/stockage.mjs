@@ -2,11 +2,7 @@
 // un document du site B ? Oracle : seul un 200 avec le CONTENU du fichier
 // adverse est une fuite ; un 400/403/404 ne l est pas.
 import { readFileSync } from 'node:fs'
-const API = 'http://127.0.0.1:54521'
-const ANON =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
-const SVC =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
+import { API, ANON, SERVICE } from './cible.mjs'
 const d = JSON.parse(readFileSync('./seed-data.json', 'utf8'))
 const PDF = Buffer.from('%PDF-1.4\n% contenu confidentiel\n%%EOF\n')
 async function jeton(e) {
@@ -24,8 +20,8 @@ for (const k of ['A', 'B']) {
     {
       method: 'POST',
       headers: {
-        apikey: SVC,
-        Authorization: `Bearer ${SVC}`,
+        apikey: SERVICE,
+        Authorization: `Bearer ${SERVICE}`,
         'Content-Type': 'application/pdf',
         'x-upsert': 'true',
       },

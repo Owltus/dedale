@@ -6,10 +6,8 @@
 // produire, et on constate. Un scenario qui « reussit » est un finding.
 // =============================================================================
 import { readFileSync } from 'node:fs'
+import { API, ANON } from './cible.mjs'
 
-const API = 'http://127.0.0.1:54521'
-const ANON =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
 const d = JSON.parse(
   readFileSync(new URL('./seed-data.json', import.meta.url), 'utf8'),
 )
