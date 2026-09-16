@@ -131,13 +131,32 @@ export function useOperationsEditor({
     // la fenêtre transitoire : édits résiduels après une annulation d'OT.
     if (opsReadOnly) return
     // Garde : valeur mesurée / index de remplacement non numériques → on bloque
-    // avant tout envoi.
+    // avant tout envoi. `Number.isFinite` et non `!Number.isNaN` (même mot que
+    // `consoOperation`) : `Number('Infinity')` n'est pas NaN, franchissait la
+    // garde, puis `JSON.stringify(Infinity)` vaut `null` — une mesure déclarée
+    // terminée repartait à `valeur_mesuree = NULL`, exactement le défaut que le
+    // garde suivant ferme.
     const numInvalide = (s: string) =>
-      s.trim() !== '' && Number.isNaN(Number(s))
+      s.trim() !== '' && !Number.isFinite(Number(s))
     for (const op of dirtyOps) {
       const e = edits[op.id]!
       if (estMesureExecution(op) && numInvalide(e.valeur)) {
         toast.error(`Valeur mesurée invalide : ${op.nom}`)
+        return
+      }
+      // Une mesure DÉCLARÉE TERMINÉE doit porter sa valeur : sans ce garde, le
+      // relevé s'enregistre à `valeur_mesuree = NULL`, s'affiche « fait » et
+      // disparaît des graphiques (queries.ts filtre `.not(valeur_mesuree, is,
+      // null)`) — la mesure manquante n'est plus signalée à personne. On ne
+      // mord QUE sur « terminee » : « non applicable » est un état terminal
+      // légitimement sans valeur, et c'est la sortie de secours pour reprendre
+      // un relevé ancien dont la valeur est définitivement perdue.
+      if (
+        estMesureExecution(op) &&
+        e.statut === 'terminee' &&
+        e.valeur.trim() === ''
+      ) {
+        toast.error(`Valeur mesurée manquante : ${op.nom}`)
         return
       }
       if (numInvalide(e.indexDepose) || numInvalide(e.indexPose)) {
