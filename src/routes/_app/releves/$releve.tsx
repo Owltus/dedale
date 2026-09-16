@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { relevesQueries } from '@/features/releves/queries'
 import { PAGE_META } from '@/features/releves/page-meta'
@@ -13,6 +14,17 @@ function ReleveDetailPage() {
   const { releve: slug } = Route.useParams()
   const navigate = useNavigate()
   const goBack = () => void navigate({ to: '/releves' })
+  // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
+  // rendu (contrat de `useSlugResolved`).
+  const onSlugChange = useCallback(
+    (freshSlug: string) =>
+      void navigate({
+        to: '/releves/$releve',
+        params: { releve: freshSlug },
+        replace: true,
+      }),
+    [navigate],
+  )
 
   return (
     <SiteScopedRoute meta={PAGE_META}>
@@ -21,21 +33,14 @@ function ReleveDetailPage() {
           options={relevesQueries.gammesListe(siteId)}
           slug={slug}
           identity={(g) => ({ nom: g.nomGamme, id: g.id })}
-          onSlugChange={(freshSlug) =>
-            void navigate({
-              to: '/releves/$releve',
-              params: { releve: freshSlug },
-              replace: true,
-            })
-          }
+          onSlugChange={onSlugChange}
           title="Relevés"
           onBack={goBack}
           notFound={{
-            title: 'Gamme introuvable',
+            title: "Cette gamme n'a plus de relevé",
             description:
-              "Cette gamme n'a plus de relevé, ou n'est pas accessible depuis ce site.",
+              "Le lien est peut-être périmé, la gamme a été supprimée, ou elle n'est pas accessible depuis ce site.",
             icon: PAGE_META.icone,
-            showBack: true,
           }}
         >
           {(gamme) => (

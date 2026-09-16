@@ -1,4 +1,5 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useCallback } from 'react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { demandesQueries } from '@/features/demandes/queries'
 import { PAGE_META } from '@/features/demandes/page-meta'
 import { DiDetail } from '@/features/demandes/components/di-detail'
@@ -6,7 +7,6 @@ import { diTitre } from '@/features/demandes/schemas'
 import * as perm from '@/lib/permissions'
 import { SlugDetailRoute } from '@/components/common/slug-detail-route'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
-import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/_app/demandes/$demande')({
   component: DemandeDetailPage,
@@ -40,6 +40,17 @@ function DemandeResolver({
   canResolve: boolean
 }) {
   const navigate = useNavigate()
+  // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
+  // rendu (contrat de `useSlugResolved`).
+  const onSlugChange = useCallback(
+    (freshSlug: string) =>
+      void navigate({
+        to: '/demandes/$demande',
+        params: { demande: freshSlug },
+        replace: true,
+      }),
+    [navigate],
+  )
 
   return (
     <SlugDetailRoute
@@ -48,25 +59,14 @@ function DemandeResolver({
       // Slug dérivé du titre (1re ligne du constat) + repli par id : renommer la
       // DI ouverte resynchronise l'URL au lieu d'éjecter vers « introuvable ».
       identity={(d) => ({ nom: diTitre(d.constat), id: d.id })}
-      onSlugChange={(freshSlug) =>
-        void navigate({
-          to: '/demandes/$demande',
-          params: { demande: freshSlug },
-          replace: true,
-        })
-      }
+      onSlugChange={onSlugChange}
       title="Demande d'intervention"
       onBack={() => void navigate({ to: '/demandes' })}
       notFound={{
-        title: 'Demande introuvable',
+        title: "Cette demande n'existe plus",
         description:
-          "Cette demande n'existe plus ou n'est pas accessible depuis ce site.",
+          "Le lien est peut-être périmé, la demande a été supprimée, ou elle n'est pas accessible depuis ce site.",
         icon: PAGE_META.icone,
-        action: (
-          <Button asChild>
-            <Link to="/demandes">Retour aux demandes</Link>
-          </Button>
-        ),
       }}
     >
       {(demande) => <DiDetail demande={demande} canResolve={canResolve} />}

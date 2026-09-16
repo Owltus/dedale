@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { PAGE_META } from '@/features/prestataires/page-meta'
@@ -14,6 +15,17 @@ function PrestataireDetailPage() {
   const navigate = useNavigate()
 
   const goBack = () => void navigate({ to: '/prestataires' })
+  // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
+  // rendu (contrat de `useSlugResolved`).
+  const onSlugChange = useCallback(
+    (freshSlug: string) =>
+      void navigate({
+        to: '/prestataires/$prestataire',
+        params: { prestataire: freshSlug },
+        replace: true,
+      }),
+    [navigate],
+  )
 
   return (
     <SiteScopedRoute meta={PAGE_META}>
@@ -24,21 +36,14 @@ function PrestataireDetailPage() {
           options={prestatairesQueries.list()}
           slug={slug}
           identity={(p) => ({ nom: p.libelle, id: p.id })}
-          onSlugChange={(freshSlug) =>
-            void navigate({
-              to: '/prestataires/$prestataire',
-              params: { prestataire: freshSlug },
-              replace: true,
-            })
-          }
+          onSlugChange={onSlugChange}
           title="Prestataire"
           onBack={goBack}
           notFound={{
-            title: 'Prestataire introuvable',
+            title: "Ce prestataire n'existe plus",
             description:
-              "Ce prestataire n'existe plus ou n'est pas accessible depuis ce site.",
+              "Le lien est peut-être périmé, la fiche a été supprimée, ou elle n'est pas accessible depuis ce site.",
             icon: PAGE_META.icone,
-            showBack: true,
           }}
         >
           {(prestataire) => (

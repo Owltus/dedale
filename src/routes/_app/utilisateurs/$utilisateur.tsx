@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ShieldOff, Users } from 'lucide-react'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
@@ -23,6 +24,17 @@ function UtilisateurDetailPage() {
   const canManage = perm.canManageAdmin(role)
 
   const goBack = () => void navigate({ to: '/utilisateurs' })
+  // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
+  // rendu (contrat de `useSlugResolved`).
+  const onSlugChange = useCallback(
+    (freshSlug: string) =>
+      void navigate({
+        to: '/utilisateurs/$utilisateur',
+        params: { utilisateur: freshSlug },
+        replace: true,
+      }),
+    [navigate],
+  )
 
   if (rolePending) {
     return (
@@ -51,20 +63,14 @@ function UtilisateurDetailPage() {
       identity={(u) => ({ nom: u.nom_complet, id: u.id })}
       // Soi-même exclu des deux côtés (comme la liste) — repli par id inclus.
       filterItems={(items) => items.filter((u) => u.id !== session?.user.id)}
-      onSlugChange={(freshSlug) =>
-        void navigate({
-          to: '/utilisateurs/$utilisateur',
-          params: { utilisateur: freshSlug },
-          replace: true,
-        })
-      }
+      onSlugChange={onSlugChange}
       title="Utilisateur"
       onBack={goBack}
       notFound={{
-        title: 'Utilisateur introuvable',
-        description: "Ce compte n'existe pas ou n'est pas accessible.",
+        title: "Ce compte n'existe plus",
+        description:
+          "Le lien est peut-être périmé, le compte a été supprimé, ou il n'est pas accessible.",
         icon: Users,
-        showBack: true,
       }}
     >
       {(user) => <UtilisateurDetail user={user} onBack={goBack} />}

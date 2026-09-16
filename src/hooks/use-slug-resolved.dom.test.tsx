@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
 import fc from 'fast-check'
-import { cleanup, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { segOfUnique } from '@/lib/slug'
 import { useSlugResolved } from './use-slug-resolved'
 import { entitesArb, idAt, type Entite } from '@/test/harness-hooks'
@@ -174,40 +175,37 @@ describe('useSlugResolved — renommage en direct (O3)', () => {
     expect(renavigate).toHaveBeenCalledWith(a.id)
   })
 
-  // BUG CANDIDAT Martin : attendu = une réécriture d'URL est un ÉVÉNEMENT (le slug
-  // vient de devenir périmé), pas un effet de chaque rendu ; observé = l'effet
-  // dépend de `segOf`/`renavigate`, que TOUS les appelants réels recréent à chaque
-  // rendu (cf. `SlugDetailRoute` + les `onSlugChange` inline des routes), donc un
-  // simple re-rendu (refetch realtime) relance une navigation `replace`.
-  it.fails(
-    'ne rejoue PAS la navigation à chaque re-rendu quand les callbacks ne sont pas mémoïsés',
-    () => {
-      const a: Entite = { id: idAt(0), nom: 'Toiture' }
-      const items = [a]
-      const renomme = [{ id: a.id, nom: 'Toiture Nord' }]
-      const renavigate = vi.fn<(s: string) => void>()
+  // RÉGRESSION COUVERTE : une réécriture d'URL est un ÉVÉNEMENT (le slug vient de
+  // devenir périmé), pas un effet de chaque rendu. Le hook lit `segOf`/`renavigate`
+  // par ref au lieu de les mettre en dépendance de l'effet : les appelants réels
+  // les recréent à chaque rendu (`SlugDetailRoute` referme sur la fratrie fraîche),
+  // et un simple re-rendu — refetch realtime — ne doit pas relancer un `replace`.
+  it('ne rejoue pas la navigation à chaque re-rendu, même avec des callbacks recréés', () => {
+    const a: Entite = { id: idAt(0), nom: 'Toiture' }
+    const items = [a]
+    const renomme = [{ id: a.id, nom: 'Toiture Nord' }]
+    const renavigate = vi.fn<(s: string) => void>()
 
-      const { rerender } = renderHook(
-        ({ liste, slug }: { liste: Entite[]; slug: string }) =>
-          // Callbacks recréés à chaque rendu, comme dans `SlugDetailRoute`.
-          useSlugResolved(
-            liste,
-            slug,
-            (e) => segOfUnique(e, liste),
-            (s) => {
-              renavigate(s)
-            },
-          ),
-        { initialProps: { liste: items, slug: 'toiture' } },
-      )
+    const { rerender } = renderHook(
+      ({ liste, slug }: { liste: Entite[]; slug: string }) =>
+        // Callbacks recréés à chaque rendu, comme dans `SlugDetailRoute`.
+        useSlugResolved(
+          liste,
+          slug,
+          (e) => segOfUnique(e, liste),
+          (s) => {
+            renavigate(s)
+          },
+        ),
+      { initialProps: { liste: items, slug: 'toiture' } },
+    )
 
-      rerender({ liste: renomme, slug: 'toiture' })
-      expect(renavigate).toHaveBeenCalledTimes(1)
-      // Re-rendu sans changement d'URL (refetch) → la navigation ne doit pas être rejouée.
-      rerender({ liste: [...renomme], slug: 'toiture' })
-      expect(renavigate).toHaveBeenCalledTimes(1)
-    },
-  )
+    rerender({ liste: renomme, slug: 'toiture' })
+    expect(renavigate).toHaveBeenCalledTimes(1)
+    // O3 : re-rendu sans changement d'URL (refetch) → la navigation n'est pas rejouée.
+    rerender({ liste: [...renomme], slug: 'toiture' })
+    expect(renavigate).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('useSlugResolved — entité supprimée (O4)', () => {
@@ -286,35 +284,33 @@ describe('useSlugResolved — changement de site actif (O5)', () => {
 })
 
 describe('useSlugResolved — pièges de résolution', () => {
-  // BUG CANDIDAT Martin : attendu = une navigation vers un AUTRE slug invalide
-  // (deep-link, back/forward) donne l'écran « introuvable » ; observé = le repli
-  // par id mémorisé s'applique à n'importe quel slug irrésolu, donc le hook rouvre
-  // l'entité précédente et RÉÉCRIT l'URL vers elle — l'utilisateur ne peut plus
-  // atteindre l'état « introuvable ». `useLeafResync` porte justement le garde-fou
-  // manquant ici : « on ne re-synchronise que le MÊME segment devenu irrésolu ».
-  it.fails(
-    'renvoie null quand on navigue vers un AUTRE slug invalide après une résolution',
-    () => {
-      const a: Entite = { id: idAt(0), nom: 'Toiture' }
-      const b: Entite = { id: idAt(1), nom: 'Façade' }
-      const fratrie = { current: [a, b] }
-      const segOf = segOfStable(fratrie)
-      const renavigate = vi.fn<(s: string) => void>()
+  // RÉGRESSION COUVERTE : le repli par id ne vaut que pour le MÊME segment devenu
+  // irrésolu (l'entité ouverte renommée sous nos yeux). Appliqué à n'importe quel
+  // slug irrésolu, il rouvrait l'entité précédente et RÉÉCRIVAIT l'URL vers elle :
+  // l'écran mentait — il affirmait que le lien reçu désignait cette fiche — et
+  // l'état « introuvable » devenait inatteignable. Même garde-fou que
+  // `useLeafResync` : « on ne re-synchronise que le MÊME segment devenu irrésolu ».
+  it('renvoie null quand on navigue vers un AUTRE slug invalide après une résolution', () => {
+    const a: Entite = { id: idAt(0), nom: 'Toiture' }
+    const b: Entite = { id: idAt(1), nom: 'Façade' }
+    const fratrie = { current: [a, b] }
+    const segOf = segOfStable(fratrie)
+    const renavigate = vi.fn<(s: string) => void>()
 
-      const { result, rerender } = renderHook(
-        ({ items, slug }: { items: Entite[]; slug: string }) =>
-          useSlugResolved(items, slug, segOf, renavigate),
-        { initialProps: { items: fratrie.current, slug: 'toiture' } },
-      )
-      expect(result.current).toBe(a)
+    const { result, rerender } = renderHook(
+      ({ items, slug }: { items: Entite[]; slug: string }) =>
+        useSlugResolved(items, slug, segOf, renavigate),
+      { initialProps: { items: fratrie.current, slug: 'toiture' } },
+    )
+    expect(result.current).toBe(a)
 
-      // Aucune entité n'a changé : c'est l'URL qui pointe ailleurs, dans le vide.
-      rerender({ items: fratrie.current, slug: 'entite-supprimee-hier' })
+    // Aucune entité n'a changé : c'est l'URL qui pointe ailleurs, dans le vide.
+    rerender({ items: fratrie.current, slug: 'entite-supprimee-hier' })
 
-      expect(result.current).toBeNull()
-      expect(renavigate).not.toHaveBeenCalled()
-    },
-  )
+    // O2 : écran « introuvable », et l'URL reçue reste telle quelle.
+    expect(result.current).toBeNull()
+    expect(renavigate).not.toHaveBeenCalled()
+  })
 
   // BUG CANDIDAT Martin : attendu = « les segments d'un même ensemble de frères
   // sont tous distincts » (oracle déjà posé dans src/lib/slug.test.ts) ; observé =
@@ -362,5 +358,80 @@ describe('useSlugResolved — pièges de résolution', () => {
     rerender({ items: [a], slug: 'toiture' })
     expect(result.current).toBe(a)
     expect(renavigate).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * FAUX ROUTEUR À RÉTROACTION : `renavigate` change RÉELLEMENT le slug lu au rendu
+ * suivant, comme le `navigate({ …, replace: true })` des 7 routes détail. Une
+ * réécriture en boucle ferait donc échouer le test (« Maximum update depth
+ * exceeded ») au lieu de passer inaperçue. Les callbacks sont recréés à chaque
+ * rendu, exactement comme dans `SlugDetailRoute`.
+ */
+function useRouteDetail(
+  items: Entite[],
+  slugInitial: string,
+  onNavigate: (s: string) => void,
+) {
+  const [slug, setSlug] = useState(slugInitial)
+  const item = useSlugResolved(
+    items,
+    slug,
+    (e) => segOfUnique(e, items),
+    (frais) => {
+      onNavigate(frais)
+      setSlug(frais)
+    },
+  )
+  // `allerA` = l'utilisateur ouvre une autre URL (lien reçu, favori, back).
+  return { item, slug, allerA: setSlug }
+}
+
+describe('useSlugResolved — les deux contrôles opposés (routeur à rétroaction)', () => {
+  const a: Entite = { id: idAt(0), nom: 'Toiture' }
+  const b: Entite = { id: idAt(1), nom: 'Façade' }
+  const aRenomme: Entite = { id: a.id, nom: 'Toiture Nord' }
+
+  it('CONSERVÉ : l’entité ouverte est renommée → elle reste ouverte, l’URL suit (O3)', () => {
+    const nav = vi.fn<(s: string) => void>()
+    let rendus = 0
+
+    const { result, rerender } = renderHook(
+      ({ items }: { items: Entite[] }) => {
+        rendus += 1
+        return useRouteDetail(items, 'toiture', nav)
+      },
+      { initialProps: { items: [a, b] } },
+    )
+    expect(result.current.item).toBe(a)
+
+    rendus = 0
+    rerender({ items: [aRenomme, b] })
+
+    // La fiche reste ouverte et l'URL se resynchronise sur le slug frais…
+    expect(result.current.item).toBe(aRenomme)
+    expect(result.current.slug).toBe('toiture-nord')
+    // … UNE SEULE FOIS : le routeur rejoue le rendu, la réécriture ne se relance pas.
+    expect(nav).toHaveBeenCalledTimes(1)
+    // Rendu périmé + rendu après réécriture + ajustement d'état pendant le rendu :
+    // l'URL se stabilise, elle ne converge pas indéfiniment.
+    expect(rendus).toBeLessThanOrEqual(3)
+  })
+
+  it('RÉTABLI : URL d’une entité qui n’a jamais existé → introuvable, aucune réécriture (O2)', () => {
+    const nav = vi.fn<(s: string) => void>()
+
+    const { result } = renderHook(() => useRouteDetail([a, b], 'toiture', nav))
+    expect(result.current.item).toBe(a)
+
+    act(() => {
+      result.current.allerA('entite-supprimee-hier')
+    })
+
+    // L'écran ne ment pas : le lien ne désigne rien, on rend « introuvable »…
+    expect(result.current.item).toBeNull()
+    // … et l'URL reçue n'est PAS réécrite vers la fiche précédente.
+    expect(result.current.slug).toBe('entite-supprimee-hier')
+    expect(nav).not.toHaveBeenCalled()
   })
 })

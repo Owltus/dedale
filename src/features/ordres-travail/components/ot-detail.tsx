@@ -51,6 +51,7 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
+import { Button } from '@/components/ui/button'
 
 interface OtDetailProps {
   otId: string
@@ -230,16 +231,23 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
     )
   }
   if (!ot) {
+    // Même écran « introuvable » que les fiches résolues par slug
+    // (`SlugDetailRoute`) : on dit CE QUI s'est passé et on offre une sortie.
     return (
       <PageContainer>
         <PageHeader
-          title="OT introuvable"
+          title="Ordre de travail"
           onBack={() => void navigate({ to: '/ordres-travail' })}
         />
         <EmptyState
           icon={ClipboardList}
-          title="OT introuvable"
-          description="Cet ordre de travail n'existe plus ou n'est pas accessible."
+          title="Cet ordre de travail n'existe plus"
+          description="Le lien est peut-être périmé, l'ordre de travail a été supprimé, ou il n'est pas accessible depuis ce site."
+          action={
+            <Button onClick={() => void navigate({ to: '/ordres-travail' })}>
+              Retour à la liste
+            </Button>
+          }
         />
       </PageContainer>
     )
