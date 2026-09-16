@@ -613,63 +613,54 @@ describe('construireDonneesColonnes', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT — une colonne VIDE est ajoutée en doublon d’un relevé daté du 1er du mois',
-    () => {
-      // ORACLE : une colonne = une date. Deux lignes portant la MÊME valeur de
-      // `date` sont deux catégories identiques pour l'axe de Recharts : la barre
-      // est dessinée deux fois au même endroit et l'étiquette de l'axe apparaît
-      // en double.
-      //
-      // CAUSE : le rattachement à la période passe par `dateLogique` (relevé du
-      // 1er au 15 → mois PRÉCÉDENT), alors que les colonnes vides sont ajoutées
-      // à partir de `genererReperes`, qui n'applique PAS `dateLogique`. Un relevé
-      // daté du 1er mars est donc compté dans la période « février », la frontière
-      // « 1er mars » est jugée SANS donnée, et la colonne vide « 2024-03-01 » est
-      // ajoutée… alors qu'une colonne réelle « 2024-03-01 » existe déjà.
-      //
-      // ATTENDU : ['2024-03-01'] · OBSERVÉ : ['2024-03-01', '2024-03-01']
-      // (les deux lignes portent en plus la même valeur 12, la recherche du point
-      // se faisant sur la chaîne de date).
-      //
-      // Touche tout relevé daté du 1er d'un mois (granularité « mois »), du 1er
-      // d'un trimestre ou du 1er janvier — cas fréquent sur les compteurs.
-      const series: SerieTemporelle[] = [
-        {
-          cle: 'm',
-          label: 'Compteur',
-          points: [{ date: '2024-03-01', valeur: 12, otId: 'ot1' }],
-        },
-      ]
-      const dates = construireDonneesColonnes(
-        series,
-        'mois',
-        new Date(2024, 2, 1).getTime(),
-        new Date(2024, 2, 31).getTime(),
-      ).map((l) => l.date as string)
-      expect(new Set(dates).size).toBe(dates.length)
-    },
-  )
+  it('un relevé daté du 1er du mois ne produit pas de colonne en doublon', () => {
+    // ORACLE : une colonne = une date. Deux lignes portant la MÊME valeur de
+    // `date` sont deux catégories identiques pour l'axe de Recharts : la barre
+    // serait dessinée deux fois au même endroit et l'étiquette de l'axe
+    // apparaîtrait en double.
+    //
+    // Régression couverte : le rattachement à la période passe par
+    // `dateLogique` (relevé du 1er au 15 → mois PRÉCÉDENT), alors que les
+    // colonnes vides viennent de `genererReperes`, qui ne l'applique pas. Un
+    // relevé du 1er mars était compté en « février », la frontière « 1er mars »
+    // jugée sans donnée, et une colonne vide « 2024-03-01 » ajoutée à côté de
+    // la vraie. Corrigé en marquant les DEUX périodes qu'occupe une date
+    // réelle : la sienne et sa période logique.
+    //
+    // Touche tout relevé daté du 1er d'un mois, du 1er d'un trimestre ou du
+    // 1er janvier — cas fréquent sur les compteurs.
+    const series: SerieTemporelle[] = [
+      {
+        cle: 'm',
+        label: 'Compteur',
+        points: [{ date: '2024-03-01', valeur: 12, otId: 'ot1' }],
+      },
+    ]
+    const dates = construireDonneesColonnes(
+      series,
+      'mois',
+      new Date(2024, 2, 1).getTime(),
+      new Date(2024, 2, 31).getTime(),
+    ).map((l) => l.date as string)
+    expect(new Set(dates).size).toBe(dates.length)
+  })
 
-  it.fails(
-    'BUG CANDIDAT (propriété) — les dates de colonnes devraient toutes être DISTINCTES',
-    () => {
-      // ORACLE : même propriété, cherchée au hasard plutôt que sur un exemple —
-      // l'ensemble des colonnes est un ensemble de dates, donc sans répétition.
-      fc.assert(
-        fc.property(arbSeries, arbGranularite, (series, g) => {
-          const dates = construireDonneesColonnes(
-            series,
-            g,
-            new Date(2020, 0, 1).getTime(),
-            new Date(2027, 0, 1).getTime(),
-          ).map((l) => l.date as string)
-          expect(new Set(dates).size).toBe(dates.length)
-        }),
-        CFG,
-      )
-    },
-  )
+  it('les dates de colonnes sont toutes DISTINCTES', () => {
+    // ORACLE : même propriété, cherchée au hasard plutôt que sur un exemple —
+    // l'ensemble des colonnes est un ensemble de dates, donc sans répétition.
+    fc.assert(
+      fc.property(arbSeries, arbGranularite, (series, g) => {
+        const dates = construireDonneesColonnes(
+          series,
+          g,
+          new Date(2020, 0, 1).getTime(),
+          new Date(2027, 0, 1).getTime(),
+        ).map((l) => l.date as string)
+        expect(new Set(dates).size).toBe(dates.length)
+      }),
+      CFG,
+    )
+  })
 })
 
 describe('reperesEtiquettesColonnes', () => {

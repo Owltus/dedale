@@ -207,10 +207,20 @@ export function construireDonneesColonnes(
   // `isoLocale` (jamais `.toISOString()`, qui convertit en UTC et décale la date
   // d'un jour — parfois d'un MOIS entier ici, un « 1er du mois » minuit local
   // proche du changement de fuseau retombant sur le 30 du mois précédent en UTC).
+  // Une date réelle occupe DEUX périodes : la sienne, et sa période LOGIQUE
+  // (`dateLogique` rattache un relevé du 1er au 15 au mois précédent). Il faut
+  // les marquer toutes les deux, sinon un relevé daté du 1er du mois est
+  // rattaché au mois précédent, le mois courant est jugé vide, et
+  // `genererReperes` lui ajoute une colonne qui fait doublon avec la vraie.
+  // Même effet le 1er d'un trimestre et le 1er janvier.
   const periodesAvecDonnee = new Set(
-    [...reelles].map((d) =>
-      isoLocale(debutPeriode(dateLogique(new Date(d)), granularite)),
-    ),
+    [...reelles].flatMap((d) => {
+      const reelle = new Date(d)
+      return [
+        isoLocale(debutPeriode(dateLogique(reelle), granularite)),
+        isoLocale(debutPeriode(reelle, granularite)),
+      ]
+    }),
   )
   const periodesVides = genererReperes(granularite, debutMs, finMs)
     .map((ms) => isoLocale(new Date(ms)))
