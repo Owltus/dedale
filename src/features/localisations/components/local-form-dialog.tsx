@@ -163,12 +163,18 @@ export function LocalFormDialog({
             type="number"
             inputMode="numeric"
           />
+          {/*
+            La base refuse une surface ou une hauteur nulle (CHECK … > 0). Sans
+            ce rappel, l'usager qui ignore la valeur tape « 0 » et se heurte au
+            refus sans savoir quoi faire : le mur serait seulement déplacé.
+          */}
           <TextField
             control={form.control}
             name="surface_m2"
             label="Surface (m²)"
             type="number"
             inputMode="decimal"
+            hint="Laissez vide si la surface n’est pas connue."
           />
           <TextField
             control={form.control}
@@ -176,6 +182,7 @@ export function LocalFormDialog({
             label="Hauteur sous plafond (m)"
             type="number"
             inputMode="decimal"
+            hint="Laissez vide si la hauteur n’est pas connue."
           />
           <CheckboxField
             control={form.control}

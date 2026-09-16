@@ -122,18 +122,17 @@ describe('niveauSchema — ordre', () => {
     expect(sousSol.data).toMatchObject({ ordre: -1 })
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : l’ordre accepte l’infini, l’hexadécimal et le hors-borne SMALLINT',
-    () => {
-      // Attendu : `niveaux.ordre` est un SMALLINT (−32 768 … 32 767) entier.
-      // Observé : 'Infinity' accepté (Number.isNaN seul), '0x10' réinterprété en
-      // 16, '0.5' accepté puis ARRONDI EN SILENCE par Postgres, '99999' accepté
-      // puis rejeté par la base (22003).
-      for (const v of ['Infinity', '0x10', '0.5', '99999']) {
-        expect(rejette(niveauSchema, { ...NIVEAU, ordre: v })).toBe(true)
-      }
-    },
-  )
+  it('refuse l’infini, l’hexadécimal, le décimal et le hors-borne SMALLINT', () => {
+    // ORACLE : `niveaux.ordre` est un SMALLINT (−32 768 … 32 767) ENTIER.
+    // Régression couverte : le champ ne reconnaît que la notation entière
+    // usuelle. Sans cette forme imposée, `Number()` lit '0x10' comme 16 (le
+    // niveau part au 16ᵉ étage sans un mot), 'Infinity' comme l'infini, et
+    // `Number.isInteger` laisse filer '0.5' — que Postgres ARRONDIT en silence
+    // — comme '99999', que la base rejette ensuite en 22003.
+    for (const v of ['Infinity', '0x10', '0.5', '99999']) {
+      expect(rejette(niveauSchema, { ...NIVEAU, ordre: v })).toBe(true)
+    }
+  })
 })
 
 // ─── localSchema : surface ───────────────────────────────────────────────────
@@ -181,39 +180,40 @@ describe('localSchema — surface', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : une surface de 0 m² est acceptée alors que le CHECK exige > 0',
-    () => {
-      // Attendu : CHECK (surface_m2 IS NULL OR surface_m2 > 0) — un local de
-      // 0 m² n'existe pas. Observé : `optionalNumber` ne refuse que `n < 0`,
-      // donc '0', '0.00' et '-0' passent → INSERT rejeté par la base en 23514,
-      // message générique « Valeur refusée : elle ne respecte pas une règle. »
-      // Contre-exemples : '0', '0.0', '-0'.
-      for (const v of ['0', '0.0', '-0', '0,0'.replace(',', '.')]) {
-        expect(rejette(localSchema, { ...LOCAL, surface_m2: v })).toBe(true)
-      }
-    },
-  )
+  it('refuse une surface de 0 m² (miroir du CHECK surface_m2 > 0)', () => {
+    // ORACLE : CHECK (surface_m2 IS NULL OR surface_m2 > 0) — un local de
+    // 0 m² n'existe pas ; la surface inconnue se laisse VIDE (colonne NULL).
+    // Régression couverte : une borne basse seulement `>= 0` laisse passer '0',
+    // '0.0' et '-0', que la base refuse ensuite en 23514 — avec le message
+    // générique « Valeur refusée : elle ne respecte pas une règle. »
+    for (const v of ['0', '0.0', '-0', '0,0'.replace(',', '.')]) {
+      expect(rejette(localSchema, { ...LOCAL, surface_m2: v })).toBe(true)
+    }
+    // La contrepartie : le vide reste accepté et vaut « surface inconnue ».
+    const vide = localSchema.safeParse({ ...LOCAL, surface_m2: '' })
+    expect(vide.success).toBe(true)
+    expect(vide.data).toMatchObject({ surface_m2: undefined })
+  })
 
-  it.fails(
-    'BUG CANDIDAT Martin : la surface n’a pas de borne haute (NUMERIC(8,2))',
-    () => {
-      // Attendu : NUMERIC(8,2) plafonne à 999 999,99 m².
-      // Observé : '1e7' (10 000 000) et 'Infinity' acceptés → 22003 côté base.
-      for (const v of ['1000000', '1e7', '1e300', 'Infinity']) {
-        expect(rejette(localSchema, { ...LOCAL, surface_m2: v })).toBe(true)
-      }
-    },
-  )
+  it('refuse une surface au-delà de la borne NUMERIC(8,2)', () => {
+    // ORACLE : NUMERIC(8,2) plafonne à 999 999,99 m².
+    // Régression couverte : sans borne haute, '1000000' et '1e7' partent en
+    // base et reviennent en 22003 ; sans forme imposée, 'Infinity' passe aussi,
+    // puisque `Number.isNaN(Infinity)` est faux.
+    for (const v of ['1000000', '1e7', '1e300', 'Infinity']) {
+      expect(rejette(localSchema, { ...LOCAL, surface_m2: v })).toBe(true)
+    }
+    expect(
+      localSchema.safeParse({ ...LOCAL, surface_m2: '999999.99' }).success,
+    ).toBe(true)
+  })
 
-  it.fails(
-    'BUG CANDIDAT Martin : une surface hexadécimale est RÉINTERPRÉTÉE',
-    () => {
-      // Attendu : rejet. Observé : Number('0x10') === 16 → un local saisi
-      // « 0x10 » s'enregistre avec 16 m², sans le moindre avertissement.
-      expect(rejette(localSchema, { ...LOCAL, surface_m2: '0x10' })).toBe(true)
-    },
-  )
+  it('refuse une surface en notation hexadécimale, jamais réinterprétée', () => {
+    // ORACLE : la saisie doit valoir ce qu'elle dit.
+    // Régression couverte : `Number('0x10')` vaut 16 — un local saisi « 0x10 »
+    // s'enregistrerait avec 16 m², sans erreur et sans le moindre avertissement.
+    expect(rejette(localSchema, { ...LOCAL, surface_m2: '0x10' })).toBe(true)
+  })
 })
 
 // ─── localSchema : hauteur et effectif (migration 111) ───────────────────────
@@ -233,25 +233,24 @@ describe('localSchema — hauteur sous plafond', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : hauteur 0 acceptée alors que locaux_hauteur_positive exige > 0',
-    () => {
-      // Attendu : CONSTRAINT locaux_hauteur_positive CHECK (hauteur_m > 0).
-      // Observé : '0' passe le front (n < 0 seul est refusé) → 23514.
-      expect(rejette(localSchema, { ...LOCAL, hauteur_m: '0' })).toBe(true)
-    },
-  )
+  it('refuse une hauteur de 0 (miroir de locaux_hauteur_positive)', () => {
+    // ORACLE : CONSTRAINT locaux_hauteur_positive CHECK (hauteur_m > 0).
+    // Régression couverte : une borne basse `>= 0` laisse passer '0', que la
+    // base refuse en 23514 — une hauteur inconnue se laisse vide.
+    expect(rejette(localSchema, { ...LOCAL, hauteur_m: '0' })).toBe(true)
+  })
 
-  it.fails(
-    'BUG CANDIDAT Martin : hauteur sans borne haute (NUMERIC(4,2) → 99,99 m max)',
-    () => {
-      // Attendu : au-delà de 99,99 la base lève 22003.
-      // Observé : '100', '1000' et 'Infinity' acceptés par le formulaire.
-      for (const v of ['100', '1000', 'Infinity', '0x10']) {
-        expect(rejette(localSchema, { ...LOCAL, hauteur_m: v })).toBe(true)
-      }
-    },
-  )
+  it('refuse une hauteur au-delà de la borne NUMERIC(4,2) → 99,99 m', () => {
+    // ORACLE : `hauteur_m NUMERIC(4,2)` — au-delà de 99,99 la base lève 22003.
+    // Régression couverte : sans borne haute ni forme imposée, '100', '1000',
+    // 'Infinity' et '0x10' (lu 16) passent le formulaire.
+    for (const v of ['100', '1000', 'Infinity', '0x10']) {
+      expect(rejette(localSchema, { ...LOCAL, hauteur_m: v })).toBe(true)
+    }
+    expect(
+      localSchema.safeParse({ ...LOCAL, hauteur_m: '99.99' }).success,
+    ).toBe(true)
+  })
 })
 
 describe('localSchema — effectif admissible', () => {
@@ -275,29 +274,29 @@ describe('localSchema — effectif admissible', () => {
     }
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : l’effectif dépasse la capacité d’un SMALLINT',
-    () => {
-      // Attendu : `capacite_personnes SMALLINT` → 32 767 au maximum.
-      // Observé : '99999' et '1e9' (entiers au sens de Number.isInteger)
-      // acceptés par le formulaire → 22003 côté base.
-      for (const v of ['32768', '99999', '1e9']) {
-        expect(rejette(localSchema, { ...LOCAL, capacite_personnes: v })).toBe(
-          true,
-        )
-      }
-    },
-  )
+  it('refuse un effectif au-delà de la capacité d’un SMALLINT', () => {
+    // ORACLE : `capacite_personnes SMALLINT` → 32 767 au maximum.
+    // Régression couverte : sans borne haute, '32768' et '99999' partent en
+    // base et reviennent en 22003 ; et '1e9' est un entier au sens de
+    // `Number.isInteger`, donc seule la forme imposée l'arrête.
+    for (const v of ['32768', '99999', '1e9']) {
+      expect(rejette(localSchema, { ...LOCAL, capacite_personnes: v })).toBe(
+        true,
+      )
+    }
+    expect(
+      localSchema.safeParse({ ...LOCAL, capacite_personnes: '32767' }).success,
+    ).toBe(true)
+  })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un effectif hexadécimal est RÉINTERPRÉTÉ',
-    () => {
-      // Observé : Number('0x10') === 16 et Number.isInteger(16) → accepté.
-      expect(
-        rejette(localSchema, { ...LOCAL, capacite_personnes: '0x10' }),
-      ).toBe(true)
-    },
-  )
+  it('refuse un effectif hexadécimal, jamais réinterprété', () => {
+    // ORACLE : la saisie doit valoir ce qu'elle dit.
+    // Régression couverte : `Number('0x10')` vaut 16 et `Number.isInteger(16)`
+    // est vrai — l'effectif s'enregistrerait à 16 personnes sans un mot.
+    expect(rejette(localSchema, { ...LOCAL, capacite_personnes: '0x10' })).toBe(
+      true,
+    )
+  })
 })
 
 describe('localSchema — type de local', () => {
@@ -315,17 +314,17 @@ describe('localSchema — type de local', () => {
     }
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : type_local_id accepte un id négatif ou hors SMALLINT',
-    () => {
-      // Attendu : `type_local_id SMALLINT REFERENCES types_locaux(id)` — les id
-      // du référentiel sont positifs et tiennent dans un SMALLINT.
-      // Observé : '-5' (→ 23503, FK introuvable) et '1e20' (→ 22003) acceptés.
-      for (const v of ['-5', '1e20', '0x10']) {
-        expect(rejette(localSchema, { ...LOCAL, type_local_id: v })).toBe(true)
-      }
-    },
-  )
+  it('refuse un identifiant de type négatif ou hors SMALLINT', () => {
+    // ORACLE : `type_local_id SMALLINT REFERENCES types_locaux(id)` — les id du
+    // référentiel sont positifs et tiennent dans un SMALLINT.
+    // Régression couverte : le champ est une liste déroulante, donc un id hors
+    // bornes vient d'un lien périmé ou d'une valeur bricolée. Sans contrôle,
+    // '-5' part en 23503 (FK introuvable), '1e20' en 22003, et '0x10' — lu 16 —
+    // rattacherait le local à un type que personne n'a choisi.
+    for (const v of ['-5', '1e20', '0x10']) {
+      expect(rejette(localSchema, { ...LOCAL, type_local_id: v })).toBe(true)
+    }
+  })
 })
 
 describe('localSchema — booléens', () => {

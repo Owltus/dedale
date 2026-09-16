@@ -91,24 +91,25 @@ describe('gammeSchema', () => {
     }
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : les identifiants de référentiel ne sont pas bornés',
-    () => {
-      // Attendu : `periodicite_id`/`categorie_id`/`prestataire_id` désignent des
-      // lignes existantes (SMALLINT ou UUID) → format et longueur contraints.
-      // Observé : `z.string().min(1)` accepte 100 000 caractères quelconques,
-      // envoyés à PostgREST qui répond 22P02 (invalid_text_representation).
-      for (const champ of [
-        'periodicite_id',
-        'prestataire_id',
-        'categorie_id',
-      ]) {
-        expect(
-          rejette(gammeSchema, { ...GAMME, [champ]: 'x'.repeat(100_000) }),
-        ).toBe(true)
-      }
-    },
-  )
+  it('borne le FORMAT des identifiants de référentiel', () => {
+    // ORACLE : `periodicite_id` est un SMALLINT, `prestataire_id` et
+    // `categorie_id` des UUID (`schema_complete.sql`).
+    // Régression couverte : `z.string().min(1)` accepte 100 000 caractères
+    // quelconques, envoyés tels quels à PostgREST qui répond 22P02
+    // (invalid_text_representation) — un message technique brut à l'écran.
+    for (const champ of ['periodicite_id', 'prestataire_id', 'categorie_id']) {
+      expect(
+        rejette(gammeSchema, { ...GAMME, [champ]: 'x'.repeat(100_000) }),
+      ).toBe(true)
+    }
+    // Le champ reste une `string` (ce que produit un `<select>`) : c'est bien
+    // la FORME qui est vérifiée, pas le type JS.
+    expect(gammeSchema.safeParse(GAMME).success).toBe(true)
+    expect(rejette(gammeSchema, { ...GAMME, periodicite_id: '-1' })).toBe(true)
+    expect(
+      rejette(gammeSchema, { ...GAMME, categorie_id: 'pas-un-uuid' }),
+    ).toBe(true)
+  })
 })
 
 describe('gammeBiblioSchema', () => {
@@ -244,13 +245,11 @@ describe('operationSchema — seuils', () => {
     )
   })
 
-  it.fails('BUG CANDIDAT Martin : un seuil « Infinity » est accepté', () => {
-    // Attendu : un seuil est une valeur MESURABLE ; l'infini n'en est pas une.
-    // Observé : `optionalNumber` ne teste que `Number.isNaN(Number(v))`, or
-    // `Number('Infinity') === Infinity` → accepté. Conséquence : Postgres ≥ 14
-    // stocke 'Infinity' dans un NUMERIC sans broncher → un seuil qui ne se
-    // déclenchera JAMAIS, sur un contrôle réglementaire.
-    // Contre-exemples : 'Infinity', '-Infinity'.
+  it('refuse un seuil infini', () => {
+    // ORACLE : un seuil est une valeur MESURABLE ; l'infini n'en est pas une.
+    // Régression couverte : `Number.isNaN(Number(v))` seul laisse passer
+    // 'Infinity', que Postgres ≥ 14 stocke dans un NUMERIC sans broncher — un
+    // seuil qui ne se déclenchera JAMAIS, sur un contrôle réglementaire.
     for (const v of ['Infinity', '-Infinity']) {
       expect(rejette(operationSchema, { ...OPERATION, seuil_minimum: v })).toBe(
         true,
@@ -258,39 +257,45 @@ describe('operationSchema — seuils', () => {
     }
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un seuil en notation hexadécimale est RÉINTERPRÉTÉ',
-    () => {
-      // Attendu : '0x1F' n'est pas une saisie de seuil → rejet.
-      // Observé : `Number('0x1F') === 31` → accepté, et enregistré comme 31.
-      // C'est le pire des cas : pas d'erreur, une valeur DIFFÉRENTE de ce qui a
-      // été saisi. Contre-exemples : '0x1F' → 31, '0b101' → 5, '0o17' → 15.
-      for (const v of ['0x1F', '0x10', '0b101', '0o17']) {
-        expect(
-          rejette(operationSchema, { ...OPERATION, seuil_minimum: v }),
-        ).toBe(true)
-      }
-    },
-  )
+  it('refuse un seuil en notation hexadécimale, binaire ou octale', () => {
+    // ORACLE : la saisie doit valoir ce qu'elle dit.
+    // Régression couverte : `Number('0x1F')` vaut 31 — le seuil s'enregistrerait
+    // à 31 sans erreur. C'est le pire des cas : pas de refus, une valeur
+    // DIFFÉRENTE de celle qui a été saisie. De même '0b101' → 5, '0o17' → 15.
+    for (const v of ['0x1F', '0x10', '0b101', '0o17']) {
+      expect(rejette(operationSchema, { ...OPERATION, seuil_minimum: v })).toBe(
+        true,
+      )
+    }
+  })
 
   it.fails(
     'BUG CANDIDAT Martin : un seuil en notation exponentielle démesurée passe',
     () => {
       // Attendu : aucune grandeur relevée sur le terrain ne vaut 1e300.
-      // Observé : accepté (Number('1e300') n'est pas NaN).
+      // Observé : accepté — la notation exponentielle doit rester admise
+      // (`String(5e-324)` la produit seul), et 1e300 est un NUMERIC parfaitement
+      // légal côté base. Ce n'est donc PAS une divergence front/base mais une
+      // borne de PLAUSIBILITÉ, qui reste à arbitrer : la poser trop bas
+      // refuserait un index de compteur légitime.
       expect(
         rejette(operationSchema, { ...OPERATION, seuil_minimum: '1e300' }),
       ).toBe(true)
     },
   )
 
-  it('refuse bien tout ce que Number() rend NaN', () => {
-    // Oracle : c'est la SEULE garantie qu'offre `optionalNumber` — on la borne
-    // pour que ce test devienne rouge si quelqu'un l'affaiblit encore.
+  it('n’accepte QUE la notation numérique usuelle, finie', () => {
+    // Oracle : la garantie qu'offre `optionalNumber` — on l'énonce ici en toutes
+    // lettres pour que ce test devienne rouge si quelqu'un l'affaiblit.
+    // `Number()` seul ne suffisait pas : il lit '0x1F' comme 31, '0o17' comme 15
+    // et 'Infinity' comme l'infini. L'exponentielle reste admise — `String()` la
+    // produit seul pour les très petites valeurs (`String(5e-324)`).
+    const NOMBRE_USUEL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/
     fc.assert(
       fc.property(arbTexteNumeriquePiege(), (texte) => {
         const t = texte.trim()
-        const attenduAccepte = t === '' || !Number.isNaN(Number(t))
+        const attenduAccepte =
+          t === '' || (NOMBRE_USUEL.test(t) && Number.isFinite(Number(t)))
         expect(
           operationSchema.safeParse({ ...OPERATION, seuil_minimum: texte })
             .success,
@@ -304,12 +309,14 @@ describe('operationSchema — seuils', () => {
 // ─── operationSchema : ordre ─────────────────────────────────────────────────
 
 describe('operationSchema — ordre', () => {
-  it('n’accepte qu’une suite de chiffres ASCII, ou le vide', () => {
-    // Oracle : `ordre INTEGER NOT NULL DEFAULT 0` — un rang de checklist.
+  it('n’accepte qu’une suite de chiffres ASCII tenant dans un INTEGER, ou le vide', () => {
+    // Oracle : `ordre INTEGER NOT NULL DEFAULT 0` — un rang de checklist, donc
+    // des chiffres ASCII ET la capacité de la colonne (2 147 483 647).
     fc.assert(
       fc.property(arbChaineHostile(), (texte) => {
         const t = texte.trim()
-        const attendu = t === '' || /^\d+$/.test(t)
+        const attendu =
+          t === '' || (/^\d+$/.test(t) && Number(t) <= 2_147_483_647)
         expect(
           operationSchema.safeParse({ ...OPERATION, ordre: texte }).success,
         ).toBe(attendu)
@@ -324,23 +331,24 @@ describe('operationSchema — ordre', () => {
     }
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : l’ordre n’a pas de borne haute (colonne INTEGER)',
-    () => {
-      // Attendu : `operations.ordre` est un INTEGER → 2 147 483 647 au plus.
-      // Observé : `/^\d+$/` accepte 40 chiffres ('9'.repeat(40)) → 22003
-      // (numeric field overflow) affiché en message technique brut.
-      fc.assert(
-        fc.property(fc.integer({ min: 11, max: 60 }), (nbChiffres) => {
-          expect(
-            rejette(operationSchema, {
-              ...OPERATION,
-              ordre: '9'.repeat(nbChiffres),
-            }),
-          ).toBe(true)
-        }),
-        RUNS_COURT,
-      )
-    },
-  )
+  it('borne le rang à la capacité d’un INTEGER', () => {
+    // ORACLE : `operations.ordre` est un INTEGER → 2 147 483 647 au plus.
+    // Régression couverte : `/^\d+$/` seul accepte 40 chiffres ('9'.repeat(40)),
+    // que la base rejette ensuite en 22003 (numeric field overflow), affiché en
+    // message technique brut.
+    fc.assert(
+      fc.property(fc.integer({ min: 11, max: 60 }), (nbChiffres) => {
+        expect(
+          rejette(operationSchema, {
+            ...OPERATION,
+            ordre: '9'.repeat(nbChiffres),
+          }),
+        ).toBe(true)
+      }),
+      RUNS_COURT,
+    )
+    expect(
+      operationSchema.safeParse({ ...OPERATION, ordre: '2147483647' }).success,
+    ).toBe(true)
+  })
 })

@@ -28,7 +28,9 @@ import { modeleOperationSchema, operationItemSchema } from './schemas'
 const MODELE = {
   nom: 'Contrôle trimestriel',
   description: '',
-  categorie_id: 'c1',
+  // `modeles_operations.categorie_id` est un UUID : le fixture en porte un vrai,
+  // sinon les propriétés génériques ci-dessous valideraient dans le vide.
+  categorie_id: 'a1b2c3d4-0000-4000-8000-000000000002',
   miniature_id: null,
   portee: 'entreprise' as const,
 }
@@ -156,10 +158,12 @@ describe('operationItemSchema — seuils', () => {
   it.fails(
     'BUG CANDIDAT Martin : mêmes trous que operationSchema (Infinity, hexa, exponentielle)',
     () => {
-      // `optionalNumber` est DUPLIQUÉ ici à l'identique (`!Number.isNaN(Number(v))`)
-      // — le trou l'est aussi. Contre-exemples : 'Infinity' (seuil jamais
-      // atteignable, stocké tel quel par un NUMERIC Postgres ≥ 14), '0x1F'
-      // (réinterprété en 31 sans avertir), '1e300'.
+      // `optionalNumber` est DUPLIQUÉ ici à l'identique — le trou l'est aussi.
+      // Reste rouge pour le SEUL '1e300' : 'Infinity', '0x1F' et '0b101' sont
+      // désormais refusés des deux côtés (cf. `operationSchema — seuils`).
+      // '1e300' n'est pas une divergence avec la base — un NUMERIC Postgres
+      // l'accepte — mais un seuil hors d'échelle : le refuser demande une borne
+      // de plausibilité que personne n'a encore arbitrée.
       for (const v of ['Infinity', '-Infinity', '0x1F', '0b101', '1e300']) {
         expect(
           rejette(operationItemSchema, { ...ITEM, seuil_minimum: v }),
@@ -168,22 +172,24 @@ describe('operationItemSchema — seuils', () => {
     },
   )
 
-  it.fails(
-    'BUG CANDIDAT Martin : l’ordre n’a pas de borne haute (colonne INTEGER)',
-    () => {
-      // Attendu : INTEGER → 2 147 483 647 au plus. Observé : `/^\d+$/` accepte
-      // une suite de chiffres arbitrairement longue → 22003 côté base.
-      fc.assert(
-        fc.property(fc.integer({ min: 11, max: 60 }), (nbChiffres) => {
-          expect(
-            rejette(operationItemSchema, {
-              ...ITEM,
-              ordre: '9'.repeat(nbChiffres),
-            }),
-          ).toBe(true)
-        }),
-        RUNS_COURT,
-      )
-    },
-  )
+  it('borne le rang à la capacité d’un INTEGER', () => {
+    // ORACLE : `modeles_operations_items.ordre INTEGER` → 2 147 483 647 au plus.
+    // Régression couverte : `/^\d+$/` seul accepte une suite de chiffres
+    // arbitrairement longue, que la base rejette ensuite en 22003 (numeric
+    // field overflow) — affiché en message technique brut.
+    fc.assert(
+      fc.property(fc.integer({ min: 11, max: 60 }), (nbChiffres) => {
+        expect(
+          rejette(operationItemSchema, {
+            ...ITEM,
+            ordre: '9'.repeat(nbChiffres),
+          }),
+        ).toBe(true)
+      }),
+      RUNS_COURT,
+    )
+    expect(
+      operationItemSchema.safeParse({ ...ITEM, ordre: '2147483647' }).success,
+    ).toBe(true)
+  })
 })
