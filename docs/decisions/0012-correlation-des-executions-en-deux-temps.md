@@ -1,7 +1,8 @@
 # 0012 — Corréler les exécutions en deux temps : `source_id`, puis le nom
 
 - **Date** : 2026-09-17
-- **Statut** : proposé — arbitrage attendu. Tranche l'option laissée ouverte par [0010](0010-source-id-cle-de-correlation.md).
+- **Statut** : accepté (2026-09-17, arbitrage du PO). Tranche l'option laissée ouverte
+  par [0010](0010-source-id-cle-de-correlation.md). Mise en œuvre : `src/features/ordres-travail/correlation.ts`.
 
 ## Contexte
 
@@ -30,6 +31,27 @@ est aujourd'hui une perte de **chaînage**, pas de relevé. Elle est réelle
 malgré tout — l'écran affiche un historique vide, indiscernable d'une première
 mesure — et rien n'empêche la prochaine suppression de couper une série de
 compteur en deux.
+
+**Un `source_id` qui pointe dans le vide ne casse pas forcément le chaînage.**
+Deux exécutions qui partagent le même identifiant mort se recollent quand même
+l'une à l'autre : la corrélation n'a jamais eu besoin que la cible existe. C'est
+la mesure qui départage, et elle est tranchée :
+
+| Opération supprimée                | Exécutions | `source_id` distincts |
+| ---------------------------------- | ---------- | --------------------- |
+| Vérification des portes de secours | 27         | **27**                |
+| Contrôle de la montre PTI          | 26         | **26**                |
+| Piège à insectes                   | 4          | 1                     |
+
+Les quatre « Piège à insectes » partagent un identifiant : elles se chaînent
+déjà, et rien ne les concerne ici. Les **53 autres portent chacune un
+identifiant qui n'appartient qu'à elle** — séquelle de l'import 061, qui posait
+des `source_id` aléatoires, et que la migration 063 n'a pas pu repointer pour
+ces deux opérations puisqu'elles étaient déjà supprimées. Chacune de ces 53
+lignes est donc une série d'un seul élément, alors qu'il s'agit de deux
+opérations récurrentes relevées 27 et 26 fois.
+
+C'est **53 chaînages** qu'il s'agit de récupérer, pas 57.
 
 La question qui restait ouverte était : **une clé de remplacement existe-t-elle
 réellement ?** La réponse est mesurée, et elle est plus nette que prévu.
@@ -70,8 +92,13 @@ série. C'est ce qui rend leur union sûre.
 1. **`(source_type, source_id)` reste la clé de référence.** Tant qu'il résout,
    il fait foi. Il survit au renommage, qui est le geste courant.
 2. **Repli sur `(gamme_id, nom normalisé)` uniquement quand `source_id` ne
-   résout pas.** Ce repli récupère les 57 chaînages perdus et tous ceux que la
-   prochaine suppression produira.
+   rattache rien.** Ce repli récupère les 53 chaînages isolés et tous ceux que
+   la prochaine suppression produira. Noter la formulation : « ne rattache
+   rien », et non « ne résout pas ». Le front ne lit pas `operations` et ne sait
+   donc pas si la source existe encore — mais il n'en a pas besoin. Ce qu'il
+   observe, c'est qu'aucune sœur n'a été trouvée, et c'est le bon déclencheur :
+   les quatre « Piège à insectes », qui se chaînent par un identifiant mort,
+   n'atteignent jamais le repli.
 3. **Quand ni l'un ni l'autre ne rattache, l'écran le dit.** « Historique rompu —
    l'opération d'origine a été supprimée », jamais un blanc indifférencié
    confondu avec une première mesure. C'est l'exigence minimale posée par 0010,
@@ -86,9 +113,10 @@ séries renommées, de façon permanente, pour gagner ce que le repli donne déj
 explicite du modèle : l'instantané avait justement été conçu pour que la gamme
 reste modifiable sans figer l'historique. Une gamme vivante deviendrait de moins
 en moins éditable avec le temps. Et cela ne répare **aucune** des 57 lignes
-existantes : les opérations sont déjà supprimées.
+existantes : les opérations sont déjà supprimées, et leurs 53 identifiants
+uniques le resteraient.
 
-**Remplacer `source_id` par la clé de nom** échange 57 ruptures contre 8, de
+**Remplacer `source_id` par la clé de nom** échange 53 ruptures contre 8, de
 façon permanente, alors que l'union n'en laisse aucune. C'est le mauvais côté du
 marché.
 

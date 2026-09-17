@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { ReleveLigne } from './releves'
+import { cleNom, cleProvenance, type IndexPrecedents } from './correlation'
 import type { DocumentMeta } from '@/features/documents/format'
 
 export const ordresTravailQueries = {
@@ -77,7 +78,9 @@ export const ordresTravailQueries = {
         const { data } = await supabase
           .from('operations_execution')
           .select(
-            'ordre_travail_id, source_type, source_id, valeur_mesuree, index_depose, index_pose, statut, date_execution, created_at, unite_symbole, ordres_travail!inner(gamme_id, date_prevue)',
+            // `nom` sert la corrélation de repli de l'ADR 0012 (cf. correlation.ts) :
+            // sans lui, une opération supprimée du modèle casse la série de relevés.
+            'ordre_travail_id, source_type, source_id, nom, valeur_mesuree, index_depose, index_pose, statut, date_execution, created_at, unite_symbole, ordres_travail!inner(gamme_id, date_prevue)',
           )
           .eq('ordres_travail.site_id', siteId!)
           .eq('unite_est_cumulatif', true)
@@ -191,23 +194,30 @@ export const ordresTravailQueries = {
    * les OT STRICTEMENT ANTÉRIEURS (date_prevue < celle du courant) de la MÊME gamme
    * → rappel « précédent : X ». Le 1er relevé d'un compteur n'a donc PAS de précédent.
    *
-   * On relie « la même opération récurrente » d'un OT à l'autre par (source_type,
-   * source_id) : depuis la migration 063, source_id pointe la VRAIE opération de gamme
-   * (operations.id), donc il est STABLE et identique sur tous les OT de la gamme — y
-   * compris les futurs OT générés par le trigger. Lien immuable, insensible au renommage
-   * (063 a corrigé les source_id aléatoires posés par l'import 061).
+   * On relie « la même opération récurrente » d'un OT à l'autre en DEUX TEMPS
+   * (ADR 0012) : `(source_type, source_id)` d'abord — la provenance, insensible au
+   * renommage — puis, seulement si elle ne rattache rien, `(gamme, nom normalisé)`.
    *
-   * UNE seule requête (jointure `ordres_travail!inner`) : on filtre les relevés par la
-   * gamme et la date prévue de LEUR OT côté serveur — même patron que `relevesListe`. La
-   * RLS (opex_site_scoped_select + politique site sur ordres_travail) cloisonne par site
-   * → aucune fuite cross-site.
-   * Retour : map `${source_type}:${source_id}` → valeur du dernier relevé terminé.
+   * Pourquoi le repli existe : la base autorise explicitement la suppression d'une
+   * opération de gamme référencée par des exécutions (aucune clé étrangère sur
+   * source_id, cf. ADR 0010). Quand cela arrive après un import, chaque exécution
+   * peut se retrouver avec un source_id qui n'appartient qu'à elle — 53 lignes dans
+   * ce cas en production, soit deux opérations récurrentes relevées 27 et 26 fois,
+   * dont l'historique s'affichait vide comme s'il s'agissait d'une première mesure.
+   *
+   * Pourquoi on ne filtre plus par `source_id` côté serveur : le repli se joue sur
+   * le NOM, qu'aucun filtre serveur ne sait normaliser. On ramène donc les relevés
+   * valués de la gamme sur la fenêtre antérieure — volume borné par une gamme — et
+   * on corrèle en mémoire. La jointure `ordres_travail!inner` et la RLS
+   * (opex_site_scoped_select + politique site) cloisonnent toujours par site.
+   *
+   * Retour : les DEUX index, à interroger dans l'ordre via `valeurPrecedente`.
    */
   previousReadings: (
     otId: string,
     gammeId: string | null,
     currentDatePrevue: string | null,
-    sourceIds: string[],
+    aCorreler: boolean,
   ) =>
     queryOptions({
       queryKey: [
@@ -216,23 +226,21 @@ export const ordresTravailQueries = {
         otId,
         gammeId,
         currentDatePrevue,
-        [...sourceIds].sort(),
       ] as const,
-      enabled:
-        gammeId !== null && currentDatePrevue !== null && sourceIds.length > 0,
-      queryFn: async ({ signal }) => {
-        const map: Record<string, number> = {}
+      enabled: gammeId !== null && currentDatePrevue !== null && aCorreler,
+      queryFn: async ({ signal }): Promise<IndexPrecedents> => {
+        const parProvenance: Record<string, number> = {}
+        const parNom: Record<string, number> = {}
         const { data } = await supabase
           .from('operations_execution')
           .select(
-            'source_type, source_id, valeur_mesuree, ordres_travail!inner(gamme_id, date_prevue)',
+            'source_type, source_id, nom, valeur_mesuree, ordres_travail!inner(gamme_id, date_prevue)',
           )
           .eq('ordres_travail.gamme_id', gammeId!)
           // STRICTEMENT antérieurs : uniquement les OT planifiés AVANT le courant →
           // le 1er relevé d'un compteur n'a pas de « précédent » (rien à afficher).
           .lt('ordres_travail.date_prevue', currentDatePrevue!)
           .neq('ordre_travail_id', otId)
-          .in('source_id', sourceIds)
           .eq('statut', 'terminee')
           .not('valeur_mesuree', 'is', null)
           // date_execution est NULLABLE (OT historiques importés : un relevé peut
@@ -244,11 +252,17 @@ export const ordresTravailQueries = {
           .abortSignal(signal)
           .throwOnError()
         for (const r of data) {
-          // Liste triée par date DESC → le 1er rencontré par source est le plus récent.
-          const key = `${String(r.source_type)}:${r.source_id}`
-          if (!(key in map)) map[key] = r.valeur_mesuree
+          // `valeur_mesuree` est non nulle par construction (filtre `.not(… is null)`
+          // ci-dessus), et le type l'exprime — pas de garde redondante ici.
+          // Liste triée par date DESC → le 1er rencontré par clé est le plus récent.
+          const provenance = cleProvenance(r)
+          if (provenance !== null && !(provenance in parProvenance)) {
+            parProvenance[provenance] = r.valeur_mesuree
+          }
+          const nom = cleNom(gammeId, r)
+          if (nom !== null && !(nom in parNom)) parNom[nom] = r.valeur_mesuree
         }
-        return map
+        return { parProvenance, parNom }
       },
     }),
 }

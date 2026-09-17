@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { ClipboardList, ListChecks } from 'lucide-react'
 import { toast } from 'sonner'
 import { ordresTravailQueries } from '../queries'
+import { messageHistoriqueIntrouvable, valeurPrecedente } from '../correlation'
 import { OT_QUERY_KEYS } from '../query-keys'
 import { consoOperation } from '../schemas'
 import { libelleReleve } from '../releves'
@@ -23,6 +24,7 @@ import { OtDetailActions } from './ot-detail-actions'
 import { MotifDialog } from '@/components/common/motif-dialog'
 import { DatePrevueDialog } from './date-prevue-dialog'
 import { dashboardQueries } from '@/features/dashboard/queries'
+import { gammesQueries } from '@/features/gammes/queries'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
@@ -142,25 +144,31 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
   })
 
   // Relevés précédents des compteurs (rappel « précédent : X (+écart) ») : dernier
-  // relevé de la même opération (reliée par source_id, stable depuis la migration 063)
-  // sur un OT antérieur de la même gamme. La RLS cloisonne par site. Hook appelé AVANT
-  // les early-returns (règle des hooks).
-  const compteurSourceIds = operations
-    .filter((op) => estCompteur(op))
-    .map((op) => op.source_id)
+  // relevé de la même opération sur un OT antérieur de la même gamme. La RLS
+  // cloisonne par site. Hook appelé AVANT les early-returns (règle des hooks).
+  const aDesCompteurs = operations.some((op) => estCompteur(op))
   const previousReadingsQuery = useQuery(
     ordresTravailQueries.previousReadings(
       otId,
       ot?.gamme_id ?? null,
       ot?.date_prevue ?? null,
-      compteurSourceIds,
+      aDesCompteurs,
     ),
   )
-  // Relevé précédent d'une opération compteur (clé `source_type:source_id`, cf.
-  // requête previousReadings) — UN seul format de clé pour la carte ET les lignes.
+  // Corrélation en DEUX TEMPS (ADR 0012) : la provenance d'abord, le nom en repli
+  // quand elle ne rattache rien. UN seul chemin pour la carte ET les lignes.
   const relevePrecedentDe = (op: (typeof operations)[number]) =>
-    previousReadingsQuery.data?.[`${String(op.source_type)}:${op.source_id}`] ??
-    null
+    valeurPrecedente(previousReadingsQuery.data, ot?.gamme_id ?? null, op)
+
+  // Troisième temps de l'ADR 0012 : quand aucun précédent n'est trouvé, dire
+  // POURQUOI si on peut le constater. Sans cette liste, un tiret dit aussi bien
+  // « première mesure » que « historique perdu » — et seul le second mérite
+  // d'être signalé. La requête est minimale (une colonne) et mise en cache.
+  const idsOperationsGammeQuery = useQuery(
+    gammesQueries.idsOperations(aDesCompteurs ? (ot?.gamme_id ?? null) : null),
+  )
+  const messageHistoriqueDe = (op: (typeof operations)[number]) =>
+    messageHistoriqueIntrouvable(op, idsOperationsGammeQuery.data)
 
   // Glisser-déposer sur TOUTE la page (réservé aux gestionnaires) : un dépôt
   // bascule sur l'onglet Documents et ouvre l'upload pré-rempli des fichiers.
@@ -504,6 +512,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                       }
                       readOnly={opsReadOnly}
                       previousValue={relevePrecedentDe(op)}
+                      messageHistorique={messageHistoriqueDe(op)}
                     />
                   ))}
                 </div>

@@ -1,4 +1,5 @@
 import { consoOperation, sommesCompteursParUnite } from './schemas'
+import { cleNom } from './correlation'
 
 /**
  * Libellé d'un relevé à partir d'items `{ symbole, conso }` : somme par unité
@@ -101,6 +102,8 @@ export interface ReleveLigne {
   ordre_travail_id: string
   source_type: string
   source_id: string | null
+  /** Snapshot du nom : clé de corrélation de REPLI (ADR 0012, correlation.ts). */
+  nom: string
   valeur_mesuree: number | null
   index_depose: number | null
   index_pose: number | null
@@ -117,9 +120,18 @@ interface Decoree {
   date: string | null
 }
 
-// Clé d'une série de relevés du même compteur dans la même gamme.
+// Clé d'une série de relevés du même compteur dans la même gamme : la PROVENANCE.
+// Insensible au renommage de l'opération, mais une opération supprimée puis
+// réimportée peut laisser des exécutions à `source_id` unique à leur ligne.
 function cleSource(d: Decoree): string {
   return `${d.gamme ?? ''}|${d.l.source_type}|${d.l.source_id ?? ''}`
+}
+
+// Clé de REPLI (ADR 0012) : gamme + nom normalisé. Ne sert QUE lorsque la
+// provenance ne rattache rien — l'inverser couperait les séries dont l'opération
+// a été renommée en cours de route.
+function cleReplic(d: Decoree): string | null {
+  return cleNom(d.gamme, d.l)
 }
 
 // `a` est-il PLUS RÉCENT que `b` selon (date_execution NULLS LAST, created_at) —
@@ -133,22 +145,41 @@ function plusRecent(a: ReleveLigne, b: ReleveLigne): boolean {
   return a.created_at > b.created_at
 }
 
-// Valeur du relevé PRÉCÉDENT d'un compteur : dernier relevé terminé et valué de la
-// même (gamme, source) sur un OT STRICTEMENT antérieur (par date prévue).
-function precedent(
-  d: Decoree,
+// Le plus récent des candidats STRICTEMENT antérieurs, hors OT courant.
+function meilleurCandidat(
+  candidats: readonly Decoree[],
   otId: string,
-  index: ReadonlyMap<string, Decoree[]>,
-): number | null {
-  if (d.gamme === null || d.date === null) return null
-  const dateCourante = d.date
+  dateCourante: string,
+): Decoree | null {
   let best: Decoree | null = null
-  for (const c of index.get(cleSource(d)) ?? []) {
+  for (const c of candidats) {
     if (c.l.ordre_travail_id === otId) continue
     if (c.date === null || c.date >= dateCourante) continue
     if (best === null || plusRecent(c.l, best.l)) best = c
   }
-  return best?.l.valeur_mesuree ?? null
+  return best
+}
+
+// Valeur du relevé PRÉCÉDENT d'un compteur : dernier relevé terminé et valué de la
+// même série sur un OT STRICTEMENT antérieur (par date prévue).
+//
+// Corrélation en DEUX TEMPS (ADR 0012) : la provenance d'abord ; le nom seulement
+// si elle ne rattache rien. Le second temps récupère les séries dont l'opération
+// d'origine a été supprimée du modèle — 53 exécutions en production, soit deux
+// opérations récurrentes dont l'historique s'affichait vide.
+function precedent(
+  d: Decoree,
+  otId: string,
+  parSource: ReadonlyMap<string, Decoree[]>,
+  parNom: ReadonlyMap<string, Decoree[]>,
+): number | null {
+  if (d.gamme === null || d.date === null) return null
+
+  const trouve =
+    meilleurCandidat(parSource.get(cleSource(d)) ?? [], otId, d.date) ??
+    meilleurCandidat(parNom.get(cleReplic(d) ?? '') ?? [], otId, d.date)
+
+  return trouve?.l.valeur_mesuree ?? null
 }
 
 /**
@@ -174,8 +205,11 @@ export function calculerRelevesParOt(
     date: l.ordres_travail?.date_prevue ?? null,
   }))
 
-  // Index des précédents possibles par (gamme, source) : relevés TERMINÉS et valués.
+  // Index des précédents possibles : relevés TERMINÉS et valués. DEUX index, l'un
+  // par provenance et l'autre par nom — le second n'est consulté que si le premier
+  // ne rattache rien (ADR 0012).
   const parGammeSource = new Map<string, Decoree[]>()
+  const parGammeNom = new Map<string, Decoree[]>()
   for (const d of dec) {
     if (
       d.gamme === null ||
@@ -187,6 +221,13 @@ export function calculerRelevesParOt(
     const arr = parGammeSource.get(k) ?? []
     arr.push(d)
     parGammeSource.set(k, arr)
+
+    const kNom = cleReplic(d)
+    if (kNom !== null) {
+      const arrNom = parGammeNom.get(kNom) ?? []
+      arrNom.push(d)
+      parGammeNom.set(kNom, arrNom)
+    }
   }
 
   // Regroupe les relevés par OT.
@@ -203,7 +244,7 @@ export function calculerRelevesParOt(
       symbole: d.l.unite_symbole ?? '',
       valeurBrute: d.l.valeur_mesuree,
       conso: consoOperation({
-        precedent: precedent(d, otId, parGammeSource),
+        precedent: precedent(d, otId, parGammeSource, parGammeNom),
         courant: d.l.valeur_mesuree,
         depose: d.l.index_depose,
         pose: d.l.index_pose,

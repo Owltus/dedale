@@ -21,11 +21,19 @@ function ligne(p: {
   creeLe?: string
   /** Relevé dont la jointure OT est absente (gamme supprimée, vue partielle). */
   sansOt?: boolean
+  /**
+   * Nom snapshot — clé de corrélation de REPLI (ADR 0012). Par défaut on reprend
+   * `src` : deux sources distinctes gardent ainsi deux noms distincts, et les
+   * tests écrits AVANT le repli conservent exactement leur sens. Le préciser sert
+   * à éprouver le repli lui-même (même nom, sources différentes ou absentes).
+   */
+  nom?: string
 }): ReleveLigne {
   return {
     ordre_travail_id: p.ot,
     source_type: 'operation',
     source_id: p.src,
+    nom: p.nom ?? `compteur ${p.src ?? 'sans-source'}`,
     valeur_mesuree: p.val,
     index_depose: p.depose ?? null,
     index_pose: p.pose ?? null,
@@ -491,5 +499,99 @@ describe('libelleReleve', () => {
         { symbole: 'kWh', conso: null },
       ]),
     ).toBe('')
+  })
+})
+
+describe('corrélation de repli par le nom (ADR 0012)', () => {
+  // Le cas réel des 53 exécutions en production : l'opération d'origine a été
+  // supprimée du modèle, et chaque exécution porte un `source_id` qui n'appartient
+  // qu'à elle (séquelle de l'import 061 que la migration 063 n'a pas pu repointer).
+  // Sans le repli, chaque relevé est une série d'un seul élément : aucune conso.
+  it('recolle deux relevés du même compteur dont les source_id sont isolés', () => {
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot1',
+        src: 'id-unique-a',
+        nom: 'Relevé compteur eau',
+        val: 100,
+        date: '2026-01-01',
+      }),
+      ligne({
+        ot: 'ot2',
+        src: 'id-unique-b',
+        nom: 'Relevé compteur eau',
+        val: 130,
+        date: '2026-02-01',
+      }),
+    ])
+    expect(map.get('ot2')).toEqual({ valeur: '130 kWh', conso: '+30 kWh' })
+  })
+
+  it('tolère la casse et les espaces dans le nom recollé', () => {
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot1',
+        src: 'a',
+        nom: 'Relevé  COMPTEUR eau ',
+        val: 100,
+        date: '2026-01-01',
+      }),
+      ligne({
+        ot: 'ot2',
+        src: 'b',
+        nom: 'relevé compteur eau',
+        val: 130,
+        date: '2026-02-01',
+      }),
+    ])
+    expect(map.get('ot2')).toEqual({ valeur: '130 kWh', conso: '+30 kWh' })
+  })
+
+  // La provenance reste la clé de référence : quand elle rattache, le repli ne
+  // doit jamais s'en mêler. C'est ce qui protège les huit séries dont l'opération
+  // a été renommée en cours de route.
+  it('un renommage ne casse pas la série tant que la provenance rattache', () => {
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot1',
+        src: 'meme-source',
+        nom: 'Essai de manœuvre manuelle',
+        val: 100,
+        date: '2026-01-01',
+      }),
+      ligne({
+        ot: 'ot2',
+        src: 'meme-source',
+        nom: 'Essai manœuvre CCF',
+        val: 130,
+        date: '2026-02-01',
+      }),
+    ])
+    expect(map.get('ot2')).toEqual({ valeur: '130 kWh', conso: '+30 kWh' })
+  })
+
+  // Le repli ne doit pas rapprocher deux compteurs DIFFÉRENTS qui partageraient
+  // un nom dans deux gammes distinctes.
+  it('ne recolle pas deux homonymes de gammes différentes', () => {
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot1',
+        src: 'a',
+        nom: 'Relevé compteur',
+        val: 100,
+        gamme: 'g1',
+        date: '2026-01-01',
+      }),
+      ligne({
+        ot: 'ot2',
+        src: 'b',
+        nom: 'Relevé compteur',
+        val: 130,
+        gamme: 'g2',
+        date: '2026-02-01',
+      }),
+    ])
+    // Aucun précédent dans sa propre gamme → aucune conso calculable.
+    expect(map.has('ot2')).toBe(false)
   })
 })

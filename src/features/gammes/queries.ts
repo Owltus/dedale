@@ -203,6 +203,35 @@ export const gammesQueries = {
     }),
 
   /**
+   * Identifiants SEULS des opérations d'une gamme — de quoi savoir si le
+   * `source_id` d'une exécution pointe encore une opération vivante.
+   *
+   * Sert à l'ADR 0012 : la base autorise explicitement la suppression d'une
+   * opération référencée par des exécutions, et la fiche d'OT doit pouvoir
+   * DIRE « historique indisponible, l'opération d'origine a été supprimée »
+   * plutôt que d'afficher un tiret qu'on confond avec une première mesure.
+   * C'est le seul moyen d'affirmer cette cause sans la deviner.
+   *
+   * Volontairement minimal (une colonne) et mis en cache : appelé sur chaque
+   * fiche d'OT porteuse de compteurs.
+   */
+  idsOperations: (gammeId: string | null) =>
+    queryOptions({
+      queryKey: [...gammesQueries.all(), 'operations-ids', gammeId] as const,
+      enabled: gammeId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('operations')
+          .select('id')
+          .eq('gamme_id', gammeId!)
+          .abortSignal(signal)
+          .throwOnError()
+        return new Set(data.map((o) => o.id))
+      },
+      staleTime: 60_000,
+    }),
+
+  /**
    * Modèles d'opération liés à une gamme (via `gamme_modeles`), avec leur
    * origine (commun/site) et le nombre d'items. La RLS arbitre la visibilité
    * (la liaison n'est lisible que si la gamme parente l'est).

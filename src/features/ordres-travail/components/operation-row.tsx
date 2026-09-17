@@ -65,6 +65,12 @@ interface OperationRowProps {
   readOnly: boolean
   /** Dernier relevé connu (compteurs uniquement) → rappel « précédent : … » sous la valeur. */
   previousValue?: number | null
+  /**
+   * Pourquoi aucun historique n'est rattachable, quand la cause a été CONSTATÉE
+   * (ADR 0012). `null` = rien à dire : soit l'historique existe, soit c'est une
+   * première mesure — un cas normal qu'il ne faut pas dramatiser.
+   */
+  messageHistorique?: string | null
 }
 
 /**
@@ -80,6 +86,7 @@ export function OperationRow({
   onChange,
   readOnly,
   previousValue,
+  messageHistorique,
 }: OperationRowProps) {
   const mesure = estMesureExecution(operation)
   const unite = operation.unite_symbole ?? operation.unite_nom ?? ''
@@ -273,6 +280,12 @@ export function OperationRow({
             <p className="truncate text-xs text-muted-foreground">
               {operation.description}
             </p>
+          )}
+          {/* ADR 0012 : sans cette phrase, l'absence d'historique s'affiche comme
+              un tiret qu'on confond avec une première mesure. Ton `warning` (état
+              défavorable) et non `destructive`, qui est réservé aux ACTIONS. */}
+          {messageHistorique !== null && messageHistorique !== undefined && (
+            <p className="text-xs text-warning">{messageHistorique}</p>
           )}
         </div>
 
