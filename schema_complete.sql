@@ -4,7 +4,7 @@
 -- ║   GMAO mono-entreprise (single-tenant) pour Établissements Recevant      ║
 -- ║   du Public (ERP)                                                         ║
 -- ║                                                                           ║
--- ║   Concaténation des migrations/*.sql (113 au 2026-09-16), resynchronisée  ║
+-- ║   Concaténation des migrations/*.sql (119 au 2026-09-17), resynchronisée  ║
 -- ║   sur la PRODUCTION — c'est la seule source versionnée du schéma.         ║
 -- ║                                                                           ║
 -- ║   ⚠ PAS rejouable d'une traite sur une base neuve : quelques objets sont  ║
@@ -1047,11 +1047,27 @@ BEGIN
             USING ERRCODE = 'insufficient_privilege';
     END IF;
 
+    -- anonymized_at (115) : posé UNIQUEMENT par la RPC anonymize_user, elle-même
+    -- réservée aux admins. Sans cette garde, users_self_update laisse chacun se
+    -- déclarer anonymisé tout en restant actif (invariant US04), ou remettre la
+    -- colonne à NULL et casser l'idempotence d'anonymize_user.
+    --
+    -- anonymize_user est SECURITY DEFINER, mais public.current_role() lit
+    -- auth.uid() (le JWT de l'appelant) et non le rôle PostgreSQL courant :
+    -- l'admin qui appelle la RPC passe donc cette garde, exactement comme il
+    -- passe déjà celle d'est_actif ci-dessus.
+    IF NEW.anonymized_at IS DISTINCT FROM OLD.anonymized_at
+       AND (SELECT public.current_role()) IS DISTINCT FROM 'admin' THEN
+        RAISE EXCEPTION
+            'Modification de anonymized_at réservée à l''anonymisation RGPD (admin)'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
     RETURN NEW;
 END;
 $$;
 COMMENT ON FUNCTION public.protect_users_sensitive_columns() IS
-    'F28/F30 — défense anti-escalade : role modifiable uniquement par admin (aucun bypass) ; est_actif modifiable par admin ou cron système de désactivation (GUC app.system_deactivation) ; id et created_by immuables.';
+    'Garde-fou par colonne sur public.users, là où la RLS ne sait pas aller : id et created_by immuables ; role_id et est_actif réservés à l''admin (est_actif tolère le cron système) ; anonymized_at réservé à l''anonymisation RGPD (115).';
 
 CREATE TRIGGER trg_protect_users_sensitive
     BEFORE UPDATE ON users
@@ -7814,7 +7830,7 @@ COMMENT ON FUNCTION public.nettoyage_dates_coherentes() IS
 --
 -- SECURITY INVOKER : la RLS gère naturellement l'autorisation des 3 rôles
 -- (admin via ot_admin_all, manager via ot_manager_update, technicien via
--- ot_technicien_all) — chacun limité à ses sites. Le trigger log_audit()
+-- ot_technicien_update) — chacun limité à ses sites. Le trigger log_audit()
 -- AFTER UPDATE existant capte la modification dans audit_log.
 --
 -- Anti-contournement : un UPDATE direct sans motif_reouverture est rejeté par
@@ -9357,6 +9373,7 @@ CREATE POLICY di_site_scoped_insert ON demandes_intervention FOR INSERT
     WITH CHECK (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND public.has_site_access(site_id)
+        AND created_by = (SELECT auth.uid())   -- 114 : auteur non falsifiable
     );
 
 CREATE POLICY di_site_scoped_update ON demandes_intervention FOR UPDATE
@@ -9449,6 +9466,7 @@ CREATE POLICY travaux_site_scoped_insert ON interventions_travaux FOR INSERT
     WITH CHECK (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND public.has_site_access(site_id)
+        AND created_by = (SELECT auth.uid())   -- 114 : auteur non falsifiable
     );
 
 CREATE POLICY travaux_site_scoped_update ON interventions_travaux FOR UPDATE
@@ -9523,6 +9541,7 @@ CREATE POLICY capex_site_scoped_insert ON investissements FOR INSERT
     WITH CHECK (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND public.has_site_access(site_id)
+        AND created_by = (SELECT auth.uid())   -- 114 : auteur non falsifiable
     );
 
 CREATE POLICY capex_site_scoped_update ON investissements FOR UPDATE
@@ -9562,6 +9581,7 @@ CREATE POLICY ot_manager_insert ON ordres_travail FOR INSERT
     WITH CHECK (
         (SELECT public.current_role()) = 'manager'
         AND public.has_site_access(site_id)
+        AND created_by = (SELECT auth.uid())   -- 114 : auteur non falsifiable
     );
 
 -- UPDATE : manager sur ses sites.
@@ -9576,10 +9596,12 @@ CREATE POLICY ot_manager_update ON ordres_travail FOR UPDATE
     );
 
 -- Le technicien : plein pouvoir métier sur son giron — cf bloc FIX I plus bas
--- (policy ot_technicien_all FOR ALL).
+-- (policies ot_technicien_insert / _update / _delete, issues de la scission
+-- du FOR ALL par la migration 114).
 
--- DELETE physique autorisé (035) via les policies FOR ALL (admin / technicien sur
--- ses sites) ; protection_ot_terminaux ne garde plus que l'immutabilité sur UPDATE.
+-- DELETE physique autorisé (035) via ot_admin_all et ot_technicien_delete
+-- (chacun sur ses sites) ; protection_ot_terminaux ne garde plus que
+-- l'immutabilité sur UPDATE.
 
 -- ╔══════════════════════════════════════════════════════════════════════════╗
 -- ║ 19. operations_execution                                                  ║
@@ -9659,6 +9681,7 @@ CREATE POLICY observations_site_scoped_insert ON observations FOR INSERT
     WITH CHECK (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND public.has_site_access(site_id)
+        AND created_by = (SELECT auth.uid())   -- 114 : auteur non falsifiable
     );
 
 CREATE POLICY observations_site_scoped_update ON observations FOR UPDATE
@@ -9886,6 +9909,7 @@ CREATE POLICY evenements_site_scoped_insert ON evenements FOR INSERT
     WITH CHECK (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND public.has_site_access(site_id)
+        AND created_by = (SELECT auth.uid())   -- 114 : auteur non falsifiable
     );
 
 CREATE POLICY evenements_site_scoped_update ON evenements FOR UPDATE
@@ -11107,12 +11131,32 @@ ALTER TABLE observations
 -- L'INSERT permet l'amorçage 1er OT (F41) et la création d'OT correctif
 -- manuel. Le DELETE physique est désormais autorisé (035) ; protection_ot_terminaux
 -- conserve l'immutabilité des OT terminaux sur UPDATE.
-CREATE POLICY ot_technicien_all ON ordres_travail FOR ALL
+--
+-- 114 : le FOR ALL a été SCINDÉ en trois. La garde d'auteur ne devait porter
+-- que sur l'INSERT — un technicien clôture couramment un OT qu'il n'a pas créé
+-- (OT généré automatiquement, ou créé par un collègue), et la garder sur
+-- l'UPDATE aurait bloqué le geste le plus fréquent de l'application. La branche
+-- SELECT n'est pas recréée : ot_site_scoped_select couvre déjà le technicien à
+-- l'identique.
+CREATE POLICY ot_technicien_insert ON ordres_travail FOR INSERT
+    WITH CHECK (
+        (SELECT public.current_role()) = 'technicien'
+        AND public.has_site_access(site_id)
+        AND created_by = (SELECT auth.uid())   -- 114 : auteur non falsifiable
+    );
+
+CREATE POLICY ot_technicien_update ON ordres_travail FOR UPDATE
     USING (
         (SELECT public.current_role()) = 'technicien'
         AND public.has_site_access(site_id)
     )
     WITH CHECK (
+        (SELECT public.current_role()) = 'technicien'
+        AND public.has_site_access(site_id)
+    );
+
+CREATE POLICY ot_technicien_delete ON ordres_travail FOR DELETE
+    USING (
         (SELECT public.current_role()) = 'technicien'
         AND public.has_site_access(site_id)
     );
@@ -11381,12 +11425,12 @@ CREATE POLICY documents_technicien_update ON documents FOR UPDATE
 -- Cas usage : technicien d'un site qui invite une gouvernante (demandeur)
 -- ou un directeur d'hôtel (lecteur). Il ne peut PAS créer d'autres
 -- techniciens (réservé manager + admin).
-CREATE POLICY users_technicien_provision ON users FOR ALL
-    USING (
-        (SELECT public.current_role()) = 'technicien'
-        AND role_id IN (SELECT id FROM public.roles WHERE code IN ('lecteur', 'demandeur'))
-        AND public.shares_site_with(id)   -- v0.29 : cloisonnement — gère uniquement les comptes partageant un de ses sites
-    )
+-- 116 : ramenée de FOR ALL à FOR INSERT. Le verbe dépassait l'intention : un
+-- technicien pouvait renommer, désactiver ou supprimer le compte d'un collègue
+-- lecteur/demandeur partageant l'un de ses sites. Le front le lui interdit
+-- intégralement (canEditUser) — c'est la base qui fait foi, et elle était plus
+-- permissive que l'interface. Provisionner, oui ; administrer, non.
+CREATE POLICY users_technicien_provision ON users FOR INSERT
     WITH CHECK (
         (SELECT public.current_role()) = 'technicien'
         AND role_id IN (SELECT id FROM public.roles WHERE code IN ('lecteur', 'demandeur'))
@@ -12415,6 +12459,7 @@ CREATE POLICY documents_manager_tech_insert ON documents FOR INSERT
     WITH CHECK (
         (SELECT public.current_role()) IN ('manager', 'technicien')
         AND (site_id IS NULL OR public.has_site_access(site_id))
+        AND uploaded_by = (SELECT auth.uid())   -- 114 : auteur non falsifiable
     );
 
 -- ── documents : UPDATE cloisonné (manager) ──────────────────────────────────
@@ -12803,3 +12848,56 @@ GRANT SELECT ON public.v_miniatures_pool TO anon, authenticated;
 
 COMMENT ON VIEW public.v_miniatures_pool IS
     'Pool de vignettes enrichi de l''usage : origines TEXT[] (familles d''entités qui référencent la vignette : equipement / operation / plan_maintenance / di / lieux ; vide = inutilisée) et libelles TEXT (noms des entités liées, pour la recherche). security_invoker → respecte la RLS. Lecture seule ; les écritures ciblent la table miniatures. (020)';
+
+
+-- ╔═════════════════════════════════════════════════════════════════════════╗
+-- ║  119_snapshot_prestataire_ot_ouverts.sql
+-- ╚═════════════════════════════════════════════════════════════════════════╝
+-- =============================================================================
+-- 119 — Propager le renommage d'un prestataire aux OT encore à faire
+--
+-- ordres_travail.nom_prestataire est un snapshot figé, posé à la création par
+-- resolve_prestataire_for_ot. Le figeage est VOULU pour les OT terminaux : le
+-- nom qui figurait sur l'intervention le jour où elle a été faite est une preuve
+-- d'archive, protégée par protect_ot_immutable_fields. Il n'a aucun sens pour un
+-- OT encore à faire, qui est une consigne de travail, pas une archive — et le
+-- renommage d'un prestataire y laissait un nom périmé (37 OT en production).
+--
+-- Même patron que propager_miniature_gamme_aux_ot (067), GUC comprise.
+--
+-- ⚠ La migration créait aussi une table de recette
+-- `public._sauvegarde_119_nom_prestataire` (RLS active, sans policy, réservée à
+-- service_role). Elle n'est pas reprise ici : elle doit disparaître après
+-- recette.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.rafraichir_nom_prestataire_ot()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    -- GUC système : lève protect_ot_immutable_fields, qui protège les snapshots.
+    -- Écriture légitime et cohérente avec l'orchestrateur de création d'OT.
+    PERFORM set_config('app.system_ot_generation', 'on', true);
+
+    UPDATE public.ordres_travail
+    SET    nom_prestataire = NEW.libelle
+    WHERE  prestataire_id = NEW.id
+      AND  statut IN ('planifie', 'en_cours', 'reouvert')
+      AND  nom_prestataire IS DISTINCT FROM NEW.libelle;
+
+    PERFORM set_config('app.system_ot_generation', 'off', true);
+    RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.rafraichir_nom_prestataire_ot() IS
+    'Propage le renommage d''un prestataire au snapshot nom_prestataire des OT OUVERTS (planifie/en_cours/reouvert). Les OT terminaux gardent le nom qu''ils portaient le jour de l''intervention : c''est une preuve d''archive. Même patron que propager_miniature_gamme_aux_ot (067). (119)';
+
+DROP TRIGGER IF EXISTS trg_rafraichir_nom_prestataire_ot ON public.prestataires;
+
+CREATE TRIGGER trg_rafraichir_nom_prestataire_ot
+    AFTER UPDATE OF libelle ON public.prestataires
+    FOR EACH ROW
+    WHEN (OLD.libelle IS DISTINCT FROM NEW.libelle)
+    EXECUTE FUNCTION public.rafraichir_nom_prestataire_ot();
