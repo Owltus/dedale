@@ -1,7 +1,9 @@
 # 0010 — `source_id` n'est pas une clé de corrélation stable
 
 - **Date** : 2026-09-16
-- **Statut** : accepté (constat) — les trois options de traitement restent ouvertes
+- **Statut** : accepté (constat). Les trois options de traitement qu'il posait ont été
+  mesurées puis arbitrées par [0012](0012-correlation-des-executions-en-deux-temps.md) —
+  corrélation en deux temps, `source_id` puis repli sur le nom.
 
 ## Contexte
 
