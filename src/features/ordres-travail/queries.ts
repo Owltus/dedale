@@ -165,6 +165,20 @@ export const ordresTravailQueries = {
           .select('*')
           .eq('ordre_travail_id', otId)
           .order('ordre', { ascending: true })
+          // `ordre` est un entier libre, sans contrainte d'unicité : neuf OT
+          // réels portent deux opérations au MÊME rang. À rang égal, PostgreSQL
+          // ne promet aucun ordre — la liste peut donc se réordonner d'un
+          // affichage à l'autre, sur une fiche que le technicien parcourt de
+          // haut en bas. Clés secondaires stables, comme pour les opérations de
+          // gamme ci-dessus.
+          //
+          // Le correctif est ICI et non en base : `operations_execution.ordre`
+          // est un snapshot GELÉ (protect_opex_snapshots), et sur un OT clôturé
+          // toute écriture est refusée (protection_operations_ot_terminaux).
+          // Renuméroter aurait exigé de détourner deux portes de sortie prévues
+          // pour autre chose, sur des archives, pour un rang d'affichage.
+          .order('created_at')
+          .order('id')
           .abortSignal(signal)
           .throwOnError()
         return data

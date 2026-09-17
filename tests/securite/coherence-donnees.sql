@@ -43,7 +43,16 @@ union all select 'OP06 est_conforme=true hors des seuils', count(*) from operati
 union all select 'OP07 est_conforme=false dans les seuils', count(*) from operations_execution where est_conforme is false and valeur_mesuree is not null and (seuil_minimum is null or valeur_mesuree >= seuil_minimum) and (seuil_maximum is null or valeur_mesuree <= seuil_maximum)
 union all select 'OP08 source_id orpheline (ni operations ni modele item)', count(*) from operations_execution e where not exists (select 1 from operations o where o.id=e.source_id) and not exists (select 1 from modeles_operations_items m where m.id=e.source_id)
 union all select 'OP09 doublon (ordre_travail_id, source_id)', count(*) from (select ordre_travail_id, source_id from operations_execution group by 1,2 having count(*)>1) z
-union all select 'OP10 doublon ordre dans un meme OT', count(*) from (select ordre_travail_id, ordre from operations_execution group by 1,2 having count(*)>1) z
+-- OP10 requalifie le 17/09/2026. Le doublon de rang est reel (9 OT, dont 8
+-- CLOTURES) mais il n'est NI REPARABLE NI VISIBLE :
+--   - operations_execution.ordre est un snapshot GELE (protect_opex_snapshots),
+--     et protection_operations_ot_terminaux refuse toute ecriture sur un OT
+--     clos. Renumeroter exigerait de detourner deux portes de sortie prevues
+--     pour autre chose, sur des archives, pour un rang d'affichage ;
+--   - l'affichage ne depend plus du rang seul : ordresTravailQueries.operations
+--     trie desormais par (ordre, created_at, id), donc l'ordre est stable.
+-- Le compter comme fautif poussait a forcer des ecritures sur des archives.
+-- Conserve en INFORMATIF, en fin de fichier.
 union all select 'OP11 index_pose < index_depose', count(*) from operations_execution where index_pose is not null and index_depose is not null and index_pose < index_depose
 union all select 'OP12 executee par un utilisateur inconnu', count(*) from operations_execution e where e.executed_by is not null and not exists (select 1 from users u where u.id=e.executed_by)
 union all select 'OP13 valeur_mesuree negative sur unite cumulative', count(*) from operations_execution where unite_est_cumulatif is true and valeur_mesuree < 0
@@ -113,7 +122,14 @@ union all select 'DO04 hash_sha256 mal forme', count(*) from documents where has
 union all select 'DO05 meme hash, storage_path different', count(*) from (select hash_sha256 from documents group by 1 having count(distinct storage_path)>1) z
 union all select 'DO06 storage_path en doublon sur documents distincts', count(*) from (select storage_path from documents group by 1 having count(*)>1) z
 union all select 'DO07 document sans site_id', count(*) from documents where site_id is null
-union all select 'DO08 miniature orpheline', count(*) from miniatures m where not exists (select 1 from batiments x where x.miniature_id=m.id) and not exists (select 1 from niveaux x where x.miniature_id=m.id) and not exists (select 1 from locaux x where x.miniature_id=m.id) and not exists (select 1 from equipements x where x.miniature_id=m.id) and not exists (select 1 from gammes x where x.miniature_id=m.id) and not exists (select 1 from categories x where x.miniature_id=m.id) and not exists (select 1 from prestataires x where x.miniature_id=m.id) and not exists (select 1 from modeles_equipements x where x.miniature_id=m.id) and not exists (select 1 from modeles_operations x where x.miniature_id=m.id) and not exists (select 1 from modeles_di x where x.miniature_id=m.id) and not exists (select 1 from ordres_travail x where x.miniature_id=m.id)
+-- DO08 retire le 17/09/2026. Une image que rien ne reference n'est PAS une
+-- orpheline : c'est une image DISPONIBLE. Le selecteur d'image de l'application
+-- (miniature-picker.tsx, onglet « Bibliotheque ») presente tout le pool pour
+-- reutilisation, et propose meme un filtre sur les images inutilisees. Les 36
+-- images comptees ici ont ete versees au pool commun du siege par le PO en juin
+-- 2026 (23 le meme jour) : c'est une bibliotheque constituee volontairement.
+-- Les compter comme fautives poussait a supprimer des images choisies.
+-- Conserve en INFORMATIF, en fin de fichier.
 union all select 'DO09 miniature hash mal forme', count(*) from miniatures where hash_sha256 !~ '^[0-9a-f]{64}$'
 union all select 'DO10 storage_path avec traversee de chemin', count(*) from documents where storage_path like '%..%' or storage_path like '/%'
 union all select 'DO11 nom_original vide', count(*) from documents where btrim(nom_original)=''
@@ -196,6 +212,28 @@ select i as invariant, n as lignes from v where n > 0 order by 1;
 -- (la page Documents les liste tous, lies ou non), mais un nombre qui grimpe
 -- signale des fiches de destination qu on oublie de creer.
 -- =============================================================================
+select 'images disponibles dans le pool, non encore utilisees (informatif)' as indicateur,
+       count(*) as lignes
+from   miniatures m
+where  not exists (select 1 from batiments x where x.miniature_id=m.id)
+  and  not exists (select 1 from niveaux x where x.miniature_id=m.id)
+  and  not exists (select 1 from locaux x where x.miniature_id=m.id)
+  and  not exists (select 1 from equipements x where x.miniature_id=m.id)
+  and  not exists (select 1 from gammes x where x.miniature_id=m.id)
+  and  not exists (select 1 from categories x where x.miniature_id=m.id)
+  and  not exists (select 1 from prestataires x where x.miniature_id=m.id)
+  and  not exists (select 1 from modeles_equipements x where x.miniature_id=m.id)
+  and  not exists (select 1 from modeles_operations x where x.miniature_id=m.id)
+  and  not exists (select 1 from modeles_di x where x.miniature_id=m.id)
+  and  not exists (select 1 from ordres_travail x where x.miniature_id=m.id);
+
+-- Rangs d'affichage en doublon dans un OT : non reparable (snapshot gele sur des
+-- OT clos), sans effet visible (le front tranche par created_at puis id).
+select 'OT dont deux operations partagent un rang (informatif)' as indicateur,
+       count(*) as lignes
+from  (select ordre_travail_id, ordre from operations_execution
+       group by 1, 2 having count(*) > 1) z;
+
 select 'documents non rattaches (informatif)' as indicateur, count(*) as lignes
 from   documents d
 where  not exists (select 1 from documents_contrats x where x.document_id=d.id)
