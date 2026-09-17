@@ -75,6 +75,7 @@
     "batiments": {
       "checks": {
         "batiments_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "batiments_nom_visible": "CHECK ((nom ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))",
         "chk_batiments_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))"
       },
       "colonnes": {
@@ -148,6 +149,7 @@
       "checks": {
         "categories_check": "CHECK (((parent_id IS NULL) OR (parent_id <> id)))",
         "categories_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "categories_nom_visible": "CHECK ((nom ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))",
         "chk_categorie_modele_xor_specs": "CHECK (((modele_equipement_id IS NULL) OR (specifications IS NULL)))",
         "chk_categorie_specs_objet": "CHECK (((specifications IS NULL) OR ((jsonb_typeof(specifications) = 'object'::text) AND (NOT (specifications ? '__proto__'::text)) AND (NOT (specifications ? 'constructor'::text)) AND (NOT (specifications ? 'prototype'::text)))))",
         "chk_categories_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
@@ -506,6 +508,7 @@
     "demandes_intervention": {
       "checks": {
         "demandes_intervention_constat_check": "CHECK ((length(TRIM(BOTH FROM constat)) > 0))",
+        "demandes_intervention_constat_visible": "CHECK ((constat ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))",
         "di_constat_taille": "CHECK ((length(constat) <= 5000))"
       },
       "colonnes": {
@@ -1314,7 +1317,8 @@
     "evenements": {
       "checks": {
         "evenements_dates_coherentes": "CHECK (((date_cloture IS NULL) OR (date_cloture >= date_evenement)))",
-        "evenements_titre_check": "CHECK ((length(TRIM(BOTH FROM titre)) > 0))"
+        "evenements_titre_check": "CHECK ((length(TRIM(BOTH FROM titre)) > 0))",
+        "evenements_titre_visible": "CHECK ((titre ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))"
       },
       "colonnes": {
         "cloture_by": {
@@ -1574,7 +1578,8 @@
     "gammes": {
       "checks": {
         "chk_gammes_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
-        "gammes_nom_non_vide": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))"
+        "gammes_nom_non_vide": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "gammes_nom_visible": "CHECK ((nom ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))"
       },
       "colonnes": {
         "categorie_id": {
@@ -1730,7 +1735,8 @@
     },
     "interventions_travaux": {
       "checks": {
-        "interventions_travaux_titre_check": "CHECK ((length(TRIM(BOTH FROM titre)) > 0))"
+        "interventions_travaux_titre_check": "CHECK ((length(TRIM(BOTH FROM titre)) > 0))",
+        "interventions_travaux_titre_visible": "CHECK ((titre ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))"
       },
       "colonnes": {
         "cloture_by": {
@@ -1992,6 +1998,7 @@
         "locaux_capacite_positive": "CHECK (((capacite_personnes IS NULL) OR (capacite_personnes >= 0)))",
         "locaux_hauteur_positive": "CHECK (((hauteur_m IS NULL) OR (hauteur_m > (0)::numeric)))",
         "locaux_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "locaux_nom_visible": "CHECK ((nom ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))",
         "locaux_surface_m2_check": "CHECK (((surface_m2 IS NULL) OR (surface_m2 > (0)::numeric)))"
       },
       "colonnes": {
@@ -2538,7 +2545,8 @@
     "niveaux": {
       "checks": {
         "chk_niveaux_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
-        "niveaux_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))"
+        "niveaux_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "niveaux_nom_visible": "CHECK ((nom ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))"
       },
       "colonnes": {
         "batiment_id": {
@@ -2853,6 +2861,7 @@
       "checks": {
         "operations_execution_remplacement_coherent": "CHECK ((((index_depose IS NULL) = (index_pose IS NULL)) AND ((date_remplacement IS NULL) OR (index_depose IS NOT NULL))))",
         "opex_commentaires_taille": "CHECK (((commentaires IS NULL) OR (length(commentaires) <= 5000)))",
+        "opex_mesure_terminee_a_valeur": "CHECK (((statut <> 'terminee'::text) OR (type_operation <> 'Mesure'::text) OR (valeur_mesuree IS NOT NULL) OR (index_pose IS NOT NULL))) NOT VALID",
         "source_type_valide": "CHECK ((source_type = ANY (ARRAY[1, 2])))",
         "statut_date_coherents": "CHECK ((((statut = 'en_attente'::text) AND (date_execution IS NULL)) OR ((statut = ANY (ARRAY['en_cours'::text, 'terminee'::text])) AND (date_execution IS NOT NULL)) OR (statut = ANY (ARRAY['annulee'::text, 'non_applicable'::text]))))"
       },
@@ -3350,6 +3359,7 @@
         "prestataires_email_format": "CHECK (((email IS NULL) OR (email ~ '^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$'::text)))",
         "prestataires_interne_site": "CHECK ((est_interne = (site_id IS NOT NULL)))",
         "prestataires_libelle_non_vide": "CHECK ((length(TRIM(BOTH FROM libelle)) > 0))",
+        "prestataires_libelle_visible": "CHECK ((libelle ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))",
         "prestataires_siret_format": "CHECK (((siret IS NULL) OR (siret ~ '^[0-9]{14}$'::text)))"
       },
       "colonnes": {
@@ -3606,7 +3616,8 @@
     },
     "sites": {
       "checks": {
-        "sites_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))"
+        "sites_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))",
+        "sites_nom_visible": "CHECK ((nom ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))"
       },
       "colonnes": {
         "adresse": {
@@ -4027,7 +4038,9 @@
       }
     },
     "types_locaux": {
-      "checks": {},
+      "checks": {
+        "types_locaux_libelle_visible": "CHECK ((libelle ~ '[^[:space:][:cntrl:]\\u00a0\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u1680\\u180e\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060-\\u2064\\u2066-\\u206f\\u3000\\ufeff\\ufff9-\\ufffb]'::text))"
+      },
       "colonnes": {
         "actif": {
           "aUnDefaut": true,

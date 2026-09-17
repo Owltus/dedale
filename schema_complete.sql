@@ -12901,3 +12901,150 @@ CREATE TRIGGER trg_rafraichir_nom_prestataire_ot
     FOR EACH ROW
     WHEN (OLD.libelle IS DISTINCT FROM NEW.libelle)
     EXECUTE FUNCTION public.rafraichir_nom_prestataire_ot();
+
+
+-- ╔═════════════════════════════════════════════════════════════════════════╗
+-- ║  117_noms_visibles.sql
+-- ╚═════════════════════════════════════════════════════════════════════════╝
+-- =============================================================================
+-- 117 — Refuser les noms faits uniquement de caractères invisibles
+--
+-- Les CHECK existants sont tous de la forme `length(trim(nom)) > 0`, et le
+-- trim() de PostgreSQL ne retire que les blancs ASCII. Un nom fait d'espaces de
+-- largeur nulle (U+200B), de joignoirs (U+200C/U+200D) ou d'une BOM (U+FEFF)
+-- les passait donc : le champ a l'air rempli, la ligne est introuvable en
+-- recherche, et le site apparaît comme une entrée VIDE dans le sélecteur.
+--
+-- Posées NOT VALID puis VALIDÉES dans une transaction séparée : 0 ligne
+-- existante ne les violait au moment de la pose (vérifié colonne par colonne
+-- sur la production le 2026-09-17).
+-- =============================================================================
+
+DO $$
+DECLARE
+    -- Un caractère VISIBLE = ni blanc, ni caractère de contrôle, ni caractère
+    -- de formatage. Miroir exact de /[^\s\p{Cc}\p{Cf}]/u côté front.
+    --
+    -- Les invisibles sont écrits en ÉCHAPPEMENT ASCII (\uXXXX), jamais en
+    -- littéral : un fichier de migration contenant de vrais U+200B est
+    -- illisible, non relisible en revue, et se corrompt au moindre changement
+    -- d'encodage en transit (constaté pendant la mise au point). PostgreSQL
+    -- interprète ces échappements dans le MOTEUR D'EXPRESSIONS RÉGULIÈRES (et
+    -- non dans la chaîne SQL), intervalles compris : la chaîne ci-dessous est
+    -- donc purement ASCII.
+    v_visible CONSTANT text :=
+        '[^[:space:][:cntrl:]'              -- blancs, caractères de contrôle
+        '\u00a0\u00ad'                      -- insécable, trait d'union conditionnel
+        '\u0600-\u0605\u061c\u06dd\u070f'   -- formatage arabe / syriaque
+        '\u0890\u0891\u08e2'                -- idem (Unicode 14)
+        '\u1680\u180e'                      -- ogham, séparateur mongol
+        '\u2000-\u200f'                     -- cadratins, largeur nulle, joignoirs, sens
+        '\u2028\u2029\u202a-\u202f'         -- séparateurs, incrustations, insécable étroit
+        '\u205f\u2060-\u2064\u2066-\u206f'  -- math moyen, gluon de mots, isolats
+        '\u3000'                            -- espace idéographique
+        '\ufeff\ufff9-\ufffb]';             -- BOM, annotations interlinéaires
+    v_cible   text[];
+BEGIN
+    FOREACH v_cible SLICE 1 IN ARRAY ARRAY[
+        ['sites',                 'nom'],
+        ['batiments',             'nom'],
+        ['niveaux',               'nom'],
+        ['locaux',                'nom'],
+        ['prestataires',          'libelle'],
+        ['categories',            'nom'],
+        ['gammes',                'nom'],
+        ['types_locaux',          'libelle'],
+        ['evenements',            'titre'],
+        ['interventions_travaux', 'titre'],
+        ['demandes_intervention', 'constat']
+    ]
+    LOOP
+        EXECUTE format(
+            'ALTER TABLE public.%I DROP CONSTRAINT IF EXISTS %I',
+            v_cible[1], v_cible[1] || '_' || v_cible[2] || '_visible'
+        );
+        EXECUTE format(
+            'ALTER TABLE public.%I ADD CONSTRAINT %I CHECK (%I ~ %L) NOT VALID',
+            v_cible[1],
+            v_cible[1] || '_' || v_cible[2] || '_visible',
+            v_cible[2],
+            v_visible
+        );
+        EXECUTE format(
+            'COMMENT ON CONSTRAINT %I ON public.%I IS %L',
+            v_cible[1] || '_' || v_cible[2] || '_visible',
+            v_cible[1],
+            'Exige au moins un caractère visible : un texte fait uniquement '
+            'd''espaces, de caractères de contrôle ou de formatage (U+200B, '
+            'U+202E, U+FEFF…) est refusé. Complète le CHECK '
+            'length(trim(...)) > 0, qui ne rattrape que les blancs ASCII (117).'
+        );
+    END LOOP;
+END $$;
+
+DO $$
+DECLARE
+    v_cible text[];
+BEGIN
+    FOREACH v_cible SLICE 1 IN ARRAY ARRAY[
+        ['sites',                 'nom'],
+        ['batiments',             'nom'],
+        ['niveaux',               'nom'],
+        ['locaux',                'nom'],
+        ['prestataires',          'libelle'],
+        ['categories',            'nom'],
+        ['gammes',                'nom'],
+        ['types_locaux',          'libelle'],
+        ['evenements',            'titre'],
+        ['interventions_travaux', 'titre'],
+        ['demandes_intervention', 'constat']
+    ]
+    LOOP
+        EXECUTE format(
+            'ALTER TABLE public.%I VALIDATE CONSTRAINT %I',
+            v_cible[1], v_cible[1] || '_' || v_cible[2] || '_visible'
+        );
+    END LOOP;
+END $$;
+
+-- ╔═════════════════════════════════════════════════════════════════════════╗
+-- ║  118_mesure_terminee_a_valeur.sql
+-- ╚═════════════════════════════════════════════════════════════════════════╝
+-- =============================================================================
+-- 118 — Une opération « Mesure » terminée exige un relevé
+--
+-- DÉLIBÉRÉMENT laissée NOT VALID : 20 opérations historiques sont dans cet état,
+-- leur valeur n'existe nulle part, et on ne rouvre pas 20 opérations clôturées
+-- pour l'inventer. Elles sont toutes rattachées à des OT clôturés (vérifié sur
+-- la production) — personne ne les modifie dans le cours normal de l'app.
+--
+-- ⚠ type_operation est un SNAPSHOT TEXTE, pas une clé étrangère : si le libellé
+-- « Mesure » est un jour renommé dans types_operations, LA CONTRAINTE CESSERA
+-- DE MORDRE, EN SILENCE. Un renommage de ce référentiel doit s'accompagner
+-- d'une reprise de cette contrainte.
+-- =============================================================================
+
+ALTER TABLE public.operations_execution
+    DROP CONSTRAINT IF EXISTS opex_mesure_terminee_a_valeur;
+
+ALTER TABLE public.operations_execution
+    ADD CONSTRAINT opex_mesure_terminee_a_valeur
+    CHECK (
+        statut         <> 'terminee'
+        OR type_operation <> 'Mesure'
+        OR valeur_mesuree IS NOT NULL
+        OR index_pose     IS NOT NULL
+    )
+    NOT VALID;
+
+COMMENT ON CONSTRAINT opex_mesure_terminee_a_valeur
+    ON public.operations_execution IS
+    'Une opération de type « Mesure » ne peut être terminée que si elle porte '
+    'un relevé (valeur_mesuree) ou, en cas de remplacement de compteur, un '
+    'index de pose. DÉLIBÉRÉMENT laissée NOT VALID (118) : les 20 lignes '
+    'historiques sans valeur restent en place — la valeur n''existe nulle part '
+    'et on ne rouvre pas 20 opérations clôturées. Elles deviennent en revanche '
+    'non modifiables tant qu''elles restent fautives, ce qui les fait se '
+    'signaler. Attention : type_operation est un snapshot texte de '
+    'types_operations.libelle ; renommer « Mesure » désarmerait cette '
+    'contrainte en silence.';

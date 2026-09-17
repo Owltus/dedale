@@ -51,6 +51,11 @@ SELECT jsonb_pretty(
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public'
           AND c.relkind = 'r'
+          -- Les tables `_sauvegarde_*` sont des filets de recette, poses par une
+          -- migration et voues a disparaitre juste apres. Les faire entrer dans
+          -- l'instantane versionne le ferait deriver deux fois pour rien : a la
+          -- pose, puis a la suppression. Un contrat ne decrit pas le provisoire.
+          AND c.relname NOT LIKE '\_sauvegarde\_%'
       ) t
     )
   )
