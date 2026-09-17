@@ -100,7 +100,13 @@ union all select 'GA14 OT ouvert avec un prestataire different de sa gamme', cou
 union all select 'GA15 gamme sans equipement mais avec des OT', count(*) from gammes g where not exists (select 1 from gammes_equipements x where x.gamme_id=g.id) and exists (select 1 from ordres_travail o where o.gamme_id=g.id)
 
 -- Documents et miniatures
-union all select 'DO01 document sans aucune liaison', count(*) from documents d where not exists (select 1 from documents_contrats x where x.document_id=d.id) and not exists (select 1 from documents_di x where x.document_id=d.id) and not exists (select 1 from documents_equipements x where x.document_id=d.id) and not exists (select 1 from documents_evenements x where x.document_id=d.id) and not exists (select 1 from documents_gammes x where x.document_id=d.id) and not exists (select 1 from documents_interventions_travaux x where x.document_id=d.id) and not exists (select 1 from documents_investissements x where x.document_id=d.id) and not exists (select 1 from documents_locaux x where x.document_id=d.id) and not exists (select 1 from documents_ordres_travail x where x.document_id=d.id) and not exists (select 1 from documents_prestataires x where x.document_id=d.id)
+-- DO01 retire le 17/09/2026. Un document non rattache n'est PAS une anomalie :
+-- la page Documents liste tous les documents du site, rattaches ou non, donc il
+-- reste visible et ouvrable. Les 3 cas trouves par l'audit etaient deux contrats
+-- et une notice constructeur dont la fiche de destination n'avait jamais ete
+-- creee — des documents utiles, pas des dechets. Les compter comme fautifs
+-- poussait a supprimer des PDF reels pour faire disparaitre une ligne de rapport.
+-- Conserve en INFORMATIF : le compte est utile a connaitre, il ne vaut pas alerte.
 union all select 'DO02 taille_octets <= 0', count(*) from documents where taille_octets <= 0
 union all select 'DO03 mime_type hors PDF/WebP', count(*) from documents where mime_type not in ('application/pdf','image/webp')
 union all select 'DO04 hash_sha256 mal forme', count(*) from documents where hash_sha256 !~ '^[0-9a-f]{64}$'
@@ -181,3 +187,24 @@ union all select 'HI07 categorie de niveau 3 ou plus', count(*) from categories 
 
 )
 select i as invariant, n as lignes from v where n > 0 order by 1;
+
+-- =============================================================================
+-- INFORMATIF — ne fait PAS partie des invariants ci-dessus.
+-- Le contrat de ce script est binaire : toute ligne > 0 est un finding. Le
+-- comptage ci-dessous n en est pas un, il ne doit donc pas y figurer. Il reste
+-- utile a connaitre : un document non rattache est parfaitement consultable
+-- (la page Documents les liste tous, lies ou non), mais un nombre qui grimpe
+-- signale des fiches de destination qu on oublie de creer.
+-- =============================================================================
+select 'documents non rattaches (informatif)' as indicateur, count(*) as lignes
+from   documents d
+where  not exists (select 1 from documents_contrats x where x.document_id=d.id)
+  and  not exists (select 1 from documents_di x where x.document_id=d.id)
+  and  not exists (select 1 from documents_equipements x where x.document_id=d.id)
+  and  not exists (select 1 from documents_evenements x where x.document_id=d.id)
+  and  not exists (select 1 from documents_gammes x where x.document_id=d.id)
+  and  not exists (select 1 from documents_interventions_travaux x where x.document_id=d.id)
+  and  not exists (select 1 from documents_investissements x where x.document_id=d.id)
+  and  not exists (select 1 from documents_locaux x where x.document_id=d.id)
+  and  not exists (select 1 from documents_ordres_travail x where x.document_id=d.id)
+  and  not exists (select 1 from documents_prestataires x where x.document_id=d.id);
