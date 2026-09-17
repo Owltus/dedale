@@ -89,9 +89,9 @@ export function buildImportPrompt(params: {
       (t) => `« ${t.label} »`,
     ).join(', ')}.`,
     `- ${COL_UNITE} — optionnel, et UNIQUEMENT si ${COL_TYPE} vaut « Nombre » (ex. « kW », « bar », « L »). Vide partout ailleurs.`,
-    `- ${COL_OPTIONS} — obligatoire UNIQUEMENT si ${COL_TYPE} vaut « Liste » : les choix possibles séparés par une barre verticale ( ${SEP_OPTIONS} ), par exemple « Gaz ${SEP_OPTIONS} Fioul ${SEP_OPTIONS} Électrique ». Vide partout ailleurs.`,
+    `- ${COL_OPTIONS} — obligatoire pour DEUX types, vide partout ailleurs. Si ${COL_TYPE} vaut « Liste » : les choix possibles séparés par une barre verticale ( ${SEP_OPTIONS} ), par exemple « Gaz ${SEP_OPTIONS} Fioul ${SEP_OPTIONS} Électrique ». Si ${COL_TYPE} vaut « Double référence » : le nom de la 1re partie, éventuellement suivi de celui de la 2de séparé par la même barre — par exemple « Zone ${SEP_OPTIONS} Point » ou, si la 2de n'a pas à être nommée, « Zone » seul.`,
     `- ${COL_REQUIS} — optionnel. « Oui » si l'information devra obligatoirement être renseignée sur chaque équipement, « Non » ou vide sinon.`,
-    `- ${COL_DEFAUT} — optionnel. La valeur proposée par défaut, cohérente avec le type : un nombre à virgule française pour « Nombre », JJ/MM/AAAA pour « Date », « Oui »/« Non » pour « Oui / Non », et pour « Liste » une valeur figurant dans ${COL_OPTIONS}.`,
+    `- ${COL_DEFAUT} — optionnel. La valeur proposée par défaut, cohérente avec le type : un nombre à virgule française pour « Nombre », JJ/MM/AAAA pour « Date », « Oui »/« Non » pour « Oui / Non », pour « Liste » une valeur figurant dans ${COL_OPTIONS}, et pour « Double référence » les deux parties séparées par une barre oblique (ex. « 3/12 »).`,
     ...existantsTexte,
     ``,
     `Voici les données brutes à convertir (colle-les à la suite de ce message) :`,
@@ -220,6 +220,8 @@ export function parseImportCsv(
     }
 
     let options: string[] | undefined
+    let libelleA: string | undefined
+    let libelleB: string | undefined
     if (type?.value === 'liste') {
       options = optionsBrut
         .split(SEP_OPTIONS)
@@ -231,8 +233,37 @@ export function parseImportCsv(
         )
         options = undefined
       }
+    } else if (type?.value === 'double-reference') {
+      // La colonne porte déjà « ce qui définit le champ, en plus de son type »
+      // et son séparateur : on la réemploie pour les noms des deux parties
+      // (« Zone|Point ») plutôt que d'ajouter deux colonnes vides sur 95 % des
+      // lignes. La 2de reste facultative — c'est elle qui décide de la forme
+      // d'affichage.
+      const parts = optionsBrut
+        .split(SEP_OPTIONS)
+        .map((o) => o.trim())
+        .filter((o) => o !== '')
+      libelleA = parts[0]
+      libelleB = parts[1]
+      if (libelleA === undefined) {
+        erreurs.push(
+          `${COL_OPTIONS} doit nommer les parties d'une « Double référence » : le nom de la 1re (ex. « Zone »), éventuellement suivi de celui de la 2de séparé par « ${SEP_OPTIONS} » (ex. « Bus${SEP_OPTIONS}adresse »).`,
+        )
+      }
+      if (parts.length > 2) {
+        erreurs.push(
+          `${COL_OPTIONS} : une « Double référence » a DEUX parties au plus, pas ${String(parts.length)}.`,
+        )
+      }
+      if ((libelleA?.length ?? 0) > 30 || (libelleB?.length ?? 0) > 30) {
+        erreurs.push(
+          `${COL_OPTIONS} : chaque nom de partie tient en 30 caractères.`,
+        )
+      }
     } else if (optionsBrut !== '') {
-      erreurs.push(`${COL_OPTIONS} ne s'applique qu'au type « Liste ».`)
+      erreurs.push(
+        `${COL_OPTIONS} ne s'applique qu'aux types « Liste » et « Double référence ».`,
+      )
     }
 
     let unite: string | undefined
@@ -270,6 +301,8 @@ export function parseImportCsv(
       type: type.value,
       unite,
       options,
+      libelleA,
+      libelleB,
       requis,
       defaut: null,
     }

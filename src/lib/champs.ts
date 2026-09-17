@@ -5,25 +5,77 @@ import { estLisible, messageIllisible, texteObligatoire } from '@/lib/texte-zod'
 // Champs typés des caractéristiques (modèles + équipements), stockés dans le
 // JSONB `specifications`. Voir plan/champs-types-equipements/.
 
-/** Les 5 types de champ + leur libellé pour les sélecteurs. */
+/** Les 6 types de champ + leur libellé pour les sélecteurs. */
 export const CHAMP_TYPES = [
   { value: 'texte', label: 'Texte' },
   { value: 'nombre', label: 'Nombre' },
   { value: 'date', label: 'Date' },
   { value: 'oui-non', label: 'Oui / Non' },
   { value: 'liste', label: 'Liste' },
+  { value: 'double-reference', label: 'Double référence' },
 ] as const
 export type ChampType = (typeof CHAMP_TYPES)[number]['value']
 
+/**
+ * Les deux parts d'une DOUBLE RÉFÉRENCE : un repère qui n'a de sens qu'entier —
+ * zone et point d'une ZDM de détection incendie, bus et adresse d'un équipement
+ * communicant. Deux valeurs, jamais l'une sans l'autre.
+ *
+ * Volontairement du TEXTE et non des nombres : une zone s'appelle parfois « A »
+ * ou « 01 », et un zéro de tête disparaîtrait d'un nombre.
+ */
+export interface DoubleReference {
+  a: string
+  b: string
+}
+
 /** Valeur JSON d'un champ selon son type. */
-export type ChampValeur = string | number | boolean | null
+export type ChampValeur = string | number | boolean | DoubleReference | null
+
+const doubleReferenceSchema = z.object({ a: z.string(), b: z.string() })
 
 const champValeurSchema = z.union([
   z.string(),
   z.number(),
   z.boolean(),
+  doubleReferenceSchema,
   z.null(),
 ])
+
+/**
+ * La valeur est-elle une double référence ? Garde de TYPE : après elle,
+ * TypeScript sait qu'on tient les deux parts. Le seul autre membre objet de
+ * l'union est `null`, écarté d'abord.
+ */
+export function estDoubleReference(v: ChampValeur): v is DoubleReference {
+  return typeof v === 'object' && v !== null
+}
+
+/**
+ * Texte d'une double référence pour un ÉCHANGE (export CSV, recherche) : la
+ * forme compacte « 3/12 », celle que `resoudreValeurTexte` sait relire. Sortir
+ * la valeur par `String()` donnerait « [object Object] » — c'est le piège que
+ * l'élargissement de `ChampValeur` a ouvert dans tout le code d'import/export.
+ */
+export function doubleReferenceEnTexte(v: DoubleReference): string {
+  const a = v.a.trim()
+  const b = v.b.trim()
+  return a === '' && b === '' ? '' : `${a}/${b}`
+}
+
+/**
+ * Valeur d'un champ en TEXTE BRUT, pour un échange machine (CSV) — à ne pas
+ * confondre avec `formatChampValeur`, qui met en forme pour l'ŒIL (unité,
+ * « Oui », date française, libellé de 2de part).
+ *
+ * Source unique : tout code qui sérialise une `ChampValeur` doit passer par ici,
+ * sinon une double référence s'écrit « [object Object] ».
+ */
+export function champValeurEnTexte(valeur: ChampValeur): string {
+  if (valeur === null) return ''
+  if (estDoubleReference(valeur)) return doubleReferenceEnTexte(valeur)
+  return String(valeur)
+}
 
 /**
  * Un champ typé. Le MODÈLE porte la définition (avec `defaut`) ; l'ÉQUIPEMENT
@@ -31,11 +83,29 @@ const champValeurSchema = z.union([
  */
 export const champSchema = z.object({
   cle: texteObligatoire('Le nom du champ est obligatoire').max(60),
-  type: z.enum(['texte', 'nombre', 'date', 'oui-non', 'liste']),
+  type: z.enum([
+    'texte',
+    'nombre',
+    'date',
+    'oui-non',
+    'liste',
+    'double-reference',
+  ]),
   /** Pertinent si type = nombre (ex. kW, bars). */
   unite: z.string().trim().max(20).optional(),
   /** Choix possibles, requis si type = liste. */
   options: z.array(z.string().trim().min(1)).optional(),
+  /**
+   * Libellé de la 1re part d'une double référence (ex. « Zone », « Bus »).
+   * Sert à la SAISIE : c'est l'étiquette de la première case.
+   */
+  libelleA: z.string().trim().max(30).optional(),
+  /**
+   * Libellé de la 2de part (ex. « Point », « adresse »). Sert à la saisie, et
+   * commande la LECTURE : rempli, il apparaît dans la valeur affichée
+   * (« 2 / adresse 45 ») ; vide, la forme reste compacte (« 3/12 »).
+   */
+  libelleB: z.string().trim().max(30).optional(),
   requis: z.boolean(),
   /** Valeur par défaut (sur le modèle). */
   defaut: champValeurSchema,
@@ -106,6 +176,16 @@ export function prepareChamps(
             ),
           ]
         : undefined,
+    // Les deux libellés n'ont de sens que pour une double référence : on les
+    // efface si le type a changé, comme `unite` et `options` au-dessus.
+    libelleA:
+      c.type === 'double-reference' && c.libelleA?.trim()
+        ? c.libelleA.trim()
+        : undefined,
+    libelleB:
+      c.type === 'double-reference' && c.libelleB?.trim()
+        ? c.libelleB.trim()
+        : undefined,
   }))
   const cles = cleaned.map((c) => c.cle.toLowerCase())
   if (cles.some((k) => k === '')) {
@@ -138,6 +218,30 @@ export function prepareChamps(
       error: `L’unité du champ « ${uniteTropLongue.cle} » dépasse 20 caractères.`,
     }
   }
+  // Le 1er libellé est OBLIGATOIRE : c'est l'étiquette de la première case de
+  // saisie. Sans lui, l'utilisateur voit deux cases nues et ne sait pas laquelle
+  // porte la zone et laquelle porte le point. Le 2d reste facultatif — c'est lui
+  // qui commande la forme d'affichage.
+  const sansLibelle = cleaned.find(
+    (c) => c.type === 'double-reference' && (c.libelleA ?? '') === '',
+  )
+  if (sansLibelle) {
+    return {
+      ok: false,
+      error: `Le champ « ${sansLibelle.cle} » (double référence) doit nommer sa première partie (ex. « Zone », « Bus »).`,
+    }
+  }
+  // Bornes ALIGNÉES sur champSchema (libellés ≤ 30). Sans ce garde-fou, le champ
+  // s'écrirait puis serait JETÉ en silence par parseChamps à la relecture.
+  const libelleTropLong = cleaned.find(
+    (c) => (c.libelleA?.length ?? 0) > 30 || (c.libelleB?.length ?? 0) > 30,
+  )
+  if (libelleTropLong) {
+    return {
+      ok: false,
+      error: `Les libellés du champ « ${libelleTropLong.cle} » dépassent 30 caractères.`,
+    }
+  }
   const sansOption = cleaned.find(
     (c) => c.type === 'liste' && (c.options ?? []).length === 0,
   )
@@ -159,9 +263,37 @@ export function prepareChamps(
   return { ok: true, champs: cleaned }
 }
 
+/**
+ * Met en forme une double référence, SANS le nom du champ — comme les cinq
+ * autres types, qui rendent la valeur seule (une date rend la date, pas
+ * « Date de pose : … »). L'écran affiche le nom à gauche : la fiche lit donc
+ * « ZDM │ 3/12 » et « Bus │ 2 / adresse 45 ».
+ *
+ * UNE règle, deux résultats, commandés par le 2d libellé :
+ *   - vide    → forme compacte, « 3/12 » ;
+ *   - rempli  → le mot apparaît, « 2 / adresse 45 ».
+ *
+ * Une seule part renseignée reste lisible (« 3/— ») : mieux vaut montrer le
+ * trou que de faire disparaître la saisie.
+ */
+function formatDoubleReference(champ: Champ, v: DoubleReference): string {
+  const a = v.a.trim()
+  const b = v.b.trim()
+  if (a === '' && b === '') return '—'
+  const gauche = a === '' ? '—' : a
+  const droite = b === '' ? '—' : b
+  const libelleB = champ.libelleB?.trim() ?? ''
+  return libelleB === ''
+    ? `${gauche}/${droite}`
+    : `${gauche} / ${libelleB} ${droite}`
+}
+
 /** Met en forme une valeur de champ pour la LECTURE selon son type. */
 export function formatChampValeur(champ: Champ, valeur: ChampValeur): string {
   if (valeur === null || valeur === '') return '—'
+  // Branché AVANT tout le reste : une double référence est un objet, que le
+  // `typeof valeur === 'number' ? … : valeur` plus bas rendrait tel quel.
+  if (estDoubleReference(valeur)) return formatDoubleReference(champ, valeur)
   if (champ.type === 'oui-non') return valeur ? 'Oui' : 'Non'
   const txt =
     typeof valeur === 'number'
@@ -248,6 +380,28 @@ export function resoudreValeurTexte(
         }
       }
       return { ok: true, valeur: iso }
+    }
+    case 'double-reference': {
+      // Format d'import ALIGNÉ sur l'affichage compact : « 3/12 ». C'est ce que
+      // l'utilisateur lit à l'écran, donc ce qu'il recopiera dans son tableur.
+      // Découpe sur le PREMIER séparateur seulement : une 2de part contenant
+      // elle-même un « / » reste intacte plutôt que d'être tronquée en silence.
+      const i = v.indexOf('/')
+      if (i === -1) {
+        return {
+          ok: false,
+          erreur: `« ${champ.cle} » : « ${v} » doit s'écrire en deux parties séparées par « / » (ex. 3/12).`,
+        }
+      }
+      const partA = v.slice(0, i).trim()
+      const partB = v.slice(i + 1).trim()
+      if (partA === '' || partB === '') {
+        return {
+          ok: false,
+          erreur: `« ${champ.cle} » : « ${v} » doit renseigner les DEUX parties (ex. 3/12).`,
+        }
+      }
+      return { ok: true, valeur: { a: partA, b: partB } }
     }
     case 'texte':
     default:

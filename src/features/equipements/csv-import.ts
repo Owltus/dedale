@@ -1,5 +1,6 @@
 import { parseCsvIndexe } from '@/lib/csv'
 import {
+  champValeurEnTexte,
   parseDateFrVersIso,
   resoudreValeurTexte,
   type Champ,
@@ -28,7 +29,7 @@ function ligneChamp(c: Champ): string {
   const obligatoire = c.requis ? 'obligatoire' : 'optionnel'
   const defaut =
     c.defaut !== null && c.defaut !== ''
-      ? ` (défaut : « ${String(c.defaut)} »)`
+      ? ` (défaut : « ${champValeurEnTexte(c.defaut)} »)`
       : ''
   switch (c.type) {
     case 'liste':
@@ -39,6 +40,8 @@ function ligneChamp(c: Champ): string {
       return `- ${c.cle} — ${obligatoire}${defaut}. Écris exactement « Oui » ou « Non ».`
     case 'date':
       return `- ${c.cle} — ${obligatoire}${defaut}. Format JJ/MM/AAAA.`
+    case 'double-reference':
+      return `- ${c.cle} — ${obligatoire}${defaut}. DEUX parties séparées par « / », dans cet ordre : ${c.libelleA ?? '1re partie'} puis ${c.libelleB ?? '2de partie'} (ex. « 3/12 »). Les deux sont exigées.`
     case 'texte':
     default:
       return `- ${c.cle} — ${obligatoire}${defaut}. Texte libre.`
@@ -201,7 +204,9 @@ function resoudreDoublon(
   const memeValeur =
     champPrincipalCle && principalCsv !== undefined && principalCsv !== null
       ? memeLocal.find(
-          (e) => norm(String(e.principal ?? '')) === norm(String(principalCsv)),
+          (e) =>
+            norm(champValeurEnTexte(e.principal ?? null)) ===
+            norm(champValeurEnTexte(principalCsv)),
         )
       : undefined
   if (memeValeur) {

@@ -10,6 +10,7 @@ import {
   resoudreValeurTexte,
   serializeChamps,
   type Champ,
+  champValeurEnTexte,
 } from './champs'
 
 // Fabrique un champ valide (au sens de champSchema) qu'on personnalise ensuite.
@@ -24,16 +25,24 @@ function champ(partiel: Partial<Champ> = {}): Champ {
 }
 
 describe('CHAMP_TYPES', () => {
-  it('expose les 5 types attendus avec leur libellé', () => {
+  it('expose les 6 types attendus avec leur libellé', () => {
+    // La LISTE est le contrat : ajouter un type doit casser ce test, parce que
+    // `champSchema` rejette tout type inconnu et que `parseChamps` JETTE alors la
+    // caractéristique EN SILENCE. Un front en retard d'une version perdrait donc
+    // les champs d'un type qu'il ne connaît pas — sans erreur ni trace.
     expect(CHAMP_TYPES.map((t) => t.value)).toEqual([
       'texte',
       'nombre',
       'date',
       'oui-non',
       'liste',
+      'double-reference',
     ])
     expect(CHAMP_TYPES.find((t) => t.value === 'oui-non')?.label).toBe(
       'Oui / Non',
+    )
+    expect(CHAMP_TYPES.find((t) => t.value === 'double-reference')?.label).toBe(
+      'Double référence',
     )
   })
 })
@@ -589,7 +598,9 @@ describe('resoudreValeurTexte — totalité et invariants', () => {
         }
         if (c.type === 'oui-non') expect(typeof res.valeur).toBe('boolean')
         if (c.type === 'date')
-          expect(/^\d{4}-\d{2}-\d{2}$/.test(String(res.valeur))).toBe(true)
+          expect(
+            /^\d{4}-\d{2}-\d{2}$/.test(champValeurEnTexte(res.valeur)),
+          ).toBe(true)
         if (c.type === 'liste')
           expect(c.options ?? []).toContain(res.valeur as string)
         if (c.type === 'texte') expect(res.valeur).toBe(s.trim())
@@ -788,5 +799,186 @@ describe('resoudreValeurTexte — nombres « à la française »', () => {
       ),
       { numRuns: 200, seed: 42 },
     )
+  })
+})
+// ─────────────────────────────────────────────────────────────────────────────
+// Double référence : un repère qui n'a de sens qu'entier (ZDM zone/point, bus/
+// adresse). Deux valeurs, jamais l'une sans l'autre.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function zdm(partiel: Partial<Champ> = {}): Champ {
+  return champ({
+    cle: 'ZDM',
+    type: 'double-reference',
+    libelleA: 'Zone',
+    ...partiel,
+  })
+}
+
+describe('double référence — lecture', () => {
+  // LA règle, celle que le PO a choisie : le 2d libellé commande la forme.
+  it('sans 2d libellé, la forme est compacte', () => {
+    expect(formatChampValeur(zdm(), { a: '3', b: '12' })).toBe('3/12')
+  })
+
+  it('avec un 2d libellé, le mot apparaît dans la valeur', () => {
+    expect(
+      formatChampValeur(
+        zdm({ cle: 'Bus', libelleA: 'Bus', libelleB: 'adresse' }),
+        {
+          a: '2',
+          b: '45',
+        },
+      ),
+    ).toBe('2 / adresse 45')
+  })
+
+  // Le nom du champ n'est PAS préfixé : les cinq autres types rendent la valeur
+  // seule (une date rend la date, pas « Date de pose : … »), et l'écran affiche
+  // déjà le nom à gauche. Préfixer ici donnerait « ZDM │ ZDM 3/12 ».
+  it('ne préfixe jamais le nom du champ', () => {
+    expect(formatChampValeur(zdm(), { a: '3', b: '12' })).not.toContain('ZDM')
+  })
+
+  it('les deux parties vides valent le tiret, comme tout champ non renseigné', () => {
+    expect(formatChampValeur(zdm(), { a: '', b: '' })).toBe('—')
+    expect(formatChampValeur(zdm(), null)).toBe('—')
+  })
+
+  // Montrer le trou plutôt que de faire disparaître la saisie : une valeur à
+  // moitié remplie doit se voir, sinon l'utilisateur croit n'avoir rien saisi.
+  it('une seule partie renseignée reste lisible', () => {
+    expect(formatChampValeur(zdm(), { a: '3', b: '' })).toBe('3/—')
+    expect(formatChampValeur(zdm(), { a: '', b: '12' })).toBe('—/12')
+  })
+
+  it('garde les repères non numériques (zone A, 01 à zéro de tête)', () => {
+    expect(formatChampValeur(zdm(), { a: 'A', b: '01' })).toBe('A/01')
+  })
+})
+
+describe('double référence — import CSV', () => {
+  const r = (brut: string, partiel: Partial<Champ> = {}) =>
+    resoudreValeurTexte(zdm(partiel), brut)
+
+  it('lit la forme compacte, celle qu on lit à l écran', () => {
+    const res = r('3/12')
+    expect(res.ok).toBe(true)
+    expect(res.ok && res.valeur).toEqual({ a: '3', b: '12' })
+  })
+
+  it('tolère les espaces autour des parties', () => {
+    const res = r('  3 / 12  ')
+    expect(res.ok && res.valeur).toEqual({ a: '3', b: '12' })
+  })
+
+  it('refuse une cellule sans séparateur, en le disant', () => {
+    const res = r('312')
+    expect(res.ok).toBe(false)
+    expect(!res.ok && res.erreur).toContain('deux parties')
+  })
+
+  it('refuse une moitié vide — les deux parties sont exigées', () => {
+    expect(r('3/').ok).toBe(false)
+    expect(r('/12').ok).toBe(false)
+  })
+
+  // Découpe sur le PREMIER séparateur : une 2de part qui en contient un reste
+  // entière plutôt que d'être tronquée en silence.
+  it('ne tronque pas une 2de partie contenant elle-même un séparateur', () => {
+    const res = r('3/12/B')
+    expect(res.ok && res.valeur).toEqual({ a: '3', b: '12/B' })
+  })
+
+  // ALLER-RETOUR : ce qui s'affiche doit se relire. Sans cette propriété, un
+  // export puis un réimport perdrait ou déformerait la valeur.
+  it('tout couple non vide survit à un aller-retour affichage vers import', () => {
+    fc.assert(
+      fc.property(
+        fc.string({ minLength: 1 }).filter((s) => s.trim() !== ''),
+        fc.string({ minLength: 1 }).filter((s) => s.trim() !== ''),
+        (a, b) => {
+          const source = { a: a.trim(), b: b.trim() }
+          // On exclut le séparateur dans la 1re part : il déplacerait la coupure,
+          // ce que la forme compacte ne prétend pas savoir encoder.
+          fc.pre(!source.a.includes('/'))
+          const texte = champValeurEnTexte(source)
+          const relu = resoudreValeurTexte(zdm(), texte)
+          expect(relu.ok).toBe(true)
+          expect(relu.ok && relu.valeur).toEqual(source)
+        },
+      ),
+      { numRuns: 1000 },
+    )
+  })
+
+  it('vide et facultatif rend la valeur par défaut', () => {
+    const res = r('', { defaut: { a: '1', b: '1' } })
+    expect(res.ok && res.valeur).toEqual({ a: '1', b: '1' })
+  })
+
+  it('vide et obligatoire est refusé', () => {
+    expect(r('', { requis: true }).ok).toBe(false)
+  })
+})
+
+describe('double référence — sérialisation en texte', () => {
+  // Le piège ouvert par l'élargissement du type : String() sur un objet donne
+  // « [object Object] ». Tout code d'échange doit passer par champValeurEnTexte.
+  it('ne rend jamais la stringification par défaut d un objet', () => {
+    expect(champValeurEnTexte({ a: '3', b: '12' })).toBe('3/12')
+    expect(champValeurEnTexte({ a: '3', b: '12' })).not.toContain('object')
+  })
+
+  it('laisse les autres types inchangés', () => {
+    expect(champValeurEnTexte('abc')).toBe('abc')
+    expect(champValeurEnTexte(42)).toBe('42')
+    expect(champValeurEnTexte(true)).toBe('true')
+    expect(champValeurEnTexte(null)).toBe('')
+  })
+})
+
+describe('double référence — gabarit', () => {
+  it('exige de nommer la 1re partie', () => {
+    const res = prepareChamps([zdm({ libelleA: undefined })])
+    expect(res.ok).toBe(false)
+    expect(!res.ok && res.error).toContain('première partie')
+  })
+
+  it('accepte une 2de partie vide — c est le cas forme compacte', () => {
+    expect(prepareChamps([zdm()]).ok).toBe(true)
+  })
+
+  // Même discipline que `unite` et `options` : un libellé laissé là après un
+  // changement de type réapparaîtrait si on revenait au type double référence.
+  it('efface les libellés quand le champ change de type', () => {
+    const res = prepareChamps([
+      champ({ type: 'texte', libelleA: 'Zone', libelleB: 'Point' }),
+    ])
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      expect(res.champs[0]?.libelleA).toBeUndefined()
+      expect(res.champs[0]?.libelleB).toBeUndefined()
+    }
+  })
+
+  it('refuse un libellé trop long (borne alignée sur le schéma)', () => {
+    const res = prepareChamps([zdm({ libelleA: 'x'.repeat(31) })])
+    expect(res.ok).toBe(false)
+  })
+
+  // Un champ qui dépasse les bornes du schéma s'écrirait puis serait JETÉ en
+  // silence par parseChamps : la caractéristique disparaîtrait sans erreur.
+  it('tout champ accepté par prepareChamps se relit sans perte', () => {
+    const res = prepareChamps([
+      zdm({ libelleB: 'Point', defaut: { a: '1', b: '2' } }),
+    ])
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      const relus = parseChamps(serializeChamps(res.champs))
+      expect(relus).toHaveLength(1)
+      expect(relus[0]?.type).toBe('double-reference')
+      expect(relus[0]?.defaut).toEqual({ a: '1', b: '2' })
+    }
   })
 })

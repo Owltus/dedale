@@ -679,3 +679,109 @@ describe('standalone-fields', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 })
+describe('ChampValeurInput — double référence', () => {
+  const zdm = (partiel: Partial<Champ> = {}) =>
+    champ({
+      cle: 'ZDM',
+      type: 'double-reference',
+      libelleA: 'Zone',
+      ...partiel,
+    })
+
+  it('rend DEUX cases, nommées par les libellés du gabarit', () => {
+    render(<HoteChamp definition={zdm({ libelleB: 'Point' })} />)
+    expect(screen.getByLabelText('ZDM — Zone')).toBeInTheDocument()
+    expect(screen.getByLabelText('ZDM — Point')).toBeInTheDocument()
+  })
+
+  // Le libellé VISIBLE reste court (« Zone »), mais le nom ACCESSIBLE reprend
+  // celui du champ : « Zone » seul ne dit pas de quelle caractéristique il
+  // s'agit quand la fiche en aligne plusieurs. Les deux se distinguent par
+  // `getByRole(..., { name })`, qui calcule le nom accessible et non le texte
+  // de l'étiquette.
+  it('le nom accessible de chaque case reprend celui du champ', () => {
+    render(<HoteChamp definition={zdm({ libelleB: 'Point' })} />)
+    const cases = screen.getAllByRole('textbox')
+    expect(cases).toHaveLength(2)
+    expect(
+      screen.getByRole('textbox', { name: 'ZDM — Zone' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('textbox', { name: 'ZDM — Point' }),
+    ).toBeInTheDocument()
+    // Et les deux noms DIFFÈRENT : c'est ce qui manquait quand la 2de case
+    // retombait sur le nom du groupe.
+    expect(
+      screen.queryByRole('textbox', { name: 'ZDM' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('remplir les deux cases produit le couple attendu', async () => {
+    const onChange = vi.fn()
+    const u = userEvent.setup()
+    render(
+      <HoteChamp definition={zdm({ libelleB: 'Point' })} onChange={onChange} />,
+    )
+
+    await u.type(screen.getByLabelText('ZDM — Zone'), '3')
+    await u.type(screen.getByLabelText('ZDM — Point'), '12')
+
+    expect(onChange).toHaveBeenLastCalledWith({ a: '3', b: '12' })
+  })
+
+  // Régression : modifier une part ne doit pas effacer l'autre. Un `onChange`
+  // qui reconstruirait l'objet à partir de rien viderait la case voisine à
+  // chaque frappe — le genre de bug qu'on ne voit qu'en saisissant vraiment.
+  it('modifier une partie laisse l autre intacte', async () => {
+    const onChange = vi.fn()
+    const u = userEvent.setup()
+    render(
+      <HoteChamp
+        definition={zdm({ libelleB: 'Point' })}
+        initial={{ a: '3', b: '12' }}
+        onChange={onChange}
+      />,
+    )
+
+    await u.type(screen.getByLabelText('ZDM — Point'), '9')
+
+    expect(onChange).toHaveBeenLastCalledWith({ a: '3', b: '129' })
+  })
+
+  it('affiche une valeur déjà saisie dans les deux cases', () => {
+    render(
+      <HoteChamp
+        definition={zdm({ libelleB: 'Point' })}
+        initial={{ a: 'A', b: '01' }}
+      />,
+    )
+    expect(screen.getByLabelText('ZDM — Zone')).toHaveValue('A')
+    expect(screen.getByLabelText('ZDM — Point')).toHaveValue('01')
+  })
+
+  // Une valeur d'un AUTRE type (champ dont le type a changé après coup) ne doit
+  // pas faire tomber l'écran : on repart de deux cases vides.
+  it('ne tombe pas sur une valeur qui n est pas un couple', () => {
+    render(
+      <HoteChamp
+        definition={zdm({ libelleB: 'Point' })}
+        initial="ancien texte"
+      />,
+    )
+    expect(screen.getByLabelText('ZDM — Zone')).toHaveValue('')
+    expect(screen.getByLabelText('ZDM — Point')).toHaveValue('')
+  })
+
+  // Sans 2d libellé, la case est nommée par sa POSITION : lui donner « ZDM »,
+  // le nom du groupe, rendrait l'annonce ambiguë au lecteur d'écran — c'est
+  // ce que ce test a fait apparaître.
+  it('sans 2d libellé, la seconde case est nommée par sa position', async () => {
+    const onChange = vi.fn()
+    const u = userEvent.setup()
+    render(<HoteChamp definition={zdm()} onChange={onChange} />)
+
+    await u.type(screen.getByLabelText('ZDM — 2de partie'), '12')
+
+    expect(onChange).toHaveBeenLastCalledWith({ a: '', b: '12' })
+  })
+})

@@ -386,8 +386,8 @@ describe('parseImportCsv (modèles d’équipements) — validation', () => {
       ok: false,
       ligne: 2,
       erreurs: [
-        'Type « Machin » inconnu (valeurs possibles : Texte, Nombre, Date, Oui / Non, Liste).',
-        "Valeurs possibles ne s'applique qu'au type « Liste ».",
+        'Type « Machin » inconnu (valeurs possibles : Texte, Nombre, Date, Oui / Non, Liste, Double référence).',
+        "Valeurs possibles ne s'applique qu'aux types « Liste » et « Double référence ».",
         "Unité ne s'applique qu'au type « Nombre ».",
       ],
     })
@@ -721,12 +721,15 @@ describe('buildImportPrompt (modèles d’équipements)', () => {
     }
     // La liste CLOSE des types, dans l'ordre et l'orthographe que `resoudreType` accepte.
     expect(puce('Type')).toBe(
-      '- Type — obligatoire dès que Caractéristique est rempli. UNIQUEMENT une de ces valeurs : « Texte », « Nombre », « Date », « Oui / Non », « Liste ».',
+      '- Type — obligatoire dès que Caractéristique est rempli. UNIQUEMENT une de ces valeurs : « Texte », « Nombre », « Date », « Oui / Non », « Liste », « Double référence ».',
     )
     expect(puce('Caractéristique')).toContain('60 caractères maximum')
     expect(puce('Unité')).toContain('UNIQUEMENT si Type vaut « Nombre »')
     expect(puce('Valeurs possibles')).toContain('barre verticale ( | )')
     expect(puce('Valeurs possibles')).toContain('Gaz | Fioul | Électrique')
+    expect(puce('Valeurs possibles')).toContain('Double référence')
+    expect(puce('Valeurs possibles')).toContain('Zone | Point')
+    expect(puce('Valeur par défaut')).toContain('3/12')
     expect(puce('Obligatoire')).toContain('« Oui »')
     expect(puce('Valeur par défaut')).toContain('JJ/MM/AAAA')
   })
@@ -794,5 +797,82 @@ describe('buildImportPrompt (modèles d’équipements)', () => {
       '- Vase (caractéristiques déjà définies : Volume, Pression)',
     ])
     expect(lignes[i + 4]).toBe('')
+  })
+})
+describe('parseImportCsv (modèles) — double référence', () => {
+  // La colonne « Valeurs possibles » sert DEUX types : les choix d'une Liste, et
+  // les noms des deux parties d'une Double référence. Réemployée plutôt que
+  // doublée, pour ne pas élargir le CSV de deux colonnes vides partout.
+  it('nomme les deux parties depuis « Valeurs possibles »', () => {
+    const r = parseImportCsv(
+      [
+        ENTETE,
+        'Centrale incendie;;ZDM;Double référence;;Zone|Point;Oui;3/12',
+      ].join('\n'),
+    )
+    expect(r.lignes[0]?.ok).toBe(true)
+    const ligne = r.lignes[0]
+    if (ligne?.ok) {
+      const c = ligne.champ
+      expect(c?.type).toBe('double-reference')
+      expect(c?.libelleA).toBe('Zone')
+      expect(c?.libelleB).toBe('Point')
+      expect(c?.requis).toBe(true)
+      expect(c?.defaut).toEqual({ a: '3', b: '12' })
+    }
+  })
+
+  // Le 2d nom est FACULTATIF : c'est lui qui commande la forme d'affichage
+  // (« 3/12 » sans lui, « 2 / adresse 45 » avec).
+  it('accepte un seul nom de partie', () => {
+    const r = parseImportCsv(
+      [ENTETE, 'Centrale incendie;;ZDM;Double référence;;Zone;Non;'].join('\n'),
+    )
+    const ligne = r.lignes[0]
+    expect(ligne?.ok).toBe(true)
+    if (ligne?.ok) {
+      expect(ligne.champ?.libelleA).toBe('Zone')
+      expect(ligne.champ?.libelleB).toBeUndefined()
+    }
+  })
+
+  it('refuse une double référence dont les parties ne sont pas nommées', () => {
+    const r = parseImportCsv(
+      [ENTETE, 'Centrale incendie;;ZDM;Double référence;;;Non;'].join('\n'),
+    )
+    const ligne = r.lignes[0]
+    expect(ligne?.ok).toBe(false)
+    if (ligne && !ligne.ok) {
+      expect(ligne.erreurs.join(' ')).toContain('Double référence')
+    }
+  })
+
+  it('refuse plus de deux parties', () => {
+    const r = parseImportCsv(
+      [ENTETE, 'Centrale incendie;;ZDM;Double référence;;A|B|C;Non;'].join(
+        '\n',
+      ),
+    )
+    const ligne = r.lignes[0]
+    expect(ligne?.ok).toBe(false)
+    if (ligne && !ligne.ok) {
+      expect(ligne.erreurs.join(' ')).toContain('DEUX parties au plus')
+    }
+  })
+
+  // Une valeur par défaut mal écrite doit être refusée ICI, à la définition du
+  // gabarit, et non découverte plus tard à la saisie d'un équipement.
+  it('refuse une valeur par défaut qui n est pas un couple', () => {
+    const r = parseImportCsv(
+      [
+        ENTETE,
+        'Centrale incendie;;ZDM;Double référence;;Zone|Point;Non;312',
+      ].join('\n'),
+    )
+    const ligne = r.lignes[0]
+    expect(ligne?.ok).toBe(false)
+    if (ligne && !ligne.ok) {
+      expect(ligne.erreurs.join(' ')).toContain('Valeur par défaut')
+    }
   })
 })

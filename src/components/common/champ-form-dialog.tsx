@@ -1,5 +1,10 @@
 import { useState } from 'react'
-import { CHAMP_TYPES, type Champ, type ChampType } from '@/lib/champs'
+import {
+  CHAMP_TYPES,
+  formatChampValeur,
+  type Champ,
+  type ChampType,
+} from '@/lib/champs'
 import { OptionsEditor } from '@/components/common/options-editor'
 import { FormDialog } from '@/components/common/form-dialog'
 import {
@@ -11,6 +16,20 @@ import { ChampValeurInput } from '@/components/common/champ-valeur-input'
 
 function champVide(): Champ {
   return { cle: '', type: 'texte', requis: false, defaut: null }
+}
+
+/**
+ * Aperçu EN DIRECT de ce que la fiche affichera, avec deux valeurs d'exemple.
+ *
+ * C'est ce qui rend le 2d libellé compréhensible sans notice : on le remplit, la
+ * phrase change sous les yeux. Sans cet aperçu, la règle « rempli → il apparaît,
+ * vide → forme compacte » devrait s'expliquer par écrit, et se redécouvrir à
+ * chaque création.
+ */
+function apercuDoubleReference(champ: Champ): string {
+  const nom = champ.cle.trim() === '' ? 'Caractéristique' : champ.cle.trim()
+  const valeur = formatChampValeur(champ, { a: '3', b: '12' })
+  return `Un équipement affichera : ${nom} ${valeur}`
 }
 
 /**
@@ -69,6 +88,26 @@ export function ChampFormDialog({
       (value.options ?? []).filter((o) => o.trim() !== '').length === 0
     ) {
       setError('Une liste doit avoir au moins une option.')
+      return
+    }
+    // Le 1er libellé nomme la première case de saisie : sans lui, l'utilisateur
+    // voit deux cases nues. Le 2d reste facultatif — c'est lui qui décide de la
+    // forme d'affichage (« 3/12 » ou « 2 / adresse 45 »).
+    if (
+      value.type === 'double-reference' &&
+      (value.libelleA?.trim() ?? '') === ''
+    ) {
+      setError(
+        'Nommez la première partie (ex. « Zone », « Bus ») : c’est l’étiquette de la première case.',
+      )
+      return
+    }
+    if (
+      value.type === 'double-reference' &&
+      ((value.libelleA?.trim().length ?? 0) > 30 ||
+        (value.libelleB?.trim().length ?? 0) > 30)
+    ) {
+      setError('Les libellés des deux parties sont limités à 30 caractères.')
       return
     }
     setError(undefined)
@@ -143,6 +182,32 @@ export function ChampFormDialog({
           value={value.options ?? []}
           onChange={(options) => set({ options })}
         />
+      )}
+      {value.type === 'double-reference' && (
+        <>
+          {/* Deux colonnes PLEINES, dans l'ordre où les cases apparaîtront à la
+              saisie : ce qu'on paramètre ici a la forme de ce qu'on obtiendra. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <StandaloneText
+              label="Nom de la 1re partie"
+              placeholder="ex. Zone, Bus"
+              value={value.libelleA ?? ''}
+              onChange={(v) => set({ libelleA: v || undefined })}
+              maxLength={30}
+              required
+            />
+            <StandaloneText
+              label="Nom de la 2de partie"
+              placeholder="ex. Point, adresse"
+              value={value.libelleB ?? ''}
+              onChange={(v) => set({ libelleB: v || undefined })}
+              maxLength={30}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {apercuDoubleReference(value)}
+          </p>
+        </>
       )}
       <ChampValeurInput
         champ={{ ...value, cle: 'Valeur par défaut', requis: false }}

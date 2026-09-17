@@ -1,4 +1,4 @@
-import type { ChampValeur } from '@/lib/champs'
+import { champValeurEnTexte, type ChampValeur } from '@/lib/champs'
 
 /**
  * Colonnes d'une OPÉRATION dans un CSV d'import, partagées par les deux
@@ -259,5 +259,7 @@ export function resumeOperation(
 export function texteValeur(v: ChampValeur): string {
   if (v === null) return ''
   if (typeof v === 'boolean') return v ? 'Oui' : 'Non'
-  return String(v)
+  // Une double référence est un OBJET : `String()` en ferait « [object Object] ».
+  // `champValeurEnTexte` rend la forme compacte « 3/12 », relisible à l'import.
+  return champValeurEnTexte(v)
 }

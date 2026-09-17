@@ -1,7 +1,7 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { formaterCsv } from '@/lib/csv'
-import type { Champ } from '@/lib/champs'
+import { champValeurEnTexte, type Champ } from '@/lib/champs'
 import {
   buildImportPrompt,
   parseImportCsv,
@@ -96,7 +96,10 @@ const empreinte = (l: CsvImportRowOk) => ({
   dateMiseEnService: l.dateMiseEnService,
   dateFinGarantie: l.dateFinGarantie,
   champs: [...l.champs]
-    .map((c) => `${c.cle}=${String(c.valeur)}`)
+    // `champValeurEnTexte` et non `String()` : une double référence est un objet,
+    // que `String()` réduirait à « [object Object] » — le test comparerait alors
+    // deux lignes indiscernables et passerait au vert à tort.
+    .map((c) => `${c.cle}=${champValeurEnTexte(c.valeur ?? null)}`)
     .sort((a, b) => a.localeCompare(b)),
 })
 

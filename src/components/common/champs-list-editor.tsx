@@ -9,13 +9,21 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { listStack } from '@/lib/responsive'
 
-// Sous-titre lisible d'un champ : type, unité (si nombre), valeur par défaut.
+// Sous-titre lisible d'un champ : type, unité (si nombre), parties (si double
+// référence), valeur par défaut.
 // Exporté : la fiche d'un modèle d'équipement en affiche la même synthèse.
 export function champResume(c: Champ): string {
   const parts: string[] = [
     CHAMP_TYPES.find((t) => t.value === c.type)?.label ?? c.type,
   ]
   if (c.type === 'nombre' && c.unite) parts.push(c.unite)
+  // Les deux libellés sont ce qui DISTINGUE deux doubles références entre elles
+  // (« Zone / Point » vs « Bus / adresse ») : sans eux, la liste afficherait
+  // deux lignes identiques et il faudrait ouvrir chacune pour savoir laquelle
+  // est laquelle.
+  if (c.type === 'double-reference' && c.libelleA) {
+    parts.push(c.libelleB ? `${c.libelleA} / ${c.libelleB}` : c.libelleA)
+  }
   if (c.defaut !== null && c.defaut !== '') {
     parts.push(`défaut : ${formatChampValeur(c, c.defaut)}`)
   }

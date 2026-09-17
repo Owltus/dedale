@@ -1,5 +1,10 @@
 import { useId } from 'react'
-import type { Champ, ChampValeur } from '@/lib/champs'
+import {
+  estDoubleReference,
+  type Champ,
+  type ChampValeur,
+  type DoubleReference,
+} from '@/lib/champs'
 import { cn } from '@/lib/utils'
 import { DateField } from '@/components/ui/date-field'
 import { Input } from '@/components/ui/input'
@@ -155,6 +160,80 @@ export function ChampValeurInput({
           />
         </Enveloppe>
       )
+
+    case 'double-reference': {
+      // Deux cases CÔTE À CÔTE, séparées par le « / » qu'on retrouvera à la
+      // lecture : la saisie ressemble au résultat. Les deux parts se remplissent
+      // d'un geste, sans quitter la ligne.
+      const v: DoubleReference = estDoubleReference(value)
+        ? value
+        : { a: '', b: '' }
+      const libelleA = champ.libelleA?.trim() ?? ''
+      const libelleB = champ.libelleB?.trim() ?? ''
+      // `aria-label` COMPLET sur chaque case : au lecteur d'écran, « Zone » seul
+      // ne dit pas de quelle caractéristique il s'agit quand la fiche en aligne
+      // plusieurs. Le libellé visible, lui, reste court.
+      //
+      // Quand une part n'est pas nommée, on la désigne par sa POSITION plutôt
+      // que de retomber sur le nom du champ : la case porterait alors le même
+      // nom que le groupe, et le lecteur d'écran annoncerait deux fois « ZDM »
+      // sans dire laquelle est laquelle.
+      const nomCase = (libelle: string, position: string) =>
+        `${label} — ${libelle === '' ? position : libelle}`
+      return (
+        <Enveloppe
+          fieldId={`${fieldId}-a`}
+          label={label}
+          required={champ.requis}
+          error={error}
+        >
+          <div className="flex items-end gap-2">
+            <div className="grid min-w-0 flex-1 gap-1">
+              {libelleA !== '' && (
+                <Label
+                  htmlFor={`${fieldId}-a`}
+                  className="text-xs font-normal text-muted-foreground"
+                >
+                  {libelleA}
+                </Label>
+              )}
+              <Input
+                id={`${fieldId}-a`}
+                value={v.a}
+                onChange={(e) => onChange({ ...v, a: e.target.value })}
+                aria-label={nomCase(libelleA, '1re partie')}
+                aria-invalid={error != null && error !== ''}
+              />
+            </div>
+            {/* Séparateur DÉCORATIF : l'information est déjà portée par les deux
+                libellés et les aria-label — le lecteur d'écran n'a pas à l'ânonner. */}
+            <span
+              aria-hidden="true"
+              className="pb-2 text-sm text-muted-foreground"
+            >
+              /
+            </span>
+            <div className="grid min-w-0 flex-1 gap-1">
+              {libelleB !== '' && (
+                <Label
+                  htmlFor={`${fieldId}-b`}
+                  className="text-xs font-normal text-muted-foreground"
+                >
+                  {libelleB}
+                </Label>
+              )}
+              <Input
+                id={`${fieldId}-b`}
+                value={v.b}
+                onChange={(e) => onChange({ ...v, b: e.target.value })}
+                aria-label={nomCase(libelleB, '2de partie')}
+                aria-invalid={error != null && error !== ''}
+              />
+            </div>
+          </div>
+        </Enveloppe>
+      )
+    }
 
     case 'liste':
       return (
