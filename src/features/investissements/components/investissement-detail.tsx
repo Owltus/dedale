@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Ban, Paperclip, Pencil, RotateCcw } from 'lucide-react'
+import { Ban, CircleSlash, Paperclip, Pencil, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { statutsCapexQueries } from '@/features/investissements/queries'
 import {
   etapesInvestissement,
+  ID_ANNULE,
   ID_CLOTURE,
   ID_REFUSE,
+  nomStatutCapex,
 } from '@/features/investissements/etat'
 import { useChangeStatutCapex } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
@@ -16,7 +19,7 @@ import { MIME_PDF } from '@/features/documents/upload'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
-import { formatDate } from '@/lib/date'
+import { formatDate, isoLocale } from '@/lib/date'
 import { useAuth } from '@/auth'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
@@ -27,6 +30,7 @@ import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { MotifDialog } from '@/components/common/motif-dialog'
 import { DetailNoteCard } from '@/components/common/detail-note-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
@@ -47,6 +51,10 @@ export function InvestissementDetail({
   const cloture = useEntityDialog<Investissement>()
   const { session } = useAuth()
   const confirmAction = useConfirmAction<{ statutId: number }>()
+  // Quelle issue défavorable on est en train de poser (121) : le même dialogue
+  // de motif sert pour « Refuser » et pour « Annuler », seul le vocabulaire
+  // change. `null` = fermé.
+  const [arret, setArret] = useState<number | null>(null)
   // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
   const upload = useUploadDrop({ enabled: canManage })
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
@@ -56,10 +64,16 @@ export function InvestissementDetail({
 
   const { label, depassement } = ecartCapex(inv)
   const ecartLabel = label ?? '—'
-  // « Refuser » (statut hors parcours de la frise) : proposé en top bar tant que
-  // l'investissement n'est pas déjà refusé. « Réactiver » fait l'inverse.
+  // Deux issues défavorables, hors parcours de la frise (121) :
+  //  - « Refuser »  = l'arbitrage a dit non, tôt dans le cycle ;
+  //  - « Annuler »  = le projet est abandonné en cours de route, à tout moment.
+  // Chacune est proposée tant qu'on n'y est pas déjà, et les deux exigent un
+  // motif (la base le refuse sinon). « Réactiver » ramène au départ.
+  const estArrete =
+    inv.statut_capex_id === ID_REFUSE || inv.statut_capex_id === ID_ANNULE
   const canRefuser = canManage && inv.statut_capex_id !== ID_REFUSE
-  const canReactiver = canManage && inv.statut_capex_id === ID_REFUSE
+  const canAnnuler = canManage && inv.statut_capex_id !== ID_ANNULE
+  const canReactiver = canManage && estArrete
 
   function changeStatut(statutId: number) {
     if (statutId === inv.statut_capex_id) return
@@ -68,6 +82,13 @@ export function InvestissementDetail({
     // clos — la mutation efface alors date et bilan.
     if (statutId === ID_CLOTURE) {
       cloture.openEdit(inv)
+      return
+    }
+    // Refuser et annuler exigent un motif : on passe par le dialogue, jamais en
+    // direct. Vaut aussi pour un clic sur la frise, pas seulement pour les
+    // boutons — sinon la base renverrait un 23514 illisible.
+    if (statutId === ID_REFUSE || statutId === ID_ANNULE) {
+      setArret(statutId)
       return
     }
     change.mutate(
@@ -112,19 +133,15 @@ export function InvestissementDetail({
                   icon={<Ban className="text-destructive" />}
                   label="Refuser l'investissement"
                   variant="outline"
-                  onClick={() =>
-                    confirmAction.demander({
-                      title: "Refuser l'investissement ?",
-                      description:
-                        "L'investissement passera au statut « Refusé ».",
-                      confirmLabel: 'Refuser',
-                      destructive: true,
-                      param: { statutId: ID_REFUSE },
-                      run: ({ statutId }) =>
-                        change.mutateAsync({ id: inv.id, statutId }),
-                      successMessage: 'Investissement refusé',
-                    })
-                  }
+                  onClick={() => setArret(ID_REFUSE)}
+                />
+              )}
+              {canAnnuler && (
+                <TooltipIconButton
+                  icon={<CircleSlash />}
+                  label="Annuler l'investissement"
+                  variant="outline"
+                  onClick={() => setArret(ID_ANNULE)}
                 />
               )}
               {canReactiver && (
@@ -276,6 +293,31 @@ export function InvestissementDetail({
             )
           }
         />
+
+        {/* MOTIF D'ARRÊT — à l'inverse du bilan, cette carte n'apparaît QUE si
+            le dossier est refusé ou annulé. Elle n'annonce rien d'un cycle
+            normal : afficher « Arrêt : néant » sur un investissement en cours
+            suggérerait qu'il lui manque quelque chose. Le libellé dit LAQUELLE
+            des deux issues, sinon le motif ne se comprendrait qu'à moitié. */}
+        {estArrete && (
+          <DetailNoteCard
+            label={`${nomStatutCapex(inv.statut_capex_id, noms)}${
+              inv.date_arret ? ` le ${formatDate(inv.date_arret)}` : ''
+            }`}
+            text={inv.motif_arret}
+            emptyText="Aucun motif."
+            action={
+              canManage && (
+                <TooltipIconButton
+                  icon={<Pencil />}
+                  label="Modifier le motif"
+                  variant="ghost"
+                  onClick={() => setArret(inv.statut_capex_id)}
+                />
+              )
+            }
+          />
+        )}
       </div>
 
       {/* DOCUMENTS — pleine largeur, hauteur naturelle et défilement de page :
@@ -345,6 +387,54 @@ export function InvestissementDetail({
           />
         </>
       )}
+
+      {/* UN dialogue pour les DEUX issues : seuls les mots changent. Deux
+          composants auraient dupliqué la même saisie, le même appel et la même
+          gestion d'erreur pour une nuance de vocabulaire. */}
+      <MotifDialog
+        open={arret !== null}
+        onOpenChange={(o) => !o && setArret(null)}
+        title={
+          arret === ID_ANNULE
+            ? "Annuler l'investissement ?"
+            : "Refuser l'investissement ?"
+        }
+        description={
+          arret === ID_ANNULE
+            ? 'Le dossier passera au statut « Annulé ». Dites pourquoi il est abandonné : c’est ce qui restera pour comprendre la décision plus tard.'
+            : 'Le dossier passera au statut « Refusé ». Dites pourquoi l’arbitrage l’a écarté : c’est ce qui restera pour comprendre la décision plus tard.'
+        }
+        label="Motif"
+        confirmLabel={arret === ID_ANNULE ? 'Annuler le dossier' : 'Refuser'}
+        destructive
+        pending={change.isPending}
+        onConfirm={(motif) => {
+          if (arret === null) return
+          const statutId = arret
+          change.mutate(
+            {
+              id: inv.id,
+              statutId,
+              motifArret: motif,
+              // Date NUE (`isoLocale`) et jamais `toISOString()` : c'est ce qui
+              // avait produit le 23514 des ordres de travail.
+              dateArret: isoLocale(new Date()),
+              arreteBy: session?.user.id,
+            },
+            {
+              onSuccess: () => {
+                setArret(null)
+                toast.success(
+                  statutId === ID_ANNULE
+                    ? 'Investissement annulé'
+                    : 'Investissement refusé',
+                )
+              },
+              onError: (e) => toast.error(writeErrorMessage(e)),
+            },
+          )
+        }}
+      />
 
       <ConfirmDialog {...confirmAction.dialogProps} />
     </PageContainer>

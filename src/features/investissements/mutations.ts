@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { investissementsQueries } from './queries'
-import { ID_CLOTURE } from './etat'
+import { ID_ANNULE, ID_CLOTURE, ID_REFUSE } from './etat'
 import { parseMontant } from './schemas'
 import type { InvestissementFormValues } from './schemas'
 
@@ -86,6 +86,11 @@ export function useUpdateInvestissement() {
  *
  * La date est une date NUE construite par l'appelant (`isoLocale`), jamais un
  * `toISOString()` : c'est ce qui avait produit le 23514 des ordres de travail.
+ *
+ * Passer à « Refusé » ou « Annulé » (121) suit exactement la même logique avec
+ * le trio motif / date / auteur : la base EXIGE un motif non vide dans ces deux
+ * statuts, et en repartir l'efface — sans quoi un investissement réactivé
+ * garderait la trace d'un arrêt qui n'a plus lieu d'être.
  */
 export function useChangeStatutCapex() {
   const qc = useQueryClient()
@@ -96,14 +101,22 @@ export function useChangeStatutCapex() {
       bilan,
       dateCloture,
       clotureBy,
+      motifArret,
+      dateArret,
+      arreteBy,
     }: {
       id: string
       statutId: number
       bilan?: string
       dateCloture?: string
       clotureBy?: string
+      /** Obligatoire pour « Refusé » et « Annulé » — la base le refuse sinon. */
+      motifArret?: string
+      dateArret?: string
+      arreteBy?: string
     }) => {
       const cloture = statutId === ID_CLOTURE
+      const arret = statutId === ID_REFUSE || statutId === ID_ANNULE
       const { data } = await supabase
         .from('investissements')
         .update({
@@ -111,6 +124,11 @@ export function useChangeStatutCapex() {
           bilan: cloture ? (bilan?.trim() ?? '') || null : null,
           date_cloture: cloture ? (dateCloture ?? null) : null,
           cloture_by: cloture ? (clotureBy ?? null) : null,
+          // Même règle que la clôture : on pose en entrant, on efface en
+          // sortant. Un dossier réactivé ne doit plus porter son motif d'arrêt.
+          motif_arret: arret ? (motifArret?.trim() ?? '') || null : null,
+          date_arret: arret ? (dateArret ?? null) : null,
+          arrete_by: arret ? (arreteBy ?? null) : null,
         })
         .eq('id', id)
         .select()

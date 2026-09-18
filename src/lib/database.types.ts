@@ -1696,10 +1696,12 @@ export type Database = {
       }
       investissements: {
         Row: {
+          arrete_by: string | null
           bilan: string | null
           cloture_by: string | null
           created_at: string
           created_by: string
+          date_arret: string | null
           date_cloture: string | null
           date_demande: string
           depense_reelle: number | null
@@ -1708,15 +1710,18 @@ export type Database = {
           libelle: string
           montant_demande: number | null
           montant_prevu: number | null
+          motif_arret: string | null
           site_id: string
           statut_capex_id: number
           updated_at: string
         }
         Insert: {
+          arrete_by?: string | null
           bilan?: string | null
           cloture_by?: string | null
           created_at?: string
           created_by: string
+          date_arret?: string | null
           date_cloture?: string | null
           date_demande?: string
           depense_reelle?: number | null
@@ -1725,15 +1730,18 @@ export type Database = {
           libelle: string
           montant_demande?: number | null
           montant_prevu?: number | null
+          motif_arret?: string | null
           site_id: string
           statut_capex_id?: number
           updated_at?: string
         }
         Update: {
+          arrete_by?: string | null
           bilan?: string | null
           cloture_by?: string | null
           created_at?: string
           created_by?: string
+          date_arret?: string | null
           date_cloture?: string | null
           date_demande?: string
           depense_reelle?: number | null
@@ -1742,11 +1750,19 @@ export type Database = {
           libelle?: string
           montant_demande?: number | null
           montant_prevu?: number | null
+          motif_arret?: string | null
           site_id?: string
           statut_capex_id?: number
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "investissements_arrete_by_fkey"
+            columns: ["arrete_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "investissements_cloture_by_fkey"
             columns: ["cloture_by"]

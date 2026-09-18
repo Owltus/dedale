@@ -4,7 +4,7 @@
 -- ║   GMAO mono-entreprise (single-tenant) pour Établissements Recevant      ║
 -- ║   du Public (ERP)                                                         ║
 -- ║                                                                           ║
--- ║   Concaténation des migrations/*.sql (119 au 2026-09-17), resynchronisée  ║
+-- ║   Concaténation des migrations/*.sql (121 au 2026-09-18), resynchronisée  ║
 -- ║   sur la PRODUCTION — c'est la seule source versionnée du schéma.         ║
 -- ║                                                                           ║
 -- ║   ⚠ PAS rejouable d'une traite sur une base neuve : quelques objets sont  ║
@@ -617,7 +617,11 @@ INSERT INTO statuts_capex (id, nom, description) VALUES
     (4, 'Refusé',    'Investissement écarté'),
     (5, 'À l''étude', 'Investissement en instruction / arbitrage'),
     (6, 'Engagé',     'Dépense engagée (commande passée)'),
-    (7, 'Clôturé',    'Investissement soldé et clôturé');
+    (7, 'Clôturé',    'Investissement soldé et clôturé'),
+    -- 121 : distinct du refus. « Refusé » = l'arbitrage a dit non, tôt dans le
+    -- cycle ; « Annulé » = le projet est abandonné en cours de route, ce qui
+    -- peut arriver après « Validé » ou « Engagé ». Les deux exigent un motif.
+    (8, 'Annulé',     'Investissement abandonné en cours de route');
 
 -- Types de contrats
 INSERT INTO types_contrats (id, libelle, description) VALUES
@@ -4549,12 +4553,31 @@ CREATE TABLE investissements (
     bilan             TEXT,
     cloture_by        UUID REFERENCES users(id) ON DELETE SET NULL,
 
+    -- Arrêt du dossier (121) : même trio descriptif que la clôture, pour les
+    -- deux issues NÉGATIVES — « Refusé » (4, l'arbitrage a dit non) et
+    -- « Annulé » (8, le projet est abandonné en cours de route). Une seule
+    -- colonne de motif : un investissement est refusé OU annulé, jamais les
+    -- deux ; deux colonnes auraient laissé traîner un motif périmé au passage
+    -- de l'un à l'autre.
+    motif_arret       TEXT,
+    arrete_by         UUID REFERENCES users(id) ON DELETE SET NULL,
+    date_arret        DATE,
+
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     -- On ne clôture pas avant d'avoir demandé (079).
     CONSTRAINT investissements_dates_coherentes CHECK (
         date_cloture IS NULL OR date_cloture >= date_demande
+    ),
+
+    -- Refuser ou annuler, c'est dire pourquoi (121). Texte NON VIDE et non un
+    -- simple NOT NULL : une chaîne d'espaces ne dit rien à personne. Les statuts
+    -- sont désignés par leurs IDS — un renommage dans statuts_capex reste donc
+    -- sans effet sur cette règle.
+    CONSTRAINT capex_motif_arret_oblig_si_refuse_ou_annule CHECK (
+        statut_capex_id NOT IN (4, 8)
+        OR (motif_arret IS NOT NULL AND length(btrim(motif_arret)) > 0)
     )
 );
 
@@ -4566,6 +4589,12 @@ COMMENT ON COLUMN investissements.bilan IS
     'Bilan budgétaire de fin (facultatif) : budget tenu, écart et sa raison (079).';
 COMMENT ON COLUMN investissements.cloture_by IS
     'Qui a clôturé l''investissement (079). SET NULL : la suppression d''un compte n''efface pas l''historique budgétaire.';
+COMMENT ON COLUMN investissements.motif_arret IS
+    'Pourquoi le dossier s''est arrêté — refus d''arbitrage (statut 4) ou abandon en cours de route (statut 8). Obligatoire dans ces deux cas. À effacer lors d''une réactivation. (121)';
+COMMENT ON COLUMN investissements.arrete_by IS
+    'Qui a refusé ou annulé l''investissement. Pendant de cloture_by. (121)';
+COMMENT ON COLUMN investissements.date_arret IS
+    'Quand le dossier a été refusé ou annulé. Pendant de date_cloture. (121)';
 
 CREATE INDEX idx_capex_site   ON investissements(site_id);
 CREATE INDEX idx_capex_statut ON investissements(statut_capex_id);

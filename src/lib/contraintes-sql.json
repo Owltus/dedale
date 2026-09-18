@@ -1863,6 +1863,7 @@
     },
     "investissements": {
       "checks": {
+        "capex_motif_arret_oblig_si_refuse_ou_annule": "CHECK (((statut_capex_id <> ALL (ARRAY[4, 8])) OR ((motif_arret IS NOT NULL) AND (length(btrim(motif_arret)) > 0))))",
         "investissements_dates_coherentes": "CHECK (((date_cloture IS NULL) OR (date_cloture >= date_demande)))",
         "investissements_depense_reelle_check": "CHECK (((depense_reelle IS NULL) OR (depense_reelle >= (0)::numeric)))",
         "investissements_libelle_check": "CHECK ((length(TRIM(BOTH FROM libelle)) > 0))",
@@ -1870,6 +1871,14 @@
         "investissements_montant_prevu_check": "CHECK (((montant_prevu IS NULL) OR (montant_prevu >= (0)::numeric)))"
       },
       "colonnes": {
+        "arrete_by": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
         "bilan": {
           "aUnDefaut": false,
           "echelle": null,
@@ -1901,6 +1910,14 @@
           "nullable": false,
           "precision": null,
           "type": "uuid"
+        },
+        "date_arret": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
         },
         "date_cloture": {
           "aUnDefaut": false,
@@ -1965,6 +1982,14 @@
           "nullable": true,
           "precision": 12,
           "type": "numeric"
+        },
+        "motif_arret": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
         },
         "site_id": {
           "aUnDefaut": false,

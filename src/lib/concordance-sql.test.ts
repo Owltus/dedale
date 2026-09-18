@@ -819,6 +819,10 @@ const CHECKS_NON_SONDES: Record<string, string> = {
     'Inter-colonnes : couvert par `clotureSchema` (evenements) et son test.',
   'investissements.investissements_dates_coherentes':
     'Inter-colonnes : couvert par `clotureCapexSchema` et son test.',
+  'investissements.capex_motif_arret_oblig_si_refuse_ou_annule':
+    'Inter-colonnes (statut_capex_id ↔ motif_arret) : le motif n’est exigé que ' +
+    'dans deux statuts. Aucun formulaire ne saisit les deux champs ensemble — ' +
+    'le motif passe par `MotifDialog`, qui l’exige déjà côté front (121).',
   'operations.operations_seuils_coherents':
     'Inter-colonnes : couvert par le `.refine` seuil min ≤ max d’`operationSchema`.',
   'modeles_operations_items.modeles_operations_items_seuils_coherents':

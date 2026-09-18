@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import {
   etapesInvestissement,
+  ID_ANNULE,
   ID_CLOTURE,
   ID_REFUSE,
   nomStatutCapex,
@@ -13,10 +14,11 @@ import {
 const TIRAGES = { numRuns: 1000, seed: 42 } as const
 
 /** Ids du seed `statuts_capex` (1-7), refus compris. */
-const IDS_CONNUS = [1, 2, 3, 4, 5, 6, 7] as const
+// 8 = « Annulé », ajouté par la migration 121.
+const IDS_CONNUS = [1, 2, 3, 4, 5, 6, 7, 8] as const
 const idConnu = fc.constantFrom(...IDS_CONNUS)
 /** Ids hors seed : ce qu'une migration future ou une donnée abîmée produirait. */
-const idInconnu = fc.integer({ min: 8, max: 500 })
+const idInconnu = fc.integer({ min: 9, max: 500 })
 
 const SANS_REFERENTIEL = new Map<number, string>()
 
@@ -62,12 +64,15 @@ describe('rangStatutCapex — ordre total', () => {
     )
   })
 
-  it('« Refusé » est classé APRÈS tout le parcours de progression', () => {
-    // ORACLE (doc) : « Ordre canonique d'AFFICHAGE : le parcours, puis Refusé en
-    // fin. » L'issue défavorable ne s'intercale pas dans la progression.
+  it('les deux issues défavorables sont classées APRÈS tout le parcours', () => {
+    // ORACLE (doc) : « Ordre canonique d'AFFICHAGE : le parcours, puis Refusé,
+    // puis Annulé. » Une issue défavorable ne s'intercale pas dans la
+    // progression — sinon le menu déroulant proposerait « Annulé » entre deux
+    // étapes d'avancement.
     for (const id of IDS_CONNUS) {
-      if (id === ID_REFUSE) continue
+      if (id === ID_REFUSE || id === ID_ANNULE) continue
       expect(rangStatutCapex(ID_REFUSE)).toBeGreaterThan(rangStatutCapex(id))
+      expect(rangStatutCapex(ID_ANNULE)).toBeGreaterThan(rangStatutCapex(id))
     }
   })
 
@@ -75,7 +80,7 @@ describe('rangStatutCapex — ordre total', () => {
     // ORACLE (doc) : « Statut Clôturé : FIN du parcours ». Aucune étape de
     // progression ne vient après lui.
     for (const id of IDS_CONNUS) {
-      if (id === ID_REFUSE || id === ID_CLOTURE) continue
+      if (id === ID_REFUSE || id === ID_ANNULE || id === ID_CLOTURE) continue
       expect(rangStatutCapex(ID_CLOTURE)).toBeGreaterThan(rangStatutCapex(id))
     }
   })
@@ -104,7 +109,12 @@ describe('etapesInvestissement', () => {
     // montrent la même frise, pas la même progression.
     fc.assert(
       fc.property(idConnu, idConnu, (a, b) => {
-        if (a === ID_REFUSE || b === ID_REFUSE) return
+        // Les deux issues défavorables sont hors parcours : elles rendent une
+        // frise MINIMALE, pas le parcours complet. On les écarte ici, chacune
+        // ayant son propre test juste en dessous.
+        const horsParcours = (id: number) =>
+          id === ID_REFUSE || id === ID_ANNULE
+        if (horsParcours(a) || horsParcours(b)) return
         expect(
           etapesInvestissement(a, SANS_REFERENTIEL)?.map((e) => e.statutId),
         ).toEqual(
@@ -113,6 +123,18 @@ describe('etapesInvestissement', () => {
       }),
       TIRAGES,
     )
+  })
+
+  it('« Annulé » est traité à part : frise minimale « Demandé → Annulé »', () => {
+    // ORACLE (doc) : même traitement que le refus — une issue défavorable n'est
+    // pas une étape d'avancement. Sans ce test, « Annulé » se serait affiché
+    // comme un parcours complet figé à « Demandé », ce qui laisserait croire que
+    // le dossier est encore en cours.
+    const res = etapesInvestissement(ID_ANNULE, SANS_REFERENTIEL)
+    expect(res?.map((e) => e.statutId)).toEqual([1, ID_ANNULE])
+    expect(res?.map((e) => e.state)).toEqual(['done', 'rejected'])
+    // Terminal → rien n'est actionnable depuis la frise.
+    expect(res?.every((e) => !e.actionable)).toBe(true)
   })
 
   it('« Refusé » est traité à part : frise minimale « Demandé → Refusé »', () => {
@@ -255,14 +277,16 @@ describe('statutCapexTone — totalité et sémantique', () => {
     expect(rouges).toEqual([ID_REFUSE])
   })
 
-  it('les statuts terminaux sont exactement Réalisé, Clôturé et Refusé', () => {
-    // ORACLE (doc) : « Statuts TERMINAUX d'un investissement (Réalisé, Clôturé,
-    // Refusé) : exclus par défaut du filtre Non terminés ». Garde-fou contre un
-    // ajout de statut qui déséquilibrerait le filtre par défaut des listes.
+  it('les statuts terminaux sont exactement Réalisé, Refusé, Clôturé et Annulé', () => {
+    // ORACLE (doc) : « Statuts TERMINAUX d'un investissement : exclus par défaut
+    // du filtre Non terminés ». Garde-fou contre un ajout de statut qui
+    // déséquilibrerait le filtre par défaut des listes — un dossier ANNULÉ qui
+    // resterait dans « Non terminés » reviendrait hanter la liste de travail.
     expect([...STATUTS_CAPEX_TERMINAUX].sort((a, b) => a - b)).toEqual([
       3,
       ID_REFUSE,
       ID_CLOTURE,
+      ID_ANNULE,
     ])
   })
 })

@@ -169,6 +169,11 @@ const MESSAGES_CONTRAINTE_CHECK: Readonly<Record<string, string>> = {
 
   // ── Investissements ───────────────────────────────────────────────────────
   investissements_libelle_check: VIDE_LIBELLE,
+  // Migration 121. Le dialogue de motif rend ce refus improbable depuis l'écran,
+  // mais tout chemin qui l'évite (import, correction en masse) doit lire une
+  // phrase utile plutôt que « Valeur refusée : elle ne respecte pas une règle ».
+  capex_motif_arret_oblig_si_refuse_ou_annule:
+    'Motif obligatoire : un investissement refusé ou annulé doit dire pourquoi.',
   investissements_dates_coherentes:
     'Dates incohérentes : la clôture ne peut pas précéder la date de demande. Corrigez l’une des deux dates.',
   investissements_montant_demande_check:

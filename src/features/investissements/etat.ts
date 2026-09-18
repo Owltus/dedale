@@ -15,8 +15,19 @@ import {
 // ici (présentation) — les ids ne sont volontairement PAS monotones (statuts
 // ajoutés après coup) → l'état se calcule par POSITION, pas par valeur d'id.
 const PARCOURS_IDS = [1, 5, 2, 6, 3, 7] as const
-/** Statut « Refusé » (issue défavorable, hors parcours linéaire). */
+/**
+ * Statut « Refusé » (issue défavorable, hors parcours linéaire) : la décision
+ * d'arbitrage a dit non. Arrive tôt — Demandé ou À l'étude.
+ */
 export const ID_REFUSE = 4
+/**
+ * Statut « Annulé » (121) : le projet est ABANDONNÉ en cours de route — local
+ * réaffecté, fournisseur défaillant, budget basculé. À distinguer du refus :
+ * l'annulation peut survenir à tout moment, y compris après « Validé » ou
+ * « Engagé ». Les deux exigent un motif (CHECK
+ * capex_motif_arret_oblig_si_refuse_ou_annule).
+ */
+export const ID_ANNULE = 8
 /**
  * Statut « Clôturé » : FIN du parcours, et le seul qui porte un bilan.
  * « Réalisé »(3) reste une étape — les dépenses peuvent encore bouger.
@@ -30,6 +41,7 @@ const LABELS_DEFAUT: Record<number, string> = {
   3: 'Réalisé',
   7: 'Clôturé',
   4: 'Refusé',
+  8: 'Annulé',
 }
 
 /**
@@ -45,7 +57,7 @@ export function nomStatutCapex(id: number, noms: Map<number, string>): string {
  * Statuts TERMINAUX d'un investissement (Réalisé, Clôturé, Refusé) : exclus par
  * défaut du filtre « Non terminés » des listes (cf. `matchStatutFilter`).
  */
-export const STATUTS_CAPEX_TERMINAUX = [3, 7, ID_REFUSE] as const
+export const STATUTS_CAPEX_TERMINAUX = [3, 7, ID_REFUSE, ID_ANNULE] as const
 
 /**
  * Code couleur (tone) LOGIQUE d'un statut CapEx, pour la pastille `StatusBadge`
@@ -56,6 +68,10 @@ export const STATUTS_CAPEX_TERMINAUX = [3, 7, ID_REFUSE] as const
  */
 const TONES: Record<number, StatusTone> = {
   [ID_REFUSE]: 'destructive', // Refusé
+  // Annulé = gris et non rouge : un abandon n'est pas un rejet. Le rouge doit
+  // rester au refus d'arbitrage, sinon les deux issues se confondent au coup
+  // d'œil — ce qui était justement la raison d'en faire deux statuts.
+  [ID_ANNULE]: 'neutral', // Annulé (dossier abandonné)
   5: 'info', // À l'étude
   2: 'violet', // Validé
   6: 'yellow', // Engagé
@@ -70,7 +86,7 @@ export function statutCapexTone(id: number): StatusTone {
 // Ordre canonique d'AFFICHAGE des statuts : le parcours, puis Refusé en fin.
 // Sert à trier le menu déroulant dans l'ordre LOGIQUE du cycle (≠ ordre des ids,
 // ≠ alphabétique).
-const ORDRE_AFFICHAGE: number[] = [...PARCOURS_IDS, ID_REFUSE]
+const ORDRE_AFFICHAGE: number[] = [...PARCOURS_IDS, ID_REFUSE, ID_ANNULE]
 
 /** Rang d'affichage d'un statut CapEx (statut inconnu → rejeté en fin). */
 export function rangStatutCapex(id: number): number {
@@ -96,8 +112,13 @@ export function etapesInvestissement(
     // Statut LIBRE (aucune machine à états) → toute étape du parcours est
     // actionnable (clic = on positionne ce statut), sauf l'étape courante.
     actionable: (_id, i, idx) => i !== idx,
-    // Refusé : frise minimale (départ Demandé franchi puis issue refusée), en
-    // lecture seule. La sortie du refus (réactivation) passe par le bouton dédié.
-    rejected: { id: ID_REFUSE, departId: 1 },
+    // Refusé OU Annulé : frise minimale (départ Demandé franchi puis issue
+    // défavorable), en lecture seule. La sortie passe par le bouton « Réactiver ».
+    // La brique n'accepte qu'UNE issue défavorable — il suffit de lui passer
+    // celle du statut courant, les deux ne pouvant pas coexister.
+    rejected: {
+      id: statutId === ID_ANNULE ? ID_ANNULE : ID_REFUSE,
+      departId: 1,
+    },
   })
 }
