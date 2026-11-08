@@ -195,6 +195,8 @@ Briques de plomberie hors hooks : `actionsEditionSuppression` (duo Modifier/Supp
 - **périmètre** (`scope`) : `estCommunOuDuSite` · `siteIdPourPortee` · `LockedScope` · `resolvePorteeScope`
 - `referentielQueryOptions(table, select, orderBy)` (`referentiel`) — factory des tables de référence, `staleTime` 5 min
 - `listStack` / `cardGrid` (`responsive`)
+- **lecture paginée** (`pagination`) : `toutesLesLignes((debut, fin) => requête.order(…).order('id').range(debut, fin))` — **obligatoire** pour toute liste NON bornée qui peut dépasser 1 000 lignes (plafond Supabase silencieux). 3 consommateurs : liste OT, OT par gammes, tableau de bord
+
 - **dates nues locales** (`date`) : `formatDate` · `parseDateLocale` · `isoLocale` · `minuit` · `lundiDeLaSemaine` · `ajouterJours` · `ajouterSemaines` · `semaineIso` · `numeroSemaineIso` — **source unique**, ne jamais recopier ces primitives par feature, et ne jamais fabriquer une date nue avec `toISOString()`
 - `toast` (`sonner`)
 

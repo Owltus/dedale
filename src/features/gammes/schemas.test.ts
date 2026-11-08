@@ -39,6 +39,7 @@ const GAMME = {
   description: '',
   miniature_id: null,
   est_active: true,
+  repeter_par_equipement: false,
 }
 
 const OPERATION = {
@@ -91,6 +92,17 @@ describe('gammeSchema', () => {
     }
   })
 
+  it('exige un booléen pour repeter_par_equipement (128)', () => {
+    for (const v of ['true', 'false', 0, 1, null, undefined]) {
+      expect(
+        rejette(gammeSchema, { ...GAMME, repeter_par_equipement: v }),
+      ).toBe(true)
+    }
+    expect(
+      gammeSchema.safeParse({ ...GAMME, repeter_par_equipement: true }).success,
+    ).toBe(true)
+  })
+
   it('borne le FORMAT des identifiants de référentiel', () => {
     // ORACLE : `periodicite_id` est un SMALLINT, `prestataire_id` et
     // `categorie_id` des UUID (`schema_complete.sql`).
@@ -116,6 +128,7 @@ describe('gammeBiblioSchema', () => {
   const BIBLIO = {
     ...GAMME,
     est_active: undefined,
+    repeter_par_equipement: undefined,
     portee: 'entreprise' as const,
     prestataire_id: '',
   }

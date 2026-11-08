@@ -110,8 +110,9 @@ export function useCopierModeleOperation() {
  * `RESTRICT`), puis supprime le modèle — tout ou rien, plus de détachement
  * orphelin sur échec partiel. Les gammes ne sont JAMAIS supprimées (seules les
  * liaisons le sont) et les triggers BEFORE DELETE de `gamme_modeles` restent
- * actifs (dernière source d'opérations d'une gamme préventive active, OT actifs)
- * → l'erreur remonte pour être traduite côté UI.
+ * actifs (dernière source d'opérations d'une gamme préventive active) → l'erreur
+ * remonte pour être traduite côté UI. Les OT ouverts ne bloquent plus (migration
+ * 124 : le retrait se répercute sur leurs opérations non faites).
  */
 export function useDetacherEtSupprimerModeleOperation() {
   const qc = useQueryClient()

@@ -236,10 +236,17 @@ export function EquipementsLinkDialog({
       .map((cat): CatNode | null => {
         const sousCategories = cat.sousCategories
           .map((sc): SousCatNode | null => {
-            const equipements = sc.equipements.filter(
-              (e) =>
-                titreAffiche(e).toLowerCase().includes(q) ||
-                (secondaireAffiche(e) ?? '').toLowerCase().includes(q),
+            // Recherche aussi par emplacement (niveau, local) : taper « R+3 » puis
+            // cocher la famille ne coche que les équipements de l'étage (les cases
+            // de groupe agissent sur l'arbre FILTRÉ).
+            const equipements = sc.equipements.filter((e) =>
+              [
+                titreAffiche(e),
+                secondaireAffiche(e),
+                e.niveau_nom,
+                e.local_nom,
+                e.localisation_courte,
+              ].some((v) => (v ?? '').toLowerCase().includes(q)),
             )
             return equipements.length > 0 ? { ...sc, equipements } : null
           })
@@ -377,7 +384,9 @@ export function EquipementsLinkDialog({
                                 key={e.id}
                                 icon={<Package className="size-4" />}
                                 titre={titreAffiche(e)}
-                                meta={secondaireAffiche(e)}
+                                meta={
+                                  secondaireAffiche(e) ?? e.localisation_courte
+                                }
                                 checked={e.id !== null && selected.has(e.id)}
                                 onToggle={() => e.id && toggleFeuille(e.id)}
                                 expandable={false}

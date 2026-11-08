@@ -27,7 +27,8 @@ interface OtCreateDialogProps {
 /**
  * Génère un OT depuis une gamme du site. L'utilisateur choisit la gamme + la
  * date prévue ; le backend fige les snapshots, résout le prestataire effectif
- * et génère les opérations. L'anti-doublon (1 OT actif par gamme) est attrapé.
+ * et génère les opérations. L'anti-doublon (2 OT actifs de la même gamme à la
+ * même date, migration 081) est attrapé.
  */
 export function OtCreateDialog({
   open,

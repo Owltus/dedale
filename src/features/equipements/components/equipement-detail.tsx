@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
   ClipboardList,
+  History,
   Package,
   Paperclip,
   Plus,
@@ -16,7 +18,12 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useFileDrop } from '@/hooks/use-file-drop'
 import { parseChamps, formatChampValeur } from '@/lib/champs'
-import { formatDate } from '@/lib/date'
+import { formatDate, formatDateAvecSemaineIso } from '@/lib/date'
+import {
+  LIBELLES_STATUT_OP,
+  statutOperationTone,
+} from '@/features/ordres-travail/schemas'
+import { StatusBadge } from '@/components/common/status-badge'
 import { listStack } from '@/lib/responsive'
 import { useTabAddAction } from '@/components/common/tab-actions'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
@@ -35,7 +42,7 @@ import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
 
-type Tab = 'caracteristiques' | 'gammes' | 'ordres' | 'documents'
+type Tab = 'caracteristiques' | 'gammes' | 'ordres' | 'historique' | 'documents'
 
 /**
  * CONTENU de la fiche d'un équipement : système à onglets (Caractéristiques /
@@ -144,6 +151,7 @@ export function EquipementDetail({
           { id: 'caracteristiques', label: 'Caractéristiques' },
           { id: 'gammes', label: 'Gammes' },
           { id: 'ordres', label: 'Ordres de travail' },
+          { id: 'historique', label: 'Historique' },
           { id: 'documents', label: 'Documents' },
         ]}
         value={tab}
@@ -169,6 +177,9 @@ export function EquipementDetail({
               ) : (
                 <OtListeParGammes siteId={siteId} gammeIds={liesIds} />
               ))}
+            {tab === 'historique' && (
+              <HistoriqueTab equipementId={equipementId} />
+            )}
             {tab === 'documents' && (
               <DocumentsTab
                 liaison="documents_equipements"
@@ -235,6 +246,100 @@ function CaracteristiquesTab({
         </div>
       ))}
     </dl>
+  )
+}
+
+// --- Onglet Historique (128) ---
+
+/**
+ * Ce qui a été fait sur CET équipement, intervention par intervention — alimenté
+ * par les gammes qui répètent leurs opérations par équipement. Une gamme
+ * classique (opérations une fois par intervention) n'y figure pas : ses lignes
+ * ne désignent aucun équipement en particulier.
+ */
+function HistoriqueTab({ equipementId }: { equipementId: string }) {
+  const navigate = useNavigate()
+  const historiqueQuery = useQuery(equipementsQueries.historique(equipementId))
+
+  const interventions = useMemo(() => {
+    const parOt = new Map<
+      string,
+      {
+        otId: string
+        gamme: string
+        date: string | null
+        lignes: { id: string; nom: string; statut: string; ordre: number }[]
+      }
+    >()
+    for (const l of historiqueQuery.data ?? []) {
+      const ot = l.ordres_travail
+      const entree = parOt.get(ot.id) ?? {
+        otId: ot.id,
+        gamme: ot.nom_gamme,
+        date: ot.date_cloture ?? ot.date_prevue,
+        lignes: [],
+      }
+      entree.lignes.push({
+        id: l.id,
+        nom: l.nom,
+        statut: l.statut,
+        ordre: l.ordre,
+      })
+      parOt.set(ot.id, entree)
+    }
+    return [...parOt.values()]
+      .map((i) => ({
+        ...i,
+        lignes: i.lignes.sort((a, b) => a.ordre - b.ordre),
+      }))
+      .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+  }, [historiqueQuery.data])
+
+  return (
+    <QueryState
+      query={historiqueQuery}
+      pending={<ListRowSkeletons count={3} />}
+    >
+      {() =>
+        interventions.length === 0 ? (
+          <EmptyState
+            icon={History}
+            title="Aucune intervention enregistrée"
+            description="L’historique se remplit avec les gammes qui répètent leurs opérations pour chaque équipement lié."
+            className={ONGLET_ETAT_VIDE}
+          />
+        ) : (
+          <div className={listStack}>
+            {interventions.map((i) => (
+              <ListRow
+                key={i.otId}
+                media={<RowMediaIcon icon={ClipboardList} />}
+                title={i.gamme}
+                subtitle={formatDateAvecSemaineIso(i.date)}
+                badges={
+                  <div className="flex flex-wrap gap-1">
+                    {i.lignes.map((l) => (
+                      <StatusBadge
+                        key={l.id}
+                        tone={statutOperationTone(l.statut)}
+                      >
+                        {l.nom} : {LIBELLES_STATUT_OP[l.statut] ?? l.statut}
+                      </StatusBadge>
+                    ))}
+                  </div>
+                }
+                onClick={() =>
+                  void navigate({
+                    to: '/ordres-travail/$otId',
+                    params: { otId: i.otId },
+                  })
+                }
+              />
+            ))}
+          </div>
+        )
+      }
+    </QueryState>
   )
 }
 

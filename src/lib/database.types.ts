@@ -1419,6 +1419,7 @@ export type Database = {
           nom: string
           periodicite_id: number
           prestataire_id: string | null
+          repeter_par_equipement: boolean
           site_id: string | null
           updated_at: string
         }
@@ -1436,6 +1437,7 @@ export type Database = {
           nom: string
           periodicite_id: number
           prestataire_id?: string | null
+          repeter_par_equipement?: boolean
           site_id?: string | null
           updated_at?: string
         }
@@ -1453,6 +1455,7 @@ export type Database = {
           nom?: string
           periodicite_id?: number
           prestataire_id?: string | null
+          repeter_par_equipement?: boolean
           site_id?: string | null
           updated_at?: string
         }
@@ -2555,12 +2558,15 @@ export type Database = {
           date_execution: string | null
           date_remplacement: string | null
           description: string | null
+          equipement_id: string | null
           est_conforme: boolean | null
           executed_by: string | null
           id: string
           index_depose: number | null
           index_pose: number | null
           nom: string
+          nom_equipement: string | null
+          nom_localisation: string | null
           ordre: number
           ordre_travail_id: string
           seuil_maximum: number | null
@@ -2581,12 +2587,15 @@ export type Database = {
           date_execution?: string | null
           date_remplacement?: string | null
           description?: string | null
+          equipement_id?: string | null
           est_conforme?: boolean | null
           executed_by?: string | null
           id?: string
           index_depose?: number | null
           index_pose?: number | null
           nom: string
+          nom_equipement?: string | null
+          nom_localisation?: string | null
           ordre?: number
           ordre_travail_id: string
           seuil_maximum?: number | null
@@ -2607,12 +2616,15 @@ export type Database = {
           date_execution?: string | null
           date_remplacement?: string | null
           description?: string | null
+          equipement_id?: string | null
           est_conforme?: boolean | null
           executed_by?: string | null
           id?: string
           index_depose?: number | null
           index_pose?: number | null
           nom?: string
+          nom_equipement?: string | null
+          nom_localisation?: string | null
           ordre?: number
           ordre_travail_id?: string
           seuil_maximum?: number | null
@@ -3824,6 +3836,12 @@ export type Database = {
         Returns: undefined
       }
       detect_security_anomalies: { Args: never; Returns: undefined }
+      equipements_attendus: {
+        Args: { p_gamme_id: string }
+        Returns: {
+          equipement_id: string
+        }[]
+      }
       generate_identifiant_equipement: { Args: never; Returns: string }
       generate_next_ot_for_gamme: {
         Args: {
@@ -3915,9 +3933,22 @@ export type Database = {
         }
         Returns: string
       }
+      libelle_equipement: { Args: { p_equipement_id: string }; Returns: string }
+      localisation_equipement: {
+        Args: { p_equipement_id: string }
+        Returns: string
+      }
       miniature_scope_ok: {
         Args: { p_miniature_id: string; p_target_site_id: string }
         Returns: boolean
+      }
+      prochaine_date_ot: {
+        Args: { p_base: string; p_jours: number }
+        Returns: string
+      }
+      rafraichir_snapshots_ot_ouverts: {
+        Args: { p_gamme_id: string }
+        Returns: undefined
       }
       reouvrir_ot: {
         Args: { p_motif: string; p_ot_id: string }
@@ -3979,6 +4010,11 @@ export type Database = {
         Args: { p_site_id: string }
         Returns: undefined
       }
+      synchroniser_ops_gamme: {
+        Args: { p_gamme_id: string }
+        Returns: undefined
+      }
+      synchroniser_ops_ot: { Args: { p_ot_id: string }; Returns: undefined }
     }
     Enums: {
       categorie_scope: "equipement" | "gamme" | "mixte" | "operation" | "parc"

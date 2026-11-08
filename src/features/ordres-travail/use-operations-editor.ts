@@ -10,17 +10,17 @@ import { estVerrouille } from './schemas'
 import { useUpdateOperationExecution } from './mutations'
 import {
   estMesureExecution,
+  statutOpTerminal,
   type OperationEdit,
-} from './components/operation-row'
+} from './operation-predicats'
 
 type OtRow = Database['public']['Tables']['ordres_travail']['Row']
 type OperationExecution =
   Database['public']['Tables']['operations_execution']['Row']
 
-/** Une opération est-elle dans un état TERMINAL (ni à faire, ni en cours) ? */
-function statutOpTerminal(statut: string): boolean {
-  return statut !== 'en_attente' && statut !== 'en_cours'
-}
+// Prédicat d'état terminal (déplacé dans ./operation-predicats) — ré-exporté pour
+// l'écran, qui en dérive le compteur et le repli des groupes par équipement.
+export { statutOpTerminal } from './operation-predicats'
 
 interface UseOperationsEditorParams {
   /** OT courant (nullable tant que le détail charge). */
@@ -106,6 +106,26 @@ export function useOperationsEditor({
   // droit de gestion, ou sans session valide (executed_by requis à la saisie).
   const verrouille = ot ? estVerrouille(ot.statut) : false
   const opsReadOnly = !canManage || verrouille || !session
+
+  // Geste de l'en-tête d'un groupe par équipement (décision A5) : MÊME logique que
+  // le geste de ligne, appliquée à tout le groupe. Cibles = lignes non-mesure (une
+  // mesure ne se « termine » pas sans valeur). Toutes Terminées → toutes En
+  // attente ; sinon toutes Terminées (une « non applicable » comprise, comme le
+  // double-clic sur sa ligne). Lu depuis `prev` : jamais de closure périmée.
+  function basculerGroupe(ops: OperationExecution[]) {
+    if (opsReadOnly) return
+    const cibles = ops.filter((op) => !estMesureExecution(op))
+    if (cibles.length === 0) return
+    setEdits((prev) => {
+      const courant = (op: OperationExecution) => prev[op.id] ?? baseEdit(op)
+      const statut = cibles.every((op) => courant(op).statut === 'terminee')
+        ? 'en_attente'
+        : 'terminee'
+      const suivant = { ...prev }
+      for (const op of cibles) suivant[op.id] = { ...courant(op), statut }
+      return suivant
+    })
+  }
 
   // Garde-fou : prévient avant de quitter la page s'il reste des saisies non
   // enregistrées — navigation interne ET retour/fermeture du navigateur
@@ -258,6 +278,7 @@ export function useOperationsEditor({
     dirtyOps,
     toutesTerminalesApres,
     saveAllOps,
+    basculerGroupe,
     blocker,
   }
 }

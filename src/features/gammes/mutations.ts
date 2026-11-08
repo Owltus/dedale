@@ -28,6 +28,7 @@ function gammePayload(values: GammeFormValues) {
     // Active/inactive : la désactivation avec OT actifs est refusée par un
     // trigger (erreur catchée côté formulaire).
     est_active: v.est_active,
+    repeter_par_equipement: v.repeter_par_equipement,
   }
 }
 

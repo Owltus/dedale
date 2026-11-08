@@ -42,3 +42,4 @@ Ce que ça implique (avantages, limites, ce qu'on s'interdit).
 - [0010 — `source_id` n'est pas une clé de corrélation stable](0010-source-id-cle-de-correlation.md)
 - [0011 — Le miroir front des droits se confronte à la RLS](0011-miroir-front-des-droits-confronte-a-la-rls.md)
 - [0012 — Corréler les exécutions en deux temps : `source_id`, puis le nom](0012-correlation-des-executions-en-deux-temps.md)
+- [0013 — Répéter les opérations d'une gamme pour chaque équipement lié](0013-operations-repetees-par-equipement.md)

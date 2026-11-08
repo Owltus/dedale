@@ -26,15 +26,15 @@ describe('statutAffichageGamme', () => {
     expect(r).toEqual({ label: 'Inactive', tone: 'neutral', temporel: false })
   })
 
-  it('gamme active sans aucun OT → « Non assigné » (gris)', () => {
+  it('gamme active sans aucun OT → « À programmer » (orange)', () => {
     const r = statutAffichageGamme({
       estActive: true,
       ots: [],
       aujourdHui: AUJ,
     })
     expect(r).toEqual({
-      label: 'Non assigné',
-      tone: 'neutral',
+      label: 'À programmer',
+      tone: 'warning',
       temporel: false,
     })
   })
@@ -91,12 +91,30 @@ describe('statutAffichageGamme', () => {
     expect(r).toMatchObject({ label: 'Cette semaine', tone: 'yellow' })
   })
 
-  it('tous les OT terminés → « À jour » (vert)', () => {
+  // Régression du 07/11/2026 : une ronde annulée, sans successeur, s'affichait « À
+  // jour » (vert) — la gamme était en panne et l'écran disait que tout allait bien.
+  it('tous les OT terminés, rien à venir → « À programmer » (orange)', () => {
     const r = statutAffichageGamme({
       estActive: true,
       ots: [
         ot({ statut: 'cloture', date_cloture: '2026-01-01' }),
         ot({ statut: 'annule', date_cloture: '2025-12-01' }),
+      ],
+      aujourdHui: AUJ,
+    })
+    expect(r).toEqual({
+      label: 'À programmer',
+      tone: 'warning',
+      temporel: false,
+    })
+  })
+
+  it('historique terminé + un OT à venir lointain → « À jour » (vert)', () => {
+    const r = statutAffichageGamme({
+      estActive: true,
+      ots: [
+        ot({ statut: 'cloture', date_cloture: '2026-01-01' }),
+        ot({ statut: 'planifie', date_prevue: '2030-01-01' }),
       ],
       aujourdHui: AUJ,
     })
@@ -163,7 +181,7 @@ describe('statutAffichageAgrege', () => {
     expect(r).toMatchObject({ label: 'Rouvert', tone: 'warning' })
   })
 
-  it('rien d’urgent mais une gamme sans OT → « À assigner » (gris)', () => {
+  it('rien d’urgent mais une gamme sans OT → « À programmer » (orange)', () => {
     const r = statutAffichageAgrege({
       gammes: [
         active(ot({ statut: 'planifie', date_prevue: '2030-01-01' })), // à jour (loin)
@@ -171,10 +189,25 @@ describe('statutAffichageAgrege', () => {
       ],
       aujourdHui: AUJ,
     })
-    expect(r).toEqual({ label: 'À assigner', tone: 'neutral', temporel: false })
+    expect(r).toEqual({
+      label: 'À programmer',
+      tone: 'warning',
+      temporel: false,
+    })
   })
 
-  it('un OT urgent prime sur « À assigner »', () => {
+  it('une gamme dont tous les OT sont terminés remonte « À programmer »', () => {
+    const r = statutAffichageAgrege({
+      gammes: [
+        active(ot({ statut: 'planifie', date_prevue: '2030-01-01' })),
+        active(ot({ statut: 'annule', date_cloture: '2026-01-01' })),
+      ],
+      aujourdHui: AUJ,
+    })
+    expect(r).toMatchObject({ label: 'À programmer', tone: 'warning' })
+  })
+
+  it('un OT urgent prime sur « À programmer »', () => {
     const r = statutAffichageAgrege({
       gammes: [
         active(ot({ statut: 'planifie', date_prevue: '2020-01-01' })), // en retard
@@ -201,10 +234,13 @@ describe('statutAffichageAgrege', () => {
     expect(r).toMatchObject({ label: 'Cette semaine', tone: 'yellow' })
   })
 
-  it('tout terminé ou planifié loin, aucune gamme vide → « À jour » (vert)', () => {
+  it('chaque gamme a un OT à venir lointain → « À jour » (vert)', () => {
     const r = statutAffichageAgrege({
       gammes: [
-        active(ot({ statut: 'cloture', date_cloture: '2026-01-01' })),
+        active(
+          ot({ statut: 'cloture', date_cloture: '2026-01-01' }),
+          ot({ statut: 'planifie', date_prevue: '2031-01-01' }),
+        ),
         active(ot({ statut: 'planifie', date_prevue: '2030-01-01' })),
       ],
       aujourdHui: AUJ,

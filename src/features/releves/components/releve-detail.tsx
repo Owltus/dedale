@@ -71,7 +71,9 @@ export function ReleveDetail({
   const exporterCsv = (g: GroupeUnite) => {
     const { entetes, lignes } = csvGroupe(g)
     const nomSerie =
-      g.series.length === 1 ? g.series[0]!.nom : (g.uniteNom ?? g.uniteSymbole)
+      g.series.length === 1
+        ? g.series[0]!.libelle
+        : (g.uniteNom ?? g.uniteSymbole)
     const nomFichier = `${slugify(gamme.nomGamme)}_${slugify(nomSerie)}.csv`
     telechargerCsv(nomFichier, entetes, lignes)
   }
@@ -160,7 +162,7 @@ export function ReleveDetail({
               <div className="mb-1 flex shrink-0 items-center justify-between gap-2">
                 <span className="truncate text-sm font-medium">
                   {g.series.length === 1
-                    ? g.series[0]!.nom
+                    ? g.series[0]!.libelle
                     : (g.uniteNom ?? g.uniteSymbole)}
                 </span>
                 <div className="flex shrink-0 items-center gap-1">
@@ -186,8 +188,8 @@ export function ReleveDetail({
                   uniteSymbole={g.uniteSymbole}
                   onPointClick={allerVersOt}
                   series={g.series.map((s) => ({
-                    cle: s.nom,
-                    label: s.nom,
+                    cle: s.cle,
+                    label: s.libelle,
                     // Seuils PROPRES à cette série — une mesure du même groupe
                     // peut n'avoir qu'un seuil haut, qu'un seuil bas, les deux ou
                     // aucun ; ne jamais lire ceux d'une AUTRE série du groupe.

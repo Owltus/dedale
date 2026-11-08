@@ -2977,6 +2977,8 @@ CREATE TABLE gammes (
     image_path      TEXT,                          -- Supabase Storage
 
     est_active      BOOLEAN NOT NULL DEFAULT true,
+    -- (128) true = opérations répétées pour chaque équipement lié (repli : une fois)
+    repeter_par_equipement BOOLEAN NOT NULL DEFAULT false,
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -3134,7 +3136,7 @@ BEGIN
             INTO v_nb_ot_actifs
             USING NEW.id;
         IF v_nb_ot_actifs > 0 THEN
-            RAISE EXCEPTION 'Impossible de désactiver : % OT actifs existent pour cette gamme. Annulez-les d''abord.', v_nb_ot_actifs
+            RAISE EXCEPTION 'Impossible de désactiver : % OT actifs existent pour cette gamme. Supprimez-les d''abord (les annuler en reprogrammerait un nouveau).', v_nb_ot_actifs
                 USING ERRCODE = 'restrict_violation';
         END IF;
     END IF;
@@ -3887,7 +3889,7 @@ BEGIN
         id, site_id, copie_depuis_id,
         nom, description, nature, categorie_id,
         periodicite_id, prestataire_id, image_path, miniature_id,
-        est_active, created_by
+        est_active, repeter_par_equipement, created_by
     ) VALUES (
         gen_random_uuid(), p_site_cible,
         CASE WHEN p_site_cible IS NOT NULL THEN p_source_gamme_id ELSE NULL END,
@@ -3895,7 +3897,7 @@ BEGIN
         v_source.periodicite_id, v_source.prestataire_id, v_source.image_path,
         CASE WHEN public.miniature_scope_ok(v_source.miniature_id, p_site_cible)
              THEN v_source.miniature_id ELSE NULL END,
-        true, (SELECT auth.uid())
+        true, v_source.repeter_par_equipement, (SELECT auth.uid())
     )
     RETURNING id INTO v_new_id;
 
@@ -4191,7 +4193,7 @@ BEGIN
             id, site_id, copie_depuis_id,
             nom, description, nature, categorie_id,
             periodicite_id, prestataire_id, image_path, miniature_id,
-            est_active, created_by
+            est_active, repeter_par_equipement, created_by
         ) VALUES (
             gen_random_uuid(), p_site_cible,
             CASE WHEN p_site_cible IS NOT NULL THEN v_g.id ELSE NULL END,
@@ -4199,7 +4201,7 @@ BEGIN
             v_g.periodicite_id, v_g.prestataire_id, v_g.image_path,
             CASE WHEN public.miniature_scope_ok(v_g.miniature_id, p_site_cible)
                  THEN v_g.miniature_id ELSE NULL END,
-            true, (SELECT auth.uid())
+            true, v_g.repeter_par_equipement, (SELECT auth.uid())
         )
         RETURNING id INTO v_new_gamme_id;
 
@@ -4241,8 +4243,8 @@ COMMENT ON FUNCTION public.copier_categorie(UUID, UUID, UUID[], UUID[]) IS
 -- / _manager_all / _technicien_all) AVANT toute suppression.
 --
 -- ATOMICITÉ : corps exécuté dans la transaction de l'appel /rpc. Les triggers
--- BEFORE DELETE de gamme_modeles (check_derniere_op_preventive,
--- validation_suppression_association_gamme_type) restent actifs et peuvent lever
+-- BEFORE DELETE de gamme_modeles (check_derniere_op_preventive) restent actifs
+-- et peuvent lever
 -- restrict_violation → roll back intégral, jamais de détachement orphelin.
 -- 035 : la RPC détache les liaisons puis SUPPRIME physiquement le modèle ; ses
 -- items partent en CASCADE avec le parent.
@@ -4941,6 +4943,11 @@ CREATE TABLE operations_execution (
     source_type         SMALLINT NOT NULL,   -- 1 = operations, 2 = modeles_operations_items
     source_id           UUID NOT NULL,       -- id dans la table source
     ordre               INTEGER NOT NULL DEFAULT 0,
+    -- (128) Équipement de génération (gamme répétée) : PROVENANCE sans FK, comme
+    -- source_id — survit à la suppression de l'équipement. NULL = ligne classique.
+    equipement_id       UUID,
+    nom_equipement      TEXT,                -- (128) libellé figé de l'équipement
+    nom_localisation    TEXT,                -- (128) emplacement figé (chemin court)
 
     -- ----------------------------------------------------------------------
     -- SNAPSHOTS FIGÉS (copiés au moment de la génération par Agent 5)
@@ -6799,67 +6806,12 @@ CREATE TRIGGER trg_coherence_modeles_items_update
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 4.1 validation_suppression_operation_specifique : DELETE op spécifique
--- bloqué si une operations_execution la référence (snapshot OT préserve l'historique)
--- → on autorise DELETE même si des ops_exec existent (snapshot indépendant).
--- Mais on bloque si la gamme parente a un OT actif planifie/en_cours non encore
--- réinjecté (résurrection à venir).
+-- 4.1 / 4.2 (124) — validation_suppression_operation_specifique et
+-- validation_suppression_association_gamme_type SUPPRIMÉES : elles refusaient de
+-- retirer une opération (ou un modèle) d'une gamme dès qu'un OT actif existait —
+-- donc toujours pour une gamme cyclique. Le retrait se répercute désormais sur les
+-- OT ouverts via synchroniser_ops_ot (opérations non faites seulement).
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.validation_suppression_operation_specifique()
-RETURNS TRIGGER LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-DECLARE
-    v_nb_ot_actifs INT;
-BEGIN
-    SELECT COUNT(*) INTO v_nb_ot_actifs
-    FROM public.ordres_travail
-    WHERE gamme_id = OLD.gamme_id
-      AND statut IN ('planifie', 'en_cours', 'reouvert');
-
-    IF v_nb_ot_actifs > 0 THEN
-        RAISE EXCEPTION 'Suppression interdite : % OT actifs (planifie/en_cours/reouvert) utilisent cette gamme. Terminez-les d''abord.', v_nb_ot_actifs
-            USING ERRCODE = 'restrict_violation';
-    END IF;
-
-    RETURN OLD;
-END;
-$$;
-
-CREATE TRIGGER trg_validation_suppression_operation_specifique
-    BEFORE DELETE ON operations
-    FOR EACH ROW EXECUTE FUNCTION public.validation_suppression_operation_specifique();
-COMMENT ON FUNCTION public.validation_suppression_operation_specifique() IS 'DELETE op spécifique bloqué si OT actifs (planifie/en_cours/reouvert) sur la gamme parente.';
-
--- ─────────────────────────────────────────────────────────────────────────────
--- 4.2 validation_suppression_association_gamme_type : dissociation gamme↔modèle
--- bloquée si OT actifs sur cette gamme
--- ─────────────────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.validation_suppression_association_gamme_type()
-RETURNS TRIGGER LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-DECLARE
-    v_nb_ot_actifs INT;
-BEGIN
-    SELECT COUNT(*) INTO v_nb_ot_actifs
-    FROM public.ordres_travail
-    WHERE gamme_id = OLD.gamme_id
-      AND statut IN ('planifie', 'en_cours', 'reouvert');
-
-    IF v_nb_ot_actifs > 0 THEN
-        RAISE EXCEPTION 'Dissociation interdite : % OT actifs utilisent cette gamme.', v_nb_ot_actifs
-            USING ERRCODE = 'restrict_violation';
-    END IF;
-
-    RETURN OLD;
-END;
-$$;
-
-CREATE TRIGGER trg_validation_suppression_association_gamme_type
-    BEFORE DELETE ON gamme_modeles
-    FOR EACH ROW EXECUTE FUNCTION public.validation_suppression_association_gamme_type();
-COMMENT ON FUNCTION public.validation_suppression_association_gamme_type() IS 'Dissociation gamme<->modèle bloquée si OT actifs sur la gamme.';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 4.3 protection_dernier_item_gamme_type : interdit de vider un modèle utilisé
@@ -7121,14 +7073,14 @@ BEGIN
             )
             ELSE NULL
         END,
-        -- nom_localisation : chemin court du local du 1er équipement (si unique)
+        -- nom_localisation (128) : déterministe — le local commun à tous les
+        -- équipements liés, sinon NULL (LIMIT 1 sans ORDER BY jusqu'ici).
         nom_localisation = (
-            SELECT v.chemin_court
+            SELECT CASE WHEN COUNT(DISTINCT e.local_id) = 1 THEN MIN(v.chemin_court) END
             FROM public.gammes_equipements ge
             JOIN public.equipements e ON e.id = ge.equipement_id
             JOIN public.v_locaux_chemin v ON v.local_id = e.local_id
             WHERE ge.gamme_id = g.id
-            LIMIT 1
         )
     FROM public.gammes g
     LEFT JOIN public.categories  c ON c.id = g.categorie_id
@@ -7194,44 +7146,55 @@ COMMENT ON FUNCTION public.resolve_prestataire_for_ot(UUID) IS
 -- d'orchestration creation_ot_orchestrator échouerait silencieusement à
 -- l'INSERT cascadé. search_path = '' + qualifs public.*.
 CREATE OR REPLACE FUNCTION public.generate_operations_execution(p_ot_id UUID)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-    v_gamme_id   UUID;
+    v_gamme_id UUID;
 BEGIN
     SELECT gamme_id INTO v_gamme_id
     FROM public.ordres_travail WHERE id = p_ot_id;
 
-    -- Source 1 : opérations spécifiques (source_type = 1)
+    -- Source 1 : opérations spécifiques × équipements attendus (128)
     INSERT INTO public.operations_execution (
         ordre_travail_id, source_type, source_id, ordre,
         nom, description, type_operation, seuil_minimum, seuil_maximum,
-        unite_nom, unite_symbole, unite_est_cumulatif, statut
+        unite_nom, unite_symbole, unite_est_cumulatif, statut,
+        equipement_id, nom_equipement, nom_localisation
     )
     SELECT
         p_ot_id, 1, o.id, COALESCE(o.ordre, 0),
         o.nom, o.description, t.libelle, o.seuil_minimum, o.seuil_maximum,
-        u.nom, u.symbole, u.est_cumulatif, 'en_attente'
+        u.nom, u.symbole, u.est_cumulatif, 'en_attente',
+        a.equipement_id,
+        public.libelle_equipement(a.equipement_id),
+        public.localisation_equipement(a.equipement_id)
     FROM public.operations o
     JOIN public.types_operations t ON t.id = o.type_operation_id
     LEFT JOIN public.unites u      ON u.id = o.unite_id
+    CROSS JOIN public.equipements_attendus(v_gamme_id) a
     WHERE o.gamme_id = v_gamme_id;
 
-    -- Source 2 : items issus des modèles d'opérations attachés (source_type = 2)
+    -- Source 2 : items des modèles d'opérations × équipements attendus (128)
     INSERT INTO public.operations_execution (
         ordre_travail_id, source_type, source_id, ordre,
         nom, description, type_operation, seuil_minimum, seuil_maximum,
-        unite_nom, unite_symbole, unite_est_cumulatif, statut
+        unite_nom, unite_symbole, unite_est_cumulatif, statut,
+        equipement_id, nom_equipement, nom_localisation
     )
     SELECT
         p_ot_id, 2, moi.id, COALESCE(moi.ordre, 0),
         moi.nom, moi.description, t.libelle, moi.seuil_minimum, moi.seuil_maximum,
-        u.nom, u.symbole, u.est_cumulatif, 'en_attente'
+        u.nom, u.symbole, u.est_cumulatif, 'en_attente',
+        a.equipement_id,
+        public.libelle_equipement(a.equipement_id),
+        public.localisation_equipement(a.equipement_id)
     FROM public.gamme_modeles gm
     JOIN public.modeles_operations_items moi ON moi.modele_operation_id = gm.modele_operation_id
     JOIN public.types_operations t           ON t.id = moi.type_operation_id
     LEFT JOIN public.unites u                ON u.id = moi.unite_id
+    CROSS JOIN public.equipements_attendus(v_gamme_id) a
     WHERE gm.gamme_id = v_gamme_id;
 END;
 $$;
@@ -7665,19 +7628,16 @@ COMMENT ON FUNCTION public.cascade_annulation_ot() IS
 -- F14 (audit sécu) : SECURITY DEFINER + search_path = '' (cohérent avec
 -- generate_operations_execution + creation_ot_orchestrator).
 CREATE OR REPLACE FUNCTION public.reinitialisation_resurrection()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
     IF OLD.statut = 'annule' AND NEW.statut = 'planifie' THEN
-        -- GUC pour bypasser protection_operations_ot_terminaux + protection_ajout
         PERFORM set_config('app.resurrection_ot', 'on', true);
-        -- F51 (audit 5e passe) : GUC distincte pour bypasser protect_ot_immutable_fields.
-        -- La résurrection rafraîchit les snapshots (la gamme a pu changer entre
-        -- annulation et résurrection) — ces UPDATE sont légitimes mais protégés.
         PERFORM set_config('app.system_ot_generation', 'on', true);
 
-        -- Reset des opérations (sauf celles explicitement non_applicable)
+        -- 125 : seules les opérations NON faites repartent à zéro.
         UPDATE public.operations_execution
         SET statut         = 'en_attente',
             valeur_mesuree = NULL,
@@ -7686,64 +7646,25 @@ BEGIN
             executed_by    = NULL,
             commentaires   = NULL
         WHERE ordre_travail_id = NEW.id
-          AND statut != 'non_applicable';
+          AND statut NOT IN ('terminee', 'non_applicable');
 
-        -- Refresh des snapshots (la gamme a pu changer entre annulation et résurrection)
+        -- Snapshots de l'OT (la gamme a pu changer entre-temps).
         PERFORM public.snapshot_ot_from_gamme(NEW.id);
         PERFORM public.resolve_prestataire_for_ot(NEW.id);
 
-        -- Supprimer les ops dont la source n'existe plus
-        DELETE FROM public.operations_execution opex
-        WHERE opex.ordre_travail_id = NEW.id
-          AND (
-              (opex.source_type = 1 AND NOT EXISTS (
-                  SELECT 1 FROM public.operations o WHERE o.id = opex.source_id AND o.gamme_id = NEW.gamme_id))
-              OR
-              (opex.source_type = 2 AND NOT EXISTS (
-                  SELECT 1 FROM public.modeles_operations_items moi
-                  JOIN public.gamme_modeles gm ON gm.modele_operation_id = moi.modele_operation_id
-                  WHERE moi.id = opex.source_id AND gm.gamme_id = NEW.gamme_id))
-          );
-
-        -- Réinjecter les ops manquantes (source 1)
-        INSERT INTO public.operations_execution (
-            ordre_travail_id, source_type, source_id, ordre,
-            nom, description, type_operation, seuil_minimum, seuil_maximum,
-            unite_nom, unite_symbole, statut
-        )
-        SELECT NEW.id, 1, o.id, COALESCE(o.ordre, 0),
-               o.nom, o.description, t.libelle, o.seuil_minimum, o.seuil_maximum,
-               u.nom, u.symbole, 'en_attente'
-        FROM public.operations o
-        JOIN public.types_operations t ON t.id = o.type_operation_id
-        LEFT JOIN public.unites u      ON u.id = o.unite_id
-        WHERE o.gamme_id = NEW.gamme_id
-          AND NOT EXISTS (
-              SELECT 1 FROM public.operations_execution
-              WHERE ordre_travail_id = NEW.id AND source_type = 1 AND source_id = o.id
-          );
-
-        -- Réinjecter les ops manquantes (source 2)
-        INSERT INTO public.operations_execution (
-            ordre_travail_id, source_type, source_id, ordre,
-            nom, description, type_operation, seuil_minimum, seuil_maximum,
-            unite_nom, unite_symbole, statut
-        )
-        SELECT NEW.id, 2, moi.id, COALESCE(moi.ordre, 0),
-               moi.nom, moi.description, t.libelle, moi.seuil_minimum, moi.seuil_maximum,
-               u.nom, u.symbole, 'en_attente'
-        FROM public.gamme_modeles gm
-        JOIN public.modeles_operations_items moi ON moi.modele_operation_id = gm.modele_operation_id
-        JOIN public.types_operations t           ON t.id = moi.type_operation_id
-        LEFT JOIN public.unites u                ON u.id = moi.unite_id
-        WHERE gm.gamme_id = NEW.gamme_id
-          AND NOT EXISTS (
-              SELECT 1 FROM public.operations_execution
-              WHERE ordre_travail_id = NEW.id AND source_type = 2 AND source_id = moi.id
-          );
-
         PERFORM set_config('app.resurrection_ot', 'off', true);
-        PERFORM set_config('app.system_ot_generation', 'off', true);  -- F51
+        PERFORM set_config('app.system_ot_generation', 'off', true);
+
+        -- 125 : alignement sur la gamme (ajouts, mises à jour, retraits des
+        -- opérations non faites ; compteur cumulatif compris).
+        PERFORM public.synchroniser_ops_ot(NEW.id);
+
+        -- Des opérations faites ont été conservées → l'OT est « En cours ».
+        IF EXISTS (SELECT 1 FROM public.operations_execution
+                   WHERE ordre_travail_id = NEW.id AND statut = 'terminee') THEN
+            UPDATE public.ordres_travail SET statut = 'en_cours'
+            WHERE id = NEW.id AND statut = 'planifie';
+        END IF;
     END IF;
 
     RETURN NEW;
@@ -7757,28 +7678,21 @@ CREATE TRIGGER trg_reinitialisation_resurrection
     EXECUTE FUNCTION public.reinitialisation_resurrection();
 
 COMMENT ON FUNCTION public.reinitialisation_resurrection() IS
-    'Résurrection d''un OT (annule → planifie) : reset ops + refresh snapshots + ré-injection des ops manquantes.';
+    '(125) Résurrection annule → planifie : remet à faire les seules opérations non terminées, garde les mesures faites, aligne sur la gamme via synchroniser_ops_ot, repasse en_cours s''il reste des opérations faites.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 8. nettoyage_dates_coherentes : force cohérence dates ↔ statut
 -- ═══════════════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION public.nettoyage_dates_coherentes()
-RETURNS TRIGGER LANGUAGE plpgsql
+RETURNS TRIGGER
+LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 DECLARE
     v_premiere_execution TIMESTAMPTZ;
     v_derniere_execution TIMESTAMPTZ;
 BEGIN
-    -- Retour à 'planifie' depuis en_cours → on conserve date_debut (preuve métier)
-    --   (rien à faire)
-
-    -- Annulation : toute transition vers 'annule' (depuis planifie / en_cours /
-    -- reouvert — cf machine à états) doit horodater la clôture, sinon le CHECK
-    -- statut_terminal_a_date_cloture rejette l'UPDATE direct du statut.
     IF NEW.statut = 'annule' THEN
-        -- Annulation depuis 'planifie' alors qu'aucune op n'a démarré → ne pas
-        -- conserver une date_debut fantôme.
         IF OLD.statut = 'planifie' AND NOT EXISTS (
             SELECT 1 FROM public.operations_execution
             WHERE ordre_travail_id = NEW.id AND date_execution IS NOT NULL
@@ -7788,13 +7702,6 @@ BEGIN
         NEW.date_cloture := COALESCE(NEW.date_cloture, now());
     END IF;
 
-    -- Clôture (manuelle OU auto via gestion_statut_ot) : date_debut ET
-    -- date_cloture sont TOUJOURS recalculées ensemble depuis les dates
-    -- d'exécution des opérations — jamais mémorisées (082). Couvre le cas où
-    -- une opération a été corrigée vers une date antérieure APRÈS un premier
-    -- passage en 'terminee' : la reclôture reflète alors la correction au lieu
-    -- de garder l'ancienne date figée. 080 : n'accepte pas de repli silencieux
-    -- sur now() quand aucune opération n'a de date d'exécution — lève une erreur.
     IF NEW.statut = 'cloture' THEN
         SELECT MIN(date_execution), MAX(date_execution)
         INTO v_premiere_execution, v_derniere_execution
@@ -7810,25 +7717,19 @@ BEGIN
         NEW.date_cloture := v_derniere_execution;
     END IF;
 
-    -- Réouverture : on efface date_cloture
     IF NEW.statut = 'reouvert' AND OLD.statut = 'cloture' THEN
         NEW.date_cloture := NULL;
     END IF;
 
-    -- Résurrection : on efface date_debut ET date_cloture
+    -- Résurrection : date_cloture effacée ; 125 — date_debut = première
+    -- opération terminée conservée (NULL s'il n'y en a pas).
     IF NEW.statut = 'planifie' AND OLD.statut = 'annule' THEN
-        NEW.date_debut   := NULL;
+        NEW.date_debut := (
+            SELECT MIN(date_execution) FROM public.operations_execution
+            WHERE ordre_travail_id = NEW.id AND statut = 'terminee');
         NEW.date_cloture := NULL;
     END IF;
 
-    -- 075 — Borne : une clôture ne peut pas précéder le démarrage. Les saisies
-    -- d'exécution sont horodatées à MIDI UTC (jour saisi → 'T12:00:00Z' côté
-    -- front) et gestion_statut_ot en déduit date_debut : une clôture posée plus
-    -- tôt dans la journée (ou des dates d'exécution corrigées vers le passé)
-    -- violait le CHECK dates_coherentes et laissait un OT ROUVERT impossible à
-    -- refermer. Appliquée en DERNIER : les blocs ci-dessus ont déjà fixé le
-    -- couple (date_debut, date_cloture) de la transition — et sur les
-    -- transitions non terminales (reouvert, résurrection) elle ne s'arme pas.
     IF NEW.statut IN ('cloture', 'annule')
        AND NEW.date_debut IS NOT NULL
        AND NEW.date_cloture IS NOT NULL
@@ -7845,7 +7746,7 @@ CREATE TRIGGER trg_nettoyage_dates_coherentes
     FOR EACH ROW EXECUTE FUNCTION public.nettoyage_dates_coherentes();
 
 COMMENT ON FUNCTION public.nettoyage_dates_coherentes() IS
-    'Force cohérence date_debut/date_cloture selon les transitions de statut OT. 082 : à l''entrée en ''cloture'' (manuelle ou auto), date_debut = MIN(date_execution) et date_cloture = MAX(date_execution) des opérations sont TOUJOURS recalculées ensemble (plus de valeur mémorisée figée) — reflète toute correction de date d''exécution faite après un premier passage en terminee. 075 : filet de sécurité clôture >= début (surtout utile pour l''annulation). 080 : clôture manuelle sans date_execution trouvable lève une erreur.';
+    'Force cohérence date_debut/date_cloture selon les transitions de statut OT. 082 : à l''entrée en ''cloture'' (manuelle ou auto), date_debut = MIN(date_execution) et date_cloture = MAX(date_execution) des opérations sont TOUJOURS recalculées ensemble (plus de valeur mémorisée figée) — reflète toute correction de date d''exécution faite après un premier passage en terminee. 075 : filet de sécurité clôture >= début (surtout utile pour l''annulation). 080 : clôture manuelle sans date_execution trouvable lève une erreur. 125 : à la résurrection, date_debut = première opération terminée conservée.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 8bis. reouvrir_ot — RPC standard pour rouvrir un OT clôturé (F28 audit)
@@ -8144,10 +8045,16 @@ COMMENT ON TRIGGER audit_observations          ON observations          IS 'Trac
 -- Fix 10 — Protection des snapshots de operations_execution
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.protect_opex_snapshots()
-RETURNS TRIGGER LANGUAGE plpgsql
+RETURNS TRIGGER
+LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
+    -- 124 : synchro gamme → OT ouvert (système, opérations non faites seulement).
+    IF current_setting('app.synchro_ops_ot', true) = 'on' THEN
+        RETURN NEW;
+    END IF;
+
     -- Admin bypass pour les cas exceptionnels (correction manuelle, hotfix).
     IF (SELECT public.current_role()) = 'admin' THEN
         RETURN NEW;
@@ -8164,6 +8071,10 @@ BEGIN
        OR OLD.source_id      IS DISTINCT FROM NEW.source_id
        OR OLD.ordre          IS DISTINCT FROM NEW.ordre
        OR OLD.ordre_travail_id IS DISTINCT FROM NEW.ordre_travail_id
+       -- 128 : provenance équipement et ses libellés figés
+       OR OLD.equipement_id    IS DISTINCT FROM NEW.equipement_id
+       OR OLD.nom_equipement   IS DISTINCT FROM NEW.nom_equipement
+       OR OLD.nom_localisation IS DISTINCT FROM NEW.nom_localisation
     THEN
         RAISE EXCEPTION
             'Modification interdite : ces colonnes sont des snapshots figés (operations_execution)'
@@ -9628,7 +9539,7 @@ CREATE POLICY ot_manager_update ON ordres_travail FOR UPDATE
 -- (policies ot_technicien_insert / _update / _delete, issues de la scission
 -- du FOR ALL par la migration 114).
 
--- DELETE physique autorisé (035) via ot_admin_all et ot_technicien_delete
+-- DELETE physique autorisé (035) via ot_admin_all, ot_technicien_delete et ot_manager_delete (127)
 -- (chacun sur ses sites) ; protection_ot_terminaux ne garde plus que
 -- l'immutabilité sur UPDATE.
 
@@ -11190,6 +11101,12 @@ CREATE POLICY ot_technicien_delete ON ordres_travail FOR DELETE
         AND public.has_site_access(site_id)
     );
 
+-- 127 : le manager supprime aussi les OT de ses sites (oubli de la 053).
+CREATE POLICY ot_manager_delete ON ordres_travail FOR DELETE
+    USING (((SELECT public.current_role()) = 'manager') AND public.has_site_access(site_id));
+COMMENT ON POLICY ot_manager_delete ON ordres_travail IS
+    '(127) Le manager supprime les OT de ses sites, clôturés compris — même droit que ot_technicien_delete (décision PO du 07/11/2026).';
+
 -- 2. prestataires — v0.21 : CLOISONNÉ par site comme le manager (décision
 -- 2026-05-31 : plus de FOR ALL cross-site). SELECT couvert par
 -- prestataires_site_scoped_select ; INSERT/UPDATE scopés via prestataires_sites
@@ -11544,6 +11461,57 @@ CREATE POLICY user_sites_manager_provision ON user_sites FOR ALL
 --   - un OT actif existe déjà pour cette gamme (sécurité anti-doublon)
 --   - aucun site actif (cas pathologique)
 -- ═══════════════════════════════════════════════════════════════════════════
+-- 123 : calcul calendaire du lundi de la prochaine intervention (sans dérive).
+CREATE OR REPLACE FUNCTION public.prochaine_date_ot(p_base DATE, p_jours INT)
+RETURNS DATE
+LANGUAGE plpgsql IMMUTABLE
+SET search_path = ''
+AS $$
+DECLARE
+    v_lundi   DATE := date_trunc('week', p_base)::date;
+    v_jeudi   DATE := date_trunc('week', p_base)::date + 3;
+    v_n       INT;
+    v_annee   INT;
+    v_semaine INT;
+    v_rang    INT;
+    v_mois    DATE;
+    v_jeudi_cible DATE;
+BEGIN
+    IF p_jours IS NULL OR p_jours <= 0 THEN
+        RETURN NULL;
+    END IF;
+
+    IF p_jours % 365 = 0 THEN
+        -- N ans : même semaine ISO. Le 28 décembre est toujours dans la
+        -- dernière semaine ISO de son année (52 ou 53).
+        v_n       := p_jours / 365;
+        v_annee   := extract(isoyear FROM v_jeudi)::int + v_n;
+        v_semaine := least(extract(week FROM v_jeudi)::int,
+                           extract(week FROM make_date(v_annee, 12, 28))::int);
+        RETURN to_date(v_annee || '-' || v_semaine || '-1', 'IYYY-IW-ID');
+    END IF;
+
+    IF p_jours % 30 = 0 THEN
+        -- N mois : même rang de semaine (1..5) dans le mois du jeudi.
+        v_n    := p_jours / 30;
+        v_rang := (extract(day FROM v_jeudi)::int - 1) / 7 + 1;
+        v_mois := (date_trunc('month', v_jeudi) + make_interval(months => v_n))::date;
+        -- 1er jeudi du mois cible, puis rang voulu (borné au dernier du mois).
+        v_jeudi_cible := v_mois + ((4 - extract(isodow FROM v_mois)::int + 7) % 7)
+                         + (v_rang - 1) * 7;
+        IF date_trunc('month', v_jeudi_cible) <> date_trunc('month', v_mois) THEN
+            v_jeudi_cible := v_jeudi_cible - 7;
+        END IF;
+        RETURN v_jeudi_cible - 3;
+    END IF;
+
+    RETURN date_trunc('week', v_lundi + p_jours)::date;
+END;
+$$;
+
+COMMENT ON FUNCTION public.prochaine_date_ot(DATE, INT) IS
+    '(123) Lundi de la prochaine intervention : N ans = même semaine ISO, N mois (multiple de 30 j) = même rang de semaine dans le mois, sinon N jours. Sans dérive d''un cycle à l''autre.';
+
 CREATE OR REPLACE FUNCTION public.generate_next_ot_for_gamme(
     p_gamme_id   UUID,
     p_created_by UUID,
@@ -11559,7 +11527,6 @@ DECLARE
     v_date_prevue   DATE;
     v_new_ot_id     UUID;
 BEGIN
-    -- Charger la gamme + sa périodicité
     SELECT g.id, g.site_id, g.prestataire_id, g.est_active,
            p.jours_periodicite, p.tolerance_jours, p.libelle
     INTO v_gamme
@@ -11567,13 +11534,10 @@ BEGIN
     JOIN public.periodicites p ON p.id = g.periodicite_id
     WHERE g.id = p_gamme_id;
 
-    -- Conditions de non-génération (sortie silencieuse)
     IF v_gamme IS NULL OR NOT v_gamme.est_active THEN
         RETURN NULL;
     END IF;
 
-    -- Bibliothèque de gammes : une gamme modèle (site_id NULL) est INERTE,
-    -- elle ne génère jamais d'OT — sortie silencieuse.
     IF v_gamme.site_id IS NULL THEN
         RETURN NULL;
     END IF;
@@ -11581,7 +11545,6 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    -- Sécurité anti-doublon : pas d'autre OT actif sur cette gamme
     IF EXISTS (
         SELECT 1 FROM public.ordres_travail
         WHERE gamme_id = p_gamme_id
@@ -11590,19 +11553,12 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    -- Calcul de la prochaine date prévue, CALÉE sur la semaine ISO (lundi) — F26 / v0.12.
-    -- date_trunc('week', ...) renvoie le lundi 00:00 de la semaine ISO contenant la date,
-    -- donc l'OT tombe toujours pile au début d'une semaine ISO (lundi→dimanche).
-    v_date_prevue := date_trunc('week',
-                         COALESCE(p_date_cloture_precedent, CURRENT_DATE)
-                         + (v_gamme.jours_periodicite * INTERVAL '1 day')
-                     )::date;
+    -- 123 : calcul calendaire (p_date_cloture_precedent = base du calcul,
+    -- choisie par l'appelant : semaine prévue ou date de réalisation).
+    v_date_prevue := public.prochaine_date_ot(
+                         COALESCE(p_date_cloture_precedent, CURRENT_DATE),
+                         v_gamme.jours_periodicite);
 
-    -- F34 (audit 4e passe) — site du successeur = site du précédent OT
-    -- (continuité métier). Fallback : site de la gamme si p_site_id NULL
-    -- (cas d'amorçage manuel où l'appelant ne le précise pas — peu probable car
-    -- le trigger fournit toujours NEW.site_id). Le site retenu DOIT être celui
-    -- de la gamme : trg_check_ot_gamme_site rejette sinon l'INSERT.
     IF p_site_id IS NOT NULL THEN
         SELECT id INTO v_site_final
         FROM public.sites
@@ -11610,7 +11566,6 @@ BEGIN
     END IF;
 
     IF v_site_final IS NULL THEN
-        -- Fallback : le site propre de la gamme (cohérent avec check_ot_gamme_site)
         SELECT id INTO v_site_final
         FROM public.sites
         WHERE id = v_gamme.site_id;
@@ -11622,18 +11577,9 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    -- F19 audit : signature de génération système via GUC LOCAL pour autoriser
-    -- origine='programme' (sans cette GUC, check_ot_origine_coherence refuserait).
     PERFORM set_config('app.cron_generate_ot', 'on', true);
-
-    -- F31 (audit 4e passe) : seconde GUC pour bypasser protect_ot_immutable_fields
-    -- pendant la chaîne d'UPDATE des snapshots du nouveau OT (Pattern 1) déclenchée
-    -- par creation_ot_orchestrator → snapshot_ot_from_gamme. Sans ce bypass, un
-    -- technicien qui clôt un OT fait échouer toute la chaîne de génération.
     PERFORM set_config('app.system_ot_generation', 'on', true);
 
-    -- INSERT du nouvel OT. Les snapshots seront peuplés par le trigger
-    -- creation_ot_orchestrator (Pattern 1 — snapshots figés Option B).
     BEGIN
         INSERT INTO public.ordres_travail (
             site_id, gamme_id, prestataire_id,
@@ -11652,12 +11598,8 @@ BEGIN
 
         RETURN v_new_ot_id;
     EXCEPTION WHEN OTHERS THEN
-        -- F05 audit : LOG + SQLSTATE court (pas SQLERRM qui peut leak PII).
         RAISE LOG 'generate_next_ot_for_gamme: skip gamme % (errcode=%)',
             p_gamme_id, SQLSTATE;
-        -- v0.12 : remonter l'échec dans security_alerts (sinon totalement silencieux).
-        -- La clôture de l'OT courant n'est PAS bloquée (RETURN NULL), mais l'admin est alerté
-        -- qu'un OT préventif n'a pas pu être recréé.
         INSERT INTO public.security_alerts (indicator, severity, details)
         VALUES ('ot_generation_failed', 'warning',
                 jsonb_build_object('gamme_id', p_gamme_id, 'sqlstate', SQLSTATE));
@@ -11667,7 +11609,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.generate_next_ot_for_gamme(UUID, UUID, UUID, DATE) IS
-    'F27 + F34 audit : crée le prochain OT préventif pour UNE gamme donnée, appelée par trigger AFTER UPDATE de clôture. date_prevue = p_date_cloture + jours_periodicite (semaine ISO F26). site_id = p_site_id (continuité du précédent OT, F34). created_by = closed_by. Sortie silencieuse si conditions non remplies (gamme inactive, OT actif existant, site supprimé).';
+    'Crée le prochain OT préventif d''UNE gamme. 4e paramètre = base du calcul (choisie par le trigger appelant). Date = prochaine_date_ot(base, jours_periodicite) (123). Sortie silencieuse si gamme inactive / commune / one-shot / OT actif existant ; échec → security_alerts.';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Triggers événementiels : BEFORE UPDATE peuple closed_by, AFTER UPDATE
@@ -11699,16 +11641,23 @@ CREATE OR REPLACE FUNCTION public.generate_next_ot_on_cloture()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+    v_prevue     DATE := date_trunc('week', NEW.date_prevue)::date;
+    v_realisee   DATE := COALESCE(NEW.date_cloture::date, CURRENT_DATE);
+    v_tolerance  INT  := COALESCE(NEW.tolerance_jours, 0);
+    v_base       DATE;
 BEGIN
-    -- F27 + F34 audit : génération événementielle du prochain OT préventif.
-    -- date_cloture est TIMESTAMPTZ → cast en DATE civile pour le calcul.
-    -- closed_by vient d'être peuplé par set_ot_closed_by (BEFORE UPDATE).
-    -- site_id du successeur = site_id du précédent (continuité métier).
+    IF v_realisee BETWEEN v_prevue - v_tolerance AND v_prevue + 6 + v_tolerance THEN
+        v_base := v_prevue;      -- dans la marge : on garde le rythme
+    ELSE
+        v_base := v_realisee;    -- trop tôt / trop tard : on repart du réel
+    END IF;
+
     PERFORM public.generate_next_ot_for_gamme(
         NEW.gamme_id,
         NEW.closed_by,
         NEW.site_id,
-        COALESCE(NEW.date_cloture::date, CURRENT_DATE)
+        v_base
     );
     RETURN NULL;
 END;
@@ -11720,7 +11669,544 @@ CREATE TRIGGER trg_ot_generate_next
     WHEN (NEW.statut = 'cloture' AND OLD.statut IS DISTINCT FROM 'cloture')
     EXECUTE FUNCTION public.generate_next_ot_on_cloture();
 COMMENT ON FUNCTION public.generate_next_ot_on_cloture() IS
-    'F27 audit : génère le prochain OT préventif pour la gamme à la clôture (événementiel, remplace l''ancien cron generate_next_ots). Sans effet si gamme inactive / OT actif déjà existant.';
+    '(123) À la clôture : base = semaine prévue si la réalisation tombe dans la semaine prévue ± tolerance_jours, sinon date de réalisation. Puis generate_next_ot_for_gamme.';
+
+-- 122 : l'annulation reprogramme aussi le successeur, en GARDANT LE RYTHME —
+-- base = date_prevue de l'OT annulé (comme si l'intervention avait été faite
+-- dans sa semaine), pas la date d'annulation. La suppression d'un OT, elle, ne
+-- génère rien : c'est la voie pour arrêter une gamme.
+CREATE OR REPLACE FUNCTION public.generate_next_ot_on_annulation()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    PERFORM public.generate_next_ot_for_gamme(
+        NEW.gamme_id,
+        COALESCE((SELECT auth.uid()), NEW.created_by),
+        NEW.site_id,
+        NEW.date_prevue::date
+    );
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER trg_ot_generate_next_on_annulation
+    AFTER UPDATE OF statut ON ordres_travail
+    FOR EACH ROW
+    WHEN (NEW.statut = 'annule' AND OLD.statut IS DISTINCT FROM 'annule')
+    EXECUTE FUNCTION public.generate_next_ot_on_annulation();
+COMMENT ON FUNCTION public.generate_next_ot_on_annulation() IS
+    '(122) Génère le prochain OT préventif quand un OT passe à « annule », en gardant le rythme : base = date_prevue de l''OT annulé + jours_periodicite (lundi ISO). Mêmes garde-fous que la clôture (generate_next_ot_for_gamme). La suppression d''un OT, elle, ne génère rien.';
+
+-- 124 : répercussion des modifications de gamme sur les OT non clôturés.
+-- 2. Synchro d'UN OT ouvert sur sa gamme
+CREATE OR REPLACE FUNCTION public.synchroniser_ops_ot(p_ot_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_gamme   UUID;
+    v_statut  TEXT;
+    v_retirees INTEGER;
+    v_restantes_ouvertes BOOLEAN;
+    v_une_terminee BOOLEAN;
+BEGIN
+    SELECT gamme_id, statut INTO v_gamme, v_statut
+    FROM public.ordres_travail WHERE id = p_ot_id;
+
+    IF v_gamme IS NULL OR v_statut NOT IN ('planifie', 'en_cours', 'reouvert') THEN
+        RETURN;
+    END IF;
+
+    PERFORM set_config('app.synchro_ops_ot', 'on', true);
+
+    -- a) Retirer les lignes non saisies dont la source a disparu de la gamme, ou
+    --    dont l'équipement ne fait plus partie de l'ensemble attendu.
+    DELETE FROM public.operations_execution e
+    WHERE e.ordre_travail_id = p_ot_id
+      AND e.statut = 'en_attente'
+      AND e.date_execution IS NULL AND e.valeur_mesuree IS NULL
+      AND e.commentaires IS NULL AND e.index_depose IS NULL AND e.index_pose IS NULL
+      AND NOT (
+          (   (e.source_type = 1 AND EXISTS (
+                  SELECT 1 FROM public.operations o
+                  WHERE o.id = e.source_id AND o.gamme_id = v_gamme))
+           OR (e.source_type = 2 AND EXISTS (
+                  SELECT 1 FROM public.modeles_operations_items moi
+                  JOIN public.gamme_modeles gm ON gm.modele_operation_id = moi.modele_operation_id
+                  WHERE moi.id = e.source_id AND gm.gamme_id = v_gamme)))
+          AND EXISTS (
+              SELECT 1 FROM public.equipements_attendus(v_gamme) a
+              WHERE a.equipement_id IS NOT DISTINCT FROM e.equipement_id)
+      );
+    GET DIAGNOSTICS v_retirees = ROW_COUNT;
+
+    -- b) Mettre à jour les lignes non saisies (source 1 : spécifiques).
+    UPDATE public.operations_execution e
+    SET nom = o.nom, description = o.description, type_operation = t.libelle,
+        seuil_minimum = o.seuil_minimum, seuil_maximum = o.seuil_maximum,
+        unite_nom = u.nom, unite_symbole = u.symbole,
+        unite_est_cumulatif = u.est_cumulatif, ordre = COALESCE(o.ordre, 0)
+    FROM public.operations o
+    JOIN public.types_operations t ON t.id = o.type_operation_id
+    LEFT JOIN public.unites u      ON u.id = o.unite_id
+    WHERE e.ordre_travail_id = p_ot_id
+      AND e.source_type = 1 AND e.source_id = o.id AND o.gamme_id = v_gamme
+      AND e.statut = 'en_attente' AND e.date_execution IS NULL AND e.valeur_mesuree IS NULL
+      AND e.commentaires IS NULL AND e.index_depose IS NULL AND e.index_pose IS NULL
+      AND (e.nom, e.description, e.type_operation, e.seuil_minimum, e.seuil_maximum,
+           e.unite_nom, e.unite_symbole, e.unite_est_cumulatif, e.ordre)
+          IS DISTINCT FROM
+          (o.nom, o.description, t.libelle, o.seuil_minimum, o.seuil_maximum,
+           u.nom, u.symbole, u.est_cumulatif, COALESCE(o.ordre, 0));
+
+    -- b') Idem source 2 : items des modèles d'opérations rattachés.
+    UPDATE public.operations_execution e
+    SET nom = moi.nom, description = moi.description, type_operation = t.libelle,
+        seuil_minimum = moi.seuil_minimum, seuil_maximum = moi.seuil_maximum,
+        unite_nom = u.nom, unite_symbole = u.symbole,
+        unite_est_cumulatif = u.est_cumulatif, ordre = COALESCE(moi.ordre, 0)
+    FROM public.modeles_operations_items moi
+    JOIN public.gamme_modeles gm         ON gm.modele_operation_id = moi.modele_operation_id
+    JOIN public.types_operations t       ON t.id = moi.type_operation_id
+    LEFT JOIN public.unites u            ON u.id = moi.unite_id
+    WHERE e.ordre_travail_id = p_ot_id
+      AND e.source_type = 2 AND e.source_id = moi.id AND gm.gamme_id = v_gamme
+      AND e.statut = 'en_attente' AND e.date_execution IS NULL AND e.valeur_mesuree IS NULL
+      AND e.commentaires IS NULL AND e.index_depose IS NULL AND e.index_pose IS NULL
+      AND (e.nom, e.description, e.type_operation, e.seuil_minimum, e.seuil_maximum,
+           e.unite_nom, e.unite_symbole, e.unite_est_cumulatif, e.ordre)
+          IS DISTINCT FROM
+          (moi.nom, moi.description, t.libelle, moi.seuil_minimum, moi.seuil_maximum,
+           u.nom, u.symbole, u.est_cumulatif, COALESCE(moi.ordre, 0));
+
+    -- b'') 128 : rafraîchir les libellés d'équipement des lignes non saisies.
+    UPDATE public.operations_execution e
+    SET nom_equipement   = public.libelle_equipement(e.equipement_id),
+        nom_localisation = public.localisation_equipement(e.equipement_id)
+    WHERE e.ordre_travail_id = p_ot_id
+      AND e.equipement_id IS NOT NULL
+      AND e.statut = 'en_attente' AND e.date_execution IS NULL AND e.valeur_mesuree IS NULL
+      AND e.commentaires IS NULL AND e.index_depose IS NULL AND e.index_pose IS NULL
+      AND (e.nom_equipement, e.nom_localisation) IS DISTINCT FROM
+          (public.libelle_equipement(e.equipement_id), public.localisation_equipement(e.equipement_id));
+
+    -- c) Ajouter les lignes manquantes : sources × équipements attendus.
+    INSERT INTO public.operations_execution (
+        ordre_travail_id, source_type, source_id, ordre,
+        nom, description, type_operation, seuil_minimum, seuil_maximum,
+        unite_nom, unite_symbole, unite_est_cumulatif, statut,
+        equipement_id, nom_equipement, nom_localisation
+    )
+    SELECT p_ot_id, 1, o.id, COALESCE(o.ordre, 0),
+           o.nom, o.description, t.libelle, o.seuil_minimum, o.seuil_maximum,
+           u.nom, u.symbole, u.est_cumulatif, 'en_attente',
+           a.equipement_id,
+           public.libelle_equipement(a.equipement_id),
+           public.localisation_equipement(a.equipement_id)
+    FROM public.operations o
+    JOIN public.types_operations t ON t.id = o.type_operation_id
+    LEFT JOIN public.unites u      ON u.id = o.unite_id
+    CROSS JOIN public.equipements_attendus(v_gamme) a
+    WHERE o.gamme_id = v_gamme
+      AND NOT EXISTS (
+          SELECT 1 FROM public.operations_execution x
+          WHERE x.ordre_travail_id = p_ot_id AND x.source_type = 1 AND x.source_id = o.id
+            AND x.equipement_id IS NOT DISTINCT FROM a.equipement_id);
+
+    INSERT INTO public.operations_execution (
+        ordre_travail_id, source_type, source_id, ordre,
+        nom, description, type_operation, seuil_minimum, seuil_maximum,
+        unite_nom, unite_symbole, unite_est_cumulatif, statut,
+        equipement_id, nom_equipement, nom_localisation
+    )
+    SELECT p_ot_id, 2, moi.id, COALESCE(moi.ordre, 0),
+           moi.nom, moi.description, t.libelle, moi.seuil_minimum, moi.seuil_maximum,
+           u.nom, u.symbole, u.est_cumulatif, 'en_attente',
+           a.equipement_id,
+           public.libelle_equipement(a.equipement_id),
+           public.localisation_equipement(a.equipement_id)
+    FROM public.gamme_modeles gm
+    JOIN public.modeles_operations_items moi ON moi.modele_operation_id = gm.modele_operation_id
+    JOIN public.types_operations t           ON t.id = moi.type_operation_id
+    LEFT JOIN public.unites u                ON u.id = moi.unite_id
+    CROSS JOIN public.equipements_attendus(v_gamme) a
+    WHERE gm.gamme_id = v_gamme
+      AND NOT EXISTS (
+          SELECT 1 FROM public.operations_execution x
+          WHERE x.ordre_travail_id = p_ot_id AND x.source_type = 2 AND x.source_id = moi.id
+            AND x.equipement_id IS NOT DISTINCT FROM a.equipement_id);
+
+    PERFORM set_config('app.synchro_ops_ot', 'off', true);
+
+    -- d) 128 : un retrait peut laisser un OT démarré dont tout le reste est
+    --    terminal ; gestion_statut_ot ne réagit qu'à un UPDATE de statut → même
+    --    règle de clôture / annulation automatique, appliquée ici.
+    IF v_retirees > 0 AND v_statut IN ('en_cours', 'reouvert') THEN
+        SELECT EXISTS (SELECT 1 FROM public.operations_execution
+                       WHERE ordre_travail_id = p_ot_id AND statut IN ('en_attente', 'en_cours')),
+               EXISTS (SELECT 1 FROM public.operations_execution
+                       WHERE ordre_travail_id = p_ot_id AND statut = 'terminee')
+        INTO v_restantes_ouvertes, v_une_terminee;
+
+        IF NOT v_restantes_ouvertes
+           AND EXISTS (SELECT 1 FROM public.operations_execution WHERE ordre_travail_id = p_ot_id) THEN
+            UPDATE public.ordres_travail
+            SET statut = CASE WHEN v_une_terminee THEN 'cloture' ELSE 'annule' END,
+                motif_annulation = CASE
+                    WHEN NOT v_une_terminee
+                    THEN COALESCE(motif_annulation,
+                         'Annulation automatique : toutes les opérations ont été marquées « non applicable ».')
+                    ELSE motif_annulation END
+            WHERE id = p_ot_id
+              AND statut IN ('en_cours', 'reouvert')
+              AND date_cloture IS NULL;
+        END IF;
+    END IF;
+END;
+$$;
+
+COMMENT ON FUNCTION public.synchroniser_ops_ot(UUID) IS
+    '(124, 128) Aligne les opérations d''un OT OUVERT sur sa gamme et ses équipements attendus : ajoute les manquantes, met à jour et retire celles NON SAISIES ; réévalue la clôture auto après un retrait. Une ligne saisie n''est jamais touchée. Sans effet sur un OT clôturé/annulé.';
+
+-- 3. Synchro de tous les OT ouverts d'une gamme
+CREATE OR REPLACE FUNCTION public.synchroniser_ops_gamme(p_gamme_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_ot UUID;
+BEGIN
+    IF p_gamme_id IS NULL THEN
+        RETURN;
+    END IF;
+    FOR v_ot IN
+        SELECT id FROM public.ordres_travail
+        WHERE gamme_id = p_gamme_id
+          AND statut IN ('planifie', 'en_cours', 'reouvert')
+    LOOP
+        PERFORM public.synchroniser_ops_ot(v_ot);
+    END LOOP;
+END;
+$$;
+
+COMMENT ON FUNCTION public.synchroniser_ops_gamme(UUID) IS
+    '(124) synchroniser_ops_ot sur chaque OT ouvert (planifie/en_cours/reouvert) de la gamme.';
+
+-- 4. Déclencheurs de la synchro
+CREATE OR REPLACE FUNCTION public.trg_fn_synchro_ops_operations()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN
+        PERFORM public.synchroniser_ops_gamme(OLD.gamme_id);
+    END IF;
+    IF TG_OP IN ('INSERT', 'UPDATE')
+       AND (TG_OP = 'INSERT' OR NEW.gamme_id IS DISTINCT FROM OLD.gamme_id) THEN
+        PERFORM public.synchroniser_ops_gamme(NEW.gamme_id);
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_synchro_ops_operations ON public.operations;
+CREATE TRIGGER trg_synchro_ops_operations
+    AFTER INSERT OR UPDATE OR DELETE ON public.operations
+    FOR EACH ROW EXECUTE FUNCTION public.trg_fn_synchro_ops_operations();
+
+CREATE OR REPLACE FUNCTION public.trg_fn_synchro_ops_gamme_modeles()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN
+        PERFORM public.synchroniser_ops_gamme(OLD.gamme_id);
+    END IF;
+    IF TG_OP = 'INSERT'
+       OR (TG_OP = 'UPDATE' AND NEW.gamme_id IS DISTINCT FROM OLD.gamme_id) THEN
+        PERFORM public.synchroniser_ops_gamme(NEW.gamme_id);
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_synchro_ops_gamme_modeles ON public.gamme_modeles;
+CREATE TRIGGER trg_synchro_ops_gamme_modeles
+    AFTER INSERT OR UPDATE OR DELETE ON public.gamme_modeles
+    FOR EACH ROW EXECUTE FUNCTION public.trg_fn_synchro_ops_gamme_modeles();
+
+CREATE OR REPLACE FUNCTION public.trg_fn_synchro_ops_modeles_items()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_gamme UUID;
+BEGIN
+    FOR v_gamme IN
+        SELECT DISTINCT gm.gamme_id FROM public.gamme_modeles gm
+        WHERE gm.modele_operation_id IN (
+            CASE WHEN TG_OP <> 'INSERT' THEN OLD.modele_operation_id END,
+            CASE WHEN TG_OP <> 'DELETE' THEN NEW.modele_operation_id END)
+    LOOP
+        PERFORM public.synchroniser_ops_gamme(v_gamme);
+    END LOOP;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_synchro_ops_modeles_items ON public.modeles_operations_items;
+CREATE TRIGGER trg_synchro_ops_modeles_items
+    AFTER INSERT OR UPDATE OR DELETE ON public.modeles_operations_items
+    FOR EACH ROW EXECUTE FUNCTION public.trg_fn_synchro_ops_modeles_items();
+
+-- 5. Modification de la gamme elle-même → snapshots des OT ouverts
+CREATE OR REPLACE FUNCTION public.propager_gamme_aux_ot_ouverts()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_ot UUID;
+BEGIN
+    PERFORM set_config('app.system_ot_generation', 'on', true);
+    FOR v_ot IN
+        SELECT id FROM public.ordres_travail
+        WHERE gamme_id = NEW.id
+          AND statut IN ('planifie', 'en_cours', 'reouvert')
+    LOOP
+        IF NEW.prestataire_id IS NOT NULL
+           AND NEW.prestataire_id IS DISTINCT FROM OLD.prestataire_id THEN
+            UPDATE public.ordres_travail SET prestataire_id = NEW.prestataire_id
+            WHERE id = v_ot;
+            PERFORM public.resolve_prestataire_for_ot(v_ot);
+        END IF;
+        PERFORM public.snapshot_ot_from_gamme(v_ot);
+    END LOOP;
+    PERFORM set_config('app.system_ot_generation', 'off', true);
+    RETURN NULL;
+END;
+$$;
+
+COMMENT ON FUNCTION public.propager_gamme_aux_ot_ouverts() IS
+    '(124) Après modification d''une gamme (nom, description, nature, catégorie, fréquence, prestataire) : rafraîchit les snapshots de ses OT OUVERTS. OT clôturés/annulés intacts.';
+
+DROP TRIGGER IF EXISTS trg_propager_gamme_aux_ot_ouverts ON public.gammes;
+CREATE TRIGGER trg_propager_gamme_aux_ot_ouverts
+    AFTER UPDATE OF nom, description, nature, categorie_id, periodicite_id, prestataire_id
+    ON public.gammes
+    FOR EACH ROW
+    WHEN ((OLD.nom, OLD.description, OLD.nature, OLD.categorie_id, OLD.periodicite_id, OLD.prestataire_id)
+          IS DISTINCT FROM
+          (NEW.nom, NEW.description, NEW.nature, NEW.categorie_id, NEW.periodicite_id, NEW.prestataire_id))
+    EXECUTE FUNCTION public.propager_gamme_aux_ot_ouverts();
+
+-- 127 : les changements d'équipement / de catégorie suivent sur les OT ouverts.
+-- 2. Rafraîchir les snapshots des OT ouverts d'une gamme
+CREATE OR REPLACE FUNCTION public.rafraichir_snapshots_ot_ouverts(p_gamme_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_ot UUID;
+BEGIN
+    IF p_gamme_id IS NULL THEN
+        RETURN;
+    END IF;
+    PERFORM set_config('app.system_ot_generation', 'on', true);
+    FOR v_ot IN
+        SELECT id FROM public.ordres_travail
+        WHERE gamme_id = p_gamme_id
+          AND statut IN ('planifie', 'en_cours', 'reouvert')
+    LOOP
+        PERFORM public.snapshot_ot_from_gamme(v_ot);
+    END LOOP;
+    PERFORM set_config('app.system_ot_generation', 'off', true);
+END;
+$$;
+
+COMMENT ON FUNCTION public.rafraichir_snapshots_ot_ouverts(UUID) IS
+    '(127) snapshot_ot_from_gamme sur chaque OT OUVERT de la gamme (équipement, emplacement, catégorie…). OT clôturés/annulés intacts.';
+
+
+-- 2a. Équipement ajouté / retiré d'une gamme
+CREATE OR REPLACE FUNCTION public.trg_fn_snapshots_gammes_equipements()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN
+        PERFORM public.rafraichir_snapshots_ot_ouverts(OLD.gamme_id);
+        PERFORM public.synchroniser_ops_gamme(OLD.gamme_id);
+    END IF;
+    IF TG_OP = 'INSERT'
+       OR (TG_OP = 'UPDATE' AND NEW.gamme_id IS DISTINCT FROM OLD.gamme_id) THEN
+        PERFORM public.rafraichir_snapshots_ot_ouverts(NEW.gamme_id);
+        PERFORM public.synchroniser_ops_gamme(NEW.gamme_id);
+    ELSIF TG_OP = 'UPDATE' AND NEW.equipement_id IS DISTINCT FROM OLD.equipement_id THEN
+        PERFORM public.synchroniser_ops_gamme(NEW.gamme_id);
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_snapshots_gammes_equipements ON public.gammes_equipements;
+CREATE TRIGGER trg_snapshots_gammes_equipements
+    AFTER INSERT OR UPDATE OR DELETE ON public.gammes_equipements
+    FOR EACH ROW EXECUTE FUNCTION public.trg_fn_snapshots_gammes_equipements();
+
+-- 2b. Équipement modifié (caractéristique principale, catégorie, local)
+CREATE OR REPLACE FUNCTION public.trg_fn_snapshots_equipement()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_gamme UUID;
+BEGIN
+    FOR v_gamme IN
+        SELECT DISTINCT ge.gamme_id FROM public.gammes_equipements ge
+        WHERE ge.equipement_id = NEW.id
+    LOOP
+        PERFORM public.rafraichir_snapshots_ot_ouverts(v_gamme);
+        PERFORM public.synchroniser_ops_gamme(v_gamme);
+    END LOOP;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_snapshots_equipement ON public.equipements;
+CREATE TRIGGER trg_snapshots_equipement
+    AFTER UPDATE OF specifications, categorie_id, local_id ON public.equipements
+    FOR EACH ROW
+    WHEN ((OLD.specifications, OLD.categorie_id, OLD.local_id)
+          IS DISTINCT FROM (NEW.specifications, NEW.categorie_id, NEW.local_id))
+    EXECUTE FUNCTION public.trg_fn_snapshots_equipement();
+
+-- 2c. Catégorie renommée (catégorie de la gamme, ou d'un équipement ciblé)
+CREATE OR REPLACE FUNCTION public.trg_fn_snapshots_categorie()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_gamme UUID;
+BEGIN
+    FOR v_gamme IN
+        SELECT g.id FROM public.gammes g WHERE g.categorie_id = NEW.id
+        UNION
+        SELECT ge.gamme_id FROM public.gammes_equipements ge
+        JOIN public.equipements e ON e.id = ge.equipement_id
+        WHERE e.categorie_id = NEW.id
+    LOOP
+        PERFORM public.rafraichir_snapshots_ot_ouverts(v_gamme);
+        PERFORM public.synchroniser_ops_gamme(v_gamme);
+    END LOOP;
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_snapshots_categorie ON public.categories;
+CREATE TRIGGER trg_snapshots_categorie
+    AFTER UPDATE OF nom, valeur_principale ON public.categories
+    FOR EACH ROW
+    WHEN ((OLD.nom, OLD.valeur_principale) IS DISTINCT FROM (NEW.nom, NEW.valeur_principale))
+    EXECUTE FUNCTION public.trg_fn_snapshots_categorie();
+
+-- =============================================================================
+-- (128) Opérations répétées par équipement lié — cf. ADR 0013
+-- =============================================================================
+COMMENT ON COLUMN public.gammes.repeter_par_equipement IS
+    '(128) true = chaque OT reçoit les opérations de la gamme une fois PAR équipement lié (repli : une fois si aucun équipement).';
+COMMENT ON COLUMN public.operations_execution.equipement_id IS
+    '(128) Équipement pour lequel la ligne a été générée (gamme répétée). PROVENANCE sans FK, comme source_id : survit à la suppression de l''équipement. NULL = ligne de gamme classique.';
+COMMENT ON COLUMN public.operations_execution.nom_equipement IS
+    '(128) Libellé figé de l''équipement (type + valeur principale, ex. « Climatiseur 302 »).';
+COMMENT ON COLUMN public.operations_execution.nom_localisation IS
+    '(128) Emplacement figé de l''équipement (v_locaux_chemin.chemin_court).';
+
+CREATE INDEX IF NOT EXISTS idx_opex_ot_equipement
+    ON public.operations_execution (ordre_travail_id, equipement_id, ordre)
+    WHERE equipement_id IS NOT NULL;
+
+-- 2. Libellés d'un équipement ----------------------------------------------------
+-- Même règle que le front (equipements/format.ts → titreAffiche) : nom de la
+-- sous-catégorie + valeur principale ; repli sur le nom seul.
+CREATE OR REPLACE FUNCTION public.libelle_equipement(p_equipement_id UUID)
+RETURNS TEXT
+LANGUAGE sql STABLE
+SET search_path = ''
+AS $$
+    SELECT CASE WHEN v.principal IS NOT NULL AND v.principal <> ''
+                THEN c.nom || ' ' || v.principal
+                ELSE COALESCE(c.nom, 'Équipement') END
+    FROM public.equipements e
+    LEFT JOIN public.categories c ON c.id = e.categorie_id
+    LEFT JOIN LATERAL (
+        SELECT elem->>'valeur' AS principal
+        FROM jsonb_array_elements(COALESCE(e.specifications->'champs', '[]'::jsonb)) elem
+        WHERE c.valeur_principale IS NOT NULL AND elem->>'cle' = c.valeur_principale
+        LIMIT 1
+    ) v ON true
+    WHERE e.id = p_equipement_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.localisation_equipement(p_equipement_id UUID)
+RETURNS TEXT
+LANGUAGE sql STABLE
+SET search_path = ''
+AS $$
+    SELECT v.chemin_court
+    FROM public.equipements e
+    JOIN public.v_locaux_chemin v ON v.local_id = e.local_id
+    WHERE e.id = p_equipement_id;
+$$;
+
+-- 3. Ensemble attendu d'une gamme -----------------------------------------------
+CREATE OR REPLACE FUNCTION public.equipements_attendus(p_gamme_id UUID)
+RETURNS TABLE (equipement_id UUID)
+LANGUAGE sql STABLE
+SET search_path = ''
+AS $$
+    SELECT ge.equipement_id
+    FROM public.gammes g
+    JOIN public.gammes_equipements ge ON ge.gamme_id = g.id
+    WHERE g.id = p_gamme_id AND g.repeter_par_equipement
+    UNION ALL
+    SELECT NULL::uuid
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.gammes g
+        JOIN public.gammes_equipements ge ON ge.gamme_id = g.id
+        WHERE g.id = p_gamme_id AND g.repeter_par_equipement);
+$$;
+COMMENT ON FUNCTION public.equipements_attendus(UUID) IS
+    '(128) Équipements pour lesquels générer les opérations : les liés si l''option est active et qu''il y en a ; sinon une seule ligne NULL (génération classique).';
+
+-- 7d. Option basculée → synchro des OT ouverts de la gamme
+CREATE OR REPLACE FUNCTION public.trg_fn_synchro_option_par_equipement()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    PERFORM public.synchroniser_ops_gamme(NEW.id);
+    RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_synchro_option_par_equipement ON public.gammes;
+CREATE TRIGGER trg_synchro_option_par_equipement
+    AFTER UPDATE OF repeter_par_equipement ON public.gammes
+    FOR EACH ROW
+    WHEN (OLD.repeter_par_equipement IS DISTINCT FROM NEW.repeter_par_equipement)
+    EXECUTE FUNCTION public.trg_fn_synchro_option_par_equipement();
+
+
+REVOKE EXECUTE ON FUNCTION public.libelle_equipement(UUID)        FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.localisation_equipement(UUID)   FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.equipements_attendus(UUID)      FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.trg_fn_synchro_option_par_equipement() FROM PUBLIC, anon, authenticated;
+
+
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- cleanup_document_blob — RGPD : nettoyage Storage à la suppression d'un document

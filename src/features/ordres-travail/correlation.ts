@@ -1,6 +1,9 @@
 /**
  * Corrélation des exécutions d'une même opération récurrente, d'un OT à l'autre.
- * Mise en œuvre de l'ADR 0012 (docs/decisions).
+ * Mise en œuvre de l'ADR 0012 (docs/decisions), amendée par l'ADR 0013 : chaque
+ * clé intègre l'équipement de l'exécution, pour qu'une opération répétée sur N
+ * équipements donne N séries — et jamais une valeur précédente empruntée au
+ * voisin. Une exécution sans équipement garde sa clé d'avant.
  *
  * Deux clés, dans cet ordre et jamais dans l'autre :
  *
@@ -47,18 +50,42 @@ export interface OperationCorrelable {
   source_type: string | number
   source_id: string | null
   nom: string
-}
-
-/** Clé de référence : la provenance. `null` si l'exécution n'en porte pas. */
-export function cleProvenance(op: OperationCorrelable): string | null {
-  return op.source_id === null
-    ? null
-    : `${String(op.source_type)}:${op.source_id}`
+  /**
+   * Équipement auquel l'exécution est rattachée (ADR 0013, migration 128) :
+   * une gamme peut répéter la MÊME opération pour chaque équipement lié. Champ
+   * OBLIGATOIRE (et non optionnel) : un select qui l'oublierait doit casser à la
+   * compilation plutôt que fusionner en silence les séries de deux équipements.
+   */
+  equipement_id: string | null
 }
 
 /**
- * Clé de repli : gamme + nom normalisé. `null` si la gamme est inconnue — sans
- * elle, deux opérations homonymes de gammes différentes se confondraient.
+ * Suffixe d'équipement d'une clé. VIDE quand l'exécution n'a pas d'équipement :
+ * une telle ligne garde EXACTEMENT sa clé d'avant la 128, ce qui ne coupe aucune
+ * série existante (ADR 0013, « Conséquences »).
+ *
+ * Le séparateur est une tabulation : `normaliserNomOperation` réduit tout blanc
+ * à une espace, un nom normalisé n'en contient donc jamais — la clé de repli
+ * d'une ligne sans équipement ne peut pas imiter celle d'une ligne avec.
+ */
+function suffixeEquipement(op: OperationCorrelable): string {
+  return op.equipement_id === null ? '' : `\t${op.equipement_id}`
+}
+
+/**
+ * Clé de référence : la provenance `(source_type, source_id, equipement_id)`.
+ * `null` si l'exécution ne porte pas de `source_id`.
+ */
+export function cleProvenance(op: OperationCorrelable): string | null {
+  return op.source_id === null
+    ? null
+    : `${String(op.source_type)}:${op.source_id}${suffixeEquipement(op)}`
+}
+
+/**
+ * Clé de repli : gamme + nom normalisé + équipement. `null` si la gamme est
+ * inconnue — sans elle, deux opérations homonymes de gammes différentes se
+ * confondraient.
  */
 export function cleNom(
   gammeId: string | null,
@@ -66,7 +93,7 @@ export function cleNom(
 ): string | null {
   return gammeId === null
     ? null
-    : `${gammeId}|${normaliserNomOperation(op.nom)}`
+    : `${gammeId}|${normaliserNomOperation(op.nom)}${suffixeEquipement(op)}`
 }
 
 /**

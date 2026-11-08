@@ -15,6 +15,7 @@ function op(p: Partial<OperationCorrelable> = {}): OperationCorrelable {
     source_type: 'operation',
     source_id: 'src-1',
     nom: 'Relevé compteur eau',
+    equipement_id: null,
     ...p,
   }
 }
@@ -147,6 +148,90 @@ describe('valeurPrecedente — corrélation en deux temps (ADR 0012)', () => {
       parNom: { 'g1|relevé compteur eau': 120 },
     }
     expect(valeurPrecedente(index, null, op({ source_id: null }))).toBeNull()
+  })
+})
+
+describe('clés par équipement (ADR 0013)', () => {
+  // CONTRAT FIGÉ : une exécution sans équipement garde EXACTEMENT sa clé d'avant
+  // la migration 128. Changer ces chaînes couperait en silence toutes les séries
+  // de relevés existantes.
+  it('une ligne SANS équipement garde exactement les clés d’avant la 128', () => {
+    const sans = op({ source_type: 1, source_id: 'a', nom: '  Relevé  Eau ' })
+    expect(cleProvenance(sans)).toBe('1:a')
+    expect(cleNom('g1', sans)).toBe('g1|relevé eau')
+  })
+
+  it('l’équipement entre dans les deux clés', () => {
+    const avec = op({ source_type: 1, source_id: 'a', equipement_id: 'eq-302' })
+    expect(cleProvenance(avec)).toBe('1:a\teq-302')
+    expect(cleNom('g1', avec)).toBe('g1|relevé compteur eau\teq-302')
+  })
+
+  it('deux équipements de la même opération ont deux clés distinctes', () => {
+    const a = op({ equipement_id: 'eq-302' })
+    const b = op({ equipement_id: 'eq-303' })
+    const sans = op()
+    expect(new Set([a, b, sans].map(cleProvenance)).size).toBe(3)
+    expect(new Set([a, b, sans].map((o) => cleNom('g1', o))).size).toBe(3)
+  })
+
+  it('aucun nom ne peut imiter la clé de repli d’un équipement', () => {
+    // La tabulation ne survit pas à la normalisation : un nom qui la contient
+    // devient une espace, jamais le séparateur d'équipement.
+    fc.assert(
+      fc.property(fc.string(), fc.uuid(), (nom, eq) => {
+        expect(cleNom('g1', op({ nom: `${nom}\t${eq}` }))).not.toBe(
+          cleNom('g1', op({ nom, equipement_id: eq })),
+        )
+      }),
+      { numRuns: 500 },
+    )
+  })
+
+  it('deux équipements, même opération Mesure : chacun SA valeur précédente', () => {
+    const index: IndexPrecedents = {
+      parProvenance: {
+        'operation:src-1\teq-302': 19.5,
+        'operation:src-1\teq-303': 22,
+      },
+      parNom: {},
+    }
+    expect(valeurPrecedente(index, 'g1', op({ equipement_id: 'eq-302' }))).toBe(
+      19.5,
+    )
+    expect(valeurPrecedente(index, 'g1', op({ equipement_id: 'eq-303' }))).toBe(
+      22,
+    )
+  })
+
+  it('n’emprunte jamais la valeur d’un autre équipement, ni celle d’avant la répétition', () => {
+    const index: IndexPrecedents = {
+      parProvenance: { 'operation:src-1\teq-302': 19.5, 'operation:src-1': 7 },
+      parNom: {
+        'g1|relevé compteur eau\teq-302': 19.5,
+        'g1|relevé compteur eau': 7,
+      },
+    }
+    expect(
+      valeurPrecedente(index, 'g1', op({ equipement_id: 'eq-303' })),
+    ).toBeNull()
+  })
+
+  it('le repli par nom reste propre à l’équipement', () => {
+    const index: IndexPrecedents = {
+      parProvenance: {},
+      parNom: {
+        'g1|relevé compteur eau\teq-302': 19.5,
+        'g1|relevé compteur eau\teq-303': 22,
+      },
+    }
+    expect(
+      valeurPrecedente(
+        index,
+        'g1',
+        op({ source_id: 'orpheline', equipement_id: 'eq-303' }),
+      ),
+    ).toBe(22)
   })
 })
 

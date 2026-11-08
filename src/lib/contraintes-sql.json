@@ -1686,6 +1686,14 @@
           "precision": null,
           "type": "uuid"
         },
+        "repeter_par_equipement": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
         "site_id": {
           "aUnDefaut": false,
           "echelle": null,
@@ -2931,6 +2939,14 @@
           "precision": null,
           "type": "text"
         },
+        "equipement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
         "est_conforme": {
           "aUnDefaut": false,
           "echelle": null,
@@ -2976,6 +2992,22 @@
           "echelle": null,
           "longueurMax": null,
           "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "nom_equipement": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "nom_localisation": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
           "precision": null,
           "type": "text"
         },

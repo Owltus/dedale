@@ -7,10 +7,12 @@ import {
   statutOperationTone,
 } from '../schemas'
 import {
+  basculerStatut,
   conformiteLocale,
   estCompteur,
   estMesureExecution,
   placeholderRange,
+  type OperationEdit,
   type OperationExecution,
 } from '../operation-predicats'
 import { ChampNombreUnite } from './champ-nombre-unite'
@@ -33,20 +35,12 @@ export {
   estCompteurCumulatif,
 } from '../operation-predicats'
 
-/** Valeurs éditables d'une opération d'exécution (état CONTRÔLÉ par le parent). */
-export interface OperationEdit {
-  statut: string
-  valeur: string
-  dateExec: string
-  // Remplacement de compteur (manuel) — chaînes vides hors remplacement.
-  indexDepose: string
-  indexPose: string
-  dateRemplacement: string
-}
+/** Valeurs éditables d'une opération (déplacées dans ./operation-predicats). */
+export type { OperationEdit } from '../operation-predicats'
 
 // Liseré de carte (bord gauche) par tonalité — même code couleur que `ListRow` /
-// `StatusBadge` (tokens de thème).
-const TONE_BORDER: Record<StatusTone, string> = {
+// `StatusBadge` (tokens de thème). Partagé avec l'en-tête de groupe par équipement.
+export const TONE_BORDER: Record<StatusTone, string> = {
   neutral: 'border-l-muted-foreground/30',
   success: 'border-l-success',
   warning: 'border-l-warning',
@@ -163,23 +157,10 @@ export function OperationRow({
   // peut pas « terminer » une mesure sans valeur).
   function toggleStatut() {
     if (readOnly) return
-    if (mesure) {
-      // Réinitialise la mesure ET un éventuel remplacement de compteur.
-      onChange({
-        ...value,
-        valeur: '',
-        statut: 'en_attente',
-        indexDepose: '',
-        indexPose: '',
-        dateRemplacement: '',
-      })
-      setShowReplacement(false)
-    } else {
-      onChange({
-        ...value,
-        statut: value.statut === 'terminee' ? 'en_attente' : 'terminee',
-      })
-    }
+    // Logique pure partagée avec l'en-tête de groupe (cf. basculerStatut).
+    onChange(basculerStatut(value, mesure))
+    // Une mesure réinitialisée perd aussi son éventuel remplacement de compteur.
+    if (mesure) setShowReplacement(false)
     // Évite la sélection de texte déclenchée par le double-clic / l'appui long.
     window.getSelection()?.removeAllRanges()
   }

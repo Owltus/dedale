@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { toutesLesLignes } from '@/lib/pagination'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 
 /**
@@ -32,18 +33,22 @@ export const dashboardQueries = {
         siteId,
       ] as const,
       enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('ordres_travail')
-          .select(
-            'id, statut, origine, tolerance_jours, gamme_id, nom_gamme, nature_gamme, nom_prestataire, nom_equipement, description_gamme, nom_categorie, libelle_periodicite, date_prevue, date_debut, date_cloture, miniature_id',
-          )
-          .eq('site_id', siteId!)
-          .order('date_prevue', { ascending: true })
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      // Paginé : tous les OT du site dépassent bientôt le plafond de 1 000 lignes
+      // par réponse — les OT À VENIR manqueraient en silence (cf. pagination.ts).
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('ordres_travail')
+            .select(
+              'id, statut, origine, tolerance_jours, gamme_id, nom_gamme, nature_gamme, nom_prestataire, nom_equipement, description_gamme, nom_categorie, libelle_periodicite, date_prevue, date_debut, date_cloture, miniature_id',
+            )
+            .eq('site_id', siteId!)
+            .order('date_prevue', { ascending: true })
+            .order('id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
     }),
 
   /**

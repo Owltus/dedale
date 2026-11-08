@@ -53,6 +53,7 @@ function initialValues(
     description: gamme.description ?? '',
     miniature_id: gamme.miniature_id,
     est_active: gamme.est_active,
+    repeter_par_equipement: gamme.repeter_par_equipement,
   }
 }
 
@@ -221,6 +222,13 @@ export function GammeFormDialog({
             description="Une gamme inactive ne génère plus d’ordres de travail."
           />
         )}
+
+        <SwitchField
+          control={form.control}
+          name="repeter_par_equipement"
+          label="Répéter les opérations pour chaque équipement lié"
+          description="Chaque intervention contiendra ces opérations une fois par équipement lié à la gamme."
+        />
 
         <SelectField
           control={form.control}

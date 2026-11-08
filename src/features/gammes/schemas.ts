@@ -63,6 +63,9 @@ export const gammeSchema = z.object({
   // Gamme active = génère des OT ; inactive = mise en sommeil. La désactivation
   // est refusée par un trigger s'il reste des OT actifs (erreur à catcher en UI).
   est_active: z.boolean(),
+  // 128 : opérations répétées pour CHAQUE équipement lié (repli : une seule fois
+  // si aucun équipement). La base synchronise les OT ouverts au basculement.
+  repeter_par_equipement: z.boolean(),
 })
 
 export type GammeFormValues = z.input<typeof gammeSchema>
@@ -76,6 +79,7 @@ export const emptyGamme: GammeFormValues = {
   description: '',
   miniature_id: null,
   est_active: true,
+  repeter_par_equipement: false,
 }
 
 /**
@@ -84,15 +88,17 @@ export const emptyGamme: GammeFormValues = {
  * **portée** (commun = `site_id NULL` inviolable, ou un site). Le schéma de
  * gamme de SITE reste inchangé (catégorie absente du flux existant).
  */
-export const gammeBiblioSchema = gammeSchema.omit({ est_active: true }).extend({
-  categorie_id: uuidObligatoire('La catégorie est obligatoire'),
-  portee: z.enum(['entreprise', 'site']),
-  // Un template commun n'a PAS de prestataire (il dépend du site, renseigné
-  // après copie) : le champ est facultatif ici (autorise '' → NULL en base),
-  // contrairement à la gamme réelle (`gammeSchema`) qui l'exige.
-  prestataire_id: uuidFacultatif,
-  // `miniature_id` est hérité de `gammeSchema` (vignette du pool, nullable).
-})
+export const gammeBiblioSchema = gammeSchema
+  .omit({ est_active: true, repeter_par_equipement: true })
+  .extend({
+    categorie_id: uuidObligatoire('La catégorie est obligatoire'),
+    portee: z.enum(['entreprise', 'site']),
+    // Un template commun n'a PAS de prestataire (il dépend du site, renseigné
+    // après copie) : le champ est facultatif ici (autorise '' → NULL en base),
+    // contrairement à la gamme réelle (`gammeSchema`) qui l'exige.
+    prestataire_id: uuidFacultatif,
+    // `miniature_id` est hérité de `gammeSchema` (vignette du pool, nullable).
+  })
 
 export type GammeBiblioFormValues = z.input<typeof gammeBiblioSchema>
 

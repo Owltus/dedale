@@ -104,6 +104,11 @@ export interface ReleveLigne {
   source_id: string | null
   /** Snapshot du nom : clé de corrélation de REPLI (ADR 0012, correlation.ts). */
   nom: string
+  /**
+   * Équipement de l'exécution (ADR 0013) : une opération répétée par équipement
+   * donne une série PAR équipement — chacun sa valeur précédente et sa conso.
+   */
+  equipement_id: string | null
   valeur_mesuree: number | null
   index_depose: number | null
   index_pose: number | null
@@ -120,14 +125,17 @@ interface Decoree {
   date: string | null
 }
 
-// Clé d'une série de relevés du même compteur dans la même gamme : la PROVENANCE.
-// Insensible au renommage de l'opération, mais une opération supprimée puis
-// réimportée peut laisser des exécutions à `source_id` unique à leur ligne.
+// Clé d'une série de relevés du même compteur dans la même gamme : la PROVENANCE,
+// équipement compris (ADR 0013). Insensible au renommage de l'opération, mais une
+// opération supprimée puis réimportée peut laisser des exécutions à `source_id`
+// unique à leur ligne. Sans équipement, la clé est EXACTEMENT celle d'avant la
+// 128 (même séparateur que `cleProvenance`, cf. correlation.ts).
 function cleSource(d: Decoree): string {
-  return `${d.gamme ?? ''}|${d.l.source_type}|${d.l.source_id ?? ''}`
+  const equipement = d.l.equipement_id === null ? '' : `\t${d.l.equipement_id}`
+  return `${d.gamme ?? ''}|${d.l.source_type}|${d.l.source_id ?? ''}${equipement}`
 }
 
-// Clé de REPLI (ADR 0012) : gamme + nom normalisé. Ne sert QUE lorsque la
+// Clé de REPLI (ADR 0012) : gamme + nom normalisé + équipement (ADR 0013). Ne sert QUE lorsque la
 // provenance ne rattache rien — l'inverser couperait les séries dont l'opération
 // a été renommée en cours de route.
 function cleReplic(d: Decoree): string | null {

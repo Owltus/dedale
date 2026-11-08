@@ -34,6 +34,44 @@ export interface HistoriqueLigne extends OperationExecution {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Identité d'une série : nom de l'opération + équipement (ADR 0013).
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Clé d'une série de relevés dans une gamme. Une opération répétée sur N
+ * équipements donne N séries : on ne fait JAMAIS la moyenne de deux équipements.
+ * Sans équipement, la clé est le nom seul — exactement comme avant la
+ * migration 128, aucune série existante n'est coupée. La tabulation sépare les
+ * deux parties (même séparateur que `correlation.ts`).
+ */
+function cleSerie(l: HistoriqueLigne): string {
+  return l.equipement_id === null ? l.nom : `${l.nom}\t${l.equipement_id}`
+}
+
+/**
+ * Libellé d'une série : « Température — Chambre 302 » quand elle porte un
+ * équipement (dernier segment du chemin `nom_localisation`, sinon
+ * `nom_equipement`), le nom seul sinon. Lu sur la ligne la plus RÉCENTE : les
+ * libellés sont des snapshots, le dernier est le plus proche du parc actuel.
+ */
+function libelleSerie(lignes: HistoriqueLigne[]): string {
+  const recente = [...lignes].sort((a, b) =>
+    (a.date_execution ?? '').localeCompare(b.date_execution ?? ''),
+  )[lignes.length - 1]
+  if (!recente) return ''
+  if (recente.equipement_id === null) return recente.nom
+  // Un segment vide (chemin vide, « R+3 / ») ne vaut pas un libellé : on passe
+  // au suivant, d'où le filtre plutôt qu'un `??`.
+  const precision = [
+    recente.nom_localisation?.split('/').at(-1),
+    recente.nom_equipement,
+  ]
+    .map((t) => t?.trim() ?? '')
+    .find((t) => t !== '')
+  return precision === undefined ? recente.nom : `${recente.nom} — ${precision}`
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Page liste : une carte par gamme ayant au moins un relevé.
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -55,7 +93,8 @@ export function gammesAvecReleves(
 ): GammeReleveResume[] {
   interface Acc {
     nomGamme: string
-    noms: Set<string>
+    /** Clés de SÉRIE (nom + équipement), et non plus noms seuls (ADR 0013). */
+    series: Set<string>
     ots: Set<string>
     dernier: string | null
     miniatureId: string | null
@@ -66,12 +105,12 @@ export function gammesAvecReleves(
     if (!gammeId || !estMesureExecution(l)) continue
     const acc = parGamme.get(gammeId) ?? {
       nomGamme: l.ordres_travail?.nom_gamme ?? '(gamme supprimée)',
-      noms: new Set<string>(),
+      series: new Set<string>(),
       ots: new Set<string>(),
       dernier: null,
       miniatureId: null,
     }
-    acc.noms.add(l.nom)
+    acc.series.add(cleSerie(l))
     acc.ots.add(l.ordre_travail_id)
     const date = l.ordres_travail?.date_cloture ?? l.date_execution
     if (date && (acc.dernier === null || date > acc.dernier)) {
@@ -84,7 +123,7 @@ export function gammesAvecReleves(
     .map(([gammeId, acc]) => ({
       id: gammeId,
       nomGamme: acc.nomGamme,
-      nbTypes: acc.noms.size,
+      nbTypes: acc.series.size,
       nbOt: acc.ots.size,
       dernierReleve: acc.dernier,
       miniatureId: acc.miniatureId,
@@ -108,7 +147,8 @@ export interface PointReleve {
    * L'axe des graphiques est donc un axe TEMPOREL CONTINU (cf. `serie-temporelle.tsx`).
    */
   date: string
-  /** Valeur brute (moyenne si la tâche apparaît plusieurs fois dans l'OT). */
+  /** Valeur brute (moyenne si la tâche apparaît plusieurs fois dans l'OT pour
+   * le MÊME équipement — jamais entre deux équipements, cf. `cleSerie`). */
   valeur: number | null
   /** Consommation (compteur cumulatif uniquement), via `consoOperation`. */
   conso: number | null
@@ -123,8 +163,14 @@ export interface PointReleve {
 }
 
 export interface SerieReleve {
-  /** Type de relevé — `nom` de l'opération, clé de regroupement. */
+  /** Identifiant de la série dans sa gamme : nom + équipement (ADR 0013). */
+  cle: string
+  /** Type de relevé — `nom` de l'opération. */
   nom: string
+  /** Équipement de la série (ADR 0013), `null` pour une opération non répétée. */
+  equipementId: string | null
+  /** Libellé affiché et exporté : « Température — Chambre 302 », ou le nom seul. */
+  libelle: string
   uniteSymbole: string
   uniteNom: string | null
   /** Seuils les plus récents de la série (une opération peut évoluer dans le temps). */
@@ -217,7 +263,8 @@ function seuilRecent(
   return null
 }
 
-/** Séries temporelles (une par type de relevé) d'une gamme, prêtes pour les graphiques. */
+/** Séries temporelles (une par type de relevé et par équipement) d'une gamme,
+ * prêtes pour les graphiques. */
 export function seriesParGamme(
   lignes: readonly HistoriqueLigne[],
   gammeId: string,
@@ -226,15 +273,16 @@ export function seriesParGamme(
     (l) => l.ordres_travail?.gamme_id === gammeId && estMesureExecution(l),
   )
 
-  const parNom = new Map<string, HistoriqueLigne[]>()
+  const parSerie = new Map<string, HistoriqueLigne[]>()
   for (const l of mesures) {
-    const arr = parNom.get(l.nom) ?? []
+    const cle = cleSerie(l)
+    const arr = parSerie.get(cle) ?? []
     arr.push(l)
-    parNom.set(l.nom, arr)
+    parSerie.set(cle, arr)
   }
 
   const series: SerieReleve[] = []
-  for (const [nom, lignesNom] of parNom) {
+  for (const [cle, lignesNom] of parSerie) {
     const premiere = lignesNom[0]
     if (!premiere) continue
     const compteur = estCompteur(premiere)
@@ -270,7 +318,10 @@ export function seriesParGamme(
       : avecConso
 
     series.push({
-      nom,
+      cle,
+      nom: premiere.nom,
+      equipementId: premiere.equipement_id,
+      libelle: libelleSerie(lignesNom),
       uniteSymbole: premiere.unite_symbole ?? '',
       uniteNom: premiere.unite_nom,
       seuilMinimum: seuilRecent(lignesNom, 'seuil_minimum'),
@@ -289,7 +340,14 @@ export function seriesParGamme(
       ),
     })
   }
-  return series.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
+  // Par nom d'abord (ordre inchangé pour les séries sans équipement, dont les
+  // noms sont uniques), puis, pour une même opération répétée, par libellé en
+  // ordre NUMÉRIQUE (« Chambre 302 » avant « Chambre 1010 », ADR 0013 § 7).
+  return series.sort(
+    (a, b) =>
+      a.nom.localeCompare(b.nom, 'fr') ||
+      a.libelle.localeCompare(b.libelle, 'fr', { numeric: true }),
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -345,9 +403,9 @@ export function csvGroupe(g: GroupeUnite): {
   const entetes = [
     'Date',
     ...g.series.flatMap((s) => [
-      `${s.nom} (${g.uniteSymbole})`,
-      ...(avecConformite ? [`${s.nom} — conforme`] : []),
-      ...(avecRemplacement ? [`${s.nom} — changement de compteur`] : []),
+      `${s.libelle} (${g.uniteSymbole})`,
+      ...(avecConformite ? [`${s.libelle} — conforme`] : []),
+      ...(avecRemplacement ? [`${s.libelle} — changement de compteur`] : []),
     ]),
   ]
 

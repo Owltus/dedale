@@ -232,3 +232,114 @@ describe('useOperationsEditor — une mesure terminée exige sa valeur', () => {
     })
   })
 })
+
+/** Monte l'éditeur sur plusieurs opérations (geste de groupe). */
+function editeurGroupe(
+  operations: OperationExecution[],
+  { canManage = true, ot = OT }: { canManage?: boolean; ot?: OtRow } = {},
+) {
+  const { result } = renderHook(() =>
+    useOperationsEditor({
+      ot,
+      otId: ot.id,
+      operations,
+      canManage,
+      onglet: 'operations',
+      onRecloturer: vi.fn(),
+    }),
+  )
+  const basculer = (ops: OperationExecution[] = operations): void => {
+    act(() => {
+      result.current.basculerGroupe(ops)
+    })
+  }
+  const statuts = (): string[] =>
+    operations.map((o) => result.current.opEdit(o).statut)
+  return { result, basculer, statuts }
+}
+
+/** Une tâche à cocher (ni unité, ni seuils) : la cible du geste de groupe. */
+const tache = (id: string, statut = 'en_attente') =>
+  op({ id, nom: `Tâche ${id}`, unite_symbole: null, statut })
+
+describe('useOperationsEditor — basculerGroupe (décision A5)', () => {
+  // ORACLE (A5) : même logique que le geste de ligne — tant qu'une ligne n'est
+  // pas Terminée, le geste passe TOUT le groupe en Terminée.
+  it('passe toutes les lignes en Terminée', () => {
+    const { basculer, statuts } = editeurGroupe([
+      tache('a'),
+      tache('b', 'terminee'),
+      tache('c', 'en_cours'),
+    ])
+    basculer()
+    expect(statuts()).toEqual(['terminee', 'terminee', 'terminee'])
+  })
+
+  // ORACLE (A5 tranchée) : une « non applicable » passe Terminée, exactement
+  // comme le double-clic sur sa ligne (et non comme la recommandation initiale).
+  it('une « non applicable » passe Terminée, comme au geste de ligne', () => {
+    const { basculer, statuts } = editeurGroupe([
+      tache('a', 'non_applicable'),
+      tache('b'),
+    ])
+    basculer()
+    expect(statuts()).toEqual(['terminee', 'terminee'])
+  })
+
+  // ORACLE : tout Terminé → tout En attente ; deux gestes = aller-retour.
+  it('aller-retour : tout Terminé repasse En attente', () => {
+    const { basculer, statuts, result } = editeurGroupe([
+      tache('a'),
+      tache('b'),
+    ])
+    basculer()
+    expect(statuts()).toEqual(['terminee', 'terminee'])
+    basculer()
+    expect(statuts()).toEqual(['en_attente', 'en_attente'])
+    // Retour à l'état serveur : plus rien à enregistrer.
+    expect(result.current.dirtyOps).toHaveLength(0)
+  })
+
+  // ORACLE : les mesures ne sont pas ciblées (pas de « Terminée » sans valeur),
+  // et un groupe composé uniquement de mesures reste intact.
+  it('ignore les mesures ; un groupe de mesures est sans effet', () => {
+    const mesure = op({ id: 'm', valeur_mesuree: 12, statut: 'terminee' })
+    const { basculer, statuts, result } = editeurGroupe([mesure, tache('a')])
+    basculer()
+    expect(statuts()).toEqual(['terminee', 'terminee'])
+    expect(result.current.edits.m).toBeUndefined()
+
+    basculer([mesure])
+    expect(result.current.edits.m).toBeUndefined()
+  })
+
+  // ORACLE : le geste conserve les autres saisies de la ligne (date, valeur).
+  it('conserve la saisie en cours de chaque ligne', () => {
+    const a = tache('a')
+    const { basculer, result } = editeurGroupe([a])
+    act(() => {
+      result.current.setEdits({
+        a: { ...result.current.opEdit(a), dateExec: '2026-10-01' },
+      })
+    })
+    basculer()
+    expect(result.current.opEdit(a)).toMatchObject({
+      statut: 'terminee',
+      dateExec: '2026-10-01',
+    })
+  })
+
+  // ORACLE : lecture seule (rôle sans droit, OT verrouillé) → aucun effet.
+  it.each([
+    ['sans droit de gestion', { canManage: false }],
+    ['OT clôturé', { ot: { ...OT, statut: 'cloture' } }],
+  ])('n’a aucun effet en lecture seule (%s)', (_cas, options) => {
+    const { basculer, statuts, result } = editeurGroupe(
+      [tache('a'), tache('b')],
+      options,
+    )
+    basculer()
+    expect(statuts()).toEqual(['en_attente', 'en_attente'])
+    expect(result.current.edits).toEqual({})
+  })
+})

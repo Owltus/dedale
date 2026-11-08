@@ -85,7 +85,7 @@ export function GammeCard({
     })
     // Colonne de droite (brique `StatutColonne`) — MÊME gabarit que la carte OT :
     // badge de statut EN HAUT, périodicité EN DESSOUS (là où l'OT met la date). Statut
-    // masqué tant que les OT chargent (pas de « Non assigné » trompeur) ; la
+    // masqué tant que les OT chargent (pas de « À programmer » trompeur) ; la
     // périodicité reste affichée. RÉAFFICHÉE à l'identique sur mobile (`mobileBadge`)
     // → badges et périodicités centrés et alignés à toutes les tailles.
     const statutColonne = (

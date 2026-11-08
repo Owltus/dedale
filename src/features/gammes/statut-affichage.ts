@@ -12,12 +12,30 @@ import {
 /**
  * Statut d'AFFICHAGE d'une gamme (libellé + couleur de pastille `StatusBadge`) :
  * SYNTHÈSE PRIORISÉE de l'état de tous ses OT — le badge remonte toujours
- * l'information la plus urgente (gamme désactivée → « Inactive » ; aucun OT → « Non
- * assigné » ; sinon le badge de l'OT le plus urgent, cf. `statutDuPireOt`).
+ * l'information la plus urgente (gamme désactivée → « Inactive » ; aucun OT À VENIR
+ * — jamais d'OT, ou seulement des clôturés/annulés → « À programmer » (orange) ;
+ * sinon le badge de l'OT le plus urgent, cf. `statutDuPireOt`).
  *
  * 100 % dérivé des OT (aucune table, aucun compteur backend) : recalculé à chaque
  * rendu → toujours juste, exactement comme les statuts temporels d'OT.
  */
+/**
+ * Badge d'une gamme active SANS OT À VENIR (aucun OT planifié / en cours / rouvert) :
+ * plus rien ne tourne, il faut créer la prochaine intervention. Remplace l'ancien
+ * « À jour » (vert), qui MASQUAIT une gamme dont tous les OT étaient terminés — cas
+ * réel : une ronde annulée pendant des vacances, restée un mois sans suite.
+ */
+const A_PROGRAMMER: StatutAffichage = {
+  label: 'À programmer',
+  tone: 'warning',
+  temporel: false,
+}
+
+/** Au moins un OT encore à faire (ni clôturé ni annulé). */
+function aUnOtAVenir(ots: OtTriable[]): boolean {
+  return ots.some((o) => o.statut !== 'cloture' && o.statut !== 'annule')
+}
+
 /** Une gamme vue par la synthèse d'une sous-catégorie : son activité + ses OT. */
 export interface GammeStatutInput {
   estActive: boolean
@@ -31,13 +49,13 @@ export interface GammeStatutInput {
  *   • le plus urgent est terminal (clôturé/annulé) → TOUS le sont → « À jour » (vert) ;
  *   • le prochain OT planifié est encore HORS fenêtre de tolérance (repli non temporel,
  *     rien d'imminent) → « À jour » (vert).
- * `top` absent (aucun OT) → « Non assigné ».
+ * `top` absent (aucun OT) → « À programmer ».
  */
 function statutDuPireOt(
   top: OtTriable | undefined,
   aujourdHui?: Date,
 ): StatutAffichage {
-  if (!top) return { label: 'Non assigné', tone: 'neutral', temporel: false }
+  if (!top) return A_PROGRAMMER
   if (top.statut === 'cloture' || top.statut === 'annule')
     return { label: 'À jour', tone: 'success', temporel: false }
 
@@ -64,8 +82,7 @@ export function statutAffichageGamme(input: {
 }): StatutAffichage {
   if (!input.estActive)
     return { label: 'Inactive', tone: 'neutral', temporel: false }
-  if (input.ots.length === 0)
-    return { label: 'Non assigné', tone: 'neutral', temporel: false }
+  if (!aUnOtAVenir(input.ots)) return A_PROGRAMMER
 
   // OT le plus urgent (le tri place le groupe prioritaire en tête).
   return statutDuPireOt(trierOtParUrgence(input.ots)[0], input.aujourdHui)
@@ -85,7 +102,7 @@ export function statutAffichageGamme(input: {
  *   2. Toutes les gammes désactivées → « Inactive »    (gris)
  *   3-5. Un OT URGENT où que ce soit  → ce statut (En retard / Réouvert / En cours),
  *        avec la MÊME priorité que la gamme (Réouvert > En retard > En cours).
- *   6. Au moins une gamme active SANS OT → « À assigner » (gris)
+ *   6. Au moins une gamme active SANS OT À VENIR → « À programmer » (orange)
  *   7-8. Sinon : proximité du prochain OT du périmètre, ou « À jour » (vert).
  *
  * 100 % dérivé des OT (aucune table) — recalculé à chaque rendu. C'est cette règle
@@ -112,7 +129,7 @@ export function statutAffichageAgrege(input: {
   const top = trierOtParUrgence(ots)[0]
   const pire = statutDuPireOt(top, input.aujourdHui)
 
-  // 3-5. États réellement URGENTS (à traiter maintenant) — priment sur « À assigner ».
+  // 3-5. États réellement URGENTS (à traiter maintenant) — priment sur « À programmer ».
   // SEUIL sur le NIVEAU D'URGENCE STRUCTUREL du pire OT (Réouvert / En retard / En
   // cours = niveau ≤ En cours), plus aucun détour par la couleur du badge : la
   // proximité (Cette semaine / Ce mois-ci…) reste « à venir », donc non urgente.
@@ -122,9 +139,8 @@ export function statutAffichageAgrege(input: {
   )
     return pire
 
-  // 6. À assigner : au moins une gamme active n'a aucun OT (rien à suivre dessus).
-  if (actives.some((g) => g.ots.length === 0))
-    return { label: 'À assigner', tone: 'neutral', temporel: false }
+  // 6. À programmer : au moins une gamme active n'a plus aucun OT à venir.
+  if (actives.some((g) => !aUnOtAVenir(g.ots))) return A_PROGRAMMER
 
   // 7-8. Proximité du prochain OT (Cette semaine / …), ou « À jour » (vert).
   return pire

@@ -1,5 +1,8 @@
 # 0012 — Corréler les exécutions en deux temps : `source_id`, puis le nom
 
+- **Amendé** : 2026-11-08 par [0013](0013-operations-repetees-par-equipement.md) —
+  les deux clés intègrent `equipement_id` (gamme répétée par équipement) ; une
+  ligne sans équipement garde la clé ci-dessous à l'identique.
 - **Date** : 2026-09-17
 - **Statut** : accepté (2026-09-17, arbitrage du PO). Tranche l'option laissée ouverte
   par [0010](0010-source-id-cle-de-correlation.md). Mise en œuvre : `src/features/ordres-travail/correlation.ts`.

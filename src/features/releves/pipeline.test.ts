@@ -30,13 +30,20 @@ function ligne(p: {
   dateExec?: string | null
   dateCloture?: string | null
   datePrevue?: string
+  /** Équipement (ADR 0013) — `null` par défaut : ligne d'avant la migration 128. */
+  eq?: string | null
+  nomEquipement?: string | null
+  nomLocalisation?: string | null
 }): HistoriqueLigne {
   return {
-    id: `${p.ot}-${p.nom}`,
+    id: p.eq ? `${p.ot}-${p.nom}-${p.eq}` : `${p.ot}-${p.nom}`,
     ordre_travail_id: p.ot,
     source_type: 1,
     source_id: 'src-1',
     nom: p.nom,
+    equipement_id: p.eq ?? null,
+    nom_equipement: p.nomEquipement ?? null,
+    nom_localisation: p.nomLocalisation ?? null,
     type_operation: 'Relevé',
     seuil_minimum: p.seuilMin ?? null,
     seuil_maximum: p.seuilMax ?? null,
@@ -334,6 +341,9 @@ describe('chartGroups', () => {
     const groupes = chartGroups([
       {
         nom: 'Température',
+        cle: 'Température',
+        equipementId: null,
+        libelle: 'Température',
         uniteSymbole: '°C',
         uniteNom: null,
         seuilMinimum: null,
@@ -344,6 +354,9 @@ describe('chartGroups', () => {
       },
       {
         nom: 'Compteur eau',
+        cle: 'Compteur eau',
+        equipementId: null,
+        libelle: 'Compteur eau',
         uniteSymbole: 'm³',
         uniteNom: null,
         seuilMinimum: null,
@@ -367,6 +380,9 @@ describe('csvGroupe', () => {
       series: [
         {
           nom: 'Température E.C.S',
+          cle: 'Température E.C.S',
+          equipementId: null,
+          libelle: 'Température E.C.S',
           uniteSymbole: '°C',
           uniteNom: null,
           seuilMinimum: 55,
@@ -403,6 +419,9 @@ describe('csvGroupe', () => {
       series: [
         {
           nom: 'Compteur électrique',
+          cle: 'Compteur électrique',
+          equipementId: null,
+          libelle: 'Compteur électrique',
           uniteSymbole: 'kWh',
           uniteNom: null,
           seuilMinimum: null,
@@ -436,6 +455,9 @@ describe('domaineDates', () => {
     const domaine = domaineDates([
       {
         nom: 'a',
+        cle: 'a',
+        equipementId: null,
+        libelle: 'a',
         uniteSymbole: 'x',
         uniteNom: null,
         seuilMinimum: null,
@@ -472,7 +494,10 @@ describe('domaineDates', () => {
 
 describe('filtrerParPeriode', () => {
   const serie = {
+    cle: 'a',
     nom: 'a',
+    equipementId: null,
+    libelle: 'a',
     uniteSymbole: 'x',
     uniteNom: null,
     seuilMinimum: null,
@@ -544,7 +569,10 @@ describe('fenetrePeriode', () => {
   })
   it('« tout » : étendue réelle des données (seul cas qui en dépend)', () => {
     const uneSerie = {
+      cle: 'a',
       nom: 'a',
+      equipementId: null,
+      libelle: 'a',
       uniteSymbole: 'x',
       uniteNom: null,
       seuilMinimum: null,
@@ -584,6 +612,9 @@ describe('calculerBandeau', () => {
       [
         {
           nom: 'a',
+          cle: 'a',
+          equipementId: null,
+          libelle: 'a',
           uniteSymbole: '°C',
           uniteNom: null,
           seuilMinimum: 0,
@@ -626,6 +657,9 @@ describe('calculerBandeau', () => {
       [
         {
           nom: 'Compteur eau',
+          cle: 'Compteur eau',
+          equipementId: null,
+          libelle: 'Compteur eau',
           uniteSymbole: 'm³',
           uniteNom: null,
           seuilMinimum: null,
@@ -716,6 +750,9 @@ function pt(p: Partial<PointReleve> & { date: string }): PointReleve {
 
 function serie(p: Partial<SerieReleve> & { nom: string }): SerieReleve {
   return {
+    cle: p.nom,
+    equipementId: null,
+    libelle: p.nom,
     uniteSymbole: '°C',
     uniteNom: null,
     seuilMinimum: null,
@@ -1745,5 +1782,173 @@ describe('calculerBandeau — détail', () => {
     expect(stats.periodeCouverte).toBeNull()
     expect(stats.consommations).toEqual([])
     expect(stats.points).toBe(0)
+  })
+})
+
+describe('séries par équipement (ADR 0013)', () => {
+  // Une gamme répète la même mesure « Température » sur deux chambres.
+  const chambre = (
+    ot: string,
+    eq: string,
+    lieu: string,
+    val: number,
+    date: string,
+  ) =>
+    avecOt(
+      ligne({
+        ot,
+        nom: 'Température',
+        eq,
+        nomEquipement: `Climatiseur ${lieu.slice(-3)}`,
+        nomLocalisation: `R+3 / ${lieu}`,
+        val,
+        seuilMin: 18,
+        seuilMax: 24,
+        uniteSymbole: '°C',
+        cumulatif: false,
+        dateExec: date,
+      }),
+      {},
+    )
+
+  const lignes = [
+    chambre('ot1', 'eq-302', 'Chambre 302', 20, '2026-01-10'),
+    chambre('ot1', 'eq-303', 'Chambre 303', 30, '2026-01-10'),
+    chambre('ot2', 'eq-302', 'Chambre 302', 21, '2026-02-10'),
+    chambre('ot2', 'eq-303', 'Chambre 303', 31, '2026-02-10'),
+  ]
+
+  it('deux équipements, même opération Mesure : deux séries, jamais de moyenne', () => {
+    const series = seriesParGamme(lignes, 'g1')
+    expect(series.map((s) => s.libelle)).toEqual([
+      'Température — Chambre 302',
+      'Température — Chambre 303',
+    ])
+    expect(series.map((s) => s.points.map((p) => p.valeur))).toEqual([
+      [20, 21],
+      [30, 31],
+    ])
+    expect(series.map((s) => s.equipementId)).toEqual(['eq-302', 'eq-303'])
+    expect(new Set(series.map((s) => s.cle)).size).toBe(2)
+  })
+
+  it('compteur cumulatif répété : chaque équipement a SA consommation', () => {
+    const compteur = (ot: string, eq: string, val: number, date: string) =>
+      avecOt(ligne({ ot, nom: 'Index eau', eq, val, dateExec: date }), {})
+    const series = seriesParGamme(
+      [
+        compteur('ot1', 'eq-a', 100, '2026-01-10'),
+        compteur('ot1', 'eq-b', 500, '2026-01-10'),
+        compteur('ot2', 'eq-a', 130, '2026-02-10'),
+        compteur('ot2', 'eq-b', 550, '2026-02-10'),
+      ],
+      'g1',
+    )
+    expect(series.map((s) => s.points.map((p) => p.conso))).toEqual([
+      [30],
+      [50],
+    ])
+  })
+
+  it('libellé : dernier segment du chemin, sinon le nom de l’équipement, sinon le nom seul', () => {
+    const une = (p: {
+      eq: string
+      nomEquipement?: string | null
+      nomLocalisation?: string | null
+    }) =>
+      seriesParGamme(
+        [
+          avecOt(
+            ligne({
+              ot: 'ot1',
+              nom: 'Température',
+              val: 20,
+              cumulatif: false,
+              ...p,
+            }),
+            {},
+          ),
+        ],
+        'g1',
+      )[0]?.libelle
+    expect(une({ eq: 'e', nomLocalisation: 'R+1 / Chambre 101' })).toBe(
+      'Température — Chambre 101',
+    )
+    expect(une({ eq: 'e', nomEquipement: 'Climatiseur 101' })).toBe(
+      'Température — Climatiseur 101',
+    )
+    expect(une({ eq: 'e' })).toBe('Température')
+  })
+
+  it('ordre numérique des équipements d’une même opération', () => {
+    const series = seriesParGamme(
+      [
+        chambre('ot1', 'eq-1010', 'Chambre 1010', 20, '2026-01-10'),
+        chambre('ot1', 'eq-302', 'Chambre 302', 20, '2026-01-10'),
+      ],
+      'g1',
+    )
+    expect(series.map((s) => s.libelle)).toEqual([
+      'Température — Chambre 302',
+      'Température — Chambre 1010',
+    ])
+  })
+
+  it('nbTypes compte les séries, et non plus les noms', () => {
+    const [resume] = gammesAvecReleves(lignes)
+    expect(resume?.nbTypes).toBe(2)
+  })
+
+  it('l’export CSV suit le libellé de la série', () => {
+    const [groupe] = chartGroups(seriesParGamme(lignes, 'g1'))
+    expect(csvGroupe(groupe!).entetes).toEqual([
+      'Date',
+      'Température — Chambre 302 (°C)',
+      'Température — Chambre 302 — conforme',
+      'Température — Chambre 303 (°C)',
+      'Température — Chambre 303 — conforme',
+    ])
+  })
+
+  it('les lignes sans équipement sont strictement inchangées : clé, libellé, moyenne', () => {
+    const sans = (ot: string, val: number) =>
+      avecOt(
+        ligne({
+          ot,
+          nom: 'Température',
+          val,
+          cumulatif: false,
+          dateExec: '2026-01-10',
+        }),
+        {},
+      )
+    const series = seriesParGamme([sans('ot1', 20), sans('ot1', 30)], 'g1')
+    expect(series).toHaveLength(1)
+    expect(series[0]).toMatchObject({
+      cle: 'Température',
+      nom: 'Température',
+      libelle: 'Température',
+      equipementId: null,
+    })
+    // Deux saisies du même relevé dans un OT, sans équipement : moyenne, comme avant.
+    expect(series[0]?.points.map((p) => p.valeur)).toEqual([25])
+    expect(gammesAvecReleves([sans('ot1', 20)])[0]?.nbTypes).toBe(1)
+  })
+
+  it('une ligne avec équipement ne rejoint pas la série sans équipement du même nom', () => {
+    const series = seriesParGamme(
+      [
+        avecOt(
+          ligne({ ot: 'ot1', nom: 'Température', val: 20, cumulatif: false }),
+          {},
+        ),
+        chambre('ot2', 'eq-302', 'Chambre 302', 22, '2026-02-10'),
+      ],
+      'g1',
+    )
+    expect(series.map((s) => s.libelle)).toEqual([
+      'Température',
+      'Température — Chambre 302',
+    ])
   })
 })

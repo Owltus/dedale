@@ -28,12 +28,15 @@ function ligne(p: {
    * à éprouver le repli lui-même (même nom, sources différentes ou absentes).
    */
   nom?: string
+  /** Équipement (ADR 0013) — `null` par défaut : ligne d'avant la migration 128. */
+  eq?: string | null
 }): ReleveLigne {
   return {
     ordre_travail_id: p.ot,
     source_type: 'operation',
     source_id: p.src,
     nom: p.nom ?? `compteur ${p.src ?? 'sans-source'}`,
+    equipement_id: p.eq ?? null,
     valeur_mesuree: p.val,
     index_depose: p.depose ?? null,
     index_pose: p.pose ?? null,
@@ -593,5 +596,126 @@ describe('corrélation de repli par le nom (ADR 0012)', () => {
     ])
     // Aucun précédent dans sa propre gamme → aucune conso calculable.
     expect(map.has('ot2')).toBe(false)
+  })
+})
+
+describe('relevés répétés par équipement (ADR 0013)', () => {
+  // Une gamme répète le même relevé de compteur sur deux équipements : même
+  // provenance, même nom, seul `equipement_id` les distingue.
+  it('deux équipements, même opération compteur : chacun SA consommation', () => {
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot1',
+        src: 'a',
+        eq: 'eq-302',
+        val: 100,
+        date: '2026-01-01',
+      }),
+      ligne({
+        ot: 'ot1',
+        src: 'a',
+        eq: 'eq-303',
+        val: 500,
+        date: '2026-01-01',
+      }),
+      ligne({
+        ot: 'ot2',
+        src: 'a',
+        eq: 'eq-302',
+        val: 130,
+        date: '2026-02-01',
+      }), // +30
+      ligne({
+        ot: 'ot2',
+        src: 'a',
+        eq: 'eq-303',
+        val: 550,
+        date: '2026-02-01',
+      }), // +50
+    ])
+    // Total par unité conservé : somme des deux équipements.
+    expect(map.get('ot2')).toEqual({ valeur: '680 kWh', conso: '+80 kWh' })
+  })
+
+  it('un équipement sans historique n’emprunte pas la valeur précédente du voisin', () => {
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot1',
+        src: 'a',
+        eq: 'eq-302',
+        val: 100,
+        date: '2026-01-01',
+      }),
+      ligne({
+        ot: 'ot2',
+        src: 'a',
+        eq: 'eq-302',
+        val: 130,
+        date: '2026-02-01',
+      }), // +30
+      // eq-303 est relevé pour la première fois : aucune conso calculable.
+      ligne({
+        ot: 'ot2',
+        src: 'a',
+        eq: 'eq-303',
+        val: 900,
+        date: '2026-02-01',
+      }),
+    ])
+    expect(map.get('ot2')).toEqual({ valeur: '130 kWh', conso: '+30 kWh' })
+  })
+
+  it('le repli par nom reste propre à chaque équipement', () => {
+    const map = calculerRelevesParOt([
+      ligne({
+        ot: 'ot1',
+        src: 'x1',
+        nom: 'Index',
+        eq: 'eq-302',
+        val: 100,
+        date: '2026-01-01',
+      }),
+      ligne({
+        ot: 'ot1',
+        src: 'x2',
+        nom: 'Index',
+        eq: 'eq-303',
+        val: 500,
+        date: '2026-01-01',
+      }),
+      ligne({
+        ot: 'ot2',
+        src: 'x3',
+        nom: 'Index',
+        eq: 'eq-302',
+        val: 130,
+        date: '2026-02-01',
+      }), // +30
+      ligne({
+        ot: 'ot2',
+        src: 'x4',
+        nom: 'Index',
+        eq: 'eq-303',
+        val: 550,
+        date: '2026-02-01',
+      }), // +50
+    ])
+    expect(map.get('ot2')).toEqual({ valeur: '680 kWh', conso: '+80 kWh' })
+  })
+
+  it('les lignes sans équipement se chaînent exactement comme avant', () => {
+    const map = calculerRelevesParOt([
+      ligne({ ot: 'ot1', src: 'a', val: 100, date: '2026-01-01' }),
+      ligne({ ot: 'ot2', src: 'a', val: 130, date: '2026-02-01' }), // +30
+      // Une ligne avec équipement ne s'accroche pas à la série sans équipement.
+      ligne({
+        ot: 'ot2',
+        src: 'a',
+        eq: 'eq-302',
+        val: 900,
+        date: '2026-02-01',
+      }),
+    ])
+    expect(map.get('ot2')).toEqual({ valeur: '130 kWh', conso: '+30 kWh' })
   })
 })

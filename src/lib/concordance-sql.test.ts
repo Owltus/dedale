@@ -630,6 +630,7 @@ const CONCORDANCES: Concordance[] = [
       description: '',
       miniature_id: null,
       est_active: true,
+      repeter_par_equipement: false,
     },
     champs: {
       nom: T('nom'),

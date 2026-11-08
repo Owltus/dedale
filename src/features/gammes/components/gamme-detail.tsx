@@ -163,6 +163,12 @@ export function GammeDetail({
                 label: 'État',
                 value: gamme.est_active ? 'Active' : 'Inactive',
               },
+              {
+                label: 'Opérations',
+                value: gamme.repeter_par_equipement
+                  ? 'Par équipement'
+                  : 'Une fois par intervention',
+              },
             ]}
           />
         }
@@ -189,6 +195,7 @@ export function GammeDetail({
                 gammeId={gamme.id}
                 gammeSiteId={gamme.site_id}
                 canEdit={canEdit}
+                repeterParEquipement={gamme.repeter_par_equipement}
               />
             )}
             {tab === 'equipements' && (
@@ -237,15 +244,31 @@ function OperationsTab({
   gammeId,
   gammeSiteId,
   canEdit,
+  repeterParEquipement,
 }: {
   gammeId: string
   gammeSiteId: string | null
   canEdit: boolean
+  repeterParEquipement: boolean
 }) {
+  // 128 : les opérations des DEUX sources sont répétées par équipement — d'où
+  // le message au niveau de l'onglet, pas d'une seule section.
+  const liesQuery = useQuery({
+    ...gammesQueries.equipementsLies(gammeId),
+    enabled: repeterParEquipement,
+  })
+  const nbLies = liesQuery.data?.length ?? 0
   // Split 50/50 : opérations spécifiques (brique partagée) au-dessus, modèles
   // d'opération liés en dessous.
   return (
     <SplitPanes>
+      {repeterParEquipement && liesQuery.isSuccess && (
+        <p className="shrink-0 text-sm text-muted-foreground">
+          {nbLies === 0
+            ? 'Aucun équipement lié : les opérations seront générées une seule fois par intervention.'
+            : `Ces opérations sont répétées pour chacun des ${String(nbLies)} équipements liés à la gamme.`}
+        </p>
+      )}
       <GammeOperationsSection
         gammeId={gammeId}
         canEdit={canEdit}

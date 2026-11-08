@@ -1,5 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { toutesLesLignes } from '@/lib/pagination'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 
 export const equipementsQueries = {
   all: () => ['equipements'] as const,
@@ -68,6 +70,36 @@ export const equipementsQueries = {
         return data.map((r) => r.gamme_id)
       },
       staleTime: 60_000,
+    }),
+
+  /**
+   * Historique d'UN équipement (128, gamme répétée par équipement) : ses lignes
+   * d'exécution avec l'OT porteur, de la plus récente à la plus ancienne.
+   * Clé rangée sous le namespace `ordres_travail` : toute écriture d'OT et le
+   * realtime l'invalident déjà. Paginé (plafond silencieux de 1 000 lignes).
+   */
+  historique: (equipementId: string) =>
+    queryOptions({
+      queryKey: [
+        ...ordresTravailQueries.all(),
+        'historique-equipement',
+        equipementId,
+      ] as const,
+      enabled: equipementId !== '',
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('operations_execution')
+            .select(
+              'id, nom, statut, date_execution, ordre, ordres_travail!inner(id, nom_gamme, statut, date_prevue, date_cloture)',
+            )
+            .eq('equipement_id', equipementId)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
     }),
 
   /** Locaux actifs du site actif (pour le dropdown emplacement), via la vue chemin. */

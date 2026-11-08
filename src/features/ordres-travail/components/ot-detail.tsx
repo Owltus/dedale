@@ -16,10 +16,16 @@ import {
 } from '../mutations'
 import { useOperationsEditor } from '../use-operations-editor'
 import {
+  grouperParEquipement,
+  statutOpTerminal,
+  type OperationExecution,
+} from '../operation-predicats'
+import {
   OperationRow,
   estCompteur,
   estCompteurCumulatif,
 } from './operation-row'
+import { OperationsGroupeEquipement } from './operations-groupe-equipement'
 import { OtDetailActions } from './ot-detail-actions'
 import { MotifDialog } from '@/components/common/motif-dialog'
 import { DatePrevueDialog } from './date-prevue-dialog'
@@ -108,6 +114,31 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
   // être invoqués inconditionnellement (règle des hooks).
   const operations = operationsQuery.data ?? []
 
+  // Repli des groupes par équipement. L'état initial est calculé UNE seule fois
+  // par OT, depuis l'état SERVEUR : un groupe entièrement terminal naît replié.
+  // Ensuite, seuls les choix de l'utilisateur (`ouverts`) comptent — une bascule,
+  // un enregistrement ou un rafraîchissement temps réel ne replient jamais un
+  // groupe de force (un groupe apparu après coup naît ouvert).
+  const [repliInitial, setRepliInitial] = useState<{
+    otId: string
+    replies: ReadonlySet<string>
+  } | null>(null)
+  const [ouverts, setOuverts] = useState<Record<string, boolean>>({})
+  if (operationsQuery.isSuccess && repliInitial?.otId !== otId) {
+    const groupesServeur = grouperParEquipement(operationsQuery.data) ?? []
+    setRepliInitial({
+      otId,
+      replies: new Set(
+        groupesServeur
+          .filter((g) => g.ops.every((op) => statutOpTerminal(op.statut)))
+          .map((g) => g.cle),
+      ),
+    })
+    setOuverts({})
+  }
+  const groupeOuvert = (cle: string) =>
+    ouverts[cle] ?? !(repliInitial?.replies.has(cle) ?? false)
+
   // Re-clôture manuelle d'un OT rouvert : ses opérations étant déjà toutes
   // terminales, aucun déclencheur de clôture auto ne part (le trigger ne réagit
   // qu'à un changement de STATUT d'opération). La base valide la transition
@@ -133,6 +164,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
     dirtyOps,
     toutesTerminalesApres,
     saveAllOps,
+    basculerGroupe,
     blocker,
   } = useOperationsEditor({
     ot,
@@ -190,6 +222,8 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
   // le 1er champ valeur VIDE et non désactivé → saisie immédiate sans cliquer (puis
   // Tab enchaîne, déjà géré). Si tout est renseigné, ou OT verrouillé (champs
   // désactivés), on ne vole pas le focus. `requestAnimationFrame` attend le rendu.
+  // Seuls les champs MONTÉS sont visés : un groupe par équipement replié est
+  // démonté, ses champs sont donc naturellement exclus.
   useEffect(() => {
     // `isPending` = query DÉTAIL : tant qu'elle charge, l'onglet affiche le
     // squelette (les OperationRow ne sont pas encore dans le DOM). Sans ce garde,
@@ -264,6 +298,22 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
   // Strict inverse de `opsReadOnly` (calculé par le moteur d'édition) — une seule
   // règle, pas deux expressions en miroir à garder synchrones.
   const canEditOps = !opsReadOnly
+
+  // Lignes rangées par équipement ; `null` = aucune ligne rattachée à un
+  // équipement → rendu à plat, strictement identique à l'écran historique.
+  const groupes = grouperParEquipement(operations)
+  // Une ligne d'opération — la MÊME, à plat ou dans un groupe.
+  const ligne = (op: OperationExecution) => (
+    <OperationRow
+      key={op.id}
+      operation={op}
+      value={opEdit(op)}
+      onChange={(v) => setEdits((prev) => ({ ...prev, [op.id]: v }))}
+      readOnly={opsReadOnly}
+      previousValue={relevePrecedentDe(op)}
+      messageHistorique={messageHistoriqueDe(op)}
+    />
+  )
   // Image ESTHÉTIQUE PROPRE de l'OT (snapshot souple hérité de la gamme — 067) :
   // un OT terminal garde la sienne même si la gamme change d'image ensuite.
   const otMiniatureId = ot.miniature_id ?? null
@@ -500,20 +550,26 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                   title="Aucune opération"
                   className={ONGLET_ETAT_VIDE}
                 />
+              ) : groupes === null ? (
+                // Aucune ligne rattachée à un équipement : rendu à plat inchangé.
+                <div className={listStack}>{operations.map(ligne)}</div>
               ) : (
-                <div className={listStack}>
-                  {operations.map((op) => (
-                    <OperationRow
-                      key={op.id}
-                      operation={op}
-                      value={opEdit(op)}
-                      onChange={(v) =>
-                        setEdits((prev) => ({ ...prev, [op.id]: v }))
+                <div className="flex flex-col gap-4">
+                  {groupes.map((g) => (
+                    <OperationsGroupeEquipement
+                      key={g.cle}
+                      titre={g.titre}
+                      detail={g.detail}
+                      statuts={g.ops.map((op) => opEdit(op).statut)}
+                      ouvert={groupeOuvert(g.cle)}
+                      onOuvertChange={(ouvert) =>
+                        setOuverts((prev) => ({ ...prev, [g.cle]: ouvert }))
                       }
+                      onBasculer={() => basculerGroupe(g.ops)}
                       readOnly={opsReadOnly}
-                      previousValue={relevePrecedentDe(op)}
-                      messageHistorique={messageHistoriqueDe(op)}
-                    />
+                    >
+                      {g.ops.map(ligne)}
+                    </OperationsGroupeEquipement>
                   ))}
                 </div>
               )
@@ -559,7 +615,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
         open={annulerOpen}
         onOpenChange={setAnnulerOpen}
         title="Annuler l'ordre de travail"
-        description="Indiquez le motif d'annulation (traçabilité obligatoire)."
+        description="Indiquez le motif d'annulation (traçabilité obligatoire). L'intervention suivante sera programmée selon la fréquence habituelle de la gamme."
         confirmLabel="Annuler l'OT"
         destructive
         pending={changerStatut.isPending}

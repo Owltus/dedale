@@ -41,8 +41,9 @@ interface GammeModelesSectionProps {
 /**
  * Message clair pour un détachement refusé (pas de mur d'erreur brut). Surcharge
  * le seul code spécifique ; les autres (dont `restrict_violation` 23001 — dernière
- * source d'une gamme préventive active OU OT actifs, cause indistinguable côté
- * front) retombent sur le message FR explicite déjà renvoyé par la base.
+ * source d'une gamme préventive active) retombent sur le message FR explicite déjà
+ * renvoyé par la base. Les OT ouverts ne bloquent plus (migration 124 : le retrait
+ * se répercute sur leurs opérations non faites).
  */
 const DETACH_ERREURS: SqlstateOverrides = {
   // insufficient_privilege : RLS (hors scope d'écriture).

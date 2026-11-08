@@ -23,15 +23,16 @@ interface CadranSunburstGammesProps {
  * partagée `statutAffichageGamme` (mêmes libellés/couleurs que les badges du Plan
  * de maintenance) :
  *   - « probleme »  : « En retard » / « Rouvert » (à traiter maintenant) ;
- *   - « aTraiter »  : IMMINENT seulement — « En cours » ou « Cette semaine » ;
- *   - « inactif »   : gamme désactivée ou sans OT (rien à suivre) ;
+ *   - « aTraiter »  : IMMINENT — « En cours » ou « Cette semaine » — ou gamme
+ *     « À programmer » (plus aucun OT à venir : il faut créer la suite) ;
+ *   - « inactif »   : gamme désactivée ;
  *   - « bon »       : tout le reste — « À jour » MAIS AUSSI une échéance encore
  *     LOINTAINE (« Semaine prochaine », « Ce mois-ci », « Mois prochain ») : rien à
  *     faire dans l'immédiat ⇒ la gamme reste « à jour » (couleur pleine, comptée dans
  *     le %). Une échéance dans trois semaines n'est PAS « à traiter ».
  * On reconnaît les états par leur LIBELLÉ canonique (En retard / Rouvert / En cours /
  * Cette semaine) ; le ton `neutral` sert de raccourci non ambigu pour « inactif »
- * (Inactive / Non assigné). Le reste retombe en « bon ».
+ * (Inactive). Le reste retombe en « bon ».
  */
 type Sante = 'bon' | 'aTraiter' | 'probleme' | 'inactif'
 
@@ -40,7 +41,12 @@ function classifierSante(aff: StatutAffichage): Sante {
   // IMMINENT uniquement : engagé (« En cours ») ou échéance dans la semaine courante.
   // Les proximités plus lointaines (Semaine prochaine / Ce mois-ci / Mois prochain)
   // restent « bon ».
-  if (aff.label === 'En cours' || aff.label === 'Cette semaine')
+  // « À programmer » : plus aucun OT à venir — une action est attendue.
+  if (
+    aff.label === 'En cours' ||
+    aff.label === 'Cette semaine' ||
+    aff.label === 'À programmer'
+  )
     return 'aTraiter'
   if (aff.tone === 'neutral') return 'inactif'
   return 'bon'

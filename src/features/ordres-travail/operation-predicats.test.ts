@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import {
+  CLE_GROUPE_GENERAL,
+  basculerStatut,
   conformiteLocale,
   estCompteur,
   estCompteurCumulatif,
   estMesureExecution,
+  grouperParEquipement,
   placeholderRange,
+  type OperationEdit,
   type OperationExecution,
 } from './operation-predicats'
 
@@ -36,6 +40,9 @@ function op(p: Partial<OperationExecution> = {}): OperationExecution {
     date_execution: null,
     executed_by: null,
     commentaires: null,
+    equipement_id: null,
+    nom_equipement: null,
+    nom_localisation: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...p,
@@ -286,6 +293,154 @@ describe('placeholderRange — totalité', () => {
         if (min !== null && max === null)
           expect(rendu.startsWith('≥')).toBe(true)
       }),
+      TIRAGES,
+    )
+  })
+})
+
+/** Saisie d'une ligne : tout vide sauf ce qu'on surcharge. */
+function edit(p: Partial<OperationEdit> = {}): OperationEdit {
+  return {
+    statut: 'en_attente',
+    valeur: '',
+    dateExec: '2026-11-08',
+    indexDepose: '',
+    indexPose: '',
+    dateRemplacement: '',
+    ...p,
+  }
+}
+
+describe('basculerStatut — le geste de ligne', () => {
+  // ORACLE (D3) : double-clic / appui long = Terminée ↔ En attente pour une
+  // non-mesure ; tout statut autre que « terminee » passe Terminée (N/A compris).
+  it.each([
+    ['en_attente', 'terminee'],
+    ['en_cours', 'terminee'],
+    ['non_applicable', 'terminee'],
+    ['terminee', 'en_attente'],
+  ])('une non-mesure « %s » passe « %s »', (avant, apres) => {
+    const e = edit({ statut: avant, dateExec: '2026-01-02' })
+    expect(basculerStatut(e, false)).toEqual({ ...e, statut: apres })
+  })
+
+  // ORACLE : une mesure ne se « termine » pas sans valeur → le geste la
+  // réinitialise, remplacement de compteur compris ; la date est conservée.
+  it('une mesure est réinitialisée, remplacement compris', () => {
+    const e = edit({
+      statut: 'terminee',
+      valeur: '12',
+      indexDepose: '100',
+      indexPose: '0',
+      dateRemplacement: '2026-11-01',
+    })
+    expect(basculerStatut(e, true)).toEqual(
+      edit({ statut: 'en_attente', dateExec: e.dateExec }),
+    )
+  })
+
+  it('ne modifie jamais la saisie reçue', () => {
+    const e = edit({ statut: 'terminee' })
+    basculerStatut(e, false)
+    expect(e.statut).toBe('terminee')
+  })
+})
+
+describe('grouperParEquipement', () => {
+  const clim = (id: string, equipement: string | null, chemin: string | null) =>
+    op({
+      id,
+      equipement_id: equipement,
+      nom_equipement: equipement ? `Climatiseur ${equipement}` : null,
+      nom_localisation: chemin,
+    })
+
+  // ORACLE : un OT sans aucune ligne rattachée garde l'écran à plat.
+  it('renvoie null quand aucune ligne ne porte d’équipement', () => {
+    expect(grouperParEquipement([])).toBeNull()
+    expect(grouperParEquipement([op({ id: 'a' }), op({ id: 'b' })])).toBeNull()
+  })
+
+  // ORACLE (A3) : ordre NUMÉRIQUE des titres — « 302 » avant « 1010 ».
+  it('trie les groupes par titre en ordre numérique', () => {
+    const groupes = grouperParEquipement([
+      clim('a', 'e1010', 'R+10 / Chambre 1010'),
+      clim('b', 'e302', 'R+3 / Chambre 302'),
+      clim('c', 'e45', 'R+0 / Chambre 45'),
+    ])
+    expect(groupes?.map((g) => g.titre)).toEqual([
+      'Chambre 45',
+      'Chambre 302',
+      'Chambre 1010',
+    ])
+  })
+
+  // ORACLE : la clé est l'équipement, jamais le libellé ; titre = dernier
+  // segment du chemin, chemin complet + nom en infobulle ; ordre de la requête
+  // conservé dans un groupe.
+  it('regroupe par equipement_id en gardant l’ordre de la requête', () => {
+    const groupes = grouperParEquipement([
+      clim('a', 'e302', 'R+3 / Chambre 302'),
+      clim('b', 'e303', 'R+3 / Chambre 303'),
+      clim('c', 'e302', 'R+3 / Chambre 302'),
+    ])
+    expect(groupes).toHaveLength(2)
+    expect(groupes?.[0]).toMatchObject({
+      cle: 'e302',
+      titre: 'Chambre 302',
+      detail: 'R+3 / Chambre 302 — Climatiseur e302',
+    })
+    expect(groupes?.[0]?.ops.map((o) => o.id)).toEqual(['a', 'c'])
+  })
+
+  it('deux équipements au même libellé restent deux groupes', () => {
+    const groupes = grouperParEquipement([
+      clim('a', 'e1', 'Chambre 302'),
+      clim('b', 'e2', 'Chambre 302'),
+    ])
+    expect(groupes?.map((g) => g.cle)).toEqual(['e1', 'e2'])
+  })
+
+  // ORACLE : sans localisation, le nom de l'équipement sert de titre.
+  it('retombe sur le nom de l’équipement sans localisation', () => {
+    const groupes = grouperParEquipement([clim('a', 'e9', null)])
+    expect(groupes?.[0]?.titre).toBe('Climatiseur e9')
+  })
+
+  // ORACLE : dans un OT mixte, les lignes sans équipement forment « Général »,
+  // en tête, quel que soit leur rang dans la requête.
+  it('place les lignes sans équipement dans « Général », en tête', () => {
+    const groupes = grouperParEquipement([
+      clim('a', 'e302', 'R+3 / Chambre 302'),
+      op({ id: 'b' }),
+      op({ id: 'c' }),
+    ])
+    expect(groupes?.map((g) => g.cle)).toEqual([CLE_GROUPE_GENERAL, 'e302'])
+    expect(groupes?.[0]?.titre).toBe('Général')
+    expect(groupes?.[0]?.ops.map((o) => o.id)).toEqual(['b', 'c'])
+  })
+
+  // ORACLE (propriété) : le regroupement ne perd ni ne duplique aucune ligne.
+  it('chaque ligne apparaît exactement une fois', () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.option(fc.constantFrom('e1', 'e2', 'e3'), { nil: null }), {
+          minLength: 1,
+          maxLength: 20,
+        }),
+        (equipements) => {
+          const ops = equipements.map((e, i) =>
+            clim(`op-${String(i)}`, e, e ? `Chambre ${e}` : null),
+          )
+          const groupes = grouperParEquipement(ops)
+          if (equipements.every((e) => e === null)) {
+            expect(groupes).toBeNull()
+            return
+          }
+          const ids = (groupes ?? []).flatMap((g) => g.ops.map((o) => o.id))
+          expect([...ids].sort()).toEqual(ops.map((o) => o.id).sort())
+        },
+      ),
       TIRAGES,
     )
   })

@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { toutesLesLignes } from '@/lib/pagination'
 import type { ReleveLigne } from './releves'
 import { cleNom, cleProvenance, type IndexPrecedents } from './correlation'
 import type { DocumentMeta } from '@/features/documents/format'
@@ -12,18 +13,22 @@ export const ordresTravailQueries = {
     queryOptions({
       queryKey: [...ordresTravailQueries.all(), 'list', siteId] as const,
       enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('ordres_travail')
-          .select(
-            'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, description_gamme, nature_gamme, date_prevue, date_cloture, libelle_periodicite, miniature_id',
-          )
-          .eq('site_id', siteId!)
-          .order('date_prevue', { ascending: true })
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      // Paginé : le site dépasse bientôt le plafond de 1 000 lignes par réponse,
+      // et ce sont les OT À VENIR (fin du tri) qui manqueraient (cf. pagination.ts).
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('ordres_travail')
+            .select(
+              'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, description_gamme, nature_gamme, date_prevue, date_cloture, libelle_periodicite, miniature_id',
+            )
+            .eq('site_id', siteId!)
+            .order('date_prevue', { ascending: true })
+            .order('id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
     }),
 
   /**
@@ -43,19 +48,23 @@ export const ordresTravailQueries = {
         [...gammeIds].sort().join(','),
       ] as const,
       enabled: siteId !== null && gammeIds.length > 0,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('ordres_travail')
-          .select(
-            'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, description_gamme, date_prevue, date_cloture, gamme_id, miniature_id',
-          )
-          .eq('site_id', siteId!)
-          .in('gamme_id', gammeIds)
-          .order('date_prevue', { ascending: false })
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      // Paginé : au palier catégorie, l'historique de toutes les gammes réunies
+      // peut dépasser le plafond de 1 000 lignes (cf. pagination.ts).
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('ordres_travail')
+            .select(
+              'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, description_gamme, date_prevue, date_cloture, gamme_id, miniature_id',
+            )
+            .eq('site_id', siteId!)
+            .in('gamme_id', gammeIds)
+            .order('date_prevue', { ascending: false })
+            .order('id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
     }),
 
   /**
@@ -80,7 +89,8 @@ export const ordresTravailQueries = {
           .select(
             // `nom` sert la corrélation de repli de l'ADR 0012 (cf. correlation.ts) :
             // sans lui, une opération supprimée du modèle casse la série de relevés.
-            'ordre_travail_id, source_type, source_id, nom, valeur_mesuree, index_depose, index_pose, statut, date_execution, created_at, unite_symbole, ordres_travail!inner(gamme_id, date_prevue)',
+            // `equipement_id` (ADR 0013) : une série par équipement, jamais fusionnées.
+            'ordre_travail_id, source_type, source_id, nom, equipement_id, valeur_mesuree, index_depose, index_pose, statut, date_execution, created_at, unite_symbole, ordres_travail!inner(gamme_id, date_prevue)',
           )
           .eq('ordres_travail.site_id', siteId!)
           .eq('unite_est_cumulatif', true)
@@ -197,6 +207,8 @@ export const ordresTravailQueries = {
    * On relie « la même opération récurrente » d'un OT à l'autre en DEUX TEMPS
    * (ADR 0012) : `(source_type, source_id)` d'abord — la provenance, insensible au
    * renommage — puis, seulement si elle ne rattache rien, `(gamme, nom normalisé)`.
+   * Les deux clés intègrent `equipement_id` (ADR 0013) : une opération répétée par
+   * équipement donne à chaque équipement SA valeur précédente.
    *
    * Pourquoi le repli existe : la base autorise explicitement la suppression d'une
    * opération de gamme référencée par des exécutions (aucune clé étrangère sur
@@ -234,7 +246,7 @@ export const ordresTravailQueries = {
         const { data } = await supabase
           .from('operations_execution')
           .select(
-            'source_type, source_id, nom, valeur_mesuree, ordres_travail!inner(gamme_id, date_prevue)',
+            'source_type, source_id, nom, equipement_id, valeur_mesuree, ordres_travail!inner(gamme_id, date_prevue)',
           )
           .eq('ordres_travail.gamme_id', gammeId!)
           // STRICTEMENT antérieurs : uniquement les OT planifiés AVANT le courant →
