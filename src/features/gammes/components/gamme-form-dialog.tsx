@@ -245,7 +245,7 @@ export function GammeFormDialog({
           control={form.control}
           name="repeter_par_equipement"
           label="Répéter les opérations pour chaque équipement lié"
-          description="Chaque intervention contiendra ces opérations une fois par équipement lié à la gamme."
+          description="Les opérations sont refaites pour chaque équipement lié, par exemple une série par clim de l’étage, rangée sous le nom de sa chambre."
         />
 
         <SelectField
