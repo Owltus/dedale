@@ -322,7 +322,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- donc toutes les comparaisons RLS « = 'admin' » / « IN (...) » restent valables.
 
 -- Nature d'une gamme de maintenance
--- (131/132/133) 7 natures, dont 3 exigent toujours un document (nature_exige_document).
+-- (131/132/133/134) 7 natures, purement descriptives : le document exigé dépend
+-- de gammes.document_requis (134).
 -- 'maintenance_sous_contrat' et 'maintenance_interne' sont OBSOLÈTES (fusionnées
 -- dans maintenance_preventive par la 133, plus aucune ligne ne les porte) :
 -- PostgreSQL ne sait pas retirer une valeur d'ENUM.
@@ -339,7 +340,7 @@ CREATE TYPE gamme_nature AS ENUM (
 );
 
 COMMENT ON TYPE gamme_nature IS
-    '(133) 7 natures. Document TOUJOURS exigé : controle_reglementaire, hygiene_sanitaire, formation_habilitation. Au choix (gammes.document_requis) : maintenance_preventive, controle_interne, releve_compteurs, gestion_administrative. OBSOLÈTES (plus aucune ligne) : maintenance_interne, maintenance_sous_contrat.';
+    '(133, 134) 7 natures, purement descriptives (le document exigé dépend de gammes.document_requis) : controle_reglementaire, hygiene_sanitaire, formation_habilitation, maintenance_preventive, controle_interne, releve_compteurs, gestion_administrative. OBSOLÈTES (plus aucune ligne) : maintenance_interne, maintenance_sous_contrat.';
 
 -- Statuts OT et opérations : désormais des TABLES de référence statuts_ot /
 -- statuts_operations (v0.27, ex-ENUM ot_statut/op_statut — cohérence avec statuts_di,
@@ -13581,25 +13582,14 @@ COMMENT ON CONSTRAINT opex_mesure_terminee_a_valeur
 
 
 -- =============================================================================
--- (132) Natures de gamme et documents exigés
+-- (132, 134) Documents exigés
 -- =============================================================================
+-- 134 : le document exigé ne dépend plus de la nature, seulement de
+-- l'interrupteur gammes.document_requis (public.nature_exige_document supprimée).
 COMMENT ON COLUMN public.gammes.document_requis IS
-    '(132) Exiger un document sur chaque intervention clôturée. Utile pour les natures « au choix » ; sans effet pour les natures qui l''exigent toujours (cf. nature_exige_document).';
+    '(132, 134) Exiger un document sur chaque intervention clôturée — SEULE source de la règle, quelle que soit la nature. Le front le coche d''office à la création pour controle_reglementaire, hygiene_sanitaire, formation_habilitation.';
 
--- 2. Règle par nature ----------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.nature_exige_document(p_nature public.gamme_nature)
-RETURNS BOOLEAN
-LANGUAGE sql IMMUTABLE
-SET search_path = ''
-AS $$
-    SELECT p_nature IN ('controle_reglementaire', 'hygiene_sanitaire',
-                        'formation_habilitation');
-$;
-
-COMMENT ON FUNCTION public.nature_exige_document(public.gamme_nature) IS
-    '(132, 133) Natures qui exigent TOUJOURS un document sur l''intervention. Les autres le laissent au choix (gammes.document_requis). Miroir front : NATURES_DOCUMENT_EXIGE (src/features/gammes/schemas.ts).';
-
--- 3. Documents manquants (dashboard) ---------------------------------------------
+-- Documents manquants (dashboard) ------------------------------------------------
 CREATE OR REPLACE VIEW public.v_ot_documents_manquants
 WITH (security_invoker = true) AS
 SELECT
@@ -13611,12 +13601,12 @@ SELECT
     ot.nature_gamme,
     ot.date_cloture
 FROM public.ordres_travail ot
-LEFT JOIN public.gammes g ON g.id = ot.gamme_id
+JOIN public.gammes g ON g.id = ot.gamme_id
 WHERE ot.statut = 'cloture'
-  AND (public.nature_exige_document(ot.nature_gamme) OR COALESCE(g.document_requis, false))
+  AND g.document_requis
   AND NOT EXISTS (
         SELECT 1 FROM public.documents_ordres_travail d
         WHERE d.ordre_travail_id = ot.id);
 
 COMMENT ON VIEW public.v_ot_documents_manquants IS
-    '(132) OT clôturés dont le document est requis (nature de l''OT, ou interrupteur document_requis de sa gamme) et qui n''ont aucun document lié. RLS héritée (security_invoker).';
+    '(132, 134) OT clôturés dont la gamme exige un document (gammes.document_requis) et qui n''en ont aucun. Historique compris. security_invoker : la RLS des OT s''applique.';

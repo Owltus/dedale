@@ -4007,10 +4007,6 @@ export type Database = {
         Args: { p_miniature_id: string; p_target_site_id: string }
         Returns: boolean
       }
-      nature_exige_document: {
-        Args: { p_nature: Database["public"]["Enums"]["gamme_nature"] }
-        Returns: boolean
-      }
       prochaine_date_ot: {
         Args: { p_base: string; p_jours: number }
         Returns: string

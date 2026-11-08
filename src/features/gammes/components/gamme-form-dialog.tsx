@@ -5,9 +5,9 @@ import { useQuery } from '@tanstack/react-query'
 import {
   NATURE_GAMME_OPTIONS,
   aideNature,
+  documentCocheDoffice,
   emptyGamme,
   gammeSchema,
-  natureExigeDocument,
   natureSaisie,
 } from '../schemas'
 import type { GammeFormValues } from '../schemas'
@@ -211,16 +211,26 @@ export function GammeFormDialog({
           required
           options={NATURE_GAMME_OPTIONS}
           hint={aideNature(nature)}
+          // Création : la case « document » suit la nature choisie (cochée
+          // d'office pour un contrôle réglementaire…), décochable ensuite.
+          // Édition : jamais touchée, c'est un choix déjà fait.
+          onValueChange={
+            isEdit
+              ? undefined
+              : (v) =>
+                  form.setValue(
+                    'document_requis',
+                    documentCocheDoffice(v as GammeFormValues['nature']),
+                  )
+          }
         />
 
-        {natureExigeDocument(nature) ? null : (
-          <SwitchField
-            control={form.control}
-            name="document_requis"
-            label="Exiger un document à chaque intervention"
-            description="Une intervention clôturée sans document (photo, rapport…) remontera dans le tableau de bord."
-          />
-        )}
+        <SwitchField
+          control={form.control}
+          name="document_requis"
+          label="Exiger un document à chaque intervention"
+          description="Une intervention clôturée sans document (photo, rapport…) remontera dans le tableau de bord."
+        />
 
         {isEdit && (
           <SwitchField

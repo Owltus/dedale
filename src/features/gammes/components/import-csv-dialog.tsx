@@ -9,6 +9,7 @@ import {
   type GammeCsvRowOk,
   type GammeExistante,
 } from '../csv-import'
+import { documentCocheDoffice } from '../schemas'
 import { gammesQueries, referentielsQueries } from '../queries'
 import { useCreateGammeBiblio, useCreateOperation } from '../mutations'
 import { resumeOperation } from '@/features/operations/csv-import'
@@ -140,6 +141,9 @@ export function ImportCsvDialog({
               description: g.description ?? '',
               miniature_id: null,
               portee: 'entreprise',
+              document_requis: documentCocheDoffice(
+                g.nature ?? 'maintenance_preventive',
+              ),
             },
           })
           gammeId = creee.id

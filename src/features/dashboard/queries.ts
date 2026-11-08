@@ -106,9 +106,9 @@ export const dashboardQueries = {
     }),
 
   /**
-   * OT clôturés dont le document est REQUIS et absent (132) : la règle vit en
-   * base (vue `v_ot_documents_manquants` = nature qui l'exige toujours, OU
-   * interrupteur `document_requis` de la gamme), historique compris.
+   * OT clôturés dont le document est REQUIS et absent (132, 134) : la règle
+   * vit en base (vue `v_ot_documents_manquants` = interrupteur
+   * `document_requis` de la gamme), historique compris.
    */
   documentsManquants: (siteId: string | null) =>
     queryOptions({

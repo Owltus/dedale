@@ -28,7 +28,7 @@ function rangNature(nature: NatureGamme): number {
 /**
  * Alerte « Documents manquants » (en tête de la colonne Documents) — 132.
  * Visible UNIQUEMENT s'il existe ≥ 1 intervention clôturée dont le document est
- * requis — parce que sa nature l'exige toujours, ou parce que sa gamme l'exige —
+ * exigé par sa gamme (interrupteur « Exiger un document », 134) —
  * et qui n'en a aucun (vue `v_ot_documents_manquants`, historique compris).
  * Le clic ouvre la liste rangée par nature ; chaque ligne mène à la fiche de
  * l'OT pour y joindre le document.

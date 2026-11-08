@@ -13,10 +13,10 @@ import {
 } from '@/lib/hostile-inputs.test'
 import schemaVersionne from '../../../schema_complete.sql?raw'
 import {
-  NATURES_DOCUMENT_EXIGE,
+  NATURES_DOCUMENT_COCHE_DOFFICE,
   NATURE_GAMME_LABEL,
   aideNature,
-  documentAttendu,
+  documentCocheDoffice,
   gammeBiblioSchema,
   gammeNatures,
   gammeSchema,
@@ -151,7 +151,6 @@ describe('gammeBiblioSchema', () => {
     ...GAMME,
     est_active: undefined,
     repeter_par_equipement: undefined,
-    document_requis: undefined,
     portee: 'entreprise' as const,
     prestataire_id: '',
   }
@@ -389,48 +388,55 @@ describe('operationSchema — ordre', () => {
   })
 })
 
-describe('natures et documents (132)', () => {
-  it('le miroir front NATURES_DOCUMENT_EXIGE colle à public.nature_exige_document', () => {
-    // ORACLE : le corps de la fonction SQL dans schema_complete.sql (seule
-    // source versionnée). Une nature ajoutée d'un seul côté fait diverger
-    // l'alerte du tableau de bord (base) et la fiche gamme (front).
-    const corps =
-      /FUNCTION public\.nature_exige_document[\s\S]*?IN \(([^)]*)\)/.exec(
+describe('natures et documents (132-134)', () => {
+  it('la base ne lit QUE l’interrupteur de la gamme, jamais la nature (134)', () => {
+    // ORACLE : schema_complete.sql (seule source versionnée). Une règle par
+    // nature rendrait de nouveau le document impossible à désactiver sur un
+    // contrôle obligatoire à rapport annuel.
+    expect(schemaVersionne).not.toMatch(/nature_exige_document\(/)
+    const vue =
+      /CREATE OR REPLACE VIEW public\.v_ot_documents_manquants[\s\S]*?;/.exec(
         schemaVersionne,
-      )
-    expect(corps).not.toBeNull()
-    const sql = [...(corps?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map(
-      (m) => m[1],
-    )
-    expect(new Set(sql)).toEqual(new Set(NATURES_DOCUMENT_EXIGE))
+      )?.[0] ?? ''
+    expect(vue).toMatch(/g\.document_requis/)
+    // Le filtre (après WHERE) ne regarde jamais la nature.
+    expect(vue.split('WHERE')[1] ?? '').not.toMatch(/nature/)
   })
 
-  it('chaque nature proposée a un libellé et une aide', () => {
+  it('chaque nature proposée a un libellé et une description', () => {
     for (const n of gammeNatures) {
       expect(NATURE_GAMME_LABEL[n].length).toBeGreaterThan(0)
-      expect(aideNature(n)).toMatch(/document/i)
+      expect(aideNature(n).length).toBeGreaterThan(0)
     }
     expect(gammeNatures).toHaveLength(7)
     expect(gammeNatures).not.toContain('maintenance_interne')
     expect(gammeNatures).not.toContain('maintenance_sous_contrat')
   })
 
-  it('document attendu = nature qui l’exige OU interrupteur de la gamme', () => {
-    expect(
-      documentAttendu({ nature: 'hygiene_sanitaire', document_requis: false }),
-    ).toBe(true)
-    expect(
-      documentAttendu({
-        nature: 'maintenance_preventive',
-        document_requis: true,
-      }),
-    ).toBe(true)
-    expect(
-      documentAttendu({
-        nature: 'maintenance_preventive',
-        document_requis: false,
-      }),
-    ).toBe(false)
+  it('case « document » cochée d’office pour 3 natures, décochée sinon', () => {
+    expect([...NATURES_DOCUMENT_COCHE_DOFFICE].sort()).toEqual([
+      'controle_reglementaire',
+      'formation_habilitation',
+      'hygiene_sanitaire',
+    ])
+    for (const n of gammeNatures) {
+      expect(documentCocheDoffice(n)).toBe(
+        NATURES_DOCUMENT_COCHE_DOFFICE.has(n),
+      )
+    }
+  })
+
+  it('un document peut être désactivé sur toute nature, même réglementaire', () => {
+    for (const nature of gammeNatures) {
+      for (const document_requis of [true, false]) {
+        expect(
+          gammeSchema.safeParse({ ...GAMME, nature, document_requis }).success,
+        ).toBe(true)
+      }
+    }
+  })
+
+  it('une nature obsolète retombe sur la maintenance préventive', () => {
     expect(natureSaisie('maintenance_interne')).toBe('maintenance_preventive')
     expect(natureSaisie('maintenance_sous_contrat')).toBe(
       'maintenance_preventive',

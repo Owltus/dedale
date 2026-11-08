@@ -51,6 +51,8 @@ function gammeBiblioPayload(
     description: v.description || null,
     categorie_id: v.categorie_id,
     miniature_id: v.miniature_id,
+    // Recopié sur le site par `copier_gamme`.
+    document_requis: v.document_requis,
     site_id: siteIdPourPortee(v.portee, siteId),
   }
 }

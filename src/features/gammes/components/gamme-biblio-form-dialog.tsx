@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   NATURE_GAMME_OPTIONS,
   aideNature,
+  documentCocheDoffice,
   emptyGammeBiblio,
   gammeBiblioSchema,
   natureSaisie,
@@ -18,6 +19,7 @@ import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
 import { SelectField } from '@/components/common/fields/select-field'
+import { SwitchField } from '@/components/common/fields/switch-field'
 
 /**
  * Libellés d'erreur propres à la création/édition d'une gamme-template commune —
@@ -68,6 +70,7 @@ function initialValues(
       // Onglet Gammes de la Bibliothèque = COMMUN uniquement (site_id NULL).
       portee: 'entreprise',
       miniature_id: gamme.miniature_id,
+      document_requis: gamme.document_requis,
     }
   }
   return {
@@ -155,6 +158,23 @@ export function GammeBiblioFormDialog({
           required
           options={NATURE_GAMME_OPTIONS}
           hint={aideNature(nature)}
+          // Même règle que la gamme de site : cochée d'office à la création.
+          onValueChange={
+            isEdit
+              ? undefined
+              : (v) =>
+                  form.setValue(
+                    'document_requis',
+                    documentCocheDoffice(v as GammeBiblioFormValues['nature']),
+                  )
+          }
+        />
+
+        <SwitchField
+          control={form.control}
+          name="document_requis"
+          label="Exiger un document à chaque intervention"
+          description="Une intervention clôturée sans document (photo, rapport…) remontera dans le tableau de bord."
         />
 
         <SelectField

@@ -54,26 +54,18 @@ export const NATURE_GAMME_DESCRIPTION: Record<NatureGammeSaisie, string> = {
 }
 
 /**
- * Natures qui EXIGENT TOUJOURS un document sur l'intervention (132, 133). Miroir de
- * `public.nature_exige_document` : la base reste la référence (vue
- * `v_ot_documents_manquants`), ce miroir ne sert qu'à l'affichage.
+ * Natures pour lesquelles « Exiger un document » est COCHÉ D'OFFICE à la
+ * création d'une gamme (formulaires, import CSV). Simple aide de saisie (134) :
+ * la règle elle-même est l'interrupteur `gammes.document_requis`, décochable
+ * pour toute nature (ex. un contrôle obligatoire à rapport annuel).
  */
-export const NATURES_DOCUMENT_EXIGE: ReadonlySet<NatureGamme> = new Set([
-  'controle_reglementaire',
-  'hygiene_sanitaire',
-  'formation_habilitation',
-])
+export const NATURES_DOCUMENT_COCHE_DOFFICE: ReadonlySet<NatureGamme> = new Set(
+  ['controle_reglementaire', 'hygiene_sanitaire', 'formation_habilitation'],
+)
 
-export function natureExigeDocument(nature: NatureGamme): boolean {
-  return NATURES_DOCUMENT_EXIGE.has(nature)
-}
-
-/** Un document est-il attendu sur les interventions de cette gamme ? */
-export function documentAttendu(gamme: {
-  nature: NatureGamme
-  document_requis: boolean
-}): boolean {
-  return natureExigeDocument(gamme.nature) || gamme.document_requis
+/** Valeur proposée pour « Exiger un document » quand on choisit cette nature. */
+export function documentCocheDoffice(nature: NatureGamme): boolean {
+  return NATURES_DOCUMENT_COCHE_DOFFICE.has(nature)
 }
 
 /** Options de la liste déroulante « Nature » (gamme de site ET Bibliothèque). */
@@ -82,12 +74,9 @@ export const NATURE_GAMME_OPTIONS = gammeNatures.map((n) => ({
   label: NATURE_GAMME_LABEL[n],
 }))
 
-/** Aide sous la liste « Nature » : ce que recouvre la nature + sa règle de document. */
+/** Aide sous la liste « Nature » : ce que recouvre la nature. */
 export function aideNature(nature: NatureGammeSaisie): string {
-  const regle = natureExigeDocument(nature)
-    ? 'Un document est toujours exigé.'
-    : 'Document au choix.'
-  return `${NATURE_GAMME_DESCRIPTION[nature]} ${regle}`
+  return NATURE_GAMME_DESCRIPTION[nature]
 }
 
 /**
@@ -154,8 +143,8 @@ export const gammeSchema = z.object({
   // 128 : opérations répétées pour CHAQUE équipement lié (repli : une seule fois
   // si aucun équipement). La base synchronise les OT ouverts au basculement.
   repeter_par_equipement: z.boolean(),
-  // 132 : document exigé sur chaque intervention. Sans effet pour les natures
-  // qui l'exigent toujours (cf. NATURES_DOCUMENT_EXIGE).
+  // 132/134 : document exigé sur chaque intervention — SEULE source de la
+  // règle, quelle que soit la nature (cf. NATURES_DOCUMENT_COCHE_DOFFICE).
   document_requis: z.boolean(),
 })
 
@@ -184,7 +173,6 @@ export const gammeBiblioSchema = gammeSchema
   .omit({
     est_active: true,
     repeter_par_equipement: true,
-    document_requis: true,
   })
   .extend({
     categorie_id: uuidObligatoire('La catégorie est obligatoire'),

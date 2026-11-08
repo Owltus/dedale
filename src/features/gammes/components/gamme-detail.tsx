@@ -2,10 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Package, Paperclip, Plus, Wrench } from 'lucide-react'
 import { gammesQueries } from '@/features/gammes/queries'
-import {
-  NATURE_GAMME_LABEL,
-  natureExigeDocument,
-} from '@/features/gammes/schemas'
+import { NATURE_GAMME_LABEL } from '@/features/gammes/schemas'
 import { EquipementsLinkDialog } from '@/features/gammes/components/equipements-link-dialog'
 import { GammeModelesSection } from '@/features/gammes/components/gamme-modeles-section'
 import { GammeOperationsSection } from '@/features/gammes/components/gamme-operations-section'
@@ -168,11 +165,9 @@ export function GammeDetail({
               },
               {
                 label: 'Document',
-                value: natureExigeDocument(gamme.nature)
-                  ? 'Toujours exigé'
-                  : gamme.document_requis
-                    ? 'Exigé à chaque intervention'
-                    : 'Non exigé',
+                value: gamme.document_requis
+                  ? 'Exigé à chaque intervention'
+                  : 'Non exigé',
               },
               {
                 label: 'Opérations',
