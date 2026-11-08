@@ -26,6 +26,24 @@
         "value": "11px",
         "createdAt": "2026-08-30T10:51:57.131Z",
         "reason": "Claude a vérifié : planning-grille.tsx ligne 413, en-tête de colonne (jour) de la grille murale — variante 1px au-dessus du palier Micro (10px) documenté dans DESIGN.md, pour son rôle de libellé de section dans le même contexte de densité extrême. Usage unique, pas de 5e palier créé pour 1px"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/features/ordres-travail/components/operations-groupe-equipement.tsx"
+        ],
+        "createdAt": "2026-11-08T10:07:56.891Z",
+        "reason": "convention du projet : liseré de statut border-l-4 partagé par ListRow/StatusTone (semantic-state-tokens), antérieur à ce chantier"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/features/ordres-travail/components/operation-row.tsx"
+        ],
+        "createdAt": "2026-11-08T10:07:56.961Z",
+        "reason": "convention du projet : liseré de statut border-l-4 partagé par ListRow/StatusTone (semantic-state-tokens), antérieur à ce chantier"
       }
     ]
   }
