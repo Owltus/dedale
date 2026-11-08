@@ -20,6 +20,8 @@ const FIELD_TONE: Record<StatusTone, string> = {
   info: 'text-info',
   violet: 'text-violet',
   yellow: 'text-yellow',
+  orange: 'text-orange',
+  rose: 'text-rose',
 }
 
 /** Cellule : intitulé EN HAUT (petit, muté), valeur EN BAS (medium, tronquée). */

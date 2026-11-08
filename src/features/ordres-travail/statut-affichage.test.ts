@@ -159,7 +159,7 @@ describe('statutPlanningOt — sans proximité calendaire', () => {
     })
     expect(plan('reouvert', '2020-01-01')).toEqual({
       label: 'Rouvert',
-      tone: 'warning',
+      tone: 'rose',
     })
     expect(plan('cloture', '2020-01-01')).toEqual({
       label: 'Clôturé',
@@ -167,7 +167,7 @@ describe('statutPlanningOt — sans proximité calendaire', () => {
     })
     expect(plan('annule', '2020-01-01')).toEqual({
       label: 'Annulé',
-      tone: 'destructive',
+      tone: 'orange',
     })
   })
 })

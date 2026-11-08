@@ -48,7 +48,7 @@ describe('statutAffichageGamme', () => {
       ],
       aujourdHui: AUJ,
     })
-    expect(r).toMatchObject({ label: 'Rouvert', tone: 'warning' })
+    expect(r).toMatchObject({ label: 'Rouvert', tone: 'rose' })
   })
 
   it('un OT en retard (sans réouvert) → « En retard » (rouge)', () => {
@@ -178,7 +178,7 @@ describe('statutAffichageAgrege', () => {
       ],
       aujourdHui: AUJ,
     })
-    expect(r).toMatchObject({ label: 'Rouvert', tone: 'warning' })
+    expect(r).toMatchObject({ label: 'Rouvert', tone: 'rose' })
   })
 
   it('rien d’urgent mais une gamme sans OT → « À programmer » (orange)', () => {

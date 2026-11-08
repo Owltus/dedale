@@ -28,15 +28,20 @@ const TONE_CELL: Record<StatusTone, string> = {
   info: 'bg-info text-info-foreground',
   violet: 'bg-violet text-violet-foreground',
   yellow: 'bg-yellow text-yellow-foreground',
+  orange: 'bg-orange text-orange-foreground',
+  rose: 'bg-rose text-rose-foreground',
 }
 
 /** Priorité d'affichage quand une cellule mélange plusieurs tonalités (le plus « à
- *  signaler » d'abord : en retard/annulé → rouvert → en cours → planifié → clôturé →
+ *  signaler » d'abord : en retard → annulé → rouvert → en cours → planifié → clôturé →
  *  programmé). Tableau COMPLET de toutes les tonalités (`yellow` n'est pas produit par
  *  `statutPlanningOt` — il n'apparaît qu'en repeignant Programmé dans la semaine
- *  courante —, mais le lister évite qu'un ton inattendu domine via `indexOf` = -1). */
+ *  courante —, `warning` n'est plus produit pour un OT, mais les lister évite qu'un
+ *  ton inattendu domine via `indexOf` = -1). */
 const PRIORITE_TONE: StatusTone[] = [
   'destructive',
+  'orange',
+  'rose',
   'warning',
   'info',
   'violet',
@@ -80,9 +85,49 @@ function toneCellule(
   return estSemaineCourante && tone === 'neutral' ? 'yellow' : tone
 }
 
-/** Cellule réglementaire = au moins un OT de contrôle réglementaire. */
-function aReglementaire(ots: PlanningOt[]): boolean {
-  return ots.some((ot) => ot.nature_gamme === 'controle_reglementaire')
+/**
+ * Contour d'une cellule selon la NATURE de ses OT — seulement pour les trois
+ * natures d'obligation (décision PO 08/11/2026) ; les natures courantes
+ * (maintenance préventive, contrôle interne, relevés, gestion administrative)
+ * n'en ont pas, pour ne pas surcharger la grille. Couleurs HORS de la palette
+ * des fonds (statuts) : noir/blanc, turquoise, framboise. Une cellule qui mélange
+ * plusieurs de ces natures prend la première de la liste.
+ */
+const CONTOURS_NATURE: {
+  nature: PlanningOt['nature_gamme']
+  libelle: string
+  ring: string
+}[] = [
+  {
+    nature: 'controle_reglementaire',
+    libelle: 'Contrôle réglementaire',
+    ring: 'ring-primary',
+  },
+  {
+    nature: 'hygiene_sanitaire',
+    libelle: 'Hygiène et sanitaire',
+    ring: 'ring-turquoise',
+  },
+  {
+    nature: 'formation_habilitation',
+    libelle: 'Formation et habilitation',
+    ring: 'ring-framboise',
+  },
+]
+
+/**
+ * Contour : anneau de 2 px DÉTACHÉ de la case par 1 px transparent, pour que sa
+ * couleur se lise même posée sur un fond coloré. La case rétrécit d'autant
+ * (`size-4` au lieu de `size-5`) : l'ensemble tient dans la ligne de 24 px.
+ */
+const CONTOUR = 'size-4 ring-2 ring-offset-1 ring-offset-transparent'
+
+/** Classe de contour de la cellule, ou `null` si aucune nature d'obligation. */
+function contourCellule(ots: PlanningOt[]): string | null {
+  const c = CONTOURS_NATURE.find((n) =>
+    ots.some((ot) => ot.nature_gamme === n.nature),
+  )
+  return c ? cn(CONTOUR, c.ring) : null
 }
 
 /** Infobulle (native `title`) : les premiers OT « gamme — statut » + reste compté. */
@@ -106,9 +151,10 @@ function tooltipCellule(ots: PlanningOt[]): string {
 // Plus de proximité calendaire (Cette semaine / À venir / Mois prochain…) : sur un
 // calendrier la position de la case dit déjà « quand » (décision PO).
 const LEGENDE_PLANNING: { tone: StatusTone; libelle: string }[] = [
-  { tone: 'destructive', libelle: 'En retard / annulé' },
+  { tone: 'destructive', libelle: 'En retard' },
+  { tone: 'orange', libelle: 'Annulé' },
   { tone: 'info', libelle: 'En cours' },
-  { tone: 'warning', libelle: 'Rouvert' },
+  { tone: 'rose', libelle: 'Rouvert' },
   { tone: 'violet', libelle: 'Planifié' },
   { tone: 'neutral', libelle: 'Programmé' },
   { tone: 'success', libelle: 'Clôturé' },
@@ -128,10 +174,17 @@ export function PlanningLegende() {
           {i.libelle}
         </span>
       ))}
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block size-3 rounded ring-1 ring-primary ring-inset" />
-        Contrôle réglementaire
-      </span>
+      {CONTOURS_NATURE.map((n) => (
+        <span key={n.nature} className="flex items-center gap-1.5">
+          <span
+            className={cn(
+              'inline-block size-2.5 rounded-[2px] ring-2 ring-offset-1 ring-offset-transparent',
+              n.ring,
+            )}
+          />
+          {n.libelle}
+        </span>
+      ))}
     </div>
   )
 }
@@ -513,6 +566,7 @@ export function PlanningGrille({
                     )
                   }
                   const tone = toneCellule(ots, s.cle === cleSemaineCourante)
+                  const contour = contourCellule(ots)
                   return (
                     <td
                       key={s.cle}
@@ -532,10 +586,8 @@ export function PlanningGrille({
                           className={cn(
                             'flex size-5 items-center justify-center rounded-[3px] text-[10px] leading-none font-semibold transition-opacity hover:opacity-80',
                             TONE_CELL[tone],
-                            // Contour réglementaire : au moins un OT de contrôle
-                            // réglementaire dans la cellule (obligation légale).
-                            aReglementaire(ots) &&
-                              'ring-1 ring-primary ring-inset',
+                            // Contour de nature (obligations) — cf. CONTOURS_NATURE.
+                            contour,
                           )}
                         >
                           {ots.length > 1 ? ots.length : ''}

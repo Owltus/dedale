@@ -15,6 +15,8 @@ export type StatusTone =
   | 'info'
   | 'violet'
   | 'yellow'
+  | 'orange'
+  | 'rose'
 
 /**
  * Tonalité d'un statut par id, depuis une table fournie par la feature ; repli
@@ -55,6 +57,8 @@ const TONE_CLASSES: Record<StatusTone, string> = {
   info: 'border-info/20 bg-info/10 text-info',
   violet: 'border-violet/20 bg-violet/10 text-violet',
   yellow: 'border-yellow/20 bg-yellow/10 text-yellow',
+  orange: 'border-orange/20 bg-orange/10 text-orange',
+  rose: 'border-rose/20 bg-rose/10 text-rose',
 }
 
 /**

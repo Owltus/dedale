@@ -129,6 +129,8 @@ const TONE_ACCENT: Record<StatusTone, string> = {
   info: 'border-l-4 border-l-info',
   violet: 'border-l-4 border-l-violet',
   yellow: 'border-l-4 border-l-yellow',
+  orange: 'border-l-4 border-l-orange',
+  rose: 'border-l-4 border-l-rose',
 }
 
 /**

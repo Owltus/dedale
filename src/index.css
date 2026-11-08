@@ -34,6 +34,14 @@
   --violet-foreground: oklch(0.985 0 0);
   --yellow: oklch(0.55 0.12 95);
   --yellow-foreground: oklch(0.205 0 0);
+  /* Statuts OT : Annulé (orange) et Rouvert (rose), décision PO 08/11/2026. */
+  --orange: oklch(0.66 0.19 50);
+  --orange-foreground: oklch(0.985 0 0);
+  --rose: oklch(0.56 0.19 345);
+  --rose-foreground: oklch(0.985 0 0);
+  /* Contours de nature du planning (jamais en fond : couleurs hors palette d'état). */
+  --turquoise: oklch(0.6 0.11 195);
+  --framboise: oklch(0.45 0.17 10);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -92,6 +100,12 @@
   --violet-foreground: oklch(0.205 0 0);
   --yellow: oklch(0.85 0.14 100);
   --yellow-foreground: oklch(0.205 0 0);
+  --orange: oklch(0.76 0.16 55);
+  --orange-foreground: oklch(0.205 0 0);
+  --rose: oklch(0.76 0.15 345);
+  --rose-foreground: oklch(0.205 0 0);
+  --turquoise: oklch(0.8 0.12 190);
+  --framboise: oklch(0.62 0.2 10);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -134,6 +148,12 @@
   --color-violet-foreground: var(--violet-foreground);
   --color-yellow: var(--yellow);
   --color-yellow-foreground: var(--yellow-foreground);
+  --color-orange: var(--orange);
+  --color-orange-foreground: var(--orange-foreground);
+  --color-rose: var(--rose);
+  --color-rose-foreground: var(--rose-foreground);
+  --color-turquoise: var(--turquoise);
+  --color-framboise: var(--framboise);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

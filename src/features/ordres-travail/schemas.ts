@@ -87,11 +87,13 @@ export function statutOtTone(statut: string, origine?: string): StatusTone {
     case 'en_cours':
       return 'info'
     case 'reouvert':
-      return 'warning'
+      // Rose (et plus l'ambre --warning) : l'orange est pris par « Annulé ».
+      return 'rose'
     case 'cloture':
       return 'success'
     case 'annule':
-      return 'destructive'
+      // Orange : distinct du rouge « En retard » (décision PO 08/11/2026).
+      return 'orange'
     default:
       return 'neutral'
   }

@@ -16,7 +16,7 @@ import { TIRAGES, texteHostileArb } from '@/test/harness'
  * ce qu'on teste, ce sont leurs promesses d'interface et d'accessibilité.
  */
 
-/** Les sept tonalités du système d'état (cf. `StatusTone`). */
+/** Les neuf tonalités du système d'état (cf. `StatusTone`). */
 const TONALITES: StatusTone[] = [
   'neutral',
   'success',
@@ -25,6 +25,8 @@ const TONALITES: StatusTone[] = [
   'info',
   'violet',
   'yellow',
+  'orange',
+  'rose',
 ]
 
 describe('SearchInput', () => {

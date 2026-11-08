@@ -48,6 +48,8 @@ export const TONE_BORDER: Record<StatusTone, string> = {
   info: 'border-l-info',
   violet: 'border-l-violet',
   yellow: 'border-l-yellow',
+  orange: 'border-l-orange',
+  rose: 'border-l-rose',
 }
 
 interface OperationRowProps {

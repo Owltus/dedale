@@ -38,6 +38,8 @@ export const TONE_VAR: Record<StatusTone, string> = {
   info: 'var(--info)',
   violet: 'var(--violet)',
   yellow: 'var(--yellow)',
+  orange: 'var(--orange)',
+  rose: 'var(--rose)',
 }
 
 /** Couleur de token d'une tonalité, à passer directement à `fill`/`stroke`. */

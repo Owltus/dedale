@@ -535,9 +535,9 @@ describe('statutOtTone / libelleStatutOt / estVerrouille', () => {
     // jamais sur ces quatre chaînes exactes : il faut les nommer une par une,
     // sinon une couleur peut être changée sans qu'aucun test ne bronche.
     expect(statutOtTone('en_cours')).toBe('info')
-    expect(statutOtTone('reouvert')).toBe('warning')
+    expect(statutOtTone('reouvert')).toBe('rose')
     expect(statutOtTone('cloture')).toBe('success')
-    expect(statutOtTone('annule')).toBe('destructive')
+    expect(statutOtTone('annule')).toBe('orange')
     expect(statutOtTone('statut_inconnu')).toBe('neutral')
   })
 

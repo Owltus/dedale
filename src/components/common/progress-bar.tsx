@@ -10,6 +10,8 @@ const BAR_TONE: Record<StatusTone, string> = {
   info: 'bg-info',
   violet: 'bg-violet',
   yellow: 'bg-yellow',
+  orange: 'bg-orange',
+  rose: 'bg-rose',
 }
 
 /**
