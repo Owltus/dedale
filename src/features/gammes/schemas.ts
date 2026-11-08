@@ -6,19 +6,19 @@ import type { Database } from '@/lib/database.types'
 export type NatureGamme = Database['public']['Enums']['gamme_nature']
 
 /**
- * Natures proposées à la saisie (132), dans l'ordre d'affichage. La valeur
- * `maintenance_preventive` existe encore dans l'ENUM mais n'est plus portée par
- * aucune ligne : elle n'est plus proposée.
+ * Natures proposées à la saisie (133), dans l'ordre d'affichage. Les valeurs
+ * `maintenance_interne` et `maintenance_sous_contrat` existent encore dans
+ * l'ENUM mais ne sont plus portées par aucune ligne : elles ne sont plus
+ * proposées.
  */
 export const gammeNatures = [
   'controle_reglementaire',
   'hygiene_sanitaire',
-  'maintenance_sous_contrat',
   'formation_habilitation',
-  'maintenance_interne',
-  'autocontrole',
+  'maintenance_preventive',
+  'controle_interne',
   'releve_compteurs',
-  'suivi_administratif',
+  'gestion_administrative',
 ] as const satisfies readonly NatureGamme[]
 
 export type NatureGammeSaisie = (typeof gammeNatures)[number]
@@ -27,38 +27,40 @@ export type NatureGammeSaisie = (typeof gammeNatures)[number]
 export const NATURE_GAMME_LABEL: Record<NatureGamme, string> = {
   controle_reglementaire: 'Contrôle réglementaire',
   hygiene_sanitaire: 'Hygiène et sanitaire',
-  maintenance_sous_contrat: 'Maintenance sous contrat',
   formation_habilitation: 'Formation et habilitation',
-  maintenance_interne: 'Maintenance interne',
-  autocontrole: 'Autocontrôle',
+  maintenance_preventive: 'Maintenance préventive',
+  controle_interne: 'Contrôle interne',
   releve_compteurs: 'Relevé de compteurs',
-  suivi_administratif: 'Suivi administratif',
-  maintenance_preventive: 'Maintenance préventive (ancienne)',
+  gestion_administrative: 'Gestion administrative',
+  maintenance_interne: 'Maintenance interne (ancienne)',
+  maintenance_sous_contrat: 'Maintenance sous contrat (ancienne)',
 }
 
 /** Ce que recouvre chaque nature (aide sous la liste déroulante). */
 export const NATURE_GAMME_DESCRIPTION: Record<NatureGammeSaisie, string> = {
   controle_reglementaire:
-    'Vérification imposée par la loi, souvent par un organisme agréé.',
-  hygiene_sanitaire: 'Analyses, lutte contre les nuisibles, rejets.',
-  maintenance_sous_contrat:
-    'Entretien confié à un prestataire extérieur, qui laisse un bon d’intervention.',
-  formation_habilitation: 'Formations et habilitations du personnel.',
-  maintenance_interne: 'Entretien réalisé par l’équipe.',
-  autocontrole: 'Rondes et tests réguliers faits en interne.',
-  releve_compteurs: 'Lecture des compteurs.',
-  suivi_administratif: 'Échéances administratives (badges…).',
+    'Vérification imposée par la loi, faite par un organisme agréé.',
+  hygiene_sanitaire:
+    'Protège la santé des occupants : analyses, nuisibles, rejets.',
+  formation_habilitation:
+    'Porte sur une personne : formations et habilitations du personnel.',
+  maintenance_preventive:
+    'Intervention programmée sur un équipement pour le garder en bon état, par l’équipe ou un prestataire.',
+  controle_interne:
+    'Vérification faite par l’équipe elle-même : on vérifie que tout fonctionne, sans réparer.',
+  releve_compteurs: 'Lecture des compteurs d’eau, d’électricité, de gaz.',
+  gestion_administrative:
+    'Échéance sans geste technique : badges, assurances, abonnements, renouvellements…',
 }
 
 /**
- * Natures qui EXIGENT TOUJOURS un document sur l'intervention (132). Miroir de
+ * Natures qui EXIGENT TOUJOURS un document sur l'intervention (132, 133). Miroir de
  * `public.nature_exige_document` : la base reste la référence (vue
  * `v_ot_documents_manquants`), ce miroir ne sert qu'à l'affichage.
  */
 export const NATURES_DOCUMENT_EXIGE: ReadonlySet<NatureGamme> = new Set([
   'controle_reglementaire',
   'hygiene_sanitaire',
-  'maintenance_sous_contrat',
   'formation_habilitation',
 ])
 
@@ -90,10 +92,13 @@ export function aideNature(nature: NatureGammeSaisie): string {
 
 /**
  * Nature à présenter dans un formulaire : une valeur obsolète (aucune ligne ne
- * devrait plus la porter) retombe sur `maintenance_interne`.
+ * devrait plus la porter) retombe sur `maintenance_preventive`.
  */
 export function natureSaisie(nature: NatureGamme): NatureGammeSaisie {
-  return nature === 'maintenance_preventive' ? 'maintenance_interne' : nature
+  return nature === 'maintenance_interne' ||
+    nature === 'maintenance_sous_contrat'
+    ? 'maintenance_preventive'
+    : nature
 }
 
 const REFERENCE_INVALIDE =
@@ -158,7 +163,7 @@ export type GammeFormValues = z.input<typeof gammeSchema>
 
 export const emptyGamme: GammeFormValues = {
   nom: '',
-  nature: 'maintenance_interne',
+  nature: 'maintenance_preventive',
   periodicite_id: '',
   prestataire_id: '',
   categorie_id: '',

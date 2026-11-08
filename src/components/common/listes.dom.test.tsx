@@ -181,7 +181,7 @@ describe('ListFilterBar', () => {
             onChange: onNature,
             options: [
               { value: 'all', label: 'Toutes les natures' },
-              { value: 'autocontrole', label: 'Autocontrôle' },
+              { value: 'controle_interne', label: 'Contrôle interne' },
             ],
             label: 'Filtrer par nature',
           },
@@ -194,10 +194,10 @@ describe('ListFilterBar', () => {
       screen.getByRole('combobox', { name: 'Filtrer par nature' }),
     )
     await utilisateur.click(
-      await screen.findByRole('option', { name: 'Autocontrôle' }),
+      await screen.findByRole('option', { name: 'Contrôle interne' }),
     )
 
-    expect(onNature).toHaveBeenCalledWith('autocontrole')
+    expect(onNature).toHaveBeenCalledWith('controle_interne')
     expect(onStatut).not.toHaveBeenCalled()
   })
 

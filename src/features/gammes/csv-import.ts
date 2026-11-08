@@ -40,14 +40,20 @@ export interface GammeExistante {
 const norm = (s: string) => s.trim().toLowerCase()
 
 /**
- * Anciens libellés (avant la 132, 2 natures) encore acceptés : un CSV préparé
+ * Anciens libellés (avant la 132 puis la 133) encore acceptés : un CSV préparé
  * avant le changement reste importable.
  */
 const ALIAS_NATURE: Record<string, (typeof gammeNatures)[number]> = {
   réglementaire: 'controle_reglementaire',
-  maintenance: 'maintenance_interne',
-  'maintenance préventive': 'maintenance_interne',
-  maintenance_preventive: 'maintenance_interne',
+  maintenance: 'maintenance_preventive',
+  'maintenance interne': 'maintenance_preventive',
+  maintenance_interne: 'maintenance_preventive',
+  'maintenance sous contrat': 'maintenance_preventive',
+  maintenance_sous_contrat: 'maintenance_preventive',
+  autocontrôle: 'controle_interne',
+  autocontrole: 'controle_interne',
+  'suivi administratif': 'gestion_administrative',
+  suivi_administratif: 'gestion_administrative',
 }
 
 /** Libellé de nature → valeur stockée (« Contrôle réglementaire » → `controle_reglementaire`). */

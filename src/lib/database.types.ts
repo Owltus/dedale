@@ -4094,9 +4094,9 @@ export type Database = {
         | "maintenance_sous_contrat"
         | "formation_habilitation"
         | "maintenance_interne"
-        | "autocontrole"
+        | "controle_interne"
         | "releve_compteurs"
-        | "suivi_administratif"
+        | "gestion_administrative"
       observation_gravite: "mineure" | "majeure" | "bloquante"
       observation_source:
         | "controle_reglementaire"
@@ -4239,9 +4239,9 @@ export const Constants = {
         "maintenance_sous_contrat",
         "formation_habilitation",
         "maintenance_interne",
-        "autocontrole",
+        "controle_interne",
         "releve_compteurs",
-        "suivi_administratif",
+        "gestion_administrative",
       ],
       observation_gravite: ["mineure", "majeure", "bloquante"],
       observation_source: [

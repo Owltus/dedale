@@ -322,9 +322,10 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- donc toutes les comparaisons RLS « = 'admin' » / « IN (...) » restent valables.
 
 -- Nature d'une gamme de maintenance
--- (131/132) 8 natures, dont 4 exigent toujours un document (nature_exige_document).
--- 'maintenance_preventive' est OBSOLÈTE (plus aucune ligne ne la porte, le front ne
--- la propose plus) : PostgreSQL ne sait pas retirer une valeur d'ENUM.
+-- (131/132/133) 7 natures, dont 3 exigent toujours un document (nature_exige_document).
+-- 'maintenance_sous_contrat' et 'maintenance_interne' sont OBSOLÈTES (fusionnées
+-- dans maintenance_preventive par la 133, plus aucune ligne ne les porte) :
+-- PostgreSQL ne sait pas retirer une valeur d'ENUM.
 CREATE TYPE gamme_nature AS ENUM (
     'controle_reglementaire',
     'maintenance_preventive',
@@ -332,10 +333,13 @@ CREATE TYPE gamme_nature AS ENUM (
     'maintenance_sous_contrat',
     'formation_habilitation',
     'maintenance_interne',
-    'autocontrole',
+    'controle_interne',
     'releve_compteurs',
-    'suivi_administratif'
+    'gestion_administrative'
 );
+
+COMMENT ON TYPE gamme_nature IS
+    '(133) 7 natures. Document TOUJOURS exigé : controle_reglementaire, hygiene_sanitaire, formation_habilitation. Au choix (gammes.document_requis) : maintenance_preventive, controle_interne, releve_compteurs, gestion_administrative. OBSOLÈTES (plus aucune ligne) : maintenance_interne, maintenance_sous_contrat.';
 
 -- Statuts OT et opérations : désormais des TABLES de référence statuts_ot /
 -- statuts_operations (v0.27, ex-ENUM ot_statut/op_statut — cohérence avec statuts_di,
@@ -2946,7 +2950,7 @@ CREATE TRIGGER trg_create_interne_for_site
 -- 023 — Gammes de maintenance (procédures préventives)
 -- Une gamme = procédure récurrente (périodicité + nature + opérations) à exécuter
 -- sur un ou plusieurs équipements.
---   - Nature : controle_reglementaire | maintenance_preventive (ENUM gamme_nature)
+--   - Nature : ENUM gamme_nature (7 natures, cf. 133)
 --   - Triggers de propagation legacy SUPPRIMÉS (Option B : snapshot figé sur l'OT)
 --   - Triggers conservés : protection_desactivation_gamme (validation seule)
 --
@@ -3006,7 +3010,7 @@ COMMENT ON COLUMN gammes.site_id IS
 COMMENT ON COLUMN gammes.copie_depuis_id IS
     'Étiquette molle : gamme d''origine d''une copie (injection bibliothèque). ON DELETE SET NULL — si l''origine disparaît, la copie reste intacte (l''étiquette se vide simplement).';
 COMMENT ON COLUMN gammes.nature IS
-    '(132) Pourquoi on intervient — 8 natures. Exigent TOUJOURS un document : controle_reglementaire, hygiene_sanitaire, maintenance_sous_contrat, formation_habilitation. Au choix (document_requis) : maintenance_interne, autocontrole, releve_compteurs, suivi_administratif. maintenance_preventive = obsolète. v0.31 : TOUTE gamme générant un OT doit avoir au moins une source d''opération (un OT ne peut exister sans opération).';
+    '(133) Pourquoi on intervient — 7 natures (cf. COMMENT ON TYPE gamme_nature). v0.31 : TOUTE gamme générant un OT doit avoir au moins une source d''opération (un OT ne peut exister sans opération).';
 COMMENT ON COLUMN gammes.prestataire_id IS
     'Prestataire par défaut. NULLABLE (migration 007) : un template commun (site_id NULL) n''en a pas — le prestataire dépend du SITE, renseigné après copie sur un site. Les gammes réelles en portent un (imposé côté front) ; la génération d''OT reste protégée par ordres_travail.prestataire_id NOT NULL.';
 
@@ -13589,11 +13593,11 @@ LANGUAGE sql IMMUTABLE
 SET search_path = ''
 AS $$
     SELECT p_nature IN ('controle_reglementaire', 'hygiene_sanitaire',
-                        'maintenance_sous_contrat', 'formation_habilitation');
-$$;
+                        'formation_habilitation');
+$;
 
 COMMENT ON FUNCTION public.nature_exige_document(public.gamme_nature) IS
-    '(132) Natures qui exigent TOUJOURS un document sur l''intervention. Les autres le laissent au choix (gammes.document_requis). Miroir front : NATURES_DOCUMENT_EXIGE (src/features/gammes/schemas.ts).';
+    '(132, 133) Natures qui exigent TOUJOURS un document sur l''intervention. Les autres le laissent au choix (gammes.document_requis). Miroir front : NATURES_DOCUMENT_EXIGE (src/features/gammes/schemas.ts).';
 
 -- 3. Documents manquants (dashboard) ---------------------------------------------
 CREATE OR REPLACE VIEW public.v_ot_documents_manquants

@@ -132,7 +132,7 @@ export function ImportCsvDialog({
             createdBy: session.user.id,
             values: {
               nom: g.nom,
-              nature: g.nature ?? 'maintenance_interne',
+              nature: g.nature ?? 'maintenance_preventive',
               periodicite_id: String(g.periodiciteId ?? ''),
               // Template commun : pas de prestataire (renseigné à la copie).
               prestataire_id: '',

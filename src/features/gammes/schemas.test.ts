@@ -119,10 +119,10 @@ describe('gammeSchema', () => {
     ).toBe(true)
   })
 
-  it('refuse la nature obsolète maintenance_preventive (132)', () => {
-    expect(
-      rejette(gammeSchema, { ...GAMME, nature: 'maintenance_preventive' }),
-    ).toBe(true)
+  it('refuse les natures obsolètes (133)', () => {
+    for (const nature of ['maintenance_interne', 'maintenance_sous_contrat']) {
+      expect(rejette(gammeSchema, { ...GAMME, nature })).toBe(true)
+    }
   })
 
   it('borne le FORMAT des identifiants de référentiel', () => {
@@ -410,7 +410,9 @@ describe('natures et documents (132)', () => {
       expect(NATURE_GAMME_LABEL[n].length).toBeGreaterThan(0)
       expect(aideNature(n)).toMatch(/document/i)
     }
-    expect(gammeNatures).not.toContain('maintenance_preventive')
+    expect(gammeNatures).toHaveLength(7)
+    expect(gammeNatures).not.toContain('maintenance_interne')
+    expect(gammeNatures).not.toContain('maintenance_sous_contrat')
   })
 
   it('document attendu = nature qui l’exige OU interrupteur de la gamme', () => {
@@ -418,14 +420,20 @@ describe('natures et documents (132)', () => {
       documentAttendu({ nature: 'hygiene_sanitaire', document_requis: false }),
     ).toBe(true)
     expect(
-      documentAttendu({ nature: 'maintenance_interne', document_requis: true }),
+      documentAttendu({
+        nature: 'maintenance_preventive',
+        document_requis: true,
+      }),
     ).toBe(true)
     expect(
       documentAttendu({
-        nature: 'maintenance_interne',
+        nature: 'maintenance_preventive',
         document_requis: false,
       }),
     ).toBe(false)
-    expect(natureSaisie('maintenance_preventive')).toBe('maintenance_interne')
+    expect(natureSaisie('maintenance_interne')).toBe('maintenance_preventive')
+    expect(natureSaisie('maintenance_sous_contrat')).toBe(
+      'maintenance_preventive',
+    )
   })
 })
