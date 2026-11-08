@@ -1,8 +1,15 @@
 import { useMemo } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { emptyGamme, gammeSchema } from '../schemas'
+import {
+  NATURE_GAMME_OPTIONS,
+  aideNature,
+  emptyGamme,
+  gammeSchema,
+  natureExigeDocument,
+  natureSaisie,
+} from '../schemas'
 import type { GammeFormValues } from '../schemas'
 import { useCreateGamme, useUpdateGamme } from '../mutations'
 import { gammesQueries, referentielsQueries } from '../queries'
@@ -14,7 +21,6 @@ import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
-import { RadioField } from '@/components/common/fields/radio-field'
 import { SelectField } from '@/components/common/fields/select-field'
 import { SwitchField } from '@/components/common/fields/switch-field'
 import type { Database } from '@/lib/database.types'
@@ -44,7 +50,7 @@ function initialValues(
       : emptyGamme
   return {
     nom: gamme.nom,
-    nature: gamme.nature,
+    nature: natureSaisie(gamme.nature),
     periodicite_id: String(gamme.periodicite_id),
     // Une gamme réelle de site a toujours un prestataire (obligatoire) ; garde-
     // fou de typage depuis que la colonne est nullable (templates communs).
@@ -54,6 +60,7 @@ function initialValues(
     miniature_id: gamme.miniature_id,
     est_active: gamme.est_active,
     repeter_par_equipement: gamme.repeter_par_equipement,
+    document_requis: gamme.document_requis,
   }
 }
 
@@ -106,6 +113,7 @@ export function GammeFormDialog({
     resolver: zodResolver(gammeSchema),
     defaultValues: initialValues(gamme, presetCategorieId),
   })
+  const nature = useWatch({ control: form.control, name: 'nature' })
   const submit = useSubmitDialog<GammeFormValues>({
     onSubmit: async (data) => {
       if (gamme) {
@@ -196,23 +204,23 @@ export function GammeFormDialog({
           }}
         />
 
-        <RadioField
+        <SelectField
           control={form.control}
           name="nature"
           label="Nature"
           required
-          options={[
-            {
-              value: 'controle_reglementaire',
-              label: 'Contrôle réglementaire',
-              description: 'Attend des documents justificatifs.',
-            },
-            {
-              value: 'maintenance_preventive',
-              label: 'Maintenance préventive',
-            },
-          ]}
+          options={NATURE_GAMME_OPTIONS}
+          hint={aideNature(nature)}
         />
+
+        {natureExigeDocument(nature) ? null : (
+          <SwitchField
+            control={form.control}
+            name="document_requis"
+            label="Exiger un document à chaque intervention"
+            description="Une intervention clôturée sans document (photo, rapport…) remontera dans le tableau de bord."
+          />
+        )}
 
         {isEdit && (
           <SwitchField

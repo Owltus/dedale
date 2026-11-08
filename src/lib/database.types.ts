@@ -1032,6 +1032,13 @@ export type Database = {
             referencedRelation: "ordres_travail"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "documents_ordres_travail_ordre_travail_id_fkey"
+            columns: ["ordre_travail_id"]
+            isOneToOne: false
+            referencedRelation: "v_ot_documents_manquants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       documents_prestataires: {
@@ -1411,6 +1418,7 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          document_requis: boolean
           est_active: boolean
           id: string
           image_path: string | null
@@ -1429,6 +1437,7 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          document_requis?: boolean
           est_active?: boolean
           id?: string
           image_path?: string | null
@@ -1447,6 +1456,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          document_requis?: boolean
           est_active?: boolean
           id?: string
           image_path?: string | null
@@ -2465,6 +2475,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "observations_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "v_ot_documents_manquants"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "observations_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -2652,6 +2669,13 @@ export type Database = {
             columns: ["ordre_travail_id"]
             isOneToOne: false
             referencedRelation: "ordres_travail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operations_execution_ordre_travail_id_fkey"
+            columns: ["ordre_travail_id"]
+            isOneToOne: false
+            referencedRelation: "v_ot_documents_manquants"
             referencedColumns: ["id"]
           },
           {
@@ -3737,6 +3761,47 @@ export type Database = {
           },
         ]
       }
+      v_ot_documents_manquants: {
+        Row: {
+          date_cloture: string | null
+          gamme_id: string | null
+          id: string | null
+          nature_gamme: Database["public"]["Enums"]["gamme_nature"] | null
+          nom_equipement: string | null
+          nom_gamme: string | null
+          site_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordres_travail_gamme_id_fkey"
+            columns: ["gamme_id"]
+            isOneToOne: false
+            referencedRelation: "gammes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordres_travail_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordres_travail_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["site_id"]
+          },
+          {
+            foreignKeyName: "ordres_travail_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["site_id"]
+          },
+        ]
+      }
       v_registre_securite: {
         Row: {
           date_ligne: string | null
@@ -3942,6 +4007,10 @@ export type Database = {
         Args: { p_miniature_id: string; p_target_site_id: string }
         Returns: boolean
       }
+      nature_exige_document: {
+        Args: { p_nature: Database["public"]["Enums"]["gamme_nature"] }
+        Returns: boolean
+      }
       prochaine_date_ot: {
         Args: { p_base: string; p_jours: number }
         Returns: string
@@ -4018,7 +4087,16 @@ export type Database = {
     }
     Enums: {
       categorie_scope: "equipement" | "gamme" | "mixte" | "operation" | "parc"
-      gamme_nature: "controle_reglementaire" | "maintenance_preventive"
+      gamme_nature:
+        | "controle_reglementaire"
+        | "maintenance_preventive"
+        | "hygiene_sanitaire"
+        | "maintenance_sous_contrat"
+        | "formation_habilitation"
+        | "maintenance_interne"
+        | "autocontrole"
+        | "releve_compteurs"
+        | "suivi_administratif"
       observation_gravite: "mineure" | "majeure" | "bloquante"
       observation_source:
         | "controle_reglementaire"
@@ -4154,7 +4232,17 @@ export const Constants = {
   public: {
     Enums: {
       categorie_scope: ["equipement", "gamme", "mixte", "operation", "parc"],
-      gamme_nature: ["controle_reglementaire", "maintenance_preventive"],
+      gamme_nature: [
+        "controle_reglementaire",
+        "maintenance_preventive",
+        "hygiene_sanitaire",
+        "maintenance_sous_contrat",
+        "formation_habilitation",
+        "maintenance_interne",
+        "autocontrole",
+        "releve_compteurs",
+        "suivi_administratif",
+      ],
       observation_gravite: ["mineure", "majeure", "bloquante"],
       observation_source: [
         "controle_reglementaire",

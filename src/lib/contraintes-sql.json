@@ -1622,6 +1622,14 @@
           "precision": null,
           "type": "text"
         },
+        "document_requis": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
         "est_active": {
           "aUnDefaut": true,
           "echelle": null,

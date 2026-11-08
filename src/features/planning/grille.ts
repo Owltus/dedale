@@ -3,6 +3,7 @@ import { cleSemaine } from '@/features/planning/semaines'
 import { parseDateLocale } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 import type { Categorie } from '@/features/categories/queries'
+import type { Database } from '@/lib/database.types'
 
 /** OT minimal nécessaire à la grille (cf. `planningQueries.fenetre`). */
 export interface PlanningOt {
@@ -15,7 +16,7 @@ export interface PlanningOt {
   /** Gamme vivante de l'OT — sert à retrouver sa sous-catégorie. NULL = gamme purgée. */
   gamme_id: string | null
   nom_gamme: string
-  nature_gamme: 'controle_reglementaire' | 'maintenance_preventive'
+  nature_gamme: Database['public']['Enums']['gamme_nature']
   nom_prestataire: string
   nom_equipement: string | null
   /** Description (snapshot de la gamme) — sous-titre de repli de la carte `OtCard`. */

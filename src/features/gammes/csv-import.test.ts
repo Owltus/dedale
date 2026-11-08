@@ -154,7 +154,7 @@ describe('buildImportPrompt (plan de maintenance)', () => {
       existants,
     })
     expect(prompt).toContain('« Incendie »')
-    expect(prompt).toContain('« Réglementaire »')
+    expect(prompt).toContain('« Contrôle réglementaire »')
     expect(prompt).toContain('« Semestriel »')
     expect(prompt).toContain('opérations déjà définies : Contrôler la goupille')
   })
@@ -233,7 +233,7 @@ describe('parseImportCsv — en-tête et forme du collage', () => {
     const [ligne] = ok(r.lignes)
     expect(ligne).toMatchObject({
       gamme: 'Nettoyage gaines',
-      nature: 'maintenance_preventive',
+      nature: 'maintenance_interne',
       periodiciteId: 8,
     })
     expect(ligne?.operation).toBeNull()
@@ -306,7 +306,7 @@ describe('parseImportCsv — la gamme elle-même', () => {
       'Gamme B;Maintenance;Tous les jeudis;;Faire;;Vérification;;;;',
     )
     expect(erreursLigne(r, 0)).toEqual([
-      'Nature « Bizarre » inconnue (valeurs possibles : Réglementaire, Maintenance).',
+      'Nature « Bizarre » inconnue (valeurs possibles : Contrôle réglementaire, Hygiène et sanitaire, Maintenance sous contrat, Formation et habilitation, Maintenance interne, Autocontrôle, Relevé de compteurs, Suivi administratif).',
     ])
     expect(erreursLigne(r, 1)).toEqual([
       'Périodicité « Tous les jeudis » inconnue (valeurs possibles : Annuel, Semestriel).',
@@ -326,7 +326,7 @@ describe('parseImportCsv — la gamme elle-même', () => {
     expect(lignes.map((l) => l.nature)).toEqual([
       'controle_reglementaire',
       'controle_reglementaire',
-      'maintenance_preventive',
+      'maintenance_interne',
     ])
   })
 
@@ -494,7 +494,7 @@ describe('construirePlan — regroupement par gamme', () => {
           operation: operation('Vérifier la pression'),
         }),
         ligneOk('Contrôle RIA', {
-          nature: 'maintenance_preventive',
+          nature: 'maintenance_interne',
           periodiciteId: 8,
           description: 'Texte concurrent',
           operation: operation('Vérifier la signalisation'),
@@ -657,7 +657,7 @@ describe('buildImportPrompt — le prompt est le CONTRAT donné à l’IA', () =
     // toutes les natures, toutes les périodicités, dans l'ordre du référentiel.
     expect(prompt).toContain('- Gamme — obligatoire.')
     expect(prompt).toContain(
-      'UNIQUEMENT une de ces valeurs : « Réglementaire », « Maintenance ».',
+      'UNIQUEMENT une de ces valeurs : « Contrôle réglementaire », « Hygiène et sanitaire », « Maintenance sous contrat », « Formation et habilitation », « Maintenance interne », « Autocontrôle », « Relevé de compteurs », « Suivi administratif ».',
     )
     expect(prompt).toContain(
       'UNIQUEMENT une de ces valeurs, recopiée EXACTEMENT : « Annuel », « Semestriel ».',

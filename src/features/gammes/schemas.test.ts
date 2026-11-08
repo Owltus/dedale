@@ -11,10 +11,16 @@ import {
   testeRejetBlanc,
   testeTotalite,
 } from '@/lib/hostile-inputs.test'
+import schemaVersionne from '../../../schema_complete.sql?raw'
 import {
+  NATURES_DOCUMENT_EXIGE,
+  NATURE_GAMME_LABEL,
+  aideNature,
+  documentAttendu,
   gammeBiblioSchema,
   gammeNatures,
   gammeSchema,
+  natureSaisie,
   operationSchema,
 } from './schemas'
 
@@ -40,6 +46,7 @@ const GAMME = {
   miniature_id: null,
   est_active: true,
   repeter_par_equipement: false,
+  document_requis: false,
 }
 
 const OPERATION = {
@@ -103,6 +110,21 @@ describe('gammeSchema', () => {
     ).toBe(true)
   })
 
+  it('exige un booléen pour document_requis (132)', () => {
+    for (const v of ['true', 'false', 0, 1, null, undefined]) {
+      expect(rejette(gammeSchema, { ...GAMME, document_requis: v })).toBe(true)
+    }
+    expect(
+      gammeSchema.safeParse({ ...GAMME, document_requis: true }).success,
+    ).toBe(true)
+  })
+
+  it('refuse la nature obsolète maintenance_preventive (132)', () => {
+    expect(
+      rejette(gammeSchema, { ...GAMME, nature: 'maintenance_preventive' }),
+    ).toBe(true)
+  })
+
   it('borne le FORMAT des identifiants de référentiel', () => {
     // ORACLE : `periodicite_id` est un SMALLINT, `prestataire_id` et
     // `categorie_id` des UUID (`schema_complete.sql`).
@@ -129,6 +151,7 @@ describe('gammeBiblioSchema', () => {
     ...GAMME,
     est_active: undefined,
     repeter_par_equipement: undefined,
+    document_requis: undefined,
     portee: 'entreprise' as const,
     prestataire_id: '',
   }
@@ -363,5 +386,46 @@ describe('operationSchema — ordre', () => {
     expect(
       operationSchema.safeParse({ ...OPERATION, ordre: '2147483647' }).success,
     ).toBe(true)
+  })
+})
+
+describe('natures et documents (132)', () => {
+  it('le miroir front NATURES_DOCUMENT_EXIGE colle à public.nature_exige_document', () => {
+    // ORACLE : le corps de la fonction SQL dans schema_complete.sql (seule
+    // source versionnée). Une nature ajoutée d'un seul côté fait diverger
+    // l'alerte du tableau de bord (base) et la fiche gamme (front).
+    const corps =
+      /FUNCTION public\.nature_exige_document[\s\S]*?IN \(([^)]*)\)/.exec(
+        schemaVersionne,
+      )
+    expect(corps).not.toBeNull()
+    const sql = [...(corps?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map(
+      (m) => m[1],
+    )
+    expect(new Set(sql)).toEqual(new Set(NATURES_DOCUMENT_EXIGE))
+  })
+
+  it('chaque nature proposée a un libellé et une aide', () => {
+    for (const n of gammeNatures) {
+      expect(NATURE_GAMME_LABEL[n].length).toBeGreaterThan(0)
+      expect(aideNature(n)).toMatch(/document/i)
+    }
+    expect(gammeNatures).not.toContain('maintenance_preventive')
+  })
+
+  it('document attendu = nature qui l’exige OU interrupteur de la gamme', () => {
+    expect(
+      documentAttendu({ nature: 'hygiene_sanitaire', document_requis: false }),
+    ).toBe(true)
+    expect(
+      documentAttendu({ nature: 'maintenance_interne', document_requis: true }),
+    ).toBe(true)
+    expect(
+      documentAttendu({
+        nature: 'maintenance_interne',
+        document_requis: false,
+      }),
+    ).toBe(false)
+    expect(natureSaisie('maintenance_preventive')).toBe('maintenance_interne')
   })
 })

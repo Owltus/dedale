@@ -623,7 +623,7 @@ const CONCORDANCES: Concordance[] = [
     table: 'gammes',
     base: {
       nom: 'Vérification extincteurs',
-      nature: 'maintenance_preventive',
+      nature: 'maintenance_interne',
       periodicite_id: '1',
       prestataire_id: UUID_A,
       categorie_id: UUID_B,
@@ -631,6 +631,7 @@ const CONCORDANCES: Concordance[] = [
       miniature_id: null,
       est_active: true,
       repeter_par_equipement: false,
+      document_requis: false,
     },
     champs: {
       nom: T('nom'),

@@ -4,6 +4,7 @@ import { siteIdPourPortee } from '@/lib/scope'
 import { gammesQueries } from './queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import { modelesOperationsQueries } from '@/features/modeles-operations/queries'
+import { dashboardQueries } from '@/features/dashboard/queries'
 import {
   gammeBiblioSchema,
   gammeSchema,
@@ -29,6 +30,7 @@ function gammePayload(values: GammeFormValues) {
     // trigger (erreur catchée côté formulaire).
     est_active: v.est_active,
     repeter_par_equipement: v.repeter_par_equipement,
+    document_requis: v.document_requis,
   }
 }
 
@@ -100,7 +102,13 @@ export function useUpdateGamme() {
         .throwOnError()
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
+    // `dashboard` aussi : l'interrupteur « document exigé » (132) change
+    // l'alerte « documents manquants » du tableau de bord.
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: gammesQueries.all() }),
+        qc.invalidateQueries({ queryKey: dashboardQueries.all() }),
+      ]),
   })
 }
 

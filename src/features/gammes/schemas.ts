@@ -1,17 +1,100 @@
 import { z } from 'zod'
 import { texteObligatoire } from '@/lib/texte-zod'
+import type { Database } from '@/lib/database.types'
 
+/** Toute valeur de l'ENUM `gamme_nature`, obsolète comprise. */
+export type NatureGamme = Database['public']['Enums']['gamme_nature']
+
+/**
+ * Natures proposées à la saisie (132), dans l'ordre d'affichage. La valeur
+ * `maintenance_preventive` existe encore dans l'ENUM mais n'est plus portée par
+ * aucune ligne : elle n'est plus proposée.
+ */
 export const gammeNatures = [
   'controle_reglementaire',
-  'maintenance_preventive',
-] as const
+  'hygiene_sanitaire',
+  'maintenance_sous_contrat',
+  'formation_habilitation',
+  'maintenance_interne',
+  'autocontrole',
+  'releve_compteurs',
+  'suivi_administratif',
+] as const satisfies readonly NatureGamme[]
 
-/** Libellé court de la nature d'une gamme (cartes de liste ET d'en-tête). */
-export const NATURE_GAMME_LABEL: Record<(typeof gammeNatures)[number], string> =
-  {
-    controle_reglementaire: 'Réglementaire',
-    maintenance_preventive: 'Maintenance',
-  }
+export type NatureGammeSaisie = (typeof gammeNatures)[number]
+
+/** Libellé de la nature d'une gamme (cartes, fiche, formulaires, import CSV). */
+export const NATURE_GAMME_LABEL: Record<NatureGamme, string> = {
+  controle_reglementaire: 'Contrôle réglementaire',
+  hygiene_sanitaire: 'Hygiène et sanitaire',
+  maintenance_sous_contrat: 'Maintenance sous contrat',
+  formation_habilitation: 'Formation et habilitation',
+  maintenance_interne: 'Maintenance interne',
+  autocontrole: 'Autocontrôle',
+  releve_compteurs: 'Relevé de compteurs',
+  suivi_administratif: 'Suivi administratif',
+  maintenance_preventive: 'Maintenance préventive (ancienne)',
+}
+
+/** Ce que recouvre chaque nature (aide sous la liste déroulante). */
+export const NATURE_GAMME_DESCRIPTION: Record<NatureGammeSaisie, string> = {
+  controle_reglementaire:
+    'Vérification imposée par la loi, souvent par un organisme agréé.',
+  hygiene_sanitaire: 'Analyses, lutte contre les nuisibles, rejets.',
+  maintenance_sous_contrat:
+    'Entretien confié à un prestataire extérieur, qui laisse un bon d’intervention.',
+  formation_habilitation: 'Formations et habilitations du personnel.',
+  maintenance_interne: 'Entretien réalisé par l’équipe.',
+  autocontrole: 'Rondes et tests réguliers faits en interne.',
+  releve_compteurs: 'Lecture des compteurs.',
+  suivi_administratif: 'Échéances administratives (badges…).',
+}
+
+/**
+ * Natures qui EXIGENT TOUJOURS un document sur l'intervention (132). Miroir de
+ * `public.nature_exige_document` : la base reste la référence (vue
+ * `v_ot_documents_manquants`), ce miroir ne sert qu'à l'affichage.
+ */
+export const NATURES_DOCUMENT_EXIGE: ReadonlySet<NatureGamme> = new Set([
+  'controle_reglementaire',
+  'hygiene_sanitaire',
+  'maintenance_sous_contrat',
+  'formation_habilitation',
+])
+
+export function natureExigeDocument(nature: NatureGamme): boolean {
+  return NATURES_DOCUMENT_EXIGE.has(nature)
+}
+
+/** Un document est-il attendu sur les interventions de cette gamme ? */
+export function documentAttendu(gamme: {
+  nature: NatureGamme
+  document_requis: boolean
+}): boolean {
+  return natureExigeDocument(gamme.nature) || gamme.document_requis
+}
+
+/** Options de la liste déroulante « Nature » (gamme de site ET Bibliothèque). */
+export const NATURE_GAMME_OPTIONS = gammeNatures.map((n) => ({
+  value: n,
+  label: NATURE_GAMME_LABEL[n],
+}))
+
+/** Aide sous la liste « Nature » : ce que recouvre la nature + sa règle de document. */
+export function aideNature(nature: NatureGammeSaisie): string {
+  const regle = natureExigeDocument(nature)
+    ? 'Un document est toujours exigé.'
+    : 'Document au choix.'
+  return `${NATURE_GAMME_DESCRIPTION[nature]} ${regle}`
+}
+
+/**
+ * Nature à présenter dans un formulaire : une valeur obsolète (aucune ligne ne
+ * devrait plus la porter) retombe sur `maintenance_interne`.
+ */
+export function natureSaisie(nature: NatureGamme): NatureGammeSaisie {
+  return nature === 'maintenance_preventive' ? 'maintenance_interne' : nature
+}
 
 const REFERENCE_INVALIDE =
   'Référence invalide : rechargez la page puis réessayez.'
@@ -66,13 +149,16 @@ export const gammeSchema = z.object({
   // 128 : opérations répétées pour CHAQUE équipement lié (repli : une seule fois
   // si aucun équipement). La base synchronise les OT ouverts au basculement.
   repeter_par_equipement: z.boolean(),
+  // 132 : document exigé sur chaque intervention. Sans effet pour les natures
+  // qui l'exigent toujours (cf. NATURES_DOCUMENT_EXIGE).
+  document_requis: z.boolean(),
 })
 
 export type GammeFormValues = z.input<typeof gammeSchema>
 
 export const emptyGamme: GammeFormValues = {
   nom: '',
-  nature: 'maintenance_preventive',
+  nature: 'maintenance_interne',
   periodicite_id: '',
   prestataire_id: '',
   categorie_id: '',
@@ -80,6 +166,7 @@ export const emptyGamme: GammeFormValues = {
   miniature_id: null,
   est_active: true,
   repeter_par_equipement: false,
+  document_requis: false,
 }
 
 /**
@@ -89,7 +176,11 @@ export const emptyGamme: GammeFormValues = {
  * gamme de SITE reste inchangé (catégorie absente du flux existant).
  */
 export const gammeBiblioSchema = gammeSchema
-  .omit({ est_active: true, repeter_par_equipement: true })
+  .omit({
+    est_active: true,
+    repeter_par_equipement: true,
+    document_requis: true,
+  })
   .extend({
     categorie_id: uuidObligatoire('La catégorie est obligatoire'),
     portee: z.enum(['entreprise', 'site']),

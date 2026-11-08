@@ -322,9 +322,19 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- donc toutes les comparaisons RLS « = 'admin' » / « IN (...) » restent valables.
 
 -- Nature d'une gamme de maintenance
+-- (131/132) 8 natures, dont 4 exigent toujours un document (nature_exige_document).
+-- 'maintenance_preventive' est OBSOLÈTE (plus aucune ligne ne la porte, le front ne
+-- la propose plus) : PostgreSQL ne sait pas retirer une valeur d'ENUM.
 CREATE TYPE gamme_nature AS ENUM (
     'controle_reglementaire',
-    'maintenance_preventive'
+    'maintenance_preventive',
+    'hygiene_sanitaire',
+    'maintenance_sous_contrat',
+    'formation_habilitation',
+    'maintenance_interne',
+    'autocontrole',
+    'releve_compteurs',
+    'suivi_administratif'
 );
 
 -- Statuts OT et opérations : désormais des TABLES de référence statuts_ot /
@@ -2979,6 +2989,8 @@ CREATE TABLE gammes (
     est_active      BOOLEAN NOT NULL DEFAULT true,
     -- (128) true = opérations répétées pour chaque équipement lié (repli : une fois)
     repeter_par_equipement BOOLEAN NOT NULL DEFAULT false,
+    -- (132) document exigé sur chaque intervention (natures « au choix »)
+    document_requis BOOLEAN NOT NULL DEFAULT false,
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -2994,7 +3006,7 @@ COMMENT ON COLUMN gammes.site_id IS
 COMMENT ON COLUMN gammes.copie_depuis_id IS
     'Étiquette molle : gamme d''origine d''une copie (injection bibliothèque). ON DELETE SET NULL — si l''origine disparaît, la copie reste intacte (l''étiquette se vide simplement).';
 COMMENT ON COLUMN gammes.nature IS
-    'controle_reglementaire = contrôle externe obligatoire. maintenance_preventive = maintenance interne récurrente. v0.31 : TOUTE gamme générant un OT doit avoir au moins une source d''opération (un OT ne peut exister sans opération).';
+    '(132) Pourquoi on intervient — 8 natures. Exigent TOUJOURS un document : controle_reglementaire, hygiene_sanitaire, maintenance_sous_contrat, formation_habilitation. Au choix (document_requis) : maintenance_interne, autocontrole, releve_compteurs, suivi_administratif. maintenance_preventive = obsolète. v0.31 : TOUTE gamme générant un OT doit avoir au moins une source d''opération (un OT ne peut exister sans opération).';
 COMMENT ON COLUMN gammes.prestataire_id IS
     'Prestataire par défaut. NULLABLE (migration 007) : un template commun (site_id NULL) n''en a pas — le prestataire dépend du SITE, renseigné après copie sur un site. Les gammes réelles en portent un (imposé côté front) ; la génération d''OT reste protégée par ordres_travail.prestataire_id NOT NULL.';
 
@@ -3889,7 +3901,7 @@ BEGIN
         id, site_id, copie_depuis_id,
         nom, description, nature, categorie_id,
         periodicite_id, prestataire_id, image_path, miniature_id,
-        est_active, repeter_par_equipement, created_by
+        est_active, repeter_par_equipement, document_requis, created_by
     ) VALUES (
         gen_random_uuid(), p_site_cible,
         CASE WHEN p_site_cible IS NOT NULL THEN p_source_gamme_id ELSE NULL END,
@@ -3897,7 +3909,7 @@ BEGIN
         v_source.periodicite_id, v_source.prestataire_id, v_source.image_path,
         CASE WHEN public.miniature_scope_ok(v_source.miniature_id, p_site_cible)
              THEN v_source.miniature_id ELSE NULL END,
-        true, v_source.repeter_par_equipement, (SELECT auth.uid())
+        true, v_source.repeter_par_equipement, v_source.document_requis, (SELECT auth.uid())
     )
     RETURNING id INTO v_new_id;
 
@@ -4193,7 +4205,7 @@ BEGIN
             id, site_id, copie_depuis_id,
             nom, description, nature, categorie_id,
             periodicite_id, prestataire_id, image_path, miniature_id,
-            est_active, repeter_par_equipement, created_by
+            est_active, repeter_par_equipement, document_requis, created_by
         ) VALUES (
             gen_random_uuid(), p_site_cible,
             CASE WHEN p_site_cible IS NOT NULL THEN v_g.id ELSE NULL END,
@@ -4201,7 +4213,7 @@ BEGIN
             v_g.periodicite_id, v_g.prestataire_id, v_g.image_path,
             CASE WHEN public.miniature_scope_ok(v_g.miniature_id, p_site_cible)
                  THEN v_g.miniature_id ELSE NULL END,
-            true, v_g.repeter_par_equipement, (SELECT auth.uid())
+            true, v_g.repeter_par_equipement, v_g.document_requis, (SELECT auth.uid())
         )
         RETURNING id INTO v_new_gamme_id;
 
@@ -6377,14 +6389,15 @@ COMMENT ON FUNCTION public.validation_gamme_avec_operations() IS 'Garde-fou INSE
 -- chaque table sans planter (id n'existe que sur operations, modele_operation_id
 -- que sur gamme_modeles).
 CREATE OR REPLACE FUNCTION public.check_derniere_op_preventive()
-RETURNS TRIGGER LANGUAGE plpgsql
-SET search_path = ''
-AS $$
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
 DECLARE
     v_old    jsonb := to_jsonb(OLD);
     v_gamme  uuid  := (v_old->>'gamme_id')::uuid;
-    v_op_id  uuid  := (v_old->>'id')::uuid;                   -- NULL si gamme_modeles
-    v_modele uuid  := (v_old->>'modele_operation_id')::uuid;  -- NULL si operations
+    v_op_id  uuid  := (v_old->>'id')::uuid;
+    v_modele uuid  := (v_old->>'modele_operation_id')::uuid;
     v_nature public.gamme_nature;
     v_active BOOLEAN;
     v_site   uuid;
@@ -6393,16 +6406,14 @@ BEGIN
     SELECT nature, est_active, site_id INTO v_nature, v_active, v_site
     FROM public.gammes WHERE id = v_gamme;
 
-    -- Aucune contrainte si : gamme absente / supprimée / non préventive / inactive
-    -- (le retrait accompagne une suppression de gamme ou une désactivation), OU
-    -- gamme-TEMPLATE (site_id NULL, inerte : ne génère pas d'OT — 021).
-    IF v_nature IS DISTINCT FROM 'maintenance_preventive'
+    -- 132 : toutes natures (avant : 'maintenance_preventive' seule). Gamme
+    -- absente (suppression en cascade), inactive ou template : aucun contrôle.
+    IF v_nature IS NULL
        OR v_active IS NOT TRUE
        OR v_site IS NULL THEN
         RETURN OLD;
     END IF;
 
-    -- Reste-t-il au moins une source d'opération APRÈS ce retrait ?
     SELECT EXISTS (
         SELECT 1 FROM public.operations o
         WHERE o.gamme_id = v_gamme
@@ -6415,13 +6426,13 @@ BEGIN
     ) INTO v_reste;
 
     IF NOT v_reste THEN
-        RAISE EXCEPTION 'Impossible de retirer la dernière opération de la gamme préventive % : une gamme préventive active doit conserver au moins une opération. Ajoutez-en une autre, ou désactivez la gamme d''abord.', v_gamme
+        RAISE EXCEPTION 'Impossible de retirer la dernière opération de la gamme % : une gamme active doit conserver au moins une opération. Ajoutez-en une autre, ou désactivez la gamme d''abord.', v_gamme
             USING ERRCODE = 'restrict_violation';
     END IF;
 
     RETURN OLD;
 END;
-$$;
+$function$;
 COMMENT ON FUNCTION public.check_derniere_op_preventive() IS
     'v0.21 — BEFORE DELETE sur operations et gamme_modeles : interdit de retirer la dernière source d''opération d''une gamme préventive active (sinon génération d''OT interrompue silencieusement). (021 : exempte les gammes-templates site_id NULL, inertes.)';
 
@@ -13563,3 +13574,45 @@ COMMENT ON CONSTRAINT opex_mesure_terminee_a_valeur
     'signaler. Attention : type_operation est un snapshot texte de '
     'types_operations.libelle ; renommer « Mesure » désarmerait cette '
     'contrainte en silence.';
+
+
+-- =============================================================================
+-- (132) Natures de gamme et documents exigés
+-- =============================================================================
+COMMENT ON COLUMN public.gammes.document_requis IS
+    '(132) Exiger un document sur chaque intervention clôturée. Utile pour les natures « au choix » ; sans effet pour les natures qui l''exigent toujours (cf. nature_exige_document).';
+
+-- 2. Règle par nature ----------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.nature_exige_document(p_nature public.gamme_nature)
+RETURNS BOOLEAN
+LANGUAGE sql IMMUTABLE
+SET search_path = ''
+AS $$
+    SELECT p_nature IN ('controle_reglementaire', 'hygiene_sanitaire',
+                        'maintenance_sous_contrat', 'formation_habilitation');
+$$;
+
+COMMENT ON FUNCTION public.nature_exige_document(public.gamme_nature) IS
+    '(132) Natures qui exigent TOUJOURS un document sur l''intervention. Les autres le laissent au choix (gammes.document_requis). Miroir front : NATURES_DOCUMENT_EXIGE (src/features/gammes/schemas.ts).';
+
+-- 3. Documents manquants (dashboard) ---------------------------------------------
+CREATE OR REPLACE VIEW public.v_ot_documents_manquants
+WITH (security_invoker = true) AS
+SELECT
+    ot.id,
+    ot.site_id,
+    ot.gamme_id,
+    ot.nom_gamme,
+    ot.nom_equipement,
+    ot.nature_gamme,
+    ot.date_cloture
+FROM public.ordres_travail ot
+LEFT JOIN public.gammes g ON g.id = ot.gamme_id
+WHERE ot.statut = 'cloture'
+  AND (public.nature_exige_document(ot.nature_gamme) OR COALESCE(g.document_requis, false))
+  AND NOT EXISTS (
+        SELECT 1 FROM public.documents_ordres_travail d
+        WHERE d.ordre_travail_id = ot.id);
+
+COMMENT ON VIEW public.v_ot_documents_manquants IS
+    '(132) OT clôturés dont le document est requis (nature de l''OT, ou interrupteur document_requis de sa gamme) et qui n''ont aucun document lié. RLS héritée (security_invoker).';
