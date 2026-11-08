@@ -20,15 +20,16 @@ import { dashboardQueries } from './queries'
  *
  * Correspondance table → clés invalidées :
  * - `ordres_travail` → `OT_QUERY_KEYS` (`ordres_travail` + `planning`) + `dashboard`
- *   (pour que l'onboarding « Premiers pas » et l'alerte justificatifs se
+ *   (pour que l'onboarding « Premiers pas » et l'alerte documents manquants se
  *   rafraîchissent aussi dès le 1er OT créé) ;
  * - `demandes_intervention` → `demandes`, `interventions_travaux` → `travaux` et
  *   `evenements` → `evenements` (les trois onglets de la carte Activité) ;
- *   `documents` → `documents` + `dashboard` (l'alerte « justificatifs manquants »
+ *   `documents` → `documents` + `dashboard` (l'alerte « documents manquants »
  *   lit `documents_ordres_travail` mais vit sous `dashboard` : sans cette clé,
- *   joindre un justificatif laissait l'alerte affichée) ;
+ *   joindre un document laissait l'alerte affichée) ;
  * - `contrats` → `dashboard` (contrats à échéance + frise reconductions) ;
- * - `gammes` → `gammes` (santé du sunburst).
+ * - `gammes` → `gammes` (santé du sunburst) + `dashboard` (l'interrupteur
+ *   « document exigé » d'une gamme change l'alerte documents manquants).
  */
 export function useDashboardRealtime(): void {
   useRealtimeRefresh('ordres_travail', [
@@ -43,12 +44,12 @@ export function useDashboardRealtime(): void {
     dashboardQueries.all(),
   ])
   useRealtimeRefresh('contrats', dashboardQueries.all())
-  useRealtimeRefresh('gammes', gammesQueries.all())
+  useRealtimeRefresh('gammes', [gammesQueries.all(), dashboardQueries.all()])
 }
 
 /**
  * Hook agrégateur du tableau de bord : centralise les requêtes du site actif (OT
- * unifiés, documents, catégories, gammes, counts d'onboarding, justificatifs
+ * unifiés, documents, catégories, gammes, counts d'onboarding, documents
  * manquants — les trois journaux de la carte Activité ont les leurs, normalisées
  * par un `select` qui leur est propre) et expose des dérivations mémoïsées. Les cadrans consomment ce hook
  * plutôt que des requêtes dispersées → une seule source, un seul recalcul, et les
@@ -73,8 +74,8 @@ export function useDashboardData(siteId: string | null) {
   })
   const categoriesQuery = useQuery(categoriesQueries.list(siteId))
   const gammesQuery = useQuery(gammesQueries.list(siteId))
-  const justificatifsQuery = useQuery(
-    dashboardQueries.justificatifsManquants(siteId),
+  const documentsManquantsQuery = useQuery(
+    dashboardQueries.documentsManquants(siteId),
   )
 
   // ── Dérivations mémoïsées ────────────────────────────────────────────────────
@@ -89,7 +90,7 @@ export function useDashboardData(siteId: string | null) {
     documentsQuery,
     categoriesQuery,
     gammesQuery,
-    justificatifsQuery,
+    documentsManquantsQuery,
     // Dérivations mémoïsées.
     ordresTravail,
   }

@@ -36,8 +36,8 @@ describe('useDashboardRealtime', () => {
   })
 
   it('un changement de document rafraîchit AUSSI le tableau de bord', () => {
-    // L'alerte « justificatifs manquants » lit `documents_ordres_travail` mais
-    // vit sous `['dashboard']` : sans cette clé, joindre le justificatif
+    // L'alerte « documents manquants » lit `documents_ordres_travail` mais
+    // vit sous `['dashboard']` : sans cette clé, joindre le document
     // laissait l'alerte affichée, et l'utilisateur concluait que son envoi
     // n'avait pas marché.
     const cles = clesDe('documents')

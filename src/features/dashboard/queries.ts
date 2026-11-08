@@ -10,7 +10,7 @@ import { ordresTravailQueries } from '@/features/ordres-travail/queries'
  * alimente à elle seule le donut, les barres et le sunburst (mêmes colonnes que
  * `planningQueries.fenetre`, row shape compatible `PlanningOt`). Ce module couvre
  * aussi les données que le tableau de bord est seul à agréger : contrats (frise des
- * reconductions), counts d'onboarding et justificatifs manquants.
+ * reconductions), counts d'onboarding et documents manquants.
  */
 export const dashboardQueries = {
   all: () => ['dashboard'] as const,
@@ -106,40 +106,42 @@ export const dashboardQueries = {
     }),
 
   /**
-   * OT réglementaires clôturés SANS justificatif : PostgREST ne fait pas d'anti-jointe,
-   * on rapatrie donc (1) les OT `controle_reglementaire` + `cloture` du site et
-   * (2) les `ordre_travail_id` liés dans `documents_ordres_travail` BORNÉS AU SITE
-   * (`ordres_travail!inner(site_id)` + filtre — patron `documentsViaOt` : la jointure
-   * ne sert qu'au filtre, on ne rapatrie plus toutes les liaisons visibles), puis on
-   * diffuse le diff côté front → OT sans preuve.
+   * OT clôturés dont le document est REQUIS et absent (132) : la règle vit en
+   * base (vue `v_ot_documents_manquants` = nature qui l'exige toujours, OU
+   * interrupteur `document_requis` de la gamme), historique compris.
    */
-  justificatifsManquants: (siteId: string | null) =>
+  documentsManquants: (siteId: string | null) =>
     queryOptions({
       queryKey: [
         ...dashboardQueries.all(),
-        'justificatifs-manquants',
+        'documents-manquants',
         siteId,
       ] as const,
       enabled: siteId !== null,
       queryFn: async ({ signal }) => {
-        const { data: otsReglementaires } = await supabase
-          .from('ordres_travail')
-          .select('id, nom_gamme, nom_equipement, date_cloture')
+        const { data } = await supabase
+          .from('v_ot_documents_manquants')
+          .select('id, nom_gamme, nom_equipement, nature_gamme, date_cloture')
           .eq('site_id', siteId!)
-          .eq('nature_gamme', 'controle_reglementaire')
-          .eq('statut', 'cloture')
           .order('date_cloture', { ascending: false })
+          .order('id')
           .abortSignal(signal)
           .throwOnError()
-        if (otsReglementaires.length === 0) return []
-        const { data: liaisons } = await supabase
-          .from('documents_ordres_travail')
-          .select('ordre_travail_id, ordres_travail!inner(site_id)')
-          .eq('ordres_travail.site_id', siteId!)
-          .abortSignal(signal)
-          .throwOnError()
-        const avecPreuve = new Set(liaisons.map((l) => l.ordre_travail_id))
-        return otsReglementaires.filter((ot) => !avecPreuve.has(ot.id))
+        // Une vue expose toutes ses colonnes en nullable : on rétablit les
+        // NOT NULL de `ordres_travail` (id, nom_gamme, nature_gamme).
+        return data.flatMap((r) =>
+          r.id !== null && r.nom_gamme !== null && r.nature_gamme !== null
+            ? [
+                {
+                  id: r.id,
+                  nom_gamme: r.nom_gamme,
+                  nature_gamme: r.nature_gamme,
+                  nom_equipement: r.nom_equipement,
+                  date_cloture: r.date_cloture,
+                },
+              ]
+            : [],
+        )
       },
     }),
 

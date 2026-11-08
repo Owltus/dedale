@@ -80,9 +80,9 @@ describe('G1 — indicateurs documents des listes', () => {
   }
 })
 
-// ── G2 — l'alerte « justificatifs manquants » ─────────────────────────────────
-describe('G2 — alerte « justificatifs manquants »', () => {
-  const cle = dashboardQueries.justificatifsManquants(SITE).queryKey
+// ── G2 — l'alerte « documents manquants » ───────────────────────────────────
+describe('G2 — alerte « documents manquants »', () => {
+  const cle = dashboardQueries.documentsManquants(SITE).queryKey
 
   it('lit une table de documents mais vit sous « dashboard »', () => {
     expect(atteintePar(cle, documentsQueries.all())).toBe(false)
@@ -90,7 +90,7 @@ describe('G2 — alerte « justificatifs manquants »', () => {
   })
 
   it('n’est pas davantage atteinte par les clés OT', () => {
-    // Le justificatif se joint depuis la fiche OT : ni `ordres_travail` ni
+    // Le document se joint depuis la fiche OT : ni `ordres_travail` ni
     // `planning` ne couvrent l'alerte, d'où `dashboardQueries.all()` ajouté au
     // `onLiaisonChanged` de la fiche.
     for (const racine of OT_QUERY_KEYS) {

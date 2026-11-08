@@ -5,7 +5,7 @@ import { DocumentRow } from '@/features/documents/components/document-row'
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
 import { useDocumentDownload } from '@/features/documents/use-document-download'
 import type { DocumentMeta } from '@/features/documents/format'
-import { AlerteJustificatifs } from './alerte-justificatifs'
+import { AlerteDocumentsManquants } from './alerte-documents-manquants'
 import { DashboardListCard } from './dashboard-list-card'
 import { useDashboardData } from '../use-dashboard-data'
 
@@ -15,7 +15,7 @@ interface DerniersDocumentsProps {
 
 /**
  * Colonne « Documents » du tableau de bord (zone 3, droite) : l'alerte des
- * justificatifs manquants EN TÊTE (`header`), puis les derniers fichiers du site
+ * documents manquants EN TÊTE (`header`), puis les derniers fichiers du site
  * (triés `uploaded_at` DESC par `documentsQueries.list`). Rendu via la brique partagée
  * `DocumentRow` ; clic → aperçu (`DocumentPreviewDialog`, en `after`) ; menu →
  * téléchargement (`useDocumentDownload`).
@@ -33,7 +33,7 @@ export function DerniersDocuments({ siteId }: DerniersDocumentsProps) {
       emptyIcon={FileText}
       emptyTitle="Aucun document"
       emptyDescription="Aucun fichier n'a encore été ajouté à ce site."
-      header={<AlerteJustificatifs siteId={siteId} />}
+      header={<AlerteDocumentsManquants siteId={siteId} />}
       after={
         <DocumentPreviewDialog
           doc={apercu}

@@ -592,7 +592,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                 // jamais rafraîchie par l'invalidation interne de DocumentsTab
                 // (clé `documents`). Sans ce câblage, la carte restait figée
                 // après un ajout/retrait tant qu'on ne rechargeait pas la page.
-                // `dashboard` pour la même raison : l'alerte « justificatifs
+                // `dashboard` pour la même raison : l'alerte « documents
                 // manquants » lit `documents_ordres_travail`. Le canal temps
                 // réel `documents` ne suffit pas — rattacher un document DÉJÀ
                 // existant n'écrit que la table de liaison, aucun événement.
