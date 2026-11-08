@@ -5,6 +5,7 @@ import {
   ListFilterBar,
   FILTRE_TOUS,
   type FilterOption,
+  type FiltreSupplementaire,
 } from '@/components/common/list-filter-bar'
 import { NoSearchResults } from '@/components/common/no-search-results'
 
@@ -17,6 +18,8 @@ interface ListPageBodyProps {
   onFilterChange?: (value: string) => void
   options?: FilterOption[]
   filterLabel?: string
+  /** Filtres additionnels (cf. `ListFilterBar`), remis à « tous » par « Afficher tout ». */
+  filtresSupplementaires?: FiltreSupplementaire[]
   /** Épingle la barre en haut de la zone défilante (listes longues). */
   sticky?: boolean
   /**
@@ -54,6 +57,7 @@ export function ListPageBody({
   onFilterChange,
   options,
   filterLabel,
+  filtresSupplementaires = [],
   sticky,
   isEmpty,
   emptySearchDescription,
@@ -70,6 +74,7 @@ export function ListPageBody({
         onFilterChange={onFilterChange}
         options={options}
         filterLabel={filterLabel}
+        filtresSupplementaires={filtresSupplementaires}
         sticky={sticky}
       />
       {isEmpty ? (
@@ -81,10 +86,13 @@ export function ListPageBody({
           // filtré lui-même — sans ce bouton, la page se lit comme vide.
           onReset={
             (filterValue !== undefined && filterValue !== FILTRE_TOUS) ||
+            filtresSupplementaires.some((f) => f.value !== FILTRE_TOUS) ||
             search !== ''
               ? () => {
                   onSearchChange('')
                   if (onFilterChange) onFilterChange(FILTRE_TOUS)
+                  for (const f of filtresSupplementaires)
+                    f.onChange(FILTRE_TOUS)
                 }
               : undefined
           }

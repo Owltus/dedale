@@ -22,7 +22,11 @@ import { useAuth } from '@/auth'
 import { deleteErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
-import { FILTRE_NON_TERMINES } from '@/components/common/list-filter-bar'
+import {
+  FILTRE_NON_TERMINES,
+  FILTRE_TOUS,
+} from '@/components/common/list-filter-bar'
+import { gammeNatures, NATURE_GAMME_LABEL } from '@/features/gammes/schemas'
 import { EmptyState } from '@/components/common/empty-state'
 import { ListPageBody } from '@/components/common/list-page-body'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
@@ -36,6 +40,12 @@ import { Button } from '@/components/ui/button'
 export const Route = createFileRoute('/_app/ordres-travail/')({
   component: OrdresTravailPage,
 })
+
+/** Filtre « Nature » : toutes, puis les 8 natures dans l'ordre des gammes. */
+const NATURE_FILTER_OPTIONS = [
+  { value: FILTRE_TOUS, label: 'Toutes les natures' },
+  ...gammeNatures.map((n) => ({ value: n, label: NATURE_GAMME_LABEL[n] })),
+]
 
 function OrdresTravailPage() {
   return (
@@ -77,6 +87,8 @@ function OrdresTravailContent({
   // l'onglet OT d'un prestataire : sur un site à historique importé, ouvrir sur
   // FILTRE_TOUS noyait la page sous des centaines d'OT clôturés.
   const [statutFilter, setStatutFilter] = useState<string>(FILTRE_NON_TERMINES)
+  // Nature de l'OT = celle de sa gamme (`nature_gamme`, alignée par la 132).
+  const [natureFilter, setNatureFilter] = useState<string>(FILTRE_TOUS)
 
   // Filtre (recherche + statut) puis tri par urgence — mémoïsé pour ne PAS
   // refiltrer/retrier tous les OT du site à chaque ouverture de dialog ; seul un
@@ -86,13 +98,15 @@ function OrdresTravailContent({
     return trierOtParUrgence(
       (query.data ?? []).filter((ot) => {
         if (!matchStatutOt(ot.statut, statutFilter)) return false
+        if (natureFilter !== FILTRE_TOUS && ot.nature_gamme !== natureFilter)
+          return false
         if (q === '') return true
         return [ot.nom_gamme, ot.nom_equipement, ot.nom_prestataire].some((v) =>
           v?.toLowerCase().includes(q),
         )
       }),
     )
-  }, [query.data, search, statutFilter])
+  }, [query.data, search, statutFilter, natureFilter])
 
   // Documents rattachés aux OT du site, en UNE requête groupée filtrée par site
   // (pas par liste d'ids : un `.in()` sur des centaines d'OT dépasse la taille
@@ -163,6 +177,14 @@ function OrdresTravailContent({
               onFilterChange={setStatutFilter}
               options={statutOtFilterOptions()}
               filterLabel="Filtrer par statut"
+              filtresSupplementaires={[
+                {
+                  value: natureFilter,
+                  onChange: setNatureFilter,
+                  options: NATURE_FILTER_OPTIONS,
+                  label: 'Filtrer par nature',
+                },
+              ]}
               sticky
               isEmpty={filtered.length === 0}
               emptySearchDescription="Aucun ordre de travail ne correspond à ces critères."

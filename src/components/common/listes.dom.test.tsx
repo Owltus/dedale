@@ -161,6 +161,46 @@ describe('ListFilterBar', () => {
     expect(onFilterChange).toHaveBeenCalledWith('3')
   })
 
+  // ORACLE : un filtre additionnel (ex. nature d'un OT) s'affiche après le
+  // filtre principal, avec SON nom accessible, et notifie SON propre état.
+  it('filtre supplémentaire : affiché à part et notifié avec sa valeur', async () => {
+    const utilisateur = userEvent.setup()
+    const onStatut = vi.fn()
+    const onNature = vi.fn()
+    render(
+      <ListFilterBar
+        search=""
+        onSearchChange={() => undefined}
+        options={statutFilterOptions(statuts)}
+        filterValue="actifs"
+        onFilterChange={onStatut}
+        filterLabel="Filtrer par statut"
+        filtresSupplementaires={[
+          {
+            value: 'all',
+            onChange: onNature,
+            options: [
+              { value: 'all', label: 'Toutes les natures' },
+              { value: 'autocontrole', label: 'Autocontrôle' },
+            ],
+            label: 'Filtrer par nature',
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getAllByRole('combobox')).toHaveLength(2)
+    await utilisateur.click(
+      screen.getByRole('combobox', { name: 'Filtrer par nature' }),
+    )
+    await utilisateur.click(
+      await screen.findByRole('option', { name: 'Autocontrôle' }),
+    )
+
+    expect(onNature).toHaveBeenCalledWith('autocontrole')
+    expect(onStatut).not.toHaveBeenCalled()
+  })
+
   // ORACLE : la recherche de la barre est la même brique que `SearchInput` —
   // son placeholder est transmis, donc son nom accessible aussi.
   it('transmet le placeholder de recherche', () => {

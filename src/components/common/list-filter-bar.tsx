@@ -7,6 +7,18 @@ export interface FilterOption {
   label: string
 }
 
+/**
+ * Filtre ADDITIONNEL, affiché après le filtre principal (ex. la nature d'un OT
+ * à côté de son statut). Sa valeur neutre est `FILTRE_TOUS`.
+ */
+export interface FiltreSupplementaire {
+  value: string
+  onChange: (value: string) => void
+  options: FilterOption[]
+  /** Nom accessible du filtre. */
+  label: string
+}
+
 /** Valeur de filtre : tous les statuts. */
 export const FILTRE_TOUS = 'all'
 /** Valeur de filtre par défaut « actif » : uniquement les éléments NON terminés. */
@@ -27,6 +39,8 @@ interface ListFilterBarProps {
   options?: FilterOption[]
   /** Nom accessible du filtre (défaut « Filtrer »). */
   filterLabel?: string
+  /** Filtres additionnels, à droite du filtre principal. */
+  filtresSupplementaires?: FiltreSupplementaire[]
   /**
    * Épingle la barre en HAUT de la zone défilante (`sticky top-0`) : elle reste
    * visible pendant le défilement de la liste. Fond opaque + `z` au-dessus des cartes
@@ -50,6 +64,7 @@ export function ListFilterBar({
   onFilterChange,
   options,
   filterLabel = 'Filtrer',
+  filtresSupplementaires = [],
   sticky = false,
 }: ListFilterBarProps) {
   // Filtre présent uniquement si la page fournit options + état contrôlé. Regroupé
@@ -90,6 +105,17 @@ export function ListFilterBar({
           checkIndicator={false}
         />
       )}
+      {filtresSupplementaires.map((f) => (
+        <SelectDropdown
+          key={f.label}
+          value={f.value}
+          onValueChange={f.onChange}
+          options={f.options}
+          ariaLabel={f.label}
+          className="sm:w-52"
+          checkIndicator={false}
+        />
+      ))}
     </div>
   )
 }
