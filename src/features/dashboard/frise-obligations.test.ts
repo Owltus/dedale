@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { PlanningOt } from '@/features/planning/grille'
-import { construireBandes, type GammeFrise } from './frise-obligations'
+import {
+  construireBandes,
+  regrouperParSemaine,
+  type GammeFrise,
+  type Jalon,
+} from './frise-obligations'
 
 const AUJOURDHUI = new Date(2026, 10, 9) // lundi 9 novembre 2026
 
@@ -85,7 +90,7 @@ describe('construireBandes (frise des obligations)', () => {
     expect(estimes[0]!.date > '2026-11-09').toBe(true)
   })
 
-  it('clôturé = fait ; annulé absent ; sans OT ouvert, la suite part de la clôture', () => {
+  it('clôturé et annulé absents (la frise regarde l’avenir) ; sans OT ouvert, la suite part de la clôture', () => {
     const j = bandes(
       [gamme()],
       [
@@ -93,9 +98,9 @@ describe('construireBandes (frise des obligations)', () => {
         ot({ id: 'x', statut: 'annule', date_prevue: '2026-06-01' }),
       ],
     )[0]!.jalons
-    expect(j.map((x) => x.etat)).toEqual(['fait', 'estime', 'estime', 'estime'])
+    expect(j.map((x) => x.etat)).toEqual(['estime', 'estime', 'estime'])
     // 04/03/2026 = semaine ISO 10 → lundi de la semaine 10 de 2027.
-    expect(j[1]!.date).toBe('2027-03-08')
+    expect(j[0]!.date).toBe('2027-03-08')
   })
 
   it('gamme inactive ou ponctuelle : aucun passage estimé', () => {
@@ -104,5 +109,26 @@ describe('construireBandes (frise des obligations)', () => {
       [],
     )[0]!.jalons
     expect(j).toEqual([])
+  })
+
+  it('une marque par semaine, colorée par le passage le MOINS organisé', () => {
+    const jalon = (date: string, etat: Jalon['etat']): Jalon => ({
+      cle: date + etat,
+      gammeId: etat,
+      gammeNom: etat,
+      date,
+      etat,
+      otId: null,
+    })
+    const semaines = regrouperParSemaine([
+      jalon('2026-11-18', 'planifie'),
+      jalon('2026-11-16', 'estime'),
+      jalon('2026-11-23', 'planifie'),
+      jalon('2026-11-20', 'programme'),
+    ])
+    expect(semaines.map((x) => [x.lundi, x.etat, x.jalons.length])).toEqual([
+      ['2026-11-16', 'programme', 3],
+      ['2026-11-23', 'planifie', 1],
+    ])
   })
 })

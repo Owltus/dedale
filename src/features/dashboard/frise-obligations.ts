@@ -15,9 +15,9 @@ import {
  * pour le PO : « planifié » (date posée par un humain, violet) contre
  * « programmé » (date posée par l'application, gris) contre « estimé » (passage
  * futur qui n'existe pas encore, calculé d'après la périodicité, cercle creux).
+ * Les interventions FAITES ne figurent pas : la frise regarde l'avenir (PO).
  */
 export type EtatJalon =
-  | 'fait'
   | 'retard'
   | 'en_cours'
   | 'rouvert'
@@ -29,7 +29,6 @@ export const ETAT_JALON: Record<
   EtatJalon,
   { libelle: string; tone: StatusTone; creux?: boolean }
 > = {
-  fait: { libelle: 'Fait', tone: 'success' },
   retard: { libelle: 'En retard', tone: 'destructive' },
   en_cours: { libelle: 'En cours', tone: 'info' },
   rouvert: { libelle: 'Rouvert', tone: 'rose' },
@@ -38,15 +37,20 @@ export const ETAT_JALON: Record<
   estime: { libelle: 'Estimé (pas encore créé)', tone: 'neutral', creux: true },
 }
 
-/** Ordre de la légende (du plus urgent au plus lointain). */
+/**
+ * Priorité d'une semaine qui mélange plusieurs passages : c'est le MOINS
+ * organisé qui l'emporte (retard, puis rouvert, en cours, programmé par
+ * l'application, estimé, et enfin planifié par vous), pour qu'un passage non
+ * organisé ne soit jamais caché par un passage déjà planifié. Sert aussi
+ * d'ordre de légende.
+ */
 export const ORDRE_LEGENDE: EtatJalon[] = [
   'retard',
-  'en_cours',
   'rouvert',
-  'planifie',
+  'en_cours',
   'programme',
   'estime',
-  'fait',
+  'planifie',
 ]
 
 export interface GammeFrise {
@@ -82,7 +86,6 @@ const MAX_ESTIMES = 400
 function etatOt(ot: PlanningOt, aujourdHui: Date): EtatJalon | null {
   switch (ot.statut) {
     case 'cloture':
-      return 'fait'
     case 'annule':
       return null
     case 'en_cours':
@@ -189,4 +192,34 @@ export function construireBandes(params: {
     jalons.sort((a, b) => a.date.localeCompare(b.date))
     return { nature: n.nature, libelle: n.libelle, couleur: n.couleur, jalons }
   })
+}
+
+/** Une semaine d'une bande : tous ses passages et l'état qui la colore. */
+export interface SemaineBande {
+  /** Lundi de la semaine ISO (AAAA-MM-JJ). */
+  lundi: string
+  etat: EtatJalon
+  jalons: Jalon[]
+}
+
+/**
+ * Regroupe les passages d'une bande par semaine ISO (une marque par semaine :
+ * la frise reste sur une seule ligne par nature, même avec des gammes
+ * hebdomadaires). L'état affiché suit ORDRE_LEGENDE. Fonction pure.
+ */
+export function regrouperParSemaine(jalons: Jalon[]): SemaineBande[] {
+  const parLundi = new Map<string, Jalon[]>()
+  for (const j of jalons) {
+    const lundi = isoLocale(lundiDeLaSemaine(parseDateLocale(j.date)))
+    const arr = parLundi.get(lundi)
+    if (arr) arr.push(j)
+    else parLundi.set(lundi, [j])
+  }
+  return [...parLundi.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([lundi, js]) => ({
+      lundi,
+      jalons: js,
+      etat: ORDRE_LEGENDE.find((e) => js.some((j) => j.etat === e)) ?? 'estime',
+    }))
 }
