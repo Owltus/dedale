@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { ErrorState } from '@/components/common/error-state'
 import {
   onKeyActivate,
@@ -69,6 +70,10 @@ interface MarquePlacee extends SemaineBande {
  * une seule gamme → sa fiche, sinon le planning. Même axe que la frise des
  * contrats (`axeFrise`) : mois alignés, mêmes flèches.
  *
+ * Interrupteur « Documents exigés seulement » (ACTIF par défaut, demande PO) :
+ * n'affiche que les gammes dont l'interrupteur `document_requis` est coché —
+ * celles qui ont vraiment une suite à donner (un justificatif à rattacher).
+ *
  * Aucune gamme d'obligation sur le site → la carte ne se rend pas (`null`).
  */
 export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
@@ -77,17 +82,20 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
   const [boite, setBoite] = useState<HTMLDivElement | null>(null)
   const viewW = useLargeur(boite) || 1000
   const [survol, setSurvol] = useState<string | null>(null)
+  const [documentsSeuls, setDocumentsSeuls] = useState(true)
 
   const gammes = useMemo<GammeFrise[]>(
     () =>
-      (gammesQuery.data ?? []).map((g) => ({
-        id: g.id,
-        nom: g.nom,
-        nature: g.nature,
-        est_active: g.est_active,
-        jours: g.periodicites.jours_periodicite,
-      })),
-    [gammesQuery.data],
+      (gammesQuery.data ?? [])
+        .filter((g) => !documentsSeuls || g.document_requis)
+        .map((g) => ({
+          id: g.id,
+          nom: g.nom,
+          nature: g.nature,
+          est_active: g.est_active,
+          jours: g.periodicites.jours_periodicite,
+        })),
+    [gammesQuery.data, documentsSeuls],
   )
 
   const modele = useMemo(() => {
@@ -140,7 +148,9 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
         <Skeleton className="my-2 h-16 w-full" />
       </DashboardCard>
     )
-  if (modele.lignes.length === 0) return null
+  // Aucune gamme d'obligation sur le site → carte masquée. Filtrée à vide par
+  // l'interrupteur → carte gardée (sinon l'interrupteur disparaîtrait avec elle).
+  if (modele.lignes.length === 0 && !documentsSeuls) return null
 
   const ouvrir = (m: MarquePlacee) => {
     const [premier] = m.jalons
@@ -325,8 +335,14 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
           </div>
         )}
 
-        {/* Légende des états. */}
-        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        {modele.lignes.length === 0 && (
+          <p className="pb-2 text-center text-sm text-muted-foreground">
+            Aucune obligation n’exige de document.
+          </p>
+        )}
+
+        {/* Légende des états + interrupteur. */}
+        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {ORDRE_LEGENDE.map((etat) => {
             const def = ETAT_JALON[etat]
             const couleur = toneToken(def.tone)
@@ -344,6 +360,14 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
               </span>
             )
           })}
+          <label className="ml-auto flex cursor-pointer items-center gap-2">
+            <Switch
+              checked={documentsSeuls}
+              onCheckedChange={setDocumentsSeuls}
+              className="h-4 w-7 [&>span]:size-3 [&>span]:data-[state=checked]:translate-x-3.5"
+            />
+            Documents exigés seulement
+          </label>
         </div>
       </div>
     </DashboardCard>
