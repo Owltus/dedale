@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { statutPlanningOt } from '@/features/ordres-travail/statut-affichage'
+import { NATURES_OBLIGATION } from '@/features/gammes/natures-obligation'
 import type { StatusTone } from '@/components/common/status-badge'
 import type {
   GroupeDomaine,
@@ -89,31 +90,10 @@ function toneCellule(
  * Contour d'une cellule selon la NATURE de ses OT — seulement pour les trois
  * natures d'obligation (décision PO 08/11/2026) ; les natures courantes
  * (maintenance préventive, contrôle interne, relevés, gestion administrative)
- * n'en ont pas, pour ne pas surcharger la grille. Couleurs HORS de la palette
- * des fonds (statuts) : noir/blanc, turquoise, indigo. Une cellule qui mélange
- * plusieurs de ces natures prend la première de la liste.
+ * n'en ont pas, pour ne pas surcharger la grille. Couleurs partagées avec la
+ * frise des obligations du tableau de bord (`NATURES_OBLIGATION`).
  */
-const CONTOURS_NATURE: {
-  nature: PlanningOt['nature_gamme']
-  libelle: string
-  ring: string
-}[] = [
-  {
-    nature: 'controle_reglementaire',
-    libelle: 'Contrôle réglementaire',
-    ring: 'ring-primary',
-  },
-  {
-    nature: 'hygiene_sanitaire',
-    libelle: 'Hygiène et sanitaire',
-    ring: 'ring-turquoise',
-  },
-  {
-    nature: 'formation_habilitation',
-    libelle: 'Formation et habilitation',
-    ring: 'ring-indigo',
-  },
-]
+const CONTOURS_NATURE = NATURES_OBLIGATION
 
 /**
  * Contour : anneau de 2 px DÉTACHÉ de la case par 1 px transparent, pour que sa
