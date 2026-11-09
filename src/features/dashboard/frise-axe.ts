@@ -1,6 +1,9 @@
 import { useLayoutEffect, useState } from 'react'
 
 const JOUR = 86_400_000
+/** Portée des frises : mois de passé et d'avenir autour du centre. */
+const MOIS_PASSE = 3
+const MOIS_AVENIR = 6
 const FMT_MOIS = new Intl.DateTimeFormat('fr-FR', { month: 'short' })
 
 export interface AxeFrise {
@@ -19,21 +22,19 @@ export interface AxeFrise {
 
 /**
  * Axe du temps COMMUN aux frises du tableau de bord (contrats, obligations) :
- * ~un mois tous les 60 px, « aujourd'hui » au premier tiers (1/3 de passé,
- * 2/3 d'avenir), autour du `centre` partagé par les flèches clavier. Deux
- * frises de même largeur ont donc leurs mois EXACTEMENT alignés.
+ * fenêtre FIXE de 3 mois de passé et 6 mois d'avenir (décision PO du
+ * 09/11/2026 : voir plus loin noyait l'essentiel), autour du `centre` partagé
+ * par les flèches clavier — « aujourd'hui » tombe donc au premier tiers. Deux
+ * frises de même largeur ont leurs mois EXACTEMENT alignés.
  */
 export function axeFrise(
   centre: Date,
   viewW: number,
   todayMs: number,
 ): AxeFrise {
-  const moisCible = Math.max(6, Math.round(viewW / 60))
-  const porteeJours = Math.round(moisCible * 30.44)
-  const offsetPasse = Math.round(porteeJours / 3)
   const centreMs = centre.getTime()
-  const t0ms = centreMs - offsetPasse * JOUR
-  const t1ms = centreMs + (porteeJours - offsetPasse) * JOUR
+  const t0ms = centreMs - Math.round(MOIS_PASSE * 30.44) * JOUR
+  const t1ms = centreMs + Math.round(MOIS_AVENIR * 30.44) * JOUR
   const projX = (ms: number) => ((ms - t0ms) / (t1ms - t0ms)) * viewW
 
   const mois: { x: number; label: string }[] = []
