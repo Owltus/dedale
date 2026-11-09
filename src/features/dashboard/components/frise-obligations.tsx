@@ -35,9 +35,9 @@ interface FriseObligationsProps {
 // ── Géométrie (pixels réels, cf. `useLargeur`) ───────────────────────────────
 const COTE = 6 // côté du carré d'état
 const CONTOUR = 11 // côté du contour de nature (détaché du carré)
-const LIGNE_H = 15
-const AXE_H = 22
-const BAS = 16 // « Aujourd'hui »
+const LIGNE_H = 13
+const AXE_H = 18
+const BAS = 3 // respiration sous la dernière ligne (pas de libellé « Aujourd'hui » : la frise des contrats le porte déjà)
 const GAP = 3 // écart mini entre deux marques d'une même ligne
 const JOUR = 86_400_000
 /** Nombre de passages listés dans l'infobulle avant « + N autres ». */
@@ -146,7 +146,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
 
   if (gammesQuery.isError)
     return (
-      <DashboardCard>
+      <DashboardCard className="gap-2 py-3">
         <ErrorState
           message="Les obligations n’ont pas pu être chargées."
           onRetry={() => void gammesQuery.refetch()}
@@ -156,7 +156,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
     )
   if (gammesQuery.isPending)
     return (
-      <DashboardCard>
+      <DashboardCard className="gap-2 py-3">
         <Skeleton className="my-2 h-12 w-full" />
       </DashboardCard>
     )
@@ -183,7 +183,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
   const survolee = modele.marques.find((m) => m.cle === survol) ?? null
 
   return (
-    <DashboardCard>
+    <DashboardCard className="gap-2 py-3">
       <div ref={setBoite} className="relative">
         <svg
           viewBox={`0 0 ${String(viewW)} ${String(modele.hauteur)}`}
@@ -222,24 +222,12 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
                 x1={axe.todayX}
                 y1={AXE_H - 3}
                 x2={axe.todayX}
-                y2={modele.hauteur - BAS + 2}
+                y2={modele.hauteur}
                 stroke="var(--muted-foreground)"
                 strokeWidth={1}
                 strokeDasharray="4 4"
                 opacity={0.7}
               />
-              <text
-                x={axe.todayX}
-                y={modele.hauteur - 4}
-                textAnchor="middle"
-                style={{
-                  fill: 'var(--muted-foreground)',
-                  fontSize: 10,
-                  fontWeight: 600,
-                }}
-              >
-                {"Aujourd'hui"}
-              </text>
             </>
           )}
 
