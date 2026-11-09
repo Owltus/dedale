@@ -90,7 +90,7 @@ function toneCellule(
  * natures d'obligation (décision PO 08/11/2026) ; les natures courantes
  * (maintenance préventive, contrôle interne, relevés, gestion administrative)
  * n'en ont pas, pour ne pas surcharger la grille. Couleurs HORS de la palette
- * des fonds (statuts) : noir/blanc, turquoise, framboise. Une cellule qui mélange
+ * des fonds (statuts) : noir/blanc, turquoise, indigo. Une cellule qui mélange
  * plusieurs de ces natures prend la première de la liste.
  */
 const CONTOURS_NATURE: {
@@ -111,7 +111,7 @@ const CONTOURS_NATURE: {
   {
     nature: 'formation_habilitation',
     libelle: 'Formation et habilitation',
-    ring: 'ring-framboise',
+    ring: 'ring-indigo',
   },
 ]
 
