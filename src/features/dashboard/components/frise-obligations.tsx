@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { Wrench } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
 import { ErrorState } from '@/components/common/error-state'
 import {
   onKeyActivate,
   toneToken,
 } from '@/components/common/charts/chart-tokens'
 import type { FenetreTemporelle } from '@/features/planning/use-fenetre-temporelle'
+import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import {
   formatDateAvecSemaineIso,
   parseDateLocale,
@@ -19,7 +21,6 @@ import { axeFrise, useLargeur } from '../frise-axe'
 import {
   construireBandes,
   ETAT_JALON,
-  ORDRE_LEGENDE,
   regrouperParSemaine,
   type GammeFrise,
   type SemaineBande,
@@ -32,49 +33,43 @@ interface FriseObligationsProps {
 }
 
 // ── Géométrie (pixels réels, cf. `useLargeur`) ───────────────────────────────
-const COTE = 8 // côté d'une marque de semaine
-const LIGNE_H = 18
+const COTE = 6 // côté du carré d'état
+const CONTOUR = 11 // côté du contour de nature (détaché du carré)
+const LIGNE_H = 15
 const AXE_H = 22
 const BAS = 16 // « Aujourd'hui »
+const GAP = 3 // écart mini entre deux marques d'une même ligne
 const JOUR = 86_400_000
 /** Nombre de passages listés dans l'infobulle avant « + N autres ». */
 const MAX_INFOBULLE = 6
 
-/** Libellé court de la ligne (le libellé complet est dans l'infobulle). */
-const LIBELLE_COURT: Record<string, string> = {
-  controle_reglementaire: 'Réglementaire',
-  hygiene_sanitaire: 'Hygiène',
-  formation_habilitation: 'Formation',
-}
-
 interface MarquePlacee extends SemaineBande {
   cle: string
   libelleNature: string
+  couleurNature: string
   x: number
   y: number
 }
 
 /**
  * Frise « Obligations » (zone 2 du tableau de bord, sous les contrats), au
- * format COMPACT voulu par le PO : une ligne par nature d'obligation
- * (réglementaire, hygiène, formation), une marque par semaine, tournée vers
- * l'AVENIR (les interventions faites n'y figurent pas). La couleur dit si
- * c'est organisé :
- *   - violet = date posée par vous ;
- *   - gris plein = date posée par l'application (pas encore organisé) ;
- *   - carré creux = passage qui n'existe pas encore, ESTIMÉ d'après la
- *     périodicité (miroir exact du calcul de la base, `prochaineDateOt`) ;
- *   - rouge en retard, rose rouvert, bleu en cours.
+ * format le plus COMPACT (demandes PO du 09/11/2026) :
+ *   - seules les gammes d'obligation (réglementaire, hygiène, formation) dont le
+ *     DOCUMENT EST EXIGÉ — celles qui ont vraiment une suite à donner ;
+ *   - tournée vers l'AVENIR : les interventions faites n'y figurent pas ;
+ *   - une marque par nature et par semaine, rangées comme les contrats : une
+ *     seule ligne tant que rien ne se chevauche, une ligne de plus seulement
+ *     quand deux marques tombent au même endroit ;
+ *   - ni titres de lignes ni légende : le CONTOUR de la marque dit la nature
+ *     (mêmes couleurs que le planning), le FOND dit l'état — violet planifié
+ *     par vous, gris programmé par l'application, vide en pointillés = passage
+ *     estimé (pas encore créé), rouge retard, rose rouvert, bleu en cours.
+ *     L'infobulle détaille tout.
  * Une semaine qui mélange plusieurs passages prend le MOINS organisé
- * (`ORDRE_LEGENDE`) ; l'infobulle les liste tous. Clic : un seul OT → sa fiche,
- * une seule gamme → sa fiche, sinon le planning. Même axe que la frise des
- * contrats (`axeFrise`) : mois alignés, mêmes flèches.
+ * (`ORDRE_LEGENDE`). Clic : un seul OT → sa fiche, une seule gamme → sa
+ * fiche, sinon le planning. Même axe que la frise des contrats (`axeFrise`).
  *
- * Interrupteur « Documents exigés seulement » (ACTIF par défaut, demande PO) :
- * n'affiche que les gammes dont l'interrupteur `document_requis` est coché —
- * celles qui ont vraiment une suite à donner (un justificatif à rattacher).
- *
- * Aucune gamme d'obligation sur le site → la carte ne se rend pas (`null`).
+ * Rien à afficher (aucune gamme d'obligation à document exigé) → `null`.
  */
 export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
   const navigate = useNavigate()
@@ -82,12 +77,18 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
   const [boite, setBoite] = useState<HTMLDivElement | null>(null)
   const viewW = useLargeur(boite) || 1000
   const [survol, setSurvol] = useState<string | null>(null)
-  const [documentsSeuls, setDocumentsSeuls] = useState(true)
+  const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+
+  // Image de chaque gamme (vignette de l'infobulle, demande PO 09/11/2026).
+  const miniatureParGamme = useMemo(
+    () => new Map((gammesQuery.data ?? []).map((g) => [g.id, g.miniature_id])),
+    [gammesQuery.data],
+  )
 
   const gammes = useMemo<GammeFrise[]>(
     () =>
       (gammesQuery.data ?? [])
-        .filter((g) => !documentsSeuls || g.document_requis)
+        .filter((g) => g.document_requis)
         .map((g) => ({
           id: g.id,
           nom: g.nom,
@@ -95,7 +96,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
           est_active: g.est_active,
           jours: g.periodicites.jours_periodicite,
         })),
-    [gammesQuery.data, documentsSeuls],
+    [gammesQuery.data],
   )
 
   const modele = useMemo(() => {
@@ -106,29 +107,40 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
       ots: ordresTravail,
       debut: new Date(axe.t0ms),
       fin: new Date(axe.t1ms),
-    }).filter((b) => gammes.some((g) => g.nature === b.nature))
+    })
 
-    const lignes = bandes.map((b, i) => ({
-      nature: b.nature,
-      libelle: LIBELLE_COURT[b.nature] ?? b.libelle,
-      couleur: b.couleur,
-      y: AXE_H + i * LIGNE_H + LIGNE_H / 2,
-    }))
-    const marques: MarquePlacee[] = bandes.flatMap((b, i) =>
-      regrouperParSemaine(b.jalons).map((sem) => ({
-        ...sem,
-        cle: `${b.nature}:${sem.lundi}`,
-        libelleNature: b.libelle,
-        // Milieu de la semaine (jeudi) : la marque couvre sa semaine.
-        x: axe.projX(parseDateLocale(sem.lundi).getTime() + 3.5 * JOUR),
-        y: AXE_H + i * LIGNE_H + LIGNE_H / 2,
-      })),
-    )
+    // Marques de toutes les natures, triées par X (puis ordre des natures).
+    const brutes = bandes
+      .flatMap((b, rangNature) =>
+        regrouperParSemaine(b.jalons).map((sem) => ({
+          ...sem,
+          rangNature,
+          cle: `${b.nature}:${sem.lundi}`,
+          libelleNature: b.libelle,
+          couleurNature: b.couleur,
+          // Milieu de la semaine (jeudi) : la marque couvre sa semaine.
+          x: axe.projX(parseDateLocale(sem.lundi).getTime() + 3.5 * JOUR),
+        })),
+      )
+      .sort((a, b) => a.x - b.x || a.rangNature - b.rangNature)
+
+    // Rangement façon contrats : première ligne libre, sinon une de plus.
+    const droites: number[] = []
+    const marques: MarquePlacee[] = brutes.map((m) => {
+      const x0 = m.x - CONTOUR / 2
+      let ligne = droites.findIndex((d) => x0 >= d + GAP)
+      if (ligne === -1) {
+        ligne = droites.length
+        droites.push(m.x + CONTOUR / 2)
+      } else droites[ligne] = m.x + CONTOUR / 2
+      return { ...m, y: AXE_H + ligne * LIGNE_H + LIGNE_H / 2 }
+    })
+
+    const nbLignes = Math.max(droites.length, 1)
     return {
       axe,
-      lignes,
       marques,
-      hauteur: AXE_H + lignes.length * LIGNE_H + BAS,
+      hauteur: AXE_H + nbLignes * LIGNE_H + BAS,
     }
   }, [fenetre.centre, viewW, gammes, ordresTravail])
 
@@ -145,12 +157,10 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
   if (gammesQuery.isPending)
     return (
       <DashboardCard>
-        <Skeleton className="my-2 h-16 w-full" />
+        <Skeleton className="my-2 h-12 w-full" />
       </DashboardCard>
     )
-  // Aucune gamme d'obligation sur le site → carte masquée. Filtrée à vide par
-  // l'interrupteur → carte gardée (sinon l'interrupteur disparaîtrait avec elle).
-  if (modele.lignes.length === 0 && !documentsSeuls) return null
+  if (gammes.length === 0) return null
 
   const ouvrir = (m: MarquePlacee) => {
     const [premier] = m.jalons
@@ -180,7 +190,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
           width={viewW}
           height={modele.hauteur}
           role="img"
-          aria-label="Frise des obligations à venir : contrôles réglementaires, hygiène et formation"
+          aria-label="Frise des obligations à venir dont le document est exigé"
           className="block"
         >
           {/* Axe des mois (aligné sur la frise des contrats). */}
@@ -201,33 +211,6 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
                 style={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
               >
                 {m.label}
-              </text>
-            </g>
-          ))}
-
-          {/* Libellé de chaque ligne, posé dans le passé (zone peu chargée). */}
-          {modele.lignes.map((l) => (
-            <g key={l.nature}>
-              <rect
-                x={2}
-                y={l.y - 4}
-                width={8}
-                height={8}
-                rx={2}
-                fill="none"
-                stroke={l.couleur}
-                strokeWidth={2}
-              />
-              <text
-                x={16}
-                y={l.y + 4}
-                style={{
-                  fill: 'var(--foreground)',
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
-              >
-                {l.libelle}
               </text>
             </g>
           ))}
@@ -260,10 +243,9 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
             </>
           )}
 
-          {/* Une marque par semaine. */}
+          {/* Une marque par nature et par semaine : contour = nature, fond = état. */}
           {modele.marques.map((m) => {
             const def = ETAT_JALON[m.etat]
-            const couleur = toneToken(def.tone)
             const n = m.jalons.length
             const aria = `${m.libelleNature} — semaine du ${formatDateAvecSemaineIso(m.lundi)} : ${String(n)} passage${n > 1 ? 's' : ''}, ${def.libelle.toLowerCase()}`
             return (
@@ -280,24 +262,36 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
                 onFocus={() => setSurvol(m.cle)}
                 onBlur={() => setSurvol(null)}
               >
+                {/* Contour de nature DÉTACHÉ du carré (comme le planning). */}
+                <rect
+                  x={m.x - CONTOUR / 2}
+                  y={m.y - CONTOUR / 2}
+                  width={CONTOUR}
+                  height={CONTOUR}
+                  rx={3}
+                  fill="none"
+                  stroke={m.couleurNature}
+                  strokeWidth={1.25}
+                />
+                {/* Carré d'état. */}
                 <rect
                   x={m.x - COTE / 2}
                   y={m.y - COTE / 2}
                   width={COTE}
                   height={COTE}
-                  rx={2}
-                  fill={def.creux ? 'none' : couleur}
-                  stroke={def.creux ? couleur : 'none'}
-                  strokeWidth={def.creux ? 1.25 : 0}
-                  strokeDasharray={def.creux ? '2 1.5' : undefined}
+                  rx={1.5}
+                  fill={def.creux ? 'none' : toneToken(def.tone)}
+                  stroke={def.creux ? toneToken(def.tone) : 'none'}
+                  strokeWidth={def.creux ? 1 : 0}
+                  strokeDasharray={def.creux ? '1.5 1' : undefined}
                   opacity={survol === m.cle ? 0.75 : 1}
                 >
                   <title>{aria}</title>
                 </rect>
                 <rect
-                  x={m.x - COTE / 2 - 2}
+                  x={m.x - CONTOUR / 2 - 1}
                   y={m.y - LIGNE_H / 2}
-                  width={COTE + 4}
+                  width={CONTOUR + 2}
                   height={LIGNE_H}
                   fill="transparent"
                 />
@@ -322,9 +316,21 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
             {survolee.jalons.slice(0, MAX_INFOBULLE).map((j) => (
               <div
                 key={j.cle}
-                className="whitespace-nowrap text-muted-foreground"
+                className="mt-1 flex items-center gap-2 whitespace-nowrap text-muted-foreground"
               >
-                {j.gammeNom} · {ETAT_JALON[j.etat].libelle}
+                <div className="size-8 shrink-0 overflow-hidden rounded bg-muted">
+                  <MiniatureThumb
+                    url={urlOf(miniatureParGamme.get(j.gammeId) ?? null)}
+                    fallback={<Wrench className="size-4" />}
+                    alt=""
+                    onError={refreshMiniatures}
+                    className="size-full rounded-none"
+                  />
+                </div>
+                <div>
+                  <div className="text-popover-foreground">{j.gammeNom}</div>
+                  <div>{ETAT_JALON[j.etat].libelle}</div>
+                </div>
               </div>
             ))}
             {survolee.jalons.length > MAX_INFOBULLE && (
@@ -334,41 +340,6 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
             )}
           </div>
         )}
-
-        {modele.lignes.length === 0 && (
-          <p className="pb-2 text-center text-sm text-muted-foreground">
-            Aucune obligation n’exige de document.
-          </p>
-        )}
-
-        {/* Légende des états + interrupteur. */}
-        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {ORDRE_LEGENDE.map((etat) => {
-            const def = ETAT_JALON[etat]
-            const couleur = toneToken(def.tone)
-            return (
-              <span key={etat} className="flex items-center gap-1.5">
-                <span
-                  className="inline-block size-2.5 rounded-[2px]"
-                  style={
-                    def.creux
-                      ? { border: `1.25px dashed ${couleur}` }
-                      : { background: couleur }
-                  }
-                />
-                {def.libelle}
-              </span>
-            )
-          })}
-          <label className="ml-auto flex cursor-pointer items-center gap-2">
-            <Switch
-              checked={documentsSeuls}
-              onCheckedChange={setDocumentsSeuls}
-              className="h-4 w-7 [&>span]:size-3 [&>span]:data-[state=checked]:translate-x-3.5"
-            />
-            Documents exigés seulement
-          </label>
-        </div>
       </div>
     </DashboardCard>
   )
