@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PlanningOt } from '@/features/planning/grille'
 import {
   construireBandes,
-  regrouperParSemaine,
+  regrouperParMois,
   type GammeFrise,
   type Jalon,
 } from './frise-obligations'
@@ -111,7 +111,7 @@ describe('construireBandes (frise des obligations)', () => {
     expect(j).toEqual([])
   })
 
-  it('une marque par semaine, colorée par le passage le MOINS organisé', () => {
+  it('une marque par mois, colorée par le passage le MOINS organisé', () => {
     const jalon = (date: string, etat: Jalon['etat']): Jalon => ({
       cle: date + etat,
       gammeId: etat,
@@ -120,15 +120,15 @@ describe('construireBandes (frise des obligations)', () => {
       etat,
       otId: null,
     })
-    const semaines = regrouperParSemaine([
+    const mois = regrouperParMois([
       jalon('2026-11-18', 'planifie'),
-      jalon('2026-11-16', 'estime'),
-      jalon('2026-11-23', 'planifie'),
-      jalon('2026-11-20', 'programme'),
+      jalon('2026-11-02', 'estime'),
+      jalon('2026-12-07', 'planifie'),
+      jalon('2026-11-30', 'programme'),
     ])
-    expect(semaines.map((x) => [x.lundi, x.etat, x.jalons.length])).toEqual([
-      ['2026-11-16', 'programme', 3],
-      ['2026-11-23', 'planifie', 1],
+    expect(mois.map((x) => [x.debut, x.etat, x.jalons.length])).toEqual([
+      ['2026-11-01', 'programme', 3],
+      ['2026-12-01', 'planifie', 1],
     ])
   })
 })

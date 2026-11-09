@@ -10,20 +10,16 @@ import {
 import type { FenetreTemporelle } from '@/features/planning/use-fenetre-temporelle'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
-import {
-  formatDateAvecSemaineIso,
-  parseDateLocale,
-  todayLocal,
-} from '@/lib/date'
+import { parseDateLocale, todayLocal } from '@/lib/date'
 import { DashboardCard } from './dashboard-card'
 import { useDashboardData } from '../use-dashboard-data'
 import { axeFrise, useLargeur } from '../frise-axe'
 import {
   construireBandes,
   ETAT_JALON,
-  regrouperParSemaine,
+  regrouperParMois,
   type GammeFrise,
-  type SemaineBande,
+  type MoisBande,
 } from '../frise-obligations'
 
 interface FriseObligationsProps {
@@ -33,17 +29,21 @@ interface FriseObligationsProps {
 }
 
 // ── Géométrie (pixels réels, cf. `useLargeur`) ───────────────────────────────
-const COTE = 6 // côté du carré d'état
-const CONTOUR = 11 // côté du contour de nature (détaché du carré)
-const LIGNE_H = 13
+const CONTOUR_MAX = 22 // côté du contour de nature (détaché du carré), au plus
+const CONTOUR_MIN = 12
+const ECART_CARRE = 10 // le carré d'état est plus petit que son contour d'autant
+const LIGNE_H = 26
 const AXE_H = 18
 const BAS = 3 // respiration sous la dernière ligne (pas de libellé « Aujourd'hui » : la frise des contrats le porte déjà)
-const GAP = 3 // écart mini entre deux marques d'une même ligne
 const JOUR = 86_400_000
+const FMT_MOIS = new Intl.DateTimeFormat('fr-FR', {
+  month: 'long',
+  year: 'numeric',
+})
 /** Nombre de passages listés dans l'infobulle avant « + N autres ». */
 const MAX_INFOBULLE = 6
 
-interface MarquePlacee extends SemaineBande {
+interface MarquePlacee extends MoisBande {
   cle: string
   libelleNature: string
   couleurNature: string
@@ -57,15 +57,14 @@ interface MarquePlacee extends SemaineBande {
  *   - seules les gammes d'obligation (réglementaire, hygiène, formation) dont le
  *     DOCUMENT EST EXIGÉ — celles qui ont vraiment une suite à donner ;
  *   - tournée vers l'AVENIR : les interventions faites n'y figurent pas ;
- *   - une marque par nature et par semaine, rangées comme les contrats : une
- *     seule ligne tant que rien ne se chevauche, une ligne de plus seulement
- *     quand deux marques tombent au même endroit ;
+ *   - une marque par nature et par MOIS (carrés lisibles), empilées en colonne
+ *     à partir de la ligne du haut ;
  *   - ni titres de lignes ni légende : le CONTOUR de la marque dit la nature
  *     (mêmes couleurs que le planning), le FOND dit l'état — violet planifié
  *     par vous, gris programmé par l'application, vide en pointillés = passage
  *     estimé (pas encore créé), rouge retard, rose rouvert, bleu en cours.
  *     L'infobulle détaille tout.
- * Une semaine qui mélange plusieurs passages prend le MOINS organisé
+ * Un mois qui mélange plusieurs passages prend le MOINS organisé
  * (`ORDRE_LEGENDE`). Clic : un seul OT → sa fiche, une seule gamme → sa
  * fiche, sinon le planning. Même axe que la frise des contrats (`axeFrise`).
  *
@@ -112,34 +111,44 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
     // Marques de toutes les natures, triées par X (puis ordre des natures).
     const brutes = bandes
       .flatMap((b, rangNature) =>
-        regrouperParSemaine(b.jalons).map((sem) => ({
-          ...sem,
-          rangNature,
-          cle: `${b.nature}:${sem.lundi}`,
-          libelleNature: b.libelle,
-          couleurNature: b.couleur,
-          // Milieu de la semaine (jeudi) : la marque couvre sa semaine.
-          x: axe.projX(parseDateLocale(sem.lundi).getTime() + 3.5 * JOUR),
-        })),
+        regrouperParMois(b.jalons).map((mois) => {
+          const d = parseDateLocale(mois.debut)
+          const fin = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+          return {
+            ...mois,
+            rangNature,
+            cle: `${b.nature}:${mois.debut}`,
+            libelleNature: b.libelle,
+            couleurNature: b.couleur,
+            // Milieu du mois : la marque couvre son mois.
+            x: axe.projX((d.getTime() + fin.getTime()) / 2),
+          }
+        }),
       )
       .sort((a, b) => a.x - b.x || a.rangNature - b.rangNature)
 
-    // Rangement façon contrats : première ligne libre, sinon une de plus.
-    const droites: number[] = []
+    // Rangement en COLONNES (demande PO) : chaque mois empile ses marques en
+    // partant TOUJOURS de la ligne du haut, indépendamment des mois voisins.
+    // La marque ne dépasse jamais la largeur d'un mois (elle rétrécit sur un
+    // écran étroit) : deux mois voisins ne se touchent pas.
+    const moisPx = (30.44 * JOUR * viewW) / (axe.t1ms - axe.t0ms)
+    const contour = Math.max(
+      CONTOUR_MIN,
+      Math.min(CONTOUR_MAX, Math.floor(moisPx) - 6),
+    )
+    const parMois = new Map<string, number>()
     const marques: MarquePlacee[] = brutes.map((m) => {
-      const x0 = m.x - CONTOUR / 2
-      let ligne = droites.findIndex((d) => x0 >= d + GAP)
-      if (ligne === -1) {
-        ligne = droites.length
-        droites.push(m.x + CONTOUR / 2)
-      } else droites[ligne] = m.x + CONTOUR / 2
+      const ligne = parMois.get(m.debut) ?? 0
+      parMois.set(m.debut, ligne + 1)
       return { ...m, y: AXE_H + ligne * LIGNE_H + LIGNE_H / 2 }
     })
+    const nbLignes = Math.max(1, ...parMois.values())
 
-    const nbLignes = Math.max(droites.length, 1)
     return {
       axe,
       marques,
+      contour,
+      cote: contour - ECART_CARRE,
       hauteur: AXE_H + nbLignes * LIGNE_H + BAS,
     }
   }, [fenetre.centre, viewW, gammes, ordresTravail])
@@ -179,7 +188,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
     else void navigate({ to: '/planning' })
   }
 
-  const { axe } = modele
+  const { axe, contour: CONTOUR, cote: COTE } = modele
   const survolee = modele.marques.find((m) => m.cle === survol) ?? null
 
   return (
@@ -231,11 +240,11 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
             </>
           )}
 
-          {/* Une marque par nature et par semaine : contour = nature, fond = état. */}
+          {/* Une marque par nature et par mois : contour = nature, fond = état. */}
           {modele.marques.map((m) => {
             const def = ETAT_JALON[m.etat]
             const n = m.jalons.length
-            const aria = `${m.libelleNature} — semaine du ${formatDateAvecSemaineIso(m.lundi)} : ${String(n)} passage${n > 1 ? 's' : ''}, ${def.libelle.toLowerCase()}`
+            const aria = `${m.libelleNature} — ${FMT_MOIS.format(parseDateLocale(m.debut))} : ${String(n)} passage${n > 1 ? 's' : ''}, ${def.libelle.toLowerCase()}`
             return (
               <g
                 key={m.cle}
@@ -256,10 +265,10 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
                   y={m.y - CONTOUR / 2}
                   width={CONTOUR}
                   height={CONTOUR}
-                  rx={3}
+                  rx={5}
                   fill="none"
                   stroke={m.couleurNature}
-                  strokeWidth={1.25}
+                  strokeWidth={2}
                 />
                 {/* Carré d'état. */}
                 <rect
@@ -267,11 +276,11 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
                   y={m.y - COTE / 2}
                   width={COTE}
                   height={COTE}
-                  rx={1.5}
+                  rx={2.5}
                   fill={def.creux ? 'none' : toneToken(def.tone)}
                   stroke={def.creux ? toneToken(def.tone) : 'none'}
-                  strokeWidth={def.creux ? 1 : 0}
-                  strokeDasharray={def.creux ? '1.5 1' : undefined}
+                  strokeWidth={def.creux ? 1.5 : 0}
+                  strokeDasharray={def.creux ? '2.5 1.5' : undefined}
                   opacity={survol === m.cle ? 0.75 : 1}
                 >
                   <title>{aria}</title>
@@ -298,8 +307,8 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
             }}
           >
             <div className="font-medium whitespace-nowrap">
-              {survolee.libelleNature} · semaine du{' '}
-              {formatDateAvecSemaineIso(survolee.lundi)}
+              {survolee.libelleNature} ·{' '}
+              {FMT_MOIS.format(parseDateLocale(survolee.debut))}
             </div>
             {survolee.jalons.slice(0, MAX_INFOBULLE).map((j) => (
               <div

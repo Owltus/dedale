@@ -38,7 +38,7 @@ export const ETAT_JALON: Record<
 }
 
 /**
- * Priorité d'une semaine qui mélange plusieurs passages : c'est le MOINS
+ * Priorité d'un mois qui mélange plusieurs passages : c'est le MOINS
  * organisé qui l'emporte (retard, puis rouvert, en cours, programmé par
  * l'application, estimé, et enfin planifié par vous), pour qu'un passage non
  * organisé ne soit jamais caché par un passage déjà planifié. Sert aussi
@@ -194,31 +194,31 @@ export function construireBandes(params: {
   })
 }
 
-/** Une semaine d'une bande : tous ses passages et l'état qui la colore. */
-export interface SemaineBande {
-  /** Lundi de la semaine ISO (AAAA-MM-JJ). */
-  lundi: string
+/** Un mois d'une bande : tous ses passages et l'état qui le colore. */
+export interface MoisBande {
+  /** Premier jour du mois (AAAA-MM-01). */
+  debut: string
   etat: EtatJalon
   jalons: Jalon[]
 }
 
 /**
- * Regroupe les passages d'une bande par semaine ISO (une marque par semaine :
- * la frise reste sur une seule ligne par nature, même avec des gammes
- * hebdomadaires). L'état affiché suit ORDRE_LEGENDE. Fonction pure.
+ * Regroupe les passages d'une bande par MOIS (une marque par mois : des
+ * carrés assez grands pour être lisibles, demande PO du 09/11/2026). L'état
+ * affiché suit ORDRE_LEGENDE. Fonction pure.
  */
-export function regrouperParSemaine(jalons: Jalon[]): SemaineBande[] {
-  const parLundi = new Map<string, Jalon[]>()
+export function regrouperParMois(jalons: Jalon[]): MoisBande[] {
+  const parMois = new Map<string, Jalon[]>()
   for (const j of jalons) {
-    const lundi = isoLocale(lundiDeLaSemaine(parseDateLocale(j.date)))
-    const arr = parLundi.get(lundi)
+    const debut = `${j.date.slice(0, 7)}-01`
+    const arr = parMois.get(debut)
     if (arr) arr.push(j)
-    else parLundi.set(lundi, [j])
+    else parMois.set(debut, [j])
   }
-  return [...parLundi.entries()]
+  return [...parMois.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([lundi, js]) => ({
-      lundi,
+    .map(([debut, js]) => ({
+      debut,
       jalons: js,
       etat: ORDRE_LEGENDE.find((e) => js.some((j) => j.etat === e)) ?? 'estime',
     }))
