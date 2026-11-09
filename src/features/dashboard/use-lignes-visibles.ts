@@ -28,8 +28,15 @@ export const CHROME_ONGLETS = 41
  * `ResizeObserver`. Relevé initial SYNCHRONE avant le paint (pas de flash), maj de
  * l'état SEULEMENT si la valeur change (pas de boucle de rendu). `0` tant que le 1er
  * layout n'a pas eu lieu.
+ *
+ * `actif` : à passer à `false` tant que l'élément n'est pas encore monté (écran de
+ * chargement). Sans lui, la mesure ne se faisait qu'au PREMIER rendu — sur le
+ * squelette, où la ref est nulle — et ne reprenait jamais : hauteur figée à 0.
  */
-export function useElementHeight(ref: RefObject<HTMLElement | null>): number {
+export function useElementHeight(
+  ref: RefObject<HTMLElement | null>,
+  actif = true,
+): number {
   const [hauteur, setHauteur] = useState(0)
 
   useLayoutEffect(() => {
@@ -48,7 +55,7 @@ export function useElementHeight(ref: RefObject<HTMLElement | null>): number {
       cancelAnimationFrame(raf)
       ro.disconnect()
     }
-  }, [ref])
+  }, [ref, actif])
 
   return hauteur
 }
@@ -61,6 +68,7 @@ export function useElementHeight(ref: RefObject<HTMLElement | null>): number {
  */
 export function useParentClientHeight(
   ref: RefObject<HTMLElement | null>,
+  actif = true,
 ): number {
   const [hauteur, setHauteur] = useState(0)
 
@@ -82,7 +90,7 @@ export function useParentClientHeight(
       cancelAnimationFrame(raf)
       ro.disconnect()
     }
-  }, [ref])
+  }, [ref, actif])
 
   return hauteur
 }

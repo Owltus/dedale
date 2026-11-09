@@ -16,6 +16,7 @@ import {
 } from '../use-lignes-visibles'
 import { ZoneSynthese } from './zone-synthese'
 import { FriseReconductions } from './frise-reconductions'
+import { FriseObligations } from './frise-obligations'
 import { ZoneActivite } from './zone-activite'
 import { DerniersDocuments } from './derniers-documents'
 import { PremiersPas } from './premiers-pas'
@@ -35,7 +36,8 @@ const GAP_ZONE = 16
  * Orchestrateur du tableau de bord du site actif. Assemble les zones de l'entonnoir
  * (du général au concret) :
  *   Zone 1 — Synthèse : donut OT / barres planning / sunburst gammes ;
- *   Zone 2 — Échéances : frise des reconductions de contrats ;
+ *   Zone 2 — Échéances : frise des reconductions de contrats, puis frise des
+ *   obligations (réglementaire, hygiène, formation : planifié / programmé / estimé) ;
  *   Zone 3 — Action : journaux du site (demandes, travaux, événements, sous
  *   onglets) + Documents récents.
  * Base quasi vierge (aucun OT) → le guide « Premiers pas » REMPLACE tout le tableau.
@@ -71,9 +73,13 @@ export function Dashboard({ siteId }: DashboardProps) {
   // GRANDIR le tableau → la page défile (plutôt que d'écraser les cartes à néant).
   const rootRef = useRef<HTMLDivElement>(null)
   const zone1Ref = useRef<HTMLDivElement>(null)
-  const hauteurCorps = useParentClientHeight(rootRef)
-  const hauteurZone1 = useElementHeight(zone1Ref)
-  const hauteurZone2 = useElementHeight(mesureRef)
+  // Mesures relancées quand le tableau REMPLACE l'écran de chargement (les refs
+  // n'existent qu'à ce moment-là).
+  const monte =
+    ordresTravailQuery.isSuccess && ordresTravailQuery.data.length > 0
+  const hauteurCorps = useParentClientHeight(rootRef, monte)
+  const hauteurZone1 = useElementHeight(zone1Ref, monte)
+  const hauteurZone2 = useElementHeight(mesureRef, monte)
   const dispoZone3 =
     hauteurCorps - PB_PAGE - hauteurZone1 - hauteurZone2 - 2 * GAP_ZONE
   // Chrome de la carte la plus exigeante des deux : celle à onglets (Activité).
@@ -158,8 +164,9 @@ export function Dashboard({ siteId }: DashboardProps) {
       {/* Zone 2 — Échéances : frise pilotée par la MÊME fenêtre. Le wrapper (pleine
           largeur, sans padding horizontal) sert de conteneur de mesure au calcul
           `useColonnesAuto` du `nbSemaines` partagé. */}
-      <div ref={mesureRef} className="shrink-0">
+      <div ref={mesureRef} className="flex shrink-0 flex-col gap-4">
         <FriseReconductions siteId={siteId} fenetre={fenetre} />
+        <FriseObligations siteId={siteId} fenetre={fenetre} />
       </div>
 
       {/* Zone 3 — Action : chaîne 100 % FLEX (zéro grid, zéro hauteur en %). NORMAL : `flex-1
