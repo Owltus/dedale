@@ -259,8 +259,9 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
     const todayMs = msDeIso(todayIso)
     // Axe COMMUN aux frises (mois alignés avec la frise des obligations).
     const axe = axeFrise(fenetre.centre, viewW, todayMs)
-    const { t0ms, t1ms, projX } = axe
-    const clampMs = (ms: number) => Math.min(Math.max(ms, t0ms), t1ms)
+    const { t0ms, t1ms, semaineDe } = axe
+    // Lecture PAR SEMAINE ISO (PO) : un événement occupe SA semaine entière.
+    const borneX = (x: number) => Math.min(Math.max(x, 0), viewW)
 
     // ── Dérivation des jalons ──────────────────────────────────────────────────
     const points: PointBrut[] = []
@@ -339,7 +340,7 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
     for (const p of points) {
       const ms = msDeIso(p.date)
       if (ms < t0ms || ms > t1ms) continue
-      const xc = projX(ms)
+      const xc = semaineDe(ms).centre
       const nature: NatureCle =
         p.kind === 'resiliation' ? 'resiliation' : 'debut'
       occ.push({
@@ -366,8 +367,9 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
       const msD = msDeIso(b.debut)
       const msE = msDeIso(b.echeance)
       if (msE < t0ms || msD > t1ms) continue
-      const bx0 = projX(clampMs(msD))
-      const bx1 = Math.max(projX(clampMs(msE)), bx0 + R * 2)
+      // Barre : du lundi de la semaine de début au dimanche de celle de l'échéance.
+      const bx0 = borneX(semaineDe(msD).debut)
+      const bx1 = Math.max(borneX(semaineDe(msE).fin), bx0 + R * 2)
       const ouverte = todayMs >= msD && todayMs <= msE
       const echeanceNature = natureEcheance(b.echeance, todayIso)
       occ.push({
@@ -415,7 +417,6 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
       elements,
       hauteur,
       axe,
-      filigrane: axe.filigrane,
     }
   }, [contrats, fenetre.centre, viewW])
 
@@ -457,23 +458,12 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
               aria-label="Frise des reconductions de contrats"
               className="block"
             >
-              {/* Mois, semaines ISO et semaine en cours (commun aux frises). */}
-              <AxeFriseSvg axe={modele.axe} hauteur={modele.hauteur} />
-
-              {/* Année en filigrane. */}
-              <text
-                x={viewW / 2}
-                y={modele.hauteur * 0.66}
-                textAnchor="middle"
-                style={{
-                  fill: 'var(--muted-foreground)',
-                  opacity: 0.07,
-                  fontSize: modele.hauteur * 0.55,
-                  fontWeight: 700,
-                }}
-              >
-                {modele.filigrane}
-              </text>
+              {/* Semaine en cours, année et mois (commun aux frises). */}
+              <AxeFriseSvg
+                axe={modele.axe}
+                hauteur={modele.hauteur}
+                largeur={viewW}
+              />
 
               {/* Éléments : barres de préavis (+ jalon d'échéance) et points. */}
               {modele.elements.map((e) => {

@@ -121,8 +121,8 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
             cle: `${b.nature}:${mois.debut}`,
             libelleNature: b.libelle,
             couleurNature: b.couleur,
-            // Milieu du mois : la marque couvre son mois.
-            x: axe.projX((d.getTime() + fin.getTime()) / 2),
+            // Dans la semaine ISO du milieu du mois (lecture par semaine, PO).
+            x: axe.semaineDe((d.getTime() + fin.getTime()) / 2).centre,
           }
         }),
       )
@@ -203,8 +203,8 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
           aria-label="Frise des obligations à venir dont le document est exigé"
           className="block"
         >
-          {/* Mois, semaines ISO et semaine en cours (commun aux frises). */}
-          <AxeFriseSvg axe={axe} hauteur={modele.hauteur} />
+          {/* Semaine en cours, année et mois (commun aux frises). */}
+          <AxeFriseSvg axe={axe} hauteur={modele.hauteur} largeur={viewW} />
 
           {/* Une marque par nature et par mois : contour = nature, fond = état. */}
           {modele.marques.map((m) => {
