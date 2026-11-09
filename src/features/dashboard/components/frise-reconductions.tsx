@@ -26,6 +26,7 @@ import { formatDate, todayLocal } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 import { DashboardCard } from './dashboard-card'
 import { dashboardQueries } from '../queries'
+import { axeFrise } from '../frise-axe'
 
 interface FriseReconductionsProps {
   siteId: string
@@ -108,8 +109,6 @@ const BARRE_H = R * 1.6 // épaisseur de la barre de préavis
 const GAP = R * 1.2 // espace mini entre deux éléments d'une même ligne
 const BAS = 16 // place réservée en bas pour « Aujourd'hui »
 const JOUR = 86_400_000
-
-const FMT_MOIS = new Intl.DateTimeFormat('fr-FR', { month: 'short' })
 
 /** Millisecondes (minuit local) d'une date nue `YYYY-MM-DD`. */
 function msDeIso(iso: string): number {
@@ -255,21 +254,12 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
   const viewW = largeur || 1000
 
   const modele = useMemo(() => {
-    // Densité des mois : ~un mois tous les ~60 px → beaucoup de mois, bien rapprochés.
-    // La portée temporelle en découle (indépendante des barres : seul le `centre` est
-    // partagé, pour la navigation clavier).
-    const moisCible = Math.max(6, Math.round(viewW / 60))
-    const porteeJours = Math.round(moisCible * 30.44)
-    // Layout « aujourd'hui au premier tiers » : ~1/3 de passé à gauche, ~2/3 de futur.
-    const offsetPasse = Math.round(porteeJours / 3)
-    const centreMs = fenetre.centre.getTime()
-    const t0ms = centreMs - offsetPasse * JOUR
-    const t1ms = centreMs + (porteeJours - offsetPasse) * JOUR
-    const projX = (ms: number) => ((ms - t0ms) / (t1ms - t0ms)) * viewW
-    const clampMs = (ms: number) => Math.min(Math.max(ms, t0ms), t1ms)
-
     const todayIso = todayLocal()
     const todayMs = msDeIso(todayIso)
+    // Axe COMMUN aux frises (mois alignés avec la frise des obligations).
+    const axe = axeFrise(fenetre.centre, viewW, todayMs)
+    const { t0ms, t1ms, projX } = axe
+    const clampMs = (ms: number) => Math.min(Math.max(ms, t0ms), t1ms)
 
     // ── Dérivation des jalons ──────────────────────────────────────────────────
     const points: PointBrut[] = []
@@ -420,31 +410,13 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
     const nbLanes = Math.max(lanesRight.length, 1)
     const hauteur = POINTS_TOP + nbLanes * LANE_H + BAS
 
-    // ── Axe des mois (anti-chevauchement) + filigrane ──────────────────────────
-    const mois: { x: number; label: string }[] = []
-    let cur = new Date(
-      new Date(t0ms).getFullYear(),
-      new Date(t0ms).getMonth(),
-      1,
-    )
-    let dernierMoisX = -Infinity
-    while (cur.getTime() <= t1ms) {
-      const x = projX(cur.getTime())
-      if (x >= 0 && x <= viewW && x - dernierMoisX >= 34) {
-        mois.push({ x, label: FMT_MOIS.format(cur) })
-        dernierMoisX = x
-      }
-      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
-    }
-
-    const todayX = projX(todayMs)
     return {
       elements,
       hauteur,
-      mois,
-      todayX,
-      todayVisible: todayX >= 0 && todayX <= viewW,
-      filigrane: String(fenetre.centre.getFullYear()),
+      mois: axe.mois,
+      todayX: axe.todayX,
+      todayVisible: axe.todayVisible,
+      filigrane: axe.filigrane,
     }
   }, [contrats, fenetre.centre, viewW])
 
