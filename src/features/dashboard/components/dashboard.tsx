@@ -164,9 +164,18 @@ export function Dashboard({ siteId }: DashboardProps) {
       {/* Zone 2 — Échéances : frise pilotée par la MÊME fenêtre. Le wrapper (pleine
           largeur, sans padding horizontal) sert de conteneur de mesure au calcul
           `useColonnesAuto` du `nbSemaines` partagé. */}
-      <div ref={mesureRef} className="flex shrink-0 flex-col gap-4">
-        <FriseReconductions siteId={siteId} fenetre={fenetre} />
-        <FriseObligations siteId={siteId} fenetre={fenetre} />
+      <div ref={mesureRef} className="@container shrink-0">
+        {/* Contrats et obligations CÔTE À CÔTE dès que la zone dépasse 56 rem
+            (≈ 900 px), empilés en dessous (demande PO du 09/11/2026). Chaque
+            frise mesure sa propre largeur : son axe s'adapte à sa moitié. */}
+        <div className="flex flex-col gap-4 @4xl:flex-row">
+          <div className="min-w-0 flex-1">
+            <FriseReconductions siteId={siteId} fenetre={fenetre} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <FriseObligations siteId={siteId} fenetre={fenetre} />
+          </div>
+        </div>
       </div>
 
       {/* Zone 3 — Action : chaîne 100 % FLEX (zéro grid, zéro hauteur en %). NORMAL : `flex-1

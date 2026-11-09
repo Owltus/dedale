@@ -156,7 +156,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
 
   if (gammesQuery.isError)
     return (
-      <DashboardCard className="gap-2 py-3">
+      <DashboardCard>
         <ErrorState
           message="Les obligations n’ont pas pu être chargées."
           onRetry={() => void gammesQuery.refetch()}
@@ -166,7 +166,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
     )
   if (gammesQuery.isPending)
     return (
-      <DashboardCard className="gap-2 py-3">
+      <DashboardCard>
         <Skeleton className="my-2 h-12 w-full" />
       </DashboardCard>
     )
@@ -193,7 +193,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
   const survolee = modele.marques.find((m) => m.cle === survol) ?? null
 
   return (
-    <DashboardCard className="gap-2 py-3">
+    <DashboardCard>
       <div ref={setBoite} className="relative">
         <svg
           viewBox={`0 0 ${String(viewW)} ${String(modele.hauteur)}`}
