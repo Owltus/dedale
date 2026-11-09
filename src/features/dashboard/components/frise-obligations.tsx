@@ -12,6 +12,7 @@ import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { parseDateLocale, todayLocal } from '@/lib/date'
 import { DashboardCard } from './dashboard-card'
+import { AxeFriseSvg, AXE_FRISE_H } from './axe-frise-svg'
 import { useDashboardData } from '../use-dashboard-data'
 import { axeFrise, useLargeur } from '../frise-axe'
 import {
@@ -33,8 +34,8 @@ const CONTOUR_MAX = 22 // côté du contour de nature (détaché du carré), au 
 const CONTOUR_MIN = 12
 const ECART_CARRE = 10 // le carré d'état est plus petit que son contour d'autant
 const LIGNE_H = 26
-const AXE_H = 18
-const BAS = 3 // respiration sous la dernière ligne (pas de libellé « Aujourd'hui » : la frise des contrats le porte déjà)
+const AXE_H = AXE_FRISE_H + 4
+const BAS = 3 // respiration sous la dernière ligne
 const JOUR = 86_400_000
 const FMT_MOIS = new Intl.DateTimeFormat('fr-FR', {
   month: 'long',
@@ -202,43 +203,8 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
           aria-label="Frise des obligations à venir dont le document est exigé"
           className="block"
         >
-          {/* Axe des mois (aligné sur la frise des contrats). */}
-          {axe.mois.map((m, i) => (
-            <g key={`mois-${String(i)}`}>
-              <line
-                x1={m.x}
-                y1={AXE_H}
-                x2={m.x}
-                y2={modele.hauteur - BAS}
-                stroke="var(--border)"
-                strokeWidth={1}
-              />
-              <text
-                x={m.x}
-                y={AXE_H - 7}
-                textAnchor="middle"
-                style={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
-              >
-                {m.label}
-              </text>
-            </g>
-          ))}
-
-          {/* « Aujourd'hui ». */}
-          {axe.todayVisible && (
-            <>
-              <line
-                x1={axe.todayX}
-                y1={AXE_H - 3}
-                x2={axe.todayX}
-                y2={modele.hauteur}
-                stroke="var(--muted-foreground)"
-                strokeWidth={1}
-                strokeDasharray="4 4"
-                opacity={0.7}
-              />
-            </>
-          )}
+          {/* Mois, semaines ISO et semaine en cours (commun aux frises). */}
+          <AxeFriseSvg axe={axe} hauteur={modele.hauteur} />
 
           {/* Une marque par nature et par mois : contour = nature, fond = état. */}
           {modele.marques.map((m) => {

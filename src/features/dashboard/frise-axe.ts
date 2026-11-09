@@ -1,4 +1,5 @@
 import { useLayoutEffect, useState } from 'react'
+import { ajouterJours, lundiDeLaSemaine, semaineIso } from '@/lib/date'
 
 const JOUR = 86_400_000
 /** Portée des frises : mois de passé et d'avenir autour du centre. */
@@ -13,9 +14,10 @@ export interface AxeFrise {
   projX: (ms: number) => number
   /** Repères de mois (anti-chevauchement : ≥ 34 px entre deux libellés). */
   mois: { x: number; label: string }[]
-  /** X de « Aujourd'hui » et sa visibilité dans la fenêtre. */
-  todayX: number
-  todayVisible: boolean
+  /** Lundis des semaines ISO visibles ; `libelle` = numéro à afficher. */
+  semaines: { x0: number; x1: number; numero: number; libelle: boolean }[]
+  /** Semaine ISO en cours (bande lundi → dimanche), `null` hors fenêtre. */
+  semaineCourante: { x0: number; x1: number; numero: number } | null
   /** Année du centre, en filigrane. */
   filigrane: string
 }
@@ -24,8 +26,10 @@ export interface AxeFrise {
  * Axe du temps COMMUN aux frises du tableau de bord (contrats, obligations) :
  * fenêtre FIXE de 3 mois de passé et 6 mois d'avenir (décision PO du
  * 09/11/2026 : voir plus loin noyait l'essentiel), autour du `centre` partagé
- * par les flèches clavier — « aujourd'hui » tombe donc au premier tiers. Deux
- * frises de même largeur ont leurs mois EXACTEMENT alignés.
+ * par les flèches clavier — la semaine en cours tombe donc au premier tiers.
+ * Lecture PAR SEMAINE ISO 8601 (lundi = 1er jour, demande PO) : numéros de
+ * semaine sous les mois, semaine en cours en bande (plus de trait « aujourd'hui »).
+ * Deux frises de même largeur ont leurs repères EXACTEMENT alignés.
  */
 export function axeFrise(
   centre: Date,
@@ -49,14 +53,44 @@ export function axeFrise(
     cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
   }
 
-  const todayX = projX(todayMs)
+  // Semaines ISO 8601 (lundi → dimanche) : un repère par lundi, numéro affiché
+  // si la place le permet (un sur deux, voire sur quatre, sur écran étroit).
+  const semainePx = (7 * JOUR * viewW) / (t1ms - t0ms)
+  const pas = semainePx >= 24 ? 1 : semainePx >= 12 ? 2 : 4
+  const semaines: {
+    x0: number
+    x1: number
+    numero: number
+    libelle: boolean
+  }[] = []
+  let lundi = lundiDeLaSemaine(new Date(t0ms))
+  while (lundi.getTime() <= t1ms) {
+    const x0 = projX(lundi.getTime())
+    const x1 = x0 + semainePx
+    const { numero } = semaineIso(lundi)
+    if (x1 > 0 && x0 < viewW)
+      semaines.push({ x0, x1, numero, libelle: numero % pas === 0 })
+    lundi = ajouterJours(lundi, 7)
+  }
+
+  // Semaine en cours : bande du lundi au lundi suivant (pas de « jour J »).
+  const lundiCourant = lundiDeLaSemaine(new Date(todayMs))
+  const sx0 = projX(lundiCourant.getTime())
+  const sx1 = projX(ajouterJours(lundiCourant, 7).getTime())
   return {
     t0ms,
     t1ms,
     projX,
     mois,
-    todayX,
-    todayVisible: todayX >= 0 && todayX <= viewW,
+    semaines,
+    semaineCourante:
+      sx1 > 0 && sx0 < viewW
+        ? {
+            x0: Math.max(0, sx0),
+            x1: Math.min(viewW, sx1),
+            numero: semaineIso(lundiCourant).numero,
+          }
+        : null,
     filigrane: String(centre.getFullYear()),
   }
 }

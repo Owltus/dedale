@@ -27,6 +27,7 @@ import { segOfUnique } from '@/lib/slug'
 import { DashboardCard } from './dashboard-card'
 import { dashboardQueries } from '../queries'
 import { axeFrise } from '../frise-axe'
+import { AxeFriseSvg, AXE_FRISE_H } from './axe-frise-svg'
 
 interface FriseReconductionsProps {
   siteId: string
@@ -49,7 +50,7 @@ interface FriseReconductionsProps {
  * façon mini-Gantt : chaque ÉCHÉANCE (fin d'un déterminé, reconduction d'un tacite)
  * est précédée d'une BARRE = sa PÉRIODE DE PRÉAVIS (`delai_preavis_jours` avant
  * l'échéance), avec un jalon coloré à l'échéance. Début et résiliations restent des
- * POINTS. « Aujourd'hui » en pointillés au premier tiers, axe des mois, année en
+ * POINTS. Semaine ISO en cours en bande au premier tiers, mois et numéros de semaine, année en
  * filigrane, couleurs par nature (tokens sémantiques), anti-chevauchement vertical,
  * tooltip (avec vignette prestataire), clic → fiche prestataire. Le `centre` est
  * PARTAGÉ avec les barres (mêmes flèches clavier).
@@ -103,11 +104,11 @@ const NATURE_DEF: Record<NatureCle, NatureDef> = {
 // d'agrandissement quand la carte s'élargit ; éléments fins) ───────────────────
 const R = 5
 const LANE_H = 16
-const AXE_H = 22
+const AXE_H = AXE_FRISE_H
 const POINTS_TOP = AXE_H + R + 6
 const BARRE_H = R * 1.6 // épaisseur de la barre de préavis
 const GAP = R * 1.2 // espace mini entre deux éléments d'une même ligne
-const BAS = 16 // place réservée en bas pour « Aujourd'hui »
+const BAS = 4 // respiration sous la dernière ligne
 const JOUR = 86_400_000
 
 /** Millisecondes (minuit local) d'une date nue `YYYY-MM-DD`. */
@@ -413,9 +414,7 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
     return {
       elements,
       hauteur,
-      mois: axe.mois,
-      todayX: axe.todayX,
-      todayVisible: axe.todayVisible,
+      axe,
       filigrane: axe.filigrane,
     }
   }, [contrats, fenetre.centre, viewW])
@@ -458,6 +457,9 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
               aria-label="Frise des reconductions de contrats"
               className="block"
             >
+              {/* Mois, semaines ISO et semaine en cours (commun aux frises). */}
+              <AxeFriseSvg axe={modele.axe} hauteur={modele.hauteur} />
+
               {/* Année en filigrane. */}
               <text
                 x={viewW / 2}
@@ -472,56 +474,6 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
               >
                 {modele.filigrane}
               </text>
-
-              {/* Axe des mois : trait fin + libellé centré en haut. */}
-              {modele.mois.map((m, i) => (
-                <g key={`mois-${String(i)}`}>
-                  <line
-                    x1={m.x}
-                    y1={AXE_H}
-                    x2={m.x}
-                    y2={modele.hauteur}
-                    stroke="var(--border)"
-                    strokeWidth={1}
-                  />
-                  <text
-                    x={m.x}
-                    y={AXE_H - 7}
-                    textAnchor="middle"
-                    style={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
-                  >
-                    {m.label}
-                  </text>
-                </g>
-              ))}
-
-              {/* « Aujourd'hui » : trait vertical pointillé + libellé centré EN BAS. */}
-              {modele.todayVisible && (
-                <>
-                  <line
-                    x1={modele.todayX}
-                    y1={AXE_H - 3}
-                    x2={modele.todayX}
-                    y2={modele.hauteur - BAS + 2}
-                    stroke="var(--muted-foreground)"
-                    strokeWidth={1}
-                    strokeDasharray="4 4"
-                    opacity={0.7}
-                  />
-                  <text
-                    x={modele.todayX}
-                    y={modele.hauteur - 4}
-                    textAnchor="middle"
-                    style={{
-                      fill: 'var(--muted-foreground)',
-                      fontSize: 10,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {"Aujourd'hui"}
-                  </text>
-                </>
-              )}
 
               {/* Éléments : barres de préavis (+ jalon d'échéance) et points. */}
               {modele.elements.map((e) => {
