@@ -3,8 +3,8 @@ import { ajouterJours, lundiDeLaSemaine } from '@/lib/date'
 
 const JOUR = 86_400_000
 /** Portée des frises : mois de passé et d'avenir autour du centre. */
-const MOIS_PASSE = 3
-const MOIS_AVENIR = 6
+const MOIS_PASSE = 2
+const MOIS_AVENIR = 4
 const FMT_MOIS = new Intl.DateTimeFormat('fr-FR', { month: 'short' })
 
 export interface AxeFrise {
@@ -28,7 +28,7 @@ export interface AxeFrise {
 
 /**
  * Axe du temps COMMUN aux frises du tableau de bord (contrats, obligations) :
- * fenêtre FIXE de 3 mois de passé et 6 mois d'avenir (décision PO du
+ * fenêtre FIXE de 2 mois de passé et 4 mois d'avenir (décision PO du
  * 09/11/2026 : voir plus loin noyait l'essentiel), autour du `centre` partagé
  * par les flèches clavier — la semaine en cours tombe donc au premier tiers.
  * Lecture PAR SEMAINE ISO 8601 (lundi = 1er jour, demande PO) : la semaine en
