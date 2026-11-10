@@ -217,9 +217,7 @@ function Case({
       >
         <Icone aria-hidden className="size-4" />
       </span>
-      <span className="leading-tight @min-[15rem]:text-left">
-        {c.libelle}
-      </span>
+      <span className="leading-tight @min-[15rem]:text-left">{c.libelle}</span>
       {/* Les montants : à droite dans une case large, dessous dans une case
           étroite. */}
       {chiffres.length > 0 && (
