@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import {
   decisionsCapex,
-  etapesInvestissement,
+  etapeAtteinteCapex,
   ID_ACCORDE,
   ID_ANNULE,
   ID_CLOTURE,
@@ -14,6 +14,7 @@ import {
   libelleDecision,
   nomStatutCapex,
   rangStatutCapex,
+  schemaParcoursCapex,
   statutCapexTone,
   STATUTS_CAPEX_TERMINAUX,
 } from './etat'
@@ -93,112 +94,109 @@ describe('rangStatutCapex — ordre total', () => {
   })
 })
 
-describe('etapesInvestissement', () => {
-  it('la frise suit l’ordre des rangs, strictement croissant', () => {
-    // ORACLE (cohérence interne) : la frise et le menu déroulant racontent le
-    // MÊME cycle. Si les étapes de la frise n'étaient pas rangées comme le tri,
-    // l'utilisateur lirait deux ordres différents pour un même investissement.
+const schema = (id: number, atteinte = ID_DEMANDE) =>
+  schemaParcoursCapex(id, SANS_REFERENTIEL, null, atteinte)
+
+describe('schemaParcoursCapex — schéma du parcours', () => {
+  it('le chemin est toujours le même, dans l’ordre des rangs', () => {
+    // ORACLE (cohérence interne) : le schéma et le menu racontent le MÊME cycle.
     fc.assert(
-      fc.property(idConnu, (statutId) => {
-        const res = etapesInvestissement(statutId, SANS_REFERENTIEL)
-        if (statutId === ID_REFUSE) return
-        const rangs = (res ?? []).map((e) => rangStatutCapex(e.statutId))
+      fc.property(fc.oneof(idConnu, idInconnu), (statutId) => {
+        const ids = schema(statutId).chemin.map((n) => n.statutId)
+        expect(ids).toEqual([1, 5, 2, 6, 3, 7])
+        const rangs = ids.map(rangStatutCapex)
         expect(rangs).toEqual([...rangs].sort((a, b) => a - b))
-        expect(new Set(rangs).size).toBe(rangs.length)
       }),
       TIRAGES,
     )
   })
 
-  it('le parcours affiché est toujours le même — seul l’avancement change', () => {
-    // ORACLE (doc de `construireEtapes`) : le parcours est fixe, l'état des
-    // étapes est positionnel. Deux investissements à des stades différents
-    // montrent la même frise, pas la même progression.
+  it('le dossier est repéré par UNE seule case, sauf une fois clôturé', () => {
     fc.assert(
-      fc.property(idConnu, idConnu, (a, b) => {
-        // Les deux issues défavorables sont hors parcours : elles rendent une
-        // frise MINIMALE, pas le parcours complet. On les écarte ici, chacune
-        // ayant son propre test juste en dessous.
-        const horsParcours = (id: number) => ISSUES_ARRET.includes(id)
-        if (horsParcours(a) || horsParcours(b)) return
-        expect(
-          etapesInvestissement(a, SANS_REFERENTIEL)?.map((e) => e.statutId),
-        ).toEqual(
-          etapesInvestissement(b, SANS_REFERENTIEL)?.map((e) => e.statutId),
+      fc.property(idConnu, (statutId) => {
+        const { chemin, sorties } = schema(statutId)
+        const actuelles = [...chemin, ...sorties].filter(
+          (n) => n.etat === 'actuel',
+        )
+        expect(actuelles.map((n) => n.statutId)).toEqual(
+          statutId === ID_CLOTURE ? [] : [statutId],
         )
       }),
       TIRAGES,
     )
   })
 
-  it('« Annulé » est traité à part : frise minimale « Demandé → Annulé »', () => {
-    // ORACLE (doc) : même traitement que le refus — une issue défavorable n'est
-    // pas une étape d'avancement. Sans ce test, « Annulé » se serait affiché
-    // comme un parcours complet figé à « Demandé », ce qui laisserait croire que
-    // le dossier est encore en cours.
-    const res = etapesInvestissement(ID_ANNULE, SANS_REFERENTIEL)
-    expect(res?.map((e) => e.statutId)).toEqual([1, ID_ANNULE])
-    expect(res?.map((e) => e.state)).toEqual(['done', 'rejected'])
-    // Terminal → rien n'est actionnable depuis la frise.
-    expect(res?.every((e) => !e.actionable)).toBe(true)
-  })
-
-  it('« Refusé » est traité à part : frise minimale « Demandé → Refusé »', () => {
-    // ORACLE (doc) : « Refusé : frise minimale (départ Demandé franchi puis
-    // issue refusée), en lecture seule. » C'est une issue, pas une étape du
-    // parcours — elle ne s'affiche donc pas comme un avancement.
-    const res = etapesInvestissement(ID_REFUSE, SANS_REFERENTIEL)
-    expect(res?.map((e) => e.statutId)).toEqual([1, ID_REFUSE])
-    expect(res?.map((e) => e.state)).toEqual(['done', 'rejected'])
-    expect(res?.every((e) => !e.actionable)).toBe(true)
-  })
-
-  it('« Clôturé » est terminal : frise entièrement franchie, sans étape courante', () => {
-    // ORACLE (doc de `construireEtapes`) : « le dernier statut atteint est done,
-    // pas current → l'entité se lit comme accomplie ». Un dossier clos ne doit
-    // pas afficher une étape « en cours ».
-    const res = etapesInvestissement(ID_CLOTURE, SANS_REFERENTIEL)
-    expect(res?.every((e) => e.state === 'done')).toBe(true)
-    expect(res?.some((e) => e.state === 'current')).toBe(false)
-  })
-
-  it('un statut de PROGRESSION a bien une étape courante, et une seule', () => {
-    // ORACLE (doc) : distinction entre statuts de progression et statuts
-    // terminaux. « Réalisé » (3) reste une étape du parcours — « les dépenses
-    // peuvent encore bouger » — donc il porte l'étape courante, contrairement à
-    // Clôturé et Refusé.
+  it('avant la case actuelle tout est coché, après rien ne l’est', () => {
     for (const id of [1, 5, 2, 6, 3]) {
-      const res = etapesInvestissement(id, SANS_REFERENTIEL)
-      const courantes = (res ?? []).filter((e) => e.state === 'current')
-      expect(courantes.map((e) => e.statutId)).toEqual([id])
+      const etats = schema(id).chemin.map((n) => n.etat)
+      const i = etats.indexOf('actuel')
+      expect(etats.slice(0, i).every((x) => x === 'fait')).toBe(true)
+      expect(etats.slice(i + 1).every((x) => x === 'avenir')).toBe(true)
     }
   })
 
-  it('toutes les étapes sont cliquables sauf celle où l’on est', () => {
-    // ORACLE (doc) : « Statut LIBRE (aucune machine à états) → toute étape du
-    // parcours est actionnable (clic = on positionne ce statut), sauf l'étape
-    // courante. » Un clic sur le statut déjà en place n'aurait aucun effet.
+  it('« Clôturé » : tout le chemin est coché', () => {
+    expect(schema(ID_CLOTURE).chemin.every((n) => n.etat === 'fait')).toBe(true)
+  })
+
+  it('un arrêt garde coché le chemin jusqu’à l’étape atteinte', () => {
+    // Refus de la direction : Demandé et Accordé ont bien eu lieu.
+    const { chemin, sorties } = schemaParcoursCapex(
+      ID_REFUSE,
+      SANS_REFERENTIEL,
+      'direction',
+      ID_ACCORDE,
+    )
+    expect(chemin.map((n) => n.etat)).toEqual([
+      'fait',
+      'fait',
+      'avenir',
+      'avenir',
+      'avenir',
+      'avenir',
+    ])
+    const refus = sorties.find((n) => n.statutId === ID_REFUSE)
+    expect(refus?.etat).toBe('actuel')
+    expect(refus?.precision).toBe('par la direction')
+  })
+
+  it('les trois sorties sont toujours montrées', () => {
     fc.assert(
-      fc.property(fc.constantFrom(1, 5, 2, 6, 3, 7), (statutId) => {
-        for (const e of etapesInvestissement(statutId, SANS_REFERENTIEL) ??
-          []) {
-          expect(e.actionable).toBe(e.statutId !== statutId)
-        }
+      fc.property(fc.oneof(idConnu, idInconnu), (statutId) => {
+        expect(schema(statutId).sorties.map((n) => n.statutId)).toEqual([
+          ID_REFUSE,
+          ID_REPORTE,
+          ID_ANNULE,
+        ])
       }),
       TIRAGES,
     )
   })
 
-  it('un statut inconnu ne produit aucune frise, et ne jette pas', () => {
-    // ORACLE (doc) : « Renvoie null si le statut n'appartient ni au parcours ni
-    // au refus → la frise n'est alors pas affichée. » Totalité : la fiche doit
-    // s'ouvrir même sur une donnée inattendue.
+  it('un statut inconnu ne coche rien et ne jette pas', () => {
     fc.assert(
       fc.property(idInconnu, (id) => {
-        expect(etapesInvestissement(id, SANS_REFERENTIEL)).toBeNull()
+        const { chemin, sorties } = schema(id)
+        expect([...chemin, ...sorties].every((n) => n.etat === 'avenir')).toBe(
+          true,
+        )
       }),
       TIRAGES,
     )
+  })
+})
+
+describe('etapeAtteinteCapex', () => {
+  it('lit la dernière étape du chemin dans l’historique', () => {
+    expect(etapeAtteinteCapex([1, 5, 2, 6, ID_ANNULE], null)).toBe(6)
+    // Relancé puis refusé : on repart de Demandé.
+    expect(etapeAtteinteCapex([1, 5, ID_REFUSE, 1, ID_REFUSE], null)).toBe(1)
+  })
+
+  it('sans historique : la direction suppose « Accordé », sinon « Demandé »', () => {
+    expect(etapeAtteinteCapex([], 'direction')).toBe(ID_ACCORDE)
+    expect(etapeAtteinteCapex([], 'responsable')).toBe(ID_DEMANDE)
+    expect(etapeAtteinteCapex([], null)).toBe(ID_DEMANDE)
   })
 })
 
@@ -235,12 +233,14 @@ describe('nomStatutCapex — totalité', () => {
     )
   })
 
-  it('le renommage du référentiel se propage jusqu’aux libellés de la frise', () => {
+  it('le renommage du référentiel se propage jusqu’au schéma', () => {
     // ORACLE (doc) : le nom « suit un renommage ». Renommer un statut en base
     // doit changer ce que l'utilisateur lit sur la frise, sans redéploiement.
     const noms = new Map<number, string>([[1, 'Sollicité']])
     expect(nomStatutCapex(1, noms)).toBe('Sollicité')
-    expect(etapesInvestissement(1, noms)?.[0]?.label).toBe('Sollicité')
+    expect(schemaParcoursCapex(1, noms, null, 1).chemin[0]?.libelle).toBe(
+      'Sollicité',
+    )
   })
 })
 
@@ -298,12 +298,6 @@ describe('statutCapexTone — totalité et sémantique', () => {
 })
 
 describe('decisionsCapex — arbre de décision (137)', () => {
-  it('« Reporté » est traité à part : frise minimale « Demandé → Reporté »', () => {
-    const res = etapesInvestissement(ID_REPORTE, SANS_REFERENTIEL)
-    expect(res?.map((e) => e.statutId)).toEqual([1, ID_REPORTE])
-    expect(res?.map((e) => e.state)).toEqual(['done', 'rejected'])
-  })
-
   it('Demandé : MA décision — accorder, refuser ou reporter', () => {
     expect(decisionsCapex(ID_DEMANDE)).toEqual([
       { statutId: ID_ACCORDE, par: 'responsable', libelle: 'Accorder' },

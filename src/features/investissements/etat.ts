@@ -1,8 +1,4 @@
 import {
-  construireEtapes,
-  type EtapeStatut,
-} from '@/components/common/status-steps'
-import {
   statusToneById,
   type StatusTone,
 } from '@/components/common/status-badge'
@@ -11,7 +7,7 @@ import {
 // Demandé(1) → Accordé(5, par le responsable) → Validé(2, par la direction) →
 // Engagé(6) → Réalisé(3) → Clôturé(7). Issues hors parcours : Refusé(4),
 // Annulé(8), Reporté(9) — 137, demande PO du 10/11/2026.
-// Le statut reste LIBRE côté base (pas de machine à états) : la frise n'est
+// Le statut reste LIBRE côté base (pas de machine à états) : le schéma n'est
 // qu'une lecture visuelle de l'avancement, jamais une contrainte. L'ordre vit
 // ici (présentation) — les ids ne sont volontairement PAS monotones (statuts
 // ajoutés après coup) → l'état se calcule par POSITION, pas par valeur d'id.
@@ -114,35 +110,6 @@ export function rangStatutCapex(id: number): number {
   return i === -1 ? ORDRE_AFFICHAGE.length : i
 }
 
-/**
- * Construit la frise de suivi d'un investissement depuis son statut courant et
- * le référentiel des statuts (id → nom, pour suivre un éventuel renommage).
- * Renvoie `null` si le statut n'appartient ni au parcours ni au refus (cas
- * théorique : le seed `statuts_capex` couvre 1-7) → la frise n'est alors pas
- * affichée. Statut LIBRE : toutes les étapes du parcours sont actionnables.
- */
-export function etapesInvestissement(
-  statutId: number,
-  noms: Map<number, string>,
-): EtapeStatut[] | null {
-  return construireEtapes({
-    parcours: PARCOURS_IDS,
-    statutId,
-    nom: (id) => nomStatutCapex(id, noms),
-    // Statut LIBRE (aucune machine à états) → toute étape du parcours est
-    // actionnable (clic = on positionne ce statut), sauf l'étape courante.
-    actionable: (_id, i, idx) => i !== idx,
-    // Refusé OU Annulé : frise minimale (départ Demandé franchi puis issue
-    // défavorable), en lecture seule. La sortie passe par le bouton « Réactiver ».
-    // La brique n'accepte qu'UNE issue défavorable — il suffit de lui passer
-    // celle du statut courant, les deux ne pouvant pas coexister.
-    rejected: {
-      id: ISSUES_ARRET.includes(statutId) ? statutId : ID_REFUSE,
-      departId: 1,
-    },
-  })
-}
-
 /** Issues qui arrêtent le parcours et exigent un motif (CHECK 121, étendu 137). */
 export const ISSUES_ARRET: readonly number[] = [
   ID_REFUSE,
@@ -172,7 +139,7 @@ export interface DecisionCapex {
  *   Validé   → Engager ; Engagé → Réalisé ; Réalisé → Clôturer
  *   Refusé / Reporté / Annulé → Relancer (retour à Demandé, historique gardé)
  * « Annuler » (abandon, à tout moment) reste en barre de titre. Le statut est
- * LIBRE côté base : cet arbre guide, la frise permet toujours de corriger.
+ * LIBRE côté base : cet arbre guide, le schéma permet toujours de corriger.
  */
 export function decisionsCapex(statutId: number): DecisionCapex[] {
   switch (statutId) {
@@ -230,4 +197,84 @@ export function libelleDecision(
   if (statutId === ID_DEMANDE) return premiere ? 'Demandé' : 'Relancé'
   const nom = nomStatutCapex(statutId, noms)
   return par ? `${nom} par ${libelleDecisionPar(par)}` : nom
+}
+
+/** État d'une case du schéma de parcours (fiche investissement). */
+export type EtatNoeudCapex = 'fait' | 'actuel' | 'avenir'
+
+/** Une case du schéma : le statut, son nom, et qui décide (sous-titre). */
+export interface NoeudCapex {
+  statutId: number
+  libelle: string
+  precision?: string
+  etat: EtatNoeudCapex
+}
+
+/**
+ * Dernière étape du CHEMIN atteinte avant un arrêt (Refusé / Reporté / Annulé),
+ * lue dans l'historique des décisions (ordre chronologique). Sans historique
+ * exploitable : un refus de la direction suppose « Accordé », sinon « Demandé ».
+ */
+export function etapeAtteinteCapex(
+  historique: readonly number[],
+  par: DecisionPar | null,
+): number {
+  let atteinte: number | null = null
+  for (const id of historique)
+    if ((PARCOURS_IDS as readonly number[]).includes(id)) atteinte = id
+  return atteinte ?? (par === 'direction' ? ID_ACCORDE : ID_DEMANDE)
+}
+
+const PRECISIONS: Record<number, string> = {
+  [ID_ACCORDE]: 'par moi',
+  [ID_VALIDE]: 'par la direction',
+  [ID_REFUSE]: 'par moi ou la direction',
+  [ID_REPORTE]: 'par moi ou la direction',
+  [ID_ANNULE]: 'à tout moment',
+}
+
+/**
+ * SCHÉMA DU PARCOURS (demande PO du 10/11/2026, remplace la frise) : le chemin
+ * Demandé → … → Clôturé, et à part les sorties possibles. Le dossier est
+ * repéré par sa case `actuel` ; sur un arrêt, le chemin reste coché jusqu'à
+ * l'étape atteinte (`atteinte`, cf. `etapeAtteinteCapex`).
+ */
+export function schemaParcoursCapex(
+  statutId: number,
+  noms: Map<number, string>,
+  par: DecisionPar | null,
+  atteinte: number,
+): { chemin: NoeudCapex[]; sorties: NoeudCapex[] } {
+  const parcours = PARCOURS_IDS as readonly number[]
+  const arret = ISSUES_ARRET.includes(statutId)
+  const rang = parcours.indexOf(arret ? atteinte : statutId)
+  // Clôturé = fin du chemin : tout est coché, le dossier se lit comme accompli.
+  const fini = statutId === ID_CLOTURE
+  const noeud = (id: number, etat: EtatNoeudCapex): NoeudCapex => {
+    const precision =
+      etat === 'actuel' && arret && par
+        ? `par ${libelleDecisionPar(par)}`
+        : PRECISIONS[id]
+    return {
+      statutId: id,
+      libelle: nomStatutCapex(id, noms),
+      etat,
+      ...(precision ? { precision } : {}),
+    }
+  }
+  return {
+    chemin: parcours.map((id, i) =>
+      noeud(
+        id,
+        rang === -1 || i > rang
+          ? 'avenir'
+          : i < rang || arret || fini
+            ? 'fait'
+            : 'actuel',
+      ),
+    ),
+    sorties: [ID_REFUSE, ID_REPORTE, ID_ANNULE].map((id) =>
+      noeud(id, id === statutId ? 'actuel' : 'avenir'),
+    ),
+  }
 }

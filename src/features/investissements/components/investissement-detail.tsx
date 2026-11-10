@@ -9,7 +9,7 @@ import {
 } from '@/features/investissements/queries'
 import {
   decisionsCapex,
-  etapesInvestissement,
+  etapeAtteinteCapex,
   ID_ANNULE,
   ID_CLOTURE,
   ID_REFUSE,
@@ -18,6 +18,7 @@ import {
   libelleDecision,
   libelleDecisionPar,
   nomStatutCapex,
+  schemaParcoursCapex,
   statutCapexTone,
   type DecisionCapex,
   type DecisionPar,
@@ -36,7 +37,7 @@ import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { cn } from '@/lib/utils'
-import { StatusStepper } from '@/components/common/status-stepper'
+import { ParcoursCapex } from '@/features/investissements/components/parcours-capex'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -79,11 +80,19 @@ export function InvestissementDetail({
   const decisions = canManage ? decisionsCapex(inv.statut_capex_id) : []
   const parCourant = inv.decision_par as DecisionPar | null
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
-  const etapes = etapesInvestissement(inv.statut_capex_id, noms)
+  const schema = schemaParcoursCapex(
+    inv.statut_capex_id,
+    noms,
+    parCourant,
+    etapeAtteinteCapex(
+      historique.map((h) => h.statut_capex_id),
+      parCourant,
+    ),
+  )
 
   const { label, depassement } = ecartCapex(inv)
   const ecartLabel = label ?? '—'
-  // Issues hors parcours de la frise (121, 137) : Refusé et Reporté passent par
+  // Issues hors parcours du schéma (121, 137) : Refusé et Reporté passent par
   // l'ARBRE DE DÉCISION (avec qui décide) ; Annulé (abandon, à tout moment)
   // reste en barre de titre. Les trois exigent un motif (la base le refuse
   // sinon). « Relancer » ramène au départ, l'historique garde tout.
@@ -121,7 +130,7 @@ export function InvestissementDetail({
       return
     }
     // Refuser et annuler exigent un motif : on passe par le dialogue, jamais en
-    // direct. Vaut aussi pour un clic sur la frise, pas seulement pour les
+    // direct. Vaut aussi pour un clic sur le schéma, pas seulement pour les
     // boutons — sinon la base renverrait un 23514 illisible.
     if (ISSUES_ARRET.includes(statutId)) {
       setArret({ statutId, par: 'responsable' })
@@ -185,59 +194,49 @@ export function InvestissementDetail({
           une icône de repli dans un carré de 80 px qui ne servait qu'à décaler
           son contenu. */}
 
-      {/* FRISE — seule à rester PLEINE LARGEUR : c'est le résumé de l'état, on
-          la lit avant le détail. Statut LIBRE → toute pastille est cliquable
-          (positionne ce statut) ; « Refuser » est en barre de titre. */}
-      {(etapes ?? decisions.length > 0) && (
-        <Card className="mb-4">
-          <CardContent className="space-y-4">
-            {etapes && (
-              <StatusStepper
-                steps={etapes}
-                disabled={change.isPending}
-                onStepClick={
-                  canManage
-                    ? (i) => {
-                        const cible = etapes[i]
-                        if (cible) changeStatut(cible.statutId)
-                      }
-                    : undefined
-                }
-              />
-            )}
-            {/* ARBRE DE DÉCISION (137) : seulement les choix qui ont un sens à
+      {/* SCHÉMA DU PARCOURS — pleine largeur : le résumé de l'état, on le lit
+          avant le détail. La case colorée = où en est le dossier ; les cases
+          du chemin restent cliquables pour corriger (statut libre côté base). */}
+      <Card className="mb-4">
+        <CardContent className="space-y-4">
+          <ParcoursCapex
+            chemin={schema.chemin}
+            sorties={schema.sorties}
+            disabled={change.isPending}
+            onEtape={canManage ? changeStatut : undefined}
+          />
+          {/* ARBRE DE DÉCISION (137) : seulement les choix qui ont un sens à
                 l'étape courante — le « oui » en premier, puis refuser et
                 reporter. La direction n'utilisant pas l'appli, ses décisions
                 sont notées ici par le responsable. */}
-            {decisions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 border-t pt-4">
-                <span className="mr-1 text-sm text-muted-foreground">
-                  {invitationDecision(inv.statut_capex_id, estArrete)}
-                </span>
-                {decisions.map((d, i) => (
-                  <Button
-                    key={d.statutId}
-                    size="sm"
-                    variant={
-                      i === 0
-                        ? 'default'
-                        : d.statutId === ID_REFUSE
-                          ? 'destructive'
-                          : 'outline'
-                    }
-                    disabled={change.isPending}
-                    onClick={() => decider(d)}
-                  >
-                    {d.libelle}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          {decisions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+              <span className="mr-1 text-sm text-muted-foreground">
+                {invitationDecision(inv.statut_capex_id, estArrete)}
+              </span>
+              {decisions.map((d, i) => (
+                <Button
+                  key={d.statutId}
+                  size="sm"
+                  variant={
+                    i === 0
+                      ? 'default'
+                      : d.statutId === ID_REFUSE
+                        ? 'destructive'
+                        : 'outline'
+                  }
+                  disabled={change.isPending}
+                  onClick={() => decider(d)}
+                >
+                  {d.libelle}
+                </Button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* BUDGET — une BARRE pleine largeur, juste sous la frise : comme elle,
+      {/* BUDGET — une BARRE pleine largeur, juste sous le schéma : comme elle,
           il résume l'état du dossier d'un regard, et comme elle il se lit en
           travers plutôt qu'en colonne. Les quatre montants tiennent donc sur UNE
           ligne, dans l'ordre de lecture Demandé → Prévu → Réel → Écart ; à
@@ -248,7 +247,7 @@ export function InvestissementDetail({
           écran de suivi, un montant manquant est une information (contrairement
           à la liste, qui n'affiche que les montants renseignés).
 
-          PAS de titre de carte, comme la frise juste au-dessus : les deux barres
+          PAS de titre de carte, comme le schéma juste au-dessus : les deux barres
           de tête sont auto-descriptives — « Demandé / Prévu / Réel / Écart » dit
           déjà qu'il s'agit du budget, et un titre au-dessus n'aurait fait que
           répéter en occupant une ligne. Les cartes de CONTENU (notes, documents),
@@ -310,7 +309,7 @@ export function InvestissementDetail({
             au lieu de faire apparaître un bloc en fin de course. Le libellé dit
             alors « Clôture » (l'étape qui reste à venir) et non « Clôturé », qui
             serait faux ; le crayon n'apparaît qu'une fois la clôture faite —
-            avant, on clôture par la frise. */}
+            avant, on clôture par le schéma. */}
         <DetailNoteCard
           label={
             inv.statut_capex_id === ID_CLOTURE

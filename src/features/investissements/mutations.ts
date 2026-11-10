@@ -7,7 +7,7 @@ import type { InvestissementFormValues } from './schemas'
 
 // Convertit les champs texte du formulaire en payload base (vides → null). Le
 // statut n'est plus saisi dans le formulaire : il vaut son DEFAULT (Demandé) à
-// la création et se change ensuite via la frise (cf. useChangeStatutCapex).
+// la création et se change ensuite via le schéma de parcours (cf. useChangeStatutCapex).
 function toPayload(v: InvestissementFormValues) {
   return {
     libelle: v.libelle.trim(),
@@ -73,7 +73,7 @@ export function useUpdateInvestissement() {
 }
 
 /**
- * Change le statut CapEx (frise cliquable + bouton « Refuser »). Statut LIBRE :
+ * Change le statut CapEx (schéma cliquable + boutons de décision). Statut LIBRE :
  * aucune machine à états backend → simple UPDATE du statut_capex_id.
  */
 /**
