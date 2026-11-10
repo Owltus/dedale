@@ -10,8 +10,6 @@ import { useDeleteInvestissement } from '@/features/investissements/mutations'
 import {
   nomStatutCapex,
   statutCapexTone,
-  rangStatutCapex,
-  STATUTS_CAPEX_TERMINAUX,
   totauxAnnee,
 } from '@/features/investissements/etat'
 import {
@@ -36,11 +34,6 @@ import { ListRow } from '@/components/common/list-row'
 import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import {
-  matchStatutFilter,
-  statutFilterOptions,
-  FILTRE_NON_TERMINES,
-} from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/investissements/page-meta'
@@ -99,15 +92,11 @@ function InvestissementsContent({
     onDelete: (inv) => del.mutateAsync(inv.id),
     successMessage: 'Investissement supprimé',
   })
+  // Pas de filtre par statut (demande PO) : un budget montre TOUS ses
+  // dossiers ; seule la recherche reste.
   const [recherche, setRecherche] = useState('')
-  // Défaut : on masque les investissements terminés (Réalisé/Refusé) —
-  // le filtre permet d'afficher un statut précis ou « Tous les statuts ».
-  const [statutFilter, setStatutFilter] = useState(FILTRE_NON_TERMINES)
 
   const statutNom = new Map(statuts.map((s) => [s.id, s.nom]))
-  const statutOptions = statutFilterOptions(
-    [...statuts].sort((a, b) => rangStatutCapex(a.id) - rangStatutCapex(b.id)),
-  )
 
   const newButton = canManage ? (
     <Button onClick={form.openCreate}>
@@ -157,14 +146,6 @@ function InvestissementsContent({
         {(investissements) => {
           const q = recherche.trim().toLowerCase()
           const shown = investissements.filter((inv) => {
-            if (
-              !matchStatutFilter(
-                inv.statut_capex_id,
-                statutFilter,
-                STATUTS_CAPEX_TERMINAUX,
-              )
-            )
-              return false
             if (q === '') return true
             return (
               inv.libelle.toLowerCase().includes(q) ||
@@ -183,12 +164,8 @@ function InvestissementsContent({
               search={recherche}
               onSearchChange={setRecherche}
               searchPlaceholder="Rechercher un investissement, un fournisseur…"
-              filterValue={statutFilter}
-              onFilterChange={setStatutFilter}
-              options={statutOptions}
-              filterLabel="Filtrer par statut"
               isEmpty={shown.length === 0}
-              emptySearchDescription="Aucun investissement ne correspond à ces critères."
+              emptySearchDescription="Aucun investissement ne correspond à cette recherche."
             >
               {shown.map((inv) => {
                 const statutLabel = nomStatutCapex(
@@ -228,17 +205,20 @@ function InvestissementsContent({
                     // CÔTE À CÔTE, et comme la largeur du second suivait la
                     // longueur du montant, le badge se décalait d'une ligne à
                     // l'autre. Empilés dans une colonne de largeur fixe, les deux
-                    // s'alignent par construction.
+                    // s'alignent par construction. Le badge prend TOUTE la
+                    // largeur de la colonne, texte centré : « Validé » et
+                    // « Demandé » font la même taille d'une ligne à l'autre.
                     meta={
-                      <div className="flex w-32 flex-col items-end gap-1">
+                      <div className="flex w-28 flex-col items-stretch gap-1">
                         <StatusBadge
                           tone={statutCapexTone(inv.statut_capex_id)}
+                          className="w-full justify-center"
                         >
                           {statutLabel}
                         </StatusBadge>
                         <span
                           className={cn(
-                            'text-sm font-medium tabular-nums',
+                            'text-right text-sm font-medium whitespace-nowrap tabular-nums',
                             depassement && 'text-warning',
                           )}
                         >
