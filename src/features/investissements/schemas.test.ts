@@ -27,6 +27,7 @@ import {
 const BASE = {
   libelle: 'Remplacement CTA bâtiment A',
   description: '',
+  fournisseur: '',
   montant_demande: '',
   montant_prevu: '',
   depense_reelle: '',

@@ -706,6 +706,7 @@ const CONCORDANCES: Concordance[] = [
     base: {
       libelle: 'Remplacement CTA',
       description: '',
+      fournisseur: '',
       montant_demande: '',
       montant_prevu: '',
       depense_reelle: '',
@@ -715,6 +716,7 @@ const CONCORDANCES: Concordance[] = [
     champs: {
       libelle: T('libelle'),
       description: T('description'),
+      fournisseur: T('fournisseur'),
       montant_demande: TN('montant_demande'),
       montant_prevu: TN('montant_prevu'),
       depense_reelle: TN('depense_reelle'),

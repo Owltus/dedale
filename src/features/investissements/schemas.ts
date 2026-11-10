@@ -21,6 +21,8 @@ export const montant = z
 export const investissementSchema = z.object({
   libelle: texteObligatoire('Le libellé est obligatoire', 'libelle').max(200),
   description: z.string().trim().max(2000),
+  /** Fournisseur qui émet le devis (141), facultatif. */
+  fournisseur: z.string().trim().max(100),
   montant_demande: montant,
   montant_prevu: montant,
   depense_reelle: montant,
@@ -40,6 +42,7 @@ export function emptyInvestissement(annee?: number): InvestissementFormValues {
   return {
     annee_budget: String(annee ?? anneeBudgetEnPreparation()),
     libelle: '',
+    fournisseur: '',
     description: '',
     montant_demande: '',
     montant_prevu: '',

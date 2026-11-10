@@ -1721,6 +1721,7 @@ export type Database = {
           decision_par: string | null
           depense_reelle: number | null
           description: string | null
+          fournisseur: string | null
           id: string
           libelle: string
           montant_demande: number | null
@@ -1743,6 +1744,7 @@ export type Database = {
           decision_par?: string | null
           depense_reelle?: number | null
           description?: string | null
+          fournisseur?: string | null
           id?: string
           libelle: string
           montant_demande?: number | null
@@ -1765,6 +1767,7 @@ export type Database = {
           decision_par?: string | null
           depense_reelle?: number | null
           description?: string | null
+          fournisseur?: string | null
           id?: string
           libelle?: string
           montant_demande?: number | null

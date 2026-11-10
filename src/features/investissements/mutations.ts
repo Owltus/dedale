@@ -12,6 +12,7 @@ function toPayload(v: InvestissementFormValues) {
   return {
     libelle: v.libelle.trim(),
     description: v.description.trim() || null,
+    fournisseur: v.fournisseur.trim() || null,
     montant_demande: parseMontant(v.montant_demande),
     montant_prevu: parseMontant(v.montant_prevu),
     depense_reelle: parseMontant(v.depense_reelle),

@@ -40,6 +40,7 @@ function initialValues(
   return {
     annee_budget: String(investissement.annee_budget),
     libelle: investissement.libelle,
+    fournisseur: investissement.fournisseur ?? '',
     description: investissement.description ?? '',
     montant_demande: montantToText(investissement.montant_demande),
     montant_prevu: montantToText(investissement.montant_prevu),
@@ -113,6 +114,12 @@ export function InvestissementFormDialog({
             name="libelle"
             label="Libellé"
             required
+          />
+          <TextField
+            control={form.control}
+            name="fournisseur"
+            label="Fournisseur"
+            placeholder="Qui a fait le devis ?"
           />
 
           {/* Date et montants : champs courts en 2 colonnes. */}

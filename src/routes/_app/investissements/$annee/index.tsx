@@ -168,6 +168,7 @@ function InvestissementsContent({
             if (q === '') return true
             return (
               inv.libelle.toLowerCase().includes(q) ||
+              (inv.fournisseur ?? '').toLowerCase().includes(q) ||
               (inv.description ?? '').toLowerCase().includes(q)
             )
           })
@@ -181,7 +182,7 @@ function InvestissementsContent({
             <ListPageBody
               search={recherche}
               onSearchChange={setRecherche}
-              searchPlaceholder="Rechercher un investissement…"
+              searchPlaceholder="Rechercher un investissement, un fournisseur…"
               filterValue={statutFilter}
               onFilterChange={setStatutFilter}
               options={statutOptions}
@@ -201,11 +202,15 @@ function InvestissementsContent({
                     tone={statutCapexTone(inv.statut_capex_id)}
                     media={<RowMediaIcon icon={Wallet} />}
                     title={inv.libelle}
-                    subtitle={
+                    // Le fournisseur en tête (141), puis la description.
+                    subtitle={[
+                      inv.fournisseur,
                       inv.description?.trim()
                         ? inv.description
-                        : `Demandé le ${formatDate(inv.date_demande)}`
-                    }
+                        : `Demandé le ${formatDate(inv.date_demande)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                     onClick={() =>
                       void navigate({
                         to: '/investissements/$annee/$investissement',

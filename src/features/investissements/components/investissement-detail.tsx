@@ -135,6 +135,9 @@ export function InvestissementDetail({
     <PageContainer className="flex flex-col">
       <PageHeader
         title={inv.libelle}
+        description={
+          inv.fournisseur ? `Fournisseur : ${inv.fournisseur}` : undefined
+        }
         breadcrumb={[
           {
             label: 'Investissements (CapEx)',

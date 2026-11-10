@@ -4552,6 +4552,9 @@ CREATE TABLE investissements (
 
     libelle           TEXT NOT NULL CHECK (length(trim(libelle)) > 0),
     description       TEXT,
+    -- 141 : qui émet le devis (texte libre). Était écrit entre parenthèses
+    -- dans le libellé.
+    fournisseur       TEXT,
 
     -- Montants (NUMERIC pour la précision financière, jamais FLOAT)
     montant_demande   NUMERIC(12,2) CHECK (montant_demande IS NULL OR montant_demande >= 0),

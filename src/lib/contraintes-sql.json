@@ -1985,6 +1985,14 @@
           "precision": null,
           "type": "text"
         },
+        "fournisseur": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
         "id": {
           "aUnDefaut": true,
           "echelle": null,
