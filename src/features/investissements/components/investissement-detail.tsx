@@ -167,7 +167,7 @@ export function InvestissementDetail({
           puis Réalisé — avec les montants dans les cases (demandé, prévu,
           réel, écart). La case colorée = où en est le dossier ; un clic sur
           une autre case y fait passer le dossier. */}
-      <Card className="mb-4 overflow-hidden py-0">
+      <Card className="mb-4 shrink-0 overflow-hidden py-0">
         <CardContent className="p-0">
           <SchemaCapex
             schema={schema}

@@ -217,21 +217,21 @@ function Case({
       >
         <Icone aria-hidden className="size-4" />
       </span>
-      <span className="flex min-w-0 flex-col items-start text-left">
-        <span className="leading-tight">{c.libelle}</span>
+      <span className="leading-tight @min-[15rem]:text-left">
+        {c.libelle}
       </span>
-      {/* Les montants, à droite (repliés sous le libellé si la case est
-          étroite, sur téléphone). */}
+      {/* Les montants : à droite dans une case large, dessous dans une case
+          étroite. */}
       {chiffres.length > 0 && (
-        <span className="ml-auto flex items-center gap-4">
+        <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 @min-[15rem]:ml-auto @min-[15rem]:flex-nowrap">
           {chiffres.map((ch) => (
             <span
               key={ch.libelle ?? 'principal'}
-              className="flex flex-col items-end"
+              className="flex flex-col items-center @min-[15rem]:items-end"
             >
               <span
                 className={cn(
-                  'text-sm font-semibold text-foreground tabular-nums',
+                  'text-xs font-semibold whitespace-nowrap text-foreground tabular-nums @min-[15rem]:text-sm',
                   ch.alerte && 'text-warning',
                 )}
               >
@@ -249,7 +249,10 @@ function Case({
     </>
   )
   const classes = cn(
-    'flex min-h-16 w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border bg-card px-4 py-2.5 text-sm font-medium shadow-xs',
+    // Case ÉTROITE (< 15rem) : icône, nom et montant EMPILÉS et centrés.
+    // Case LARGE : sur une ligne, montant à droite. La largeur est celle de la
+    // case (requête de conteneur), pas celle de l'écran.
+    'flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-xl border bg-card px-2 py-2.5 text-center text-sm font-medium shadow-xs @min-[15rem]:flex-row @min-[15rem]:gap-3 @min-[15rem]:px-4',
     c.etat === 'fait' && 'border-success/40',
     c.etat === 'libre' && 'text-muted-foreground',
     actuel && 'border-2 font-semibold text-foreground',
@@ -302,7 +305,7 @@ function liensFourche(f: Schema['fleches']) {
   ]
 }
 
-/** Ordinateur : de gauche à droite, sur toute la largeur. */
+/** Schéma LARGE (≥ 56rem de place) : de gauche à droite. */
 function SchemaHorizontal({
   schema,
   chiffres,
@@ -310,9 +313,9 @@ function SchemaHorizontal({
   disabled,
 }: PropsSchema) {
   const props = { onAction, disabled }
-  const cellule = 'flex items-center py-2'
+  const cellule = 'flex items-center py-2 @container'
   return (
-    <div className="hidden w-full grid-cols-[minmax(0,1fr)_minmax(4rem,0.8fr)_minmax(0,1fr)_minmax(3rem,0.5fr)_minmax(0,1fr)] grid-rows-3 md:grid">
+    <div className="hidden w-full grid-cols-[minmax(0,1fr)_minmax(4rem,0.8fr)_minmax(0,1fr)_minmax(3rem,0.5fr)_minmax(0,1fr)] grid-rows-3 @min-[56rem]:grid">
       <div className={cn(cellule, 'col-start-1 row-start-2')}>
         <Case
           cle="demande"
@@ -367,13 +370,13 @@ function SchemaHorizontal({
   )
 }
 
-/** Téléphone : de haut en bas. */
+/** Schéma ÉTROIT (téléphone, tablette, fenêtre réduite) : de haut en bas. */
 function SchemaVertical({ schema, chiffres, onAction, disabled }: PropsSchema) {
   const props = { onAction, disabled }
   const trois = 'grid grid-cols-3'
-  const cellule = 'flex px-1'
+  const cellule = 'flex px-1 @container'
   return (
-    <div className="w-full md:hidden">
+    <div className="w-full @min-[56rem]:hidden">
       <div className={trois}>
         <div className={cn(cellule, 'col-start-2')}>
           <Case
@@ -443,7 +446,9 @@ export function SchemaCapex(props: PropsSchema) {
     <div
       role="group"
       aria-label="Parcours du dossier"
-      className="rounded-lg px-3 py-6 sm:px-6"
+      // Conteneur : la mise en page suit la place RÉELLEMENT disponible
+      // (menu latéral ouvert ou non), pas la largeur de l'écran.
+      className="@container rounded-lg px-3 py-6 sm:px-6"
       style={{
         backgroundImage:
           'radial-gradient(color-mix(in oklch, var(--muted-foreground) 22%, transparent) 1px, transparent 1px)',
