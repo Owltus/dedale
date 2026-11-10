@@ -22,7 +22,18 @@ import { useFileDrop } from './use-file-drop'
  * <FileDropOverlay show={upload.dragging} />
  * ```
  */
-export function useUploadDrop({ enabled }: { enabled: boolean }): {
+export function useUploadDrop({
+  enabled,
+  ignorer,
+}: {
+  enabled: boolean
+  /**
+   * Dépôt à laisser à une zone LOCALE (ex. cadre « Devis » d'un
+   * investissement) : vrai = ce dépôt n'ouvre pas le dialog pleine page. La
+   * surcouche `dragging` se referme quand même.
+   */
+  ignorer?: (cible: EventTarget | null) => boolean
+}): {
   /** Vrai si le dialog d'upload est ouvert. */
   uploadOpen: boolean
   /** Fichiers issus d'un glisser-déposer, pré-remplis dans le dialog. */
@@ -40,7 +51,8 @@ export function useUploadDrop({ enabled }: { enabled: boolean }): {
   // Glisser-déposer sur TOUTE la page (réservé aux rôles pouvant ajouter).
   const { dragging } = useFileDrop({
     enabled,
-    onFiles: (files) => {
+    onFiles: (files, cible) => {
+      if (ignorer?.(cible)) return
       setDroppedFiles(files)
       setUploadOpen(true)
     },

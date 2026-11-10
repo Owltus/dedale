@@ -6,8 +6,12 @@ interface UseFileDropOptions {
    * le navigateur reprend son comportement par défaut.
    */
   enabled?: boolean
-  /** Appelé avec TOUS les fichiers déposés n'importe où sur la fenêtre. */
-  onFiles: (files: File[]) => void
+  /**
+   * Appelé avec TOUS les fichiers déposés n'importe où sur la fenêtre, et
+   * l'élément où ils sont tombés (pour qu'un hôte puisse laisser une zone de
+   * dépôt locale traiter elle-même son dépôt).
+   */
+  onFiles: (files: File[], cible: EventTarget | null) => void
 }
 
 /**
@@ -57,7 +61,7 @@ export function useFileDrop({ enabled = true, onFiles }: UseFileDropOptions): {
       depth.current = 0
       setDragging(false)
       const files = e.dataTransfer ? Array.from(e.dataTransfer.files) : []
-      if (files.length) onFilesRef.current(files)
+      if (files.length) onFilesRef.current(files, e.target)
     }
 
     window.addEventListener('dragenter', onEnter)

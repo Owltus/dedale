@@ -335,7 +335,7 @@ function Case({
   )
 }
 
-/** Ligne(s) sous le nom d'une case : date, et fournisseur pour la proposition (un saut de ligne entre deux). */
+/** Ligne(s) sous le nom d'une case : sa date (un saut de ligne entre deux lignes). */
 export type DatesCasesCapex = Partial<Record<CleCase, string>>
 
 interface PropsSchema {

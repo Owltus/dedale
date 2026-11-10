@@ -22,6 +22,8 @@ import { ClotureInvestissementDialog } from './cloture-investissement-dialog'
 import { ValidationInvestissementDialog } from './validation-investissement-dialog'
 import { parseMontant } from '@/features/investissements/schemas'
 import { SchemaCapex } from './schema-capex'
+import { CadreDevis, estDansZoneDevis } from './cadre-devis'
+import { typesDocumentsQueries } from '@/features/documents/queries'
 import { PAGE_META } from '@/features/investissements/page-meta'
 import { MIME_PDF } from '@/features/documents/upload'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
@@ -29,7 +31,6 @@ import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { formatDate, isoLocale } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
-import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
@@ -40,7 +41,13 @@ import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { MotifDialog } from '@/components/common/motif-dialog'
 import { DetailNoteCard } from '@/components/common/detail-note-card'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -62,7 +69,14 @@ export function InvestissementDetail({
   const [refus, setRefus] = useState(false)
   const [validation, setValidation] = useState(false)
   // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
-  const upload = useUploadDrop({ enabled: canManage })
+  // Un fichier lâché sur le cadre « Devis » y est traité ; ailleurs, il va
+  // aux documents (annexes).
+  const upload = useUploadDrop({
+    enabled: canManage,
+    ignorer: estDansZoneDevis,
+  })
+  const { data: typesDocs = [] } = useQuery(typesDocumentsQueries.list())
+  const devisTypeId = typesDocs.find((t) => t.nom === 'Devis')?.id
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const { data: decisions = [] } = useQuery(decisionsCapexQueries.list(inv.id))
   const change = useChangeStatutCapex()
@@ -210,13 +224,7 @@ export function InvestissementDetail({
             }}
             // Dates de chaque étape, quand elles existent (demande PO).
             dates={{
-              // Le fournisseur vit dans la case de la proposition (demande
-              // PO), avec sa date — plus sous le titre de la page.
-              demande:
-                [inv.fournisseur, jour(dates.demande)]
-                  .filter(Boolean)
-                  // Une ligne chacun (affichage `whitespace-pre-line`).
-                  .join('\n') || undefined,
+              demande: jour(dates.demande),
               valide: jour(dates.valide),
               realise: jour(dates.realise),
               refuse: jour(dates.refuse),
@@ -230,11 +238,11 @@ export function InvestissementDetail({
         </CardContent>
       </Card>
 
-      {/* LA DEMANDE, et ce qu'il en est advenu QUAND il y a un texte à lire
-          (motif du refus, bilan de la réalisation) : alors côte à côte ; sinon
-          la demande prend toute la largeur (demande PO). Pas de dates ici :
-          elles sont dans le schéma. */}
-      <div className={cn('mb-4 grid gap-4', issue && 'lg:grid-cols-2')}>
+      {/* Pas de dates ici : elles sont dans le schéma. Refus / Réalisation
+          n'apparaissent que si un motif ou un bilan est écrit. */}
+      {/* PROPOSITION et DEVIS côte à côte (demande PO) : le texte du projet
+          et le devis qui le chiffre. */}
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
         <DetailNoteCard
           label="Proposition"
           text={inv.description}
@@ -250,7 +258,16 @@ export function InvestissementDetail({
             )
           }
         />
-        {issue && (
+        <CadreDevis
+          investissementId={inv.id}
+          fournisseur={inv.fournisseur}
+          devisTypeId={devisTypeId}
+          canManage={canManage}
+          glissement={upload.dragging}
+        />
+      </div>
+      {issue && (
+        <div className="mb-4">
           <DetailNoteCard
             label={issue.label}
             text={issue.texte}
@@ -266,13 +283,16 @@ export function InvestissementDetail({
               )
             }
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {/* DOCUMENTS — pleine largeur, même patron que Événement et Travaux. */}
       <Card className="relative gap-3 py-4">
         <CardHeader>
           <CardTitle className="text-base">Documents</CardTitle>
+          <CardDescription>
+            Pièces annexes ; le devis a son propre cadre.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <DocumentsTab
@@ -283,7 +303,8 @@ export function InvestissementDetail({
             uploadOpen={upload.uploadOpen}
             onUploadOpenChange={upload.onUploadOpenChange}
             uploadInitialFiles={upload.droppedFiles}
-            uploadDefaultTypeNom="Devis"
+            // Tout SAUF les devis, rangés dans leur cadre.
+            filtre={(d) => d.type_document_id !== devisTypeId}
           />
         </CardContent>
         <FileDropOverlay show={upload.dragging} />
