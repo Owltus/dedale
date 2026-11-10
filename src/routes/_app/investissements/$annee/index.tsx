@@ -113,7 +113,11 @@ function InvestissementsContent({
         // La barre du budget EST la description (demande PO).
         description={
           query.data && query.data.length > 0 ? (
-            <BarreBudget investissements={query.data} noms={statutNom} />
+            <BarreBudget
+              investissements={query.data}
+              noms={statutNom}
+              className="mt-0.5"
+            />
           ) : (
             'Aucune demande pour cette année.'
           )

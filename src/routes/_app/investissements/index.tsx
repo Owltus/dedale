@@ -1,13 +1,16 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarRange } from 'lucide-react'
-import { investissementsQueries } from '@/features/investissements/queries'
+import {
+  investissementsQueries,
+  statutsCapexQueries,
+} from '@/features/investissements/queries'
 import {
   anneeBudgetEnPreparation,
   anneesBudget,
   totauxAnnee,
 } from '@/features/investissements/etat'
-import { formatEuros } from '@/features/investissements/format'
+import { BarreBudget } from '@/features/investissements/components/barre-budget'
 import { PAGE_META } from '@/features/investissements/page-meta'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { PageContainer } from '@/components/common/page-container'
@@ -44,6 +47,8 @@ function BudgetsContent({ siteId }: { siteId: string }) {
   const navigate = useNavigate()
   const query = useQuery(investissementsQueries.list(siteId))
   useRealtimeRefresh('investissements', investissementsQueries.all())
+  const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
+  const noms = new Map(statuts.map((s) => [s.id, s.nom]))
 
   return (
     <PageContainer>
@@ -59,9 +64,16 @@ function BudgetsContent({ siteId }: { siteId: string }) {
               investissements.map((i) => i.annee_budget),
               anneeBudgetEnPreparation(),
             ).map((annee) => {
-              const t = totauxAnnee(
-                investissements.filter((i) => i.annee_budget === annee),
+              const invs = investissements.filter(
+                (i) => i.annee_budget === annee,
               )
+              const t = totauxAnnee(invs)
+              // La MÊME barre que sur la page du budget (demande PO), à droite
+              // au bureau, sous le titre sur téléphone.
+              const barre =
+                t.nb > 0 ? (
+                  <BarreBudget investissements={invs} noms={noms} />
+                ) : undefined
               return (
                 <ListRow
                   key={annee}
@@ -72,21 +84,8 @@ function BudgetsContent({ siteId }: { siteId: string }) {
                       ? 'Aucune demande pour le moment'
                       : `${String(t.nb)} dossier${t.nb > 1 ? 's' : ''}`
                   }
-                  meta={
-                    t.nb > 0 ? (
-                      <div className="flex flex-col items-end text-sm tabular-nums">
-                        <span>{formatEuros(t.demande)} demandés</span>
-                        <span className="text-muted-foreground">
-                          {formatEuros(t.valide)} validés
-                        </span>
-                      </div>
-                    ) : undefined
-                  }
-                  mobileMeta={
-                    t.nb > 0
-                      ? `${formatEuros(t.demande)} demandés · ${formatEuros(t.valide)} validés`
-                      : undefined
-                  }
+                  meta={barre && <div className="w-64 lg:w-96">{barre}</div>}
+                  mobileMeta={barre && <div className="pt-1">{barre}</div>}
                   onClick={() =>
                     void navigate({
                       to: '/investissements/$annee',

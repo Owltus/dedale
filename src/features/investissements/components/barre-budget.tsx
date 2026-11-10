@@ -30,15 +30,21 @@ const COULEUR: Record<number, string> = {
  * Barre d'un budget (demande PO du 10/11/2026) : une section par statut, de
  * largeur proportionnelle à son montant, avec SEULEMENT le montant arrondi
  * écrit dedans — ni légende ni nom de statut (la couleur le dit ; survol =
- * statut et montant au centime). Elle EST la description de la page d'un
- * budget, sur toute la largeur.
+ * statut et montant au centime). Deux hôtes : la description de la page d'un
+ * budget (pleine largeur) et la carte de chaque année sur la page des budgets.
  */
 export function BarreBudget({
   investissements,
   noms,
+  className,
 }: {
-  investissements: Investissement[]
+  investissements: readonly Pick<
+    Investissement,
+    'statut_capex_id' | 'montant_demande' | 'montant_prevu' | 'depense_reelle'
+  >[]
   noms: Map<number, string>
+  /** Largeur/marges selon l'hôte (pleine largeur par défaut). */
+  className?: string
 }) {
   const parts = repartitionBudget(investissements).filter((p) => p.montant > 0)
   const total = parts.reduce((s, p) => s + p.montant, 0)
@@ -52,7 +58,10 @@ export function BarreBudget({
             `${nomStatutCapex(p.statutId, noms)} : ${formatEuros(p.montant)}`,
         )
         .join(', ')}
-      className="mt-0.5 flex h-6 w-full gap-0.5 overflow-hidden rounded-md"
+      className={cn(
+        'flex h-6 w-full gap-0.5 overflow-hidden rounded-md',
+        className,
+      )}
     >
       {parts.map((p) => (
         <div
