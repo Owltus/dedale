@@ -55,63 +55,6 @@ export function rangStatutCapex(id: number): number {
   return i === -1 ? ORDRE_AFFICHAGE.length : i
 }
 
-/** Ce que fait un bouton de la fiche. */
-export type CleActionCapex =
-  | 'valider'
-  | 'refuser'
-  | 'reporter'
-  | 'realiser'
-  | 'rouvrir'
-  | 'relancer'
-
-export interface ActionCapex {
-  cle: CleActionCapex
-  /** Texte du bouton — il dit seul ce qu'il fait. */
-  libelle: string
-  /** Statut après l'action. */
-  statutId: number
-  /** Année du budget après l'action. */
-  annee: number
-}
-
-/**
- * Les boutons proposés sur la fiche selon le statut, l'action principale en
- * premier (138) :
- *   Demandé → Valider · Refuser · Reporter à N+1
- *   Validé  → Marquer réalisé · Reporter à N+1
- *   Réalisé → Rouvrir
- *   Refusé  → Relancer · Reporter à N+1
- */
-export function actionsCapex(statutId: number, annee: number): ActionCapex[] {
-  const reporter: ActionCapex = {
-    cle: 'reporter',
-    libelle: `Reporter à ${String(annee + 1)}`,
-    statutId: ID_DEMANDE,
-    annee: annee + 1,
-  }
-  const a = (
-    cle: CleActionCapex,
-    libelle: string,
-    statut: number,
-  ): ActionCapex => ({ cle, libelle, statutId: statut, annee })
-  switch (statutId) {
-    case ID_DEMANDE:
-      return [
-        a('valider', 'Valider', ID_VALIDE),
-        a('refuser', 'Refuser', ID_REFUSE),
-        reporter,
-      ]
-    case ID_VALIDE:
-      return [a('realiser', 'Marquer réalisé', ID_REALISE), reporter]
-    case ID_REALISE:
-      return [a('rouvrir', 'Rouvrir', ID_VALIDE)]
-    case ID_REFUSE:
-      return [a('relancer', 'Relancer', ID_DEMANDE), reporter]
-    default:
-      return []
-  }
-}
-
 /**
  * Années de budget à afficher, de la plus récente à la plus ancienne : celles
  * qui ont des dossiers, plus l'année en cours et la suivante (pour pouvoir y
@@ -151,42 +94,122 @@ export function totauxAnnee(
   return { nb: invs.length, demande, valide }
 }
 
-/** État d'une étape du schéma de la fiche. */
-export type EtatEtapeCapex = 'fait' | 'actuel' | 'avenir'
+/** Ce que fait un clic sur une case du schéma. */
+export type CleActionCapex =
+  | 'valider'
+  | 'refuser'
+  | 'reporter'
+  | 'realiser'
+  | 'rouvrir'
+  | 'relancer'
 
-export interface EtapeSchemaCapex {
+export interface ActionCapex {
+  cle: CleActionCapex
+  /** Statut après l'action. */
   statutId: number
-  libelle: string
-  etat: EtatEtapeCapex
+  /** Année du budget après l'action (report = +1). */
+  annee: number
 }
 
-export interface FlecheSchemaCapex {
-  /** L'action qui fait passer d'une étape à la suivante. */
+/** Où en est une case : passée (cochée), celle du dossier, ou ailleurs. */
+export type EtatCaseCapex = 'fait' | 'actuel' | 'libre'
+
+export interface CaseCapex {
   libelle: string
-  franchie: boolean
+  /** Statut que la case représente (`null` pour le report, qui n'en est pas un). */
+  statutId: number | null
+  etat: EtatCaseCapex
+  /** Le clic sur la case ; `null` = case non cliquable (celle du dossier). */
+  action: ActionCapex | null
+}
+
+/** Une flèche : empruntée par le dossier (`ok` / `refus`) ou non. */
+export type EtatFlecheCapex = 'ok' | 'refus' | 'libre'
+
+export interface SchemaCapex {
+  demande: CaseCapex
+  valide: CaseCapex
+  realise: CaseCapex
+  refuse: CaseCapex
+  reporte: CaseCapex
+  fleches: {
+    versValide: EtatFlecheCapex
+    versRefuse: EtatFlecheCapex
+    versReporte: EtatFlecheCapex
+    versRealise: EtatFlecheCapex
+  }
 }
 
 /**
- * SCHÉMA DE LA FICHE (138, demande PO : « à la Mermaid », flèches, refus
- * ignoré) : Demandé → Valider → Validé → Marquer réalisé → Réalisé. L'étape du
- * dossier est `actuel` ; un dossier refusé (hors schéma) n'en allume aucune —
- * son badge le dit.
+ * SCHÉMA VERTICAL DE LA FICHE (138, demande PO du 10/11/2026) — façon
+ * organigramme Mermaid, de haut en bas :
+ *
+ *                     Demandé
+ *            ┌───────────┼───────────┐
+ *         Refusé       Validé     Reporter à N+1
+ *                        │
+ *                     Réalisé
+ *
+ * La case du dossier est `actuel` ; un CLIC sur une autre case y fait passer
+ * le dossier (statut libre côté base). Le report n'est pas un statut : sa case
+ * envoie le dossier dans le budget de l'année suivante, en « Demandé ».
  */
 export function schemaCapex(
   statutId: number,
+  annee: number,
   noms: Map<number, string>,
-): { etapes: EtapeSchemaCapex[]; fleches: FlecheSchemaCapex[] } {
-  const ids = [ID_DEMANDE, ID_VALIDE, ID_REALISE]
-  const rang = ids.indexOf(statutId)
+): SchemaCapex {
+  const valideOuPlus = statutId === ID_VALIDE || statutId === ID_REALISE
+  const etat = (id: number, fait: boolean): EtatCaseCapex =>
+    id === statutId ? 'actuel' : fait ? 'fait' : 'libre'
+  const action = (
+    id: number,
+    cle: CleActionCapex,
+    a = annee,
+  ): ActionCapex | null =>
+    id === statutId ? null : { cle, statutId: id, annee: a }
+  const connu = [ID_DEMANDE, ID_VALIDE, ID_REALISE, ID_REFUSE].includes(
+    statutId,
+  )
   return {
-    etapes: ids.map((id, i) => ({
-      statutId: id,
-      libelle: nomStatutCapex(id, noms),
-      etat: rang === -1 || i > rang ? 'avenir' : i < rang ? 'fait' : 'actuel',
-    })),
-    fleches: ['Valider', 'Marquer réalisé'].map((libelle, i) => ({
-      libelle,
-      franchie: rang !== -1 && i < rang,
-    })),
+    demande: {
+      libelle: nomStatutCapex(ID_DEMANDE, noms),
+      statutId: ID_DEMANDE,
+      etat: etat(ID_DEMANDE, connu),
+      action: action(ID_DEMANDE, 'relancer'),
+    },
+    valide: {
+      libelle: nomStatutCapex(ID_VALIDE, noms),
+      statutId: ID_VALIDE,
+      etat: etat(ID_VALIDE, statutId === ID_REALISE),
+      action: action(
+        ID_VALIDE,
+        statutId === ID_REALISE ? 'rouvrir' : 'valider',
+      ),
+    },
+    realise: {
+      libelle: nomStatutCapex(ID_REALISE, noms),
+      statutId: ID_REALISE,
+      etat: etat(ID_REALISE, false),
+      action: action(ID_REALISE, 'realiser'),
+    },
+    refuse: {
+      libelle: nomStatutCapex(ID_REFUSE, noms),
+      statutId: ID_REFUSE,
+      etat: etat(ID_REFUSE, false),
+      action: action(ID_REFUSE, 'refuser'),
+    },
+    reporte: {
+      libelle: `Reporter à ${String(annee + 1)}`,
+      statutId: null,
+      etat: 'libre',
+      action: { cle: 'reporter', statutId: ID_DEMANDE, annee: annee + 1 },
+    },
+    fleches: {
+      versValide: valideOuPlus ? 'ok' : 'libre',
+      versRefuse: statutId === ID_REFUSE ? 'refus' : 'libre',
+      versReporte: 'libre',
+      versRealise: statutId === ID_REALISE ? 'ok' : 'libre',
+    },
   }
 }

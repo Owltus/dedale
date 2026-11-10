@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import {
-  actionsCapex,
   anneesBudget,
   ID_DEMANDE,
   ID_REALISE,
@@ -83,83 +82,88 @@ describe('statutCapexTone — sémantique', () => {
   })
 })
 
-describe('actionsCapex — les boutons de la fiche', () => {
-  it('par statut, l’action principale d’abord (plan validé par le PO)', () => {
-    const cles = (id: number) => actionsCapex(id, 2026).map((a) => a.cle)
-    expect(cles(ID_DEMANDE)).toEqual(['valider', 'refuser', 'reporter'])
-    expect(cles(ID_VALIDE)).toEqual(['realiser', 'reporter'])
-    expect(cles(ID_REALISE)).toEqual(['rouvrir'])
-    expect(cles(ID_REFUSE)).toEqual(['relancer', 'reporter'])
-  })
+describe('schemaCapex — organigramme vertical cliquable', () => {
+  const cases = (id: number, a = 2026) => {
+    const sc = schemaCapex(id, a, SANS_REFERENTIEL)
+    return [sc.demande, sc.valide, sc.realise, sc.refuse, sc.reporte]
+  }
 
-  it('reporter = année suivante, de retour en « Demandé »', () => {
-    fc.assert(
-      fc.property(idConnu, annee, (id, a) => {
-        for (const act of actionsCapex(id, a))
-          if (act.cle === 'reporter') {
-            expect(act.annee).toBe(a + 1)
-            expect(act.statutId).toBe(ID_DEMANDE)
-            expect(act.libelle).toBe(`Reporter à ${String(a + 1)}`)
-          } else expect(act.annee).toBe(a)
-      }),
-      TIRAGES,
-    )
-  })
-
-  it('aucune action ne laisse le dossier où il est', () => {
-    fc.assert(
-      fc.property(idConnu, annee, (id, a) => {
-        for (const act of actionsCapex(id, a))
-          expect(act.statutId !== id || act.annee !== a).toBe(true)
-      }),
-      TIRAGES,
-    )
-  })
-
-  it('un statut inconnu ne propose rien', () => {
-    fc.assert(
-      fc.property(idInconnu, (id) => {
-        expect(actionsCapex(id, 2026)).toEqual([])
-      }),
-      TIRAGES,
-    )
-  })
-})
-
-describe('schemaCapex — Demandé → Validé → Réalisé', () => {
-  it('trois étapes, deux flèches nommées par l’action', () => {
-    const s = schemaCapex(ID_DEMANDE, SANS_REFERENTIEL)
-    expect(s.etapes.map((e) => e.libelle)).toEqual([
-      'Demandé',
-      'Validé',
-      'Réalisé',
-    ])
-    expect(s.fleches.map((f) => f.libelle)).toEqual([
-      'Valider',
-      'Marquer réalisé',
-    ])
-  })
-
-  it('le dossier est repéré par UNE étape ; avant cochée, après à venir', () => {
-    for (const id of [ID_DEMANDE, ID_VALIDE, ID_REALISE]) {
-      const { etapes, fleches } = schemaCapex(id, SANS_REFERENTIEL)
-      const i = etapes.findIndex((e) => e.etat === 'actuel')
-      expect(etapes[i]?.statutId).toBe(id)
-      expect(etapes.filter((e) => e.etat === 'actuel')).toHaveLength(1)
-      expect(etapes.slice(0, i).every((e) => e.etat === 'fait')).toBe(true)
-      expect(etapes.slice(i + 1).every((e) => e.etat === 'avenir')).toBe(true)
-      expect(fleches.map((f) => f.franchie)).toEqual(
-        fleches.map((_, j) => j < i),
-      )
+  it('le dossier est repéré par UNE case, la sienne, qui n’est pas cliquable', () => {
+    for (const id of IDS_CONNUS) {
+      const actuelles = cases(id).filter((c) => c.etat === 'actuel')
+      expect(actuelles.map((c) => c.statutId)).toEqual([id])
+      expect(actuelles[0]?.action).toBeNull()
     }
   })
 
-  it('Refusé (ignoré par le schéma) et l’inconnu n’allument rien', () => {
+  it('toute autre case est cliquable et mène à son statut', () => {
     fc.assert(
-      fc.property(fc.oneof(fc.constant(ID_REFUSE), idInconnu), (id) => {
-        const { etapes, fleches } = schemaCapex(id, SANS_REFERENTIEL)
-        expect(etapes.every((e) => e.etat === 'avenir')).toBe(true)
-        expect(fleches.every((f) => !f.franchie)).toBe(true)
+      fc.property(idConnu, annee, (id, a) => {
+        for (const c of cases(id, a)) {
+          if (c.etat === 'actuel') continue
+          expect(c.action).not.toBeNull()
+          if (c.statutId !== null) {
+            expect(c.action?.statutId).toBe(c.statutId)
+            expect(c.action?.annee).toBe(a)
+          }
+        }
+      }),
+      TIRAGES,
+    )
+  })
+
+  it('la case de report envoie au budget suivant, en « Demandé »', () => {
+    fc.assert(
+      fc.property(idConnu, annee, (id, a) => {
+        const r = schemaCapex(id, a, SANS_REFERENTIEL).reporte
+        expect(r.libelle).toBe(`Reporter à ${String(a + 1)}`)
+        expect(r.action).toEqual({
+          cle: 'reporter',
+          statutId: ID_DEMANDE,
+          annee: a + 1,
+        })
+      }),
+      TIRAGES,
+    )
+  })
+
+  it('le clic dit ce qu’il fait : valider, rouvrir, réaliser, refuser, relancer', () => {
+    const sc = (id: number) => schemaCapex(id, 2026, SANS_REFERENTIEL)
+    expect(sc(ID_DEMANDE).valide.action?.cle).toBe('valider')
+    expect(sc(ID_REALISE).valide.action?.cle).toBe('rouvrir')
+    expect(sc(ID_VALIDE).realise.action?.cle).toBe('realiser')
+    expect(sc(ID_DEMANDE).refuse.action?.cle).toBe('refuser')
+    expect(sc(ID_REFUSE).demande.action?.cle).toBe('relancer')
+  })
+
+  it('les cases passées sont cochées : Demandé dès qu’on l’a quitté, Validé une fois réalisé', () => {
+    const sc = (id: number) => schemaCapex(id, 2026, SANS_REFERENTIEL)
+    for (const id of [ID_VALIDE, ID_REALISE, ID_REFUSE])
+      expect(sc(id).demande.etat).toBe('fait')
+    expect(sc(ID_REALISE).valide.etat).toBe('fait')
+    expect(sc(ID_REFUSE).valide.etat).toBe('libre')
+  })
+
+  it('les flèches colorées suivent le chemin pris', () => {
+    const f = (id: number) => schemaCapex(id, 2026, SANS_REFERENTIEL).fleches
+    expect(f(ID_DEMANDE)).toEqual({
+      versValide: 'libre',
+      versRefuse: 'libre',
+      versReporte: 'libre',
+      versRealise: 'libre',
+    })
+    expect(f(ID_VALIDE).versValide).toBe('ok')
+    expect(f(ID_REALISE)).toMatchObject({ versValide: 'ok', versRealise: 'ok' })
+    expect(f(ID_REFUSE)).toMatchObject({
+      versRefuse: 'refus',
+      versValide: 'libre',
+    })
+  })
+
+  it('un statut inconnu n’allume rien et ne jette pas', () => {
+    fc.assert(
+      fc.property(idInconnu, (id) => {
+        expect(cases(id).every((c) => c.etat === 'libre')).toBe(true)
       }),
       TIRAGES,
     )
@@ -167,7 +171,9 @@ describe('schemaCapex — Demandé → Validé → Réalisé', () => {
 
   it('suit un renommage du référentiel', () => {
     const noms = new Map([[ID_DEMANDE, 'Sollicité']])
-    expect(schemaCapex(ID_DEMANDE, noms).etapes[0]?.libelle).toBe('Sollicité')
+    expect(schemaCapex(ID_DEMANDE, 2026, noms).demande.libelle).toBe(
+      'Sollicité',
+    )
   })
 })
 

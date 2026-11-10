@@ -1,27 +1,16 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import {
-  ArrowRight,
-  Check,
-  CheckCheck,
-  Paperclip,
-  Pencil,
-  RotateCcw,
-  X,
-  type LucideIcon,
-} from 'lucide-react'
+import { Paperclip, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { statutsCapexQueries } from '@/features/investissements/queries'
 import {
-  actionsCapex,
   ID_REALISE,
   ID_REFUSE,
   nomStatutCapex,
   schemaCapex,
   statutCapexTone,
   type ActionCapex,
-  type CleActionCapex,
 } from '@/features/investissements/etat'
 import { useChangeStatutCapex } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
@@ -47,20 +36,9 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { MotifDialog } from '@/components/common/motif-dialog'
 import { DetailNoteCard } from '@/components/common/detail-note-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
-
-/** Icône de chaque bouton : le bouton se comprend sans texte autour. */
-const ICONES: Record<CleActionCapex, LucideIcon> = {
-  valider: Check,
-  refuser: X,
-  reporter: ArrowRight,
-  realiser: CheckCheck,
-  rouvrir: RotateCcw,
-  relancer: RotateCcw,
-}
 
 export function InvestissementDetail({
   investissement: inv,
@@ -83,8 +61,7 @@ export function InvestissementDetail({
   const change = useChangeStatutCapex()
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const annee = inv.annee_budget
-  const actions = canManage ? actionsCapex(inv.statut_capex_id, annee) : []
-  const schema = schemaCapex(inv.statut_capex_id, noms)
+  const schema = schemaCapex(inv.statut_capex_id, annee, noms)
   const realise = inv.statut_capex_id === ID_REALISE
   const refuse = inv.statut_capex_id === ID_REFUSE
 
@@ -185,36 +162,18 @@ export function InvestissementDetail({
             </>
           ) : undefined
         }
-        // Les décisions possibles À CETTE ÉTAPE, l'action principale d'abord.
-        // Chaque bouton dit seul ce qu'il fait : pas de texte à côté.
-        extra={
-          actions.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {actions.map((a, i) => {
-                const Icone = ICONES[a.cle]
-                return (
-                  <Button
-                    key={a.cle}
-                    size="sm"
-                    variant={i === 0 ? 'default' : 'outline'}
-                    className={cn(a.cle === 'refuser' && 'text-destructive')}
-                    disabled={change.isPending}
-                    onClick={() => agir(a)}
-                  >
-                    <Icone /> {a.libelle}
-                  </Button>
-                )
-              })}
-            </div>
-          ) : undefined
-        }
       />
 
-      {/* SCHÉMA — Demandé → Validé → Réalisé, l'action sur chaque flèche, la
-          boîte colorée = où en est le dossier (138, demande PO). */}
-      <Card className="mb-4 py-5">
+      {/* SCHÉMA VERTICAL (138, demande PO) : Demandé, puis Refusé / Validé /
+          Reporter, puis Réalisé. La case colorée = où en est le dossier ; un
+          clic sur une autre case y fait passer le dossier. */}
+      <Card className="mb-4 py-6">
         <CardContent>
-          <SchemaCapex etapes={schema.etapes} fleches={schema.fleches} />
+          <SchemaCapex
+            schema={schema}
+            onAction={canManage ? agir : undefined}
+            disabled={change.isPending}
+          />
         </CardContent>
       </Card>
 
