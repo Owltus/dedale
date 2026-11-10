@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import {
   anneesBudget,
+  datesCapex,
   ID_DEMANDE,
   ID_REALISE,
   ID_REFUSE,
@@ -71,10 +72,11 @@ describe('nomStatutCapex — totalité', () => {
 })
 
 describe('statutCapexTone — sémantique', () => {
-  it('Refusé est rouge, Réalisé vert, et chaque statut a sa couleur', () => {
+  it('le chemin validé est vert, le refus rouge, la demande neutre', () => {
     expect(statutCapexTone(ID_REFUSE)).toBe('destructive')
+    expect(statutCapexTone(ID_VALIDE)).toBe('success')
     expect(statutCapexTone(ID_REALISE)).toBe('success')
-    expect(new Set(IDS_CONNUS.map(statutCapexTone)).size).toBe(4)
+    expect(statutCapexTone(ID_DEMANDE)).toBe('neutral')
   })
 
   it('terminés = Réalisé et Refusé', () => {
@@ -227,5 +229,71 @@ describe('années de budget', () => {
     expect(anneeDeParam('renovation-porte-bagages')).toBeNull()
     expect(anneeDeParam('1999')).toBeNull()
     expect(anneeDeParam('20270')).toBeNull()
+  })
+})
+
+describe('datesCapex — dates du schéma', () => {
+  const inv = {
+    statut_capex_id: ID_VALIDE,
+    annee_budget: 2026,
+    date_demande: '2026-09-08',
+    date_cloture: null,
+    date_arret: null,
+  }
+  const d = (statut: number, annee: number, jour: string) => ({
+    statut_capex_id: statut,
+    annee_budget: annee,
+    created_at: `2026-${jour}T10:00:00+00:00`,
+  })
+
+  it('validation = la DERNIÈRE validation, même si le journal arrive en désordre', () => {
+    const r = datesCapex(inv, [
+      d(ID_VALIDE, 2026, '11-10'),
+      d(ID_DEMANDE, 2026, '09-08'),
+      d(ID_VALIDE, 2026, '10-01'),
+      d(ID_DEMANDE, 2026, '10-05'),
+    ])
+    expect(r.demande).toBe('2026-09-08')
+    expect(r.valide).toBe('2026-11-10T10:00:00+00:00')
+    expect(r.realise).toBeNull()
+    expect(r.refuse).toBeNull()
+  })
+
+  it('une étape qui n’est plus vraie n’a pas de date', () => {
+    const r = datesCapex(
+      { ...inv, statut_capex_id: ID_REFUSE, date_arret: '2026-11-04' },
+      [d(ID_VALIDE, 2026, '10-01'), d(ID_REFUSE, 2026, '11-04')],
+    )
+    expect(r.valide).toBeNull()
+    expect(r.refuse).toBe('2026-11-04')
+  })
+
+  it('réalisé : la date de réalisation de la fiche', () => {
+    const r = datesCapex(
+      { ...inv, statut_capex_id: ID_REALISE, date_cloture: '2026-11-20' },
+      [d(ID_VALIDE, 2026, '10-01')],
+    )
+    expect(r.realise).toBe('2026-11-20')
+    expect(r.valide).toBe('2026-10-01T10:00:00+00:00')
+  })
+
+  it('report : le passage d’une année antérieure à l’année du dossier', () => {
+    const r = datesCapex(
+      { ...inv, statut_capex_id: ID_DEMANDE, annee_budget: 2027 },
+      [d(ID_DEMANDE, 2026, '09-08'), d(ID_DEMANDE, 2027, '11-10')],
+    )
+    expect(r.reporte).toEqual({
+      date: '2026-11-10T10:00:00+00:00',
+      depuis: 2026,
+    })
+    // Sans changement d'année : pas de report.
+    expect(datesCapex(inv, [d(ID_DEMANDE, 2026, '09-08')]).reporte).toBeNull()
+    // Ramené en arrière (correction d'année) : ce n'est pas un report.
+    expect(
+      datesCapex(inv, [
+        d(ID_DEMANDE, 2027, '09-08'),
+        d(ID_DEMANDE, 2026, '10-01'),
+      ]).reporte,
+    ).toBeNull()
   })
 })

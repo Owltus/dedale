@@ -35,8 +35,17 @@ type Orientation = 'h' | 'v'
 
 const POSITIONS = ['16.667%', '50%', '83.333%'] as const
 
-/** Trait : chemin pris (plein, coloré) ou possible (fin, pointillé, discret). */
-function styleTrait(etat: EtatFlecheCapex): {
+/**
+ * Teinte d'une branche, même quand elle n'est pas empruntée : vert vers la
+ * validation, rouge vers le refus, jaune vers le report (demande PO).
+ */
+type Teinte = 'ok' | 'refus' | 'report'
+
+/** Trait : chemin pris (plein, coloré) ou possible (fin, pointillé, pâle). */
+function styleTrait(
+  etat: EtatFlecheCapex,
+  teinte: Teinte = 'ok',
+): {
   className: string
   epais: number
   pointille?: string
@@ -44,7 +53,12 @@ function styleTrait(etat: EtatFlecheCapex): {
   if (etat === 'ok') return { className: 'text-success', epais: 2.5 }
   if (etat === 'refus') return { className: 'text-destructive', epais: 2.5 }
   return {
-    className: 'text-muted-foreground/45',
+    className:
+      teinte === 'refus'
+        ? 'text-destructive/40'
+        : teinte === 'report'
+          ? 'text-warning/55'
+          : 'text-muted-foreground/45',
     epais: 1.5,
     pointille: '5 5',
   }
@@ -55,10 +69,12 @@ function Pointe({
   orientation,
   position,
   etat,
+  teinte,
 }: {
   orientation: Orientation
   position: string
   etat: EtatFlecheCapex
+  teinte?: Teinte
 }) {
   const h = orientation === 'h'
   return (
@@ -68,7 +84,7 @@ function Pointe({
       className={cn(
         'absolute size-2.5 fill-current',
         h ? 'right-0 -translate-y-1/2' : 'bottom-0 -translate-x-1/2',
-        styleTrait(etat).className,
+        styleTrait(etat, teinte).className,
       )}
       style={h ? { top: position } : { left: position }}
     >
@@ -87,7 +103,7 @@ function Liens({
   liens,
 }: {
   orientation: Orientation
-  liens: { vers: 0 | 1 | 2; etat: EtatFlecheCapex }[]
+  liens: { vers: 0 | 1 | 2; etat: EtatFlecheCapex; teinte?: Teinte }[]
 }) {
   const h = orientation === 'h'
   // Les traits non empruntés d'abord : le chemin pris passe par-dessus.
@@ -109,12 +125,12 @@ function Liens({
             : 'h-[calc(100%-0.625rem)] w-full',
         )}
       >
-        {ordonnes.map(({ vers, etat }) => {
+        {ordonnes.map(({ vers, etat, teinte }) => {
           const y = 50 + vers * 100
           const d = h
             ? `M0 150 C55 150 45 ${String(y)} 100 ${String(y)}`
             : `M150 0 C150 55 ${String(y)} 45 ${String(y)} 100`
-          const t = styleTrait(etat)
+          const t = styleTrait(etat, teinte)
           return (
             <path
               key={vers}
@@ -130,12 +146,13 @@ function Liens({
           )
         })}
       </svg>
-      {liens.map(({ vers, etat }) => (
+      {liens.map(({ vers, etat, teinte }) => (
         <Pointe
           key={vers}
           orientation={orientation}
           position={POSITIONS[vers]}
           etat={etat}
+          teinte={teinte}
         />
       ))}
     </>
@@ -186,12 +203,14 @@ function Case({
   cle,
   c,
   chiffres = [],
+  date,
   onAction,
   disabled,
 }: {
   cle: CleCase
   c: CaseCapex
   chiffres?: ChiffreCapex[]
+  date?: string
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
 }) {
@@ -204,7 +223,14 @@ function Case({
         className={cn(
           'flex size-8 shrink-0 items-center justify-center rounded-full',
           c.etat === 'fait' && 'bg-success/15 text-success',
-          c.etat === 'libre' && 'bg-muted text-muted-foreground',
+          // Case libre : sa couleur de branche, en pâle — refus rouge,
+          // report jaune.
+          c.etat === 'libre' &&
+            (cle === 'refuse'
+              ? 'bg-destructive/10 text-destructive'
+              : cle === 'reporte'
+                ? 'bg-warning/15 text-warning'
+                : 'bg-muted text-muted-foreground'),
         )}
         style={
           couleur
@@ -217,7 +243,15 @@ function Case({
       >
         <Icone aria-hidden className="size-4" />
       </span>
-      <span className="leading-tight @min-[15rem]:text-left">{c.libelle}</span>
+      {/* Nom de l'étape, et sa date dessous quand elle existe. */}
+      <span className="flex flex-col items-center leading-tight @min-[15rem]:items-start @min-[15rem]:text-left">
+        <span>{c.libelle}</span>
+        {date && (
+          <span className="mt-0.5 text-[11px] font-normal text-muted-foreground tabular-nums">
+            {date}
+          </span>
+        )}
+      </span>
       {/* Les montants : à droite dans une case large, dessous dans une case
           étroite. */}
       {chiffres.length > 0 && (
@@ -249,12 +283,14 @@ function Case({
   const classes = cn(
     // Case ÉTROITE (< 15rem) : icône, nom et montant EMPILÉS et centrés.
     // Case LARGE : sur une ligne, montant à droite. La largeur est celle de la
-    // case (requête de conteneur), pas celle de l'écran.
-    'flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-xl border bg-card px-2 py-2.5 text-center text-sm font-medium shadow-xs @min-[15rem]:flex-row @min-[15rem]:gap-3 @min-[15rem]:px-4',
+    // case (requête de conteneur), pas celle de l'écran. Toutes les cases se
+    // calent comme « Demandé » : icône, nom, puis montant poussé à droite.
+    'flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-xl border bg-card px-2 py-2.5 text-center text-sm font-medium shadow-xs @min-[15rem]:flex-row @min-[15rem]:justify-start @min-[15rem]:gap-3 @min-[15rem]:px-4',
     c.etat === 'fait' && 'border-success/40',
     c.etat === 'libre' && 'text-muted-foreground',
+    c.etat === 'libre' && cle === 'refuse' && 'border-destructive/25',
     actuel && 'border-2 font-semibold text-foreground',
-    cle === 'reporte' && 'border-dashed',
+    cle === 'reporte' && 'border-dashed border-warning/50',
   )
   if (c.action && onAction) {
     const action = c.action
@@ -269,7 +305,9 @@ function Case({
           'cursor-pointer transition duration-150 hover:-translate-y-0.5 hover:text-foreground hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60',
           cle === 'refuse'
             ? 'hover:border-destructive/60'
-            : 'hover:border-foreground/30',
+            : cle === 'reporte'
+              ? 'hover:border-warning'
+              : 'hover:border-success/60',
         )}
       >
         {contenu}
@@ -287,9 +325,13 @@ function Case({
   )
 }
 
+/** Légende de date d'une case (ex. « le 10/11/2026 (46) »). */
+export type DatesCasesCapex = Partial<Record<CleCase, string>>
+
 interface PropsSchema {
   schema: Schema
   chiffres?: ChiffresCapex
+  dates?: DatesCasesCapex
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
 }
@@ -297,9 +339,9 @@ interface PropsSchema {
 /** Liens de la fourche qui part de « Demandé ». */
 function liensFourche(f: Schema['fleches']) {
   return [
-    { vers: 0 as const, etat: f.versRefuse },
+    { vers: 0 as const, etat: f.versRefuse, teinte: 'refus' as const },
     { vers: 1 as const, etat: f.versValide },
-    { vers: 2 as const, etat: f.versReporte },
+    { vers: 2 as const, etat: f.versReporte, teinte: 'report' as const },
   ]
 }
 
@@ -307,6 +349,7 @@ function liensFourche(f: Schema['fleches']) {
 function SchemaHorizontal({
   schema,
   chiffres,
+  dates,
   onAction,
   disabled,
 }: PropsSchema) {
@@ -319,6 +362,7 @@ function SchemaHorizontal({
           cle="demande"
           c={schema.demande}
           chiffres={chiffres?.demande}
+          date={dates?.demande}
           {...props}
         />
       </div>
@@ -330,6 +374,7 @@ function SchemaHorizontal({
           cle="refuse"
           c={schema.refuse}
           chiffres={chiffres?.refuse}
+          date={dates?.refuse}
           {...props}
         />
       </div>
@@ -338,6 +383,7 @@ function SchemaHorizontal({
           cle="valide"
           c={schema.valide}
           chiffres={chiffres?.valide}
+          date={dates?.valide}
           {...props}
         />
       </div>
@@ -346,6 +392,7 @@ function SchemaHorizontal({
           cle="reporte"
           c={schema.reporte}
           chiffres={chiffres?.reporte}
+          date={dates?.reporte}
           {...props}
         />
       </div>
@@ -361,6 +408,7 @@ function SchemaHorizontal({
           cle="realise"
           c={schema.realise}
           chiffres={chiffres?.realise}
+          date={dates?.realise}
           {...props}
         />
       </div>
@@ -369,7 +417,13 @@ function SchemaHorizontal({
 }
 
 /** Schéma ÉTROIT (téléphone, tablette, fenêtre réduite) : de haut en bas. */
-function SchemaVertical({ schema, chiffres, onAction, disabled }: PropsSchema) {
+function SchemaVertical({
+  schema,
+  chiffres,
+  dates,
+  onAction,
+  disabled,
+}: PropsSchema) {
   const props = { onAction, disabled }
   const trois = 'grid grid-cols-3'
   const cellule = 'flex px-1 @container'
@@ -381,6 +435,7 @@ function SchemaVertical({ schema, chiffres, onAction, disabled }: PropsSchema) {
             cle="demande"
             c={schema.demande}
             chiffres={chiffres?.demande}
+            date={dates?.demande}
             {...props}
           />
         </div>
@@ -394,6 +449,7 @@ function SchemaVertical({ schema, chiffres, onAction, disabled }: PropsSchema) {
             cle="refuse"
             c={schema.refuse}
             chiffres={chiffres?.refuse}
+            date={dates?.refuse}
             {...props}
           />
         </div>
@@ -402,6 +458,7 @@ function SchemaVertical({ schema, chiffres, onAction, disabled }: PropsSchema) {
             cle="valide"
             c={schema.valide}
             chiffres={chiffres?.valide}
+            date={dates?.valide}
             {...props}
           />
         </div>
@@ -410,6 +467,7 @@ function SchemaVertical({ schema, chiffres, onAction, disabled }: PropsSchema) {
             cle="reporte"
             c={schema.reporte}
             chiffres={chiffres?.reporte}
+            date={dates?.reporte}
             {...props}
           />
         </div>
@@ -426,6 +484,7 @@ function SchemaVertical({ schema, chiffres, onAction, disabled }: PropsSchema) {
             cle="realise"
             c={schema.realise}
             chiffres={chiffres?.realise}
+            date={dates?.realise}
             {...props}
           />
         </div>

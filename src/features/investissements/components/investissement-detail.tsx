@@ -3,8 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Paperclip, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
-import { statutsCapexQueries } from '@/features/investissements/queries'
 import {
+  decisionsCapexQueries,
+  statutsCapexQueries,
+} from '@/features/investissements/queries'
+import {
+  datesCapex,
   ID_REALISE,
   ID_REFUSE,
   nomStatutCapex,
@@ -57,6 +61,7 @@ export function InvestissementDetail({
   // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
   const upload = useUploadDrop({ enabled: canManage })
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
+  const { data: decisions = [] } = useQuery(decisionsCapexQueries.list(inv.id))
   const change = useChangeStatutCapex()
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const annee = inv.annee_budget
@@ -65,6 +70,7 @@ export function InvestissementDetail({
   const refuse = inv.statut_capex_id === ID_REFUSE
 
   const { label, depassement } = ecartCapex(inv)
+  const dates = datesCapex(inv, decisions)
 
   function agir(a: ActionCapex) {
     // Refuser : un motif est exigé (la base le refuse sinon).
@@ -182,6 +188,16 @@ export function InvestissementDetail({
                   ? [{ valeur: label, libelle: 'écart', alerte: depassement }]
                   : []),
               ],
+            }}
+            // Dates de chaque étape, quand elles existent (demande PO).
+            dates={{
+              demande: jour(dates.demande),
+              valide: jour(dates.valide),
+              realise: jour(dates.realise),
+              refuse: jour(dates.refuse),
+              reporte: dates.reporte
+                ? `reporté de ${String(dates.reporte.depuis)} · ${formatDate(dates.reporte.date)}`
+                : undefined,
             }}
             onAction={canManage ? agir : undefined}
             disabled={change.isPending}
@@ -354,4 +370,9 @@ export function InvestissementDetail({
 /** Le montant de la case, ou rien s'il n'est pas renseigné. */
 function montant(valeur: number | null): { valeur: string }[] {
   return valeur === null ? [] : [{ valeur: formatEuros(valeur) }]
+}
+
+/** La date seule (« 10/11/2026 », demande PO), ou rien si elle manque. */
+function jour(date: string | null): string | undefined {
+  return date ? formatDate(date) : undefined
 }

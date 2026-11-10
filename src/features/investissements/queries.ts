@@ -35,6 +35,31 @@ export const investissementsQueries = {
   }),
 }
 
+/**
+ * Journal des décisions d'un dossier (138) : seules les dates de validation et
+ * de report en sont tirées. Sous la clé `investissements` : toute mutation du
+ * dossier le rafraîchit.
+ */
+export const decisionsCapexQueries = {
+  list: (investissementId: string) =>
+    queryOptions({
+      queryKey: [
+        ...investissementsQueries.all(),
+        'decisions',
+        investissementId,
+      ] as const,
+      queryFn: async () => {
+        const { data } = await supabase
+          .from('investissements_decisions')
+          .select('statut_capex_id, annee_budget, created_at')
+          .eq('investissement_id', investissementId)
+          .order('created_at', { ascending: true })
+          .throwOnError()
+        return data
+      },
+    }),
+}
+
 export const statutsCapexQueries = {
   /** Référentiel des statuts CapEx (statut libre, pas de machine à états). */
   list: () => referentielQueryOptions('statuts_capex', 'id, nom', 'nom'),

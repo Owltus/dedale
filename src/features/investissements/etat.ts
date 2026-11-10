@@ -37,8 +37,11 @@ export function nomStatutCapex(id: number, noms: Map<number, string>): string {
 export const STATUTS_CAPEX_TERMINAUX = [ID_REALISE, ID_REFUSE] as const
 
 const TONES: Record<number, StatusTone> = {
+  // Couleurs du parcours (demande PO du 10/11/2026) : tout le chemin validé
+  // est VERT (validé, puis réalisé), le refus ROUGE ; le report, jaune, n'est
+  // pas un statut et n'apparaît que sur le schéma.
   [ID_DEMANDE]: 'neutral', // en attente
-  [ID_VALIDE]: 'violet', // feu vert
+  [ID_VALIDE]: 'success', // feu vert
   [ID_REALISE]: 'success', // fait
   [ID_REFUSE]: 'destructive',
 }
@@ -211,5 +214,69 @@ export function schemaCapex(
       versReporte: 'libre',
       versRealise: statutId === ID_REALISE ? 'ok' : 'libre',
     },
+  }
+}
+
+/** Ligne de l'historique des décisions (journal 138) utile aux dates. */
+export type DecisionCapex = Pick<
+  Database['public']['Tables']['investissements_decisions']['Row'],
+  'statut_capex_id' | 'annee_budget' | 'created_at'
+>
+
+/** Dates affichées dans les cases du schéma (ISO), quand elles existent. */
+export interface DatesCapex {
+  demande: string | null
+  valide: string | null
+  realise: string | null
+  refuse: string | null
+  /** Dernier report qui a amené le dossier dans son année actuelle. */
+  reporte: { date: string; depuis: number } | null
+}
+
+/**
+ * Dates du parcours d'un dossier. Une date n'est donnée que si l'étape est
+ * VRAIE aujourd'hui : la date de validation d'un dossier refusé depuis ne
+ * s'affiche pas. Demande, réalisation et refus viennent de la fiche ; la
+ * validation et le report, du journal des décisions (trié ou non).
+ */
+export function datesCapex(
+  inv: Pick<
+    Investissement,
+    | 'statut_capex_id'
+    | 'annee_budget'
+    | 'date_demande'
+    | 'date_cloture'
+    | 'date_arret'
+  >,
+  decisions: readonly DecisionCapex[],
+): DatesCapex {
+  const journal = [...decisions].sort((a, b) =>
+    a.created_at.localeCompare(b.created_at),
+  )
+  const statut = inv.statut_capex_id
+  const valideOuPlus = statut === ID_VALIDE || statut === ID_REALISE
+  const derniere = (id: number) =>
+    journal.findLast((d) => d.statut_capex_id === id)?.created_at ?? null
+
+  let reporte: DatesCapex['reporte'] = null
+  for (let i = 1; i < journal.length; i++) {
+    const avant = journal[i - 1]?.annee_budget
+    const apres = journal[i]
+    if (
+      apres &&
+      avant != null &&
+      apres.annee_budget === inv.annee_budget &&
+      avant < inv.annee_budget
+    )
+      reporte = { date: apres.created_at, depuis: avant }
+  }
+
+  return {
+    demande: inv.date_demande,
+    valide: valideOuPlus ? derniere(ID_VALIDE) : null,
+    realise: statut === ID_REALISE ? inv.date_cloture : null,
+    refuse:
+      statut === ID_REFUSE ? (inv.date_arret ?? derniere(ID_REFUSE)) : null,
+    reporte,
   }
 }
