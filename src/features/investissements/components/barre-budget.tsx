@@ -6,27 +6,32 @@ import {
   nomStatutCapex,
   repartitionBudget,
 } from '@/features/investissements/etat'
-import { formatEuros } from '@/features/investissements/format'
+import {
+  formatEuros,
+  formatEurosArrondi,
+} from '@/features/investissements/format'
 import { cn } from '@/lib/utils'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
 
 // Couleurs du parcours (demande PO) : vert pour ce qui est accordé — plein une
-// fois réalisé, plus clair tant que seulement validé —, gris pour ce qui
-// attend, rouge pour le refusé.
+// fois réalisé, teinté tant que seulement validé —, gris pour ce qui attend,
+// rouge pour le refusé. Fonds TEINTÉS pour que le texte posé dessus reste
+// lisible en clair comme en sombre.
 const COULEUR: Record<number, string> = {
-  [ID_REALISE]: 'bg-success',
-  [ID_VALIDE]: 'bg-success/55',
-  [ID_DEMANDE]: 'bg-muted-foreground/40',
-  [ID_REFUSE]: 'bg-destructive',
+  [ID_REALISE]: 'bg-success text-success-foreground',
+  [ID_VALIDE]: 'bg-success/30 text-foreground',
+  [ID_DEMANDE]: 'bg-muted-foreground/25 text-foreground',
+  [ID_REFUSE]: 'bg-destructive/30 text-foreground',
 }
 
 /**
  * Barre d'un budget (demande PO du 10/11/2026) : une section par statut, de
- * largeur proportionnelle à son montant, puis la légende (statut, montant — sans
- * nombre de dossiers, jugé inutile par le PO). Elle EST la description de la page d'un
- * budget (sous le titre), à la place de « N dossiers · X € demandés… ».
+ * largeur proportionnelle à son montant, avec SEULEMENT le montant arrondi
+ * écrit dedans — ni légende ni nom de statut (la couleur le dit ; survol =
+ * statut et montant au centime). Elle EST la description de la page d'un
+ * budget, sur toute la largeur.
  */
 export function BarreBudget({
   investissements,
@@ -35,49 +40,35 @@ export function BarreBudget({
   investissements: Investissement[]
   noms: Map<number, string>
 }) {
-  const parts = repartitionBudget(investissements)
+  const parts = repartitionBudget(investissements).filter((p) => p.montant > 0)
   const total = parts.reduce((s, p) => s + p.montant, 0)
-  if (parts.length === 0) return null
+  if (total === 0) return null
   return (
-    // Posée en DESCRIPTION de la page (sous le titre) : barre puis légende sur
-    // une ligne, qui passent l'une sous l'autre quand la place manque.
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-0.5">
-      <div
-        role="img"
-        aria-label={parts
-          .map(
-            (p) =>
-              `${nomStatutCapex(p.statutId, noms)} : ${formatEuros(p.montant)}`,
-          )
-          .join(', ')}
-        className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-muted sm:w-80"
-      >
-        {total > 0 &&
-          parts
-            .filter((p) => p.montant > 0)
-            .map((p) => (
-              <div
-                key={p.statutId}
-                title={`${nomStatutCapex(p.statutId, noms)} : ${formatEuros(p.montant)}`}
-                className={cn('h-full', COULEUR[p.statutId])}
-                style={{ width: `${String((p.montant / total) * 100)}%` }}
-              />
-            ))}
-      </div>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1">
-        {parts.map((p) => (
-          <li key={p.statutId} className="flex items-center gap-1.5">
-            <span
-              aria-hidden
-              className={cn('size-2.5 rounded-full', COULEUR[p.statutId])}
-            />
-            <span>{nomStatutCapex(p.statutId, noms)}</span>
-            <span className="font-medium text-foreground tabular-nums">
-              {formatEuros(p.montant)}
-            </span>
-          </li>
-        ))}
-      </ul>
+    <div
+      role="img"
+      aria-label={parts
+        .map(
+          (p) =>
+            `${nomStatutCapex(p.statutId, noms)} : ${formatEuros(p.montant)}`,
+        )
+        .join(', ')}
+      className="mt-0.5 flex h-6 w-full gap-0.5 overflow-hidden rounded-md"
+    >
+      {parts.map((p) => (
+        <div
+          key={p.statutId}
+          title={`${nomStatutCapex(p.statutId, noms)} : ${formatEuros(p.montant)}`}
+          className={cn(
+            'flex min-w-fit items-center justify-center px-1.5 text-xs font-medium whitespace-nowrap',
+            COULEUR[p.statutId],
+          )}
+          // Part proportionnelle au montant, mais jamais plus étroite que son
+          // montant : sur téléphone, une petite part reste lisible.
+          style={{ flex: `${String(p.montant / total)} 1 0%` }}
+        >
+          <span className="tabular-nums">{formatEurosArrondi(p.montant)}</span>
+        </div>
+      ))}
     </div>
   )
 }

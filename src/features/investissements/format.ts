@@ -12,6 +12,17 @@ export function formatEuros(value: number | null): string {
   return value === null ? '—' : euros.format(value)
 }
 
+const eurosArrondis = new Intl.NumberFormat('fr-FR', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+})
+
+/** Montant arrondi à l'euro (« 6 732 € ») — pour les vues d'ensemble. */
+export function formatEurosArrondi(value: number): string {
+  return eurosArrondis.format(value)
+}
+
 export interface EcartCapex {
   /** réel − prévu, ou null si l'un des deux montants manque. */
   ecart: number | null
