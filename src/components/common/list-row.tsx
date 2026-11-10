@@ -26,6 +26,12 @@ export interface ListRowProps {
   /** Métadonnée textuelle alignée à droite (masquée sous `sm`). */
   meta?: ReactNode
   /**
+   * `meta` ÉTIRÉE (bureau) : elle prend toute la largeur laissée par le titre
+   * et le sous-titre, qui ne gardent que la place de leur texte. OPT-IN — pour
+   * un contenu graphique (ex. barre d'un budget), jamais pour du texte.
+   */
+  metaEtiree?: boolean
+  /**
    * Repli MOBILE de l'information clé (portée Commun/Site, type/seuils…) : affichée
    * SOUS le titre et UNIQUEMENT sous `sm`, là où `badges`/`meta` (colonne de droite)
    * sont masqués — pour ne pas perdre l'info discriminante sur petit écran. OPT-IN :
@@ -161,6 +167,7 @@ export function ListRow({
   mobileMeta,
   mobileBadge,
   tone,
+  metaEtiree = false,
   actions,
   menuActions,
   onClick,
@@ -217,7 +224,7 @@ export function ListRow({
             dense ? 'gap-2 px-3' : 'gap-3 px-4',
           )}
         >
-          <div className="min-w-0 flex-1">
+          <div className={cn('min-w-0 flex-1', metaEtiree && 'sm:flex-none')}>
             <div
               id={titleId}
               className={cn('truncate font-medium', dense && 'text-sm')}
@@ -256,7 +263,12 @@ export function ListRow({
             </div>
           )}
           {meta !== undefined && (
-            <div className="hidden shrink-0 text-sm text-muted-foreground sm:block">
+            <div
+              className={cn(
+                'hidden text-sm text-muted-foreground sm:block',
+                metaEtiree ? 'min-w-0 flex-1 sm:ml-4' : 'shrink-0',
+              )}
+            >
               {meta}
             </div>
           )}
@@ -291,7 +303,7 @@ export function ListRow({
         {icon !== undefined && (
           <span className="shrink-0 text-muted-foreground">{icon}</span>
         )}
-        <div className="min-w-0 flex-1">
+        <div className={cn('min-w-0 flex-1', metaEtiree && 'sm:flex-none')}>
           <div id={titleId} className="truncate font-medium">
             {title}
           </div>
@@ -319,7 +331,12 @@ export function ListRow({
           </div>
         )}
         {meta !== undefined && (
-          <div className="hidden shrink-0 text-sm text-muted-foreground sm:block">
+          <div
+            className={cn(
+              'hidden text-sm text-muted-foreground sm:block',
+              metaEtiree ? 'min-w-0 flex-1 sm:ml-4' : 'shrink-0',
+            )}
+          >
             {meta}
           </div>
         )}
