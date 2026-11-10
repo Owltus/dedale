@@ -626,7 +626,7 @@ INSERT INTO statuts_travaux (id, nom, description) VALUES
 -- Statuts d'un investissement / CapEx (statut LIBRE — aucune transition imposée ;
 -- l'ordre du parcours d'affichage est porté côté front, cf. etat.ts)
 INSERT INTO statuts_capex (id, nom, description) VALUES
-    (1, 'Demandé',   'Demande déposée, en attente de décision'),
+    (1, 'Proposé',   'Proposition déposée, en attente de décision'),  -- 142 : ex-« Demandé »
     (2, 'Validé',    'Accepté : le budget est accordé'),
     (3, 'Réalisé',   'Fait : dépense réelle et bilan renseignés'),
     -- 138 : quatre statuts seulement (5 Accordé, 6 Engagé, 7 Clôturé,
@@ -4536,7 +4536,7 @@ ALTER TABLE travaux_taches ENABLE ROW LEVEL SECURITY;
 -- Investissements / CapEx : suivi budgétaire des dépenses d'investissement
 -- d'un site (remplacement chaudière, réfection toiture…). Statut LIBRE (aucune
 -- machine à états, aucun trigger de transition) : l'utilisateur passe le statut
--- de Demandé à Validé/Réalisé/Refusé sans contrainte. Scope site, hard-delete
+-- de Proposé à Validé/Réalisé/Refusé sans contrainte. Scope site, hard-delete
 -- (la corbeille a disparu en 034-036).
 -- Dépendances : 010_sites, 005_users, statuts_capex, set_updated_at()
 -- =============================================================================

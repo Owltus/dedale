@@ -111,7 +111,7 @@ export function InvestissementDetail({
     if (a.cle === 'reporter') {
       confirmAction.demander({
         title: `Reporter au budget ${String(a.annee)} ?`,
-        description: `Le dossier quitte le budget ${String(annee)} et repart en « Demandé » dans celui de ${String(a.annee)}.`,
+        description: `Le dossier quitte le budget ${String(annee)} et repart en « Proposé » dans celui de ${String(a.annee)}.`,
         confirmLabel: `Reporter à ${String(a.annee)}`,
         run: () =>
           change.mutateAsync({
@@ -140,7 +140,9 @@ export function InvestissementDetail({
       {
         onSuccess: () =>
           toast.success(
-            a.cle === 'rouvrir' ? 'Investissement rouvert' : 'Demande relancée',
+            a.cle === 'rouvrir'
+              ? 'Investissement rouvert'
+              : 'Proposition relancée',
           ),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
@@ -151,9 +153,6 @@ export function InvestissementDetail({
     <PageContainer className="flex flex-col">
       <PageHeader
         title={inv.libelle}
-        description={
-          inv.fournisseur ? `Fournisseur : ${inv.fournisseur}` : undefined
-        }
         breadcrumb={[
           {
             label: PAGE_META.titre,
@@ -211,7 +210,13 @@ export function InvestissementDetail({
             }}
             // Dates de chaque étape, quand elles existent (demande PO).
             dates={{
-              demande: jour(dates.demande),
+              // Le fournisseur vit dans la case de la proposition (demande
+              // PO), avec sa date — plus sous le titre de la page.
+              demande:
+                [inv.fournisseur, jour(dates.demande)]
+                  .filter(Boolean)
+                  // Une ligne chacun (affichage `whitespace-pre-line`).
+                  .join('\n') || undefined,
               valide: jour(dates.valide),
               realise: jour(dates.realise),
               refuse: jour(dates.refuse),
@@ -231,7 +236,7 @@ export function InvestissementDetail({
           elles sont dans le schéma. */}
       <div className={cn('mb-4 grid gap-4', issue && 'lg:grid-cols-2')}>
         <DetailNoteCard
-          label="Demande"
+          label="Proposition"
           text={inv.description}
           emptyText="Aucune description."
           action={
@@ -363,8 +368,10 @@ export function InvestissementDetail({
       <MotifDialog
         open={refus}
         onOpenChange={(o) => !o && setRefus(false)}
-        title={refuse ? 'Modifier le motif du refus' : 'Refuser la demande ?'}
-        description="Dites pourquoi la demande est refusée : c’est ce qui restera pour comprendre la décision plus tard."
+        title={
+          refuse ? 'Modifier le motif du refus' : 'Refuser la proposition ?'
+        }
+        description="Dites pourquoi la proposition est refusée : c’est ce qui restera pour comprendre la décision plus tard."
         label="Motif"
         confirmLabel={refuse ? 'Enregistrer' : 'Refuser'}
         destructive={!refuse}
@@ -383,7 +390,7 @@ export function InvestissementDetail({
             {
               onSuccess: () => {
                 setRefus(false)
-                toast.success(refuse ? 'Motif modifié' : 'Demande refusée')
+                toast.success(refuse ? 'Motif modifié' : 'Proposition refusée')
               },
               onError: (e) => toast.error(writeErrorMessage(e)),
             },

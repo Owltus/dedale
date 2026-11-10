@@ -46,11 +46,11 @@ export function ValidationInvestissementDialog({
       <FormDialog
         open={open}
         onOpenChange={onOpenChange}
-        title="Valider la demande"
+        title="Valider la proposition"
         description={
           montantDemande === null
             ? 'Quel montant est accordé ?'
-            : `Quel montant est accordé ? Demandé : ${formatEuros(montantDemande)}.`
+            : `Quel montant est accordé ? Proposé : ${formatEuros(montantDemande)}.`
         }
         onSubmit={() => void form.handleSubmit(onConfirm)()}
         submitLabel="Valider"

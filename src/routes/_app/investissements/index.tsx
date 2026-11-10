@@ -81,7 +81,7 @@ function BudgetsContent({ siteId }: { siteId: string }) {
                   title={`Budget ${String(annee)}`}
                   subtitle={
                     t.nb === 0
-                      ? 'Aucune demande pour le moment'
+                      ? 'Aucune proposition pour le moment'
                       : `${String(t.nb)} dossier${t.nb > 1 ? 's' : ''}`
                   }
                   // La barre prend TOUTE la place laissée par « Budget N »

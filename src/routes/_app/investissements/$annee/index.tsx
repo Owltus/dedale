@@ -119,7 +119,7 @@ function InvestissementsContent({
               className="mt-0.5"
             />
           ) : (
-            'Aucune demande pour cette année.'
+            'Aucune proposition pour cette année.'
           )
         }
         action={
@@ -140,10 +140,10 @@ function InvestissementsContent({
         empty={
           <EmptyState
             icon={Wallet}
-            title={`Aucune demande pour le budget ${String(annee)}`}
+            title={`Aucune proposition pour le budget ${String(annee)}`}
             description={
               canManage
-                ? 'Ajoute une première demande d’investissement pour cette année.'
+                ? 'Ajoute une première proposition d’investissement pour cette année.'
                 : 'Aucun investissement enregistré pour cette année.'
             }
             action={newButton}

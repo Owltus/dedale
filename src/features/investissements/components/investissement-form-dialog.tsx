@@ -127,13 +127,13 @@ export function InvestissementFormDialog({
             <DateField
               control={form.control}
               name="date_demande"
-              label="Date de demande"
+              label="Date de proposition"
               required
             />
             <TextField
               control={form.control}
               name="montant_demande"
-              label="Montant demandé (€)"
+              label="Montant proposé (€)"
               inputMode="decimal"
             />
             {voitValide && (

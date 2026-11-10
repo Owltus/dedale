@@ -177,9 +177,9 @@ const MESSAGES_CONTRAINTE_CHECK: Readonly<Record<string, string>> = {
   investissements_annee_budget_check:
     'Année du budget invalide : choisis une année entre 2000 et 2100.',
   investissements_dates_coherentes:
-    'Dates incohérentes : la réalisation ne peut pas précéder la date de demande. Corrigez l’une des deux dates.',
+    'Dates incohérentes : la réalisation ne peut pas précéder la date de proposition. Corrigez l’une des deux dates.',
   investissements_montant_demande_check:
-    'Montant demandé invalide : saisissez 0 ou plus, ou laissez le champ vide s’il n’est pas encore chiffré.',
+    'Montant proposé invalide : saisissez 0 ou plus, ou laissez le champ vide s’il n’est pas encore chiffré.',
   investissements_montant_prevu_check:
     'Montant prévu invalide : saisissez 0 ou plus, ou laissez le champ vide s’il n’est pas encore chiffré.',
   investissements_depense_reelle_check:

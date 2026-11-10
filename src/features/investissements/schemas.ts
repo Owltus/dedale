@@ -26,7 +26,7 @@ export const investissementSchema = z.object({
   montant_demande: montant,
   montant_prevu: montant,
   depense_reelle: montant,
-  date_demande: dateObligatoire('La date de demande est obligatoire'),
+  date_demande: dateObligatoire('La date de proposition est obligatoire'),
   // Année du budget (138) : texte du menu déroulant, miroir du CHECK 2000-2100.
   annee_budget: z
     .string()
@@ -79,7 +79,7 @@ export const clotureCapexSchema = z
      * `investissements_dates_coherentes`. Champ REQUIS à dessein — sans elle,
      * le contrôle redeviendrait silencieusement inopérant.
      */
-    date_demande: dateObligatoire('La date de demande est obligatoire'),
+    date_demande: dateObligatoire('La date de proposition est obligatoire'),
   })
   // Miroir du CHECK `investissements_dates_coherentes`
   // (date_cloture IS NULL OR date_cloture >= date_demande) : on refuse AVANT
@@ -94,8 +94,8 @@ export const clotureCapexSchema = z
       const date =
         typeof saisie.date_demande === 'string' ? saisie.date_demande : ''
       return date === ''
-        ? 'La réalisation ne peut pas précéder la date de demande.'
-        : `La réalisation ne peut pas précéder la demande (${formatDate(date)}).`
+        ? 'La réalisation ne peut pas précéder la date de proposition.'
+        : `La réalisation ne peut pas précéder la proposition (${formatDate(date)}).`
     },
     path: ['date_cloture'],
   })

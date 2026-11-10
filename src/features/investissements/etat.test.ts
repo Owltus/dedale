@@ -69,7 +69,7 @@ describe('nomStatutCapex — totalité', () => {
   it('les quatre libellés par défaut', () => {
     expect(
       IDS_CONNUS.map((id) => nomStatutCapex(id, SANS_REFERENTIEL)),
-    ).toEqual(['Demandé', 'Validé', 'Réalisé', 'Refusé'])
+    ).toEqual(['Proposé', 'Validé', 'Réalisé', 'Refusé'])
   })
 })
 
@@ -118,7 +118,7 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
     )
   })
 
-  it('la case de report envoie au budget suivant, en « Demandé »', () => {
+  it('la case de report envoie au budget suivant, en « Proposé »', () => {
     fc.assert(
       fc.property(idConnu, annee, (id, a) => {
         const r = schemaCapex(id, a, SANS_REFERENTIEL).reporte

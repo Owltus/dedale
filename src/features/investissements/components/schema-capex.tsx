@@ -249,7 +249,7 @@ function Case({
       <span className="flex flex-col items-center leading-tight @min-[15rem]:items-start @min-[15rem]:text-left">
         <span>{c.libelle}</span>
         {date && (
-          <span className="mt-0.5 text-[11px] font-normal text-muted-foreground tabular-nums">
+          <span className="mt-0.5 text-[11px] font-normal whitespace-pre-line text-muted-foreground tabular-nums">
             {date}
           </span>
         )}
@@ -335,7 +335,7 @@ function Case({
   )
 }
 
-/** Légende de date d'une case (ex. « le 10/11/2026 (46) »). */
+/** Ligne(s) sous le nom d'une case : date, et fournisseur pour la proposition (un saut de ligne entre deux). */
 export type DatesCasesCapex = Partial<Record<CleCase, string>>
 
 interface PropsSchema {
