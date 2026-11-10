@@ -12,9 +12,7 @@ import {
   ID_REALISE,
   ID_REFUSE,
   ID_VALIDE,
-  nomStatutCapex,
   schemaCapex,
-  statutCapexTone,
   type ActionCapex,
 } from '@/features/investissements/etat'
 import { useChangeStatutCapex } from '@/features/investissements/mutations'
@@ -31,11 +29,11 @@ import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { formatDate, isoLocale } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
-import { StatusBadge } from '@/components/common/status-badge'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
@@ -76,6 +74,23 @@ export function InvestissementDetail({
 
   const { label, depassement } = ecartCapex(inv)
   const dates = datesCapex(inv, decisions)
+  // Seconde carte : seulement si l'issue du dossier porte un texte.
+  const issue =
+    refuse && inv.motif_arret?.trim()
+      ? {
+          label: 'Refus',
+          texte: inv.motif_arret,
+          modifier: 'Modifier le motif',
+          ouvrir: () => setRefus(true),
+        }
+      : realise && inv.bilan?.trim()
+        ? {
+            label: 'Réalisation',
+            texte: inv.bilan,
+            modifier: 'Modifier la réalisation',
+            ouvrir: () => realisation.openEdit(inv),
+          }
+        : null
 
   function agir(a: ActionCapex) {
     // Refuser : un motif est exigé (la base le refuse sinon).
@@ -153,11 +168,7 @@ export function InvestissementDetail({
               }),
           },
         ]}
-        titleBadges={
-          <StatusBadge tone={statutCapexTone(inv.statut_capex_id)}>
-            {nomStatutCapex(inv.statut_capex_id, noms)}
-          </StatusBadge>
-        }
+        // Pas de badge de statut (demande PO) : le schéma le dit déjà.
         action={
           canManage ? (
             <>
@@ -214,11 +225,13 @@ export function InvestissementDetail({
         </CardContent>
       </Card>
 
-      {/* LES DEUX BOUTS DU DOSSIER, CÔTE À CÔTE : la demande à gauche, ce qu'il
-          en est advenu à droite (réalisation, ou refus et son motif). */}
-      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+      {/* LA DEMANDE, et ce qu'il en est advenu QUAND il y a un texte à lire
+          (motif du refus, bilan de la réalisation) : alors côte à côte ; sinon
+          la demande prend toute la largeur (demande PO). Pas de dates ici :
+          elles sont dans le schéma. */}
+      <div className={cn('mb-4 grid gap-4', issue && 'lg:grid-cols-2')}>
         <DetailNoteCard
-          label={`Demandé le ${formatDate(inv.date_demande)}`}
+          label="Demande"
           text={inv.description}
           emptyText="Aucune description."
           action={
@@ -232,39 +245,18 @@ export function InvestissementDetail({
             )
           }
         />
-        {refuse ? (
+        {issue && (
           <DetailNoteCard
-            label={`Refusé${inv.date_arret ? ` le ${formatDate(inv.date_arret)}` : ''}`}
-            text={inv.motif_arret}
-            emptyText="Aucun motif."
+            label={issue.label}
+            text={issue.texte}
+            emptyText=""
             action={
               canManage && (
                 <TooltipIconButton
                   icon={<Pencil />}
-                  label="Modifier le motif"
+                  label={issue.modifier}
                   variant="ghost"
-                  onClick={() => setRefus(true)}
-                />
-              )
-            }
-          />
-        ) : (
-          <DetailNoteCard
-            label={
-              realise
-                ? `Réalisé${inv.date_cloture ? ` le ${formatDate(inv.date_cloture)}` : ''}`
-                : 'Réalisation'
-            }
-            text={realise ? inv.bilan : null}
-            emptyText={realise ? 'Aucun bilan.' : 'Pas encore réalisé.'}
-            action={
-              canManage &&
-              realise && (
-                <TooltipIconButton
-                  icon={<Pencil />}
-                  label="Modifier la réalisation"
-                  variant="ghost"
-                  onClick={() => realisation.openEdit(inv)}
+                  onClick={issue.ouvrir}
                 />
               )
             }

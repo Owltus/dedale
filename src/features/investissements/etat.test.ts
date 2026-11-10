@@ -92,11 +92,13 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
     return [sc.demande, sc.valide, sc.realise, sc.refuse, sc.reporte]
   }
 
-  it('le dossier est repéré par UNE case, la sienne, qui n’est pas cliquable', () => {
+  it('le dossier est repéré par UNE case, la sienne ; cliquable seulement pour corriger', () => {
     for (const id of IDS_CONNUS) {
       const actuelles = cases(id).filter((c) => c.etat === 'actuel')
       expect(actuelles.map((c) => c.statutId)).toEqual([id])
-      expect(actuelles[0]?.action).toBeNull()
+      const a = actuelles[0]?.action
+      if (id === ID_REALISE || id === ID_REFUSE) expect(a?.statutId).toBe(id)
+      else expect(a).toBeNull()
     }
   })
 

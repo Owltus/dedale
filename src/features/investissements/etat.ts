@@ -129,7 +129,10 @@ export interface CaseCapex {
   /** Statut que la case représente (`null` pour le report, qui n'en est pas un). */
   statutId: number | null
   etat: EtatCaseCapex
-  /** Le clic sur la case ; `null` = case non cliquable (celle du dossier). */
+  /**
+   * Le clic sur la case ; `null` = non cliquable (la case du dossier, sauf
+   * Réalisé / Refusé qui y rouvrent leur fenêtre de correction).
+   */
   action: ActionCapex | null
 }
 
@@ -197,17 +200,20 @@ export function schemaCapex(
         statutId === ID_REALISE ? 'rouvrir' : 'valider',
       ),
     },
+    // Réalisé / Refusé : même la case du dossier reste cliquable — elle
+    // rouvre sa fenêtre pour CORRIGER (date, dépense, bilan / motif). C'est le
+    // seul accès quand le bilan est vide (pas de carte « Réalisation » alors).
     realise: {
       libelle: nomStatutCapex(ID_REALISE, noms),
       statutId: ID_REALISE,
       etat: etat(ID_REALISE, false),
-      action: action(ID_REALISE, 'realiser'),
+      action: { cle: 'realiser', statutId: ID_REALISE, annee },
     },
     refuse: {
       libelle: nomStatutCapex(ID_REFUSE, noms),
       statutId: ID_REFUSE,
       etat: etat(ID_REFUSE, false),
-      action: action(ID_REFUSE, 'refuser'),
+      action: { cle: 'refuser', statutId: ID_REFUSE, annee },
     },
     reporte: {
       libelle: `Reporter à ${String(annee + 1)}`,

@@ -301,7 +301,15 @@ function Case({
         type="button"
         disabled={disabled}
         onClick={() => onAction(action)}
-        title={cle === 'reporte' ? c.libelle : `Passer à « ${c.libelle} »`}
+        title={
+          cle === 'reporte'
+            ? c.libelle
+            : actuel
+              ? `Modifier « ${c.libelle} »`
+              : `Passer à « ${c.libelle} »`
+        }
+        style={actuel && c.statutId ? styleActuel(c.statutId) : undefined}
+        aria-current={actuel ? 'step' : undefined}
         className={cn(
           classes,
           'cursor-pointer transition duration-150 hover:-translate-y-0.5 hover:text-foreground hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60',
