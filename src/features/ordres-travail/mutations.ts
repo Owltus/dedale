@@ -159,7 +159,8 @@ export function useUpdateDatePrevueOt() {
  *
  * `date_cloture` n'est JAMAIS envoyée par le front (doctrine « la base valide ») :
  * le trigger `nettoyage_dates_coherentes` (BEFORE UPDATE OF statut) l'horodate —
- * MAX des dates d'exécution des opérations à la clôture, `now()` à l'annulation —
+ * MAX des dates d'exécution des opérations à la clôture comme à l'annulation
+ * (`now()` seulement si aucune opération n'est datée, migration 136) —
  * donc le CHECK statut_terminal_a_date_cloture est satisfait sans nous. Une
  * horodate CLIENT posait `now()` alors que les saisies d'exécution sont
  * enregistrées à MIDI UTC (jour saisi → `T12:00:00Z`) : re-clôturer avant 12 h UTC
