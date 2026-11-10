@@ -1,5 +1,13 @@
-import type { CSSProperties, ReactNode } from 'react'
-import { Check } from 'lucide-react'
+import type { CSSProperties } from 'react'
+import {
+  CalendarClock,
+  Check,
+  CircleCheck,
+  CircleX,
+  Inbox,
+  PackageCheck,
+  type LucideIcon,
+} from 'lucide-react'
 import { toneToken } from '@/components/common/charts/chart-tokens'
 import { cn } from '@/lib/utils'
 import {
@@ -10,153 +18,208 @@ import {
   type SchemaCapex as Schema,
 } from '@/features/investissements/etat'
 
-// Organigramme VERTICAL façon Mermaid (138, demande PO) :
+// Organigramme façon Mermaid (138, demande PO) — ordinateur, toute la largeur :
 //
-//                  Demandé
-//         ┌───────────┼───────────┐
-//         ▼           ▼           ▼
-//      Refusé      Validé     Reporter à N+1
-//                     │
-//                     ▼
-//                  Réalisé
+//                 ╭──▶ Refusé
+//   Demandé ──────┼──▶ Validé ─────▶ Réalisé
+//                 ╰──▶ Reporter à N+1
 //
-// Tout repose sur UNE grille de 3 colonnes égales SANS gouttière : les centres
-// des colonnes tombent exactement à 1/6, 1/2 et 5/6 de la largeur, ce qui
-// permet de poser les traits des flèches en pourcentages, pile au centre des
-// cases. L'écart entre les cases vient du padding des cellules.
+// Téléphone : la même chose de haut en bas. Les flèches sont des COURBES SVG
+// étirées à leur cellule (`preserveAspectRatio="none"`) ; `vector-effect:
+// non-scaling-stroke` garde l'épaisseur et les pointillés réguliers malgré
+// l'étirement. Les pointes, elles, sont posées à part (taille fixe) pour ne pas
+// se déformer. Rangées / colonnes ÉGALES et sans gouttière : leurs centres
+// tombent à 1/6, 1/2, 5/6 — là où arrivent les courbes.
 
-const COLONNES = 'grid grid-cols-3'
-const CELLULE = 'flex px-1.5 sm:px-3'
+type Orientation = 'h' | 'v'
 
-/** Couleur d'un trait selon le chemin pris par le dossier. */
-function couleur(f: EtatFlecheCapex): string {
-  if (f === 'ok') return 'text-success'
-  if (f === 'refus') return 'text-destructive'
-  return 'text-muted-foreground/40'
+const POSITIONS = ['16.667%', '50%', '83.333%'] as const
+
+/** Trait : chemin pris (plein, coloré) ou possible (fin, pointillé, discret). */
+function styleTrait(etat: EtatFlecheCapex): {
+  className: string
+  epais: number
+  pointille?: string
+} {
+  if (etat === 'ok') return { className: 'text-success', epais: 2.5 }
+  if (etat === 'refus') return { className: 'text-destructive', epais: 2.5 }
+  return {
+    className: 'text-muted-foreground/45',
+    epais: 1.5,
+    pointille: '5 5',
+  }
 }
 
-/** Trait vertical centré sur `gauche`, terminé par une pointe vers le bas. */
-function Tige({
-  gauche,
-  depuis,
+/** Pointe de flèche à taille fixe, orientée vers la droite ou vers le bas. */
+function Pointe({
+  orientation,
+  position,
   etat,
 }: {
-  gauche: string
-  depuis: string
+  orientation: Orientation
+  position: string
   etat: EtatFlecheCapex
 }) {
+  const h = orientation === 'h'
   return (
-    <span
+    <svg
       aria-hidden
-      className={cn('absolute bottom-0 -translate-x-1/2', couleur(etat))}
-      style={{ left: gauche, top: depuis }}
+      viewBox="0 0 10 10"
+      className={cn(
+        'absolute size-2.5 fill-current',
+        h ? 'right-0 -translate-y-1/2' : 'bottom-0 -translate-x-1/2',
+        styleTrait(etat).className,
+      )}
+      style={h ? { top: position } : { left: position }}
     >
-      <span className="absolute inset-x-0 top-0 bottom-1.5 mx-auto w-0.5 bg-current" />
+      <path d={h ? 'M0 0 L10 5 L0 10 z' : 'M0 0 L10 0 L5 10 z'} />
+    </svg>
+  )
+}
+
+/**
+ * Faisceau de flèches courbes d'un point de départ (milieu du bord d'entrée)
+ * vers une ou trois arrivées. Coordonnées : 0-100 dans le sens du flux,
+ * 0-300 en travers (centres des cibles à 50, 150, 250).
+ */
+function Liens({
+  orientation,
+  liens,
+}: {
+  orientation: Orientation
+  liens: { vers: 0 | 1 | 2; etat: EtatFlecheCapex }[]
+}) {
+  const h = orientation === 'h'
+  // Les traits non empruntés d'abord : le chemin pris passe par-dessus.
+  const ordonnes = [...liens].sort(
+    (a, b) => Number(a.etat !== 'libre') - Number(b.etat !== 'libre'),
+  )
+  return (
+    <>
       <svg
-        viewBox="0 0 10 7"
-        className="absolute bottom-0 left-1/2 h-1.5 w-2.5 -translate-x-1/2 fill-current"
-      >
-        <path d="M0 0 H10 L5 7 z" />
-      </svg>
-      {/* Largeur de la pointe : réserve la place pour le centrage. */}
-      <span className="block h-full w-2.5" />
-    </span>
-  )
-}
-
-/** Segment horizontal entre deux abscisses, à mi-hauteur de la fourche. */
-function Barre({
-  de,
-  a,
-  etat,
-}: {
-  de: string
-  a: string
-  etat: EtatFlecheCapex
-}) {
-  return (
-    <span
-      aria-hidden
-      className={cn('absolute top-1/2 h-0.5 -translate-y-1/2', couleur(etat))}
-      style={{ left: de, width: `calc(${a} - ${de} + 1px)` }}
-    >
-      <span className="block size-full bg-current" />
-    </span>
-  )
-}
-
-/** Fourche sous « Demandé » : vers Refusé, Validé et le report. */
-function Fourche({ fleches }: { fleches: Schema['fleches'] }) {
-  const tronc =
-    fleches.versValide !== 'libre'
-      ? fleches.versValide
-      : fleches.versRefuse !== 'libre'
-        ? fleches.versRefuse
-        : 'libre'
-  return (
-    <div className="relative h-12">
-      {/* Tronc : de Demandé jusqu'à la barre. */}
-      <span
         aria-hidden
+        viewBox={h ? '0 0 100 300' : '0 0 300 100'}
+        preserveAspectRatio="none"
         className={cn(
-          'absolute top-0 left-1/2 h-1/2 w-0.5 -translate-x-1/2',
-          couleur(tronc),
+          // Taille EXPLICITE : un <svg> en position absolue ne s'étire pas
+          // avec left/right comme une div. Le bout est réservé aux pointes.
+          'absolute top-0 left-0 overflow-visible',
+          h
+            ? 'h-full w-[calc(100%-0.625rem)]'
+            : 'h-[calc(100%-0.625rem)] w-full',
         )}
       >
-        <span className="block size-full bg-current" />
-      </span>
-      <Barre de="16.667%" a="50%" etat={fleches.versRefuse} />
-      <Barre de="50%" a="83.333%" etat={fleches.versReporte} />
-      <Tige gauche="16.667%" depuis="50%" etat={fleches.versRefuse} />
-      <Tige gauche="50%" depuis="50%" etat={fleches.versValide} />
-      <Tige gauche="83.333%" depuis="50%" etat={fleches.versReporte} />
-    </div>
+        {ordonnes.map(({ vers, etat }) => {
+          const y = 50 + vers * 100
+          const d = h
+            ? `M0 150 C55 150 45 ${String(y)} 100 ${String(y)}`
+            : `M150 0 C150 55 ${String(y)} 45 ${String(y)} 100`
+          const t = styleTrait(etat)
+          return (
+            <path
+              key={vers}
+              d={d}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={t.epais}
+              strokeDasharray={t.pointille}
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+              className={t.className}
+            />
+          )
+        })}
+      </svg>
+      {liens.map(({ vers, etat }) => (
+        <Pointe
+          key={vers}
+          orientation={orientation}
+          position={POSITIONS[vers]}
+          etat={etat}
+        />
+      ))}
+    </>
   )
 }
 
-/** Style de la case où se trouve le dossier : la couleur de son statut. */
-function styleActuel(statutId: number): CSSProperties {
+const ICONES = {
+  demande: Inbox,
+  valide: CircleCheck,
+  realise: PackageCheck,
+  refuse: CircleX,
+  reporte: CalendarClock,
+} satisfies Record<string, LucideIcon>
+
+type CleCase = keyof typeof ICONES
+
+/** Couleur de la case où se trouve le dossier : celle de son statut. */
+function couleurActuelle(statutId: number): string {
   const tone = statutCapexTone(statutId)
-  const c = tone === 'neutral' ? 'var(--primary)' : toneToken(tone)
+  return tone === 'neutral' ? 'var(--primary)' : toneToken(tone)
+}
+
+function styleActuel(statutId: number): CSSProperties {
+  const c = couleurActuelle(statutId)
   return {
     borderColor: c,
-    color: c,
-    backgroundColor: `color-mix(in oklch, ${c} 14%, var(--card))`,
-    boxShadow: `0 0 0 4px color-mix(in oklch, ${c} 18%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${c} 13%, var(--card))`,
+    boxShadow: `0 0 0 4px color-mix(in oklch, ${c} 16%, transparent), 0 8px 24px -8px color-mix(in oklch, ${c} 55%, transparent)`,
   }
 }
 
 function Case({
+  cle,
   c,
-  pointille,
-  danger,
   onAction,
   disabled,
 }: {
+  cle: CleCase
   c: CaseCapex
-  /** Case d'action et non de statut (le report). */
-  pointille?: boolean
-  /** Survol rouge (refus). */
-  danger?: boolean
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
 }) {
-  const contenu: ReactNode = (
+  const Icone = c.etat === 'fait' ? Check : ICONES[cle]
+  const actuel = c.etat === 'actuel'
+  const couleur = actuel && c.statutId ? couleurActuelle(c.statutId) : undefined
+  const contenu = (
     <>
-      {c.etat === 'fait' && (
-        <Check aria-hidden className="size-4 shrink-0 text-success" />
-      )}
-      <span>{c.libelle}</span>
+      <span
+        className={cn(
+          'flex size-8 shrink-0 items-center justify-center rounded-full',
+          c.etat === 'fait' && 'bg-success/15 text-success',
+          c.etat === 'libre' && 'bg-muted text-muted-foreground',
+        )}
+        style={
+          couleur
+            ? {
+                color: couleur,
+                backgroundColor: `color-mix(in oklch, ${couleur} 18%, transparent)`,
+              }
+            : undefined
+        }
+      >
+        <Icone aria-hidden className="size-4" />
+      </span>
+      <span className="flex min-w-0 flex-col items-start text-left">
+        <span className="leading-tight">{c.libelle}</span>
+        {actuel && (
+          <span
+            className="text-xs font-normal"
+            style={couleur ? { color: couleur } : undefined}
+          >
+            Le dossier est ici
+          </span>
+        )}
+      </span>
     </>
   )
   const classes = cn(
-    'flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border-2 bg-card px-2 py-2 text-center text-sm leading-tight font-medium',
-    c.etat === 'fait' && 'border-success/50',
+    'flex min-h-16 w-full items-center gap-3 rounded-xl border bg-card px-4 py-2.5 text-sm font-medium shadow-xs',
+    c.etat === 'fait' && 'border-success/40',
     c.etat === 'libre' && 'text-muted-foreground',
-    pointille && 'border-dashed',
+    actuel && 'border-2 font-semibold text-foreground',
+    cle === 'reporte' && 'border-dashed',
   )
-  const style =
-    c.etat === 'actuel' && c.statutId ? styleActuel(c.statutId) : undefined
   if (c.action && onAction) {
     const action = c.action
     return (
@@ -164,11 +227,13 @@ function Case({
         type="button"
         disabled={disabled}
         onClick={() => onAction(action)}
-        title={pointille ? c.libelle : `Passer à « ${c.libelle} »`}
+        title={cle === 'reporte' ? c.libelle : `Passer à « ${c.libelle} »`}
         className={cn(
           classes,
-          'cursor-pointer transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60',
-          danger ? 'hover:border-destructive' : 'hover:border-foreground/40',
+          'cursor-pointer transition duration-150 hover:-translate-y-0.5 hover:text-foreground hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60',
+          cle === 'refuse'
+            ? 'hover:border-destructive/60'
+            : 'hover:border-foreground/30',
         )}
       >
         {contenu}
@@ -177,14 +242,11 @@ function Case({
   }
   return (
     <div
-      className={cn(classes, c.etat === 'actuel' && 'font-semibold')}
-      style={style}
-      aria-current={c.etat === 'actuel' ? 'step' : undefined}
+      className={classes}
+      style={actuel && c.statutId ? styleActuel(c.statutId) : undefined}
+      aria-current={actuel ? 'step' : undefined}
     >
       {contenu}
-      {c.etat === 'actuel' && (
-        <span className="sr-only"> — le dossier est ici</span>
-      )}
     </div>
   )
 }
@@ -195,167 +257,108 @@ interface PropsSchema {
   disabled?: boolean
 }
 
-/** Téléphone : de haut en bas (Demandé, la fourche, puis Réalisé). */
+/** Liens de la fourche qui part de « Demandé ». */
+function liensFourche(f: Schema['fleches']) {
+  return [
+    { vers: 0 as const, etat: f.versRefuse },
+    { vers: 1 as const, etat: f.versValide },
+    { vers: 2 as const, etat: f.versReporte },
+  ]
+}
+
+/** Ordinateur : de gauche à droite, sur toute la largeur. */
+function SchemaHorizontal({ schema, onAction, disabled }: PropsSchema) {
+  const props = { onAction, disabled }
+  const cellule = 'flex items-center py-2'
+  return (
+    <div className="hidden w-full grid-cols-[minmax(0,1fr)_minmax(4rem,0.8fr)_minmax(0,1fr)_minmax(3rem,0.5fr)_minmax(0,1fr)] grid-rows-3 md:grid">
+      <div className={cn(cellule, 'col-start-1 row-start-2')}>
+        <Case cle="demande" c={schema.demande} {...props} />
+      </div>
+      <div className="relative col-start-2 row-span-3 row-start-1">
+        <Liens orientation="h" liens={liensFourche(schema.fleches)} />
+      </div>
+      <div className={cn(cellule, 'col-start-3 row-start-1')}>
+        <Case cle="refuse" c={schema.refuse} {...props} />
+      </div>
+      <div className={cn(cellule, 'col-start-3 row-start-2')}>
+        <Case cle="valide" c={schema.valide} {...props} />
+      </div>
+      <div className={cn(cellule, 'col-start-3 row-start-3')}>
+        <Case cle="reporte" c={schema.reporte} {...props} />
+      </div>
+      {/* Validé → Réalisé : sur la rangée du milieu, flèche droite. */}
+      <div className="relative col-start-4 row-span-3 row-start-1">
+        <Liens
+          orientation="h"
+          liens={[{ vers: 1, etat: schema.fleches.versRealise }]}
+        />
+      </div>
+      <div className={cn(cellule, 'col-start-5 row-start-2')}>
+        <Case cle="realise" c={schema.realise} {...props} />
+      </div>
+    </div>
+  )
+}
+
+/** Téléphone : de haut en bas. */
 function SchemaVertical({ schema, onAction, disabled }: PropsSchema) {
   const props = { onAction, disabled }
+  const trois = 'grid grid-cols-3'
+  const cellule = 'flex px-1'
   return (
-    <div className="mx-auto w-full max-w-xl md:hidden">
-      <div className={COLONNES}>
-        <div className="col-start-2">
-          <div className={CELLULE}>
-            <Case c={schema.demande} {...props} />
-          </div>
+    <div className="w-full md:hidden">
+      <div className={trois}>
+        <div className={cn(cellule, 'col-start-2')}>
+          <Case cle="demande" c={schema.demande} {...props} />
         </div>
       </div>
-      <Fourche fleches={schema.fleches} />
-      <div className={COLONNES}>
-        <div className={CELLULE}>
-          <Case c={schema.refuse} danger {...props} />
+      <div className="relative h-14">
+        <Liens orientation="v" liens={liensFourche(schema.fleches)} />
+      </div>
+      <div className={trois}>
+        <div className={cellule}>
+          <Case cle="refuse" c={schema.refuse} {...props} />
         </div>
-        <div className={CELLULE}>
-          <Case c={schema.valide} {...props} />
+        <div className={cellule}>
+          <Case cle="valide" c={schema.valide} {...props} />
         </div>
-        <div className={CELLULE}>
-          <Case c={schema.reporte} pointille {...props} />
+        <div className={cellule}>
+          <Case cle="reporte" c={schema.reporte} {...props} />
         </div>
       </div>
       <div className="relative h-10">
-        <Tige gauche="50%" depuis="0" etat={schema.fleches.versRealise} />
+        <Liens
+          orientation="v"
+          liens={[{ vers: 1, etat: schema.fleches.versRealise }]}
+        />
       </div>
-      <div className={COLONNES}>
-        <div className="col-start-2">
-          <div className={CELLULE}>
-            <Case c={schema.realise} {...props} />
-          </div>
+      <div className={trois}>
+        <div className={cn(cellule, 'col-start-2')}>
+          <Case cle="realise" c={schema.realise} {...props} />
         </div>
       </div>
     </div>
   )
 }
 
-/** Trait horizontal à la hauteur `haut`, de `de` à `a` ; pointe à droite si `pointe`. */
-function TraitH({
-  haut,
-  de,
-  a,
-  etat,
-  pointe,
-}: {
-  haut: string
-  de: string
-  a: string
-  etat: EtatFlecheCapex
-  pointe?: boolean
-}) {
-  return (
-    <span
-      aria-hidden
-      className={cn('absolute h-2.5 -translate-y-1/2', couleur(etat))}
-      style={{ top: haut, left: de, right: `calc(100% - ${a})` }}
-    >
-      <span
-        className={cn(
-          'absolute inset-y-0 left-0 my-auto h-0.5 bg-current',
-          pointe ? 'right-1.5' : 'right-0',
-        )}
-      />
-      {pointe && (
-        <svg
-          viewBox="0 0 7 10"
-          className="absolute inset-y-0 right-0 my-auto h-2.5 w-1.5 fill-current"
-        >
-          <path d="M0 0 L7 5 L0 10 z" />
-        </svg>
-      )}
-    </span>
-  )
-}
-
-/** Trait vertical à l'abscisse `gauche`, de `de` à `a` (sans pointe). */
-function TraitV({
-  gauche,
-  de,
-  a,
-  etat,
-}: {
-  gauche: string
-  de: string
-  a: string
-  etat: EtatFlecheCapex
-}) {
-  return (
-    <span
-      aria-hidden
-      className={cn('absolute w-0.5 -translate-x-1/2', couleur(etat))}
-      style={{ left: gauche, top: de, height: `calc(${a} - ${de} + 1px)` }}
-    >
-      <span className="block size-full bg-current" />
-    </span>
-  )
-}
-
 /**
- * Ordinateur : de gauche à droite, façon Mermaid « LR ».
- *
- *               ┌──▶ Refusé
- *   Demandé ────┼──▶ Validé ────▶ Réalisé
- *               └──▶ Reporter à N+1
- *
- * Trois RANGÉES égales sans gouttière : leurs centres tombent à 1/6, 1/2 et
- * 5/6 de la hauteur, où se posent les branches de la fourche.
- */
-function SchemaHorizontal({ schema, onAction, disabled }: PropsSchema) {
-  const props = { onAction, disabled }
-  const f = schema.fleches
-  const tronc =
-    f.versValide !== 'libre'
-      ? f.versValide
-      : f.versRefuse !== 'libre'
-        ? f.versRefuse
-        : 'libre'
-  const ligne = 'flex items-center py-1.5'
-  return (
-    <div className="mx-auto hidden w-full max-w-4xl grid-cols-[minmax(0,1fr)_3.5rem_minmax(0,1fr)_3rem_minmax(0,1fr)] grid-rows-3 md:grid">
-      <div className={cn(ligne, 'col-start-1 row-start-2')}>
-        <Case c={schema.demande} {...props} />
-      </div>
-      {/* Fourche : tronc, barre verticale, trois branches fléchées. */}
-      <div className="relative col-start-2 row-span-3 row-start-1">
-        <TraitH haut="50%" de="0%" a="50%" etat={tronc} />
-        <TraitV gauche="50%" de="16.667%" a="50%" etat={f.versRefuse} />
-        <TraitV gauche="50%" de="50%" a="83.333%" etat={f.versReporte} />
-        <TraitH haut="16.667%" de="50%" a="100%" etat={f.versRefuse} pointe />
-        <TraitH haut="50%" de="50%" a="100%" etat={f.versValide} pointe />
-        <TraitH haut="83.333%" de="50%" a="100%" etat={f.versReporte} pointe />
-      </div>
-      <div className={cn(ligne, 'col-start-3 row-start-1')}>
-        <Case c={schema.refuse} danger {...props} />
-      </div>
-      <div className={cn(ligne, 'col-start-3 row-start-2')}>
-        <Case c={schema.valide} {...props} />
-      </div>
-      <div className={cn(ligne, 'col-start-3 row-start-3')}>
-        <Case c={schema.reporte} pointille {...props} />
-      </div>
-      <div className="relative col-start-4 row-start-2">
-        <TraitH haut="50%" de="0%" a="100%" etat={f.versRealise} pointe />
-      </div>
-      <div className={cn(ligne, 'col-start-5 row-start-2')}>
-        <Case c={schema.realise} {...props} />
-      </div>
-    </div>
-  )
-}
-
-/**
- * Schéma du parcours d'un investissement : horizontal sur ordinateur,
- * vertical sur téléphone. La case colorée = où en est le dossier ; un clic
- * sur une autre case y fait passer le dossier (rôles qui peuvent modifier,
- * sinon lecture seule).
+ * Schéma du parcours d'un investissement, sur un fond « toile » pointillé.
+ * La case colorée = où en est le dossier ; un clic sur une autre case y fait
+ * passer le dossier (rôles qui peuvent modifier, sinon lecture seule).
  */
 export function SchemaCapex(props: PropsSchema) {
   return (
-    <div role="group" aria-label="Parcours du dossier">
+    <div
+      role="group"
+      aria-label="Parcours du dossier"
+      className="rounded-lg px-3 py-6 sm:px-6"
+      style={{
+        backgroundImage:
+          'radial-gradient(color-mix(in oklch, var(--muted-foreground) 22%, transparent) 1px, transparent 1px)',
+        backgroundSize: '18px 18px',
+      }}
+    >
       <SchemaHorizontal {...props} />
       <SchemaVertical {...props} />
     </div>

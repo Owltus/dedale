@@ -167,8 +167,8 @@ export function InvestissementDetail({
       {/* SCHÉMA VERTICAL (138, demande PO) : Demandé, puis Refusé / Validé /
           Reporter, puis Réalisé. La case colorée = où en est le dossier ; un
           clic sur une autre case y fait passer le dossier. */}
-      <Card className="mb-4 py-6">
-        <CardContent>
+      <Card className="mb-4 overflow-hidden py-0">
+        <CardContent className="p-0">
           <SchemaCapex
             schema={schema}
             onAction={canManage ? agir : undefined}
