@@ -1,7 +1,16 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Paperclip, Pencil } from 'lucide-react'
+import {
+  CalendarClock,
+  CircleCheck,
+  CircleX,
+  PackageCheck,
+  Paperclip,
+  Pencil,
+  Undo2,
+} from 'lucide-react'
+import type { RowAction } from '@/components/common/row-actions'
 import { toast } from 'sonner'
 import {
   decisionsCapexQueries,
@@ -9,6 +18,7 @@ import {
 } from '@/features/investissements/queries'
 import {
   datesCapex,
+  ID_DEMANDE,
   ID_REALISE,
   ID_REFUSE,
   ID_VALIDE,
@@ -18,6 +28,7 @@ import {
 import {
   useChangeStatutCapex,
   useDefinirDevis,
+  useModifierMontantValide,
 } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
@@ -67,6 +78,8 @@ export function InvestissementDetail({
   const confirmAction = useConfirmAction()
   const [refus, setRefus] = useState(false)
   const [validation, setValidation] = useState(false)
+  const [correctionMontant, setCorrectionMontant] = useState(false)
+  const modifierMontant = useModifierMontantValide()
   // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
   // Un fichier lâché sur le cadre « Devis » y est traité ; ailleurs, il va
   // aux documents (annexes).
@@ -168,6 +181,88 @@ export function InvestissementDetail({
     )
   }
 
+  // MENUS DU SCHÉMA (clic droit / appui long, demande PO) : ce qu'on peut
+  // faire sur chaque case, selon où en est le dossier.
+  const statut = inv.statut_capex_id
+  const valideOuPlus = statut === ID_VALIDE || realise
+  const reporter = schema.reporte.action
+  const menus: Partial<Record<string, RowAction[]>> | undefined = canManage
+    ? {
+        demande: [
+          {
+            label: 'Modifier la proposition',
+            icon: Pencil,
+            onSelect: () => edit.openEdit(inv),
+          },
+          ...(statut !== ID_DEMANDE
+            ? [
+                {
+                  label: 'Revenir à « Proposition »',
+                  icon: Undo2,
+                  onSelect: () =>
+                    agir({ cle: 'relancer', statutId: ID_DEMANDE, annee }),
+                },
+              ]
+            : []),
+        ],
+        valide: valideOuPlus
+          ? [
+              {
+                label: 'Modifier le montant validé',
+                icon: Pencil,
+                onSelect: () => setCorrectionMontant(true),
+              },
+              ...(realise
+                ? [
+                    {
+                      label: 'Revenir à « Validé »',
+                      icon: Undo2,
+                      onSelect: () =>
+                        agir({ cle: 'rouvrir', statutId: ID_VALIDE, annee }),
+                    },
+                  ]
+                : []),
+            ]
+          : [
+              {
+                label: 'Valider…',
+                icon: CircleCheck,
+                onSelect: () => setValidation(true),
+              },
+            ],
+        realise: [
+          {
+            label: realise ? 'Modifier la réalisation' : 'Marquer réalisé…',
+            icon: realise ? Pencil : PackageCheck,
+            onSelect: () => realisation.openEdit(inv),
+          },
+        ],
+        refuse: [
+          refuse
+            ? {
+                label: 'Modifier le motif',
+                icon: Pencil,
+                onSelect: () => setRefus(true),
+              }
+            : {
+                label: 'Refuser…',
+                icon: CircleX,
+                destructive: true,
+                onSelect: () => setRefus(true),
+              },
+        ],
+        ...(reporter && {
+          reporte: [
+            {
+              label: `Reporter à ${String(reporter.annee)}…`,
+              icon: CalendarClock,
+              onSelect: () => agir(reporter),
+            },
+          ],
+        }),
+      }
+    : undefined
+
   return (
     <PageContainer className="flex flex-col">
       <PageHeader
@@ -233,6 +328,7 @@ export function InvestissementDetail({
           <CardContent className="p-0">
             <SchemaCapex
               schema={schema}
+              menus={menus}
               devis={
                 <CaseDevis
                   investissementId={inv.id}
@@ -361,6 +457,27 @@ export function InvestissementDetail({
                   onSuccess: () => {
                     toast.success('Investissement validé')
                     setValidation(false)
+                  },
+                  onError: (e) => toast.error(writeErrorMessage(e)),
+                },
+              )
+            }}
+          />
+          <ValidationInvestissementDialog
+            key={correctionMontant ? 'montant-ouvert' : 'montant'}
+            correction
+            open={correctionMontant}
+            onOpenChange={setCorrectionMontant}
+            pending={modifierMontant.isPending}
+            montantDemande={inv.montant_demande}
+            montantPrevu={inv.montant_prevu}
+            onConfirm={({ montant_prevu }) => {
+              modifierMontant.mutate(
+                { id: inv.id, montantPrevu: parseMontant(montant_prevu) },
+                {
+                  onSuccess: () => {
+                    toast.success('Montant validé modifié')
+                    setCorrectionMontant(false)
                   },
                   onError: (e) => toast.error(writeErrorMessage(e)),
                 },

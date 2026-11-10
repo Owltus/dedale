@@ -1,7 +1,7 @@
 import { useId, useRef, useState, type DragEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useDroppable } from '@dnd-kit/core'
-import { FileText, FileUp, Loader2, X } from 'lucide-react'
+import { Eye, FileText, FileUp, Loader2, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
 import { documentsQueries } from '@/features/documents/queries'
 import { MIME_PDF } from '@/features/documents/upload'
@@ -13,6 +13,11 @@ import { useAuth } from '@/auth'
 import { useSiteContext } from '@/lib/site-context'
 import { writeErrorMessage } from '@/lib/form'
 import { cn } from '@/lib/utils'
+import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
+import {
+  RowContextMenuContent,
+  type RowAction,
+} from '@/components/common/row-actions'
 
 /** Attribut posé sur la case : le dépôt pleine page de la fiche l'ignore. */
 export const ATTR_ZONE_DEVIS = 'data-zone-devis'
@@ -38,8 +43,9 @@ const aDesFichiers = (e: DragEvent) => e.dataTransfer.types.includes('Files')
  *   est vide) : il est ajouté au dossier ET devient le devis, sans fenêtre.
  * - Document de la liste « Documents » glissé dessus : il devient le devis
  *   (cf. `CIBLE_DEVIS`, géré par la fiche).
- * - Clic sur une case remplie : aperçu du devis. La croix le retire (il
- *   repasse dans « Documents »).
+ * - Clic sur une case remplie : aperçu du devis.
+ * - Clic droit / appui long : menu (voir, remplacer par un fichier, ne plus
+ *   en faire le devis — il repasse alors dans « Documents »).
  */
 export function CaseDevis({
   investissementId,
@@ -132,9 +138,48 @@ export function CaseDevis({
     : {}
 
   const cliquable = devis !== null || canManage
+  const retirer = () =>
+    definir.mutate(
+      { id: investissementId, documentId: null },
+      {
+        onSuccess: () =>
+          toast.success('Devis retiré : il reste dans les documents'),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  const menu: RowAction[] = [
+    ...(devis
+      ? [
+          {
+            label: 'Voir le devis',
+            icon: Eye,
+            onSelect: () => setApercu(devis),
+          },
+        ]
+      : []),
+    ...(canManage
+      ? [
+          {
+            label: devis ? 'Remplacer par un fichier…' : 'Ajouter le devis…',
+            icon: FileUp,
+            onSelect: () => choix.current?.click(),
+          },
+        ]
+      : []),
+    ...(canManage && devis
+      ? [
+          {
+            label: 'Ne plus en faire le devis',
+            icon: Unlink,
+            onSelect: retirer,
+            separatorBefore: true,
+          },
+        ]
+      : []),
+  ]
   const cible = survol || isOver
 
-  return (
+  const caseDevis = (
     <div
       ref={setNodeRef}
       {...{ [ATTR_ZONE_DEVIS]: '' }}
@@ -155,7 +200,6 @@ export function CaseDevis({
             'cursor-pointer hover:-translate-y-0.5 hover:border-info hover:text-foreground hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
           canManage && glissement && 'border-info',
           cible && 'border-solid border-info bg-info/10',
-          canManage && devis && '@min-[15rem]:pr-10',
         )}
       >
         <span
@@ -194,28 +238,6 @@ export function CaseDevis({
         </span>
       </button>
 
-      {canManage && devis && (
-        <button
-          type="button"
-          disabled={occupe}
-          onClick={() =>
-            definir.mutate(
-              { id: investissementId, documentId: null },
-              {
-                onSuccess: () =>
-                  toast.success('Devis retiré : il reste dans les documents'),
-                onError: (e) => toast.error(writeErrorMessage(e)),
-              },
-            )
-          }
-          title="Ne plus en faire le devis (il reste dans les documents)"
-          aria-label="Ne plus en faire le devis"
-          className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none @min-[15rem]:top-1/2 @min-[15rem]:right-2 @min-[15rem]:-translate-y-1/2"
-        >
-          <X aria-hidden className="size-4" />
-        </button>
-      )}
-
       <input
         ref={choix}
         type="file"
@@ -233,5 +255,13 @@ export function CaseDevis({
         }}
       />
     </div>
+  )
+  // Menu dès qu'il a une entrée (voir, ou ajouter/remplacer).
+  if (devis === null && !canManage) return caseDevis
+  return (
+    <ContextMenu modal={false}>
+      <ContextMenuTrigger asChild>{caseDevis}</ContextMenuTrigger>
+      <RowContextMenuContent actions={menu} />
+    </ContextMenu>
   )
 }

@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ComponentProps, CSSProperties, ReactNode } from 'react'
 import {
   CalendarClock,
   Check,
@@ -10,6 +10,11 @@ import {
 } from 'lucide-react'
 import { toneToken } from '@/components/common/charts/chart-tokens'
 import { cn } from '@/lib/utils'
+import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
+import {
+  RowContextMenuContent,
+  type RowAction,
+} from '@/components/common/row-actions'
 import {
   statutCapexTone,
   type ActionCapex,
@@ -206,6 +211,7 @@ function Case({
   c,
   chiffres = [],
   date,
+  menu = [],
   onAction,
   disabled,
 }: {
@@ -213,9 +219,41 @@ function Case({
   c: CaseCapex
   chiffres?: ChiffreCapex[]
   date?: string
+  /** Menu du clic droit / appui long (vide = pas de menu). */
+  menu?: RowAction[]
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
 }) {
+  const tuile = (
+    <TuileCase {...{ cle, c, chiffres, date, onAction, disabled }} />
+  )
+  if (menu.length === 0) return tuile
+  return (
+    <ContextMenu modal={false}>
+      <ContextMenuTrigger asChild>{tuile}</ContextMenuTrigger>
+      <RowContextMenuContent actions={menu} />
+    </ContextMenu>
+  )
+}
+
+function TuileCase({
+  cle,
+  c,
+  chiffres,
+  date,
+  onAction,
+  disabled,
+  ...rest
+}: {
+  cle: CleCase
+  c: CaseCapex
+  chiffres: ChiffreCapex[]
+  date?: string
+  onAction?: (a: ActionCapex) => void
+  disabled?: boolean
+} & Omit<ComponentProps<'div'>, 'children'>) {
+  // `rest` = ce que le menu contextuel (`asChild`) pose sur la case : ref,
+  // écouteur du clic droit / appui long. Étalé AVANT nos propres attributs.
   const Icone = c.etat === 'fait' ? Check : ICONES[cle]
   const actuel = c.etat === 'actuel'
   const couleur = actuel && c.statutId ? couleurActuelle(c.statutId) : undefined
@@ -298,6 +336,7 @@ function Case({
     const action = c.action
     return (
       <button
+        {...(rest as ComponentProps<'button'>)}
         type="button"
         disabled={disabled}
         onClick={() => onAction(action)}
@@ -326,6 +365,7 @@ function Case({
   }
   return (
     <div
+      {...rest}
       className={classes}
       style={actuel && c.statutId ? styleActuel(c.statutId) : undefined}
       aria-current={actuel ? 'step' : undefined}
@@ -340,6 +380,8 @@ export type DatesCasesCapex = Partial<Record<CleCase, string>>
 
 interface PropsSchema {
   schema: Schema
+  /** Menus du clic droit / appui long, par case (selon la situation du dossier). */
+  menus?: Partial<Record<CleCase, RowAction[]>>
   /**
    * Case « Devis » ACCROCHÉE à la proposition (demande PO) : sous elle en
    * horizontal, à sa gauche en vertical, reliée par un trait pointillé.
@@ -377,6 +419,7 @@ function liensFourche(f: Schema['fleches']) {
 /** Schéma LARGE (≥ 56rem de place) : de gauche à droite. */
 function SchemaHorizontal({
   schema,
+  menus,
   devis,
   chiffres,
   dates,
@@ -402,6 +445,7 @@ function SchemaHorizontal({
           c={schema.demande}
           chiffres={chiffres?.demande}
           date={dates?.demande}
+          menu={menus?.demande}
           {...props}
         />
       </div>
@@ -414,6 +458,7 @@ function SchemaHorizontal({
           c={schema.refuse}
           chiffres={chiffres?.refuse}
           date={dates?.refuse}
+          menu={menus?.refuse}
           {...props}
         />
       </div>
@@ -423,6 +468,7 @@ function SchemaHorizontal({
           c={schema.valide}
           chiffres={chiffres?.valide}
           date={dates?.valide}
+          menu={menus?.valide}
           {...props}
         />
       </div>
@@ -432,6 +478,7 @@ function SchemaHorizontal({
           c={schema.reporte}
           chiffres={chiffres?.reporte}
           date={dates?.reporte}
+          menu={menus?.reporte}
           {...props}
         />
       </div>
@@ -448,6 +495,7 @@ function SchemaHorizontal({
           c={schema.realise}
           chiffres={chiffres?.realise}
           date={dates?.realise}
+          menu={menus?.realise}
           {...props}
         />
       </div>
@@ -458,6 +506,7 @@ function SchemaHorizontal({
 /** Schéma ÉTROIT (téléphone, tablette, fenêtre réduite) : de haut en bas. */
 function SchemaVertical({
   schema,
+  menus,
   devis,
   chiffres,
   dates,
@@ -486,6 +535,7 @@ function SchemaVertical({
             c={schema.demande}
             chiffres={chiffres?.demande}
             date={dates?.demande}
+            menu={menus?.demande}
             {...props}
           />
         </div>
@@ -500,6 +550,7 @@ function SchemaVertical({
             c={schema.refuse}
             chiffres={chiffres?.refuse}
             date={dates?.refuse}
+            menu={menus?.refuse}
             {...props}
           />
         </div>
@@ -509,6 +560,7 @@ function SchemaVertical({
             c={schema.valide}
             chiffres={chiffres?.valide}
             date={dates?.valide}
+            menu={menus?.valide}
             {...props}
           />
         </div>
@@ -518,6 +570,7 @@ function SchemaVertical({
             c={schema.reporte}
             chiffres={chiffres?.reporte}
             date={dates?.reporte}
+            menu={menus?.reporte}
             {...props}
           />
         </div>
@@ -535,6 +588,7 @@ function SchemaVertical({
             c={schema.realise}
             chiffres={chiffres?.realise}
             date={dates?.realise}
+            menu={menus?.realise}
             {...props}
           />
         </div>

@@ -190,3 +190,30 @@ export function useDefinirDevis() {
       qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
   })
 }
+
+/**
+ * Corrige le seul montant validé (menu du schéma) sans toucher au statut ni
+ * à la réalisation — `useChangeStatutCapex` effacerait le bilan.
+ */
+export function useModifierMontantValide() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      montantPrevu,
+    }: {
+      id: string
+      montantPrevu: number | null
+    }) => {
+      await supabase
+        .from('investissements')
+        .update({ montant_prevu: montantPrevu })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
+  })
+}

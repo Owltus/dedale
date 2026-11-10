@@ -16,6 +16,8 @@ interface ValidationInvestissementDialogProps {
   /** Montant déjà validé, s'il y en a un (il prime sur le demandé). */
   montantPrevu: number | null
   onConfirm: (values: ValidationCapexFormValues) => void
+  /** Correction du montant d'un dossier déjà validé (statut inchangé). */
+  correction?: boolean
 }
 
 /**
@@ -32,6 +34,7 @@ export function ValidationInvestissementDialog({
   montantDemande,
   montantPrevu,
   onConfirm,
+  correction = false,
 }: ValidationInvestissementDialogProps) {
   const propose = montantPrevu ?? montantDemande
   const form = useForm<ValidationCapexFormValues>({
@@ -46,14 +49,16 @@ export function ValidationInvestissementDialog({
       <FormDialog
         open={open}
         onOpenChange={onOpenChange}
-        title="Valider la proposition"
+        title={
+          correction ? 'Modifier le montant validé' : 'Valider la proposition'
+        }
         description={
           montantDemande === null
             ? 'Quel montant est accordé ?'
             : `Quel montant est accordé ? Montant proposé : ${formatEuros(montantDemande)}.`
         }
         onSubmit={() => void form.handleSubmit(onConfirm)()}
-        submitLabel="Valider"
+        submitLabel={correction ? 'Enregistrer' : 'Valider'}
         pendingLabel="Enregistrement…"
         pending={pending}
       >
