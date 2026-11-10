@@ -179,7 +179,9 @@ function styleActuel(statutId: number): CSSProperties {
   const c = couleurActuelle(statutId)
   return {
     borderColor: c,
-    backgroundColor: `color-mix(in oklch, ${c} 13%, var(--card))`,
+    // Mélange en sRGB : en oklch, la teinte « nulle » de --card tirait le
+    // vert vers le brun.
+    backgroundColor: `color-mix(in srgb, ${c} 13%, var(--card))`,
     boxShadow: `0 0 0 4px color-mix(in oklch, ${c} 16%, transparent), 0 8px 24px -8px color-mix(in oklch, ${c} 55%, transparent)`,
   }
 }
