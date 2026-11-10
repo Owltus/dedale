@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import {
+  anneeBudgetEnPreparation,
   anneesBudget,
   datesCapex,
   ID_DEMANDE,
@@ -180,7 +181,7 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
 })
 
 describe('années de budget', () => {
-  it('toujours l’année en cours et la suivante, sans doublon, récente d’abord', () => {
+  it('toujours le budget en préparation et le suivant, sans doublon, récente d’abord', () => {
     fc.assert(
       fc.property(fc.array(annee), annee, (annees, courante) => {
         const res = anneesBudget(annees, courante)
@@ -295,5 +296,12 @@ describe('datesCapex — dates du schéma', () => {
         d(ID_DEMANDE, 2026, '10-01'),
       ]).reporte,
     ).toBeNull()
+  })
+})
+
+describe('budget en préparation', () => {
+  it('en 2026, on prépare le budget 2027 — même le 31 décembre', () => {
+    expect(anneeBudgetEnPreparation(new Date(2026, 0, 1))).toBe(2027)
+    expect(anneeBudgetEnPreparation(new Date(2026, 11, 31))).toBe(2027)
   })
 })

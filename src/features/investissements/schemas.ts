@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { formatDate, todayLocal } from '@/lib/date'
 import { dateObligatoire } from '@/lib/dates-zod'
 import { texteObligatoire } from '@/lib/texte-zod'
+import { anneeBudgetEnPreparation } from './etat'
 
 // Champ montant : texte numérique optionnel (≥ 0, max 2 décimales).
 // Vide accepté → converti en null à l'enregistrement (cf. mutations).
@@ -37,7 +38,7 @@ export type InvestissementFormValues = z.infer<typeof investissementSchema>
 
 export function emptyInvestissement(annee?: number): InvestissementFormValues {
   return {
-    annee_budget: String(annee ?? new Date().getFullYear()),
+    annee_budget: String(annee ?? anneeBudgetEnPreparation()),
     libelle: '',
     description: '',
     montant_demande: '',

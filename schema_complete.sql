@@ -4562,7 +4562,8 @@ CREATE TABLE investissements (
 
     -- 138 : année de budget à laquelle le dossier est rattaché (choisie, pas
     -- déduite de la date de demande). Reporter = +1.
-    annee_budget      SMALLINT NOT NULL DEFAULT (EXTRACT(YEAR FROM CURRENT_DATE))::SMALLINT
+    -- Budget en PRÉPARATION = année suivante (140) : en 2026, on fait 2027.
+    annee_budget      SMALLINT NOT NULL DEFAULT ((EXTRACT(YEAR FROM CURRENT_DATE))::SMALLINT + 1)
                       CONSTRAINT investissements_annee_budget_check
                       CHECK (annee_budget BETWEEN 2000 AND 2100),
 

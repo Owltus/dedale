@@ -2,7 +2,11 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarRange, Plus } from 'lucide-react'
 import { investissementsQueries } from '@/features/investissements/queries'
-import { anneesBudget, totauxAnnee } from '@/features/investissements/etat'
+import {
+  anneeBudgetEnPreparation,
+  anneesBudget,
+  totauxAnnee,
+} from '@/features/investissements/etat'
 import { formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
 import { PAGE_META } from '@/features/investissements/page-meta'
@@ -27,7 +31,7 @@ export const Route = createFileRoute('/_app/investissements/')({
 /**
  * Page Budget, PREMIER niveau (138, demande PO du 10/11/2026) : les années de
  * budget, chacune avec ses totaux. Un clic ouvre les investissements de
- * l'année. L'année en cours et la suivante sont toujours proposées.
+ * l'année. Le budget en préparation (N+1) et le suivant sont toujours proposés.
  */
 function BudgetsPage() {
   return (
@@ -73,7 +77,7 @@ function BudgetsContent({
           <div className="flex flex-col gap-2">
             {anneesBudget(
               investissements.map((i) => i.annee_budget),
-              new Date().getFullYear(),
+              anneeBudgetEnPreparation(),
             ).map((annee) => {
               const t = totauxAnnee(
                 investissements.filter((i) => i.annee_budget === annee),

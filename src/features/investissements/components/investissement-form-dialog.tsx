@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { emptyInvestissement, investissementSchema } from '../schemas'
 import type { InvestissementFormValues } from '../schemas'
 import { useCreateInvestissement, useUpdateInvestissement } from '../mutations'
+import { anneeBudgetEnPreparation } from '../etat'
 import { useAuth } from '@/auth'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
@@ -29,9 +30,9 @@ function montantToText(value: number | null): string {
 }
 
 /** Années proposées : deux en arrière, trois en avant, plus celle du dossier. */
-function optionsAnnees(courante: number, dossier?: number) {
+function optionsAnnees(enPreparation: number, dossier?: number) {
   const annees = new Set<number>()
-  for (let a = courante - 2; a <= courante + 3; a++) annees.add(a)
+  for (let a = enPreparation - 2; a <= enPreparation + 3; a++) annees.add(a)
   if (dossier !== undefined) annees.add(dossier)
   return [...annees]
     .sort((a, b) => a - b)
@@ -123,7 +124,7 @@ export function InvestissementFormDialog({
               name="annee_budget"
               label="Année du budget"
               options={optionsAnnees(
-                new Date().getFullYear(),
+                anneeBudgetEnPreparation(),
                 investissement?.annee_budget,
               )}
               required

@@ -59,15 +59,23 @@ export function rangStatutCapex(id: number): number {
 }
 
 /**
+ * Le budget qu'on PRÉPARE (demande PO du 10/11/2026) : en 2026, on fait le
+ * budget 2027 — les demandes de l'année vont au budget de l'année suivante.
+ */
+export function anneeBudgetEnPreparation(aujourdhui = new Date()): number {
+  return aujourdhui.getFullYear() + 1
+}
+
+/**
  * Années de budget à afficher, de la plus récente à la plus ancienne : celles
- * qui ont des dossiers, plus l'année en cours et la suivante (pour pouvoir y
- * créer une demande même vide).
+ * qui ont des dossiers, plus le budget en préparation et le suivant (pour
+ * pouvoir y créer une demande même vide).
  */
 export function anneesBudget(
   annees: readonly number[],
-  anneeCourante: number,
+  enPreparation: number,
 ): number[] {
-  return [...new Set([...annees, anneeCourante, anneeCourante + 1])].sort(
+  return [...new Set([...annees, enPreparation, enPreparation + 1])].sort(
     (a, b) => b - a,
   )
 }
