@@ -66,9 +66,9 @@ export function OtDetailActions({
   onReactiver,
   onSupprimer,
 }: OtDetailActionsProps) {
-  // OT rouvert : finition via UN SEUL bouton adaptatif (jamais « Enregistrer » +
-  // « Clôturer » en même temps), piloté par `toutesTerminalesApres` → l'enregistrement
-  // clôturera l'OT si tout devient terminal.
+  // Finition via UN SEUL bouton adaptatif (jamais « Enregistrer » + « Clôturer » en
+  // même temps), piloté par `toutesTerminalesApres` → sur un OT rouvert,
+  // l'enregistrement clôturera l'OT si tout devient terminal.
   const estReouvert = ot.statut === 'reouvert'
   const statutActif =
     ot.statut === 'planifie' ||
@@ -88,9 +88,13 @@ export function OtDetailActions({
         <>
           {onglet === 'operations' &&
             canEditOps &&
-            (estReouvert && dirtyCount === 0 ? (
-              // Rouvert, rien à enregistrer → simple « Clôturer » (uniquement si tout est
-              // terminal : on ne clôt pas un OT incomplet, sinon aucun bouton ici).
+            (dirtyCount === 0 && (estReouvert || toutesTerminalesApres) ? (
+              // Rien à enregistrer et TOUTES les opérations déjà terminales (faites ou
+              // non applicables) → simple « Clôturer ». Cas d'un OT rouvert, mais aussi
+              // d'un OT annulé puis réactivé dont les opérations étaient déjà réglées :
+              // aucun changement d'opération ne déclencherait la clôture auto (PO,
+              // 10/11/2026). On ne clôt jamais un OT incomplet : rouvert incomplet →
+              // aucun bouton ici ; la base revalide de toute façon la transition.
               toutesTerminalesApres && (
                 <TooltipIconButton
                   icon={<CheckCircle2 />}

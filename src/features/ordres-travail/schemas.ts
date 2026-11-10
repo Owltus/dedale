@@ -18,8 +18,9 @@ import { texteObligatoire } from '@/lib/texte-zod'
 //   reouvert → planifie / en_cours / cloture / annule
 // NB : la plupart des transitions sont automatiques (gestion_statut_ot bascule
 // l'OT selon l'état de ses opérations, et le CLÔT dès qu'elles sont toutes
-// terminales — il n'y a donc PAS de bouton « Clôturer » manuel). Le front
-// expose seulement : Annuler, Réactiver (résurrection), Réouvrir (RPC).
+// terminales). Le front expose : Annuler, Réactiver (résurrection), Réouvrir
+// (RPC), et « Clôturer » quand toutes les opérations sont DÉJÀ terminales sans
+// rien à enregistrer (OT rouvert, ou réactivé aux opérations déjà réglées).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type StatutOt =

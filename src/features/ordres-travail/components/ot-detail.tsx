@@ -139,7 +139,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
   const groupeOuvert = (cle: string) =>
     ouverts[cle] ?? !(repliInitial?.replies.has(cle) ?? false)
 
-  // Re-clôture manuelle d'un OT rouvert : ses opérations étant déjà toutes
+  // Clôture manuelle d'un OT rouvert (ou réactivé) : ses opérations étant déjà toutes
   // terminales, aucun déclencheur de clôture auto ne part (le trigger ne réagit
   // qu'à un changement de STATUT d'opération). La base valide la transition
   // reouvert → cloture et refuse si une opération n'est pas terminée. Déclaration
