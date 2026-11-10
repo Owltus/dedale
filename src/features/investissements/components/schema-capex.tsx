@@ -167,14 +167,26 @@ function styleActuel(statutId: number): CSSProperties {
   }
 }
 
+/** Un montant affiché dans une case (ex. « 6 260,26 € » / « demandé »). */
+export interface ChiffreCapex {
+  valeur: string
+  libelle: string
+  /** Dépassement : valeur en couleur d'alerte. */
+  alerte?: boolean
+}
+
+export type ChiffresCapex = Partial<Record<CleCase, ChiffreCapex[]>>
+
 function Case({
   cle,
   c,
+  chiffres = [],
   onAction,
   disabled,
 }: {
   cle: CleCase
   c: CaseCapex
+  chiffres?: ChiffreCapex[]
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
 }) {
@@ -202,19 +214,32 @@ function Case({
       </span>
       <span className="flex min-w-0 flex-col items-start text-left">
         <span className="leading-tight">{c.libelle}</span>
-        {actuel && (
-          <span
-            className="text-xs font-normal"
-            style={couleur ? { color: couleur } : undefined}
-          >
-            Le dossier est ici
-          </span>
-        )}
       </span>
+      {/* Les montants, à droite (repliés sous le libellé si la case est
+          étroite, sur téléphone). */}
+      {chiffres.length > 0 && (
+        <span className="ml-auto flex gap-4">
+          {chiffres.map((ch) => (
+            <span key={ch.libelle} className="flex flex-col items-end">
+              <span
+                className={cn(
+                  'text-sm font-semibold text-foreground tabular-nums',
+                  ch.alerte && 'text-warning',
+                )}
+              >
+                {ch.valeur}
+              </span>
+              <span className="text-[11px] font-normal text-muted-foreground">
+                {ch.libelle}
+              </span>
+            </span>
+          ))}
+        </span>
+      )}
     </>
   )
   const classes = cn(
-    'flex min-h-16 w-full items-center gap-3 rounded-xl border bg-card px-4 py-2.5 text-sm font-medium shadow-xs',
+    'flex min-h-16 w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border bg-card px-4 py-2.5 text-sm font-medium shadow-xs',
     c.etat === 'fait' && 'border-success/40',
     c.etat === 'libre' && 'text-muted-foreground',
     actuel && 'border-2 font-semibold text-foreground',
@@ -253,6 +278,7 @@ function Case({
 
 interface PropsSchema {
   schema: Schema
+  chiffres?: ChiffresCapex
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
 }
@@ -267,25 +293,50 @@ function liensFourche(f: Schema['fleches']) {
 }
 
 /** Ordinateur : de gauche à droite, sur toute la largeur. */
-function SchemaHorizontal({ schema, onAction, disabled }: PropsSchema) {
+function SchemaHorizontal({
+  schema,
+  chiffres,
+  onAction,
+  disabled,
+}: PropsSchema) {
   const props = { onAction, disabled }
   const cellule = 'flex items-center py-2'
   return (
     <div className="hidden w-full grid-cols-[minmax(0,1fr)_minmax(4rem,0.8fr)_minmax(0,1fr)_minmax(3rem,0.5fr)_minmax(0,1fr)] grid-rows-3 md:grid">
       <div className={cn(cellule, 'col-start-1 row-start-2')}>
-        <Case cle="demande" c={schema.demande} {...props} />
+        <Case
+          cle="demande"
+          c={schema.demande}
+          chiffres={chiffres?.demande}
+          {...props}
+        />
       </div>
       <div className="relative col-start-2 row-span-3 row-start-1">
         <Liens orientation="h" liens={liensFourche(schema.fleches)} />
       </div>
       <div className={cn(cellule, 'col-start-3 row-start-1')}>
-        <Case cle="refuse" c={schema.refuse} {...props} />
+        <Case
+          cle="refuse"
+          c={schema.refuse}
+          chiffres={chiffres?.refuse}
+          {...props}
+        />
       </div>
       <div className={cn(cellule, 'col-start-3 row-start-2')}>
-        <Case cle="valide" c={schema.valide} {...props} />
+        <Case
+          cle="valide"
+          c={schema.valide}
+          chiffres={chiffres?.valide}
+          {...props}
+        />
       </div>
       <div className={cn(cellule, 'col-start-3 row-start-3')}>
-        <Case cle="reporte" c={schema.reporte} {...props} />
+        <Case
+          cle="reporte"
+          c={schema.reporte}
+          chiffres={chiffres?.reporte}
+          {...props}
+        />
       </div>
       {/* Validé → Réalisé : sur la rangée du milieu, flèche droite. */}
       <div className="relative col-start-4 row-span-3 row-start-1">
@@ -295,14 +346,19 @@ function SchemaHorizontal({ schema, onAction, disabled }: PropsSchema) {
         />
       </div>
       <div className={cn(cellule, 'col-start-5 row-start-2')}>
-        <Case cle="realise" c={schema.realise} {...props} />
+        <Case
+          cle="realise"
+          c={schema.realise}
+          chiffres={chiffres?.realise}
+          {...props}
+        />
       </div>
     </div>
   )
 }
 
 /** Téléphone : de haut en bas. */
-function SchemaVertical({ schema, onAction, disabled }: PropsSchema) {
+function SchemaVertical({ schema, chiffres, onAction, disabled }: PropsSchema) {
   const props = { onAction, disabled }
   const trois = 'grid grid-cols-3'
   const cellule = 'flex px-1'
@@ -310,7 +366,12 @@ function SchemaVertical({ schema, onAction, disabled }: PropsSchema) {
     <div className="w-full md:hidden">
       <div className={trois}>
         <div className={cn(cellule, 'col-start-2')}>
-          <Case cle="demande" c={schema.demande} {...props} />
+          <Case
+            cle="demande"
+            c={schema.demande}
+            chiffres={chiffres?.demande}
+            {...props}
+          />
         </div>
       </div>
       <div className="relative h-14">
@@ -318,13 +379,28 @@ function SchemaVertical({ schema, onAction, disabled }: PropsSchema) {
       </div>
       <div className={trois}>
         <div className={cellule}>
-          <Case cle="refuse" c={schema.refuse} {...props} />
+          <Case
+            cle="refuse"
+            c={schema.refuse}
+            chiffres={chiffres?.refuse}
+            {...props}
+          />
         </div>
         <div className={cellule}>
-          <Case cle="valide" c={schema.valide} {...props} />
+          <Case
+            cle="valide"
+            c={schema.valide}
+            chiffres={chiffres?.valide}
+            {...props}
+          />
         </div>
         <div className={cellule}>
-          <Case cle="reporte" c={schema.reporte} {...props} />
+          <Case
+            cle="reporte"
+            c={schema.reporte}
+            chiffres={chiffres?.reporte}
+            {...props}
+          />
         </div>
       </div>
       <div className="relative h-10">
@@ -335,7 +411,12 @@ function SchemaVertical({ schema, onAction, disabled }: PropsSchema) {
       </div>
       <div className={trois}>
         <div className={cn(cellule, 'col-start-2')}>
-          <Case cle="realise" c={schema.realise} {...props} />
+          <Case
+            cle="realise"
+            c={schema.realise}
+            chiffres={chiffres?.realise}
+            {...props}
+          />
         </div>
       </div>
     </div>

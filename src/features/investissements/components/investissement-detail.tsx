@@ -25,7 +25,6 @@ import { formatDate, isoLocale } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 import { useAuth } from '@/auth'
 import { writeErrorMessage } from '@/lib/form'
-import { cn } from '@/lib/utils'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusBadge } from '@/components/common/status-badge'
@@ -164,48 +163,34 @@ export function InvestissementDetail({
         }
       />
 
-      {/* SCHÉMA VERTICAL (138, demande PO) : Demandé, puis Refusé / Validé /
-          Reporter, puis Réalisé. La case colorée = où en est le dossier ; un
-          clic sur une autre case y fait passer le dossier. */}
+      {/* SCHÉMA (138, demande PO) : Demandé, puis Refusé / Validé / Reporter,
+          puis Réalisé — avec les montants dans les cases (demandé, prévu,
+          réel, écart). La case colorée = où en est le dossier ; un clic sur
+          une autre case y fait passer le dossier. */}
       <Card className="mb-4 overflow-hidden py-0">
         <CardContent className="p-0">
           <SchemaCapex
             schema={schema}
+            chiffres={{
+              demande: [
+                {
+                  valeur: formatEuros(inv.montant_demande),
+                  libelle: 'demandé',
+                },
+              ],
+              valide: [
+                { valeur: formatEuros(inv.montant_prevu), libelle: 'prévu' },
+              ],
+              realise: [
+                { valeur: formatEuros(inv.depense_reelle), libelle: 'réel' },
+                ...(label
+                  ? [{ valeur: label, libelle: 'écart', alerte: depassement }]
+                  : []),
+              ],
+            }}
             onAction={canManage ? agir : undefined}
             disabled={change.isPending}
           />
-        </CardContent>
-      </Card>
-
-      {/* BUDGET — une barre pleine largeur : Demandé → Prévu → Réel → Écart,
-          sur une ligne. Les quatre emplacements sont TOUJOURS rendus, « — »
-          compris : sur un écran de suivi, un montant manquant est une info. */}
-      <Card className="mb-4 py-4">
-        <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-          {[
-            { label: 'Demandé', value: formatEuros(inv.montant_demande) },
-            { label: 'Prévu', value: formatEuros(inv.montant_prevu) },
-            { label: 'Réel', value: formatEuros(inv.depense_reelle) },
-            {
-              label: 'Écart prévu / réel',
-              value: label ?? '—',
-              alerte: depassement,
-            },
-          ].map((m) => (
-            <div key={m.label} className="min-w-0">
-              <div className="truncate text-xs text-muted-foreground">
-                {m.label}
-              </div>
-              <div
-                className={cn(
-                  'truncate font-medium tabular-nums',
-                  m.alerte && 'text-warning',
-                )}
-              >
-                {m.value}
-              </div>
-            </div>
-          ))}
         </CardContent>
       </Card>
 
