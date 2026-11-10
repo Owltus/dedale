@@ -189,7 +189,7 @@ function Case({
   )
 }
 
-type PropsSchema = {
+interface PropsSchema {
   schema: Schema
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
