@@ -258,6 +258,7 @@ describe('clotureCapexSchema', () => {
     date_cloture: '2026-06-30',
     bilan: '',
     date_demande: BASE.date_demande,
+    depense_reelle: '',
   }
 
   it('exige la date de clôture, pas le bilan', () => {

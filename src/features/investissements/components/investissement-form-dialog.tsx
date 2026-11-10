@@ -3,14 +3,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { emptyInvestissement, investissementSchema } from '../schemas'
 import type { InvestissementFormValues } from '../schemas'
 import { useCreateInvestissement, useUpdateInvestissement } from '../mutations'
-import { anneeBudgetEnPreparation } from '../etat'
+import { ID_REALISE, ID_VALIDE } from '../etat'
 import { useAuth } from '@/auth'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/fields/text-field'
 import { DateField } from '@/components/common/fields/date-field'
-import { SelectField } from '@/components/common/fields/select-field'
 import { DescriptionField } from '@/components/common/fields/description-field'
 import type { Database } from '@/lib/database.types'
 
@@ -21,27 +20,21 @@ interface InvestissementFormDialogProps {
   onOpenChange: (open: boolean) => void
   siteId: string
   investissement?: Investissement | null
-  /** Année de budget proposée à la création (celle de la page ouverte). */
-  annee?: number
+  /**
+   * Budget où CRÉER le dossier : celui de la page ouverte, sinon le budget en
+   * préparation. Pas de choix dans le formulaire (demande PO) : changer
+   * d'année, c'est « Reporter ».
+   */
+  annee: number
 }
 
 function montantToText(value: number | null): string {
   return value === null ? '' : String(value)
 }
 
-/** Années proposées : deux en arrière, trois en avant, plus celle du dossier. */
-function optionsAnnees(enPreparation: number, dossier?: number) {
-  const annees = new Set<number>()
-  for (let a = enPreparation - 2; a <= enPreparation + 3; a++) annees.add(a)
-  if (dossier !== undefined) annees.add(dossier)
-  return [...annees]
-    .sort((a, b) => a - b)
-    .map((a) => ({ value: String(a), label: `Budget ${String(a)}` }))
-}
-
 function initialValues(
   investissement: Investissement | null | undefined,
-  annee: number | undefined,
+  annee: number,
 ): InvestissementFormValues {
   if (!investissement) return emptyInvestissement(annee)
   return {
@@ -63,6 +56,12 @@ export function InvestissementFormDialog({
   annee,
 }: InvestissementFormDialogProps) {
   const isEdit = Boolean(investissement)
+  // Chaque montant à son étape (demande PO) : le validé se saisit en validant,
+  // le réel en marquant réalisé. En modification, on ne montre que ceux que
+  // le dossier a déjà atteints.
+  const statut = investissement?.statut_capex_id
+  const voitValide = statut === ID_VALIDE || statut === ID_REALISE
+  const voitReel = statut === ID_REALISE
   const { session } = useAuth()
   const create = useCreateInvestissement()
   const update = useUpdateInvestissement()
@@ -97,7 +96,7 @@ export function InvestissementFormDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={isEdit ? "Modifier l'investissement" : 'Nouvel investissement'}
-        description="Renseigne le suivi budgétaire de l'investissement."
+        description={`Budget ${String(investissement?.annee_budget ?? annee)}`}
         size="lg"
         onSubmit={() => void form.handleSubmit(submit)()}
         submitLabel={isEdit ? 'Enregistrer' : 'Créer'}
@@ -116,19 +115,8 @@ export function InvestissementFormDialog({
             required
           />
 
-          {/* L'année, la date et les trois montants : champs courts en
-              2 colonnes. */}
+          {/* Date et montants : champs courts en 2 colonnes. */}
           <div className="grid gap-4 sm:grid-cols-2">
-            <SelectField
-              control={form.control}
-              name="annee_budget"
-              label="Année du budget"
-              options={optionsAnnees(
-                anneeBudgetEnPreparation(),
-                investissement?.annee_budget,
-              )}
-              required
-            />
             <DateField
               control={form.control}
               name="date_demande"
@@ -141,18 +129,22 @@ export function InvestissementFormDialog({
               label="Montant demandé (€)"
               inputMode="decimal"
             />
-            <TextField
-              control={form.control}
-              name="montant_prevu"
-              label="Montant prévu (€)"
-              inputMode="decimal"
-            />
-            <TextField
-              control={form.control}
-              name="depense_reelle"
-              label="Dépense réelle (€)"
-              inputMode="decimal"
-            />
+            {voitValide && (
+              <TextField
+                control={form.control}
+                name="montant_prevu"
+                label="Montant validé (€)"
+                inputMode="decimal"
+              />
+            )}
+            {voitReel && (
+              <TextField
+                control={form.control}
+                name="depense_reelle"
+                label="Dépense réelle (€)"
+                inputMode="decimal"
+              />
+            )}
           </div>
 
           <DescriptionField

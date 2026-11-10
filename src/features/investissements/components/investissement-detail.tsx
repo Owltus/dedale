@@ -11,6 +11,7 @@ import {
   datesCapex,
   ID_REALISE,
   ID_REFUSE,
+  ID_VALIDE,
   nomStatutCapex,
   schemaCapex,
   statutCapexTone,
@@ -20,6 +21,8 @@ import { useChangeStatutCapex } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
 import { ClotureInvestissementDialog } from './cloture-investissement-dialog'
+import { ValidationInvestissementDialog } from './validation-investissement-dialog'
+import { parseMontant } from '@/features/investissements/schemas'
 import { SchemaCapex } from './schema-capex'
 import { MIME_PDF } from '@/features/documents/upload'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
@@ -58,6 +61,7 @@ export function InvestissementDetail({
   const { session } = useAuth()
   const confirmAction = useConfirmAction()
   const [refus, setRefus] = useState(false)
+  const [validation, setValidation] = useState(false)
   // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
   const upload = useUploadDrop({ enabled: canManage })
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
@@ -76,6 +80,11 @@ export function InvestissementDetail({
     // Refuser : un motif est exigé (la base le refuse sinon).
     if (a.cle === 'refuser') {
       setRefus(true)
+      return
+    }
+    // Valider : le montant accordé (pré-rempli avec le demandé).
+    if (a.cle === 'valider') {
+      setValidation(true)
       return
     }
     // Marquer réalisé : date, dépense réelle et bilan.
@@ -115,11 +124,7 @@ export function InvestissementDetail({
       {
         onSuccess: () =>
           toast.success(
-            a.cle === 'valider'
-              ? 'Investissement validé'
-              : a.cle === 'rouvrir'
-                ? 'Investissement rouvert'
-                : 'Demande relancée',
+            a.cle === 'rouvrir' ? 'Investissement rouvert' : 'Demande relancée',
           ),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
@@ -290,7 +295,33 @@ export function InvestissementDetail({
             open={edit.open}
             onOpenChange={edit.onOpenChange}
             siteId={siteId}
+            annee={annee}
             investissement={inv}
+          />
+          <ValidationInvestissementDialog
+            key={validation ? 'validation-ouverte' : 'validation'}
+            open={validation}
+            onOpenChange={setValidation}
+            pending={change.isPending}
+            montantDemande={inv.montant_demande}
+            montantPrevu={inv.montant_prevu}
+            onConfirm={({ montant_prevu }) => {
+              change.mutate(
+                {
+                  id: inv.id,
+                  statutId: ID_VALIDE,
+                  annee,
+                  montantPrevu: parseMontant(montant_prevu),
+                },
+                {
+                  onSuccess: () => {
+                    toast.success('Investissement validé')
+                    setValidation(false)
+                  },
+                  onError: (e) => toast.error(writeErrorMessage(e)),
+                },
+              )
+            }}
           />
           <ClotureInvestissementDialog
             key={realisation.dialogKey}
@@ -298,13 +329,14 @@ export function InvestissementDetail({
             onOpenChange={realisation.onOpenChange}
             pending={change.isPending}
             dateDemande={inv.date_demande}
+            depenseReelle={inv.depense_reelle ?? inv.montant_prevu}
             // Déjà réalisé → le dialogue s'ouvre pré-rempli, en correction.
             initial={
               realise
                 ? { date_cloture: inv.date_cloture, bilan: inv.bilan }
                 : undefined
             }
-            onConfirm={({ date_cloture, bilan }) => {
+            onConfirm={({ date_cloture, bilan, depense_reelle }) => {
               change.mutate(
                 {
                   id: inv.id,
@@ -313,6 +345,7 @@ export function InvestissementDetail({
                   bilan,
                   dateCloture: date_cloture,
                   clotureBy: session?.user.id,
+                  depenseReelle: parseMontant(depense_reelle),
                 },
                 {
                   onSuccess: () => {

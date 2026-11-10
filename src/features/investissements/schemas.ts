@@ -6,7 +6,7 @@ import { anneeBudgetEnPreparation } from './etat'
 
 // Champ montant : texte numérique optionnel (≥ 0, max 2 décimales).
 // Vide accepté → converti en null à l'enregistrement (cf. mutations).
-const montant = z
+export const montant = z
   .string()
   .trim()
   .refine((v) => v === '' || /^\d+([.,]\d{1,2})?$/.test(v), {
@@ -66,6 +66,8 @@ export function parseMontant(value: string): number | null {
 export const clotureCapexSchema = z
   .object({
     date_cloture: dateObligatoire('La date de réalisation est obligatoire'),
+    /** Dépense réelle : demandée à la réalisation (demande PO). */
+    depense_reelle: montant,
     bilan: z.string().trim().max(5000),
     /**
      * Date de demande de l'investissement clôturé. Elle n'est PAS saisie ici
@@ -94,5 +96,10 @@ export const clotureCapexSchema = z
     },
     path: ['date_cloture'],
   })
+
+/** Valider une demande : le montant accordé (pré-rempli avec le demandé). */
+export const validationCapexSchema = z.object({ montant_prevu: montant })
+
+export type ValidationCapexFormValues = z.infer<typeof validationCapexSchema>
 
 export type ClotureCapexFormValues = z.infer<typeof clotureCapexSchema>

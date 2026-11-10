@@ -98,6 +98,8 @@ export function useChangeStatutCapex() {
       motifArret,
       dateArret,
       arreteBy,
+      montantPrevu,
+      depenseReelle,
     }: {
       id: string
       statutId: number
@@ -110,6 +112,10 @@ export function useChangeStatutCapex() {
       motifArret?: string
       dateArret?: string
       arreteBy?: string
+      /** Montant validé, saisi en validant (absent = inchangé). */
+      montantPrevu?: number | null
+      /** Dépense réelle, saisie en marquant réalisé (absent = inchangée). */
+      depenseReelle?: number | null
     }) => {
       const realise = statutId === ID_REALISE
       const refus = statutId === ID_REFUSE
@@ -124,6 +130,8 @@ export function useChangeStatutCapex() {
           motif_arret: refus ? (motifArret?.trim() ?? '') || null : null,
           date_arret: refus ? (dateArret ?? null) : null,
           arrete_by: refus ? (arreteBy ?? null) : null,
+          ...(montantPrevu !== undefined && { montant_prevu: montantPrevu }),
+          ...(depenseReelle !== undefined && { depense_reelle: depenseReelle }),
         })
         .eq('id', id)
         .select()

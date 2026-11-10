@@ -31,7 +31,7 @@ export const Route = createFileRoute('/_app/investissements/')({
 /**
  * Page Budget, PREMIER niveau (138, demande PO du 10/11/2026) : les années de
  * budget, chacune avec ses totaux. Un clic ouvre les investissements de
- * l'année. Le budget en préparation (N+1) et le suivant sont toujours proposés.
+ * l'année. Le budget en préparation (N+1) est toujours affiché ; une nouvelle demande y va.
  */
 function BudgetsPage() {
   return (
@@ -126,6 +126,7 @@ function BudgetsContent({
           open={form.open}
           onOpenChange={form.onOpenChange}
           siteId={siteId}
+          annee={anneeBudgetEnPreparation()}
           investissement={form.entity}
         />
       )}

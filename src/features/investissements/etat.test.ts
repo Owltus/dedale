@@ -181,12 +181,12 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
 })
 
 describe('années de budget', () => {
-  it('toujours le budget en préparation et le suivant, sans doublon, récente d’abord', () => {
+  it('toujours le budget en préparation, le reste seulement s’il a des dossiers', () => {
     fc.assert(
       fc.property(fc.array(annee), annee, (annees, courante) => {
         const res = anneesBudget(annees, courante)
         expect(res).toContain(courante)
-        expect(res).toContain(courante + 1)
+        expect(res.length).toBe(new Set([...annees, courante]).size)
         expect(new Set(res).size).toBe(res.length)
         expect(res).toEqual([...res].sort((a, b) => b - a))
         for (const a of annees) expect(res).toContain(a)

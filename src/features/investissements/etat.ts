@@ -68,16 +68,15 @@ export function anneeBudgetEnPreparation(aujourdhui = new Date()): number {
 
 /**
  * Années de budget à afficher, de la plus récente à la plus ancienne : celles
- * qui ont des dossiers, plus le budget en préparation et le suivant (pour
- * pouvoir y créer une demande même vide).
+ * qui ont des dossiers, plus le budget en préparation, toujours présent même
+ * vide (demande PO). Les autres années n'apparaissent qu'avec des dossiers —
+ * N+2 naît du premier report.
  */
 export function anneesBudget(
   annees: readonly number[],
   enPreparation: number,
 ): number[] {
-  return [...new Set([...annees, enPreparation, enPreparation + 1])].sort(
-    (a, b) => b - a,
-  )
+  return [...new Set([...annees, enPreparation])].sort((a, b) => b - a)
 }
 
 export interface TotauxAnnee {
