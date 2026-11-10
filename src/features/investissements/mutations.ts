@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { investissementsQueries } from './queries'
-import { ID_ANNULE, ID_CLOTURE, ID_REFUSE } from './etat'
+import { ID_CLOTURE, ISSUES_ARRET, type DecisionPar } from './etat'
 import { parseMontant } from './schemas'
 import type { InvestissementFormValues } from './schemas'
 
@@ -87,7 +87,7 @@ export function useUpdateInvestissement() {
  * La date est une date NUE construite par l'appelant (`isoLocale`), jamais un
  * `toISOString()` : c'est ce qui avait produit le 23514 des ordres de travail.
  *
- * Passer à « Refusé » ou « Annulé » (121) suit exactement la même logique avec
+ * Passer à « Refusé », « Annulé » (121) ou « Reporté » (137) suit exactement la même logique avec
  * le trio motif / date / auteur : la base EXIGE un motif non vide dans ces deux
  * statuts, et en repartir l'efface — sans quoi un investissement réactivé
  * garderait la trace d'un arrêt qui n'a plus lieu d'être.
@@ -104,6 +104,7 @@ export function useChangeStatutCapex() {
       motifArret,
       dateArret,
       arreteBy,
+      decisionPar,
     }: {
       id: string
       statutId: number
@@ -114,9 +115,11 @@ export function useChangeStatutCapex() {
       motifArret?: string
       dateArret?: string
       arreteBy?: string
+      /** Qui prend la décision (137) ; absent = sans objet (avancement). */
+      decisionPar?: DecisionPar | null
     }) => {
       const cloture = statutId === ID_CLOTURE
-      const arret = statutId === ID_REFUSE || statutId === ID_ANNULE
+      const arret = ISSUES_ARRET.includes(statutId)
       const { data } = await supabase
         .from('investissements')
         .update({
@@ -129,6 +132,8 @@ export function useChangeStatutCapex() {
           motif_arret: arret ? (motifArret?.trim() ?? '') || null : null,
           date_arret: arret ? (dateArret ?? null) : null,
           arrete_by: arret ? (arreteBy ?? null) : null,
+          // 137 : qui a décidé, journalisé par la base avec le statut.
+          decision_par: decisionPar ?? null,
         })
         .eq('id', id)
         .select()

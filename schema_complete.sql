@@ -630,13 +630,17 @@ INSERT INTO statuts_capex (id, nom, description) VALUES
     (2, 'Validé',    'Investissement approuvé / budgété'),
     (3, 'Réalisé',   'Dépense engagée et réalisée'),
     (4, 'Refusé',    'Investissement écarté'),
-    (5, 'À l''étude', 'Investissement en instruction / arbitrage'),
+    -- 137 : « À l'étude » devient « Accordé » (accord du responsable, en
+    -- attente de la direction).
+    (5, 'Accordé',    'Accordé par le responsable, en attente de la direction'),
     (6, 'Engagé',     'Dépense engagée (commande passée)'),
     (7, 'Clôturé',    'Investissement soldé et clôturé'),
     -- 121 : distinct du refus. « Refusé » = l'arbitrage a dit non, tôt dans le
     -- cycle ; « Annulé » = le projet est abandonné en cours de route, ce qui
     -- peut arriver après « Validé » ou « Engagé ». Les deux exigent un motif.
-    (8, 'Annulé',     'Investissement abandonné en cours de route');
+    (8, 'Annulé',     'Investissement abandonné en cours de route'),
+    -- 137 : décision repoussée à plus tard, motif obligatoire.
+    (9, 'Reporté',    'Décision repoussée à plus tard (par le responsable ou la direction)');
 
 -- Types de contrats
 INSERT INTO types_contrats (id, libelle, description) VALUES
@@ -4582,6 +4586,11 @@ CREATE TABLE investissements (
     arrete_by         UUID REFERENCES users(id) ON DELETE SET NULL,
     date_arret        DATE,
 
+    -- 137 : qui a pris la décision du statut courant (la direction n'utilise
+    -- pas l'appli : le responsable note sa décision).
+    decision_par      TEXT CONSTRAINT investissements_decision_par_check
+                      CHECK (decision_par IS NULL OR decision_par IN ('responsable', 'direction')),
+
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -4595,7 +4604,7 @@ CREATE TABLE investissements (
     -- sont désignés par leurs IDS — un renommage dans statuts_capex reste donc
     -- sans effet sur cette règle.
     CONSTRAINT capex_motif_arret_oblig_si_refuse_ou_annule CHECK (
-        statut_capex_id NOT IN (4, 8)
+        statut_capex_id NOT IN (4, 8, 9)   -- 137 : Reporté aussi
         OR (motif_arret IS NOT NULL AND length(btrim(motif_arret)) > 0)
     )
 );
@@ -4625,6 +4634,84 @@ CREATE TRIGGER trg_investissements_set_updated_at
     FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 ALTER TABLE investissements ENABLE ROW LEVEL SECURITY;
+
+COMMENT ON COLUMN investissements.decision_par IS
+    'Qui a pris la décision du statut courant : responsable ou direction (notée par le responsable). NULL si sans objet (137).';
+
+-- 137 : historique des décisions (une ligne par changement de statut, écrite
+-- par trigger, lecture seule pour les rôles métier).
+CREATE TABLE IF NOT EXISTS public.investissements_decisions (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    investissement_id UUID NOT NULL REFERENCES public.investissements(id) ON DELETE CASCADE,
+    statut_capex_id   SMALLINT NOT NULL REFERENCES public.statuts_capex(id),
+    decision_par      TEXT CHECK (decision_par IS NULL OR decision_par IN ('responsable', 'direction')),
+    motif             TEXT,
+    created_by        UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_investissements_decisions_inv
+    ON public.investissements_decisions (investissement_id, created_at);
+
+COMMENT ON TABLE public.investissements_decisions IS
+    'Historique des changements de statut d''un investissement (qui, quand, pourquoi). Écrit uniquement par trigger, lecture seule (137).';
+
+ALTER TABLE public.investissements_decisions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS capex_decisions_admin_all ON public.investissements_decisions;
+CREATE POLICY capex_decisions_admin_all ON public.investissements_decisions
+    FOR ALL
+    USING ((SELECT public.current_role()) = 'admin')
+    WITH CHECK ((SELECT public.current_role()) = 'admin');
+
+DROP POLICY IF EXISTS capex_decisions_select ON public.investissements_decisions;
+CREATE POLICY capex_decisions_select ON public.investissements_decisions
+    FOR SELECT
+    USING (
+        (SELECT public.current_role()) = ANY (ARRAY['manager', 'technicien', 'lecteur'])
+        AND EXISTS (SELECT 1 FROM public.investissements i
+                    WHERE i.id = investissements_decisions.investissement_id
+                      AND public.has_site_access(i.site_id))
+    );
+
+CREATE OR REPLACE FUNCTION public.journaliser_decision_investissement()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $
+BEGIN
+    INSERT INTO public.investissements_decisions
+        (investissement_id, statut_capex_id, decision_par, motif, created_by)
+    VALUES (
+        NEW.id,
+        NEW.statut_capex_id,
+        NEW.decision_par,
+        CASE WHEN NEW.statut_capex_id IN (4, 8, 9) THEN NEW.motif_arret END,
+        COALESCE(auth.uid(), NEW.created_by)
+    );
+    RETURN NULL;
+END;
+$;
+
+COMMENT ON FUNCTION public.journaliser_decision_investissement() IS
+    'Inscrit chaque changement de statut d''un investissement dans investissements_decisions (137).';
+
+REVOKE EXECUTE ON FUNCTION public.journaliser_decision_investissement() FROM PUBLIC, anon, authenticated;
+
+-- Deux triggers : un WHEN ne peut pas lire OLD sur un INSERT, et l'UPDATE ne
+-- doit journaliser qu'un statut RÉELLEMENT changé.
+DROP TRIGGER IF EXISTS trg_journaliser_decision_inv_insert ON public.investissements;
+CREATE TRIGGER trg_journaliser_decision_inv_insert
+    AFTER INSERT ON public.investissements
+    FOR EACH ROW EXECUTE FUNCTION public.journaliser_decision_investissement();
+
+DROP TRIGGER IF EXISTS trg_journaliser_decision_inv_update ON public.investissements;
+CREATE TRIGGER trg_journaliser_decision_inv_update
+    AFTER UPDATE OF statut_capex_id ON public.investissements
+    FOR EACH ROW
+    WHEN (OLD.statut_capex_id IS DISTINCT FROM NEW.statut_capex_id)
+    EXECUTE FUNCTION public.journaliser_decision_investissement();
 
 
 

@@ -1717,6 +1717,7 @@ export type Database = {
           date_arret: string | null
           date_cloture: string | null
           date_demande: string
+          decision_par: string | null
           depense_reelle: number | null
           description: string | null
           id: string
@@ -1737,6 +1738,7 @@ export type Database = {
           date_arret?: string | null
           date_cloture?: string | null
           date_demande?: string
+          decision_par?: string | null
           depense_reelle?: number | null
           description?: string | null
           id?: string
@@ -1757,6 +1759,7 @@ export type Database = {
           date_arret?: string | null
           date_cloture?: string | null
           date_demande?: string
+          decision_par?: string | null
           depense_reelle?: number | null
           description?: string | null
           id?: string
@@ -1813,6 +1816,58 @@ export type Database = {
           },
           {
             foreignKeyName: "investissements_statut_capex_id_fkey"
+            columns: ["statut_capex_id"]
+            isOneToOne: false
+            referencedRelation: "statuts_capex"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      investissements_decisions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          decision_par: string | null
+          id: string
+          investissement_id: string
+          motif: string | null
+          statut_capex_id: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          decision_par?: string | null
+          id?: string
+          investissement_id: string
+          motif?: string | null
+          statut_capex_id: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          decision_par?: string | null
+          id?: string
+          investissement_id?: string
+          motif?: string | null
+          statut_capex_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investissements_decisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investissements_decisions_investissement_id_fkey"
+            columns: ["investissement_id"]
+            isOneToOne: false
+            referencedRelation: "investissements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investissements_decisions_statut_capex_id_fkey"
             columns: ["statut_capex_id"]
             isOneToOne: false
             referencedRelation: "statuts_capex"

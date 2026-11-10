@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import {
+  decisionsCapex,
   etapesInvestissement,
+  ID_ACCORDE,
   ID_ANNULE,
   ID_CLOTURE,
+  ID_DEMANDE,
   ID_REFUSE,
+  ID_REPORTE,
+  ID_VALIDE,
+  ISSUES_ARRET,
+  libelleDecision,
   nomStatutCapex,
   rangStatutCapex,
   statutCapexTone,
@@ -14,11 +21,11 @@ import {
 const TIRAGES = { numRuns: 1000, seed: 42 } as const
 
 /** Ids du seed `statuts_capex` (1-7), refus compris. */
-// 8 = « Annulé », ajouté par la migration 121.
-const IDS_CONNUS = [1, 2, 3, 4, 5, 6, 7, 8] as const
+// 8 = « Annulé », ajouté par la migration 121 ; 9 = « Reporté » (137).
+const IDS_CONNUS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const
 const idConnu = fc.constantFrom(...IDS_CONNUS)
 /** Ids hors seed : ce qu'une migration future ou une donnée abîmée produirait. */
-const idInconnu = fc.integer({ min: 9, max: 500 })
+const idInconnu = fc.integer({ min: 10, max: 500 })
 
 const SANS_REFERENTIEL = new Map<number, string>()
 
@@ -70,9 +77,9 @@ describe('rangStatutCapex — ordre total', () => {
     // progression — sinon le menu déroulant proposerait « Annulé » entre deux
     // étapes d'avancement.
     for (const id of IDS_CONNUS) {
-      if (id === ID_REFUSE || id === ID_ANNULE) continue
-      expect(rangStatutCapex(ID_REFUSE)).toBeGreaterThan(rangStatutCapex(id))
-      expect(rangStatutCapex(ID_ANNULE)).toBeGreaterThan(rangStatutCapex(id))
+      if (ISSUES_ARRET.includes(id)) continue
+      for (const issue of ISSUES_ARRET)
+        expect(rangStatutCapex(issue)).toBeGreaterThan(rangStatutCapex(id))
     }
   })
 
@@ -80,7 +87,7 @@ describe('rangStatutCapex — ordre total', () => {
     // ORACLE (doc) : « Statut Clôturé : FIN du parcours ». Aucune étape de
     // progression ne vient après lui.
     for (const id of IDS_CONNUS) {
-      if (id === ID_REFUSE || id === ID_ANNULE || id === ID_CLOTURE) continue
+      if (ISSUES_ARRET.includes(id) || id === ID_CLOTURE) continue
       expect(rangStatutCapex(ID_CLOTURE)).toBeGreaterThan(rangStatutCapex(id))
     }
   })
@@ -112,8 +119,7 @@ describe('etapesInvestissement', () => {
         // Les deux issues défavorables sont hors parcours : elles rendent une
         // frise MINIMALE, pas le parcours complet. On les écarte ici, chacune
         // ayant son propre test juste en dessous.
-        const horsParcours = (id: number) =>
-          id === ID_REFUSE || id === ID_ANNULE
+        const horsParcours = (id: number) => ISSUES_ARRET.includes(id)
         if (horsParcours(a) || horsParcours(b)) return
         expect(
           etapesInvestissement(a, SANS_REFERENTIEL)?.map((e) => e.statutId),
@@ -288,5 +294,61 @@ describe('statutCapexTone — totalité et sémantique', () => {
       ID_CLOTURE,
       ID_ANNULE,
     ])
+  })
+})
+
+describe('decisionsCapex — arbre de décision (137)', () => {
+  it('« Reporté » est traité à part : frise minimale « Demandé → Reporté »', () => {
+    const res = etapesInvestissement(ID_REPORTE, SANS_REFERENTIEL)
+    expect(res?.map((e) => e.statutId)).toEqual([1, ID_REPORTE])
+    expect(res?.map((e) => e.state)).toEqual(['done', 'rejected'])
+  })
+
+  it('Demandé : MA décision — accorder, refuser ou reporter', () => {
+    expect(decisionsCapex(ID_DEMANDE)).toEqual([
+      { statutId: ID_ACCORDE, par: 'responsable', libelle: 'Accorder' },
+      { statutId: ID_REFUSE, par: 'responsable', libelle: 'Refuser' },
+      { statutId: ID_REPORTE, par: 'responsable', libelle: 'Reporter' },
+    ])
+  })
+
+  it('Accordé : la décision revient à la DIRECTION', () => {
+    const d = decisionsCapex(ID_ACCORDE)
+    expect(d.map((x) => x.statutId)).toEqual([ID_VALIDE, ID_REFUSE, ID_REPORTE])
+    expect(d.every((x) => x.par === 'direction')).toBe(true)
+  })
+
+  it('après validation, une seule étape suivante à la fois jusqu’à la clôture', () => {
+    expect(decisionsCapex(ID_VALIDE).map((x) => x.statutId)).toEqual([6])
+    expect(decisionsCapex(6).map((x) => x.statutId)).toEqual([3])
+    expect(decisionsCapex(3).map((x) => x.statutId)).toEqual([ID_CLOTURE])
+    expect(decisionsCapex(ID_CLOTURE)).toEqual([])
+  })
+
+  it('toute issue d’arrêt se relance vers « Demandé »', () => {
+    for (const id of ISSUES_ARRET)
+      expect(decisionsCapex(id).map((x) => x.statutId)).toEqual([ID_DEMANDE])
+  })
+
+  it('le premier choix proposé n’est jamais une issue d’arrêt', () => {
+    // ORACLE (PO) : le « oui » d'abord — le bouton principal fait avancer.
+    for (const id of IDS_CONNUS) {
+      const [premier] = decisionsCapex(id)
+      if (premier && !ISSUES_ARRET.includes(id))
+        expect(ISSUES_ARRET.includes(premier.statutId)).toBe(false)
+    }
+  })
+
+  it('l’historique dit qui a décidé, et distingue la demande de la relance', () => {
+    const noms = new Map<number, string>()
+    expect(libelleDecision(ID_DEMANDE, null, noms, true)).toBe('Demandé')
+    expect(libelleDecision(ID_DEMANDE, null, noms, false)).toBe('Relancé')
+    expect(libelleDecision(ID_ACCORDE, 'responsable', noms, false)).toBe(
+      'Accordé par moi',
+    )
+    expect(libelleDecision(ID_REFUSE, 'direction', noms, false)).toBe(
+      'Refusé par la direction',
+    )
+    expect(libelleDecision(ID_VALIDE, null, noms, false)).toBe('Validé')
   })
 })

@@ -45,9 +45,10 @@ function lireProduction() {
       'supabase',
       'db',
       'query',
-      '--linked',
-      '--project-ref',
-      PROJET,
+      // Lecture SEULE : la CLI exige sinon une confirmation interactive sur
+      // la production (et `--linked --project-ref` est déprécié).
+      `--remote=${PROJET}`,
+      '--read-only',
       '-f',
       REQUETE,
     ],

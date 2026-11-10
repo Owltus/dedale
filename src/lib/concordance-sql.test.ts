@@ -823,7 +823,7 @@ const CHECKS_NON_SONDES: Record<string, string> = {
     'Inter-colonnes : couvert par `clotureCapexSchema` et son test.',
   'investissements.capex_motif_arret_oblig_si_refuse_ou_annule':
     'Inter-colonnes (statut_capex_id ↔ motif_arret) : le motif n’est exigé que ' +
-    'dans deux statuts. Aucun formulaire ne saisit les deux champs ensemble — ' +
+    'dans trois statuts (Refusé, Annulé, Reporté — 137). Aucun formulaire ne saisit les deux champs ensemble — ' +
     'le motif passe par `MotifDialog`, qui l’exige déjà côté front (121).',
   'operations.operations_seuils_coherents':
     'Inter-colonnes : couvert par le `.refine` seuil min ≤ max d’`operationSchema`.',
@@ -836,6 +836,8 @@ const CHECKS_NON_SONDES: Record<string, string> = {
   //    tomber au clavier. Les traduire n'apprendrait rien à l'utilisateur.
   'categories.chk_categorie_modele_xor_specs':
     'Colonnes non saisies (modele_equipement_id / specifications posées par la mutation).',
+  'investissements.investissements_decision_par_check':
+    'Colonne non saisie : `decision_par` est posée par le bouton de décision (137).',
   'categories.chk_categorie_specs_objet':
     'Structure d’un JSONB : ne tombe que sur un appel programmatique fautif.',
   'categories.chk_categories_image_path_format':

@@ -1,15 +1,26 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Ban, CircleSlash, Paperclip, Pencil, RotateCcw } from 'lucide-react'
+import { CircleSlash, Paperclip, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
-import { statutsCapexQueries } from '@/features/investissements/queries'
 import {
+  decisionsCapexQueries,
+  statutsCapexQueries,
+} from '@/features/investissements/queries'
+import {
+  decisionsCapex,
   etapesInvestissement,
   ID_ANNULE,
   ID_CLOTURE,
   ID_REFUSE,
+  ID_REPORTE,
+  ISSUES_ARRET,
+  libelleDecision,
+  libelleDecisionPar,
   nomStatutCapex,
+  statutCapexTone,
+  type DecisionCapex,
+  type DecisionPar,
 } from '@/features/investissements/etat'
 import { useChangeStatutCapex } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
@@ -33,6 +44,8 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { MotifDialog } from '@/components/common/motif-dialog'
 import { DetailNoteCard } from '@/components/common/detail-note-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { toneToken } from '@/components/common/charts/chart-tokens'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -51,29 +64,52 @@ export function InvestissementDetail({
   const cloture = useEntityDialog<Investissement>()
   const { session } = useAuth()
   const confirmAction = useConfirmAction<{ statutId: number }>()
-  // Quelle issue défavorable on est en train de poser (121) : le même dialogue
-  // de motif sert pour « Refuser » et pour « Annuler », seul le vocabulaire
+  // Quelle issue on est en train de poser (Refusé, Annulé, Reporté) et PAR QUI
+  // (137) : le même dialogue de motif sert aux trois, seul le vocabulaire
   // change. `null` = fermé.
-  const [arret, setArret] = useState<number | null>(null)
+  const [arret, setArret] = useState<{
+    statutId: number
+    par: DecisionPar | null
+  } | null>(null)
   // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
   const upload = useUploadDrop({ enabled: canManage })
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const change = useChangeStatutCapex()
+  const { data: historique = [] } = useQuery(decisionsCapexQueries.list(inv.id))
+  const decisions = canManage ? decisionsCapex(inv.statut_capex_id) : []
+  const parCourant = inv.decision_par as DecisionPar | null
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const etapes = etapesInvestissement(inv.statut_capex_id, noms)
 
   const { label, depassement } = ecartCapex(inv)
   const ecartLabel = label ?? '—'
-  // Deux issues défavorables, hors parcours de la frise (121) :
-  //  - « Refuser »  = l'arbitrage a dit non, tôt dans le cycle ;
-  //  - « Annuler »  = le projet est abandonné en cours de route, à tout moment.
-  // Chacune est proposée tant qu'on n'y est pas déjà, et les deux exigent un
-  // motif (la base le refuse sinon). « Réactiver » ramène au départ.
-  const estArrete =
-    inv.statut_capex_id === ID_REFUSE || inv.statut_capex_id === ID_ANNULE
-  const canRefuser = canManage && inv.statut_capex_id !== ID_REFUSE
+  // Issues hors parcours de la frise (121, 137) : Refusé et Reporté passent par
+  // l'ARBRE DE DÉCISION (avec qui décide) ; Annulé (abandon, à tout moment)
+  // reste en barre de titre. Les trois exigent un motif (la base le refuse
+  // sinon). « Relancer » ramène au départ, l'historique garde tout.
+  const estArrete = ISSUES_ARRET.includes(inv.statut_capex_id)
   const canAnnuler = canManage && inv.statut_capex_id !== ID_ANNULE
-  const canReactiver = canManage && estArrete
+
+  function decider(d: DecisionCapex) {
+    if (d.statutId === ID_CLOTURE) {
+      cloture.openEdit(inv)
+      return
+    }
+    if (ISSUES_ARRET.includes(d.statutId)) {
+      setArret({ statutId: d.statutId, par: d.par })
+      return
+    }
+    change.mutate(
+      { id: inv.id, statutId: d.statutId, decisionPar: d.par },
+      {
+        onSuccess: () =>
+          toast.success(
+            `${libelleDecision(d.statutId, d.par, noms, false)} — enregistré`,
+          ),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
 
   function changeStatut(statutId: number) {
     if (statutId === inv.statut_capex_id) return
@@ -87,8 +123,8 @@ export function InvestissementDetail({
     // Refuser et annuler exigent un motif : on passe par le dialogue, jamais en
     // direct. Vaut aussi pour un clic sur la frise, pas seulement pour les
     // boutons — sinon la base renverrait un 23514 illisible.
-    if (statutId === ID_REFUSE || statutId === ID_ANNULE) {
-      setArret(statutId)
+    if (ISSUES_ARRET.includes(statutId)) {
+      setArret({ statutId, par: 'responsable' })
       return
     }
     change.mutate(
@@ -128,37 +164,13 @@ export function InvestissementDetail({
                 variant="outline"
                 onClick={() => edit.openEdit(inv)}
               />
-              {canRefuser && (
-                <TooltipIconButton
-                  icon={<Ban className="text-destructive" />}
-                  label="Refuser l'investissement"
-                  variant="outline"
-                  onClick={() => setArret(ID_REFUSE)}
-                />
-              )}
               {canAnnuler && (
                 <TooltipIconButton
                   icon={<CircleSlash />}
                   label="Annuler l'investissement"
                   variant="outline"
-                  onClick={() => setArret(ID_ANNULE)}
-                />
-              )}
-              {canReactiver && (
-                <TooltipIconButton
-                  icon={<RotateCcw />}
-                  label="Réactiver l'investissement"
-                  variant="outline"
-                  disabled={change.isPending}
                   onClick={() =>
-                    change.mutate(
-                      { id: inv.id, statutId: 1 },
-                      {
-                        onSuccess: () =>
-                          toast.success('Investissement réactivé'),
-                        onError: (e) => toast.error(writeErrorMessage(e)),
-                      },
-                    )
+                    setArret({ statutId: ID_ANNULE, par: 'responsable' })
                   }
                 />
               )}
@@ -176,21 +188,51 @@ export function InvestissementDetail({
       {/* FRISE — seule à rester PLEINE LARGEUR : c'est le résumé de l'état, on
           la lit avant le détail. Statut LIBRE → toute pastille est cliquable
           (positionne ce statut) ; « Refuser » est en barre de titre. */}
-      {etapes && (
+      {(etapes ?? decisions.length > 0) && (
         <Card className="mb-4">
-          <CardContent>
-            <StatusStepper
-              steps={etapes}
-              disabled={change.isPending}
-              onStepClick={
-                canManage
-                  ? (i) => {
-                      const cible = etapes[i]
-                      if (cible) changeStatut(cible.statutId)
+          <CardContent className="space-y-4">
+            {etapes && (
+              <StatusStepper
+                steps={etapes}
+                disabled={change.isPending}
+                onStepClick={
+                  canManage
+                    ? (i) => {
+                        const cible = etapes[i]
+                        if (cible) changeStatut(cible.statutId)
+                      }
+                    : undefined
+                }
+              />
+            )}
+            {/* ARBRE DE DÉCISION (137) : seulement les choix qui ont un sens à
+                l'étape courante — le « oui » en premier, puis refuser et
+                reporter. La direction n'utilisant pas l'appli, ses décisions
+                sont notées ici par le responsable. */}
+            {decisions.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+                <span className="mr-1 text-sm text-muted-foreground">
+                  {invitationDecision(inv.statut_capex_id, estArrete)}
+                </span>
+                {decisions.map((d, i) => (
+                  <Button
+                    key={d.statutId}
+                    size="sm"
+                    variant={
+                      i === 0
+                        ? 'default'
+                        : d.statutId === ID_REFUSE
+                          ? 'destructive'
+                          : 'outline'
                     }
-                  : undefined
-              }
-            />
+                    disabled={change.isPending}
+                    onClick={() => decider(d)}
+                  >
+                    {d.libelle}
+                  </Button>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -302,8 +344,8 @@ export function InvestissementDetail({
         {estArrete && (
           <DetailNoteCard
             label={`${nomStatutCapex(inv.statut_capex_id, noms)}${
-              inv.date_arret ? ` le ${formatDate(inv.date_arret)}` : ''
-            }`}
+              parCourant ? ` par ${libelleDecisionPar(parCourant)}` : ''
+            }${inv.date_arret ? ` le ${formatDate(inv.date_arret)}` : ''}`}
             text={inv.motif_arret}
             emptyText="Aucun motif."
             action={
@@ -312,13 +354,68 @@ export function InvestissementDetail({
                   icon={<Pencil />}
                   label="Modifier le motif"
                   variant="ghost"
-                  onClick={() => setArret(inv.statut_capex_id)}
+                  onClick={() =>
+                    setArret({
+                      statutId: inv.statut_capex_id,
+                      par: parCourant,
+                    })
+                  }
                 />
               )
             }
           />
         )}
       </div>
+
+      {/* HISTORIQUE DES DÉCISIONS (137) : écrit par la base à chaque changement
+          de statut — qui a décidé, quand, pourquoi. Le plus récent en haut. */}
+      {historique.length > 0 && (
+        <Card className="mb-4 gap-3 py-4">
+          <CardHeader>
+            <CardTitle className="text-base">
+              Historique des décisions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="space-y-2">
+              {historique
+                .map((h, i) => ({ h, premiere: i === 0 }))
+                .reverse()
+                .map(({ h, premiere }) => (
+                  <li key={h.id} className="flex gap-3 text-sm">
+                    <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
+                      {formatDate(h.created_at.slice(0, 10))}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="mt-1.5 size-2 shrink-0 rounded-full"
+                      style={{
+                        background: toneToken(
+                          statutCapexTone(h.statut_capex_id),
+                        ),
+                      }}
+                    />
+                    <span className="min-w-0">
+                      <span className="font-medium">
+                        {libelleDecision(
+                          h.statut_capex_id,
+                          h.decision_par as DecisionPar | null,
+                          noms,
+                          premiere,
+                        )}
+                      </span>
+                      {h.motif && (
+                        <span className="block text-muted-foreground">
+                          « {h.motif} »
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
 
       {/* DOCUMENTS — pleine largeur, hauteur naturelle et défilement de page :
           même patron que les fiches Événement et Travaux. */}
@@ -394,27 +491,26 @@ export function InvestissementDetail({
       <MotifDialog
         open={arret !== null}
         onOpenChange={(o) => !o && setArret(null)}
-        title={
-          arret === ID_ANNULE
-            ? "Annuler l'investissement ?"
-            : "Refuser l'investissement ?"
-        }
-        description={
-          arret === ID_ANNULE
-            ? 'Le dossier passera au statut « Annulé ». Dites pourquoi il est abandonné : c’est ce qui restera pour comprendre la décision plus tard.'
-            : 'Le dossier passera au statut « Refusé ». Dites pourquoi l’arbitrage l’a écarté : c’est ce qui restera pour comprendre la décision plus tard.'
-        }
+        title={titreArret(arret)}
+        description={`${descriptionArret(arret?.statutId)} C’est ce qui restera pour comprendre la décision plus tard.`}
         label="Motif"
-        confirmLabel={arret === ID_ANNULE ? 'Annuler le dossier' : 'Refuser'}
-        destructive
+        confirmLabel={
+          arret?.statutId === ID_ANNULE
+            ? 'Annuler le dossier'
+            : arret?.statutId === ID_REPORTE
+              ? 'Reporter'
+              : 'Refuser'
+        }
+        destructive={arret?.statutId !== ID_REPORTE}
         pending={change.isPending}
         onConfirm={(motif) => {
           if (arret === null) return
-          const statutId = arret
+          const { statutId, par } = arret
           change.mutate(
             {
               id: inv.id,
               statutId,
+              decisionPar: par,
               motifArret: motif,
               // Date NUE (`isoLocale`) et jamais `toISOString()` : c'est ce qui
               // avait produit le 23514 des ordres de travail.
@@ -425,9 +521,7 @@ export function InvestissementDetail({
               onSuccess: () => {
                 setArret(null)
                 toast.success(
-                  statutId === ID_ANNULE
-                    ? 'Investissement annulé'
-                    : 'Investissement refusé',
+                  `${libelleDecision(statutId, par, noms, false)} — enregistré`,
                 )
               },
               onError: (e) => toast.error(writeErrorMessage(e)),
@@ -439,4 +533,31 @@ export function InvestissementDetail({
       <ConfirmDialog {...confirmAction.dialogProps} />
     </PageContainer>
   )
+}
+
+/** Invitation devant les boutons de décision, selon l'étape (137). */
+function invitationDecision(statutId: number, estArrete: boolean): string {
+  if (estArrete) return 'Revenir sur ce dossier :'
+  if (statutId === 1) return 'Ma décision :'
+  if (statutId === 5) return 'Décision de la direction :'
+  return 'Étape suivante :'
+}
+
+/** Titre du dialogue de motif selon l'issue et qui la décide (137). */
+function titreArret(
+  arret: { statutId: number; par: DecisionPar | null } | null,
+): string {
+  if (!arret) return ''
+  const qui = arret.par === 'direction' ? ' (décision de la direction)' : ''
+  if (arret.statutId === ID_ANNULE) return "Annuler l'investissement ?"
+  if (arret.statutId === ID_REPORTE) return `Reporter la demande${qui} ?`
+  return `Refuser la demande${qui} ?`
+}
+
+function descriptionArret(statutId: number | undefined): string {
+  if (statutId === ID_ANNULE)
+    return 'Le dossier passera au statut « Annulé ». Dites pourquoi il est abandonné.'
+  if (statutId === ID_REPORTE)
+    return 'Le dossier passera au statut « Reporté ». Dites pourquoi la décision est repoussée.'
+  return 'Le dossier passera au statut « Refusé ». Dites pourquoi il est écarté.'
 }

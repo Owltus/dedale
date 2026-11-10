@@ -8,8 +8,9 @@ import {
 } from '@/components/common/status-badge'
 
 // Parcours CapEx (ids du seed `statuts_capex`), dans l'ORDRE narratif d'affichage :
-// Demandé(1) → À l'étude(5) → Validé(2) → Engagé(6) → Réalisé(3) → Clôturé(7).
-// Refusé(4) = issue défavorable, hors du parcours linéaire.
+// Demandé(1) → Accordé(5, par le responsable) → Validé(2, par la direction) →
+// Engagé(6) → Réalisé(3) → Clôturé(7). Issues hors parcours : Refusé(4),
+// Annulé(8), Reporté(9) — 137, demande PO du 10/11/2026.
 // Le statut reste LIBRE côté base (pas de machine à états) : la frise n'est
 // qu'une lecture visuelle de l'avancement, jamais une contrainte. L'ordre vit
 // ici (présentation) — les ids ne sont volontairement PAS monotones (statuts
@@ -33,15 +34,27 @@ export const ID_ANNULE = 8
  * « Réalisé »(3) reste une étape — les dépenses peuvent encore bouger.
  */
 export const ID_CLOTURE = 7
+/** « Demandé » : départ du parcours, et point de retour d'une relance. */
+export const ID_DEMANDE = 1
+/** « Accordé » (137) : le responsable a dit oui, la direction doit décider. */
+export const ID_ACCORDE = 5
+/** « Validé » : la direction a dit oui (notée par le responsable, 137). */
+export const ID_VALIDE = 2
+/**
+ * « Reporté » (137) : la décision est repoussée à plus tard, par le
+ * responsable ou la direction. Motif obligatoire, sans échéance (PO).
+ */
+export const ID_REPORTE = 9
 const LABELS_DEFAUT: Record<number, string> = {
   1: 'Demandé',
-  5: "À l'étude",
+  5: 'Accordé',
   2: 'Validé',
   6: 'Engagé',
   3: 'Réalisé',
   7: 'Clôturé',
   4: 'Refusé',
   8: 'Annulé',
+  9: 'Reporté',
 }
 
 /**
@@ -72,7 +85,9 @@ const TONES: Record<number, StatusTone> = {
   // rester au refus d'arbitrage, sinon les deux issues se confondent au coup
   // d'œil — ce qui était justement la raison d'en faire deux statuts.
   [ID_ANNULE]: 'neutral', // Annulé (dossier abandonné)
-  5: 'info', // À l'étude
+  // Reporté = orange : rien n'est perdu, mais le dossier attend qu'on y revienne.
+  [ID_REPORTE]: 'warning',
+  5: 'info', // Accordé (par le responsable, attend la direction)
   2: 'violet', // Validé
   6: 'yellow', // Engagé
   3: 'success', // Réalisé
@@ -86,7 +101,12 @@ export function statutCapexTone(id: number): StatusTone {
 // Ordre canonique d'AFFICHAGE des statuts : le parcours, puis Refusé en fin.
 // Sert à trier le menu déroulant dans l'ordre LOGIQUE du cycle (≠ ordre des ids,
 // ≠ alphabétique).
-const ORDRE_AFFICHAGE: number[] = [...PARCOURS_IDS, ID_REFUSE, ID_ANNULE]
+const ORDRE_AFFICHAGE: number[] = [
+  ...PARCOURS_IDS,
+  ID_REPORTE,
+  ID_REFUSE,
+  ID_ANNULE,
+]
 
 /** Rang d'affichage d'un statut CapEx (statut inconnu → rejeté en fin). */
 export function rangStatutCapex(id: number): number {
@@ -117,8 +137,97 @@ export function etapesInvestissement(
     // La brique n'accepte qu'UNE issue défavorable — il suffit de lui passer
     // celle du statut courant, les deux ne pouvant pas coexister.
     rejected: {
-      id: statutId === ID_ANNULE ? ID_ANNULE : ID_REFUSE,
+      id: ISSUES_ARRET.includes(statutId) ? statutId : ID_REFUSE,
       departId: 1,
     },
   })
+}
+
+/** Issues qui arrêtent le parcours et exigent un motif (CHECK 121, étendu 137). */
+export const ISSUES_ARRET: readonly number[] = [
+  ID_REFUSE,
+  ID_ANNULE,
+  ID_REPORTE,
+]
+
+/** Qui a pris une décision (colonne `decision_par`, 137). */
+export type DecisionPar = 'responsable' | 'direction'
+
+export function libelleDecisionPar(par: DecisionPar): string {
+  return par === 'direction' ? 'la direction' : 'moi'
+}
+
+/** Une décision proposée sur la fiche : le statut visé et qui la prend. */
+export interface DecisionCapex {
+  statutId: number
+  par: DecisionPar | null
+  libelle: string
+}
+
+/**
+ * ARBRE DE DÉCISION (137, demande PO du 10/11/2026) : les choix proposés à
+ * l'étape courante, dans l'ordre d'affichage (le « oui » d'abord).
+ *   Demandé  → Accorder · Refuser · Reporter (par moi)
+ *   Accordé  → Validé · Refusé · Reporté par la direction
+ *   Validé   → Engager ; Engagé → Réalisé ; Réalisé → Clôturer
+ *   Refusé / Reporté / Annulé → Relancer (retour à Demandé, historique gardé)
+ * « Annuler » (abandon, à tout moment) reste en barre de titre. Le statut est
+ * LIBRE côté base : cet arbre guide, la frise permet toujours de corriger.
+ */
+export function decisionsCapex(statutId: number): DecisionCapex[] {
+  switch (statutId) {
+    case ID_DEMANDE:
+      return [
+        { statutId: ID_ACCORDE, par: 'responsable', libelle: 'Accorder' },
+        { statutId: ID_REFUSE, par: 'responsable', libelle: 'Refuser' },
+        { statutId: ID_REPORTE, par: 'responsable', libelle: 'Reporter' },
+      ]
+    case ID_ACCORDE:
+      return [
+        {
+          statutId: ID_VALIDE,
+          par: 'direction',
+          libelle: 'Validé par la direction',
+        },
+        {
+          statutId: ID_REFUSE,
+          par: 'direction',
+          libelle: 'Refusé par la direction',
+        },
+        {
+          statutId: ID_REPORTE,
+          par: 'direction',
+          libelle: 'Reporté par la direction',
+        },
+      ]
+    case ID_VALIDE:
+      return [{ statutId: 6, par: null, libelle: 'Commande passée (engager)' }]
+    case 6:
+      return [{ statutId: 3, par: null, libelle: 'Marquer réalisé' }]
+    case 3:
+      return [{ statutId: ID_CLOTURE, par: null, libelle: 'Clôturer' }]
+    case ID_REFUSE:
+    case ID_REPORTE:
+    case ID_ANNULE:
+      return [
+        { statutId: ID_DEMANDE, par: null, libelle: 'Relancer la demande' },
+      ]
+    default:
+      return []
+  }
+}
+
+/**
+ * Libellé d'une ligne d'historique : le statut atteint, et par qui quand c'est
+ * une décision. Un retour à « Demandé » après coup est une RELANCE.
+ */
+export function libelleDecision(
+  statutId: number,
+  par: DecisionPar | null,
+  noms: Map<number, string>,
+  premiere: boolean,
+): string {
+  if (statutId === ID_DEMANDE) return premiere ? 'Demandé' : 'Relancé'
+  const nom = nomStatutCapex(statutId, noms)
+  return par ? `${nom} par ${libelleDecisionPar(par)}` : nom
 }
