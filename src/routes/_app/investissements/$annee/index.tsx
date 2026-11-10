@@ -39,7 +39,7 @@ import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/investissements/page-meta'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
-import { StatusBadge } from '@/components/common/status-badge'
+import { StatutColonne } from '@/components/common/statut-colonne'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -173,6 +173,24 @@ function InvestissementsContent({
                   statutNom,
                 )
                 const { depassement } = ecartCapex(inv)
+                const colonne = (
+                  <StatutColonne
+                    statut={{
+                      label: statutLabel,
+                      tone: statutCapexTone(inv.statut_capex_id),
+                    }}
+                    meta={
+                      <span
+                        className={cn(
+                          'font-medium whitespace-nowrap text-foreground tabular-nums',
+                          depassement && 'text-warning',
+                        )}
+                      >
+                        {montantPrincipal(inv)}
+                      </span>
+                    }
+                  />
+                )
                 return (
                   <ListRow
                     key={inv.id}
@@ -200,33 +218,12 @@ function InvestissementsContent({
                         },
                       })
                     }
-                    // UN SEUL bloc à droite, empilé : le statut au-dessus, le
-                    // montant en dessous. `badges` et `meta` étaient deux blocs
-                    // CÔTE À CÔTE, et comme la largeur du second suivait la
-                    // longueur du montant, le badge se décalait d'une ligne à
-                    // l'autre. Empilés dans une colonne de largeur fixe, les deux
-                    // s'alignent par construction. Le badge prend TOUTE la
-                    // largeur de la colonne, texte centré : « Validé » et
-                    // « Demandé » font la même taille d'une ligne à l'autre.
-                    meta={
-                      <div className="flex w-28 flex-col items-stretch gap-1">
-                        <StatusBadge
-                          tone={statutCapexTone(inv.statut_capex_id)}
-                          className="w-full justify-center"
-                        >
-                          {statutLabel}
-                        </StatusBadge>
-                        <span
-                          className={cn(
-                            'text-right text-sm font-medium whitespace-nowrap tabular-nums',
-                            depassement && 'text-warning',
-                          )}
-                        >
-                          {montantPrincipal(inv)}
-                        </span>
-                      </div>
-                    }
-                    mobileMeta={`${statutLabel} · ${montantPrincipal(inv)}`}
+                    // Même gabarit que les cartes d'ordres de travail
+                    // (demande PO) : colonne `StatutColonne` à largeur fixe,
+                    // badge en haut, montant CENTRÉ dessous — alignés d'une
+                    // carte à l'autre, au bureau comme sur téléphone.
+                    badges={colonne}
+                    mobileBadge={colonne}
                     menuActions={
                       canManage
                         ? actionsEditionSuppression({
