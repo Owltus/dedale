@@ -171,18 +171,13 @@ export function InvestissementDetail({
         <CardContent className="p-0">
           <SchemaCapex
             schema={schema}
+            // Un montant vide n'est pas affiché : un « — » seul, sans
+            // légende, ne dirait rien.
             chiffres={{
-              demande: [
-                {
-                  valeur: formatEuros(inv.montant_demande),
-                  libelle: 'demandé',
-                },
-              ],
-              valide: [
-                { valeur: formatEuros(inv.montant_prevu), libelle: 'prévu' },
-              ],
+              demande: montant(inv.montant_demande),
+              valide: montant(inv.montant_prevu),
               realise: [
-                { valeur: formatEuros(inv.depense_reelle), libelle: 'réel' },
+                ...montant(inv.depense_reelle),
                 ...(label
                   ? [{ valeur: label, libelle: 'écart', alerte: depassement }]
                   : []),
@@ -354,4 +349,9 @@ export function InvestissementDetail({
       <ConfirmDialog {...confirmAction.dialogProps} />
     </PageContainer>
   )
+}
+
+/** Le montant de la case, ou rien s'il n'est pas renseigné. */
+function montant(valeur: number | null): { valeur: string }[] {
+  return valeur === null ? [] : [{ valeur: formatEuros(valeur) }]
 }

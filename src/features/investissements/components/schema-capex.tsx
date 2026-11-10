@@ -170,7 +170,12 @@ function styleActuel(statutId: number): CSSProperties {
 /** Un montant affiché dans une case (ex. « 6 260,26 € » / « demandé »). */
 export interface ChiffreCapex {
   valeur: string
-  libelle: string
+  /**
+   * Légende sous la valeur, SEULEMENT pour un chiffre secondaire (l'écart) :
+   * le montant principal est celui de l'étape — « Demandé » puis
+   * « demandé » sous la somme ferait doublon.
+   */
+  libelle?: string
   /** Dépassement : valeur en couleur d'alerte. */
   alerte?: boolean
 }
@@ -218,9 +223,12 @@ function Case({
       {/* Les montants, à droite (repliés sous le libellé si la case est
           étroite, sur téléphone). */}
       {chiffres.length > 0 && (
-        <span className="ml-auto flex gap-4">
+        <span className="ml-auto flex items-center gap-4">
           {chiffres.map((ch) => (
-            <span key={ch.libelle} className="flex flex-col items-end">
+            <span
+              key={ch.libelle ?? 'principal'}
+              className="flex flex-col items-end"
+            >
               <span
                 className={cn(
                   'text-sm font-semibold text-foreground tabular-nums',
@@ -229,9 +237,11 @@ function Case({
               >
                 {ch.valeur}
               </span>
-              <span className="text-[11px] font-normal text-muted-foreground">
-                {ch.libelle}
-              </span>
+              {ch.libelle && (
+                <span className="text-[11px] font-normal text-muted-foreground">
+                  {ch.libelle}
+                </span>
+              )}
             </span>
           ))}
         </span>
