@@ -84,7 +84,11 @@ function BudgetsContent({ siteId }: { siteId: string }) {
                       ? 'Aucune demande pour le moment'
                       : `${String(t.nb)} dossier${t.nb > 1 ? 's' : ''}`
                   }
-                  meta={barre && <div className="w-64 lg:w-96">{barre}</div>}
+                  // Large (demande PO) : la barre prend l’essentiel de la carte, le
+                  // titre « Budget N » n’a besoin que de peu de place.
+                  meta={
+                    barre && <div className="w-[45vw] xl:w-[55vw]">{barre}</div>
+                  }
                   mobileMeta={barre && <div className="pt-1">{barre}</div>}
                   onClick={() =>
                     void navigate({
