@@ -7764,6 +7764,41 @@ CREATE TRIGGER trg_nettoyage_dates_coherentes
 COMMENT ON FUNCTION public.nettoyage_dates_coherentes() IS
     'Force cohérence date_debut/date_cloture selon les transitions de statut OT. 082 : à l''entrée en ''cloture'' (manuelle ou auto), date_debut = MIN(date_execution) et date_cloture = MAX(date_execution) des opérations sont TOUJOURS recalculées ensemble (plus de valeur mémorisée figée) — reflète toute correction de date d''exécution faite après un premier passage en terminee. 075 : filet de sécurité clôture >= début (surtout utile pour l''annulation). 080 : clôture manuelle sans date_execution trouvable lève une erreur. 125 : à la résurrection, date_debut = première opération terminée conservée.';
 
+-- 135 : une clôture demandée sans AUCUNE opération terminée devient une
+-- annulation (même règle que la clôture auto de gestion_statut_ot). Nommé
+-- trg_a_… pour passer AVANT les autres BEFORE UPDATE OF statut.
+CREATE OR REPLACE FUNCTION public.cloture_sans_realisation_annule()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+    IF NEW.statut = 'cloture'
+       AND OLD.statut IS DISTINCT FROM 'cloture'
+       AND EXISTS (SELECT 1 FROM public.operations_execution
+                   WHERE ordre_travail_id = NEW.id)
+       AND NOT EXISTS (SELECT 1 FROM public.operations_execution
+                       WHERE ordre_travail_id = NEW.id AND statut = 'terminee')
+    THEN
+        NEW.statut := 'annule';
+        NEW.motif_annulation := COALESCE(NEW.motif_annulation,
+            'Annulation automatique : aucune opération n''a été réalisée (toutes « non applicable »).');
+        NEW.date_cloture := (SELECT MAX(date_execution)
+                             FROM public.operations_execution
+                             WHERE ordre_travail_id = NEW.id);
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.cloture_sans_realisation_annule() IS
+    'Une clôture demandée sur un OT dont aucune opération n''est terminée devient une annulation, comme la clôture automatique (135).';
+
+DROP TRIGGER IF EXISTS trg_a_cloture_sans_realisation ON public.ordres_travail;
+CREATE TRIGGER trg_a_cloture_sans_realisation
+    BEFORE UPDATE OF statut ON public.ordres_travail
+    FOR EACH ROW EXECUTE FUNCTION public.cloture_sans_realisation_annule();
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 8bis. reouvrir_ot — RPC standard pour rouvrir un OT clôturé (F28 audit)
 --

@@ -187,7 +187,9 @@ export function useChangerStatutOt() {
         .from('ordres_travail')
         .update(patch)
         .eq('id', p.id)
-        .select('id')
+        // Statut FINAL relu : une clôture demandée sans aucune opération
+        // réalisée est rangée en 'annule' par la base (migration 135).
+        .select('id, statut')
         .single()
         .throwOnError()
       return data

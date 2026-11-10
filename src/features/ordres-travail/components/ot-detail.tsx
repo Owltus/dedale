@@ -148,7 +148,14 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
     changerStatut.mutate(
       { id: otId, statut: 'cloture' },
       {
-        onSuccess: () => toast.success('OT clôturé'),
+        // Rien de réalisé (tout « non applicable ») → la base range l'OT en
+        // « Annulé », comme la clôture automatique (migration 135).
+        onSuccess: (ot) =>
+          toast.success(
+            ot.statut === 'annule'
+              ? 'OT annulé : aucune opération réalisée'
+              : 'OT clôturé',
+          ),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
