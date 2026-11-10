@@ -9,6 +9,7 @@ import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/fields/text-field'
 import { DateField } from '@/components/common/fields/date-field'
+import { SelectField } from '@/components/common/fields/select-field'
 import { DescriptionField } from '@/components/common/fields/description-field'
 import type { Database } from '@/lib/database.types'
 
@@ -19,17 +20,31 @@ interface InvestissementFormDialogProps {
   onOpenChange: (open: boolean) => void
   siteId: string
   investissement?: Investissement | null
+  /** Année de budget proposée à la création (celle de la page ouverte). */
+  annee?: number
 }
 
 function montantToText(value: number | null): string {
   return value === null ? '' : String(value)
 }
 
+/** Années proposées : deux en arrière, trois en avant, plus celle du dossier. */
+function optionsAnnees(courante: number, dossier?: number) {
+  const annees = new Set<number>()
+  for (let a = courante - 2; a <= courante + 3; a++) annees.add(a)
+  if (dossier !== undefined) annees.add(dossier)
+  return [...annees]
+    .sort((a, b) => a - b)
+    .map((a) => ({ value: String(a), label: `Budget ${String(a)}` }))
+}
+
 function initialValues(
   investissement: Investissement | null | undefined,
+  annee: number | undefined,
 ): InvestissementFormValues {
-  if (!investissement) return emptyInvestissement()
+  if (!investissement) return emptyInvestissement(annee)
   return {
+    annee_budget: String(investissement.annee_budget),
     libelle: investissement.libelle,
     description: investissement.description ?? '',
     montant_demande: montantToText(investissement.montant_demande),
@@ -44,6 +59,7 @@ export function InvestissementFormDialog({
   onOpenChange,
   siteId,
   investissement,
+  annee,
 }: InvestissementFormDialogProps) {
   const isEdit = Boolean(investissement)
   const { session } = useAuth()
@@ -53,7 +69,7 @@ export function InvestissementFormDialog({
   // `parseMontant` convertit côté mutation) → deux génériques suffisent.
   const form = useForm<InvestissementFormValues>({
     resolver: zodResolver(investissementSchema),
-    defaultValues: initialValues(investissement),
+    defaultValues: initialValues(investissement, annee),
   })
   const submit = useSubmitDialog<InvestissementFormValues>({
     onSubmit: (data) => {
@@ -99,9 +115,19 @@ export function InvestissementFormDialog({
             required
           />
 
-          {/* Les trois montants et la date : quatre champs courts en 2 × 2
-              plutôt qu'une ligne de trois suivie d'une ligne d'un seul. */}
+          {/* L'année, la date et les trois montants : champs courts en
+              2 colonnes. */}
           <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField
+              control={form.control}
+              name="annee_budget"
+              label="Année du budget"
+              options={optionsAnnees(
+                new Date().getFullYear(),
+                investissement?.annee_budget,
+              )}
+              required
+            />
             <DateField
               control={form.control}
               name="date_demande"

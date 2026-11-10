@@ -44,12 +44,13 @@ import { Route as AppRelevesReleveRouteImport } from './routes/_app/releves/$rel
 import { Route as AppPrestatairesPrestataireRouteImport } from './routes/_app/prestataires/$prestataire'
 import { Route as AppOrdresTravailOtIdRouteImport } from './routes/_app/ordres-travail/$otId'
 import { Route as AppLocalisationsSplatRouteImport } from './routes/_app/localisations/$'
-import { Route as AppInvestissementsInvestissementRouteImport } from './routes/_app/investissements/$investissement'
 import { Route as AppGammesSplatRouteImport } from './routes/_app/gammes/$'
 import { Route as AppEvenementsEvenementRouteImport } from './routes/_app/evenements/$evenement'
 import { Route as AppEquipementsSplatRouteImport } from './routes/_app/equipements/$'
 import { Route as AppDemandesDemandeRouteImport } from './routes/_app/demandes/$demande'
 import { Route as AppBibliothequeSplatRouteImport } from './routes/_app/bibliotheque/$'
+import { Route as AppInvestissementsAnneeIndexRouteImport } from './routes/_app/investissements/$annee/index'
+import { Route as AppInvestissementsAnneeInvestissementRouteImport } from './routes/_app/investissements/$annee/$investissement'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -227,12 +228,6 @@ const AppLocalisationsSplatRoute = AppLocalisationsSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => AppLocalisationsRoute,
 } as any)
-const AppInvestissementsInvestissementRoute =
-  AppInvestissementsInvestissementRouteImport.update({
-    id: '/$investissement',
-    path: '/$investissement',
-    getParentRoute: () => AppInvestissementsRoute,
-  } as any)
 const AppGammesSplatRoute = AppGammesSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -258,6 +253,18 @@ const AppBibliothequeSplatRoute = AppBibliothequeSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => AppBibliothequeRoute,
 } as any)
+const AppInvestissementsAnneeIndexRoute =
+  AppInvestissementsAnneeIndexRouteImport.update({
+    id: '/$annee/',
+    path: '/$annee/',
+    getParentRoute: () => AppInvestissementsRoute,
+  } as any)
+const AppInvestissementsAnneeInvestissementRoute =
+  AppInvestissementsAnneeInvestissementRouteImport.update({
+    id: '/$annee/$investissement',
+    path: '/$annee/$investissement',
+    getParentRoute: () => AppInvestissementsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -284,7 +291,6 @@ export interface FileRoutesByFullPath {
   '/equipements/$': typeof AppEquipementsSplatRoute
   '/evenements/$evenement': typeof AppEvenementsEvenementRoute
   '/gammes/$': typeof AppGammesSplatRoute
-  '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
   '/ordres-travail/$otId': typeof AppOrdresTravailOtIdRoute
   '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
@@ -300,6 +306,8 @@ export interface FileRoutesByFullPath {
   '/releves/': typeof AppRelevesIndexRoute
   '/travaux/': typeof AppTravauxIndexRoute
   '/utilisateurs/': typeof AppUtilisateursIndexRoute
+  '/investissements/$annee/$investissement': typeof AppInvestissementsAnneeInvestissementRoute
+  '/investissements/$annee/': typeof AppInvestissementsAnneeIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -317,7 +325,6 @@ export interface FileRoutesByTo {
   '/equipements/$': typeof AppEquipementsSplatRoute
   '/evenements/$evenement': typeof AppEvenementsEvenementRoute
   '/gammes/$': typeof AppGammesSplatRoute
-  '/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/localisations/$': typeof AppLocalisationsSplatRoute
   '/ordres-travail/$otId': typeof AppOrdresTravailOtIdRoute
   '/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
@@ -333,6 +340,8 @@ export interface FileRoutesByTo {
   '/releves': typeof AppRelevesIndexRoute
   '/travaux': typeof AppTravauxIndexRoute
   '/utilisateurs': typeof AppUtilisateursIndexRoute
+  '/investissements/$annee/$investissement': typeof AppInvestissementsAnneeInvestissementRoute
+  '/investissements/$annee': typeof AppInvestissementsAnneeIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -361,7 +370,6 @@ export interface FileRoutesById {
   '/_app/equipements/$': typeof AppEquipementsSplatRoute
   '/_app/evenements/$evenement': typeof AppEvenementsEvenementRoute
   '/_app/gammes/$': typeof AppGammesSplatRoute
-  '/_app/investissements/$investissement': typeof AppInvestissementsInvestissementRoute
   '/_app/localisations/$': typeof AppLocalisationsSplatRoute
   '/_app/ordres-travail/$otId': typeof AppOrdresTravailOtIdRoute
   '/_app/prestataires/$prestataire': typeof AppPrestatairesPrestataireRoute
@@ -377,6 +385,8 @@ export interface FileRoutesById {
   '/_app/releves/': typeof AppRelevesIndexRoute
   '/_app/travaux/': typeof AppTravauxIndexRoute
   '/_app/utilisateurs/': typeof AppUtilisateursIndexRoute
+  '/_app/investissements/$annee/$investissement': typeof AppInvestissementsAnneeInvestissementRoute
+  '/_app/investissements/$annee/': typeof AppInvestissementsAnneeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -405,7 +415,6 @@ export interface FileRouteTypes {
     | '/equipements/$'
     | '/evenements/$evenement'
     | '/gammes/$'
-    | '/investissements/$investissement'
     | '/localisations/$'
     | '/ordres-travail/$otId'
     | '/prestataires/$prestataire'
@@ -421,6 +430,8 @@ export interface FileRouteTypes {
     | '/releves/'
     | '/travaux/'
     | '/utilisateurs/'
+    | '/investissements/$annee/$investissement'
+    | '/investissements/$annee/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -438,7 +449,6 @@ export interface FileRouteTypes {
     | '/equipements/$'
     | '/evenements/$evenement'
     | '/gammes/$'
-    | '/investissements/$investissement'
     | '/localisations/$'
     | '/ordres-travail/$otId'
     | '/prestataires/$prestataire'
@@ -454,6 +464,8 @@ export interface FileRouteTypes {
     | '/releves'
     | '/travaux'
     | '/utilisateurs'
+    | '/investissements/$annee/$investissement'
+    | '/investissements/$annee'
   id:
     | '__root__'
     | '/_app'
@@ -481,7 +493,6 @@ export interface FileRouteTypes {
     | '/_app/equipements/$'
     | '/_app/evenements/$evenement'
     | '/_app/gammes/$'
-    | '/_app/investissements/$investissement'
     | '/_app/localisations/$'
     | '/_app/ordres-travail/$otId'
     | '/_app/prestataires/$prestataire'
@@ -497,6 +508,8 @@ export interface FileRouteTypes {
     | '/_app/releves/'
     | '/_app/travaux/'
     | '/_app/utilisateurs/'
+    | '/_app/investissements/$annee/$investissement'
+    | '/_app/investissements/$annee/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -751,13 +764,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLocalisationsSplatRouteImport
       parentRoute: typeof AppLocalisationsRoute
     }
-    '/_app/investissements/$investissement': {
-      id: '/_app/investissements/$investissement'
-      path: '/$investissement'
-      fullPath: '/investissements/$investissement'
-      preLoaderRoute: typeof AppInvestissementsInvestissementRouteImport
-      parentRoute: typeof AppInvestissementsRoute
-    }
     '/_app/gammes/$': {
       id: '/_app/gammes/$'
       path: '/$'
@@ -792,6 +798,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/bibliotheque/$'
       preLoaderRoute: typeof AppBibliothequeSplatRouteImport
       parentRoute: typeof AppBibliothequeRoute
+    }
+    '/_app/investissements/$annee/': {
+      id: '/_app/investissements/$annee/'
+      path: '/$annee'
+      fullPath: '/investissements/$annee/'
+      preLoaderRoute: typeof AppInvestissementsAnneeIndexRouteImport
+      parentRoute: typeof AppInvestissementsRoute
+    }
+    '/_app/investissements/$annee/$investissement': {
+      id: '/_app/investissements/$annee/$investissement'
+      path: '/$annee/$investissement'
+      fullPath: '/investissements/$annee/$investissement'
+      preLoaderRoute: typeof AppInvestissementsAnneeInvestissementRouteImport
+      parentRoute: typeof AppInvestissementsRoute
     }
   }
 }
@@ -863,13 +883,16 @@ const AppGammesRouteWithChildren = AppGammesRoute._addFileChildren(
 )
 
 interface AppInvestissementsRouteChildren {
-  AppInvestissementsInvestissementRoute: typeof AppInvestissementsInvestissementRoute
   AppInvestissementsIndexRoute: typeof AppInvestissementsIndexRoute
+  AppInvestissementsAnneeInvestissementRoute: typeof AppInvestissementsAnneeInvestissementRoute
+  AppInvestissementsAnneeIndexRoute: typeof AppInvestissementsAnneeIndexRoute
 }
 
 const AppInvestissementsRouteChildren: AppInvestissementsRouteChildren = {
-  AppInvestissementsInvestissementRoute: AppInvestissementsInvestissementRoute,
   AppInvestissementsIndexRoute: AppInvestissementsIndexRoute,
+  AppInvestissementsAnneeInvestissementRoute:
+    AppInvestissementsAnneeInvestissementRoute,
+  AppInvestissementsAnneeIndexRoute: AppInvestissementsAnneeIndexRoute,
 }
 
 const AppInvestissementsRouteWithChildren =

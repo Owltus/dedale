@@ -172,10 +172,12 @@ const MESSAGES_CONTRAINTE_CHECK: Readonly<Record<string, string>> = {
   // Migration 121. Le dialogue de motif rend ce refus improbable depuis l'écran,
   // mais tout chemin qui l'évite (import, correction en masse) doit lire une
   // phrase utile plutôt que « Valeur refusée : elle ne respecte pas une règle ».
-  capex_motif_arret_oblig_si_refuse_ou_annule:
-    'Motif obligatoire : un investissement refusé, reporté ou annulé doit dire pourquoi.',
+  capex_motif_arret_oblig_si_refuse:
+    'Motif obligatoire : un investissement refusé doit dire pourquoi.',
+  investissements_annee_budget_check:
+    'Année du budget invalide : choisis une année entre 2000 et 2100.',
   investissements_dates_coherentes:
-    'Dates incohérentes : la clôture ne peut pas précéder la date de demande. Corrigez l’une des deux dates.',
+    'Dates incohérentes : la réalisation ne peut pas précéder la date de demande. Corrigez l’une des deux dates.',
   investissements_montant_demande_check:
     'Montant demandé invalide : saisissez 0 ou plus, ou laissez le champ vide s’il n’est pas encore chiffré.',
   investissements_montant_prevu_check:

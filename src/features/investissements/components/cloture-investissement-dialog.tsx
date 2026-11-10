@@ -24,7 +24,7 @@ interface ClotureInvestissementDialogProps {
 }
 
 /**
- * Clôture d'un investissement : date + bilan budgétaire.
+ * Fin d'un investissement (« Marquer réalisé », 138) : date + bilan budgétaire.
  *
  * Jumeau de `ClotureEvenementDialog` : mêmes règles, même mise en page. Le bilan
  * est proposé mais pas exigé, la date est saisissable (on clôture souvent après
@@ -61,14 +61,14 @@ export function ClotureInvestissementDialog({
       <FormDialog
         open={open}
         onOpenChange={onOpenChange}
-        title={correction ? 'Modifier la clôture' : "Clôturer l'investissement"}
-        description="Le budget a-t-il été tenu ? Ce qui explique l'écart, s'il y en a un. Le bilan est facultatif."
+        title={correction ? 'Modifier la réalisation' : 'Marquer réalisé'}
+        description="Quand c'est fait, et le budget a-t-il été tenu ? Ce qui explique l'écart, s'il y en a un. Le bilan est facultatif."
         // Le contrôle « la clôture ne précède pas la demande » n'est plus fait
         // ici : il vit dans `clotureCapexSchema`, qui reçoit `date_demande` en
         // valeur par défaut — une seule écriture de la règle, et elle protège
         // aussi les appels qui ne passent pas par ce dialogue.
         onSubmit={() => void form.handleSubmit(onConfirm)()}
-        submitLabel={correction ? 'Enregistrer' : 'Clôturer'}
+        submitLabel={correction ? 'Enregistrer' : 'Marquer réalisé'}
         pendingLabel="Enregistrement…"
         pending={pending}
         size="lg"
@@ -77,7 +77,7 @@ export function ClotureInvestissementDialog({
           <DateField
             control={form.control}
             name="date_cloture"
-            label="Date de clôture"
+            label="Date de réalisation"
             required
           />
           <div className="sm:col-span-2">

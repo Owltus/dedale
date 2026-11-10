@@ -710,6 +710,7 @@ const CONCORDANCES: Concordance[] = [
       montant_prevu: '',
       depense_reelle: '',
       date_demande: '2026-09-16',
+      annee_budget: '2026',
     },
     champs: {
       libelle: T('libelle'),
@@ -821,10 +822,13 @@ const CHECKS_NON_SONDES: Record<string, string> = {
     'Inter-colonnes : couvert par `clotureSchema` (evenements) et son test.',
   'investissements.investissements_dates_coherentes':
     'Inter-colonnes : couvert par `clotureCapexSchema` et son test.',
-  'investissements.capex_motif_arret_oblig_si_refuse_ou_annule':
+  'investissements.capex_motif_arret_oblig_si_refuse':
     'Inter-colonnes (statut_capex_id ↔ motif_arret) : le motif n’est exigé que ' +
-    'dans trois statuts (Refusé, Annulé, Reporté — 137). Aucun formulaire ne saisit les deux champs ensemble — ' +
+    'pour « Refusé » (138). Aucun formulaire ne saisit les deux champs ensemble — ' +
     'le motif passe par `MotifDialog`, qui l’exige déjà côté front (121).',
+  'investissements.investissements_annee_budget_check':
+    'Menu déroulant : l’année du budget est choisie parmi des années proposées, ' +
+    'et `investissementSchema` borne déjà 2000-2100 (138).',
   'operations.operations_seuils_coherents':
     'Inter-colonnes : couvert par le `.refine` seuil min ≤ max d’`operationSchema`.',
   'modeles_operations_items.modeles_operations_items_seuils_coherents':
@@ -837,7 +841,7 @@ const CHECKS_NON_SONDES: Record<string, string> = {
   'categories.chk_categorie_modele_xor_specs':
     'Colonnes non saisies (modele_equipement_id / specifications posées par la mutation).',
   'investissements.investissements_decision_par_check':
-    'Colonne non saisie : `decision_par` est posée par le bouton de décision (137).',
+    'Colonne plus écrite depuis la 138, supprimée par la 139 (après mise en ligne).',
   'categories.chk_categorie_specs_objet':
     'Structure d’un JSONB : ne tombe que sur un appel programmatique fautif.',
   'categories.chk_categories_image_path_format':

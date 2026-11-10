@@ -1709,6 +1709,7 @@ export type Database = {
       }
       investissements: {
         Row: {
+          annee_budget: number
           arrete_by: string | null
           bilan: string | null
           cloture_by: string | null
@@ -1730,6 +1731,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          annee_budget?: number
           arrete_by?: string | null
           bilan?: string | null
           cloture_by?: string | null
@@ -1751,6 +1753,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          annee_budget?: number
           arrete_by?: string | null
           bilan?: string | null
           cloture_by?: string | null
@@ -1825,6 +1828,7 @@ export type Database = {
       }
       investissements_decisions: {
         Row: {
+          annee_budget: number | null
           created_at: string
           created_by: string | null
           decision_par: string | null
@@ -1834,6 +1838,7 @@ export type Database = {
           statut_capex_id: number
         }
         Insert: {
+          annee_budget?: number | null
           created_at?: string
           created_by?: string | null
           decision_par?: string | null
@@ -1843,6 +1848,7 @@ export type Database = {
           statut_capex_id: number
         }
         Update: {
+          annee_budget?: number | null
           created_at?: string
           created_by?: string | null
           decision_par?: string | null

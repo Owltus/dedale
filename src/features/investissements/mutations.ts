@@ -1,13 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { investissementsQueries } from './queries'
-import { ID_CLOTURE, ISSUES_ARRET, type DecisionPar } from './etat'
+import { ID_REALISE, ID_REFUSE } from './etat'
 import { parseMontant } from './schemas'
 import type { InvestissementFormValues } from './schemas'
 
 // Convertit les champs texte du formulaire en payload base (vides → null). Le
 // statut n'est plus saisi dans le formulaire : il vaut son DEFAULT (Demandé) à
-// la création et se change ensuite via le schéma de parcours (cf. useChangeStatutCapex).
+// la création et se change ensuite par les boutons de la fiche (cf. useChangeStatutCapex).
 function toPayload(v: InvestissementFormValues) {
   return {
     libelle: v.libelle.trim(),
@@ -16,6 +16,7 @@ function toPayload(v: InvestissementFormValues) {
     montant_prevu: parseMontant(v.montant_prevu),
     depense_reelle: parseMontant(v.depense_reelle),
     date_demande: v.date_demande,
+    annee_budget: Number(v.annee_budget),
   }
 }
 
@@ -73,24 +74,16 @@ export function useUpdateInvestissement() {
 }
 
 /**
- * Change le statut CapEx (schéma cliquable + boutons de décision). Statut LIBRE :
- * aucune machine à états backend → simple UPDATE du statut_capex_id.
- */
-/**
- * Change le statut d'un investissement.
+ * Change le statut d'un investissement, et son année de budget pour un report
+ * (138). La base journalise l'un comme l'autre dans l'historique.
  *
- * Passer à « Clôturé » pose la date, le bilan et l'auteur ; en repartir les
- * efface — sinon un investissement rouvert garderait une date de clôture
- * antérieure à son propre suivi, que la contrainte
- * `investissements_dates_coherentes` finirait par refuser (migration 079).
+ * Passer à « Réalisé » pose la date, le bilan et l'auteur ; en repartir les
+ * efface — sinon un dossier rouvert garderait une date de fin antérieure à son
+ * propre suivi (`investissements_dates_coherentes`, migration 079). La date
+ * est une date NUE (`isoLocale`), jamais un `toISOString()`.
  *
- * La date est une date NUE construite par l'appelant (`isoLocale`), jamais un
- * `toISOString()` : c'est ce qui avait produit le 23514 des ordres de travail.
- *
- * Passer à « Refusé », « Annulé » (121) ou « Reporté » (137) suit exactement la même logique avec
- * le trio motif / date / auteur : la base EXIGE un motif non vide dans ces deux
- * statuts, et en repartir l'efface — sans quoi un investissement réactivé
- * garderait la trace d'un arrêt qui n'a plus lieu d'être.
+ * « Refusé » suit la même logique avec le trio motif / date / auteur : la base
+ * EXIGE un motif, et en repartir l'efface.
  */
 export function useChangeStatutCapex() {
   const qc = useQueryClient()
@@ -98,42 +91,39 @@ export function useChangeStatutCapex() {
     mutationFn: async ({
       id,
       statutId,
+      annee,
       bilan,
       dateCloture,
       clotureBy,
       motifArret,
       dateArret,
       arreteBy,
-      decisionPar,
     }: {
       id: string
       statutId: number
+      /** Année du budget après l'action (report = +1). */
+      annee: number
       bilan?: string
       dateCloture?: string
       clotureBy?: string
-      /** Obligatoire pour « Refusé » et « Annulé » — la base le refuse sinon. */
+      /** Obligatoire pour « Refusé » — la base le refuse sinon. */
       motifArret?: string
       dateArret?: string
       arreteBy?: string
-      /** Qui prend la décision (137) ; absent = sans objet (avancement). */
-      decisionPar?: DecisionPar | null
     }) => {
-      const cloture = statutId === ID_CLOTURE
-      const arret = ISSUES_ARRET.includes(statutId)
+      const realise = statutId === ID_REALISE
+      const refus = statutId === ID_REFUSE
       const { data } = await supabase
         .from('investissements')
         .update({
           statut_capex_id: statutId,
-          bilan: cloture ? (bilan?.trim() ?? '') || null : null,
-          date_cloture: cloture ? (dateCloture ?? null) : null,
-          cloture_by: cloture ? (clotureBy ?? null) : null,
-          // Même règle que la clôture : on pose en entrant, on efface en
-          // sortant. Un dossier réactivé ne doit plus porter son motif d'arrêt.
-          motif_arret: arret ? (motifArret?.trim() ?? '') || null : null,
-          date_arret: arret ? (dateArret ?? null) : null,
-          arrete_by: arret ? (arreteBy ?? null) : null,
-          // 137 : qui a décidé, journalisé par la base avec le statut.
-          decision_par: decisionPar ?? null,
+          annee_budget: annee,
+          bilan: realise ? (bilan?.trim() ?? '') || null : null,
+          date_cloture: realise ? (dateCloture ?? null) : null,
+          cloture_by: realise ? (clotureBy ?? null) : null,
+          motif_arret: refus ? (motifArret?.trim() ?? '') || null : null,
+          date_arret: refus ? (dateArret ?? null) : null,
+          arrete_by: refus ? (arreteBy ?? null) : null,
         })
         .eq('id', id)
         .select()

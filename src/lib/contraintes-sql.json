@@ -1879,7 +1879,8 @@
     },
     "investissements": {
       "checks": {
-        "capex_motif_arret_oblig_si_refuse_ou_annule": "CHECK (((statut_capex_id <> ALL (ARRAY[4, 8, 9])) OR ((motif_arret IS NOT NULL) AND (length(btrim(motif_arret)) > 0))))",
+        "capex_motif_arret_oblig_si_refuse": "CHECK (((statut_capex_id <> 4) OR ((motif_arret IS NOT NULL) AND (length(btrim(motif_arret)) > 0))))",
+        "investissements_annee_budget_check": "CHECK (((annee_budget >= 2000) AND (annee_budget <= 2100)))",
         "investissements_dates_coherentes": "CHECK (((date_cloture IS NULL) OR (date_cloture >= date_demande)))",
         "investissements_decision_par_check": "CHECK (((decision_par IS NULL) OR (decision_par = ANY (ARRAY['responsable'::text, 'direction'::text]))))",
         "investissements_depense_reelle_check": "CHECK (((depense_reelle IS NULL) OR (depense_reelle >= (0)::numeric)))",
@@ -1888,6 +1889,14 @@
         "investissements_montant_prevu_check": "CHECK (((montant_prevu IS NULL) OR (montant_prevu >= (0)::numeric)))"
       },
       "colonnes": {
+        "annee_budget": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 16,
+          "type": "smallint"
+        },
         "arrete_by": {
           "aUnDefaut": false,
           "echelle": null,
@@ -2047,6 +2056,14 @@
         "investissements_decisions_decision_par_check": "CHECK (((decision_par IS NULL) OR (decision_par = ANY (ARRAY['responsable'::text, 'direction'::text]))))"
       },
       "colonnes": {
+        "annee_budget": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 16,
+          "type": "smallint"
+        },
         "created_at": {
           "aUnDefaut": true,
           "echelle": null,

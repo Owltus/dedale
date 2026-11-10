@@ -2,279 +2,191 @@ import {
   statusToneById,
   type StatusTone,
 } from '@/components/common/status-badge'
+import type { Database } from '@/lib/database.types'
 
-// Parcours CapEx (ids du seed `statuts_capex`), dans l'ORDRE narratif d'affichage :
-// Demandé(1) → Accordé(5, par le responsable) → Validé(2, par la direction) →
-// Engagé(6) → Réalisé(3) → Clôturé(7). Issues hors parcours : Refusé(4),
-// Annulé(8), Reporté(9) — 137, demande PO du 10/11/2026.
-// Le statut reste LIBRE côté base (pas de machine à états) : le schéma n'est
-// qu'une lecture visuelle de l'avancement, jamais une contrainte. L'ordre vit
-// ici (présentation) — les ids ne sont volontairement PAS monotones (statuts
-// ajoutés après coup) → l'état se calcule par POSITION, pas par valeur d'id.
-const PARCOURS_IDS = [1, 5, 2, 6, 3, 7] as const
-/**
- * Statut « Refusé » (issue défavorable, hors parcours linéaire) : la décision
- * d'arbitrage a dit non. Arrive tôt — Demandé ou À l'étude.
- */
-export const ID_REFUSE = 4
-/**
- * Statut « Annulé » (121) : le projet est ABANDONNÉ en cours de route — local
- * réaffecté, fournisseur défaillant, budget basculé. À distinguer du refus :
- * l'annulation peut survenir à tout moment, y compris après « Validé » ou
- * « Engagé ». Les deux exigent un motif (CHECK
- * capex_motif_arret_oblig_si_refuse_ou_annule).
- */
-export const ID_ANNULE = 8
-/**
- * Statut « Clôturé » : FIN du parcours, et le seul qui porte un bilan.
- * « Réalisé »(3) reste une étape — les dépenses peuvent encore bouger.
- */
-export const ID_CLOTURE = 7
-/** « Demandé » : départ du parcours, et point de retour d'une relance. */
+type Investissement = Database['public']['Tables']['investissements']['Row']
+
+// QUATRE statuts (138, décision PO du 10/11/2026) : Demandé → Validé → Réalisé,
+// ou Refusé. « Reporter » n'est pas un statut : c'est envoyer le dossier dans le
+// budget de l'année suivante, où il redevient « Demandé ».
+/** « Demandé » : départ, et point de retour d'une relance ou d'un report. */
 export const ID_DEMANDE = 1
-/** « Accordé » (137) : le responsable a dit oui, la direction doit décider. */
-export const ID_ACCORDE = 5
-/** « Validé » : la direction a dit oui (notée par le responsable, 137). */
+/** « Validé » : le budget est accordé. */
 export const ID_VALIDE = 2
-/**
- * « Reporté » (137) : la décision est repoussée à plus tard, par le
- * responsable ou la direction. Motif obligatoire, sans échéance (PO).
- */
-export const ID_REPORTE = 9
+/** « Réalisé » : fait — porte la dépense réelle, la date et le bilan. */
+export const ID_REALISE = 3
+/** « Refusé » : motif obligatoire (CHECK capex_motif_arret_oblig_si_refuse). */
+export const ID_REFUSE = 4
+
 const LABELS_DEFAUT: Record<number, string> = {
-  1: 'Demandé',
-  5: 'Accordé',
-  2: 'Validé',
-  6: 'Engagé',
-  3: 'Réalisé',
-  7: 'Clôturé',
-  4: 'Refusé',
-  8: 'Annulé',
-  9: 'Reporté',
+  [ID_DEMANDE]: 'Demandé',
+  [ID_VALIDE]: 'Validé',
+  [ID_REALISE]: 'Réalisé',
+  [ID_REFUSE]: 'Refusé',
 }
 
 /**
- * Libellé d'un statut CapEx : référentiel (suit un renommage), sinon défaut, sinon
- * « Statut N ». Mutualisé entre la liste et la fiche → un badge ne disparaît plus
- * au premier rendu tant que `statuts_capex` n'est pas résolu (repli LABELS_DEFAUT).
+ * Libellé d'un statut : référentiel (suit un renommage), sinon défaut, sinon
+ * « Statut N » — un badge ne disparaît pas tant que le référentiel charge.
  */
 export function nomStatutCapex(id: number, noms: Map<number, string>): string {
   return noms.get(id) ?? LABELS_DEFAUT[id] ?? `Statut ${String(id)}`
 }
 
-/**
- * Statuts TERMINAUX d'un investissement (Réalisé, Clôturé, Refusé) : exclus par
- * défaut du filtre « Non terminés » des listes (cf. `matchStatutFilter`).
- */
-export const STATUTS_CAPEX_TERMINAUX = [3, 7, ID_REFUSE, ID_ANNULE] as const
+/** Statuts TERMINÉS : masqués par le filtre « Non terminés ». */
+export const STATUTS_CAPEX_TERMINAUX = [ID_REALISE, ID_REFUSE] as const
 
-/**
- * Code couleur (tone) LOGIQUE d'un statut CapEx, pour la pastille `StatusBadge`
- * et le liseré de card. Le cycle CapEx a sa propre lecture (≠ DI/Travaux) :
- *  Demandé = gris (en attente), À l'étude = bleu (analyse), Validé = violet
- *  (feu vert / jalon), Engagé = jaune (exécution en cours), Réalisé = vert
- *  (accompli), Clôturé = gris (dossier clos / archivé), Refusé = rouge.
- */
 const TONES: Record<number, StatusTone> = {
-  [ID_REFUSE]: 'destructive', // Refusé
-  // Annulé = gris et non rouge : un abandon n'est pas un rejet. Le rouge doit
-  // rester au refus d'arbitrage, sinon les deux issues se confondent au coup
-  // d'œil — ce qui était justement la raison d'en faire deux statuts.
-  [ID_ANNULE]: 'neutral', // Annulé (dossier abandonné)
-  // Reporté = orange : rien n'est perdu, mais le dossier attend qu'on y revienne.
-  [ID_REPORTE]: 'warning',
-  5: 'info', // Accordé (par le responsable, attend la direction)
-  2: 'violet', // Validé
-  6: 'yellow', // Engagé
-  3: 'success', // Réalisé
-  7: 'neutral', // Clôturé (dossier clos / archivé)
-  1: 'neutral', // Demandé (en attente)
+  [ID_DEMANDE]: 'neutral', // en attente
+  [ID_VALIDE]: 'violet', // feu vert
+  [ID_REALISE]: 'success', // fait
+  [ID_REFUSE]: 'destructive',
 }
 export function statutCapexTone(id: number): StatusTone {
   return statusToneById(id, TONES)
 }
 
-// Ordre canonique d'AFFICHAGE des statuts : le parcours, puis Refusé en fin.
-// Sert à trier le menu déroulant dans l'ordre LOGIQUE du cycle (≠ ordre des ids,
-// ≠ alphabétique).
-const ORDRE_AFFICHAGE: number[] = [
-  ...PARCOURS_IDS,
-  ID_REPORTE,
-  ID_REFUSE,
-  ID_ANNULE,
-]
+// Ordre LOGIQUE d'affichage (menu de filtre), indépendant des ids.
+const ORDRE_AFFICHAGE: number[] = [ID_DEMANDE, ID_VALIDE, ID_REALISE, ID_REFUSE]
 
-/** Rang d'affichage d'un statut CapEx (statut inconnu → rejeté en fin). */
+/** Rang d'affichage d'un statut (inconnu → en fin). */
 export function rangStatutCapex(id: number): number {
   const i = ORDRE_AFFICHAGE.indexOf(id)
   return i === -1 ? ORDRE_AFFICHAGE.length : i
 }
 
-/** Issues qui arrêtent le parcours et exigent un motif (CHECK 121, étendu 137). */
-export const ISSUES_ARRET: readonly number[] = [
-  ID_REFUSE,
-  ID_ANNULE,
-  ID_REPORTE,
-]
+/** Ce que fait un bouton de la fiche. */
+export type CleActionCapex =
+  | 'valider'
+  | 'refuser'
+  | 'reporter'
+  | 'realiser'
+  | 'rouvrir'
+  | 'relancer'
 
-/** Qui a pris une décision (colonne `decision_par`, 137). */
-export type DecisionPar = 'responsable' | 'direction'
-
-export function libelleDecisionPar(par: DecisionPar): string {
-  return par === 'direction' ? 'la direction' : 'moi'
-}
-
-/** Une décision proposée sur la fiche : le statut visé et qui la prend. */
-export interface DecisionCapex {
-  statutId: number
-  par: DecisionPar | null
+export interface ActionCapex {
+  cle: CleActionCapex
+  /** Texte du bouton — il dit seul ce qu'il fait. */
   libelle: string
+  /** Statut après l'action. */
+  statutId: number
+  /** Année du budget après l'action. */
+  annee: number
 }
 
 /**
- * ARBRE DE DÉCISION (137, demande PO du 10/11/2026) : les choix proposés à
- * l'étape courante, dans l'ordre d'affichage (le « oui » d'abord).
- *   Demandé  → Accorder · Refuser · Reporter (par moi)
- *   Accordé  → Validé · Refusé · Reporté par la direction
- *   Validé   → Engager ; Engagé → Réalisé ; Réalisé → Clôturer
- *   Refusé / Reporté / Annulé → Relancer (retour à Demandé, historique gardé)
- * « Annuler » (abandon, à tout moment) reste en barre de titre. Le statut est
- * LIBRE côté base : cet arbre guide, le schéma permet toujours de corriger.
+ * Les boutons proposés sur la fiche selon le statut, l'action principale en
+ * premier (138) :
+ *   Demandé → Valider · Refuser · Reporter à N+1
+ *   Validé  → Marquer réalisé · Reporter à N+1
+ *   Réalisé → Rouvrir
+ *   Refusé  → Relancer · Reporter à N+1
  */
-export function decisionsCapex(statutId: number): DecisionCapex[] {
+export function actionsCapex(statutId: number, annee: number): ActionCapex[] {
+  const reporter: ActionCapex = {
+    cle: 'reporter',
+    libelle: `Reporter à ${String(annee + 1)}`,
+    statutId: ID_DEMANDE,
+    annee: annee + 1,
+  }
+  const a = (
+    cle: CleActionCapex,
+    libelle: string,
+    statut: number,
+  ): ActionCapex => ({ cle, libelle, statutId: statut, annee })
   switch (statutId) {
     case ID_DEMANDE:
       return [
-        { statutId: ID_ACCORDE, par: 'responsable', libelle: 'Accorder' },
-        { statutId: ID_REFUSE, par: 'responsable', libelle: 'Refuser' },
-        { statutId: ID_REPORTE, par: 'responsable', libelle: 'Reporter' },
-      ]
-    case ID_ACCORDE:
-      return [
-        {
-          statutId: ID_VALIDE,
-          par: 'direction',
-          libelle: 'Validé par la direction',
-        },
-        {
-          statutId: ID_REFUSE,
-          par: 'direction',
-          libelle: 'Refusé par la direction',
-        },
-        {
-          statutId: ID_REPORTE,
-          par: 'direction',
-          libelle: 'Reporté par la direction',
-        },
+        a('valider', 'Valider', ID_VALIDE),
+        a('refuser', 'Refuser', ID_REFUSE),
+        reporter,
       ]
     case ID_VALIDE:
-      return [{ statutId: 6, par: null, libelle: 'Commande passée (engager)' }]
-    case 6:
-      return [{ statutId: 3, par: null, libelle: 'Marquer réalisé' }]
-    case 3:
-      return [{ statutId: ID_CLOTURE, par: null, libelle: 'Clôturer' }]
+      return [a('realiser', 'Marquer réalisé', ID_REALISE), reporter]
+    case ID_REALISE:
+      return [a('rouvrir', 'Rouvrir', ID_VALIDE)]
     case ID_REFUSE:
-    case ID_REPORTE:
-    case ID_ANNULE:
-      return [
-        { statutId: ID_DEMANDE, par: null, libelle: 'Relancer la demande' },
-      ]
+      return [a('relancer', 'Relancer', ID_DEMANDE), reporter]
     default:
       return []
   }
 }
 
 /**
- * Libellé d'une ligne d'historique : le statut atteint, et par qui quand c'est
- * une décision. Un retour à « Demandé » après coup est une RELANCE.
+ * Années de budget à afficher, de la plus récente à la plus ancienne : celles
+ * qui ont des dossiers, plus l'année en cours et la suivante (pour pouvoir y
+ * créer une demande même vide).
  */
-export function libelleDecision(
-  statutId: number,
-  par: DecisionPar | null,
-  noms: Map<number, string>,
-  premiere: boolean,
-): string {
-  if (statutId === ID_DEMANDE) return premiere ? 'Demandé' : 'Relancé'
-  const nom = nomStatutCapex(statutId, noms)
-  return par ? `${nom} par ${libelleDecisionPar(par)}` : nom
+export function anneesBudget(
+  annees: readonly number[],
+  anneeCourante: number,
+): number[] {
+  return [...new Set([...annees, anneeCourante, anneeCourante + 1])].sort(
+    (a, b) => b - a,
+  )
 }
 
-/** État d'une case du schéma de parcours (fiche investissement). */
-export type EtatNoeudCapex = 'fait' | 'actuel' | 'avenir'
+export interface TotauxAnnee {
+  nb: number
+  /** Somme des montants demandés, refus exclus. */
+  demande: number
+  /** Somme des dossiers validés ou réalisés (dépense réelle, sinon prévu, sinon demandé). */
+  valide: number
+}
 
-/** Une case du schéma : le statut, son nom, et qui décide (sous-titre). */
-export interface NoeudCapex {
+/** Totaux d'une année de budget (décision PO : pas d'enveloppe, les totaux seuls). */
+export function totauxAnnee(
+  invs: readonly Pick<
+    Investissement,
+    'statut_capex_id' | 'montant_demande' | 'montant_prevu' | 'depense_reelle'
+  >[],
+): TotauxAnnee {
+  let demande = 0
+  let valide = 0
+  for (const i of invs) {
+    if (i.statut_capex_id !== ID_REFUSE) demande += i.montant_demande ?? 0
+    if (i.statut_capex_id === ID_VALIDE || i.statut_capex_id === ID_REALISE)
+      valide += i.depense_reelle ?? i.montant_prevu ?? i.montant_demande ?? 0
+  }
+  return { nb: invs.length, demande, valide }
+}
+
+/** État d'une étape du schéma de la fiche. */
+export type EtatEtapeCapex = 'fait' | 'actuel' | 'avenir'
+
+export interface EtapeSchemaCapex {
   statutId: number
   libelle: string
-  precision?: string
-  etat: EtatNoeudCapex
+  etat: EtatEtapeCapex
+}
+
+export interface FlecheSchemaCapex {
+  /** L'action qui fait passer d'une étape à la suivante. */
+  libelle: string
+  franchie: boolean
 }
 
 /**
- * Dernière étape du CHEMIN atteinte avant un arrêt (Refusé / Reporté / Annulé),
- * lue dans l'historique des décisions (ordre chronologique). Sans historique
- * exploitable : un refus de la direction suppose « Accordé », sinon « Demandé ».
+ * SCHÉMA DE LA FICHE (138, demande PO : « à la Mermaid », flèches, refus
+ * ignoré) : Demandé → Valider → Validé → Marquer réalisé → Réalisé. L'étape du
+ * dossier est `actuel` ; un dossier refusé (hors schéma) n'en allume aucune —
+ * son badge le dit.
  */
-export function etapeAtteinteCapex(
-  historique: readonly number[],
-  par: DecisionPar | null,
-): number {
-  let atteinte: number | null = null
-  for (const id of historique)
-    if ((PARCOURS_IDS as readonly number[]).includes(id)) atteinte = id
-  return atteinte ?? (par === 'direction' ? ID_ACCORDE : ID_DEMANDE)
-}
-
-const PRECISIONS: Record<number, string> = {
-  [ID_ACCORDE]: 'par moi',
-  [ID_VALIDE]: 'par la direction',
-  [ID_REFUSE]: 'par moi ou la direction',
-  [ID_REPORTE]: 'par moi ou la direction',
-  [ID_ANNULE]: 'à tout moment',
-}
-
-/**
- * SCHÉMA DU PARCOURS (demande PO du 10/11/2026, remplace la frise) : le chemin
- * Demandé → … → Clôturé, et à part les sorties possibles. Le dossier est
- * repéré par sa case `actuel` ; sur un arrêt, le chemin reste coché jusqu'à
- * l'étape atteinte (`atteinte`, cf. `etapeAtteinteCapex`).
- */
-export function schemaParcoursCapex(
+export function schemaCapex(
   statutId: number,
   noms: Map<number, string>,
-  par: DecisionPar | null,
-  atteinte: number,
-): { chemin: NoeudCapex[]; sorties: NoeudCapex[] } {
-  const parcours = PARCOURS_IDS as readonly number[]
-  const arret = ISSUES_ARRET.includes(statutId)
-  const rang = parcours.indexOf(arret ? atteinte : statutId)
-  // Clôturé = fin du chemin : tout est coché, le dossier se lit comme accompli.
-  const fini = statutId === ID_CLOTURE
-  const noeud = (id: number, etat: EtatNoeudCapex): NoeudCapex => {
-    const precision =
-      etat === 'actuel' && arret && par
-        ? `par ${libelleDecisionPar(par)}`
-        : PRECISIONS[id]
-    return {
+): { etapes: EtapeSchemaCapex[]; fleches: FlecheSchemaCapex[] } {
+  const ids = [ID_DEMANDE, ID_VALIDE, ID_REALISE]
+  const rang = ids.indexOf(statutId)
+  return {
+    etapes: ids.map((id, i) => ({
       statutId: id,
       libelle: nomStatutCapex(id, noms),
-      etat,
-      ...(precision ? { precision } : {}),
-    }
-  }
-  return {
-    chemin: parcours.map((id, i) =>
-      noeud(
-        id,
-        rang === -1 || i > rang
-          ? 'avenir'
-          : i < rang || arret || fini
-            ? 'fait'
-            : 'actuel',
-      ),
-    ),
-    sorties: [ID_REFUSE, ID_REPORTE, ID_ANNULE].map((id) =>
-      noeud(id, id === statutId ? 'actuel' : 'avenir'),
-    ),
+      etat: rang === -1 || i > rang ? 'avenir' : i < rang ? 'fait' : 'actuel',
+    })),
+    fleches: ['Valider', 'Marquer réalisé'].map((libelle, i) => ({
+      libelle,
+      franchie: rang !== -1 && i < rang,
+    })),
   }
 }

@@ -1,11 +1,14 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { referentielQueryOptions } from '@/lib/referentiel'
+import type { Database } from '@/lib/database.types'
+
+type Investissement = Database['public']['Tables']['investissements']['Row']
 
 export const investissementsQueries = {
   all: () => ['investissements'] as const,
 
-  /** Investissements du site actif, plus récents d'abord. */
+  /** Investissements du site actif (toutes années), plus récents d'abord. */
   list: (siteId: string) =>
     queryOptions({
       queryKey: [...investissementsQueries.all(), 'list', siteId] as const,
@@ -19,30 +22,17 @@ export const investissementsQueries = {
         return data
       },
     }),
-}
 
-/**
- * Historique des décisions d'un investissement (137) : écrit par la base à
- * chaque changement de statut, du plus ancien au plus récent.
- */
-export const decisionsCapexQueries = {
-  list: (investissementId: string) =>
-    queryOptions({
-      queryKey: [
-        ...investissementsQueries.all(),
-        'decisions',
-        investissementId,
-      ] as const,
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('investissements_decisions')
-          .select('id, statut_capex_id, decision_par, motif, created_at')
-          .eq('investissement_id', investissementId)
-          .order('created_at', { ascending: true })
-          .throwOnError()
-        return data
-      },
-    }),
+  /**
+   * Investissements d'UNE année de budget (138) : même cache que `list`, filtré
+   * à la lecture. La liste de l'année ET la fiche résolvent leur adresse sur
+   * ce même ensemble (symétrie de `segOfUnique`).
+   */
+  parAnnee: (siteId: string, annee: number) => ({
+    ...investissementsQueries.list(siteId),
+    select: (data: Investissement[]) =>
+      data.filter((i) => i.annee_budget === annee),
+  }),
 }
 
 export const statutsCapexQueries = {

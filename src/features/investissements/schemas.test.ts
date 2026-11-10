@@ -31,6 +31,7 @@ const BASE = {
   montant_prevu: '',
   depense_reelle: '',
   date_demande: '2026-01-15',
+  annee_budget: '2026',
 }
 
 const CHAMPS_MONTANT = [

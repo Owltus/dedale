@@ -1,45 +1,57 @@
 import { useCallback } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Navigate, useNavigate } from '@tanstack/react-router'
 import { investissementsQueries } from '@/features/investissements/queries'
 import { PAGE_META } from '@/features/investissements/page-meta'
+import { anneeDeParam } from '@/features/investissements/annee'
 import { InvestissementDetail } from '@/features/investissements/components/investissement-detail'
 import { SlugDetailRoute } from '@/components/common/slug-detail-route'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 
-export const Route = createFileRoute('/_app/investissements/$investissement')({
+export const Route = createFileRoute(
+  '/_app/investissements/$annee/$investissement',
+)({
   component: InvestissementDetailPage,
 })
 
 function InvestissementDetailPage() {
-  const { investissement: slug } = Route.useParams()
+  const { annee: param, investissement: slug } = Route.useParams()
+  const annee = anneeDeParam(param)
   const navigate = useNavigate()
   // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
   // rendu (contrat de `useSlugResolved`).
   const onSlugChange = useCallback(
     (freshSlug: string) =>
       void navigate({
-        to: '/investissements/$investissement',
-        params: { investissement: freshSlug },
+        to: '/investissements/$annee/$investissement',
+        params: { annee: param, investissement: freshSlug },
         replace: true,
       }),
-    [navigate],
+    [navigate, param],
   )
+
+  if (annee === null) return <Navigate to="/investissements" replace />
+  const retour = () =>
+    void navigate({
+      to: '/investissements/$annee',
+      params: { annee: String(annee) },
+    })
 
   return (
     <SiteScopedRoute meta={PAGE_META}>
       {/* Édition = rôle métier (admin/manager/technicien), conforme à la RLS. */}
       {({ siteId, canManage }) => (
         <SlugDetailRoute
-          options={investissementsQueries.list(siteId)}
+          // Résolu sur l'année : même ensemble que la liste de l'année.
+          options={investissementsQueries.parAnnee(siteId, annee)}
           slug={slug}
           identity={(i) => ({ nom: i.libelle, id: i.id })}
           onSlugChange={onSlugChange}
           title="Investissement"
-          onBack={() => void navigate({ to: '/investissements' })}
+          onBack={retour}
           notFound={{
-            title: "Cet investissement n'existe plus",
+            title: "Cet investissement n'est pas dans ce budget",
             description:
-              "Le lien est peut-être périmé, l'investissement a été supprimé, ou il n'est pas accessible depuis ce site.",
+              "Il a peut-être été reporté à une autre année, supprimé, ou il n'est pas accessible depuis ce site.",
             icon: PAGE_META.icone,
           }}
         >

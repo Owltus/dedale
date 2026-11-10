@@ -626,21 +626,12 @@ INSERT INTO statuts_travaux (id, nom, description) VALUES
 -- Statuts d'un investissement / CapEx (statut LIBRE — aucune transition imposée ;
 -- l'ordre du parcours d'affichage est porté côté front, cf. etat.ts)
 INSERT INTO statuts_capex (id, nom, description) VALUES
-    (1, 'Demandé',   'Investissement proposé, en attente d''arbitrage'),
-    (2, 'Validé',    'Investissement approuvé / budgété'),
-    (3, 'Réalisé',   'Dépense engagée et réalisée'),
-    (4, 'Refusé',    'Investissement écarté'),
-    -- 137 : « À l'étude » devient « Accordé » (accord du responsable, en
-    -- attente de la direction).
-    (5, 'Accordé',    'Accordé par le responsable, en attente de la direction'),
-    (6, 'Engagé',     'Dépense engagée (commande passée)'),
-    (7, 'Clôturé',    'Investissement soldé et clôturé'),
-    -- 121 : distinct du refus. « Refusé » = l'arbitrage a dit non, tôt dans le
-    -- cycle ; « Annulé » = le projet est abandonné en cours de route, ce qui
-    -- peut arriver après « Validé » ou « Engagé ». Les deux exigent un motif.
-    (8, 'Annulé',     'Investissement abandonné en cours de route'),
-    -- 137 : décision repoussée à plus tard, motif obligatoire.
-    (9, 'Reporté',    'Décision repoussée à plus tard (par le responsable ou la direction)');
+    (1, 'Demandé',   'Demande déposée, en attente de décision'),
+    (2, 'Validé',    'Accepté : le budget est accordé'),
+    (3, 'Réalisé',   'Fait : dépense réelle et bilan renseignés'),
+    -- 138 : quatre statuts seulement (5 Accordé, 6 Engagé, 7 Clôturé,
+    -- 8 Annulé, 9 Reporté supprimés). Reporter = changer d'année de budget.
+    (4, 'Refusé',    'Refusé, avec un motif');
 
 -- Types de contrats
 INSERT INTO types_contrats (id, libelle, description) VALUES
@@ -4569,6 +4560,12 @@ CREATE TABLE investissements (
 
     date_demande      DATE NOT NULL DEFAULT current_date,
 
+    -- 138 : année de budget à laquelle le dossier est rattaché (choisie, pas
+    -- déduite de la date de demande). Reporter = +1.
+    annee_budget      SMALLINT NOT NULL DEFAULT (EXTRACT(YEAR FROM CURRENT_DATE))::SMALLINT
+                      CONSTRAINT investissements_annee_budget_check
+                      CHECK (annee_budget BETWEEN 2000 AND 2100),
+
     -- Clôture (079) : le statut restant libre, la clôture n'est PAS une machine
     -- à états — ce sont trois colonnes descriptives posées par le front quand
     -- l'investissement atteint son statut terminal.
@@ -4603,8 +4600,8 @@ CREATE TABLE investissements (
     -- simple NOT NULL : une chaîne d'espaces ne dit rien à personne. Les statuts
     -- sont désignés par leurs IDS — un renommage dans statuts_capex reste donc
     -- sans effet sur cette règle.
-    CONSTRAINT capex_motif_arret_oblig_si_refuse_ou_annule CHECK (
-        statut_capex_id NOT IN (4, 8, 9)   -- 137 : Reporté aussi
+    CONSTRAINT capex_motif_arret_oblig_si_refuse CHECK (
+        statut_capex_id <> 4   -- 138 : Refusé seul
         OR (motif_arret IS NOT NULL AND length(btrim(motif_arret)) > 0)
     )
 );
@@ -4626,6 +4623,7 @@ COMMENT ON COLUMN investissements.date_arret IS
 
 CREATE INDEX idx_capex_site   ON investissements(site_id);
 CREATE INDEX idx_capex_statut ON investissements(statut_capex_id);
+CREATE INDEX idx_investissements_site_annee ON investissements(site_id, annee_budget);
 -- Index de la FK created_by (règle « indexer toute FK » — v0.33 corrigé post-audit)
 CREATE INDEX idx_capex_created_by ON investissements(created_by);
 
@@ -4646,6 +4644,8 @@ CREATE TABLE IF NOT EXISTS public.investissements_decisions (
     statut_capex_id   SMALLINT NOT NULL REFERENCES public.statuts_capex(id),
     decision_par      TEXT CHECK (decision_par IS NULL OR decision_par IN ('responsable', 'direction')),
     motif             TEXT,
+    -- 138 : année du dossier au moment de l'entrée ; un changement = un report.
+    annee_budget      SMALLINT,
     created_by        UUID REFERENCES public.users(id) ON DELETE SET NULL,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -4682,12 +4682,12 @@ SET search_path = ''
 AS $
 BEGIN
     INSERT INTO public.investissements_decisions
-        (investissement_id, statut_capex_id, decision_par, motif, created_by)
+        (investissement_id, statut_capex_id, annee_budget, motif, created_by)
     VALUES (
         NEW.id,
         NEW.statut_capex_id,
-        NEW.decision_par,
-        CASE WHEN NEW.statut_capex_id IN (4, 8, 9) THEN NEW.motif_arret END,
+        NEW.annee_budget,
+        CASE WHEN NEW.statut_capex_id = 4 THEN NEW.motif_arret END,
         COALESCE(auth.uid(), NEW.created_by)
     );
     RETURN NULL;
@@ -4695,7 +4695,7 @@ END;
 $;
 
 COMMENT ON FUNCTION public.journaliser_decision_investissement() IS
-    'Inscrit chaque changement de statut d''un investissement dans investissements_decisions (137).';
+    'Inscrit chaque changement de statut ou d''année de budget d''un investissement dans investissements_decisions (137, 138).';
 
 REVOKE EXECUTE ON FUNCTION public.journaliser_decision_investissement() FROM PUBLIC, anon, authenticated;
 
@@ -4708,9 +4708,10 @@ CREATE TRIGGER trg_journaliser_decision_inv_insert
 
 DROP TRIGGER IF EXISTS trg_journaliser_decision_inv_update ON public.investissements;
 CREATE TRIGGER trg_journaliser_decision_inv_update
-    AFTER UPDATE OF statut_capex_id ON public.investissements
+    AFTER UPDATE OF statut_capex_id, annee_budget ON public.investissements
     FOR EACH ROW
-    WHEN (OLD.statut_capex_id IS DISTINCT FROM NEW.statut_capex_id)
+    WHEN (OLD.statut_capex_id IS DISTINCT FROM NEW.statut_capex_id
+          OR OLD.annee_budget IS DISTINCT FROM NEW.annee_budget)
     EXECUTE FUNCTION public.journaliser_decision_investissement();
 
 

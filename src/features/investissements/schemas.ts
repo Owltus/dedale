@@ -24,12 +24,20 @@ export const investissementSchema = z.object({
   montant_prevu: montant,
   depense_reelle: montant,
   date_demande: dateObligatoire('La date de demande est obligatoire'),
+  // Année du budget (138) : texte du menu déroulant, miroir du CHECK 2000-2100.
+  annee_budget: z
+    .string()
+    .regex(/^[0-9]{4}$/, "Choisis l'année du budget")
+    .refine((v) => Number(v) >= 2000 && Number(v) <= 2100, {
+      message: "Choisis l'année du budget",
+    }),
 })
 
 export type InvestissementFormValues = z.infer<typeof investissementSchema>
 
-export function emptyInvestissement(): InvestissementFormValues {
+export function emptyInvestissement(annee?: number): InvestissementFormValues {
   return {
+    annee_budget: String(annee ?? new Date().getFullYear()),
     libelle: '',
     description: '',
     montant_demande: '',
@@ -47,7 +55,7 @@ export function parseMontant(value: string): number | null {
 }
 
 /**
- * Clôture d'un investissement : date + bilan budgétaire.
+ * Fin d'un investissement (« Marquer réalisé ») : date + bilan budgétaire.
  *
  * Le bilan n'est PAS obligatoire : un investissement peut se clore sans
  * commentaire quand le prévu et le réel coïncident. L'exiger pousserait à
@@ -56,7 +64,7 @@ export function parseMontant(value: string): number | null {
  */
 export const clotureCapexSchema = z
   .object({
-    date_cloture: dateObligatoire('La date de clôture est obligatoire'),
+    date_cloture: dateObligatoire('La date de réalisation est obligatoire'),
     bilan: z.string().trim().max(5000),
     /**
      * Date de demande de l'investissement clôturé. Elle n'est PAS saisie ici
@@ -80,8 +88,8 @@ export const clotureCapexSchema = z
       const date =
         typeof saisie.date_demande === 'string' ? saisie.date_demande : ''
       return date === ''
-        ? 'La clôture ne peut pas précéder la date de demande.'
-        : `La clôture ne peut pas précéder la demande (${formatDate(date)}).`
+        ? 'La réalisation ne peut pas précéder la date de demande.'
+        : `La réalisation ne peut pas précéder la demande (${formatDate(date)}).`
     },
     path: ['date_cloture'],
   })
