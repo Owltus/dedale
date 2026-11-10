@@ -15,14 +15,18 @@ import {
   schemaCapex,
   type ActionCapex,
 } from '@/features/investissements/etat'
-import { useChangeStatutCapex } from '@/features/investissements/mutations'
+import {
+  useChangeStatutCapex,
+  useDefinirDevis,
+} from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
 import { ClotureInvestissementDialog } from './cloture-investissement-dialog'
 import { ValidationInvestissementDialog } from './validation-investissement-dialog'
 import { parseMontant } from '@/features/investissements/schemas'
 import { SchemaCapex } from './schema-capex'
-import { CadreDevis, estDansZoneDevis } from './cadre-devis'
+import { CaseDevis, CIBLE_DEVIS, estDansZoneDevis } from './cadre-devis'
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { typesDocumentsQueries } from '@/features/documents/queries'
 import { PAGE_META } from '@/features/investissements/page-meta'
 import { MIME_PDF } from '@/features/documents/upload'
@@ -31,6 +35,7 @@ import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { formatDate, isoLocale } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
@@ -41,13 +46,7 @@ import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { MotifDialog } from '@/components/common/motif-dialog'
 import { DetailNoteCard } from '@/components/common/detail-note-card'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -80,6 +79,12 @@ export function InvestissementDetail({
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const { data: decisions = [] } = useQuery(decisionsCapexQueries.list(inv.id))
   const change = useChangeStatutCapex()
+  const definirDevis = useDefinirDevis()
+  // Un petit déplacement avant de « prendre » une ligne : un simple clic
+  // garde l'aperçu du document.
+  const capteurs = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+  )
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const annee = inv.annee_budget
   const schema = schemaCapex(inv.statut_capex_id, annee, noms)
@@ -125,7 +130,7 @@ export function InvestissementDetail({
     if (a.cle === 'reporter') {
       confirmAction.demander({
         title: `Reporter au budget ${String(a.annee)} ?`,
-        description: `Le dossier quitte le budget ${String(annee)} et repart en « Proposé » dans celui de ${String(a.annee)}.`,
+        description: `Le dossier quitte le budget ${String(annee)} et repart en « Proposition » dans celui de ${String(a.annee)}.`,
         confirmLabel: `Reporter à ${String(a.annee)}`,
         run: () =>
           change.mutateAsync({
@@ -202,113 +207,130 @@ export function InvestissementDetail({
         }
       />
 
-      {/* SCHÉMA (138, demande PO) : Demandé, puis Refusé / Validé / Reporter,
+      {/* Glisser un document de la liste sur la case « Devis » en fait le
+          devis du dossier (demande PO). */}
+      <DndContext
+        sensors={capteurs}
+        onDragEnd={({ active, over }) => {
+          if (over?.data.current?.type !== CIBLE_DEVIS) return
+          if (active.data.current?.type !== 'document') return
+          const documentId = String(active.data.current.documentId)
+          if (documentId === inv.devis_document_id) return
+          definirDevis.mutate(
+            { id: inv.id, documentId },
+            {
+              onSuccess: () => toast.success('Devis retenu'),
+              onError: (e) => toast.error(writeErrorMessage(e)),
+            },
+          )
+        }}
+      >
+        {/* SCHÉMA (138, demande PO) : Demandé, puis Refusé / Validé / Reporter,
           puis Réalisé — avec les montants dans les cases (demandé, prévu,
           réel, écart). La case colorée = où en est le dossier ; un clic sur
           une autre case y fait passer le dossier. */}
-      <Card className="mb-4 shrink-0 overflow-hidden py-0">
-        <CardContent className="p-0">
-          <SchemaCapex
-            schema={schema}
-            // Un montant vide n'est pas affiché : un « — » seul, sans
-            // légende, ne dirait rien.
-            chiffres={{
-              demande: montant(inv.montant_demande),
-              valide: montant(inv.montant_prevu),
-              realise: [
-                ...montant(inv.depense_reelle),
-                ...(label
-                  ? [{ valeur: label, libelle: 'écart', alerte: depassement }]
-                  : []),
-              ],
-            }}
-            // Dates de chaque étape, quand elles existent (demande PO).
-            dates={{
-              demande: jour(dates.demande),
-              valide: jour(dates.valide),
-              realise: jour(dates.realise),
-              refuse: jour(dates.refuse),
-              reporte: dates.reporte
-                ? `reporté de ${String(dates.reporte.depuis)} · ${formatDate(dates.reporte.date)}`
-                : undefined,
-            }}
-            onAction={canManage ? agir : undefined}
-            disabled={change.isPending}
-          />
-        </CardContent>
-      </Card>
+        <Card className="mb-4 shrink-0 overflow-hidden py-0">
+          <CardContent className="p-0">
+            <SchemaCapex
+              schema={schema}
+              devis={
+                <CaseDevis
+                  investissementId={inv.id}
+                  devisDocumentId={inv.devis_document_id}
+                  fournisseur={inv.fournisseur}
+                  devisTypeId={devisTypeId}
+                  canManage={canManage}
+                  glissement={upload.dragging}
+                />
+              }
+              // Un montant vide n'est pas affiché : un « — » seul, sans
+              // légende, ne dirait rien.
+              chiffres={{
+                demande: montant(inv.montant_demande),
+                valide: montant(inv.montant_prevu),
+                realise: [
+                  ...montant(inv.depense_reelle),
+                  ...(label
+                    ? [{ valeur: label, libelle: 'écart', alerte: depassement }]
+                    : []),
+                ],
+              }}
+              // Dates de chaque étape, quand elles existent (demande PO).
+              dates={{
+                demande: jour(dates.demande),
+                valide: jour(dates.valide),
+                realise: jour(dates.realise),
+                refuse: jour(dates.refuse),
+                reporte: dates.reporte
+                  ? `reporté de ${String(dates.reporte.depuis)} · ${formatDate(dates.reporte.date)}`
+                  : undefined,
+              }}
+              onAction={canManage ? agir : undefined}
+              disabled={change.isPending}
+            />
+          </CardContent>
+        </Card>
 
-      {/* Pas de dates ici : elles sont dans le schéma. Refus / Réalisation
+        {/* Pas de dates ici : elles sont dans le schéma. Refus / Réalisation
           n'apparaissent que si un motif ou un bilan est écrit. */}
-      {/* PROPOSITION et DEVIS côte à côte (demande PO) : le texte du projet
-          et le devis qui le chiffre. */}
-      <div className="mb-4 grid gap-4 lg:grid-cols-2">
-        <DetailNoteCard
-          label="Proposition"
-          text={inv.description}
-          emptyText="Aucune description."
-          action={
-            canManage && (
-              <TooltipIconButton
-                icon={<Pencil />}
-                label="Modifier l'investissement"
-                variant="ghost"
-                onClick={() => edit.openEdit(inv)}
-              />
-            )
-          }
-        />
-        <CadreDevis
-          investissementId={inv.id}
-          fournisseur={inv.fournisseur}
-          devisTypeId={devisTypeId}
-          canManage={canManage}
-          glissement={upload.dragging}
-        />
-      </div>
-      {issue && (
-        <div className="mb-4">
+        <div className={cn('mb-4 grid gap-4', issue && 'lg:grid-cols-2')}>
           <DetailNoteCard
-            label={issue.label}
-            text={issue.texte}
-            emptyText=""
+            label="Proposition"
+            text={inv.description}
+            emptyText="Aucune description."
             action={
               canManage && (
                 <TooltipIconButton
                   icon={<Pencil />}
-                  label={issue.modifier}
+                  label="Modifier l'investissement"
                   variant="ghost"
-                  onClick={issue.ouvrir}
+                  onClick={() => edit.openEdit(inv)}
                 />
               )
             }
           />
+          {issue && (
+            <DetailNoteCard
+              label={issue.label}
+              text={issue.texte}
+              emptyText=""
+              action={
+                canManage && (
+                  <TooltipIconButton
+                    icon={<Pencil />}
+                    label={issue.modifier}
+                    variant="ghost"
+                    onClick={issue.ouvrir}
+                  />
+                )
+              }
+            />
+          )}
         </div>
-      )}
 
-      {/* DOCUMENTS — pleine largeur, même patron que Événement et Travaux. */}
-      <Card className="relative gap-3 py-4">
-        <CardHeader>
-          <CardTitle className="text-base">Documents</CardTitle>
-          <CardDescription>
-            Pièces annexes ; le devis a son propre cadre.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DocumentsTab
-            liaison="documents_investissements"
-            parentColumn="investissement_id"
-            parentId={inv.id}
-            acceptedMimes={MIME_PDF}
-            uploadOpen={upload.uploadOpen}
-            onUploadOpenChange={upload.onUploadOpenChange}
-            uploadInitialFiles={upload.droppedFiles}
-            // Tout SAUF les devis, rangés dans leur cadre.
-            filtre={(d) => d.type_document_id !== devisTypeId}
-          />
-        </CardContent>
-        <FileDropOverlay show={upload.dragging} />
-      </Card>
+        {/* DOCUMENTS — pleine largeur, même patron que Événement et Travaux. */}
+        <Card className="relative gap-3 py-4">
+          <CardHeader>
+            <CardTitle className="text-base">Documents</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DocumentsTab
+              liaison="documents_investissements"
+              parentColumn="investissement_id"
+              parentId={inv.id}
+              acceptedMimes={MIME_PDF}
+              uploadOpen={upload.uploadOpen}
+              onUploadOpenChange={upload.onUploadOpenChange}
+              uploadInitialFiles={upload.droppedFiles}
+              // Tout SAUF le devis retenu, qui a sa case dans le schéma.
+              filtre={(d) => d.id !== inv.devis_document_id}
+              // Glisser une ligne sur la case « Devis » en fait le devis.
+              draggable={canManage}
+            />
+          </CardContent>
+          <FileDropOverlay show={upload.dragging} />
+        </Card>
+      </DndContext>
 
       {canManage && (
         <>

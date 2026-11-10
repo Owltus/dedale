@@ -1,54 +1,71 @@
-import { useRef, useState, type DragEvent } from 'react'
+import { useId, useRef, useState, type DragEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FileUp, Paperclip } from 'lucide-react'
+import { useDroppable } from '@dnd-kit/core'
+import { FileText, FileUp, Loader2, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { documentsQueries } from '@/features/documents/queries'
 import { MIME_PDF } from '@/features/documents/upload'
-import { DocumentsTab } from '@/components/common/documents-tab'
-import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useUploadAndAttach } from '@/features/documents/mutations'
+import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
+import type { DocumentMeta } from '@/features/documents/format'
+import { useDefinirDevis } from '@/features/investissements/mutations'
+import { useAuth } from '@/auth'
+import { useSiteContext } from '@/lib/site-context'
+import { writeErrorMessage } from '@/lib/form'
 import { cn } from '@/lib/utils'
 
-/** Attribut posé sur le cadre : le dépôt pleine page de la fiche l'ignore. */
+/** Attribut posé sur la case : le dépôt pleine page de la fiche l'ignore. */
 export const ATTR_ZONE_DEVIS = 'data-zone-devis'
 
-/** Vrai si un fichier est tombé DANS le cadre Devis (il le traite lui-même). */
+/** Vrai si un fichier est tombé SUR la case Devis (elle le traite elle-même). */
 export function estDansZoneDevis(cible: EventTarget | null): boolean {
   return (
     cible instanceof Element && cible.closest(`[${ATTR_ZONE_DEVIS}]`) !== null
   )
 }
 
+/** Type de la cible de glisser-déposer (dnd-kit) : un document de la liste vers la case. */
+export const CIBLE_DEVIS = 'case-devis'
+
 const aDesFichiers = (e: DragEvent) => e.dataTransfer.types.includes('Files')
 
 /**
- * Cadre « Devis » de la fiche d'un investissement (demande PO du 10/11/2026) :
- * à côté de la proposition, il reçoit LE devis — les documents de type
- * « Devis » rattachés au dossier ; le cadre « Documents » garde les annexes.
+ * Case « Devis » du schéma (demande PO du 10/11/2026), accrochée SOUS la
+ * proposition : elle porte LE devis du dossier (`devis_document_id`, 144) —
+ * un seul ; les autres devis restent dans « Documents ».
  *
- * Vide : toute la zone est un bouton « clique ou glisse le devis ici ». Un
- * fichier lâché sur le cadre y est rangé en « Devis » ; lâché ailleurs sur la
- * page, il va aux documents (cf. `estDansZoneDevis`). Plusieurs devis
- * possibles (ex. une V2 corrigée).
+ * - Fichier de l'ordinateur lâché dessus (ou choisi d'un clic quand la case
+ *   est vide) : il est ajouté au dossier ET devient le devis, sans fenêtre.
+ * - Document de la liste « Documents » glissé dessus : il devient le devis
+ *   (cf. `CIBLE_DEVIS`, géré par la fiche).
+ * - Clic sur une case remplie : aperçu du devis. La croix le retire (il
+ *   repasse dans « Documents »).
  */
-export function CadreDevis({
+export function CaseDevis({
   investissementId,
+  devisDocumentId,
   fournisseur,
   devisTypeId,
   canManage,
   glissement,
 }: {
   investissementId: string
+  devisDocumentId: string | null
   fournisseur: string | null
-  /** Id du type de document « Devis » (référentiel), `undefined` en chargement. */
+  /** Id du type de document « Devis » (pour un fichier ajouté ici). */
   devisTypeId: number | undefined
   canManage: boolean
   /** Un fichier est en train d'être glissé sur la page. */
   glissement: boolean
 }) {
-  const [ouvert, setOuvert] = useState(false)
-  const [fichiers, setFichiers] = useState<File[]>([])
+  const { session } = useAuth()
+  const { activeSiteId } = useSiteContext()
+  const [apercu, setApercu] = useState<DocumentMeta | null>(null)
   const [survol, setSurvol] = useState(false)
   const profondeur = useRef(0)
+  const choix = useRef<HTMLInputElement>(null)
+  const upload = useUploadAndAttach()
+  const definir = useDefinirDevis()
   const { data: docs = [] } = useQuery(
     documentsQueries.byEntity(
       'documents_investissements',
@@ -56,14 +73,43 @@ export function CadreDevis({
       investissementId,
     ),
   )
-  const nbDevis = docs.filter((d) => d.type_document_id === devisTypeId).length
+  const devis = docs.find((d) => d.id === devisDocumentId) ?? null
+  // Id PROPRE à chaque case : le schéma existe en deux exemplaires (large /
+  // étroit, l'un masqué) — un id partagé laisserait l'exemplaire masqué
+  // capter le dépôt. La fiche reconnaît la cible à son `type`.
+  const idCible = `${CIBLE_DEVIS}-${useId()}`
+  const { setNodeRef, isOver } = useDroppable({
+    id: idCible,
+    data: { type: CIBLE_DEVIS },
+    disabled: !canManage,
+  })
+  const occupe = upload.isPending || definir.isPending
 
-  const ouvrir = (f: File[] = []) => {
-    setFichiers(f)
-    setOuvert(true)
+  async function deposer(fichier: File | undefined) {
+    if (!fichier) return
+    if (!(MIME_PDF as readonly string[]).includes(fichier.type)) {
+      toast.error('Le devis doit être un PDF.')
+      return
+    }
+    if (!session || !activeSiteId || devisTypeId === undefined) return
+    try {
+      const doc = await upload.mutateAsync({
+        file: fichier,
+        siteId: activeSiteId,
+        uploadedBy: session.user.id,
+        typeDocumentId: devisTypeId,
+        liaison: 'documents_investissements',
+        parentColumn: 'investissement_id',
+        parentId: investissementId,
+      })
+      await definir.mutateAsync({ id: investissementId, documentId: doc.id })
+      toast.success('Devis ajouté')
+    } catch (e) {
+      toast.error(writeErrorMessage(e))
+    }
   }
-  const deposable = canManage
-  const surDepot = deposable
+
+  const surDepot = canManage
     ? {
         onDragEnter: (e: DragEvent) => {
           if (!aDesFichiers(e)) return
@@ -80,75 +126,112 @@ export function CadreDevis({
           e.preventDefault()
           profondeur.current = 0
           setSurvol(false)
-          ouvrir(Array.from(e.dataTransfer.files))
+          void deposer(e.dataTransfer.files[0])
         },
       }
     : {}
 
+  const cliquable = devis !== null || canManage
+  const cible = survol || isOver
+
   return (
-    <Card
+    <div
+      ref={setNodeRef}
       {...{ [ATTR_ZONE_DEVIS]: '' }}
       {...surDepot}
-      className={cn(
-        'relative gap-3 py-4 transition-colors',
-        deposable && glissement && 'border-dashed border-primary/50',
-        deposable && survol && 'border-primary bg-primary/5',
-      )}
+      className="relative flex w-full"
     >
-      <CardHeader className="flex items-center justify-between gap-2">
-        <CardTitle className="min-w-0 truncate text-base">
-          Devis
-          {fournisseur && (
-            <span className="font-normal text-muted-foreground">
-              {' '}
-              · {fournisseur}
-            </span>
-          )}
-        </CardTitle>
-        {canManage && nbDevis > 0 && (
-          <TooltipIconButton
-            icon={<Paperclip />}
-            label="Ajouter un devis"
-            variant="ghost"
-            onClick={() => ouvrir()}
-          />
+      <button
+        type="button"
+        disabled={!cliquable || occupe}
+        onClick={() => (devis ? setApercu(devis) : choix.current?.click())}
+        title={devis ? devis.nom_original : 'Ajouter le devis'}
+        className={cn(
+          // Comme les autres cases : empilée et centrée quand elle est étroite,
+          // sur une ligne quand elle est large (requête de conteneur).
+          'flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed bg-card px-2 py-2.5 text-center text-sm font-medium shadow-xs transition duration-150 @min-[15rem]:flex-row @min-[15rem]:justify-start @min-[15rem]:gap-3 @min-[15rem]:px-4 @min-[15rem]:text-left',
+          devis ? 'border-info/50' : 'text-muted-foreground',
+          cliquable &&
+            'cursor-pointer hover:-translate-y-0.5 hover:border-info hover:text-foreground hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
+          canManage && glissement && 'border-info',
+          cible && 'border-solid border-info bg-info/10',
+          canManage && devis && '@min-[15rem]:pr-10',
         )}
-      </CardHeader>
-      <CardContent>
-        {nbDevis === 0 &&
-          (canManage ? (
-            <button
-              type="button"
-              onClick={() => ouvrir()}
-              className="flex min-h-32 w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <FileUp aria-hidden className="size-6" />
-              {survol
-                ? 'Lâche le fichier ici'
-                : 'Clique ou glisse le devis ici'}
-            </button>
+      >
+        <span
+          className={cn(
+            'flex size-8 shrink-0 items-center justify-center rounded-full',
+            devis ? 'bg-info/15 text-info' : 'bg-muted text-muted-foreground',
+          )}
+        >
+          {occupe ? (
+            <Loader2 aria-hidden className="size-4 animate-spin" />
+          ) : devis ? (
+            <FileText aria-hidden className="size-4" />
           ) : (
-            <p className="text-sm text-muted-foreground">Aucun devis.</p>
-          ))}
-        {/* Toujours monté (sa fenêtre d'ajout en dépend) ; caché tant
-            qu'il n'y a aucun devis à lister. */}
-        <DocumentsTab
-          className={cn(nbDevis === 0 && 'hidden')}
-          liaison="documents_investissements"
-          parentColumn="investissement_id"
-          parentId={investissementId}
-          acceptedMimes={MIME_PDF}
-          filtre={(d) => d.type_document_id === devisTypeId}
-          emptyTitle="Aucun devis"
-          uploadOpen={ouvert}
-          onUploadOpenChange={(o) => {
-            setOuvert(o)
-            if (!o) setFichiers([])
-          }}
-          uploadInitialFiles={fichiers}
-          uploadDefaultTypeNom="Devis"
-        />
-      </CardContent>
-    </Card>
+            <FileUp aria-hidden className="size-4" />
+          )}
+        </span>
+        <span className="flex w-full min-w-0 flex-col leading-tight">
+          <span className="truncate">
+            Devis
+            {fournisseur && (
+              <span className="font-normal text-muted-foreground">
+                {' '}
+                · {fournisseur}
+              </span>
+            )}
+          </span>
+          <span className="mt-0.5 truncate text-[11px] font-normal text-muted-foreground">
+            {cible
+              ? 'Lâche ici pour en faire le devis'
+              : devis
+                ? devis.nom_original
+                : canManage
+                  ? 'Clique ou glisse le devis'
+                  : 'Aucun devis'}
+          </span>
+        </span>
+      </button>
+
+      {canManage && devis && (
+        <button
+          type="button"
+          disabled={occupe}
+          onClick={() =>
+            definir.mutate(
+              { id: investissementId, documentId: null },
+              {
+                onSuccess: () =>
+                  toast.success('Devis retiré : il reste dans les documents'),
+                onError: (e) => toast.error(writeErrorMessage(e)),
+              },
+            )
+          }
+          title="Ne plus en faire le devis (il reste dans les documents)"
+          aria-label="Ne plus en faire le devis"
+          className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none @min-[15rem]:top-1/2 @min-[15rem]:right-2 @min-[15rem]:-translate-y-1/2"
+        >
+          <X aria-hidden className="size-4" />
+        </button>
+      )}
+
+      <input
+        ref={choix}
+        type="file"
+        accept={MIME_PDF.join(',')}
+        className="hidden"
+        onChange={(e) => {
+          void deposer(e.target.files?.[0])
+          e.target.value = ''
+        }}
+      />
+      <DocumentPreviewDialog
+        doc={apercu}
+        onOpenChange={(o) => {
+          if (!o) setApercu(null)
+        }}
+      />
+    </div>
   )
 }

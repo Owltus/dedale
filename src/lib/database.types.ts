@@ -1721,6 +1721,7 @@ export type Database = {
           decision_par: string | null
           depense_reelle: number | null
           description: string | null
+          devis_document_id: string | null
           fournisseur: string | null
           id: string
           libelle: string
@@ -1744,6 +1745,7 @@ export type Database = {
           decision_par?: string | null
           depense_reelle?: number | null
           description?: string | null
+          devis_document_id?: string | null
           fournisseur?: string | null
           id?: string
           libelle: string
@@ -1767,6 +1769,7 @@ export type Database = {
           decision_par?: string | null
           depense_reelle?: number | null
           description?: string | null
+          devis_document_id?: string | null
           fournisseur?: string | null
           id?: string
           libelle?: string
@@ -1797,6 +1800,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investissements_devis_document_id_fkey"
+            columns: ["devis_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
             referencedColumns: ["id"]
           },
           {

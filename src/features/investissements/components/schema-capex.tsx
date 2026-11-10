@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import {
   CalendarClock,
   Check,
@@ -340,10 +340,29 @@ export type DatesCasesCapex = Partial<Record<CleCase, string>>
 
 interface PropsSchema {
   schema: Schema
+  /**
+   * Case « Devis » ACCROCHÉE à la proposition (demande PO) : sous elle en
+   * horizontal, à sa gauche en vertical, reliée par un trait pointillé.
+   */
+  devis?: ReactNode
   chiffres?: ChiffresCapex
   dates?: DatesCasesCapex
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
+}
+
+/**
+ * Trait pointillé de la proposition vers la case Devis, posé dans la cellule
+ * du devis : il part du haut de la case et remonte l'espace (`h-4` = les
+ * deux `py-2`) jusqu'à la proposition.
+ */
+function TraitDevis() {
+  return (
+    <span
+      aria-hidden
+      className="absolute bottom-[calc(100%-0.5rem)] left-1/2 h-4 -translate-x-1/2 border-l-2 border-dashed border-info/50"
+    />
+  )
 }
 
 /** Liens de la fourche qui part de « Demandé ». */
@@ -358,15 +377,25 @@ function liensFourche(f: Schema['fleches']) {
 /** Schéma LARGE (≥ 56rem de place) : de gauche à droite. */
 function SchemaHorizontal({
   schema,
+  devis,
   chiffres,
   dates,
   onAction,
   disabled,
 }: PropsSchema) {
   const props = { onAction, disabled }
-  const cellule = 'flex items-center py-2 @container'
+  // Cases ÉTIRÉES à la hauteur de leur rangée (rangées égales) : toutes les
+  // cases ont la même taille et l'écart entre deux rangées vaut toujours
+  // les deux `py-2` — ce que le trait du devis franchit.
+  const cellule = 'flex items-stretch py-2 @container'
   return (
     <div className="hidden w-full grid-cols-[minmax(0,1fr)_minmax(4rem,0.8fr)_minmax(0,1fr)_minmax(3rem,0.5fr)_minmax(0,1fr)] grid-rows-3 @min-[56rem]:grid">
+      {devis && (
+        <div className={cn(cellule, 'relative col-start-1 row-start-3')}>
+          {devis}
+          <TraitDevis />
+        </div>
+      )}
       <div className={cn(cellule, 'col-start-1 row-start-2')}>
         <Case
           cle="demande"
@@ -429,6 +458,7 @@ function SchemaHorizontal({
 /** Schéma ÉTROIT (téléphone, tablette, fenêtre réduite) : de haut en bas. */
 function SchemaVertical({
   schema,
+  devis,
   chiffres,
   dates,
   onAction,
@@ -439,7 +469,17 @@ function SchemaVertical({
   const cellule = 'flex px-1 @container'
   return (
     <div className="w-full @min-[56rem]:hidden">
-      <div className={trois}>
+      {/* Devis à GAUCHE de la proposition, relié par un trait pointillé. */}
+      <div className={cn(trois, 'items-stretch')}>
+        {devis && (
+          <div className={cn(cellule, 'relative col-start-1')}>
+            {devis}
+            <span
+              aria-hidden
+              className="absolute top-1/2 left-[calc(100%-0.25rem)] w-2 border-t-2 border-dashed border-info/50"
+            />
+          </div>
+        )}
         <div className={cn(cellule, 'col-start-2')}>
           <Case
             cle="demande"

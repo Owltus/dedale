@@ -104,7 +104,7 @@ interface DocumentsTabProps {
    * N'affiche qu'une PARTIE des documents rattachés (ex. les devis d'un côté,
    * les annexes de l'autre). La liste vide se juge APRÈS filtre.
    */
-  filtre?: (doc: { type_document_id: number | null }) => boolean
+  filtre?: (doc: { id: string; type_document_id: number | null }) => boolean
   /** Titre de l'état vide (défaut « Aucun document »). */
   emptyTitle?: string
 }

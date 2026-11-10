@@ -50,7 +50,7 @@ export function ValidationInvestissementDialog({
         description={
           montantDemande === null
             ? 'Quel montant est accordé ?'
-            : `Quel montant est accordé ? Proposé : ${formatEuros(montantDemande)}.`
+            : `Quel montant est accordé ? Montant proposé : ${formatEuros(montantDemande)}.`
         }
         onSubmit={() => void form.handleSubmit(onConfirm)()}
         submitLabel="Valider"

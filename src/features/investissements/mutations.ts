@@ -162,3 +162,31 @@ export function useDeleteInvestissement() {
       qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
   })
 }
+
+/**
+ * Désigne LE devis d'un investissement (144) — ou le retire (`null`). Le
+ * document reste rattaché au dossier : il repasse simplement dans
+ * « Documents ».
+ */
+export function useDefinirDevis() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      documentId,
+    }: {
+      id: string
+      documentId: string | null
+    }) => {
+      await supabase
+        .from('investissements')
+        .update({ devis_document_id: documentId })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
+  })
+}

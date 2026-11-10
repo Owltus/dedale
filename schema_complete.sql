@@ -626,7 +626,7 @@ INSERT INTO statuts_travaux (id, nom, description) VALUES
 -- Statuts d'un investissement / CapEx (statut LIBRE — aucune transition imposée ;
 -- l'ordre du parcours d'affichage est porté côté front, cf. etat.ts)
 INSERT INTO statuts_capex (id, nom, description) VALUES
-    (1, 'Proposé',   'Proposition déposée, en attente de décision'),  -- 142 : ex-« Demandé »
+    (1, 'Proposition', 'Proposition déposée, en attente de décision'),  -- 142-143 : ex-« Demandé »
     (2, 'Validé',    'Accepté : le budget est accordé'),
     (3, 'Réalisé',   'Fait : dépense réelle et bilan renseignés'),
     -- 138 : quatre statuts seulement (5 Accordé, 6 Engagé, 7 Clôturé,
@@ -4536,7 +4536,7 @@ ALTER TABLE travaux_taches ENABLE ROW LEVEL SECURITY;
 -- Investissements / CapEx : suivi budgétaire des dépenses d'investissement
 -- d'un site (remplacement chaudière, réfection toiture…). Statut LIBRE (aucune
 -- machine à états, aucun trigger de transition) : l'utilisateur passe le statut
--- de Proposé à Validé/Réalisé/Refusé sans contrainte. Scope site, hard-delete
+-- de Proposition à Validé/Réalisé/Refusé sans contrainte. Scope site, hard-delete
 -- (la corbeille a disparu en 034-036).
 -- Dépendances : 010_sites, 005_users, statuts_capex, set_updated_at()
 -- =============================================================================
@@ -4555,6 +4555,8 @@ CREATE TABLE investissements (
     -- 141 : qui émet le devis (texte libre). Était écrit entre parenthèses
     -- dans le libellé.
     fournisseur       TEXT,
+    -- 144 : LE devis retenu (case « Devis » du schéma de la fiche).
+    devis_document_id UUID,  -- FK vers documents posée après sa création (plus bas)
 
     -- Montants (NUMERIC pour la précision financière, jamais FLOAT)
     montant_demande   NUMERIC(12,2) CHECK (montant_demande IS NULL OR montant_demande >= 0),
@@ -4628,6 +4630,7 @@ COMMENT ON COLUMN investissements.date_arret IS
 CREATE INDEX idx_capex_site   ON investissements(site_id);
 CREATE INDEX idx_capex_statut ON investissements(statut_capex_id);
 CREATE INDEX idx_investissements_site_annee ON investissements(site_id, annee_budget);
+CREATE INDEX idx_investissements_devis_document ON investissements(devis_document_id);
 -- Index de la FK created_by (règle « indexer toute FK » — v0.33 corrigé post-audit)
 CREATE INDEX idx_capex_created_by ON investissements(created_by);
 
@@ -5440,6 +5443,12 @@ CREATE TABLE documents (
     -- Dédup SHA-256 : la contrainte UNIQUE inline a été transformée en index
     -- documents_unique_hash — voir ci-dessous.
 );
+
+-- 144 : FK de investissements.devis_document_id, posée ici car `documents`
+-- est créée après `investissements`.
+ALTER TABLE investissements
+  ADD CONSTRAINT investissements_devis_document_id_fkey
+  FOREIGN KEY (devis_document_id) REFERENCES documents(id) ON DELETE SET NULL;
 
 -- Dédup à l'échelle de l'entreprise (un même PDF n'est stocké qu'une fois).
 -- documents_unique_hash : index unique de dédup DÉPLACÉ en v0.14b (scopé par site_id).

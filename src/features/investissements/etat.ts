@@ -8,8 +8,8 @@ type Investissement = Database['public']['Tables']['investissements']['Row']
 
 // QUATRE statuts (138, décision PO du 10/11/2026) : Demandé → Validé → Réalisé,
 // ou Refusé. « Reporter » n'est pas un statut : c'est envoyer le dossier dans le
-// budget de l'année suivante, où il redevient « Proposé ».
-/** « Proposé » : départ, et point de retour d'une relance ou d'un report. */
+// budget de l'année suivante, où il redevient « Proposition ».
+/** « Proposition » : départ, et point de retour d'une relance ou d'un report. */
 export const ID_DEMANDE = 1
 /** « Validé » : le budget est accordé. */
 export const ID_VALIDE = 2
@@ -19,7 +19,7 @@ export const ID_REALISE = 3
 export const ID_REFUSE = 4
 
 const LABELS_DEFAUT: Record<number, string> = {
-  [ID_DEMANDE]: 'Proposé',
+  [ID_DEMANDE]: 'Proposition',
   [ID_VALIDE]: 'Validé',
   [ID_REALISE]: 'Réalisé',
   [ID_REFUSE]: 'Refusé',
@@ -165,7 +165,7 @@ export interface SchemaCapex {
  *
  * La case du dossier est `actuel` ; un CLIC sur une autre case y fait passer
  * le dossier (statut libre côté base). Le report n'est pas un statut : sa case
- * envoie le dossier dans le budget de l'année suivante, en « Proposé ».
+ * envoie le dossier dans le budget de l'année suivante, en « Proposition ».
  */
 export function schemaCapex(
   statutId: number,
