@@ -34,7 +34,7 @@ export function useDocumentTitle(titrePage?: string): void {
       APP,
       section,
       // Ni vide, ni redondant avec la section. L'égalité stricte ne suffisait
-      // pas : « Investissements (CapEx) » COMMENCE par « Investissements », et
+      // pas : un titre comme « Investissements (CapEx) » COMMENCE par la section, et
       // l'onglet bégayait « Dédale · Investissements · Investissements (CapEx) ».
       titrePage?.trim() &&
       (section === null || !titrePage.trim().startsWith(section))

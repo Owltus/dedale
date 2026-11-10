@@ -24,6 +24,7 @@ import { ClotureInvestissementDialog } from './cloture-investissement-dialog'
 import { ValidationInvestissementDialog } from './validation-investissement-dialog'
 import { parseMontant } from '@/features/investissements/schemas'
 import { SchemaCapex } from './schema-capex'
+import { PAGE_META } from '@/features/investissements/page-meta'
 import { MIME_PDF } from '@/features/documents/upload'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
@@ -140,7 +141,7 @@ export function InvestissementDetail({
         }
         breadcrumb={[
           {
-            label: 'Investissements (CapEx)',
+            label: PAGE_META.titre,
             onClick: () => void navigate({ to: '/investissements' }),
           },
           {

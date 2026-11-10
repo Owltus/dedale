@@ -10,13 +10,8 @@ import { useDeleteInvestissement } from '@/features/investissements/mutations'
 import {
   nomStatutCapex,
   statutCapexTone,
-  totauxAnnee,
 } from '@/features/investissements/etat'
-import {
-  ecartCapex,
-  formatEuros,
-  montantPrincipal,
-} from '@/features/investissements/format'
+import { ecartCapex, montantPrincipal } from '@/features/investissements/format'
 import { anneeDeParam } from '@/features/investissements/annee'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
@@ -40,6 +35,7 @@ import { PAGE_META } from '@/features/investissements/page-meta'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import { StatutColonne } from '@/components/common/statut-colonne'
+import { BarreBudget } from '@/features/investissements/components/barre-budget'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -114,7 +110,14 @@ function InvestissementsContent({
             onClick: () => void navigate({ to: '/investissements' }),
           },
         ]}
-        description={descriptionAnnee(query.data ?? [])}
+        // La barre du budget EST la description (demande PO).
+        description={
+          query.data && query.data.length > 0 ? (
+            <BarreBudget investissements={query.data} noms={statutNom} />
+          ) : (
+            'Aucune demande pour cette année.'
+          )
+        }
         action={
           canManage ? (
             <TooltipIconButton
@@ -267,8 +270,3 @@ function InvestissementsContent({
 }
 
 /** « 3 dossiers · 5 000 € demandés · 1 200 € validés » pour l'année. */
-function descriptionAnnee(invs: Investissement[]): string {
-  const t = totauxAnnee(invs)
-  if (t.nb === 0) return 'Aucune demande pour cette année.'
-  return `${String(t.nb)} dossier${t.nb > 1 ? 's' : ''} · ${formatEuros(t.demande)} demandés · ${formatEuros(t.valide)} validés`
-}

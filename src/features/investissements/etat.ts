@@ -287,3 +287,44 @@ export function datesCapex(
     reporte,
   }
 }
+
+/** Une part de la barre d'un budget : un statut, son montant et ses dossiers. */
+export interface PartBudget {
+  statutId: number
+  montant: number
+  nb: number
+}
+
+/**
+ * Répartition d'un budget par statut, pour sa barre (demande PO du
+ * 10/11/2026), dans l'ordre du parcours : Réalisé, Validé, Demandé, Refusé.
+ * Montant d'un dossier = celui de son étape : réel (sinon validé, sinon
+ * demandé) pour un réalisé, validé (sinon demandé) pour un validé, demandé
+ * sinon. Les statuts sans dossier sont omis.
+ */
+export function repartitionBudget(
+  invs: readonly Pick<
+    Investissement,
+    'statut_capex_id' | 'montant_demande' | 'montant_prevu' | 'depense_reelle'
+  >[],
+): PartBudget[] {
+  const ordre = [ID_REALISE, ID_VALIDE, ID_DEMANDE, ID_REFUSE]
+  const parts = new Map(
+    ordre.map((id) => [id, { statutId: id, montant: 0, nb: 0 }]),
+  )
+  for (const i of invs) {
+    const p = parts.get(i.statut_capex_id)
+    if (!p) continue
+    p.nb += 1
+    p.montant +=
+      i.statut_capex_id === ID_REALISE
+        ? (i.depense_reelle ?? i.montant_prevu ?? i.montant_demande ?? 0)
+        : i.statut_capex_id === ID_VALIDE
+          ? (i.montant_prevu ?? i.montant_demande ?? 0)
+          : (i.montant_demande ?? 0)
+  }
+  return ordre.flatMap((id) => {
+    const p = parts.get(id)
+    return p && p.nb > 0 ? [p] : []
+  })
+}

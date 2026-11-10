@@ -13,7 +13,12 @@ export type PageHeaderCrumb = Crumb
 
 interface PageHeaderProps {
   title: string
-  description?: string
+  /**
+   * Sous-texte du titre. Une PHRASE (cas courant) tient sur une ligne tronquée ;
+   * un élément riche (ex. la barre d'un budget) prend la même place, sans
+   * troncature.
+   */
+  description?: ReactNode
   /** Actions à droite. Convention : boutons ICÔNE + tooltip (`TooltipIconButton`). */
   action?: ReactNode
   /**
@@ -99,12 +104,18 @@ export function PageHeader({
         </div>
         {/* Ligne 2 — description : UNE ligne tronquée (survol = texte complet),
             zone TOUJOURS réservée même si vide (`min-h-5`). */}
-        <p
-          title={description}
-          className="min-h-5 truncate text-sm text-muted-foreground"
-        >
-          {description}
-        </p>
+        {typeof description === 'string' || description == null ? (
+          <p
+            title={description ?? undefined}
+            className="min-h-5 truncate text-sm text-muted-foreground"
+          >
+            {description}
+          </p>
+        ) : (
+          <div className="min-h-5 text-sm text-muted-foreground">
+            {description}
+          </div>
+        )}
       </div>
       {/* Actions (icônes) : restent À DROITE du titre, mobile comme bureau. */}
       {action != null && (

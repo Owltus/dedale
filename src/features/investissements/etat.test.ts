@@ -10,6 +10,7 @@ import {
   ID_VALIDE,
   nomStatutCapex,
   rangStatutCapex,
+  repartitionBudget,
   schemaCapex,
   statutCapexTone,
   STATUTS_CAPEX_TERMINAUX,
@@ -303,5 +304,64 @@ describe('budget en préparation', () => {
   it('en 2026, on prépare le budget 2027 — même le 31 décembre', () => {
     expect(anneeBudgetEnPreparation(new Date(2026, 0, 1))).toBe(2027)
     expect(anneeBudgetEnPreparation(new Date(2026, 11, 31))).toBe(2027)
+  })
+})
+
+describe('repartitionBudget — barre d’un budget', () => {
+  const inv = (
+    statut: number,
+    demande: number | null,
+    prevu: number | null = null,
+    reel: number | null = null,
+  ) => ({
+    statut_capex_id: statut,
+    montant_demande: demande,
+    montant_prevu: prevu,
+    depense_reelle: reel,
+  })
+
+  it('ordre du parcours, montant de l’étape, statuts vides omis', () => {
+    expect(
+      repartitionBudget([
+        inv(ID_REFUSE, 1000),
+        inv(ID_DEMANDE, 100),
+        inv(ID_VALIDE, 200, 180),
+        inv(ID_VALIDE, 50),
+        inv(ID_DEMANDE, null),
+      ]),
+    ).toEqual([
+      { statutId: ID_VALIDE, montant: 230, nb: 2 },
+      { statutId: ID_DEMANDE, montant: 100, nb: 2 },
+      { statutId: ID_REFUSE, montant: 1000, nb: 1 },
+    ])
+  })
+
+  it('réalisé : la dépense réelle prime', () => {
+    expect(repartitionBudget([inv(ID_REALISE, 300, 300, 320)])).toEqual([
+      { statutId: ID_REALISE, montant: 320, nb: 1 },
+    ])
+  })
+
+  it('la somme des dossiers comptés = le nombre de dossiers connus', () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            statut_capex_id: fc.constantFrom(...IDS_CONNUS),
+            montant_demande: fc.option(fc.integer({ min: 0, max: 1e6 }), {
+              nil: null,
+            }),
+            montant_prevu: fc.constant(null),
+            depense_reelle: fc.constant(null),
+          }),
+        ),
+        (invs) => {
+          const parts = repartitionBudget(invs)
+          expect(parts.reduce((s, p) => s + p.nb, 0)).toBe(invs.length)
+          expect(parts.every((p) => p.montant >= 0)).toBe(true)
+        },
+      ),
+      TIRAGES,
+    )
   })
 })
