@@ -1879,7 +1879,6 @@
     },
     "investissements": {
       "checks": {
-        "capex_motif_arret_oblig_si_refuse": "CHECK (((statut_capex_id <> 4) OR ((motif_arret IS NOT NULL) AND (length(btrim(motif_arret)) > 0))))",
         "investissements_annee_budget_check": "CHECK (((annee_budget >= 2000) AND (annee_budget <= 2100)))",
         "investissements_dates_coherentes": "CHECK (((date_cloture IS NULL) OR (date_cloture >= date_demande)))",
         "investissements_decision_par_check": "CHECK (((decision_par IS NULL) OR (decision_par = ANY (ARRAY['responsable'::text, 'direction'::text]))))",
@@ -1958,6 +1957,14 @@
           "echelle": null,
           "longueurMax": null,
           "nullable": false,
+          "precision": null,
+          "type": "date"
+        },
+        "date_validation": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
           "precision": null,
           "type": "date"
         },

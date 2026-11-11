@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { investissementsQueries } from './queries'
-import { ID_REALISE, ID_REFUSE } from './etat'
+import { ID_REALISE, ID_REFUSE, ID_VALIDE } from './etat'
 import { parseMontant } from './schemas'
 import type { InvestissementFormValues } from './schemas'
 
@@ -14,7 +14,6 @@ function toPayload(v: InvestissementFormValues) {
     description: v.description.trim() || null,
     fournisseur: v.fournisseur.trim() || null,
     montant_demande: parseMontant(v.montant_demande),
-    montant_prevu: parseMontant(v.montant_prevu),
     depense_reelle: parseMontant(v.depense_reelle),
     date_demande: v.date_demande,
     annee_budget: Number(v.annee_budget),
@@ -99,7 +98,7 @@ export function useChangeStatutCapex() {
       motifArret,
       dateArret,
       arreteBy,
-      montantPrevu,
+      dateValidation,
       depenseReelle,
     }: {
       id: string
@@ -109,17 +108,20 @@ export function useChangeStatutCapex() {
       bilan?: string
       dateCloture?: string
       clotureBy?: string
-      /** Obligatoire pour « Refusé » — la base le refuse sinon. */
+      /** Motif du refus, facultatif depuis 145. */
       motifArret?: string
       dateArret?: string
       arreteBy?: string
-      /** Montant validé, saisi en validant (absent = inchangé). */
-      montantPrevu?: number | null
+      /** Date de validation, saisie en validant (absent = inchangée). */
+      dateValidation?: string
       /** Dépense réelle, saisie en marquant réalisé (absent = inchangée). */
       depenseReelle?: number | null
     }) => {
       const realise = statutId === ID_REALISE
       const refus = statutId === ID_REFUSE
+      // La date de validation survit à la réalisation, pas à un retour en
+      // Proposition ni à un refus (146).
+      const valideOuPlus = statutId === ID_VALIDE || realise
       const { data } = await supabase
         .from('investissements')
         .update({
@@ -131,7 +133,11 @@ export function useChangeStatutCapex() {
           motif_arret: refus ? (motifArret?.trim() ?? '') || null : null,
           date_arret: refus ? (dateArret ?? null) : null,
           arrete_by: refus ? (arreteBy ?? null) : null,
-          ...(montantPrevu !== undefined && { montant_prevu: montantPrevu }),
+          ...(!valideOuPlus
+            ? { date_validation: null }
+            : dateValidation !== undefined && {
+                date_validation: dateValidation,
+              }),
           ...(depenseReelle !== undefined && { depense_reelle: depenseReelle }),
         })
         .eq('id', id)
@@ -192,22 +198,23 @@ export function useDefinirDevis() {
 }
 
 /**
- * Corrige le seul montant validé (menu du schéma) sans toucher au statut ni
- * à la réalisation — `useChangeStatutCapex` effacerait le bilan.
+ * Corrige la seule date de validation (dossier réalisé, menu du schéma) sans
+ * toucher au statut ni à la réalisation — `useChangeStatutCapex` effacerait
+ * le bilan.
  */
-export function useModifierMontantValide() {
+export function useModifierDateValidation() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
       id,
-      montantPrevu,
+      dateValidation,
     }: {
       id: string
-      montantPrevu: number | null
+      dateValidation: string
     }) => {
       await supabase
         .from('investissements')
-        .update({ montant_prevu: montantPrevu })
+        .update({ date_validation: dateValidation })
         .eq('id', id)
         .select('id')
         .single()

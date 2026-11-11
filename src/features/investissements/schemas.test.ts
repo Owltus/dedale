@@ -13,6 +13,8 @@ import {
 import {
   clotureCapexSchema,
   investissementSchema,
+  refusCapexSchema,
+  validationCapexSchema,
   parseMontant,
 } from './schemas'
 
@@ -29,17 +31,12 @@ const BASE = {
   description: '',
   fournisseur: '',
   montant_demande: '',
-  montant_prevu: '',
   depense_reelle: '',
   date_demande: '2026-01-15',
   annee_budget: '2026',
 }
 
-const CHAMPS_MONTANT = [
-  'montant_demande',
-  'montant_prevu',
-  'depense_reelle',
-] as const
+const CHAMPS_MONTANT = ['montant_demande', 'depense_reelle'] as const
 
 /** Borne exacte de NUMERIC(12,2). */
 const MAX_NUMERIC_12_2 = 9_999_999_999.99
@@ -309,5 +306,31 @@ describe('clotureCapexSchema', () => {
         date_cloture: BASE.date_demande,
       }).success,
     ).toBe(true)
+  })
+})
+
+describe('refusCapexSchema', () => {
+  testeTotalite('refusCapexSchema', refusCapexSchema)
+
+  it('exige la date du refus, pas le motif (145)', () => {
+    expect(
+      refusCapexSchema.safeParse({ date_arret: '2026-11-11', motif_arret: '' })
+        .success,
+    ).toBe(true)
+    expect(
+      rejette(refusCapexSchema, { date_arret: '', motif_arret: 'trop cher' }),
+    ).toBe(true)
+  })
+})
+
+describe('validationCapexSchema', () => {
+  testeTotalite('validationCapexSchema', validationCapexSchema)
+
+  it('exige la date de validation (146)', () => {
+    expect(
+      validationCapexSchema.safeParse({ date_validation: '2026-11-11' })
+        .success,
+    ).toBe(true)
+    expect(rejette(validationCapexSchema, { date_validation: '' })).toBe(true)
   })
 })

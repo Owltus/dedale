@@ -119,13 +119,13 @@ describe('montantPrincipal', () => {
 })
 
 describe('ecartCapex', () => {
-  it('l’écart est exactement « dépense réelle − budget prévu »', () => {
+  it('l’écart est exactement « dépense réelle − montant proposé »', () => {
     // ORACLE (doc du champ) : « réel − prévu ». Oracle arithmétique écrit ici,
     // avec le même parenthésage, pour que l'égalité ne dépende pas des arrondis.
     fc.assert(
-      fc.property(montant, montant, (montant_prevu, depense_reelle) => {
-        expect(ecartCapex({ montant_prevu, depense_reelle }).ecart).toBe(
-          depense_reelle - montant_prevu,
+      fc.property(montant, montant, (montant_demande, depense_reelle) => {
+        expect(ecartCapex({ montant_demande, depense_reelle }).ecart).toBe(
+          depense_reelle - montant_demande,
         )
       }),
       TIRAGES,
@@ -139,7 +139,7 @@ describe('ecartCapex', () => {
     fc.assert(
       fc.property(montantNullable, montantNullable, (prevu, reelle) => {
         const res = ecartCapex({
-          montant_prevu: prevu,
+          montant_demande: prevu,
           depense_reelle: reelle,
         })
         if (prevu !== null && reelle !== null) return
@@ -156,15 +156,15 @@ describe('ecartCapex', () => {
     // budget ou à l'équilibre reste neutre ». Une dépense pile au budget n'est
     // pas un dépassement — elle ne doit pas déclencher d'alerte.
     fc.assert(
-      fc.property(montant, montant, (montant_prevu, depense_reelle) => {
-        expect(ecartCapex({ montant_prevu, depense_reelle }).depassement).toBe(
-          depense_reelle > montant_prevu,
-        )
+      fc.property(montant, montant, (montant_demande, depense_reelle) => {
+        expect(
+          ecartCapex({ montant_demande, depense_reelle }).depassement,
+        ).toBe(depense_reelle > montant_demande)
       }),
       TIRAGES,
     )
     expect(
-      ecartCapex({ montant_prevu: 1000, depense_reelle: 1000 }).depassement,
+      ecartCapex({ montant_demande: 1000, depense_reelle: 1000 }).depassement,
     ).toBe(false)
   })
 
@@ -173,8 +173,8 @@ describe('ecartCapex', () => {
     // avec un « + » explicite ; une économie garde le « - » du formatage ; un
     // écart nul n'affiche aucun signe.
     fc.assert(
-      fc.property(montant, montant, (montant_prevu, depense_reelle) => {
-        const { ecart, label } = ecartCapex({ montant_prevu, depense_reelle })
+      fc.property(montant, montant, (montant_demande, depense_reelle) => {
+        const { ecart, label } = ecartCapex({ montant_demande, depense_reelle })
         expect(label).not.toBeNull()
         expect(label).not.toContain('NaN')
         expect(label?.startsWith('+')).toBe(ecart! > 0)
@@ -189,8 +189,8 @@ describe('ecartCapex', () => {
     // représenter LE même écart que le champ `ecart`, signe compris — sinon la
     // fiche montrerait un montant qui ne correspond à aucun calcul.
     fc.assert(
-      fc.property(montant, montant, (montant_prevu, depense_reelle) => {
-        const { ecart, label } = ecartCapex({ montant_prevu, depense_reelle })
+      fc.property(montant, montant, (montant_demande, depense_reelle) => {
+        const { ecart, label } = ecartCapex({ montant_demande, depense_reelle })
         expect(label).toBe(`${ecart! > 0 ? '+' : ''}${formatEuros(ecart)}`)
       }),
       TIRAGES,

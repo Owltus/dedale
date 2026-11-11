@@ -1,15 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import {
-  CalendarClock,
-  CircleCheck,
-  CircleX,
-  PackageCheck,
-  Paperclip,
-  Pencil,
-  Undo2,
-} from 'lucide-react'
+import { Paperclip, Pencil } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
 import { toast } from 'sonner'
 import {
@@ -18,7 +10,6 @@ import {
 } from '@/features/investissements/queries'
 import {
   datesCapex,
-  ID_DEMANDE,
   ID_REALISE,
   ID_REFUSE,
   ID_VALIDE,
@@ -28,7 +19,7 @@ import {
 import {
   useChangeStatutCapex,
   useDefinirDevis,
-  useModifierMontantValide,
+  useModifierDateValidation,
 } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
@@ -44,7 +35,7 @@ import { MIME_PDF } from '@/features/documents/upload'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
-import { formatDate, isoLocale } from '@/lib/date'
+import { formatDate } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth'
@@ -55,7 +46,7 @@ import { DocumentsTab } from '@/components/common/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { MotifDialog } from '@/components/common/motif-dialog'
+import { RefusInvestissementDialog } from './refus-investissement-dialog'
 import { DetailNoteCard } from '@/components/common/detail-note-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Database } from '@/lib/database.types'
@@ -78,8 +69,7 @@ export function InvestissementDetail({
   const confirmAction = useConfirmAction()
   const [refus, setRefus] = useState(false)
   const [validation, setValidation] = useState(false)
-  const [correctionMontant, setCorrectionMontant] = useState(false)
-  const modifierMontant = useModifierMontantValide()
+  const modifierDateValidation = useModifierDateValidation()
   // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
   // Un fichier lâché sur le cadre « Devis » y est traité ; ailleurs, il va
   // aux documents (annexes).
@@ -125,12 +115,12 @@ export function InvestissementDetail({
         : null
 
   function agir(a: ActionCapex) {
-    // Refuser : un motif est exigé (la base le refuse sinon).
+    // Refuser : date du refus et motif facultatif (145).
     if (a.cle === 'refuser') {
       setRefus(true)
       return
     }
-    // Valider : le montant accordé (pré-rempli avec le demandé).
+    // Valider (ou corriger la validation) : la date, rien d'autre (146).
     if (a.cle === 'valider') {
       setValidation(true)
       return
@@ -181,11 +171,11 @@ export function InvestissementDetail({
     )
   }
 
-  // MENUS DU SCHÉMA (clic droit / appui long, demande PO) : ce qu'on peut
-  // faire sur chaque case, selon où en est le dossier.
-  const statut = inv.statut_capex_id
-  const valideOuPlus = statut === ID_VALIDE || realise
-  const reporter = schema.reporte.action
+  // MENUS DU SCHÉMA (clic droit / appui long, demande PO) : SEULEMENT pour
+  // modifier des informations (montants, dates, description), jamais pour
+  // refaire ce qu'un simple clic fait déjà (changer d'étape). Validé,
+  // Réalisé et Refusé : leur clic ouvre déjà leur fenêtre de correction.
+  const valideOuPlus = inv.statut_capex_id === ID_VALIDE || realise
   const menus: Partial<Record<string, RowAction[]>> | undefined = canManage
     ? {
         demande: [
@@ -194,69 +184,15 @@ export function InvestissementDetail({
             icon: Pencil,
             onSelect: () => edit.openEdit(inv),
           },
-          ...(statut !== ID_DEMANDE
-            ? [
-                {
-                  label: 'Revenir à « Proposition »',
-                  icon: Undo2,
-                  onSelect: () =>
-                    agir({ cle: 'relancer', statutId: ID_DEMANDE, annee }),
-                },
-              ]
-            : []),
         ],
-        valide: valideOuPlus
-          ? [
-              {
-                label: 'Modifier le montant validé',
-                icon: Pencil,
-                onSelect: () => setCorrectionMontant(true),
-              },
-              ...(realise
-                ? [
-                    {
-                      label: 'Revenir à « Validé »',
-                      icon: Undo2,
-                      onSelect: () =>
-                        agir({ cle: 'rouvrir', statutId: ID_VALIDE, annee }),
-                    },
-                  ]
-                : []),
-            ]
-          : [
-              {
-                label: 'Valider…',
-                icon: CircleCheck,
-                onSelect: () => setValidation(true),
-              },
-            ],
-        realise: [
-          {
-            label: realise ? 'Modifier la réalisation' : 'Marquer réalisé…',
-            icon: realise ? Pencil : PackageCheck,
-            onSelect: () => realisation.openEdit(inv),
-          },
-        ],
-        refuse: [
-          refuse
-            ? {
-                label: 'Modifier le motif',
-                icon: Pencil,
-                onSelect: () => setRefus(true),
-              }
-            : {
-                label: 'Refuser…',
-                icon: CircleX,
-                destructive: true,
-                onSelect: () => setRefus(true),
-              },
-        ],
-        ...(reporter && {
-          reporte: [
+        // Réalisé : le clic sur « Validé » y fait revenir — la date de
+        // validation se corrige donc ici.
+        ...(realise && {
+          valide: [
             {
-              label: `Reporter à ${String(reporter.annee)}…`,
-              icon: CalendarClock,
-              onSelect: () => agir(reporter),
+              label: 'Modifier la date de validation',
+              icon: Pencil,
+              onSelect: () => setValidation(true),
             },
           ],
         }),
@@ -321,7 +257,7 @@ export function InvestissementDetail({
         }}
       >
         {/* SCHÉMA (138, demande PO) : Demandé, puis Refusé / Validé / Reporter,
-          puis Réalisé — avec les montants dans les cases (demandé, prévu,
+          puis Réalisé — avec les montants dans les cases (proposé,
           réel, écart). La case colorée = où en est le dossier ; un clic sur
           une autre case y fait passer le dossier. */}
         <Card className="mb-4 shrink-0 overflow-hidden py-0">
@@ -342,8 +278,9 @@ export function InvestissementDetail({
               // Un montant vide n'est pas affiché : un « — » seul, sans
               // légende, ne dirait rien.
               chiffres={{
+                // Pas de montant dans « Validé » (demande PO) : il redirait
+                // celui de la proposition. L'écart, lui, reste dans Réalisé.
                 demande: montant(inv.montant_demande),
-                valide: montant(inv.montant_prevu),
                 realise: [
                   ...montant(inv.depense_reelle),
                   ...(label
@@ -438,50 +375,43 @@ export function InvestissementDetail({
             annee={annee}
             investissement={inv}
           />
+          {/* Valider = une date (aujourd'hui par défaut). Déjà validé ou
+              réalisé → on corrige la seule date, sans toucher au statut. */}
           <ValidationInvestissementDialog
             key={validation ? 'validation-ouverte' : 'validation'}
             open={validation}
             onOpenChange={setValidation}
-            pending={change.isPending}
-            montantDemande={inv.montant_demande}
-            montantPrevu={inv.montant_prevu}
-            onConfirm={({ montant_prevu }) => {
-              change.mutate(
-                {
-                  id: inv.id,
-                  statutId: ID_VALIDE,
-                  annee,
-                  montantPrevu: parseMontant(montant_prevu),
+            pending={change.isPending || modifierDateValidation.isPending}
+            dateValidation={
+              valideOuPlus ? (inv.date_validation ?? dates.valide) : undefined
+            }
+            onConfirm={({ date_validation }) => {
+              const fini = {
+                onSuccess: () => {
+                  toast.success(
+                    valideOuPlus
+                      ? 'Validation modifiée'
+                      : 'Investissement validé',
+                  )
+                  setValidation(false)
                 },
-                {
-                  onSuccess: () => {
-                    toast.success('Investissement validé')
-                    setValidation(false)
+                onError: (e: unknown) => toast.error(writeErrorMessage(e)),
+              }
+              if (valideOuPlus)
+                modifierDateValidation.mutate(
+                  { id: inv.id, dateValidation: date_validation },
+                  fini,
+                )
+              else
+                change.mutate(
+                  {
+                    id: inv.id,
+                    statutId: ID_VALIDE,
+                    annee,
+                    dateValidation: date_validation,
                   },
-                  onError: (e) => toast.error(writeErrorMessage(e)),
-                },
-              )
-            }}
-          />
-          <ValidationInvestissementDialog
-            key={correctionMontant ? 'montant-ouvert' : 'montant'}
-            correction
-            open={correctionMontant}
-            onOpenChange={setCorrectionMontant}
-            pending={modifierMontant.isPending}
-            montantDemande={inv.montant_demande}
-            montantPrevu={inv.montant_prevu}
-            onConfirm={({ montant_prevu }) => {
-              modifierMontant.mutate(
-                { id: inv.id, montantPrevu: parseMontant(montant_prevu) },
-                {
-                  onSuccess: () => {
-                    toast.success('Montant validé modifié')
-                    setCorrectionMontant(false)
-                  },
-                  onError: (e) => toast.error(writeErrorMessage(e)),
-                },
-              )
+                  fini,
+                )
             }}
           />
           <ClotureInvestissementDialog
@@ -525,32 +455,32 @@ export function InvestissementDetail({
         </>
       )}
 
-      <MotifDialog
+      {/* Refus (demande PO) : date (aujourd'hui par défaut) + motif
+          facultatif ; déjà refusé → pré-rempli, en correction. */}
+      <RefusInvestissementDialog
+        key={refus ? 'refus-ouvert' : 'refus'}
         open={refus}
         onOpenChange={(o) => !o && setRefus(false)}
-        title={
-          refuse ? 'Modifier le motif du refus' : 'Refuser la proposition ?'
-        }
-        description="Dites pourquoi la proposition est refusée : c’est ce qui restera pour comprendre la décision plus tard."
-        label="Motif"
-        confirmLabel={refuse ? 'Enregistrer' : 'Refuser'}
-        destructive={!refuse}
         pending={change.isPending}
-        onConfirm={(motif) => {
+        initial={
+          refuse
+            ? { date_arret: inv.date_arret, motif_arret: inv.motif_arret }
+            : undefined
+        }
+        onConfirm={({ date_arret, motif_arret }) => {
           change.mutate(
             {
               id: inv.id,
               statutId: ID_REFUSE,
               annee,
-              motifArret: motif,
-              // Date NUE (`isoLocale`) et jamais `toISOString()` (23514 des OT).
-              dateArret: inv.date_arret ?? isoLocale(new Date()),
+              motifArret: motif_arret,
+              dateArret: date_arret,
               arreteBy: session?.user.id,
             },
             {
               onSuccess: () => {
                 setRefus(false)
-                toast.success(refuse ? 'Motif modifié' : 'Proposition refusée')
+                toast.success(refuse ? 'Refus modifié' : 'Proposition refusée')
               },
               onError: (e) => toast.error(writeErrorMessage(e)),
             },

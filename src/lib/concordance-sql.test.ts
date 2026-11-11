@@ -708,7 +708,6 @@ const CONCORDANCES: Concordance[] = [
       description: '',
       fournisseur: '',
       montant_demande: '',
-      montant_prevu: '',
       depense_reelle: '',
       date_demande: '2026-09-16',
       annee_budget: '2026',
@@ -718,7 +717,6 @@ const CONCORDANCES: Concordance[] = [
       description: T('description'),
       fournisseur: T('fournisseur'),
       montant_demande: TN('montant_demande'),
-      montant_prevu: TN('montant_prevu'),
       depense_reelle: TN('depense_reelle'),
     },
   },
@@ -824,10 +822,9 @@ const CHECKS_NON_SONDES: Record<string, string> = {
     'Inter-colonnes : couvert par `clotureSchema` (evenements) et son test.',
   'investissements.investissements_dates_coherentes':
     'Inter-colonnes : couvert par `clotureCapexSchema` et son test.',
-  'investissements.capex_motif_arret_oblig_si_refuse':
-    'Inter-colonnes (statut_capex_id ↔ motif_arret) : le motif n’est exigé que ' +
-    'pour « Refusé » (138). Aucun formulaire ne saisit les deux champs ensemble — ' +
-    'le motif passe par `MotifDialog`, qui l’exige déjà côté front (121).',
+  'investissements.investissements_montant_prevu_check':
+    'Plus aucun formulaire ne saisit le montant validé (demande PO du ' +
+    '11/11/2026 : la proposition fait foi) — colonne conservée, non écrite.',
   'investissements.investissements_annee_budget_check':
     'Menu déroulant : l’année du budget est choisie parmi des années proposées, ' +
     'et `investissementSchema` borne déjà 2000-2100 (138).',

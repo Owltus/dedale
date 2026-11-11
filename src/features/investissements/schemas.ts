@@ -24,7 +24,6 @@ export const investissementSchema = z.object({
   /** Fournisseur qui émet le devis (141), facultatif. */
   fournisseur: z.string().trim().max(100),
   montant_demande: montant,
-  montant_prevu: montant,
   depense_reelle: montant,
   date_demande: dateObligatoire('La date de proposition est obligatoire'),
   // Année du budget (138) : texte du menu déroulant, miroir du CHECK 2000-2100.
@@ -45,7 +44,6 @@ export function emptyInvestissement(annee?: number): InvestissementFormValues {
     fournisseur: '',
     description: '',
     montant_demande: '',
-    montant_prevu: '',
     depense_reelle: '',
     date_demande: todayLocal(),
   }
@@ -100,9 +98,23 @@ export const clotureCapexSchema = z
     path: ['date_cloture'],
   })
 
-/** Valider une demande : le montant accordé (pré-rempli avec le demandé). */
-export const validationCapexSchema = z.object({ montant_prevu: montant })
+/** Valider une proposition : la date de validation (aujourd'hui par défaut, modifiable — 146). */
+export const validationCapexSchema = z.object({
+  date_validation: dateObligatoire('La date de validation est obligatoire'),
+})
 
 export type ValidationCapexFormValues = z.infer<typeof validationCapexSchema>
 
 export type ClotureCapexFormValues = z.infer<typeof clotureCapexSchema>
+
+/**
+ * Refuser une proposition (demande PO du 11/11/2026) : la date du refus
+ * (aujourd'hui par défaut, modifiable) et un motif FACULTATIF — la base ne
+ * l'exige plus depuis 145.
+ */
+export const refusCapexSchema = z.object({
+  date_arret: dateObligatoire('La date du refus est obligatoire'),
+  motif_arret: z.string().trim().max(5000),
+})
+
+export type RefusCapexFormValues = z.infer<typeof refusCapexSchema>

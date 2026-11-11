@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { emptyInvestissement, investissementSchema } from '../schemas'
 import type { InvestissementFormValues } from '../schemas'
 import { useCreateInvestissement, useUpdateInvestissement } from '../mutations'
-import { ID_REALISE, ID_VALIDE } from '../etat'
+import { ID_REALISE } from '../etat'
 import { useAuth } from '@/auth'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
@@ -43,7 +43,6 @@ function initialValues(
     fournisseur: investissement.fournisseur ?? '',
     description: investissement.description ?? '',
     montant_demande: montantToText(investissement.montant_demande),
-    montant_prevu: montantToText(investissement.montant_prevu),
     depense_reelle: montantToText(investissement.depense_reelle),
     date_demande: investissement.date_demande,
   }
@@ -57,12 +56,10 @@ export function InvestissementFormDialog({
   annee,
 }: InvestissementFormDialogProps) {
   const isEdit = Boolean(investissement)
-  // Chaque montant à son étape (demande PO) : le validé se saisit en validant,
-  // le réel en marquant réalisé. En modification, on ne montre que ceux que
-  // le dossier a déjà atteints.
-  const statut = investissement?.statut_capex_id
-  const voitValide = statut === ID_VALIDE || statut === ID_REALISE
-  const voitReel = statut === ID_REALISE
+  // Chaque montant à son étape (demande PO) : le réel se saisit en marquant
+  // réalisé, et ne se montre ici qu'une fois le dossier réalisé. Plus de
+  // montant validé (demande PO du 11/11/2026) : la proposition fait foi.
+  const voitReel = investissement?.statut_capex_id === ID_REALISE
   const { session } = useAuth()
   const create = useCreateInvestissement()
   const update = useUpdateInvestissement()
@@ -136,14 +133,6 @@ export function InvestissementFormDialog({
               label="Montant proposé (€)"
               inputMode="decimal"
             />
-            {voitValide && (
-              <TextField
-                control={form.control}
-                name="montant_prevu"
-                label="Montant validé (€)"
-                inputMode="decimal"
-              />
-            )}
             {voitReel && (
               <TextField
                 control={form.control}

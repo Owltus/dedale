@@ -97,7 +97,10 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
       const actuelles = cases(id).filter((c) => c.etat === 'actuel')
       expect(actuelles.map((c) => c.statutId)).toEqual([id])
       const a = actuelles[0]?.action
-      if (id === ID_REALISE || id === ID_REFUSE) expect(a?.statutId).toBe(id)
+      // Validé (146), Réalisé, Refusé : le clic rouvre leur fenêtre pour
+      // corriger la date (et le reste). Seule « Proposition » est inerte.
+      if (id === ID_VALIDE || id === ID_REALISE || id === ID_REFUSE)
+        expect(a?.statutId).toBe(id)
       else expect(a).toBeNull()
     }
   })
@@ -137,6 +140,7 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
     const sc = (id: number) => schemaCapex(id, 2026, SANS_REFERENTIEL)
     expect(sc(ID_DEMANDE).valide.action?.cle).toBe('valider')
     expect(sc(ID_REALISE).valide.action?.cle).toBe('rouvrir')
+    expect(sc(ID_VALIDE).valide.action?.cle).toBe('valider')
     expect(sc(ID_VALIDE).realise.action?.cle).toBe('realiser')
     expect(sc(ID_DEMANDE).refuse.action?.cle).toBe('refuser')
     expect(sc(ID_REFUSE).demande.action?.cle).toBe('relancer')
@@ -243,6 +247,7 @@ describe('datesCapex — dates du schéma', () => {
     date_demande: '2026-09-08',
     date_cloture: null,
     date_arret: null,
+    date_validation: null as string | null,
   }
   const d = (statut: number, annee: number, jour: string) => ({
     statut_capex_id: statut,
@@ -270,6 +275,20 @@ describe('datesCapex — dates du schéma', () => {
     )
     expect(r.valide).toBeNull()
     expect(r.refuse).toBe('2026-11-04')
+  })
+
+  it('validation : la date SAISIE (146) prime sur le journal', () => {
+    const r = datesCapex({ ...inv, date_validation: '2026-10-15' }, [
+      d(ID_VALIDE, 2026, '11-10'),
+    ])
+    expect(r.valide).toBe('2026-10-15')
+    // Refusé depuis : la date saisie ne s'affiche plus.
+    expect(
+      datesCapex(
+        { ...inv, statut_capex_id: ID_REFUSE, date_validation: '2026-10-15' },
+        [],
+      ).valide,
+    ).toBeNull()
   })
 
   it('réalisé : la date de réalisation de la fiche', () => {

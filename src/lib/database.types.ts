@@ -1718,6 +1718,7 @@ export type Database = {
           date_arret: string | null
           date_cloture: string | null
           date_demande: string
+          date_validation: string | null
           decision_par: string | null
           depense_reelle: number | null
           description: string | null
@@ -1742,6 +1743,7 @@ export type Database = {
           date_arret?: string | null
           date_cloture?: string | null
           date_demande?: string
+          date_validation?: string | null
           decision_par?: string | null
           depense_reelle?: number | null
           description?: string | null
@@ -1766,6 +1768,7 @@ export type Database = {
           date_arret?: string | null
           date_cloture?: string | null
           date_demande?: string
+          date_validation?: string | null
           decision_par?: string | null
           depense_reelle?: number | null
           description?: string | null

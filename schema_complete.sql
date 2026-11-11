@@ -4589,6 +4589,10 @@ CREATE TABLE investissements (
     arrete_by         UUID REFERENCES users(id) ON DELETE SET NULL,
     date_arret        DATE,
 
+    -- 146 : quand la proposition a été validée (saisie en validant,
+    -- modifiable) ; effacée si le dossier repart en Proposition ou est refusé.
+    date_validation   DATE,
+
     -- 137 : qui a pris la décision du statut courant (la direction n'utilise
     -- pas l'appli : le responsable note sa décision).
     decision_par      TEXT CONSTRAINT investissements_decision_par_check
@@ -4600,16 +4604,10 @@ CREATE TABLE investissements (
     -- On ne clôture pas avant d'avoir demandé (079).
     CONSTRAINT investissements_dates_coherentes CHECK (
         date_cloture IS NULL OR date_cloture >= date_demande
-    ),
-
-    -- Refuser ou annuler, c'est dire pourquoi (121). Texte NON VIDE et non un
-    -- simple NOT NULL : une chaîne d'espaces ne dit rien à personne. Les statuts
-    -- sont désignés par leurs IDS — un renommage dans statuts_capex reste donc
-    -- sans effet sur cette règle.
-    CONSTRAINT capex_motif_arret_oblig_si_refuse CHECK (
-        statut_capex_id <> 4   -- 138 : Refusé seul
-        OR (motif_arret IS NOT NULL AND length(btrim(motif_arret)) > 0)
     )
+    -- 145 : le motif d'un refus est FACULTATIF (contrainte
+    -- capex_motif_arret_oblig_si_refuse supprimée, demande PO) ; la date du
+    -- refus (date_arret) est saisie avec, aujourd'hui par défaut.
 );
 
 COMMENT ON TABLE investissements IS
@@ -4621,7 +4619,7 @@ COMMENT ON COLUMN investissements.bilan IS
 COMMENT ON COLUMN investissements.cloture_by IS
     'Qui a clôturé l''investissement (079). SET NULL : la suppression d''un compte n''efface pas l''historique budgétaire.';
 COMMENT ON COLUMN investissements.motif_arret IS
-    'Pourquoi le dossier s''est arrêté — refus d''arbitrage (statut 4) ou abandon en cours de route (statut 8). Obligatoire dans ces deux cas. À effacer lors d''une réactivation. (121)';
+    'Pourquoi le dossier s''est arrêté — refus d''arbitrage (statut 4) ou abandon en cours de route (statut 8). Facultatif depuis 145. À effacer lors d''une réactivation. (121)';
 COMMENT ON COLUMN investissements.arrete_by IS
     'Qui a refusé ou annulé l''investissement. Pendant de cloture_by. (121)';
 COMMENT ON COLUMN investissements.date_arret IS

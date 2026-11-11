@@ -15,7 +15,7 @@ export const ID_DEMANDE = 1
 export const ID_VALIDE = 2
 /** « Réalisé » : fait — porte la dépense réelle, la date et le bilan. */
 export const ID_REALISE = 3
-/** « Refusé » : motif obligatoire (CHECK capex_motif_arret_oblig_si_refuse). */
+/** « Refusé » : date du refus, motif facultatif (145). */
 export const ID_REFUSE = 4
 
 const LABELS_DEFAUT: Record<number, string> = {
@@ -195,10 +195,12 @@ export function schemaCapex(
       libelle: nomStatutCapex(ID_VALIDE, noms),
       statutId: ID_VALIDE,
       etat: etat(ID_VALIDE, statutId === ID_REALISE),
-      action: action(
-        ID_VALIDE,
-        statutId === ID_REALISE ? 'rouvrir' : 'valider',
-      ),
+      // Case du dossier validé : cliquable aussi, pour CORRIGER la date de
+      // validation (146) — comme Réalisé et Refusé.
+      action:
+        statutId === ID_VALIDE
+          ? { cle: 'valider', statutId: ID_VALIDE, annee }
+          : action(ID_VALIDE, statutId === ID_REALISE ? 'rouvrir' : 'valider'),
     },
     // Réalisé / Refusé : même la case du dossier reste cliquable — elle
     // rouvre sa fenêtre pour CORRIGER (date, dépense, bilan / motif). C'est le
@@ -260,6 +262,7 @@ export function datesCapex(
     | 'date_demande'
     | 'date_cloture'
     | 'date_arret'
+    | 'date_validation'
   >,
   decisions: readonly DecisionCapex[],
 ): DatesCapex {
@@ -286,7 +289,8 @@ export function datesCapex(
 
   return {
     demande: inv.date_demande,
-    valide: valideOuPlus ? derniere(ID_VALIDE) : null,
+    // Date saisie (146), sinon celle du journal (dossiers d'avant 146).
+    valide: valideOuPlus ? (inv.date_validation ?? derniere(ID_VALIDE)) : null,
     realise: statut === ID_REALISE ? inv.date_cloture : null,
     refuse:
       statut === ID_REFUSE ? (inv.date_arret ?? derniere(ID_REFUSE)) : null,
