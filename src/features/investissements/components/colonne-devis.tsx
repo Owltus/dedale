@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { useDroppable } from '@dnd-kit/core'
-import { Check, FileText, Pencil, Plus, Trash2, Undo2 } from 'lucide-react'
+import { Check, Pencil, Plus, Trash2, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Devis } from '@/features/investissements/queries'
 import { formatEuros } from '@/features/investissements/format'
@@ -272,12 +272,7 @@ function TuileDevis({
         )}
       >
         <span className="flex min-w-0 flex-1 flex-col leading-tight">
-          <span className="flex items-center gap-1.5 truncate font-medium">
-            {d.document_id && (
-              <FileText aria-hidden className="size-3.5 shrink-0 text-info" />
-            )}
-            <span className="truncate">{d.fournisseur}</span>
-          </span>
+          <span className="truncate font-medium">{d.fournisseur}</span>
           <span className="mt-0.5 truncate text-[11px] text-muted-foreground">
             {d.objet ?? nomPdf ?? 'Sans PDF'}
           </span>

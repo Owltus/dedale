@@ -294,30 +294,36 @@ function TuileCase({
   const couleur = actuel && c.statutId ? couleurActuelle(c.statutId) : undefined
   const contenu = (
     <>
-      <span
-        className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-full',
-          c.etat === 'fait' && 'bg-success/15 text-success',
-          // Case libre : sa couleur de branche, en pâle — refus rouge,
-          // report jaune.
-          c.etat === 'libre' &&
-            (cle === 'refuse'
-              ? 'bg-destructive/10 text-destructive'
-              : cle === 'reporte'
-                ? 'bg-warning/15 text-warning'
-                : 'bg-muted text-muted-foreground'),
-        )}
-        style={
-          couleur
-            ? {
-                color: couleur,
-                backgroundColor: `color-mix(in oklch, ${couleur} 18%, transparent)`,
-              }
-            : undefined
-        }
-      >
-        <Icone aria-hidden className="size-4" />
-      </span>
+      {/* Pas d'icône pour la proposition (demande PO) : son texte prend la
+          place. */}
+      {cle !== 'demande' && (
+        <>
+          <span
+            className={cn(
+              'flex size-8 shrink-0 items-center justify-center rounded-full',
+              c.etat === 'fait' && 'bg-success/15 text-success',
+              // Case libre : sa couleur de branche, en pâle — refus rouge,
+              // report jaune.
+              c.etat === 'libre' &&
+                (cle === 'refuse'
+                  ? 'bg-destructive/10 text-destructive'
+                  : cle === 'reporte'
+                    ? 'bg-warning/15 text-warning'
+                    : 'bg-muted text-muted-foreground'),
+            )}
+            style={
+              couleur
+                ? {
+                    color: couleur,
+                    backgroundColor: `color-mix(in oklch, ${couleur} 18%, transparent)`,
+                  }
+                : undefined
+            }
+          >
+            <Icone aria-hidden className="size-4" />
+          </span>
+        </>
+      )}
       {/* Nom de l'étape, sa date, puis son texte quand ils existent. */}
       <span className="flex min-w-0 flex-col items-center leading-tight @min-[15rem]:items-start @min-[15rem]:text-left">
         <span>{c.libelle}</span>
@@ -329,7 +335,12 @@ function TuileCase({
         {texte?.trim() && (
           <span
             title={texte}
-            className="mt-1.5 line-clamp-4 text-xs leading-snug font-normal whitespace-pre-line text-muted-foreground"
+            className={cn(
+              'mt-1.5 text-xs leading-snug font-normal whitespace-pre-line text-muted-foreground',
+              // La proposition se lit EN ENTIER (la case grandit avec son
+              // texte) ; au-delà d'une quinzaine de lignes, la suite au survol.
+              cle === 'demande' ? 'line-clamp-[15]' : 'line-clamp-4',
+            )}
           >
             {texte}
           </span>
@@ -575,29 +586,28 @@ function Pastille({
   selection: SelectionCapex | null
   valide: boolean
 }) {
+  // Rien de coché : un simple point gris où se rejoignent les pointillés —
+  // pas de texte (demande PO).
+  if (selection === null)
+    return (
+      <span
+        aria-hidden
+        className="size-2.5 rounded-full bg-muted-foreground/40"
+      />
+    )
   return (
     <span
       className={cn(
         'flex flex-col items-center rounded-full border px-3 py-1 text-center text-[11px] leading-tight whitespace-nowrap shadow-xs',
-        selection === null
-          ? 'border-dashed bg-card text-muted-foreground'
-          : valide
-            ? 'border-success/50 bg-success/10 text-foreground'
-            : 'border-info/50 bg-info/10 text-foreground',
+        valide
+          ? 'border-success/50 bg-success/10 text-foreground'
+          : 'border-info/50 bg-info/10 text-foreground',
       )}
     >
-      {selection === null ? (
-        'Aucun devis retenu'
-      ) : (
-        <>
-          <span>
-            {selection.nb} devis retenu{selection.nb > 1 ? 's' : ''}
-          </span>
-          <span className="font-semibold tabular-nums">
-            {selection.montant} HT
-          </span>
-        </>
-      )}
+      <span>
+        {selection.nb} devis retenu{selection.nb > 1 ? 's' : ''}
+      </span>
+      <span className="font-semibold tabular-nums">{selection.montant} HT</span>
     </span>
   )
 }
@@ -677,14 +687,20 @@ function SchemaHorizontal({
       <div className="flex items-stretch">
         <div className="relative min-w-3 flex-1">
           <Courbes
+            // Rien de coché : TOUS les devis rejoignent la pastille, en
+            // pointillés gris (demande PO) — il reste à choisir.
             traits={devis.flatMap((d, i) =>
-              d.retenu
+              d.retenu || selection === null
                 ? [
                     {
                       cle: String(i),
                       de: centre(i, k),
                       vers: 50,
-                      etat: fait ? ('ok' as const) : ('choisi' as const),
+                      etat: !d.retenu
+                        ? ('libre' as const)
+                        : fait
+                          ? ('ok' as const)
+                          : ('choisi' as const),
                     },
                   ]
                 : [],
