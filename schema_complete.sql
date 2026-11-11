@@ -5686,6 +5686,35 @@ CREATE TABLE documents_investissements (
 CREATE INDEX idx_doc_capex_capex ON documents_investissements(investissement_id);
 ALTER TABLE documents_investissements ENABLE ROW LEVEL SECURITY;
 
+-- 147 : plusieurs DEVIS par projet d'investissement (décision PO 11/11/2026).
+-- Le PO retient ceux qu'il veut ; montant validé = somme des retenus, avant
+-- tout choix le projet compte pour son devis le moins cher (calcul front).
+-- Montants HT. Le PDF est AUSSI lié au projet (documents_investissements).
+CREATE TABLE investissements_devis (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    investissement_id UUID NOT NULL REFERENCES investissements(id) ON DELETE CASCADE,
+    fournisseur       TEXT NOT NULL
+                      CONSTRAINT investissements_devis_fournisseur_check
+                      CHECK (length(btrim(fournisseur)) BETWEEN 1 AND 100),
+    objet             TEXT
+                      CONSTRAINT investissements_devis_objet_check
+                      CHECK (objet IS NULL OR length(objet) <= 200),
+    montant_ht        NUMERIC(12,2) NOT NULL
+                      CONSTRAINT investissements_devis_montant_ht_check
+                      CHECK (montant_ht >= 0),
+    -- SET NULL : supprimer le PDF garde le devis, sans pièce.
+    document_id       UUID REFERENCES documents(id) ON DELETE SET NULL,
+    retenu            BOOLEAN NOT NULL DEFAULT false,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_inv_devis_investissement ON investissements_devis(investissement_id);
+CREATE INDEX idx_inv_devis_document ON investissements_devis(document_id);
+CREATE TRIGGER trg_investissements_devis_set_updated_at
+    BEFORE UPDATE ON investissements_devis
+    FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+ALTER TABLE investissements_devis ENABLE ROW LEVEL SECURITY;
+
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║  v0.14b — Bibliothèques de fichiers : chapitres documents + pool miniatures ║
@@ -10103,6 +10132,29 @@ CREATE POLICY doc_capex_select ON documents_investissements FOR SELECT
         (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
         AND EXISTS (SELECT 1 FROM investissements i
                     WHERE i.id = documents_investissements.investissement_id
+                      AND public.has_site_access(i.site_id))
+    );
+
+-- investissements_devis (147) — même scope : le site du projet parent.
+CREATE POLICY inv_devis_admin_all ON investissements_devis FOR ALL
+    USING ((SELECT public.current_role()) = 'admin')
+    WITH CHECK ((SELECT public.current_role()) = 'admin');
+
+CREATE POLICY inv_devis_scoped ON investissements_devis FOR ALL
+    USING ((SELECT public.current_role()) IN ('manager', 'technicien')
+           AND EXISTS (SELECT 1 FROM investissements i
+                       WHERE i.id = investissements_devis.investissement_id
+                         AND public.has_site_access(i.site_id)))
+    WITH CHECK ((SELECT public.current_role()) IN ('manager', 'technicien')
+           AND EXISTS (SELECT 1 FROM investissements i
+                       WHERE i.id = investissements_devis.investissement_id
+                         AND public.has_site_access(i.site_id)));
+
+CREATE POLICY inv_devis_select ON investissements_devis FOR SELECT
+    USING (
+        (SELECT public.current_role()) IN ('manager', 'technicien', 'lecteur')
+        AND EXISTS (SELECT 1 FROM investissements i
+                    WHERE i.id = investissements_devis.investissement_id
                       AND public.has_site_access(i.site_id))
     );
 

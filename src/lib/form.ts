@@ -179,6 +179,13 @@ const MESSAGES_CONTRAINTE_CHECK: Readonly<Record<string, string>> = {
     'Montant prévu invalide : saisissez 0 ou plus, ou laissez le champ vide s’il n’est pas encore chiffré.',
   investissements_depense_reelle_check:
     'Dépense réelle invalide : saisissez 0 ou plus, ou laissez le champ vide tant que la dépense n’est pas connue.',
+  // Devis d'un projet (147).
+  investissements_devis_fournisseur_check:
+    'Fournisseur obligatoire : indiquez qui a fait le devis (100 caractères au plus).',
+  investissements_devis_objet_check:
+    'Objet trop long : 200 caractères au plus.',
+  investissements_devis_montant_ht_check:
+    'Montant HT invalide : saisissez 0 ou plus.',
 
   // ── Contrats ──────────────────────────────────────────────────────────────
   contrats_reference_non_vide: VIDE_REFERENCE,

@@ -1897,6 +1897,57 @@ export type Database = {
           },
         ]
       }
+      investissements_devis: {
+        Row: {
+          created_at: string
+          document_id: string | null
+          fournisseur: string
+          id: string
+          investissement_id: string
+          montant_ht: number
+          objet: string | null
+          retenu: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          document_id?: string | null
+          fournisseur: string
+          id?: string
+          investissement_id: string
+          montant_ht: number
+          objet?: string | null
+          retenu?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string | null
+          fournisseur?: string
+          id?: string
+          investissement_id?: string
+          montant_ht?: number
+          objet?: string | null
+          retenu?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investissements_devis_document_id_fkey1"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investissements_devis_investissement_id_fkey"
+            columns: ["investissement_id"]
+            isOneToOne: false
+            referencedRelation: "investissements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locaux: {
         Row: {
           accessible_pmr: boolean

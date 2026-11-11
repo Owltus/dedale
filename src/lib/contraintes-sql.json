@@ -2145,6 +2145,87 @@
         }
       }
     },
+    "investissements_devis": {
+      "checks": {
+        "investissements_devis_fournisseur_check": "CHECK (((length(btrim(fournisseur)) >= 1) AND (length(btrim(fournisseur)) <= 100)))",
+        "investissements_devis_montant_ht_check": "CHECK ((montant_ht >= (0)::numeric))",
+        "investissements_devis_objet_check": "CHECK (((objet IS NULL) OR (length(objet) <= 200)))"
+      },
+      "colonnes": {
+        "created_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "document_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "fournisseur": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "investissement_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "montant_ht": {
+          "aUnDefaut": false,
+          "echelle": 2,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 12,
+          "type": "numeric"
+        },
+        "objet": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "retenu": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "updated_at": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
     "locaux": {
       "checks": {
         "chk_locaux_image_path_format": "CHECK (((image_path IS NULL) OR ((POSITION(('..'::text) IN (image_path)) = 0) AND (POSITION(('\\'::text) IN (image_path)) = 0) AND (image_path !~~ '/%'::text) AND (length(image_path) < 500))))",
