@@ -7,19 +7,24 @@ import { toast } from 'sonner'
 import {
   decisionsCapexQueries,
   statutsCapexQueries,
+  type Devis,
+  type Projet,
 } from '@/features/investissements/queries'
 import {
   datesCapex,
   ID_REALISE,
   ID_REFUSE,
   ID_VALIDE,
+  montantProjet,
+  montantRetenu,
   schemaCapex,
   type ActionCapex,
 } from '@/features/investissements/etat'
 import {
   useChangeStatutCapex,
-  useDefinirDevis,
   useModifierDateValidation,
+  useRetenirDevis,
+  useSupprimerDevis,
 } from '@/features/investissements/mutations'
 import { ecartCapex, formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
@@ -27,9 +32,15 @@ import { ClotureInvestissementDialog } from './cloture-investissement-dialog'
 import { ValidationInvestissementDialog } from './validation-investissement-dialog'
 import { parseMontant } from '@/features/investissements/schemas'
 import { SchemaCapex } from './schema-capex'
-import { CaseDevis, CIBLE_DEVIS, estDansZoneDevis } from './cadre-devis'
+import { ColonneDevis, CIBLE_DEVIS, estDansZoneDevis } from './colonne-devis'
+import { DevisDialog, type PieceDevis } from './devis-dialog'
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { typesDocumentsQueries } from '@/features/documents/queries'
+import {
+  documentsQueries,
+  typesDocumentsQueries,
+} from '@/features/documents/queries'
+import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
+import type { DocumentMeta } from '@/features/documents/format'
 import { PAGE_META } from '@/features/investissements/page-meta'
 import { MIME_PDF } from '@/features/documents/upload'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
@@ -49,22 +60,19 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { RefusInvestissementDialog } from './refus-investissement-dialog'
 import { DetailNoteCard } from '@/components/common/detail-note-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { Database } from '@/lib/database.types'
-
-type Investissement = Database['public']['Tables']['investissements']['Row']
 
 export function InvestissementDetail({
   investissement: inv,
   siteId,
   canManage,
 }: {
-  investissement: Investissement
+  investissement: Projet
   siteId: string
   canManage: boolean
 }) {
   const navigate = useNavigate()
-  const edit = useEntityDialog<Investissement>()
-  const realisation = useEntityDialog<Investissement>()
+  const edit = useEntityDialog<Projet>()
+  const realisation = useEntityDialog<Projet>()
   const { session } = useAuth()
   const confirmAction = useConfirmAction()
   const [refus, setRefus] = useState(false)
@@ -82,7 +90,30 @@ export function InvestissementDetail({
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const { data: decisions = [] } = useQuery(decisionsCapexQueries.list(inv.id))
   const change = useChangeStatutCapex()
-  const definirDevis = useDefinirDevis()
+  const retenir = useRetenirDevis()
+  const supprimerDevis = useSupprimerDevis()
+  // Fenêtres des DEVIS (147) : ici, une seule fois — le schéma (et donc la
+  // colonne des devis) est rendu deux fois.
+  const [fenetreDevis, setFenetreDevis] = useState<{
+    devis?: Devis
+    piece: PieceDevis | null
+    cle: number
+  } | null>(null)
+  const [apercu, setApercu] = useState<DocumentMeta | null>(null)
+  const { data: docs = [] } = useQuery(
+    documentsQueries.byEntity(
+      'documents_investissements',
+      'investissement_id',
+      inv.id,
+    ),
+  )
+  const docsParId = new Map(docs.map((d) => [d.id, d]))
+  const nomsPdf = new Map(docs.map((d) => [d.id, d.nom_original]))
+  const pdfsDevis = new Set(
+    inv.devis.flatMap((d) => (d.document_id ? [d.document_id] : [])),
+  )
+  const ouvrirDevis = (devis: Devis | undefined, piece: PieceDevis | null) =>
+    setFenetreDevis({ devis, piece, cle: Date.now() })
   // Un petit déplacement avant de « prendre » une ligne : un simple clic
   // garde l'aperçu du document.
   const capteurs = useSensors(
@@ -120,7 +151,7 @@ export function InvestissementDetail({
       setRefus(true)
       return
     }
-    // Valider (ou corriger la validation) : la date, rien d'autre (146).
+    // Valider (ou corriger la validation) : la date et les devis retenus.
     if (a.cle === 'valider') {
       setValidation(true)
       return
@@ -133,7 +164,7 @@ export function InvestissementDetail({
     if (a.cle === 'reporter') {
       confirmAction.demander({
         title: `Reporter au budget ${String(a.annee)} ?`,
-        description: `Le dossier quitte le budget ${String(annee)} et repart en « Proposition » dans celui de ${String(a.annee)}.`,
+        description: `Le projet quitte le budget ${String(annee)} et repart en « Proposition » dans celui de ${String(a.annee)}.`,
         confirmLabel: `Reporter à ${String(a.annee)}`,
         run: () =>
           change.mutateAsync({
@@ -142,7 +173,7 @@ export function InvestissementDetail({
             annee: a.annee,
           }),
         successMessage: `Reporté au budget ${String(a.annee)}`,
-        // La fiche suit le dossier dans sa nouvelle année.
+        // La fiche suit le projet dans sa nouvelle année.
         onSuccess: () =>
           void navigate({
             to: '/investissements/$annee/$investissement',
@@ -162,9 +193,7 @@ export function InvestissementDetail({
       {
         onSuccess: () =>
           toast.success(
-            a.cle === 'rouvrir'
-              ? 'Investissement rouvert'
-              : 'Proposition relancée',
+            a.cle === 'rouvrir' ? 'Projet rouvert' : 'Proposition relancée',
           ),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
@@ -229,7 +258,7 @@ export function InvestissementDetail({
               />
               <TooltipIconButton
                 icon={<Pencil />}
-                label="Modifier l'investissement"
+                label="Modifier le projet"
                 variant="outline"
                 onClick={() => edit.openEdit(inv)}
               />
@@ -238,22 +267,19 @@ export function InvestissementDetail({
         }
       />
 
-      {/* Glisser un document de la liste sur la case « Devis » en fait le
-          devis du dossier (demande PO). */}
+      {/* Glisser un document de la liste sur la colonne des devis en fait un
+          nouveau devis (fenêtre pré-remplie : fournisseur et montant). */}
       <DndContext
         sensors={capteurs}
         onDragEnd={({ active, over }) => {
           if (over?.data.current?.type !== CIBLE_DEVIS) return
           if (active.data.current?.type !== 'document') return
-          const documentId = String(active.data.current.documentId)
-          if (documentId === inv.devis_document_id) return
-          definirDevis.mutate(
-            { id: inv.id, documentId },
-            {
-              onSuccess: () => toast.success('Devis retenu'),
-              onError: (e) => toast.error(writeErrorMessage(e)),
-            },
-          )
+          const id = String(active.data.current.documentId)
+          ouvrirDevis(undefined, {
+            type: 'document',
+            id,
+            nom: nomsPdf.get(id) ?? 'PDF',
+          })
         }}
       >
         {/* SCHÉMA (138, demande PO) : Demandé, puis Refusé / Validé / Reporter,
@@ -266,21 +292,68 @@ export function InvestissementDetail({
               schema={schema}
               menus={menus}
               devis={
-                <CaseDevis
-                  investissementId={inv.id}
-                  devisDocumentId={inv.devis_document_id}
-                  fournisseur={inv.fournisseur}
-                  devisTypeId={devisTypeId}
+                <ColonneDevis
+                  devis={inv.devis}
+                  nomsPdf={nomsPdf}
                   canManage={canManage}
+                  choixFait={valideOuPlus}
                   glissement={upload.dragging}
+                  onApercu={(d) =>
+                    setApercu(
+                      d.document_id
+                        ? (docsParId.get(d.document_id) ?? null)
+                        : null,
+                    )
+                  }
+                  onModifier={(d) =>
+                    ouvrirDevis(
+                      d,
+                      d.document_id
+                        ? {
+                            type: 'document',
+                            id: d.document_id,
+                            nom: nomsPdf.get(d.document_id) ?? 'PDF',
+                          }
+                        : null,
+                    )
+                  }
+                  onAjouter={(fichier) =>
+                    ouvrirDevis(
+                      undefined,
+                      fichier ? { type: 'fichier', fichier } : null,
+                    )
+                  }
+                  onRetenir={(d, retenu) =>
+                    retenir.mutate(
+                      { id: d.id, retenu },
+                      {
+                        onSuccess: () =>
+                          toast.success(
+                            retenu ? 'Devis retenu' : 'Devis plus retenu',
+                          ),
+                        onError: (e) => toast.error(writeErrorMessage(e)),
+                      },
+                    )
+                  }
+                  onSupprimer={(d) =>
+                    confirmAction.demander({
+                      title: 'Supprimer ce devis ?',
+                      description: `Le devis ${d.fournisseur} (${formatEuros(d.montant_ht)} HT) est retiré du projet. Son PDF reste dans les documents.`,
+                      confirmLabel: 'Supprimer',
+                      destructive: true,
+                      run: () => supprimerDevis.mutateAsync(d.id),
+                      successMessage: 'Devis supprimé',
+                    })
+                  }
                 />
               }
               // Un montant vide n'est pas affiché : un « — » seul, sans
               // légende, ne dirait rien.
               chiffres={{
-                // Pas de montant dans « Validé » (demande PO) : il redirait
-                // celui de la proposition. L'écart, lui, reste dans Réalisé.
-                demande: montant(inv.montant_demande),
+                // Montant du projet (147) dans « Proposition » : le moins
+                // cher tant que rien n'est validé, puis la somme des retenus.
+                // Pas de montant dans « Validé » (demande PO).
+                demande: montantProposition(inv, valideOuPlus),
                 realise: [
                   ...montant(inv.depense_reelle),
                   ...(label
@@ -315,7 +388,7 @@ export function InvestissementDetail({
               canManage && (
                 <TooltipIconButton
                   icon={<Pencil />}
-                  label="Modifier l'investissement"
+                  label="Modifier le projet"
                   variant="ghost"
                   onClick={() => edit.openEdit(inv)}
                 />
@@ -355,9 +428,9 @@ export function InvestissementDetail({
               uploadOpen={upload.uploadOpen}
               onUploadOpenChange={upload.onUploadOpenChange}
               uploadInitialFiles={upload.droppedFiles}
-              // Tout SAUF le devis retenu, qui a sa case dans le schéma.
-              filtre={(d) => d.id !== inv.devis_document_id}
-              // Glisser une ligne sur la case « Devis » en fait le devis.
+              // Tout SAUF les PDF des devis : ils sont dans le schéma.
+              filtre={(d) => !pdfsDevis.has(d.id)}
+              // Glisser une ligne sur la colonne des devis en fait un devis.
               draggable={canManage}
             />
           </CardContent>
@@ -385,13 +458,12 @@ export function InvestissementDetail({
             dateValidation={
               valideOuPlus ? (inv.date_validation ?? dates.valide) : undefined
             }
-            onConfirm={({ date_validation }) => {
+            devis={inv.devis}
+            onConfirm={({ date_validation, devis_retenus }) => {
               const fini = {
                 onSuccess: () => {
                   toast.success(
-                    valideOuPlus
-                      ? 'Validation modifiée'
-                      : 'Investissement validé',
+                    valideOuPlus ? 'Validation modifiée' : 'Projet validé',
                   )
                   setValidation(false)
                 },
@@ -399,7 +471,11 @@ export function InvestissementDetail({
               }
               if (valideOuPlus)
                 modifierDateValidation.mutate(
-                  { id: inv.id, dateValidation: date_validation },
+                  {
+                    id: inv.id,
+                    dateValidation: date_validation,
+                    devisRetenus: devis_retenus,
+                  },
                   fini,
                 )
               else
@@ -409,6 +485,7 @@ export function InvestissementDetail({
                     statutId: ID_VALIDE,
                     annee,
                     dateValidation: date_validation,
+                    devisRetenus: devis_retenus,
                   },
                   fini,
                 )
@@ -420,7 +497,7 @@ export function InvestissementDetail({
             onOpenChange={realisation.onOpenChange}
             pending={change.isPending}
             dateDemande={inv.date_demande}
-            depenseReelle={inv.depense_reelle ?? inv.montant_prevu}
+            depenseReelle={inv.depense_reelle ?? montantRetenu(inv)}
             // Déjà réalisé → le dialogue s'ouvre pré-rempli, en correction.
             initial={
               realise
@@ -441,9 +518,7 @@ export function InvestissementDetail({
                 {
                   onSuccess: () => {
                     toast.success(
-                      realise
-                        ? 'Réalisation modifiée'
-                        : 'Investissement réalisé',
+                      realise ? 'Réalisation modifiée' : 'Projet réalisé',
                     )
                     realisation.onOpenChange(false)
                   },
@@ -480,11 +555,29 @@ export function InvestissementDetail({
             {
               onSuccess: () => {
                 setRefus(false)
-                toast.success(refuse ? 'Refus modifié' : 'Proposition refusée')
+                toast.success(refuse ? 'Refus modifié' : 'Projet refusé')
               },
               onError: (e) => toast.error(writeErrorMessage(e)),
             },
           )
+        }}
+      />
+
+      {canManage && fenetreDevis && (
+        <DevisDialog
+          key={fenetreDevis.cle}
+          open
+          onOpenChange={(o) => !o && setFenetreDevis(null)}
+          projetId={inv.id}
+          devisTypeId={devisTypeId}
+          devis={fenetreDevis.devis}
+          piece={fenetreDevis.piece}
+        />
+      )}
+      <DocumentPreviewDialog
+        doc={apercu}
+        onOpenChange={(o) => {
+          if (!o) setApercu(null)
         }}
       />
 
@@ -496,6 +589,26 @@ export function InvestissementDetail({
 /** Le montant de la case, ou rien s'il n'est pas renseigné. */
 function montant(valeur: number | null): { valeur: string }[] {
   return valeur === null ? [] : [{ valeur: formatEuros(valeur) }]
+}
+
+/**
+ * Montant de « Proposition » (147) : celui du projet, avec sa règle dite
+ * dessous quand il y a un choix — « le moins cher » avant validation,
+ * « retenu » ensuite.
+ */
+function montantProposition(
+  p: Projet,
+  choixFait: boolean,
+): { valeur: string; libelle?: string }[] {
+  const m = choixFait ? montantRetenu(p) : montantProjet(p)
+  if (m === null) return []
+  if (p.devis.length < 2) return [{ valeur: formatEuros(m) }]
+  return [
+    {
+      valeur: formatEuros(m),
+      libelle: choixFait ? 'retenu' : 'le moins cher',
+    },
+  ]
 }
 
 /** La date seule (« 10/11/2026 », demande PO), ou rien si elle manque. */

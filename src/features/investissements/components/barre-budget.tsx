@@ -5,15 +5,13 @@ import {
   ID_VALIDE,
   nomStatutCapex,
   repartitionBudget,
+  type ProjetMontant,
 } from '@/features/investissements/etat'
 import {
   formatEuros,
   formatEurosArrondi,
 } from '@/features/investissements/format'
 import { cn } from '@/lib/utils'
-import type { Database } from '@/lib/database.types'
-
-type Investissement = Database['public']['Tables']['investissements']['Row']
 
 // Couleurs du parcours (demande PO) : vert pour ce qui est accordé — plein une
 // fois réalisé, teinté tant que seulement validé —, gris pour ce qui attend,
@@ -38,10 +36,7 @@ export function BarreBudget({
   noms,
   className,
 }: {
-  investissements: readonly Pick<
-    Investissement,
-    'statut_capex_id' | 'montant_demande' | 'montant_prevu' | 'depense_reelle'
-  >[]
+  investissements: readonly ProjetMontant[]
   noms: Map<number, string>
   /** Largeur/marges selon l'hôte (pleine largeur par défaut). */
   className?: string

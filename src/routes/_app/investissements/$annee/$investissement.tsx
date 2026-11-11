@@ -46,10 +46,10 @@ function InvestissementDetailPage() {
           slug={slug}
           identity={(i) => ({ nom: i.libelle, id: i.id })}
           onSlugChange={onSlugChange}
-          title="Investissement"
+          title="Projet"
           onBack={retour}
           notFound={{
-            title: "Cet investissement n'est pas dans ce budget",
+            title: "Ce projet n'est pas dans ce budget",
             description:
               "Il a peut-être été reporté à une autre année, supprimé, ou il n'est pas accessible depuis ce site.",
             icon: PAGE_META.icone,

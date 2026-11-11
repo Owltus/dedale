@@ -86,7 +86,7 @@ function InvestissementsContent({
   const form = useEntityDialog<Investissement>()
   const suppression = useConfirmDelete<Investissement>({
     onDelete: (inv) => del.mutateAsync(inv.id),
-    successMessage: 'Investissement supprimé',
+    successMessage: 'Projet supprimé',
   })
   // Pas de filtre par statut (demande PO) : un budget montre TOUS ses
   // dossiers ; seule la recherche reste.
@@ -96,7 +96,7 @@ function InvestissementsContent({
 
   const newButton = canManage ? (
     <Button onClick={form.openCreate}>
-      <Plus /> Nouvel investissement
+      <Plus /> Nouveau projet
     </Button>
   ) : undefined
 
@@ -126,7 +126,7 @@ function InvestissementsContent({
           canManage ? (
             <TooltipIconButton
               icon={<Plus />}
-              label="Nouvel investissement"
+              label="Nouveau projet"
               variant="outline"
               onClick={form.openCreate}
             />
@@ -143,8 +143,8 @@ function InvestissementsContent({
             title={`Aucune proposition pour le budget ${String(annee)}`}
             description={
               canManage
-                ? 'Ajoute une première proposition d’investissement pour cette année.'
-                : 'Aucun investissement enregistré pour cette année.'
+                ? 'Ajoute un premier projet pour cette année.'
+                : 'Aucun projet enregistré pour cette année.'
             }
             action={newButton}
           />
@@ -156,7 +156,9 @@ function InvestissementsContent({
             if (q === '') return true
             return (
               inv.libelle.toLowerCase().includes(q) ||
-              (inv.fournisseur ?? '').toLowerCase().includes(q) ||
+              inv.devis.some((d) =>
+                `${d.fournisseur} ${d.objet ?? ''}`.toLowerCase().includes(q),
+              ) ||
               (inv.description ?? '').toLowerCase().includes(q)
             )
           })
@@ -170,9 +172,9 @@ function InvestissementsContent({
             <ListPageBody
               search={recherche}
               onSearchChange={setRecherche}
-              searchPlaceholder="Rechercher un investissement, un fournisseur…"
+              searchPlaceholder="Rechercher un projet, un fournisseur…"
               isEmpty={shown.length === 0}
-              emptySearchDescription="Aucun investissement ne correspond à cette recherche."
+              emptySearchDescription="Aucun projet ne correspond à cette recherche."
             >
               {shown.map((inv) => {
                 const statutLabel = nomStatutCapex(
@@ -204,9 +206,10 @@ function InvestissementsContent({
                     tone={statutCapexTone(inv.statut_capex_id)}
                     media={<RowMediaIcon icon={Wallet} />}
                     title={inv.libelle}
-                    // Le fournisseur en tête (141), puis la description.
+                    // Les fournisseurs des devis en tête (147), puis la
+                    // description.
                     subtitle={[
-                      inv.fournisseur,
+                      fournisseurs(inv.devis),
                       inv.description?.trim()
                         ? inv.description
                         : `Demandé le ${formatDate(inv.date_demande)}`,
@@ -264,13 +267,18 @@ function InvestissementsContent({
         {...suppression.dialogProps}
         entityLabel={
           suppression.toDelete
-            ? `l'investissement « ${suppression.toDelete.libelle} »`
-            : "l'investissement"
+            ? `le projet « ${suppression.toDelete.libelle} »`
+            : 'le projet'
         }
-        warning="Cette suppression est définitive et retire le suivi budgétaire de cet investissement."
+        warning="Cette suppression est définitive et retire le projet et ses devis (leurs PDF restent dans les documents)."
       />
     </PageContainer>
   )
 }
 
 /** « 3 dossiers · 5 000 € demandés · 1 200 € validés » pour l'année. */
+
+/** Fournisseurs distincts des devis d'un projet (« CEDEO, Legallais »). */
+function fournisseurs(devis: readonly { fournisseur: string }[]): string {
+  return [...new Set(devis.map((d) => d.fournisseur))].join(', ')
+}

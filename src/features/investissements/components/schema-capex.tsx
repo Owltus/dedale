@@ -409,8 +409,8 @@ interface PropsSchema {
   /** Menus du clic droit / appui long, par case (selon la situation du dossier). */
   menus?: Partial<Record<CleCase, RowAction[]>>
   /**
-   * Case « Devis » ACCROCHÉE à la proposition (demande PO) : sous elle en
-   * horizontal, à sa gauche en vertical, reliée par un trait pointillé.
+   * Colonne des DEVIS (147) ACCROCHÉE à la proposition (demande PO) : sous
+   * elle, reliée par un trait pointillé — en large comme en étroit.
    */
   devis?: ReactNode
   chiffres?: ChiffresCapex
@@ -419,19 +419,12 @@ interface PropsSchema {
   disabled?: boolean
 }
 
-/**
- * Trait pointillé de la proposition vers la case Devis, posé dans la cellule
- * du devis : il part du haut de la case et remonte l'espace (`h-4` = les
- * deux `py-2`) jusqu'à la proposition.
- */
-function TraitDevis() {
-  return (
-    <span
-      aria-hidden
-      className="absolute bottom-[calc(100%-0.5rem)] left-1/2 h-4 -translate-x-1/2 border-l-2 border-dashed border-info/50"
-    />
-  )
-}
+/** Trait pointillé vertical de la proposition vers ses devis. */
+const TRAIT_DEVIS = 'border-l-2 border-dashed border-info/50'
+
+/** Colonnes du schéma large : partagées par l'organigramme et ses devis. */
+const COLONNES_LARGES =
+  'grid-cols-[minmax(0,1fr)_minmax(4rem,0.8fr)_minmax(0,1fr)_minmax(3rem,0.5fr)_minmax(0,1fr)]'
 
 /** Liens de la fourche qui part de « Demandé ». */
 function liensFourche(schema: Schema) {
@@ -482,83 +475,98 @@ function SchemaHorizontal({
   // les deux `py-2` — ce que le trait du devis franchit.
   const cellule = 'flex items-stretch py-2 @container'
   return (
-    <div className="hidden w-full grid-cols-[minmax(0,1fr)_minmax(4rem,0.8fr)_minmax(0,1fr)_minmax(3rem,0.5fr)_minmax(0,1fr)] grid-rows-3 @min-[56rem]:grid">
+    <div className="hidden w-full @min-[56rem]:block">
+      <div className={cn('grid w-full grid-rows-3', COLONNES_LARGES)}>
+        {/* Sous la proposition, le trait descend vers ses devis (N tuiles :
+          ils vivent SOUS l'organigramme, pour garder ses rangées égales — la
+          fourche en dépend). */}
+        {devis && (
+          <div className="relative col-start-1 row-start-3">
+            <span
+              aria-hidden
+              className={cn(
+                'absolute -top-2 bottom-0 left-1/2 -translate-x-1/2',
+                TRAIT_DEVIS,
+              )}
+            />
+          </div>
+        )}
+        <div className={cn(cellule, 'col-start-1 row-start-2')}>
+          <Case
+            cle="demande"
+            c={schema.demande}
+            chiffres={chiffres?.demande}
+            date={dates?.demande}
+            menu={menus?.demande}
+            {...props}
+          />
+        </div>
+        <div className="relative col-start-2 row-span-3 row-start-1">
+          <Liens orientation="h" liens={liensFourche(schema)} />
+        </div>
+        <div className={cn(cellule, 'col-start-3 row-start-1')}>
+          <Case
+            cle="refuse"
+            c={schema.refuse}
+            chiffres={chiffres?.refuse}
+            date={dates?.refuse}
+            menu={menus?.refuse}
+            estompe={estompees(schema).has('refuse')}
+            {...props}
+          />
+        </div>
+        <div className={cn(cellule, 'col-start-3 row-start-2')}>
+          <Case
+            cle="valide"
+            c={schema.valide}
+            chiffres={chiffres?.valide}
+            date={dates?.valide}
+            menu={menus?.valide}
+            estompe={estompees(schema).has('valide')}
+            {...props}
+          />
+        </div>
+        <div className={cn(cellule, 'col-start-3 row-start-3')}>
+          <Case
+            cle="reporte"
+            c={schema.reporte}
+            chiffres={chiffres?.reporte}
+            date={dates?.reporte}
+            menu={menus?.reporte}
+            estompe={estompees(schema).has('reporte')}
+            {...props}
+          />
+        </div>
+        {/* Validé → Réalisé : sur la rangée du milieu, flèche droite. */}
+        <div className="relative col-start-4 row-span-3 row-start-1">
+          <Liens
+            orientation="h"
+            liens={[
+              {
+                vers: 1,
+                etat: schema.fleches.versRealise,
+                estompe: estompees(schema).has('realise'),
+              },
+            ]}
+          />
+        </div>
+        <div className={cn(cellule, 'col-start-5 row-start-2')}>
+          <Case
+            cle="realise"
+            c={schema.realise}
+            chiffres={chiffres?.realise}
+            date={dates?.realise}
+            menu={menus?.realise}
+            estompe={estompees(schema).has('realise')}
+            {...props}
+          />
+        </div>
+      </div>
       {devis && (
-        <div className={cn(cellule, 'relative col-start-1 row-start-3')}>
-          {devis}
-          <TraitDevis />
+        <div className={cn('grid w-full', COLONNES_LARGES)}>
+          <div className="@container col-start-1 flex">{devis}</div>
         </div>
       )}
-      <div className={cn(cellule, 'col-start-1 row-start-2')}>
-        <Case
-          cle="demande"
-          c={schema.demande}
-          chiffres={chiffres?.demande}
-          date={dates?.demande}
-          menu={menus?.demande}
-          {...props}
-        />
-      </div>
-      <div className="relative col-start-2 row-span-3 row-start-1">
-        <Liens orientation="h" liens={liensFourche(schema)} />
-      </div>
-      <div className={cn(cellule, 'col-start-3 row-start-1')}>
-        <Case
-          cle="refuse"
-          c={schema.refuse}
-          chiffres={chiffres?.refuse}
-          date={dates?.refuse}
-          menu={menus?.refuse}
-          estompe={estompees(schema).has('refuse')}
-          {...props}
-        />
-      </div>
-      <div className={cn(cellule, 'col-start-3 row-start-2')}>
-        <Case
-          cle="valide"
-          c={schema.valide}
-          chiffres={chiffres?.valide}
-          date={dates?.valide}
-          menu={menus?.valide}
-          estompe={estompees(schema).has('valide')}
-          {...props}
-        />
-      </div>
-      <div className={cn(cellule, 'col-start-3 row-start-3')}>
-        <Case
-          cle="reporte"
-          c={schema.reporte}
-          chiffres={chiffres?.reporte}
-          date={dates?.reporte}
-          menu={menus?.reporte}
-          estompe={estompees(schema).has('reporte')}
-          {...props}
-        />
-      </div>
-      {/* Validé → Réalisé : sur la rangée du milieu, flèche droite. */}
-      <div className="relative col-start-4 row-span-3 row-start-1">
-        <Liens
-          orientation="h"
-          liens={[
-            {
-              vers: 1,
-              etat: schema.fleches.versRealise,
-              estompe: estompees(schema).has('realise'),
-            },
-          ]}
-        />
-      </div>
-      <div className={cn(cellule, 'col-start-5 row-start-2')}>
-        <Case
-          cle="realise"
-          c={schema.realise}
-          chiffres={chiffres?.realise}
-          date={dates?.realise}
-          menu={menus?.realise}
-          estompe={estompees(schema).has('realise')}
-          {...props}
-        />
-      </div>
     </div>
   )
 }
@@ -578,17 +586,7 @@ function SchemaVertical({
   const cellule = 'flex px-1 @container'
   return (
     <div className="w-full @min-[56rem]:hidden">
-      {/* Devis à GAUCHE de la proposition, relié par un trait pointillé. */}
       <div className={cn(trois, 'items-stretch')}>
-        {devis && (
-          <div className={cn(cellule, 'relative col-start-1')}>
-            {devis}
-            <span
-              aria-hidden
-              className="absolute top-1/2 left-[calc(100%-0.25rem)] w-2 border-t-2 border-dashed border-info/50"
-            />
-          </div>
-        )}
         <div className={cn(cellule, 'col-start-2')}>
           <Case
             cle="demande"
@@ -600,6 +598,14 @@ function SchemaVertical({
           />
         </div>
       </div>
+      {/* Les devis SOUS la proposition, pleine largeur ; la fourche part
+          d'eux : on avance dans le parcours en choisissant un devis. */}
+      {devis && (
+        <>
+          <div aria-hidden className={cn('mx-auto h-3 w-0', TRAIT_DEVIS)} />
+          <div className="@container flex px-1">{devis}</div>
+        </>
+      )}
       <div className="relative h-14">
         <Liens orientation="v" liens={liensFourche(schema)} />
       </div>

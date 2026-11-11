@@ -40,9 +40,7 @@ function initialValues(
   return {
     annee_budget: String(investissement.annee_budget),
     libelle: investissement.libelle,
-    fournisseur: investissement.fournisseur ?? '',
     description: investissement.description ?? '',
-    montant_demande: montantToText(investissement.montant_demande),
     depense_reelle: montantToText(investissement.depense_reelle),
     date_demande: investissement.date_demande,
   }
@@ -84,7 +82,7 @@ export function InvestissementFormDialog({
         values: data,
       })
     },
-    successMessage: isEdit ? 'Investissement modifié' : 'Investissement créé',
+    successMessage: isEdit ? 'Projet modifié' : 'Projet créé',
     close: () => onOpenChange(false),
   })
 
@@ -93,7 +91,7 @@ export function InvestissementFormDialog({
       <FormDialog
         open={open}
         onOpenChange={onOpenChange}
-        title={isEdit ? "Modifier l'investissement" : 'Nouvel investissement'}
+        title={isEdit ? 'Modifier le projet' : 'Nouveau projet'}
         description={`Budget ${String(investissement?.annee_budget ?? annee)}`}
         size="lg"
         onSubmit={() => void form.handleSubmit(submit)()}
@@ -101,10 +99,9 @@ export function InvestissementFormDialog({
         pendingLabel="Enregistrement…"
         pending={form.formState.isSubmitting}
       >
-        {/* Ordre de lecture : QUOI → QUAND → COMBIEN → le détail en dernier.
-            La description était coincée entre le libellé et les montants, ce qui
-            séparait l'investissement de son budget ; et la date se retrouvait
-            seule tout en bas, après une ligne à trois champs. */}
+        {/* Ordre de lecture : QUOI → QUAND → le détail en dernier. Ni
+            fournisseur ni montant : ils sont portés par les DEVIS du projet
+            (147, demande PO du 11/11/2026). */}
         <div className="grid gap-4">
           <TextField
             control={form.control}
@@ -112,14 +109,8 @@ export function InvestissementFormDialog({
             label="Libellé"
             required
           />
-          <TextField
-            control={form.control}
-            name="fournisseur"
-            label="Fournisseur"
-            placeholder="Qui a fait le devis ?"
-          />
 
-          {/* Date et montants : champs courts en 2 colonnes. */}
+          {/* Date (et dépense réelle une fois réalisé) : 2 colonnes. */}
           <div className="grid gap-4 sm:grid-cols-2">
             <DateField
               control={form.control}
@@ -127,17 +118,11 @@ export function InvestissementFormDialog({
               label="Date de proposition"
               required
             />
-            <TextField
-              control={form.control}
-              name="montant_demande"
-              label="Montant proposé (€)"
-              inputMode="decimal"
-            />
             {voitReel && (
               <TextField
                 control={form.control}
                 name="depense_reelle"
-                label="Dépense réelle (€)"
+                label="Dépense réelle HT (€)"
                 inputMode="decimal"
               />
             )}

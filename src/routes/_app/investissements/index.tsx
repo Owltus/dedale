@@ -54,7 +54,7 @@ function BudgetsContent({ siteId }: { siteId: string }) {
     <PageContainer>
       <PageHeader
         title={PAGE_META.titre}
-        description="Un budget par année, préparé un an à l'avance. Ouvre un budget pour y ajouter un investissement."
+        description="Un budget par année, préparé un an à l'avance. Ouvre un budget pour y ajouter un projet."
       />
 
       <QueryState query={query} pending={<ListRowSkeletons />}>
