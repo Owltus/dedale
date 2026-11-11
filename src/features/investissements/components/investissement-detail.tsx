@@ -25,11 +25,10 @@ import {
   useRetenirDevis,
   useSupprimerDevis,
 } from '@/features/investissements/mutations'
-import { ecartCapex, formatEuros } from '@/features/investissements/format'
+import { formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
 import { ClotureInvestissementDialog } from './cloture-investissement-dialog'
 import { ValidationInvestissementDialog } from './validation-investissement-dialog'
-import { parseMontant } from '@/features/investissements/schemas'
 import { SchemaCapex } from './schema-capex'
 import { ColonneDevis, rangeesColonneDevis } from './colonne-devis'
 import { DevisDialog, type PieceDevis } from './devis-dialog'
@@ -101,7 +100,6 @@ export function InvestissementDetail({
   const realise = inv.statut_capex_id === ID_REALISE
   const refuse = inv.statut_capex_id === ID_REFUSE
 
-  const { label, depassement } = ecartCapex(inv)
   const dates = datesCapex(inv, decisions)
   // Devis retenus, réunis dans la pastille du schéma.
   const retenus = inv.devis.filter((d) => d.retenu)
@@ -334,16 +332,6 @@ export function InvestissementDetail({
             )}
             // Un montant vide n'est pas affiché : un « — » seul, sans
             // légende, ne dirait rien.
-            // Plus de montant dans « Proposition » ni « Validé » (demande
-            // PO) : la sélection porte la somme ; Réalisé, le réel et l'écart.
-            chiffres={{
-              realise: [
-                ...montant(inv.depense_reelle),
-                ...(label
-                  ? [{ valeur: label, libelle: 'écart', alerte: depassement }]
-                  : []),
-              ],
-            }}
             // Dates de chaque étape, quand elles existent (demande PO).
             dates={{
               demande: jour(dates.demande),
@@ -397,14 +385,13 @@ export function InvestissementDetail({
             onOpenChange={realisation.onOpenChange}
             pending={change.isPending}
             dateDemande={inv.date_demande}
-            depenseReelle={inv.depense_reelle ?? montantRetenu(inv)}
             // Déjà réalisé → le dialogue s'ouvre pré-rempli, en correction.
             initial={
               realise
                 ? { date_cloture: inv.date_cloture, bilan: inv.bilan }
                 : undefined
             }
-            onConfirm={({ date_cloture, bilan, depense_reelle }) => {
+            onConfirm={({ date_cloture, bilan }) => {
               change.mutate(
                 {
                   id: inv.id,
@@ -413,7 +400,6 @@ export function InvestissementDetail({
                   bilan,
                   dateCloture: date_cloture,
                   clotureBy: session?.user.id,
-                  depenseReelle: parseMontant(depense_reelle),
                 },
                 {
                   onSuccess: () => {
@@ -483,11 +469,6 @@ export function InvestissementDetail({
       <ConfirmDialog {...confirmAction.dialogProps} />
     </PageContainer>
   )
-}
-
-/** Le montant de la case, ou rien s'il n'est pas renseigné. */
-function montant(valeur: number | null): { valeur: string }[] {
-  return valeur === null ? [] : [{ valeur: formatEuros(valeur) }]
 }
 
 /** La date seule (« 10/11/2026 », demande PO), ou rien si elle manque. */

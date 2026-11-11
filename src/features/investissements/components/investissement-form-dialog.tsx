@@ -3,13 +3,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { emptyInvestissement, investissementSchema } from '../schemas'
 import type { InvestissementFormValues } from '../schemas'
 import { useCreateInvestissement, useUpdateInvestissement } from '../mutations'
-import { ID_REALISE } from '../etat'
 import { useAuth } from '@/auth'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/fields/text-field'
-import { MontantField } from '@/components/common/fields/montant-field'
 import { DateField } from '@/components/common/fields/date-field'
 import { DescriptionField } from '@/components/common/fields/description-field'
 import type { Database } from '@/lib/database.types'
@@ -29,10 +27,6 @@ interface InvestissementFormDialogProps {
   annee: number
 }
 
-function montantToText(value: number | null): string {
-  return value === null ? '' : String(value)
-}
-
 function initialValues(
   investissement: Investissement | null | undefined,
   annee: number,
@@ -42,7 +36,6 @@ function initialValues(
     annee_budget: String(investissement.annee_budget),
     libelle: investissement.libelle,
     description: investissement.description ?? '',
-    depense_reelle: montantToText(investissement.depense_reelle),
     date_demande: investissement.date_demande,
   }
 }
@@ -55,10 +48,6 @@ export function InvestissementFormDialog({
   annee,
 }: InvestissementFormDialogProps) {
   const isEdit = Boolean(investissement)
-  // Chaque montant à son étape (demande PO) : le réel se saisit en marquant
-  // réalisé, et ne se montre ici qu'une fois le dossier réalisé. Plus de
-  // montant validé (demande PO du 11/11/2026) : la proposition fait foi.
-  const voitReel = investissement?.statut_capex_id === ID_REALISE
   const { session } = useAuth()
   const create = useCreateInvestissement()
   const update = useUpdateInvestissement()
@@ -111,7 +100,7 @@ export function InvestissementFormDialog({
             required
           />
 
-          {/* Date (et dépense réelle une fois réalisé) : 2 colonnes. */}
+          {/* Date de proposition. */}
           <div className="grid gap-4 sm:grid-cols-2">
             <DateField
               control={form.control}
@@ -119,13 +108,6 @@ export function InvestissementFormDialog({
               label="Date de proposition"
               required
             />
-            {voitReel && (
-              <MontantField
-                control={form.control}
-                name="depense_reelle"
-                label="Dépense réelle HT (€)"
-              />
-            )}
           </div>
 
           <DescriptionField

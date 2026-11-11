@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
-import { ecartCapex, formatEuros, montantPrincipal } from './format'
+import { formatEuros, montantPrincipal } from './format'
 
 const TIRAGES = { numRuns: 1000, seed: 42 } as const
 
@@ -8,8 +8,6 @@ const TIRAGES = { numRuns: 1000, seed: 42 } as const
 const montant = fc
   .integer({ min: -500_000_000, max: 500_000_000 })
   .map((centimes) => centimes / 100)
-
-const montantNullable = fc.option(montant, { nil: null })
 
 describe('formatEuros', () => {
   it('un montant absent s’affiche « — », jamais 0 €', () => {
@@ -49,24 +47,12 @@ describe('formatEuros', () => {
   })
 })
 
-/** Un projet d'un seul devis RETENU de montant `m`, avec sa dépense réelle. */
-const unDevis = (m: number, reel: number | null) => ({
-  statut_capex_id: 3,
-  depense_reelle: reel,
-  devis: [{ montant_ht: m, retenu: true }],
-})
-
-/** Écart attendu, au centime (les montants tirés sont des centimes exacts). */
-const ecartAttendu = (reel: number, ref: number) =>
-  Math.round((reel - ref) * 100) / 100
-
 describe('montantPrincipal', () => {
   it('affiche LE montant du projet (montantProjet)', () => {
-    // ORACLE (décision PO 11/11/2026) : proposition → le moins cher.
+    // ORACLE (décision PO 11/11/2026) : rien de coché → le moins cher.
     expect(
       montantPrincipal({
         statut_capex_id: 1,
-        depense_reelle: null,
         devis: [
           { montant_ht: 2810.08, retenu: false },
           { montant_ht: 1222, retenu: false },
@@ -75,76 +61,29 @@ describe('montantPrincipal', () => {
     ).toBe(formatEuros(1222))
   })
 
-  it('une dépense réelle de 0 € reste la dépense réelle', () => {
-    // Garde-fou contre un repli écrit avec `||` au lieu de `??`.
-    expect(montantPrincipal(unDevis(4000, 0))).toBe(formatEuros(0))
-  })
-
-  it('aucun devis : « — », pas de faux zéro', () => {
+  it('réalisé : la somme des devis retenus (pas de dépense réelle à part)', () => {
     expect(
-      montantPrincipal({ statut_capex_id: 1, depense_reelle: null, devis: [] }),
-    ).toBe('—')
-  })
-})
-
-describe('ecartCapex', () => {
-  it('l’écart est « dépense réelle − montant retenu », au centime', () => {
-    fc.assert(
-      fc.property(montant, montant, (m, reel) => {
-        expect(ecartCapex(unDevis(m, reel)).ecart).toBe(ecartAttendu(reel, m))
-      }),
-      TIRAGES,
-    )
-  })
-
-  it('référence = SOMME des devis retenus (147)', () => {
-    expect(
-      ecartCapex({
-        depense_reelle: 4100,
+      montantPrincipal({
+        statut_capex_id: 3,
         devis: [
           { montant_ht: 2810.08, retenu: true },
           { montant_ht: 1222, retenu: true },
-          { montant_ht: 3668.28, retenu: false },
+          { montant_ht: 99, retenu: false },
         ],
-      }).ecart,
-    ).toBe(67.92)
+      }),
+    ).toBe(formatEuros(4032.08))
   })
 
-  it('sans dépense réelle ou sans devis : rien à comparer', () => {
-    fc.assert(
-      fc.property(montantNullable, (reel) => {
-        const sansDevis = ecartCapex({ depense_reelle: reel, devis: [] })
-        expect(sansDevis.ecart).toBeNull()
-        expect(sansDevis.label).toBeNull()
-        expect(sansDevis.depassement).toBe(false)
+  it('un devis à 0 € reste 0 €, pas « — »', () => {
+    expect(
+      montantPrincipal({
+        statut_capex_id: 1,
+        devis: [{ montant_ht: 0, retenu: false }],
       }),
-      TIRAGES,
-    )
-    expect(ecartCapex(unDevis(100, null)).ecart).toBeNull()
+    ).toBe(formatEuros(0))
   })
 
-  it('le dépassement est signalé si et seulement si l’écart est STRICTEMENT positif', () => {
-    fc.assert(
-      fc.property(montant, montant, (m, reel) => {
-        expect(ecartCapex(unDevis(m, reel)).depassement).toBe(
-          ecartAttendu(reel, m) > 0,
-        )
-      }),
-      TIRAGES,
-    )
-    expect(ecartCapex(unDevis(1000, 1000)).depassement).toBe(false)
-  })
-
-  it('le libellé porte le signe de l’écart et jamais NaN', () => {
-    fc.assert(
-      fc.property(montant, montant, (m, reel) => {
-        const { ecart, label } = ecartCapex(unDevis(m, reel))
-        expect(label).not.toBeNull()
-        expect(label).not.toContain('NaN')
-        expect(label?.startsWith('+')).toBe(ecart! > 0)
-        expect(label).toBe(`${ecart! > 0 ? '+' : ''}${formatEuros(ecart)}`)
-      }),
-      TIRAGES,
-    )
+  it('aucun devis : « — », pas de faux zéro', () => {
+    expect(montantPrincipal({ statut_capex_id: 1, devis: [] })).toBe('—')
   })
 })

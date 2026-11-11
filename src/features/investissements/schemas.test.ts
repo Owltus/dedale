@@ -21,7 +21,7 @@ import {
 
 /**
  * Oracles (source : `schema_complete.sql`, table `investissements`) :
- *   depense_reelle NUMERIC(12,2) CHECK (… >= 0)
+ *   investissements_devis.montant_ht NUMERIC(12,2) CHECK (… >= 0)
  *   → 12 chiffres significatifs dont 2 décimales ⇒ maximum EXACT 9 999 999 999,99.
  *   Au-delà, Postgres lève 22003 (numeric field overflow) ; plus de 2 décimales
  *   sont arrondies EN SILENCE par la base — d'où le contrôle front.
@@ -30,12 +30,14 @@ import {
 const BASE = {
   libelle: 'Remplacement CTA bâtiment A',
   description: '',
-  depense_reelle: '',
   date_demande: '2026-01-15',
   annee_budget: '2026',
 }
 
-const CHAMPS_MONTANT = ['depense_reelle'] as const
+/** Devis de référence (147) : le montant HT est le seul champ en euros. */
+const DEVIS = { fournisseur: 'Legallais', objet: '', montant_ht: '100' }
+
+const CHAMPS_MONTANT = ['montant_ht'] as const
 
 /** Borne exacte de NUMERIC(12,2). */
 const MAX_NUMERIC_12_2 = 9_999_999_999.99
@@ -68,7 +70,7 @@ describe('investissementSchema — structure', () => {
   })
 })
 
-describe('investissementSchema — montants', () => {
+describe('devisSchema — montant HT', () => {
   it('accepte un décimal à 0, 1 ou 2 décimales, point OU virgule', () => {
     // Oracle : saisie « à la française » admise, 2 décimales max (NUMERIC(12,2)).
     fc.assert(
@@ -80,8 +82,7 @@ describe('investissementSchema — montants', () => {
           const texte = `${String(entier)}${sep}${String(cents).padStart(2, '0')}`
           for (const champ of CHAMPS_MONTANT) {
             expect(
-              investissementSchema.safeParse({ ...BASE, [champ]: texte })
-                .success,
+              devisSchema.safeParse({ ...DEVIS, [champ]: texte }).success,
             ).toBe(true)
           }
         },
@@ -100,9 +101,9 @@ describe('investissementSchema — montants', () => {
         (entier, nbDecimales, sep) => {
           const texte = `${String(entier)}${sep}${'1'.repeat(nbDecimales)}`
           for (const champ of CHAMPS_MONTANT) {
-            expect(
-              rejette(investissementSchema, { ...BASE, [champ]: texte }),
-            ).toBe(true)
+            expect(rejette(devisSchema, { ...DEVIS, [champ]: texte })).toBe(
+              true,
+            )
           }
         },
       ),
@@ -110,13 +111,13 @@ describe('investissementSchema — montants', () => {
     )
   })
 
-  it('refuse tout montant NÉGATIF (CHECK depense_reelle >= 0)', () => {
+  it('refuse tout montant NÉGATIF (CHECK montant_ht >= 0)', () => {
     fc.assert(
       fc.property(fc.integer({ min: -9_999_999, max: -1 }), (n) => {
         for (const champ of CHAMPS_MONTANT) {
-          expect(
-            rejette(investissementSchema, { ...BASE, [champ]: String(n) }),
-          ).toBe(true)
+          expect(rejette(devisSchema, { ...DEVIS, [champ]: String(n) })).toBe(
+            true,
+          )
         }
       }),
       RUNS,
@@ -127,27 +128,27 @@ describe('investissementSchema — montants', () => {
     // Oracle : 9 999 999 999,99 est la plus grande valeur représentable ;
     // 10 000 000 000 est la plus petite qui déborde (22003).
     expect(
-      investissementSchema.safeParse({
-        ...BASE,
-        depense_reelle: '9999999999.99',
+      devisSchema.safeParse({
+        ...DEVIS,
+        montant_ht: '9999999999.99',
       }).success,
     ).toBe(true)
     expect(
-      investissementSchema.safeParse({
-        ...BASE,
-        depense_reelle: '9999999999,99',
+      devisSchema.safeParse({
+        ...DEVIS,
+        montant_ht: '9999999999,99',
       }).success,
     ).toBe(true)
     expect(
-      rejette(investissementSchema, {
-        ...BASE,
-        depense_reelle: '10000000000',
+      rejette(devisSchema, {
+        ...DEVIS,
+        montant_ht: '10000000000',
       }),
     ).toBe(true)
     expect(
-      rejette(investissementSchema, {
-        ...BASE,
-        depense_reelle: '10000000000.00',
+      rejette(devisSchema, {
+        ...DEVIS,
+        montant_ht: '10000000000.00',
       }),
     ).toBe(true)
   })
@@ -157,9 +158,7 @@ describe('investissementSchema — montants', () => {
       fc.property(fc.integer({ min: 1, max: 10_000_000 }), (surplus) => {
         const valeur = String(10_000_000_000 + surplus)
         for (const champ of CHAMPS_MONTANT) {
-          expect(
-            rejette(investissementSchema, { ...BASE, [champ]: valeur }),
-          ).toBe(true)
+          expect(rejette(devisSchema, { ...DEVIS, [champ]: valeur })).toBe(true)
         }
       }),
       RUNS,
@@ -175,9 +174,9 @@ describe('investissementSchema — montants', () => {
       const attenduRejet = !ACCEPTEES.has(piege)
       expect({
         piege,
-        rejete: rejette(investissementSchema, {
-          ...BASE,
-          depense_reelle: piege,
+        rejete: rejette(devisSchema, {
+          ...DEVIS,
+          montant_ht: piege,
         }),
       }).toEqual({ piege, rejete: attenduRejet })
     }
@@ -188,12 +187,10 @@ describe('investissementSchema — montants', () => {
       fc.property(arbChaineHostile(), (texte) => {
         const t = texte.trim()
         const bienForme =
-          t === '' ||
-          (/^\d+([.,]\d{1,2})?$/.test(t) &&
-            Number(t.replace(',', '.')) <= MAX_NUMERIC_12_2)
+          /^\d+([.,]\d{1,2})?$/.test(t) &&
+          Number(t.replace(',', '.')) <= MAX_NUMERIC_12_2
         expect(
-          investissementSchema.safeParse({ ...BASE, depense_reelle: texte })
-            .success,
+          devisSchema.safeParse({ ...DEVIS, montant_ht: texte }).success,
         ).toBe(bienForme)
       }),
       RUNS,
@@ -255,7 +252,6 @@ describe('clotureCapexSchema', () => {
     date_cloture: '2026-06-30',
     bilan: '',
     date_demande: BASE.date_demande,
-    depense_reelle: '',
   }
 
   it('exige la date de clôture, pas le bilan', () => {

@@ -11,7 +11,7 @@ import {
 import { toneToken } from '@/components/common/charts/chart-tokens'
 import { cn } from '@/lib/utils'
 import type { RowAction } from '@/components/common/row-actions'
-import { SurvolCase } from './survol-case'
+import { SurvolCase, useTexteTronque } from './survol-case'
 import { ToileSchema } from './toile-schema'
 import {
   statutCapexTone,
@@ -251,20 +251,17 @@ function Case({
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
 }) {
+  const [refTexte, tronque] = useTexteTronque(texte)
   const tuile = (
     <TuileCase
       {...{ cle, c, chiffres, date, texte, estompe, onAction, disabled }}
+      refTexte={refTexte}
     />
   )
-  // Au survol, le texte COMPLET de l'étape (demande PO) ; au clic droit,
-  // son menu.
+  // Au survol : le texte de l'étape, et seulement s'il est COUPÉ dans la
+  // case (demande PO) ; au clic droit : son menu.
   return (
-    <SurvolCase
-      info={
-        texte?.trim() ? { titre: c.libelle, sousTitre: date, texte } : undefined
-      }
-      menu={menu}
-    >
+    <SurvolCase texte={tronque ? texte : null} menu={menu}>
       {tuile}
     </SurvolCase>
   )
@@ -276,6 +273,7 @@ function TuileCase({
   chiffres,
   date,
   texte,
+  refTexte,
   estompe,
   onAction,
   disabled,
@@ -286,6 +284,8 @@ function TuileCase({
   chiffres: ChiffreCapex[]
   date?: string
   texte?: string | null
+  /** Pour savoir si le texte est coupé (infobulle). */
+  refTexte?: (el: HTMLElement | null) => void
   estompe: boolean
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
@@ -337,6 +337,7 @@ function TuileCase({
         )}
         {texte?.trim() && (
           <span
+            ref={refTexte}
             className={cn(
               'mt-1.5 text-xs leading-snug font-normal whitespace-pre-line text-muted-foreground',
               // La proposition se lit EN ENTIER (la case grandit avec son
@@ -840,8 +841,7 @@ function SchemaVertical({
  * passer le projet (rôles qui peuvent modifier, sinon lecture seule).
  *
  * S'adapte à la place RÉELLE (demande PO) : de gauche à droite quand elle
- * suffit ; sinon de haut en bas, dans une toile qu'on déplace et qu'on zoome
- * (`ToileSchema`).
+ * suffit ; sinon de haut en bas, dans un cadre qui défile verticalement (`ToileSchema`).
  */
 export function SchemaCapex(props: PropsSchema) {
   return (
@@ -862,9 +862,7 @@ export function SchemaCapex(props: PropsSchema) {
           </div>
         }
         etroit={
-          // Marge haute : les boutons de la toile ne couvrent pas la
-          // proposition ; marge basse : la ligne d’aide non plus.
-          <div className="px-2 pt-14 pb-10">
+          <div className="px-2 py-5">
             <SchemaVertical {...props} />
           </div>
         }

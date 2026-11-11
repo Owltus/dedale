@@ -21,7 +21,6 @@ export const montant = z
 export const investissementSchema = z.object({
   libelle: texteObligatoire('Le libellé est obligatoire', 'libelle').max(200),
   description: z.string().trim().max(2000),
-  depense_reelle: montant,
   date_demande: dateObligatoire('La date de proposition est obligatoire'),
   // Année du budget (138) : texte du menu déroulant, miroir du CHECK 2000-2100.
   annee_budget: z
@@ -39,7 +38,6 @@ export function emptyInvestissement(annee?: number): InvestissementFormValues {
     annee_budget: String(annee ?? anneeBudgetEnPreparation()),
     libelle: '',
     description: '',
-    depense_reelle: '',
     date_demande: todayLocal(),
   }
 }
@@ -62,8 +60,6 @@ export function parseMontant(value: string): number | null {
 export const clotureCapexSchema = z
   .object({
     date_cloture: dateObligatoire('La date de réalisation est obligatoire'),
-    /** Dépense réelle : demandée à la réalisation (demande PO). */
-    depense_reelle: montant,
     bilan: z.string().trim().max(5000),
     /**
      * Date de demande de l'investissement clôturé. Elle n'est PAS saisie ici

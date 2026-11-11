@@ -709,14 +709,12 @@ const CONCORDANCES: Concordance[] = [
     base: {
       libelle: 'Remplacement CTA',
       description: '',
-      depense_reelle: '',
       date_demande: '2026-09-16',
       annee_budget: '2026',
     },
     champs: {
       libelle: T('libelle'),
       description: T('description'),
-      depense_reelle: TN('depense_reelle'),
     },
   },
   {
@@ -839,6 +837,9 @@ const CHECKS_NON_SONDES: Record<string, string> = {
   'investissements_devis.investissements_devis_fournisseur_check':
     'Bornes 1-100 après btrim : `devisSchema.fournisseur` = `texteObligatoire` ' +
     '+ `.max(100)`, testé dans schemas.test.ts (devisSchema).',
+  'investissements.investissements_depense_reelle_check':
+    'Plus saisie (demande PO du 11/11/2026 : « le montant réel, c\u2019est celui du ' +
+    'devis ») — colonne gelée, à supprimer avec les autres après mise en ligne.',
   'investissements.investissements_montant_prevu_check':
     'Plus aucun formulaire ne saisit le montant validé (demande PO du ' +
     '11/11/2026 : la proposition fait foi) — colonne conservée, non écrite.',

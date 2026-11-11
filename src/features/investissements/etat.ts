@@ -13,10 +13,9 @@ export interface DevisMontant {
 }
 
 /** Ce qui compte d'un projet pour son montant : son statut, son réel, ses devis. */
-export type ProjetMontant = Pick<
-  Investissement,
-  'statut_capex_id' | 'depense_reelle'
-> & { devis: readonly DevisMontant[] }
+export type ProjetMontant = Pick<Investissement, 'statut_capex_id'> & {
+  devis: readonly DevisMontant[]
+}
 
 const centimes = (x: number) => Math.round(x * 100) / 100
 
@@ -35,12 +34,11 @@ export function montantRetenu(p: Pick<ProjetMontant, 'devis'>): number | null {
 /**
  * LE montant d'un projet (décisions PO du 11/11/2026), partout — barre,
  * listes, fiche : les devis RETENUS (pré-sélectionnés dans le schéma ou
- * validés), sinon le devis le moins cher ; une fois réalisé, la dépense
- * réelle prime. null quand le projet n'a encore aucun devis.
+ * validés), sinon le devis le moins cher ; null sans aucun devis. Réalisé
+ * compris : il n'y a pas de dépense réelle à part, « le montant réel, c'est
+ * celui du devis ».
  */
 export function montantProjet(p: ProjetMontant): number | null {
-  if (p.statut_capex_id === ID_REALISE)
-    return p.depense_reelle ?? montantRetenu(p)
   return montantRetenu(p)
 }
 

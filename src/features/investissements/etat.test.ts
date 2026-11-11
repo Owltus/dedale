@@ -20,14 +20,9 @@ import {
 } from './etat'
 import { anneeDeParam } from './annee'
 
-/** Un projet de test : statut, devis [montant, retenu], dépense réelle. */
-const projet = (
-  statut: number,
-  devis: [number, boolean][] = [],
-  reel: number | null = null,
-) => ({
+/** Un projet de test : statut, devis [montant, retenu]. */
+const projet = (statut: number, devis: [number, boolean][] = []) => ({
   statut_capex_id: statut,
-  depense_reelle: reel,
   devis: devis.map(([montant_ht, retenu]) => ({ montant_ht, retenu })),
 })
 
@@ -225,10 +220,10 @@ describe('années de budget', () => {
         [180, true],
         [999, false],
       ]), // retenu : 180
-      projet(ID_REALISE, [[300, true]], 320), // réel : 320
+      projet(ID_REALISE, [[300, true]]), // retenu : 300
       projet(ID_REFUSE, [[1000, false]]),
     ])
-    expect(t).toEqual({ nb: 4, demande: 600, valide: 500 })
+    expect(t).toEqual({ nb: 4, demande: 580, valide: 480 })
   })
 
   it('adresse : quatre chiffres entre 2000 et 2100, sinon rien', () => {
@@ -329,7 +324,7 @@ describe('budget en préparation', () => {
 
 describe('montantProjet — LE montant d’un projet (147)', () => {
   // ORACLE : décisions PO du 11/11/2026 — la sélection (devis retenus,
-  // même avant validation), sinon le moins cher ; réalisé, la dépense réelle.
+  // même avant validation, réalisé compris), sinon le moins cher.
   it('sans devis : aucun montant', () => {
     expect(montantProjet(projet(ID_DEMANDE))).toBeNull()
     expect(montantProjet(projet(ID_VALIDE))).toBeNull()
@@ -396,9 +391,7 @@ describe('montantProjet — LE montant d’un projet (147)', () => {
     ).toBe(300)
   })
 
-  it('réalisé : la dépense réelle prime, sinon le retenu', () => {
-    expect(montantProjet(projet(ID_REALISE, [[300, true]], 320))).toBe(320)
-    expect(montantProjet(projet(ID_REALISE, [[300, true]], 0))).toBe(0)
+  it('réalisé : la somme des devis retenus (pas de dépense réelle à part)', () => {
     expect(
       montantProjet(
         projet(ID_REALISE, [
@@ -469,10 +462,10 @@ describe('repartitionBudget — barre d’un budget', () => {
     ])
   })
 
-  it('réalisé : la dépense réelle prime', () => {
-    expect(repartitionBudget([projet(ID_REALISE, [[300, true]], 320)])).toEqual(
-      [{ statutId: ID_REALISE, montant: 320, nb: 1 }],
-    )
+  it('réalisé : la somme des devis retenus', () => {
+    expect(repartitionBudget([projet(ID_REALISE, [[300, true]])])).toEqual([
+      { statutId: ID_REALISE, montant: 300, nb: 1 },
+    ])
   })
 
   it('la somme des projets comptés = le nombre de projets connus', () => {
@@ -481,7 +474,6 @@ describe('repartitionBudget — barre d’un budget', () => {
         fc.array(
           fc.record({
             statut_capex_id: fc.constantFrom(...IDS_CONNUS),
-            depense_reelle: fc.constant(null),
             devis: fc.array(
               fc.record({
                 montant_ht: fc.integer({ min: 0, max: 1e6 }),

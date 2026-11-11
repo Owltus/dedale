@@ -12,7 +12,6 @@ function toPayload(v: InvestissementFormValues) {
   return {
     libelle: v.libelle.trim(),
     description: v.description.trim() || null,
-    depense_reelle: parseMontant(v.depense_reelle),
     date_demande: v.date_demande,
     annee_budget: Number(v.annee_budget),
   }
@@ -97,7 +96,6 @@ export function useChangeStatutCapex() {
       dateArret,
       arreteBy,
       dateValidation,
-      depenseReelle,
       devisRetenus,
     }: {
       id: string
@@ -113,8 +111,6 @@ export function useChangeStatutCapex() {
       arreteBy?: string
       /** Date de validation, saisie en validant (absent = inchangée). */
       dateValidation?: string
-      /** Dépense réelle, saisie en marquant réalisé (absent = inchangée). */
-      depenseReelle?: number | null
       /** Devis retenus, choisis en validant (147) ; absent = inchangés. */
       devisRetenus?: string[]
     }) => {
@@ -142,7 +138,6 @@ export function useChangeStatutCapex() {
             : dateValidation !== undefined && {
                 date_validation: dateValidation,
               }),
-          ...(depenseReelle !== undefined && { depense_reelle: depenseReelle }),
         })
         .eq('id', id)
         .select()

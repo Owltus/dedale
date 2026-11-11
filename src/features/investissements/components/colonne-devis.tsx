@@ -5,7 +5,7 @@ import type { Devis } from '@/features/investissements/queries'
 import { formatEuros } from '@/features/investissements/format'
 import { MIME_PDF, validerFichier } from '@/features/documents/upload'
 import { cn } from '@/lib/utils'
-import { SurvolCase } from './survol-case'
+import { SurvolCase, useTexteTronque } from './survol-case'
 import type { ModeDevis } from './schema-capex'
 
 const aDesFichiers = (e: DragEvent) => e.dataTransfer.types.includes('Files')
@@ -191,6 +191,7 @@ function TuileDevis({
   onSupprimer: (d: Devis) => void
 }) {
   const cliquable = d.document_id !== null || canManage
+  const [refObjet, objetTronque] = useTexteTronque(d.objet)
   // Case RONDE = retenir (pré-valider) le devis, demande PO ; le reste de la
   // tuile ouvre son PDF.
   const caseRonde = (
@@ -246,7 +247,10 @@ function TuileDevis({
       >
         <span className="flex min-w-0 flex-1 flex-col leading-tight">
           <span className="truncate font-medium">{d.fournisseur}</span>
-          <span className="mt-0.5 truncate text-[11px] text-muted-foreground">
+          <span
+            ref={refObjet}
+            className="mt-0.5 truncate text-[11px] text-muted-foreground"
+          >
             {d.objet ?? nomPdf ?? 'Sans PDF'}
           </span>
         </span>
@@ -256,13 +260,11 @@ function TuileDevis({
       </button>
     </div>
   )
-  // Au survol : tout le devis (demande PO) ; au clic droit : son menu.
+  // Au survol : l'objet du devis, seulement s'il est COUPÉ (fournisseur et
+  // montant se lisent déjà) ; au clic droit : son menu.
   return (
     <SurvolCase
-      info={{
-        titre: `${d.fournisseur} · ${formatEuros(d.montant_ht)} HT`,
-        texte: d.objet,
-      }}
+      texte={objetTronque ? d.objet : null}
       menu={
         canManage
           ? [

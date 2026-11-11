@@ -7,7 +7,6 @@ import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { DateField } from '@/components/common/fields/date-field'
 import { DescriptionField } from '@/components/common/fields/description-field'
-import { MontantField } from '@/components/common/fields/montant-field'
 
 interface ClotureInvestissementDialogProps {
   open: boolean
@@ -21,8 +20,6 @@ interface ClotureInvestissementDialogProps {
    * champs, et en faire deux composants les aurait fait diverger.
    */
   initial?: { date_cloture: string | null; bilan: string | null }
-  /** Dépense réelle proposée : celle déjà saisie, sinon le montant validé. */
-  depenseReelle: number | null
   onConfirm: (values: ClotureCapexFormValues) => void
 }
 
@@ -43,7 +40,6 @@ export function ClotureInvestissementDialog({
   pending,
   dateDemande,
   initial,
-  depenseReelle,
   onConfirm,
 }: ClotureInvestissementDialogProps) {
   const correction = initial !== undefined
@@ -52,7 +48,6 @@ export function ClotureInvestissementDialog({
     resolver: zodResolver(clotureCapexSchema),
     defaultValues: {
       date_cloture: initial?.date_cloture ?? isoLocale(new Date()),
-      depense_reelle: depenseReelle === null ? '' : String(depenseReelle),
       bilan: initial?.bilan ?? '',
       // Pas un champ de saisie : la date de demande voyage dans le formulaire
       // pour que `clotureCapexSchema` puisse comparer lui-même les deux dates
@@ -67,7 +62,7 @@ export function ClotureInvestissementDialog({
         open={open}
         onOpenChange={onOpenChange}
         title={correction ? 'Modifier la réalisation' : 'Marquer réalisé'}
-        description="Quand c'est fait, combien ça a vraiment coûté, et ce qui explique l'écart s'il y en a un. Le bilan est facultatif."
+        description="Quand c'est fait, et une description si tu veux (facultative). Le montant est celui des devis retenus."
         // Le contrôle « la clôture ne précède pas la demande » n'est plus fait
         // ici : il vit dans `clotureCapexSchema`, qui reçoit `date_demande` en
         // valeur par défaut — une seule écriture de la règle, et elle protège
@@ -85,16 +80,11 @@ export function ClotureInvestissementDialog({
             label="Date de réalisation"
             required
           />
-          <MontantField
-            control={form.control}
-            name="depense_reelle"
-            label="Dépense réelle HT (€)"
-          />
           <div className="sm:col-span-2">
             <DescriptionField
               control={form.control}
               name="bilan"
-              label="Bilan budgétaire"
+              label="Description"
               // Le bilan est le SUJET de ce dialogue : la date tient sur une
               // ligne, tout le reste de la place lui revient.
               rows={8}

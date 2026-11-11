@@ -11,7 +11,7 @@ import {
   nomStatutCapex,
   statutCapexTone,
 } from '@/features/investissements/etat'
-import { ecartCapex, montantPrincipal } from '@/features/investissements/format'
+import { montantPrincipal } from '@/features/investissements/format'
 import { anneeDeParam } from '@/features/investissements/annee'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
@@ -181,7 +181,6 @@ function InvestissementsContent({
                   inv.statut_capex_id,
                   statutNom,
                 )
-                const { depassement } = ecartCapex(inv)
                 const colonne = (
                   <StatutColonne
                     statut={{
@@ -192,7 +191,6 @@ function InvestissementsContent({
                       <span
                         className={cn(
                           'font-medium whitespace-nowrap text-foreground tabular-nums',
-                          depassement && 'text-warning',
                         )}
                       >
                         {montantPrincipal(inv)}
