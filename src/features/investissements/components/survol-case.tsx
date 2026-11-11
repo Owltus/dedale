@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import {
   Tooltip,
@@ -10,36 +10,55 @@ import {
   type RowAction,
 } from '@/components/common/row-actions'
 
-/** Ce qu'une case du schéma montre au survol (demande PO). */
-export interface InfoSurvol {
-  titre: string
-  /** Ligne discrète sous le titre (date, montant, nom du PDF…). */
-  sousTitre?: string | null
-  /** Le contenu complet : proposition, motif, bilan, objet d'un devis. */
-  texte?: string | null
+/**
+ * Vrai quand le texte de l'élément est COUPÉ à l'écran (points de suspension
+ * d'un `truncate`, lignes retirées d'un `line-clamp`) : seule raison d'afficher
+ * une infobulle (demande PO). Re-mesuré à chaque changement de taille.
+ */
+export function useTexteTronque(texte: string | null | undefined) {
+  const [element, setElement] = useState<HTMLElement | null>(null)
+  const [tronque, setTronque] = useState(false)
+  const ref = useCallback((el: HTMLElement | null) => setElement(el), [])
+
+  useEffect(() => {
+    if (!element) return
+    // L'observateur mesure dès qu'il commence à observer, puis à chaque
+    // changement de taille ; relancé quand le texte change.
+    const observer = new ResizeObserver(() =>
+      setTronque(
+        element.scrollHeight > element.clientHeight + 1 ||
+          element.scrollWidth > element.clientWidth + 1,
+      ),
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [element, texte])
+
+  return [ref, element !== null && tronque] as const
 }
 
 /**
  * Enveloppe une case du schéma de ses deux couches d'interaction :
- * - au SURVOL, une infobulle de l'application avec tout son contenu (demande
- *   PO du 11/11/2026 : les cases tronquent, le survol montre tout) ;
+ * - au SURVOL, une infobulle de l'application avec le texte COMPLET — et
+ *   seulement lui, seulement s'il est coupé dans la case (demande PO : ne pas
+ *   redire ce qui se voit déjà) ;
  * - au CLIC DROIT / appui long, son menu.
  *
  * Ordre imposé par Radix : les racines (`Tooltip`, `ContextMenu`) n'ont pas de
- * nœud DOM, seuls leurs déclencheurs \`asChild\` se composent — d'où
+ * nœud DOM, seuls leurs déclencheurs `asChild` se composent — d'où
  * ContextMenuTrigger > TooltipTrigger > la case.
  */
 export function SurvolCase({
-  info,
+  texte,
   menu = [],
   children,
 }: {
-  info?: InfoSurvol | null
+  /** Texte à montrer au survol ; absent = pas d'infobulle. */
+  texte?: string | null
   menu?: RowAction[]
   children: ReactElement
 }) {
-  const avecInfo =
-    info != null && (Boolean(info.texte?.trim()) || Boolean(info.sousTitre))
+  const avecInfo = Boolean(texte?.trim())
   const declencheur = avecInfo ? (
     <TooltipTrigger asChild>{children}</TooltipTrigger>
   ) : (
@@ -61,17 +80,9 @@ export function SurvolCase({
       <TooltipContent
         side="bottom"
         align="start"
-        className="max-w-sm px-3 py-2 text-left"
+        className="max-w-sm px-3 py-2 text-left leading-relaxed font-normal whitespace-pre-line"
       >
-        <p className="font-semibold">{info.titre}</p>
-        {info.sousTitre && (
-          <p className="font-normal text-muted-foreground">{info.sousTitre}</p>
-        )}
-        {info.texte?.trim() && (
-          <p className="mt-1.5 leading-relaxed font-normal whitespace-pre-line">
-            {info.texte}
-          </p>
-        )}
+        {texte}
       </TooltipContent>
     </Tooltip>
   )
