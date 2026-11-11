@@ -5,8 +5,7 @@ import type { Devis } from '@/features/investissements/queries'
 import { formatEuros } from '@/features/investissements/format'
 import { MIME_PDF, validerFichier } from '@/features/documents/upload'
 import { cn } from '@/lib/utils'
-import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { RowContextMenuContent } from '@/components/common/row-actions'
+import { SurvolCase } from './survol-case'
 import type { ModeDevis } from './schema-capex'
 
 const aDesFichiers = (e: DragEvent) => e.dataTransfer.types.includes('Files')
@@ -237,7 +236,6 @@ function TuileDevis({
         type="button"
         disabled={!cliquable}
         onClick={() => (d.document_id ? onApercu(d) : onModifier(d))}
-        title={nomPdf ?? (canManage ? 'Modifier le devis' : undefined)}
         className={cn(
           'flex min-w-0 flex-1 items-center gap-2 self-stretch rounded-lg text-left',
           cliquable &&
@@ -256,37 +254,45 @@ function TuileDevis({
       </button>
     </div>
   )
-  if (!canManage) return tuile
+  // Au survol : tout le devis (demande PO) ; au clic droit : son menu.
   return (
-    <ContextMenu modal={false}>
-      <ContextMenuTrigger asChild>{tuile}</ContextMenuTrigger>
-      <RowContextMenuContent
-        actions={[
-          {
-            label: 'Modifier le devis',
-            icon: Pencil,
-            onSelect: () => onModifier(d),
-          },
-          d.retenu
-            ? {
-                label: 'Ne plus retenir',
-                icon: Undo2,
-                onSelect: () => onRetenir(d, false),
-              }
-            : {
-                label: 'Retenir ce devis',
-                icon: Check,
-                onSelect: () => onRetenir(d, true),
+    <SurvolCase
+      info={{
+        titre: `${d.fournisseur} · ${formatEuros(d.montant_ht)} HT`,
+        sousTitre: nomPdf ?? 'Sans PDF',
+        texte: d.objet,
+      }}
+      menu={
+        canManage
+          ? [
+              {
+                label: 'Modifier le devis',
+                icon: Pencil,
+                onSelect: () => onModifier(d),
               },
-          {
-            label: 'Supprimer le devis',
-            icon: Trash2,
-            destructive: true,
-            separatorBefore: true,
-            onSelect: () => onSupprimer(d),
-          },
-        ]}
-      />
-    </ContextMenu>
+              d.retenu
+                ? {
+                    label: 'Ne plus retenir',
+                    icon: Undo2,
+                    onSelect: () => onRetenir(d, false),
+                  }
+                : {
+                    label: 'Retenir ce devis',
+                    icon: Check,
+                    onSelect: () => onRetenir(d, true),
+                  },
+              {
+                label: 'Supprimer le devis',
+                icon: Trash2,
+                destructive: true,
+                separatorBefore: true,
+                onSelect: () => onSupprimer(d),
+              },
+            ]
+          : []
+      }
+    >
+      {tuile}
+    </SurvolCase>
   )
 }

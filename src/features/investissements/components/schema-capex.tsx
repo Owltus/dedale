@@ -10,11 +10,8 @@ import {
 } from 'lucide-react'
 import { toneToken } from '@/components/common/charts/chart-tokens'
 import { cn } from '@/lib/utils'
-import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
-import {
-  RowContextMenuContent,
-  type RowAction,
-} from '@/components/common/row-actions'
+import type { RowAction } from '@/components/common/row-actions'
+import { SurvolCase } from './survol-case'
 import {
   statutCapexTone,
   type ActionCapex,
@@ -258,12 +255,17 @@ function Case({
       {...{ cle, c, chiffres, date, texte, estompe, onAction, disabled }}
     />
   )
-  if (menu.length === 0) return tuile
+  // Au survol, le texte COMPLET de l'étape (demande PO) ; au clic droit,
+  // son menu.
   return (
-    <ContextMenu modal={false}>
-      <ContextMenuTrigger asChild>{tuile}</ContextMenuTrigger>
-      <RowContextMenuContent actions={menu} />
-    </ContextMenu>
+    <SurvolCase
+      info={
+        texte?.trim() ? { titre: c.libelle, sousTitre: date, texte } : undefined
+      }
+      menu={menu}
+    >
+      {tuile}
+    </SurvolCase>
   )
 }
 
@@ -334,7 +336,6 @@ function TuileCase({
         )}
         {texte?.trim() && (
           <span
-            title={texte}
             className={cn(
               'mt-1.5 text-xs leading-snug font-normal whitespace-pre-line text-muted-foreground',
               // La proposition se lit EN ENTIER (la case grandit avec son
@@ -399,12 +400,15 @@ function TuileCase({
         type="button"
         disabled={disabled}
         onClick={() => onAction(action)}
+        // Pas d'infobulle native quand le survol montre déjà le texte.
         title={
-          cle === 'reporte'
-            ? c.libelle
-            : actuel
-              ? `Modifier « ${c.libelle} »`
-              : `Passer à « ${c.libelle} »`
+          texte?.trim()
+            ? undefined
+            : cle === 'reporte'
+              ? c.libelle
+              : actuel
+                ? `Modifier « ${c.libelle} »`
+                : `Passer à « ${c.libelle} »`
         }
         style={actuel && c.statutId ? styleActuel(c.statutId) : undefined}
         aria-current={actuel ? 'step' : undefined}
@@ -657,7 +661,7 @@ function SchemaHorizontal({
   )
   return (
     <div
-      className="hidden w-full grid-cols-[minmax(0,1.15fr)_minmax(2rem,0.3fr)_minmax(0,1.1fr)_minmax(9.5rem,0.9fr)_minmax(0,1fr)_minmax(2rem,0.3fr)_minmax(0,1fr)] @min-[64rem]:grid"
+      className="hidden w-full flex-1 grid-cols-[minmax(0,1.15fr)_minmax(2rem,0.3fr)_minmax(0,1.1fr)_minmax(9.5rem,0.9fr)_minmax(0,1fr)_minmax(2rem,0.3fr)_minmax(0,1fr)] @min-[64rem]:grid"
       style={{ minHeight: `${String(Math.max(k, 3) * RANGEE_REM)}rem` }}
     >
       {/* 1. La proposition, avec son texte. */}
@@ -837,7 +841,7 @@ export function SchemaCapex(props: PropsSchema) {
       aria-label="Parcours du projet"
       // Conteneur : la mise en page suit la place RÉELLEMENT disponible
       // (menu latéral ouvert ou non), pas la largeur de l'écran.
-      className="@container rounded-lg px-3 py-6 sm:px-6"
+      className="@container flex flex-1 flex-col rounded-lg px-3 py-6 sm:px-6"
       style={{
         backgroundImage:
           'radial-gradient(color-mix(in oklch, var(--muted-foreground) 22%, transparent) 1px, transparent 1px)',

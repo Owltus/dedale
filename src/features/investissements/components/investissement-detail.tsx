@@ -261,8 +261,10 @@ export function InvestissementDetail({
           devis (case ronde = retenu), la sélection, puis Refusé / Validé /
           Reporter et Réalisé. La case colorée = où en est le projet ; un clic
           sur une autre case y fait passer le projet. */}
-      <Card className="mb-4 shrink-0 overflow-hidden py-0">
-        <CardContent className="p-0">
+      {/* Le schéma EST la fiche (demande PO) : il prend toute la hauteur
+          disponible, et la page défile s'il lui en faut plus. */}
+      <Card className="flex flex-1 flex-col overflow-hidden py-0">
+        <CardContent className="flex flex-1 flex-col p-0">
           <SchemaCapex
             schema={schema}
             menus={menus}
