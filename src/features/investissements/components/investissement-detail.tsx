@@ -15,7 +15,6 @@ import {
   ID_REALISE,
   ID_REFUSE,
   ID_VALIDE,
-  montantProjet,
   montantRetenu,
   schemaCapex,
   type ActionCapex,
@@ -32,7 +31,12 @@ import { ClotureInvestissementDialog } from './cloture-investissement-dialog'
 import { ValidationInvestissementDialog } from './validation-investissement-dialog'
 import { parseMontant } from '@/features/investissements/schemas'
 import { SchemaCapex } from './schema-capex'
-import { ColonneDevis, CIBLE_DEVIS, estDansZoneDevis } from './colonne-devis'
+import {
+  ColonneDevis,
+  CIBLE_DEVIS,
+  estDansZoneDevis,
+  rangeesColonneDevis,
+} from './colonne-devis'
 import { DevisDialog, type PieceDevis } from './devis-dialog'
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import {
@@ -48,7 +52,6 @@ import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { formatDate } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
-import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
@@ -58,7 +61,6 @@ import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { RefusInvestissementDialog } from './refus-investissement-dialog'
-import { DetailNoteCard } from '@/components/common/detail-note-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function InvestissementDetail({
@@ -97,7 +99,6 @@ export function InvestissementDetail({
   const [fenetreDevis, setFenetreDevis] = useState<{
     devis?: Devis
     piece: PieceDevis | null
-    cle: number
   } | null>(null)
   const [apercu, setApercu] = useState<DocumentMeta | null>(null)
   const { data: docs = [] } = useQuery(
@@ -113,7 +114,7 @@ export function InvestissementDetail({
     inv.devis.flatMap((d) => (d.document_id ? [d.document_id] : [])),
   )
   const ouvrirDevis = (devis: Devis | undefined, piece: PieceDevis | null) =>
-    setFenetreDevis({ devis, piece, cle: Date.now() })
+    setFenetreDevis({ devis, piece })
   // Un petit déplacement avant de « prendre » une ligne : un simple clic
   // garde l'aperçu du document.
   const capteurs = useSensors(
@@ -127,23 +128,12 @@ export function InvestissementDetail({
 
   const { label, depassement } = ecartCapex(inv)
   const dates = datesCapex(inv, decisions)
-  // Seconde carte : seulement si l'issue du dossier porte un texte.
-  const issue =
-    refuse && inv.motif_arret?.trim()
-      ? {
-          label: 'Refus',
-          texte: inv.motif_arret,
-          modifier: 'Modifier le motif',
-          ouvrir: () => setRefus(true),
-        }
-      : realise && inv.bilan?.trim()
-        ? {
-            label: 'Réalisation',
-            texte: inv.bilan,
-            modifier: 'Modifier la réalisation',
-            ouvrir: () => realisation.openEdit(inv),
-          }
-        : null
+  // Devis retenus, réunis dans la pastille du schéma.
+  const retenus = inv.devis.filter((d) => d.retenu)
+  const selection =
+    retenus.length === 0
+      ? null
+      : { nb: retenus.length, montant: formatEuros(montantRetenu(inv)) }
 
   function agir(a: ActionCapex) {
     // Refuser : date du refus et motif facultatif (145).
@@ -282,17 +272,26 @@ export function InvestissementDetail({
           })
         }}
       >
-        {/* SCHÉMA (138, demande PO) : Demandé, puis Refusé / Validé / Reporter,
-          puis Réalisé — avec les montants dans les cases (proposé,
-          réel, écart). La case colorée = où en est le dossier ; un clic sur
-          une autre case y fait passer le dossier. */}
+        {/* SCHÉMA (138, 147, demandes PO) : la proposition et son texte, ses
+          devis (case ronde = retenu), la sélection, puis Refusé / Validé /
+          Reporter et Réalisé. La case colorée = où en est le projet ; un clic
+          sur une autre case y fait passer le projet. */}
         <Card className="mb-4 shrink-0 overflow-hidden py-0">
           <CardContent className="p-0">
             <SchemaCapex
               schema={schema}
               menus={menus}
-              devis={
+              devis={inv.devis}
+              rangeesDevis={rangeesColonneDevis(inv.devis.length, canManage)}
+              selection={selection}
+              textes={{
+                demande: inv.description,
+                refuse: refuse ? inv.motif_arret : null,
+                realise: realise ? inv.bilan : null,
+              }}
+              renderDevis={(mode) => (
                 <ColonneDevis
+                  mode={mode}
                   devis={inv.devis}
                   nomsPdf={nomsPdf}
                   canManage={canManage}
@@ -346,14 +345,12 @@ export function InvestissementDetail({
                     })
                   }
                 />
-              }
+              )}
               // Un montant vide n'est pas affiché : un « — » seul, sans
               // légende, ne dirait rien.
+              // Plus de montant dans « Proposition » ni « Validé » (demande
+              // PO) : la sélection porte la somme ; Réalisé, le réel et l'écart.
               chiffres={{
-                // Montant du projet (147) dans « Proposition » : le moins
-                // cher tant que rien n'est validé, puis la somme des retenus.
-                // Pas de montant dans « Validé » (demande PO).
-                demande: montantProposition(inv, valideOuPlus),
                 realise: [
                   ...montant(inv.depense_reelle),
                   ...(label
@@ -376,43 +373,6 @@ export function InvestissementDetail({
             />
           </CardContent>
         </Card>
-
-        {/* Pas de dates ici : elles sont dans le schéma. Refus / Réalisation
-          n'apparaissent que si un motif ou un bilan est écrit. */}
-        <div className={cn('mb-4 grid gap-4', issue && 'lg:grid-cols-2')}>
-          <DetailNoteCard
-            label="Proposition"
-            text={inv.description}
-            emptyText="Aucune description."
-            action={
-              canManage && (
-                <TooltipIconButton
-                  icon={<Pencil />}
-                  label="Modifier le projet"
-                  variant="ghost"
-                  onClick={() => edit.openEdit(inv)}
-                />
-              )
-            }
-          />
-          {issue && (
-            <DetailNoteCard
-              label={issue.label}
-              text={issue.texte}
-              emptyText=""
-              action={
-                canManage && (
-                  <TooltipIconButton
-                    icon={<Pencil />}
-                    label={issue.modifier}
-                    variant="ghost"
-                    onClick={issue.ouvrir}
-                  />
-                )
-              }
-            />
-          )}
-        </div>
 
         {/* DOCUMENTS — pleine largeur, même patron que Événement et Travaux. */}
         <Card className="relative gap-3 py-4">
@@ -565,7 +525,6 @@ export function InvestissementDetail({
 
       {canManage && fenetreDevis && (
         <DevisDialog
-          key={fenetreDevis.cle}
           open
           onOpenChange={(o) => !o && setFenetreDevis(null)}
           projetId={inv.id}
@@ -589,26 +548,6 @@ export function InvestissementDetail({
 /** Le montant de la case, ou rien s'il n'est pas renseigné. */
 function montant(valeur: number | null): { valeur: string }[] {
   return valeur === null ? [] : [{ valeur: formatEuros(valeur) }]
-}
-
-/**
- * Montant de « Proposition » (147) : celui du projet, avec sa règle dite
- * dessous quand il y a un choix — « le moins cher » avant validation,
- * « retenu » ensuite.
- */
-function montantProposition(
-  p: Projet,
-  choixFait: boolean,
-): { valeur: string; libelle?: string }[] {
-  const m = choixFait ? montantRetenu(p) : montantProjet(p)
-  if (m === null) return []
-  if (p.devis.length < 2) return [{ valeur: formatEuros(m) }]
-  return [
-    {
-      valeur: formatEuros(m),
-      libelle: choixFait ? 'retenu' : 'le moins cher',
-    },
-  ]
 }
 
 /** La date seule (« 10/11/2026 », demande PO), ou rien si elle manque. */

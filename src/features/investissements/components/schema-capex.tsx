@@ -23,11 +23,11 @@ import {
   type SchemaCapex as Schema,
 } from '@/features/investissements/etat'
 
-// Organigramme façon Mermaid (138, demande PO) — ordinateur, toute la largeur :
+// Organigramme façon Mermaid (138, 147, demandes PO) — ordinateur :
 //
-//                 ╭──▶ Refusé
-//   Demandé ──────┼──▶ Validé ─────▶ Réalisé
-//                 ╰──▶ Reporter à N+1
+//   Proposition ─▶ devis ─╮                  ╭─▶ Refusé
+//                ─▶ devis  ├─(sélection)─────┼─▶ Validé ──▶ Réalisé
+//                ─▶ devis ─╯                  ╰─▶ Reporter à N+1
 //
 // Téléphone : la même chose de haut en bas. Les flèches sont des COURBES SVG
 // étirées à leur cellule (`preserveAspectRatio="none"`) ; `vector-effect:
@@ -53,9 +53,15 @@ type Teinte = 'ok' | 'refus' | 'report'
  */
 const ESTOMPE = 'opacity-30 saturate-50'
 
+/**
+ * État d'un trait : ceux du parcours, plus « choisi » — un devis retenu
+ * avant que la décision soit prise (plein, couleur d'information).
+ */
+type EtatTrait = EtatFlecheCapex | 'choisi'
+
 /** Trait : chemin pris (plein, coloré) ou possible (fin, pointillé, pâle). */
 function styleTrait(
-  etat: EtatFlecheCapex,
+  etat: EtatTrait,
   teinte: Teinte = 'ok',
 ): {
   className: string
@@ -64,6 +70,7 @@ function styleTrait(
 } {
   if (etat === 'ok') return { className: 'text-success', epais: 2.5 }
   if (etat === 'refus') return { className: 'text-destructive', epais: 2.5 }
+  if (etat === 'choisi') return { className: 'text-info', epais: 2 }
   return {
     className:
       teinte === 'refus'
@@ -86,7 +93,7 @@ function Pointe({
 }: {
   orientation: Orientation
   position: string
-  etat: EtatFlecheCapex
+  etat: EtatTrait
   teinte?: Teinte
   estompe?: boolean
 }) {
@@ -227,6 +234,7 @@ function Case({
   c,
   chiffres = [],
   date,
+  texte,
   menu = [],
   estompe = false,
   onAction,
@@ -236,6 +244,8 @@ function Case({
   c: CaseCapex
   chiffres?: ChiffreCapex[]
   date?: string
+  /** Texte de l'étape, quelques lignes (la suite au survol). */
+  texte?: string | null
   /** Branche écartée : la case s'efface. */
   estompe?: boolean
   /** Menu du clic droit / appui long (vide = pas de menu). */
@@ -244,7 +254,9 @@ function Case({
   disabled?: boolean
 }) {
   const tuile = (
-    <TuileCase {...{ cle, c, chiffres, date, estompe, onAction, disabled }} />
+    <TuileCase
+      {...{ cle, c, chiffres, date, texte, estompe, onAction, disabled }}
+    />
   )
   if (menu.length === 0) return tuile
   return (
@@ -260,6 +272,7 @@ function TuileCase({
   c,
   chiffres,
   date,
+  texte,
   estompe,
   onAction,
   disabled,
@@ -269,6 +282,7 @@ function TuileCase({
   c: CaseCapex
   chiffres: ChiffreCapex[]
   date?: string
+  texte?: string | null
   estompe: boolean
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
@@ -304,12 +318,20 @@ function TuileCase({
       >
         <Icone aria-hidden className="size-4" />
       </span>
-      {/* Nom de l'étape, et sa date dessous quand elle existe. */}
-      <span className="flex flex-col items-center leading-tight @min-[15rem]:items-start @min-[15rem]:text-left">
+      {/* Nom de l'étape, sa date, puis son texte quand ils existent. */}
+      <span className="flex min-w-0 flex-col items-center leading-tight @min-[15rem]:items-start @min-[15rem]:text-left">
         <span>{c.libelle}</span>
         {date && (
           <span className="mt-0.5 text-[11px] font-normal whitespace-pre-line text-muted-foreground tabular-nums">
             {date}
+          </span>
+        )}
+        {texte?.trim() && (
+          <span
+            title={texte}
+            className="mt-1.5 line-clamp-4 text-xs leading-snug font-normal whitespace-pre-line text-muted-foreground"
+          >
+            {texte}
           </span>
         )}
       </span>
@@ -404,29 +426,41 @@ function TuileCase({
 /** Ligne(s) sous le nom d'une case : sa date (un saut de ligne entre deux lignes). */
 export type DatesCasesCapex = Partial<Record<CleCase, string>>
 
+/** Disposition de la colonne des devis : rangées égales (large) ou pile (étroit). */
+export type ModeDevis = 'grille' | 'pile'
+
+/** Les devis retenus, réunis avant la décision (pastille du schéma). */
+export interface SelectionCapex {
+  nb: number
+  /** Somme des retenus, déjà formatée. */
+  montant: string
+}
+
 interface PropsSchema {
   schema: Schema
   /** Menus du clic droit / appui long, par case (selon la situation du dossier). */
   menus?: Partial<Record<CleCase, RowAction[]>>
   /**
-   * Colonne des DEVIS (147) ACCROCHÉE à la proposition (demande PO) : sous
-   * elle, reliée par un trait pointillé — en large comme en étroit.
+   * Colonne des DEVIS (147, demande PO) entre la proposition et la décision.
+   * Rendue par l'hôte, une fois par disposition (le schéma existe en large et
+   * en étroit) ; en grille, elle occupe `rangeesDevis` rangées égales.
    */
-  devis?: ReactNode
+  renderDevis?: (mode: ModeDevis) => ReactNode
+  /** Les devis, dans l'ordre de la colonne : seul « retenu » compte ici. */
+  devis?: readonly { retenu: boolean }[]
+  /** Rangées de la colonne : les devis + la tuile « Ajouter » s'il y en a une. */
+  rangeesDevis?: number
+  /** Devis retenus réunis ; null = aucun encore. */
+  selection?: SelectionCapex | null
   chiffres?: ChiffresCapex
   dates?: DatesCasesCapex
+  /** Texte d'une étape : proposition, motif du refus, bilan (demande PO). */
+  textes?: Partial<Record<CleCase, string | null>>
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
 }
 
-/** Trait pointillé vertical de la proposition vers ses devis. */
-const TRAIT_DEVIS = 'border-l-2 border-dashed border-info/50'
-
-/** Colonnes du schéma large : partagées par l'organigramme et ses devis. */
-const COLONNES_LARGES =
-  'grid-cols-[minmax(0,1fr)_minmax(4rem,0.8fr)_minmax(0,1fr)_minmax(3rem,0.5fr)_minmax(0,1fr)]'
-
-/** Liens de la fourche qui part de « Demandé ». */
+/** Liens de la fourche qui part de la sélection. */
 function liensFourche(schema: Schema) {
   const f = schema.fleches
   const e = estompees(schema)
@@ -459,115 +493,251 @@ function estompees(schema: Schema): Set<CleCase> {
   return new Set()
 }
 
-/** Schéma LARGE (≥ 56rem de place) : de gauche à droite. */
+/** Le projet a-t-il passé la décision « Validé » (validé ou réalisé) ? */
+const choixFait = (schema: Schema) => schema.valide.etat !== 'libre'
+
+/**
+ * Courbes LIBRES d'une colonne à l'autre, en pourcentages de hauteur (0-100) :
+ * du bord gauche à la hauteur `de` au bord droit à la hauteur `vers`. Sert
+ * aux faisceaux dont le nombre de branches varie (un devis = une branche).
+ */
+function Courbes({
+  traits,
+}: {
+  traits: {
+    cle: string
+    de: number
+    vers: number
+    etat: EtatTrait
+    estompe?: boolean
+    /** Pointe à l'arrivée (sinon le trait rejoint un autre élément). */
+    pointe?: boolean
+  }[]
+}) {
+  const ordonnes = [...traits].sort(
+    (a, b) => Number(a.etat !== 'libre') - Number(b.etat !== 'libre'),
+  )
+  const avecPointes = traits.some((t) => t.pointe)
+  return (
+    <>
+      <svg
+        aria-hidden
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className={cn(
+          'absolute top-0 left-0 h-full overflow-visible',
+          avecPointes ? 'w-[calc(100%-0.625rem)]' : 'w-full',
+        )}
+      >
+        {ordonnes.map(({ cle, de, vers, etat, estompe }) => {
+          const t = styleTrait(etat)
+          return (
+            <path
+              key={cle}
+              d={`M0 ${String(de)} C55 ${String(de)} 45 ${String(vers)} 100 ${String(vers)}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={t.epais}
+              strokeDasharray={t.pointille}
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+              className={cn(t.className, estompe && ESTOMPE)}
+            />
+          )
+        })}
+      </svg>
+      {traits
+        .filter((t) => t.pointe)
+        .map(({ cle, vers, etat, estompe }) => (
+          <Pointe
+            key={cle}
+            orientation="h"
+            position={`${String(vers)}%`}
+            etat={etat}
+            estompe={estompe}
+          />
+        ))}
+    </>
+  )
+}
+
+/** Centre (en %) de la rangée `i` sur `n` rangées égales. */
+const centre = (i: number, n: number) => ((i + 0.5) / n) * 100
+
+/**
+ * Pastille où se RÉUNISSENT les devis retenus (demande PO) : on en voit le
+ * nombre et la somme ; la décision (Validé / Refusé / Reporter) part d'elle.
+ */
+function Pastille({
+  selection,
+  valide,
+}: {
+  selection: SelectionCapex | null
+  valide: boolean
+}) {
+  return (
+    <span
+      className={cn(
+        'flex flex-col items-center rounded-full border px-3 py-1 text-center text-[11px] leading-tight whitespace-nowrap shadow-xs',
+        selection === null
+          ? 'border-dashed bg-card text-muted-foreground'
+          : valide
+            ? 'border-success/50 bg-success/10 text-foreground'
+            : 'border-info/50 bg-info/10 text-foreground',
+      )}
+    >
+      {selection === null ? (
+        'Aucun devis retenu'
+      ) : (
+        <>
+          <span>
+            {selection.nb} devis retenu{selection.nb > 1 ? 's' : ''}
+          </span>
+          <span className="font-semibold tabular-nums">
+            {selection.montant} HT
+          </span>
+        </>
+      )}
+    </span>
+  )
+}
+
+/** Hauteur d'une rangée du schéma large (une tuile + son souffle). */
+const RANGEE_REM = 5.25
+
+/**
+ * Schéma LARGE (≥ 64rem de place), de gauche à droite (demande PO) :
+ *
+ *   Proposition ─▶ devis ☑ ─╮                  ╭─▶ Refusé
+ *   (son texte)  ─▶ devis ☐  ├─(2 devis · X €)─┼─▶ Validé ──▶ Réalisé
+ *                ─▶ devis ☑ ─╯                  ╰─▶ Reporter
+ *
+ * Chaque colonne a SES rangées égales sur la même hauteur : les centres se
+ * calculent (`centre`), les courbes les relient.
+ */
 function SchemaHorizontal({
   schema,
   menus,
-  devis,
+  renderDevis,
+  devis = [],
+  rangeesDevis = 0,
+  selection = null,
   chiffres,
   dates,
+  textes,
   onAction,
   disabled,
 }: PropsSchema) {
   const props = { onAction, disabled }
-  // Cases ÉTIRÉES à la hauteur de leur rangée (rangées égales) : toutes les
-  // cases ont la même taille et l'écart entre deux rangées vaut toujours
-  // les deux `py-2` — ce que le trait du devis franchit.
-  const cellule = 'flex items-stretch py-2 @container'
+  const e = estompees(schema)
+  const fait = choixFait(schema)
+  const k = Math.max(rangeesDevis, 1)
+  const cellule = 'flex items-center py-2 @container'
+  const case_ = (cle: CleCase) => (
+    <Case
+      cle={cle}
+      c={schema[cle]}
+      chiffres={chiffres?.[cle]}
+      date={dates?.[cle]}
+      texte={textes?.[cle]}
+      menu={menus?.[cle]}
+      estompe={e.has(cle)}
+      {...props}
+    />
+  )
   return (
-    <div className="hidden w-full @min-[56rem]:block">
-      <div className={cn('grid w-full grid-rows-3', COLONNES_LARGES)}>
-        {/* Sous la proposition, le trait descend vers ses devis (N tuiles :
-          ils vivent SOUS l'organigramme, pour garder ses rangées égales — la
-          fourche en dépend). */}
-        {devis && (
-          <div className="relative col-start-1 row-start-3">
-            <span
-              aria-hidden
-              className={cn(
-                'absolute -top-2 bottom-0 left-1/2 -translate-x-1/2',
-                TRAIT_DEVIS,
-              )}
-            />
-          </div>
-        )}
-        <div className={cn(cellule, 'col-start-1 row-start-2')}>
-          <Case
-            cle="demande"
-            c={schema.demande}
-            chiffres={chiffres?.demande}
-            date={dates?.demande}
-            menu={menus?.demande}
-            {...props}
+    <div
+      className="hidden w-full grid-cols-[minmax(0,1.15fr)_minmax(2rem,0.3fr)_minmax(0,1.1fr)_minmax(9.5rem,0.9fr)_minmax(0,1fr)_minmax(2rem,0.3fr)_minmax(0,1fr)] @min-[64rem]:grid"
+      style={{ minHeight: `${String(Math.max(k, 3) * RANGEE_REM)}rem` }}
+    >
+      {/* 1. La proposition, avec son texte. */}
+      <div className={cellule}>{case_('demande')}</div>
+
+      {/* 2. Proposition → chaque devis (et vers « Ajouter »). */}
+      <div className="relative">
+        <Courbes
+          traits={Array.from({ length: k }, (_, i) => {
+            const d = devis[i]
+            return {
+              cle: String(i),
+              de: 50,
+              vers: centre(i, k),
+              etat: d?.retenu ? (fait ? 'ok' : 'choisi') : 'libre',
+              estompe: fait && !d?.retenu,
+              pointe: true,
+            }
+          })}
+        />
+      </div>
+
+      {/* 3. Les devis, une rangée chacun. */}
+      <div className="flex">{renderDevis?.('grille')}</div>
+
+      {/* 4. Devis retenus → pastille → décision. */}
+      <div className="flex items-stretch">
+        <div className="relative min-w-3 flex-1">
+          <Courbes
+            traits={devis.flatMap((d, i) =>
+              d.retenu
+                ? [
+                    {
+                      cle: String(i),
+                      de: centre(i, k),
+                      vers: 50,
+                      etat: fait ? ('ok' as const) : ('choisi' as const),
+                    },
+                  ]
+                : [],
+            )}
           />
         </div>
-        <div className="relative col-start-2 row-span-3 row-start-1">
+        <div className="flex items-center">
+          <Pastille selection={selection} valide={fait} />
+        </div>
+        <div className="relative min-w-6 flex-1">
           <Liens orientation="h" liens={liensFourche(schema)} />
         </div>
-        <div className={cn(cellule, 'col-start-3 row-start-1')}>
-          <Case
-            cle="refuse"
-            c={schema.refuse}
-            chiffres={chiffres?.refuse}
-            date={dates?.refuse}
-            menu={menus?.refuse}
-            estompe={estompees(schema).has('refuse')}
-            {...props}
-          />
-        </div>
-        <div className={cn(cellule, 'col-start-3 row-start-2')}>
-          <Case
-            cle="valide"
-            c={schema.valide}
-            chiffres={chiffres?.valide}
-            date={dates?.valide}
-            menu={menus?.valide}
-            estompe={estompees(schema).has('valide')}
-            {...props}
-          />
-        </div>
-        <div className={cn(cellule, 'col-start-3 row-start-3')}>
-          <Case
-            cle="reporte"
-            c={schema.reporte}
-            chiffres={chiffres?.reporte}
-            date={dates?.reporte}
-            menu={menus?.reporte}
-            estompe={estompees(schema).has('reporte')}
-            {...props}
-          />
-        </div>
-        {/* Validé → Réalisé : sur la rangée du milieu, flèche droite. */}
-        <div className="relative col-start-4 row-span-3 row-start-1">
-          <Liens
-            orientation="h"
-            liens={[
-              {
-                vers: 1,
-                etat: schema.fleches.versRealise,
-                estompe: estompees(schema).has('realise'),
-              },
-            ]}
-          />
-        </div>
-        <div className={cn(cellule, 'col-start-5 row-start-2')}>
-          <Case
-            cle="realise"
-            c={schema.realise}
-            chiffres={chiffres?.realise}
-            date={dates?.realise}
-            menu={menus?.realise}
-            estompe={estompees(schema).has('realise')}
-            {...props}
-          />
-        </div>
       </div>
-      {devis && (
-        <div className={cn('grid w-full', COLONNES_LARGES)}>
-          <div className="@container col-start-1 flex">{devis}</div>
-        </div>
-      )}
+
+      {/* 5. La décision. */}
+      <div className="grid grid-rows-3">
+        <div className={cellule}>{case_('refuse')}</div>
+        <div className={cellule}>{case_('valide')}</div>
+        <div className={cellule}>{case_('reporte')}</div>
+      </div>
+
+      {/* 6. Validé → Réalisé. */}
+      <div className="relative">
+        <Liens
+          orientation="h"
+          liens={[
+            {
+              vers: 1,
+              etat: schema.fleches.versRealise,
+              estompe: e.has('realise'),
+            },
+          ]}
+        />
+      </div>
+      <div className="grid grid-rows-3">
+        <div className={cn(cellule, 'row-start-2')}>{case_('realise')}</div>
+      </div>
     </div>
+  )
+}
+
+/** Trait pointillé vertical court, entre deux blocs du schéma étroit. */
+function TraitVertical({ etat = 'libre' }: { etat?: EtatTrait }) {
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        'mx-auto h-4 w-0 border-l-2',
+        etat === 'libre' ? 'border-dashed border-muted-foreground/40' : '',
+        etat === 'choisi' && 'border-info',
+        etat === 'ok' && 'border-success',
+      )}
+    />
   )
 }
 
@@ -575,74 +745,49 @@ function SchemaHorizontal({
 function SchemaVertical({
   schema,
   menus,
-  devis,
+  renderDevis,
+  selection = null,
   chiffres,
   dates,
+  textes,
   onAction,
   disabled,
 }: PropsSchema) {
   const props = { onAction, disabled }
+  const e = estompees(schema)
+  const fait = choixFait(schema)
   const trois = 'grid grid-cols-3'
   const cellule = 'flex px-1 @container'
+  const case_ = (cle: CleCase) => (
+    <Case
+      cle={cle}
+      c={schema[cle]}
+      chiffres={chiffres?.[cle]}
+      date={dates?.[cle]}
+      texte={textes?.[cle]}
+      menu={menus?.[cle]}
+      estompe={e.has(cle)}
+      {...props}
+    />
+  )
   return (
-    <div className="w-full @min-[56rem]:hidden">
-      <div className={cn(trois, 'items-stretch')}>
-        <div className={cn(cellule, 'col-start-2')}>
-          <Case
-            cle="demande"
-            c={schema.demande}
-            chiffres={chiffres?.demande}
-            date={dates?.demande}
-            menu={menus?.demande}
-            {...props}
-          />
-        </div>
+    <div className="w-full @min-[64rem]:hidden">
+      <div className={cellule}>{case_('demande')}</div>
+      <TraitVertical />
+      <div className="@container flex px-1">{renderDevis?.('pile')}</div>
+      <TraitVertical
+        etat={selection === null ? 'libre' : fait ? 'ok' : 'choisi'}
+      />
+      <div className="flex justify-center">
+        <Pastille selection={selection} valide={fait} />
       </div>
-      {/* Les devis SOUS la proposition, pleine largeur ; la fourche part
-          d'eux : on avance dans le parcours en choisissant un devis. */}
-      {devis && (
-        <>
-          <div aria-hidden className={cn('mx-auto h-3 w-0', TRAIT_DEVIS)} />
-          <div className="@container flex px-1">{devis}</div>
-        </>
-      )}
-      <div className="relative h-14">
+      <div className="relative h-12">
         <Liens orientation="v" liens={liensFourche(schema)} />
       </div>
       <div className={trois}>
-        <div className={cellule}>
-          <Case
-            cle="refuse"
-            c={schema.refuse}
-            chiffres={chiffres?.refuse}
-            date={dates?.refuse}
-            menu={menus?.refuse}
-            estompe={estompees(schema).has('refuse')}
-            {...props}
-          />
-        </div>
-        <div className={cellule}>
-          <Case
-            cle="valide"
-            c={schema.valide}
-            chiffres={chiffres?.valide}
-            date={dates?.valide}
-            menu={menus?.valide}
-            estompe={estompees(schema).has('valide')}
-            {...props}
-          />
-        </div>
-        <div className={cellule}>
-          <Case
-            cle="reporte"
-            c={schema.reporte}
-            chiffres={chiffres?.reporte}
-            date={dates?.reporte}
-            menu={menus?.reporte}
-            estompe={estompees(schema).has('reporte')}
-            {...props}
-          />
-        </div>
+        <div className={cellule}>{case_('refuse')}</div>
+        <div className={cellule}>{case_('valide')}</div>
+        <div className={cellule}>{case_('reporte')}</div>
       </div>
       <div className="relative h-10">
         <Liens
@@ -651,38 +796,29 @@ function SchemaVertical({
             {
               vers: 1,
               etat: schema.fleches.versRealise,
-              estompe: estompees(schema).has('realise'),
+              estompe: e.has('realise'),
             },
           ]}
         />
       </div>
       <div className={trois}>
-        <div className={cn(cellule, 'col-start-2')}>
-          <Case
-            cle="realise"
-            c={schema.realise}
-            chiffres={chiffres?.realise}
-            date={dates?.realise}
-            menu={menus?.realise}
-            estompe={estompees(schema).has('realise')}
-            {...props}
-          />
-        </div>
+        <div className={cn(cellule, 'col-start-2')}>{case_('realise')}</div>
       </div>
     </div>
   )
 }
 
 /**
- * Schéma du parcours d'un investissement, sur un fond « toile » pointillé.
- * La case colorée = où en est le dossier ; un clic sur une autre case y fait
- * passer le dossier (rôles qui peuvent modifier, sinon lecture seule).
+ * Schéma du parcours d'un projet, sur un fond « toile » pointillé (demande
+ * PO) : la proposition, ses devis, ceux qu'on retient, puis la décision. La
+ * case colorée = où en est le projet ; un clic sur une autre case y fait
+ * passer le projet (rôles qui peuvent modifier, sinon lecture seule).
  */
 export function SchemaCapex(props: PropsSchema) {
   return (
     <div
       role="group"
-      aria-label="Parcours du dossier"
+      aria-label="Parcours du projet"
       // Conteneur : la mise en page suit la place RÉELLEMENT disponible
       // (menu latéral ouvert ou non), pas la largeur de l'écran.
       className="@container rounded-lg px-3 py-6 sm:px-6"

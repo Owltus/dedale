@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type DragEvent } from 'react'
+import { useId, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { Check, FileText, Pencil, Plus, Trash2, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -8,6 +8,7 @@ import { MIME_PDF, validerFichier } from '@/features/documents/upload'
 import { cn } from '@/lib/utils'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { RowContextMenuContent } from '@/components/common/row-actions'
+import type { ModeDevis } from './schema-capex'
 
 /** Attribut posé sur la colonne : le dépôt pleine page de la fiche l'ignore. */
 export const ATTR_ZONE_DEVIS = 'data-zone-devis'
@@ -29,6 +30,12 @@ const TUILE =
   'flex min-h-16 w-full items-center gap-3 rounded-xl border bg-card px-3 py-2.5 text-left text-sm shadow-xs transition duration-150'
 
 interface ColonneDevisProps {
+  /**
+   * `grille` : une rangée égale par tuile, sur toute la hauteur (schéma
+   * large — les flèches visent le centre de chaque rangée) ; `pile` : les
+   * tuiles l'une sous l'autre (schéma étroit).
+   */
+  mode: ModeDevis
   devis: readonly Devis[]
   /** Nom du PDF de chaque devis, par id de document. */
   nomsPdf: Map<string, string>
@@ -61,6 +68,7 @@ interface ColonneDevisProps {
  *   dessus : fenêtre « Nouveau devis » pré-remplie.
  */
 export function ColonneDevis({
+  mode,
   devis,
   nomsPdf,
   canManage,
@@ -76,6 +84,7 @@ export function ColonneDevis({
   const profondeur = useRef(0)
   // Id PROPRE à chaque exemplaire (schéma large / étroit, l'un masqué) : un
   // id partagé laisserait l'exemplaire masqué capter le dépôt.
+  const rangees = rangeesColonneDevis(devis.length, canManage)
   const { setNodeRef, isOver } = useDroppable({
     id: `${CIBLE_DEVIS}-${useId()}`,
     data: { type: CIBLE_DEVIS },
@@ -115,54 +124,77 @@ export function ColonneDevis({
       {...{ [ATTR_ZONE_DEVIS]: '' }}
       {...surDepot}
       className={cn(
-        'flex w-full flex-col gap-2 rounded-xl transition',
+        'w-full rounded-xl transition',
+        mode === 'grille' ? 'grid' : 'flex flex-col gap-2',
         canManage && glissement && 'ring-2 ring-info/40 ring-offset-2',
         cible && 'bg-info/10 ring-2 ring-info ring-offset-2',
       )}
+      style={
+        mode === 'grille'
+          ? { gridTemplateRows: `repeat(${String(rangees)}, minmax(0, 1fr))` }
+          : undefined
+      }
     >
       {devis.map((d) => (
-        <TuileDevis
-          key={d.id}
-          d={d}
-          nomPdf={d.document_id ? nomsPdf.get(d.document_id) : undefined}
-          canManage={canManage}
-          estompe={choixFait && !d.retenu}
-          onApercu={onApercu}
-          onModifier={onModifier}
-          onRetenir={onRetenir}
-          onSupprimer={onSupprimer}
-        />
+        <Rangee key={d.id} mode={mode}>
+          <TuileDevis
+            key={d.id}
+            d={d}
+            nomPdf={d.document_id ? nomsPdf.get(d.document_id) : undefined}
+            canManage={canManage}
+            estompe={choixFait && !d.retenu}
+            onApercu={onApercu}
+            onModifier={onModifier}
+            onRetenir={onRetenir}
+            onSupprimer={onSupprimer}
+          />
+        </Rangee>
       ))}
       {canManage && (
-        <button
-          type="button"
-          onClick={() => onAjouter(null)}
-          className={cn(
-            TUILE,
-            'cursor-pointer justify-center border-dashed font-medium text-muted-foreground hover:border-info hover:text-foreground',
-            devis.length > 0 && 'min-h-11 py-2',
-          )}
-        >
-          <Plus aria-hidden className="size-4" />
-          {cible
-            ? 'Lâche ici pour ajouter un devis'
-            : devis.length === 0
-              ? 'Ajouter un devis (ou glisse son PDF)'
-              : 'Ajouter un devis'}
-        </button>
+        <Rangee mode={mode}>
+          <button
+            type="button"
+            onClick={() => onAjouter(null)}
+            className={cn(
+              TUILE,
+              'cursor-pointer justify-center border-dashed font-medium text-muted-foreground hover:border-info hover:text-foreground',
+              devis.length > 0 && 'min-h-11 py-2',
+            )}
+          >
+            <Plus aria-hidden className="size-4" />
+            {cible
+              ? 'Lâche ici pour ajouter un devis'
+              : devis.length === 0
+                ? 'Ajouter un devis (ou glisse son PDF)'
+                : 'Ajouter un devis'}
+          </button>
+        </Rangee>
       )}
       {!canManage && devis.length === 0 && (
-        <div
-          className={cn(
-            TUILE,
-            'justify-center border-dashed text-muted-foreground',
-          )}
-        >
-          Aucun devis
-        </div>
+        <Rangee mode={mode}>
+          <div
+            className={cn(
+              TUILE,
+              'justify-center border-dashed text-muted-foreground',
+            )}
+          >
+            Aucun devis
+          </div>
+        </Rangee>
       )}
     </div>
   )
+}
+
+/** Rangées de la colonne : les devis, plus « Ajouter » ou « Aucun devis ». */
+export function rangeesColonneDevis(nbDevis: number, canManage: boolean) {
+  return nbDevis + (canManage || nbDevis === 0 ? 1 : 0)
+}
+
+/** Une rangée : la tuile centrée dans sa hauteur (grille), ou telle quelle. */
+function Rangee({ mode, children }: { mode: ModeDevis; children: ReactNode }) {
+  if (mode === 'pile') return children
+  return <div className="flex min-h-0 items-center py-1.5">{children}</div>
 }
 
 function TuileDevis({
@@ -185,44 +217,76 @@ function TuileDevis({
   onSupprimer: (d: Devis) => void
 }) {
   const cliquable = d.document_id !== null || canManage
-  const tuile = (
-    <button
-      type="button"
-      disabled={!cliquable}
-      onClick={() => (d.document_id ? onApercu(d) : onModifier(d))}
-      title={nomPdf ?? (canManage ? 'Modifier le devis' : undefined)}
+  // Case RONDE = retenir (pré-valider) le devis, demande PO ; le reste de la
+  // tuile ouvre son PDF.
+  const caseRonde = (
+    <span
       className={cn(
-        TUILE,
-        '@container',
-        d.retenu ? 'border-success/60 bg-success/5' : 'border-info/40',
-        cliquable &&
-          'cursor-pointer hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
-        estompe &&
-          'opacity-30 saturate-50 hover:opacity-100 hover:saturate-100 focus-visible:opacity-100',
+        'flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition',
+        d.retenu
+          ? 'border-success bg-success text-success-foreground'
+          : 'border-muted-foreground/40 bg-card',
       )}
     >
-      <span
+      {d.retenu && <Check aria-hidden className="size-3.5" strokeWidth={3} />}
+    </span>
+  )
+  const tuile = (
+    <div
+      className={cn(
+        TUILE,
+        '@container gap-2 px-2',
+        d.retenu ? 'border-success/60 bg-success/5' : 'border-info/40',
+        estompe &&
+          'opacity-30 saturate-50 focus-within:opacity-100 hover:opacity-100 hover:saturate-100',
+      )}
+    >
+      {canManage ? (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={d.retenu}
+          aria-label={
+            d.retenu
+              ? `Ne plus retenir le devis ${d.fournisseur}`
+              : `Retenir le devis ${d.fournisseur}`
+          }
+          title={d.retenu ? 'Ne plus retenir' : 'Retenir ce devis'}
+          onClick={() => onRetenir(d, !d.retenu)}
+          className="cursor-pointer rounded-full p-1 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          {caseRonde}
+        </button>
+      ) : (
+        <span className="p-1">{caseRonde}</span>
+      )}
+      <button
+        type="button"
+        disabled={!cliquable}
+        onClick={() => (d.document_id ? onApercu(d) : onModifier(d))}
+        title={nomPdf ?? (canManage ? 'Modifier le devis' : undefined)}
         className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-full',
-          d.retenu ? 'bg-success/15 text-success' : 'bg-info/15 text-info',
+          'flex min-w-0 flex-1 items-center gap-2 self-stretch rounded-lg text-left',
+          cliquable &&
+            'cursor-pointer focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
         )}
       >
-        {d.retenu ? (
-          <Check aria-hidden className="size-4" />
-        ) : (
-          <FileText aria-hidden className="size-4" />
-        )}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col leading-tight">
-        <span className="truncate font-medium">{d.fournisseur}</span>
-        <span className="mt-0.5 truncate text-[11px] text-muted-foreground">
-          {d.objet ?? nomPdf ?? 'Sans PDF'}
+        <span className="flex min-w-0 flex-1 flex-col leading-tight">
+          <span className="flex items-center gap-1.5 truncate font-medium">
+            {d.document_id && (
+              <FileText aria-hidden className="size-3.5 shrink-0 text-info" />
+            )}
+            <span className="truncate">{d.fournisseur}</span>
+          </span>
+          <span className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            {d.objet ?? nomPdf ?? 'Sans PDF'}
+          </span>
         </span>
-      </span>
-      <span className="shrink-0 text-xs font-semibold whitespace-nowrap tabular-nums @min-[15rem]:text-sm">
-        {formatEuros(d.montant_ht)}
-      </span>
-    </button>
+        <span className="shrink-0 pr-1 text-xs font-semibold whitespace-nowrap tabular-nums @min-[15rem]:text-sm">
+          {formatEuros(d.montant_ht)}
+        </span>
+      </button>
+    </div>
   )
   if (!canManage) return tuile
   return (
