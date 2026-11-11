@@ -1,7 +1,7 @@
 import { useId, useRef, useState, type DragEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useDroppable } from '@dnd-kit/core'
-import { Eye, FileText, FileUp, Loader2, Unlink } from 'lucide-react'
+import { FileText, FileUp, Loader2, Unlink } from 'lucide-react'
 import { toast } from 'sonner'
 import { documentsQueries } from '@/features/documents/queries'
 import { MIME_PDF } from '@/features/documents/upload'
@@ -44,8 +44,8 @@ const aDesFichiers = (e: DragEvent) => e.dataTransfer.types.includes('Files')
  * - Document de la liste « Documents » glissé dessus : il devient le devis
  *   (cf. `CIBLE_DEVIS`, géré par la fiche).
  * - Clic sur une case remplie : aperçu du devis.
- * - Clic droit / appui long : menu (voir, remplacer par un fichier, ne plus
- *   en faire le devis — il repasse alors dans « Documents »).
+ * - Clic droit / appui long sur une case remplie : remplacer par un fichier,
+ *   ne plus en faire le devis (il repasse alors dans « Documents »).
  */
 export function CaseDevis({
   investissementId,
@@ -147,35 +147,20 @@ export function CaseDevis({
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
+  // Menu = ce que le clic ne fait PAS (demande PO) : le clic voit le devis,
+  // ou en ajoute un quand la case est vide.
   const menu: RowAction[] = [
-    ...(devis
-      ? [
-          {
-            label: 'Voir le devis',
-            icon: Eye,
-            onSelect: () => setApercu(devis),
-          },
-        ]
-      : []),
-    ...(canManage
-      ? [
-          {
-            label: devis ? 'Remplacer par un fichier…' : 'Ajouter le devis…',
-            icon: FileUp,
-            onSelect: () => choix.current?.click(),
-          },
-        ]
-      : []),
-    ...(canManage && devis
-      ? [
-          {
-            label: 'Ne plus en faire le devis',
-            icon: Unlink,
-            onSelect: retirer,
-            separatorBefore: true,
-          },
-        ]
-      : []),
+    {
+      label: 'Remplacer par un fichier…',
+      icon: FileUp,
+      onSelect: () => choix.current?.click(),
+    },
+    {
+      label: 'Ne plus en faire le devis',
+      icon: Unlink,
+      onSelect: retirer,
+      separatorBefore: true,
+    },
   ]
   const cible = survol || isOver
 
@@ -256,8 +241,8 @@ export function CaseDevis({
       />
     </div>
   )
-  // Menu dès qu'il a une entrée (voir, ou ajouter/remplacer).
-  if (devis === null && !canManage) return caseDevis
+  // Menu seulement quand il y a un devis à remplacer ou à détacher.
+  if (devis === null || !canManage) return caseDevis
   return (
     <ContextMenu modal={false}>
       <ContextMenuTrigger asChild>{caseDevis}</ContextMenuTrigger>

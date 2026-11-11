@@ -46,6 +46,13 @@ const POSITIONS = ['16.667%', '50%', '83.333%'] as const
  */
 type Teinte = 'ok' | 'refus' | 'report'
 
+/**
+ * Branche ÉCARTÉE (demande PO) : une fois le dossier validé ou refusé, les
+ * autres branches s'effacent. Le survol les rend nettes : elles restent
+ * cliquables pour changer d'avis.
+ */
+const ESTOMPE = 'opacity-30 saturate-50'
+
 /** Trait : chemin pris (plein, coloré) ou possible (fin, pointillé, pâle). */
 function styleTrait(
   etat: EtatFlecheCapex,
@@ -75,11 +82,13 @@ function Pointe({
   position,
   etat,
   teinte,
+  estompe,
 }: {
   orientation: Orientation
   position: string
   etat: EtatFlecheCapex
   teinte?: Teinte
+  estompe?: boolean
 }) {
   const h = orientation === 'h'
   return (
@@ -90,6 +99,7 @@ function Pointe({
         'absolute size-2.5 fill-current',
         h ? 'right-0 -translate-y-1/2' : 'bottom-0 -translate-x-1/2',
         styleTrait(etat, teinte).className,
+        estompe && ESTOMPE,
       )}
       style={h ? { top: position } : { left: position }}
     >
@@ -108,7 +118,12 @@ function Liens({
   liens,
 }: {
   orientation: Orientation
-  liens: { vers: 0 | 1 | 2; etat: EtatFlecheCapex; teinte?: Teinte }[]
+  liens: {
+    vers: 0 | 1 | 2
+    etat: EtatFlecheCapex
+    teinte?: Teinte
+    estompe?: boolean
+  }[]
 }) {
   const h = orientation === 'h'
   // Les traits non empruntés d'abord : le chemin pris passe par-dessus.
@@ -130,7 +145,7 @@ function Liens({
             : 'h-[calc(100%-0.625rem)] w-full',
         )}
       >
-        {ordonnes.map(({ vers, etat, teinte }) => {
+        {ordonnes.map(({ vers, etat, teinte, estompe }) => {
           const y = 50 + vers * 100
           const d = h
             ? `M0 150 C55 150 45 ${String(y)} 100 ${String(y)}`
@@ -146,18 +161,19 @@ function Liens({
               strokeDasharray={t.pointille}
               strokeLinecap="round"
               vectorEffect="non-scaling-stroke"
-              className={t.className}
+              className={cn(t.className, estompe && ESTOMPE)}
             />
           )
         })}
       </svg>
-      {liens.map(({ vers, etat, teinte }) => (
+      {liens.map(({ vers, etat, teinte, estompe }) => (
         <Pointe
           key={vers}
           orientation={orientation}
           position={POSITIONS[vers]}
           etat={etat}
           teinte={teinte}
+          estompe={estompe}
         />
       ))}
     </>
@@ -212,6 +228,7 @@ function Case({
   chiffres = [],
   date,
   menu = [],
+  estompe = false,
   onAction,
   disabled,
 }: {
@@ -219,13 +236,15 @@ function Case({
   c: CaseCapex
   chiffres?: ChiffreCapex[]
   date?: string
+  /** Branche écartée : la case s'efface. */
+  estompe?: boolean
   /** Menu du clic droit / appui long (vide = pas de menu). */
   menu?: RowAction[]
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
 }) {
   const tuile = (
-    <TuileCase {...{ cle, c, chiffres, date, onAction, disabled }} />
+    <TuileCase {...{ cle, c, chiffres, date, estompe, onAction, disabled }} />
   )
   if (menu.length === 0) return tuile
   return (
@@ -241,6 +260,7 @@ function TuileCase({
   c,
   chiffres,
   date,
+  estompe,
   onAction,
   disabled,
   ...rest
@@ -249,6 +269,7 @@ function TuileCase({
   c: CaseCapex
   chiffres: ChiffreCapex[]
   date?: string
+  estompe: boolean
   onAction?: (a: ActionCapex) => void
   disabled?: boolean
 } & Omit<ComponentProps<'div'>, 'children'>) {
@@ -331,6 +352,11 @@ function TuileCase({
     c.etat === 'libre' && cle === 'refuse' && 'border-destructive/25',
     actuel && 'border-2 font-semibold text-foreground',
     cle === 'reporte' && 'border-dashed border-warning/50',
+    estompe &&
+      cn(
+        ESTOMPE,
+        'transition duration-150 hover:opacity-100 hover:saturate-100 focus-visible:opacity-100 focus-visible:saturate-100',
+      ),
   )
   if (c.action && onAction) {
     const action = c.action
@@ -408,12 +434,36 @@ function TraitDevis() {
 }
 
 /** Liens de la fourche qui part de « Demandé ». */
-function liensFourche(f: Schema['fleches']) {
+function liensFourche(schema: Schema) {
+  const f = schema.fleches
+  const e = estompees(schema)
   return [
-    { vers: 0 as const, etat: f.versRefuse, teinte: 'refus' as const },
-    { vers: 1 as const, etat: f.versValide },
-    { vers: 2 as const, etat: f.versReporte, teinte: 'report' as const },
+    {
+      vers: 0 as const,
+      etat: f.versRefuse,
+      teinte: 'refus' as const,
+      estompe: e.has('refuse'),
+    },
+    { vers: 1 as const, etat: f.versValide, estompe: e.has('valide') },
+    {
+      vers: 2 as const,
+      etat: f.versReporte,
+      teinte: 'report' as const,
+      estompe: e.has('reporte'),
+    },
   ]
+}
+
+/**
+ * Cases des branches ÉCARTÉES : validé (ou réalisé) efface Refusé et le
+ * report ; refusé efface Validé, Réalisé et le report. Tant que le dossier
+ * n'est que proposé, rien n'est effacé.
+ */
+function estompees(schema: Schema): Set<CleCase> {
+  if (schema.refuse.etat === 'actuel')
+    return new Set(['valide', 'realise', 'reporte'])
+  if (schema.valide.etat !== 'libre') return new Set(['refuse', 'reporte'])
+  return new Set()
 }
 
 /** Schéma LARGE (≥ 56rem de place) : de gauche à droite. */
@@ -450,7 +500,7 @@ function SchemaHorizontal({
         />
       </div>
       <div className="relative col-start-2 row-span-3 row-start-1">
-        <Liens orientation="h" liens={liensFourche(schema.fleches)} />
+        <Liens orientation="h" liens={liensFourche(schema)} />
       </div>
       <div className={cn(cellule, 'col-start-3 row-start-1')}>
         <Case
@@ -459,6 +509,7 @@ function SchemaHorizontal({
           chiffres={chiffres?.refuse}
           date={dates?.refuse}
           menu={menus?.refuse}
+          estompe={estompees(schema).has('refuse')}
           {...props}
         />
       </div>
@@ -469,6 +520,7 @@ function SchemaHorizontal({
           chiffres={chiffres?.valide}
           date={dates?.valide}
           menu={menus?.valide}
+          estompe={estompees(schema).has('valide')}
           {...props}
         />
       </div>
@@ -479,6 +531,7 @@ function SchemaHorizontal({
           chiffres={chiffres?.reporte}
           date={dates?.reporte}
           menu={menus?.reporte}
+          estompe={estompees(schema).has('reporte')}
           {...props}
         />
       </div>
@@ -486,7 +539,13 @@ function SchemaHorizontal({
       <div className="relative col-start-4 row-span-3 row-start-1">
         <Liens
           orientation="h"
-          liens={[{ vers: 1, etat: schema.fleches.versRealise }]}
+          liens={[
+            {
+              vers: 1,
+              etat: schema.fleches.versRealise,
+              estompe: estompees(schema).has('realise'),
+            },
+          ]}
         />
       </div>
       <div className={cn(cellule, 'col-start-5 row-start-2')}>
@@ -496,6 +555,7 @@ function SchemaHorizontal({
           chiffres={chiffres?.realise}
           date={dates?.realise}
           menu={menus?.realise}
+          estompe={estompees(schema).has('realise')}
           {...props}
         />
       </div>
@@ -541,7 +601,7 @@ function SchemaVertical({
         </div>
       </div>
       <div className="relative h-14">
-        <Liens orientation="v" liens={liensFourche(schema.fleches)} />
+        <Liens orientation="v" liens={liensFourche(schema)} />
       </div>
       <div className={trois}>
         <div className={cellule}>
@@ -551,6 +611,7 @@ function SchemaVertical({
             chiffres={chiffres?.refuse}
             date={dates?.refuse}
             menu={menus?.refuse}
+            estompe={estompees(schema).has('refuse')}
             {...props}
           />
         </div>
@@ -561,6 +622,7 @@ function SchemaVertical({
             chiffres={chiffres?.valide}
             date={dates?.valide}
             menu={menus?.valide}
+            estompe={estompees(schema).has('valide')}
             {...props}
           />
         </div>
@@ -571,6 +633,7 @@ function SchemaVertical({
             chiffres={chiffres?.reporte}
             date={dates?.reporte}
             menu={menus?.reporte}
+            estompe={estompees(schema).has('reporte')}
             {...props}
           />
         </div>
@@ -578,7 +641,13 @@ function SchemaVertical({
       <div className="relative h-10">
         <Liens
           orientation="v"
-          liens={[{ vers: 1, etat: schema.fleches.versRealise }]}
+          liens={[
+            {
+              vers: 1,
+              etat: schema.fleches.versRealise,
+              estompe: estompees(schema).has('realise'),
+            },
+          ]}
         />
       </div>
       <div className={trois}>
@@ -589,6 +658,7 @@ function SchemaVertical({
             chiffres={chiffres?.realise}
             date={dates?.realise}
             menu={menus?.realise}
+            estompe={estompees(schema).has('realise')}
             {...props}
           />
         </div>
