@@ -9,6 +9,7 @@ import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/fields/text-field'
+import { MontantField } from '@/components/common/fields/montant-field'
 import { DateField } from '@/components/common/fields/date-field'
 import { DescriptionField } from '@/components/common/fields/description-field'
 import type { Database } from '@/lib/database.types'
@@ -119,11 +120,10 @@ export function InvestissementFormDialog({
               required
             />
             {voitReel && (
-              <TextField
+              <MontantField
                 control={form.control}
                 name="depense_reelle"
                 label="Dépense réelle HT (€)"
-                inputMode="decimal"
               />
             )}
           </div>

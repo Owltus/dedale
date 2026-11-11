@@ -7,7 +7,7 @@ import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { DateField } from '@/components/common/fields/date-field'
 import { DescriptionField } from '@/components/common/fields/description-field'
-import { TextField } from '@/components/common/fields/text-field'
+import { MontantField } from '@/components/common/fields/montant-field'
 
 interface ClotureInvestissementDialogProps {
   open: boolean
@@ -85,11 +85,10 @@ export function ClotureInvestissementDialog({
             label="Date de réalisation"
             required
           />
-          <TextField
+          <MontantField
             control={form.control}
             name="depense_reelle"
-            label="Dépense réelle (€)"
-            inputMode="decimal"
+            label="Dépense réelle HT (€)"
           />
           <div className="sm:col-span-2">
             <DescriptionField

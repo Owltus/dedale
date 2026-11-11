@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { FormDialog } from '@/components/common/form-dialog'
 import { FileDropField } from '@/components/common/file-drop-field'
 import { TextField } from '@/components/common/fields/text-field'
+import { MontantField } from '@/components/common/fields/montant-field'
 
 /** Le PDF du devis : déjà en base (id), ou un fichier à envoyer. */
 export type PieceDevis =
@@ -133,11 +134,10 @@ export function DevisDialog({
             placeholder="Qui a fait le devis ?"
             required
           />
-          <TextField
+          <MontantField
             control={form.control}
             name="montant_ht"
             label="Montant HT (€)"
-            inputMode="decimal"
             required
           />
           <div className="sm:col-span-2">

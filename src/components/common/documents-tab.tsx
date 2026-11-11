@@ -100,13 +100,6 @@ interface DocumentsTabProps {
    * n'ont pas de notion de tâche.
    */
   draggable?: boolean
-  /**
-   * N'affiche qu'une PARTIE des documents rattachés (ex. les devis d'un côté,
-   * les annexes de l'autre). La liste vide se juge APRÈS filtre.
-   */
-  filtre?: (doc: { id: string; type_document_id: number | null }) => boolean
-  /** Titre de l'état vide (défaut « Aucun document »). */
-  emptyTitle?: string
 }
 
 /**
@@ -137,8 +130,6 @@ export function DocumentsTab({
   canAttach = true,
   onLiaisonChanged,
   draggable = false,
-  filtre,
-  emptyTitle = 'Aucun document',
 }: DocumentsTabProps) {
   const { data: role } = useCurrentRole()
   const canManage = perm.canManageMetier(role)
@@ -149,12 +140,6 @@ export function DocumentsTab({
   const query = useQuery(
     documentsQueries.byEntity(liaison, parentColumn, parentId, tacheId),
   )
-  // Vue filtrée (même cache) : c'est elle qu'on affiche ; la liste complète
-  // sert à exclure les documents déjà rattachés du choix « existants ».
-  const vue = useQuery({
-    ...documentsQueries.byEntity(liaison, parentColumn, parentId, tacheId),
-    select: (docs) => (filtre ? docs.filter(filtre) : docs),
-  })
 
   const uploadAttach = useUploadAndAttach()
   const attachExisting = useAttachExistingDocuments()
@@ -219,7 +204,7 @@ export function DocumentsTab({
       )}
 
       <QueryState
-        query={vue}
+        query={query}
         // MÊME brique et MÊME densité que la page Documents : cet onglet rend la
         // même liste de DocumentRow (h-14). Il utilisait CardSkeletons — une
         // autre brique, un autre nombre — pour un contenu identique.
@@ -227,7 +212,7 @@ export function DocumentsTab({
         empty={
           <EmptyState
             icon={FileText}
-            title={emptyTitle}
+            title="Aucun document"
             action={emptyAction}
             className="min-h-40 flex-1 justify-center"
           />
