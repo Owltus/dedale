@@ -259,7 +259,6 @@ function TuileDevis({
     <SurvolCase
       info={{
         titre: `${d.fournisseur} · ${formatEuros(d.montant_ht)} HT`,
-        sousTitre: nomPdf ?? 'Sans PDF',
         texte: d.objet,
       }}
       menu={
