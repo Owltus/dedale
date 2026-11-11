@@ -1,5 +1,4 @@
-import { useId, useRef, useState, type DragEvent, type ReactNode } from 'react'
-import { useDroppable } from '@dnd-kit/core'
+import { useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { Check, Pencil, Plus, Trash2, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Devis } from '@/features/investissements/queries'
@@ -9,19 +8,6 @@ import { cn } from '@/lib/utils'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { RowContextMenuContent } from '@/components/common/row-actions'
 import type { ModeDevis } from './schema-capex'
-
-/** Attribut posé sur la colonne : le dépôt pleine page de la fiche l'ignore. */
-export const ATTR_ZONE_DEVIS = 'data-zone-devis'
-
-/** Vrai si un fichier est tombé SUR la colonne des devis (elle le traite). */
-export function estDansZoneDevis(cible: EventTarget | null): boolean {
-  return (
-    cible instanceof Element && cible.closest(`[${ATTR_ZONE_DEVIS}]`) !== null
-  )
-}
-
-/** Type de la cible dnd-kit : un document de la liste glissé sur la colonne. */
-export const CIBLE_DEVIS = 'colonne-devis'
 
 const aDesFichiers = (e: DragEvent) => e.dataTransfer.types.includes('Files')
 
@@ -42,8 +28,6 @@ interface ColonneDevisProps {
   canManage: boolean
   /** Projet validé ou réalisé : les devis non retenus s'estompent. */
   choixFait: boolean
-  /** Un fichier est en train d'être glissé sur la page. */
-  glissement: boolean
   onApercu: (d: Devis) => void
   onModifier: (d: Devis) => void
   /** Nouveau devis, avec le PDF qu'on vient de lâcher s'il y en a un. */
@@ -64,8 +48,8 @@ interface ColonneDevisProps {
  *
  * - Clic : aperçu du PDF (sinon, modification du devis).
  * - Clic droit / appui long : modifier, retenir ou non, supprimer.
- * - PDF de l'ordinateur lâché sur la colonne, ou document de la liste glissé
- *   dessus : fenêtre « Nouveau devis » pré-remplie.
+ * - PDF de l'ordinateur lâché sur la colonne : fenêtre « Nouveau devis »
+ *   pré-remplie.
  */
 export function ColonneDevis({
   mode,
@@ -73,7 +57,6 @@ export function ColonneDevis({
   nomsPdf,
   canManage,
   choixFait,
-  glissement,
   onApercu,
   onModifier,
   onAjouter,
@@ -82,15 +65,8 @@ export function ColonneDevis({
 }: ColonneDevisProps) {
   const [survol, setSurvol] = useState(false)
   const profondeur = useRef(0)
-  // Id PROPRE à chaque exemplaire (schéma large / étroit, l'un masqué) : un
-  // id partagé laisserait l'exemplaire masqué capter le dépôt.
   const rangees = rangeesColonneDevis(devis.length, canManage)
-  const { setNodeRef, isOver } = useDroppable({
-    id: `${CIBLE_DEVIS}-${useId()}`,
-    data: { type: CIBLE_DEVIS },
-    disabled: !canManage,
-  })
-  const cible = survol || isOver
+  const cible = survol
 
   const surDepot = canManage
     ? {
@@ -120,13 +96,10 @@ export function ColonneDevis({
 
   return (
     <div
-      ref={setNodeRef}
-      {...{ [ATTR_ZONE_DEVIS]: '' }}
       {...surDepot}
       className={cn(
         'w-full rounded-xl transition',
         mode === 'grille' ? 'grid' : 'flex flex-col gap-2',
-        canManage && glissement && 'ring-2 ring-info/40 ring-offset-2',
         cible && 'bg-info/10 ring-2 ring-info ring-offset-2',
       )}
       style={

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Paperclip, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
 import { toast } from 'sonner'
 import {
@@ -31,14 +31,8 @@ import { ClotureInvestissementDialog } from './cloture-investissement-dialog'
 import { ValidationInvestissementDialog } from './validation-investissement-dialog'
 import { parseMontant } from '@/features/investissements/schemas'
 import { SchemaCapex } from './schema-capex'
-import {
-  ColonneDevis,
-  CIBLE_DEVIS,
-  estDansZoneDevis,
-  rangeesColonneDevis,
-} from './colonne-devis'
+import { ColonneDevis, rangeesColonneDevis } from './colonne-devis'
 import { DevisDialog, type PieceDevis } from './devis-dialog'
-import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import {
   documentsQueries,
   typesDocumentsQueries,
@@ -46,8 +40,6 @@ import {
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
 import type { DocumentMeta } from '@/features/documents/format'
 import { PAGE_META } from '@/features/investissements/page-meta'
-import { MIME_PDF } from '@/features/documents/upload'
-import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { formatDate, isoLocale } from '@/lib/date'
@@ -56,12 +48,10 @@ import { useAuth } from '@/auth'
 import { writeErrorMessage } from '@/lib/form'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
-import { DocumentsTab } from '@/components/common/documents-tab'
-import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { RefusInvestissementDialog } from './refus-investissement-dialog'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 
 export function InvestissementDetail({
   investissement: inv,
@@ -80,13 +70,6 @@ export function InvestissementDetail({
   const [refus, setRefus] = useState(false)
   const [validation, setValidation] = useState(false)
   const modifierDateValidation = useModifierDateValidation()
-  // Upload + glisser-déposer pleine page (réservé aux rôles pouvant rattacher).
-  // Un fichier lâché sur le cadre « Devis » y est traité ; ailleurs, il va
-  // aux documents (annexes).
-  const upload = useUploadDrop({
-    enabled: canManage,
-    ignorer: estDansZoneDevis,
-  })
   const { data: typesDocs = [] } = useQuery(typesDocumentsQueries.list())
   const devisTypeId = typesDocs.find((t) => t.nom === 'Devis')?.id
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
@@ -110,16 +93,8 @@ export function InvestissementDetail({
   )
   const docsParId = new Map(docs.map((d) => [d.id, d]))
   const nomsPdf = new Map(docs.map((d) => [d.id, d.nom_original]))
-  const pdfsDevis = new Set(
-    inv.devis.flatMap((d) => (d.document_id ? [d.document_id] : [])),
-  )
   const ouvrirDevis = (devis: Devis | undefined, piece: PieceDevis | null) =>
     setFenetreDevis({ devis, piece })
-  // Un petit déplacement avant de « prendre » une ligne : un simple clic
-  // garde l'aperçu du document.
-  const capteurs = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-  )
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const annee = inv.annee_budget
   const schema = schemaCapex(inv.statut_capex_id, annee, noms)
@@ -272,12 +247,6 @@ export function InvestissementDetail({
           canManage ? (
             <>
               <TooltipIconButton
-                icon={<Paperclip />}
-                label="Rattacher un document"
-                variant="outline"
-                onClick={upload.openUploadEmpty}
-              />
-              <TooltipIconButton
                 icon={<Pencil />}
                 label="Modifier le projet"
                 variant="outline"
@@ -288,146 +257,106 @@ export function InvestissementDetail({
         }
       />
 
-      {/* Glisser un document de la liste sur la colonne des devis en fait un
-          nouveau devis (fenêtre pré-remplie : fournisseur et montant). */}
-      <DndContext
-        sensors={capteurs}
-        onDragEnd={({ active, over }) => {
-          if (over?.data.current?.type !== CIBLE_DEVIS) return
-          if (active.data.current?.type !== 'document') return
-          const id = String(active.data.current.documentId)
-          ouvrirDevis(undefined, {
-            type: 'document',
-            id,
-            nom: nomsPdf.get(id) ?? 'PDF',
-          })
-        }}
-      >
-        {/* SCHÉMA (138, 147, demandes PO) : la proposition et son texte, ses
+      {/* SCHÉMA (138, 147, demandes PO) : la proposition et son texte, ses
           devis (case ronde = retenu), la sélection, puis Refusé / Validé /
           Reporter et Réalisé. La case colorée = où en est le projet ; un clic
           sur une autre case y fait passer le projet. */}
-        <Card className="mb-4 shrink-0 overflow-hidden py-0">
-          <CardContent className="p-0">
-            <SchemaCapex
-              schema={schema}
-              menus={menus}
-              devis={inv.devis}
-              rangeesDevis={rangeesColonneDevis(inv.devis.length, canManage)}
-              selection={selection}
-              textes={{
-                demande: inv.description,
-                refuse: refuse ? inv.motif_arret : null,
-                realise: realise ? inv.bilan : null,
-              }}
-              renderDevis={(mode) => (
-                <ColonneDevis
-                  mode={mode}
-                  devis={inv.devis}
-                  nomsPdf={nomsPdf}
-                  canManage={canManage}
-                  choixFait={valideOuPlus}
-                  glissement={upload.dragging}
-                  onApercu={(d) =>
-                    setApercu(
-                      d.document_id
-                        ? (docsParId.get(d.document_id) ?? null)
-                        : null,
-                    )
-                  }
-                  onModifier={(d) =>
-                    ouvrirDevis(
-                      d,
-                      d.document_id
-                        ? {
-                            type: 'document',
-                            id: d.document_id,
-                            nom: nomsPdf.get(d.document_id) ?? 'PDF',
-                          }
-                        : null,
-                    )
-                  }
-                  onAjouter={(fichier) =>
-                    ouvrirDevis(
-                      undefined,
-                      fichier ? { type: 'fichier', fichier } : null,
-                    )
-                  }
-                  onRetenir={(d, retenu) =>
-                    retenir.mutate(
-                      { id: d.id, retenu },
-                      {
-                        onSuccess: () =>
-                          toast.success(
-                            retenu ? 'Devis retenu' : 'Devis plus retenu',
-                          ),
-                        onError: (e) => toast.error(writeErrorMessage(e)),
-                      },
-                    )
-                  }
-                  onSupprimer={(d) =>
-                    confirmAction.demander({
-                      title: 'Supprimer ce devis ?',
-                      description: `Le devis ${d.fournisseur} (${formatEuros(d.montant_ht)} HT) est retiré du projet. Son PDF reste dans les documents.`,
-                      confirmLabel: 'Supprimer',
-                      destructive: true,
-                      run: () => supprimerDevis.mutateAsync(d.id),
-                      successMessage: 'Devis supprimé',
-                    })
-                  }
-                />
-              )}
-              // Un montant vide n'est pas affiché : un « — » seul, sans
-              // légende, ne dirait rien.
-              // Plus de montant dans « Proposition » ni « Validé » (demande
-              // PO) : la sélection porte la somme ; Réalisé, le réel et l'écart.
-              chiffres={{
-                realise: [
-                  ...montant(inv.depense_reelle),
-                  ...(label
-                    ? [{ valeur: label, libelle: 'écart', alerte: depassement }]
-                    : []),
-                ],
-              }}
-              // Dates de chaque étape, quand elles existent (demande PO).
-              dates={{
-                demande: jour(dates.demande),
-                valide: jour(dates.valide),
-                realise: jour(dates.realise),
-                refuse: jour(dates.refuse),
-                reporte: dates.reporte
-                  ? `reporté de ${String(dates.reporte.depuis)} · ${formatDate(dates.reporte.date)}`
-                  : undefined,
-              }}
-              onAction={canManage ? agir : undefined}
-              disabled={change.isPending}
-            />
-          </CardContent>
-        </Card>
-
-        {/* DOCUMENTS — pleine largeur, même patron que Événement et Travaux. */}
-        <Card className="relative gap-3 py-4">
-          <CardHeader>
-            <CardTitle className="text-base">Documents</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DocumentsTab
-              liaison="documents_investissements"
-              parentColumn="investissement_id"
-              parentId={inv.id}
-              acceptedMimes={MIME_PDF}
-              uploadOpen={upload.uploadOpen}
-              onUploadOpenChange={upload.onUploadOpenChange}
-              uploadInitialFiles={upload.droppedFiles}
-              // Tout SAUF les PDF des devis : ils sont dans le schéma.
-              filtre={(d) => !pdfsDevis.has(d.id)}
-              // Glisser une ligne sur la colonne des devis en fait un devis.
-              draggable={canManage}
-            />
-          </CardContent>
-          <FileDropOverlay show={upload.dragging} />
-        </Card>
-      </DndContext>
+      <Card className="mb-4 shrink-0 overflow-hidden py-0">
+        <CardContent className="p-0">
+          <SchemaCapex
+            schema={schema}
+            menus={menus}
+            devis={inv.devis}
+            rangeesDevis={rangeesColonneDevis(inv.devis.length, canManage)}
+            selection={selection}
+            textes={{
+              demande: inv.description,
+              refuse: refuse ? inv.motif_arret : null,
+              realise: realise ? inv.bilan : null,
+            }}
+            renderDevis={(mode) => (
+              <ColonneDevis
+                mode={mode}
+                devis={inv.devis}
+                nomsPdf={nomsPdf}
+                canManage={canManage}
+                choixFait={valideOuPlus}
+                onApercu={(d) =>
+                  setApercu(
+                    d.document_id
+                      ? (docsParId.get(d.document_id) ?? null)
+                      : null,
+                  )
+                }
+                onModifier={(d) =>
+                  ouvrirDevis(
+                    d,
+                    d.document_id
+                      ? {
+                          type: 'document',
+                          id: d.document_id,
+                          nom: nomsPdf.get(d.document_id) ?? 'PDF',
+                        }
+                      : null,
+                  )
+                }
+                onAjouter={(fichier) =>
+                  ouvrirDevis(
+                    undefined,
+                    fichier ? { type: 'fichier', fichier } : null,
+                  )
+                }
+                onRetenir={(d, retenu) =>
+                  retenir.mutate(
+                    { id: d.id, retenu },
+                    {
+                      onSuccess: () =>
+                        toast.success(
+                          retenu ? 'Devis retenu' : 'Devis plus retenu',
+                        ),
+                      onError: (e) => toast.error(writeErrorMessage(e)),
+                    },
+                  )
+                }
+                onSupprimer={(d) =>
+                  confirmAction.demander({
+                    title: 'Supprimer ce devis ?',
+                    description: `Le devis ${d.fournisseur} (${formatEuros(d.montant_ht)} HT) est retiré du projet. Son PDF reste dans les documents.`,
+                    confirmLabel: 'Supprimer',
+                    destructive: true,
+                    run: () => supprimerDevis.mutateAsync(d.id),
+                    successMessage: 'Devis supprimé',
+                  })
+                }
+              />
+            )}
+            // Un montant vide n'est pas affiché : un « — » seul, sans
+            // légende, ne dirait rien.
+            // Plus de montant dans « Proposition » ni « Validé » (demande
+            // PO) : la sélection porte la somme ; Réalisé, le réel et l'écart.
+            chiffres={{
+              realise: [
+                ...montant(inv.depense_reelle),
+                ...(label
+                  ? [{ valeur: label, libelle: 'écart', alerte: depassement }]
+                  : []),
+              ],
+            }}
+            // Dates de chaque étape, quand elles existent (demande PO).
+            dates={{
+              demande: jour(dates.demande),
+              valide: jour(dates.valide),
+              realise: jour(dates.realise),
+              refuse: jour(dates.refuse),
+              reporte: dates.reporte
+                ? `reporté de ${String(dates.reporte.depuis)} · ${formatDate(dates.reporte.date)}`
+                : undefined,
+            }}
+            onAction={canManage ? agir : undefined}
+            disabled={change.isPending}
+          />
+        </CardContent>
+      </Card>
 
       {canManage && (
         <>
