@@ -6,6 +6,7 @@ import { formatEuros } from '@/features/investissements/format'
 import { MIME_PDF, validerFichier } from '@/features/documents/upload'
 import { cn } from '@/lib/utils'
 import { SurvolCase } from './survol-case'
+import type { ModeDevis } from './schema-capex'
 
 const aDesFichiers = (e: DragEvent) => e.dataTransfer.types.includes('Files')
 
@@ -14,6 +15,12 @@ const TUILE =
   'flex min-h-16 w-full items-center gap-3 rounded-xl border bg-card px-3 py-2.5 text-left text-sm shadow-xs transition duration-150'
 
 interface ColonneDevisProps {
+  /**
+   * `grille` : une rangée égale par tuile, sur toute la hauteur (schéma
+   * large — les flèches visent le centre de chaque rangée) ; `pile` : les
+   * tuiles l'une sous l'autre (schéma étroit).
+   */
+  mode: ModeDevis
   devis: readonly Devis[]
   /** Nom du PDF de chaque devis, par id de document. */
   nomsPdf: Map<string, string>
@@ -44,6 +51,7 @@ interface ColonneDevisProps {
  *   pré-remplie.
  */
 export function ColonneDevis({
+  mode,
   devis,
   nomsPdf,
   canManage,
@@ -90,14 +98,19 @@ export function ColonneDevis({
       {...surDepot}
       className={cn(
         'w-full rounded-xl transition',
-        // Une rangée égale par tuile : les flèches visent leur centre.
-        'grid',
+        // Grille : une rangée égale par tuile, les flèches visent leur
+        // centre. Pile : l'une sous l'autre.
+        mode === 'grille' ? 'grid' : 'flex flex-col gap-2',
         cible && 'bg-info/10 ring-2 ring-info ring-offset-2',
       )}
-      style={{ gridTemplateRows: `repeat(${String(rangees)}, minmax(0, 1fr))` }}
+      style={
+        mode === 'grille'
+          ? { gridTemplateRows: `repeat(${String(rangees)}, minmax(0, 1fr))` }
+          : undefined
+      }
     >
       {devis.map((d) => (
-        <Rangee key={d.id}>
+        <Rangee key={d.id} mode={mode}>
           <TuileDevis
             key={d.id}
             d={d}
@@ -112,7 +125,7 @@ export function ColonneDevis({
         </Rangee>
       ))}
       {canManage && (
-        <Rangee>
+        <Rangee mode={mode}>
           <button
             type="button"
             onClick={() => onAjouter(null)}
@@ -132,7 +145,7 @@ export function ColonneDevis({
         </Rangee>
       )}
       {!canManage && devis.length === 0 && (
-        <Rangee>
+        <Rangee mode={mode}>
           <div
             className={cn(
               TUILE,
@@ -152,8 +165,9 @@ export function rangeesColonneDevis(nbDevis: number, canManage: boolean) {
   return nbDevis + (canManage || nbDevis === 0 ? 1 : 0)
 }
 
-/** Une rangée : la tuile centrée dans sa hauteur. */
-function Rangee({ children }: { children: ReactNode }) {
+/** Une rangée : la tuile centrée dans sa hauteur (grille), ou telle quelle. */
+function Rangee({ mode, children }: { mode: ModeDevis; children: ReactNode }) {
+  if (mode === 'pile') return children
   return <div className="flex min-h-0 items-center py-1.5">{children}</div>
 }
 
