@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { investissementsQueries } from './queries'
 import { ID_REALISE, ID_REFUSE, ID_VALIDE } from './etat'
 import { parseMontant } from './schemas'
-import type { InvestissementFormValues } from './schemas'
+import type { DevisFormValues, InvestissementFormValues } from './schemas'
 
 // Convertit les champs texte du formulaire en payload base (vides → null). Le
 // statut n'est plus saisi dans le formulaire : il vaut son DEFAULT (Demandé) à
@@ -12,8 +12,6 @@ function toPayload(v: InvestissementFormValues) {
   return {
     libelle: v.libelle.trim(),
     description: v.description.trim() || null,
-    fournisseur: v.fournisseur.trim() || null,
-    montant_demande: parseMontant(v.montant_demande),
     depense_reelle: parseMontant(v.depense_reelle),
     date_demande: v.date_demande,
     annee_budget: Number(v.annee_budget),
@@ -100,6 +98,7 @@ export function useChangeStatutCapex() {
       arreteBy,
       dateValidation,
       depenseReelle,
+      devisRetenus,
     }: {
       id: string
       statutId: number
@@ -116,7 +115,12 @@ export function useChangeStatutCapex() {
       dateValidation?: string
       /** Dépense réelle, saisie en marquant réalisé (absent = inchangée). */
       depenseReelle?: number | null
+      /** Devis retenus, choisis en validant (147) ; absent = inchangés. */
+      devisRetenus?: string[]
     }) => {
+      // Le choix des devis d'abord : si le statut échoue ensuite, un devis
+      // coché sans validation ne compte pas (montantProjet).
+      if (devisRetenus !== undefined) await poserRetenus(id, devisRetenus)
       const realise = statutId === ID_REALISE
       const refus = statutId === ID_REFUSE
       // La date de validation survit à la réalisation, pas à un retour en
@@ -170,34 +174,6 @@ export function useDeleteInvestissement() {
 }
 
 /**
- * Désigne LE devis d'un investissement (144) — ou le retire (`null`). Le
- * document reste rattaché au dossier : il repasse simplement dans
- * « Documents ».
- */
-export function useDefinirDevis() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({
-      id,
-      documentId,
-    }: {
-      id: string
-      documentId: string | null
-    }) => {
-      await supabase
-        .from('investissements')
-        .update({ devis_document_id: documentId })
-        .eq('id', id)
-        .select('id')
-        .single()
-        .throwOnError()
-    },
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
-  })
-}
-
-/**
  * Corrige la seule date de validation (dossier réalisé, menu du schéma) sans
  * toucher au statut ni à la réalisation — `useChangeStatutCapex` effacerait
  * le bilan.
@@ -208,13 +184,135 @@ export function useModifierDateValidation() {
     mutationFn: async ({
       id,
       dateValidation,
+      devisRetenus,
     }: {
       id: string
       dateValidation: string
+      /** Devis retenus, corrigés dans la même fenêtre (147). */
+      devisRetenus?: string[]
     }) => {
+      if (devisRetenus !== undefined) await poserRetenus(id, devisRetenus)
       await supabase
         .from('investissements')
         .update({ date_validation: dateValidation })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
+  })
+}
+
+/** Coche exactement `retenus` parmi les devis du projet (147). */
+async function poserRetenus(projetId: string, retenus: string[]) {
+  await supabase
+    .from('investissements_devis')
+    .update({ retenu: false })
+    .eq('investissement_id', projetId)
+    .throwOnError()
+  if (retenus.length > 0)
+    await supabase
+      .from('investissements_devis')
+      .update({ retenu: true })
+      .eq('investissement_id', projetId)
+      .in('id', retenus)
+      .throwOnError()
+}
+
+function devisPayload(v: DevisFormValues) {
+  return {
+    fournisseur: v.fournisseur.trim(),
+    objet: v.objet.trim() || null,
+    montant_ht: parseMontant(v.montant_ht) ?? 0,
+  }
+}
+
+/** Ajoute un devis à un projet (147), avec son PDF s'il y en a un. */
+export function useCreerDevis() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      projetId,
+      values,
+      documentId,
+    }: {
+      projetId: string
+      values: DevisFormValues
+      documentId: string | null
+    }) => {
+      await supabase
+        .from('investissements_devis')
+        .insert({
+          ...devisPayload(values),
+          investissement_id: projetId,
+          document_id: documentId,
+        })
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
+  })
+}
+
+/** Modifie un devis ; `documentId` absent = PDF inchangé. */
+export function useModifierDevis() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      values,
+      documentId,
+    }: {
+      id: string
+      values: DevisFormValues
+      documentId?: string | null
+    }) => {
+      await supabase
+        .from('investissements_devis')
+        .update({
+          ...devisPayload(values),
+          ...(documentId !== undefined && { document_id: documentId }),
+        })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
+  })
+}
+
+/** Retient ou non UN devis (menu du schéma). */
+export function useRetenirDevis() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, retenu }: { id: string; retenu: boolean }) => {
+      await supabase
+        .from('investissements_devis')
+        .update({ retenu })
+        .eq('id', id)
+        .select('id')
+        .single()
+        .throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
+  })
+}
+
+/** Supprime un devis ; son PDF reste dans les documents du projet. */
+export function useSupprimerDevis() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await supabase
+        .from('investissements_devis')
+        .delete()
         .eq('id', id)
         .select('id')
         .single()

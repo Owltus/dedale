@@ -12,6 +12,7 @@ import {
 } from '@/lib/hostile-inputs.test'
 import {
   clotureCapexSchema,
+  devisSchema,
   investissementSchema,
   refusCapexSchema,
   validationCapexSchema,
@@ -20,7 +21,7 @@ import {
 
 /**
  * Oracles (source : `schema_complete.sql`, table `investissements`) :
- *   montant_demande NUMERIC(12,2) CHECK (… >= 0)
+ *   depense_reelle NUMERIC(12,2) CHECK (… >= 0)
  *   → 12 chiffres significatifs dont 2 décimales ⇒ maximum EXACT 9 999 999 999,99.
  *   Au-delà, Postgres lève 22003 (numeric field overflow) ; plus de 2 décimales
  *   sont arrondies EN SILENCE par la base — d'où le contrôle front.
@@ -29,14 +30,12 @@ import {
 const BASE = {
   libelle: 'Remplacement CTA bâtiment A',
   description: '',
-  fournisseur: '',
-  montant_demande: '',
   depense_reelle: '',
   date_demande: '2026-01-15',
   annee_budget: '2026',
 }
 
-const CHAMPS_MONTANT = ['montant_demande', 'depense_reelle'] as const
+const CHAMPS_MONTANT = ['depense_reelle'] as const
 
 /** Borne exacte de NUMERIC(12,2). */
 const MAX_NUMERIC_12_2 = 9_999_999_999.99
@@ -111,7 +110,7 @@ describe('investissementSchema — montants', () => {
     )
   })
 
-  it('refuse tout montant NÉGATIF (CHECK montant_demande >= 0)', () => {
+  it('refuse tout montant NÉGATIF (CHECK depense_reelle >= 0)', () => {
     fc.assert(
       fc.property(fc.integer({ min: -9_999_999, max: -1 }), (n) => {
         for (const champ of CHAMPS_MONTANT) {
@@ -130,25 +129,25 @@ describe('investissementSchema — montants', () => {
     expect(
       investissementSchema.safeParse({
         ...BASE,
-        montant_demande: '9999999999.99',
+        depense_reelle: '9999999999.99',
       }).success,
     ).toBe(true)
     expect(
       investissementSchema.safeParse({
         ...BASE,
-        montant_demande: '9999999999,99',
+        depense_reelle: '9999999999,99',
       }).success,
     ).toBe(true)
     expect(
       rejette(investissementSchema, {
         ...BASE,
-        montant_demande: '10000000000',
+        depense_reelle: '10000000000',
       }),
     ).toBe(true)
     expect(
       rejette(investissementSchema, {
         ...BASE,
-        montant_demande: '10000000000.00',
+        depense_reelle: '10000000000.00',
       }),
     ).toBe(true)
   })
@@ -178,7 +177,7 @@ describe('investissementSchema — montants', () => {
         piege,
         rejete: rejette(investissementSchema, {
           ...BASE,
-          montant_demande: piege,
+          depense_reelle: piege,
         }),
       }).toEqual({ piege, rejete: attenduRejet })
     }
@@ -193,7 +192,7 @@ describe('investissementSchema — montants', () => {
           (/^\d+([.,]\d{1,2})?$/.test(t) &&
             Number(t.replace(',', '.')) <= MAX_NUMERIC_12_2)
         expect(
-          investissementSchema.safeParse({ ...BASE, montant_demande: texte })
+          investissementSchema.safeParse({ ...BASE, depense_reelle: texte })
             .success,
         ).toBe(bienForme)
       }),
@@ -328,9 +327,40 @@ describe('validationCapexSchema', () => {
 
   it('exige la date de validation (146)', () => {
     expect(
-      validationCapexSchema.safeParse({ date_validation: '2026-11-11' })
-        .success,
+      validationCapexSchema.safeParse({
+        date_validation: '2026-11-11',
+        devis_retenus: [],
+      }).success,
     ).toBe(true)
-    expect(rejette(validationCapexSchema, { date_validation: '' })).toBe(true)
+    expect(
+      rejette(validationCapexSchema, {
+        date_validation: '',
+        devis_retenus: [],
+      }),
+    ).toBe(true)
+  })
+})
+
+describe('devisSchema', () => {
+  testeTotalite('devisSchema', devisSchema)
+  const DEVIS = { fournisseur: 'Legallais', objet: '', montant_ht: '1222' }
+
+  it('exige le fournisseur et le montant HT, pas l’objet (147)', () => {
+    expect(devisSchema.safeParse(DEVIS).success).toBe(true)
+    expect(rejette(devisSchema, { ...DEVIS, fournisseur: '' })).toBe(true)
+    expect(rejette(devisSchema, { ...DEVIS, montant_ht: '' })).toBe(true)
+    expect(rejette(devisSchema, { ...DEVIS, montant_ht: '-1' })).toBe(true)
+  })
+
+  it('borne le fournisseur à 100 et l’objet à 200 caractères', () => {
+    expect(
+      rejette(devisSchema, { ...DEVIS, fournisseur: 'a'.repeat(101) }),
+    ).toBe(true)
+    expect(rejette(devisSchema, { ...DEVIS, objet: 'a'.repeat(201) })).toBe(
+      true,
+    )
+    expect(
+      devisSchema.safeParse({ ...DEVIS, objet: 'a'.repeat(200) }).success,
+    ).toBe(true)
   })
 })

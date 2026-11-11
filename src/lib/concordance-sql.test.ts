@@ -18,7 +18,10 @@ import { gammeSchema, operationSchema } from '@/features/gammes/schemas'
 import { diEditSchema, diSchema } from '@/features/demandes/schemas'
 import { evenementSchema } from '@/features/evenements/schemas'
 import { travauxSchema } from '@/features/travaux/schemas'
-import { investissementSchema } from '@/features/investissements/schemas'
+import {
+  devisSchema,
+  investissementSchema,
+} from '@/features/investissements/schemas'
 import {
   contratSchema,
   prestataireSchema,
@@ -706,8 +709,6 @@ const CONCORDANCES: Concordance[] = [
     base: {
       libelle: 'Remplacement CTA',
       description: '',
-      fournisseur: '',
-      montant_demande: '',
       depense_reelle: '',
       date_demande: '2026-09-16',
       annee_budget: '2026',
@@ -715,9 +716,19 @@ const CONCORDANCES: Concordance[] = [
     champs: {
       libelle: T('libelle'),
       description: T('description'),
-      fournisseur: T('fournisseur'),
-      montant_demande: TN('montant_demande'),
       depense_reelle: TN('depense_reelle'),
+    },
+  },
+  {
+    // 147 : le fournisseur et le montant HT vivent sur le DEVIS.
+    nom: 'devisSchema',
+    schema: devisSchema,
+    table: 'investissements_devis',
+    base: { fournisseur: 'Legallais', objet: '', montant_ht: '100' },
+    champs: {
+      fournisseur: T('fournisseur'),
+      objet: T('objet'),
+      montant_ht: TN('montant_ht'),
     },
   },
   {
@@ -822,6 +833,12 @@ const CHECKS_NON_SONDES: Record<string, string> = {
     'Inter-colonnes : couvert par `clotureSchema` (evenements) et son test.',
   'investissements.investissements_dates_coherentes':
     'Inter-colonnes : couvert par `clotureCapexSchema` et son test.',
+  'investissements.investissements_montant_demande_check':
+    'Plus saisi depuis 147 : le montant vit sur chaque devis ' +
+    '(`investissements_devis.montant_ht`, sondé via `devisSchema`) — colonne gelée.',
+  'investissements_devis.investissements_devis_fournisseur_check':
+    'Bornes 1-100 après btrim : `devisSchema.fournisseur` = `texteObligatoire` ' +
+    '+ `.max(100)`, testé dans schemas.test.ts (devisSchema).',
   'investissements.investissements_montant_prevu_check':
     'Plus aucun formulaire ne saisit le montant validé (demande PO du ' +
     '11/11/2026 : la proposition fait foi) — colonne conservée, non écrite.',

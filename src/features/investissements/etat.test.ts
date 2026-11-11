@@ -8,6 +8,8 @@ import {
   ID_REALISE,
   ID_REFUSE,
   ID_VALIDE,
+  montantProjet,
+  montantRetenu,
   nomStatutCapex,
   rangStatutCapex,
   repartitionBudget,
@@ -17,6 +19,17 @@ import {
   totauxAnnee,
 } from './etat'
 import { anneeDeParam } from './annee'
+
+/** Un projet de test : statut, devis [montant, retenu], dépense réelle. */
+const projet = (
+  statut: number,
+  devis: [number, boolean][] = [],
+  reel: number | null = null,
+) => ({
+  statut_capex_id: statut,
+  depense_reelle: reel,
+  devis: devis.map(([montant_ht, retenu]) => ({ montant_ht, retenu })),
+})
 
 const TIRAGES = { numRuns: 1000, seed: 42 } as const
 
@@ -204,30 +217,16 @@ describe('années de budget', () => {
 
   it('totaux : refus exclus du demandé, validé = validés + réalisés', () => {
     const t = totauxAnnee([
-      {
-        statut_capex_id: ID_DEMANDE,
-        montant_demande: 100,
-        montant_prevu: null,
-        depense_reelle: null,
-      },
-      {
-        statut_capex_id: ID_VALIDE,
-        montant_demande: 200,
-        montant_prevu: 180,
-        depense_reelle: null,
-      },
-      {
-        statut_capex_id: ID_REALISE,
-        montant_demande: 300,
-        montant_prevu: 300,
-        depense_reelle: 320,
-      },
-      {
-        statut_capex_id: ID_REFUSE,
-        montant_demande: 1000,
-        montant_prevu: null,
-        depense_reelle: null,
-      },
+      projet(ID_DEMANDE, [
+        [100, false],
+        [150, false],
+      ]), // le moins cher : 100
+      projet(ID_VALIDE, [
+        [180, true],
+        [999, false],
+      ]), // retenu : 180
+      projet(ID_REALISE, [[300, true]], 320), // réel : 320
+      projet(ID_REFUSE, [[1000, false]]),
     ])
     expect(t).toEqual({ nb: 4, demande: 600, valide: 500 })
   })
@@ -328,27 +327,141 @@ describe('budget en préparation', () => {
   })
 })
 
-describe('repartitionBudget — barre d’un budget', () => {
-  const inv = (
-    statut: number,
-    demande: number | null,
-    prevu: number | null = null,
-    reel: number | null = null,
-  ) => ({
-    statut_capex_id: statut,
-    montant_demande: demande,
-    montant_prevu: prevu,
-    depense_reelle: reel,
+describe('montantProjet — LE montant d’un projet (147)', () => {
+  // ORACLE : décision PO du 11/11/2026 — avant validation, le devis le moins
+  // cher ; validé, la somme des devis retenus ; réalisé, la dépense réelle.
+  it('sans devis : aucun montant', () => {
+    expect(montantProjet(projet(ID_DEMANDE))).toBeNull()
+    expect(montantProjet(projet(ID_VALIDE))).toBeNull()
   })
 
-  it('ordre du parcours, montant de l’étape, statuts vides omis', () => {
+  it('proposition : le moins cher, même si des devis sont déjà cochés', () => {
+    expect(
+      montantProjet(
+        projet(ID_DEMANDE, [
+          [2810.08, false],
+          [1222, false],
+        ]),
+      ),
+    ).toBe(1222)
+    expect(
+      montantProjet(
+        projet(ID_DEMANDE, [
+          [2810.08, true],
+          [1222, false],
+        ]),
+      ),
+    ).toBe(1222)
+  })
+
+  it('refusé : le moins cher aussi', () => {
+    expect(
+      montantProjet(
+        projet(ID_REFUSE, [
+          [500, true],
+          [300, false],
+        ]),
+      ),
+    ).toBe(300)
+  })
+
+  it('validé : la somme des retenus, au centime', () => {
+    expect(
+      montantProjet(
+        projet(ID_VALIDE, [
+          [2810.08, true],
+          [1222, true],
+          [3668.28, false],
+        ]),
+      ),
+    ).toBe(4032.08)
+    expect(
+      montantProjet(
+        projet(ID_VALIDE, [
+          [0.1, true],
+          [0.2, true],
+        ]),
+      ),
+    ).toBe(0.3)
+  })
+
+  it('validé sans aucun retenu : retombe sur le moins cher', () => {
+    expect(
+      montantProjet(
+        projet(ID_VALIDE, [
+          [400, false],
+          [300, false],
+        ]),
+      ),
+    ).toBe(300)
+  })
+
+  it('réalisé : la dépense réelle prime, sinon le retenu', () => {
+    expect(montantProjet(projet(ID_REALISE, [[300, true]], 320))).toBe(320)
+    expect(montantProjet(projet(ID_REALISE, [[300, true]], 0))).toBe(0)
+    expect(
+      montantProjet(
+        projet(ID_REALISE, [
+          [300, true],
+          [50, false],
+        ]),
+      ),
+    ).toBe(300)
+  })
+
+  it('non validé : jamais plus que le devis le moins cher', () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(ID_DEMANDE, ID_REFUSE),
+        fc.array(fc.tuple(fc.integer({ min: 0, max: 1e6 }), fc.boolean()), {
+          minLength: 1,
+        }),
+        (statut, devis) => {
+          const m = montantProjet(projet(statut, devis))
+          expect(m).toBe(Math.min(...devis.map(([x]) => x)))
+        },
+      ),
+      TIRAGES,
+    )
+  })
+
+  it('montantRetenu : retenus additionnés, sinon le moins cher', () => {
+    expect(
+      montantRetenu(
+        projet(ID_DEMANDE, [
+          [10, true],
+          [20, true],
+          [5, false],
+        ]),
+      ),
+    ).toBe(30)
+    expect(
+      montantRetenu(
+        projet(ID_DEMANDE, [
+          [10, false],
+          [5, false],
+        ]),
+      ),
+    ).toBe(5)
+    expect(montantRetenu(projet(ID_DEMANDE))).toBeNull()
+  })
+})
+
+describe('repartitionBudget — barre d’un budget', () => {
+  it('ordre du parcours, montant du projet, statuts vides omis', () => {
     expect(
       repartitionBudget([
-        inv(ID_REFUSE, 1000),
-        inv(ID_DEMANDE, 100),
-        inv(ID_VALIDE, 200, 180),
-        inv(ID_VALIDE, 50),
-        inv(ID_DEMANDE, null),
+        projet(ID_REFUSE, [[1000, false]]),
+        projet(ID_DEMANDE, [
+          [100, false],
+          [400, false],
+        ]),
+        projet(ID_VALIDE, [
+          [180, true],
+          [200, false],
+        ]),
+        projet(ID_VALIDE, [[50, true]]),
+        projet(ID_DEMANDE),
       ]),
     ).toEqual([
       { statutId: ID_VALIDE, montant: 230, nb: 2 },
@@ -358,22 +471,24 @@ describe('repartitionBudget — barre d’un budget', () => {
   })
 
   it('réalisé : la dépense réelle prime', () => {
-    expect(repartitionBudget([inv(ID_REALISE, 300, 300, 320)])).toEqual([
-      { statutId: ID_REALISE, montant: 320, nb: 1 },
-    ])
+    expect(repartitionBudget([projet(ID_REALISE, [[300, true]], 320)])).toEqual(
+      [{ statutId: ID_REALISE, montant: 320, nb: 1 }],
+    )
   })
 
-  it('la somme des dossiers comptés = le nombre de dossiers connus', () => {
+  it('la somme des projets comptés = le nombre de projets connus', () => {
     fc.assert(
       fc.property(
         fc.array(
           fc.record({
             statut_capex_id: fc.constantFrom(...IDS_CONNUS),
-            montant_demande: fc.option(fc.integer({ min: 0, max: 1e6 }), {
-              nil: null,
-            }),
-            montant_prevu: fc.constant(null),
             depense_reelle: fc.constant(null),
+            devis: fc.array(
+              fc.record({
+                montant_ht: fc.integer({ min: 0, max: 1e6 }),
+                retenu: fc.boolean(),
+              }),
+            ),
           }),
         ),
         (invs) => {

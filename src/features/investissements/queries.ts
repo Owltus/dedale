@@ -5,21 +5,37 @@ import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
 
+/** Un devis d'un projet (147). */
+export type Devis = Database['public']['Tables']['investissements_devis']['Row']
+
+/**
+ * Un PROJET (décision PO du 11/11/2026) : la ligne `investissements` et ses
+ * devis — c'est eux qui portent fournisseur et montant HT.
+ */
+export type Projet = Investissement & { devis: Devis[] }
+
 export const investissementsQueries = {
   all: () => ['investissements'] as const,
 
-  /** Investissements du site actif (toutes années), plus récents d'abord. */
+  /**
+   * Projets du site actif (toutes années), plus récents d'abord, AVEC leurs
+   * devis (147) — triés du moins cher au plus cher.
+   */
   list: (siteId: string) =>
     queryOptions({
       queryKey: [...investissementsQueries.all(), 'list', siteId] as const,
       queryFn: async () => {
         const { data } = await supabase
           .from('investissements')
-          .select('*')
+          .select('*, devis:investissements_devis(*)')
           .eq('site_id', siteId)
           .order('date_demande', { ascending: false })
+          .order('montant_ht', {
+            referencedTable: 'investissements_devis',
+            ascending: true,
+          })
           .throwOnError()
-        return data
+        return data satisfies Projet[]
       },
     }),
 
@@ -30,8 +46,7 @@ export const investissementsQueries = {
    */
   parAnnee: (siteId: string, annee: number) => ({
     ...investissementsQueries.list(siteId),
-    select: (data: Investissement[]) =>
-      data.filter((i) => i.annee_budget === annee),
+    select: (data: Projet[]) => data.filter((i) => i.annee_budget === annee),
   }),
 }
 

@@ -21,9 +21,6 @@ export const montant = z
 export const investissementSchema = z.object({
   libelle: texteObligatoire('Le libellé est obligatoire', 'libelle').max(200),
   description: z.string().trim().max(2000),
-  /** Fournisseur qui émet le devis (141), facultatif. */
-  fournisseur: z.string().trim().max(100),
-  montant_demande: montant,
   depense_reelle: montant,
   date_demande: dateObligatoire('La date de proposition est obligatoire'),
   // Année du budget (138) : texte du menu déroulant, miroir du CHECK 2000-2100.
@@ -41,9 +38,7 @@ export function emptyInvestissement(annee?: number): InvestissementFormValues {
   return {
     annee_budget: String(annee ?? anneeBudgetEnPreparation()),
     libelle: '',
-    fournisseur: '',
     description: '',
-    montant_demande: '',
     depense_reelle: '',
     date_demande: todayLocal(),
   }
@@ -101,7 +96,29 @@ export const clotureCapexSchema = z
 /** Valider une proposition : la date de validation (aujourd'hui par défaut, modifiable — 146). */
 export const validationCapexSchema = z.object({
   date_validation: dateObligatoire('La date de validation est obligatoire'),
+  /**
+   * Devis retenus (147) : valider, c'est choisir. Au moins un quand le projet
+   * a des devis — l'hôte le vérifie, il sait s'il y en a.
+   */
+  devis_retenus: z.array(z.string()),
 })
+
+/**
+ * Un devis d'un projet (147, décision PO du 11/11/2026) : qui le fait, ce
+ * qu'il couvre (facultatif), combien HT. Miroir des CHECK
+ * investissements_devis_{fournisseur,objet,montant_ht}_check.
+ */
+export const devisSchema = z.object({
+  fournisseur: texteObligatoire('Le fournisseur est obligatoire', 'nom').max(
+    100,
+  ),
+  objet: z.string().trim().max(200),
+  montant_ht: montant.refine((v) => v.trim() !== '', {
+    message: 'Le montant HT est obligatoire',
+  }),
+})
+
+export type DevisFormValues = z.infer<typeof devisSchema>
 
 export type ValidationCapexFormValues = z.infer<typeof validationCapexSchema>
 

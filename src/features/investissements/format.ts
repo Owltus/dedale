@@ -1,6 +1,4 @@
-import type { Database } from '@/lib/database.types'
-
-type Investissement = Database['public']['Tables']['investissements']['Row']
+import { montantProjet, montantRetenu, type ProjetMontant } from './etat'
 
 const euros = new Intl.NumberFormat('fr-FR', {
   style: 'currency',
@@ -39,32 +37,21 @@ export interface EcartCapex {
  * partagée par la liste et la fiche détail.
  */
 /**
- * LE montant à retenir pour un investissement, du plus engageant au moins
- * engageant : la dépense réelle s'il y en a une, sinon le budget prévu, sinon le
- * montant demandé.
- *
- * La liste n'en montre qu'un seul — celui qui reflète l'état d'avancement. Elle
- * en affichait trois, dont deux valaient « — » la plupart du temps. Le détail
- * complet reste sur la fiche.
+ * Le montant d'un projet en texte (`montantProjet`) : la liste n'en montre
+ * qu'un, celui qui reflète l'état d'avancement.
  */
-export function montantPrincipal(
-  inv: Pick<
-    Investissement,
-    'montant_demande' | 'montant_prevu' | 'depense_reelle'
-  >,
-): string {
-  const montant = inv.depense_reelle ?? inv.montant_prevu ?? inv.montant_demande
-  return formatEuros(montant)
+export function montantPrincipal(p: ProjetMontant): string {
+  return formatEuros(montantProjet(p))
 }
 
-// Écart = réel − PROPOSÉ (demande PO du 11/11/2026) : il n'y a plus de
-// montant validé à saisir, la proposition est la référence.
+// Écart = réel − RETENU (147) : la somme des devis retenus fait foi.
 export function ecartCapex(
-  inv: Pick<Investissement, 'montant_demande' | 'depense_reelle'>,
+  p: Pick<ProjetMontant, 'depense_reelle' | 'devis'>,
 ): EcartCapex {
+  const reference = montantRetenu(p)
   const ecart =
-    inv.montant_demande !== null && inv.depense_reelle !== null
-      ? inv.depense_reelle - inv.montant_demande
+    reference !== null && p.depense_reelle !== null
+      ? Math.round((p.depense_reelle - reference) * 100) / 100
       : null
   return {
     ecart,

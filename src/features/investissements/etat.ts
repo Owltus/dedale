@@ -6,6 +6,49 @@ import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
 
+/** Ce qui compte d'un devis pour le montant d'un projet (147). */
+export interface DevisMontant {
+  montant_ht: number
+  retenu: boolean
+}
+
+/** Ce qui compte d'un projet pour son montant : son statut, son réel, ses devis. */
+export type ProjetMontant = Pick<
+  Investissement,
+  'statut_capex_id' | 'depense_reelle'
+> & { devis: readonly DevisMontant[] }
+
+const centimes = (x: number) => Math.round(x * 100) / 100
+
+/**
+ * Montant RETENU d'un projet (147) : la somme des devis retenus, sinon — rien
+ * de retenu — le devis le moins cher ; null sans aucun devis.
+ */
+export function montantRetenu(p: Pick<ProjetMontant, 'devis'>): number | null {
+  const retenus = p.devis.filter((d) => d.retenu)
+  if (retenus.length > 0)
+    return centimes(retenus.reduce((s, d) => s + d.montant_ht, 0))
+  if (p.devis.length === 0) return null
+  return Math.min(...p.devis.map((d) => d.montant_ht))
+}
+
+/**
+ * LE montant d'un projet (décision PO du 11/11/2026), partout — barre, listes,
+ * fiche :
+ * - Réalisé : la dépense réelle, sinon le montant retenu ;
+ * - Validé : la somme des devis retenus (sinon le moins cher) ;
+ * - sinon (Proposition, Refusé) : le devis le MOINS CHER, même si des devis
+ *   sont déjà cochés — un choix ne compte qu'une fois le projet validé.
+ * null quand le projet n'a encore aucun devis.
+ */
+export function montantProjet(p: ProjetMontant): number | null {
+  if (p.statut_capex_id === ID_REALISE)
+    return p.depense_reelle ?? montantRetenu(p)
+  if (p.statut_capex_id === ID_VALIDE) return montantRetenu(p)
+  if (p.devis.length === 0) return null
+  return Math.min(...p.devis.map((d) => d.montant_ht))
+}
+
 // QUATRE statuts (138, décision PO du 10/11/2026) : Demandé → Validé → Réalisé,
 // ou Refusé. « Reporter » n'est pas un statut : c'est envoyer le dossier dans le
 // budget de l'année suivante, où il redevient « Proposition ».
@@ -81,27 +124,27 @@ export function anneesBudget(
 
 export interface TotauxAnnee {
   nb: number
-  /** Somme des montants demandés, refus exclus. */
+  /** Somme des projets non refusés (montant de chaque projet). */
   demande: number
-  /** Somme des dossiers validés ou réalisés (dépense réelle, sinon prévu, sinon demandé). */
+  /** Somme des projets validés ou réalisés. */
   valide: number
 }
 
 /** Totaux d'une année de budget (décision PO : pas d'enveloppe, les totaux seuls). */
-export function totauxAnnee(
-  invs: readonly Pick<
-    Investissement,
-    'statut_capex_id' | 'montant_demande' | 'montant_prevu' | 'depense_reelle'
-  >[],
-): TotauxAnnee {
+export function totauxAnnee(invs: readonly ProjetMontant[]): TotauxAnnee {
   let demande = 0
   let valide = 0
   for (const i of invs) {
-    if (i.statut_capex_id !== ID_REFUSE) demande += i.montant_demande ?? 0
+    const m = montantProjet(i) ?? 0
+    if (i.statut_capex_id !== ID_REFUSE) demande += m
     if (i.statut_capex_id === ID_VALIDE || i.statut_capex_id === ID_REALISE)
-      valide += i.depense_reelle ?? i.montant_prevu ?? i.montant_demande ?? 0
+      valide += m
   }
-  return { nb: invs.length, demande, valide }
+  return {
+    nb: invs.length,
+    demande: centimes(demande),
+    valide: centimes(valide),
+  }
 }
 
 /** Ce que fait un clic sur une case du schéma. */
@@ -307,16 +350,12 @@ export interface PartBudget {
 
 /**
  * Répartition d'un budget par statut, pour sa barre (demande PO du
- * 10/11/2026), dans l'ordre du parcours : Réalisé, Validé, Demandé, Refusé.
- * Montant d'un dossier = celui de son étape : réel (sinon validé, sinon
- * demandé) pour un réalisé, validé (sinon demandé) pour un validé, demandé
- * sinon. Les statuts sans dossier sont omis.
+ * 10/11/2026), dans l'ordre du parcours : Réalisé, Validé, Proposition,
+ * Refusé. Montant d'un projet = `montantProjet`. Les statuts sans projet
+ * sont omis.
  */
 export function repartitionBudget(
-  invs: readonly Pick<
-    Investissement,
-    'statut_capex_id' | 'montant_demande' | 'montant_prevu' | 'depense_reelle'
-  >[],
+  invs: readonly ProjetMontant[],
 ): PartBudget[] {
   const ordre = [ID_REALISE, ID_VALIDE, ID_DEMANDE, ID_REFUSE]
   const parts = new Map(
@@ -326,12 +365,7 @@ export function repartitionBudget(
     const p = parts.get(i.statut_capex_id)
     if (!p) continue
     p.nb += 1
-    p.montant +=
-      i.statut_capex_id === ID_REALISE
-        ? (i.depense_reelle ?? i.montant_prevu ?? i.montant_demande ?? 0)
-        : i.statut_capex_id === ID_VALIDE
-          ? (i.montant_prevu ?? i.montant_demande ?? 0)
-          : (i.montant_demande ?? 0)
+    p.montant = centimes(p.montant + (montantProjet(i) ?? 0))
   }
   return ordre.flatMap((id) => {
     const p = parts.get(id)
