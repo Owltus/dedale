@@ -276,9 +276,8 @@ export function InvestissementDetail({
               refuse: refuse ? inv.motif_arret : null,
               realise: realise ? inv.bilan : null,
             }}
-            renderDevis={(mode) => (
+            renderDevis={() => (
               <ColonneDevis
-                mode={mode}
                 devis={inv.devis}
                 nomsPdf={nomsPdf}
                 canManage={canManage}

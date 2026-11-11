@@ -12,6 +12,7 @@ import { toneToken } from '@/components/common/charts/chart-tokens'
 import { cn } from '@/lib/utils'
 import type { RowAction } from '@/components/common/row-actions'
 import { SurvolCase } from './survol-case'
+import { ToileSchema } from './toile-schema'
 import {
   statutCapexTone,
   type ActionCapex,
@@ -441,9 +442,6 @@ function TuileCase({
 /** Ligne(s) sous le nom d'une case : sa date (un saut de ligne entre deux lignes). */
 export type DatesCasesCapex = Partial<Record<CleCase, string>>
 
-/** Disposition de la colonne des devis : rangées égales (large) ou pile (étroit). */
-export type ModeDevis = 'grille' | 'pile'
-
 /** Les devis retenus, réunis avant la décision (pastille du schéma). */
 export interface SelectionCapex {
   nb: number
@@ -457,10 +455,9 @@ interface PropsSchema {
   menus?: Partial<Record<CleCase, RowAction[]>>
   /**
    * Colonne des DEVIS (147, demande PO) entre la proposition et la décision.
-   * Rendue par l'hôte, une fois par disposition (le schéma existe en large et
-   * en étroit) ; en grille, elle occupe `rangeesDevis` rangées égales.
+   * Rendue par l'hôte ; elle occupe `rangeesDevis` rangées égales.
    */
-  renderDevis?: (mode: ModeDevis) => ReactNode
+  renderDevis?: () => ReactNode
   /** Les devis, dans l'ordre de la colonne : seul « retenu » compte ici. */
   devis?: readonly { retenu: boolean }[]
   /** Rangées de la colonne : les devis + la tuile « Ajouter » s'il y en a une. */
@@ -620,7 +617,7 @@ function Pastille({
 const RANGEE_REM = 5.25
 
 /**
- * Schéma LARGE (≥ 64rem de place), de gauche à droite (demande PO) :
+ * Le schéma, de gauche à droite (demande PO) :
  *
  *   Proposition ─▶ devis ☑ ─╮                  ╭─▶ Refusé
  *   (son texte)  ─▶ devis ☐  ├─(2 devis · X €)─┼─▶ Validé ──▶ Réalisé
@@ -661,7 +658,7 @@ function SchemaHorizontal({
   )
   return (
     <div
-      className="hidden w-full flex-1 grid-cols-[minmax(0,1.15fr)_minmax(2rem,0.3fr)_minmax(0,1.1fr)_minmax(9.5rem,0.9fr)_minmax(0,1fr)_minmax(2rem,0.3fr)_minmax(0,1fr)] @min-[64rem]:grid"
+      className="grid w-full flex-1 grid-cols-[minmax(0,1.15fr)_minmax(2rem,0.3fr)_minmax(0,1.1fr)_minmax(9.5rem,0.9fr)_minmax(0,1fr)_minmax(2rem,0.3fr)_minmax(0,1fr)]"
       style={{ minHeight: `${String(Math.max(k, 3) * RANGEE_REM)}rem` }}
     >
       {/* 1. La proposition, avec son texte. */}
@@ -685,7 +682,7 @@ function SchemaHorizontal({
       </div>
 
       {/* 3. Les devis, une rangée chacun. */}
-      <div className="flex">{renderDevis?.('grille')}</div>
+      <div className="flex">{renderDevis?.()}</div>
 
       {/* 4. Devis retenus → pastille → décision. */}
       <div className="flex items-stretch">
@@ -746,110 +743,33 @@ function SchemaHorizontal({
   )
 }
 
-/** Trait pointillé vertical court, entre deux blocs du schéma étroit. */
-function TraitVertical({ etat = 'libre' }: { etat?: EtatTrait }) {
-  return (
-    <div
-      aria-hidden
-      className={cn(
-        'mx-auto h-4 w-0 border-l-2',
-        etat === 'libre' ? 'border-dashed border-muted-foreground/40' : '',
-        etat === 'choisi' && 'border-info',
-        etat === 'ok' && 'border-success',
-      )}
-    />
-  )
-}
-
-/** Schéma ÉTROIT (téléphone, tablette, fenêtre réduite) : de haut en bas. */
-function SchemaVertical({
-  schema,
-  menus,
-  renderDevis,
-  selection = null,
-  chiffres,
-  dates,
-  textes,
-  onAction,
-  disabled,
-}: PropsSchema) {
-  const props = { onAction, disabled }
-  const e = estompees(schema)
-  const fait = choixFait(schema)
-  const trois = 'grid grid-cols-3'
-  const cellule = 'flex px-1 @container'
-  const case_ = (cle: CleCase) => (
-    <Case
-      cle={cle}
-      c={schema[cle]}
-      chiffres={chiffres?.[cle]}
-      date={dates?.[cle]}
-      texte={textes?.[cle]}
-      menu={menus?.[cle]}
-      estompe={e.has(cle)}
-      {...props}
-    />
-  )
-  return (
-    <div className="w-full @min-[64rem]:hidden">
-      <div className={cellule}>{case_('demande')}</div>
-      <TraitVertical />
-      <div className="@container flex px-1">{renderDevis?.('pile')}</div>
-      <TraitVertical
-        etat={selection === null ? 'libre' : fait ? 'ok' : 'choisi'}
-      />
-      <div className="flex justify-center">
-        <Pastille selection={selection} valide={fait} />
-      </div>
-      <div className="relative h-12">
-        <Liens orientation="v" liens={liensFourche(schema)} />
-      </div>
-      <div className={trois}>
-        <div className={cellule}>{case_('refuse')}</div>
-        <div className={cellule}>{case_('valide')}</div>
-        <div className={cellule}>{case_('reporte')}</div>
-      </div>
-      <div className="relative h-10">
-        <Liens
-          orientation="v"
-          liens={[
-            {
-              vers: 1,
-              etat: schema.fleches.versRealise,
-              estompe: e.has('realise'),
-            },
-          ]}
-        />
-      </div>
-      <div className={trois}>
-        <div className={cn(cellule, 'col-start-2')}>{case_('realise')}</div>
-      </div>
-    </div>
-  )
-}
-
 /**
  * Schéma du parcours d'un projet, sur un fond « toile » pointillé (demande
  * PO) : la proposition, ses devis, ceux qu'on retient, puis la décision. La
  * case colorée = où en est le projet ; un clic sur une autre case y fait
  * passer le projet (rôles qui peuvent modifier, sinon lecture seule).
+ *
+ * UN SEUL dessin, de gauche à droite : quand la place manque (téléphone,
+ * fenêtre étroite), il passe dans une toile qu'on déplace et qu'on zoome
+ * (`ToileSchema`) plutôt que d'être replié — on voit toujours tout.
  */
 export function SchemaCapex(props: PropsSchema) {
   return (
     <div
       role="group"
       aria-label="Parcours du projet"
-      // Conteneur : la mise en page suit la place RÉELLEMENT disponible
-      // (menu latéral ouvert ou non), pas la largeur de l'écran.
-      className="@container flex flex-1 flex-col rounded-lg px-3 py-6 sm:px-6"
+      className="flex flex-1 flex-col rounded-lg"
       style={{
         backgroundImage:
           'radial-gradient(color-mix(in oklch, var(--muted-foreground) 22%, transparent) 1px, transparent 1px)',
         backgroundSize: '18px 18px',
       }}
     >
-      <SchemaHorizontal {...props} />
-      <SchemaVertical {...props} />
+      <ToileSchema>
+        <div className="flex flex-1 flex-col px-3 py-6 sm:px-6">
+          <SchemaHorizontal {...props} />
+        </div>
+      </ToileSchema>
     </div>
   )
 }
