@@ -174,7 +174,7 @@ export function useDeleteInvestissement() {
 }
 
 /**
- * Corrige la seule date de validation (dossier réalisé, menu du schéma) sans
+ * Corrige la seule date de validation (clic sur « Validé », ou menu une fois réalisé) sans
  * toucher au statut ni à la réalisation — `useChangeStatutCapex` effacerait
  * le bilan.
  */
@@ -184,14 +184,10 @@ export function useModifierDateValidation() {
     mutationFn: async ({
       id,
       dateValidation,
-      devisRetenus,
     }: {
       id: string
       dateValidation: string
-      /** Devis retenus, corrigés dans la même fenêtre (147). */
-      devisRetenus?: string[]
     }) => {
-      if (devisRetenus !== undefined) await poserRetenus(id, devisRetenus)
       await supabase
         .from('investissements')
         .update({ date_validation: dateValidation })

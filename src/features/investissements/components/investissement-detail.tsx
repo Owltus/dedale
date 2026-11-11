@@ -50,7 +50,7 @@ import { MIME_PDF } from '@/features/documents/upload'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
-import { formatDate } from '@/lib/date'
+import { formatDate, isoLocale } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 import { useAuth } from '@/auth'
 import { writeErrorMessage } from '@/lib/form'
@@ -135,6 +135,32 @@ export function InvestissementDetail({
       ? null
       : { nb: retenus.length, montant: formatEuros(montantRetenu(inv)) }
 
+  /**
+   * VALIDER d'un clic (demande PO) : à la date du jour, avec les devis cochés
+   * dans le schéma. Un devis unique non coché est retenu d'office ; plusieurs
+   * sans aucun coché : on demande d'en cocher.
+   */
+  function valider() {
+    const unSeul = inv.devis.length === 1 ? inv.devis[0] : undefined
+    if (inv.devis.length > 1 && retenus.length === 0) {
+      toast.error('Coche au moins un devis avant de valider.')
+      return
+    }
+    change.mutate(
+      {
+        id: inv.id,
+        statutId: ID_VALIDE,
+        annee,
+        dateValidation: isoLocale(new Date()),
+        ...(unSeul && !unSeul.retenu && { devisRetenus: [unSeul.id] }),
+      },
+      {
+        onSuccess: () => toast.success('Projet validé'),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
   function agir(a: ActionCapex) {
     // Refuser : date du refus et motif facultatif (145).
     if (a.cle === 'refuser') {
@@ -143,7 +169,12 @@ export function InvestissementDetail({
     }
     // Valider (ou corriger la validation) : la date et les devis retenus.
     if (a.cle === 'valider') {
-      setValidation(true)
+      // Déjà validé (ou réalisé) : on corrige la date, dans sa fenêtre.
+      if (inv.statut_capex_id === ID_VALIDE || realise) {
+        setValidation(true)
+        return
+      }
+      valider()
       return
     }
     // Marquer réalisé : date, dépense réelle et bilan.
@@ -414,42 +445,20 @@ export function InvestissementDetail({
             key={validation ? 'validation-ouverte' : 'validation'}
             open={validation}
             onOpenChange={setValidation}
-            pending={change.isPending || modifierDateValidation.isPending}
-            dateValidation={
-              valideOuPlus ? (inv.date_validation ?? dates.valide) : undefined
-            }
-            devis={inv.devis}
-            onConfirm={({ date_validation, devis_retenus }) => {
-              const fini = {
-                onSuccess: () => {
-                  toast.success(
-                    valideOuPlus ? 'Validation modifiée' : 'Projet validé',
-                  )
-                  setValidation(false)
+            pending={modifierDateValidation.isPending}
+            dateValidation={inv.date_validation ?? dates.valide}
+            onConfirm={({ date_validation }) =>
+              modifierDateValidation.mutate(
+                { id: inv.id, dateValidation: date_validation },
+                {
+                  onSuccess: () => {
+                    toast.success('Date de validation modifiée')
+                    setValidation(false)
+                  },
+                  onError: (e) => toast.error(writeErrorMessage(e)),
                 },
-                onError: (e: unknown) => toast.error(writeErrorMessage(e)),
-              }
-              if (valideOuPlus)
-                modifierDateValidation.mutate(
-                  {
-                    id: inv.id,
-                    dateValidation: date_validation,
-                    devisRetenus: devis_retenus,
-                  },
-                  fini,
-                )
-              else
-                change.mutate(
-                  {
-                    id: inv.id,
-                    statutId: ID_VALIDE,
-                    annee,
-                    dateValidation: date_validation,
-                    devisRetenus: devis_retenus,
-                  },
-                  fini,
-                )
-            }}
+              )
+            }
           />
           <ClotureInvestissementDialog
             key={realisation.dialogKey}

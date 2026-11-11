@@ -96,11 +96,6 @@ export const clotureCapexSchema = z
 /** Valider une proposition : la date de validation (aujourd'hui par défaut, modifiable — 146). */
 export const validationCapexSchema = z.object({
   date_validation: dateObligatoire('La date de validation est obligatoire'),
-  /**
-   * Devis retenus (147) : valider, c'est choisir. Au moins un quand le projet
-   * a des devis — l'hôte le vérifie, il sait s'il y en a.
-   */
-  devis_retenus: z.array(z.string()),
 })
 
 /**

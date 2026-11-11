@@ -329,13 +329,11 @@ describe('validationCapexSchema', () => {
     expect(
       validationCapexSchema.safeParse({
         date_validation: '2026-11-11',
-        devis_retenus: [],
       }).success,
     ).toBe(true)
     expect(
       rejette(validationCapexSchema, {
         date_validation: '',
-        devis_retenus: [],
       }),
     ).toBe(true)
   })
