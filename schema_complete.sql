@@ -4552,16 +4552,10 @@ CREATE TABLE investissements (
 
     libelle           TEXT NOT NULL CHECK (length(trim(libelle)) > 0),
     description       TEXT,
-    -- 141 : qui émet le devis (texte libre). Était écrit entre parenthèses
-    -- dans le libellé.
-    fournisseur       TEXT,
-    -- 144 : LE devis retenu (case « Devis » du schéma de la fiche).
-    devis_document_id UUID,  -- FK vers documents posée après sa création (plus bas)
-
-    -- Montants (NUMERIC pour la précision financière, jamais FLOAT)
-    montant_demande   NUMERIC(12,2) CHECK (montant_demande IS NULL OR montant_demande >= 0),
-    montant_prevu     NUMERIC(12,2) CHECK (montant_prevu   IS NULL OR montant_prevu   >= 0),
-    depense_reelle    NUMERIC(12,2) CHECK (depense_reelle  IS NULL OR depense_reelle  >= 0),
+    -- 149 : fournisseur, devis_document_id et les montants (demandé, prévu,
+    -- dépense réelle) ont été retirés : fournisseur, montant HT et PDF vivent
+    -- sur chaque devis (investissements_devis, 147) ; le montant d'un projet
+    -- est celui de ses devis retenus.
 
     date_demande      DATE NOT NULL DEFAULT current_date,
 
@@ -4593,10 +4587,8 @@ CREATE TABLE investissements (
     -- modifiable) ; effacée si le dossier repart en Proposition ou est refusé.
     date_validation   DATE,
 
-    -- 137 : qui a pris la décision du statut courant (la direction n'utilise
-    -- pas l'appli : le responsable note sa décision).
-    decision_par      TEXT CONSTRAINT investissements_decision_par_check
-                      CHECK (decision_par IS NULL OR decision_par IN ('responsable', 'direction')),
+    -- 139 : decision_par (137) retiré, plus de distinction responsable /
+    -- direction depuis la 138.
 
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -4628,7 +4620,6 @@ COMMENT ON COLUMN investissements.date_arret IS
 CREATE INDEX idx_capex_site   ON investissements(site_id);
 CREATE INDEX idx_capex_statut ON investissements(statut_capex_id);
 CREATE INDEX idx_investissements_site_annee ON investissements(site_id, annee_budget);
-CREATE INDEX idx_investissements_devis_document ON investissements(devis_document_id);
 -- Index de la FK created_by (règle « indexer toute FK » — v0.33 corrigé post-audit)
 CREATE INDEX idx_capex_created_by ON investissements(created_by);
 
@@ -4638,16 +4629,12 @@ CREATE TRIGGER trg_investissements_set_updated_at
 
 ALTER TABLE investissements ENABLE ROW LEVEL SECURITY;
 
-COMMENT ON COLUMN investissements.decision_par IS
-    'Qui a pris la décision du statut courant : responsable ou direction (notée par le responsable). NULL si sans objet (137).';
-
 -- 137 : historique des décisions (une ligne par changement de statut, écrite
 -- par trigger, lecture seule pour les rôles métier).
 CREATE TABLE IF NOT EXISTS public.investissements_decisions (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     investissement_id UUID NOT NULL REFERENCES public.investissements(id) ON DELETE CASCADE,
     statut_capex_id   SMALLINT NOT NULL REFERENCES public.statuts_capex(id),
-    decision_par      TEXT CHECK (decision_par IS NULL OR decision_par IN ('responsable', 'direction')),
     motif             TEXT,
     -- 138 : année du dossier au moment de l'entrée ; un changement = un report.
     annee_budget      SMALLINT,
@@ -5378,9 +5365,8 @@ COMMENT ON VIEW v_observations_dashboard IS
 
 
 -- Note (v0.33) : pas de vue de synthèse CapEx pour le moment (décision PO — à
--- voir dans un second temps). Les colonnes montant_demande / montant_prevu /
--- depense_reelle restent sur `investissements` ; l'écart se calcule au besoin
--- (front ou future vue v_capex en security_invoker).
+-- voir dans un second temps). Depuis 147-149, les montants vivent sur les
+-- devis (investissements_devis.montant_ht).
 
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
@@ -5442,11 +5428,8 @@ CREATE TABLE documents (
     -- documents_unique_hash — voir ci-dessous.
 );
 
--- 144 : FK de investissements.devis_document_id, posée ici car `documents`
--- est créée après `investissements`.
-ALTER TABLE investissements
-  ADD CONSTRAINT investissements_devis_document_id_fkey
-  FOREIGN KEY (devis_document_id) REFERENCES documents(id) ON DELETE SET NULL;
+-- 144 : la FK investissements.devis_document_id posée ici a été retirée avec
+-- la colonne (149) ; le PDF d'un devis est investissements_devis.document_id.
 
 -- Dédup à l'échelle de l'entreprise (un même PDF n'est stocké qu'une fois).
 -- documents_unique_hash : index unique de dédup DÉPLACÉ en v0.14b (scopé par site_id).

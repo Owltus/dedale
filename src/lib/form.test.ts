@@ -509,7 +509,7 @@ describe('writeErrorMessage — contraintes CHECK', () => {
 })
 
 /**
- * ORACLE : les 41 contraintes CHECK atteignables depuis un formulaire, relevées
+ * ORACLE : les 38 contraintes CHECK atteignables depuis un formulaire, relevées
  * dans `pg_constraint` SUR LA PRODUCTION le 16/09/2026 (et non dans
  * `schema_complete.sql`, qui avait dérivé) — cf.
  * `plan/correction-findings-martin/contraintes-check-reelles.md`.
@@ -537,10 +537,7 @@ const CONTRAINTES_FORMULAIRE = [
   'gammes_nom_non_vide',
   'interventions_travaux_titre_check',
   'investissements_dates_coherentes',
-  'investissements_depense_reelle_check',
   'investissements_libelle_check',
-  'investissements_montant_demande_check',
-  'investissements_montant_prevu_check',
   'locaux_capacite_positive',
   'locaux_hauteur_positive',
   'locaux_nom_check',
@@ -570,8 +567,8 @@ function violationCheck(contrainte: string) {
 }
 
 describe('writeErrorMessage — couverture des contraintes de production', () => {
-  it('couvre les 41 contraintes atteignables depuis un formulaire', () => {
-    expect(CONTRAINTES_FORMULAIRE).toHaveLength(41)
+  it('couvre les 38 contraintes atteignables depuis un formulaire', () => {
+    expect(CONTRAINTES_FORMULAIRE).toHaveLength(38)
   })
 
   it('rend pour CHACUNE un message métier, jamais le repli générique', () => {

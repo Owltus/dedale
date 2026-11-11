@@ -1719,15 +1719,9 @@ export type Database = {
           date_cloture: string | null
           date_demande: string
           date_validation: string | null
-          decision_par: string | null
-          depense_reelle: number | null
           description: string | null
-          devis_document_id: string | null
-          fournisseur: string | null
           id: string
           libelle: string
-          montant_demande: number | null
-          montant_prevu: number | null
           motif_arret: string | null
           site_id: string
           statut_capex_id: number
@@ -1744,15 +1738,9 @@ export type Database = {
           date_cloture?: string | null
           date_demande?: string
           date_validation?: string | null
-          decision_par?: string | null
-          depense_reelle?: number | null
           description?: string | null
-          devis_document_id?: string | null
-          fournisseur?: string | null
           id?: string
           libelle: string
-          montant_demande?: number | null
-          montant_prevu?: number | null
           motif_arret?: string | null
           site_id: string
           statut_capex_id?: number
@@ -1769,15 +1757,9 @@ export type Database = {
           date_cloture?: string | null
           date_demande?: string
           date_validation?: string | null
-          decision_par?: string | null
-          depense_reelle?: number | null
           description?: string | null
-          devis_document_id?: string | null
-          fournisseur?: string | null
           id?: string
           libelle?: string
-          montant_demande?: number | null
-          montant_prevu?: number | null
           motif_arret?: string | null
           site_id?: string
           statut_capex_id?: number
@@ -1803,13 +1785,6 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "investissements_devis_document_id_fkey"
-            columns: ["devis_document_id"]
-            isOneToOne: false
-            referencedRelation: "documents"
             referencedColumns: ["id"]
           },
           {
@@ -1847,7 +1822,6 @@ export type Database = {
           annee_budget: number | null
           created_at: string
           created_by: string | null
-          decision_par: string | null
           id: string
           investissement_id: string
           motif: string | null
@@ -1857,7 +1831,6 @@ export type Database = {
           annee_budget?: number | null
           created_at?: string
           created_by?: string | null
-          decision_par?: string | null
           id?: string
           investissement_id: string
           motif?: string | null
@@ -1867,7 +1840,6 @@ export type Database = {
           annee_budget?: number | null
           created_at?: string
           created_by?: string | null
-          decision_par?: string | null
           id?: string
           investissement_id?: string
           motif?: string | null

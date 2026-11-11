@@ -173,12 +173,6 @@ const MESSAGES_CONTRAINTE_CHECK: Readonly<Record<string, string>> = {
     'Année du budget invalide : choisis une année entre 2000 et 2100.',
   investissements_dates_coherentes:
     'Dates incohérentes : la réalisation ne peut pas précéder la date de proposition. Corrigez l’une des deux dates.',
-  investissements_montant_demande_check:
-    'Montant proposé invalide : saisissez 0 ou plus, ou laissez le champ vide s’il n’est pas encore chiffré.',
-  investissements_montant_prevu_check:
-    'Montant prévu invalide : saisissez 0 ou plus, ou laissez le champ vide s’il n’est pas encore chiffré.',
-  investissements_depense_reelle_check:
-    'Dépense réelle invalide : saisissez 0 ou plus, ou laissez le champ vide tant que la dépense n’est pas connue.',
   // Devis d'un projet (147).
   investissements_devis_fournisseur_check:
     'Fournisseur obligatoire : indiquez qui a fait le devis (100 caractères au plus).',

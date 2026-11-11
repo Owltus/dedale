@@ -831,18 +831,9 @@ const CHECKS_NON_SONDES: Record<string, string> = {
     'Inter-colonnes : couvert par `clotureSchema` (evenements) et son test.',
   'investissements.investissements_dates_coherentes':
     'Inter-colonnes : couvert par `clotureCapexSchema` et son test.',
-  'investissements.investissements_montant_demande_check':
-    'Plus saisi depuis 147 : le montant vit sur chaque devis ' +
-    '(`investissements_devis.montant_ht`, sondé via `devisSchema`) — colonne gelée.',
   'investissements_devis.investissements_devis_fournisseur_check':
     'Bornes 1-100 après btrim : `devisSchema.fournisseur` = `texteObligatoire` ' +
     '+ `.max(100)`, testé dans schemas.test.ts (devisSchema).',
-  'investissements.investissements_depense_reelle_check':
-    'Plus saisie (demande PO du 11/11/2026 : « le montant réel, c\u2019est celui du ' +
-    'devis ») — colonne gelée, à supprimer avec les autres après mise en ligne.',
-  'investissements.investissements_montant_prevu_check':
-    'Plus aucun formulaire ne saisit le montant validé (demande PO du ' +
-    '11/11/2026 : la proposition fait foi) — colonne conservée, non écrite.',
   'investissements.investissements_annee_budget_check':
     'Menu déroulant : l’année du budget est choisie parmi des années proposées, ' +
     'et `investissementSchema` borne déjà 2000-2100 (138).',
@@ -857,8 +848,6 @@ const CHECKS_NON_SONDES: Record<string, string> = {
   //    tomber au clavier. Les traduire n'apprendrait rien à l'utilisateur.
   'categories.chk_categorie_modele_xor_specs':
     'Colonnes non saisies (modele_equipement_id / specifications posées par la mutation).',
-  'investissements.investissements_decision_par_check':
-    'Colonne plus écrite depuis la 138, supprimée par la 139 (après mise en ligne).',
   'categories.chk_categorie_specs_objet':
     'Structure d’un JSONB : ne tombe que sur un appel programmatique fautif.',
   'categories.chk_categories_image_path_format':

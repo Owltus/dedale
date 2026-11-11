@@ -1881,11 +1881,7 @@
       "checks": {
         "investissements_annee_budget_check": "CHECK (((annee_budget >= 2000) AND (annee_budget <= 2100)))",
         "investissements_dates_coherentes": "CHECK (((date_cloture IS NULL) OR (date_cloture >= date_demande)))",
-        "investissements_decision_par_check": "CHECK (((decision_par IS NULL) OR (decision_par = ANY (ARRAY['responsable'::text, 'direction'::text]))))",
-        "investissements_depense_reelle_check": "CHECK (((depense_reelle IS NULL) OR (depense_reelle >= (0)::numeric)))",
-        "investissements_libelle_check": "CHECK ((length(TRIM(BOTH FROM libelle)) > 0))",
-        "investissements_montant_demande_check": "CHECK (((montant_demande IS NULL) OR (montant_demande >= (0)::numeric)))",
-        "investissements_montant_prevu_check": "CHECK (((montant_prevu IS NULL) OR (montant_prevu >= (0)::numeric)))"
+        "investissements_libelle_check": "CHECK ((length(TRIM(BOTH FROM libelle)) > 0))"
       },
       "colonnes": {
         "annee_budget": {
@@ -1968,39 +1964,7 @@
           "precision": null,
           "type": "date"
         },
-        "decision_par": {
-          "aUnDefaut": false,
-          "echelle": null,
-          "longueurMax": null,
-          "nullable": true,
-          "precision": null,
-          "type": "text"
-        },
-        "depense_reelle": {
-          "aUnDefaut": false,
-          "echelle": 2,
-          "longueurMax": null,
-          "nullable": true,
-          "precision": 12,
-          "type": "numeric"
-        },
         "description": {
-          "aUnDefaut": false,
-          "echelle": null,
-          "longueurMax": null,
-          "nullable": true,
-          "precision": null,
-          "type": "text"
-        },
-        "devis_document_id": {
-          "aUnDefaut": false,
-          "echelle": null,
-          "longueurMax": null,
-          "nullable": true,
-          "precision": null,
-          "type": "uuid"
-        },
-        "fournisseur": {
           "aUnDefaut": false,
           "echelle": null,
           "longueurMax": null,
@@ -2023,22 +1987,6 @@
           "nullable": false,
           "precision": null,
           "type": "text"
-        },
-        "montant_demande": {
-          "aUnDefaut": false,
-          "echelle": 2,
-          "longueurMax": null,
-          "nullable": true,
-          "precision": 12,
-          "type": "numeric"
-        },
-        "montant_prevu": {
-          "aUnDefaut": false,
-          "echelle": 2,
-          "longueurMax": null,
-          "nullable": true,
-          "precision": 12,
-          "type": "numeric"
         },
         "motif_arret": {
           "aUnDefaut": false,
@@ -2075,9 +2023,7 @@
       }
     },
     "investissements_decisions": {
-      "checks": {
-        "investissements_decisions_decision_par_check": "CHECK (((decision_par IS NULL) OR (decision_par = ANY (ARRAY['responsable'::text, 'direction'::text]))))"
-      },
+      "checks": {},
       "colonnes": {
         "annee_budget": {
           "aUnDefaut": false,
@@ -2102,14 +2048,6 @@
           "nullable": true,
           "precision": null,
           "type": "uuid"
-        },
-        "decision_par": {
-          "aUnDefaut": false,
-          "echelle": null,
-          "longueurMax": null,
-          "nullable": true,
-          "precision": null,
-          "type": "text"
         },
         "id": {
           "aUnDefaut": true,
