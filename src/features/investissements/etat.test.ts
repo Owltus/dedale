@@ -328,14 +328,14 @@ describe('budget en préparation', () => {
 })
 
 describe('montantProjet — LE montant d’un projet (147)', () => {
-  // ORACLE : décision PO du 11/11/2026 — avant validation, le devis le moins
-  // cher ; validé, la somme des devis retenus ; réalisé, la dépense réelle.
+  // ORACLE : décisions PO du 11/11/2026 — la sélection (devis retenus,
+  // même avant validation), sinon le moins cher ; réalisé, la dépense réelle.
   it('sans devis : aucun montant', () => {
     expect(montantProjet(projet(ID_DEMANDE))).toBeNull()
     expect(montantProjet(projet(ID_VALIDE))).toBeNull()
   })
 
-  it('proposition : le moins cher, même si des devis sont déjà cochés', () => {
+  it('proposition : le moins cher, puis la sélection dès qu’un devis est coché', () => {
     expect(
       montantProjet(
         projet(ID_DEMANDE, [
@@ -351,10 +351,10 @@ describe('montantProjet — LE montant d’un projet (147)', () => {
           [1222, false],
         ]),
       ),
-    ).toBe(1222)
+    ).toBe(2810.08)
   })
 
-  it('refusé : le moins cher aussi', () => {
+  it('refusé : la sélection aussi', () => {
     expect(
       montantProjet(
         projet(ID_REFUSE, [
@@ -362,7 +362,7 @@ describe('montantProjet — LE montant d’un projet (147)', () => {
           [300, false],
         ]),
       ),
-    ).toBe(300)
+    ).toBe(500)
   })
 
   it('validé : la somme des retenus, au centime', () => {
@@ -409,14 +409,13 @@ describe('montantProjet — LE montant d’un projet (147)', () => {
     ).toBe(300)
   })
 
-  it('non validé : jamais plus que le devis le moins cher', () => {
+  it('rien de coché : toujours le devis le moins cher', () => {
     fc.assert(
       fc.property(
-        fc.constantFrom(ID_DEMANDE, ID_REFUSE),
-        fc.array(fc.tuple(fc.integer({ min: 0, max: 1e6 }), fc.boolean()), {
-          minLength: 1,
-        }),
-        (statut, devis) => {
+        fc.constantFrom(ID_DEMANDE, ID_VALIDE, ID_REFUSE),
+        fc.array(fc.integer({ min: 0, max: 1e6 }), { minLength: 1 }),
+        (statut, montants) => {
+          const devis = montants.map((x): [number, boolean] => [x, false])
           const m = montantProjet(projet(statut, devis))
           expect(m).toBe(Math.min(...devis.map(([x]) => x)))
         },

@@ -33,20 +33,15 @@ export function montantRetenu(p: Pick<ProjetMontant, 'devis'>): number | null {
 }
 
 /**
- * LE montant d'un projet (décision PO du 11/11/2026), partout — barre, listes,
- * fiche :
- * - Réalisé : la dépense réelle, sinon le montant retenu ;
- * - Validé : la somme des devis retenus (sinon le moins cher) ;
- * - sinon (Proposition, Refusé) : le devis le MOINS CHER, même si des devis
- *   sont déjà cochés — un choix ne compte qu'une fois le projet validé.
- * null quand le projet n'a encore aucun devis.
+ * LE montant d'un projet (décisions PO du 11/11/2026), partout — barre,
+ * listes, fiche : les devis RETENUS (pré-sélectionnés dans le schéma ou
+ * validés), sinon le devis le moins cher ; une fois réalisé, la dépense
+ * réelle prime. null quand le projet n'a encore aucun devis.
  */
 export function montantProjet(p: ProjetMontant): number | null {
   if (p.statut_capex_id === ID_REALISE)
     return p.depense_reelle ?? montantRetenu(p)
-  if (p.statut_capex_id === ID_VALIDE) return montantRetenu(p)
-  if (p.devis.length === 0) return null
-  return Math.min(...p.devis.map((d) => d.montant_ht))
+  return montantRetenu(p)
 }
 
 // QUATRE statuts (138, décision PO du 10/11/2026) : Demandé → Validé → Réalisé,
