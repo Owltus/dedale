@@ -619,8 +619,12 @@ function Pastille({
   )
 }
 
-/** Hauteur d'une rangée du schéma large (une tuile + son souffle). */
-const RANGEE_REM = 5.25
+/**
+ * Hauteur d'une rangée du schéma large : une tuile (4rem) et son souffle.
+ * Le schéma garde sa hauteur NATURELLE (demande PO : resserré au bureau) —
+ * une rangée par devis, jamais étirée sur tout l'écran.
+ */
+const RANGEE_REM = 4.75
 
 /**
  * Le schéma, de gauche à droite (demande PO) :
@@ -664,7 +668,7 @@ function SchemaHorizontal({
   )
   return (
     <div
-      className="grid w-full flex-1 grid-cols-[minmax(0,1.15fr)_minmax(2rem,0.3fr)_minmax(0,1.1fr)_minmax(9.5rem,0.9fr)_minmax(0,1fr)_minmax(2rem,0.3fr)_minmax(0,1fr)]"
+      className="mx-auto grid w-full max-w-[84rem] grid-cols-[minmax(0,1.15fr)_minmax(2rem,0.25fr)_minmax(0,1.1fr)_minmax(8.5rem,0.7fr)_minmax(0,1fr)_minmax(2rem,0.25fr)_minmax(0,1fr)]"
       style={{ minHeight: `${String(Math.max(k, 3) * RANGEE_REM)}rem` }}
     >
       {/* 1. La proposition, avec son texte. */}
@@ -857,7 +861,8 @@ export function SchemaCapex(props: PropsSchema) {
     >
       <ToileSchema
         large={
-          <div className="flex flex-1 flex-col px-3 py-6 sm:px-6">
+          // Centré dans la place disponible, sans s'y étirer.
+          <div className="flex flex-1 flex-col justify-center px-3 py-6 sm:px-6">
             <SchemaHorizontal {...props} />
           </div>
         }
