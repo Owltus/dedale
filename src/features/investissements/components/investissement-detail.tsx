@@ -60,6 +60,24 @@ import { RefusInvestissementDialog } from './refus-investissement-dialog'
 import { Card, CardContent } from '@/components/ui/card'
 
 /**
+ * Ce qu'efface un retour en arrière d'un statut à un autre (hors les deux
+ * interrupteurs Prévalidé / Confirmé, qui retirent leur seul accord) —
+ * vide = rien de perdu, pas de confirmation.
+ */
+function pertesSiRetour(depuis: number, vers: number): string[] {
+  const pertes: string[] = []
+  if (depuis === ID_REALISE && vers !== ID_REALISE)
+    pertes.push('le bilan et la date de réalisation')
+  if (depuis === ID_REFUSE && vers !== ID_REFUSE)
+    pertes.push('le refus et son motif')
+  if (estConfirmeOuPlus(depuis) && !estConfirmeOuPlus(vers))
+    pertes.push('la confirmation')
+  if (estPrevalideOuPlus(depuis) && !estPrevalideOuPlus(vers))
+    pertes.push('la prévalidation')
+  return pertes
+}
+
+/**
  * Durée des messages qui portent « Annuler » : le temps de lire et de
  * cliquer (le défaut, ~4 s, disparaissait avant le clic).
  */
@@ -338,13 +356,34 @@ export function InvestissementDetail({
       })
       return
     }
+    const message =
+      a.cle === 'rouvrir' ? 'Projet rouvert' : 'Proposition relancée'
+    // Un clic qui EFFACE des informations demande confirmation (demande PO
+    // du 12/11/2026) ; les autres restent instantanés.
+    const pertes = pertesSiRetour(inv.statut_capex_id, a.statutId)
+    if (pertes.length > 0) {
+      confirmAction.demander({
+        title:
+          a.statutId === ID_DEMANDE
+            ? 'Revenir en « Proposition » ?'
+            : `Revenir en « ${a.statutId === ID_VALIDE ? 'Confirmé' : 'Prévalidé'} » ?`,
+        description: `Seront effacés : ${pertes.join(', ')}.`,
+        confirmLabel: 'Revenir en arrière',
+        destructive: true,
+        run: () =>
+          change.mutateAsync({
+            id: inv.id,
+            statutId: a.statutId,
+            annee: a.annee,
+          }),
+        successMessage: message,
+      })
+      return
+    }
     change.mutate(
       { id: inv.id, statutId: a.statutId, annee: a.annee },
       {
-        onSuccess: () =>
-          toast.success(
-            a.cle === 'rouvrir' ? 'Projet rouvert' : 'Proposition relancée',
-          ),
+        onSuccess: () => toast.success(message),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
@@ -613,6 +652,7 @@ export function InvestissementDetail({
         key={refus ? `refus-${String(refus)}` : 'refus'}
         open={refus !== null}
         onOpenChange={(o) => !o && setRefus(null)}
+        niveau={refus ?? 1}
         pending={change.isPending}
         initial={
           refuse

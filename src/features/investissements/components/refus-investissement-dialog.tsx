@@ -17,6 +17,11 @@ interface RefusInvestissementDialogProps {
    * refuse. Même dialogue pour les deux, comme la réalisation.
    */
   initial?: { date_arret: string | null; motif_arret: string | null }
+  /**
+   * Niveau du refus (150) : 1 = à la prévalidation (responsables),
+   * 2 = à la confirmation (N+2).
+   */
+  niveau?: 1 | 2
   onConfirm: (values: RefusCapexFormValues) => void
 }
 
@@ -31,9 +36,11 @@ export function RefusInvestissementDialog({
   onOpenChange,
   pending,
   initial,
+  niveau = 1,
   onConfirm,
 }: RefusInvestissementDialogProps) {
   const correction = initial !== undefined
+  const etape = niveau === 2 ? 'confirmation' : 'prévalidation'
   const form = useForm<RefusCapexFormValues>({
     resolver: zodResolver(refusCapexSchema),
     defaultValues: {
@@ -47,8 +54,10 @@ export function RefusInvestissementDialog({
       <FormDialog
         open={open}
         onOpenChange={onOpenChange}
-        title={correction ? 'Modifier le refus' : 'Refuser la proposition'}
-        description="Quand la proposition a été refusée, et pourquoi si vous voulez le garder en mémoire. Le motif est facultatif."
+        title={
+          correction ? `Modifier le refus (${etape})` : `Refuser la ${etape}`
+        }
+        description={`Quand le projet a été refusé à la ${etape}, et pourquoi si vous voulez le garder en mémoire. Le motif est facultatif.`}
         onSubmit={() => void form.handleSubmit(onConfirm)()}
         submitLabel={correction ? 'Enregistrer' : 'Refuser'}
         pendingLabel="Enregistrement…"
