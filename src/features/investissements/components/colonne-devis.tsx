@@ -199,7 +199,7 @@ function TuileDevis({
       className={cn(
         'flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition',
         d.retenu
-          ? 'border-success bg-success text-success-foreground'
+          ? 'border-(color:--parcours) bg-(color:--parcours) text-white'
           : 'border-muted-foreground/40 bg-card',
       )}
     >
@@ -211,7 +211,9 @@ function TuileDevis({
       className={cn(
         TUILE,
         '@container gap-2 px-2',
-        d.retenu ? 'border-success/60 bg-success/5' : 'border-info/40',
+        d.retenu
+          ? 'border-(color:--parcours)/60 bg-(color:--parcours)/5'
+          : 'border-(color:--parcours)/30',
         estompe &&
           'opacity-30 saturate-50 focus-within:opacity-100 hover:opacity-100 hover:saturate-100',
       )}

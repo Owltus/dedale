@@ -8,8 +8,9 @@ import {
 } from '@/features/investissements/queries'
 import { useDeleteInvestissement } from '@/features/investissements/mutations'
 import {
-  nomStatutCapex,
-  statutCapexTone,
+  libelleProjet,
+  reporteDe,
+  toneProjet,
 } from '@/features/investissements/etat'
 import { montantPrincipal } from '@/features/investissements/format'
 import { anneeDeParam } from '@/features/investissements/annee'
@@ -35,6 +36,7 @@ import { PAGE_META } from '@/features/investissements/page-meta'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import { StatutColonne } from '@/components/common/statut-colonne'
+import { StatusBadge } from '@/components/common/status-badge'
 import { BarreBudget } from '@/features/investissements/components/barre-budget'
 import type { Database } from '@/lib/database.types'
 
@@ -177,23 +179,32 @@ function InvestissementsContent({
               emptySearchDescription="Aucun projet ne correspond à cette recherche."
             >
               {shown.map((inv) => {
-                const statutLabel = nomStatutCapex(
-                  inv.statut_capex_id,
-                  statutNom,
-                )
+                // Couleur et libellé = STADE du projet (demande PO du
+                // 12/11/2026) : gris sans devis, violet avec des devis.
+                const statutLabel = libelleProjet(inv, statutNom)
+                const ton = toneProjet(inv)
+                const depuis = reporteDe(inv)
                 const colonne = (
                   <StatutColonne
                     statut={{
                       label: statutLabel,
-                      tone: statutCapexTone(inv.statut_capex_id),
+                      tone: ton,
                     }}
                     meta={
-                      <span
-                        className={cn(
-                          'font-medium whitespace-nowrap text-foreground tabular-nums',
+                      <span className="flex flex-col items-center gap-1">
+                        <span
+                          className={cn(
+                            'font-medium whitespace-nowrap text-foreground tabular-nums',
+                          )}
+                        >
+                          {montantPrincipal(inv)}
+                        </span>
+                        {/* Projet reporté : étiquette orange (demande PO). */}
+                        {depuis !== null && (
+                          <StatusBadge tone="warning">
+                            Reporté de {depuis}
+                          </StatusBadge>
                         )}
-                      >
-                        {montantPrincipal(inv)}
                       </span>
                     }
                   />
@@ -201,7 +212,7 @@ function InvestissementsContent({
                 return (
                   <ListRow
                     key={inv.id}
-                    tone={statutCapexTone(inv.statut_capex_id)}
+                    tone={ton}
                     media={<RowMediaIcon icon={Wallet} />}
                     title={inv.libelle}
                     // Les fournisseurs des devis en tête (147), puis la

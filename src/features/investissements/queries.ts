@@ -12,7 +12,11 @@ export type Devis = Database['public']['Tables']['investissements_devis']['Row']
  * Un PROJET (décision PO du 11/11/2026) : la ligne `investissements` et ses
  * devis — c'est eux qui portent fournisseur et montant HT.
  */
-export type Projet = Investissement & { devis: Devis[] }
+export type Projet = Investissement & {
+  devis: Devis[]
+  /** Années de budget de son historique : d'où il a été reporté (12/11). */
+  decisions: { annee_budget: number | null }[]
+}
 
 export const investissementsQueries = {
   all: () => ['investissements'] as const,
@@ -27,7 +31,9 @@ export const investissementsQueries = {
       queryFn: async () => {
         const { data } = await supabase
           .from('investissements')
-          .select('*, devis:investissements_devis(*)')
+          .select(
+            '*, devis:investissements_devis(*), decisions:investissements_decisions(annee_budget)',
+          )
           .eq('site_id', siteId)
           .order('date_demande', { ascending: false })
           .order('montant_ht', {

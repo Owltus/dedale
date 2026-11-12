@@ -13,14 +13,14 @@ import {
 } from '@/features/investissements/format'
 import { cn } from '@/lib/utils'
 
-// Couleurs du parcours (demande PO) : vert pour ce qui est accordé — plein une
-// fois réalisé, teinté tant que seulement validé —, gris pour ce qui attend,
-// rouge pour le refusé. Fonds TEINTÉS pour que le texte posé dessus reste
-// lisible en clair comme en sombre.
+// Couleurs des statuts (demande PO du 12/11/2026) : vert = réalisé, bleu =
+// validé, violet = propositions chiffrées (une proposition sans devis n'a pas
+// de montant, elle n'apparaît pas), rouge = refusé. Fonds TEINTÉS pour que le
+// texte posé dessus reste lisible en clair comme en sombre.
 const COULEUR: Record<number, string> = {
   [ID_REALISE]: 'bg-success text-success-foreground',
-  [ID_VALIDE]: 'bg-success/30 text-foreground',
-  [ID_DEMANDE]: 'bg-muted-foreground/25 text-foreground',
+  [ID_VALIDE]: 'bg-info/35 text-foreground',
+  [ID_DEMANDE]: 'bg-violet/25 text-foreground',
   [ID_REFUSE]: 'bg-destructive/30 text-foreground',
 }
 

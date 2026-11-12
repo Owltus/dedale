@@ -18,6 +18,7 @@ import {
   montantRetenu,
   schemaCapex,
   type ActionCapex,
+  toneProjet,
 } from '@/features/investissements/etat'
 import {
   useChangeStatutCapex,
@@ -265,6 +266,7 @@ export function InvestissementDetail({
         <CardContent className="flex flex-1 flex-col p-0">
           <SchemaCapex
             schema={schema}
+            ton={toneProjet(inv)}
             menus={menus}
             devis={inv.devis}
             rangeesDevis={rangeesColonneDevis(inv.devis.length, canManage)}

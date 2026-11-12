@@ -73,16 +73,76 @@ export function nomStatutCapex(id: number, noms: Map<number, string>): string {
 export const STATUTS_CAPEX_TERMINAUX = [ID_REALISE, ID_REFUSE] as const
 
 const TONES: Record<number, StatusTone> = {
-  // Couleurs du parcours (demande PO du 10/11/2026) : tout le chemin validé
-  // est VERT (validé, puis réalisé), le refus ROUGE ; le report, jaune, n'est
-  // pas un statut et n'apparaît que sur le schéma.
-  [ID_DEMANDE]: 'neutral', // en attente
-  [ID_VALIDE]: 'success', // feu vert
-  [ID_REALISE]: 'success', // fait
+  // Couleurs des statuts (demande PO du 12/11/2026), simples à reconnaître :
+  // gris = projet, bleu = validé, vert = réalisé (vraiment fini), rouge =
+  // refusé (ou abandonné). Le violet « devis reçus » et l'orange « reporté »
+  // ne sont pas des statuts : voir `stadeProjet` et `reporteDe`.
+  [ID_DEMANDE]: 'neutral',
+  [ID_VALIDE]: 'info',
+  [ID_REALISE]: 'success',
   [ID_REFUSE]: 'destructive',
 }
 export function statutCapexTone(id: number): StatusTone {
   return statusToneById(id, TONES)
+}
+
+/**
+ * STADE d'un projet, pour sa couleur (demande PO du 12/11/2026) : un projet
+ * qui a déjà des devis n'en est plus au même point qu'un projet vide, même si
+ * aucun n'est encore choisi.
+ */
+export type StadeCapex = 'projet' | 'devis' | 'valide' | 'realise' | 'refuse'
+
+export function stadeProjet(
+  p: Pick<Investissement, 'statut_capex_id'> & { devis: readonly unknown[] },
+): StadeCapex {
+  if (p.statut_capex_id === ID_VALIDE) return 'valide'
+  if (p.statut_capex_id === ID_REALISE) return 'realise'
+  if (p.statut_capex_id === ID_REFUSE) return 'refuse'
+  return p.devis.length > 0 ? 'devis' : 'projet'
+}
+
+const TONS_STADE: Record<StadeCapex, StatusTone> = {
+  projet: 'neutral', // gris : rien que l'idée
+  devis: 'violet', // devis reçus, choisis ou non
+  valide: 'info', // bleu : accordé, pas encore fait
+  realise: 'success', // vert : fini
+  refuse: 'destructive', // rouge : refusé ou abandonné
+}
+
+/** Couleur d'un projet : celle de son stade. */
+export function toneProjet(
+  p: Pick<Investissement, 'statut_capex_id'> & { devis: readonly unknown[] },
+): StatusTone {
+  return TONS_STADE[stadeProjet(p)]
+}
+
+/** Libellé de la pastille d'un projet : son statut, ou « Devis reçus ». */
+export function libelleProjet(
+  p: Pick<Investissement, 'statut_capex_id'> & { devis: readonly unknown[] },
+  noms: Map<number, string>,
+): string {
+  return stadeProjet(p) === 'devis'
+    ? 'Devis reçus'
+    : nomStatutCapex(p.statut_capex_id, noms)
+}
+
+/**
+ * Année d'où vient un projet REPORTÉ (demande PO du 12/11/2026) : la dernière
+ * année de budget antérieure trouvée dans son historique ; null s'il n'a
+ * jamais été reporté.
+ */
+export function reporteDe(p: {
+  annee_budget: number
+  decisions?: readonly { annee_budget: number | null }[]
+}): number | null {
+  let depuis: number | null = null
+  for (const d of p.decisions ?? []) {
+    const a = d.annee_budget
+    if (a !== null && a < p.annee_budget && (depuis === null || a > depuis))
+      depuis = a
+  }
+  return depuis
 }
 
 // Ordre LOGIQUE d'affichage (menu de filtre), indépendant des ids.

@@ -17,6 +17,10 @@ import {
   statutCapexTone,
   STATUTS_CAPEX_TERMINAUX,
   totauxAnnee,
+  libelleProjet,
+  reporteDe,
+  stadeProjet,
+  toneProjet,
 } from './etat'
 import { anneeDeParam } from './annee'
 
@@ -82,11 +86,11 @@ describe('nomStatutCapex — totalité', () => {
 })
 
 describe('statutCapexTone — sémantique', () => {
-  it('le chemin validé est vert, le refus rouge, la demande neutre', () => {
-    expect(statutCapexTone(ID_REFUSE)).toBe('destructive')
-    expect(statutCapexTone(ID_VALIDE)).toBe('success')
-    expect(statutCapexTone(ID_REALISE)).toBe('success')
+  it('gris = proposition, bleu = validé, vert = réalisé, rouge = refusé', () => {
     expect(statutCapexTone(ID_DEMANDE)).toBe('neutral')
+    expect(statutCapexTone(ID_VALIDE)).toBe('info')
+    expect(statutCapexTone(ID_REALISE)).toBe('success')
+    expect(statutCapexTone(ID_REFUSE)).toBe('destructive')
   })
 
   it('terminés = Réalisé et Refusé', () => {
@@ -490,5 +494,55 @@ describe('repartitionBudget — barre d’un budget', () => {
       ),
       TIRAGES,
     )
+  })
+})
+
+describe('stade et couleur d’un projet (demande PO du 12/11/2026)', () => {
+  it('sans devis = gris, avec des devis (même non choisis) = violet', () => {
+    expect(stadeProjet(projet(ID_DEMANDE))).toBe('projet')
+    expect(toneProjet(projet(ID_DEMANDE))).toBe('neutral')
+    expect(stadeProjet(projet(ID_DEMANDE, [[100, false]]))).toBe('devis')
+    expect(toneProjet(projet(ID_DEMANDE, [[100, false]]))).toBe('violet')
+    expect(toneProjet(projet(ID_DEMANDE, [[100, true]]))).toBe('violet')
+  })
+
+  it('le statut l’emporte sur les devis une fois décidé', () => {
+    expect(toneProjet(projet(ID_VALIDE, [[100, true]]))).toBe('info')
+    expect(toneProjet(projet(ID_REALISE, [[100, true]]))).toBe('success')
+    expect(toneProjet(projet(ID_REFUSE))).toBe('destructive')
+  })
+
+  it('libellé « Devis reçus » seulement au stade devis', () => {
+    const noms = new Map<number, string>()
+    expect(libelleProjet(projet(ID_DEMANDE), noms)).toBe('Proposition')
+    expect(libelleProjet(projet(ID_DEMANDE, [[1, false]]), noms)).toBe(
+      'Devis reçus',
+    )
+    expect(libelleProjet(projet(ID_VALIDE, [[1, true]]), noms)).toBe('Validé')
+  })
+})
+
+describe('reporteDe — projet reporté', () => {
+  it('null sans historique ou sans année antérieure', () => {
+    expect(reporteDe({ annee_budget: 2027 })).toBeNull()
+    expect(
+      reporteDe({
+        annee_budget: 2027,
+        decisions: [{ annee_budget: 2027 }, { annee_budget: null }],
+      }),
+    ).toBeNull()
+  })
+
+  it('la dernière année antérieure de son historique', () => {
+    expect(
+      reporteDe({
+        annee_budget: 2028,
+        decisions: [
+          { annee_budget: 2026 },
+          { annee_budget: 2027 },
+          { annee_budget: 2028 },
+        ],
+      }),
+    ).toBe(2027)
   })
 })

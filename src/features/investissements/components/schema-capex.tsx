@@ -10,11 +10,11 @@ import {
 } from 'lucide-react'
 import { toneToken } from '@/components/common/charts/chart-tokens'
 import { cn } from '@/lib/utils'
+import type { StatusTone } from '@/components/common/status-badge'
 import type { RowAction } from '@/components/common/row-actions'
 import { SurvolCase, useTexteTronque } from './survol-case'
 import { ToileSchema } from './toile-schema'
 import {
-  statutCapexTone,
   type ActionCapex,
   type CaseCapex,
   type EtatFlecheCapex,
@@ -53,7 +53,7 @@ const ESTOMPE = 'opacity-30 saturate-50'
 
 /**
  * État d'un trait : ceux du parcours, plus « choisi » — un devis retenu
- * avant que la décision soit prise (plein, couleur d'information).
+ * avant que la décision soit prise (plein, couleur du stade du projet).
  */
 type EtatTrait = EtatFlecheCapex | 'choisi'
 
@@ -66,9 +66,10 @@ function styleTrait(
   epais: number
   pointille?: string
 } {
-  if (etat === 'ok') return { className: 'text-success', epais: 2.5 }
+  if (etat === 'ok') return { className: 'text-(color:--parcours)', epais: 2.5 }
   if (etat === 'refus') return { className: 'text-destructive', epais: 2.5 }
-  if (etat === 'choisi') return { className: 'text-info', epais: 2 }
+  if (etat === 'choisi')
+    return { className: 'text-(color:--parcours)', epais: 2 }
   return {
     className:
       teinte === 'refus'
@@ -195,14 +196,14 @@ const ICONES = {
 
 type CleCase = keyof typeof ICONES
 
-/** Couleur de la case où se trouve le dossier : celle de son statut. */
-function couleurActuelle(statutId: number): string {
-  const tone = statutCapexTone(statutId)
-  return tone === 'neutral' ? 'var(--primary)' : toneToken(tone)
-}
+/**
+ * Couleur de la case où se trouve le projet : celle de son STADE, posée par
+ * `SchemaCapex` dans la variable --parcours (demande PO du 12/11/2026).
+ */
+const COULEUR_PARCOURS = 'var(--parcours)'
 
-function styleActuel(statutId: number): CSSProperties {
-  const c = couleurActuelle(statutId)
+function styleActuel(): CSSProperties {
+  const c = COULEUR_PARCOURS
   return {
     borderColor: c,
     // Mélange en sRGB : en oklch, la teinte « nulle » de --card tirait le
@@ -294,7 +295,7 @@ function TuileCase({
   // écouteur du clic droit / appui long. Étalé AVANT nos propres attributs.
   const Icone = c.etat === 'fait' ? Check : ICONES[cle]
   const actuel = c.etat === 'actuel'
-  const couleur = actuel && c.statutId ? couleurActuelle(c.statutId) : undefined
+  const couleur = actuel && c.statutId ? COULEUR_PARCOURS : undefined
   const contenu = (
     <>
       {/* Pas d'icône pour la proposition (demande PO) : son texte prend la
@@ -304,7 +305,8 @@ function TuileCase({
           <span
             className={cn(
               'flex size-8 shrink-0 items-center justify-center rounded-full',
-              c.etat === 'fait' && 'bg-success/15 text-success',
+              c.etat === 'fait' &&
+                'bg-(color:--parcours)/15 text-(color:--parcours)',
               // Case libre : sa couleur de branche, en pâle — refus rouge,
               // report jaune.
               c.etat === 'libre' &&
@@ -383,7 +385,7 @@ function TuileCase({
     // case (requête de conteneur), pas celle de l'écran. Toutes les cases se
     // calent comme « Demandé » : icône, nom, puis montant poussé à droite.
     'flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-xl border bg-card px-2 py-2.5 text-center text-sm font-medium shadow-xs @min-[15rem]:flex-row @min-[15rem]:justify-start @min-[15rem]:gap-3 @min-[15rem]:px-4',
-    c.etat === 'fait' && 'border-success/40',
+    c.etat === 'fait' && 'border-(color:--parcours)/40',
     c.etat === 'libre' && 'text-muted-foreground',
     c.etat === 'libre' && cle === 'refuse' && 'border-destructive/25',
     actuel && 'border-2 font-semibold text-foreground',
@@ -412,16 +414,21 @@ function TuileCase({
                 ? `Modifier « ${c.libelle} »`
                 : `Passer à « ${c.libelle} »`
         }
-        style={actuel && c.statutId ? styleActuel(c.statutId) : undefined}
+        style={actuel && c.statutId ? styleActuel() : undefined}
         aria-current={actuel ? 'step' : undefined}
         className={cn(
           classes,
           'cursor-pointer transition duration-150 hover:-translate-y-0.5 hover:text-foreground hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60',
+          // Au survol, la couleur de l'étape visée.
           cle === 'refuse'
             ? 'hover:border-destructive/60'
             : cle === 'reporte'
               ? 'hover:border-warning'
-              : 'hover:border-success/60',
+              : cle === 'valide'
+                ? 'hover:border-info/60'
+                : cle === 'realise'
+                  ? 'hover:border-success/60'
+                  : 'hover:border-muted-foreground/60',
         )}
       >
         {contenu}
@@ -432,7 +439,7 @@ function TuileCase({
     <div
       {...rest}
       className={classes}
-      style={actuel && c.statutId ? styleActuel(c.statutId) : undefined}
+      style={actuel && c.statutId ? styleActuel() : undefined}
       aria-current={actuel ? 'step' : undefined}
     >
       {contenu}
@@ -455,6 +462,8 @@ export interface SelectionCapex {
 
 interface PropsSchema {
   schema: Schema
+  /** Couleur du stade du projet (`toneProjet`) : chemin parcouru, case actuelle. */
+  ton?: StatusTone
   /** Menus du clic droit / appui long, par case (selon la situation du dossier). */
   menus?: Partial<Record<CleCase, RowAction[]>>
   /**
@@ -606,9 +615,8 @@ function Pastille({
     <span
       className={cn(
         'flex flex-col items-center rounded-full border px-3 py-1 text-center text-[11px] leading-tight whitespace-nowrap shadow-xs',
-        valide
-          ? 'border-success/50 bg-success/10 text-foreground'
-          : 'border-info/50 bg-info/10 text-foreground',
+        'border-(color:--parcours)/50 bg-(color:--parcours)/10 text-foreground',
+        valide && 'font-medium',
       )}
     >
       <span>
@@ -761,8 +769,7 @@ function TraitVertical({ etat = 'libre' }: { etat?: EtatTrait }) {
       className={cn(
         'mx-auto h-4 w-0 border-l-2',
         etat === 'libre' ? 'border-dashed border-muted-foreground/40' : '',
-        etat === 'choisi' && 'border-info',
-        etat === 'ok' && 'border-success',
+        (etat === 'choisi' || etat === 'ok') && 'border-(color:--parcours)',
       )}
     />
   )
@@ -847,13 +854,15 @@ function SchemaVertical({
  * S'adapte à la place RÉELLE (demande PO) : de gauche à droite quand elle
  * suffit ; sinon de haut en bas, dans un cadre qui défile verticalement (`ToileSchema`).
  */
-export function SchemaCapex(props: PropsSchema) {
+export function SchemaCapex({ ton = 'neutral', ...props }: PropsSchema) {
   return (
     <div
       role="group"
       aria-label="Parcours du projet"
       className="flex flex-1 flex-col rounded-lg"
       style={{
+        // Couleur du chemin parcouru = celle du stade du projet.
+        ['--parcours' as string]: toneToken(ton),
         backgroundImage:
           'radial-gradient(color-mix(in oklch, var(--muted-foreground) 22%, transparent) 1px, transparent 1px)',
         backgroundSize: '18px 18px',
