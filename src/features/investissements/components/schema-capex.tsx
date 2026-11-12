@@ -1,5 +1,6 @@
 import type { ComponentProps, CSSProperties, ReactNode } from 'react'
 import {
+  BadgeCheck,
   CalendarClock,
   Check,
   CircleCheck,
@@ -24,7 +25,7 @@ import {
 // Organigramme façon Mermaid (138, 147, demandes PO) — ordinateur :
 //
 //   Proposition ─▶ devis ─╮                  ╭─▶ Refusé
-//                ─▶ devis  ├─(sélection)─────┼─▶ Validé ──▶ Réalisé
+//                ─▶ devis  ├─(sélection)─────┼─▶ Prévalidé ──▶ Confirmé ──▶ Réalisé
 //                ─▶ devis ─╯                  ╰─▶ Reporter à N+1
 //
 // Téléphone : la même chose de haut en bas. Les flèches sont des COURBES SVG
@@ -188,7 +189,8 @@ function Liens({
 
 const ICONES = {
   demande: Inbox,
-  valide: CircleCheck,
+  prevalide: CircleCheck,
+  valide: BadgeCheck,
   realise: PackageCheck,
   refuse: CircleX,
   reporte: CalendarClock,
@@ -410,11 +412,13 @@ function TuileCase({
             ? undefined
             : cle === 'reporte'
               ? c.libelle
-              : action.cle === 'devalider'
-                ? 'Retirer la validation'
-                : actuel
-                  ? `Modifier « ${c.libelle} »`
-                  : `Passer à « ${c.libelle} »`
+              : action.cle === 'deprevalider'
+                ? 'Retirer la prévalidation'
+                : action.cle === 'devalider' && actuel
+                  ? 'Retirer la confirmation'
+                  : actuel
+                    ? `Modifier « ${c.libelle} »`
+                    : `Passer à « ${c.libelle} »`
         }
         style={actuel && c.statutId ? styleActuel() : undefined}
         aria-current={actuel ? 'step' : undefined}
@@ -426,11 +430,13 @@ function TuileCase({
             ? 'hover:border-destructive/60'
             : cle === 'reporte'
               ? 'hover:border-warning'
-              : cle === 'valide'
-                ? 'hover:border-info/60'
-                : cle === 'realise'
-                  ? 'hover:border-success/60'
-                  : 'hover:border-muted-foreground/60',
+              : cle === 'prevalide'
+                ? 'hover:border-yellow/70'
+                : cle === 'valide'
+                  ? 'hover:border-info/60'
+                  : cle === 'realise'
+                    ? 'hover:border-success/60'
+                    : 'hover:border-muted-foreground/60',
         )}
       >
         {contenu}
@@ -500,7 +506,7 @@ function liensFourche(schema: Schema) {
       teinte: 'refus' as const,
       estompe: e.has('refuse'),
     },
-    { vers: 1 as const, etat: f.versValide, estompe: e.has('valide') },
+    { vers: 1 as const, etat: f.versPrevalide, estompe: e.has('prevalide') },
     {
       vers: 2 as const,
       etat: f.versReporte,
@@ -511,19 +517,35 @@ function liensFourche(schema: Schema) {
 }
 
 /**
- * Cases des branches ÉCARTÉES : validé (ou réalisé) efface Refusé et le
- * report ; refusé efface Validé, Réalisé et le report. Tant que le dossier
- * n'est que proposé, rien n'est effacé.
+ * Cases des branches ÉCARTÉES : confirmé (ou réalisé) efface Refusé et le
+ * report ; refusé efface Prévalidé, Confirmé, Réalisé et le report. Un projet
+ * seulement PRÉVALIDÉ n'efface rien (demande PO du 12/11/2026) : si le 2e
+ * accord échoue, il peut encore être refusé ou reporté.
  */
 function estompees(schema: Schema): Set<CleCase> {
   if (schema.refuse.etat === 'actuel')
-    return new Set(['valide', 'realise', 'reporte'])
+    return new Set(['prevalide', 'valide', 'realise', 'reporte'])
   if (schema.valide.etat !== 'libre') return new Set(['refuse', 'reporte'])
   return new Set()
 }
 
-/** Le projet a-t-il passé la décision « Validé » (validé ou réalisé) ? */
-const choixFait = (schema: Schema) => schema.valide.etat !== 'libre'
+/** Le projet a-t-il passé le 1er accord (prévalidé ou plus) ? */
+const choixFait = (schema: Schema) => schema.prevalide.etat !== 'libre'
+
+/** Trait simple d'une case de la ligne d'accord à la suivante. */
+function LienSuite({
+  orientation,
+  etat,
+  estompe,
+}: {
+  orientation: Orientation
+  etat: EtatFlecheCapex
+  estompe: boolean
+}) {
+  return (
+    <Liens orientation={orientation} liens={[{ vers: 1, etat, estompe }]} />
+  )
+}
 
 /**
  * Courbes LIBRES d'une colonne à l'autre, en pourcentages de hauteur (0-100) :
@@ -595,7 +617,7 @@ const centre = (i: number, n: number) => ((i + 0.5) / n) * 100
 
 /**
  * Pastille où se RÉUNISSENT les devis retenus (demande PO) : on en voit le
- * nombre et la somme ; la décision (Validé / Refusé / Reporter) part d'elle.
+ * nombre et la somme ; la décision (Prévalidé / Refusé / Reporter) part d'elle.
  */
 function Pastille({
   selection,
@@ -640,7 +662,7 @@ const RANGEE_REM = 4.75
  * Le schéma, de gauche à droite (demande PO) :
  *
  *   Proposition ─▶ devis ☑ ─╮                  ╭─▶ Refusé
- *   (son texte)  ─▶ devis ☐  ├─(2 devis · X €)─┼─▶ Validé ──▶ Réalisé
+ *   (son texte)  ─▶ devis ☐  ├─(2 devis · X €)─┼─▶ Prévalidé ─▶ Confirmé ─▶ Réalisé
  *                ─▶ devis ☑ ─╯                  ╰─▶ Reporter
  *
  * Chaque colonne a SES rangées égales sur la même hauteur : les centres se
@@ -678,7 +700,7 @@ function SchemaHorizontal({
   )
   return (
     <div
-      className="mx-auto grid w-full max-w-[84rem] grid-cols-[minmax(0,1.15fr)_minmax(2rem,0.25fr)_minmax(0,1.1fr)_minmax(8.5rem,0.7fr)_minmax(0,1fr)_minmax(2rem,0.25fr)_minmax(0,1fr)]"
+      className="mx-auto grid w-full max-w-[96rem] grid-cols-[minmax(0,1.15fr)_minmax(2rem,0.25fr)_minmax(0,1.1fr)_minmax(8.5rem,0.7fr)_minmax(0,1fr)_minmax(2rem,0.25fr)_minmax(0,1fr)_minmax(2rem,0.25fr)_minmax(0,1fr)]"
       style={{ minHeight: `${String(Math.max(k, 3) * RANGEE_REM)}rem` }}
     >
       {/* 1. La proposition, avec son texte. */}
@@ -739,21 +761,28 @@ function SchemaHorizontal({
       {/* 5. La décision. */}
       <div className="grid grid-rows-3">
         <div className={cellule}>{case_('refuse')}</div>
-        <div className={cellule}>{case_('valide')}</div>
+        <div className={cellule}>{case_('prevalide')}</div>
         <div className={cellule}>{case_('reporte')}</div>
       </div>
 
-      {/* 6. Validé → Réalisé. */}
+      {/* 6. Prévalidé → Confirmé (150). */}
       <div className="relative">
-        <Liens
+        <LienSuite
           orientation="h"
-          liens={[
-            {
-              vers: 1,
-              etat: schema.fleches.versRealise,
-              estompe: e.has('realise'),
-            },
-          ]}
+          etat={schema.fleches.versValide}
+          estompe={e.has('valide')}
+        />
+      </div>
+      <div className="grid grid-rows-3">
+        <div className={cn(cellule, 'row-start-2')}>{case_('valide')}</div>
+      </div>
+
+      {/* 7. Confirmé → Réalisé. */}
+      <div className="relative">
+        <LienSuite
+          orientation="h"
+          etat={schema.fleches.versRealise}
+          estompe={e.has('realise')}
         />
       </div>
       <div className="grid grid-rows-3">
@@ -825,19 +854,24 @@ function SchemaVertical({
       </div>
       <div className={trois}>
         <div className={cellule}>{case_('refuse')}</div>
-        <div className={cellule}>{case_('valide')}</div>
+        <div className={cellule}>{case_('prevalide')}</div>
         <div className={cellule}>{case_('reporte')}</div>
       </div>
       <div className="relative h-10">
-        <Liens
+        <LienSuite
           orientation="v"
-          liens={[
-            {
-              vers: 1,
-              etat: schema.fleches.versRealise,
-              estompe: e.has('realise'),
-            },
-          ]}
+          etat={schema.fleches.versValide}
+          estompe={e.has('valide')}
+        />
+      </div>
+      <div className={trois}>
+        <div className={cn(cellule, 'col-start-2')}>{case_('valide')}</div>
+      </div>
+      <div className="relative h-10">
+        <LienSuite
+          orientation="v"
+          etat={schema.fleches.versRealise}
+          estompe={e.has('realise')}
         />
       </div>
       <div className={trois}>

@@ -12,9 +12,12 @@ import {
 } from '@/features/investissements/queries'
 import {
   datesCapex,
+  estConfirmeOuPlus,
+  estPrevalideOuPlus,
   ID_REALISE,
   ID_REFUSE,
   ID_DEMANDE,
+  ID_PREVALIDE,
   ID_VALIDE,
   montantRetenu,
   schemaCapex,
@@ -25,6 +28,7 @@ import {
   useChangeStatutCapex,
   useModifierDateValidation,
   useRetenirDevis,
+  type NiveauAccord,
   useSupprimerDevis,
 } from '@/features/investissements/mutations'
 import { formatEuros } from '@/features/investissements/format'
@@ -69,7 +73,8 @@ export function InvestissementDetail({
   const { session } = useAuth()
   const confirmAction = useConfirmAction()
   const [refus, setRefus] = useState(false)
-  const [validation, setValidation] = useState(false)
+  // Fenêtre de correction de la date d'un accord (150) : lequel, ou aucune.
+  const [dateAccord, setDateAccord] = useState<NiveauAccord | null>(null)
   const modifierDateValidation = useModifierDateValidation()
   const { data: typesDocs = [] } = useQuery(typesDocumentsQueries.list())
   const devisTypeId = typesDocs.find((t) => t.nom === 'Devis')?.id
@@ -111,29 +116,74 @@ export function InvestissementDetail({
       : { nb: retenus.length, montant: formatEuros(montantRetenu(inv)) }
 
   /**
-   * VALIDER d'un clic (demande PO) : à la date du jour, avec les devis cochés
-   * dans le schéma. Un devis unique non coché est retenu d'office ; plusieurs
-   * sans aucun coché : on demande d'en cocher.
+   * Devis retenus au moment d'un accord (147) : un devis unique non coché est
+   * retenu d'office ; plusieurs sans aucun coché → `false`, il faut en cocher.
    */
-  function valider() {
+  function devisPourAccord(): { devisRetenus?: string[] } | false {
     const unSeul = inv.devis.length === 1 ? inv.devis[0] : undefined
     if (inv.devis.length > 1 && retenus.length === 0) {
       toast.error('Coche au moins un devis avant de valider.')
-      return
+      return false
     }
+    return unSeul && !unSeul.retenu ? { devisRetenus: [unSeul.id] } : {}
+  }
+
+  /**
+   * PRÉVALIDER d'un clic (1er accord, 150) : à la date du jour, avec les
+   * devis cochés dans le schéma.
+   */
+  function prevalider() {
+    const devis = devisPourAccord()
+    if (devis === false) return
+    change.mutate(
+      {
+        id: inv.id,
+        statutId: ID_PREVALIDE,
+        annee,
+        datePrevalidation: isoLocale(new Date()),
+        ...devis,
+      },
+      {
+        // « Annuler » quelques secondes : rattraper un clic de travers.
+        onSuccess: () =>
+          toast.success('Projet prévalidé', {
+            action: { label: 'Annuler', onClick: deprevalider },
+          }),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
+  /** RETIRER la prévalidation : retour en proposition, sa date s'efface. */
+  function deprevalider() {
+    change.mutate(
+      { id: inv.id, statutId: ID_DEMANDE, annee },
+      {
+        onSuccess: () => toast.success('Prévalidation retirée'),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
+  /**
+   * CONFIRMER d'un clic (2e accord, 150) : seulement depuis « Prévalidé », à
+   * la date du jour ; les devis cochés font foi.
+   */
+  function confirmer() {
+    const devis = devisPourAccord()
+    if (devis === false) return
     change.mutate(
       {
         id: inv.id,
         statutId: ID_VALIDE,
         annee,
         dateValidation: isoLocale(new Date()),
-        ...(unSeul && !unSeul.retenu && { devisRetenus: [unSeul.id] }),
+        ...devis,
       },
       {
-        // « Annuler » quelques secondes : rattraper un clic de travers.
         onSuccess: () =>
-          toast.success('Projet validé', {
-            action: { label: 'Annuler', onClick: devalider },
+          toast.success('Projet confirmé', {
+            action: { label: 'Annuler', onClick: deconfirmer },
           }),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
@@ -141,14 +191,14 @@ export function InvestissementDetail({
   }
 
   /**
-   * RETIRER la validation (demande PO du 12/11/2026) : retour en proposition,
-   * les devis cochés restent cochés ; la date de validation s'efface.
+   * RETIRER la confirmation (interrupteur, demande PO du 12/11/2026) : retour
+   * en « Prévalidé », qui garde sa date ; les devis cochés restent cochés.
    */
-  function devalider() {
+  function deconfirmer() {
     change.mutate(
-      { id: inv.id, statutId: ID_DEMANDE, annee },
+      { id: inv.id, statutId: ID_PREVALIDE, annee },
       {
-        onSuccess: () => toast.success('Validation retirée'),
+        onSuccess: () => toast.success('Confirmation retirée'),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
@@ -160,18 +210,21 @@ export function InvestissementDetail({
       setRefus(true)
       return
     }
-    // Valider (ou corriger la validation) : la date et les devis retenus.
-    if (a.cle === 'devalider') {
-      devalider()
+    // Les deux accords (150) : chacun se donne et se retire d'un clic.
+    if (a.cle === 'prevalider') {
+      prevalider()
+      return
+    }
+    if (a.cle === 'deprevalider') {
+      deprevalider()
       return
     }
     if (a.cle === 'valider') {
-      // Déjà réalisé : on corrige la date, dans sa fenêtre.
-      if (realise) {
-        setValidation(true)
-        return
-      }
-      valider()
+      confirmer()
+      return
+    }
+    if (a.cle === 'devalider') {
+      deconfirmer()
       return
     }
     // Marquer réalisé : date, dépense réelle et bilan.
@@ -220,9 +273,10 @@ export function InvestissementDetail({
 
   // MENUS DU SCHÉMA (clic droit / appui long, demande PO) : SEULEMENT pour
   // modifier des informations (montants, dates, description), jamais pour
-  // refaire ce qu'un simple clic fait déjà (changer d'étape). Validé,
-  // Réalisé et Refusé : leur clic ouvre déjà leur fenêtre de correction.
-  const valideOuPlus = inv.statut_capex_id === ID_VALIDE || realise
+  // refaire ce qu'un simple clic fait déjà (changer d'étape). Réalisé et
+  // Refusé : leur clic ouvre déjà leur fenêtre de correction.
+  const prevalideOuPlus = estPrevalideOuPlus(inv.statut_capex_id)
+  const confirmeOuPlus = estConfirmeOuPlus(inv.statut_capex_id)
   const menus: Partial<Record<string, RowAction[]>> | undefined = canManage
     ? {
         demande: [
@@ -232,14 +286,23 @@ export function InvestissementDetail({
             onSelect: () => edit.openEdit(inv),
           },
         ],
-        // Validé ou réalisé : le clic sur « Validé » retire la validation ou
-        // y fait revenir — la date de validation se corrige donc ici.
-        ...(valideOuPlus && {
+        // Le clic sur la case d'un accord le retire ou y fait revenir : sa
+        // date se corrige donc ici (150).
+        ...(prevalideOuPlus && {
+          prevalide: [
+            {
+              label: 'Modifier la date de prévalidation',
+              icon: Pencil,
+              onSelect: () => setDateAccord('prevalidation'),
+            },
+          ],
+        }),
+        ...(confirmeOuPlus && {
           valide: [
             {
-              label: 'Modifier la date de validation',
+              label: 'Modifier la date de confirmation',
               icon: Pencil,
-              onSelect: () => setValidation(true),
+              onSelect: () => setDateAccord('validation'),
             },
           ],
         }),
@@ -280,8 +343,8 @@ export function InvestissementDetail({
       />
 
       {/* SCHÉMA (138, 147, demandes PO) : la proposition et son texte, ses
-          devis (case ronde = retenu), la sélection, puis Refusé / Validé /
-          Reporter et Réalisé. La case colorée = où en est le projet ; un clic
+          devis (case ronde = retenu), la sélection, puis Refusé /
+          Prévalidé / Reporter, Confirmé et Réalisé. La case colorée = où en est le projet ; un clic
           sur une autre case y fait passer le projet. */}
       {/* Le schéma EST la fiche (demande PO) : il prend toute la hauteur
           disponible, et la page défile s'il lui en faut plus. */}
@@ -305,7 +368,7 @@ export function InvestissementDetail({
                 devis={inv.devis}
                 nomsPdf={nomsPdf}
                 canManage={canManage}
-                choixFait={valideOuPlus}
+                choixFait={prevalideOuPlus}
                 onApercu={(d) =>
                   setApercu(
                     d.document_id
@@ -360,6 +423,7 @@ export function InvestissementDetail({
             // Dates de chaque étape, quand elles existent (demande PO).
             dates={{
               demande: jour(dates.demande),
+              prevalide: jour(dates.prevalide),
               valide: jour(dates.valide),
               realise: jour(dates.realise),
               refuse: jour(dates.refuse),
@@ -383,21 +447,30 @@ export function InvestissementDetail({
             annee={annee}
             investissement={inv}
           />
-          {/* Valider = une date (aujourd'hui par défaut). Déjà validé ou
-              réalisé → on corrige la seule date, sans toucher au statut. */}
+          {/* Corriger la date d'un accord, sans toucher au statut. */}
           <ValidationInvestissementDialog
-            key={validation ? 'validation-ouverte' : 'validation'}
-            open={validation}
-            onOpenChange={setValidation}
+            key={dateAccord ?? 'ferme'}
+            open={dateAccord !== null}
+            onOpenChange={(o) => !o && setDateAccord(null)}
             pending={modifierDateValidation.isPending}
-            dateValidation={inv.date_validation ?? dates.valide}
+            niveau={dateAccord ?? 'validation'}
+            dateValidation={
+              dateAccord === 'prevalidation'
+                ? (inv.date_prevalidation ?? dates.prevalide)
+                : (inv.date_validation ?? dates.valide)
+            }
             onConfirm={({ date_validation }) =>
+              dateAccord &&
               modifierDateValidation.mutate(
-                { id: inv.id, dateValidation: date_validation },
+                { id: inv.id, niveau: dateAccord, date: date_validation },
                 {
                   onSuccess: () => {
-                    toast.success('Date de validation modifiée')
-                    setValidation(false)
+                    toast.success(
+                      dateAccord === 'prevalidation'
+                        ? 'Date de prévalidation modifiée'
+                        : 'Date de confirmation modifiée',
+                    )
+                    setDateAccord(null)
                   },
                   onError: (e) => toast.error(writeErrorMessage(e)),
                 },

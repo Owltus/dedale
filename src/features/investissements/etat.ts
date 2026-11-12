@@ -47,16 +47,32 @@ export function montantProjet(p: ProjetMontant): number | null {
 // budget de l'année suivante, où il redevient « Proposition ».
 /** « Proposition » : départ, et point de retour d'une relance ou d'un report. */
 export const ID_DEMANDE = 1
-/** « Validé » : le budget est accordé. */
+/**
+ * « Confirmé » (ex-« Validé », 150) : le 2e accord, définitif — le budget est
+ * accordé. On n'y arrive que depuis « Prévalidé » (demande PO du 12/11/2026).
+ */
 export const ID_VALIDE = 2
 /** « Réalisé » : fait — porte la dépense réelle, la date et le bilan. */
 export const ID_REALISE = 3
 /** « Refusé » : date du refus, motif facultatif (145). */
 export const ID_REFUSE = 4
+/** « Prévalidé » (150) : le 1er accord, en attente de confirmation. */
+export const ID_PREVALIDE = 5
+
+/** Prévalidé, confirmé ou réalisé : le 1er accord est acquis. */
+export function estPrevalideOuPlus(id: number): boolean {
+  return id === ID_PREVALIDE || id === ID_VALIDE || id === ID_REALISE
+}
+
+/** Confirmé ou réalisé : le 2e accord est acquis. */
+export function estConfirmeOuPlus(id: number): boolean {
+  return id === ID_VALIDE || id === ID_REALISE
+}
 
 const LABELS_DEFAUT: Record<number, string> = {
   [ID_DEMANDE]: 'Proposition',
-  [ID_VALIDE]: 'Validé',
+  [ID_PREVALIDE]: 'Prévalidé',
+  [ID_VALIDE]: 'Confirmé',
   [ID_REALISE]: 'Réalisé',
   [ID_REFUSE]: 'Refusé',
 }
@@ -77,7 +93,9 @@ const TONES: Record<number, StatusTone> = {
   // gris = projet, bleu = validé, vert = réalisé (vraiment fini), rouge =
   // refusé (ou abandonné). Le violet « devis reçus » et l'orange « reporté »
   // ne sont pas des statuts : voir `stadeProjet` et `reporteDe`.
+  // Jaune = prévalidé, en attente du 2e accord (150).
   [ID_DEMANDE]: 'neutral',
+  [ID_PREVALIDE]: 'yellow',
   [ID_VALIDE]: 'info',
   [ID_REALISE]: 'success',
   [ID_REFUSE]: 'destructive',
@@ -91,11 +109,18 @@ export function statutCapexTone(id: number): StatusTone {
  * qui a déjà des devis n'en est plus au même point qu'un projet vide, même si
  * aucun n'est encore choisi.
  */
-export type StadeCapex = 'projet' | 'devis' | 'valide' | 'realise' | 'refuse'
+export type StadeCapex =
+  | 'projet'
+  | 'devis'
+  | 'prevalide'
+  | 'valide'
+  | 'realise'
+  | 'refuse'
 
 export function stadeProjet(
   p: Pick<Investissement, 'statut_capex_id'> & { devis: readonly unknown[] },
 ): StadeCapex {
+  if (p.statut_capex_id === ID_PREVALIDE) return 'prevalide'
   if (p.statut_capex_id === ID_VALIDE) return 'valide'
   if (p.statut_capex_id === ID_REALISE) return 'realise'
   if (p.statut_capex_id === ID_REFUSE) return 'refuse'
@@ -105,7 +130,8 @@ export function stadeProjet(
 const TONS_STADE: Record<StadeCapex, StatusTone> = {
   projet: 'neutral', // gris : rien que l'idée
   devis: 'violet', // devis reçus, choisis ou non
-  valide: 'info', // bleu : accordé, pas encore fait
+  prevalide: 'yellow', // jaune : 1er accord, attend la confirmation
+  valide: 'info', // bleu : confirmé, pas encore fait
   realise: 'success', // vert : fini
   refuse: 'destructive', // rouge : refusé ou abandonné
 }
@@ -146,7 +172,13 @@ export function reporteDe(p: {
 }
 
 // Ordre LOGIQUE d'affichage (menu de filtre), indépendant des ids.
-const ORDRE_AFFICHAGE: number[] = [ID_DEMANDE, ID_VALIDE, ID_REALISE, ID_REFUSE]
+const ORDRE_AFFICHAGE: number[] = [
+  ID_DEMANDE,
+  ID_PREVALIDE,
+  ID_VALIDE,
+  ID_REALISE,
+  ID_REFUSE,
+]
 
 /** Rang d'affichage d'un statut (inconnu → en fin). */
 export function rangStatutCapex(id: number): number {
@@ -179,7 +211,7 @@ export interface TotauxAnnee {
   nb: number
   /** Somme des projets non refusés (montant de chaque projet). */
   demande: number
-  /** Somme des projets validés ou réalisés. */
+  /** Somme des projets confirmés ou réalisés. */
   valide: number
 }
 
@@ -190,8 +222,7 @@ export function totauxAnnee(invs: readonly ProjetMontant[]): TotauxAnnee {
   for (const i of invs) {
     const m = montantProjet(i) ?? 0
     if (i.statut_capex_id !== ID_REFUSE) demande += m
-    if (i.statut_capex_id === ID_VALIDE || i.statut_capex_id === ID_REALISE)
-      valide += m
+    if (estConfirmeOuPlus(i.statut_capex_id)) valide += m
   }
   return {
     nb: invs.length,
@@ -202,6 +233,8 @@ export function totauxAnnee(invs: readonly ProjetMontant[]): TotauxAnnee {
 
 /** Ce que fait un clic sur une case du schéma. */
 export type CleActionCapex =
+  | 'prevalider'
+  | 'deprevalider'
   | 'valider'
   | 'devalider'
   | 'refuser'
@@ -238,11 +271,15 @@ export type EtatFlecheCapex = 'ok' | 'refus' | 'libre'
 
 export interface SchemaCapex {
   demande: CaseCapex
+  prevalide: CaseCapex
   valide: CaseCapex
   realise: CaseCapex
   refuse: CaseCapex
   reporte: CaseCapex
   fleches: {
+    /** De la décision vers « Prévalidé » (la fourche). */
+    versPrevalide: EtatFlecheCapex
+    /** De « Prévalidé » vers « Confirmé ». */
     versValide: EtatFlecheCapex
     versRefuse: EtatFlecheCapex
     versReporte: EtatFlecheCapex
@@ -251,25 +288,30 @@ export interface SchemaCapex {
 }
 
 /**
- * SCHÉMA VERTICAL DE LA FICHE (138, demande PO du 10/11/2026) — façon
- * organigramme Mermaid, de haut en bas :
+ * SCHÉMA DE LA FICHE (138, 150, demandes PO) — façon organigramme Mermaid :
  *
- *                     Demandé
+ *                     Proposition
  *            ┌───────────┼───────────┐
- *         Refusé       Validé     Reporter à N+1
+ *         Refusé     Prévalidé    Reporter à N+1
+ *                        │
+ *                     Confirmé
  *                        │
  *                     Réalisé
  *
- * La case du dossier est `actuel` ; un CLIC sur une autre case y fait passer
- * le dossier (statut libre côté base). Le report n'est pas un statut : sa case
- * envoie le dossier dans le budget de l'année suivante, en « Proposition ».
+ * La case du projet est `actuel` ; un CLIC sur une autre case y fait passer
+ * le projet (statut libre côté base). Deux niveaux d'accord (150, demande PO
+ * du 12/11/2026) : on ne CONFIRME qu'un projet prévalidé, on ne RÉALISE
+ * qu'un projet confirmé. Chaque niveau est un interrupteur : recliquer sa
+ * case le retire. Le report n'est pas un statut : sa case envoie le projet
+ * dans le budget de l'année suivante, en « Proposition ».
  */
 export function schemaCapex(
   statutId: number,
   annee: number,
   noms: Map<number, string>,
 ): SchemaCapex {
-  const valideOuPlus = statutId === ID_VALIDE || statutId === ID_REALISE
+  const prevalideOuPlus = estPrevalideOuPlus(statutId)
+  const confirmeOuPlus = estConfirmeOuPlus(statutId)
   const etat = (id: number, fait: boolean): EtatCaseCapex =>
     id === statutId ? 'actuel' : fait ? 'fait' : 'libre'
   const action = (
@@ -278,9 +320,34 @@ export function schemaCapex(
     a = annee,
   ): ActionCapex | null =>
     id === statutId ? null : { cle, statutId: id, annee: a }
-  const connu = [ID_DEMANDE, ID_VALIDE, ID_REALISE, ID_REFUSE].includes(
-    statutId,
-  )
+  const connu = [
+    ID_DEMANDE,
+    ID_PREVALIDE,
+    ID_VALIDE,
+    ID_REALISE,
+    ID_REFUSE,
+  ].includes(statutId)
+  const prevalide: ActionCapex =
+    statutId === ID_PREVALIDE
+      ? // 2e clic : retire la prévalidation, retour en proposition.
+        { cle: 'deprevalider', statutId: ID_DEMANDE, annee }
+      : statutId === ID_VALIDE
+        ? // Revenir à « Prévalidé » = retirer la confirmation.
+          { cle: 'devalider', statutId: ID_PREVALIDE, annee }
+        : {
+            cle: statutId === ID_REALISE ? 'rouvrir' : 'prevalider',
+            statutId: ID_PREVALIDE,
+            annee,
+          }
+  // « Confirmé » ne s'atteint QUE depuis « Prévalidé » (passage obligatoire).
+  const valide: ActionCapex | null =
+    statutId === ID_VALIDE
+      ? { cle: 'devalider', statutId: ID_PREVALIDE, annee }
+      : statutId === ID_REALISE
+        ? { cle: 'rouvrir', statutId: ID_VALIDE, annee }
+        : statutId === ID_PREVALIDE
+          ? { cle: 'valider', statutId: ID_VALIDE, annee }
+          : null
   return {
     demande: {
       libelle: nomStatutCapex(ID_DEMANDE, noms),
@@ -288,25 +355,28 @@ export function schemaCapex(
       etat: etat(ID_DEMANDE, connu),
       action: action(ID_DEMANDE, 'relancer'),
     },
+    prevalide: {
+      libelle: nomStatutCapex(ID_PREVALIDE, noms),
+      statutId: ID_PREVALIDE,
+      etat: etat(ID_PREVALIDE, confirmeOuPlus),
+      action: prevalide,
+    },
     valide: {
       libelle: nomStatutCapex(ID_VALIDE, noms),
       statutId: ID_VALIDE,
       etat: etat(ID_VALIDE, statutId === ID_REALISE),
-      // Case du dossier validé : un 2e clic RETIRE la validation, comme un
-      // interrupteur (demande PO du 12/11/2026) — retour en proposition.
-      action:
-        statutId === ID_VALIDE
-          ? { cle: 'devalider', statutId: ID_DEMANDE, annee }
-          : action(ID_VALIDE, statutId === ID_REALISE ? 'rouvrir' : 'valider'),
+      action: valide,
     },
-    // Réalisé / Refusé : même la case du dossier reste cliquable — elle
-    // rouvre sa fenêtre pour CORRIGER (date, dépense, bilan / motif). C'est le
-    // seul accès quand le bilan est vide (pas de carte « Réalisation » alors).
+    // Réalisé / Refusé : même la case du projet reste cliquable — elle
+    // rouvre sa fenêtre pour CORRIGER (date, bilan / motif). Réalisé ne
+    // s'atteint qu'une fois le projet confirmé.
     realise: {
       libelle: nomStatutCapex(ID_REALISE, noms),
       statutId: ID_REALISE,
       etat: etat(ID_REALISE, false),
-      action: { cle: 'realiser', statutId: ID_REALISE, annee },
+      action: confirmeOuPlus
+        ? { cle: 'realiser', statutId: ID_REALISE, annee }
+        : null,
     },
     refuse: {
       libelle: nomStatutCapex(ID_REFUSE, noms),
@@ -321,7 +391,8 @@ export function schemaCapex(
       action: { cle: 'reporter', statutId: ID_DEMANDE, annee: annee + 1 },
     },
     fleches: {
-      versValide: valideOuPlus ? 'ok' : 'libre',
+      versPrevalide: prevalideOuPlus ? 'ok' : 'libre',
+      versValide: confirmeOuPlus ? 'ok' : 'libre',
       versRefuse: statutId === ID_REFUSE ? 'refus' : 'libre',
       versReporte: 'libre',
       versRealise: statutId === ID_REALISE ? 'ok' : 'libre',
@@ -338,6 +409,7 @@ export type DecisionCapex = Pick<
 /** Dates affichées dans les cases du schéma (ISO), quand elles existent. */
 export interface DatesCapex {
   demande: string | null
+  prevalide: string | null
   valide: string | null
   realise: string | null
   refuse: string | null
@@ -360,6 +432,7 @@ export function datesCapex(
     | 'date_cloture'
     | 'date_arret'
     | 'date_validation'
+    | 'date_prevalidation'
   >,
   decisions: readonly DecisionCapex[],
 ): DatesCapex {
@@ -367,7 +440,6 @@ export function datesCapex(
     a.created_at.localeCompare(b.created_at),
   )
   const statut = inv.statut_capex_id
-  const valideOuPlus = statut === ID_VALIDE || statut === ID_REALISE
   const derniere = (id: number) =>
     journal.findLast((d) => d.statut_capex_id === id)?.created_at ?? null
 
@@ -386,8 +458,14 @@ export function datesCapex(
 
   return {
     demande: inv.date_demande,
+    // Date saisie (150), sinon celle du journal.
+    prevalide: estPrevalideOuPlus(statut)
+      ? (inv.date_prevalidation ?? derniere(ID_PREVALIDE))
+      : null,
     // Date saisie (146), sinon celle du journal (dossiers d'avant 146).
-    valide: valideOuPlus ? (inv.date_validation ?? derniere(ID_VALIDE)) : null,
+    valide: estConfirmeOuPlus(statut)
+      ? (inv.date_validation ?? derniere(ID_VALIDE))
+      : null,
     realise: statut === ID_REALISE ? inv.date_cloture : null,
     refuse:
       statut === ID_REFUSE ? (inv.date_arret ?? derniere(ID_REFUSE)) : null,
@@ -404,14 +482,14 @@ export interface PartBudget {
 
 /**
  * Répartition d'un budget par statut, pour sa barre (demande PO du
- * 10/11/2026), dans l'ordre du parcours : Réalisé, Validé, Proposition,
+ * 10/11/2026), dans l'ordre du parcours : Réalisé, Confirmé, Prévalidé, Proposition,
  * Refusé. Montant d'un projet = `montantProjet`. Les statuts sans projet
  * sont omis.
  */
 export function repartitionBudget(
   invs: readonly ProjetMontant[],
 ): PartBudget[] {
-  const ordre = [ID_REALISE, ID_VALIDE, ID_DEMANDE, ID_REFUSE]
+  const ordre = [ID_REALISE, ID_VALIDE, ID_PREVALIDE, ID_DEMANDE, ID_REFUSE]
   const parts = new Map(
     ordre.map((id) => [id, { statutId: id, montant: 0, nb: 0 }]),
   )

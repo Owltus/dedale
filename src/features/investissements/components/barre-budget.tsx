@@ -1,5 +1,6 @@
 import {
   ID_DEMANDE,
+  ID_PREVALIDE,
   ID_REALISE,
   ID_REFUSE,
   ID_VALIDE,
@@ -14,12 +15,14 @@ import {
 import { cn } from '@/lib/utils'
 
 // Couleurs des statuts (demande PO du 12/11/2026) : vert = réalisé, bleu =
-// validé, violet = propositions chiffrées (une proposition sans devis n'a pas
-// de montant, elle n'apparaît pas), rouge = refusé. Fonds TEINTÉS pour que le
-// texte posé dessus reste lisible en clair comme en sombre.
+// confirmé, jaune = prévalidé (150), violet = propositions chiffrées (une
+// proposition sans devis n'a pas de montant, elle n'apparaît pas), rouge =
+// refusé. Fonds TEINTÉS pour que le texte posé dessus reste lisible en clair
+// comme en sombre.
 const COULEUR: Record<number, string> = {
   [ID_REALISE]: 'bg-success text-success-foreground',
   [ID_VALIDE]: 'bg-info/35 text-foreground',
+  [ID_PREVALIDE]: 'bg-yellow/40 text-foreground',
   [ID_DEMANDE]: 'bg-violet/25 text-foreground',
   [ID_REFUSE]: 'bg-destructive/30 text-foreground',
 }

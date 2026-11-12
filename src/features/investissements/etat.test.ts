@@ -5,6 +5,7 @@ import {
   anneesBudget,
   datesCapex,
   ID_DEMANDE,
+  ID_PREVALIDE,
   ID_REALISE,
   ID_REFUSE,
   ID_VALIDE,
@@ -32,21 +33,27 @@ const projet = (statut: number, devis: [number, boolean][] = []) => ({
 
 const TIRAGES = { numRuns: 1000, seed: 42 } as const
 
-/** Les quatre statuts du seed `statuts_capex` (138). */
-const IDS_CONNUS = [ID_DEMANDE, ID_VALIDE, ID_REALISE, ID_REFUSE] as const
+/** Les cinq statuts du seed `statuts_capex` (138, 150), dans l'ordre. */
+const IDS_CONNUS = [
+  ID_DEMANDE,
+  ID_PREVALIDE,
+  ID_VALIDE,
+  ID_REALISE,
+  ID_REFUSE,
+] as const
 const idConnu = fc.constantFrom(...IDS_CONNUS)
 /** Ids hors seed : ce qu'une donnée abîmée produirait. */
-const idInconnu = fc.integer({ min: 5, max: 500 })
+const idInconnu = fc.integer({ min: 6, max: 500 })
 const annee = fc.integer({ min: 2000, max: 2099 })
 
 const SANS_REFERENTIEL = new Map<number, string>()
 
 describe('rangStatutCapex — ordre du menu', () => {
-  it('Demandé → Validé → Réalisé → Refusé', () => {
+  it('Proposition → Prévalidé → Confirmé → Réalisé → Refusé', () => {
     const tri = [...IDS_CONNUS].sort(
-      (a, b) => rangStatutCapex(a) - rangStatutCapex(b),
+      (a, b) => rangStatutCapex(b) - rangStatutCapex(a),
     )
-    expect(tri).toEqual([ID_DEMANDE, ID_VALIDE, ID_REALISE, ID_REFUSE])
+    expect(tri.reverse()).toEqual([...IDS_CONNUS])
   })
 
   it('un statut inconnu est rejeté en fin, jamais intercalé', () => {
@@ -78,16 +85,17 @@ describe('nomStatutCapex — totalité', () => {
     expect(nomStatutCapex(77, SANS_REFERENTIEL)).toBe('Statut 77')
   })
 
-  it('les quatre libellés par défaut', () => {
+  it('les cinq libellés par défaut', () => {
     expect(
       IDS_CONNUS.map((id) => nomStatutCapex(id, SANS_REFERENTIEL)),
-    ).toEqual(['Proposition', 'Validé', 'Réalisé', 'Refusé'])
+    ).toEqual(['Proposition', 'Prévalidé', 'Confirmé', 'Réalisé', 'Refusé'])
   })
 })
 
 describe('statutCapexTone — sémantique', () => {
-  it('gris = proposition, bleu = validé, vert = réalisé, rouge = refusé', () => {
+  it('gris = proposition, jaune = prévalidé, bleu = confirmé, vert = réalisé, rouge = refusé', () => {
     expect(statutCapexTone(ID_DEMANDE)).toBe('neutral')
+    expect(statutCapexTone(ID_PREVALIDE)).toBe('yellow')
     expect(statutCapexTone(ID_VALIDE)).toBe('info')
     expect(statutCapexTone(ID_REALISE)).toBe('success')
     expect(statutCapexTone(ID_REFUSE)).toBe('destructive')
@@ -101,7 +109,14 @@ describe('statutCapexTone — sémantique', () => {
 describe('schemaCapex — organigramme vertical cliquable', () => {
   const cases = (id: number, a = 2026) => {
     const sc = schemaCapex(id, a, SANS_REFERENTIEL)
-    return [sc.demande, sc.valide, sc.realise, sc.refuse, sc.reporte]
+    return [
+      sc.demande,
+      sc.prevalide,
+      sc.valide,
+      sc.realise,
+      sc.refuse,
+      sc.reporte,
+    ]
   }
 
   it('le dossier est repéré par UNE case, la sienne ; cliquable seulement pour corriger', () => {
@@ -109,20 +124,37 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
       const actuelles = cases(id).filter((c) => c.etat === 'actuel')
       expect(actuelles.map((c) => c.statutId)).toEqual([id])
       const a = actuelles[0]?.action
-      // Réalisé, Refusé : le clic rouvre leur fenêtre pour corriger. Validé :
-      // il retire la validation (retour en proposition, PO 12/11). Seule
-      // « Proposition » est inerte.
+      // Réalisé, Refusé : le clic rouvre leur fenêtre pour corriger. Les
+      // deux accords : il les retire d'un cran (interrupteur, PO 12/11).
+      // Seule « Proposition » est inerte.
       if (id === ID_REALISE || id === ID_REFUSE) expect(a?.statutId).toBe(id)
-      else if (id === ID_VALIDE) expect(a?.statutId).toBe(ID_DEMANDE)
+      else if (id === ID_PREVALIDE) expect(a?.statutId).toBe(ID_DEMANDE)
+      else if (id === ID_VALIDE) expect(a?.statutId).toBe(ID_PREVALIDE)
       else expect(a).toBeNull()
     }
   })
 
-  it('toute autre case est cliquable et mène à son statut', () => {
+  it('toute autre case ATTEIGNABLE est cliquable et mène à son statut', () => {
     fc.assert(
       fc.property(idConnu, annee, (id, a) => {
         for (const c of cases(id, a)) {
           if (c.etat === 'actuel') continue
+          // Passage obligé (150) : Confirmé seulement depuis Prévalidé,
+          // Réalisé seulement une fois confirmé.
+          if (
+            c.statutId === ID_VALIDE &&
+            (id === ID_DEMANDE || id === ID_REFUSE)
+          ) {
+            expect(c.action).toBeNull()
+            continue
+          }
+          if (
+            c.statutId === ID_REALISE &&
+            !(id === ID_VALIDE || id === ID_REALISE)
+          ) {
+            expect(c.action).toBeNull()
+            continue
+          }
           expect(c.action).not.toBeNull()
           if (c.statutId !== null) {
             expect(c.action?.statutId).toBe(c.statutId)
@@ -149,41 +181,72 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
     )
   })
 
-  it('le clic dit ce qu’il fait : valider, rouvrir, réaliser, refuser, relancer', () => {
+  it('le clic dit ce qu’il fait : prévalider, confirmer, rouvrir, réaliser, refuser, relancer', () => {
     const sc = (id: number) => schemaCapex(id, 2026, SANS_REFERENTIEL)
-    expect(sc(ID_DEMANDE).valide.action?.cle).toBe('valider')
+    expect(sc(ID_DEMANDE).prevalide.action?.cle).toBe('prevalider')
+    expect(sc(ID_REFUSE).prevalide.action?.cle).toBe('prevalider')
+    expect(sc(ID_PREVALIDE).valide.action?.cle).toBe('valider')
     expect(sc(ID_REALISE).valide.action?.cle).toBe('rouvrir')
-    // Validé : un 2e clic retire la validation (interrupteur, PO 12/11).
-    expect(sc(ID_VALIDE).valide.action).toEqual({
-      cle: 'devalider',
+    expect(sc(ID_REALISE).prevalide.action).toEqual({
+      cle: 'rouvrir',
+      statutId: ID_PREVALIDE,
+      annee: 2026,
+    })
+    // Chaque accord est un interrupteur (PO 12/11) : un 2e clic le retire.
+    expect(sc(ID_PREVALIDE).prevalide.action).toEqual({
+      cle: 'deprevalider',
       statutId: ID_DEMANDE,
       annee: 2026,
     })
+    expect(sc(ID_VALIDE).valide.action).toEqual({
+      cle: 'devalider',
+      statutId: ID_PREVALIDE,
+      annee: 2026,
+    })
+    // Confirmé : revenir sur « Prévalidé » = retirer la confirmation.
+    expect(sc(ID_VALIDE).prevalide.action?.cle).toBe('devalider')
     expect(sc(ID_VALIDE).realise.action?.cle).toBe('realiser')
     expect(sc(ID_DEMANDE).refuse.action?.cle).toBe('refuser')
     expect(sc(ID_REFUSE).demande.action?.cle).toBe('relancer')
   })
 
-  it('les cases passées sont cochées : Demandé dès qu’on l’a quitté, Validé une fois réalisé', () => {
+  it('les cases passées sont cochées : chaque accord une fois dépassé', () => {
     const sc = (id: number) => schemaCapex(id, 2026, SANS_REFERENTIEL)
-    for (const id of [ID_VALIDE, ID_REALISE, ID_REFUSE])
+    for (const id of [ID_PREVALIDE, ID_VALIDE, ID_REALISE, ID_REFUSE])
       expect(sc(id).demande.etat).toBe('fait')
+    expect(sc(ID_VALIDE).prevalide.etat).toBe('fait')
+    expect(sc(ID_REALISE).prevalide.etat).toBe('fait')
     expect(sc(ID_REALISE).valide.etat).toBe('fait')
+    expect(sc(ID_PREVALIDE).valide.etat).toBe('libre')
+    expect(sc(ID_REFUSE).prevalide.etat).toBe('libre')
     expect(sc(ID_REFUSE).valide.etat).toBe('libre')
   })
 
   it('les flèches colorées suivent le chemin pris', () => {
     const f = (id: number) => schemaCapex(id, 2026, SANS_REFERENTIEL).fleches
     expect(f(ID_DEMANDE)).toEqual({
+      versPrevalide: 'libre',
       versValide: 'libre',
       versRefuse: 'libre',
       versReporte: 'libre',
       versRealise: 'libre',
     })
-    expect(f(ID_VALIDE).versValide).toBe('ok')
-    expect(f(ID_REALISE)).toMatchObject({ versValide: 'ok', versRealise: 'ok' })
+    expect(f(ID_PREVALIDE)).toMatchObject({
+      versPrevalide: 'ok',
+      versValide: 'libre',
+    })
+    expect(f(ID_VALIDE)).toMatchObject({
+      versPrevalide: 'ok',
+      versValide: 'ok',
+    })
+    expect(f(ID_REALISE)).toMatchObject({
+      versPrevalide: 'ok',
+      versValide: 'ok',
+      versRealise: 'ok',
+    })
     expect(f(ID_REFUSE)).toMatchObject({
       versRefuse: 'refus',
+      versPrevalide: 'libre',
       versValide: 'libre',
     })
   })
@@ -220,7 +283,7 @@ describe('années de budget', () => {
     )
   })
 
-  it('totaux : refus exclus du demandé, validé = validés + réalisés', () => {
+  it('totaux : refus exclus du demandé, validé = confirmés + réalisés', () => {
     const t = totauxAnnee([
       projet(ID_DEMANDE, [
         [100, false],
@@ -232,8 +295,9 @@ describe('années de budget', () => {
       ]), // retenu : 180
       projet(ID_REALISE, [[300, true]]), // retenu : 300
       projet(ID_REFUSE, [[1000, false]]),
+      projet(ID_PREVALIDE, [[50, true]]), // prévalidé : pas encore « validé »
     ])
-    expect(t).toEqual({ nb: 4, demande: 580, valide: 480 })
+    expect(t).toEqual({ nb: 5, demande: 630, valide: 480 })
   })
 
   it('adresse : quatre chiffres entre 2000 et 2100, sinon rien', () => {
@@ -252,6 +316,7 @@ describe('datesCapex — dates du schéma', () => {
     date_cloture: null,
     date_arret: null,
     date_validation: null as string | null,
+    date_prevalidation: null as string | null,
   }
   const d = (statut: number, annee: number, jour: string) => ({
     statut_capex_id: statut,
@@ -302,6 +367,35 @@ describe('datesCapex — dates du schéma', () => {
     )
     expect(r.realise).toBe('2026-11-20')
     expect(r.valide).toBe('2026-10-01T10:00:00+00:00')
+  })
+
+  it('prévalidation (150) : sa date tient jusqu’à Réalisé, pas au-delà d’un retour', () => {
+    const avec = { ...inv, date_prevalidation: '2026-10-02' }
+    for (const statut of [ID_PREVALIDE, ID_VALIDE, ID_REALISE])
+      expect(
+        datesCapex({ ...avec, statut_capex_id: statut }, []).prevalide,
+      ).toBe('2026-10-02')
+    for (const statut of [ID_DEMANDE, ID_REFUSE])
+      expect(
+        datesCapex({ ...avec, statut_capex_id: statut }, []).prevalide,
+      ).toBeNull()
+    // Prévalidé seulement : pas encore de date de confirmation.
+    expect(
+      datesCapex(
+        {
+          ...avec,
+          statut_capex_id: ID_PREVALIDE,
+          date_validation: '2026-10-09',
+        },
+        [],
+      ).valide,
+    ).toBeNull()
+    // Sans date saisie : la dernière prévalidation du journal.
+    expect(
+      datesCapex({ ...inv, statut_capex_id: ID_PREVALIDE }, [
+        d(ID_PREVALIDE, 2026, '10-03'),
+      ]).prevalide,
+    ).toBe('2026-10-03T10:00:00+00:00')
   })
 
   it('report : le passage d’une année antérieure à l’année du dossier', () => {
@@ -524,7 +618,7 @@ describe('stade et couleur d’un projet (demande PO du 12/11/2026)', () => {
     expect(libelleProjet(projet(ID_DEMANDE, [[1, false]]), noms)).toBe(
       'Devis reçus',
     )
-    expect(libelleProjet(projet(ID_VALIDE, [[1, true]]), noms)).toBe('Validé')
+    expect(libelleProjet(projet(ID_VALIDE, [[1, true]]), noms)).toBe('Confirmé')
   })
 })
 

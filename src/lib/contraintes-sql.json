@@ -1956,6 +1956,14 @@
           "precision": null,
           "type": "date"
         },
+        "date_prevalidation": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "date"
+        },
         "date_validation": {
           "aUnDefaut": false,
           "echelle": null,

@@ -1718,6 +1718,7 @@ export type Database = {
           date_arret: string | null
           date_cloture: string | null
           date_demande: string
+          date_prevalidation: string | null
           date_validation: string | null
           description: string | null
           id: string
@@ -1737,6 +1738,7 @@ export type Database = {
           date_arret?: string | null
           date_cloture?: string | null
           date_demande?: string
+          date_prevalidation?: string | null
           date_validation?: string | null
           description?: string | null
           id?: string
@@ -1756,6 +1758,7 @@ export type Database = {
           date_arret?: string | null
           date_cloture?: string | null
           date_demande?: string
+          date_prevalidation?: string | null
           date_validation?: string | null
           description?: string | null
           id?: string

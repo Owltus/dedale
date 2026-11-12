@@ -627,11 +627,14 @@ INSERT INTO statuts_travaux (id, nom, description) VALUES
 -- l'ordre du parcours d'affichage est porté côté front, cf. etat.ts)
 INSERT INTO statuts_capex (id, nom, description) VALUES
     (1, 'Proposition', 'Proposition déposée, en attente de décision'),  -- 142-143 : ex-« Demandé »
-    (2, 'Validé',    'Accepté : le budget est accordé'),
+    (2, 'Confirmé',  'Accord définitif : le budget est accordé'),  -- 150 : ex-« Validé »
     (3, 'Réalisé',   'Fait : dépense réelle et bilan renseignés'),
     -- 138 : quatre statuts seulement (5 Accordé, 6 Engagé, 7 Clôturé,
     -- 8 Annulé, 9 Reporté supprimés). Reporter = changer d'année de budget.
-    (4, 'Refusé',    'Refusé, avec un motif');
+    (4, 'Refusé',    'Refusé, avec un motif'),
+    -- 150 : second niveau de validation, AVANT la confirmation (l'id 5,
+    -- libéré par la 138, est repris). Parcours : 1 → 5 → 2 → 3.
+    (5, 'Prévalidé', 'Premier accord : en attente de confirmation');
 
 -- Types de contrats
 INSERT INTO types_contrats (id, libelle, description) VALUES
@@ -4585,7 +4588,10 @@ CREATE TABLE investissements (
 
     -- 146 : quand la proposition a été validée (saisie en validant,
     -- modifiable) ; effacée si le dossier repart en Proposition ou est refusé.
+    -- 150 : c'est désormais la date de CONFIRMATION (2e accord).
     date_validation   DATE,
+    -- 150 : date du 1er accord (Prévalidé), même cycle de vie.
+    date_prevalidation DATE,
 
     -- 139 : decision_par (137) retiré, plus de distinction responsable /
     -- direction depuis la 138.
@@ -4614,6 +4620,10 @@ COMMENT ON COLUMN investissements.motif_arret IS
     'Pourquoi le dossier s''est arrêté — refus d''arbitrage (statut 4) ou abandon en cours de route (statut 8). Facultatif depuis 145. À effacer lors d''une réactivation. (121)';
 COMMENT ON COLUMN investissements.arrete_by IS
     'Qui a refusé ou annulé l''investissement. Pendant de cloture_by. (121)';
+COMMENT ON COLUMN investissements.date_validation IS
+    'Quand le projet a été CONFIRMÉ (2e accord, ex-« validé ») — saisie en confirmant, modifiable. Effacée si le projet redescend sous Confirmé. (146, 150)';
+COMMENT ON COLUMN investissements.date_prevalidation IS
+    'Quand le projet a été prévalidé (1er accord) — saisie en prévalidant, modifiable. Effacée si le projet repart en Proposition ou est refusé. (150)';
 COMMENT ON COLUMN investissements.date_arret IS
     'Quand le dossier a été refusé ou annulé. Pendant de date_cloture. (121)';
 

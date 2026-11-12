@@ -1,7 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { investissementsQueries } from './queries'
-import { ID_REALISE, ID_REFUSE, ID_VALIDE } from './etat'
+import {
+  estConfirmeOuPlus,
+  estPrevalideOuPlus,
+  ID_REALISE,
+  ID_REFUSE,
+} from './etat'
 import { parseMontant } from './schemas'
 import type { DevisFormValues, InvestissementFormValues } from './schemas'
 
@@ -96,6 +101,7 @@ export function useChangeStatutCapex() {
       dateArret,
       arreteBy,
       dateValidation,
+      datePrevalidation,
       devisRetenus,
     }: {
       id: string
@@ -109,8 +115,10 @@ export function useChangeStatutCapex() {
       motifArret?: string
       dateArret?: string
       arreteBy?: string
-      /** Date de validation, saisie en validant (absent = inchangée). */
+      /** Date de CONFIRMATION, saisie en confirmant (absent = inchangée). */
       dateValidation?: string
+      /** Date de prévalidation, saisie en prévalidant (absent = inchangée). */
+      datePrevalidation?: string
       /** Devis retenus, choisis en validant (147) ; absent = inchangés. */
       devisRetenus?: string[]
     }) => {
@@ -119,9 +127,11 @@ export function useChangeStatutCapex() {
       if (devisRetenus !== undefined) await poserRetenus(id, devisRetenus)
       const realise = statutId === ID_REALISE
       const refus = statutId === ID_REFUSE
-      // La date de validation survit à la réalisation, pas à un retour en
-      // Proposition ni à un refus (146).
-      const valideOuPlus = statutId === ID_VALIDE || realise
+      // Chaque date d'accord survit aux étapes SUIVANTES, pas à un retour
+      // en arrière ni à un refus (146, 150) : la prévalidation tient de
+      // Prévalidé à Réalisé, la confirmation de Confirmé à Réalisé.
+      const prevalideOuPlus = estPrevalideOuPlus(statutId)
+      const confirmeOuPlus = estConfirmeOuPlus(statutId)
       const { data } = await supabase
         .from('investissements')
         .update({
@@ -133,10 +143,15 @@ export function useChangeStatutCapex() {
           motif_arret: refus ? (motifArret?.trim() ?? '') || null : null,
           date_arret: refus ? (dateArret ?? null) : null,
           arrete_by: refus ? (arreteBy ?? null) : null,
-          ...(!valideOuPlus
+          ...(!confirmeOuPlus
             ? { date_validation: null }
             : dateValidation !== undefined && {
                 date_validation: dateValidation,
+              }),
+          ...(!prevalideOuPlus
+            ? { date_prevalidation: null }
+            : datePrevalidation !== undefined && {
+                date_prevalidation: datePrevalidation,
               }),
         })
         .eq('id', id)
@@ -169,23 +184,32 @@ export function useDeleteInvestissement() {
 }
 
 /**
- * Corrige la seule date de validation (clic sur « Validé », ou menu une fois réalisé) sans
- * toucher au statut ni à la réalisation — `useChangeStatutCapex` effacerait
- * le bilan.
+ * Corrige la seule date d'un accord — prévalidation ou confirmation (menu du
+ * clic droit sur sa case) — sans toucher au statut ni à la réalisation :
+ * `useChangeStatutCapex` effacerait le bilan.
  */
+/** Les deux niveaux d'accord d'un projet (150). */
+export type NiveauAccord = 'prevalidation' | 'validation'
+
 export function useModifierDateValidation() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
       id,
-      dateValidation,
+      niveau,
+      date,
     }: {
       id: string
-      dateValidation: string
+      niveau: NiveauAccord
+      date: string
     }) => {
       await supabase
         .from('investissements')
-        .update({ date_validation: dateValidation })
+        .update(
+          niveau === 'prevalidation'
+            ? { date_prevalidation: date }
+            : { date_validation: date },
+        )
         .eq('id', id)
         .select('id')
         .single()
