@@ -59,6 +59,12 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { RefusInvestissementDialog } from './refus-investissement-dialog'
 import { Card, CardContent } from '@/components/ui/card'
 
+/**
+ * Durée des messages qui portent « Annuler » : le temps de lire et de
+ * cliquer (le défaut, ~4 s, disparaissait avant le clic).
+ */
+const DUREE_ANNULER = 10_000
+
 export function InvestissementDetail({
   investissement: inv,
   siteId,
@@ -175,6 +181,12 @@ export function InvestissementDetail({
    */
   function devisPourAccord(): { devisRetenus?: string[] } | false {
     const unSeul = inv.devis.length === 1 ? inv.devis[0] : undefined
+    // Pas d'accord sans devis (demande PO du 12/11/2026) : c'est le devis
+    // qu'on présente aux responsables.
+    if (inv.devis.length === 0) {
+      toast.error('Ajoute au moins un devis avant de prévalider.')
+      return false
+    }
     if (inv.devis.length > 1 && retenus.length === 0) {
       toast.error('Coche au moins un devis avant de valider.')
       return false
@@ -202,6 +214,7 @@ export function InvestissementDetail({
         onSuccess: () =>
           toast.success('Projet prévalidé', {
             action: { label: 'Annuler', onClick: deprevalider },
+            duration: DUREE_ANNULER,
           }),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
@@ -238,6 +251,7 @@ export function InvestissementDetail({
         onSuccess: () =>
           toast.success('Projet confirmé', {
             action: { label: 'Annuler', onClick: deconfirmer },
+            duration: DUREE_ANNULER,
           }),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
@@ -317,6 +331,7 @@ export function InvestissementDetail({
               label: 'Annuler',
               onClick: () => annulerReport(retour),
             },
+            duration: DUREE_ANNULER,
           })
           allerAnnee(a.annee)
         },

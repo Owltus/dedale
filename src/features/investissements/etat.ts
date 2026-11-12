@@ -549,10 +549,18 @@ export function annulationReport(
   const journal = [...decisions].sort((a, b) =>
     a.created_at.localeCompare(b.created_at),
   )
-  // Le DERNIER changement d'année doit être une arrivée dans l'année
-  // actuelle depuis une année antérieure.
+  // La dernière ARRIVÉE dans l'année actuelle depuis une année antérieure
+  // (même lecture que datesCapex, qui affiche « reporté de … ») : après un
+  // double report annulé une fois, le premier s'annule encore.
   let i = journal.length - 1
-  while (i > 0 && journal[i - 1]?.annee_budget === journal[i]?.annee_budget) i--
+  while (
+    i > 0 &&
+    !(
+      journal[i]?.annee_budget === inv.annee_budget &&
+      (journal[i - 1]?.annee_budget ?? Infinity) < inv.annee_budget
+    )
+  )
+    i--
   const avant = journal[i - 1]
   const arrivee = journal[i]
   if (

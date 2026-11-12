@@ -806,3 +806,39 @@ describe('annulationReport — revenir en arrière après un report (demande PO 
     ).toBe(ID_DEMANDE)
   })
 })
+
+describe('annulationReport — double report', () => {
+  it('2027 → 2028 → 2029, annulé une fois : on peut encore revenir en 2027', () => {
+    const r = annulationReport(
+      {
+        statut_capex_id: ID_DEMANDE,
+        annee_budget: 2028,
+        date_prevalidation: null,
+        date_validation: null,
+      },
+      [
+        {
+          statut_capex_id: ID_DEMANDE,
+          annee_budget: 2027,
+          created_at: '2026-09-01T10:00:00Z',
+        },
+        {
+          statut_capex_id: ID_DEMANDE,
+          annee_budget: 2028,
+          created_at: '2026-10-01T10:00:00Z',
+        },
+        {
+          statut_capex_id: ID_DEMANDE,
+          annee_budget: 2029,
+          created_at: '2026-11-01T10:00:00Z',
+        },
+        {
+          statut_capex_id: ID_DEMANDE,
+          annee_budget: 2028,
+          created_at: '2026-11-02T10:00:00Z',
+        },
+      ],
+    )
+    expect(r?.annee).toBe(2027)
+  })
+})
