@@ -846,6 +846,8 @@ const CHECKS_NON_SONDES: Record<string, string> = {
 
   // ── Colonnes qu'AUCUN formulaire ne saisit : la contrainte ne peut pas
   //    tomber au clavier. Les traduire n'apprendrait rien à l'utilisateur.
+  'investissements.investissements_refus_niveau_check':
+    'Colonne non saisie : le niveau du refus (1 ou 2) est posé par la fiche selon la case cliquée (152).',
   'categories.chk_categorie_modele_xor_specs':
     'Colonnes non saisies (modele_equipement_id / specifications posées par la mutation).',
   'categories.chk_categorie_specs_objet':

@@ -23,6 +23,7 @@ import {
   reporteDe,
   stadeProjet,
   toneProjet,
+  refusAuNiveau2,
 } from './etat'
 import { anneeDeParam } from './annee'
 
@@ -152,12 +153,10 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
           sc.reporte2,
         ]) {
           if (c.etat === 'actuel') continue
-          // Passage obligé (150) : Confirmé seulement depuis Prévalidé,
+          // Passage obligé (150) : Confirmé seulement depuis Prévalidé (ou
+          // depuis Refusé, pour rattraper un refus de travers — 152),
           // Réalisé seulement une fois confirmé.
-          if (
-            c.statutId === ID_VALIDE &&
-            (id === ID_DEMANDE || id === ID_REFUSE)
-          ) {
+          if (c.statutId === ID_VALIDE && id === ID_DEMANDE) {
             expect(c.action).toBeNull()
             continue
           }
@@ -337,6 +336,7 @@ describe('datesCapex — dates du schéma', () => {
     date_arret: null,
     date_validation: null as string | null,
     date_prevalidation: null as string | null,
+    refus_niveau: null as number | null,
   }
   const d = (statut: number, annee: number, jour: string) => ({
     statut_capex_id: statut,
@@ -399,10 +399,15 @@ describe('datesCapex — dates du schéma', () => {
       datesCapex({ ...avec, statut_capex_id: ID_DEMANDE }, []).prevalide,
     ).toBeNull()
     // Refusé à la confirmation : la prévalidation reste affichée ; refusé
-    // dès la proposition (pas de date gardée) : rien.
+    // dès la proposition : rien, même si une date est gardée en mémoire.
     expect(
-      datesCapex({ ...avec, statut_capex_id: ID_REFUSE }, []).prevalide,
+      datesCapex({ ...avec, statut_capex_id: ID_REFUSE, refus_niveau: 2 }, [])
+        .prevalide,
     ).toBe('2026-10-02')
+    expect(
+      datesCapex({ ...avec, statut_capex_id: ID_REFUSE, refus_niveau: 1 }, [])
+        .prevalide,
+    ).toBeNull()
     expect(
       datesCapex({ ...inv, statut_capex_id: ID_REFUSE }, []).prevalide,
     ).toBeNull()
@@ -731,6 +736,8 @@ describe('annulationReport — revenir en arrière après un report (demande PO 
     annee_budget: annee,
     date_prevalidation: datePrevalidation,
     date_validation: dateValidation,
+    date_cloture: null as string | null,
+    date_arret: null as string | null,
   })
   const d = (statut: number, annee: number, quand: string) => ({
     statut_capex_id: statut,
@@ -797,13 +804,32 @@ describe('annulationReport — revenir en arrière après un report (demande PO 
     ).toBeNull()
   })
 
-  it('refusé avant le report : garde son statut actuel', () => {
+  it('refusé avant un report d’avant la 152 (refus effacé) : garde son statut actuel', () => {
     expect(
       annulationReport(inv(ID_DEMANDE, 2028), [
         d(ID_REFUSE, 2027, '09-01'),
         d(ID_DEMANDE, 2028, '11-12'),
       ])?.statutId,
     ).toBe(ID_DEMANDE)
+  })
+
+  it('refus ou réalisation gardés en mémoire (152) : on y revient', () => {
+    const journal = (statut: number) => [
+      d(statut, 2027, '09-01'),
+      d(ID_DEMANDE, 2028, '11-12'),
+    ]
+    expect(
+      annulationReport(
+        { ...inv(ID_DEMANDE, 2028), date_arret: '2026-09-01' },
+        journal(ID_REFUSE),
+      )?.statutId,
+    ).toBe(ID_REFUSE)
+    expect(
+      annulationReport(
+        { ...inv(ID_DEMANDE, 2028), date_cloture: '2026-09-01' },
+        journal(ID_REALISE),
+      )?.statutId,
+    ).toBe(ID_REALISE)
   })
 })
 
@@ -815,6 +841,8 @@ describe('annulationReport — double report', () => {
         annee_budget: 2028,
         date_prevalidation: null,
         date_validation: null,
+        date_cloture: null,
+        date_arret: null,
       },
       [
         {
@@ -840,5 +868,57 @@ describe('annulationReport — double report', () => {
       ],
     )
     expect(r?.annee).toBe(2027)
+  })
+})
+
+describe('mémoire du parcours (152, demande PO du 12/11/2026)', () => {
+  const base = {
+    statut_capex_id: ID_REFUSE,
+    refus_niveau: null as number | null,
+    date_prevalidation: null as string | null,
+  }
+
+  it('le niveau du refus se lit dans refus_niveau, sinon à l’ancienne', () => {
+    expect(refusAuNiveau2({ ...base, refus_niveau: 2 })).toBe(true)
+    // Date de prévalidation gardée en mémoire, mais refus au 1er niveau.
+    expect(
+      refusAuNiveau2({
+        ...base,
+        refus_niveau: 1,
+        date_prevalidation: '2026-10-02',
+      }),
+    ).toBe(false)
+    // Refus d'avant la 152 : la date n'y survivait qu'au 2e niveau.
+    expect(refusAuNiveau2({ ...base, date_prevalidation: '2026-10-02' })).toBe(
+      true,
+    )
+    expect(refusAuNiveau2(base)).toBe(false)
+    // Pas refusé : jamais.
+    expect(
+      refusAuNiveau2({
+        ...base,
+        statut_capex_id: ID_PREVALIDE,
+        refus_niveau: 2,
+      }),
+    ).toBe(false)
+  })
+
+  it('refusé (aux deux niveaux) : « Confirmé » se clique pour rattraper l’erreur', () => {
+    for (const n2 of [false, true])
+      expect(
+        schemaCapex(ID_REFUSE, 2027, SANS_REFERENTIEL, n2).valide.action,
+      ).toEqual({ cle: 'valider', statutId: ID_VALIDE, annee: 2027 })
+  })
+
+  it('en proposition, « Confirmé » reste fermé : il faut prévalider d’abord', () => {
+    expect(
+      schemaCapex(ID_DEMANDE, 2027, SANS_REFERENTIEL).valide.action,
+    ).toBeNull()
+  })
+
+  it('refusé au 1er niveau : « Prévalidé » se clique aussi', () => {
+    expect(
+      schemaCapex(ID_REFUSE, 2027, SANS_REFERENTIEL).prevalide.action,
+    ).toEqual({ cle: 'prevalider', statutId: ID_PREVALIDE, annee: 2027 })
   })
 })

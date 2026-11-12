@@ -19,6 +19,7 @@ import {
   ID_REFUSE,
   ID_DEMANDE,
   ID_PREVALIDE,
+  refusAuNiveau2,
   ID_VALIDE,
   montantRetenu,
   schemaCapex,
@@ -60,28 +61,16 @@ import { RefusInvestissementDialog } from './refus-investissement-dialog'
 import { Card, CardContent } from '@/components/ui/card'
 
 /**
- * Ce qu'efface un retour en arrière d'un statut à un autre (hors les deux
- * interrupteurs Prévalidé / Confirmé, qui retirent leur seul accord) —
- * vide = rien de perdu, pas de confirmation.
- */
-function pertesSiRetour(depuis: number, vers: number): string[] {
-  const pertes: string[] = []
-  if (depuis === ID_REALISE && vers !== ID_REALISE)
-    pertes.push('le bilan et la date de réalisation')
-  if (depuis === ID_REFUSE && vers !== ID_REFUSE)
-    pertes.push('le refus et son motif')
-  if (estConfirmeOuPlus(depuis) && !estConfirmeOuPlus(vers))
-    pertes.push('la confirmation')
-  if (estPrevalideOuPlus(depuis) && !estPrevalideOuPlus(vers))
-    pertes.push('la prévalidation')
-  return pertes
-}
-
-/**
  * Durée des messages qui portent « Annuler » : le temps de lire et de
  * cliquer (le défaut, ~4 s, disparaissait avant le clic).
  */
 const DUREE_ANNULER = 10_000
+
+/**
+ * UN SEUL message « Annuler » à la fois : chaque nouveau remplace le
+ * précédent — un vieux « Annuler » ne ramènerait pas là où l'on croit.
+ */
+const TOAST_ANNULER = 'capex-annuler'
 
 export function InvestissementDetail({
   investissement: inv,
@@ -130,9 +119,8 @@ export function InvestissementDetail({
     setFenetreDevis({ devis, piece })
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const annee = inv.annee_budget
-  // Refusé au 2e niveau (150) : il garde sa date de prévalidation.
-  const refusNiveau2 =
-    inv.statut_capex_id === ID_REFUSE && inv.date_prevalidation !== null
+  // Refusé au 2e niveau, à la confirmation (150, 152).
+  const refusNiveau2 = refusAuNiveau2(inv)
   const schema = schemaCapex(inv.statut_capex_id, annee, noms, refusNiveau2)
   const realise = inv.statut_capex_id === ID_REALISE
   const refuse = inv.statut_capex_id === ID_REFUSE
@@ -155,14 +143,89 @@ export function InvestissementDetail({
       replace: true,
     })
 
+  const aujourdhui = () => isoLocale(new Date())
+
+  // Devis retenus, réunis dans la pastille du schéma.
+  const retenus = inv.devis.filter((d) => d.retenu)
+  const selection =
+    retenus.length === 0
+      ? null
+      : { nb: retenus.length, montant: formatEuros(montantRetenu(inv)) }
+
+  type Changement = Parameters<typeof change.mutate>[0]
+
   /**
-   * ANNULER LE REPORT : retour dans l'année d'avant, avec le statut et les
-   * dates d'accord d'avant le report.
+   * Où en est le projet MAINTENANT : de quoi l'y remettre tel quel. Rien ne
+   * s'efface en changeant d'étape (152) — dates, refus, bilan restent en
+   * mémoire —, il suffit de rendre le statut, l'année et les devis cochés.
+   */
+  const ici = {
+    statutId: inv.statut_capex_id,
+    annee,
+    devisRetenus: retenus.map((d) => d.id),
+  }
+
+  /** « Annuler » : remet le projet où il était (`ici` au moment du clic). */
+  function revenir(r: typeof ici, anneeQuittee: number) {
+    change.mutate(
+      { id: inv.id, ...r },
+      {
+        onSuccess: () => {
+          toast.success('Annulé : le projet est revenu où il était', {
+            id: TOAST_ANNULER,
+          })
+          if (r.annee !== anneeQuittee) allerAnnee(r.annee)
+        },
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
+  /**
+   * CHANGER D'ÉTAPE d'un clic, avec « Annuler » quelques secondes pour
+   * rattraper un clic de travers (demandes PO du 12/11/2026).
+   */
+  function passer(
+    vers: Omit<Changement, 'id'>,
+    message: string,
+    options: { description?: string } = {},
+  ) {
+    const retour = ici
+    change.mutate(
+      { id: inv.id, ...vers },
+      {
+        onSuccess: () =>
+          toast.success(message, {
+            id: TOAST_ANNULER,
+            description: options.description,
+            action: {
+              label: 'Annuler',
+              onClick: () => revenir(retour, vers.annee),
+            },
+            duration: DUREE_ANNULER,
+          }),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
+  /** Toast de succès avec « Annuler » (retour à `retour`). */
+  const avecAnnuler = (retour: typeof ici, anneeQuittee: number) => ({
+    id: TOAST_ANNULER,
+    action: {
+      label: 'Annuler',
+      onClick: () => revenir(retour, anneeQuittee),
+    },
+    duration: DUREE_ANNULER,
+  })
+
+  /**
+   * ANNULER LE REPORT (clic droit) : retour dans l'année d'avant, avec le
+   * statut et les dates d'accord d'avant le report.
    */
   function annulerReport(r: NonNullable<typeof retourReport>) {
     const jourDe = (ts: string | null) =>
       ts === null ? undefined : isoLocale(new Date(ts))
-    const aujourdhui = isoLocale(new Date())
     change.mutate(
       {
         id: inv.id,
@@ -173,7 +236,7 @@ export function InvestissementDetail({
         datePrevalidation:
           jourDe(r.prevalidationLe) ??
           (r.prevalidationLe === null && inv.date_prevalidation === null
-            ? (jourDe(r.validationLe) ?? aujourdhui)
+            ? (jourDe(r.validationLe) ?? aujourdhui())
             : undefined),
         dateValidation: jourDe(r.validationLe),
       },
@@ -186,12 +249,6 @@ export function InvestissementDetail({
       },
     )
   }
-  // Devis retenus, réunis dans la pastille du schéma.
-  const retenus = inv.devis.filter((d) => d.retenu)
-  const selection =
-    retenus.length === 0
-      ? null
-      : { nb: retenus.length, montant: formatEuros(montantRetenu(inv)) }
 
   /**
    * Devis retenus au moment d'un accord (147) : un devis unique non coché est
@@ -215,81 +272,77 @@ export function InvestissementDetail({
   }
 
   /**
-   * PRÉVALIDER d'un clic (1er accord, 150) : à la date du jour, avec les
-   * devis cochés dans le schéma.
+   * PRÉVALIDER d'un clic (1er accord, 150) : à la date déjà connue (mémoire,
+   * 152), sinon du jour ; avec les devis cochés dans le schéma.
    */
   function prevalider() {
     const devis = devisPourAccord('prévalider')
     if (devis === false) return
-    change.mutate(
+    passer(
       {
-        id: inv.id,
         statutId: ID_PREVALIDE,
         annee,
-        datePrevalidation: isoLocale(new Date()),
+        datePrevalidation: inv.date_prevalidation ?? aujourdhui(),
         ...devis,
       },
-      {
-        // « Annuler » quelques secondes : rattraper un clic de travers.
-        onSuccess: () =>
-          toast.success('Projet prévalidé', {
-            action: { label: 'Annuler', onClick: deprevalider },
-            duration: DUREE_ANNULER,
-          }),
-        onError: (e) => toast.error(writeErrorMessage(e)),
-      },
-    )
-  }
-
-  /** RETIRER la prévalidation : retour en proposition, sa date s'efface. */
-  function deprevalider() {
-    change.mutate(
-      { id: inv.id, statutId: ID_DEMANDE, annee },
-      {
-        onSuccess: () => toast.success('Prévalidation retirée'),
-        onError: (e) => toast.error(writeErrorMessage(e)),
-      },
+      refuse ? 'Refus levé : projet prévalidé' : 'Projet prévalidé',
     )
   }
 
   /**
-   * CONFIRMER d'un clic (2e accord, 150) : seulement depuis « Prévalidé », à
-   * la date du jour ; les devis cochés font foi.
+   * CONFIRMER d'un clic (2e accord, 150) : depuis « Prévalidé », ou depuis
+   * « Refusé » pour rattraper un refus de travers — les deux accords sont
+   * alors donnés. Dates déjà connues (152), sinon du jour.
    */
   function confirmer() {
     const devis = devisPourAccord('confirmer')
     if (devis === false) return
-    change.mutate(
+    passer(
       {
-        id: inv.id,
         statutId: ID_VALIDE,
         annee,
-        dateValidation: isoLocale(new Date()),
+        datePrevalidation: inv.date_prevalidation ?? aujourdhui(),
+        dateValidation: inv.date_validation ?? aujourdhui(),
         ...devis,
       },
+      refuse ? 'Refus levé : projet confirmé' : 'Projet confirmé',
+    )
+  }
+
+  /**
+   * DÉCOCHER LE DERNIER DEVIS RETENU (demande PO du 12/11/2026) : la boucle
+   * repart du début, en « Proposition » — les dates restent en mémoire et
+   * reviendront avec les accords.
+   */
+  const reinitialise = (d: Devis) =>
+    inv.statut_capex_id !== ID_DEMANDE &&
+    d.retenu &&
+    retenus.every((r) => r.id === d.id)
+
+  function retenirDevis(d: Devis, retenu: boolean) {
+    if (!retenu && reinitialise(d)) {
+      passer(
+        { statutId: ID_DEMANDE, annee, devisRetenus: [] },
+        'Plus aucun devis retenu : retour en « Proposition »',
+        { description: 'Les dates sont gardées pour la suite.' },
+      )
+      return
+    }
+    retenir.mutate(
+      { id: d.id, retenu },
       {
         onSuccess: () =>
-          toast.success('Projet confirmé', {
-            action: { label: 'Annuler', onClick: deconfirmer },
-            duration: DUREE_ANNULER,
-          }),
+          toast.success(retenu ? 'Devis retenu' : 'Devis plus retenu'),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
   }
 
-  /**
-   * RETIRER la confirmation (interrupteur, demande PO du 12/11/2026) : retour
-   * en « Prévalidé », qui garde sa date ; les devis cochés restent cochés.
-   */
-  function deconfirmer() {
-    change.mutate(
-      { id: inv.id, statutId: ID_PREVALIDE, annee },
-      {
-        onSuccess: () => toast.success('Confirmation retirée'),
-        onError: (e) => toast.error(writeErrorMessage(e)),
-      },
-    )
+  const MESSAGES: Partial<Record<ActionCapex['cle'], string>> = {
+    deprevalider: 'Prévalidation retirée',
+    devalider: 'Confirmation retirée',
+    relancer: 'Retour en « Proposition »',
+    rouvrir: 'Projet rouvert',
   }
 
   function agir(a: ActionCapex) {
@@ -303,19 +356,11 @@ export function InvestissementDetail({
       prevalider()
       return
     }
-    if (a.cle === 'deprevalider') {
-      deprevalider()
-      return
-    }
     if (a.cle === 'valider') {
       confirmer()
       return
     }
-    if (a.cle === 'devalider') {
-      deconfirmer()
-      return
-    }
-    // Marquer réalisé : date, dépense réelle et bilan.
+    // Marquer réalisé : date et bilan.
     if (a.cle === 'realiser') {
       realisation.openEdit(inv)
       return
@@ -333,61 +378,24 @@ export function InvestissementDetail({
             id: inv.id,
             statutId: a.statutId,
             annee: a.annee,
-            report: true,
           }),
         // La fiche suit le projet dans sa nouvelle année ; « Annuler »
         // quelques secondes rattrape un report de travers.
         onSuccess: () => {
-          const retour = {
-            annee,
-            // Réalisé / refusé : bilan et motif sont effacés par le
-            // report, on ne les « remet » pas (cf. annulationReport).
-            statutId: realise || refuse ? a.statutId : inv.statut_capex_id,
-            prevalidationLe: inv.date_prevalidation,
-            validationLe: inv.date_validation,
-          }
-          toast.success(`Reporté au budget ${String(a.annee)}`, {
-            action: {
-              label: 'Annuler',
-              onClick: () => annulerReport(retour),
-            },
-            duration: DUREE_ANNULER,
-          })
+          toast.success(
+            `Reporté au budget ${String(a.annee)}`,
+            avecAnnuler(ici, a.annee),
+          )
           allerAnnee(a.annee)
         },
       })
       return
     }
-    const message =
-      a.cle === 'rouvrir' ? 'Projet rouvert' : 'Proposition relancée'
-    // Un clic qui EFFACE des informations demande confirmation (demande PO
-    // du 12/11/2026) ; les autres restent instantanés.
-    const pertes = pertesSiRetour(inv.statut_capex_id, a.statutId)
-    if (pertes.length > 0) {
-      confirmAction.demander({
-        title:
-          a.statutId === ID_DEMANDE
-            ? 'Revenir en « Proposition » ?'
-            : `Revenir en « ${a.statutId === ID_VALIDE ? 'Confirmé' : 'Prévalidé'} » ?`,
-        description: `Seront effacés : ${pertes.join(', ')}.`,
-        confirmLabel: 'Revenir en arrière',
-        destructive: true,
-        run: () =>
-          change.mutateAsync({
-            id: inv.id,
-            statutId: a.statutId,
-            annee: a.annee,
-          }),
-        successMessage: message,
-      })
-      return
-    }
-    change.mutate(
-      { id: inv.id, statutId: a.statutId, annee: a.annee },
-      {
-        onSuccess: () => toast.success(message),
-        onError: (e) => toast.error(writeErrorMessage(e)),
-      },
+    // Retirer un accord, revenir en arrière, rouvrir : rien ne s'efface
+    // (mémoire, 152), un clic suffit — « Annuler » rattrape l'erreur.
+    passer(
+      { statutId: a.statutId, annee: a.annee },
+      MESSAGES[a.cle] ?? 'Étape modifiée',
     )
   }
 
@@ -408,7 +416,7 @@ export function InvestissementDetail({
         ],
         // Le clic sur la case d'un accord le retire ou y fait revenir : sa
         // date se corrige donc ici (150).
-        ...(prevalideOuPlus && {
+        ...((prevalideOuPlus || refusNiveau2) && {
           prevalide: [
             {
               label: 'Modifier la date de prévalidation',
@@ -525,25 +533,23 @@ export function InvestissementDetail({
                     fichier ? { type: 'fichier', fichier } : null,
                   )
                 }
-                onRetenir={(d, retenu) =>
-                  retenir.mutate(
-                    { id: d.id, retenu },
-                    {
-                      onSuccess: () =>
-                        toast.success(
-                          retenu ? 'Devis retenu' : 'Devis plus retenu',
-                        ),
-                      onError: (e) => toast.error(writeErrorMessage(e)),
-                    },
-                  )
-                }
+                onRetenir={retenirDevis}
                 onSupprimer={(d) =>
                   confirmAction.demander({
                     title: 'Supprimer ce devis ?',
-                    description: `Le devis ${d.fournisseur} (${formatEuros(d.montant_ht)} HT) est retiré du projet. Son PDF reste dans les documents.`,
+                    description: `Le devis ${d.fournisseur} (${formatEuros(d.montant_ht)} HT) est retiré du projet. Son PDF reste dans les documents.${reinitialise(d) ? ' C’était le dernier devis retenu : le projet repart en « Proposition » (les dates sont gardées).' : ''}`,
                     confirmLabel: 'Supprimer',
                     destructive: true,
-                    run: () => supprimerDevis.mutateAsync(d.id),
+                    run: async () => {
+                      const repart = reinitialise(d)
+                      await supprimerDevis.mutateAsync(d.id)
+                      if (repart)
+                        await change.mutateAsync({
+                          id: inv.id,
+                          statutId: ID_DEMANDE,
+                          annee,
+                        })
+                    },
                     successMessage: 'Devis supprimé',
                   })
                 }
@@ -617,9 +623,11 @@ export function InvestissementDetail({
             onOpenChange={realisation.onOpenChange}
             pending={change.isPending}
             dateDemande={inv.date_demande}
-            // Déjà réalisé → le dialogue s'ouvre pré-rempli, en correction.
+            // Déjà réalisé → correction ; sinon pré-rempli par ce qui est
+            // gardé en mémoire (152), rien à retaper.
+            correction={realise}
             initial={
-              realise
+              inv.date_cloture !== null || inv.bilan !== null
                 ? { date_cloture: inv.date_cloture, bilan: inv.bilan }
                 : undefined
             }
@@ -637,6 +645,7 @@ export function InvestissementDetail({
                   onSuccess: () => {
                     toast.success(
                       realise ? 'Réalisation modifiée' : 'Projet réalisé',
+                      realise ? undefined : avecAnnuler(ici, annee),
                     )
                     realisation.onOpenChange(false)
                   },
@@ -656,8 +665,11 @@ export function InvestissementDetail({
         onOpenChange={(o) => !o && setRefus(null)}
         niveau={refus ?? 1}
         pending={change.isPending}
+        // Déjà refusé → correction ; sinon pré-rempli par le refus gardé en
+        // mémoire (152) : se tromper puis revenir ne fait rien retaper.
+        correction={refuse}
         initial={
-          refuse
+          inv.date_arret !== null || inv.motif_arret !== null
             ? { date_arret: inv.date_arret, motif_arret: inv.motif_arret }
             : undefined
         }
@@ -670,13 +682,17 @@ export function InvestissementDetail({
               motifArret: motif_arret,
               dateArret: date_arret,
               arreteBy: session?.user.id,
-              // Refus à la confirmation : la prévalidation reste visible.
-              garderPrevalidation: refus === 2,
+              // À quel niveau (152) : à la confirmation, la prévalidation
+              // reste visible.
+              refusNiveau: refus ?? 1,
             },
             {
               onSuccess: () => {
                 setRefus(null)
-                toast.success(refuse ? 'Refus modifié' : 'Projet refusé')
+                toast.success(
+                  refuse ? 'Refus modifié' : 'Projet refusé',
+                  refuse ? undefined : avecAnnuler(ici, annee),
+                )
               },
               onError: (e) => toast.error(writeErrorMessage(e)),
             },

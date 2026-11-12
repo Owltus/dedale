@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { emptyInvestissement, investissementSchema } from '../schemas'
 import type { InvestissementFormValues } from '../schemas'
 import { useCreateInvestissement, useUpdateInvestissement } from '../mutations'
+import { ID_REALISE } from '../etat'
 import { useAuth } from '@/auth'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
@@ -60,7 +61,16 @@ export function InvestissementFormDialog({
   const submit = useSubmitDialog<InvestissementFormValues>({
     onSubmit: (data) => {
       if (investissement) {
-        return update.mutateAsync({ id: investissement.id, values: data })
+        return update.mutateAsync({
+          id: investissement.id,
+          values: data,
+          // Une réalisation gardée en mémoire (152), sans être affichée, ne
+          // bloque pas une nouvelle date de proposition.
+          oublierRealisation:
+            investissement.statut_capex_id !== ID_REALISE &&
+            investissement.date_cloture !== null &&
+            investissement.date_cloture < data.date_demande,
+        })
       }
       if (!session) {
         // Session expirée : on interrompt sans toast de succès (message dédié).

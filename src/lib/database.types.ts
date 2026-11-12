@@ -1724,6 +1724,7 @@ export type Database = {
           id: string
           libelle: string
           motif_arret: string | null
+          refus_niveau: number | null
           site_id: string
           statut_capex_id: number
           updated_at: string
@@ -1744,6 +1745,7 @@ export type Database = {
           id?: string
           libelle: string
           motif_arret?: string | null
+          refus_niveau?: number | null
           site_id: string
           statut_capex_id?: number
           updated_at?: string
@@ -1764,6 +1766,7 @@ export type Database = {
           id?: string
           libelle?: string
           motif_arret?: string | null
+          refus_niveau?: number | null
           site_id?: string
           statut_capex_id?: number
           updated_at?: string

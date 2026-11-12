@@ -4592,6 +4592,9 @@ CREATE TABLE investissements (
     date_validation   DATE,
     -- 150 : date du 1er accord (Prévalidé), même cycle de vie.
     date_prevalidation DATE,
+    -- 152 : niveau du dernier refus (1 = prévalidation, 2 = confirmation).
+    -- Dates, motif et bilan sont une MÉMOIRE : le statut dit ce qui s'affiche.
+    refus_niveau      SMALLINT,
 
     -- 139 : decision_par (137) retiré, plus de distinction responsable /
     -- direction depuis la 138.
@@ -4602,6 +4605,9 @@ CREATE TABLE investissements (
     -- On ne clôture pas avant d'avoir demandé (079).
     CONSTRAINT investissements_dates_coherentes CHECK (
         date_cloture IS NULL OR date_cloture >= date_demande
+    ),
+    CONSTRAINT investissements_refus_niveau_check CHECK (
+        refus_niveau IS NULL OR refus_niveau IN (1, 2)
     )
     -- 145 : le motif d'un refus est FACULTATIF (contrainte
     -- capex_motif_arret_oblig_si_refuse supprimée, demande PO) ; la date du
@@ -4616,16 +4622,18 @@ COMMENT ON COLUMN investissements.bilan IS
     'Bilan budgétaire de fin (facultatif) : budget tenu, écart et sa raison (079).';
 COMMENT ON COLUMN investissements.cloture_by IS
     'Qui a clôturé l''investissement (079). SET NULL : la suppression d''un compte n''efface pas l''historique budgétaire.';
-COMMENT ON COLUMN investissements.motif_arret IS
-    'Pourquoi le dossier s''est arrêté — refus d''arbitrage (statut 4) ou abandon en cours de route (statut 8). Facultatif depuis 145. À effacer lors d''une réactivation. (121)';
 COMMENT ON COLUMN investissements.arrete_by IS
     'Qui a refusé ou annulé l''investissement. Pendant de cloture_by. (121)';
+COMMENT ON COLUMN investissements.motif_arret IS
+    'Pourquoi le dossier a été refusé. Facultatif (145). Gardé en mémoire si le projet change d''étape : il revient au prochain refus (152).';
 COMMENT ON COLUMN investissements.date_validation IS
-    'Quand le projet a été CONFIRMÉ (2e accord, ex-« validé ») — saisie en confirmant, modifiable. Effacée si le projet redescend sous Confirmé. (146, 150)';
+    'Quand le projet a été CONFIRMÉ (2e accord) — saisie en confirmant, modifiable. Gardée en mémoire hors de Confirmé / Réalisé (146, 150, 152).';
 COMMENT ON COLUMN investissements.date_prevalidation IS
-    'Quand le projet a été prévalidé (1er accord) — saisie en prévalidant, modifiable. Effacée si le projet repart en Proposition ou est refusé. (150)';
+    'Quand le projet a été prévalidé (1er accord) — saisie en prévalidant, modifiable. Gardée en mémoire hors des statuts qui la montrent (150, 152).';
 COMMENT ON COLUMN investissements.date_arret IS
     'Quand le dossier a été refusé ou annulé. Pendant de date_cloture. (121)';
+COMMENT ON COLUMN investissements.refus_niveau IS
+    'Niveau du dernier refus (152) : 1 = à la prévalidation, 2 = à la confirmation. Gardé en mémoire hors du statut Refusé.';
 
 CREATE INDEX idx_capex_site   ON investissements(site_id);
 CREATE INDEX idx_capex_statut ON investissements(statut_capex_id);

@@ -1881,7 +1881,8 @@
       "checks": {
         "investissements_annee_budget_check": "CHECK (((annee_budget >= 2000) AND (annee_budget <= 2100)))",
         "investissements_dates_coherentes": "CHECK (((date_cloture IS NULL) OR (date_cloture >= date_demande)))",
-        "investissements_libelle_check": "CHECK ((length(TRIM(BOTH FROM libelle)) > 0))"
+        "investissements_libelle_check": "CHECK ((length(TRIM(BOTH FROM libelle)) > 0))",
+        "investissements_refus_niveau_check": "CHECK (((refus_niveau IS NULL) OR (refus_niveau = ANY (ARRAY[1, 2]))))"
       },
       "colonnes": {
         "annee_budget": {
@@ -2003,6 +2004,14 @@
           "nullable": true,
           "precision": null,
           "type": "text"
+        },
+        "refus_niveau": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 16,
+          "type": "smallint"
         },
         "site_id": {
           "aUnDefaut": false,

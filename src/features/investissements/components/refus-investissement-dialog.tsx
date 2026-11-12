@@ -22,6 +22,11 @@ interface RefusInvestissementDialogProps {
    * 2 = à la confirmation (N+2).
    */
   niveau?: 1 | 2
+  /**
+   * Corriger (projet déjà refusé) ou refuser ? Par défaut : selon `initial`.
+   * Un refus gardé en MÉMOIRE (152) pré-remplit sans être une correction.
+   */
+  correction?: boolean
   onConfirm: (values: RefusCapexFormValues) => void
 }
 
@@ -37,9 +42,9 @@ export function RefusInvestissementDialog({
   pending,
   initial,
   niveau = 1,
+  correction = initial !== undefined,
   onConfirm,
 }: RefusInvestissementDialogProps) {
-  const correction = initial !== undefined
   const etape = niveau === 2 ? 'confirmation' : 'prévalidation'
   const form = useForm<RefusCapexFormValues>({
     resolver: zodResolver(refusCapexSchema),

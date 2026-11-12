@@ -20,6 +20,12 @@ interface ClotureInvestissementDialogProps {
    * champs, et en faire deux composants les aurait fait diverger.
    */
   initial?: { date_cloture: string | null; bilan: string | null }
+  /**
+   * Corriger (projet déjà réalisé) ou marquer réalisé ? Par défaut : selon
+   * `initial`. Une réalisation gardée en MÉMOIRE (152) pré-remplit sans être
+   * une correction.
+   */
+  correction?: boolean
   onConfirm: (values: ClotureCapexFormValues) => void
 }
 
@@ -40,10 +46,9 @@ export function ClotureInvestissementDialog({
   pending,
   dateDemande,
   initial,
+  correction = initial !== undefined,
   onConfirm,
 }: ClotureInvestissementDialogProps) {
-  const correction = initial !== undefined
-
   const form = useForm<ClotureCapexFormValues>({
     resolver: zodResolver(clotureCapexSchema),
     defaultValues: {

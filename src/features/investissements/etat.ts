@@ -69,6 +69,26 @@ export function estConfirmeOuPlus(id: number): boolean {
   return id === ID_VALIDE || id === ID_REALISE
 }
 
+/**
+ * Refusé à la CONFIRMATION (2e niveau, 150) ? Lu dans `refus_niveau` (152) ;
+ * un refus antérieur à la 152 se lit à l'ancienne : la date de prévalidation
+ * n'y survivait qu'au refus du 2e niveau.
+ *
+ * MÉMOIRE (demande PO du 12/11/2026) : dates, motif et bilan ne s'effacent
+ * plus en changeant d'étape — c'est le STATUT qui dit ce qui s'affiche.
+ */
+export function refusAuNiveau2(
+  inv: Pick<
+    Investissement,
+    'statut_capex_id' | 'refus_niveau' | 'date_prevalidation'
+  >,
+): boolean {
+  if (inv.statut_capex_id !== ID_REFUSE) return false
+  return inv.refus_niveau !== null
+    ? inv.refus_niveau === 2
+    : inv.date_prevalidation !== null
+}
+
 const LABELS_DEFAUT: Record<number, string> = {
   [ID_DEMANDE]: 'Proposition',
   [ID_PREVALIDE]: 'Prévalidé',
@@ -310,8 +330,9 @@ export interface SchemaCapex {
  * peut refuser ou reporter : le 2e accord peut échouer. Refuser à la
  * confirmation garde la trace de la prévalidation ; y reporter envoie le
  * projet l'an prochain, toujours prévalidé. On ne CONFIRME qu'un projet
- * prévalidé, on ne RÉALISE qu'un projet confirmé. Chaque accord est un
- * interrupteur : recliquer sa case le retire.
+ * prévalidé — ou refusé, pour rattraper une erreur (152) —, on ne RÉALISE
+ * qu'un projet confirmé. Chaque accord est un interrupteur : recliquer sa
+ * case le retire. Rien ne s'efface en route (mémoire, 152).
  *
  * `refusApresPrevalidation` : le projet refusé l'a été au 2e niveau (il
  * garde sa date de prévalidation).
@@ -352,13 +373,15 @@ export function schemaCapex(
             statutId: ID_PREVALIDE,
             annee,
           }
-  // « Confirmé » ne s'atteint QUE depuis « Prévalidé » (passage obligatoire).
+  // « Confirmé » s'atteint depuis « Prévalidé » (passage obligatoire), ou
+  // depuis « Refusé » pour rattraper un refus de travers (demande PO du
+  // 12/11/2026) : les deux accords sont alors donnés d'un coup.
   const valide: ActionCapex | null =
     statutId === ID_VALIDE
       ? { cle: 'devalider', statutId: ID_PREVALIDE, annee }
       : statutId === ID_REALISE
         ? { cle: 'rouvrir', statutId: ID_VALIDE, annee }
-        : statutId === ID_PREVALIDE
+        : statutId === ID_PREVALIDE || refus
           ? { cle: 'valider', statutId: ID_VALIDE, annee }
           : null
   const caseRefus = (
@@ -471,6 +494,7 @@ export function datesCapex(
     | 'date_arret'
     | 'date_validation'
     | 'date_prevalidation'
+    | 'refus_niveau'
   >,
   decisions: readonly DecisionCapex[],
 ): DatesCapex {
@@ -497,10 +521,11 @@ export function datesCapex(
   return {
     demande: inv.date_demande,
     // Date saisie (150), sinon celle du journal.
-    // Refusé à la confirmation : la prévalidation reste vraie.
+    // Refusé à la confirmation : la prévalidation reste vraie. Ailleurs,
+    // la date gardée en mémoire (152) ne s'affiche pas.
     prevalide: estPrevalideOuPlus(statut)
       ? (inv.date_prevalidation ?? derniere(ID_PREVALIDE))
-      : statut === ID_REFUSE
+      : refusAuNiveau2(inv)
         ? inv.date_prevalidation
         : null,
     // Date saisie (146), sinon celle du journal (dossiers d'avant 146).
@@ -531,10 +556,10 @@ export interface AnnulationReport {
  * décisions), comme si le report n'avait pas eu lieu. null s'il n'arrive
  * pas d'un report.
  *
- * Un projet réalisé ou refusé avant son report n'est pas « remis » réalisé
- * ou refusé (bilan et motif ont été effacés) : il garde son statut actuel.
- * Les dates d'accord effacées par un report en proposition sont reprises du
- * journal ; celles encore en place ne bougent pas.
+ * Un projet réalisé ou refusé avant son report y revient si son bilan ou son
+ * refus est encore en mémoire (152) ; sinon (report d'avant la 152, qui les
+ * effaçait) il garde son statut actuel. Les dates d'accord perdues sont
+ * reprises du journal ; celles encore en place ne bougent pas.
  */
 export function annulationReport(
   inv: Pick<
@@ -543,6 +568,8 @@ export function annulationReport(
     | 'annee_budget'
     | 'date_prevalidation'
     | 'date_validation'
+    | 'date_cloture'
+    | 'date_arret'
   >,
   decisions: readonly DecisionCapex[],
 ): AnnulationReport | null {
@@ -572,10 +599,10 @@ export function annulationReport(
     avant.annee_budget >= inv.annee_budget
   )
     return null
-  const statutId =
-    avant.statut_capex_id === ID_REALISE || avant.statut_capex_id === ID_REFUSE
-      ? inv.statut_capex_id
-      : avant.statut_capex_id
+  const perdu =
+    (avant.statut_capex_id === ID_REALISE && inv.date_cloture === null) ||
+    (avant.statut_capex_id === ID_REFUSE && inv.date_arret === null)
+  const statutId = perdu ? inv.statut_capex_id : avant.statut_capex_id
   // Dernière fois que le projet est passé par ce statut AVANT le report.
   const passage = (id: number) =>
     journal.slice(0, i).findLast((d) => d.statut_capex_id === id)?.created_at ??

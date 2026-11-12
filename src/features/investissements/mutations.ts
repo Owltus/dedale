@@ -1,12 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { investissementsQueries } from './queries'
-import {
-  estConfirmeOuPlus,
-  estPrevalideOuPlus,
-  ID_REALISE,
-  ID_REFUSE,
-} from './etat'
 import { parseMontant } from './schemas'
 import type { DevisFormValues, InvestissementFormValues } from './schemas'
 
@@ -57,13 +51,23 @@ export function useUpdateInvestissement() {
     mutationFn: async ({
       id,
       values,
+      oublierRealisation = false,
     }: {
       id: string
       values: InvestissementFormValues
+      /**
+       * Projet non réalisé dont la date de réalisation GARDÉE EN MÉMOIRE (152)
+       * précéderait la nouvelle date de proposition : on l'oublie, sinon la
+       * base refuse (`investissements_dates_coherentes`, 079).
+       */
+      oublierRealisation?: boolean
     }) => {
       const { data } = await supabase
         .from('investissements')
-        .update(toPayload(values))
+        .update({
+          ...toPayload(values),
+          ...(oublierRealisation && { date_cloture: null }),
+        })
         .eq('id', id)
         .select()
         .single()
@@ -79,13 +83,11 @@ export function useUpdateInvestissement() {
  * Change le statut d'un investissement, et son année de budget pour un report
  * (138). La base journalise l'un comme l'autre dans l'historique.
  *
- * Passer à « Réalisé » pose la date, le bilan et l'auteur ; en repartir les
- * efface — sinon un dossier rouvert garderait une date de fin antérieure à son
- * propre suivi (`investissements_dates_coherentes`, migration 079). La date
- * est une date NUE (`isoLocale`), jamais un `toISOString()`.
- *
- * « Refusé » suit la même logique avec le trio motif / date / auteur : la base
- * EXIGE un motif, et en repartir l'efface.
+ * MÉMOIRE (152, demande PO du 12/11/2026) : changer d'étape n'EFFACE plus
+ * rien. Dates d'accord, refus (date, motif, niveau) et réalisation (date,
+ * bilan) restent en base ; c'est le statut qui dit ce qui s'affiche. Revenir
+ * sur une erreur rend donc tout tel quel, sans rien retaper. Seuls les champs
+ * passés sont écrits. Les dates sont des dates NUES (`isoLocale`).
  */
 export function useChangeStatutCapex() {
   const qc = useQueryClient()
@@ -100,10 +102,9 @@ export function useChangeStatutCapex() {
       motifArret,
       dateArret,
       arreteBy,
+      refusNiveau,
       dateValidation,
       datePrevalidation,
-      garderPrevalidation,
-      report,
       devisRetenus,
     }: {
       id: string
@@ -117,57 +118,38 @@ export function useChangeStatutCapex() {
       motifArret?: string
       dateArret?: string
       arreteBy?: string
-      /** Date de CONFIRMATION, saisie en confirmant (absent = inchangée). */
+      /** Niveau du refus (152) : 1 = prévalidation, 2 = confirmation. */
+      refusNiveau?: 1 | 2
+      /** Date de CONFIRMATION (absent = inchangée). */
       dateValidation?: string
-      /** Date de prévalidation, saisie en prévalidant (absent = inchangée). */
+      /** Date de prévalidation (absent = inchangée). */
       datePrevalidation?: string
-      /** Refus au 2e niveau : la prévalidation reste acquise (150). */
-      garderPrevalidation?: boolean
-      /**
-       * Report (demande PO du 12/11/2026) : les dates d'accord restent en
-       * place, masquées tant que le statut ne les montre pas, pour qu'annuler
-       * le report les rende telles quelles.
-       */
-      report?: boolean
-      /** Devis retenus, choisis en validant (147) ; absent = inchangés. */
+      /** Devis retenus (147) ; absent = inchangés. */
       devisRetenus?: string[]
     }) => {
       // Le choix des devis d'abord : si le statut échoue ensuite, un devis
       // coché sans validation ne compte pas (montantProjet).
       if (devisRetenus !== undefined) await poserRetenus(id, devisRetenus)
-      const realise = statutId === ID_REALISE
-      const refus = statutId === ID_REFUSE
-      // Chaque date d'accord survit aux étapes SUIVANTES, pas à un retour
-      // en arrière ni à un refus (146, 150) : la prévalidation tient de
-      // Prévalidé à Réalisé, la confirmation de Confirmé à Réalisé.
-      const prevalideOuPlus =
-        estPrevalideOuPlus(statutId) || (refus && garderPrevalidation === true)
-      const confirmeOuPlus = estConfirmeOuPlus(statutId)
       const { data } = await supabase
         .from('investissements')
         .update({
           statut_capex_id: statutId,
           annee_budget: annee,
-          bilan: realise ? (bilan?.trim() ?? '') || null : null,
-          date_cloture: realise ? (dateCloture ?? null) : null,
-          cloture_by: realise ? (clotureBy ?? null) : null,
-          motif_arret: refus ? (motifArret?.trim() ?? '') || null : null,
-          date_arret: refus ? (dateArret ?? null) : null,
-          arrete_by: refus ? (arreteBy ?? null) : null,
-          ...(report === true
-            ? {}
-            : !confirmeOuPlus
-              ? { date_validation: null }
-              : dateValidation !== undefined && {
-                  date_validation: dateValidation,
-                }),
-          ...(report === true
-            ? {}
-            : !prevalideOuPlus
-              ? { date_prevalidation: null }
-              : datePrevalidation !== undefined && {
-                  date_prevalidation: datePrevalidation,
-                }),
+          ...(bilan !== undefined && { bilan: bilan.trim() || null }),
+          ...(dateCloture !== undefined && { date_cloture: dateCloture }),
+          ...(clotureBy !== undefined && { cloture_by: clotureBy }),
+          ...(motifArret !== undefined && {
+            motif_arret: motifArret.trim() || null,
+          }),
+          ...(dateArret !== undefined && { date_arret: dateArret }),
+          ...(arreteBy !== undefined && { arrete_by: arreteBy }),
+          ...(refusNiveau !== undefined && { refus_niveau: refusNiveau }),
+          ...(dateValidation !== undefined && {
+            date_validation: dateValidation,
+          }),
+          ...(datePrevalidation !== undefined && {
+            date_prevalidation: datePrevalidation,
+          }),
         })
         .eq('id', id)
         .select()
