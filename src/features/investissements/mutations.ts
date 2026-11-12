@@ -103,6 +103,7 @@ export function useChangeStatutCapex() {
       dateValidation,
       datePrevalidation,
       garderPrevalidation,
+      report,
       devisRetenus,
     }: {
       id: string
@@ -122,6 +123,12 @@ export function useChangeStatutCapex() {
       datePrevalidation?: string
       /** Refus au 2e niveau : la prévalidation reste acquise (150). */
       garderPrevalidation?: boolean
+      /**
+       * Report (demande PO du 12/11/2026) : les dates d'accord restent en
+       * place, masquées tant que le statut ne les montre pas, pour qu'annuler
+       * le report les rende telles quelles.
+       */
+      report?: boolean
       /** Devis retenus, choisis en validant (147) ; absent = inchangés. */
       devisRetenus?: string[]
     }) => {
@@ -147,16 +154,20 @@ export function useChangeStatutCapex() {
           motif_arret: refus ? (motifArret?.trim() ?? '') || null : null,
           date_arret: refus ? (dateArret ?? null) : null,
           arrete_by: refus ? (arreteBy ?? null) : null,
-          ...(!confirmeOuPlus
-            ? { date_validation: null }
-            : dateValidation !== undefined && {
-                date_validation: dateValidation,
-              }),
-          ...(!prevalideOuPlus
-            ? { date_prevalidation: null }
-            : datePrevalidation !== undefined && {
-                date_prevalidation: datePrevalidation,
-              }),
+          ...(report === true
+            ? {}
+            : !confirmeOuPlus
+              ? { date_validation: null }
+              : dateValidation !== undefined && {
+                  date_validation: dateValidation,
+                }),
+          ...(report === true
+            ? {}
+            : !prevalideOuPlus
+              ? { date_prevalidation: null }
+              : datePrevalidation !== undefined && {
+                  date_prevalidation: datePrevalidation,
+                }),
         })
         .eq('id', id)
         .select()

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Pencil } from 'lucide-react'
+import { Pencil, Undo2 } from 'lucide-react'
 import type { RowAction } from '@/components/common/row-actions'
 import { toast } from 'sonner'
 import {
@@ -11,6 +11,7 @@ import {
   type Projet,
 } from '@/features/investissements/queries'
 import {
+  annulationReport,
   datesCapex,
   estConfirmeOuPlus,
   estPrevalideOuPlus,
@@ -113,6 +114,54 @@ export function InvestissementDetail({
   const refuse = inv.statut_capex_id === ID_REFUSE
 
   const dates = datesCapex(inv, decisions)
+  // Le projet arrive d'un report : on peut le défaire (demande PO du
+  // 12/11/2026).
+  const retourReport = annulationReport(inv, decisions)
+
+  /** Fiche du projet dans une année de budget (elle le suit). */
+  const allerAnnee = (a: number) =>
+    void navigate({
+      to: '/investissements/$annee/$investissement',
+      params: {
+        annee: String(a),
+        investissement: segOfUnique({ nom: inv.libelle, id: inv.id }, [
+          { nom: inv.libelle, id: inv.id },
+        ]),
+      },
+      replace: true,
+    })
+
+  /**
+   * ANNULER LE REPORT : retour dans l'année d'avant, avec le statut et les
+   * dates d'accord d'avant le report.
+   */
+  function annulerReport(r: NonNullable<typeof retourReport>) {
+    const jourDe = (ts: string | null) =>
+      ts === null ? undefined : isoLocale(new Date(ts))
+    const aujourdhui = isoLocale(new Date())
+    change.mutate(
+      {
+        id: inv.id,
+        statutId: r.statutId,
+        annee: r.annee,
+        // Projet d'avant les deux niveaux (150) : sa confirmation tient lieu
+        // de prévalidation.
+        datePrevalidation:
+          jourDe(r.prevalidationLe) ??
+          (r.prevalidationLe === null && inv.date_prevalidation === null
+            ? (jourDe(r.validationLe) ?? aujourdhui)
+            : undefined),
+        dateValidation: jourDe(r.validationLe),
+      },
+      {
+        onSuccess: () => {
+          toast.success(`Report annulé : retour au budget ${String(r.annee)}`)
+          allerAnnee(r.annee)
+        },
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
   // Devis retenus, réunis dans la pastille du schéma.
   const retenus = inv.devis.filter((d) => d.retenu)
   const selection =
@@ -250,20 +299,27 @@ export function InvestissementDetail({
             id: inv.id,
             statutId: a.statutId,
             annee: a.annee,
+            report: true,
           }),
-        successMessage: `Reporté au budget ${String(a.annee)}`,
-        // La fiche suit le projet dans sa nouvelle année.
-        onSuccess: () =>
-          void navigate({
-            to: '/investissements/$annee/$investissement',
-            params: {
-              annee: String(a.annee),
-              investissement: segOfUnique({ nom: inv.libelle, id: inv.id }, [
-                { nom: inv.libelle, id: inv.id },
-              ]),
+        // La fiche suit le projet dans sa nouvelle année ; « Annuler »
+        // quelques secondes rattrape un report de travers.
+        onSuccess: () => {
+          const retour = {
+            annee,
+            // Réalisé / refusé : bilan et motif sont effacés par le
+            // report, on ne les « remet » pas (cf. annulationReport).
+            statutId: realise || refuse ? a.statutId : inv.statut_capex_id,
+            prevalidationLe: inv.date_prevalidation,
+            validationLe: inv.date_validation,
+          }
+          toast.success(`Reporté au budget ${String(a.annee)}`, {
+            action: {
+              label: 'Annuler',
+              onClick: () => annulerReport(retour),
             },
-            replace: true,
-          }),
+          })
+          allerAnnee(a.annee)
+        },
       })
       return
     }
@@ -302,6 +358,16 @@ export function InvestissementDetail({
               label: 'Modifier la date de prévalidation',
               icon: Pencil,
               onSelect: () => setDateAccord('prevalidation'),
+            },
+          ],
+        }),
+        // Annuler le report : sur la case où il s'affiche.
+        ...(retourReport && {
+          [prevalideOuPlus || refusNiveau2 ? 'reporte2' : 'reporte']: [
+            {
+              label: `Annuler le report (revenir en ${String(retourReport.annee)})`,
+              icon: Undo2,
+              onSelect: () => annulerReport(retourReport),
             },
           ],
         }),

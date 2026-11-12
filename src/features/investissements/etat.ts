@@ -514,6 +514,78 @@ export function datesCapex(
   }
 }
 
+/** De quoi défaire le dernier report d'un projet (voir `annulationReport`). */
+export interface AnnulationReport {
+  /** Année du budget d'où il venait. */
+  annee: number
+  /** Statut à lui rendre. */
+  statutId: number
+  /** Dates d'accord à lui rendre (horodatages du journal), si perdues. */
+  prevalidationLe: string | null
+  validationLe: string | null
+}
+
+/**
+ * ANNULER UN REPORT (demande PO du 12/11/2026) : le projet revient dans
+ * l'année d'où il venait, dans l'état qu'il avait juste avant (journal des
+ * décisions), comme si le report n'avait pas eu lieu. null s'il n'arrive
+ * pas d'un report.
+ *
+ * Un projet réalisé ou refusé avant son report n'est pas « remis » réalisé
+ * ou refusé (bilan et motif ont été effacés) : il garde son statut actuel.
+ * Les dates d'accord effacées par un report en proposition sont reprises du
+ * journal ; celles encore en place ne bougent pas.
+ */
+export function annulationReport(
+  inv: Pick<
+    Database['public']['Tables']['investissements']['Row'],
+    | 'statut_capex_id'
+    | 'annee_budget'
+    | 'date_prevalidation'
+    | 'date_validation'
+  >,
+  decisions: readonly DecisionCapex[],
+): AnnulationReport | null {
+  const journal = [...decisions].sort((a, b) =>
+    a.created_at.localeCompare(b.created_at),
+  )
+  // Le DERNIER changement d'année doit être une arrivée dans l'année
+  // actuelle depuis une année antérieure.
+  let i = journal.length - 1
+  while (i > 0 && journal[i - 1]?.annee_budget === journal[i]?.annee_budget) i--
+  const avant = journal[i - 1]
+  const arrivee = journal[i]
+  if (
+    i < 1 ||
+    !avant ||
+    !arrivee ||
+    avant.annee_budget === null ||
+    arrivee.annee_budget !== inv.annee_budget ||
+    avant.annee_budget >= inv.annee_budget
+  )
+    return null
+  const statutId =
+    avant.statut_capex_id === ID_REALISE || avant.statut_capex_id === ID_REFUSE
+      ? inv.statut_capex_id
+      : avant.statut_capex_id
+  // Dernière fois que le projet est passé par ce statut AVANT le report.
+  const passage = (id: number) =>
+    journal.slice(0, i).findLast((d) => d.statut_capex_id === id)?.created_at ??
+    null
+  return {
+    annee: avant.annee_budget,
+    statutId,
+    prevalidationLe:
+      estPrevalideOuPlus(statutId) && inv.date_prevalidation === null
+        ? passage(ID_PREVALIDE)
+        : null,
+    validationLe:
+      estConfirmeOuPlus(statutId) && inv.date_validation === null
+        ? passage(ID_VALIDE)
+        : null,
+  }
+}
+
 /** Une part de la barre d'un budget : un statut, son montant et ses dossiers. */
 export interface PartBudget {
   statutId: number

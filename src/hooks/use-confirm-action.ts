@@ -25,8 +25,11 @@ export type ConfirmAction<P = void> = {
   destructive?: boolean
   /** Mutation effective (généralement `change.mutateAsync(...)`). */
   run: (param: P) => Promise<unknown>
-  /** Message du toast de succès (ou fabrique, pour un message contextualisé). */
-  successMessage: string | ((param: P) => string)
+  /**
+   * Message du toast de succès (ou fabrique, pour un message contextualisé).
+   * Absent : pas de toast — `onSuccess` affiche le sien (ex. avec « Annuler »).
+   */
+  successMessage?: string | ((param: P) => string)
   /** Traduction du message d'erreur (défaut : celle du hook, soit `writeErrorMessage`). */
   errorMessage?: (e: unknown) => string
   /** Appelé APRÈS le succès (toast + fermeture), ex. navigation de repli. */
@@ -118,11 +121,12 @@ export function useConfirmAction<P = void>({
     void (async () => {
       try {
         await current.run(param)
-        toast.success(
-          typeof current.successMessage === 'function'
-            ? current.successMessage(param)
-            : current.successMessage,
-        )
+        if (current.successMessage !== undefined)
+          toast.success(
+            typeof current.successMessage === 'function'
+              ? current.successMessage(param)
+              : current.successMessage,
+          )
         setAction(null)
         current.onSuccess?.(param)
       } catch (e) {

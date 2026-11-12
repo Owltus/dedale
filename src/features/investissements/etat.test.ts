@@ -3,6 +3,7 @@ import fc from 'fast-check'
 import {
   anneeBudgetEnPreparation,
   anneesBudget,
+  annulationReport,
   datesCapex,
   ID_DEMANDE,
   ID_PREVALIDE,
@@ -716,5 +717,92 @@ describe('refus et report aux DEUX niveaux (demande PO du 12/11/2026)', () => {
     // Refusé dès la proposition : la case du 1er niveau.
     expect(sc(ID_REFUSE).refuse.etat).toBe('actuel')
     expect(sc(ID_REFUSE).refuse2.etat).toBe('libre')
+  })
+})
+
+describe('annulationReport — revenir en arrière après un report (demande PO du 12/11/2026)', () => {
+  const inv = (
+    statut: number,
+    annee: number,
+    datePrevalidation: string | null = null,
+    dateValidation: string | null = null,
+  ) => ({
+    statut_capex_id: statut,
+    annee_budget: annee,
+    date_prevalidation: datePrevalidation,
+    date_validation: dateValidation,
+  })
+  const d = (statut: number, annee: number, quand: string) => ({
+    statut_capex_id: statut,
+    annee_budget: annee,
+    created_at: `2026-${quand}T10:00:00Z`,
+  })
+
+  it('jamais reporté : rien à annuler', () => {
+    expect(
+      annulationReport(inv(ID_PREVALIDE, 2027), [
+        d(ID_DEMANDE, 2027, '09-01'),
+        d(ID_PREVALIDE, 2027, '10-01'),
+      ]),
+    ).toBeNull()
+  })
+
+  it('report en proposition : retour prévalidé, date reprise du journal', () => {
+    expect(
+      annulationReport(inv(ID_DEMANDE, 2028), [
+        d(ID_DEMANDE, 2027, '09-01'),
+        d(ID_PREVALIDE, 2027, '10-01'),
+        d(ID_DEMANDE, 2028, '11-12'),
+      ]),
+    ).toEqual({
+      annee: 2027,
+      statutId: ID_PREVALIDE,
+      prevalidationLe: '2026-10-01T10:00:00Z',
+      validationLe: null,
+    })
+  })
+
+  it('report à la confirmation : la date de prévalidation, restée, ne bouge pas', () => {
+    expect(
+      annulationReport(inv(ID_PREVALIDE, 2028, '2026-10-01'), [
+        d(ID_DEMANDE, 2027, '09-01'),
+        d(ID_PREVALIDE, 2027, '10-01'),
+        d(ID_PREVALIDE, 2028, '11-12'),
+      ]),
+    ).toEqual({
+      annee: 2027,
+      statutId: ID_PREVALIDE,
+      prevalidationLe: null,
+      validationLe: null,
+    })
+  })
+
+  it('après un changement de statut dans la nouvelle année : on revient quand même', () => {
+    const r = annulationReport(inv(ID_PREVALIDE, 2028, '2026-11-13'), [
+      d(ID_DEMANDE, 2027, '09-01'),
+      d(ID_DEMANDE, 2028, '11-12'),
+      d(ID_PREVALIDE, 2028, '11-13'),
+    ])
+    expect(r?.annee).toBe(2027)
+    expect(r?.statutId).toBe(ID_DEMANDE)
+  })
+
+  it('report déjà annulé : plus rien à annuler', () => {
+    expect(
+      annulationReport(inv(ID_DEMANDE, 2027), [
+        d(ID_DEMANDE, 2027, '09-01'),
+        d(ID_DEMANDE, 2028, '11-12'),
+        d(ID_DEMANDE, 2027, '11-12'),
+      ]),
+    ).toBeNull()
+  })
+
+  it('refusé avant le report : garde son statut actuel', () => {
+    expect(
+      annulationReport(inv(ID_DEMANDE, 2028), [
+        d(ID_REFUSE, 2027, '09-01'),
+        d(ID_DEMANDE, 2028, '11-12'),
+      ])?.statutId,
+    ).toBe(ID_DEMANDE)
   })
 })
