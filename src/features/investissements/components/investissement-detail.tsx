@@ -197,16 +197,18 @@ export function InvestissementDetail({
    * Devis retenus au moment d'un accord (147) : un devis unique non coché est
    * retenu d'office ; plusieurs sans aucun coché → `false`, il faut en cocher.
    */
-  function devisPourAccord(): { devisRetenus?: string[] } | false {
+  function devisPourAccord(
+    geste: 'prévalider' | 'confirmer',
+  ): { devisRetenus?: string[] } | false {
     const unSeul = inv.devis.length === 1 ? inv.devis[0] : undefined
     // Pas d'accord sans devis (demande PO du 12/11/2026) : c'est le devis
     // qu'on présente aux responsables.
     if (inv.devis.length === 0) {
-      toast.error('Ajoute au moins un devis avant de prévalider.')
+      toast.error(`Ajoute au moins un devis avant de ${geste}.`)
       return false
     }
     if (inv.devis.length > 1 && retenus.length === 0) {
-      toast.error('Coche au moins un devis avant de valider.')
+      toast.error(`Coche au moins un devis avant de ${geste}.`)
       return false
     }
     return unSeul && !unSeul.retenu ? { devisRetenus: [unSeul.id] } : {}
@@ -217,7 +219,7 @@ export function InvestissementDetail({
    * devis cochés dans le schéma.
    */
   function prevalider() {
-    const devis = devisPourAccord()
+    const devis = devisPourAccord('prévalider')
     if (devis === false) return
     change.mutate(
       {
@@ -255,7 +257,7 @@ export function InvestissementDetail({
    * la date du jour ; les devis cochés font foi.
    */
   function confirmer() {
-    const devis = devisPourAccord()
+    const devis = devisPourAccord('confirmer')
     if (devis === false) return
     change.mutate(
       {
