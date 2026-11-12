@@ -109,10 +109,11 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
       const actuelles = cases(id).filter((c) => c.etat === 'actuel')
       expect(actuelles.map((c) => c.statutId)).toEqual([id])
       const a = actuelles[0]?.action
-      // Validé (146), Réalisé, Refusé : le clic rouvre leur fenêtre pour
-      // corriger la date (et le reste). Seule « Proposition » est inerte.
-      if (id === ID_VALIDE || id === ID_REALISE || id === ID_REFUSE)
-        expect(a?.statutId).toBe(id)
+      // Réalisé, Refusé : le clic rouvre leur fenêtre pour corriger. Validé :
+      // il retire la validation (retour en proposition, PO 12/11). Seule
+      // « Proposition » est inerte.
+      if (id === ID_REALISE || id === ID_REFUSE) expect(a?.statutId).toBe(id)
+      else if (id === ID_VALIDE) expect(a?.statutId).toBe(ID_DEMANDE)
       else expect(a).toBeNull()
     }
   })
@@ -152,7 +153,12 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
     const sc = (id: number) => schemaCapex(id, 2026, SANS_REFERENTIEL)
     expect(sc(ID_DEMANDE).valide.action?.cle).toBe('valider')
     expect(sc(ID_REALISE).valide.action?.cle).toBe('rouvrir')
-    expect(sc(ID_VALIDE).valide.action?.cle).toBe('valider')
+    // Validé : un 2e clic retire la validation (interrupteur, PO 12/11).
+    expect(sc(ID_VALIDE).valide.action).toEqual({
+      cle: 'devalider',
+      statutId: ID_DEMANDE,
+      annee: 2026,
+    })
     expect(sc(ID_VALIDE).realise.action?.cle).toBe('realiser')
     expect(sc(ID_DEMANDE).refuse.action?.cle).toBe('refuser')
     expect(sc(ID_REFUSE).demande.action?.cle).toBe('relancer')

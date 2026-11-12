@@ -14,6 +14,7 @@ import {
   datesCapex,
   ID_REALISE,
   ID_REFUSE,
+  ID_DEMANDE,
   ID_VALIDE,
   montantRetenu,
   schemaCapex,
@@ -129,7 +130,25 @@ export function InvestissementDetail({
         ...(unSeul && !unSeul.retenu && { devisRetenus: [unSeul.id] }),
       },
       {
-        onSuccess: () => toast.success('Projet validé'),
+        // « Annuler » quelques secondes : rattraper un clic de travers.
+        onSuccess: () =>
+          toast.success('Projet validé', {
+            action: { label: 'Annuler', onClick: devalider },
+          }),
+        onError: (e) => toast.error(writeErrorMessage(e)),
+      },
+    )
+  }
+
+  /**
+   * RETIRER la validation (demande PO du 12/11/2026) : retour en proposition,
+   * les devis cochés restent cochés ; la date de validation s'efface.
+   */
+  function devalider() {
+    change.mutate(
+      { id: inv.id, statutId: ID_DEMANDE, annee },
+      {
+        onSuccess: () => toast.success('Validation retirée'),
         onError: (e) => toast.error(writeErrorMessage(e)),
       },
     )
@@ -142,9 +161,13 @@ export function InvestissementDetail({
       return
     }
     // Valider (ou corriger la validation) : la date et les devis retenus.
+    if (a.cle === 'devalider') {
+      devalider()
+      return
+    }
     if (a.cle === 'valider') {
-      // Déjà validé (ou réalisé) : on corrige la date, dans sa fenêtre.
-      if (inv.statut_capex_id === ID_VALIDE || realise) {
+      // Déjà réalisé : on corrige la date, dans sa fenêtre.
+      if (realise) {
         setValidation(true)
         return
       }
@@ -209,9 +232,9 @@ export function InvestissementDetail({
             onSelect: () => edit.openEdit(inv),
           },
         ],
-        // Réalisé : le clic sur « Validé » y fait revenir — la date de
-        // validation se corrige donc ici.
-        ...(realise && {
+        // Validé ou réalisé : le clic sur « Validé » retire la validation ou
+        // y fait revenir — la date de validation se corrige donc ici.
+        ...(valideOuPlus && {
           valide: [
             {
               label: 'Modifier la date de validation',

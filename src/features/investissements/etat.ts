@@ -203,6 +203,7 @@ export function totauxAnnee(invs: readonly ProjetMontant[]): TotauxAnnee {
 /** Ce que fait un clic sur une case du schéma. */
 export type CleActionCapex =
   | 'valider'
+  | 'devalider'
   | 'refuser'
   | 'reporter'
   | 'realiser'
@@ -291,11 +292,11 @@ export function schemaCapex(
       libelle: nomStatutCapex(ID_VALIDE, noms),
       statutId: ID_VALIDE,
       etat: etat(ID_VALIDE, statutId === ID_REALISE),
-      // Case du dossier validé : cliquable aussi, pour CORRIGER la date de
-      // validation (146) — comme Réalisé et Refusé.
+      // Case du dossier validé : un 2e clic RETIRE la validation, comme un
+      // interrupteur (demande PO du 12/11/2026) — retour en proposition.
       action:
         statutId === ID_VALIDE
-          ? { cle: 'valider', statutId: ID_VALIDE, annee }
+          ? { cle: 'devalider', statutId: ID_DEMANDE, annee }
           : action(ID_VALIDE, statutId === ID_REALISE ? 'rouvrir' : 'valider'),
     },
     // Réalisé / Refusé : même la case du dossier reste cliquable — elle

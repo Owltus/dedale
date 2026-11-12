@@ -410,9 +410,11 @@ function TuileCase({
             ? undefined
             : cle === 'reporte'
               ? c.libelle
-              : actuel
-                ? `Modifier « ${c.libelle} »`
-                : `Passer à « ${c.libelle} »`
+              : action.cle === 'devalider'
+                ? 'Retirer la validation'
+                : actuel
+                  ? `Modifier « ${c.libelle} »`
+                  : `Passer à « ${c.libelle} »`
         }
         style={actuel && c.statutId ? styleActuel() : undefined}
         aria-current={actuel ? 'step' : undefined}
