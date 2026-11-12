@@ -116,6 +116,8 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
       sc.realise,
       sc.refuse,
       sc.reporte,
+      sc.refuse2,
+      sc.reporte2,
     ]
   }
 
@@ -137,7 +139,17 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
   it('toute autre case ATTEIGNABLE est cliquable et mène à son statut', () => {
     fc.assert(
       fc.property(idConnu, annee, (id, a) => {
-        for (const c of cases(id, a)) {
+        const sc = schemaCapex(id, a, SANS_REFERENTIEL)
+        for (const c of [
+          sc.demande,
+          sc.prevalide,
+          sc.valide,
+          sc.realise,
+          sc.refuse,
+          sc.reporte,
+          sc.refuse2,
+          sc.reporte2,
+        ]) {
           if (c.etat === 'actuel') continue
           // Passage obligé (150) : Confirmé seulement depuis Prévalidé,
           // Réalisé seulement une fois confirmé.
@@ -152,6 +164,11 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
             c.statutId === ID_REALISE &&
             !(id === ID_VALIDE || id === ID_REALISE)
           ) {
+            expect(c.action).toBeNull()
+            continue
+          }
+          const niveau2 = c === sc.refuse2 || c === sc.reporte2
+          if (niveau2 && (id === ID_DEMANDE || id === ID_REFUSE)) {
             expect(c.action).toBeNull()
             continue
           }
@@ -230,6 +247,8 @@ describe('schemaCapex — organigramme vertical cliquable', () => {
       versRefuse: 'libre',
       versReporte: 'libre',
       versRealise: 'libre',
+      versRefuse2: 'libre',
+      versReporte2: 'libre',
     })
     expect(f(ID_PREVALIDE)).toMatchObject({
       versPrevalide: 'ok',
@@ -375,10 +394,17 @@ describe('datesCapex — dates du schéma', () => {
       expect(
         datesCapex({ ...avec, statut_capex_id: statut }, []).prevalide,
       ).toBe('2026-10-02')
-    for (const statut of [ID_DEMANDE, ID_REFUSE])
-      expect(
-        datesCapex({ ...avec, statut_capex_id: statut }, []).prevalide,
-      ).toBeNull()
+    expect(
+      datesCapex({ ...avec, statut_capex_id: ID_DEMANDE }, []).prevalide,
+    ).toBeNull()
+    // Refusé à la confirmation : la prévalidation reste affichée ; refusé
+    // dès la proposition (pas de date gardée) : rien.
+    expect(
+      datesCapex({ ...avec, statut_capex_id: ID_REFUSE }, []).prevalide,
+    ).toBe('2026-10-02')
+    expect(
+      datesCapex({ ...inv, statut_capex_id: ID_REFUSE }, []).prevalide,
+    ).toBeNull()
     // Prévalidé seulement : pas encore de date de confirmation.
     expect(
       datesCapex(
@@ -644,5 +670,51 @@ describe('reporteDe — projet reporté', () => {
         ],
       }),
     ).toBe(2027)
+  })
+})
+
+describe('refus et report aux DEUX niveaux (demande PO du 12/11/2026)', () => {
+  const sc = (id: number, refus2 = false) =>
+    schemaCapex(id, 2026, SANS_REFERENTIEL, refus2)
+
+  it('le 2e niveau n’existe qu’une fois le projet prévalidé', () => {
+    for (const id of [ID_DEMANDE, ID_REFUSE]) {
+      expect(sc(id).refuse2.action).toBeNull()
+      expect(sc(id).reporte2.action).toBeNull()
+    }
+    for (const id of [ID_PREVALIDE, ID_VALIDE, ID_REALISE]) {
+      expect(sc(id).refuse2.action).toEqual({
+        cle: 'refuser2',
+        statutId: ID_REFUSE,
+        annee: 2026,
+      })
+      // Reporter à la confirmation : l'an prochain, toujours prévalidé.
+      expect(sc(id).reporte2.action).toEqual({
+        cle: 'reporter',
+        statutId: ID_PREVALIDE,
+        annee: 2027,
+      })
+    }
+    // Le report du 1er niveau repart, lui, en proposition.
+    expect(sc(ID_PREVALIDE).reporte.action?.statutId).toBe(ID_DEMANDE)
+  })
+
+  it('refusé à la confirmation : la case du 2e niveau, prévalidé coché', () => {
+    const r = sc(ID_REFUSE, true)
+    expect(r.refuse2.etat).toBe('actuel')
+    expect(r.refuse.etat).toBe('libre')
+    expect(r.prevalide.etat).toBe('fait')
+    expect(r.valide.etat).toBe('libre')
+    expect(r.fleches).toMatchObject({
+      versPrevalide: 'ok',
+      versRefuse2: 'refus',
+      versRefuse: 'libre',
+    })
+    // Le clic sur « Prévalidé » y ramène ; le refus se corrige sur place.
+    expect(r.prevalide.action?.cle).toBe('rouvrir')
+    expect(r.refuse2.action?.cle).toBe('refuser2')
+    // Refusé dès la proposition : la case du 1er niveau.
+    expect(sc(ID_REFUSE).refuse.etat).toBe('actuel')
+    expect(sc(ID_REFUSE).refuse2.etat).toBe('libre')
   })
 })

@@ -72,7 +72,9 @@ export function InvestissementDetail({
   const realisation = useEntityDialog<Projet>()
   const { session } = useAuth()
   const confirmAction = useConfirmAction()
-  const [refus, setRefus] = useState(false)
+  // Fenêtre de refus : à quel niveau (1 = proposition, 2 = confirmation,
+  // 150), ou fermée.
+  const [refus, setRefus] = useState<1 | 2 | null>(null)
   // Fenêtre de correction de la date d'un accord (150) : lequel, ou aucune.
   const [dateAccord, setDateAccord] = useState<NiveauAccord | null>(null)
   const modifierDateValidation = useModifierDateValidation()
@@ -103,7 +105,10 @@ export function InvestissementDetail({
     setFenetreDevis({ devis, piece })
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
   const annee = inv.annee_budget
-  const schema = schemaCapex(inv.statut_capex_id, annee, noms)
+  // Refusé au 2e niveau (150) : il garde sa date de prévalidation.
+  const refusNiveau2 =
+    inv.statut_capex_id === ID_REFUSE && inv.date_prevalidation !== null
+  const schema = schemaCapex(inv.statut_capex_id, annee, noms, refusNiveau2)
   const realise = inv.statut_capex_id === ID_REALISE
   const refuse = inv.statut_capex_id === ID_REFUSE
 
@@ -206,8 +211,8 @@ export function InvestissementDetail({
 
   function agir(a: ActionCapex) {
     // Refuser : date du refus et motif facultatif (145).
-    if (a.cle === 'refuser') {
-      setRefus(true)
+    if (a.cle === 'refuser' || a.cle === 'refuser2') {
+      setRefus(a.cle === 'refuser2' ? 2 : 1)
       return
     }
     // Les deux accords (150) : chacun se donne et se retire d'un clic.
@@ -235,7 +240,10 @@ export function InvestissementDetail({
     if (a.cle === 'reporter') {
       confirmAction.demander({
         title: `Reporter au budget ${String(a.annee)} ?`,
-        description: `Le projet quitte le budget ${String(annee)} et repart en « Proposition » dans celui de ${String(a.annee)}.`,
+        description:
+          a.statutId === ID_PREVALIDE
+            ? `Le projet quitte le budget ${String(annee)} et attend sa confirmation dans celui de ${String(a.annee)}, toujours prévalidé.`
+            : `Le projet quitte le budget ${String(annee)} et repart en « Proposition » dans celui de ${String(a.annee)}.`,
         confirmLabel: `Reporter à ${String(a.annee)}`,
         run: () =>
           change.mutateAsync({
@@ -359,7 +367,8 @@ export function InvestissementDetail({
             selection={selection}
             textes={{
               demande: inv.description,
-              refuse: refuse ? inv.motif_arret : null,
+              refuse: refuse && !refusNiveau2 ? inv.motif_arret : null,
+              refuse2: refusNiveau2 ? inv.motif_arret : null,
               realise: realise ? inv.bilan : null,
             }}
             renderDevis={(mode) => (
@@ -426,10 +435,13 @@ export function InvestissementDetail({
               prevalide: jour(dates.prevalide),
               valide: jour(dates.valide),
               realise: jour(dates.realise),
-              refuse: jour(dates.refuse),
-              reporte: dates.reporte
-                ? `reporté de ${String(dates.reporte.depuis)} · ${formatDate(dates.reporte.date)}`
-                : undefined,
+              refuse: refusNiveau2 ? undefined : jour(dates.refuse),
+              refuse2: refusNiveau2 ? jour(dates.refuse) : undefined,
+              // Le report s'affiche au niveau où le projet en est.
+              [prevalideOuPlus || refusNiveau2 ? 'reporte2' : 'reporte']:
+                dates.reporte
+                  ? `reporté de ${String(dates.reporte.depuis)} · ${formatDate(dates.reporte.date)}`
+                  : undefined,
             }}
             onAction={canManage ? agir : undefined}
             disabled={change.isPending}
@@ -517,9 +529,9 @@ export function InvestissementDetail({
       {/* Refus (demande PO) : date (aujourd'hui par défaut) + motif
           facultatif ; déjà refusé → pré-rempli, en correction. */}
       <RefusInvestissementDialog
-        key={refus ? 'refus-ouvert' : 'refus'}
-        open={refus}
-        onOpenChange={(o) => !o && setRefus(false)}
+        key={refus ? `refus-${String(refus)}` : 'refus'}
+        open={refus !== null}
+        onOpenChange={(o) => !o && setRefus(null)}
         pending={change.isPending}
         initial={
           refuse
@@ -535,10 +547,12 @@ export function InvestissementDetail({
               motifArret: motif_arret,
               dateArret: date_arret,
               arreteBy: session?.user.id,
+              // Refus à la confirmation : la prévalidation reste visible.
+              garderPrevalidation: refus === 2,
             },
             {
               onSuccess: () => {
-                setRefus(false)
+                setRefus(null)
                 toast.success(refuse ? 'Refus modifié' : 'Projet refusé')
               },
               onError: (e) => toast.error(writeErrorMessage(e)),

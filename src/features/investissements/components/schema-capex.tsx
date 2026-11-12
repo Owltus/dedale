@@ -25,7 +25,8 @@ import {
 // Organigramme façon Mermaid (138, 147, demandes PO) — ordinateur :
 //
 //   Proposition ─▶ devis ─╮                  ╭─▶ Refusé
-//                ─▶ devis  ├─(sélection)─────┼─▶ Prévalidé ──▶ Confirmé ──▶ Réalisé
+//                ─▶ devis  ├─(sélection)─────┼─▶ Prévalidé ─┬▶ Confirmé ──▶ Réalisé
+//                                            (refus / report aux DEUX niveaux)
 //                ─▶ devis ─╯                  ╰─▶ Reporter à N+1
 //
 // Téléphone : la même chose de haut en bas. Les flèches sont des COURBES SVG
@@ -194,6 +195,9 @@ const ICONES = {
   realise: PackageCheck,
   refuse: CircleX,
   reporte: CalendarClock,
+  // 2e niveau (150) : mêmes cases, après la prévalidation.
+  refuse2: CircleX,
+  reporte2: CalendarClock,
 } satisfies Record<string, LucideIcon>
 
 type CleCase = keyof typeof ICONES
@@ -296,6 +300,9 @@ function TuileCase({
   // `rest` = ce que le menu contextuel (`asChild`) pose sur la case : ref,
   // écouteur du clic droit / appui long. Étalé AVANT nos propres attributs.
   const Icone = c.etat === 'fait' ? Check : ICONES[cle]
+  // Refus et report du 2e niveau ont l'allure de ceux du 1er.
+  const genre =
+    cle === 'refuse2' ? 'refuse' : cle === 'reporte2' ? 'reporte' : cle
   const actuel = c.etat === 'actuel'
   const couleur = actuel && c.statutId ? COULEUR_PARCOURS : undefined
   const contenu = (
@@ -312,9 +319,9 @@ function TuileCase({
               // Case libre : sa couleur de branche, en pâle — refus rouge,
               // report jaune.
               c.etat === 'libre' &&
-                (cle === 'refuse'
+                (genre === 'refuse'
                   ? 'bg-destructive/10 text-destructive'
-                  : cle === 'reporte'
+                  : genre === 'reporte'
                     ? 'bg-warning/15 text-warning'
                     : 'bg-muted text-muted-foreground'),
             )}
@@ -389,9 +396,9 @@ function TuileCase({
     'flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-xl border bg-card px-2 py-2.5 text-center text-sm font-medium shadow-xs @min-[15rem]:flex-row @min-[15rem]:justify-start @min-[15rem]:gap-3 @min-[15rem]:px-4',
     c.etat === 'fait' && 'border-(color:--parcours)/40',
     c.etat === 'libre' && 'text-muted-foreground',
-    c.etat === 'libre' && cle === 'refuse' && 'border-destructive/25',
+    c.etat === 'libre' && genre === 'refuse' && 'border-destructive/25',
     actuel && 'border-2 font-semibold text-foreground',
-    cle === 'reporte' && 'border-dashed border-warning/50',
+    genre === 'reporte' && 'border-dashed border-warning/50',
     estompe &&
       cn(
         ESTOMPE,
@@ -410,7 +417,7 @@ function TuileCase({
         title={
           texte?.trim()
             ? undefined
-            : cle === 'reporte'
+            : genre === 'reporte'
               ? c.libelle
               : action.cle === 'deprevalider'
                 ? 'Retirer la prévalidation'
@@ -426,9 +433,9 @@ function TuileCase({
           classes,
           'cursor-pointer transition duration-150 hover:-translate-y-0.5 hover:text-foreground hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60',
           // Au survol, la couleur de l'étape visée.
-          cle === 'refuse'
+          genre === 'refuse'
             ? 'hover:border-destructive/60'
-            : cle === 'reporte'
+            : genre === 'reporte'
               ? 'hover:border-warning'
               : cle === 'prevalide'
                 ? 'hover:border-yellow/70'
@@ -517,16 +524,47 @@ function liensFourche(schema: Schema) {
 }
 
 /**
- * Cases des branches ÉCARTÉES : confirmé (ou réalisé) efface Refusé et le
- * report ; refusé efface Prévalidé, Confirmé, Réalisé et le report. Un projet
- * seulement PRÉVALIDÉ n'efface rien (demande PO du 12/11/2026) : si le 2e
- * accord échoue, il peut encore être refusé ou reporté.
+ * Cases des branches ÉCARTÉES, niveau par niveau (150) : un niveau franchi
+ * efface son refus et son report ; un refus efface ce qui le suit. Les
+ * branches effacées restent cliquables (le survol les rend nettes).
  */
 function estompees(schema: Schema): Set<CleCase> {
   if (schema.refuse.etat === 'actuel')
-    return new Set(['prevalide', 'valide', 'realise', 'reporte'])
-  if (schema.valide.etat !== 'libre') return new Set(['refuse', 'reporte'])
+    return new Set([
+      'prevalide',
+      'valide',
+      'realise',
+      'reporte',
+      'refuse2',
+      'reporte2',
+    ])
+  if (schema.refuse2.etat === 'actuel')
+    return new Set(['refuse', 'reporte', 'valide', 'realise', 'reporte2'])
+  if (schema.valide.etat !== 'libre')
+    return new Set(['refuse', 'reporte', 'refuse2', 'reporte2'])
+  if (schema.prevalide.etat !== 'libre') return new Set(['refuse', 'reporte'])
   return new Set()
+}
+
+/** Liens de la 2e fourche, qui part de « Prévalidé » (150). */
+function liensFourche2(schema: Schema) {
+  const f = schema.fleches
+  const e = estompees(schema)
+  return [
+    {
+      vers: 0 as const,
+      etat: f.versRefuse2,
+      teinte: 'refus' as const,
+      estompe: e.has('refuse2'),
+    },
+    { vers: 1 as const, etat: f.versValide, estompe: e.has('valide') },
+    {
+      vers: 2 as const,
+      etat: f.versReporte2,
+      teinte: 'report' as const,
+      estompe: e.has('reporte2'),
+    },
+  ]
 }
 
 /** Le projet a-t-il passé le 1er accord (prévalidé ou plus) ? */
@@ -765,16 +803,14 @@ function SchemaHorizontal({
         <div className={cellule}>{case_('reporte')}</div>
       </div>
 
-      {/* 6. Prévalidé → Confirmé (150). */}
+      {/* 6. Prévalidé → Refusé / Confirmé / Reporter (150). */}
       <div className="relative">
-        <LienSuite
-          orientation="h"
-          etat={schema.fleches.versValide}
-          estompe={e.has('valide')}
-        />
+        <Liens orientation="h" liens={liensFourche2(schema)} />
       </div>
       <div className="grid grid-rows-3">
-        <div className={cn(cellule, 'row-start-2')}>{case_('valide')}</div>
+        <div className={cellule}>{case_('refuse2')}</div>
+        <div className={cellule}>{case_('valide')}</div>
+        <div className={cellule}>{case_('reporte2')}</div>
       </div>
 
       {/* 7. Confirmé → Réalisé. */}
@@ -857,15 +893,13 @@ function SchemaVertical({
         <div className={cellule}>{case_('prevalide')}</div>
         <div className={cellule}>{case_('reporte')}</div>
       </div>
-      <div className="relative h-10">
-        <LienSuite
-          orientation="v"
-          etat={schema.fleches.versValide}
-          estompe={e.has('valide')}
-        />
+      <div className="relative h-12">
+        <Liens orientation="v" liens={liensFourche2(schema)} />
       </div>
       <div className={trois}>
-        <div className={cn(cellule, 'col-start-2')}>{case_('valide')}</div>
+        <div className={cellule}>{case_('refuse2')}</div>
+        <div className={cellule}>{case_('valide')}</div>
+        <div className={cellule}>{case_('reporte2')}</div>
       </div>
       <div className="relative h-10">
         <LienSuite

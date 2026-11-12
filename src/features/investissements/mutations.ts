@@ -102,6 +102,7 @@ export function useChangeStatutCapex() {
       arreteBy,
       dateValidation,
       datePrevalidation,
+      garderPrevalidation,
       devisRetenus,
     }: {
       id: string
@@ -119,6 +120,8 @@ export function useChangeStatutCapex() {
       dateValidation?: string
       /** Date de prévalidation, saisie en prévalidant (absent = inchangée). */
       datePrevalidation?: string
+      /** Refus au 2e niveau : la prévalidation reste acquise (150). */
+      garderPrevalidation?: boolean
       /** Devis retenus, choisis en validant (147) ; absent = inchangés. */
       devisRetenus?: string[]
     }) => {
@@ -130,7 +133,8 @@ export function useChangeStatutCapex() {
       // Chaque date d'accord survit aux étapes SUIVANTES, pas à un retour
       // en arrière ni à un refus (146, 150) : la prévalidation tient de
       // Prévalidé à Réalisé, la confirmation de Confirmé à Réalisé.
-      const prevalideOuPlus = estPrevalideOuPlus(statutId)
+      const prevalideOuPlus =
+        estPrevalideOuPlus(statutId) || (refus && garderPrevalidation === true)
       const confirmeOuPlus = estConfirmeOuPlus(statutId)
       const { data } = await supabase
         .from('investissements')

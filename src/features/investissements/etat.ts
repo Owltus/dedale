@@ -238,6 +238,7 @@ export type CleActionCapex =
   | 'valider'
   | 'devalider'
   | 'refuser'
+  | 'refuser2'
   | 'reporter'
   | 'realiser'
   | 'rouvrir'
@@ -276,6 +277,10 @@ export interface SchemaCapex {
   realise: CaseCapex
   refuse: CaseCapex
   reporte: CaseCapex
+  /** Refus au niveau de la CONFIRMATION : le 2e accord a échoué (150). */
+  refuse2: CaseCapex
+  /** Report au niveau de la confirmation : l'an prochain, toujours prévalidé. */
+  reporte2: CaseCapex
   fleches: {
     /** De la décision vers « Prévalidé » (la fourche). */
     versPrevalide: EtatFlecheCapex
@@ -284,6 +289,9 @@ export interface SchemaCapex {
     versRefuse: EtatFlecheCapex
     versReporte: EtatFlecheCapex
     versRealise: EtatFlecheCapex
+    /** De « Prévalidé » vers le refus / le report du 2e niveau. */
+    versRefuse2: EtatFlecheCapex
+    versReporte2: EtatFlecheCapex
   }
 }
 
@@ -293,33 +301,36 @@ export interface SchemaCapex {
  *                     Proposition
  *            ┌───────────┼───────────┐
  *         Refusé     Prévalidé    Reporter à N+1
- *                        │
- *                     Confirmé
+ *            ┌───────────┼───────────┐
+ *         Refusé      Confirmé    Reporter à N+1
  *                        │
  *                     Réalisé
  *
- * La case du projet est `actuel` ; un CLIC sur une autre case y fait passer
- * le projet (statut libre côté base). Deux niveaux d'accord (150, demande PO
- * du 12/11/2026) : on ne CONFIRME qu'un projet prévalidé, on ne RÉALISE
- * qu'un projet confirmé. Chaque niveau est un interrupteur : recliquer sa
- * case le retire. Le report n'est pas un statut : sa case envoie le projet
- * dans le budget de l'année suivante, en « Proposition ».
+ * Deux niveaux d'accord (150, demandes PO du 12/11/2026), et à CHACUN on
+ * peut refuser ou reporter : le 2e accord peut échouer. Refuser à la
+ * confirmation garde la trace de la prévalidation ; y reporter envoie le
+ * projet l'an prochain, toujours prévalidé. On ne CONFIRME qu'un projet
+ * prévalidé, on ne RÉALISE qu'un projet confirmé. Chaque accord est un
+ * interrupteur : recliquer sa case le retire.
+ *
+ * `refusApresPrevalidation` : le projet refusé l'a été au 2e niveau (il
+ * garde sa date de prévalidation).
  */
 export function schemaCapex(
   statutId: number,
   annee: number,
   noms: Map<number, string>,
+  refusApresPrevalidation = false,
 ): SchemaCapex {
+  const refus = statutId === ID_REFUSE
+  const refus1 = refus && !refusApresPrevalidation
+  const refus2 = refus && refusApresPrevalidation
   const prevalideOuPlus = estPrevalideOuPlus(statutId)
   const confirmeOuPlus = estConfirmeOuPlus(statutId)
+  /** Le 1er accord est acquis (ou l'était quand le 2e a échoué). */
+  const niveau2 = prevalideOuPlus || refus2
   const etat = (id: number, fait: boolean): EtatCaseCapex =>
     id === statutId ? 'actuel' : fait ? 'fait' : 'libre'
-  const action = (
-    id: number,
-    cle: CleActionCapex,
-    a = annee,
-  ): ActionCapex | null =>
-    id === statutId ? null : { cle, statutId: id, annee: a }
   const connu = [
     ID_DEMANDE,
     ID_PREVALIDE,
@@ -335,7 +346,9 @@ export function schemaCapex(
         ? // Revenir à « Prévalidé » = retirer la confirmation.
           { cle: 'devalider', statutId: ID_PREVALIDE, annee }
         : {
-            cle: statutId === ID_REALISE ? 'rouvrir' : 'prevalider',
+            // Réalisé, ou refusé à la confirmation : on y revient, la date
+            // de prévalidation est gardée.
+            cle: statutId === ID_REALISE || refus2 ? 'rouvrir' : 'prevalider',
             statutId: ID_PREVALIDE,
             annee,
           }
@@ -348,17 +361,35 @@ export function schemaCapex(
         : statutId === ID_PREVALIDE
           ? { cle: 'valider', statutId: ID_VALIDE, annee }
           : null
+  const caseRefus = (
+    actuel: boolean,
+    action: ActionCapex | null,
+  ): CaseCapex => ({
+    libelle: nomStatutCapex(ID_REFUSE, noms),
+    statutId: ID_REFUSE,
+    etat: actuel ? 'actuel' : 'libre',
+    action,
+  })
+  const caseReport = (action: ActionCapex | null): CaseCapex => ({
+    libelle: `Reporter à ${String(annee + 1)}`,
+    statutId: null,
+    etat: 'libre',
+    action,
+  })
   return {
     demande: {
       libelle: nomStatutCapex(ID_DEMANDE, noms),
       statutId: ID_DEMANDE,
       etat: etat(ID_DEMANDE, connu),
-      action: action(ID_DEMANDE, 'relancer'),
+      action:
+        statutId === ID_DEMANDE
+          ? null
+          : { cle: 'relancer', statutId: ID_DEMANDE, annee },
     },
     prevalide: {
       libelle: nomStatutCapex(ID_PREVALIDE, noms),
       statutId: ID_PREVALIDE,
-      etat: etat(ID_PREVALIDE, confirmeOuPlus),
+      etat: etat(ID_PREVALIDE, confirmeOuPlus || refus2),
       action: prevalide,
     },
     valide: {
@@ -378,24 +409,31 @@ export function schemaCapex(
         ? { cle: 'realiser', statutId: ID_REALISE, annee }
         : null,
     },
-    refuse: {
-      libelle: nomStatutCapex(ID_REFUSE, noms),
-      statutId: ID_REFUSE,
-      etat: etat(ID_REFUSE, false),
-      action: { cle: 'refuser', statutId: ID_REFUSE, annee },
-    },
-    reporte: {
-      libelle: `Reporter à ${String(annee + 1)}`,
-      statutId: null,
-      etat: 'libre',
-      action: { cle: 'reporter', statutId: ID_DEMANDE, annee: annee + 1 },
-    },
+    // 1er niveau : refus / report de la proposition.
+    refuse: caseRefus(refus1, { cle: 'refuser', statutId: ID_REFUSE, annee }),
+    reporte: caseReport({
+      cle: 'reporter',
+      statutId: ID_DEMANDE,
+      annee: annee + 1,
+    }),
+    // 2e niveau : seulement une fois le 1er accord acquis.
+    refuse2: caseRefus(
+      refus2,
+      niveau2 ? { cle: 'refuser2', statutId: ID_REFUSE, annee } : null,
+    ),
+    reporte2: caseReport(
+      niveau2
+        ? { cle: 'reporter', statutId: ID_PREVALIDE, annee: annee + 1 }
+        : null,
+    ),
     fleches: {
-      versPrevalide: prevalideOuPlus ? 'ok' : 'libre',
+      versPrevalide: niveau2 ? 'ok' : 'libre',
       versValide: confirmeOuPlus ? 'ok' : 'libre',
-      versRefuse: statutId === ID_REFUSE ? 'refus' : 'libre',
+      versRefuse: refus1 ? 'refus' : 'libre',
       versReporte: 'libre',
       versRealise: statutId === ID_REALISE ? 'ok' : 'libre',
+      versRefuse2: refus2 ? 'refus' : 'libre',
+      versReporte2: 'libre',
     },
   }
 }
@@ -459,9 +497,12 @@ export function datesCapex(
   return {
     demande: inv.date_demande,
     // Date saisie (150), sinon celle du journal.
+    // Refusé à la confirmation : la prévalidation reste vraie.
     prevalide: estPrevalideOuPlus(statut)
       ? (inv.date_prevalidation ?? derniere(ID_PREVALIDE))
-      : null,
+      : statut === ID_REFUSE
+        ? inv.date_prevalidation
+        : null,
     // Date saisie (146), sinon celle du journal (dossiers d'avant 146).
     valide: estConfirmeOuPlus(statut)
       ? (inv.date_validation ?? derniere(ID_VALIDE))
