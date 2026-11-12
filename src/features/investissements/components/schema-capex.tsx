@@ -502,8 +502,26 @@ interface PropsSchema {
   disabled?: boolean
 }
 
+/**
+ * UN SEUL Refusé et UN SEUL Reporter à l'écran (demande PO du 12/11/2026) :
+ * ceux du niveau où se trouve le projet. Avant la prévalidation, ils sont à
+ * côté de « Prévalidé » ; une fois le 1er accord acquis (ou refusé à la
+ * confirmation), ils passent à côté de « Confirmé ».
+ */
+const auNiveau2 = (schema: Schema) => schema.prevalide.etat !== 'libre'
+
+/** Ne garde que la branche du milieu quand le niveau n'est pas le bon. */
+const seulementSuite = <T extends { vers: 0 | 1 | 2 }>(
+  liens: T[],
+  garder: boolean,
+) => (garder ? liens : liens.filter((l) => l.vers === 1))
+
 /** Liens de la fourche qui part de la sélection. */
 function liensFourche(schema: Schema) {
+  return seulementSuite(liensFourche1(schema), !auNiveau2(schema))
+}
+
+function liensFourche1(schema: Schema) {
   const f = schema.fleches
   const e = estompees(schema)
   return [
@@ -548,6 +566,10 @@ function estompees(schema: Schema): Set<CleCase> {
 
 /** Liens de la 2e fourche, qui part de « Prévalidé » (150). */
 function liensFourche2(schema: Schema) {
+  return seulementSuite(liensFourche2Tous(schema), auNiveau2(schema))
+}
+
+function liensFourche2Tous(schema: Schema) {
   const f = schema.fleches
   const e = estompees(schema)
   return [
@@ -722,6 +744,8 @@ function SchemaHorizontal({
   const props = { onAction, disabled }
   const e = estompees(schema)
   const fait = choixFait(schema)
+  // Refusé / Reporter : seulement au niveau où en est le projet.
+  const n2 = auNiveau2(schema)
   const k = Math.max(rangeesDevis, 1)
   const cellule = 'flex items-center py-2 @container'
   const case_ = (cle: CleCase) => (
@@ -798,9 +822,9 @@ function SchemaHorizontal({
 
       {/* 5. La décision. */}
       <div className="grid grid-rows-3">
-        <div className={cellule}>{case_('refuse')}</div>
+        <div className={cellule}>{!n2 && case_('refuse')}</div>
         <div className={cellule}>{case_('prevalide')}</div>
-        <div className={cellule}>{case_('reporte')}</div>
+        <div className={cellule}>{!n2 && case_('reporte')}</div>
       </div>
 
       {/* 6. Prévalidé → Refusé / Confirmé / Reporter (150). */}
@@ -808,9 +832,9 @@ function SchemaHorizontal({
         <Liens orientation="h" liens={liensFourche2(schema)} />
       </div>
       <div className="grid grid-rows-3">
-        <div className={cellule}>{case_('refuse2')}</div>
+        <div className={cellule}>{n2 && case_('refuse2')}</div>
         <div className={cellule}>{case_('valide')}</div>
-        <div className={cellule}>{case_('reporte2')}</div>
+        <div className={cellule}>{n2 && case_('reporte2')}</div>
       </div>
 
       {/* 7. Confirmé → Réalisé. */}
@@ -860,6 +884,8 @@ function SchemaVertical({
   const props = { onAction, disabled }
   const e = estompees(schema)
   const fait = choixFait(schema)
+  // Refusé / Reporter : seulement au niveau où en est le projet.
+  const n2 = auNiveau2(schema)
   const trois = 'grid grid-cols-3'
   const cellule = 'flex px-1 @container'
   const case_ = (cle: CleCase) => (
@@ -889,17 +915,17 @@ function SchemaVertical({
         <Liens orientation="v" liens={liensFourche(schema)} />
       </div>
       <div className={trois}>
-        <div className={cellule}>{case_('refuse')}</div>
+        <div className={cellule}>{!n2 && case_('refuse')}</div>
         <div className={cellule}>{case_('prevalide')}</div>
-        <div className={cellule}>{case_('reporte')}</div>
+        <div className={cellule}>{!n2 && case_('reporte')}</div>
       </div>
       <div className="relative h-12">
         <Liens orientation="v" liens={liensFourche2(schema)} />
       </div>
       <div className={trois}>
-        <div className={cellule}>{case_('refuse2')}</div>
+        <div className={cellule}>{n2 && case_('refuse2')}</div>
         <div className={cellule}>{case_('valide')}</div>
-        <div className={cellule}>{case_('reporte2')}</div>
+        <div className={cellule}>{n2 && case_('reporte2')}</div>
       </div>
       <div className="relative h-10">
         <LienSuite
