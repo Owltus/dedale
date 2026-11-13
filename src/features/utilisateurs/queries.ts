@@ -76,7 +76,7 @@ export const utilisateursQueries = {
         const { data } = await supabase
           .from('users')
           .select(
-            'id, nom_complet, est_actif, anonymized_at, role_id, created_at, roles(code, description)',
+            'id, nom_complet, est_actif, acces_ia, anonymized_at, role_id, created_at, roles(code, description)',
           )
           .order('nom_complet')
           .throwOnError()

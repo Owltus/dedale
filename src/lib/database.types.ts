@@ -3564,6 +3564,7 @@ export type Database = {
       }
       users: {
         Row: {
+          acces_ia: boolean
           anonymized_at: string | null
           created_at: string
           created_by: string | null
@@ -3576,6 +3577,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acces_ia?: boolean
           anonymized_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -3588,6 +3590,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acces_ia?: boolean
           anonymized_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -3927,6 +3930,7 @@ export type Database = {
       anonymize_user: {
         Args: { p_user_id: string }
         Returns: {
+          acces_ia: boolean
           anonymized_at: string | null
           created_at: string
           created_by: string | null
@@ -4186,6 +4190,7 @@ export type Database = {
         Returns: undefined
       }
       synchroniser_ops_ot: { Args: { p_ot_id: string }; Returns: undefined }
+      via_connecteur: { Args: never; Returns: boolean }
     }
     Enums: {
       categorie_scope: "equipement" | "gamme" | "mixte" | "operation" | "parc"

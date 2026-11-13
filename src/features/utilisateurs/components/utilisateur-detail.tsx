@@ -6,6 +6,7 @@ import type { UserRow } from './utilisateur-types'
 import { IdentityCard } from './utilisateur-identite-card'
 import { AdminSitesNotice, SitesCard } from './utilisateur-sites-card'
 import { AccountCard } from './utilisateur-admin-card'
+import { AccesClaudeCard } from './utilisateur-acces-claude-card'
 import * as perm from '@/lib/permissions'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
@@ -74,6 +75,8 @@ export function UtilisateurDetail({
         ) : (
           <SitesCard userId={user.id} canEdit={canEdit} />
         )}
+
+        {isAdmin && <AccesClaudeCard user={user} />}
 
         {isAdmin && !isSelf && <AccountCard user={user} />}
       </>

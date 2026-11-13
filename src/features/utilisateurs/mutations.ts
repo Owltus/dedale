@@ -62,6 +62,26 @@ export function useToggleActif() {
 }
 
 /**
+ * Ouvre / ferme l'« Accès Claude » d'un compte (153) : la personne peut alors
+ * utiliser Dédale depuis Claude, avec ses propres droits. Côté base : admin
+ * seul, depuis l'application seulement (trigger protect_users_sensitive_columns).
+ */
+export function useToggleAccesIa() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { id: string; accesIa: boolean }) => {
+      await supabase
+        .from('users')
+        .update({ acces_ia: p.accesIa })
+        .eq('id', p.id)
+        .throwOnError()
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: utilisateursQueries.all() }),
+  })
+}
+
+/**
  * Anonymisation RGPD (droit à l'effacement) via la RPC `anonymize_user`.
  * Réservée admin, auto-anonymisation interdite (contrôlé côté base). Remplace
  * les PII par des valeurs neutres et désactive le compte, en conservant la

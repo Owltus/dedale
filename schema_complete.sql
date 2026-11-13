@@ -714,6 +714,9 @@ CREATE TABLE users (
     -- de l'entrée audit_log forensic.
     anonymized_at TIMESTAMPTZ,
     est_actif BOOLEAN NOT NULL DEFAULT true,
+    -- 153 — « Accès Claude » : autorise le compte à passer par le connecteur
+    -- Claude (jeton OAuth, claim client_id). Admin seul, depuis l'application.
+    acces_ia BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -782,16 +785,33 @@ COMMENT ON TABLE user_sites IS 'Scope sites pour les rôles site-scopés (manage
 -- public.current_role() : rôle de l'user connecté ACTIF
 -- Renvoie NULL si user désactivé ou inexistant.
 -- ─────────────────────────────────────────────────────────────────────────────
+-- 153 — public.via_connecteur() : vrai si le jeton a été émis à un client OAuth
+-- (connecteur Claude), faux pour l'application. Les 3 helpers ci-dessous
+-- traitent alors un compte sans « Accès Claude » comme désactivé.
+CREATE OR REPLACE FUNCTION public.via_connecteur() RETURNS boolean
+    LANGUAGE sql STABLE
+    SET search_path = ''
+AS $
+    SELECT coalesce(
+        nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'client_id',
+        ''
+    ) <> ''
+$;
+COMMENT ON FUNCTION public.via_connecteur() IS
+    'Vrai si la requête porte un jeton émis à un client OAuth (connecteur Claude) et non à l''application (153).';
+GRANT EXECUTE ON FUNCTION public.via_connecteur() TO authenticated, service_role;
+
 CREATE OR REPLACE FUNCTION public.current_role() RETURNS TEXT
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path = ''
-AS $$
+AS $
     SELECT r.code
     FROM public.users u
     JOIN public.roles r ON r.id = u.role_id
     WHERE u.id = (SELECT auth.uid()) AND u.est_actif = true
-$$;
-COMMENT ON FUNCTION public.current_role() IS 'Helper RLS — code rôle (TEXT) de l''user connecté ACTIF, lu via la table roles. NULL si désactivé (kill-switch F02).';
+      AND (u.acces_ia OR NOT (SELECT public.via_connecteur()))
+$;
+COMMENT ON FUNCTION public.current_role() IS 'Helper RLS — code rôle (TEXT) de l''user connecté ACTIF, lu via la table roles. NULL si désactivé (kill-switch F02) ou si l''appel vient du connecteur Claude sans « Accès Claude » (153).';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- public.has_site_access(target_site_id) : true si l'user peut accéder au site
@@ -809,6 +829,7 @@ AS $$
             WHERE u.id = (SELECT auth.uid())
               AND u.role_id = (SELECT id FROM public.roles WHERE code = 'admin')
               AND u.est_actif = true
+              AND (u.acces_ia OR NOT (SELECT public.via_connecteur()))
         )
         OR EXISTS (
             SELECT 1
@@ -817,9 +838,10 @@ AS $$
             WHERE us.user_id = (SELECT auth.uid())
               AND us.site_id = target_site_id
               AND u.est_actif = true
+              AND (u.acces_ia OR NOT (SELECT public.via_connecteur()))
         )
-$$;
-COMMENT ON FUNCTION public.has_site_access(UUID) IS 'Helper RLS — true si l''user a accès au site cible (admin partout, manager/technicien/lecteur/demandeur via user_sites).';
+$;
+COMMENT ON FUNCTION public.has_site_access(UUID) IS 'Helper RLS — true si l''user a accès au site cible (admin partout, manager/technicien/lecteur/demandeur via user_sites). Faux via le connecteur Claude sans « Accès Claude » (153).';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- public.shares_site_with(target_user_id) : true si l'user connecté partage AU
@@ -1080,11 +1102,22 @@ BEGIN
             USING ERRCODE = 'insufficient_privilege';
     END IF;
 
+    -- acces_ia (153) : l'interrupteur « Accès Claude ». Un admin, DEPUIS
+    -- L'APPLICATION : jamais depuis le connecteur (Claude ne s'ouvre pas de
+    -- droits à lui-même ni à d'autres), jamais par l'intéressé.
+    IF NEW.acces_ia IS DISTINCT FROM OLD.acces_ia
+       AND ((SELECT public.current_role()) IS DISTINCT FROM 'admin'
+            OR (SELECT public.via_connecteur())) THEN
+        RAISE EXCEPTION
+            'L''accès Claude ne s''accorde que par un admin, depuis l''application'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
     RETURN NEW;
 END;
-$$;
+$;
 COMMENT ON FUNCTION public.protect_users_sensitive_columns() IS
-    'Garde-fou par colonne sur public.users, là où la RLS ne sait pas aller : id et created_by immuables ; role_id et est_actif réservés à l''admin (est_actif tolère le cron système) ; anonymized_at réservé à l''anonymisation RGPD (115).';
+    'Garde-fou par colonne sur public.users, là où la RLS ne sait pas aller : id et created_by immuables ; role_id et est_actif réservés à l''admin (est_actif tolère le cron système) ; anonymized_at réservé à l''anonymisation RGPD (115) ; acces_ia réservé à l''admin depuis l''application (153).';
 
 CREATE TRIGGER trg_protect_users_sensitive
     BEFORE UPDATE ON users
@@ -1358,6 +1391,7 @@ AS $$
               WHERE u.id = (SELECT auth.uid())
                 AND u.role_id = (SELECT id FROM public.roles WHERE code = 'admin')
                 AND u.est_actif = true
+                AND (u.acces_ia OR NOT (SELECT public.via_connecteur()))
           )
           OR EXISTS (
               SELECT 1
@@ -1366,6 +1400,7 @@ AS $$
               WHERE us.user_id = (SELECT auth.uid())
                 AND us.site_id = s.id
                 AND u.est_actif = true
+                AND (u.acces_ia OR NOT (SELECT public.via_connecteur()))
           )
       );
 $$;
@@ -8441,6 +8476,21 @@ CREATE POLICY users_self_update ON users FOR UPDATE
     USING (id = (SELECT auth.uid()))
     WITH CHECK (id = (SELECT auth.uid()));
 
+-- 153 — Connecteur Claude sans « Accès Claude » : aucun accès, même au profil
+-- (seules policies de users / user_sites qui ne passent pas par les helpers).
+CREATE POLICY users_connecteur_restrictif ON public.users
+    AS RESTRICTIVE FOR ALL TO authenticated
+    USING      (NOT (SELECT public.via_connecteur()) OR (SELECT public.current_role()) IS NOT NULL)
+    WITH CHECK (NOT (SELECT public.via_connecteur()) OR (SELECT public.current_role()) IS NOT NULL);
+COMMENT ON POLICY users_connecteur_restrictif ON public.users IS
+    'Connecteur Claude sans « Accès Claude » : aucun accès, même à son propre profil (153).';
+CREATE POLICY user_sites_connecteur_restrictif ON public.user_sites
+    AS RESTRICTIVE FOR ALL TO authenticated
+    USING      (NOT (SELECT public.via_connecteur()) OR (SELECT public.current_role()) IS NOT NULL)
+    WITH CHECK (NOT (SELECT public.via_connecteur()) OR (SELECT public.current_role()) IS NOT NULL);
+COMMENT ON POLICY user_sites_connecteur_restrictif ON public.user_sites IS
+    'Connecteur Claude sans « Accès Claude » : aucun accès (153).';
+
 -- F22 (audit 2e passe) — protection RGPD sur users.telephone :
 -- Postgres ne supporte pas la RLS par colonne. On retire donc le SELECT direct
 -- sur telephone à tous les rôles authentifiés et on expose l'info via une RPC
@@ -13802,3 +13852,20 @@ WHERE ot.statut = 'cloture'
 
 COMMENT ON VIEW public.v_ot_documents_manquants IS
     '(132, 134) OT clôturés dont la gamme exige un document (gammes.document_requis) et qui n''en ont aucun. Historique compris. security_invoker : la RLS des OT s''applique.';
+
+
+-- ╔═════════════════════════════════════════════════════════════════════════╗
+-- ║  153_acces_ia_connecteur.sql — aucun fichier via le connecteur Claude
+-- ╚═════════════════════════════════════════════════════════════════════════╝
+DO $do$
+BEGIN
+    EXECUTE $pol$DROP POLICY IF EXISTS storage_objects_connecteur_sans_fichier ON storage.objects$pol$;
+    EXECUTE $pol$CREATE POLICY storage_objects_connecteur_sans_fichier ON storage.objects
+        AS RESTRICTIVE FOR ALL TO authenticated
+        USING (NOT (SELECT public.via_connecteur()))
+        WITH CHECK (NOT (SELECT public.via_connecteur()))$pol$;
+    EXECUTE $pol$COMMENT ON POLICY storage_objects_connecteur_sans_fichier ON storage.objects IS 'Connecteur Claude : jamais de fichier (PDF, images), que des données (153).'$pol$;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Policy Storage 153 non créée via SQL (% : %) : la créer depuis le tableau de bord.', SQLSTATE, SQLERRM;
+END
+$do$;

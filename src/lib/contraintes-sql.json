@@ -4424,6 +4424,14 @@
         "users_telephone_format": "CHECK (((telephone IS NULL) OR (telephone ~ '^\\+?[0-9][0-9 .\\-]{4,19}$'::text)))"
       },
       "colonnes": {
+        "acces_ia": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
         "anonymized_at": {
           "aUnDefaut": false,
           "echelle": null,

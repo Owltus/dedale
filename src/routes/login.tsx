@@ -13,10 +13,29 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 
+/**
+ * `autorisation` : identifiant d'une demande d'accès du connecteur Claude
+ * (écran /oauth/consent) à reprendre après la connexion. On ne garde QUE cet
+ * identifiant, jamais une adresse de retour : pas de redirection ouverte.
+ */
+const AUTORISATION = /^[A-Za-z0-9_-]{1,128}$/
+
 export const Route = createFileRoute('/login')({
-  beforeLoad: ({ context }) => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { autorisation?: string } =>
+    typeof search.autorisation === 'string' &&
+    AUTORISATION.test(search.autorisation)
+      ? { autorisation: search.autorisation }
+      : {},
+  beforeLoad: ({ context, search }) => {
     // Déjà connecté → pas de raison de voir la page de login.
     if (context.auth.session) {
+      if (search.autorisation)
+        throw redirect({
+          to: '/oauth/consent',
+          search: { authorization_id: search.autorisation },
+        })
       throw redirect({ to: '/' })
     }
   },
@@ -29,6 +48,7 @@ function LoginPage() {
   // dans l'onglet, sur un écran qui ne l'affiche plus.
   useDocumentTitle('Connexion')
   const navigate = useNavigate()
+  const { autorisation } = Route.useSearch()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +68,12 @@ function LoginPage() {
       setError(error.message)
       return
     }
-    await navigate({ to: '/' })
+    if (autorisation)
+      await navigate({
+        to: '/oauth/consent',
+        search: { authorization_id: autorisation },
+      })
+    else await navigate({ to: '/' })
   }
 
   return (

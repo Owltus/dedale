@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
 import { Route as AppUtilisateursRouteImport } from './routes/_app/utilisateurs'
 import { Route as AppTravauxRouteImport } from './routes/_app/travaux'
 import { Route as AppSitesRouteImport } from './routes/_app/sites'
@@ -65,6 +66,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppUtilisateursRoute = AppUtilisateursRouteImport.update({
   id: '/utilisateurs',
@@ -286,6 +292,7 @@ export interface FileRoutesByFullPath {
   '/sites': typeof AppSitesRoute
   '/travaux': typeof AppTravauxRouteWithChildren
   '/utilisateurs': typeof AppUtilisateursRouteWithChildren
+  '/oauth/consent': typeof OauthConsentRoute
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/demandes/$demande': typeof AppDemandesDemandeRoute
   '/equipements/$': typeof AppEquipementsSplatRoute
@@ -319,6 +326,7 @@ export interface FileRoutesByTo {
   '/profil': typeof AppProfilRoute
   '/registre': typeof AppRegistreRoute
   '/sites': typeof AppSitesRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/': typeof AppIndexRoute
   '/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/demandes/$demande': typeof AppDemandesDemandeRoute
@@ -364,6 +372,7 @@ export interface FileRoutesById {
   '/_app/sites': typeof AppSitesRoute
   '/_app/travaux': typeof AppTravauxRouteWithChildren
   '/_app/utilisateurs': typeof AppUtilisateursRouteWithChildren
+  '/oauth/consent': typeof OauthConsentRoute
   '/_app/': typeof AppIndexRoute
   '/_app/bibliotheque/$': typeof AppBibliothequeSplatRoute
   '/_app/demandes/$demande': typeof AppDemandesDemandeRoute
@@ -410,6 +419,7 @@ export interface FileRouteTypes {
     | '/sites'
     | '/travaux'
     | '/utilisateurs'
+    | '/oauth/consent'
     | '/bibliotheque/$'
     | '/demandes/$demande'
     | '/equipements/$'
@@ -443,6 +453,7 @@ export interface FileRouteTypes {
     | '/profil'
     | '/registre'
     | '/sites'
+    | '/oauth/consent'
     | '/'
     | '/bibliotheque/$'
     | '/demandes/$demande'
@@ -487,6 +498,7 @@ export interface FileRouteTypes {
     | '/_app/sites'
     | '/_app/travaux'
     | '/_app/utilisateurs'
+    | '/oauth/consent'
     | '/_app/'
     | '/_app/bibliotheque/$'
     | '/_app/demandes/$demande'
@@ -515,6 +527,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  OauthConsentRoute: typeof OauthConsentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -539,6 +552,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/utilisateurs': {
       id: '/_app/utilisateurs'
@@ -1025,6 +1045,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  OauthConsentRoute: OauthConsentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
