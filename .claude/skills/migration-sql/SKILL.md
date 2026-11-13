@@ -82,6 +82,7 @@ Règles de contenu :
 Éditeur SQL Supabase. **Pièges vérifiés** :
 
 - Pas de `TEMP TABLE` réutilisée entre deux instructions : utiliser un CTE.
+- **Nouvelle colonne sur `users`** : la lecture y est accordée colonne par colonne (155, pour cacher `telephone`). Ajouter la colonne au `GRANT SELECT (…) ON public.users TO authenticated`, sinon elle est illisible (« permission denied »). Et un `REVOKE SELECT (colonne)` seul ne cache rien tant que le SELECT de table existe.
 - L'éditeur peut avoir **écrit malgré un message d'erreur** : toujours vérifier l'état après coup.
 - Un script qui désactive des triggers doit les réactiver — vérifier explicitement qu'ils le sont.
 
