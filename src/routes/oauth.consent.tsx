@@ -5,6 +5,10 @@ import { ShieldCheck, ShieldOff } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { errorMessage } from '@/lib/form'
 import { useAuth } from '@/auth'
+import {
+  lieuDeRetour,
+  retourDeConfiance,
+} from '@/features/connecteur/confiance'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -62,8 +66,12 @@ function useDemande(authorizationId: string | undefined, userId: string) {
       )
       if (error) throw error
       // Déjà autorisé auparavant : Supabase renvoie directement le retour.
-      if (!('authorization_id' in data))
+      // On ne suit ce retour que s'il mène bien à Claude (154).
+      if (!('authorization_id' in data)) {
+        if (!retourDeConfiance(data.redirect_url))
+          throw new Error('Adresse de retour non reconnue')
         return { retour: data.redirect_url } as const
+      }
       const { data: moi } = await supabase
         .from('users')
         .select('acces_ia, est_actif')
@@ -75,6 +83,8 @@ function useDemande(authorizationId: string | undefined, userId: string) {
         client: data.client.name || 'Application inconnue',
         email: data.user.email,
         autorise: moi?.acces_ia === true && moi.est_actif,
+        confiance: retourDeConfiance(data.redirect_uri),
+        lieu: lieuDeRetour(data.redirect_uri),
       } as const
     },
   })
@@ -87,6 +97,7 @@ function ConsentPage() {
   const demande = useDemande(authorizationId, session?.user.id ?? '')
   const [envoi, setEnvoi] = useState<'oui' | 'non' | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [refusee, setRefusee] = useState(false)
 
   if (demande.data?.retour) window.location.assign(demande.data.retour)
 
@@ -94,14 +105,20 @@ function ConsentPage() {
     if (!authorizationId) return
     setErreur(null)
     setEnvoi(oui ? 'oui' : 'non')
-    // Par défaut, supabase-js redirige lui-même vers l'adresse renvoyée.
+    // Application non reconnue : on n'autorise jamais, et on ne renvoie pas
+    // la personne vers son adresse (celle de l'escroc) après le refus.
+    const confiance = demande.data?.confiance === true
+    if (oui && !confiance) return
+    // Sinon supabase-js redirige lui-même vers l'adresse renvoyée (Claude).
     const { error } = oui
       ? await supabase.auth.oauth.approveAuthorization(authorizationId)
-      : await supabase.auth.oauth.denyAuthorization(authorizationId)
+      : await supabase.auth.oauth.denyAuthorization(authorizationId, {
+          skipBrowserRedirect: !confiance,
+        })
     if (error) {
       setErreur(errorMessage(error))
       setEnvoi(null)
-    }
+    } else if (!oui && !confiance) setRefusee(true)
   }
 
   return (
@@ -155,7 +172,19 @@ function ConsentPage() {
                   </ul>
                 </div>
 
-                {demande.data.autorise ? (
+                <p className="text-sm text-muted-foreground">
+                  Après ta réponse, tu seras renvoyé vers{' '}
+                  <strong>{demande.data.lieu}</strong>.
+                </p>
+
+                {!demande.data.confiance ? (
+                  <p className="flex items-start gap-2 text-sm text-destructive">
+                    <ShieldOff className="mt-0.5 size-4 shrink-0" />
+                    Cette application ne renvoie pas vers Claude : ce n’est pas
+                    le connecteur officiel. Ne l’autorise pas. Si tu n’as rien
+                    demandé, préviens ton administrateur.
+                  </p>
+                ) : demande.data.autorise ? (
                   <p className="flex items-center gap-2 text-sm text-muted-foreground">
                     <ShieldCheck className="size-4 shrink-0" />
                     Ton administrateur t’a ouvert l’accès Claude.
@@ -170,16 +199,21 @@ function ConsentPage() {
                 )}
 
                 {erreur && <p className="text-sm text-destructive">{erreur}</p>}
+                {refusee && (
+                  <p className="text-sm text-muted-foreground">
+                    Demande refusée. Tu peux fermer cette page.
+                  </p>
+                )}
 
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button
                     variant="outline"
-                    disabled={envoi !== null}
+                    disabled={envoi !== null || refusee}
                     onClick={() => void repondre(false)}
                   >
                     {envoi === 'non' ? 'Refus…' : 'Refuser'}
                   </Button>
-                  {demande.data.autorise && (
+                  {demande.data.autorise && demande.data.confiance && (
                     <Button
                       disabled={envoi !== null}
                       onClick={() => void repondre(true)}

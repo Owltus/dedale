@@ -801,6 +801,54 @@ COMMENT ON FUNCTION public.via_connecteur() IS
     'Vrai si la requête porte un jeton émis à un client OAuth (connecteur Claude) et non à l''application (153).';
 GRANT EXECUTE ON FUNCTION public.via_connecteur() TO authenticated, service_role;
 
+-- 154 — Anti-hameçonnage : l'inscription des applications OAuth est publique.
+-- Une application n'est de confiance que si TOUTES ses adresses de retour
+-- mènent à Claude (claude.ai, claude.com) ou à l'ordinateur de la personne
+-- (localhost). Miroir front : src/features/connecteur/confiance.ts.
+CREATE OR REPLACE FUNCTION public.client_ia_de_confiance() RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path = ''
+AS $
+    WITH appel AS (
+        SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'client_id' AS client_id
+    ),
+    adresses AS (
+        SELECT trim(a) AS adresse
+        FROM   auth.oauth_clients c, appel,
+               regexp_split_to_table(coalesce(c.redirect_uris, ''), '[,\s]+') AS a
+        WHERE  c.id::text = appel.client_id
+          AND  c.deleted_at IS NULL
+          AND  trim(a) <> ''
+    )
+    SELECT EXISTS (SELECT 1 FROM adresses)
+       AND NOT EXISTS (
+            SELECT 1 FROM adresses
+            WHERE adresse !~ '^https://(claude\.ai|claude\.com)(/|$)'
+              AND adresse !~ '^http://(localhost|127\.0\.0\.1)(:[0-9]+)?(/|$)'
+       )
+$;
+COMMENT ON FUNCTION public.client_ia_de_confiance() IS
+    'Vrai si l''application OAuth du jeton ne renvoie que vers Claude (claude.ai, claude.com) ou l''ordinateur de la personne (localhost) — anti-hameçonnage (154).';
+REVOKE ALL ON FUNCTION public.client_ia_de_confiance() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.client_ia_de_confiance() TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.connecteur_ok(p_acces_ia boolean) RETURNS boolean
+    LANGUAGE plpgsql STABLE
+    SET search_path = ''
+AS $
+BEGIN
+    -- Appel de l'application : rien de plus à vérifier (pas de lecture inutile).
+    IF NOT public.via_connecteur() THEN
+        RETURN true;
+    END IF;
+    RETURN coalesce(p_acces_ia, false) AND public.client_ia_de_confiance();
+END;
+$;
+COMMENT ON FUNCTION public.connecteur_ok(boolean) IS
+    'Règle du connecteur Claude (153-154) : appel de l''application → vrai ; appel d''un connecteur → accès Claude du compte ET application de confiance.';
+REVOKE ALL ON FUNCTION public.connecteur_ok(boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.connecteur_ok(boolean) TO authenticated, service_role;
+
 CREATE OR REPLACE FUNCTION public.current_role() RETURNS TEXT
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path = ''
@@ -809,9 +857,9 @@ AS $
     FROM public.users u
     JOIN public.roles r ON r.id = u.role_id
     WHERE u.id = (SELECT auth.uid()) AND u.est_actif = true
-      AND (u.acces_ia OR NOT (SELECT public.via_connecteur()))
+      AND public.connecteur_ok(u.acces_ia)
 $;
-COMMENT ON FUNCTION public.current_role() IS 'Helper RLS — code rôle (TEXT) de l''user connecté ACTIF, lu via la table roles. NULL si désactivé (kill-switch F02) ou si l''appel vient du connecteur Claude sans « Accès Claude » (153).';
+COMMENT ON FUNCTION public.current_role() IS 'Helper RLS — code rôle (TEXT) de l''user connecté ACTIF, lu via la table roles. NULL si désactivé (kill-switch F02) ou si l''appel vient d''un connecteur non autorisé (153-154).';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- public.has_site_access(target_site_id) : true si l'user peut accéder au site
@@ -829,7 +877,7 @@ AS $$
             WHERE u.id = (SELECT auth.uid())
               AND u.role_id = (SELECT id FROM public.roles WHERE code = 'admin')
               AND u.est_actif = true
-              AND (u.acces_ia OR NOT (SELECT public.via_connecteur()))
+              AND public.connecteur_ok(u.acces_ia)
         )
         OR EXISTS (
             SELECT 1
@@ -838,10 +886,10 @@ AS $$
             WHERE us.user_id = (SELECT auth.uid())
               AND us.site_id = target_site_id
               AND u.est_actif = true
-              AND (u.acces_ia OR NOT (SELECT public.via_connecteur()))
+              AND public.connecteur_ok(u.acces_ia)
         )
 $;
-COMMENT ON FUNCTION public.has_site_access(UUID) IS 'Helper RLS — true si l''user a accès au site cible (admin partout, manager/technicien/lecteur/demandeur via user_sites). Faux via le connecteur Claude sans « Accès Claude » (153).';
+COMMENT ON FUNCTION public.has_site_access(UUID) IS 'Helper RLS — true si l''user a accès au site cible (admin partout, manager/technicien/lecteur/demandeur via user_sites). Faux via un connecteur non autorisé (153-154).';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- public.shares_site_with(target_user_id) : true si l'user connecté partage AU
@@ -1391,7 +1439,7 @@ AS $$
               WHERE u.id = (SELECT auth.uid())
                 AND u.role_id = (SELECT id FROM public.roles WHERE code = 'admin')
                 AND u.est_actif = true
-                AND (u.acces_ia OR NOT (SELECT public.via_connecteur()))
+                AND public.connecteur_ok(u.acces_ia)
           )
           OR EXISTS (
               SELECT 1
@@ -1400,7 +1448,7 @@ AS $$
               WHERE us.user_id = (SELECT auth.uid())
                 AND us.site_id = s.id
                 AND u.est_actif = true
-                AND (u.acces_ia OR NOT (SELECT public.via_connecteur()))
+                AND public.connecteur_ok(u.acces_ia)
           )
       );
 $$;
