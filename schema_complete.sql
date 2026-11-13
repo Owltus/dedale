@@ -8547,7 +8547,15 @@ COMMENT ON POLICY user_sites_connecteur_restrictif ON public.user_sites IS
 --   - SELECT * FROM users ne renvoie PLUS la colonne telephone aux non-privilégiés.
 --   - Les frontends qui ont besoin du téléphone appellent select get_user_telephone('uuid').
 --   - Les rôles non autorisés à voir un téléphone reçoivent NULL silencieusement.
-REVOKE SELECT (telephone) ON public.users FROM authenticated, anon;
+--
+-- 155 — Le REVOKE de colonne seul était SANS EFFET : un SELECT de table couvre
+-- toutes les colonnes. On retire donc le SELECT de table et on l'accorde
+-- colonne par colonne, telephone exceptée. PIÈGE : toute nouvelle colonne de
+-- users doit être ajoutée à ce GRANT, sinon elle est illisible.
+REVOKE SELECT ON public.users FROM authenticated, anon;
+GRANT SELECT (id, role_id, nom_complet, photo_path, anonymized_at, est_actif,
+              created_at, updated_at, created_by, acces_ia)
+    ON public.users TO authenticated;
 
 -- F28 (audit sécu) — règle hiérarchique calquée sur l'accès aux prestataires :
 --   - self                       : toujours autorisé
