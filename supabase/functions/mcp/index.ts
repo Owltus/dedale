@@ -27,8 +27,23 @@ import { OUTILS, executerOutil, type Contexte } from './outils.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-const RESSOURCE = `${SUPABASE_URL}/functions/v1/mcp`
-const METADONNEES = `${RESSOURCE}/.well-known/oauth-protected-resource`
+// Deux portes d'entrée, même connecteur :
+// - directe : https://<projet>.supabase.co/functions/v1/mcp ;
+// - publique : https://dedale.naostack.com/mcp, que Vercel relaie ici en
+//   ajoutant le segment `/dedale` (vercel.json). Claude affiche alors l'icône
+//   du site Dédale au lieu de celle de Supabase.
+// La « ressource » annoncée doit être l'adresse que Claude a saisie : on la
+// déduit de ce segment. Il ne donne aucun droit (seul le jeton en donne).
+const SITE_DEDALE = 'https://dedale.naostack.com'
+const RESSOURCE_DIRECTE = `${SUPABASE_URL}/functions/v1/mcp`
+const RESSOURCE_PUBLIQUE = `${SITE_DEDALE}/mcp`
+const viaDedale = (url: URL) => /\/mcp\/dedale(\/|$)/.test(url.pathname)
+const ressource = (url: URL) => (viaDedale(url) ? RESSOURCE_PUBLIQUE : RESSOURCE_DIRECTE)
+const metadonnees = (url: URL) => `${ressource(url)}/.well-known/oauth-protected-resource`
+const ICONES = [
+  { src: `${SITE_DEDALE}/favicon.png`, mimeType: 'image/png', sizes: ['189x189'] },
+  { src: `${SITE_DEDALE}/logo.svg`, mimeType: 'image/svg+xml', sizes: ['any'] },
+]
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
 
 const CORS = {
@@ -46,9 +61,9 @@ function json(corps: unknown, statut = 200, entetes: Record<string, string> = {}
   })
 }
 
-function nonAutorise(message: string) {
+function nonAutorise(url: URL, message: string) {
   return json({ error: 'invalid_token', error_description: message }, 401, {
-    'WWW-Authenticate': `Bearer resource_metadata="${METADONNEES}"`,
+    'WWW-Authenticate': `Bearer resource_metadata="${metadonnees(url)}"`,
   })
 }
 
@@ -82,7 +97,13 @@ async function traiter(m: Message, ctx: Contexte): Promise<unknown | null> {
       return ok({
         protocolVersion: VERSIONS.includes(demandee) ? demandee : VERSIONS[0],
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: 'dedale', title: 'Dédale', version: '1.0.0' },
+        serverInfo: {
+          name: 'dedale',
+          title: 'Dédale',
+          version: '1.0.0',
+          icons: ICONES,
+          websiteUrl: SITE_DEDALE,
+        },
         instructions: INSTRUCTIONS,
       })
     }
@@ -107,7 +128,7 @@ Deno.serve(async (req) => {
   // Métadonnées de ressource protégée (RFC 9728) : où se connecter.
   if (url.pathname.endsWith('/.well-known/oauth-protected-resource')) {
     return json({
-      resource: RESSOURCE,
+      resource: ressource(url),
       authorization_servers: [`${SUPABASE_URL}/auth/v1`],
       bearer_methods_supported: ['header'],
       resource_name: 'Dédale',
@@ -116,7 +137,7 @@ Deno.serve(async (req) => {
 
   const entete = req.headers.get('Authorization') ?? ''
   const jeton = entete.startsWith('Bearer ') ? entete.slice(7).trim() : ''
-  if (!jeton) return nonAutorise('Connexion à Dédale requise.')
+  if (!jeton) return nonAutorise(url, 'Connexion à Dédale requise.')
 
   // Pas de flux SSE côté serveur : uniquement des réponses JSON.
   if (req.method !== 'POST') return json({ error: 'Méthode non prise en charge' }, 405, { Allow: 'POST' })
@@ -126,10 +147,10 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   })
   const { data: qui, error: erreurJeton } = await supabase.auth.getUser(jeton)
-  if (erreurJeton || !qui.user) return nonAutorise('Jeton invalide ou expiré.')
+  if (erreurJeton || !qui.user) return nonAutorise(url, 'Jeton invalide ou expiré.')
   const claims = charge(jeton)
   if (typeof claims.client_id !== 'string' || claims.client_id === '')
-    return nonAutorise('Seuls les jetons émis au connecteur sont acceptés.')
+    return nonAutorise(url, 'Seuls les jetons émis au connecteur sont acceptés.')
 
   let corps: unknown
   try {
