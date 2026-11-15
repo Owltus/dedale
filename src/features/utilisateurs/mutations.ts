@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { utilisateursQueries } from './queries'
 import { invokeFunction } from './edge'
 import type { CreerCompteFormValues } from './schemas'
+import { colonnesAccesClaude, type NiveauAccesClaude } from './acces-claude'
 import type { Database } from '@/lib/database.types'
 
 type UserUpdate = Database['public']['Tables']['users']['Update']
@@ -66,13 +67,14 @@ export function useToggleActif() {
  * utiliser Dédale depuis Claude, avec ses propres droits. Côté base : admin
  * seul, depuis l'application seulement (trigger protect_users_sensitive_columns).
  */
-export function useToggleAccesIa() {
+export function useChangerAccesClaude() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (p: { id: string; accesIa: boolean }) => {
+    mutationFn: async (p: { id: string; niveau: NiveauAccesClaude }) => {
+      // Les deux colonnes ensemble : l'écriture suppose la lecture (CHECK 156).
       await supabase
         .from('users')
-        .update({ acces_ia: p.accesIa })
+        .update(colonnesAccesClaude(p.niveau))
         .eq('id', p.id)
         .throwOnError()
     },

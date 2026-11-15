@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Replace } from 'lucide-react'
+import { MessageSquareText, Replace } from 'lucide-react'
 import {
   LIBELLES_STATUT_OP,
   STATUTS_OP_SAISISSABLES,
@@ -262,6 +262,19 @@ export function OperationRow({
           {operation.description?.trim() && (
             <p className="truncate text-xs text-muted-foreground">
               {operation.description}
+            </p>
+          )}
+          {/* Commentaire d'exécution (saisi via Claude, 158) : ce que la
+              personne a signalé sur le terrain. */}
+          {operation.commentaires?.trim() && (
+            <p
+              className="mt-0.5 flex items-start gap-1 text-xs text-foreground/80"
+              title={operation.commentaires}
+            >
+              <MessageSquareText className="mt-px size-3 shrink-0 text-muted-foreground" />
+              <span className="line-clamp-3 whitespace-pre-line">
+                {operation.commentaires}
+              </span>
             </p>
           )}
           {/* ADR 0012 : sans cette phrase, l'absence d'historique s'affiche comme

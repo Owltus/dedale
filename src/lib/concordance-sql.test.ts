@@ -882,6 +882,8 @@ const CHECKS_NON_SONDES: Record<string, string> = {
     'Colonne non saisie dans `tacheSchema` : le statut se change depuis la fiche.',
   'users.users_photo_path_format':
     'Chemin d’avatar : posé par l’upload, jamais tapé.',
+  'users.users_ecriture_ia_suppose_lecture':
+    'Pas un champ de formulaire : `colonnesAccesClaude` écrit toujours les deux colonnes ensemble (testé dans acces-claude.test.ts).',
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

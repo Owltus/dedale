@@ -83,6 +83,7 @@ Règles de contenu :
 
 - Pas de `TEMP TABLE` réutilisée entre deux instructions : utiliser un CTE.
 - **Nouvelle colonne sur `users`** : la lecture y est accordée colonne par colonne (155, pour cacher `telephone`). Ajouter la colonne au `GRANT SELECT (…) ON public.users TO authenticated`, sinon elle est illisible (« permission denied »). Et un `REVOKE SELECT (colonne)` seul ne cache rien tant que le SELECT de table existe.
+- **Connecteur Claude — garde d'entrée (157, ADR 0015)** : via Claude, l'API ne laisse passer que la lecture, `current_role`, `get_my_sites` et les RPC `claude_*`. Une écriture destinée à Claude **doit** être une fonction `claude_*` (SECURITY INVOKER, aperçu + code, comme en 158) ; une nouvelle RPC de lecture utilisée par le connecteur doit être ajoutée à `garde_connecteur`. Nouvelle fonction : `REVOKE … FROM PUBLIC, anon` (Supabase accorde EXECUTE par défaut).
 - L'éditeur peut avoir **écrit malgré un message d'erreur** : toujours vérifier l'état après coup.
 - Un script qui désactive des triggers doit les réactiver — vérifier explicitement qu'ils le sont.
 

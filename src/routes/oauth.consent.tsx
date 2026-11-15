@@ -74,7 +74,7 @@ function useDemande(authorizationId: string | undefined, userId: string) {
       }
       const { data: moi } = await supabase
         .from('users')
-        .select('acces_ia, est_actif')
+        .select('acces_ia, acces_ia_ecriture, est_actif')
         .eq('id', userId)
         .maybeSingle()
         .throwOnError()
@@ -83,6 +83,7 @@ function useDemande(authorizationId: string | undefined, userId: string) {
         client: data.client.name || 'Application inconnue',
         email: data.user.email,
         autorise: moi?.acces_ia === true && moi.est_actif,
+        modification: moi?.acces_ia_ecriture === true,
         confiance: retourDeConfiance(data.redirect_uri),
         lieu: lieuDeRetour(data.redirect_uri),
       } as const
@@ -165,7 +166,9 @@ function ConsentPage() {
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
                     <li>avec tes droits : les mêmes sites, le même rôle ;</li>
                     <li>
-                      lire tes données et, si tu le confirmes, en modifier ;
+                      {demande.data.modification
+                        ? 'lire tes données et enregistrer l’avancement des ordres de travail, toujours après t’avoir montré un aperçu à valider ;'
+                        : 'lire tes données, sans rien modifier ;'}
                     </li>
                     <li>jamais les fichiers (PDF, images) ;</li>
                     <li>tu pourras retirer l’accès à tout moment.</li>
@@ -187,7 +190,10 @@ function ConsentPage() {
                 ) : demande.data.autorise ? (
                   <p className="flex items-center gap-2 text-sm text-muted-foreground">
                     <ShieldCheck className="size-4 shrink-0" />
-                    Ton administrateur t’a ouvert l’accès Claude.
+                    Ton administrateur t’a ouvert l’accès Claude
+                    {demande.data.modification
+                      ? ' en lecture et modification.'
+                      : ' en lecture.'}
                   </p>
                 ) : (
                   <p className="flex items-start gap-2 text-sm text-warning">

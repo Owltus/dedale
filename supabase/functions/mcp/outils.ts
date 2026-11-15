@@ -1,4 +1,5 @@
-// Outils du connecteur Claude — LECTURE SEULE (étape 3 du plan connecteur).
+// Outils du connecteur Claude — lecture (étape 3) ; l'écriture vit dans
+// outils-ecriture.ts (étape 6a).
 //
 // Règles :
 //   - chaque outil lit avec le client de la personne (RLS) ; jamais de clé maître ;
@@ -7,21 +8,10 @@
 //   - textes de recherche nettoyés avant d'entrer dans un filtre PostgREST.
 
 import { z } from 'npm:zod@3.23.8'
-import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2'
+import { type Contexte, type Outil, type Resultat, ErreurOutil, date, dateFr } from './commun.ts'
+import { OUTILS_ECRITURE } from './outils-ecriture.ts'
 
-export type Contexte = { supabase: SupabaseClient; userId: string }
-type Resultat = { content: { type: 'text'; text: string }[]; isError?: boolean }
-type Outil = {
-  name: string
-  title: string
-  description: string
-  inputSchema: Record<string, unknown>
-  annotations: Record<string, unknown>
-  schema: z.ZodTypeAny
-  run: (args: never, ctx: Contexte) => Promise<unknown>
-}
-
-class ErreurOutil extends Error {}
+export type { Contexte }
 
 // ─── Aides ──────────────────────────────────────────────────────────────────
 
@@ -31,7 +21,6 @@ const STATUT_OT: Record<string, string> = {
   planifie: 'À faire', en_cours: 'En cours', cloture: 'Clôturé', annule: 'Annulé', reouvert: 'Rouvert',
 }
 
-const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date attendue au format AAAA-MM-JJ')
 const site = z.string().min(1).max(120).optional()
 const limite = (max: number, defaut: number) => z.number().int().min(1).max(max).default(defaut)
 const page = z.number().int().min(1).max(1000).default(1)
@@ -45,18 +34,6 @@ function nettoyer(texte: string | undefined): string | undefined {
 
 function jourIso(d: Date) {
   return d.toISOString().slice(0, 10)
-}
-
-/** « 18/11/2026 (S47) » — semaine ISO 8601, comme partout dans Dédale. */
-function dateFr(iso: string | null | undefined): string | null {
-  if (!iso) return null
-  const [a, m, j] = iso.slice(0, 10).split('-').map(Number)
-  const d = new Date(Date.UTC(a, m - 1, j))
-  const jour = (d.getUTCDay() + 6) % 7
-  d.setUTCDate(d.getUTCDate() - jour + 3)
-  const premierJeudi = new Date(Date.UTC(d.getUTCFullYear(), 0, 4))
-  const semaine = 1 + Math.round(((d.getTime() - premierJeudi.getTime()) / 86400000 - 3 + ((premierJeudi.getUTCDay() + 6) % 7)) / 7)
-  return `${String(j).padStart(2, '0')}/${String(m).padStart(2, '0')}/${a} (S${semaine})`
 }
 
 function ajouterJours(iso: string, jours: number) {
@@ -188,7 +165,7 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'ordre_travail',
     title: 'Détail d’un ordre de travail',
-    description: 'Tout un OT : ses opérations (avec mesures, seuils, conformité), les noms de ses documents, ses observations. L’identifiant vient de l’outil ordres_travail.',
+    description: 'Tout un OT : ses opérations (identifiant, type, statut, date, mesure, seuils, conformité, commentaire), les noms de ses documents, ses observations. L’identifiant vient de l’outil ordres_travail. À relire juste avant toute écriture.',
     inputSchema: { type: 'object', additionalProperties: false, required: ['id'], properties: { id: { type: 'string', description: 'Identifiant de l’OT' } } },
     annotations: LECTURE,
     schema: z.object({ id: z.string().uuid('Identifiant d’OT invalide') }).strict(),
@@ -203,7 +180,7 @@ const OUTILS_INTERNES: Outil[] = [
       if (!ot) throw new ErreurOutil('OT introuvable (ou hors de tes sites).')
       const [ops, docs, obs] = await Promise.all([
         ctx.supabase.from('operations_execution')
-          .select('nom, description, type_operation, nom_equipement, nom_localisation, statut, date_execution, valeur_mesuree, unite_symbole, seuil_minimum, seuil_maximum, est_conforme, index_pose, index_depose, commentaires, ordre')
+          .select('id, nom, description, type_operation, nom_equipement, nom_localisation, statut, date_execution, valeur_mesuree, unite_symbole, seuil_minimum, seuil_maximum, est_conforme, index_pose, index_depose, commentaires, ordre')
           .eq('ordre_travail_id', a.id).order('ordre'),
         ctx.supabase.from('documents_ordres_travail').select('commentaire, documents(nom_original, mime_type, uploaded_at)').eq('ordre_travail_id', a.id),
         ctx.supabase.from('observations').select('description, gravite, statut, echeance, date_levee').eq('ot_id', a.id),
@@ -555,7 +532,8 @@ const OUTILS_INTERNES: Outil[] = [
   },
 ]
 
-export const OUTILS = OUTILS_INTERNES
+const TOUS_LES_OUTILS: Outil[] = [...OUTILS_INTERNES, ...OUTILS_ECRITURE]
+export const OUTILS = TOUS_LES_OUTILS
 
 function texte(t: string, isError = false): Resultat {
   return { content: [{ type: 'text', text: t }], ...(isError ? { isError: true } : {}) }
@@ -563,7 +541,7 @@ function texte(t: string, isError = false): Resultat {
 
 /** Exécute un outil : contrôle d'accès, validation, traduction des erreurs. */
 export async function executerOutil(nom: string, args: Record<string, unknown>, ctx: Contexte): Promise<Resultat> {
-  const outil = OUTILS_INTERNES.find((o) => o.name === nom)
+  const outil = TOUS_LES_OUTILS.find((o) => o.name === nom)
   if (!outil) return texte(`Outil inconnu : ${nom}`, true)
 
   // Le verrou est en base (153) ; on le lit seulement pour un message clair.

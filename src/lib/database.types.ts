@@ -24,6 +24,7 @@ export type Database = {
           row_pk: string
           table_name: string
           user_id: string | null
+          via_client: string | null
         }
         Insert: {
           action: string
@@ -34,6 +35,7 @@ export type Database = {
           row_pk: string
           table_name: string
           user_id?: string | null
+          via_client?: string | null
         }
         Update: {
           action?: string
@@ -44,6 +46,7 @@ export type Database = {
           row_pk?: string
           table_name?: string
           user_id?: string | null
+          via_client?: string | null
         }
         Relationships: []
       }
@@ -3565,6 +3568,7 @@ export type Database = {
       users: {
         Row: {
           acces_ia: boolean
+          acces_ia_ecriture: boolean
           anonymized_at: string | null
           created_at: string
           created_by: string | null
@@ -3578,6 +3582,7 @@ export type Database = {
         }
         Insert: {
           acces_ia?: boolean
+          acces_ia_ecriture?: boolean
           anonymized_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -3591,6 +3596,7 @@ export type Database = {
         }
         Update: {
           acces_ia?: boolean
+          acces_ia_ecriture?: boolean
           anonymized_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -3931,6 +3937,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: {
           acces_ia: boolean
+          acces_ia_ecriture: boolean
           anonymized_at: string | null
           created_at: string
           created_by: string | null
@@ -3961,7 +3968,53 @@ export type Database = {
         Args: { p_prestataire_id: string }
         Returns: boolean
       }
+      claude_annuler_ot: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_motif: string
+          p_ot_id: string
+        }
+        Returns: Json
+      }
+      claude_cloturer_ot: {
+        Args: { p_appliquer?: boolean; p_code?: string; p_ot_id: string }
+        Returns: Json
+      }
+      claude_reactiver_ot: {
+        Args: { p_appliquer?: boolean; p_code?: string; p_ot_id: string }
+        Returns: Json
+      }
+      claude_replanifier_ot: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_date: string
+          p_ot_id: string
+        }
+        Returns: Json
+      }
+      claude_rouvrir_ot: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_motif: string
+          p_ot_id: string
+        }
+        Returns: Json
+      }
+      claude_saisir_operations: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_ot_id: string
+          p_saisies: Json
+        }
+        Returns: Json
+      }
       cleanup_storage_orphans: { Args: never; Returns: undefined }
+      client_ia_de_confiance: { Args: never; Returns: boolean }
+      connecteur_ok: { Args: { p_acces_ia: boolean }; Returns: boolean }
       convertir_evenement_en_travaux: {
         Args: { p_evenement_id: string }
         Returns: string
@@ -4017,6 +4070,8 @@ export type Database = {
           equipement_id: string
         }[]
       }
+      exiger_ecriture_claude: { Args: never; Returns: undefined }
+      garde_connecteur: { Args: never; Returns: undefined }
       generate_identifiant_equipement: { Args: never; Returns: string }
       generate_next_ot_for_gamme: {
         Args: {
@@ -4042,6 +4097,7 @@ export type Database = {
           row_pk: string
           table_name: string
           user_id: string | null
+          via_client: string | null
         }[]
         SetofOptions: {
           from: "*"
@@ -4116,6 +4172,65 @@ export type Database = {
       miniature_scope_ok: {
         Args: { p_miniature_id: string; p_target_site_id: string }
         Returns: boolean
+      }
+      ot_code_confirmation: {
+        Args: { p_demande: Json; p_geste: string; p_ot_id: string }
+        Returns: string
+      }
+      ot_etat_resume: { Args: { p_ot_id: string }; Returns: Json }
+      ot_geste_claude: {
+        Args: {
+          p_appliquer: boolean
+          p_code: string
+          p_demande: Json
+          p_geste: string
+          p_ot_id: string
+        }
+        Returns: Json
+      }
+      ot_pour_claude: {
+        Args: { p_ot_id: string }
+        Returns: {
+          closed_by: string | null
+          commentaires: string | null
+          created_at: string
+          created_by: string
+          date_cloture: string | null
+          date_debut: string | null
+          date_prevue: string
+          description_gamme: string | null
+          gamme_id: string | null
+          id: string
+          image_path: string | null
+          jours_periodicite: number
+          libelle_periodicite: string
+          miniature_id: string | null
+          motif_annulation: string | null
+          motif_reouverture: string | null
+          nature_gamme: Database["public"]["Enums"]["gamme_nature"]
+          nom_categorie: string | null
+          nom_equipement: string | null
+          nom_gamme: string
+          nom_localisation: string | null
+          nom_prestataire: string
+          origine: Database["public"]["Enums"]["ot_origine"]
+          prestataire_id: string
+          site_id: string
+          statut: string
+          tolerance_jours: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ordres_travail"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ot_suivant_genere: { Args: { p_ot_id: string }; Returns: Json }
+      ot_verifier_code: {
+        Args: { p_appliquer: boolean; p_attendu: string; p_code: string }
+        Returns: undefined
       }
       prochaine_date_ot: {
         Args: { p_base: string; p_jours: number }

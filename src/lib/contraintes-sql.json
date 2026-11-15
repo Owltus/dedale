@@ -69,6 +69,14 @@
           "nullable": true,
           "precision": null,
           "type": "uuid"
+        },
+        "via_client": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
         }
       }
     },
@@ -4418,6 +4426,7 @@
     },
     "users": {
       "checks": {
+        "users_ecriture_ia_suppose_lecture": "CHECK (((NOT acces_ia_ecriture) OR acces_ia))",
         "users_nom_complet_non_vide": "CHECK ((length(TRIM(BOTH FROM nom_complet)) > 0))",
         "users_nom_complet_taille": "CHECK ((length(nom_complet) <= 200))",
         "users_photo_path_format": "CHECK (((photo_path IS NULL) OR (photo_path ~ '^users/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/avatar\\.webp$'::text)))",
@@ -4425,6 +4434,14 @@
       },
       "colonnes": {
         "acces_ia": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "acces_ia_ecriture": {
           "aUnDefaut": true,
           "echelle": null,
           "longueurMax": null,

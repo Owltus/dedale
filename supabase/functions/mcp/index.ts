@@ -1,4 +1,4 @@
-// Edge Function `mcp` (Deno) — connecteur Claude pour Dédale (lecture seule).
+// Edge Function `mcp` (Deno) — connecteur Claude pour Dédale (lecture + gestes encadrés sur les OT).
 //
 // Claude se branche ici comme « connecteur personnalisé » (protocole MCP,
 // transport HTTP « streamable », réponses JSON, sans état).
@@ -77,8 +77,16 @@ function charge(jeton: string): Record<string, unknown> {
   }
 }
 
-const INSTRUCTIONS = `Dédale est la GMAO (maintenance) de l'établissement. Tu agis avec les droits de la personne connectée : tu ne vois que ses sites. Ce connecteur est en LECTURE SEULE pour l'instant et ne donne jamais accès aux fichiers (PDF, images), seulement à leurs noms.
-Vocabulaire : OT = ordre de travail ; « Plan de maintenance » = les gammes ; DI = demande d'intervention ; un OT « programmé » est généré automatiquement, « planifié » a été placé par une personne. Un OT est en retard quand sa date prévue plus sa tolérance est dépassée et qu'il n'est ni clôturé ni annulé.
+const INSTRUCTIONS = `Dédale est la GMAO (maintenance) de l'établissement. Tu agis avec les droits de la personne connectée : tu ne vois que ses sites. Le connecteur ne donne jamais accès aux fichiers (PDF, images), seulement à leurs noms.
+Vocabulaire : OT = ordre de travail ; « Plan de maintenance » = les gammes ; DI = demande d'intervention ; un OT « programmé » est généré automatiquement, « planifié » a été placé par une personne. Un OT est en retard quand sa date prévue plus sa tolérance est dépassée et qu'il n'est ni clôturé ni annulé ; le retard n'est pas un statut, il disparaît quand l'OT est fait ou replanifié.
+
+ÉCRIRE (si la personne y a droit ; sinon l'outil le dit) — ordres de travail uniquement :
+1. On ne change jamais le statut d'un OT à la main : on enregistre ses opérations (saisir_operations). Dédale en déduit le statut : en cours dès qu'une opération démarre ; clôture automatique quand toutes sont faites ou non applicables (au moins une faite) ; annulation automatique si toutes sont non applicables ; puis la base programme l'OT suivant.
+2. Avant d'écrire, relis l'OT (ordre_travail) et fais le point avec la personne : ce qui est déjà fait (avec ses dates), ce qui reste. Si elle parle d'une opération et que l'OT en contient d'autres, signale-les. Demande la ou les dates d'intervention (propose « toutes le même jour ? » quand c'est plausible). N'invente jamais une date, une valeur ou un commentaire.
+3. Au moindre doute, demande au lieu de deviner : quel OT ? « pas fait » veut-il dire plus tard (en attente) ou ne s'applique pas (non applicable) ? quelle unité ?
+4. Chaque outil d'écriture s'appelle d'abord SANS appliquer : c'est un aperçu calculé par la base, rien n'est enregistré. Montre-le clairement (opérations, valeurs, conformité, statut de l'OT après, OT suivant, alertes) et attends un oui explicite. Puis rappelle l'outil avec exactement les mêmes paramètres, appliquer=true et le code de confirmation. Jamais d'enregistrement sans ce oui, même pour une seule opération.
+5. Signale toute mesure non conforme, et tout document attendu par la gamme (à ajouter depuis l'application Dédale).
+6. Un OT clôturé est figé : pour le corriger, propose de le rouvrir (motif) ; reclôturer un OT rouvert dont tout est réglé : cloturer_ot.
 Réponds en français, avec les dates au format JJ/MM/AAAA et leur numéro de semaine.`
 
 type Message = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> }

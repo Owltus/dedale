@@ -44,3 +44,4 @@ Ce que ça implique (avantages, limites, ce qu'on s'interdit).
 - [0012 — Corréler les exécutions en deux temps : `source_id`, puis le nom](0012-correlation-des-executions-en-deux-temps.md)
 - [0013 — Répéter les opérations d'une gamme pour chaque équipement lié](0013-operations-repetees-par-equipement.md)
 - [0014 — La nature d'une gamme dit pourquoi on intervient ; le document exigé se règle gamme par gamme](0014-natures-de-gamme-et-documents-exiges.md)
+- [0015 — Claude n'écrit dans Dédale que par des gestes nommés, avec aperçu puis code](0015-ecritures-via-claude.md)
