@@ -71,7 +71,8 @@ export const OUTILS_ECRITURE: Outil[] = [
     description:
       'Enregistre des opérations d’UN ordre de travail : faites, mesures (valeur), non applicables, démarrées, remises en attente, ou un commentaire. ' +
       'Le statut de l’OT est déduit par Dédale (en cours, clôture automatique quand tout est fait, annulation automatique si tout est non applicable) et l’OT suivant est programmé par la base. ' +
-      'Toujours relire l’OT (outil ordre_travail) juste avant, pour les identifiants des opérations. Aperçu d’abord, puis enregistrement après accord.',
+      'Toujours relire l’OT (outil ordre_travail) juste avant, pour les identifiants des opérations. ' +
+      'Une saisie = UNE opération sur UN équipement : quand l’OT répète plusieurs opérations sur plusieurs équipements, ne saisir que les opérations que la personne a dites faites, sur les équipements (ou locaux) qu’elle a cités ; jamais toutes les opérations d’un équipement par défaut. Aperçu d’abord, puis enregistrement après accord.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
