@@ -14541,3 +14541,577 @@ BEGIN
         EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', f);
     END LOOP;
 END $$;
+
+-- =============================================================================
+-- 159 — Gestes encadrés de Claude sur les demandes d'intervention (DI)
+-- =============================================================================
+-- Symptôme : via Claude, on ne peut que LIRE les DI. Le PO veut que Claude
+-- crée une DI à partir d'un signalement (« la douche de la 312 s'évacue mal »),
+-- la corrige, la prenne en charge, la clôture et la rouvre, sans rien inventer
+-- et toujours au bon endroit.
+--
+-- Correctif : cinq fonctions claude_* (la garde d'entrée 157 les laisse passer,
+-- rien d'autre) :
+--   claude_creer_demande · claude_modifier_demande ·
+--   claude_prendre_en_charge_demande · claude_cloturer_demande ·
+--   claude_rouvrir_demande
+--
+-- Principes (mêmes que 158) :
+--   - SECURITY INVOKER : RLS + triggers de la personne. Le cycle reste celui
+--     de 052 (statut initial Ouvert, resolved_by / date_resolution posés et
+--     effacés par trigger, contrôle « même site » des lieux et équipements).
+--   - Droit : connecteur + accès Claude + acces_ia_ecriture (156, 158).
+--   - Aperçu joué puis annulé, code de confirmation exigé pour enregistrer.
+--
+-- Règles ajoutées pour Claude (décisions PO du 16/11/2026) :
+--   - LIEU OBLIGATOIRE, un seul local par DI ; équipements facultatifs mais
+--     forcément DANS ce local (l'application fait de même).
+--   - Constat de 15 à 4 000 caractères ; date du constat jamais future.
+--   - Doublon possible (DI non clôturée sur le même local ou équipement) et
+--     constat ancien : SIGNALÉS, jamais bloquants.
+--   - Clôture : note de résolution facultative ; date de l'intervention
+--     (défaut aujourd'hui), jamais future ni avant le constat.
+--   - Réouverture : motif obligatoire, ajouté daté à la fin du constat
+--     (« Rouverte le JJ/MM/AAAA : … ») — la base n'a pas de champ dédié.
+--   - Un demandeur ne corrige que le constat de SA DI encore Ouverte (RLS) :
+--     changer le lieu ou les équipements lui est refusé explicitement.
+--
+-- Ce qu'elle ne fait PAS : supprimer une DI, toucher aux documents et photos,
+-- créer ou modifier les problèmes courants (modeles_di). Aucune table modifiée.
+--
+-- Innocuité : fonctions nouvelles, appelables seulement via le connecteur
+-- (exiger_ecriture_claude refuse tout appel sans claim client_id).
+--
+-- Vérification après application :
+--     SELECT proname, prosecdef FROM pg_proc
+--     WHERE proname LIKE 'claude\_%demande' ORDER BY 1;
+--     -- 5 lignes, prosecdef = false
+-- =============================================================================
+
+-- ─── Aides (pas de préfixe claude_ : non appelables via le connecteur) ──────
+
+-- Lieu lisible d'un local (lu avec les droits de la personne).
+CREATE OR REPLACE FUNCTION public.di_lieu_texte(p_local_id uuid)
+ RETURNS text
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+    SELECT concat_ws(' / ', b.nom, n.nom, l.nom)
+    FROM public.locaux l
+    JOIN public.niveaux n ON n.id = l.niveau_id
+    JOIN public.batiments b ON b.id = n.batiment_id
+    WHERE l.id = p_local_id
+$function$;
+
+-- Équipement lisible : famille + code d'inventaire.
+CREATE OR REPLACE FUNCTION public.di_equipement_texte(p_equipement_id uuid)
+ RETURNS text
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+    SELECT concat_ws(' ', coalesce(c.nom, 'Équipement'), '(' || e.code_inventaire || ')')
+    FROM public.equipements e
+    LEFT JOIN public.categories c ON c.id = e.categorie_id
+    WHERE e.id = p_equipement_id
+$function$;
+
+-- Résumé lisible d'une DI.
+CREATE OR REPLACE FUNCTION public.di_etat_resume(p_di_id uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+    SELECT jsonb_build_object(
+        'statut', s.nom,
+        'constat', d.constat,
+        'date_constat', d.date_constat,
+        'lieu', (SELECT jsonb_agg(public.di_lieu_texte(x.local_id)) FROM public.di_localisations x WHERE x.di_id = d.id),
+        'equipements', (SELECT jsonb_agg(public.di_equipement_texte(x.equipement_id)) FROM public.di_equipements x WHERE x.di_id = d.id),
+        'resolution', d.description_resolution,
+        'date_resolution', d.date_resolution)
+    FROM public.demandes_intervention d
+    JOIN public.statuts_di s ON s.id = d.statut_di_id
+    WHERE d.id = p_di_id
+$function$;
+
+-- DI non clôturées sur un local ou l'un des équipements (doublons possibles).
+CREATE OR REPLACE FUNCTION public.di_doublons(p_local_id uuid, p_equipement_ids uuid[], p_sauf uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+    SELECT jsonb_agg(jsonb_build_object(
+               'id', d.id,
+               'statut', s.nom,
+               'date_constat', d.date_constat,
+               'constat', left(d.constat, 300))
+           ORDER BY d.date_constat DESC)
+    FROM public.demandes_intervention d
+    JOIN public.statuts_di s ON s.id = d.statut_di_id
+    WHERE d.statut_di_id IN (1, 2)
+      AND d.id IS DISTINCT FROM p_sauf
+      AND (EXISTS (SELECT 1 FROM public.di_localisations x WHERE x.di_id = d.id AND x.local_id = p_local_id)
+           OR EXISTS (SELECT 1 FROM public.di_equipements x
+                      WHERE x.di_id = d.id AND x.equipement_id = ANY (coalesce(p_equipement_ids, '{}'))))
+$function$;
+
+-- Empreinte d'une demande dans l'état actuel (DI visée et DI du même local).
+CREATE OR REPLACE FUNCTION public.di_code_confirmation(p_geste text, p_di_id uuid, p_local_id uuid, p_demande jsonb)
+ RETURNS text
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+    SELECT upper(substr(md5(concat_ws('|',
+        'di', p_geste, p_di_id::text, p_local_id::text, p_demande::text, (SELECT auth.uid())::text,
+        (SELECT d.updated_at::text FROM public.demandes_intervention d WHERE d.id = p_di_id),
+        (SELECT max(d.updated_at)::text FROM public.demandes_intervention d
+         JOIN public.di_localisations x ON x.di_id = d.id WHERE x.local_id = p_local_id)
+    )), 1, 8))
+$function$;
+
+CREATE OR REPLACE FUNCTION public.di_verifier_code(p_appliquer boolean, p_code text, p_attendu text)
+ RETURNS void
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+BEGIN
+    IF p_appliquer AND upper(trim(coalesce(p_code, ''))) IS DISTINCT FROM p_attendu THEN
+        RAISE EXCEPTION 'Code de confirmation absent, faux ou périmé (la demande a changé) : refais l''aperçu et montre-le avant d''enregistrer.';
+    END IF;
+END;
+$function$;
+
+-- Contrôle le lieu et les équipements ; rend le site du local.
+CREATE OR REPLACE FUNCTION public.di_verifier_lieu(p_local_id uuid, p_equipement_ids uuid[])
+ RETURNS uuid
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_site uuid;
+    v_id   uuid;
+BEGIN
+    IF p_local_id IS NULL THEN
+        RAISE EXCEPTION 'Le lieu est obligatoire : précise le local exact (outil lieux).';
+    END IF;
+    SELECT b.site_id INTO v_site
+    FROM public.locaux l
+    JOIN public.niveaux n ON n.id = l.niveau_id
+    JOIN public.batiments b ON b.id = n.batiment_id
+    WHERE l.id = p_local_id;
+    IF v_site IS NULL THEN
+        RAISE EXCEPTION 'Lieu introuvable ou hors de tes sites.';
+    END IF;
+    IF cardinality(coalesce(p_equipement_ids, '{}')) > 20 THEN
+        RAISE EXCEPTION 'Au plus 20 équipements par demande.';
+    END IF;
+    IF cardinality(p_equipement_ids) <> (SELECT count(DISTINCT x) FROM unnest(p_equipement_ids) x) THEN
+        RAISE EXCEPTION 'Un même équipement est cité deux fois.';
+    END IF;
+    FOREACH v_id IN ARRAY coalesce(p_equipement_ids, '{}') LOOP
+        IF NOT EXISTS (SELECT 1 FROM public.equipements WHERE id = v_id) THEN
+            RAISE EXCEPTION 'Équipement introuvable ou hors de tes sites : %.', v_id;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM public.equipements WHERE id = v_id AND local_id = p_local_id) THEN
+            RAISE EXCEPTION 'L''équipement « % » n''est pas dans « % » : choisis un équipement de ce lieu, ou le bon lieu.',
+                public.di_equipement_texte(v_id), public.di_lieu_texte(p_local_id);
+        END IF;
+    END LOOP;
+    RETURN v_site;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.di_verifier_constat(p_constat text)
+ RETURNS text
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v text := trim(coalesce(p_constat, ''));
+BEGIN
+    IF length(v) < 15 OR length(v) > 4000 THEN
+        RAISE EXCEPTION 'Constat obligatoire, factuel, de 15 à 4000 caractères (ici %).', length(v);
+    END IF;
+    RETURN v;
+END;
+$function$;
+
+-- Liste d'uuid lue depuis un tableau JSON (refus clair si mal formé).
+CREATE OR REPLACE FUNCTION public.di_liste_uuid(p_json jsonb)
+ RETURNS uuid[]
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_ids uuid[] := '{}';
+    v     jsonb;
+BEGIN
+    IF p_json IS NULL OR jsonb_typeof(p_json) = 'null' THEN
+        RETURN '{}';
+    END IF;
+    IF jsonb_typeof(p_json) <> 'array' THEN
+        RAISE EXCEPTION 'Liste d''équipements mal formée.';
+    END IF;
+    FOR v IN SELECT value FROM jsonb_array_elements(p_json) LOOP
+        IF jsonb_typeof(v) <> 'string'
+           OR v #>> '{}' !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+            RAISE EXCEPTION 'Identifiant d''équipement invalide : %', v;
+        END IF;
+        v_ids := v_ids || (v #>> '{}')::uuid;
+    END LOOP;
+    RETURN v_ids;
+END;
+$function$;
+
+-- ─── 1. Créer une DI ────────────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.claude_creer_demande(
+    p_local_id uuid,
+    p_constat text,
+    p_equipement_ids uuid[] DEFAULT '{}',
+    p_date_constat date DEFAULT NULL,
+    p_appliquer boolean DEFAULT false,
+    p_code text DEFAULT NULL)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_aujourdhui date := (now() AT TIME ZONE 'Europe/Paris')::date;
+    v_equip    uuid[] := coalesce(p_equipement_ids, '{}');
+    v_site     uuid;
+    v_constat  text;
+    v_date     date;
+    v_code     text;
+    v_di       uuid;
+    v_resume   jsonb;
+    v_doublons jsonb;
+    v_alertes  jsonb := '[]';
+    v_e        uuid;
+BEGIN
+    PERFORM public.exiger_ecriture_claude();
+    v_site := public.di_verifier_lieu(p_local_id, v_equip);
+    v_constat := public.di_verifier_constat(p_constat);
+    v_date := coalesce(p_date_constat, v_aujourdhui);
+    IF v_date > v_aujourdhui THEN
+        RAISE EXCEPTION 'Date de constat future refusée (%).', v_date;
+    END IF;
+
+    v_code := public.di_code_confirmation('creer', NULL, p_local_id, jsonb_build_object(
+        'constat', v_constat, 'date', v_date, 'equipements', to_jsonb(v_equip)));
+    PERFORM public.di_verifier_code(p_appliquer, p_code, v_code);
+
+    v_doublons := public.di_doublons(p_local_id, v_equip, NULL);
+    IF v_doublons IS NOT NULL THEN
+        v_alertes := v_alertes || to_jsonb(format(
+            'DOUBLON POSSIBLE : %s demande(s) non clôturée(s) sur ce lieu ou cet équipement (voir « doublons »). Propose de compléter l''existante (modifier_demande) plutôt que d''en créer une.',
+            jsonb_array_length(v_doublons)));
+    END IF;
+    IF v_date < v_aujourdhui - 30 THEN
+        v_alertes := v_alertes || to_jsonb(format('Constat daté de plus de 30 jours (%s) : vérifie la date.', to_char(v_date, 'DD/MM/YYYY')));
+    END IF;
+
+    BEGIN
+        BEGIN
+            INSERT INTO public.demandes_intervention (site_id, created_by, constat, date_constat)
+            VALUES (v_site, (SELECT auth.uid()), v_constat, v_date)
+            RETURNING id INTO v_di;
+            INSERT INTO public.di_localisations (di_id, local_id) VALUES (v_di, p_local_id);
+            FOREACH v_e IN ARRAY v_equip LOOP
+                INSERT INTO public.di_equipements (di_id, equipement_id) VALUES (v_di, v_e);
+            END LOOP;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE EXCEPTION 'Création refusée : ton rôle ne permet pas de créer une demande sur ce site.'
+                USING ERRCODE = 'insufficient_privilege';
+        END;
+        v_resume := public.di_etat_resume(v_di);
+        IF NOT p_appliquer THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0A01', MESSAGE = 'aperçu';
+        END IF;
+    EXCEPTION WHEN SQLSTATE 'P0A01' THEN
+        v_di := NULL;
+    END;
+
+    RETURN jsonb_build_object(
+        'mode', CASE WHEN p_appliquer THEN 'enregistré' ELSE 'aperçu (rien n''est enregistré)' END,
+        'code_confirmation', CASE WHEN p_appliquer THEN NULL ELSE v_code END,
+        'demande_id', v_di,
+        'demande', v_resume,
+        'doublons', v_doublons,
+        'alertes', v_alertes);
+END;
+$function$;
+
+-- ─── 2. Moteur des gestes sur une DI existante ──────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.di_geste_claude(
+    p_geste text, p_di_id uuid, p_demande jsonb, p_appliquer boolean, p_code text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_aujourdhui date := (now() AT TIME ZONE 'Europe/Paris')::date;
+    v_di       public.demandes_intervention;
+    v_local    uuid;
+    v_nv_local uuid;
+    v_equip    uuid[];
+    v_constat  text;
+    v_texte    text;
+    v_date     date;
+    v_code     text;
+    v_avant    jsonb;
+    v_apres    jsonb;
+    v_doublons jsonb;
+    v_alertes  jsonb := '[]';
+    v_lieu_change boolean := false;
+    v_e        uuid;
+BEGIN
+    PERFORM public.exiger_ecriture_claude();
+    SELECT * INTO v_di FROM public.demandes_intervention WHERE id = p_di_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Demande introuvable ou hors de tes sites.';
+    END IF;
+    SELECT local_id INTO v_local FROM public.di_localisations WHERE di_id = p_di_id LIMIT 1;
+
+    IF EXISTS (SELECT 1 FROM jsonb_object_keys(p_demande) k
+               WHERE k NOT IN ('constat', 'local_id', 'equipement_ids', 'note', 'date', 'motif')) THEN
+        RAISE EXCEPTION 'Paramètre inconnu.';
+    END IF;
+
+    -- Préconditions lisibles (la RLS et les triggers revérifient tout).
+    IF p_geste = 'modifier' THEN
+        IF v_di.statut_di_id = 3 THEN
+            RAISE EXCEPTION 'Cette demande est clôturée : rouvre-la d''abord (outil rouvrir_demande), avec le motif.';
+        END IF;
+        IF NOT (p_demande ? 'constat' OR p_demande ? 'local_id' OR p_demande ? 'equipement_ids') THEN
+            RAISE EXCEPTION 'Rien à modifier : donne le nouveau constat, le lieu ou les équipements.';
+        END IF;
+        IF p_demande ? 'constat' THEN
+            v_constat := public.di_verifier_constat(p_demande->>'constat');
+        END IF;
+        v_nv_local := coalesce((p_demande->>'local_id')::uuid, v_local);
+        v_lieu_change := p_demande ? 'local_id' OR p_demande ? 'equipement_ids';
+        IF p_demande ? 'local_id' AND v_nv_local IS DISTINCT FROM v_local AND NOT p_demande ? 'equipement_ids' THEN
+            RAISE EXCEPTION 'Le lieu change : précise aussi les équipements de ce nouveau lieu (liste vide s''il n''y en a pas).';
+        END IF;
+        v_equip := CASE WHEN p_demande ? 'equipement_ids' THEN public.di_liste_uuid(p_demande->'equipement_ids')
+                        ELSE (SELECT coalesce(array_agg(equipement_id), '{}') FROM public.di_equipements WHERE di_id = p_di_id) END;
+        IF v_lieu_change THEN
+            IF public.current_role() = 'demandeur' THEN
+                RAISE EXCEPTION 'Ton rôle permet de corriger le constat, pas le lieu ni les équipements : demande-le à un technicien.'
+                    USING ERRCODE = 'insufficient_privilege';
+            END IF;
+            PERFORM public.di_verifier_lieu(v_nv_local, v_equip);
+        END IF;
+    ELSIF p_geste = 'prendre_en_charge' THEN
+        IF v_di.statut_di_id <> 1 THEN
+            RAISE EXCEPTION 'Seule une demande « Ouvert » se prend en charge (celle-ci est %).',
+                (SELECT nom FROM public.statuts_di WHERE id = v_di.statut_di_id);
+        END IF;
+    ELSIF p_geste = 'cloturer' THEN
+        IF v_di.statut_di_id = 3 THEN
+            RAISE EXCEPTION 'Cette demande est déjà clôturée.';
+        END IF;
+        IF p_demande ? 'note' THEN
+            v_texte := trim(coalesce(p_demande->>'note', ''));
+            IF length(v_texte) < 5 OR length(v_texte) > 2000 THEN
+                RAISE EXCEPTION 'Note de résolution de 5 à 2000 caractères (ou aucune note).';
+            END IF;
+        END IF;
+        IF p_demande ? 'date' THEN
+            IF coalesce(p_demande->>'date', '') !~ '^\d{4}-\d{2}-\d{2}$' THEN
+                RAISE EXCEPTION 'Date d''intervention au format AAAA-MM-JJ.';
+            END IF;
+            v_date := (p_demande->>'date')::date;
+        ELSE
+            v_date := v_aujourdhui;
+        END IF;
+        IF v_date > v_aujourdhui THEN
+            RAISE EXCEPTION 'Date d''intervention future refusée (%).', v_date;
+        END IF;
+        IF v_date < v_di.date_constat THEN
+            RAISE EXCEPTION 'La date d''intervention (%) est avant le constat (%).', v_date, v_di.date_constat;
+        END IF;
+    ELSIF p_geste = 'rouvrir' THEN
+        IF v_di.statut_di_id <> 3 THEN
+            RAISE EXCEPTION 'Seule une demande clôturée se rouvre.';
+        END IF;
+        v_texte := trim(coalesce(p_demande->>'motif', ''));
+        IF length(v_texte) < 10 OR length(v_texte) > 1000 THEN
+            RAISE EXCEPTION 'Motif de réouverture obligatoire (10 à 1000 caractères) : ce qui ne va pas, constaté quand.';
+        END IF;
+        v_constat := v_di.constat || E'\n\n' || 'Rouverte le ' || to_char(v_aujourdhui, 'DD/MM/YYYY') || ' : ' || v_texte;
+        IF length(v_constat) > 5000 THEN
+            RAISE EXCEPTION 'Le constat deviendrait trop long (plus de 5000 caractères) : abrège le motif.';
+        END IF;
+    ELSE
+        RAISE EXCEPTION 'Geste inconnu : %', p_geste;
+    END IF;
+
+    v_code := public.di_code_confirmation(p_geste, p_di_id, coalesce(v_nv_local, v_local), p_demande);
+    PERFORM public.di_verifier_code(p_appliquer, p_code, v_code);
+    v_avant := public.di_etat_resume(p_di_id);
+
+    BEGIN
+        BEGIN
+            IF p_geste = 'modifier' THEN
+                IF v_constat IS NOT NULL THEN
+                    UPDATE public.demandes_intervention SET constat = v_constat WHERE id = p_di_id;
+                    IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+                END IF;
+                IF v_lieu_change THEN
+                    DELETE FROM public.di_localisations WHERE di_id = p_di_id;
+                    INSERT INTO public.di_localisations (di_id, local_id) VALUES (p_di_id, v_nv_local);
+                    DELETE FROM public.di_equipements WHERE di_id = p_di_id;
+                    FOREACH v_e IN ARRAY v_equip LOOP
+                        INSERT INTO public.di_equipements (di_id, equipement_id) VALUES (p_di_id, v_e);
+                    END LOOP;
+                    v_doublons := public.di_doublons(v_nv_local, v_equip, p_di_id);
+                END IF;
+            ELSIF p_geste = 'prendre_en_charge' THEN
+                UPDATE public.demandes_intervention SET statut_di_id = 2 WHERE id = p_di_id;
+                IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+            ELSIF p_geste = 'cloturer' THEN
+                UPDATE public.demandes_intervention
+                SET statut_di_id = 3,
+                    description_resolution = CASE WHEN p_demande ? 'note' THEN v_texte ELSE description_resolution END
+                WHERE id = p_di_id;
+                IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+                -- Le trigger pose date_resolution = aujourd'hui (UTC) ; on met la date dite.
+                UPDATE public.demandes_intervention SET date_resolution = v_date WHERE id = p_di_id;
+                IF NOT p_demande ? 'note' AND v_di.description_resolution IS NOT NULL THEN
+                    v_alertes := v_alertes || to_jsonb(format(
+                        'La note de résolution d''une clôture précédente reste affichée : « %s ». Propose une note à jour.',
+                        left(v_di.description_resolution, 200)));
+                END IF;
+            ELSIF p_geste = 'rouvrir' THEN
+                UPDATE public.demandes_intervention SET statut_di_id = 1, constat = v_constat WHERE id = p_di_id;
+                IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+            END IF;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE EXCEPTION 'Modification refusée : ton rôle ne permet pas ce geste sur cette demande.'
+                USING ERRCODE = 'insufficient_privilege';
+        END;
+
+        v_apres := public.di_etat_resume(p_di_id);
+        IF v_doublons IS NOT NULL THEN
+            v_alertes := v_alertes || to_jsonb('DOUBLON POSSIBLE : d''autres demandes non clôturées visent ce lieu ou cet équipement (voir « doublons »).'::text);
+        END IF;
+        IF NOT p_appliquer THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0A01', MESSAGE = 'aperçu';
+        END IF;
+    EXCEPTION WHEN SQLSTATE 'P0A01' THEN
+        NULL;
+    END;
+
+    RETURN jsonb_build_object(
+        'mode', CASE WHEN p_appliquer THEN 'enregistré' ELSE 'aperçu (rien n''est enregistré)' END,
+        'code_confirmation', CASE WHEN p_appliquer THEN NULL ELSE v_code END,
+        'demande_id', p_di_id,
+        'avant', v_avant,
+        'apres', v_apres,
+        'doublons', v_doublons,
+        'alertes', v_alertes);
+END;
+$function$;
+
+-- ─── 3. Enveloppes appelées par le connecteur ───────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.claude_modifier_demande(
+    p_di_id uuid, p_constat text DEFAULT NULL, p_local_id uuid DEFAULT NULL, p_equipement_ids uuid[] DEFAULT NULL,
+    p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb LANGUAGE sql SET search_path TO ''
+AS $function$ SELECT public.di_geste_claude('modifier', p_di_id, jsonb_strip_nulls(jsonb_build_object(
+    'constat', p_constat, 'local_id', p_local_id, 'equipement_ids', to_jsonb(p_equipement_ids))), p_appliquer, p_code) $function$;
+
+CREATE OR REPLACE FUNCTION public.claude_prendre_en_charge_demande(p_di_id uuid, p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb LANGUAGE sql SET search_path TO ''
+AS $function$ SELECT public.di_geste_claude('prendre_en_charge', p_di_id, '{}'::jsonb, p_appliquer, p_code) $function$;
+
+CREATE OR REPLACE FUNCTION public.claude_cloturer_demande(
+    p_di_id uuid, p_note text DEFAULT NULL, p_date date DEFAULT NULL, p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb LANGUAGE sql SET search_path TO ''
+AS $function$ SELECT public.di_geste_claude('cloturer', p_di_id, jsonb_strip_nulls(jsonb_build_object(
+    'note', p_note, 'date', p_date)), p_appliquer, p_code) $function$;
+
+CREATE OR REPLACE FUNCTION public.claude_rouvrir_demande(p_di_id uuid, p_motif text, p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb LANGUAGE sql SET search_path TO ''
+AS $function$ SELECT public.di_geste_claude('rouvrir', p_di_id, jsonb_build_object('motif', p_motif), p_appliquer, p_code) $function$;
+
+COMMENT ON FUNCTION public.claude_creer_demande(uuid, text, uuid[], date, boolean, text) IS
+    'Geste Claude (159) : crée une DI Ouverte, lieu obligatoire, équipements du lieu. Aperçu puis application avec code.';
+COMMENT ON FUNCTION public.di_geste_claude(text, uuid, jsonb, boolean, text) IS
+    'Moteur des gestes Claude sur une DI (159) : modifier, prendre_en_charge, cloturer, rouvrir (motif ajouté au constat).';
+
+-- ─── Droits : jamais anon (Supabase accorde EXECUTE par défaut) ─────────────
+
+DO $$
+DECLARE f text;
+BEGIN
+    FOREACH f IN ARRAY ARRAY[
+        'public.di_lieu_texte(uuid)',
+        'public.di_equipement_texte(uuid)',
+        'public.di_etat_resume(uuid)',
+        'public.di_doublons(uuid, uuid[], uuid)',
+        'public.di_code_confirmation(text, uuid, uuid, jsonb)',
+        'public.di_verifier_code(boolean, text, text)',
+        'public.di_verifier_lieu(uuid, uuid[])',
+        'public.di_verifier_constat(text)',
+        'public.di_liste_uuid(jsonb)',
+        'public.claude_creer_demande(uuid, text, uuid[], date, boolean, text)',
+        'public.di_geste_claude(text, uuid, jsonb, boolean, text)',
+        'public.claude_modifier_demande(uuid, text, uuid, uuid[], boolean, text)',
+        'public.claude_prendre_en_charge_demande(uuid, boolean, text)',
+        'public.claude_cloturer_demande(uuid, text, date, boolean, text)',
+        'public.claude_rouvrir_demande(uuid, text, boolean, text)']
+    LOOP
+        EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', f);
+        EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', f);
+    END LOOP;
+END $$;
+
+-- =============================================================================
+-- 160 — Le lieu d'une DI montré par Claude commence par le nom du site
+-- =============================================================================
+-- Symptôme : l'aperçu d'une DI via Claude affichait « Bâtiment / R+2 /
+-- Chambre 214 », sans le site. Pour une personne rattachée à plusieurs sites,
+-- deux « Chambre 214 » se confondaient dans l'aperçu (et dans les messages
+-- d'erreur sur les équipements).
+--
+-- Correctif : di_lieu_texte (159) préfixe le nom du site :
+-- « Site / Bâtiment / Niveau / Local ». Rien d'autre ne change.
+--
+-- Innocuité : fonction d'affichage seule, lue avec les droits de la personne
+-- (sites visibles par tous les rôles sur leurs sites) ; aucune donnée touchée.
+--
+-- Vérification après application :
+--     SELECT pg_get_functiondef('public.di_lieu_texte(uuid)'::regprocedure) LIKE '%s.nom%';
+--     -- true
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.di_lieu_texte(p_local_id uuid)
+ RETURNS text
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+    SELECT concat_ws(' / ', s.nom, b.nom, n.nom, l.nom)
+    FROM public.locaux l
+    JOIN public.niveaux n ON n.id = l.niveau_id
+    JOIN public.batiments b ON b.id = n.batiment_id
+    LEFT JOIN public.sites s ON s.id = b.site_id
+    WHERE l.id = p_local_id
+$function$;
+
+REVOKE ALL ON FUNCTION public.di_lieu_texte(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.di_lieu_texte(uuid) TO authenticated, service_role;

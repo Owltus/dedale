@@ -6,6 +6,8 @@
   - 156 : droit d'écriture et trace `via_client` ;
   - 157 : garde d'entrée de l'API ;
   - 158 : six gestes sur les ordres de travail ;
+  - 159 (16/11) : cinq gestes sur les demandes d'intervention ;
+  - 160 (16/11) : le lieu montré par Claude commence par le site ;
   - fonction `mcp` : outils d'écriture.
 
 ## Contexte
@@ -67,6 +69,31 @@ DEFINER`, hors des outils du connecteur.
      date de clôture si tout l'OT s'annule ;
    - Claude guide (ce qui est fait, ce qui reste) au lieu de deviner.
 
+## Demandes d'intervention (migration 159, 16/11/2026)
+
+Même modèle : cinq fonctions `claude_*_demande` (créer, corriger, prendre en
+charge, clôturer, rouvrir), aperçu puis code. Le cycle reste celui de 052
+(création « Ouvert », triggers de résolution). Choix du PO :
+
+- **Lieu obligatoire, un seul local par DI**, équipements facultatifs mais
+  obligatoirement dans ce local. Plusieurs endroits = plusieurs DI.
+- **Problèmes courants du site seulement** (ADR 0009) : Claude s'en sert pour
+  formuler le constat.
+- **Constat factuel** : symptôme, endroit précis, depuis quand, conséquence ;
+  ni cause supposée ni remède. 15 à 4 000 caractères.
+- **Doublon possible et constat ancien signalés**, jamais bloquants.
+- **Clôture** : note de résolution facultative, date de l'intervention
+  (jamais future ni avant le constat).
+- **Réouverture** : motif obligatoire, ajouté daté à la fin du constat, faute
+  de champ dédié.
+- Un demandeur ne corrige que le constat de sa DI encore « Ouvert » (RLS) ;
+  changer le lieu lui est refusé explicitement.
+- **Plusieurs sites** : le lieu d'un aperçu commence par le nom du site (160) ;
+  la consigne du connecteur impose de nommer le site et de demander lequel
+  en cas de doute. Un résultat vide peut signifier « pas le droit de voir »
+  (un demandeur ne voit ni OT ni contrats) : Claude ne conclut pas à
+  l'absence.
+
 ## Conséquences
 
 - **Ajouter une écriture via Claude = écrire une fonction `claude_*`.**
@@ -74,8 +101,9 @@ DEFINER`, hors des outils du connecteur.
   utilisée par le connecteur doit être ajoutée à la liste de
   `garde_connecteur`.
 - **Fermés à Claude** :
-  - suppressions ;
+  - suppressions (OT comme DI) ;
   - création d'OT ;
+  - problèmes courants (`modeles_di`) ;
   - changement de gamme, de site ou de prestataire ;
   - remplacement de compteur ;
   - fichiers ;

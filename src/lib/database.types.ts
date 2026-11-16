@@ -3977,8 +3977,44 @@ export type Database = {
         }
         Returns: Json
       }
+      claude_cloturer_demande: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_date?: string
+          p_di_id: string
+          p_note?: string
+        }
+        Returns: Json
+      }
       claude_cloturer_ot: {
         Args: { p_appliquer?: boolean; p_code?: string; p_ot_id: string }
+        Returns: Json
+      }
+      claude_creer_demande: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_constat: string
+          p_date_constat?: string
+          p_equipement_ids?: string[]
+          p_local_id: string
+        }
+        Returns: Json
+      }
+      claude_modifier_demande: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_constat?: string
+          p_di_id: string
+          p_equipement_ids?: string[]
+          p_local_id?: string
+        }
+        Returns: Json
+      }
+      claude_prendre_en_charge_demande: {
+        Args: { p_appliquer?: boolean; p_code?: string; p_di_id: string }
         Returns: Json
       }
       claude_reactiver_ot: {
@@ -3991,6 +4027,15 @@ export type Database = {
           p_code?: string
           p_date: string
           p_ot_id: string
+        }
+        Returns: Json
+      }
+      claude_rouvrir_demande: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_di_id: string
+          p_motif: string
         }
         Returns: Json
       }
@@ -4064,6 +4109,45 @@ export type Database = {
         Returns: undefined
       }
       detect_security_anomalies: { Args: never; Returns: undefined }
+      di_code_confirmation: {
+        Args: {
+          p_demande: Json
+          p_di_id: string
+          p_geste: string
+          p_local_id: string
+        }
+        Returns: string
+      }
+      di_doublons: {
+        Args: { p_equipement_ids: string[]; p_local_id: string; p_sauf: string }
+        Returns: Json
+      }
+      di_equipement_texte: {
+        Args: { p_equipement_id: string }
+        Returns: string
+      }
+      di_etat_resume: { Args: { p_di_id: string }; Returns: Json }
+      di_geste_claude: {
+        Args: {
+          p_appliquer: boolean
+          p_code: string
+          p_demande: Json
+          p_di_id: string
+          p_geste: string
+        }
+        Returns: Json
+      }
+      di_lieu_texte: { Args: { p_local_id: string }; Returns: string }
+      di_liste_uuid: { Args: { p_json: Json }; Returns: string[] }
+      di_verifier_code: {
+        Args: { p_appliquer: boolean; p_attendu: string; p_code: string }
+        Returns: undefined
+      }
+      di_verifier_constat: { Args: { p_constat: string }; Returns: string }
+      di_verifier_lieu: {
+        Args: { p_equipement_ids: string[]; p_local_id: string }
+        Returns: string
+      }
       equipements_attendus: {
         Args: { p_gamme_id: string }
         Returns: {

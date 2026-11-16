@@ -10,6 +10,7 @@
 import { z } from 'npm:zod@3.23.8'
 import { type Contexte, type Outil, type Resultat, ErreurOutil, date, dateFr } from './commun.ts'
 import { OUTILS_ECRITURE } from './outils-ecriture.ts'
+import { OUTILS_ECRITURE_DI } from './outils-ecriture-di.ts'
 
 export type { Contexte }
 
@@ -328,7 +329,7 @@ const OUTILS_INTERNES: Outil[] = [
       const sites = await sitesCibles(ctx, a.site)
       const ids: Record<string, number[]> = { ouvertes: [1, 2], ouvert: [1], en_cours: [2], cloture: [3] }
       let q = ctx.supabase.from('demandes_intervention')
-        .select('id, constat, date_constat, date_resolution, description_resolution, site_id, statuts_di(nom), di_localisations(locaux(nom)), di_equipements(equipements(code_inventaire, categories(nom)))')
+        .select('id, constat, date_constat, date_resolution, description_resolution, site_id, statuts_di(nom), di_localisations(locaux(nom, niveaux(nom))), di_equipements(equipements(code_inventaire, categories(nom)))')
         .in('site_id', sites.map((s) => s.id)).order('date_constat', { ascending: false }).limit(a.limite)
       if (a.statut !== 'toutes') q = q.in('statut_di_id', ids[a.statut])
       const texte = nettoyer(a.recherche)
@@ -344,11 +345,77 @@ const OUTILS_INTERNES: Outil[] = [
           date_constat: dateFr(d.date_constat),
           resolution: d.description_resolution,
           date_resolution: dateFr(d.date_resolution),
-          lieux: (d.di_localisations as unknown as { locaux: { nom: string } | null }[]).map((l) => l.locaux?.nom).filter(Boolean),
+          lieux: (d.di_localisations as unknown as { locaux: { nom: string; niveaux: { nom: string } | null } | null }[])
+            .map((l) => [l.locaux?.niveaux?.nom, l.locaux?.nom].filter(Boolean).join(' / ')).filter(Boolean),
           equipements: (d.di_equipements as unknown as { equipements: { code_inventaire: string | null; categories: { nom: string } | null } | null }[])
             .map((e) => [e.equipements?.categories?.nom, e.equipements?.code_inventaire].filter(Boolean).join(' ')),
           site: nomSite(sites, d.site_id),
         })),
+      }
+    },
+  },
+  {
+    name: 'lieux',
+    title: 'Lieux (locaux) et leurs équipements',
+    description:
+      'Trouve un local par son nom (ex. « 214 », « Circulation », « Accueil »), avec son niveau, son bâtiment et les équipements qui s’y trouvent (identifiants compris). ' +
+      'Sert à cibler une demande d’intervention : un nom présent sur plusieurs niveaux est ambigu, faire préciser le niveau.',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['recherche'],
+      properties: {
+        recherche: { type: 'string', description: 'Tout ou partie du nom du local' },
+        niveau: { type: 'string', description: 'Tout ou partie du nom du niveau (ex. « R+2 », « RDC »)' },
+        site: { type: 'string' },
+        limite: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
+      },
+    },
+    annotations: LECTURE,
+    schema: z.object({ recherche: z.string().min(1).max(120), niveau: z.string().max(60).optional(), site, limite: limite(50, 20) }).strict(),
+    run: async (a: { recherche: string; niveau?: string; site?: string; limite: number }, ctx) => {
+      const sites = await sitesCibles(ctx, a.site)
+      const texte = nettoyer(a.recherche)
+      if (!texte) throw new ErreurOutil('Recherche vide.')
+      let q = ctx.supabase.from('locaux')
+        .select('id, nom, niveaux!inner(nom, ordre, batiments!inner(nom, site_id)), equipements(id, code_inventaire, categories(nom))')
+        .in('niveaux.batiments.site_id', sites.map((s) => s.id))
+        .ilike('nom', `%${texte}%`)
+        .order('nom').limit(a.limite)
+      const niveau = nettoyer(a.niveau)
+      if (niveau) q = q.ilike('niveaux.nom', `%${niveau}%`)
+      const { data, error } = await q
+      if (error) throw error
+      type Ligne = { id: string; nom: string; niveaux: { nom: string; batiments: { nom: string; site_id: string } }; equipements: { id: string; code_inventaire: string | null; categories: { nom: string } | null }[] }
+      const lignes = data as unknown as Ligne[]
+      return {
+        nombre: lignes.length,
+        lieux: lignes.map((l) => ({
+          local_id: l.id,
+          local: l.nom,
+          niveau: l.niveaux.nom,
+          batiment: l.niveaux.batiments.nom,
+          site: nomSite(sites, l.niveaux.batiments.site_id),
+          equipements: l.equipements.map((e) => ({ id: e.id, famille: e.categories?.nom ?? null, code: e.code_inventaire })),
+        })),
+      }
+    },
+  },
+  {
+    name: 'problemes_courants',
+    title: 'Problèmes courants du site',
+    description:
+      'Constats types (« problèmes courants ») installés sur le site, pour partir d’une formulation éprouvée quand une demande d’intervention correspond. Seuls ceux du site comptent ; le catalogue commun s’importe depuis l’application.',
+    inputSchema: { type: 'object', additionalProperties: false, properties: { site: { type: 'string' } } },
+    annotations: LECTURE,
+    schema: z.object({ site }).strict(),
+    run: async (a: { site?: string }, ctx) => {
+      const sites = await sitesCibles(ctx, a.site)
+      const { data, error } = await ctx.supabase.from('modeles_di')
+        .select('libelle, constat_modele, site_id')
+        .in('site_id', sites.map((s) => s.id)).eq('est_actif', true).order('libelle')
+      if (error) throw error
+      return {
+        nombre: data.length,
+        problemes: data.map((m) => ({ libelle: m.libelle, constat_type: m.constat_modele, site: nomSite(sites, m.site_id) })),
       }
     },
   },
@@ -445,7 +512,7 @@ const OUTILS_INTERNES: Outil[] = [
       const texte = nettoyer(a.recherche)
       if (!texte) throw new ErreurOutil('Recherche vide.')
       const { data, error } = await ctx.supabase.from('v_equipements_complet')
-        .select('categorie_nom, code_inventaire, localisation_complete, site_id, date_mise_en_service, date_fin_garantie, specifications')
+        .select('id, local_id, categorie_nom, code_inventaire, localisation_complete, site_id, date_mise_en_service, date_fin_garantie, specifications')
         .in('site_id', sites.map((s) => s.id))
         .or(`categorie_nom.ilike.*${texte}*,code_inventaire.ilike.*${texte}*,localisation_complete.ilike.*${texte}*`)
         .order('localisation_complete').limit(a.limite)
@@ -453,7 +520,7 @@ const OUTILS_INTERNES: Outil[] = [
       return {
         nombre: data.length,
         equipements: data.map((e) => ({
-          famille: e.categorie_nom, code: e.code_inventaire, localisation: e.localisation_complete,
+          id: e.id, local_id: e.local_id, famille: e.categorie_nom, code: e.code_inventaire, localisation: e.localisation_complete,
           mise_en_service: dateFr(e.date_mise_en_service), fin_garantie: dateFr(e.date_fin_garantie),
           caracteristiques: e.specifications, site: nomSite(sites, e.site_id),
         })),
@@ -532,7 +599,7 @@ const OUTILS_INTERNES: Outil[] = [
   },
 ]
 
-const TOUS_LES_OUTILS: Outil[] = [...OUTILS_INTERNES, ...OUTILS_ECRITURE]
+const TOUS_LES_OUTILS: Outil[] = [...OUTILS_INTERNES, ...OUTILS_ECRITURE, ...OUTILS_ECRITURE_DI]
 export const OUTILS = TOUS_LES_OUTILS
 
 function texte(t: string, isError = false): Resultat {

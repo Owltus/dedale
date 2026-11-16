@@ -10,51 +10,11 @@
 // oui ; nouvel appel avec les MÊMES paramètres, `appliquer: true` et le code.
 
 import { z } from 'npm:zod@3.23.8'
-import { type Contexte, type Outil, ErreurOutil, date, dateFr } from './commun.ts'
+import { type Outil, date, uuid, appliquer, code, PROPRIETES_CONFIRMATION, ECRITURE, ECRITURE_SENSIBLE, geste } from './commun.ts'
 
-const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
-const ECRITURE_SENSIBLE = { ...ECRITURE, destructiveHint: true }
-
-const uuid = z.string().uuid('Identifiant invalide')
 const motif = z.string().trim().min(10, 'Motif de 10 caractères au moins').max(2000)
-const appliquer = z.boolean().default(false)
-const code = z.string().regex(/^[0-9A-Fa-f]{8}$/, 'Code de confirmation : 8 caractères, donné par l’aperçu').optional()
 
-const PROPRIETES_CONFIRMATION = {
-  appliquer: { type: 'boolean', default: false, description: 'false (défaut) = APERÇU, rien n’est enregistré. true = enregistrer, seulement après un oui explicite de la personne sur l’aperçu.' },
-  code: { type: 'string', description: 'Code de confirmation rendu par l’aperçu (obligatoire avec appliquer=true).' },
-}
-
-const CLES_DATE = new Set(['date', 'date_prevue', 'debut', 'cloture'])
-
-/** Remplace les dates ISO des champs connus par « JJ/MM/AAAA (Sxx) ». */
-function datesEnFrancais(v: unknown): unknown {
-  if (Array.isArray(v)) return v.map(datesEnFrancais)
-  if (v && typeof v === 'object') {
-    return Object.fromEntries(
-      Object.entries(v as Record<string, unknown>).map(([k, x]) => [
-        k,
-        CLES_DATE.has(k) && typeof x === 'string' ? dateFr(x) : datesEnFrancais(x),
-      ]),
-    )
-  }
-  return v
-}
-
-/** Appelle une fonction claude_* et rend un résultat prêt à montrer. */
-async function geste(ctx: Contexte, fonction: string, params: Record<string, unknown>, appliquerDemande: boolean) {
-  const { data, error } = await ctx.supabase.rpc(fonction, params)
-  // Les messages viennent de la base (fonctions 158, triggers) : en français,
-  // destinés à la personne.
-  if (error) throw new ErreurOutil(`Rien n’a été enregistré. ${error.message}`)
-  const resultat = datesEnFrancais(data) as Record<string, unknown>
-  return {
-    ...resultat,
-    consigne: appliquerDemande
-      ? 'C’est enregistré. Résume à la personne ce qui a changé (statut de l’OT, OT suivant, alertes).'
-      : `APERÇU SEULEMENT. Montre ce récapitulatif à la personne et attends un oui explicite. Ensuite seulement, rappelle cet outil avec EXACTEMENT les mêmes paramètres, appliquer=true et code=${String(resultat.code_confirmation)}.`,
-  }
-}
+const APRES_OT = 'Résume à la personne ce qui a changé (statut de l’OT, OT suivant, alertes).'
 
 const saisie = z.object({
   operation_id: uuid,
@@ -106,7 +66,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     annotations: ECRITURE,
     schema: z.object({ ot_id: uuid, saisies: z.array(saisie).min(1).max(200), appliquer, code }).strict(),
     run: async (a: { ot_id: string; saisies: z.infer<typeof saisie>[]; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_saisir_operations', { p_ot_id: a.ot_id, p_saisies: a.saisies, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer),
+      geste(ctx, 'claude_saisir_operations', { p_ot_id: a.ot_id, p_saisies: a.saisies, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
   {
     name: 'replanifier_ot',
@@ -119,7 +79,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     annotations: ECRITURE,
     schema: z.object({ ot_id: uuid, date, appliquer, code }).strict(),
     run: async (a: { ot_id: string; date: string; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_replanifier_ot', { p_ot_id: a.ot_id, p_date: a.date, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer),
+      geste(ctx, 'claude_replanifier_ot', { p_ot_id: a.ot_id, p_date: a.date, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
   {
     name: 'rouvrir_ot',
@@ -132,7 +92,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     annotations: ECRITURE,
     schema: z.object({ ot_id: uuid, motif, appliquer, code }).strict(),
     run: async (a: { ot_id: string; motif: string; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_rouvrir_ot', { p_ot_id: a.ot_id, p_motif: a.motif, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer),
+      geste(ctx, 'claude_rouvrir_ot', { p_ot_id: a.ot_id, p_motif: a.motif, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
   {
     name: 'cloturer_ot',
@@ -142,7 +102,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     annotations: ECRITURE,
     schema: z.object({ ot_id: uuid, appliquer, code }).strict(),
     run: async (a: { ot_id: string; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_cloturer_ot', { p_ot_id: a.ot_id, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer),
+      geste(ctx, 'claude_cloturer_ot', { p_ot_id: a.ot_id, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
   {
     name: 'annuler_ot',
@@ -155,7 +115,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({ ot_id: uuid, motif, appliquer, code }).strict(),
     run: async (a: { ot_id: string; motif: string; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_annuler_ot', { p_ot_id: a.ot_id, p_motif: a.motif, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer),
+      geste(ctx, 'claude_annuler_ot', { p_ot_id: a.ot_id, p_motif: a.motif, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
   {
     name: 'reactiver_ot',
@@ -165,6 +125,6 @@ export const OUTILS_ECRITURE: Outil[] = [
     annotations: ECRITURE,
     schema: z.object({ ot_id: uuid, appliquer, code }).strict(),
     run: async (a: { ot_id: string; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_reactiver_ot', { p_ot_id: a.ot_id, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer),
+      geste(ctx, 'claude_reactiver_ot', { p_ot_id: a.ot_id, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
 ]
