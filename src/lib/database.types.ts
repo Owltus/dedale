@@ -4182,6 +4182,7 @@ export type Database = {
         Args: { p_miniature_id: string }
         Returns: number
       }
+      couper_connexions_claude: { Args: { p_user_id: string }; Returns: number }
       current_role: { Args: never; Returns: string }
       deactivate_inactive_users: { Args: never; Returns: undefined }
       detacher_et_supprimer_modele_operation: {
@@ -4462,6 +4463,7 @@ export type Database = {
         Args: { p_gamme_id: string }
         Returns: undefined
       }
+      refuser_connecteur_historique: { Args: never; Returns: undefined }
       reouvrir_ot: {
         Args: { p_motif: string; p_ot_id: string }
         Returns: {

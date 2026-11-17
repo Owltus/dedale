@@ -29,9 +29,19 @@ const page = z.number().int().min(1).max(1000).default(1)
 
 /** Garde lettres, chiffres, espaces, tirets et apostrophes : rien qui puisse
  *  détourner un filtre PostgREST (virgules, parenthèses, points, étoiles…). */
+/** Motif de recherche sûr pour ilike / or() (162). Tout ce qui n'est ni
+ *  lettre, ni chiffre, ni tiret devient un joker « % » : « R+2 » → « R%2 »,
+ *  « salle d’eau » → « salle%d%eau ». Les mots sont cherchés dans l'ordre, au
+ *  singulier approché (« joints douches » trouve « joint de douche »).
+ *  Virgules, points et parenthèses disparaissent : pas d'injection de filtre. */
 function nettoyer(texte: string | undefined): string | undefined {
-  const t = (texte ?? '').replace(/[^\p{L}\p{N} '\-]/gu, ' ').replace(/\s+/g, ' ').trim()
-  return t.length ? t.slice(0, 80) : undefined
+  const mots = (texte ?? '')
+    .split(/\s+/)
+    .map((m) => m.replace(/[^\p{L}\p{N}-]+/gu, '%').replace(/^%+|%+$/g, ''))
+    .filter(Boolean)
+    .map((m) => (m.length > 3 && /s$/i.test(m) ? m.slice(0, -1) : m))
+  const t = mots.join('%').replace(/%+/g, '%').slice(0, 80)
+  return t.length ? t : undefined
 }
 
 function jourIso(d: Date) {
@@ -121,13 +131,23 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'mes_sites',
     title: 'Mes sites et mon rôle',
-    description: 'Rôle de la personne connectée et sites auxquels elle a accès. À appeler en premier pour savoir sur quel périmètre on travaille.',
+    description: 'Rôle de la personne connectée, ses sites (nom et identifiant) et si elle peut enregistrer via Claude (peut_ecrire). À appeler en premier.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: LECTURE,
     schema: z.object({}).strict(),
     run: async (_a: Record<string, never>, ctx) => {
-      const [{ data: role }, sites] = await Promise.all([ctx.supabase.rpc('current_role'), mesSites(ctx)])
-      return { role, sites: sites.map((s) => s.nom) }
+      const [{ data: role }, sites, { data: moi }] = await Promise.all([
+        ctx.supabase.rpc('current_role'),
+        mesSites(ctx),
+        ctx.supabase.from('users').select('acces_ia_ecriture').eq('id', ctx.userId).maybeSingle(),
+      ])
+      const peutEcrire = moi?.acces_ia_ecriture === true
+      return {
+        role,
+        peut_ecrire: peutEcrire,
+        ...(peutEcrire ? {} : { a_dire: 'Accès en lecture seule : tu peux consulter mais rien enregistrer. Un administrateur peut ouvrir la modification sur la fiche utilisateur.' }),
+        sites: sites.map((s) => ({ id: s.id, nom: s.nom })),
+      }
     },
   },
   {
@@ -345,7 +365,7 @@ const OUTILS_INTERNES: Outil[] = [
       const sites = await sitesCibles(ctx, a.site)
       const ids: Record<string, number[]> = { ouvertes: [1, 2], ouvert: [1], en_cours: [2], cloture: [3] }
       let q = ctx.supabase.from('demandes_intervention')
-        .select('id, constat, date_constat, date_resolution, description_resolution, site_id, statuts_di(nom), di_localisations(locaux(nom, niveaux(nom))), di_equipements(equipements(code_inventaire, categories(nom)))')
+        .select('id, constat, date_constat, date_resolution, description_resolution, site_id, statuts_di(nom), di_localisations(local_id, locaux(nom, niveaux(nom))), di_equipements(equipement_id, equipements(code_inventaire, categories(nom)))')
         .in('site_id', sites.map((s) => s.id)).order('date_constat', { ascending: false }).limit(a.limite)
       if (a.statut !== 'toutes') q = q.in('statut_di_id', ids[a.statut])
       const texte = nettoyer(a.recherche)
@@ -361,10 +381,10 @@ const OUTILS_INTERNES: Outil[] = [
           date_constat: dateFr(d.date_constat),
           resolution: d.description_resolution,
           date_resolution: dateFr(d.date_resolution),
-          lieux: (d.di_localisations as unknown as { locaux: { nom: string; niveaux: { nom: string } | null } | null }[])
-            .map((l) => [l.locaux?.niveaux?.nom, l.locaux?.nom].filter(Boolean).join(' / ')).filter(Boolean),
-          equipements: (d.di_equipements as unknown as { equipements: { code_inventaire: string | null; categories: { nom: string } | null } | null }[])
-            .map((e) => [e.equipements?.categories?.nom, e.equipements?.code_inventaire].filter(Boolean).join(' ')),
+          lieux: (d.di_localisations as unknown as { local_id: string; locaux: { nom: string; niveaux: { nom: string } | null } | null }[])
+            .map((l) => ({ local_id: l.local_id, texte: [l.locaux?.niveaux?.nom, l.locaux?.nom].filter(Boolean).join(' / ') })),
+          equipements: (d.di_equipements as unknown as { equipement_id: string; equipements: { code_inventaire: string | null; categories: { nom: string } | null } | null }[])
+            .map((e) => ({ id: e.equipement_id, texte: [e.equipements?.categories?.nom, e.equipements?.code_inventaire].filter(Boolean).join(' ') })),
           site: nomSite(sites, d.site_id),
         })),
       }

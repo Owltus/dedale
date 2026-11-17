@@ -45,6 +45,7 @@
 //    tard si la politique projet était durcie.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { jetonDeConnecteur, REFUS_CONNECTEUR } from '../_shared/connecteur.ts'
 
 const ROLES_VALIDES = [
   'admin',
@@ -205,6 +206,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const token = authHeader.replace(/^Bearer\s+/i, '').trim()
   if (!token) {
     return json({ error: 'Authentification requise.' }, 401)
+  }
+  // 162 : jamais depuis le connecteur Claude (clé de service = hors RLS et hors garde).
+  if (jetonDeConnecteur(token)) {
+    return json({ error: REFUS_CONNECTEUR }, 403)
   }
 
   // Corps JSON.

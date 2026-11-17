@@ -52,7 +52,7 @@ export const OUTILS_ECRITURE: Outil[] = [
               action: {
                 type: 'string',
                 enum: ['fait', 'mesure', 'non_applicable', 'en_cours', 'en_attente', 'commenter'],
-                description: 'fait = réalisée (opération sans mesure) ; mesure = réalisée avec sa valeur ; non_applicable = pas faite pour une raison quelconque (ne pas confondre avec « plus tard », qui reste en_attente) ; en_cours = commencée ; en_attente = remettre à faire (correction) ; commenter = seulement ajouter un commentaire',
+                description: 'fait = réalisée (opération sans mesure) ; mesure = réalisée avec sa valeur ; non_applicable = ne sera pas faite pour cet OT (sans objet, équipement absent ou hors service) ; pas faite mais à faire plus tard = ne rien saisir (reste en_attente) ; en_cours = commencée ; en_attente = remettre à faire (correction) ; commenter = ajouter un commentaire (il s’ajoute à la suite du précédent)',
               },
               valeur: { type: 'number', description: 'Valeur relevée, dans l’unité de l’opération (action mesure uniquement)' },
               date: { type: 'string', description: 'Jour d’intervention AAAA-MM-JJ, donné par la personne (obligatoire sauf en_attente et commenter ; jamais dans le futur)' },
@@ -63,7 +63,7 @@ export const OUTILS_ECRITURE: Outil[] = [
         ...PROPRIETES_CONFIRMATION,
       },
     },
-    annotations: ECRITURE,
+    annotations: ECRITURE_SENSIBLE,
     schema: z.object({ ot_id: uuid, saisies: z.array(saisie).min(1).max(200), appliquer, code }).strict(),
     run: async (a: { ot_id: string; saisies: z.infer<typeof saisie>[]; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_saisir_operations', { p_ot_id: a.ot_id, p_saisies: a.saisies, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
@@ -89,7 +89,7 @@ export const OUTILS_ECRITURE: Outil[] = [
       type: 'object', additionalProperties: false, required: ['ot_id', 'motif'],
       properties: { ot_id: { type: 'string' }, motif: { type: 'string', description: 'Pourquoi on rouvre (10 caractères au moins)' }, ...PROPRIETES_CONFIRMATION },
     },
-    annotations: ECRITURE,
+    annotations: ECRITURE_SENSIBLE,
     schema: z.object({ ot_id: uuid, motif, appliquer, code }).strict(),
     run: async (a: { ot_id: string; motif: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_rouvrir_ot', { p_ot_id: a.ot_id, p_motif: a.motif, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
@@ -99,7 +99,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     title: 'Reclôturer un OT rouvert',
     description: 'Reclôture un OT ROUVERT dont toutes les opérations sont déjà réglées. Pour un OT normal, la clôture est automatique via saisir_operations. Aperçu d’abord, puis enregistrement après accord.',
     inputSchema: { type: 'object', additionalProperties: false, required: ['ot_id'], properties: { ot_id: { type: 'string' }, ...PROPRIETES_CONFIRMATION } },
-    annotations: ECRITURE,
+    annotations: ECRITURE_SENSIBLE,
     schema: z.object({ ot_id: uuid, appliquer, code }).strict(),
     run: async (a: { ot_id: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_cloturer_ot', { p_ot_id: a.ot_id, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),

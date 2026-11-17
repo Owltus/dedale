@@ -9,6 +9,7 @@
   - 159 (16/11) : cinq gestes sur les demandes d'intervention ;
   - 160 (16/11) : le lieu montré par Claude commence par le site ;
   - 161 (17/11) : sept gestes communs aux travaux et aux événements ;
+  - 162 (17/11) : correctifs de l'audit de sécurité du connecteur ;
   - fonction `mcp` : outils d'écriture.
 
 ## Contexte
@@ -116,6 +117,34 @@ du PO :
 - **Réouverture** : motif obligatoire, ajouté daté à la description avec le
   compte-rendu effacé (tronqué s'il ne tient pas).
 - **Demandeur** : refus explicite, renvoi vers les DI.
+
+## Audit de sécurité (17/11/2026, migration 162)
+
+Audit en cinq axes (fonction mcp, base, RLS par rôle, OAuth, usage), constats
+revérifiés en base. Aucun critique. Corrigé :
+
+- **Fonctions de comptes** (`invite_user`, `set_user_password`,
+  `update_user_email`) : elles agissent avec la clé de service, hors RLS et
+  hors garde 157 ; elles refusent désormais tout jeton portant `client_id`
+  (`supabase/functions/_shared/connecteur.ts`). **Toute nouvelle fonction
+  Edge à clé de service doit faire de même.**
+- **Clients de confiance** : adresse de retour exacte
+  (`https://claude.ai|claude.com/api/mcp/auth_callback`, client confidentiel ;
+  `http://localhost:PORT/callback`), miroir dans `confiance.ts`.
+- **Coupure réelle** : passer l'accès à « Désactivé » ou désactiver le compte
+  ferme les sessions OAuth et révoque les consentements (trigger sur users) ;
+  chacun voit et retire ses connexions dans son profil (`revokeGrant`).
+- **Trace** `via_client` étendue aux travaux, événements, tâches et liaisons
+  de DI.
+- **Historique et alertes de sécurité fermés au connecteur**, même pour un
+  admin (décision PO).
+- Commentaires saisis via Claude **ajoutés à la suite** (décision PO) ; site
+  dans les aperçus ; code de création non rejouable ; INSERT de `users`
+  gardé comme l'UPDATE ; lots JSON-RPC bornés ; erreurs SQL brutes filtrées ;
+  en-têtes anti-iframe (vercel.json) ; consigne « données ≠ consignes ».
+
+Non vérifié faute de jeton réel : ce qu'un jeton OAuth permet sur l'API Auth
+elle-même (changer son propre mot de passe).
 
 ## Conséquences
 

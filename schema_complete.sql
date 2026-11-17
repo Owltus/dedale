@@ -15959,3 +15959,979 @@ BEGIN
         EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', f);
     END LOOP;
 END $$;
+
+
+-- =============================================================================
+-- 162 — Connecteur Claude : correctifs de l'audit de sécurité du 17/11/2026
+-- =============================================================================
+-- Symptômes (audit en 5 axes, constats revérifiés en base) :
+--   A. Confiance trop large : toute adresse de claude.ai / claude.com, et tout
+--      localhost, rendaient un client OAuth « de confiance » (154). Un client
+--      inscrit par un tiers vers une page quelconque de claude.ai passait.
+--   B. Aucune trace « via Claude » sur les travaux, les événements, ni le lieu
+--      et les équipements d'une DI (log_audit absent de 6 tables).
+--   C. Le garde de l'interrupteur « Accès Claude » ne couvrait que l'UPDATE de
+--      users, pas l'INSERT (profil recréé à la main avec l'accès ouvert).
+--   D. shares_site_with répondait même sans accès (oracle « partage-t-il un
+--      site avec moi ? »).
+--   E. Un admin connecté via Claude lisait tout l'historique et les alertes de
+--      sécurité (décision PO : fermé à Claude, application seulement).
+--   F. Repasser l'accès sur « Désactivé » rendait Claude aveugle mais laissait
+--      la connexion OAuth ouverte : elle repartait seule à la réouverture.
+--   G. Un commentaire saisi via Claude REMPLAÇAIT l'ancien (décision PO :
+--      ajouté à la suite).
+--   H. Les aperçus d'OT et de fiches sans lieu ne nommaient pas le site.
+--   I. Le code d'une création de travaux/événement se rejouait sans fin.
+--
+-- Correctif : chacun des points ci-dessus, rien d'autre. G, H, I recopient les
+-- fonctions de 158 et 161 avec les seules retouches dites (assemblage
+-- vérifié par script). Aucune donnée modifiée.
+--
+-- Innocuité :
+--   A. Les 3 clients réels (claude.ai, confidentiels, une seule adresse
+--      /api/mcp/auth_callback) restent de confiance ; Claude Code
+--      (http://localhost:PORT/callback) aussi.
+--   B. log_audit accepte une ligne sans « id » (repli sur di_id) : sinon
+--      row_pk NOT NULL aurait bloqué la création des DI.
+--   F. Ne touche que les sessions OAuth (oauth_client_id renseigné) : la
+--      session de l'application de la personne reste ouverte.
+--
+-- Vérification après application :
+--     SELECT count(*) FROM pg_trigger WHERE tgfoid = 'public.log_audit()'::regprocedure;  -- +6
+--     SELECT public.client_ia_de_confiance();  -- false (pas de claim)
+-- =============================================================================
+
+-- ─── A. Clients de confiance : adresse exacte ───────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.client_ia_de_confiance()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    WITH appel AS (
+        SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'client_id' AS client_id
+    ),
+    client AS (
+        SELECT c.client_type::text AS type, c.redirect_uris
+        FROM   auth.oauth_clients c, appel
+        WHERE  c.id::text = appel.client_id
+          AND  c.deleted_at IS NULL
+    ),
+    adresses AS (
+        SELECT trim(a) AS adresse, client.type
+        FROM   client, regexp_split_to_table(coalesce(client.redirect_uris, ''), '[,\s]+') AS a
+        WHERE  trim(a) <> ''
+    )
+    -- 162 : claude.ai / claude.com = le seul retour officiel, et un client
+    -- confidentiel (ceux de claude.ai le sont) ; Claude Code = /callback local.
+    SELECT EXISTS (SELECT 1 FROM adresses)
+       AND NOT EXISTS (
+            SELECT 1 FROM adresses
+            WHERE NOT (
+                   (adresse ~ '^https://(claude\.ai|claude\.com)/api/mcp/auth_callback$' AND type = 'confidential')
+                OR  adresse ~ '^http://(localhost|127\.0\.0\.1)(:[0-9]{1,5})?/callback$')
+       )
+$function$;
+
+-- ─── B. Trace « via Claude » sur les 6 tables qui n'en avaient pas ──────────
+
+CREATE OR REPLACE FUNCTION public.log_audit()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_row_pk TEXT;
+    v_new_json JSONB;
+    v_old_json JSONB;
+    v_client TEXT;
+BEGIN
+    -- Sérialise OLD/NEW (NULL en INSERT pour OLD, NULL en DELETE pour NEW)
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN
+        v_old_json := to_jsonb(OLD);
+    END IF;
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+        v_new_json := to_jsonb(NEW);
+    END IF;
+
+    -- Récupère la PK depuis le JSON pour éviter les soucis
+    -- de typage entre NEW/OLD selon TG_OP. 162 : les liaisons de DI n'ont
+    -- pas d'« id » : on retient la DI (row_pk est NOT NULL).
+    v_row_pk := COALESCE(v_new_json->>'id', v_old_json->>'id',
+                         v_new_json->>'di_id', v_old_json->>'di_id');
+
+    -- 156 : l'application OAuth à l'origine de l'appel (connecteur Claude).
+    -- Valeur ignorée si ce n'est pas un uuid : la trace ne doit jamais bloquer.
+    v_client := nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'client_id';
+    IF v_client !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+        v_client := NULL;
+    END IF;
+
+    INSERT INTO public.audit_log (
+        user_id, table_name, row_pk, action, before, after, via_client
+    ) VALUES (
+        (SELECT auth.uid()),
+        TG_TABLE_NAME,
+        v_row_pk,
+        TG_OP,
+        v_old_json,
+        v_new_json,
+        v_client::uuid
+    );
+
+    RETURN COALESCE(NEW, OLD);
+END;
+$function$;
+
+DO $$
+DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['interventions_travaux', 'travaux_taches', 'evenements', 'evenements_lieux',
+                             'di_localisations', 'di_equipements']
+    LOOP
+        EXECUTE format('DROP TRIGGER IF EXISTS audit_%1$s ON public.%1$I', t);
+        EXECUTE format('CREATE TRIGGER audit_%1$s AFTER INSERT OR UPDATE OR DELETE ON public.%1$I
+                        FOR EACH ROW EXECUTE FUNCTION public.log_audit()', t);
+    END LOOP;
+END $$;
+
+-- ─── C. L'accès Claude ne s'ouvre pas non plus à la création d'un profil ────
+
+CREATE OR REPLACE FUNCTION public.protect_users_acces_ia_insert()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    IF (NEW.acces_ia OR NEW.acces_ia_ecriture)
+       AND ((SELECT public.current_role()) IS DISTINCT FROM 'admin' OR (SELECT public.via_connecteur())) THEN
+        RAISE EXCEPTION 'L''accès Claude ne s''accorde que par un admin, depuis l''application'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS trg_protect_users_acces_ia_insert ON public.users;
+CREATE TRIGGER trg_protect_users_acces_ia_insert BEFORE INSERT ON public.users
+    FOR EACH ROW EXECUTE FUNCTION public.protect_users_acces_ia_insert();
+
+-- ─── D. shares_site_with : rien sans accès ──────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.shares_site_with(target_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    SELECT (SELECT public.current_role()) IS NOT NULL AND EXISTS (
+        SELECT 1
+        FROM public.user_sites us_me
+        JOIN public.user_sites us_other ON us_other.site_id = us_me.site_id
+        WHERE us_me.user_id    = (SELECT auth.uid())
+          AND us_other.user_id = target_user_id
+    );
+$function$;
+
+-- ─── E. Historique et alertes de sécurité : application seulement ───────────
+
+DROP POLICY IF EXISTS audit_log_admin_select ON public.audit_log;
+CREATE POLICY audit_log_admin_select ON public.audit_log FOR SELECT
+    USING ((SELECT public.current_role()) = 'admin' AND NOT (SELECT public.via_connecteur()));
+DROP POLICY IF EXISTS security_alerts_admin_select ON public.security_alerts;
+CREATE POLICY security_alerts_admin_select ON public.security_alerts FOR SELECT
+    USING ((SELECT public.current_role()) = 'admin' AND NOT (SELECT public.via_connecteur()));
+COMMENT ON POLICY audit_log_admin_select ON public.audit_log IS
+    'Historique : admin, depuis l''application seulement (162 : fermé au connecteur Claude).';
+COMMENT ON POLICY security_alerts_admin_select ON public.security_alerts IS
+    'Alertes de sécurité : admin, depuis l''application seulement (162).';
+
+CREATE OR REPLACE FUNCTION public.refuser_connecteur_historique()
+ RETURNS void
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+BEGIN
+    IF public.via_connecteur() THEN
+        RAISE EXCEPTION 'L''historique et les alertes de sécurité se consultent dans l''application Dédale, pas via Claude.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_audit_log(p_table_name text DEFAULT NULL::text, p_limit integer DEFAULT 100, p_before timestamp with time zone DEFAULT NULL::timestamp with time zone)
+ RETURNS SETOF audit_log
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    PERFORM public.refuser_connecteur_historique();
+    IF public.current_role() IS DISTINCT FROM 'admin' THEN
+        RAISE EXCEPTION 'Consultation du journal d''audit réservée à l''admin'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN QUERY
+    SELECT a.*
+    FROM   public.audit_log a
+    WHERE  (p_table_name IS NULL OR a.table_name = p_table_name)
+      AND  (p_before IS NULL OR a.at < p_before)
+    ORDER BY a.at DESC
+    LIMIT LEAST(GREATEST(p_limit, 1), 500);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_security_alerts(p_limit integer DEFAULT 100, p_before timestamp with time zone DEFAULT NULL::timestamp with time zone)
+ RETURNS SETOF security_alerts
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    PERFORM public.refuser_connecteur_historique();
+    IF public.current_role() IS DISTINCT FROM 'admin' THEN
+        RAISE EXCEPTION 'Consultation des alertes de sécurité réservée à l''admin'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN QUERY
+    SELECT al.*
+    FROM   public.security_alerts al
+    WHERE  (p_before IS NULL OR al.detected_at < p_before)
+    ORDER BY al.detected_at DESC
+    LIMIT LEAST(GREATEST(p_limit, 1), 500);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_audit_trail(p_table_name text, p_row_pk text)
+ RETURNS TABLE(id bigint, action text, at timestamp with time zone, user_id uuid, before jsonb, after jsonb)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_role     TEXT := public.current_role();
+    v_is_admin BOOLEAN := (v_role = 'admin');
+    v_site     UUID;
+BEGIN
+    PERFORM public.refuser_connecteur_historique();
+    IF v_role IS DISTINCT FROM 'admin' AND v_role IS DISTINCT FROM 'manager' THEN
+        RAISE EXCEPTION 'Consultation de l''audit réservée à l''admin et au manager'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    IF NOT v_is_admin THEN
+        IF p_table_name = 'demandes_intervention' THEN
+            SELECT site_id INTO v_site FROM public.demandes_intervention WHERE demandes_intervention.id = p_row_pk::uuid;
+        ELSIF p_table_name = 'ordres_travail' THEN
+            SELECT site_id INTO v_site FROM public.ordres_travail WHERE ordres_travail.id = p_row_pk::uuid;
+        ELSIF p_table_name = 'observations' THEN
+            SELECT site_id INTO v_site FROM public.observations WHERE observations.id = p_row_pk::uuid;
+        ELSIF p_table_name = 'operations_execution' THEN
+            SELECT ot.site_id INTO v_site
+            FROM public.operations_execution oe
+            JOIN public.ordres_travail ot ON ot.id = oe.ordre_travail_id
+            WHERE oe.id = p_row_pk::uuid;
+        ELSE
+            RAISE EXCEPTION 'Table % non consultable via get_audit_trail', p_table_name
+                USING ERRCODE = 'insufficient_privilege';
+        END IF;
+
+        IF v_site IS NULL OR NOT public.has_site_access(v_site) THEN
+            RAISE EXCEPTION 'Accès refusé à l''historique de cet enregistrement'
+                USING ERRCODE = 'insufficient_privilege';
+        END IF;
+    END IF;
+
+    RETURN QUERY
+    SELECT a.id, a.action, a.at, a.user_id,
+           CASE WHEN v_is_admin THEN a.before ELSE NULL END,
+           CASE WHEN v_is_admin THEN a.after  ELSE NULL END
+    FROM public.audit_log a
+    WHERE a.table_name = p_table_name
+      AND a.row_pk = p_row_pk
+    ORDER BY a.at DESC;
+END;
+$function$;
+
+-- ─── F. Couper vraiment les connexions Claude quand l'accès se ferme ────────
+
+-- Interne (EXECUTE retiré à tous) : supprime les sessions OAuth de la personne
+-- (jetons de rafraîchissement compris, en cascade) et révoque ses
+-- consentements. La session de l'application n'est pas touchée.
+CREATE OR REPLACE FUNCTION public.couper_connexions_claude(p_user_id uuid)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_n integer;
+BEGIN
+    DELETE FROM auth.sessions WHERE user_id = p_user_id AND oauth_client_id IS NOT NULL;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    UPDATE auth.oauth_consents SET revoked_at = now() WHERE user_id = p_user_id AND revoked_at IS NULL;
+    RETURN v_n;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.trg_couper_connexions_claude()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    IF (OLD.acces_ia AND NOT NEW.acces_ia) OR (OLD.est_actif AND NOT NEW.est_actif) THEN
+        PERFORM public.couper_connexions_claude(NEW.id);
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS trg_users_couper_connexions_claude ON public.users;
+CREATE TRIGGER trg_users_couper_connexions_claude AFTER UPDATE OF acces_ia, est_actif ON public.users
+    FOR EACH ROW EXECUTE FUNCTION public.trg_couper_connexions_claude();
+COMMENT ON FUNCTION public.couper_connexions_claude(uuid) IS
+    'Interne (162) : ferme les connexions Claude (sessions OAuth + consentements) d''une personne. Appelée quand son accès Claude ou son compte est désactivé.';
+
+-- ─── G. Commentaires ajoutés à la suite (OT) — recopie de 158 retouchée ────
+
+CREATE OR REPLACE FUNCTION public.claude_saisir_operations(
+    p_ot_id uuid, p_saisies jsonb, p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_ot        public.ordres_travail;
+    v_code      text;
+    v_s         jsonb;
+    v_op        public.operations_execution;
+    v_apres_op  public.operations_execution;
+    v_id        uuid;
+    v_ids       uuid[] := '{}';
+    v_action    text;
+    v_date      date;
+    v_ts        timestamptz;
+    v_valeur    numeric;
+    v_comm      text;
+    v_aujourdhui date := (now() AT TIME ZONE 'Europe/Paris')::date;
+    v_avant     jsonb;
+    v_apres     jsonb;
+    v_lignes    jsonb := '[]';
+    v_suivant   jsonb;
+    v_restantes jsonb;
+    v_alertes   jsonb := '[]';
+    v_statut_fin text;
+    v_cible     text;
+BEGIN
+    PERFORM public.exiger_ecriture_claude();
+    v_ot := public.ot_pour_claude(p_ot_id);
+    IF v_ot.statut IN ('cloture', 'annule') THEN
+        RAISE EXCEPTION 'Cet OT est % : ses opérations sont figées. Pour corriger, rouvre-le d''abord (outil rouvrir_ot).',
+            CASE v_ot.statut WHEN 'cloture' THEN 'clôturé' ELSE 'annulé' END;
+    END IF;
+    IF jsonb_typeof(p_saisies) IS DISTINCT FROM 'array'
+       OR jsonb_array_length(p_saisies) NOT BETWEEN 1 AND 200 THEN
+        RAISE EXCEPTION 'Il faut une liste de 1 à 200 saisies.';
+    END IF;
+
+    v_code := public.ot_code_confirmation('saisir', p_ot_id, p_saisies);
+    PERFORM public.ot_verifier_code(p_appliquer, p_code, v_code);
+    v_avant := public.ot_etat_resume(p_ot_id);
+
+    BEGIN
+        FOR v_s IN SELECT value FROM jsonb_array_elements(p_saisies) LOOP
+            -- Forme
+            IF jsonb_typeof(v_s) IS DISTINCT FROM 'object'
+               OR EXISTS (SELECT 1 FROM jsonb_object_keys(v_s) k
+                          WHERE k NOT IN ('operation_id', 'action', 'valeur', 'date', 'commentaire')) THEN
+                RAISE EXCEPTION 'Saisie mal formée : %', v_s;
+            END IF;
+            IF coalesce(v_s->>'operation_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+                RAISE EXCEPTION 'Identifiant d''opération invalide : %', v_s->>'operation_id';
+            END IF;
+            v_id := (v_s->>'operation_id')::uuid;
+            IF v_id = ANY (v_ids) THEN
+                RAISE EXCEPTION 'Une même opération est citée deux fois.';
+            END IF;
+            v_ids := v_ids || v_id;
+
+            SELECT * INTO v_op FROM public.operations_execution
+            WHERE id = v_id AND ordre_travail_id = p_ot_id;
+            IF NOT FOUND THEN
+                RAISE EXCEPTION 'L''opération % n''appartient pas à cet OT : rien n''a été enregistré.', v_id;
+            END IF;
+            IF v_op.statut = 'annulee' THEN
+                RAISE EXCEPTION 'L''opération « % » est annulée par le système : on ne la saisit pas.', v_op.nom;
+            END IF;
+
+            v_action := v_s->>'action';
+            IF v_action IS NULL OR v_action NOT IN ('fait', 'mesure', 'non_applicable', 'en_cours', 'en_attente', 'commenter') THEN
+                RAISE EXCEPTION 'Action inconnue pour « % » : %', v_op.nom, v_action;
+            END IF;
+
+            -- Commentaire
+            v_comm := NULL;
+            IF v_s ? 'commentaire' THEN
+                IF jsonb_typeof(v_s->'commentaire') IS DISTINCT FROM 'string'
+                   OR length(trim(v_s->>'commentaire')) = 0 OR length(v_s->>'commentaire') > 2000 THEN
+                    RAISE EXCEPTION 'Commentaire invalide pour « % » (texte de 1 à 2000 caractères).', v_op.nom;
+                END IF;
+                v_comm := trim(v_s->>'commentaire');
+            ELSIF v_action = 'commenter' THEN
+                RAISE EXCEPTION 'Action « commenter » sans commentaire pour « % ».', v_op.nom;
+            END IF;
+
+            -- Valeur : seulement pour une mesure, et obligatoire
+            IF v_action = 'mesure' THEN
+                IF v_op.type_operation IS DISTINCT FROM 'Mesure' THEN
+                    RAISE EXCEPTION '« % » n''est pas une mesure : utilise l''action « fait ».', v_op.nom;
+                END IF;
+                IF jsonb_typeof(v_s->'valeur') IS DISTINCT FROM 'number' THEN
+                    RAISE EXCEPTION 'Valeur numérique obligatoire pour la mesure « % ».', v_op.nom;
+                END IF;
+                v_valeur := (v_s->>'valeur')::numeric;
+            ELSIF v_s ? 'valeur' THEN
+                RAISE EXCEPTION 'Une valeur n''est acceptée que pour une mesure (« % »).', v_op.nom;
+            END IF;
+            IF v_action = 'fait' AND v_op.type_operation = 'Mesure' THEN
+                RAISE EXCEPTION '« % » est une mesure : il faut sa valeur (action « mesure »).', v_op.nom;
+            END IF;
+
+            -- Date : obligatoire quand l'opération est réalisée / démarrée / non applicable
+            v_ts := NULL;
+            IF v_action IN ('fait', 'mesure', 'non_applicable', 'en_cours') THEN
+                IF coalesce(v_s->>'date', '') !~ '^\d{4}-\d{2}-\d{2}$' THEN
+                    RAISE EXCEPTION 'Date d''intervention obligatoire (AAAA-MM-JJ) pour « % ».', v_op.nom;
+                END IF;
+                v_date := (v_s->>'date')::date;
+                IF v_date > v_aujourdhui THEN
+                    RAISE EXCEPTION 'Date future refusée pour « % » (%).', v_op.nom, to_char(v_date, 'DD/MM/YYYY');
+                END IF;
+                v_ts := (v_date::text || ' 12:00:00+00')::timestamptz;
+            ELSIF v_s ? 'date' THEN
+                RAISE EXCEPTION 'Pas de date pour l''action « % » (« % »).', v_action, v_op.nom;
+            END IF;
+
+            -- Écriture : les mêmes colonnes que l'application.
+            IF v_action = 'commenter' THEN
+                UPDATE public.operations_execution SET commentaires = CASE WHEN v_comm IS NULL THEN commentaires
+                                          WHEN nullif(trim(commentaires), '') IS NULL THEN v_comm
+                                          ELSE commentaires || E'\n' || v_comm END
+                WHERE id = v_id RETURNING * INTO v_apres_op;
+            ELSE
+                v_cible := CASE v_action WHEN 'fait' THEN 'terminee' WHEN 'mesure' THEN 'terminee'
+                                         ELSE v_action END;
+                UPDATE public.operations_execution
+                SET statut         = v_cible,
+                    date_execution = v_ts,
+                    valeur_mesuree = CASE WHEN v_action = 'mesure' THEN v_valeur
+                                          WHEN v_action = 'en_attente' THEN NULL
+                                          ELSE valeur_mesuree END,
+                    executed_by    = (SELECT auth.uid()),
+                    commentaires   = CASE WHEN v_comm IS NULL THEN commentaires
+                                          WHEN nullif(trim(commentaires), '') IS NULL THEN v_comm
+                                          ELSE commentaires || E'\n' || v_comm END
+                WHERE id = v_id
+                RETURNING * INTO v_apres_op;
+            END IF;
+            -- RLS : visible mais non modifiable (lecteur, demandeur) → 0 ligne.
+            IF NOT FOUND THEN
+                RAISE EXCEPTION 'Modification refusée : ton rôle ne permet pas de saisir les opérations de cet OT.'
+                    USING ERRCODE = 'insufficient_privilege';
+            END IF;
+
+            v_lignes := v_lignes || jsonb_build_object(
+                'operation', v_op.nom,
+                'localisation', v_op.nom_localisation,
+                'equipement', v_op.nom_equipement,
+                'avant', v_op.statut,
+                'apres', v_apres_op.statut,
+                'date', v_date,
+                'valeur', v_apres_op.valeur_mesuree,
+                'unite', v_apres_op.unite_symbole,
+                'seuils', CASE WHEN v_apres_op.seuil_minimum IS NULL AND v_apres_op.seuil_maximum IS NULL THEN NULL
+                               ELSE concat_ws(' à ', v_apres_op.seuil_minimum, v_apres_op.seuil_maximum) END,
+                'conforme', v_apres_op.est_conforme,
+                'commentaire', v_apres_op.commentaires);
+            IF v_action = 'mesure' AND v_apres_op.est_conforme = false THEN
+                v_alertes := v_alertes || to_jsonb(format('NON CONFORME : « %s »%s = %s %s (seuils %s à %s).',
+                    v_op.nom, coalesce(' — ' || v_op.nom_localisation, ''), v_apres_op.valeur_mesuree,
+                    coalesce(v_apres_op.unite_symbole, ''), coalesce(v_apres_op.seuil_minimum::text, '—'),
+                    coalesce(v_apres_op.seuil_maximum::text, '—')));
+            END IF;
+            v_date := NULL;
+        END LOOP;
+
+        v_apres := public.ot_etat_resume(p_ot_id);
+        v_suivant := public.ot_suivant_genere(p_ot_id);
+        SELECT statut INTO v_statut_fin FROM public.ordres_travail WHERE id = p_ot_id;
+        SELECT jsonb_build_object('nombre', count(*),
+                                  'liste', (jsonb_agg(concat_ws(' — ', r.nom, r.nom_localisation, r.nom_equipement)
+                                            ORDER BY r.ordre) FILTER (WHERE r.rang <= 60)))
+        INTO v_restantes
+        FROM (SELECT e.*, row_number() OVER (ORDER BY e.ordre) AS rang
+              FROM public.operations_execution e
+              WHERE e.ordre_travail_id = p_ot_id AND e.statut IN ('en_attente', 'en_cours')) r;
+
+        IF v_statut_fin = 'annule' THEN
+            v_alertes := v_alertes || to_jsonb('Toutes les opérations sont « non applicable » : la base ANNULE l''OT automatiquement et reprogramme le suivant.'::text);
+        ELSIF v_statut_fin = 'cloture' AND EXISTS (
+                SELECT 1 FROM public.gammes g WHERE g.id = v_ot.gamme_id AND g.document_requis)
+              AND NOT EXISTS (SELECT 1 FROM public.documents_ordres_travail d WHERE d.ordre_travail_id = p_ot_id) THEN
+            v_alertes := v_alertes || to_jsonb('Cette gamme attend un document (rapport, attestation…) : à ajouter depuis l''application Dédale.'::text);
+        END IF;
+
+        IF NOT p_appliquer THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0A01', MESSAGE = 'aperçu';
+        END IF;
+    EXCEPTION WHEN SQLSTATE 'P0A01' THEN
+        NULL; -- aperçu : tout ce qui précède dans le bloc est annulé.
+    END;
+
+    RETURN jsonb_build_object(
+        'mode', CASE WHEN p_appliquer THEN 'enregistré' ELSE 'aperçu (rien n''est enregistré)' END,
+        'code_confirmation', CASE WHEN p_appliquer THEN NULL ELSE v_code END,
+        'ot', jsonb_build_object('gamme', v_ot.nom_gamme, 'localisation', v_ot.nom_localisation,
+                                 'equipement', v_ot.nom_equipement, 'avant', v_avant, 'apres', v_apres),
+        'saisies', v_lignes,
+        'restent_a_faire', v_restantes,
+        'ot_suivant', v_suivant,
+        'alertes', v_alertes);
+END;
+$function$;
+
+-- ─── H. Le site dans les aperçus ───────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.ot_etat_resume(p_ot_id uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+    SELECT jsonb_build_object(
+        'site', (SELECT s.nom FROM public.sites s WHERE s.id = o.site_id),
+        'statut', CASE o.statut
+                    WHEN 'planifie' THEN CASE o.origine WHEN 'programme' THEN 'Programmé' ELSE 'Planifié' END
+                    WHEN 'en_cours' THEN 'En cours' WHEN 'cloture' THEN 'Clôturé'
+                    WHEN 'annule' THEN 'Annulé' WHEN 'reouvert' THEN 'Rouvert' ELSE o.statut END,
+        'date_prevue', o.date_prevue,
+        'debut', o.date_debut,
+        'cloture', o.date_cloture,
+        'motif_annulation', o.motif_annulation,
+        'motif_reouverture', o.motif_reouverture,
+        'operations', (SELECT jsonb_object_agg(s.libelle, s.n) FROM (
+            SELECT CASE e.statut WHEN 'en_attente' THEN 'en attente' WHEN 'en_cours' THEN 'en cours'
+                                 WHEN 'terminee' THEN 'terminées' WHEN 'non_applicable' THEN 'non applicables'
+                                 WHEN 'annulee' THEN 'annulées' ELSE e.statut END AS libelle,
+                   count(*) AS n
+            FROM public.operations_execution e WHERE e.ordre_travail_id = o.id GROUP BY 1) s))
+    FROM public.ordres_travail o WHERE o.id = p_ot_id
+$function$;
+
+CREATE OR REPLACE FUNCTION public.fiche_etat_resume(p_type text, p_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    c jsonb := public.fiche_cfg(p_type);
+    v jsonb;
+BEGIN
+    EXECUTE format($q$
+        SELECT jsonb_build_object(
+            'fiche', %L,
+            'site', (SELECT si.nom FROM public.sites si WHERE si.id = f.site_id),
+            'titre', f.titre,
+            'description', f.description,
+            'statut', s.nom,
+            'date', f.%I,
+            'lieu', public.fiche_lieu_texte(f.local_id, f.equipement_id),
+            'verrouille', f.verrouille,
+            'cloture', f.%I,
+            'compte_rendu', f.compte_rendu,
+            'cloture_a_confirmer', (f.%I = 4 AND f.%I IS NULL),
+            'taches', (SELECT jsonb_agg(jsonb_build_object(
+                    'id', t.id, 'libelle', t.libelle,
+                    'statut', public.fiche_statut_tache_texte(t.statut),
+                    'date', t.date_tache, 'commentaire', t.commentaire,
+                    'lieu', public.fiche_lieu_texte(t.local_id, t.equipement_id))
+                ORDER BY t.ordre, t.created_at)
+                FROM public.%I t WHERE t.%I = f.id))
+        FROM public.%I f JOIN public.%I s ON s.id = f.%I
+        WHERE f.id = $1 $q$,
+        c->>'nom', c->>'date_col', c->>'fin_col', c->>'statut_col', c->>'fin_col',
+        c->>'taches_tab', c->>'fk', c->>'tab', c->>'statut_tab', c->>'statut_col')
+    INTO v USING p_id;
+    RETURN v;
+END;
+$function$;
+
+-- ─── I. Code de création non rejouable ─────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.fiche_code_confirmation(p_type text, p_geste text, p_id uuid, p_demande jsonb)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    c jsonb := public.fiche_cfg(p_type);
+    v_f text;
+    v_t text;
+BEGIN
+    IF p_id IS NOT NULL THEN
+        EXECUTE format('SELECT updated_at::text FROM public.%I WHERE id = $1', c->>'tab') INTO v_f USING p_id;
+        EXECUTE format('SELECT max(updated_at)::text FROM public.%I WHERE %I = $1', c->>'taches_tab', c->>'fk') INTO v_t USING p_id;
+    ELSE
+        -- 162 : une création déjà faite change ce repère, son code ne se rejoue pas.
+        EXECUTE format('SELECT max(created_at)::text || count(*)::text FROM public.%I', c->>'tab') INTO v_f;
+    END IF;
+    RETURN upper(substr(md5(concat_ws('|', 'fiche', p_type, p_geste, p_id::text, p_demande::text,
+        (SELECT auth.uid())::text, v_f, v_t)), 1, 8));
+END;
+$function$;
+
+-- ─── G bis. Tâches : commentaire ajouté, « en attente » efface la date ───────
+
+CREATE OR REPLACE FUNCTION public.fiche_geste_claude(
+    p_type text, p_geste text, p_id uuid, p_demande jsonb, p_appliquer boolean, p_code text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+    c          jsonb := public.fiche_cfg(p_type);
+    v_auj      date := (now() AT TIME ZONE 'Europe/Paris')::date;
+    v_f        jsonb;
+    v_statut   int;
+    v_verrou   boolean;
+    v_date_f   date;
+    v_fin      date;
+    v_nb       int;
+    v_titre    text;
+    v_desc     text;
+    v_loc      uuid;
+    v_eq       uuid;
+    v_lieu_change boolean := false;
+    v_taches   jsonb;
+    v_saisies  jsonb := '[]';
+    v_ids      uuid[] := '{}';
+    v_cr       text;
+    v_motif    text;
+    v_ajout    text;
+    v_place    int;
+    v_date     date;
+    v_code     text;
+    v_avant    jsonb;
+    v_apres    jsonb;
+    v_doublons jsonb;
+    v_alertes  jsonb := '[]';
+    v_n        int;
+    v_ordre    int;
+    s          jsonb;
+    v_tache    jsonb;
+    v_tid      uuid;
+    v_nom_statut4 text;
+BEGIN
+    PERFORM public.exiger_ecriture_claude();
+    PERFORM public.fiche_refuser_demandeur();
+    EXECUTE format('SELECT to_jsonb(f) FROM public.%I f WHERE id = $1', c->>'tab') INTO v_f USING p_id;
+    IF v_f IS NULL THEN
+        RAISE EXCEPTION 'Fiche % introuvable ou hors de tes sites (vérifie le type : travaux ou événement).', c->>'nom';
+    END IF;
+    v_statut := (v_f->>(c->>'statut_col'))::int;
+    v_verrou := (v_f->>'verrouille')::boolean;
+    v_date_f := (v_f->>(c->>'date_col'))::date;
+    v_fin := (v_f->>(c->>'fin_col'))::date;
+    EXECUTE format('SELECT count(*) FROM public.%I WHERE %I = $1', c->>'taches_tab', c->>'fk') INTO v_nb USING p_id;
+    EXECUTE format('SELECT nom FROM public.%I WHERE id = 4', c->>'statut_tab') INTO v_nom_statut4;
+
+    IF EXISTS (SELECT 1 FROM jsonb_object_keys(p_demande) k
+               WHERE k NOT IN ('titre', 'description', 'local_id', 'equipement_id', 'sans_equipement',
+                               'taches', 'saisies', 'compte_rendu', 'date', 'motif', 'taches_a_reprendre')) THEN
+        RAISE EXCEPTION 'Paramètre inconnu.';
+    END IF;
+
+    -- Le cadenas : seule la confirmation d'une clôture en attente le franchit.
+    IF v_verrou AND NOT (p_geste = 'cloturer' AND v_statut = 4 AND v_fin IS NULL) THEN
+        RAISE EXCEPTION 'Cette fiche est verrouillée (cadenas) : rien ne s''y modifie. Pour la changer, quelqu''un la déverrouille dans l''application, puis tu pourras reprendre.';
+    END IF;
+
+    -- Préconditions lisibles (la RLS et les triggers revérifient le reste).
+    IF p_geste = 'modifier' THEN
+        IF NOT (p_demande ?| ARRAY['titre', 'description', 'local_id', 'equipement_id', 'sans_equipement']) THEN
+            RAISE EXCEPTION 'Rien à modifier : donne le titre, la description ou le lieu.';
+        END IF;
+        IF p_demande ? 'titre' THEN
+            v_titre := public.fiche_texte(p_demande->>'titre', 3, 200, 'Titre');
+        END IF;
+        IF p_demande ? 'description' THEN
+            v_desc := public.fiche_texte(p_demande->>'description', 0, (c->>'desc_max')::int, 'Description');
+        END IF;
+        v_lieu_change := p_demande ?| ARRAY['local_id', 'equipement_id', 'sans_equipement'];
+        IF v_lieu_change THEN
+            v_loc := coalesce(public.fiche_uuid(p_demande, 'local_id'), (v_f->>'local_id')::uuid);
+            IF (p_demande->>'sans_equipement')::boolean IS TRUE THEN
+                v_eq := NULL;
+            ELSIF p_demande ? 'equipement_id' THEN
+                v_eq := public.fiche_uuid(p_demande, 'equipement_id');
+            ELSIF v_loc IS DISTINCT FROM (v_f->>'local_id')::uuid THEN
+                RAISE EXCEPTION 'Le lieu change : précise aussi l''équipement de ce nouveau lieu, ou sans_equipement.';
+            ELSE
+                v_eq := (v_f->>'equipement_id')::uuid;
+            END IF;
+            PERFORM public.fiche_verifier_lieu(v_loc, v_eq, (v_f->>'site_id')::uuid);
+        END IF;
+    ELSIF p_geste = 'ajouter_taches' THEN
+        IF v_statut = 4 THEN
+            RAISE EXCEPTION 'Cette fiche est %e : ajouter une tâche la rouvrirait. Rouvre-la d''abord (rouvrir_fiche), avec le motif.', lower(v_nom_statut4);
+        END IF;
+        v_taches := public.fiche_taches_nouvelles(p_demande->'taches', (v_f->>'site_id')::uuid);
+        IF jsonb_array_length(v_taches) = 0 THEN
+            RAISE EXCEPTION 'Aucune tâche à ajouter.';
+        END IF;
+        IF v_nb + jsonb_array_length(v_taches) > 100 THEN
+            RAISE EXCEPTION 'Au plus 100 tâches par fiche (déjà %).', v_nb;
+        END IF;
+    ELSIF p_geste = 'avancer_taches' THEN
+        IF jsonb_typeof(p_demande->'saisies') IS DISTINCT FROM 'array' OR jsonb_array_length(p_demande->'saisies') = 0 THEN
+            RAISE EXCEPTION 'Aucune saisie : donne au moins une tâche et ce qui change.';
+        END IF;
+        FOR s IN SELECT value FROM jsonb_array_elements(p_demande->'saisies') LOOP
+            IF jsonb_typeof(s) <> 'object' OR EXISTS (SELECT 1 FROM jsonb_object_keys(s) k
+                    WHERE k NOT IN ('tache_id', 'statut', 'date', 'commentaire', 'libelle')) THEN
+                RAISE EXCEPTION 'Saisie mal formée : tache_id, statut, date, commentaire, libelle seulement.';
+            END IF;
+            v_tid := public.fiche_uuid(s, 'tache_id');
+            IF v_tid IS NULL THEN
+                RAISE EXCEPTION 'Chaque saisie vise une tâche (tache_id, outil travaux ou evenements).';
+            END IF;
+            IF v_tid = ANY (v_ids) THEN
+                RAISE EXCEPTION 'Une même tâche est citée deux fois.';
+            END IF;
+            v_ids := v_ids || v_tid;
+            EXECUTE format('SELECT to_jsonb(t) FROM public.%I t WHERE id = $1 AND %I = $2', c->>'taches_tab', c->>'fk')
+            INTO v_tache USING v_tid, p_id;
+            IF v_tache IS NULL THEN
+                RAISE EXCEPTION 'La tâche % n''appartient pas à cette fiche.', v_tid;
+            END IF;
+            IF NOT (s ?| ARRAY['statut', 'date', 'commentaire', 'libelle']) THEN
+                RAISE EXCEPTION 'Rien à changer sur la tâche « % ».', v_tache->>'libelle';
+            END IF;
+            IF s ? 'statut' AND s->>'statut' NOT IN ('en_attente', 'en_cours', 'realise', 'non_realise', 'non_applicable') THEN
+                RAISE EXCEPTION 'Statut de tâche inconnu : % (en_attente, en_cours, realise, non_realise, non_applicable).', s->>'statut';
+            END IF;
+            v_date := public.fiche_date(s->>'date', 'Date de la tâche');
+            -- Une tâche terminée sans date prend la date du jour (affichée dans l'aperçu).
+            IF v_date IS NULL AND s->>'statut' IN ('realise', 'non_realise', 'non_applicable')
+               AND v_tache->>'date_tache' IS NULL THEN
+                v_date := v_auj;
+            END IF;
+            IF v_date IS NOT NULL AND v_date < v_date_f THEN
+                v_alertes := v_alertes || to_jsonb(format('La tâche « %s » est datée du %s, avant la date de la fiche (%s) : vérifie.',
+                    v_tache->>'libelle', to_char(v_date, 'DD/MM/YYYY'), to_char(v_date_f, 'DD/MM/YYYY')));
+            END IF;
+            v_saisies := v_saisies || jsonb_strip_nulls(jsonb_build_object(
+                'id', v_tid,
+                'statut', s->>'statut',
+                'date', v_date,
+                'a_commentaire', s ? 'commentaire',
+                'commentaire', public.fiche_texte(s->>'commentaire', 0, 2000, 'Commentaire'),
+                'libelle', CASE WHEN s ? 'libelle' THEN public.fiche_texte(s->>'libelle', 1, 200, 'Libellé de tâche') END,
+                'terminale', s->>'statut' IN ('realise', 'non_realise', 'non_applicable')));
+        END LOOP;
+    ELSIF p_geste = 'prendre_en_charge' THEN
+        IF v_nb > 0 THEN
+            RAISE EXCEPTION 'Cette fiche a des tâches : son statut les suit. Passe une tâche « en cours » (avancer_taches).';
+        END IF;
+        IF v_statut <> 1 THEN
+            RAISE EXCEPTION 'Seule une fiche « Ouvert » se prend en charge.';
+        END IF;
+    ELSIF p_geste = 'cloturer' THEN
+        IF NOT (v_statut = 4 AND v_fin IS NULL) THEN
+            IF v_statut = 4 THEN
+                RAISE EXCEPTION 'Cette fiche est déjà %e.', lower(v_nom_statut4);
+            END IF;
+            IF v_nb > 0 THEN
+                RAISE EXCEPTION 'Cette fiche a des tâches : elle se clôture quand toutes sont terminées (réalisé, non réalisé ou non applicable, outil avancer_taches) ; la clôture sera alors à confirmer ici.';
+            END IF;
+        END IF;
+        v_cr := public.fiche_texte(p_demande->>'compte_rendu', 0, 5000, 'Compte-rendu');
+        IF v_cr IS NOT NULL AND length(v_cr) < 5 THEN
+            RAISE EXCEPTION 'Compte-rendu de 5 caractères au moins (ou aucun).';
+        END IF;
+        v_date := coalesce(public.fiche_date(p_demande->>'date', 'Date de fin'), v_auj);
+        IF v_date < v_date_f THEN
+            RAISE EXCEPTION 'La date de fin (%) est avant la date de la fiche (%).',
+                to_char(v_date, 'DD/MM/YYYY'), to_char(v_date_f, 'DD/MM/YYYY');
+        END IF;
+        IF v_cr IS NULL THEN
+            v_alertes := v_alertes || to_jsonb('Aucun compte-rendu : possible (fausse alerte, rien à signaler), mais demande ce qui a été fait.'::text);
+        END IF;
+    ELSIF p_geste = 'rouvrir' THEN
+        IF v_statut <> 4 THEN
+            RAISE EXCEPTION 'Seule une fiche %e se rouvre.', lower(v_nom_statut4);
+        END IF;
+        v_motif := public.fiche_texte(p_demande->>'motif', 10, 1000, 'Motif de réouverture');
+        IF v_nb > 0 THEN
+            IF jsonb_typeof(p_demande->'taches_a_reprendre') IS DISTINCT FROM 'array'
+               OR jsonb_array_length(p_demande->'taches_a_reprendre') = 0 THEN
+                RAISE EXCEPTION 'Cette fiche a des tâches : dis lesquelles reprendre (taches_a_reprendre), elles repasseront « En attente ».';
+            END IF;
+            SELECT array_agg(DISTINCT public.fiche_uuid(jsonb_build_object('t', x), 't')) INTO v_ids
+            FROM jsonb_array_elements_text(p_demande->'taches_a_reprendre') x;
+            EXECUTE format('SELECT count(*) FROM public.%I WHERE %I = $1 AND id = ANY ($2)', c->>'taches_tab', c->>'fk')
+            INTO v_n USING p_id, v_ids;
+            IF v_n <> cardinality(v_ids) OR cardinality(v_ids) <> jsonb_array_length(p_demande->'taches_a_reprendre') THEN
+                RAISE EXCEPTION 'Tâches à reprendre : une tâche citée n''appartient pas à cette fiche, ou est citée deux fois.';
+            END IF;
+        ELSIF p_demande ? 'taches_a_reprendre' AND jsonb_array_length(p_demande->'taches_a_reprendre') > 0 THEN
+            RAISE EXCEPTION 'Cette fiche n''a pas de tâches.';
+        END IF;
+        -- Motif daté + compte-rendu effacé, recopiés à la fin de la description.
+        v_ajout := 'Rouvert le ' || to_char(v_auj, 'DD/MM/YYYY') || ' : ' || v_motif;
+        v_desc := coalesce(v_f->>'description', '');
+        IF v_desc <> '' THEN
+            v_ajout := E'\n\n' || v_ajout;
+        END IF;
+        v_place := (c->>'desc_max')::int - length(v_desc) - length(v_ajout);
+        IF v_place < 0 THEN
+            RAISE EXCEPTION 'La description deviendrait trop longue (plus de % caractères) : abrège le motif.', c->>'desc_max';
+        END IF;
+        IF v_f->>'compte_rendu' IS NOT NULL THEN
+            v_cr := ' (compte-rendu précédent' || coalesce(' du ' || to_char(v_fin, 'DD/MM/YYYY'), '') || ' : ' || (v_f->>'compte_rendu') || ')';
+            IF length(v_cr) > v_place THEN
+                v_cr := left(v_cr, greatest(v_place - 2, 0)) || '…)';
+                v_alertes := v_alertes || to_jsonb('Le compte-rendu précédent était trop long pour la description : il y est recopié tronqué.'::text);
+            END IF;
+            IF v_place >= 40 THEN
+                v_ajout := v_ajout || v_cr;
+            END IF;
+        END IF;
+        v_desc := v_desc || v_ajout;
+    ELSE
+        RAISE EXCEPTION 'Geste inconnu : %', p_geste;
+    END IF;
+
+    v_code := public.fiche_code_confirmation(p_type, p_geste, p_id, p_demande);
+    PERFORM public.di_verifier_code(p_appliquer, p_code, v_code);
+    v_avant := public.fiche_etat_resume(p_type, p_id);
+
+    BEGIN
+        BEGIN
+            IF p_geste = 'modifier' THEN
+                EXECUTE format('UPDATE public.%I SET titre = coalesce($2, titre),
+                        description = CASE WHEN $3 THEN $4 ELSE description END,
+                        local_id = CASE WHEN $5 THEN $6 ELSE local_id END,
+                        equipement_id = CASE WHEN $5 THEN $7 ELSE equipement_id END
+                    WHERE id = $1', c->>'tab')
+                USING p_id, v_titre, p_demande ? 'description', v_desc, v_lieu_change, v_loc, v_eq;
+                GET DIAGNOSTICS v_n = ROW_COUNT;
+                IF v_n = 0 THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+                IF v_lieu_change THEN
+                    v_doublons := public.fiche_doublons(p_type, (v_f->>'site_id')::uuid,
+                        CASE WHEN v_loc IS NULL THEN '{}'::uuid[] ELSE ARRAY[v_loc] END, v_eq, p_id);
+                END IF;
+            ELSIF p_geste = 'ajouter_taches' THEN
+                EXECUTE format('SELECT coalesce(max(ordre) + 1, 0) FROM public.%I WHERE %I = $1', c->>'taches_tab', c->>'fk')
+                INTO v_ordre USING p_id;
+                FOR s IN SELECT value FROM jsonb_array_elements(v_taches) LOOP
+                    EXECUTE format('INSERT INTO public.%I (%I, libelle, local_id, equipement_id, ordre, created_by)
+                                    VALUES ($1, $2, $3, $4, $5, $6)', c->>'taches_tab', c->>'fk')
+                    USING p_id, s->>'libelle', (s->>'local_id')::uuid, (s->>'equipement_id')::uuid, v_ordre, (SELECT auth.uid());
+                    v_ordre := v_ordre + 1;
+                END LOOP;
+            ELSIF p_geste = 'avancer_taches' THEN
+                -- Les tâches qui reprennent d'abord, celles qui se terminent ensuite :
+                -- sinon la fiche pourrait se verrouiller entre deux saisies.
+                FOR s IN SELECT value FROM jsonb_array_elements(v_saisies) ORDER BY (value->>'terminale')::boolean LOOP
+                    EXECUTE format('UPDATE public.%I SET
+                            statut = coalesce($2, statut),
+                            date_tache = CASE WHEN $2 = ''en_attente'' THEN NULL ELSE coalesce($3, date_tache) END,
+                            commentaire = CASE WHEN NOT $4 THEN commentaire
+                                               WHEN $5 IS NULL OR nullif(trim(commentaire), '''') IS NULL THEN $5
+                                               ELSE commentaire || chr(10) || $5 END,
+                            libelle = coalesce($6, libelle)
+                        WHERE id = $1', c->>'taches_tab')
+                    USING (s->>'id')::uuid, s->>'statut', (s->>'date')::date, (s->>'a_commentaire')::boolean,
+                          s->>'commentaire', s->>'libelle';
+                    GET DIAGNOSTICS v_n = ROW_COUNT;
+                    IF v_n = 0 THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+                END LOOP;
+            ELSIF p_geste = 'prendre_en_charge' THEN
+                EXECUTE format('UPDATE public.%I SET %I = 2 WHERE id = $1', c->>'tab', c->>'statut_col') USING p_id;
+                GET DIAGNOSTICS v_n = ROW_COUNT;
+                IF v_n = 0 THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+            ELSIF p_geste = 'cloturer' THEN
+                EXECUTE format('UPDATE public.%I SET %I = 4, compte_rendu = $2, %I = $3, cloture_by = $4, verrouille = true
+                                WHERE id = $1', c->>'tab', c->>'statut_col', c->>'fin_col')
+                USING p_id, v_cr, v_date, (SELECT auth.uid());
+                GET DIAGNOSTICS v_n = ROW_COUNT;
+                IF v_n = 0 THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+            ELSIF p_geste = 'rouvrir' THEN
+                EXECUTE format('UPDATE public.%I SET verrouille = false, compte_rendu = NULL, %I = NULL, cloture_by = NULL,
+                                description = $2, %I = CASE WHEN $3 THEN 1 ELSE %I END
+                                WHERE id = $1', c->>'tab', c->>'fin_col', c->>'statut_col', c->>'statut_col')
+                USING p_id, v_desc, v_nb = 0;
+                GET DIAGNOSTICS v_n = ROW_COUNT;
+                IF v_n = 0 THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+                IF v_nb > 0 THEN
+                    -- Le trigger recalcule le statut de la fiche (désormais déverrouillée).
+                    EXECUTE format('UPDATE public.%I SET statut = ''en_attente'', date_tache = NULL
+                                    WHERE %I = $1 AND id = ANY ($2)', c->>'taches_tab', c->>'fk')
+                    USING p_id, v_ids;
+                    GET DIAGNOSTICS v_n = ROW_COUNT;
+                    IF v_n <> cardinality(v_ids) THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+                END IF;
+            END IF;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE EXCEPTION 'Modification refusée : ton rôle ne permet pas ce geste sur cette fiche.'
+                USING ERRCODE = 'insufficient_privilege';
+        END;
+
+        v_apres := public.fiche_etat_resume(p_type, p_id);
+        -- Une saisie de tâche ne rouvre jamais en silence une fiche clôturée.
+        IF v_statut = 4 AND p_geste IN ('avancer_taches', 'ajouter_taches') AND v_apres->>'statut' <> v_nom_statut4 THEN
+            RAISE EXCEPTION 'Cette saisie rouvrirait la fiche %e : rouvre-la d''abord (rouvrir_fiche), avec le motif.', lower(v_nom_statut4);
+        END IF;
+        IF (v_apres->>'cloture_a_confirmer')::boolean AND p_geste <> 'cloturer' THEN
+            v_alertes := v_alertes || to_jsonb(format(
+                'CLÔTURE À CONFIRMER : toutes les tâches sont terminées, la fiche passe « %s » et se verrouille. Demande à la personne le compte-rendu et la date de fin, puis confirme avec cloturer_fiche.',
+                v_nom_statut4));
+        END IF;
+        IF v_doublons IS NOT NULL THEN
+            v_alertes := v_alertes || to_jsonb('DOUBLON POSSIBLE : d''autres fiches non terminées visent ce lieu (voir « doublons »).'::text);
+        END IF;
+        IF NOT p_appliquer THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0A01', MESSAGE = 'aperçu';
+        END IF;
+    EXCEPTION WHEN SQLSTATE 'P0A01' THEN
+        NULL;
+    END;
+
+    RETURN jsonb_build_object(
+        'mode', CASE WHEN p_appliquer THEN 'enregistré' ELSE 'aperçu (rien n''est enregistré)' END,
+        'code_confirmation', CASE WHEN p_appliquer THEN NULL ELSE v_code END,
+        'fiche_id', p_id,
+        'avant', v_avant,
+        'apres', v_apres,
+        'doublons', v_doublons,
+        'alertes', v_alertes);
+END;
+$function$;
+
+-- ─── Droits des fonctions nouvelles ─────────────────────────────────────────
+
+REVOKE ALL ON FUNCTION public.couper_connexions_claude(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.trg_couper_connexions_claude() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.protect_users_acces_ia_insert() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.refuser_connecteur_historique() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.refuser_connecteur_historique() TO authenticated, service_role;
+

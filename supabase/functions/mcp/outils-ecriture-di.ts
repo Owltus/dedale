@@ -7,7 +7,7 @@
 // le code, après un oui explicite de la personne.
 
 import { z } from 'npm:zod@3.23.8'
-import { type Outil, date, uuid, appliquer, code, PROPRIETES_CONFIRMATION, ECRITURE, geste } from './commun.ts'
+import { type Outil, date, uuid, appliquer, code, PROPRIETES_CONFIRMATION, ECRITURE, ECRITURE_SENSIBLE, geste } from './commun.ts'
 
 const APRES_DI = 'Résume à la personne la demande telle qu’enregistrée (statut, lieu, équipements, alertes).'
 
@@ -66,7 +66,7 @@ export const OUTILS_ECRITURE_DI: Outil[] = [
         ...PROPRIETES_CONFIRMATION,
       },
     },
-    annotations: ECRITURE,
+    annotations: ECRITURE_SENSIBLE,
     schema: z.object({ demande_id: uuid, constat: constat.optional(), local_id: uuid.optional(), equipement_ids: equipements.optional(), appliquer, code }).strict(),
     run: async (a: { demande_id: string; constat?: string; local_id?: string; equipement_ids?: string[]; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_modifier_demande', {
@@ -101,7 +101,7 @@ export const OUTILS_ECRITURE_DI: Outil[] = [
         ...PROPRIETES_CONFIRMATION,
       },
     },
-    annotations: ECRITURE,
+    annotations: ECRITURE_SENSIBLE,
     schema: z.object({ demande_id: uuid, note: z.string().trim().min(5).max(2000).optional(), date: date.optional(), appliquer, code }).strict(),
     run: async (a: { demande_id: string; note?: string; date?: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_cloturer_demande', {
@@ -121,7 +121,7 @@ export const OUTILS_ECRITURE_DI: Outil[] = [
         ...PROPRIETES_CONFIRMATION,
       },
     },
-    annotations: ECRITURE,
+    annotations: ECRITURE_SENSIBLE,
     schema: z.object({ demande_id: uuid, motif: z.string().trim().min(10).max(1000), appliquer, code }).strict(),
     run: async (a: { demande_id: string; motif: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_rouvrir_demande', { p_di_id: a.demande_id, p_motif: a.motif, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_DI),

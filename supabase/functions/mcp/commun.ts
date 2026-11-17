@@ -19,7 +19,14 @@ export type Outil = {
 /** Erreur dont le message est destiné tel quel à la personne. */
 export class ErreurOutil extends Error {}
 
-export const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date attendue au format AAAA-MM-JJ')
+/** Date réelle « AAAA-MM-JJ » : refuse 2026-02-30 ou 2026-13-01 (162). */
+export const date = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date attendue au format AAAA-MM-JJ')
+  .refine((s) => {
+    const d = new Date(`${s}T12:00:00Z`)
+    return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(s)
+  }, 'Cette date n’existe pas')
 
 /** « 18/11/2026 (S47) » — semaine ISO 8601, comme partout dans Dédale. */
 export function dateFr(iso: string | null | undefined): string | null {
@@ -68,7 +75,14 @@ export async function geste(ctx: Contexte, fonction: string, params: Record<stri
   const { data, error } = await ctx.supabase.rpc(fonction, params)
   // Les messages viennent de la base (fonctions 158-159, triggers) : en français,
   // destinés à la personne.
-  if (error) throw new ErreurOutil(`Rien n’a été enregistré. ${error.message}`)
+  if (error) {
+    // 162 : seuls les messages écrits pour la personne (RAISE des fonctions
+    // claude_* = P0001, refus de droit = 42501) sont relayés. Le reste
+    // (contraintes, syntaxe, PostgREST) reste dans les journaux.
+    if (error.code === 'P0001' || error.code === '42501') throw new ErreurOutil(`Rien n’a été enregistré. ${error.message}`)
+    console.error(fonction, error)
+    throw new ErreurOutil('Rien n’a été enregistré : Dédale a refusé ces valeurs (format ou cohérence). Relis la fiche ou l’OT, puis refais l’aperçu.')
+  }
   const resultat = datesEnFrancais(data) as Record<string, unknown>
   return {
     ...resultat,

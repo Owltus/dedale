@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { lieuDeRetour, retourDeConfiance } from './confiance'
 
-describe('retourDeConfiance (miroir de la migration 154)', () => {
+describe('retourDeConfiance (miroir des migrations 154 et 162)', () => {
   it.each([
     'https://claude.ai/api/mcp/auth_callback',
     'https://claude.com/api/mcp/auth_callback',
     'http://localhost:33418/callback',
-    'http://127.0.0.1:5000/cb',
+    'http://127.0.0.1:5000/callback',
+    'http://localhost/callback',
   ])('accepte %s', (u) => expect(retourDeConfiance(u)).toBe(true))
 
   it.each([
     'https://claude.ai.pirate.example/cb',
+    'https://claude.ai/share/abc',
+    'https://claude.ai/api/mcp/auth_callback?x=1',
+    'https://claude.ai/api/mcp/auth_callback/../autre',
+    'https://CLAUDE.AI/api/mcp/auth_callback',
+    'http://localhost:1/x',
+    'http://127.1/callback',
+    'http://127.0.0.1:5000/cb',
     'https://pirate.example/claude.ai',
     'http://claude.ai/api/mcp/auth_callback',
     'https://claude.ai:8443/cb',

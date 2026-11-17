@@ -29,6 +29,7 @@ import { Form } from '@/components/ui/form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DetailSkeleton } from '@/components/common/detail-skeleton'
+import { ConnexionsClaudeCard } from '@/features/connecteur/components/connexions-claude-card'
 
 export const Route = createFileRoute('/_app/profil')({
   // Pas de requireNav : « Mon profil » est accessible à tout rôle connecté
@@ -89,6 +90,8 @@ function ProfilPage() {
             <SitesCard />
 
             <SecurityCard email={email} />
+
+            <ConnexionsClaudeCard />
           </>
         )}
       </>

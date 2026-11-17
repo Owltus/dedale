@@ -180,6 +180,11 @@ function ConsentPage() {
                   <strong>{demande.data.lieu}</strong>.
                 </p>
 
+                <p className="text-sm text-muted-foreground">
+                  Si tu n’as pas cliqué toi-même sur « Connecter » dans Claude à
+                  l’instant, ou si on t’a envoyé ce lien, refuse.
+                </p>
+
                 {!demande.data.confiance ? (
                   <p className="flex items-start gap-2 text-sm text-destructive">
                     <ShieldOff className="mt-0.5 size-4 shrink-0" />

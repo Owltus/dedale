@@ -6,7 +6,7 @@
  * demande à être renvoyée. Une vraie connexion Claude revient vers claude.ai,
  * claude.com, ou l'ordinateur de la personne (Claude Code, localhost).
  *
- * MIROIR de public.client_ia_de_confiance() (migration 154), qui fait
+ * MIROIR de public.client_ia_de_confiance() (migrations 154, 162), qui fait
  * autorité : même autorisée ici par erreur, une autre application ne verrait
  * rien. Les deux listes doivent rester identiques.
  */
@@ -17,14 +17,17 @@ export function retourDeConfiance(adresse: string): boolean {
   } catch {
     return false
   }
-  if (url.username || url.password) return false
+  if (url.username || url.password || url.search || url.hash) return false
+  // 162 : l'adresse EXACTE du retour officiel, plus « n'importe quelle page ».
+  // On teste aussi le texte brut : « 127.1 » ou « CLAUDE.AI » ne passent pas.
   if (url.protocol === 'https:')
-    return (
-      (url.hostname === 'claude.ai' || url.hostname === 'claude.com') &&
-      url.port === ''
+    return /^https:\/\/(claude\.ai|claude\.com)\/api\/mcp\/auth_callback$/.test(
+      adresse,
     )
   if (url.protocol === 'http:')
-    return url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+    return /^http:\/\/(localhost|127\.0\.0\.1)(:[0-9]{1,5})?\/callback$/.test(
+      adresse,
+    )
   return false
 }
 

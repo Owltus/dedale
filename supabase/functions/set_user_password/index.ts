@@ -30,6 +30,7 @@
 // que nos règles sont plus strictes et que les messages doivent être en français.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { jetonDeConnecteur, REFUS_CONNECTEUR } from '../_shared/connecteur.ts'
 
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -101,6 +102,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .trim()
   if (!token) {
     return json({ error: 'Authentification requise.' }, 401)
+  }
+  // 162 : jamais depuis le connecteur Claude (clé de service = hors RLS et hors garde).
+  if (jetonDeConnecteur(token)) {
+    return json({ error: REFUS_CONNECTEUR }, 403)
   }
 
   let raw: unknown
