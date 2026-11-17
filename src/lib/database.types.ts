@@ -3968,12 +3968,32 @@ export type Database = {
         Args: { p_prestataire_id: string }
         Returns: boolean
       }
+      claude_ajouter_taches: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_id: string
+          p_taches: Json
+          p_type: string
+        }
+        Returns: Json
+      }
       claude_annuler_ot: {
         Args: {
           p_appliquer?: boolean
           p_code?: string
           p_motif: string
           p_ot_id: string
+        }
+        Returns: Json
+      }
+      claude_avancer_taches: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_id: string
+          p_saisies: Json
+          p_type: string
         }
         Returns: Json
       }
@@ -3984,6 +4004,17 @@ export type Database = {
           p_date?: string
           p_di_id: string
           p_note?: string
+        }
+        Returns: Json
+      }
+      claude_cloturer_fiche: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_compte_rendu?: string
+          p_date?: string
+          p_id: string
+          p_type: string
         }
         Returns: Json
       }
@@ -4002,6 +4033,21 @@ export type Database = {
         }
         Returns: Json
       }
+      claude_creer_fiche: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_date?: string
+          p_description?: string
+          p_equipement_id?: string
+          p_local_id?: string
+          p_site_id?: string
+          p_taches?: Json
+          p_titre: string
+          p_type: string
+        }
+        Returns: Json
+      }
       claude_modifier_demande: {
         Args: {
           p_appliquer?: boolean
@@ -4013,8 +4059,31 @@ export type Database = {
         }
         Returns: Json
       }
+      claude_modifier_fiche: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_description?: string
+          p_equipement_id?: string
+          p_id: string
+          p_local_id?: string
+          p_sans_equipement?: boolean
+          p_titre?: string
+          p_type: string
+        }
+        Returns: Json
+      }
       claude_prendre_en_charge_demande: {
         Args: { p_appliquer?: boolean; p_code?: string; p_di_id: string }
+        Returns: Json
+      }
+      claude_prendre_en_charge_fiche: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_id: string
+          p_type: string
+        }
         Returns: Json
       }
       claude_reactiver_ot: {
@@ -4036,6 +4105,17 @@ export type Database = {
           p_code?: string
           p_di_id: string
           p_motif: string
+        }
+        Returns: Json
+      }
+      claude_rouvrir_fiche: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_id: string
+          p_motif: string
+          p_taches_a_reprendre?: string[]
+          p_type: string
         }
         Returns: Json
       }
@@ -4155,6 +4235,64 @@ export type Database = {
         }[]
       }
       exiger_ecriture_claude: { Args: never; Returns: undefined }
+      fiche_cfg: { Args: { p_type: string }; Returns: Json }
+      fiche_code_confirmation: {
+        Args: { p_demande: Json; p_geste: string; p_id: string; p_type: string }
+        Returns: string
+      }
+      fiche_date: {
+        Args: { p_libelle: string; p_valeur: string }
+        Returns: string
+      }
+      fiche_doublons: {
+        Args: {
+          p_equipement: string
+          p_locaux: string[]
+          p_sauf: string
+          p_site: string
+          p_type: string
+        }
+        Returns: Json
+      }
+      fiche_etat_resume: {
+        Args: { p_id: string; p_type: string }
+        Returns: Json
+      }
+      fiche_geste_claude: {
+        Args: {
+          p_appliquer: boolean
+          p_code: string
+          p_demande: Json
+          p_geste: string
+          p_id: string
+          p_type: string
+        }
+        Returns: Json
+      }
+      fiche_lieu_texte: {
+        Args: { p_equipement_id: string; p_local_id: string }
+        Returns: string
+      }
+      fiche_refuser_demandeur: { Args: never; Returns: undefined }
+      fiche_statut_tache_texte: { Args: { p_statut: string }; Returns: string }
+      fiche_taches_nouvelles: {
+        Args: { p_json: Json; p_site: string }
+        Returns: Json
+      }
+      fiche_texte: {
+        Args: {
+          p_libelle: string
+          p_max: number
+          p_min: number
+          p_valeur: string
+        }
+        Returns: string
+      }
+      fiche_uuid: { Args: { p_cle: string; p_json: Json }; Returns: string }
+      fiche_verifier_lieu: {
+        Args: { p_equipement_id: string; p_local_id: string; p_site: string }
+        Returns: string
+      }
       garde_connecteur: { Args: never; Returns: undefined }
       generate_identifiant_equipement: { Args: never; Returns: string }
       generate_next_ot_for_gamme: {

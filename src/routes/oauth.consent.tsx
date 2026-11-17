@@ -167,7 +167,7 @@ function ConsentPage() {
                     <li>avec tes droits : les mêmes sites, le même rôle ;</li>
                     <li>
                       {demande.data.modification
-                        ? 'lire tes données, enregistrer l’avancement des ordres de travail et créer ou suivre des demandes d’intervention, toujours après t’avoir montré un aperçu à valider ;'
+                        ? 'lire tes données, enregistrer l’avancement des ordres de travail, créer ou suivre des demandes d’intervention, des travaux et des événements, toujours après t’avoir montré un aperçu à valider ;'
                         : 'lire tes données, sans rien modifier ;'}
                     </li>
                     <li>jamais les fichiers (PDF, images) ;</li>

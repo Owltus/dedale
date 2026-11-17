@@ -8,6 +8,7 @@
   - 158 : six gestes sur les ordres de travail ;
   - 159 (16/11) : cinq gestes sur les demandes d'intervention ;
   - 160 (16/11) : le lieu montré par Claude commence par le site ;
+  - 161 (17/11) : sept gestes communs aux travaux et aux événements ;
   - fonction `mcp` : outils d'écriture.
 
 ## Contexte
@@ -94,6 +95,28 @@ charge, clôturer, rouvrir), aperçu puis code. Le cycle reste celui de 052
   (un demandeur ne voit ni OT ni contrats) : Claude ne conclut pas à
   l'absence.
 
+## Travaux et événements (migration 161, 17/11/2026)
+
+Les deux fiches ont la même forme (fiche, tâches facultatives, clôture, cadenas) :
+sept fonctions communes, `p_type` = `travaux` | `evenement`. La base ne tient
+que la cohérence des lieux et le statut dérivé des tâches ; le cadenas, les
+champs de clôture, la remise à zéro à la réouverture et les longueurs ne sont
+tenus que par l'écran. Les fonctions les reprennent donc à l'identique. Choix
+du PO :
+
+- **Tout le cycle** : consigner (avec tâches), corriger, ajouter des tâches,
+  les faire avancer, prendre en charge et clôturer une fiche sans tâches,
+  confirmer une « clôture à confirmer », rouvrir.
+- **Statut suivi des tâches** : avec des tâches, Claude ne touche jamais au
+  statut ; une saisie qui rouvrirait une fiche terminée est refusée (il faut
+  rouvrir avec un motif).
+- **Cadenas respecté** : fiche verrouillée = refus, sauf pour confirmer une
+  clôture à confirmer. Claude ne déverrouille jamais.
+- **Dates jamais futures** ; clôture jamais avant la date de la fiche.
+- **Réouverture** : motif obligatoire, ajouté daté à la description avec le
+  compte-rendu effacé (tronqué s'il ne tient pas).
+- **Demandeur** : refus explicite, renvoi vers les DI.
+
 ## Conséquences
 
 - **Ajouter une écriture via Claude = écrire une fonction `claude_*`.**
@@ -101,7 +124,9 @@ charge, clôturer, rouvrir), aperçu puis code. Le cycle reste celui de 052
   utilisée par le connecteur doit être ajoutée à la liste de
   `garde_connecteur`.
 - **Fermés à Claude** :
-  - suppressions (OT comme DI) ;
+  - suppressions (OT, DI, travaux, événements, tâches) ;
+  - conversion travaux ↔ événement ;
+  - déverrouillage d'une fiche ;
   - création d'OT ;
   - problèmes courants (`modeles_di`) ;
   - changement de gamme, de site ou de prestataire ;

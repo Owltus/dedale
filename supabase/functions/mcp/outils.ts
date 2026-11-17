@@ -11,6 +11,7 @@ import { z } from 'npm:zod@3.23.8'
 import { type Contexte, type Outil, type Resultat, ErreurOutil, date, dateFr } from './commun.ts'
 import { OUTILS_ECRITURE } from './outils-ecriture.ts'
 import { OUTILS_ECRITURE_DI } from './outils-ecriture-di.ts'
+import { OUTILS_ECRITURE_FICHES } from './outils-ecriture-fiches.ts'
 
 export type { Contexte }
 
@@ -99,6 +100,21 @@ function presenterOt(ot: OtLigne, sites: { id: string; nom: string }[]) {
     en_retard: enRetard(ot),
     site: nomSite(sites, ot.site_id),
   }
+}
+
+// Lieu d'un travaux, d'un événement ou d'une tâche : « R+2 / Chambre 214 — équipement XXX ».
+type LieuJoint = { locaux?: unknown; equipements?: unknown }
+function lieuFiche(o: LieuJoint): string | null {
+  const l = o.locaux as { nom: string; niveaux: { nom: string } | null } | null
+  const e = o.equipements as { code_inventaire: string } | null
+  const local = l ? [l.niveaux?.nom, l.nom].filter(Boolean).join(' / ') : null
+  return [local, e ? `équipement ${e.code_inventaire}` : null].filter(Boolean).join(' — ') || null
+}
+type TacheJointe = LieuJoint & { id: string; libelle: string; statut: string; date_tache: string | null; ordre: number; commentaire: string | null }
+function tachesFiche(t: unknown) {
+  return (t as TacheJointe[])
+    .sort((x, y) => x.ordre - y.ordre)
+    .map((k) => ({ id: k.id, libelle: k.libelle, statut: k.statut, date: dateFr(k.date_tache), commentaire: k.commentaire, lieu: lieuFiche(k) }))
 }
 
 const OUTILS_INTERNES: Outil[] = [
@@ -422,7 +438,7 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'travaux',
     title: 'Travaux',
-    description: 'Travaux avec leurs tâches. Par défaut : ceux qui ne sont pas terminés.',
+    description: 'Travaux avec leur lieu, leur cadenas et leurs tâches (identifiants inclus, pour les faire avancer). Par défaut : ceux qui ne sont pas terminés.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -438,7 +454,7 @@ const OUTILS_INTERNES: Outil[] = [
       const sites = await sitesCibles(ctx, a.site)
       const ids: Record<string, number[]> = { ouverts: [1, 2], ouvert: [1], en_cours: [2], termine: [4] }
       let q = ctx.supabase.from('interventions_travaux')
-        .select('id, titre, description, date_demande, date_fin, compte_rendu, site_id, statuts_travaux(nom), travaux_taches(libelle, statut, date_tache, ordre, commentaire)')
+        .select('id, titre, description, date_demande, date_fin, compte_rendu, site_id, verrouille, statut_travaux_id, locaux(nom, niveaux(nom)), equipements(code_inventaire), statuts_travaux(nom), travaux_taches(id, libelle, statut, date_tache, ordre, commentaire, locaux(nom, niveaux(nom)), equipements(code_inventaire))')
         .in('site_id', sites.map((s) => s.id)).order('date_demande', { ascending: false }).limit(a.limite)
       if (a.statut !== 'tous') q = q.in('statut_travaux_id', ids[a.statut])
       const texte = nettoyer(a.recherche)
@@ -451,8 +467,8 @@ const OUTILS_INTERNES: Outil[] = [
           id: t.id, titre: t.titre, description: t.description,
           statut: (t.statuts_travaux as unknown as { nom: string } | null)?.nom,
           date_demande: dateFr(t.date_demande), date_fin: dateFr(t.date_fin), compte_rendu: t.compte_rendu,
-          taches: (t.travaux_taches as unknown as { libelle: string; statut: string; date_tache: string | null; ordre: number; commentaire: string | null }[])
-            .sort((x, y) => x.ordre - y.ordre).map((k) => ({ libelle: k.libelle, statut: k.statut, date: dateFr(k.date_tache), commentaire: k.commentaire })),
+          lieu: lieuFiche(t), verrouille: t.verrouille, cloture_a_confirmer: t.statut_travaux_id === 4 && !t.date_fin,
+          taches: tachesFiche(t.travaux_taches),
           site: nomSite(sites, t.site_id),
         })),
       }
@@ -461,7 +477,7 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'evenements',
     title: 'Événements',
-    description: 'Événements avec leurs tâches et lieux. Par défaut : ceux qui ne sont pas clôturés.',
+    description: 'Événements avec leur lieu, leur cadenas et leurs tâches (identifiants inclus, pour les faire avancer). Par défaut : ceux qui ne sont pas clôturés.',
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -477,7 +493,7 @@ const OUTILS_INTERNES: Outil[] = [
       const sites = await sitesCibles(ctx, a.site)
       const ids: Record<string, number[]> = { ouverts: [1, 2], ouvert: [1], en_cours: [2], cloture: [4] }
       let q = ctx.supabase.from('evenements')
-        .select('id, titre, description, date_evenement, date_cloture, compte_rendu, site_id, statuts_evenements(nom), evenements_lieux(libelle, statut, date_tache, ordre, commentaire)')
+        .select('id, titre, description, date_evenement, date_cloture, compte_rendu, site_id, verrouille, statut_evenement_id, locaux(nom, niveaux(nom)), equipements(code_inventaire), statuts_evenements(nom), evenements_lieux(id, libelle, statut, date_tache, ordre, commentaire, locaux(nom, niveaux(nom)), equipements(code_inventaire))')
         .in('site_id', sites.map((s) => s.id)).order('date_evenement', { ascending: false }).limit(a.limite)
       if (a.statut !== 'tous') q = q.in('statut_evenement_id', ids[a.statut])
       const texte = nettoyer(a.recherche)
@@ -490,8 +506,8 @@ const OUTILS_INTERNES: Outil[] = [
           id: e.id, titre: e.titre, description: e.description,
           statut: (e.statuts_evenements as unknown as { nom: string } | null)?.nom,
           date: dateFr(e.date_evenement), cloture: dateFr(e.date_cloture), compte_rendu: e.compte_rendu,
-          taches: (e.evenements_lieux as unknown as { libelle: string; statut: string; date_tache: string | null; ordre: number; commentaire: string | null }[])
-            .sort((x, y) => x.ordre - y.ordre).map((k) => ({ libelle: k.libelle, statut: k.statut, date: dateFr(k.date_tache), commentaire: k.commentaire })),
+          lieu: lieuFiche(e), verrouille: e.verrouille, cloture_a_confirmer: e.statut_evenement_id === 4 && !e.date_cloture,
+          taches: tachesFiche(e.evenements_lieux),
           site: nomSite(sites, e.site_id),
         })),
       }
@@ -599,7 +615,7 @@ const OUTILS_INTERNES: Outil[] = [
   },
 ]
 
-const TOUS_LES_OUTILS: Outil[] = [...OUTILS_INTERNES, ...OUTILS_ECRITURE, ...OUTILS_ECRITURE_DI]
+const TOUS_LES_OUTILS: Outil[] = [...OUTILS_INTERNES, ...OUTILS_ECRITURE, ...OUTILS_ECRITURE_DI, ...OUTILS_ECRITURE_FICHES]
 export const OUTILS = TOUS_LES_OUTILS
 
 function texte(t: string, isError = false): Resultat {

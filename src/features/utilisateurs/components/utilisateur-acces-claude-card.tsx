@@ -29,7 +29,7 @@ const OPTIONS: {
     value: 'ecriture',
     label: 'Lecture et modification',
     description:
-      'En plus, Claude enregistre l’avancement des ordres de travail (opérations, mesures, statuts) et crée ou fait suivre les demandes d’intervention, toujours après un aperçu validé par la personne.',
+      'En plus, Claude enregistre l’avancement des ordres de travail (opérations, mesures, statuts) et crée ou fait suivre les demandes d’intervention, les travaux et les événements, toujours après un aperçu validé par la personne.',
   },
 ]
 

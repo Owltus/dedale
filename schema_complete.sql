@@ -15115,3 +15115,847 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.di_lieu_texte(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.di_lieu_texte(uuid) TO authenticated, service_role;
+
+
+-- =============================================================================
+-- 161 — Gestes encadrés de Claude sur les travaux et les événements
+-- =============================================================================
+-- Symptôme : via Claude, on ne peut que LIRE les travaux et les événements.
+-- Le PO veut que Claude les fasse vivre comme les OT (158) et les DI (159) :
+-- consigner, corriger, ajouter et faire avancer les tâches, clôturer, rouvrir.
+--
+-- Constat (exploration du 17/11/2026) : travaux (interventions_travaux +
+-- travaux_taches) et événements (evenements + evenements_lieux) ont la MÊME
+-- structure. La base ne tient que deux règles : cohérence « même site » des
+-- lieux (triggers DEFINER) et statut dérivé des tâches (gestion_statut_*,
+-- qui verrouille quand tout est terminé et laisse la date de fin vide :
+-- « clôture à confirmer »). Le cadenas, les dates de clôture, la remise à
+-- zéro à la réouverture et les longueurs ne sont tenus QUE par le front.
+-- Ces fonctions les reprennent donc elles-mêmes, à l'identique de l'écran.
+--
+-- Correctif : sept fonctions claude_* communes aux deux fiches (p_type =
+-- 'travaux' | 'evenement'), la garde d'entrée 157 les laisse passer :
+--   claude_creer_fiche · claude_modifier_fiche · claude_ajouter_taches ·
+--   claude_avancer_taches · claude_prendre_en_charge_fiche ·
+--   claude_cloturer_fiche · claude_rouvrir_fiche
+--
+-- Règles (décisions PO du 17/11/2026) :
+--   - Tout le cycle, sauf : supprimer une fiche ou une tâche, convertir
+--     travaux <-> événement, documents.
+--   - CADENAS RESPECTÉ : fiche verrouillée = refus, sauf pour confirmer une
+--     « clôture à confirmer » (comme l'écran).
+--   - Dates jamais futures ; clôture jamais avant la date de la fiche.
+--   - Réouverture : motif obligatoire, ajouté daté à la description AVEC le
+--     compte-rendu effacé (rien n'est perdu).
+--   - Statut manuel (prendre en charge, clôturer) seulement sans tâches ;
+--     avec des tâches, le statut suit les tâches (comme l'écran).
+--   - Un équipement n'est cité qu'avec son local, et doit y être.
+--   - Longueurs de l'écran : titre 200, description 2000 (travaux) /
+--     5000 (événement), compte-rendu 5000, libellé 200, commentaire 2000,
+--     100 tâches.
+--   - Demandeur : refus explicite (ces fiches lui sont fermées, il a les DI).
+--
+-- Innocuité : fonctions nouvelles, SECURITY INVOKER (RLS et triggers de la
+-- personne), appelables seulement via le connecteur (exiger_ecriture_claude).
+-- Aucune table, policy ni trigger modifié.
+--
+-- Vérification après application :
+--     SELECT proname, prosecdef FROM pg_proc
+--     WHERE proname IN ('claude_creer_fiche','claude_modifier_fiche','claude_ajouter_taches',
+--       'claude_avancer_taches','claude_prendre_en_charge_fiche','claude_cloturer_fiche',
+--       'claude_rouvrir_fiche') ORDER BY 1;
+--     -- 7 lignes, prosecdef = false
+-- =============================================================================
+
+-- ─── Aides (pas de préfixe claude_ : non appelables via le connecteur) ──────
+
+-- Où vit chaque type de fiche.
+CREATE OR REPLACE FUNCTION public.fiche_cfg(p_type text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+BEGIN
+    IF p_type = 'travaux' THEN
+        RETURN jsonb_build_object('tab', 'interventions_travaux', 'statut_col', 'statut_travaux_id',
+            'statut_tab', 'statuts_travaux', 'date_col', 'date_demande', 'fin_col', 'date_fin',
+            'taches_tab', 'travaux_taches', 'fk', 'travaux_id', 'desc_max', 2000, 'nom', 'travaux');
+    ELSIF p_type = 'evenement' THEN
+        RETURN jsonb_build_object('tab', 'evenements', 'statut_col', 'statut_evenement_id',
+            'statut_tab', 'statuts_evenements', 'date_col', 'date_evenement', 'fin_col', 'date_cloture',
+            'taches_tab', 'evenements_lieux', 'fk', 'evenement_id', 'desc_max', 5000, 'nom', 'événement');
+    END IF;
+    RAISE EXCEPTION 'Type de fiche inconnu : « % » (travaux ou evenement).', p_type;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.fiche_lieu_texte(p_local_id uuid, p_equipement_id uuid)
+ RETURNS text
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+    SELECT nullif(concat_ws(' — ', public.di_lieu_texte(p_local_id), public.di_equipement_texte(p_equipement_id)), '')
+$function$;
+
+CREATE OR REPLACE FUNCTION public.fiche_statut_tache_texte(p_statut text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+    SELECT CASE p_statut WHEN 'en_attente' THEN 'En attente' WHEN 'en_cours' THEN 'En cours'
+        WHEN 'realise' THEN 'Réalisé' WHEN 'non_realise' THEN 'Non réalisé'
+        WHEN 'non_applicable' THEN 'Non applicable' ELSE p_statut END
+$function$;
+
+-- Résumé lisible d'une fiche et de ses tâches.
+CREATE OR REPLACE FUNCTION public.fiche_etat_resume(p_type text, p_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    c jsonb := public.fiche_cfg(p_type);
+    v jsonb;
+BEGIN
+    EXECUTE format($q$
+        SELECT jsonb_build_object(
+            'fiche', %L,
+            'titre', f.titre,
+            'description', f.description,
+            'statut', s.nom,
+            'date', f.%I,
+            'lieu', public.fiche_lieu_texte(f.local_id, f.equipement_id),
+            'verrouille', f.verrouille,
+            'cloture', f.%I,
+            'compte_rendu', f.compte_rendu,
+            'cloture_a_confirmer', (f.%I = 4 AND f.%I IS NULL),
+            'taches', (SELECT jsonb_agg(jsonb_build_object(
+                    'id', t.id, 'libelle', t.libelle,
+                    'statut', public.fiche_statut_tache_texte(t.statut),
+                    'date', t.date_tache, 'commentaire', t.commentaire,
+                    'lieu', public.fiche_lieu_texte(t.local_id, t.equipement_id))
+                ORDER BY t.ordre, t.created_at)
+                FROM public.%I t WHERE t.%I = f.id))
+        FROM public.%I f JOIN public.%I s ON s.id = f.%I
+        WHERE f.id = $1 $q$,
+        c->>'nom', c->>'date_col', c->>'fin_col', c->>'statut_col', c->>'fin_col',
+        c->>'taches_tab', c->>'fk', c->>'tab', c->>'statut_tab', c->>'statut_col')
+    INTO v USING p_id;
+    RETURN v;
+END;
+$function$;
+
+-- Empreinte d'une demande dans l'état actuel de la fiche et de ses tâches.
+CREATE OR REPLACE FUNCTION public.fiche_code_confirmation(p_type text, p_geste text, p_id uuid, p_demande jsonb)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    c jsonb := public.fiche_cfg(p_type);
+    v_f text;
+    v_t text;
+BEGIN
+    IF p_id IS NOT NULL THEN
+        EXECUTE format('SELECT updated_at::text FROM public.%I WHERE id = $1', c->>'tab') INTO v_f USING p_id;
+        EXECUTE format('SELECT max(updated_at)::text FROM public.%I WHERE %I = $1', c->>'taches_tab', c->>'fk') INTO v_t USING p_id;
+    END IF;
+    RETURN upper(substr(md5(concat_ws('|', 'fiche', p_type, p_geste, p_id::text, p_demande::text,
+        (SELECT auth.uid())::text, v_f, v_t)), 1, 8));
+END;
+$function$;
+
+-- Texte borné ; NULL si vide et facultatif.
+CREATE OR REPLACE FUNCTION public.fiche_texte(p_valeur text, p_min int, p_max int, p_libelle text)
+ RETURNS text
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v text := nullif(trim(coalesce(p_valeur, '')), '');
+BEGIN
+    IF v IS NULL THEN
+        IF p_min > 0 THEN
+            RAISE EXCEPTION '% obligatoire.', p_libelle;
+        END IF;
+        RETURN NULL;
+    END IF;
+    IF length(v) < greatest(p_min, 1) OR length(v) > p_max THEN
+        RAISE EXCEPTION '% : % à % caractères (ici %).', p_libelle, greatest(p_min, 1), p_max, length(v);
+    END IF;
+    RETURN v;
+END;
+$function$;
+
+-- Date « AAAA-MM-JJ » jamais future.
+CREATE OR REPLACE FUNCTION public.fiche_date(p_valeur text, p_libelle text)
+ RETURNS date
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v date;
+BEGIN
+    IF p_valeur IS NULL THEN
+        RETURN NULL;
+    END IF;
+    IF p_valeur !~ '^\d{4}-\d{2}-\d{2}$' THEN
+        RAISE EXCEPTION '% au format AAAA-MM-JJ.', p_libelle;
+    END IF;
+    v := p_valeur::date;
+    IF v > (now() AT TIME ZONE 'Europe/Paris')::date THEN
+        RAISE EXCEPTION '% future refusée (%) : on enregistre ce qui s''est passé.', p_libelle, to_char(v, 'DD/MM/YYYY');
+    END IF;
+    RETURN v;
+END;
+$function$;
+
+-- Lieu (local facultatif, équipement seulement avec son local) ; rend le site
+-- du local, ou p_site si aucun local. Refuse un lieu d'un autre site.
+CREATE OR REPLACE FUNCTION public.fiche_verifier_lieu(p_local_id uuid, p_equipement_id uuid, p_site uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_site uuid;
+BEGIN
+    IF p_local_id IS NULL THEN
+        IF p_equipement_id IS NOT NULL THEN
+            RAISE EXCEPTION 'Un équipement se cite avec son local : précise le local (outil lieux).';
+        END IF;
+        RETURN p_site;
+    END IF;
+    v_site := public.di_verifier_lieu(p_local_id,
+        CASE WHEN p_equipement_id IS NULL THEN '{}'::uuid[] ELSE ARRAY[p_equipement_id] END);
+    IF p_site IS NOT NULL AND v_site <> p_site THEN
+        RAISE EXCEPTION '« % » est sur un autre site que la fiche : choisis un lieu du même site.',
+            public.di_lieu_texte(p_local_id);
+    END IF;
+    RETURN v_site;
+END;
+$function$;
+
+-- Uuid lu dans un champ JSON (NULL si absent ou vide).
+CREATE OR REPLACE FUNCTION public.fiche_uuid(p_json jsonb, p_cle text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v text := nullif(trim(coalesce(p_json->>p_cle, '')), '');
+BEGIN
+    IF v IS NULL THEN
+        RETURN NULL;
+    END IF;
+    IF v !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+        RAISE EXCEPTION 'Identifiant invalide pour « % » : %', p_cle, v;
+    END IF;
+    RETURN v::uuid;
+END;
+$function$;
+
+-- Tâches à créer : [{libelle, local_id?, equipement_id?}] contrôlées.
+CREATE OR REPLACE FUNCTION public.fiche_taches_nouvelles(p_json jsonb, p_site uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_res jsonb := '[]';
+    t     jsonb;
+    v_loc uuid;
+    v_eq  uuid;
+BEGIN
+    IF p_json IS NULL OR jsonb_typeof(p_json) = 'null' THEN
+        RETURN v_res;
+    END IF;
+    IF jsonb_typeof(p_json) <> 'array' THEN
+        RAISE EXCEPTION 'Liste de tâches mal formée.';
+    END IF;
+    FOR t IN SELECT value FROM jsonb_array_elements(p_json) LOOP
+        IF jsonb_typeof(t) <> 'object' OR EXISTS (SELECT 1 FROM jsonb_object_keys(t) k
+                WHERE k NOT IN ('libelle', 'local_id', 'equipement_id')) THEN
+            RAISE EXCEPTION 'Tâche mal formée : libelle, local_id, equipement_id seulement.';
+        END IF;
+        v_loc := public.fiche_uuid(t, 'local_id');
+        v_eq := public.fiche_uuid(t, 'equipement_id');
+        PERFORM public.fiche_verifier_lieu(v_loc, v_eq, p_site);
+        v_res := v_res || jsonb_build_object(
+            'libelle', public.fiche_texte(t->>'libelle', 1, 200, 'Libellé de tâche'),
+            'local_id', v_loc, 'equipement_id', v_eq);
+    END LOOP;
+    RETURN v_res;
+END;
+$function$;
+
+-- Fiches non terminées du même type sur le même lieu ou équipement.
+CREATE OR REPLACE FUNCTION public.fiche_doublons(p_type text, p_site uuid, p_locaux uuid[], p_equipement uuid, p_sauf uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    c jsonb := public.fiche_cfg(p_type);
+    v jsonb;
+BEGIN
+    IF cardinality(coalesce(p_locaux, '{}')) = 0 AND p_equipement IS NULL THEN
+        RETURN NULL;
+    END IF;
+    EXECUTE format($q$
+        SELECT jsonb_agg(jsonb_build_object('id', f.id, 'titre', f.titre, 'statut', s.nom, 'date', f.%I)
+               ORDER BY f.%I DESC)
+        FROM public.%I f JOIN public.%I s ON s.id = f.%I
+        WHERE f.site_id = $1 AND f.%I IN (1, 2) AND f.id IS DISTINCT FROM $4
+          AND (f.local_id = ANY ($2) OR f.equipement_id = $3
+               OR EXISTS (SELECT 1 FROM public.%I t WHERE t.%I = f.id
+                          AND (t.local_id = ANY ($2) OR t.equipement_id = $3))) $q$,
+        c->>'date_col', c->>'date_col', c->>'tab', c->>'statut_tab', c->>'statut_col', c->>'statut_col',
+        c->>'taches_tab', c->>'fk')
+    INTO v USING p_site, coalesce(p_locaux, '{}'), p_equipement, p_sauf;
+    RETURN v;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.fiche_refuser_demandeur()
+ RETURNS void
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+BEGIN
+    IF public.current_role() = 'demandeur' THEN
+        RAISE EXCEPTION 'Les travaux et les événements ne sont pas ouverts à ton rôle : pour signaler un problème, crée une demande d''intervention.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+END;
+$function$;
+
+-- ─── 1. Créer une fiche (avec ses tâches) ───────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.claude_creer_fiche(
+    p_type text,
+    p_titre text,
+    p_description text DEFAULT NULL,
+    p_date date DEFAULT NULL,
+    p_local_id uuid DEFAULT NULL,
+    p_equipement_id uuid DEFAULT NULL,
+    p_taches jsonb DEFAULT '[]',
+    p_site_id uuid DEFAULT NULL,
+    p_appliquer boolean DEFAULT false,
+    p_code text DEFAULT NULL)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+    c          jsonb := public.fiche_cfg(p_type);
+    v_auj      date := (now() AT TIME ZONE 'Europe/Paris')::date;
+    v_titre    text;
+    v_desc     text;
+    v_date     date;
+    v_site     uuid;
+    v_taches   jsonb;
+    v_locaux   uuid[];
+    v_code     text;
+    v_id       uuid;
+    v_resume   jsonb;
+    v_doublons jsonb;
+    v_alertes  jsonb := '[]';
+    t          jsonb;
+    i          int := 0;
+BEGIN
+    PERFORM public.exiger_ecriture_claude();
+    PERFORM public.fiche_refuser_demandeur();
+    v_titre := public.fiche_texte(p_titre, 3, 200, 'Titre');
+    v_desc := public.fiche_texte(p_description, 0, (c->>'desc_max')::int, 'Description');
+    v_date := public.fiche_date(coalesce(p_date, v_auj)::text, 'Date');
+
+    -- Site : celui du lieu ; sinon celui donné ; sinon l'unique site de la personne.
+    IF p_site_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.get_my_sites() s WHERE s.id = p_site_id) THEN
+        RAISE EXCEPTION 'Site introuvable ou hors de tes sites.';
+    END IF;
+    v_site := public.fiche_verifier_lieu(p_local_id, p_equipement_id, p_site_id);
+    IF v_site IS NULL THEN
+        IF (SELECT count(*) FROM public.get_my_sites()) = 1 THEN
+            SELECT s.id INTO v_site FROM public.get_my_sites() s;
+        ELSE
+            RAISE EXCEPTION 'Sans lieu, précise le site de la fiche (tu as accès à plusieurs sites).';
+        END IF;
+    END IF;
+
+    v_taches := public.fiche_taches_nouvelles(p_taches, v_site);
+    IF jsonb_array_length(v_taches) > 100 THEN
+        RAISE EXCEPTION 'Au plus 100 tâches par fiche.';
+    END IF;
+
+    v_code := public.fiche_code_confirmation(p_type, 'creer', NULL, jsonb_build_object(
+        'titre', v_titre, 'description', v_desc, 'date', v_date, 'local', p_local_id,
+        'equipement', p_equipement_id, 'taches', v_taches, 'site', v_site));
+    PERFORM public.di_verifier_code(p_appliquer, p_code, v_code);
+
+    SELECT array_agg(DISTINCT x) INTO v_locaux FROM (
+        SELECT p_local_id AS x UNION ALL SELECT (e->>'local_id')::uuid FROM jsonb_array_elements(v_taches) e) z
+    WHERE x IS NOT NULL;
+    v_doublons := public.fiche_doublons(p_type, v_site, v_locaux, p_equipement_id, NULL);
+    IF v_doublons IS NOT NULL THEN
+        v_alertes := v_alertes || to_jsonb(format(
+            'DOUBLON POSSIBLE : %s fiche(s) %s non terminée(s) sur ce lieu (voir « doublons »). Propose de compléter l''existante plutôt que d''en créer une.',
+            jsonb_array_length(v_doublons), c->>'nom'));
+    END IF;
+    IF v_date < v_auj - 30 THEN
+        v_alertes := v_alertes || to_jsonb(format('Date de plus de 30 jours (%s) : vérifie-la.', to_char(v_date, 'DD/MM/YYYY')));
+    END IF;
+    IF p_local_id IS NULL AND jsonb_array_length(v_taches) = 0 THEN
+        v_alertes := v_alertes || to_jsonb('Aucun lieu : la fiche ne sera rattachée à aucun local ni équipement.'::text);
+    END IF;
+
+    BEGIN
+        BEGIN
+            EXECUTE format('INSERT INTO public.%I (site_id, created_by, titre, description, %I, local_id, equipement_id)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id', c->>'tab', c->>'date_col')
+            INTO v_id USING v_site, (SELECT auth.uid()), v_titre, v_desc, v_date, p_local_id, p_equipement_id;
+            FOR t IN SELECT value FROM jsonb_array_elements(v_taches) LOOP
+                EXECUTE format('INSERT INTO public.%I (%I, libelle, local_id, equipement_id, ordre, created_by)
+                                VALUES ($1, $2, $3, $4, $5, $6)', c->>'taches_tab', c->>'fk')
+                USING v_id, t->>'libelle', (t->>'local_id')::uuid, (t->>'equipement_id')::uuid, i, (SELECT auth.uid());
+                i := i + 1;
+            END LOOP;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE EXCEPTION 'Création refusée : ton rôle ne permet pas de créer cette fiche sur ce site.'
+                USING ERRCODE = 'insufficient_privilege';
+        END;
+        v_resume := public.fiche_etat_resume(p_type, v_id);
+        IF NOT p_appliquer THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0A01', MESSAGE = 'aperçu';
+        END IF;
+    EXCEPTION WHEN SQLSTATE 'P0A01' THEN
+        v_id := NULL;
+    END;
+
+    RETURN jsonb_build_object(
+        'mode', CASE WHEN p_appliquer THEN 'enregistré' ELSE 'aperçu (rien n''est enregistré)' END,
+        'code_confirmation', CASE WHEN p_appliquer THEN NULL ELSE v_code END,
+        'fiche_id', v_id,
+        'resultat', v_resume,
+        'doublons', v_doublons,
+        'alertes', v_alertes);
+END;
+$function$;
+
+-- ─── 2. Moteur des gestes sur une fiche existante ───────────────────────────
+
+CREATE OR REPLACE FUNCTION public.fiche_geste_claude(
+    p_type text, p_geste text, p_id uuid, p_demande jsonb, p_appliquer boolean, p_code text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+    c          jsonb := public.fiche_cfg(p_type);
+    v_auj      date := (now() AT TIME ZONE 'Europe/Paris')::date;
+    v_f        jsonb;
+    v_statut   int;
+    v_verrou   boolean;
+    v_date_f   date;
+    v_fin      date;
+    v_nb       int;
+    v_titre    text;
+    v_desc     text;
+    v_loc      uuid;
+    v_eq       uuid;
+    v_lieu_change boolean := false;
+    v_taches   jsonb;
+    v_saisies  jsonb := '[]';
+    v_ids      uuid[] := '{}';
+    v_cr       text;
+    v_motif    text;
+    v_ajout    text;
+    v_place    int;
+    v_date     date;
+    v_code     text;
+    v_avant    jsonb;
+    v_apres    jsonb;
+    v_doublons jsonb;
+    v_alertes  jsonb := '[]';
+    v_n        int;
+    v_ordre    int;
+    s          jsonb;
+    v_tache    jsonb;
+    v_tid      uuid;
+    v_nom_statut4 text;
+BEGIN
+    PERFORM public.exiger_ecriture_claude();
+    PERFORM public.fiche_refuser_demandeur();
+    EXECUTE format('SELECT to_jsonb(f) FROM public.%I f WHERE id = $1', c->>'tab') INTO v_f USING p_id;
+    IF v_f IS NULL THEN
+        RAISE EXCEPTION 'Fiche % introuvable ou hors de tes sites (vérifie le type : travaux ou événement).', c->>'nom';
+    END IF;
+    v_statut := (v_f->>(c->>'statut_col'))::int;
+    v_verrou := (v_f->>'verrouille')::boolean;
+    v_date_f := (v_f->>(c->>'date_col'))::date;
+    v_fin := (v_f->>(c->>'fin_col'))::date;
+    EXECUTE format('SELECT count(*) FROM public.%I WHERE %I = $1', c->>'taches_tab', c->>'fk') INTO v_nb USING p_id;
+    EXECUTE format('SELECT nom FROM public.%I WHERE id = 4', c->>'statut_tab') INTO v_nom_statut4;
+
+    IF EXISTS (SELECT 1 FROM jsonb_object_keys(p_demande) k
+               WHERE k NOT IN ('titre', 'description', 'local_id', 'equipement_id', 'sans_equipement',
+                               'taches', 'saisies', 'compte_rendu', 'date', 'motif', 'taches_a_reprendre')) THEN
+        RAISE EXCEPTION 'Paramètre inconnu.';
+    END IF;
+
+    -- Le cadenas : seule la confirmation d'une clôture en attente le franchit.
+    IF v_verrou AND NOT (p_geste = 'cloturer' AND v_statut = 4 AND v_fin IS NULL) THEN
+        RAISE EXCEPTION 'Cette fiche est verrouillée (cadenas) : rien ne s''y modifie. Pour la changer, quelqu''un la déverrouille dans l''application, puis tu pourras reprendre.';
+    END IF;
+
+    -- Préconditions lisibles (la RLS et les triggers revérifient le reste).
+    IF p_geste = 'modifier' THEN
+        IF NOT (p_demande ?| ARRAY['titre', 'description', 'local_id', 'equipement_id', 'sans_equipement']) THEN
+            RAISE EXCEPTION 'Rien à modifier : donne le titre, la description ou le lieu.';
+        END IF;
+        IF p_demande ? 'titre' THEN
+            v_titre := public.fiche_texte(p_demande->>'titre', 3, 200, 'Titre');
+        END IF;
+        IF p_demande ? 'description' THEN
+            v_desc := public.fiche_texte(p_demande->>'description', 0, (c->>'desc_max')::int, 'Description');
+        END IF;
+        v_lieu_change := p_demande ?| ARRAY['local_id', 'equipement_id', 'sans_equipement'];
+        IF v_lieu_change THEN
+            v_loc := coalesce(public.fiche_uuid(p_demande, 'local_id'), (v_f->>'local_id')::uuid);
+            IF (p_demande->>'sans_equipement')::boolean IS TRUE THEN
+                v_eq := NULL;
+            ELSIF p_demande ? 'equipement_id' THEN
+                v_eq := public.fiche_uuid(p_demande, 'equipement_id');
+            ELSIF v_loc IS DISTINCT FROM (v_f->>'local_id')::uuid THEN
+                RAISE EXCEPTION 'Le lieu change : précise aussi l''équipement de ce nouveau lieu, ou sans_equipement.';
+            ELSE
+                v_eq := (v_f->>'equipement_id')::uuid;
+            END IF;
+            PERFORM public.fiche_verifier_lieu(v_loc, v_eq, (v_f->>'site_id')::uuid);
+        END IF;
+    ELSIF p_geste = 'ajouter_taches' THEN
+        IF v_statut = 4 THEN
+            RAISE EXCEPTION 'Cette fiche est %e : ajouter une tâche la rouvrirait. Rouvre-la d''abord (rouvrir_fiche), avec le motif.', lower(v_nom_statut4);
+        END IF;
+        v_taches := public.fiche_taches_nouvelles(p_demande->'taches', (v_f->>'site_id')::uuid);
+        IF jsonb_array_length(v_taches) = 0 THEN
+            RAISE EXCEPTION 'Aucune tâche à ajouter.';
+        END IF;
+        IF v_nb + jsonb_array_length(v_taches) > 100 THEN
+            RAISE EXCEPTION 'Au plus 100 tâches par fiche (déjà %).', v_nb;
+        END IF;
+    ELSIF p_geste = 'avancer_taches' THEN
+        IF jsonb_typeof(p_demande->'saisies') IS DISTINCT FROM 'array' OR jsonb_array_length(p_demande->'saisies') = 0 THEN
+            RAISE EXCEPTION 'Aucune saisie : donne au moins une tâche et ce qui change.';
+        END IF;
+        FOR s IN SELECT value FROM jsonb_array_elements(p_demande->'saisies') LOOP
+            IF jsonb_typeof(s) <> 'object' OR EXISTS (SELECT 1 FROM jsonb_object_keys(s) k
+                    WHERE k NOT IN ('tache_id', 'statut', 'date', 'commentaire', 'libelle')) THEN
+                RAISE EXCEPTION 'Saisie mal formée : tache_id, statut, date, commentaire, libelle seulement.';
+            END IF;
+            v_tid := public.fiche_uuid(s, 'tache_id');
+            IF v_tid IS NULL THEN
+                RAISE EXCEPTION 'Chaque saisie vise une tâche (tache_id, outil travaux ou evenements).';
+            END IF;
+            IF v_tid = ANY (v_ids) THEN
+                RAISE EXCEPTION 'Une même tâche est citée deux fois.';
+            END IF;
+            v_ids := v_ids || v_tid;
+            EXECUTE format('SELECT to_jsonb(t) FROM public.%I t WHERE id = $1 AND %I = $2', c->>'taches_tab', c->>'fk')
+            INTO v_tache USING v_tid, p_id;
+            IF v_tache IS NULL THEN
+                RAISE EXCEPTION 'La tâche % n''appartient pas à cette fiche.', v_tid;
+            END IF;
+            IF NOT (s ?| ARRAY['statut', 'date', 'commentaire', 'libelle']) THEN
+                RAISE EXCEPTION 'Rien à changer sur la tâche « % ».', v_tache->>'libelle';
+            END IF;
+            IF s ? 'statut' AND s->>'statut' NOT IN ('en_attente', 'en_cours', 'realise', 'non_realise', 'non_applicable') THEN
+                RAISE EXCEPTION 'Statut de tâche inconnu : % (en_attente, en_cours, realise, non_realise, non_applicable).', s->>'statut';
+            END IF;
+            v_date := public.fiche_date(s->>'date', 'Date de la tâche');
+            -- Une tâche terminée sans date prend la date du jour (affichée dans l'aperçu).
+            IF v_date IS NULL AND s->>'statut' IN ('realise', 'non_realise', 'non_applicable')
+               AND v_tache->>'date_tache' IS NULL THEN
+                v_date := v_auj;
+            END IF;
+            IF v_date IS NOT NULL AND v_date < v_date_f THEN
+                v_alertes := v_alertes || to_jsonb(format('La tâche « %s » est datée du %s, avant la date de la fiche (%s) : vérifie.',
+                    v_tache->>'libelle', to_char(v_date, 'DD/MM/YYYY'), to_char(v_date_f, 'DD/MM/YYYY')));
+            END IF;
+            v_saisies := v_saisies || jsonb_strip_nulls(jsonb_build_object(
+                'id', v_tid,
+                'statut', s->>'statut',
+                'date', v_date,
+                'a_commentaire', s ? 'commentaire',
+                'commentaire', public.fiche_texte(s->>'commentaire', 0, 2000, 'Commentaire'),
+                'libelle', CASE WHEN s ? 'libelle' THEN public.fiche_texte(s->>'libelle', 1, 200, 'Libellé de tâche') END,
+                'terminale', s->>'statut' IN ('realise', 'non_realise', 'non_applicable')));
+        END LOOP;
+    ELSIF p_geste = 'prendre_en_charge' THEN
+        IF v_nb > 0 THEN
+            RAISE EXCEPTION 'Cette fiche a des tâches : son statut les suit. Passe une tâche « en cours » (avancer_taches).';
+        END IF;
+        IF v_statut <> 1 THEN
+            RAISE EXCEPTION 'Seule une fiche « Ouvert » se prend en charge.';
+        END IF;
+    ELSIF p_geste = 'cloturer' THEN
+        IF NOT (v_statut = 4 AND v_fin IS NULL) THEN
+            IF v_statut = 4 THEN
+                RAISE EXCEPTION 'Cette fiche est déjà %e.', lower(v_nom_statut4);
+            END IF;
+            IF v_nb > 0 THEN
+                RAISE EXCEPTION 'Cette fiche a des tâches : elle se clôture quand toutes sont terminées (réalisé, non réalisé ou non applicable, outil avancer_taches) ; la clôture sera alors à confirmer ici.';
+            END IF;
+        END IF;
+        v_cr := public.fiche_texte(p_demande->>'compte_rendu', 0, 5000, 'Compte-rendu');
+        IF v_cr IS NOT NULL AND length(v_cr) < 5 THEN
+            RAISE EXCEPTION 'Compte-rendu de 5 caractères au moins (ou aucun).';
+        END IF;
+        v_date := coalesce(public.fiche_date(p_demande->>'date', 'Date de fin'), v_auj);
+        IF v_date < v_date_f THEN
+            RAISE EXCEPTION 'La date de fin (%) est avant la date de la fiche (%).',
+                to_char(v_date, 'DD/MM/YYYY'), to_char(v_date_f, 'DD/MM/YYYY');
+        END IF;
+        IF v_cr IS NULL THEN
+            v_alertes := v_alertes || to_jsonb('Aucun compte-rendu : possible (fausse alerte, rien à signaler), mais demande ce qui a été fait.'::text);
+        END IF;
+    ELSIF p_geste = 'rouvrir' THEN
+        IF v_statut <> 4 THEN
+            RAISE EXCEPTION 'Seule une fiche %e se rouvre.', lower(v_nom_statut4);
+        END IF;
+        v_motif := public.fiche_texte(p_demande->>'motif', 10, 1000, 'Motif de réouverture');
+        IF v_nb > 0 THEN
+            IF jsonb_typeof(p_demande->'taches_a_reprendre') IS DISTINCT FROM 'array'
+               OR jsonb_array_length(p_demande->'taches_a_reprendre') = 0 THEN
+                RAISE EXCEPTION 'Cette fiche a des tâches : dis lesquelles reprendre (taches_a_reprendre), elles repasseront « En attente ».';
+            END IF;
+            SELECT array_agg(DISTINCT public.fiche_uuid(jsonb_build_object('t', x), 't')) INTO v_ids
+            FROM jsonb_array_elements_text(p_demande->'taches_a_reprendre') x;
+            EXECUTE format('SELECT count(*) FROM public.%I WHERE %I = $1 AND id = ANY ($2)', c->>'taches_tab', c->>'fk')
+            INTO v_n USING p_id, v_ids;
+            IF v_n <> cardinality(v_ids) OR cardinality(v_ids) <> jsonb_array_length(p_demande->'taches_a_reprendre') THEN
+                RAISE EXCEPTION 'Tâches à reprendre : une tâche citée n''appartient pas à cette fiche, ou est citée deux fois.';
+            END IF;
+        ELSIF p_demande ? 'taches_a_reprendre' AND jsonb_array_length(p_demande->'taches_a_reprendre') > 0 THEN
+            RAISE EXCEPTION 'Cette fiche n''a pas de tâches.';
+        END IF;
+        -- Motif daté + compte-rendu effacé, recopiés à la fin de la description.
+        v_ajout := 'Rouvert le ' || to_char(v_auj, 'DD/MM/YYYY') || ' : ' || v_motif;
+        v_desc := coalesce(v_f->>'description', '');
+        IF v_desc <> '' THEN
+            v_ajout := E'\n\n' || v_ajout;
+        END IF;
+        v_place := (c->>'desc_max')::int - length(v_desc) - length(v_ajout);
+        IF v_place < 0 THEN
+            RAISE EXCEPTION 'La description deviendrait trop longue (plus de % caractères) : abrège le motif.', c->>'desc_max';
+        END IF;
+        IF v_f->>'compte_rendu' IS NOT NULL THEN
+            v_cr := ' (compte-rendu précédent' || coalesce(' du ' || to_char(v_fin, 'DD/MM/YYYY'), '') || ' : ' || (v_f->>'compte_rendu') || ')';
+            IF length(v_cr) > v_place THEN
+                v_cr := left(v_cr, greatest(v_place - 2, 0)) || '…)';
+                v_alertes := v_alertes || to_jsonb('Le compte-rendu précédent était trop long pour la description : il y est recopié tronqué.'::text);
+            END IF;
+            IF v_place >= 40 THEN
+                v_ajout := v_ajout || v_cr;
+            END IF;
+        END IF;
+        v_desc := v_desc || v_ajout;
+    ELSE
+        RAISE EXCEPTION 'Geste inconnu : %', p_geste;
+    END IF;
+
+    v_code := public.fiche_code_confirmation(p_type, p_geste, p_id, p_demande);
+    PERFORM public.di_verifier_code(p_appliquer, p_code, v_code);
+    v_avant := public.fiche_etat_resume(p_type, p_id);
+
+    BEGIN
+        BEGIN
+            IF p_geste = 'modifier' THEN
+                EXECUTE format('UPDATE public.%I SET titre = coalesce($2, titre),
+                        description = CASE WHEN $3 THEN $4 ELSE description END,
+                        local_id = CASE WHEN $5 THEN $6 ELSE local_id END,
+                        equipement_id = CASE WHEN $5 THEN $7 ELSE equipement_id END
+                    WHERE id = $1', c->>'tab')
+                USING p_id, v_titre, p_demande ? 'description', v_desc, v_lieu_change, v_loc, v_eq;
+                GET DIAGNOSTICS v_n = ROW_COUNT;
+                IF v_n = 0 THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+                IF v_lieu_change THEN
+                    v_doublons := public.fiche_doublons(p_type, (v_f->>'site_id')::uuid,
+                        CASE WHEN v_loc IS NULL THEN '{}'::uuid[] ELSE ARRAY[v_loc] END, v_eq, p_id);
+                END IF;
+            ELSIF p_geste = 'ajouter_taches' THEN
+                EXECUTE format('SELECT coalesce(max(ordre) + 1, 0) FROM public.%I WHERE %I = $1', c->>'taches_tab', c->>'fk')
+                INTO v_ordre USING p_id;
+                FOR s IN SELECT value FROM jsonb_array_elements(v_taches) LOOP
+                    EXECUTE format('INSERT INTO public.%I (%I, libelle, local_id, equipement_id, ordre, created_by)
+                                    VALUES ($1, $2, $3, $4, $5, $6)', c->>'taches_tab', c->>'fk')
+                    USING p_id, s->>'libelle', (s->>'local_id')::uuid, (s->>'equipement_id')::uuid, v_ordre, (SELECT auth.uid());
+                    v_ordre := v_ordre + 1;
+                END LOOP;
+            ELSIF p_geste = 'avancer_taches' THEN
+                -- Les tâches qui reprennent d'abord, celles qui se terminent ensuite :
+                -- sinon la fiche pourrait se verrouiller entre deux saisies.
+                FOR s IN SELECT value FROM jsonb_array_elements(v_saisies) ORDER BY (value->>'terminale')::boolean LOOP
+                    EXECUTE format('UPDATE public.%I SET
+                            statut = coalesce($2, statut),
+                            date_tache = coalesce($3, date_tache),
+                            commentaire = CASE WHEN $4 THEN $5 ELSE commentaire END,
+                            libelle = coalesce($6, libelle)
+                        WHERE id = $1', c->>'taches_tab')
+                    USING (s->>'id')::uuid, s->>'statut', (s->>'date')::date, (s->>'a_commentaire')::boolean,
+                          s->>'commentaire', s->>'libelle';
+                    GET DIAGNOSTICS v_n = ROW_COUNT;
+                    IF v_n = 0 THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+                END LOOP;
+            ELSIF p_geste = 'prendre_en_charge' THEN
+                EXECUTE format('UPDATE public.%I SET %I = 2 WHERE id = $1', c->>'tab', c->>'statut_col') USING p_id;
+                GET DIAGNOSTICS v_n = ROW_COUNT;
+                IF v_n = 0 THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+            ELSIF p_geste = 'cloturer' THEN
+                EXECUTE format('UPDATE public.%I SET %I = 4, compte_rendu = $2, %I = $3, cloture_by = $4, verrouille = true
+                                WHERE id = $1', c->>'tab', c->>'statut_col', c->>'fin_col')
+                USING p_id, v_cr, v_date, (SELECT auth.uid());
+                GET DIAGNOSTICS v_n = ROW_COUNT;
+                IF v_n = 0 THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+            ELSIF p_geste = 'rouvrir' THEN
+                EXECUTE format('UPDATE public.%I SET verrouille = false, compte_rendu = NULL, %I = NULL, cloture_by = NULL,
+                                description = $2, %I = CASE WHEN $3 THEN 1 ELSE %I END
+                                WHERE id = $1', c->>'tab', c->>'fin_col', c->>'statut_col', c->>'statut_col')
+                USING p_id, v_desc, v_nb = 0;
+                GET DIAGNOSTICS v_n = ROW_COUNT;
+                IF v_n = 0 THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+                IF v_nb > 0 THEN
+                    -- Le trigger recalcule le statut de la fiche (désormais déverrouillée).
+                    EXECUTE format('UPDATE public.%I SET statut = ''en_attente'', date_tache = NULL
+                                    WHERE %I = $1 AND id = ANY ($2)', c->>'taches_tab', c->>'fk')
+                    USING p_id, v_ids;
+                    GET DIAGNOSTICS v_n = ROW_COUNT;
+                    IF v_n <> cardinality(v_ids) THEN RAISE EXCEPTION USING ERRCODE = 'insufficient_privilege'; END IF;
+                END IF;
+            END IF;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE EXCEPTION 'Modification refusée : ton rôle ne permet pas ce geste sur cette fiche.'
+                USING ERRCODE = 'insufficient_privilege';
+        END;
+
+        v_apres := public.fiche_etat_resume(p_type, p_id);
+        -- Une saisie de tâche ne rouvre jamais en silence une fiche clôturée.
+        IF v_statut = 4 AND p_geste IN ('avancer_taches', 'ajouter_taches') AND v_apres->>'statut' <> v_nom_statut4 THEN
+            RAISE EXCEPTION 'Cette saisie rouvrirait la fiche %e : rouvre-la d''abord (rouvrir_fiche), avec le motif.', lower(v_nom_statut4);
+        END IF;
+        IF (v_apres->>'cloture_a_confirmer')::boolean AND p_geste <> 'cloturer' THEN
+            v_alertes := v_alertes || to_jsonb(format(
+                'CLÔTURE À CONFIRMER : toutes les tâches sont terminées, la fiche passe « %s » et se verrouille. Demande à la personne le compte-rendu et la date de fin, puis confirme avec cloturer_fiche.',
+                v_nom_statut4));
+        END IF;
+        IF v_doublons IS NOT NULL THEN
+            v_alertes := v_alertes || to_jsonb('DOUBLON POSSIBLE : d''autres fiches non terminées visent ce lieu (voir « doublons »).'::text);
+        END IF;
+        IF NOT p_appliquer THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0A01', MESSAGE = 'aperçu';
+        END IF;
+    EXCEPTION WHEN SQLSTATE 'P0A01' THEN
+        NULL;
+    END;
+
+    RETURN jsonb_build_object(
+        'mode', CASE WHEN p_appliquer THEN 'enregistré' ELSE 'aperçu (rien n''est enregistré)' END,
+        'code_confirmation', CASE WHEN p_appliquer THEN NULL ELSE v_code END,
+        'fiche_id', p_id,
+        'avant', v_avant,
+        'apres', v_apres,
+        'doublons', v_doublons,
+        'alertes', v_alertes);
+END;
+$function$;
+
+-- ─── 3. Enveloppes appelées par le connecteur ───────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.claude_modifier_fiche(
+    p_type text, p_id uuid, p_titre text DEFAULT NULL, p_description text DEFAULT NULL,
+    p_local_id uuid DEFAULT NULL, p_equipement_id uuid DEFAULT NULL, p_sans_equipement boolean DEFAULT NULL,
+    p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb LANGUAGE sql SET search_path TO ''
+AS $function$ SELECT public.fiche_geste_claude(p_type, 'modifier', p_id, jsonb_strip_nulls(jsonb_build_object(
+    'titre', p_titre, 'description', p_description, 'local_id', p_local_id, 'equipement_id', p_equipement_id,
+    'sans_equipement', p_sans_equipement)), p_appliquer, p_code) $function$;
+
+CREATE OR REPLACE FUNCTION public.claude_ajouter_taches(
+    p_type text, p_id uuid, p_taches jsonb, p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb LANGUAGE sql SET search_path TO ''
+AS $function$ SELECT public.fiche_geste_claude(p_type, 'ajouter_taches', p_id,
+    jsonb_build_object('taches', p_taches), p_appliquer, p_code) $function$;
+
+CREATE OR REPLACE FUNCTION public.claude_avancer_taches(
+    p_type text, p_id uuid, p_saisies jsonb, p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb LANGUAGE sql SET search_path TO ''
+AS $function$ SELECT public.fiche_geste_claude(p_type, 'avancer_taches', p_id,
+    jsonb_build_object('saisies', p_saisies), p_appliquer, p_code) $function$;
+
+CREATE OR REPLACE FUNCTION public.claude_prendre_en_charge_fiche(
+    p_type text, p_id uuid, p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb LANGUAGE sql SET search_path TO ''
+AS $function$ SELECT public.fiche_geste_claude(p_type, 'prendre_en_charge', p_id, '{}'::jsonb, p_appliquer, p_code) $function$;
+
+CREATE OR REPLACE FUNCTION public.claude_cloturer_fiche(
+    p_type text, p_id uuid, p_compte_rendu text DEFAULT NULL, p_date date DEFAULT NULL,
+    p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb LANGUAGE sql SET search_path TO ''
+AS $function$ SELECT public.fiche_geste_claude(p_type, 'cloturer', p_id, jsonb_strip_nulls(jsonb_build_object(
+    'compte_rendu', p_compte_rendu, 'date', p_date)), p_appliquer, p_code) $function$;
+
+CREATE OR REPLACE FUNCTION public.claude_rouvrir_fiche(
+    p_type text, p_id uuid, p_motif text, p_taches_a_reprendre uuid[] DEFAULT NULL,
+    p_appliquer boolean DEFAULT false, p_code text DEFAULT NULL)
+ RETURNS jsonb LANGUAGE sql SET search_path TO ''
+AS $function$ SELECT public.fiche_geste_claude(p_type, 'rouvrir', p_id, jsonb_strip_nulls(jsonb_build_object(
+    'motif', p_motif, 'taches_a_reprendre', to_jsonb(p_taches_a_reprendre))), p_appliquer, p_code) $function$;
+
+COMMENT ON FUNCTION public.claude_creer_fiche(text, text, text, date, uuid, uuid, jsonb, uuid, boolean, text) IS
+    'Geste Claude (161) : consigne un travaux ou un événement (avec ses tâches). Aperçu puis application avec code.';
+COMMENT ON FUNCTION public.fiche_geste_claude(text, text, uuid, jsonb, boolean, text) IS
+    'Moteur des gestes Claude sur un travaux ou un événement (161) : cadenas respecté, statut suivi des tâches, réouverture motivée.';
+
+-- ─── Droits : jamais anon (Supabase accorde EXECUTE par défaut) ─────────────
+
+DO $$
+DECLARE f text;
+BEGIN
+    FOREACH f IN ARRAY ARRAY[
+        'public.fiche_cfg(text)',
+        'public.fiche_lieu_texte(uuid, uuid)',
+        'public.fiche_statut_tache_texte(text)',
+        'public.fiche_etat_resume(text, uuid)',
+        'public.fiche_code_confirmation(text, text, uuid, jsonb)',
+        'public.fiche_texte(text, int, int, text)',
+        'public.fiche_date(text, text)',
+        'public.fiche_verifier_lieu(uuid, uuid, uuid)',
+        'public.fiche_uuid(jsonb, text)',
+        'public.fiche_taches_nouvelles(jsonb, uuid)',
+        'public.fiche_doublons(text, uuid, uuid[], uuid, uuid)',
+        'public.fiche_refuser_demandeur()',
+        'public.claude_creer_fiche(text, text, text, date, uuid, uuid, jsonb, uuid, boolean, text)',
+        'public.fiche_geste_claude(text, text, uuid, jsonb, boolean, text)',
+        'public.claude_modifier_fiche(text, uuid, text, text, uuid, uuid, boolean, boolean, text)',
+        'public.claude_ajouter_taches(text, uuid, jsonb, boolean, text)',
+        'public.claude_avancer_taches(text, uuid, jsonb, boolean, text)',
+        'public.claude_prendre_en_charge_fiche(text, uuid, boolean, text)',
+        'public.claude_cloturer_fiche(text, uuid, text, date, boolean, text)',
+        'public.claude_rouvrir_fiche(text, uuid, text, uuid[], boolean, text)']
+    LOOP
+        EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', f);
+        EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', f);
+    END LOOP;
+END $$;
