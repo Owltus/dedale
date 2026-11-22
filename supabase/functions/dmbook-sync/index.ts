@@ -8,7 +8,11 @@
 //                      (30 pages au plus par appel : limite de calcul d'une fonction),
 //                      pour rattacher l'historique (étape 4). Rien n'est écrit, ni
 //                      dans Dmbook, ni dans les DI.
-// Les modes « passage » (étapes 5 et 6) viendront ensuite.
+//   { mode: 'passage', complet?, reel? }  un passage Dmbook → Dédale (passage.ts).
+//                      À BLANC par défaut : rien n'est écrit, le rapport dit ce qui
+//                      serait fait. L'écriture réelle exige reel: true ET le secret
+//                      serveur DMBOOK_SYNC_REEL = « oui » (posé seulement après accord PO).
+//                      `complet` : tour complet de la liste (sinon décidé seul : une fois par heure).
 //
 // Garde-fous : un verrou (un seul passage à la fois) ; on ne contacte pas
 // Dmbook si l'état n'est pas « ok » (code attendu, pause, erreur) ; session
@@ -20,6 +24,7 @@
 
 import { clientServeur, garderSession, lireEtat, majEtat, ouvrir, raison, rendreVerrou, prendreVerrou } from '../_shared/dmbook/serveur.ts'
 import { SessionExpiree } from '../_shared/dmbook/client.ts'
+import { passage } from './passage.ts'
 
 const json = (corps: unknown, statut = 200) =>
   new Response(JSON.stringify(corps), { status: statut, headers: { 'Content-Type': 'application/json' } })
@@ -42,13 +47,13 @@ Deno.serve(async (req) => {
   const recue = req.headers.get('x-dmbook-cle') ?? ''
   if (!cle?.cle_tache || !recue || !egal(recue, cle.cle_tache)) return json({ error: 'Refusé.' }, 401)
 
-  let corps: { mode?: unknown; de?: unknown; a?: unknown }
+  let corps: { mode?: unknown; de?: unknown; a?: unknown; complet?: unknown; reel?: unknown }
   try {
     corps = await req.json()
   } catch {
     return json({ error: 'Corps de requête JSON attendu.' }, 400)
   }
-  if (corps.mode !== 'photo') return json({ error: 'Mode inconnu.' }, 400)
+  if (corps.mode !== 'photo' && corps.mode !== 'passage') return json({ error: 'Mode inconnu.' }, 400)
   const de = Number(corps.de ?? 1)
   const a = Number(corps.a ?? de + 29)
   if (!Number.isInteger(de) || !Number.isInteger(a) || de < 1 || a < de || a - de > 29)
@@ -62,6 +67,25 @@ Deno.serve(async (req) => {
     const o = await ouvrir(sb, etat, 150)
     if ('issue' in o) return json({ sortie: 'connexion', ...o.issue })
     const dm = o.dm
+    if (corps.mode === 'passage') {
+      try {
+        const { data: dates } = await sb.from('dmbook_etat').select('dernier_passage_complet').eq('id', true).single()
+        const dernier = dates?.dernier_passage_complet ? Date.parse(dates.dernier_passage_complet) : 0
+        const complet = typeof corps.complet === 'boolean' ? corps.complet : Date.now() - dernier > 55 * 60_000
+        const reel = corps.reel === true && Deno.env.get('DMBOOK_SYNC_REEL') === 'oui'
+        const rapport = await passage(sb, dm, etat.site_id, { reel, complet })
+        await garderSession(sb, dm)
+        if (reel) {
+          const maintenant = new Date().toISOString()
+          if (rapport.pause) await majEtat(sb, { etat: 'pause', message: rapport.pause, dernier_passage: maintenant })
+          else await majEtat(sb, { dernier_passage: maintenant, ...(complet && !rapport.details.some((d) => d.includes('incomplet')) ? { dernier_passage_complet: maintenant } : {}) })
+        }
+        return json({ sortie: 'passage', ...rapport })
+      } catch (e) {
+        if (e instanceof SessionExpiree) return json({ sortie: 'session_expiree' })
+        return json({ sortie: 'erreur', message: raison(e), requetes: dm.requetes })
+      }
+    }
     try {
       const r = await dm.listerTout(200, de, a)
       await garderSession(sb, dm)

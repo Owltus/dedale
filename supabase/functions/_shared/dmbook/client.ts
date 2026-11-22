@@ -269,13 +269,13 @@ export class Dmbook {
    * Toute la liste. `complet` n'est vrai que si le nombre lu égale le total affiché
    * par Dmbook : condition OBLIGATOIRE avant de conclure qu'un ticket a disparu.
    */
-  async listerTout(pauseMs = 300, de = 1, a = 500): Promise<{ total: number; tickets: TicketLeger[]; complet: boolean; derniere: number; fini: boolean }> {
+  async listerTout(pauseMs = 300, de = 1, a = 500, statuts: Statut[] = ['ouvert', 'en_cours', 'ferme']): Promise<{ total: number; tickets: TicketLeger[]; complet: boolean; derniere: number; fini: boolean }> {
     const tous = new Map<string, TicketLeger>()
     let total = -1
     let derniere = de - 1
     let fini = false
     for (let page = de; page <= a; page++) {
-      const r = await this.listerLeger(page)
+      const r = await this.listerLeger(page, statuts)
       derniere = page
       if (total < 0) total = r.total
       for (const t of r.tickets) tous.set(t.id, t)
