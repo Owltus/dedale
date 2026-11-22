@@ -698,6 +698,14 @@
           "precision": null,
           "type": "text"
         },
+        "cle_tache": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
         "code_demande_le": {
           "aUnDefaut": false,
           "echelle": null,
@@ -706,7 +714,23 @@
           "precision": null,
           "type": "timestamp with time zone"
         },
+        "compte_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
         "dernier_passage": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "dernier_passage_complet": {
           "aUnDefaut": false,
           "echelle": null,
           "longueurMax": null,
@@ -763,6 +787,155 @@
           "type": "uuid"
         },
         "verrou_jusqu_a": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
+    "dmbook_file": {
+      "checks": {
+        "dmbook_file_action_valide": "CHECK ((action = ANY (ARRAY['creer'::text, 'texte'::text, 'statut'::text, 'supprimer'::text])))",
+        "dmbook_file_issue_valide": "CHECK ((issue = ANY (ARRAY['envoye'::text, 'remplace_par_dmbook'::text, 'annule'::text, 'mis_de_cote'::text])))"
+      },
+      "colonnes": {
+        "action": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "cree_le": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "di_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "dmbook_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "erreur": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "fait_le": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "id": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 64,
+          "type": "bigint"
+        },
+        "issue": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "tentatives": {
+          "aUnDefaut": true,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": 32,
+          "type": "integer"
+        }
+      }
+    },
+    "dmbook_liens": {
+      "checks": {},
+      "colonnes": {
+        "dedale_empreinte": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "di_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
+        "dmbook_empreinte": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "dmbook_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "dmbook_ts": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 64,
+          "type": "bigint"
+        },
+        "lieu_manuel": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "numero": {
+          "aUnDefaut": false,
+          "echelle": 0,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": 32,
+          "type": "integer"
+        },
+        "synchro_le": {
           "aUnDefaut": false,
           "echelle": null,
           "longueurMax": null,

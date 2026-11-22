@@ -3,7 +3,7 @@
  * Leur structure reproduit celle relevée le 20/11/2026 (plan sync-dmbook, étape 1).
  */
 import { assertEquals, assertRejects } from 'jsr:@std/assert@1'
-import { Dmbook, lireEdition, lireFiche, lireListe, SessionExpiree } from './client.ts'
+import { Dmbook, lireEdition, lireFiche, lireListe, lireListeLegere, SessionExpiree } from './client.ts'
 
 const BASE = 'https://exemple.dmbook.test'
 const ligne = (id: string, ts: number, n: number, statut: string, texte: string) => `
@@ -37,6 +37,13 @@ Deno.test('liste : identifiants, data-ts, numéro, statut, titre sans suffixe, t
   assertEquals(total, 2)
   assertEquals(tickets[0], { id: '11', modifieLe: 1795098235, numero: 7031, titre: '#305 Rideau penderie décroché', statut: 'ouvert', creeLe: '19/11/2026 15:23' })
   assertEquals(tickets[1].statut, 'ferme')
+})
+
+Deno.test('liste légère (sans DOM) : mêmes identifiants, activité, numéros et statuts que la lecture complète', () => {
+  const complete = lireListe(LISTE)
+  const legere = lireListeLegere(LISTE)
+  assertEquals(legere.total, 2)
+  assertEquals(legere.tickets, complete.tickets.map(({ id, modifieLe, numero, statut }) => ({ id, modifieLe, numero, statut })))
 })
 
 Deno.test('fiche d\'une ligne : le titre (copie retouchée) est ignoré, bouton Éditer exclu', () => {

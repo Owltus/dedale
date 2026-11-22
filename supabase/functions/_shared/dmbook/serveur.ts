@@ -87,7 +87,38 @@ function nouveauClient(etat: EtatDmbook, session: Session) {
   return dm
 }
 
-const raison = (e: unknown) => (e instanceof Error ? e.message : String(e))
+export const raison = (e: unknown) => (e instanceof Error ? e.message : String(e))
+
+/**
+ * Client prêt à lire, pour un passage automatique. La session rangée est essayée ;
+ * expirée → UNE connexion. Code demandé → état « code_requis », pas de client.
+ * N'est appelée que si l'état vaut « ok » (vérifié par l'appelant).
+ */
+export async function ouvrir(sb: SupabaseClient, etat: EtatDmbook, plafond: number): Promise<{ dm: Dmbook } | { issue: Issue }> {
+  const { id, mdp } = identifiants()
+  const session = await lireSession(sb)
+  const dm = new Dmbook({ base: etat.base, carnet: etat.carnet, plafond, trace: (l) => console.log(`[dmbook] ${l}`) })
+  if (session.cookies?.length) dm.importerSession(session.cookies)
+  try {
+    const r = await dm.connecter(id, mdp)
+    if (r.etat === 'code_requis') {
+      await ecrireSession(sb, { cookies: dm.exporterSession(), reprise: r.reprise })
+      const issue: Issue = { etat: 'code_requis', message: 'Dmbook demande le code reçu par e-mail.' }
+      await majEtat(sb, { ...issue, boite_code: masquer(id), code_demande_le: new Date().toISOString() })
+      return { issue }
+    }
+    return { dm }
+  } catch (e) {
+    const issue: Issue = { etat: 'erreur', message: `Connexion impossible : ${raison(e)}` }
+    await majEtat(sb, issue)
+    return { issue }
+  }
+}
+
+/** Range la session après un passage (les cookies ont pu être renouvelés). */
+export async function garderSession(sb: SupabaseClient, dm: Dmbook) {
+  await ecrireSession(sb, { cookies: dm.exporterSession(), reprise: null })
+}
 
 /**
  * UNE tentative de connexion (la session rangée est essayée d'abord : si elle

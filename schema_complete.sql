@@ -17106,3 +17106,405 @@ GRANT EXECUTE ON FUNCTION public.dmbook_session_ecrire(jsonb)   TO service_role;
 GRANT EXECUTE ON FUNCTION public.dmbook_verrou_prendre(integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.dmbook_verrou_rendre()         TO service_role;
 GRANT EXECUTE ON FUNCTION public.dmbook_etat_public()           TO authenticated, service_role;
+
+-- =============================================================================
+-- 164 — Synchro Dmbook : liens ticket ⇄ DI, file d'envoi, déclencheurs anti-écho
+-- =============================================================================
+-- Symptôme corrigé : aucun. Deuxième morceau de la synchro Dmbook ⇄ Dédale
+-- (plan/sync-dmbook, étape 3), après le socle de connexion (163).
+--
+-- Cause : la base ne savait ni quel ticket Dmbook correspond à quelle DI, ni
+-- garder trace de ce qui a été fait dans Dédale et reste à envoyer à Dmbook.
+--
+-- Correctif :
+--   1. `dmbook_etat` gagne le compte qui signe les DI venues de Dmbook (D14),
+--      la date du dernier tour complet et la clé de la tâche planifiée.
+--   2. `dmbook_liens` : un ticket par ligne (id Dmbook, numéro, DI, dernière
+--      version vue des deux côtés). Le numéro est lisible par quiconque voit la DI (D16).
+--   3. `dmbook_file` : ce qui a été fait dans Dédale et doit partir vers Dmbook
+--      (créer, texte, statut, supprimer). Une seule ligne en attente par DI et par
+--      action. Lisible par les admin / manager / technicien du site (D15).
+--   4. Déclencheurs qui remplissent la file pour TOUTE écriture sur une DI du site
+--      lié (application, connecteur Claude, SQL), sauf quand c'est la synchro qui
+--      écrit (`dedale.synchro_dmbook = on`, anti-écho).
+--   5. Fonctions de la synchro (service_role seulement) : créer, mettre à jour,
+--      supprimer une DI venue de Dmbook, en posant l'anti-écho.
+--   Ne fait PAS : remplir les liens de l'historique (étape 4), pg_net, pg_cron (165).
+--
+-- Innocuité : aucune DI modifiée. Les déclencheurs existants (audit, statut
+-- initial, resolved_by, réouverture, site du local) restent inchangés et
+-- s'appliquent aussi aux écritures de la synchro. Tant que rien ne vide la file,
+-- elle se remplit sans effet : rien ne part vers Dmbook avant l'étape 6.
+--
+-- Vérification après application :
+--     SELECT count(*) FROM public.dmbook_liens;  -- 0 (rempli à l'étape 4)
+--     SELECT count(*) FROM public.dmbook_file;   -- 0
+--     SELECT compte_id IS NOT NULL FROM public.dmbook_etat;  -- true
+--     SELECT count(*) FROM pg_trigger WHERE tgname LIKE 'trg_dmbook_%';  -- 4
+-- =============================================================================
+
+-- ─── 1. Compléments de dmbook_etat ──────────────────────────────────────────
+
+ALTER TABLE public.dmbook_etat ADD COLUMN IF NOT EXISTS compte_id uuid REFERENCES public.users(id) ON DELETE SET NULL;
+ALTER TABLE public.dmbook_etat ADD COLUMN IF NOT EXISTS dernier_passage_complet timestamptz;
+ALTER TABLE public.dmbook_etat ADD COLUMN IF NOT EXISTS cle_tache text;
+
+COMMENT ON COLUMN public.dmbook_etat.compte_id IS
+    'Compte Dédale qui signe les DI venues de Dmbook (compte du PO, D14) (164).';
+COMMENT ON COLUMN public.dmbook_etat.cle_tache IS
+    'Secret partagé entre la tâche planifiée et la fonction dmbook-sync (164). Jamais exposé à l''application.';
+
+-- compte_id (compte du PO) et cle_tache (aléatoire) sont posés par la migration 164,
+-- gitignorée : à reposer à la main après une reconstruction de la base.
+
+CREATE OR REPLACE FUNCTION public.dmbook_site_id()
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    SELECT site_id FROM public.dmbook_etat WHERE id
+$function$;
+
+COMMENT ON FUNCTION public.dmbook_site_id() IS
+    'Synchro Dmbook (164) : le site lié à Dmbook, ou NULL. Sert aux déclencheurs et aux policies.';
+
+-- ─── 2. Liens ticket ⇄ DI ───────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.dmbook_liens (
+    dmbook_id         text PRIMARY KEY,
+    numero            integer UNIQUE,
+    di_id             uuid UNIQUE REFERENCES public.demandes_intervention(id) ON DELETE SET NULL,
+    dmbook_ts         bigint,
+    dmbook_empreinte  text,
+    dedale_empreinte  text,
+    lieu_manuel       boolean NOT NULL DEFAULT false,
+    synchro_le        timestamptz
+);
+
+COMMENT ON TABLE public.dmbook_liens IS
+    'Synchro Dmbook (164) : un ticket par ligne. di_id NULL = DI supprimée dans Dédale, suppression du ticket en file.';
+COMMENT ON COLUMN public.dmbook_liens.dmbook_ts IS
+    'Dernier data-ts (activité) vu dans la liste Dmbook. 0 = à relire au prochain passage (164).';
+COMMENT ON COLUMN public.dmbook_liens.lieu_manuel IS
+    'Un lieu qui n''est pas une chambre a été choisi à la main dans Dédale : gardé sauf si le texte Dmbook cite une chambre (D17) (164).';
+
+ALTER TABLE public.dmbook_liens ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.dmbook_liens FROM anon, authenticated;
+GRANT SELECT (di_id, numero) ON public.dmbook_liens TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.dmbook_liens TO service_role;
+
+DROP POLICY IF EXISTS dmbook_liens_select ON public.dmbook_liens;
+CREATE POLICY dmbook_liens_select ON public.dmbook_liens FOR SELECT TO authenticated
+    USING (di_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.demandes_intervention d WHERE d.id = di_id));
+COMMENT ON POLICY dmbook_liens_select ON public.dmbook_liens IS
+    'Le numéro Dmbook se lit pour toute DI qu''on voit déjà : la RLS des DI fait le tri (D16) (164).';
+
+-- ─── 3. File d'envoi vers Dmbook ────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.dmbook_file (
+    id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    di_id       uuid,
+    dmbook_id   text,
+    action      text NOT NULL
+                CONSTRAINT dmbook_file_action_valide CHECK (action IN ('creer', 'texte', 'statut', 'supprimer')),
+    cree_le     timestamptz NOT NULL DEFAULT now(),
+    tentatives  integer NOT NULL DEFAULT 0,
+    erreur      text,
+    fait_le     timestamptz,
+    issue       text
+                CONSTRAINT dmbook_file_issue_valide CHECK (issue IN ('envoye', 'remplace_par_dmbook', 'annule', 'mis_de_cote'))
+);
+
+COMMENT ON TABLE public.dmbook_file IS
+    'Synchro Dmbook (164) : actions faites dans Dédale, à envoyer vers Dmbook. di_id sans clé étrangère : la DI peut avoir été supprimée.';
+
+CREATE UNIQUE INDEX IF NOT EXISTS dmbook_file_une_en_attente
+    ON public.dmbook_file (di_id, action) WHERE fait_le IS NULL;
+CREATE INDEX IF NOT EXISTS dmbook_file_en_attente
+    ON public.dmbook_file (cree_le) WHERE fait_le IS NULL;
+
+ALTER TABLE public.dmbook_file ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.dmbook_file FROM anon, authenticated;
+GRANT SELECT ON public.dmbook_file TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.dmbook_file TO service_role;
+
+DROP POLICY IF EXISTS dmbook_file_select ON public.dmbook_file;
+CREATE POLICY dmbook_file_select ON public.dmbook_file FOR SELECT TO authenticated
+    USING ((SELECT public.current_role()) IN ('admin', 'manager', 'technicien')
+           AND public.has_site_access(public.dmbook_site_id()));
+COMMENT ON POLICY dmbook_file_select ON public.dmbook_file IS
+    'État de la synchro visible des admin / manager / technicien du site lié (D15) (164).';
+
+-- ─── 4. Déclencheurs : remplir la file ──────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.dmbook_deposer(p_di_id uuid, p_action text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    -- Une création pas encore partie enverra l'état complet : rien d'autre à ajouter.
+    IF p_action IN ('texte', 'statut') AND EXISTS (
+        SELECT 1 FROM public.dmbook_file f
+        WHERE f.di_id = p_di_id AND f.action = 'creer' AND f.fait_le IS NULL) THEN
+        RETURN;
+    END IF;
+    INSERT INTO public.dmbook_file (di_id, dmbook_id, action)
+    VALUES (p_di_id, (SELECT l.dmbook_id FROM public.dmbook_liens l WHERE l.di_id = p_di_id), p_action)
+    ON CONFLICT (di_id, action) WHERE fait_le IS NULL DO NOTHING;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.trg_dmbook_di()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_lien text;
+BEGIN
+    IF current_setting('dedale.synchro_dmbook', true) = 'on' THEN
+        RETURN coalesce(NEW, OLD);
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        IF OLD.site_id IS DISTINCT FROM public.dmbook_site_id() THEN RETURN OLD; END IF;
+        -- Ce qui attendait pour cette DI n'a plus d'objet.
+        UPDATE public.dmbook_file SET fait_le = now(), issue = 'annule'
+        WHERE  di_id = OLD.id AND fait_le IS NULL;
+        SELECT l.dmbook_id INTO v_lien FROM public.dmbook_liens l WHERE l.di_id = OLD.id;
+        IF v_lien IS NOT NULL THEN
+            -- dmbook_id copié MAINTENANT : le lien passera à NULL avec la suppression.
+            INSERT INTO public.dmbook_file (di_id, dmbook_id, action) VALUES (OLD.id, v_lien, 'supprimer');
+        END IF;
+        RETURN OLD;
+    END IF;
+
+    IF NEW.site_id IS DISTINCT FROM public.dmbook_site_id() THEN RETURN NEW; END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        PERFORM public.dmbook_deposer(NEW.id, 'creer');
+    ELSE
+        IF NEW.constat IS DISTINCT FROM OLD.constat THEN
+            PERFORM public.dmbook_deposer(NEW.id, 'texte');
+        END IF;
+        IF NEW.statut_di_id IS DISTINCT FROM OLD.statut_di_id THEN
+            PERFORM public.dmbook_deposer(NEW.id, 'statut');
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.trg_dmbook_di_localisation()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_di    uuid := coalesce(NEW.di_id, OLD.di_id);
+    v_local uuid := coalesce(NEW.local_id, OLD.local_id);
+    v_site  uuid;
+BEGIN
+    IF current_setting('dedale.synchro_dmbook', true) = 'on' THEN
+        RETURN NULL;
+    END IF;
+    -- DI en cours de suppression (cascade) : elle n'existe déjà plus, rien à faire.
+    SELECT d.site_id INTO v_site FROM public.demandes_intervention d WHERE d.id = v_di;
+    IF v_site IS NULL OR v_site IS DISTINCT FROM public.dmbook_site_id() THEN
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM public.locaux l WHERE l.id = v_local AND l.nom ~ '^Chambre [0-9]{3}$') THEN
+        -- Chambre : la tête « #112 » du texte Dmbook est à corriger (D9).
+        PERFORM public.dmbook_deposer(v_di, 'texte');
+    END IF;
+    -- Autre lieu : rien ne part vers Dmbook (D8), mais le choix manuel est retenu (D17).
+    UPDATE public.dmbook_liens SET lieu_manuel = EXISTS (
+        SELECT 1 FROM public.di_localisations x JOIN public.locaux l ON l.id = x.local_id
+        WHERE x.di_id = v_di AND l.nom !~ '^Chambre [0-9]{3}$')
+    WHERE di_id = v_di;
+    RETURN NULL;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS trg_dmbook_di_ecriture ON public.demandes_intervention;
+CREATE TRIGGER trg_dmbook_di_ecriture
+    AFTER INSERT OR UPDATE OF constat, statut_di_id ON public.demandes_intervention
+    FOR EACH ROW EXECUTE FUNCTION public.trg_dmbook_di();
+
+DROP TRIGGER IF EXISTS trg_dmbook_di_suppression ON public.demandes_intervention;
+CREATE TRIGGER trg_dmbook_di_suppression
+    BEFORE DELETE ON public.demandes_intervention
+    FOR EACH ROW EXECUTE FUNCTION public.trg_dmbook_di();
+
+DROP TRIGGER IF EXISTS trg_dmbook_di_lieu_ajout ON public.di_localisations;
+CREATE TRIGGER trg_dmbook_di_lieu_ajout
+    AFTER INSERT ON public.di_localisations
+    FOR EACH ROW EXECUTE FUNCTION public.trg_dmbook_di_localisation();
+
+DROP TRIGGER IF EXISTS trg_dmbook_di_lieu_retrait ON public.di_localisations;
+CREATE TRIGGER trg_dmbook_di_lieu_retrait
+    AFTER DELETE ON public.di_localisations
+    FOR EACH ROW EXECUTE FUNCTION public.trg_dmbook_di_localisation();
+
+COMMENT ON FUNCTION public.trg_dmbook_di() IS
+    'Synchro Dmbook (164) : toute création / changement de constat ou de statut / suppression d''une DI du site lié part en file, sauf écriture de la synchro elle-même.';
+COMMENT ON FUNCTION public.trg_dmbook_di_localisation() IS
+    'Synchro Dmbook (164) : changement de chambre → texte à corriger dans Dmbook (D9) ; autre lieu → lieu_manuel (D17).';
+
+-- ─── 5. Écritures de la synchro dans Dédale (Dmbook → Dédale) ───────────────
+
+-- Lieux d'une DI remplacés par la liste donnée (les déclencheurs n'enfilent rien : anti-écho posé par l'appelant).
+CREATE OR REPLACE FUNCTION public.dmbook_poser_lieux(p_di_id uuid, p_locaux uuid[])
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    DELETE FROM public.di_localisations WHERE di_id = p_di_id AND local_id <> ALL (p_locaux);
+    INSERT INTO public.di_localisations (di_id, local_id)
+    SELECT p_di_id, u FROM unnest(p_locaux) AS u
+    ON CONFLICT DO NOTHING;
+END;
+$function$;
+
+-- Statut posé avec le compte du PO comme auteur de la clôture (auth.uid() est vide côté serveur).
+CREATE OR REPLACE FUNCTION public.dmbook_poser_statut(p_di_id uuid, p_statut integer, p_compte uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    UPDATE public.demandes_intervention SET statut_di_id = p_statut
+    WHERE  id = p_di_id AND statut_di_id IS DISTINCT FROM p_statut;
+    IF p_statut = 3 THEN
+        UPDATE public.demandes_intervention SET resolved_by = p_compte
+        WHERE  id = p_di_id AND resolved_by IS NULL;
+    END IF;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.dmbook_creer_di(
+    p_dmbook_id text, p_numero integer, p_constat text, p_statut integer,
+    p_locaux uuid[], p_cree_le timestamptz,
+    p_ts bigint, p_empreinte_dmbook text, p_empreinte_dedale text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_etat public.dmbook_etat;
+    v_di   uuid;
+BEGIN
+    PERFORM set_config('dedale.synchro_dmbook', 'on', true);
+    SELECT * INTO v_etat FROM public.dmbook_etat WHERE id;
+    IF v_etat.compte_id IS NULL THEN
+        RAISE EXCEPTION 'Synchro Dmbook : aucun compte signataire (dmbook_etat.compte_id).';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.dmbook_liens WHERE dmbook_id = p_dmbook_id) THEN
+        RAISE EXCEPTION 'Synchro Dmbook : le ticket % est déjà lié.', p_dmbook_id;
+    END IF;
+
+    -- Création forcément « Ouvert » (validation_statut_initial_di), puis statut réel.
+    INSERT INTO public.demandes_intervention (site_id, created_by, constat, date_constat, created_at, statut_di_id)
+    VALUES (v_etat.site_id, v_etat.compte_id, p_constat,
+            coalesce((p_cree_le AT TIME ZONE 'Europe/Paris')::date, current_date),
+            coalesce(p_cree_le, now()), 1)
+    RETURNING id INTO v_di;
+
+    PERFORM public.dmbook_poser_lieux(v_di, coalesce(p_locaux, '{}'));
+    IF p_statut <> 1 THEN
+        PERFORM public.dmbook_poser_statut(v_di, p_statut, v_etat.compte_id);
+    END IF;
+
+    INSERT INTO public.dmbook_liens (dmbook_id, numero, di_id, dmbook_ts, dmbook_empreinte, dedale_empreinte, synchro_le)
+    VALUES (p_dmbook_id, p_numero, v_di, p_ts, p_empreinte_dmbook, p_empreinte_dedale, now());
+    RETURN v_di;
+END;
+$function$;
+
+-- NULL = inchangé, pour p_constat, p_statut et p_locaux.
+CREATE OR REPLACE FUNCTION public.dmbook_maj_di(
+    p_di_id uuid, p_constat text, p_statut integer, p_locaux uuid[],
+    p_ts bigint, p_empreinte_dmbook text, p_empreinte_dedale text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_compte uuid;
+BEGIN
+    PERFORM set_config('dedale.synchro_dmbook', 'on', true);
+    SELECT compte_id INTO v_compte FROM public.dmbook_etat WHERE id;
+    IF p_constat IS NOT NULL THEN
+        UPDATE public.demandes_intervention SET constat = p_constat
+        WHERE  id = p_di_id AND constat IS DISTINCT FROM p_constat;
+    END IF;
+    IF p_locaux IS NOT NULL THEN
+        PERFORM public.dmbook_poser_lieux(p_di_id, p_locaux);
+    END IF;
+    IF p_statut IS NOT NULL THEN
+        PERFORM public.dmbook_poser_statut(p_di_id, p_statut, v_compte);
+    END IF;
+    UPDATE public.dmbook_liens
+    SET    dmbook_ts = p_ts, dmbook_empreinte = p_empreinte_dmbook,
+           dedale_empreinte = p_empreinte_dedale, synchro_le = now(),
+           -- Lieux repris de Dmbook : ce n'est plus un choix manuel (D17).
+           lieu_manuel = CASE WHEN p_locaux IS NULL THEN lieu_manuel ELSE false END
+    WHERE  di_id = p_di_id;
+END;
+$function$;
+
+-- Ticket supprimé dans Dmbook (D3) : la DI et son lien disparaissent, sans rien renvoyer.
+CREATE OR REPLACE FUNCTION public.dmbook_supprimer_di(p_dmbook_id text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_di uuid;
+BEGIN
+    PERFORM set_config('dedale.synchro_dmbook', 'on', true);
+    SELECT di_id INTO v_di FROM public.dmbook_liens WHERE dmbook_id = p_dmbook_id;
+    DELETE FROM public.dmbook_liens WHERE dmbook_id = p_dmbook_id;
+    IF v_di IS NOT NULL THEN
+        UPDATE public.dmbook_file SET fait_le = now(), issue = 'remplace_par_dmbook'
+        WHERE  di_id = v_di AND fait_le IS NULL;
+        DELETE FROM public.demandes_intervention WHERE id = v_di;
+    END IF;
+END;
+$function$;
+
+COMMENT ON FUNCTION public.dmbook_creer_di(text, integer, text, integer, uuid[], timestamptz, bigint, text, text) IS
+    'Synchro Dmbook (164) : DI créée depuis un nouveau ticket, signée du compte du PO, avec ses lieux, son statut et son lien.';
+COMMENT ON FUNCTION public.dmbook_maj_di(uuid, text, integer, uuid[], bigint, text, text) IS
+    'Synchro Dmbook (164) : DI alignée sur son ticket (NULL = inchangé) et dernière version vue enregistrée.';
+COMMENT ON FUNCTION public.dmbook_supprimer_di(text) IS
+    'Synchro Dmbook (164) : ticket supprimé dans Dmbook (vérifié par l''appelant) → DI et lien supprimés (D3).';
+
+-- ─── 6. Droits d'exécution ──────────────────────────────────────────────────
+
+REVOKE ALL ON FUNCTION public.dmbook_site_id() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.dmbook_site_id() TO authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.dmbook_deposer(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.trg_dmbook_di() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.trg_dmbook_di_localisation() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_poser_lieux(uuid, uuid[]) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_poser_statut(uuid, integer, uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_creer_di(text, integer, text, integer, uuid[], timestamptz, bigint, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_maj_di(uuid, text, integer, uuid[], bigint, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_supprimer_di(text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.dmbook_creer_di(text, integer, text, integer, uuid[], timestamptz, bigint, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_maj_di(uuid, text, integer, uuid[], bigint, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_supprimer_di(text) TO service_role;

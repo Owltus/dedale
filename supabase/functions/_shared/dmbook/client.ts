@@ -258,21 +258,32 @@ export class Dmbook {
     return lireListe(html)
   }
 
+  /** Une page de la liste en lecture légère (voir `lireListeLegere`). */
+  async listerLeger(page = 1, statuts: Statut[] = ['ouvert', 'en_cours', 'ferme']): Promise<{ total: number; tickets: TicketLeger[] }> {
+    const { html } = await this.#req(this.#urlListe(page, statuts))
+    if (this.#estPageDeRenvoi(html)) throw new SessionExpiree()
+    return lireListeLegere(html)
+  }
+
   /**
    * Toute la liste. `complet` n'est vrai que si le nombre lu égale le total affiché
    * par Dmbook : condition OBLIGATOIRE avant de conclure qu'un ticket a disparu.
    */
-  async listerTout(pauseMs = 300): Promise<{ total: number; tickets: TicketResume[]; complet: boolean }> {
-    const tous = new Map<string, TicketResume>()
+  async listerTout(pauseMs = 300, de = 1, a = 500): Promise<{ total: number; tickets: TicketLeger[]; complet: boolean; derniere: number; fini: boolean }> {
+    const tous = new Map<string, TicketLeger>()
     let total = -1
-    for (let page = 1; page < 500; page++) {
-      const r = await this.lister(page)
+    let derniere = de - 1
+    let fini = false
+    for (let page = de; page <= a; page++) {
+      const r = await this.listerLeger(page)
+      derniere = page
       if (total < 0) total = r.total
       for (const t of r.tickets) tous.set(t.id, t)
-      if (r.tickets.length < 50) break
+      if (r.tickets.length < 50) { fini = true; break }
       await new Promise((ok) => setTimeout(ok, pauseMs))
     }
-    return { total, tickets: [...tous.values()], complet: total > 0 && tous.size === total }
+    // « complet » : lecture partie de la page 1, allée jusqu'au bout, et autant de tickets que le total affiché.
+    return { total, tickets: [...tous.values()], complet: de === 1 && fini && total > 0 && tous.size === total, derniere, fini }
   }
 
   async detail(id: string): Promise<TicketDetail> {
@@ -370,6 +381,30 @@ export function lireListe(html: string): { total: number; tickets: TicketResume[
       creeLe: txt(r.querySelector('.dropdown-header')).match(/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)?.[0] ?? null,
     }
   })
+  return { total, tickets }
+}
+
+export type TicketLeger = Omit<TicketResume, 'titre' | 'creeLe'>
+
+/**
+ * Lecture LÉGÈRE d'une page de liste, sans construire de DOM : identifiant,
+ * activité (data-ts), numéro et statut. C'est ce qu'il faut pour comparer, et ça
+ * tient dans le temps de calcul d'une fonction serveur (≈ 350 Ko par page ; le
+ * DOM complet de 82 pages dépassait la limite, constaté le 22/11/2026).
+ */
+export function lireListeLegere(html: string): { total: number; tickets: TicketLeger[] } {
+  const total = Number(html.match(/Total\s*:\s*(?:<[^>]+>\s*)*(\d+)/)?.[1] ?? 0)
+  const morceaux = html.split(/<tr\s+class="entry ticket"/).slice(1)
+  const tickets = morceaux.map((m) => {
+    const meta = m.match(/class="meta"[^>]*>\s*#(\d+)\s*-\s*([^<]*?)\s*-[^<]*</)
+    return {
+      id: m.match(/\bdata-id="(\d+)"/)?.[1] ?? '',
+      modifieLe: Number(m.match(/\bdata-ts="(\d+)"/)?.[1] ?? 0),
+      numero: meta ? Number(meta[1]) : null,
+      statut: STATUT_PAR_LIBELLE[meta?.[2].trim() ?? ''] ?? null,
+    }
+  })
+  if (tickets.some((t) => !t.id || !t.modifieLe)) throw new Error('Page de liste Dmbook illisible (format inattendu).')
   return { total, tickets }
 }
 
