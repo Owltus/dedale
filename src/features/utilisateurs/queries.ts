@@ -1,7 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { referentielQueryOptions } from '@/lib/referentiel'
-import { invokeFunction } from './edge'
+import { invokeFunction } from '@/lib/edge'
 
 export const utilisateursQueries = {
   all: () => ['utilisateurs'] as const,

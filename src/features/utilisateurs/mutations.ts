@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { utilisateursQueries } from './queries'
-import { invokeFunction } from './edge'
+import { invokeFunction } from '@/lib/edge'
 import type { CreerCompteFormValues } from './schemas'
 import { colonnesAccesClaude, type NiveauAccesClaude } from './acces-claude'
 import type { Database } from '@/lib/database.types'

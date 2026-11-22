@@ -25,6 +25,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useDocumentTitle } from '@/hooks/use-document-title'
+import { BandeauDmbook } from '@/features/dmbook/components/bandeau-dmbook'
 
 export const Route = createFileRoute('/_app')({
   // Garde d'authentification factorisée pour tous les écrans de l'app.
@@ -175,6 +176,8 @@ function DefaultLayout() {
       >
         {/* Barre mobile (burger + marque) — masquée dès md (sidebar fixe visible). */}
         <MobileHeader />
+        {/* Synchro Dmbook : code e-mail attendu ou connexion perdue (D7, D15). */}
+        <BandeauDmbook />
         <Outlet />
       </SidebarInset>
     </SidebarProvider>

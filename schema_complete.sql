@@ -16935,3 +16935,174 @@ REVOKE ALL ON FUNCTION public.protect_users_acces_ia_insert() FROM PUBLIC, anon,
 REVOKE ALL ON FUNCTION public.refuser_connecteur_historique() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.refuser_connecteur_historique() TO authenticated, service_role;
 
+-- =============================================================================
+-- 163 — Synchro Dmbook : socle de connexion (état, session chiffrée, verrou)
+-- =============================================================================
+-- Symptôme corrigé : aucun. Premier morceau de la synchro Dmbook ⇄ Dédale
+-- (plan/sync-dmbook, étapes 3a et 8a). Dédale doit pouvoir se connecter à
+-- Dmbook depuis le serveur et, quand Dmbook demande le code reçu par e-mail,
+-- le montrer dans l'application pour que le PO le saisisse UNE fois.
+--
+-- Cause : rien dans la base ne savait garder une session Dmbook ni dire
+-- « Dmbook attend un code ».
+--
+-- Correctif :
+--   1. Table `dmbook_etat` (UNE ligne) : état de la connexion, message,
+--      boîte e-mail MASQUÉE où arrive le code, dates, verrou, adresse Dmbook et
+--      carnet (lus par le serveur ; ils ne sont pas dans le dépôt public).
+--      Aucun accès direct pour anon / authenticated.
+--   2. Secret `dmbook_session` dans le coffre chiffré (vault) : cookies + reprise
+--      de l'écran « code ». Lu et écrit seulement par les fonctions serveur.
+--   3. Fonctions `dmbook_session_lire/ecrire`, `dmbook_verrou_prendre/rendre`
+--      (service_role seulement) et `dmbook_etat_public()` (application) qui ne
+--      renvoie que l'état, le message, la boîte masquée et les dates, aux
+--      admin / manager / technicien du site (décision D15).
+--   Ne fait PAS : liens ticket ⇄ DI, file d'envoi, déclencheurs, pg_net,
+--   pg_cron (migrations suivantes).
+--
+-- Innocuité : trois objets nouveaux, aucune table existante touchée, aucune
+-- donnée existante modifiée. La seule ligne insérée est celle de dmbook_etat.
+--
+-- Vérification après application :
+--     SELECT etat, site_id IS NOT NULL AS site_ok FROM public.dmbook_etat;   -- jamais_connecte, true
+--     SELECT has_table_privilege('authenticated', 'public.dmbook_etat', 'SELECT');  -- false
+--     SELECT has_function_privilege('authenticated', 'public.dmbook_session_lire()', 'EXECUTE');  -- false
+--     SELECT has_function_privilege('authenticated', 'public.dmbook_etat_public()', 'EXECUTE');   -- true
+-- =============================================================================
+
+-- ─── 1. État de la connexion ────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.dmbook_etat (
+    id                  boolean PRIMARY KEY DEFAULT true CHECK (id),
+    site_id             uuid NOT NULL REFERENCES public.sites(id) ON DELETE RESTRICT,
+    base                text NOT NULL,
+    carnet              text NOT NULL,
+    etat                text NOT NULL DEFAULT 'jamais_connecte'
+                        CONSTRAINT dmbook_etat_etat_valide
+                        CHECK (etat IN ('jamais_connecte', 'ok', 'code_requis', 'pause', 'erreur')),
+    message             text,
+    boite_code          text,
+    code_demande_le     timestamptz,
+    derniere_connexion  timestamptz,
+    dernier_passage     timestamptz,
+    verrou_jusqu_a      timestamptz,
+    maj_le              timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.dmbook_etat IS
+    'Synchro Dmbook (163) : UNE ligne. État de la connexion au Dmbook, lu par l''application via dmbook_etat_public() seulement. La session vit dans le coffre (secret dmbook_session).';
+COMMENT ON COLUMN public.dmbook_etat.boite_code IS
+    'Boîte e-mail où Dmbook envoie le code, MASQUÉE (ex. « p…@exemple.fr ») : un technicien sait qui prévenir (163).';
+COMMENT ON COLUMN public.dmbook_etat.verrou_jusqu_a IS
+    'Empêche deux passages (ou deux saisies de code) en même temps ; expire seul (163).';
+
+ALTER TABLE public.dmbook_etat ENABLE ROW LEVEL SECURITY;
+-- Aucune policy : seuls le serveur (service_role) et les fonctions ci-dessous y accèdent.
+REVOKE ALL ON public.dmbook_etat FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.dmbook_etat TO service_role;
+
+-- La ligne unique (site lié, adresse Dmbook, carnet) est insérée par la migration
+-- 163, gitignorée : données réelles, absentes du dépôt public. À recréer à la main
+-- après une reconstruction de la base.
+
+-- ─── 2. Session chiffrée (coffre) ───────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.dmbook_session_lire()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    SELECT coalesce(
+        (SELECT d.decrypted_secret::jsonb FROM vault.decrypted_secrets d WHERE d.name = 'dmbook_session'),
+        '{}'::jsonb
+    )
+$function$;
+
+CREATE OR REPLACE FUNCTION public.dmbook_session_ecrire(p_session jsonb)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_id uuid;
+BEGIN
+    SELECT s.id INTO v_id FROM vault.secrets s WHERE s.name = 'dmbook_session';
+    IF v_id IS NULL THEN
+        PERFORM vault.create_secret(p_session::text, 'dmbook_session',
+            'Synchro Dmbook (163) : cookies de session et reprise de l''écran du code. Jamais de mot de passe.');
+    ELSE
+        PERFORM vault.update_secret(v_id, p_session::text);
+    END IF;
+END;
+$function$;
+
+COMMENT ON FUNCTION public.dmbook_session_lire() IS
+    'Synchro Dmbook (163) : session (cookies + reprise du code) lue dans le coffre. Serveur seulement.';
+COMMENT ON FUNCTION public.dmbook_session_ecrire(jsonb) IS
+    'Synchro Dmbook (163) : session rangée dans le coffre chiffré. Serveur seulement.';
+
+-- ─── 3. Verrou ──────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.dmbook_verrou_prendre(p_secondes integer)
+ RETURNS boolean
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    WITH pris AS (
+        UPDATE public.dmbook_etat
+        SET    verrou_jusqu_a = now() + make_interval(secs => least(greatest(p_secondes, 10), 900))
+        WHERE  id AND (verrou_jusqu_a IS NULL OR verrou_jusqu_a < now())
+        RETURNING 1
+    )
+    SELECT EXISTS (SELECT 1 FROM pris)
+$function$;
+
+CREATE OR REPLACE FUNCTION public.dmbook_verrou_rendre()
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    UPDATE public.dmbook_etat SET verrou_jusqu_a = NULL WHERE id
+$function$;
+
+COMMENT ON FUNCTION public.dmbook_verrou_prendre(integer) IS
+    'Synchro Dmbook (163) : vrai si le verrou est pris (10 s à 15 min), faux si un passage tourne déjà.';
+
+-- ─── 4. Ce que l'application a le droit de voir (D15) ───────────────────────
+
+CREATE OR REPLACE FUNCTION public.dmbook_etat_public()
+ RETURNS TABLE (
+    site_id uuid, etat text, message text, boite_code text,
+    code_demande_le timestamptz, derniere_connexion timestamptz,
+    dernier_passage timestamptz, maj_le timestamptz
+ )
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    SELECT e.site_id, e.etat, e.message, e.boite_code,
+           e.code_demande_le, e.derniere_connexion, e.dernier_passage, e.maj_le
+    FROM   public.dmbook_etat e
+    WHERE  (SELECT public.current_role()) IN ('admin', 'manager', 'technicien')
+      AND  public.has_site_access(e.site_id)
+$function$;
+
+COMMENT ON FUNCTION public.dmbook_etat_public() IS
+    'Synchro Dmbook (163) : état de la connexion pour les admin / manager / technicien du site (D15). Ni session, ni reprise, ni adresse Dmbook. Vide pour les autres rôles.';
+
+-- ─── 5. Droits d'exécution ──────────────────────────────────────────────────
+
+REVOKE ALL ON FUNCTION public.dmbook_session_lire()           FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_session_ecrire(jsonb)    FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_verrou_prendre(integer)  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_verrou_rendre()          FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_etat_public()            FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.dmbook_session_lire()          TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_session_ecrire(jsonb)   TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_verrou_prendre(integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_verrou_rendre()         TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_etat_public()           TO authenticated, service_role;

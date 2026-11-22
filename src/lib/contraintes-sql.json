@@ -668,6 +668,110 @@
         }
       }
     },
+    "dmbook_etat": {
+      "checks": {
+        "dmbook_etat_etat_valide": "CHECK ((etat = ANY (ARRAY['jamais_connecte'::text, 'ok'::text, 'code_requis'::text, 'pause'::text, 'erreur'::text])))",
+        "dmbook_etat_id_check": "CHECK (id)"
+      },
+      "colonnes": {
+        "base": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "boite_code": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "carnet": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "code_demande_le": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "dernier_passage": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "derniere_connexion": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "etat": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "text"
+        },
+        "id": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "boolean"
+        },
+        "maj_le": {
+          "aUnDefaut": true,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "message": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": false,
+          "precision": null,
+          "type": "uuid"
+        },
+        "verrou_jusqu_a": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        }
+      }
+    },
     "document_chapitres": {
       "checks": {
         "document_chapitres_nom_check": "CHECK ((length(TRIM(BOTH FROM nom)) > 0))"

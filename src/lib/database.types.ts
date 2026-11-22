@@ -4190,6 +4190,19 @@ export type Database = {
         Returns: undefined
       }
       detect_security_anomalies: { Args: never; Returns: undefined }
+      dmbook_etat_public: {
+        Args: never
+        Returns: {
+          boite_code: string | null
+          code_demande_le: string | null
+          dernier_passage: string | null
+          derniere_connexion: string | null
+          etat: string
+          maj_le: string
+          message: string | null
+          site_id: string
+        }[]
+      }
       di_code_confirmation: {
         Args: {
           p_demande: Json
