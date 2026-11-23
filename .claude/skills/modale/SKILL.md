@@ -14,7 +14,7 @@ description: Crée ou câble une modale dans l'app Dédale — formulaire, confi
 | Saisir ou modifier une entité    | **`FormDialog`**                 | react-hook-form + `zodResolver`                                                  |
 | Supprimer définitivement         | **`ConfirmDeleteDialog`**        | nomme l'objet dans le titre, porte `warning`/`impacts`/`blocked`/`confirmPhrase` |
 | Action ponctuelle **réversible** | `ConfirmDialog`                  | jamais pour une suppression                                                      |
-| Exiger un texte avant d'agir     | `MotifDialog`                    | clôture avec compte-rendu, refus, annulation                                     |
+| Exiger un texte avant d'agir     | `MotifDialog`                    | refus, annulation (une clôture = FormDialog lg, cf. Cloture\*Dialog)             |
 | Cocher plusieurs éléments        | `ChecklistDialog` (+ `CheckRow`) | recherche intégrée                                                               |
 | Aperçu, canvas, recadrage        | `DialogShell` avec `padded`      | corps plein cadre                                                                |
 
