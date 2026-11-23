@@ -30,17 +30,6 @@ export type Cookie = { dom: string; nom: string; val: string }
 export type Reprise = { action: string; champs: Record<string, string>; champCode: string }
 export type ResultatConnexion = { etat: 'connecte' } | { etat: 'code_requis'; message: string; reprise: Reprise }
 
-export type TicketResume = {
-  id: string
-  numero: number | null
-  /** data-ts : horodatage de la dernière activité sur le ticket (secondes). */
-  modifieLe: number
-  /** Titre affiché dans la liste (1re ligne retouchée), sans le suffixe auteur / statut. */
-  titre: string
-  statut: Statut | null
-  creeLe: string | null
-}
-
 export type TicketDetail = {
   id: string
   numero: number | null
@@ -253,13 +242,6 @@ export class Dmbook {
     return `${this.base}/tickets/${this.carnet}?${p}`
   }
 
-  /** Une page de la liste (50 tickets), du plus récent au plus ancien. */
-  async lister(page = 1, statuts: Statut[] = ['ouvert', 'en_cours', 'ferme']): Promise<{ total: number; tickets: TicketResume[] }> {
-    const { html } = await this.#req(this.#urlListe(page, statuts))
-    if (this.#estPageDeRenvoi(html)) throw new SessionExpiree()
-    return lireListe(html)
-  }
-
   /** Une page de la liste en lecture légère (voir `lireListeLegere`). */
   async listerLeger(page = 1, statuts: Statut[] = ['ouvert', 'en_cours', 'ferme']): Promise<{ total: number; tickets: TicketLeger[] }> {
     const { html } = await this.#req(this.#urlListe(page, statuts))
@@ -369,24 +351,7 @@ export class Dmbook {
 
 // --- Lecture des pages (fonctions pures, testées sur des pages fabriquées) -------
 
-export function lireListe(html: string): { total: number; tickets: TicketResume[] } {
-  const d = doc(html)
-  const total = Number(txt(d.body).match(/Total\s*:\s*(\d+)/)?.[1] ?? 0)
-  const tickets = ([...d.querySelectorAll('tr.entry.ticket')] as El[]).map((r) => {
-    const meta = txt(r.querySelector('.meta')) // « #7029 - Fermé - Aujourd'hui »
-    return {
-      id: r.getAttribute('data-id') as string,
-      modifieLe: Number(r.getAttribute('data-ts')),
-      numero: Number(meta.match(/#(\d+)/)?.[1]) || null,
-      titre: txt(r.querySelector('.content')).replace(/\s—\s[^—]*#\d+\s-\s[^—]*$/, ''),
-      statut: STATUT_PAR_LIBELLE[meta.split(' - ')[1] ?? ''] ?? null,
-      creeLe: txt(r.querySelector('.dropdown-header')).match(/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)?.[0] ?? null,
-    }
-  })
-  return { total, tickets }
-}
-
-export type TicketLeger = Omit<TicketResume, 'titre' | 'creeLe'> & { auteur: string | null }
+export type TicketLeger = { id: string; numero: number | null; modifieLe: number; statut: Statut | null; auteur: string | null }
 
 /** Entités HTML courantes d'un attribut (« &#039; », « &amp; »), sans DOM. */
 const entites = (s: string) =>

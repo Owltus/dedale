@@ -3,7 +3,7 @@
  * Leur structure reproduit celle relevée le 20/11/2026 (plan sync-dmbook, étape 1).
  */
 import { assertEquals, assertRejects } from 'jsr:@std/assert@1'
-import { Dmbook, lireEdition, lireFiche, lireListe, lireListeLegere, SessionExpiree } from './client.ts'
+import { Dmbook, lireEdition, lireFiche, lireListeLegere, SessionExpiree } from './client.ts'
 
 const BASE = 'https://exemple.dmbook.test'
 const ligne = (id: string, ts: number, n: number, statut: string, texte: string) => `
@@ -32,18 +32,13 @@ côté TV &amp; plinthe</textarea>
 <select name="priority"><option value="10">Bas</option><option value="20" selected>Normal</option></select>
 <input type="date" name="date" value="2021-11-30"><input type="file" name="file"></form>`
 
-Deno.test('liste : identifiants, data-ts, numéro, statut, titre sans suffixe, total', () => {
-  const { total, tickets } = lireListe(LISTE)
-  assertEquals(total, 2)
-  assertEquals(tickets[0], { id: '11', modifieLe: 1795098235, numero: 7031, titre: '#305 Rideau penderie décroché', statut: 'ouvert', creeLe: '19/11/2026 15:23' })
-  assertEquals(tickets[1].statut, 'ferme')
-})
-
-Deno.test('liste légère (sans DOM) : mêmes identifiants, activité, numéros et statuts que la lecture complète', () => {
-  const complete = lireListe(LISTE)
+Deno.test('liste légère (sans DOM) : identifiants, activité, numéros, statuts et total', () => {
   const legere = lireListeLegere(LISTE)
   assertEquals(legere.total, 2)
-  assertEquals(legere.tickets.map(({ auteur: _a, ...t }) => t), complete.tickets.map(({ id, modifieLe, numero, statut }) => ({ id, modifieLe, numero, statut })))
+  assertEquals(legere.tickets.map(({ auteur: _a, ...t }) => t), [
+    { id: '11', modifieLe: 1795098235, numero: 7031, statut: 'ouvert' },
+    { id: '10', modifieLe: 1644232595, numero: 2616, statut: 'ferme' },
+  ])
 })
 
 Deno.test('auteur Dmbook (D21) : nom tel qu’écrit, sans l’identifiant de connexion', () => {
@@ -104,7 +99,7 @@ Deno.test('existe : « supprimé » seulement sur une vraie 404 « Page introuva
 Deno.test('session expirée : erreur dédiée, pas de lecture silencieuse', async () => {
   const { f } = faux({ '/tickets/1': [200, RENVOI] })
   const dm = new Dmbook({ base: BASE, carnet: '1', fetch: f })
-  await assertRejects(() => dm.lister(1), SessionExpiree)
+  await assertRejects(() => dm.listerLeger(1), SessionExpiree)
 })
 
 Deno.test('liste complète : « complet » seulement si le nombre lu égale le total affiché', async () => {
