@@ -7,46 +7,11 @@ import {
 } from '@/lib/date'
 import type { StatusTone } from '@/components/common/status-badge'
 
-export type EtatContrat = 'a_venir' | 'actif' | 'termine'
-
-interface EtatContratInfo {
-  etat: EtatContrat
-  label: string
-  variant: 'default' | 'secondary' | 'outline'
-}
-
-const LABELS: Record<EtatContrat, EtatContratInfo> = {
-  a_venir: { etat: 'a_venir', label: 'À venir', variant: 'outline' },
-  actif: { etat: 'actif', label: 'Actif', variant: 'default' },
-  termine: { etat: 'termine', label: 'Terminé', variant: 'secondary' },
-}
-
-/**
- * État d'un contrat dérivé de ses dates, calculé côté front à la date du jour.
- * - à venir : la date de début est dans le futur
- * - terminé : la date de fin est passée
- * - actif : sinon (en cours, ou sans date de fin)
- */
-export function etatContrat(
-  dateDebut: string,
-  dateFin: string | null,
-  aujourdhui = new Date(),
-): EtatContratInfo {
-  // Comparaison sur le jour (les dates Postgres sont au format YYYY-MM-DD),
-  // en heure LOCALE — jamais `toISOString()` qui renvoie l'UTC et décalerait la
-  // date à la veille en France (UTC+1/+2) près de minuit.
-  const today = isoLocale(aujourdhui)
-
-  if (dateDebut > today) return LABELS.a_venir
-  if (dateFin && dateFin < today) return LABELS.termine
-  return LABELS.actif
-}
-
 // ── Reconduction / préavis / résiliation ──────────────────────────────────────
-// API dérivée des colonnes de `contrats`, calculée côté front pour alimenter la
-// frise (étape 7). TOUT EN HEURE LOCALE : les dates sont des dates nues
-// `YYYY-MM-DD` comparées en string ; l'arithmétique passe par le constructeur
-// `Date(y, m, d)` (heure locale), jamais `new Date(iso)` qui décalerait au fuseau.
+// API dérivée des colonnes de `contrats`, calculée côté front. TOUT EN HEURE
+// LOCALE : les dates sont des dates nues `YYYY-MM-DD` comparées en string ;
+// l'arithmétique passe par le constructeur `Date(y, m, d)` (heure locale), jamais
+// `new Date(iso)` qui décalerait au fuseau.
 
 /** Identifiants de `types_contrats` (source : base). */
 export const TYPE_CONTRAT = {
@@ -206,60 +171,6 @@ export function fenetrePreavisContrat(
   const ouverte =
     debut != null && fin != null && aujourdhui >= debut && aujourdhui <= fin
   return { ouverte, debut, fin }
-}
-
-/** La résiliation est-elle déclarée (`date_resiliation` renseignée) ? */
-export function resiliationDeclaree(c: DonneesContrat): boolean {
-  return Boolean(c.date_resiliation)
-}
-
-export type TypeEvenementContrat =
-  | 'signature'
-  | 'debut'
-  | 'preavis_debut'
-  | 'preavis_fin'
-  | 'notification'
-  | 'echeance'
-  | 'resiliation'
-
-export interface EvenementContrat {
-  type: TypeEvenementContrat
-  /** Date de l'événement `YYYY-MM-DD`. */
-  date: string
-  /** Libellé prêt à afficher (français). */
-  label: string
-}
-
-/**
- * Événements datés d'un contrat, triés chronologiquement — à consommer par la
- * frise (étape 7). N'inclut que les événements dont la date est connue.
- */
-export function evenementsContrat(
-  c: DonneesContrat,
-  aujourdhui: string = todayLocal(),
-): EvenementContrat[] {
-  const evts: EvenementContrat[] = []
-  const push = (
-    type: TypeEvenementContrat,
-    date: string | null,
-    label: string,
-  ) => {
-    if (date) evts.push({ type, date, label })
-  }
-  const echeance = prochaineEcheanceContrat(c, aujourdhui)
-  const preavis = fenetrePreavisContrat(c, aujourdhui)
-  push('signature', c.date_signature, 'Signature')
-  push('debut', c.date_debut, 'Début du contrat')
-  push('preavis_debut', preavis.debut, 'Ouverture du préavis')
-  push('preavis_fin', preavis.fin, 'Dernier jour pour résilier')
-  push('notification', c.date_notification, 'Notification de résiliation')
-  push(
-    'echeance',
-    echeance.date,
-    echeance.type === 'reconduction' ? 'Reconduction' : 'Fin du contrat',
-  )
-  push('resiliation', c.date_resiliation, 'Résiliation')
-  return evts.sort((a, b) => a.date.localeCompare(b.date))
 }
 
 // ── Statut détaillé / progression / alerte (carte riche) ──────────────────────

@@ -5,13 +5,10 @@ import {
   ajouterMoisIso,
   alerteContrat,
   chaineDeVersions,
-  etatContrat,
-  evenementsContrat,
   fenetrePreavisContrat,
   nbAvenantsDirects,
   prochaineEcheanceContrat,
   progressionContrat,
-  resiliationDeclaree,
   SEUIL_ALERTE_DANGER_JOURS,
   SEUIL_ALERTE_WARNING_JOURS,
   statutContrat,
@@ -419,37 +416,6 @@ describe('ajouterJoursIso', () => {
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-// etatContrat
-// ═════════════════════════════════════════════════════════════════════════════
-
-describe('etatContrat', () => {
-  it('classe selon les bornes : à venir / actif / terminé', () => {
-    // ORACLE : documentation de la fonction — « à venir » si le début est dans
-    // le futur, « terminé » si la fin est passée, « actif » sinon. Les bornes
-    // (jour du début, jour de la fin) appartiennent à la période ACTIVE.
-    const jour = new Date(2026, 5, 15) // 15/06/2026, heure locale
-    expect(etatContrat('2026-07-01', null, jour).etat).toBe('a_venir')
-    expect(etatContrat('2026-06-15', null, jour).etat).toBe('actif') // borne début
-    expect(etatContrat('2026-01-01', '2026-06-15', jour).etat).toBe('actif') // borne fin
-    expect(etatContrat('2026-01-01', '2026-06-14', jour).etat).toBe('termine')
-    expect(etatContrat('2026-01-01', null, jour).etat).toBe('actif')
-  })
-
-  it('renvoie toujours un état parmi les trois, avec libellé et variante', () => {
-    // ORACLE : totalité — la fonction alimente un badge, elle ne peut pas ne
-    // rien renvoyer, même sur des dates aberrantes.
-    fc.assert(
-      fc.property(arbDateChaotique, fc.option(arbDateChaotique), (d, f) => {
-        const r = etatContrat(d, f, new Date(2026, 5, 15))
-        expect(['a_venir', 'actif', 'termine']).toContain(r.etat)
-        expect(r.label.length).toBeGreaterThan(0)
-      }),
-      PARAMS,
-    )
-  })
-})
-
-// ═════════════════════════════════════════════════════════════════════════════
 // prochaineEcheanceContrat
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -656,72 +622,6 @@ describe('fenetrePreavisContrat', () => {
           auj,
         )
         expect(f).toEqual({ ouverte: false, debut: null, fin: null })
-      }),
-      PARAMS,
-    )
-  })
-})
-
-// ═════════════════════════════════════════════════════════════════════════════
-// resiliationDeclaree / evenementsContrat
-// ═════════════════════════════════════════════════════════════════════════════
-
-describe('resiliationDeclaree', () => {
-  it('vrai si et seulement si une date de résiliation est renseignée', () => {
-    // ORACLE : définition — la résiliation est déclarée dès que la date existe,
-    // même future (résiliation notifiée d'avance) ; une chaîne vide ne compte pas.
-    fc.assert(
-      fc.property(arbContratChaotique, (c) => {
-        expect(resiliationDeclaree(c)).toBe(
-          c.date_resiliation != null && c.date_resiliation !== '',
-        )
-      }),
-      PARAMS,
-    )
-  })
-})
-
-describe('evenementsContrat', () => {
-  it('trie chronologiquement, sans date inconnue ni type dupliqué', () => {
-    // ORACLE : la frise se lit de gauche à droite dans l'ordre du temps ; chaque
-    // événement du contrat est unique (une seule signature, une seule échéance…)
-    // et n'apparaît que si sa date est connue.
-    fc.assert(
-      fc.property(arbContratValide, arbDateIso, (c, auj) => {
-        const evts = evenementsContrat(c, auj)
-        const types = evts.map((e) => e.type)
-        expect(new Set(types).size).toBe(types.length)
-        for (const e of evts) {
-          expect(e.date).toBeTruthy()
-          expect(e.label.length).toBeGreaterThan(0)
-        }
-        for (let i = 1; i < evts.length; i++) {
-          expect(String(evts[i - 1]?.date) <= String(evts[i]?.date)).toBe(true)
-        }
-      }),
-      PARAMS,
-    )
-  })
-
-  it('reprend exactement les dates du contrat pour signature/début/résiliation', () => {
-    // ORACLE : ces trois événements sont des colonnes brutes, aucun calcul.
-    fc.assert(
-      fc.property(arbContratValide, arbDateIso, (c, auj) => {
-        const evts = evenementsContrat(c, auj)
-        const dateDe = (t: string) => evts.find((e) => e.type === t)?.date
-        expect(dateDe('signature')).toBe(c.date_signature ?? undefined)
-        expect(dateDe('debut')).toBe(c.date_debut)
-        expect(dateDe('resiliation')).toBe(c.date_resiliation ?? undefined)
-      }),
-      PARAMS,
-    )
-  })
-
-  it('ne jette jamais sur un contrat incohérent', () => {
-    // ORACLE : totalité.
-    fc.assert(
-      fc.property(arbContratChaotique, arbDateIso, (c, auj) => {
-        expect(Array.isArray(evenementsContrat(c, auj))).toBe(true)
       }),
       PARAMS,
     )
@@ -1444,26 +1344,6 @@ function contratTacite(
   }
 }
 
-describe('etatContrat — variante de badge', () => {
-  it('donne à chaque état une variante connue et DISTINCTE', () => {
-    // ORACLE : `variant` est passé tel quel au Badge, qui ne connaît que
-    // 'default' | 'secondary' | 'outline' (type `EtatContratInfo`) — toute autre
-    // valeur donne un badge sans style. Et les trois états doivent rester
-    // visuellement distinguables : deux variantes identiques feraient se
-    // ressembler « à venir » et « terminé » sur la carte prestataire.
-    const jour = new Date(2026, 5, 15) // 15/06/2026, heure locale
-    const aVenir = etatContrat('2026-07-01', null, jour)
-    const actif = etatContrat('2026-01-01', null, jour)
-    const termine = etatContrat('2026-01-01', '2026-06-14', jour)
-    for (const r of [aVenir, actif, termine]) {
-      expect(['default', 'secondary', 'outline']).toContain(r.variant)
-    }
-    expect(new Set([aVenir.variant, actif.variant, termine.variant]).size).toBe(
-      3,
-    )
-  })
-})
-
 describe('ajouterMoisIso / ajouterJoursIso — forme stricte de la date nue', () => {
   it('refuse une date nue noyée dans une autre chaîne', () => {
     // ORACLE : une date nue fait EXACTEMENT dix caractères, du premier au
@@ -1531,48 +1411,6 @@ describe('fenetrePreavisContrat — bornes calendaires exactes', () => {
   })
 })
 
-describe('evenementsContrat — types et libellé d’échéance', () => {
-  it('nomme chaque événement par son type canonique', () => {
-    // ORACLE : `type` est la clef technique lue par la frise (icône, ancrage,
-    // couleur) ; le jeu est fixé par `TypeEvenementContrat`. Un type vide ou
-    // renommé rendrait l'événement inaffichable. Contrat instrumenté pour que
-    // les SEPT événements soient datés.
-    const c = contratDetermine('2026-01-01', '2026-12-31', {
-      date_signature: '2025-12-01',
-      date_notification: '2026-11-01',
-      date_resiliation: '2026-12-15',
-      delai_preavis_jours: 30,
-      fenetre_resiliation_jours: 15,
-    })
-    expect(
-      new Set(evenementsContrat(c, '2026-06-15').map((e) => e.type)),
-    ).toEqual(
-      new Set([
-        'signature',
-        'debut',
-        'preavis_debut',
-        'preavis_fin',
-        'notification',
-        'echeance',
-        'resiliation',
-      ]),
-    )
-  })
-
-  it('libelle l’échéance selon le type de contrat', () => {
-    // ORACLE : vocabulaire métier — un contrat tacite se RECONDUIT, un contrat
-    // à durée déterminée prend FIN. Confondre les deux ferait croire à
-    // l'exploitant qu'un contrat s'arrête alors qu'il repart pour un cycle.
-    const labelEcheance = (c: DonneesContrat) =>
-      evenementsContrat(c, '2026-06-15').find((e) => e.type === 'echeance')
-        ?.label
-    expect(labelEcheance(contratTacite('2020-01-01', 12))).toBe('Reconduction')
-    expect(labelEcheance(contratDetermine('2020-01-01', '2026-12-31'))).toBe(
-      'Fin du contrat',
-    )
-  })
-})
-
 describe('statutContrat — sous-statut du contrat actif', () => {
   it('signale le préavis ouvert AVANT de parler d’imminence', () => {
     // ORACLE : dans la fenêtre de préavis, l'information actionnable est « c'est
@@ -1609,7 +1447,7 @@ describe('statutContrat — sous-statut du contrat actif', () => {
   })
 
   it('parle de reconduction imminente sur un contrat tacite', () => {
-    // ORACLE : vocabulaire métier (cf. evenementsContrat). Contrat annuel
+    // ORACLE : vocabulaire métier (un contrat tacite se reconduit). Contrat annuel
     // démarré le 01/07/2020 : la reconduction du 01/07/2026 tombe 16 jours
     // après le 15/06/2026 (15 jours de juin, puis le 1er juillet).
     const c = contratTacite('2020-07-01', 12, {
@@ -1644,7 +1482,7 @@ describe('statutContrat — bornes de la cascade', () => {
 
   it('le jour du début, le contrat est actif (et non « à venir »)', () => {
     // ORACLE : la date de début est le PREMIER jour d'exécution du contrat,
-    // borne incluse — même convention que `etatContrat`.
+    // borne incluse — même convention que `texteContrat`.
     expect(
       statutContrat(contratTacite('2026-06-15', 12), '2026-06-15').statut,
     ).toBe('actif')
@@ -1784,7 +1622,7 @@ describe('texteContrat — durée d’activité en toutes lettres', () => {
 describe('texteContrat — branches de la cascade', () => {
   it('le jour du début, le contrat n’est plus « à venir »', () => {
     // ORACLE : borne incluse — le contrat prend effet le jour de sa date de
-    // début (même convention que statutContrat et etatContrat).
+    // début (même convention que statutContrat).
     expect(
       texteContrat(contratTacite('2026-06-15', null), '2026-06-15'),
     ).not.toContain('entrera en vigueur')
