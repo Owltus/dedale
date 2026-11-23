@@ -26,3 +26,7 @@ authentification : pas de besoin SEO/SSR.
 - Le front ne duplique pas la logique métier : il l'appelle (`from`/`rpc`) et présente.
 - Le typage des données Supabase n'est pas encore généré ; à prévoir (types TS depuis le schéma)
   quand on attaquera le CRUD métier.
+
+## Note du 2026-11-23
+
+Form abandonné au profit de react-hook-form (9fb8c53) ; Table jamais utilisé (dépendance retirée).

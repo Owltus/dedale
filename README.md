@@ -14,7 +14,7 @@ Une instance = une entreprise. Interface web adossée à un backend **Supabase**
 ## Stack
 
 - **Vite** + **React** + **TypeScript** (SPA)
-- **TanStack** Router · Query · Table · Form + **Zod**
+- **TanStack** Router · Query · **react-hook-form** + **Zod**
 - **Tailwind CSS**
 - **@supabase/supabase-js** (Auth, base, Storage)
 
