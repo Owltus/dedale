@@ -150,7 +150,7 @@ Le système est presque entièrement neutre ; la couleur est un signal, pas une 
 
 ## Layout
 
-Mobile-first strict : toute page part du mobile, puis s'agrandit (`sm` 640 · `md` 768 · `lg` 1024 · `xl` 1280 · `2xl` 1536, valeurs Tailwind par défaut). Racine de page systématique : `PageContainer` (jamais un `div` nu) — 1er enfant fixe (en-tête), reste défilant ; le document lui-même ne défile jamais, seules les zones internes défilent. Grilles de cartes via l'utilitaire `cardGrid` (jamais `grid-cols-N` fixe sans repli mobile). Navigation : sidebar fixe à partir de `lg`, tiroir (`Sheet`) en dessous. Colonnes secondaires d'une ligne de liste (badges, métadonnées) masquées sous `sm`, avec un repli explicite (`mobileMeta`/`mobileBadge`) pour ne jamais perdre l'information qui compte sur petit écran.
+Mobile-first strict : toute page part du mobile, puis s'agrandit (`sm` 640 · `md` 768 · `lg` 1024 · `xl` 1280 · `2xl` 1536, valeurs Tailwind par défaut). Racine de page systématique : `PageContainer` (jamais un `div` nu) — 1er enfant fixe (en-tête), reste défilant ; le document lui-même ne défile jamais, seules les zones internes défilent. Grilles de cartes via l'utilitaire `cardGrid` (jamais `grid-cols-N` fixe sans repli mobile). Navigation : sidebar fixe à partir de `md` (768 px), tiroir (`Sheet`) en dessous. Colonnes secondaires d'une ligne de liste (badges, métadonnées) masquées sous `sm`, avec un repli explicite (`mobileMeta`/`mobileBadge`) pour ne jamais perdre l'information qui compte sur petit écran.
 
 ## Elevation & Depth
 
@@ -193,7 +193,7 @@ La brique la plus reproduite de l'application (`ListRow`, ~9 écrans de liste) �
 - **Error:** bordure et anneau basculent sur Rouge Alerte (`aria-invalid`).
 
 ### Navigation
-- Sidebar : surface légèrement distincte du fond, item actif en fond `accent`, jamais en couleur de marque (il n'y en a pas). Repli automatique en tiroir sous `lg`, aucune adaptation à faire dans les pages.
+- Sidebar : surface légèrement distincte du fond, item actif en fond `accent`, jamais en couleur de marque (il n'y en a pas). Repli automatique en tiroir sous `md` (768 px), aucune adaptation à faire dans les pages.
 
 ## Do's and Don'ts
 

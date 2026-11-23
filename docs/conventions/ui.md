@@ -71,7 +71,7 @@ Densités : `cardGrid.compact` (sites, localisations, prestataires) et `cardGrid
 - **Racine de page** : toujours `<PageContainer>` (`src/components/common/page-container.tsx`), jamais un `p-6` nu. Il gère le padding mobile-first (`px-4 sm:px-6 lg:px-8`). Par défaut, son **1er enfant est l'en-tête FIXE** et le reste défile — attention : avec un **enfant unique**, tout part dans la zone défilante et l'en-tête défile avec. Écran qui gère lui-même son défilement (explorateur, planning) → `<PageContainer fill>` + les briques **`FillHeader`** et **`ScrollBody`** exportées par le même fichier : ce sont la **source unique** des classes de gouttières, à réutiliser plutôt qu'à recopier.
 - **Grilles de cartes** : via `cardGrid` (cf. ci-dessus), jamais une grille fixe `grid-cols-2/3` sans breakpoint.
 - **En-tête** : `PageHeader` se replie déjà en colonne sous `sm` ; pour un en-tête maison, faire pareil (`flex flex-col gap-4 sm:flex-row`).
-- **Navigation** : la sidebar est fixe à partir de `lg` et devient un drawer (`Sheet`) sous `lg`, ouvert par la barre supérieure mobile. Rien à faire dans les pages.
+- **Navigation** : la sidebar est fixe à partir de `md` (768 px) et devient un drawer (`Sheet`) sous `md` (768 px), ouvert par la barre supérieure mobile. Rien à faire dans les pages.
 - **Écrans denses** (tableaux, planning) : envelopper dans `overflow-x-auto` et réduire les largeurs sticky sur mobile (`min-w-32 sm:min-w-48`).
 - **Boutons d'action multiples** : empiler sur mobile (`flex flex-col gap-2 sm:flex-row`).
 
