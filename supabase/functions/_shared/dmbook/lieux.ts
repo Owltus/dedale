@@ -61,11 +61,6 @@ export class Locaux {
       if (c) this.chambres.set(c, l)
     }
   }
-  /** Numéro de chambre d'un local (« Chambre 112 » → « 112 »), sinon null. */
-  chambreDe(id: string): string | null {
-    for (const [c, l] of this.chambres) if (l.id === id) return c
-    return null
-  }
   /** Local commun par nom (+ niveau) — seulement s'il est unique. */
   commun(nom: string, niveau?: string): Local | undefined {
     const ok = this.liste.filter((l) => l.nom === nom && (!niveau || l.niveau === niveau))
