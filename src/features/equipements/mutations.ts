@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { syncGammesEquipements } from '@/lib/gammes-equipements'
 import { equipementsQueries } from './queries'
 import { parseChamps, serializeChamps, type Champ } from '@/lib/champs'
 import { categoriesQueries } from '@/features/categories/queries'
@@ -326,13 +327,14 @@ export function useDeleteEquipement() {
 
 /**
  * Synchronise les gammes liées à un ÉQUIPEMENT (table gammes_equipements) —
- * miroir exact de `useSyncGammeEquipements` (features/gammes/mutations.ts),
- * sens inverse. Diff current/selected → INSERT des ajouts, DELETE des retraits.
+ * sens inverse de `useSyncGammeEquipements` (features/gammes/mutations.ts) ;
+ * le diff (INSERT des ajouts, DELETE des retraits) est commun aux deux, dans
+ * `syncGammesEquipements` (lib/gammes-equipements.ts).
  */
 export function useSyncEquipementGammes() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       equipementId,
       current,
       selected,
@@ -340,30 +342,13 @@ export function useSyncEquipementGammes() {
       equipementId: string
       current: string[]
       selected: string[]
-    }) => {
-      const toAdd = selected.filter((id) => !current.includes(id))
-      const toRemove = current.filter((id) => !selected.includes(id))
-
-      if (toAdd.length > 0) {
-        await supabase
-          .from('gammes_equipements')
-          .insert(
-            toAdd.map((gamme_id) => ({
-              gamme_id,
-              equipement_id: equipementId,
-            })),
-          )
-          .throwOnError()
-      }
-      if (toRemove.length > 0) {
-        await supabase
-          .from('gammes_equipements')
-          .delete()
-          .eq('equipement_id', equipementId)
-          .in('gamme_id', toRemove)
-          .throwOnError()
-      }
-    },
+    }) =>
+      syncGammesEquipements({
+        pivot: 'equipement',
+        id: equipementId,
+        current,
+        selected,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: equipementsQueries.all() })
       void qc.invalidateQueries({ queryKey: gammesQueries.all() })

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { siteIdPourPortee } from '@/lib/scope'
+import { syncGammesEquipements } from '@/lib/gammes-equipements'
 import { gammesQueries } from './queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import { modelesOperationsQueries } from '@/features/modeles-operations/queries'
@@ -425,11 +426,15 @@ export function useDelierModeleOperation() {
 
 // --- Liaison équipements ---
 
-/** Synchronise la liste des équipements liés à une gamme (ajouts + retraits). */
+/**
+ * Synchronise la liste des équipements liés à une gamme (ajouts + retraits).
+ * Le diff vit dans `syncGammesEquipements` (lib/gammes-equipements.ts),
+ * partagé avec `useSyncEquipementGammes`.
+ */
 export function useSyncGammeEquipements() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       gammeId,
       current,
       selected,
@@ -437,30 +442,8 @@ export function useSyncGammeEquipements() {
       gammeId: string
       current: string[]
       selected: string[]
-    }) => {
-      const toAdd = selected.filter((id) => !current.includes(id))
-      const toRemove = current.filter((id) => !selected.includes(id))
-
-      if (toAdd.length > 0) {
-        await supabase
-          .from('gammes_equipements')
-          .insert(
-            toAdd.map((equipement_id) => ({
-              gamme_id: gammeId,
-              equipement_id,
-            })),
-          )
-          .throwOnError()
-      }
-      if (toRemove.length > 0) {
-        await supabase
-          .from('gammes_equipements')
-          .delete()
-          .eq('gamme_id', gammeId)
-          .in('equipement_id', toRemove)
-          .throwOnError()
-      }
-    },
+    }) =>
+      syncGammesEquipements({ pivot: 'gamme', id: gammeId, current, selected }),
     onSuccess: () => qc.invalidateQueries({ queryKey: gammesQueries.all() }),
   })
 }
