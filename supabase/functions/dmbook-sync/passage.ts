@@ -16,9 +16,9 @@
  * dit ce qui aurait été fait.
  */
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2'
-import { type Dmbook, SessionExpiree, type TicketLeger } from '../_shared/dmbook/client.ts'
+import { type Dmbook, type TicketLeger } from '../_shared/dmbook/client.ts'
 import { type Local, Locaux } from '../_shared/dmbook/lieux.ts'
-import { decider, type Decision, type DiActuelle, type Lien, STATUT_DEDALE } from './rapprocher.ts'
+import { decider, type Decision, type DiActuelle, type Lien } from './rapprocher.ts'
 
 const FICHES_MAX = 40
 const SUPPRESSIONS_MAX = 10
@@ -193,5 +193,3 @@ export async function passage(sb: SupabaseClient, dm: Dmbook, site: string, opts
   }
   return r
 }
-
-export { SessionExpiree, STATUT_DEDALE }
