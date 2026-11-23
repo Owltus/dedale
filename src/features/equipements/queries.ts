@@ -27,35 +27,6 @@ export const equipementsQueries = {
       },
     }),
 
-  /**
-   * Catégories de PARC (scope 'parc') du site actif, actives. Depuis 028, les
-   * équipements réels se rangent dans une taxonomie DÉDIÉE (scope 'parc'), séparée
-   * des catégories de modèles (scope 'equipement', Bibliothèque). Toujours scopées
-   * site (le parc appartient à un site) → on filtre sur `site_id`.
-   *
-   * Clé sous le namespace `categories` (et NON `equipements`) : la donnée EST une
-   * table de catégories → un changement de catégories (mutation ou Realtime, qui
-   * invalident `['categories']`) doit la rafraîchir, pas une modification
-   * d'équipement.
-   */
-  categories: (siteId: string | null) =>
-    queryOptions({
-      queryKey: ['categories', 'parc', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('categories')
-          .select('id, nom, scope, site_id')
-          .eq('scope', 'parc')
-          .eq('site_id', siteId!)
-          .eq('est_actif', true)
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
-    }),
-
   /** Ids des gammes liées à un équipement (table de liaison gammes_equipements). */
   gammesLiees: (equipementId: string) =>
     queryOptions({
