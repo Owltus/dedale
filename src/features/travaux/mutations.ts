@@ -5,6 +5,11 @@ import { evenementsQueries } from '../evenements/queries'
 import { STATUT_TERMINE } from './schemas'
 import type { TravauxFormValues, TacheFormValues, StatutTache } from './schemas'
 import type { TacheEntree } from '@/features/equipements/components/taches-multiples-field'
+import {
+  diffTaches,
+  tachesACreer,
+  type TacheExistante,
+} from '@/features/equipements/taches-sync'
 
 // Convertit les champs du formulaire en payload base (vides → null).
 // `date_demande` est désormais saisissable (symétrie Événements, retour
@@ -43,22 +48,15 @@ export function useCreateTravaux() {
         .single()
         .throwOnError()
 
-      // Tâches ajoutées directement à la création (facultatif) : une ligne
-      // sans libellé NI lieu est ignorée (l'usager a pu ajouter puis
-      // abandonner une ligne).
-      const taches = values.taches.filter(
-        (t) => t.libelle.trim() !== '' || t.local_id !== '',
-      )
+      // Tâches ajoutées directement à la création (facultatif).
+      const taches = tachesACreer(values.taches)
       if (taches.length) {
         await supabase
           .from('travaux_taches')
           .insert(
-            taches.map((t, i) => ({
+            taches.map((c) => ({
               travaux_id: data.id,
-              libelle: t.libelle.trim() || 'Tâche',
-              local_id: t.local_id || null,
-              equipement_id: t.equipement_id || null,
-              ordre: i,
+              ...c,
               created_by: createdBy,
             })),
           )
@@ -100,12 +98,7 @@ export function useUpdateTravaux() {
       values: TravauxFormValues
       taches?: TacheEntree[]
       createdBy?: string
-      existants?: {
-        id: string
-        libelle: string
-        local_id: string
-        equipement_id: string
-      }[]
+      existants?: TacheExistante[]
     }) => {
       const { data } = await supabase
         .from('interventions_travaux')
@@ -116,68 +109,35 @@ export function useUpdateTravaux() {
         .throwOnError()
 
       if (taches && existants && createdBy) {
-        // Ligne réellement saisie : libellé ou lieu renseigné.
-        const soumises = taches.filter(
-          (t) => t.libelle.trim() !== '' || t.local_id !== '',
+        const { aSupprimer, aAjouter, aModifier } = diffTaches(
+          taches,
+          existants,
         )
-        const existantsParId = new Map(existants.map((e) => [e.id, e]))
-        const idsConserves = new Set(
-          taches.filter((t) => t.id != null).map((t) => t.id!),
-        )
-
-        const aSupprimer = existants.filter((e) => !idsConserves.has(e.id))
         if (aSupprimer.length) {
           await supabase
             .from('travaux_taches')
             .delete()
-            .in(
-              'id',
-              aSupprimer.map((e) => e.id),
-            )
+            .in('id', aSupprimer)
             .throwOnError()
         }
-
-        const aAjouter = soumises.filter((t) => t.id == null)
         if (aAjouter.length) {
           await supabase
             .from('travaux_taches')
             .insert(
-              aAjouter.map((t, i) => ({
+              aAjouter.map((c) => ({
                 travaux_id: id,
-                libelle: t.libelle.trim() || 'Tâche',
-                local_id: t.local_id || null,
-                equipement_id: t.equipement_id || null,
-                ordre: existants.length + i,
+                ...c,
                 created_by: createdBy,
               })),
             )
             .throwOnError()
         }
-
-        // Tâche conservée dont le libellé/lieu/équipement a changé : seuls ces
-        // champs bougent, le statut d'avancement reste intact.
-        for (const t of taches) {
-          if (t.id == null) continue
-          const existant = existantsParId.get(t.id)
-          if (!existant) continue
-          const libelle = t.libelle.trim() || 'Tâche'
-          const localId = t.local_id || ''
-          const equipementId = t.equipement_id || ''
-          if (
-            existant.libelle !== libelle ||
-            existant.local_id !== localId ||
-            existant.equipement_id !== equipementId
-          ) {
-            await supabase
-              .from('travaux_taches')
-              .update({
-                libelle,
-                local_id: localId || null,
-                equipement_id: equipementId || null,
-              })
-              .eq('id', t.id)
-              .throwOnError()
-          }
+        for (const m of aModifier) {
+          await supabase
+            .from('travaux_taches')
+            .update(m.champs)
+            .eq('id', m.id)
+            .throwOnError()
         }
       }
 
