@@ -27,8 +27,6 @@ const site = z.string().min(1).max(120).optional()
 const limite = (max: number, defaut: number) => z.number().int().min(1).max(max).default(defaut)
 const page = z.number().int().min(1).max(1000).default(1)
 
-/** Garde lettres, chiffres, espaces, tirets et apostrophes : rien qui puisse
- *  détourner un filtre PostgREST (virgules, parenthèses, points, étoiles…). */
 /** Motif de recherche sûr pour ilike / or() (162). Tout ce qui n'est ni
  *  lettre, ni chiffre, ni tiret devient un joker « % » : « R+2 » → « R%2 »,
  *  « salle d’eau » → « salle%d%eau ». Les mots sont cherchés dans l'ordre, au
