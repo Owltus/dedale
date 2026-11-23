@@ -7,6 +7,7 @@
   - 164 : liens ticket ⇄ DI, file d'envoi, déclencheurs anti-écho ;
   - 165 : une connexion par site, réglée dans Dédale, et l'auteur Dmbook ;
   - 166 : tâche planifiée et réveil immédiat ;
+  - 167 : passages toutes les 5 minutes jusqu'à 23 h ;
   - fonctions `dmbook-connexion` et `dmbook-sync` ;
   - `src/features/dmbook/`.
 
@@ -66,7 +67,7 @@ Contraintes :
      liste : il faut avoir confirmé, ticket par ticket, que sa fiche a disparu.
    - Si Dmbook répond mal, on garde tout et on réessaie plus tard.
 6. **Rythme** (`dmbook_tic`, pg_cron toutes les 5 minutes) :
-   - le jour, de 7 h à 19 h (heure de Paris), un passage toutes les 5 minutes ;
+   - le jour, de 7 h à 23 h (heure de Paris), un passage toutes les 5 minutes (19 h au départ, élargi par la migration 167 le 23/11) ;
    - la nuit, un passage par heure.
    - **Chaque passage** lit les tickets Ouverts et En cours, et les nouveaux.
      Il compare leur date de modification avant d'ouvrir une fiche, ce qui fait

@@ -17909,3 +17909,49 @@ BEGIN
     ON CONFLICT (di_id, action) WHERE fait_le IS NULL DO UPDATE SET cree_le = now();
 END;
 $function$;
+
+-- =============================================================================
+-- 167 — Synchro Dmbook toutes les 5 minutes jusqu'à 23 h
+-- =============================================================================
+-- Symptôme corrigé : le soir, une demande supprimée dans Dmbook restait jusqu'à
+-- une heure dans Dédale (cas #7039, supprimée vers 20 h, retirée à 20 h 55).
+--
+-- Cause : `dmbook_tic` (166) ne faisait un passage toutes les 5 min que de 7 h à
+-- 19 h (heure de Paris), puis un par heure (D6).
+--
+-- Correctif : la fenêtre « toutes les 5 min » va de 7 h à 23 h (décision du PO,
+-- 23/11/2026). La nuit (23 h - 7 h) reste à un passage par heure.
+--
+-- Innocuité : seule la fonction `dmbook_tic` change ; la tâche pg_cron, le réveil
+-- immédiat et les données ne sont pas touchés.
+--
+-- Vérification après application :
+--     SELECT pg_get_functiondef('public.dmbook_tic()'::regprocedure) LIKE '%v_heure < 23%';  -- true
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.dmbook_tic()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_heure integer := extract(hour FROM now() AT TIME ZONE 'Europe/Paris');
+    v_jour  boolean := v_heure >= 7 AND v_heure < 23;
+    v_n     integer := 0;
+    c       record;
+BEGIN
+    FOR c IN
+        SELECT site_id FROM public.dmbook_connexions
+        WHERE  etat = 'ok'
+          AND  (v_jour OR dernier_passage IS NULL OR dernier_passage < now() - interval '55 minutes')
+    LOOP
+        PERFORM public.dmbook_appeler(c.site_id, '{"mode":"passage"}'::jsonb);
+        v_n := v_n + 1;
+    END LOOP;
+    RETURN v_n;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.dmbook_tic() FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION public.dmbook_tic() IS
+    'Synchro Dmbook (166, 167) : appelée par pg_cron toutes les 5 min ; un passage par site connecté de 7 h à 23 h, 1 par heure la nuit.';
