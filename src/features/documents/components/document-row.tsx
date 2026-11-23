@@ -19,7 +19,7 @@ interface DocumentRowProps {
   mobileMeta?: ReactNode
   /** Actions au survol (boutons icône : télécharger, détacher, supprimer…). ANCIEN mode. */
   actions?: ReactNode
-  /** Actions présentées en MENU (clic droit / appui long / kebab). Prime sur `actions`. */
+  /** Actions présentées en MENU (clic droit / appui long). Prime sur `actions`. */
   menuActions?: RowAction[]
   /**
    * Masque le sous-titre « taille · date » — pour un contexte déjà dense où

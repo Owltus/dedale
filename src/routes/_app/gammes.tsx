@@ -3,7 +3,7 @@ import { requireNav } from '@/lib/nav-guard'
 
 /**
  * Layout du Plan de maintenance : porte la garde de rôle (`requireNav`), partagée
- * par la liste (index) et le détail paramétré (`$gamme`) qui portent la navigation
+ * par la liste (index) et le détail paramétré (route splat `$`) qui portent la navigation
  * par URL. Pur layout sans `component` → TanStack rend un `<Outlet/>` par défaut →
  * la route enfant s'affiche.
  */

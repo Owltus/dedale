@@ -64,7 +64,7 @@ interface SlugDetailRouteProps<
  * slug ») : relit la query de LISTE, résout le slug via `useSlugResolved`
  * (repli par id + resynchronisation d'URL au renommage) puis rend les 4 états —
  * chargement (squelettes), erreur (retry), introuvable (EmptyState), sinon la
- * fiche via render-prop. Les gardes rôle et site (`NoSiteSelected`) restent
+ * fiche via render-prop. Les gardes rôle et site (`SiteScopedRoute`) restent
  * côté route hôte, AVANT de monter cette brique.
  */
 export function SlugDetailRoute<

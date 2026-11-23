@@ -75,16 +75,10 @@ export interface ListRowProps {
    * `'md'` par défaut (variante média `h-20`, standard `py-3`), `'sm'` plus
    * compacte, `'xs'` la plus dense (variante média `h-11`, texte
    * réduit — pour les listes très denses type tableau de bord). La vignette média
-   * suit (`h-full`).
-   */
-  /**
-   * Densité de la ligne. `fine` (h-12) nomme la hauteur que les listes
+   * suit (`h-full`). `fine` (h-12) nomme la hauteur que les listes
    * d'opérations et de modèles liés posaient jusqu'ici à la main via
    * `className="h-12"` — hors du système, donc invisible du squelette.
-   *
-   * À TRANCHER un jour : `xs` (h-11) et `fine` (h-12) ne diffèrent que de 4 px.
-   * Les fusionner retirerait une hauteur au système, au prix d'un changement
-   * visuel sur 4 listes — décision de produit, pas de refactorisation.
+   * `xs` et `fine` coexistent volontairement (voir `MEDIA_HEIGHT`).
    */
   size?: 'xs' | 'fine' | 'sm' | 'md'
   className?: string
@@ -349,7 +343,7 @@ export function ListRow({
 
   // Menu contextuel : la card devient déclencheur (clic droit + appui long).
   // Le clic GAUCHE conserve le drill-down (le bouton overlay ne réagit pas au
-  // bouton droit), et le kebab reste accessible au clic.
+  // bouton droit).
   if (hasMenu) {
     // modal={false} : sinon, ouvrir un dialog (Modifier/Supprimer) depuis un item
     // laisse `pointer-events: none` sur <body> (bug Radix connu menu→dialog) → le

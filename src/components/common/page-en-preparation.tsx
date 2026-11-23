@@ -15,9 +15,8 @@ interface PageEnPreparationProps {
  * ce qui arrive (décision du commanditaire). L'écran doit donc dire clairement
  * qu'il n'y a rien à voir *encore* — une page vide, elle, se lit comme un bug.
  *
- * Deux routes la consomment (`/registre`, `/releves`), qui étaient jusqu'ici
- * identiques à deux chaînes près : le jour où le message ou l'icône change, il
- * ne change qu'ici.
+ * Consommée par la route `/registre` : le jour où le message ou l'icône change,
+ * il ne change qu'ici.
  */
 export function PageEnPreparation({
   titre,

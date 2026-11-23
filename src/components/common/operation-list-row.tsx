@@ -16,7 +16,7 @@ interface OperationRowProps {
   uniteSymbole?: string | null
   /** Boutons d'action (icônes), révélés au survol par ListRow. ANCIEN mode. */
   actions?: ReactNode
-  /** Actions présentées en MENU (clic droit / appui long / kebab). Prime sur `actions`. */
+  /** Actions présentées en MENU (clic droit / appui long). Prime sur `actions`. */
   menuActions?: RowAction[]
 }
 
