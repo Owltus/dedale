@@ -2,7 +2,8 @@
  * Parties communes : mots du texte Dmbook → local Dédale (nom exact).
  * L'ordre compte : la PREMIÈRE règle qui correspond gagne (du plus précis au
  * plus général). Ce qui ne correspond à rien reste « sans lieu ».
- * Liste montrée au PO avant import. Porté depuis poc-dmbook.local/communs.ts.
+ * Liste montrée au PO avant import. Porté depuis le prototype local de l'import
+ * Dmbook (non versionné).
  */
 export const REGLES_COMMUNS: [RegExp, string][] = [
   [/r[ée]serve s[èe]che|table froide|plonge|cong[ée]l/i, 'Cuisine Club'],

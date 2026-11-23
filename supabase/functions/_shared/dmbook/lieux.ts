@@ -1,20 +1,21 @@
 /**
  * Texte libre d'un ticket Dmbook → constat + lieu(x) Dédale.
  *
- * Mêmes règles que l'import réaligné du 19-20/11/2026 (poc-dmbook.local/controle.ts) :
+ * Mêmes règles que l'import réaligné du 19-20/11/2026 (prototype local non versionné) :
  *   1. chambres écrites EN TÊTE (« #403 #404 odeur… ») → ces chambres ;
  *   2. sinon chambres citées dans le texte → ces chambres, SAUF citation ambiguë
  *      (clés, cartes de sécu, Saflok, « entre / devant / en face ») → aucun lieu
  *      (règle PO 20/11 : « si c'est ambigu, n'indique pas le lieu ») ;
  *   3. sinon mots-clés de parties communes (communs.ts) ;
  *   4. sinon aucun lieu (demande orpheline, le lieu se choisit dans Dédale).
- * Les cas particuliers historiques (CAS_PARTICULIERS, ORPHELINS de controle.ts) ne
- * sont PAS ici : ils sont protégés par l'empreinte tant que le texte ne change pas.
+ * Les cas particuliers historiques de l'import ne sont PAS ici : ils sont protégés
+ * par l'empreinte tant que le texte ne change pas.
  */
 import { lireCommun } from './communs.ts'
 import { CHAMBRE, constatOuSansDescription, nettoyerConstat, UNE_CHAMBRE } from './texte.ts'
 
-// Tête de chambres telle que l'import l'a lue pour décider des LIEUX (lieux.ts du prototype).
+// Tête de chambres telle que l'import l'a lue pour décider des LIEUX (prototype local
+// de l'import Dmbook, non versionné).
 const TETE_LIEUX = new RegExp(`^(?:\\s*#?\\s?${CHAMBRE}(?![\\d/:h])\\s*(?:[-,/+]|et\\b)?\\s*)+`, 'i')
 const SIGNATURE = /\s*\/{1,3}\s*([A-Za-zÀ-ÿ]{2,4})\s*$/
 

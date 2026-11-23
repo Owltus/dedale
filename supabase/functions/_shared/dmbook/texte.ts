@@ -1,5 +1,6 @@
 /**
- * Porté depuis poc-dmbook.local/nettoyage.ts (import + réalignement du 19-20/11/2026).
+ * Porté depuis le prototype local de l'import Dmbook (non versionné ; import + réalignement
+ * du 19-20/11/2026).
  * Nettoyage du constat (consignes PO du 19/11/2026) :
  *   - pas le numéro de chambre en tête (il est déjà le lieu de la demande) ;
  *   - pas d'initiales / signature en fin (« //AB », « / alb », « - EW », « /cbs+ah ») ;

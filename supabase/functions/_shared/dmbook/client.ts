@@ -1,6 +1,6 @@
 /**
  * Client Dmbook « maison » pour la synchro Dmbook ⇄ Dédale (plan sync-dmbook, étape 2).
- * Porté depuis le prototype poc-dmbook.local/dmbook.ts (19-20/11/2026).
+ * Porté depuis le prototype local de l'import Dmbook (non versionné, 19-20/11/2026).
  *
  * Dmbook n'a pas d'API pour les tickets : pages HTML rendues par le serveur,
  * écritures par formulaires protégés par `csrf_token`. Ce client fait ce que fait
