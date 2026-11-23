@@ -31,7 +31,7 @@ import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useAuth } from '@/auth'
-import { formatDate } from '@/lib/date'
+import { formatDateAvecSemaineIso } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
@@ -57,7 +57,7 @@ import {
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
-import { StatusBadge } from '@/components/common/status-badge'
+import { StatutColonne } from '@/components/common/statut-colonne'
 import type { Database } from '@/lib/database.types'
 
 type Demande = Database['public']['Tables']['demandes_intervention']['Row']
@@ -119,16 +119,19 @@ function DemandesContent({
     return m
   }, [users])
 
-  // Nom du local de chaque DI (di_id → local) : affiché en carte ET cible de
-  // recherche. Une seule requête RLS-scopée pour toute la liste (pas de N+1).
+  // Lieu(x) de chaque DI (di_id → « Chambre 214, Chambre 109 ») : TITRE de la
+  // carte ET cible de recherche. Une seule requête RLS-scopée pour toute la liste.
   const { data: locLinks = [] } = useQuery(demandesQueries.locauxParDi(siteId))
   const localParDi = useMemo(() => {
-    const m = new Map<string, string>()
+    const noms = new Map<string, string[]>()
     for (const r of locLinks) {
       const nom = r.locaux.nom
-      if (nom && !m.has(r.di_id)) m.set(r.di_id, nom)
+      if (!nom) continue
+      const liste = noms.get(r.di_id) ?? []
+      if (!liste.includes(nom)) liste.push(nom)
+      noms.set(r.di_id, liste)
     }
-    return m
+    return new Map([...noms].map(([id, l]) => [id, l.join(', ')]))
   }, [locLinks])
   const [formOpen, setFormOpen] = useState(false)
   const [recherche, setRecherche] = useState('')
@@ -305,18 +308,42 @@ function DemandesContent({
                     ? (usersById.get(d.created_by) ?? null)
                     : null
                   const local = localParDi.get(d.id) ?? null
-                  const ligne = auteurDmbook
-                    ? `Signalé dans Dmbook par ${auteurDmbook} · le ${formatDate(d.date_constat)}`
+                  const signale = auteurDmbook
+                    ? ` · signalé par ${auteurDmbook} (Dmbook)`
                     : createur
-                      ? `Signalé par ${createur} · le ${formatDate(d.date_constat)}`
-                      : `Constaté le ${formatDate(d.date_constat)}`
+                      ? ` · signalé par ${createur}`
+                      : ''
+                  // Colonne de droite, comme les OT (`OtCard`) : statut + date
+                  // dessous. Clôturée → date de clôture ; Ouverte ou En cours →
+                  // date d'ouverture (le constat). Semaine ISO comme partout.
+                  const dateStatut =
+                    d.statut_di_id === 3 && d.date_resolution
+                      ? d.date_resolution
+                      : d.date_constat
+                  const statutColonne = (
+                    <StatutColonne
+                      statut={{
+                        label: statutLabel(d.statut_di_id),
+                        tone: statutTone(d.statut_di_id),
+                      }}
+                      meta={formatDateAvecSemaineIso(dateStatut)}
+                    />
+                  )
                   return (
                     <ListRow
                       key={d.id}
                       tone={statutTone(d.statut_di_id)}
                       media={<RowMediaIcon icon={ClipboardList} />}
-                      title={diTitre(d.constat)}
-                      subtitle={local ? `${local} · ${ligne}` : ligne}
+                      // Ligne 1 : le lieu ; ligne 2 : le constat et qui l'a signalé.
+                      title={
+                        local ?? (
+                          <span className="text-muted-foreground italic">
+                            Lieu non précisé
+                          </span>
+                        )
+                      }
+                      titleLabel={`${local ?? 'Lieu non précisé'} — ${diTitre(d.constat)}`}
+                      subtitle={`${diTitre(d.constat)}${signale}`}
                       onClick={() =>
                         void navigate({
                           to: '/demandes/$demande',
@@ -328,16 +355,8 @@ function DemandesContent({
                           },
                         })
                       }
-                      badges={
-                        <StatusBadge tone={statutTone(d.statut_di_id)}>
-                          {statutLabel(d.statut_di_id)}
-                        </StatusBadge>
-                      }
-                      mobileMeta={
-                        local
-                          ? `${local} · ${statutLabel(d.statut_di_id)}`
-                          : statutLabel(d.statut_di_id)
-                      }
+                      badges={statutColonne}
+                      mobileBadge={statutColonne}
                       menuActions={rowActions.length ? rowActions : undefined}
                     />
                   )
