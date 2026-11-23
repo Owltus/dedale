@@ -8,14 +8,6 @@ function Sheet(props: ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="sheet" {...props} />
 }
 
-function SheetTrigger(props: ComponentProps<typeof DialogPrimitive.Trigger>) {
-  return <DialogPrimitive.Trigger data-slot="sheet-trigger" {...props} />
-}
-
-function SheetClose(props: ComponentProps<typeof DialogPrimitive.Close>) {
-  return <DialogPrimitive.Close data-slot="sheet-close" {...props} />
-}
-
 function SheetOverlay({
   className,
   ...props
@@ -98,12 +90,4 @@ function SheetDescription({
   )
 }
 
-export {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetOverlay,
-  SheetTitle,
-  SheetTrigger,
-}
+export { Sheet, SheetContent, SheetDescription, SheetOverlay, SheetTitle }

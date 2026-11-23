@@ -12,6 +12,8 @@
 
 Règle : si tu assembles les mêmes `ui/` de la même façon ≥ 2 fois → remonte un composant dans `common/`.
 
+Primitives `ui/` non utilisées : **élaguées** (décision PO du 23/11/2026). Un sous-composant shadcn qu'aucun fichier n'importe est retiré, avec les imports qu'il laisse orphelins (ex. `SidebarTrigger`, `SidebarRail`, `SidebarMenuSub*`, `CardFooter`, `BreadcrumbPage`, `SheetTrigger`, `SheetClose`, `DialogClose`). Le reste du fichier garde le code canonique shadcn. Pour en réutiliser un, le recopier depuis le bloc officiel au moment du besoin.
+
 ## Écrire un composant `ui`/`common`
 
 - Signature : `function X({ className, ...props }: ComponentProps<'div'> & { ... })`.
