@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CalendarDays } from 'lucide-react'
-import { todayLocal } from '@/lib/date'
+import { isoLocale, todayLocal } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -46,12 +46,6 @@ function parseIsoDate(value: string): Date | undefined {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (!m) return undefined
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-}
-function toIsoDate(date: Date): string {
-  const y = String(date.getFullYear())
-  const mo = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${mo}-${d}`
 }
 
 // Bornes du sélecteur d'année (menus déroulants) : large fourchette couvrant
@@ -123,7 +117,7 @@ export function DateField({
           endMonth={AN_FIN}
           onSelect={(d) => {
             if (d) {
-              onValueChange(toIsoDate(d))
+              onValueChange(isoLocale(d))
               setOpen(false)
             }
           }}
