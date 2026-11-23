@@ -1,14 +1,8 @@
-dist
 src/routeTree.gen.ts
 src/lib/database.types.ts
 package-lock.json
-contexte
 
 supabase
-
-# Artefacts de mutation testing (générés, jamais relus à la main)
-.stryker-tmp/
-reports/
 
 # Jeu de données SEMÉ par `tests/securite/semis.mjs` sur la base locale jetable :
 # généré, réécrit à chaque semis, jamais relu à la main. ESLint l'ignore déjà
