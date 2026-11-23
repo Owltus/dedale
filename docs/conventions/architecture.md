@@ -39,7 +39,7 @@ src/
 - **Garde de rôle dans `beforeLoad`** : `requireNav(navKey, context.queryClient)` (`lib/nav-guard.ts`) résout le rôle via `queryClient.ensureQueryData` puis redirige vers `landingFor(role)` si l'écran ne lui est pas destiné. Même source que la sidebar (`lib/nav.ts`) → une seule vérité. Fail-open si le rôle est indisponible (la RLS reste la sécurité). N'empêche pas la RLS : c'est de l'UX, pas de la sécurité.
 - Après login/logout, `router.invalidate()` pour relancer les gardes.
 - Ne jamais avaler un `redirect` dans un `catch` : `if (isRedirect(err)) throw err`.
-- **Filtres / pagination / onglets = search params** validés Zod (`validateSearch` + `zodValidator`, `fallback()`), jamais un state global ni `window.location`. MAJ avec updater fonctionnel : `search={(prev) => ({ ...prev, page: prev.page + 1 })}`.
+- **Filtres de liste = état local** (`useState` dans la page), jamais un state global ni `window.location`. Les search params (`validateSearch` écrit à la main comme garde de type, lu via `Route.useSearch()`) sont réservés aux vues partageables par lien : voir `composants.md` → puce « Vues partageables par lien ».
 
 ## Nommage
 
