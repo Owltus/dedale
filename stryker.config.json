@@ -29,7 +29,6 @@
     "src/features/releves/pipeline.ts",
     "src/features/documents/naming.ts",
     "src/features/investissements/etat.ts",
-    "src/components/common/status-steps.ts",
     "src/features/*/csv-import.ts",
     "src/components/common/charts/geometrie.ts",
     "src/components/common/charts/temporel.ts",

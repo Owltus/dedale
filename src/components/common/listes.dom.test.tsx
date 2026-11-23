@@ -1,18 +1,17 @@
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import fc from 'fast-check'
 import { SearchInput } from './search-input'
 import { ListFilterBar, statutFilterOptions } from './list-filter-bar'
 import { StatusBadge, toneBadgeClasses, type StatusTone } from './status-badge'
 import { ProgressBar } from './progress-bar'
-import { StatusStepper, type StepperStep } from './status-stepper'
 import { TIRAGES, texteHostileArb } from '@/test/harness'
 
 /**
  * Briques de LISTE : barre de recherche, barre de filtre, badges de statut,
- * barre de progression, frise d'avancement. Elles n'ont aucune logique métier :
+ * barre de progression. Elles n'ont aucune logique métier :
  * ce qu'on teste, ce sont leurs promesses d'interface et d'accessibilité.
  */
 
@@ -321,152 +320,5 @@ describe('ProgressBar', () => {
   it('sans label : le rôle progressbar est tout de même exposé', () => {
     render(<ProgressBar value={0.5} />)
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
-  })
-})
-
-describe('StatusStepper', () => {
-  const etapes: StepperStep[] = [
-    { label: 'Ouvert', state: 'done' },
-    { label: 'En cours', state: 'current' },
-    { label: 'Clôturé', state: 'upcoming' },
-  ]
-
-  // ORACLE : documenté — la frise est une `<ol aria-label="Avancement">`.
-  it('rend une liste ordonnée nommée « Avancement »', () => {
-    render(<StatusStepper steps={etapes} />)
-    expect(screen.getByRole('list', { name: 'Avancement' })).toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(3)
-  })
-
-  // ORACLE : documenté — « aria-current sur l'étape en cours ».
-  it('marque l’étape en cours avec aria-current="step"', () => {
-    render(<StatusStepper steps={etapes} />)
-    const items = screen.getAllByRole('listitem')
-    expect(items[1]).toHaveAttribute('aria-current', 'step')
-    expect(items[0]).not.toHaveAttribute('aria-current')
-    expect(items[2]).not.toHaveAttribute('aria-current')
-  })
-
-  // ORACLE : documenté — « texte d'état sr-only : l'info ne passe pas QUE par
-  // la couleur/l'icône » (WCAG 1.4.1).
-  it('chaque étape porte son état en texte, pas seulement en couleur', () => {
-    render(
-      <StatusStepper
-        steps={[...etapes, { label: 'Refusé', state: 'rejected' }]}
-      />,
-    )
-    const items = screen.getAllByRole('listitem')
-    expect(within(items[0]!).getByText('franchi')).toBeTruthy()
-    expect(within(items[1]!).getByText('en cours')).toBeTruthy()
-    expect(within(items[2]!).getByText('à venir')).toBeTruthy()
-    expect(within(items[3]!).getByText('refusé')).toBeTruthy()
-  })
-
-  // ORACLE : documenté — sans `onStepClick`, « la pastille reste un simple
-  // indicateur » (pas de faux bouton).
-  it('sans onStepClick : aucune pastille cliquable', () => {
-    render(
-      <StatusStepper steps={etapes.map((e) => ({ ...e, actionable: true }))} />,
-    )
-    expect(screen.queryByRole('button')).toBeNull()
-  })
-
-  // ORACLE : documenté — seules les étapes `actionable` deviennent des boutons,
-  // nommés « Passer à « X » ».
-  it('seules les étapes actionnables sont des boutons nommés', () => {
-    render(
-      <StatusStepper
-        steps={[
-          { label: 'Ouvert', state: 'done' },
-          { label: 'En cours', state: 'current', actionable: true },
-          { label: 'Clôturé', state: 'upcoming' },
-        ]}
-        onStepClick={() => undefined}
-      />,
-    )
-    const boutons = screen.getAllByRole('button')
-    expect(boutons).toHaveLength(1)
-    expect(
-      screen.getByRole('button', { name: 'Passer à « En cours »' }),
-    ).toBeInTheDocument()
-  })
-
-  // ORACLE : le clic passe l'INDEX de l'étape, une seule fois.
-  it('cliquer une pastille appelle onStepClick une fois avec son index', async () => {
-    const utilisateur = userEvent.setup()
-    const onStepClick = vi.fn()
-    render(
-      <StatusStepper
-        steps={[
-          { label: 'Ouvert', state: 'done' },
-          { label: 'En cours', state: 'current' },
-          { label: 'Clôturé', state: 'upcoming', actionable: true },
-        ]}
-        onStepClick={onStepClick}
-      />,
-    )
-
-    await utilisateur.click(
-      screen.getByRole('button', { name: 'Passer à « Clôturé »' }),
-    )
-    expect(onStepClick).toHaveBeenCalledTimes(1)
-    expect(onStepClick).toHaveBeenCalledWith(2)
-  })
-
-  // ORACLE : documenté — `disabled` « désactive temporairement tous les clics
-  // (ex. mutation en cours) ». Une transition ne doit pas pouvoir partir deux
-  // fois pendant l'envoi.
-  it('disabled : la pastille est désactivée et ne déclenche rien', async () => {
-    const utilisateur = userEvent.setup()
-    const onStepClick = vi.fn()
-    render(
-      <StatusStepper
-        steps={[{ label: 'Clôturé', state: 'upcoming', actionable: true }]}
-        onStepClick={onStepClick}
-        disabled
-      />,
-    )
-
-    const bouton = screen.getByRole('button', { name: 'Passer à « Clôturé »' })
-    expect(bouton).toBeDisabled()
-    await utilisateur.click(bouton)
-    expect(onStepClick).not.toHaveBeenCalled()
-  })
-
-  // ORACLE : les étapes non franchies sont NUMÉROTÉES (1-based) — c'est ce qui
-  // dit à l'utilisateur où il en est dans le cycle.
-  it('les étapes à venir affichent leur rang (1-based)', () => {
-    render(
-      <StatusStepper
-        steps={[
-          { label: 'Un', state: 'upcoming' },
-          { label: 'Deux', state: 'upcoming' },
-        ]}
-      />,
-    )
-    const items = screen.getAllByRole('listitem')
-    expect(items[0]?.textContent).toContain('1')
-    expect(items[1]?.textContent).toContain('2')
-  })
-
-  // ORACLE : documenté — la frise « tolère les libellés longs (troncature) ».
-  // Elle vient de données métier : elle doit rendre sans jeter, en texte.
-  it('fuzzing : libellés hostiles rendus sans exception et sans balisage', () => {
-    fc.assert(
-      fc.property(fc.array(texteHostileArb, { maxLength: 6 }), (libelles) => {
-        const steps: StepperStep[] = libelles.map((label, i) => ({
-          label,
-          state: i === 0 ? 'done' : 'upcoming',
-        }))
-        const { container, unmount } = render(<StatusStepper steps={steps} />)
-        try {
-          expect(container.querySelector('script')).toBeNull()
-          expect(container.querySelector('b')).toBeNull()
-        } finally {
-          unmount()
-        }
-      }),
-      TIRAGES,
-    )
   })
 })
