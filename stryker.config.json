@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "_comment": "Mutation testing de la LOGIQUE PURE. La couverture prouve qu'une ligne a été exécutée ; le mutation score prouve qu'elle a été vérifiée. On ne mute que les modules sans DOM ni réseau — Stryker ne sait pas piloter le Browser Mode de Vitest.",
+  "_comment": "Mutation testing de la LOGIQUE PURE. La couverture prouve qu'une ligne a été exécutée ; le mutation score prouve qu'elle a été vérifiée. On ne mute que les modules sans DOM ni réseau (voir vitest.stryker.config.ts).",
   "packageManager": "npm",
   "testRunner": "vitest",
   "reporters": ["json", "html", "clear-text", "progress"],
