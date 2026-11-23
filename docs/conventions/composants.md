@@ -115,9 +115,9 @@ La coquille ne gère que le **visuel** ; l'état + la validation viennent de RHF
 
 - ❌ Réécrire l'accessibilité d'un modal à la main ; `DialogContent` sans `DialogTitle` ; monter un `DialogContent` hors de `DialogShell`.
 - ❌ Recopier le bloc des 4 états ou la coquille d'un dialog de formulaire → `QueryState` / `FormDialog`.
-- ❌ Recopier un `<select>`/`<textarea>` natif stylé, ou importer un champ depuis `common/` au lieu de `common/fields/` → génération 1, en retrait.
+- ❌ Recopier un `<select>`/`<textarea>` natif stylé, ou importer un champ react-hook-form ailleurs que depuis `common/fields/` (à la racine de `common/` ne vivent que des champs à état local : `standalone-fields`, `file-drop-field`).
 - ❌ Monter une modale d'édition avec une clé constante (`key={item.id}`) → `key={dlg.dialogKey}`.
-- ❌ Recopier la garde « sélectionne un site » → `NoSiteSelected` ; hardcoder un rôle (`role === 'admin'`) → `lib/permissions`.
+- ❌ Recopier la garde « sélectionne un site » → `SiteScopedRoute` ; hardcoder un rôle (`role === 'admin'`) → `lib/permissions`.
 - ❌ Mettre de la logique métier dans `components/ui`.
 - ❌ Concaténer des classes conditionnelles à la main au lieu de CVA pour les variantes.
 - ❌ Modifier lourdement un composant `ui` shadcn sans raison (préférer wrapper dans `common/`).
