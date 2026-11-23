@@ -1,4 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
+import { listeFr } from '@/lib/liste'
 import { supabase } from '@/lib/supabase'
 
 export const localisationsQueries = {
@@ -348,11 +349,6 @@ export async function fetchLocalCascadeLinks(
   }
 }
 
-function joinFr(parts: string[]): string {
-  if (parts.length <= 1) return parts[0] ?? ''
-  return `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1] ?? ''}`
-}
-
 /**
  * Phrase d'avertissement de détachement en cascade d'un local (liens retirés,
  * entités conservées). `null` si aucun lien → on garde l'avertissement par défaut.
@@ -372,5 +368,5 @@ export function localCascadeWarning(links: LocalCascadeLinks): string | null {
       `${String(links.documents)} document${links.documents > 1 ? 's' : ''}`,
     )
   if (parts.length === 0) return null
-  return `Ce local est référencé par ${joinFr(parts)} : ces liens seront retirés (les éléments eux-mêmes sont conservés).`
+  return `Ce local est référencé par ${listeFr(parts)} : ces liens seront retirés (les éléments eux-mêmes sont conservés).`
 }

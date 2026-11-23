@@ -1,4 +1,5 @@
 import { parseCsvIndexe } from '@/lib/csv'
+import { listeFr } from '@/lib/liste'
 import { CHAMP_TYPES, resoudreValeurTexte, type Champ } from '@/lib/champs'
 import { parseOuiNon } from '@/features/operations/csv-import'
 
@@ -416,7 +417,5 @@ export function resumePlan(plan: PlanImportModelesEquipements): string {
       ? `${String(plan.nbCaracteristiques)} caractéristique${plan.nbCaracteristiques > 1 ? 's' : ''}`
       : null,
   ].filter((p): p is string => p !== null)
-  if (parts.length === 0) return ''
-  if (parts.length === 1) return parts[0] ?? ''
-  return `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1] ?? ''}`
+  return listeFr(parts)
 }

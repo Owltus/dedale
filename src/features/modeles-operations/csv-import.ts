@@ -1,4 +1,5 @@
 import { parseCsvIndexe } from '@/lib/csv'
+import { listeFr } from '@/lib/liste'
 import {
   COL_OPERATION,
   blocColonnesOperation,
@@ -250,7 +251,5 @@ export function resumePlan(plan: PlanImportModelesOperations): string {
       ? `${String(plan.nbOperations)} opération${plan.nbOperations > 1 ? 's' : ''}`
       : null,
   ].filter((p): p is string => p !== null)
-  if (parts.length === 0) return ''
-  if (parts.length === 1) return parts[0] ?? ''
-  return `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1] ?? ''}`
+  return listeFr(parts)
 }
