@@ -21,7 +21,7 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 import { type Dmbook, SessionExpiree, type Statut } from '../_shared/dmbook/client.ts'
 import { changerChambres, composer } from '../_shared/dmbook/composer.ts'
-import { analyser, type Locaux } from '../_shared/dmbook/lieux.ts'
+import { analyser, chambreDuNom, type Locaux } from '../_shared/dmbook/lieux.ts'
 import { empreinteDedale, empreinteDmbook, normaliser } from '../_shared/dmbook/texte.ts'
 import { raison } from '../_shared/dmbook/serveur.ts'
 
@@ -94,8 +94,8 @@ async function chargerDi(sb: SupabaseClient, id: string): Promise<Di | null> {
   // deno-lint-ignore no-explicit-any
   const d = data as any
   const chambres = (d.di_localisations ?? [])
-    .map((x: { locaux: { nom: string } | null }) => x.locaux?.nom.match(/^Chambre (\d{3})$/)?.[1])
-    .filter((c: string | undefined): c is string => !!c)
+    .map((x: { locaux: { nom: string } | null }) => x.locaux ? chambreDuNom(x.locaux.nom) : null)
+    .filter((c: string | null): c is string => !!c)
     .sort()
   return { id: d.id, constat: d.constat, statut: d.statut_di_id, chambres }
 }

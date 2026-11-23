@@ -8,9 +8,10 @@
  * Attention : « KC » = « cassé » (« pied de lit KC »), ce n'est PAS une signature.
  */
 
+// Chambre de l'hôtel : étage 1 à 6, numéro 01 à 31 (101…631).
 export const CHAMBRE = '[1-6](?:0[1-9]|[12]\\d|3[01])'
 export const TETE_CHAMBRES = new RegExp(`^(?:\\s*(?:chambre\\s*)?#?\\s?${CHAMBRE}(?![\\dh]|\\/(?!\\s?${CHAMBRE}(?!\\d))|:\\d|[.,]\\d|\\s?(?:°|%|€|cm|mm|kg|min|euros?\\b))\\s*(?:[-,/+&:]|et\\b)?\\s*)+`, 'i')
-const UNE_CHAMBRE = new RegExp(CHAMBRE, 'g')
+export const UNE_CHAMBRE = new RegExp(CHAMBRE, 'g')
 
 // Initiales vues après une barre oblique dans les tickets Dmbook (relevé du 19/11/2026).
 // Sans barre, on n'accepte que celles-ci, en MAJUSCULES (ou « - ew »), pour ne

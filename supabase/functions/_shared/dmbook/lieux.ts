@@ -12,13 +12,10 @@
  * sont PAS ici : ils sont protégés par l'empreinte tant que le texte ne change pas.
  */
 import { lireCommun } from './communs.ts'
-import { constatOuSansDescription, nettoyerConstat } from './texte.ts'
+import { CHAMBRE, constatOuSansDescription, nettoyerConstat, UNE_CHAMBRE } from './texte.ts'
 
-// Chambre de l'hôtel : étage 1 à 6, numéro 01 à 31 (101…631).
-const CHAMBRE = '[1-6](?:0[1-9]|[12]\\d|3[01])'
 // Tête de chambres telle que l'import l'a lue pour décider des LIEUX (lieux.ts du prototype).
 const TETE_LIEUX = new RegExp(`^(?:\\s*#?\\s?${CHAMBRE}(?![\\d/:h])\\s*(?:[-,/+]|et\\b)?\\s*)+`, 'i')
-const UNE_CHAMBRE = new RegExp(CHAMBRE, 'g')
 const SIGNATURE = /\s*\/{1,3}\s*([A-Za-zÀ-ÿ]{2,4})\s*$/
 
 /** Chambres écrites en tête du texte, dans l'ordre, sans doublon. */
@@ -53,11 +50,14 @@ export type Analyse = {
   source: 'tete' | 'citee' | 'commun' | 'ambigu' | 'aucun'
 }
 
+/** Numéro d'un local nommé exactement « Chambre NNN » (« 112 »), sinon null. */
+export const chambreDuNom = (nom: string) => nom.match(/^Chambre (\d{3})$/)?.[1] ?? null
+
 export class Locaux {
   readonly chambres = new Map<string, Local>()
   constructor(readonly liste: Local[]) {
     for (const l of liste) {
-      const c = l.nom.match(/^Chambre (\d{3})$/)?.[1]
+      const c = chambreDuNom(l.nom)
       if (c) this.chambres.set(c, l)
     }
   }

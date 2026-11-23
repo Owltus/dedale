@@ -10,7 +10,7 @@
  *   D17 un lieu choisi à la main est gardé, sauf si le nouveau texte cite une chambre.
  * On ne retire JAMAIS un lieu sur un doute.
  */
-import { analyser, type Locaux } from '../_shared/dmbook/lieux.ts'
+import { analyser, chambreDuNom, type Locaux } from '../_shared/dmbook/lieux.ts'
 import { empreinteDedale, empreinteDmbook } from '../_shared/dmbook/texte.ts'
 import type { Statut, TicketDetail } from '../_shared/dmbook/client.ts'
 
@@ -46,8 +46,6 @@ export type Decision =
       quoi: string[]
     }
   | { type: 'ignorer'; dmbook_id: string; raison: string }
-
-const chambreDe = (nom: string) => nom.match(/^Chambre (\d{3})$/)?.[1] ?? null
 
 const MOIS: Record<string, string> = {
   janv: '01', févr: '02', mars: '03', avr: '04', mai: '05', juin: '06',
@@ -93,7 +91,7 @@ export async function decider(
   const quoi: string[] = []
   let constat: string | null = null
   let lieux: string[] | null = null
-  const chambresActuelles = di.lieux.map((l) => chambreDe(l.nom)).filter((c): c is string => !!c)
+  const chambresActuelles = di.lieux.map((l) => chambreDuNom(l.nom)).filter((c): c is string => !!c)
   let chambres = chambresActuelles
 
   if (!texteInchange) {
