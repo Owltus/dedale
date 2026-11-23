@@ -1,7 +1,4 @@
-import {
-  statusToneById,
-  type StatusTone,
-} from '@/components/common/status-badge'
+import { type StatusTone } from '@/components/common/status-badge'
 import type { Database } from '@/lib/database.types'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
@@ -105,25 +102,6 @@ export function nomStatutCapex(id: number, noms: Map<number, string>): string {
   return noms.get(id) ?? LABELS_DEFAUT[id] ?? `Statut ${String(id)}`
 }
 
-/** Statuts TERMINÉS : masqués par le filtre « Non terminés ». */
-export const STATUTS_CAPEX_TERMINAUX = [ID_REALISE, ID_REFUSE] as const
-
-const TONES: Record<number, StatusTone> = {
-  // Couleurs des statuts (demande PO du 12/11/2026), simples à reconnaître :
-  // gris = projet, bleu = validé, vert = réalisé (vraiment fini), rouge =
-  // refusé (ou abandonné). Le violet « devis reçus » et l'orange « reporté »
-  // ne sont pas des statuts : voir `stadeProjet` et `reporteDe`.
-  // Jaune = prévalidé, en attente du 2e accord (150).
-  [ID_DEMANDE]: 'neutral',
-  [ID_PREVALIDE]: 'yellow',
-  [ID_VALIDE]: 'info',
-  [ID_REALISE]: 'success',
-  [ID_REFUSE]: 'destructive',
-}
-export function statutCapexTone(id: number): StatusTone {
-  return statusToneById(id, TONES)
-}
-
 /**
  * STADE d'un projet, pour sa couleur (demande PO du 12/11/2026) : un projet
  * qui a déjà des devis n'en est plus au même point qu'un projet vide, même si
@@ -189,21 +167,6 @@ export function reporteDe(p: {
       depuis = a
   }
   return depuis
-}
-
-// Ordre LOGIQUE d'affichage (menu de filtre), indépendant des ids.
-const ORDRE_AFFICHAGE: number[] = [
-  ID_DEMANDE,
-  ID_PREVALIDE,
-  ID_VALIDE,
-  ID_REALISE,
-  ID_REFUSE,
-]
-
-/** Rang d'affichage d'un statut (inconnu → en fin). */
-export function rangStatutCapex(id: number): number {
-  const i = ORDRE_AFFICHAGE.indexOf(id)
-  return i === -1 ? ORDRE_AFFICHAGE.length : i
 }
 
 /**

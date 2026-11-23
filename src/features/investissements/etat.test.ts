@@ -13,11 +13,8 @@ import {
   montantProjet,
   montantRetenu,
   nomStatutCapex,
-  rangStatutCapex,
   repartitionBudget,
   schemaCapex,
-  statutCapexTone,
-  STATUTS_CAPEX_TERMINAUX,
   totauxAnnee,
   libelleProjet,
   reporteDe,
@@ -50,24 +47,6 @@ const annee = fc.integer({ min: 2000, max: 2099 })
 
 const SANS_REFERENTIEL = new Map<number, string>()
 
-describe('rangStatutCapex — ordre du menu', () => {
-  it('Proposition → Prévalidé → Confirmé → Réalisé → Refusé', () => {
-    const tri = [...IDS_CONNUS].sort(
-      (a, b) => rangStatutCapex(b) - rangStatutCapex(a),
-    )
-    expect(tri.reverse()).toEqual([...IDS_CONNUS])
-  })
-
-  it('un statut inconnu est rejeté en fin, jamais intercalé', () => {
-    fc.assert(
-      fc.property(idConnu, idInconnu, (connu, inconnu) => {
-        expect(rangStatutCapex(inconnu)).toBeGreaterThan(rangStatutCapex(connu))
-      }),
-      TIRAGES,
-    )
-  })
-})
-
 describe('nomStatutCapex — totalité', () => {
   it('le référentiel prime, puis le défaut, puis « Statut N »', () => {
     fc.assert(
@@ -91,20 +70,6 @@ describe('nomStatutCapex — totalité', () => {
     expect(
       IDS_CONNUS.map((id) => nomStatutCapex(id, SANS_REFERENTIEL)),
     ).toEqual(['Proposition', 'Prévalidé', 'Confirmé', 'Réalisé', 'Refusé'])
-  })
-})
-
-describe('statutCapexTone — sémantique', () => {
-  it('gris = proposition, jaune = prévalidé, bleu = confirmé, vert = réalisé, rouge = refusé', () => {
-    expect(statutCapexTone(ID_DEMANDE)).toBe('neutral')
-    expect(statutCapexTone(ID_PREVALIDE)).toBe('yellow')
-    expect(statutCapexTone(ID_VALIDE)).toBe('info')
-    expect(statutCapexTone(ID_REALISE)).toBe('success')
-    expect(statutCapexTone(ID_REFUSE)).toBe('destructive')
-  })
-
-  it('terminés = Réalisé et Refusé', () => {
-    expect([...STATUTS_CAPEX_TERMINAUX]).toEqual([ID_REALISE, ID_REFUSE])
   })
 })
 
