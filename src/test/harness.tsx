@@ -7,16 +7,14 @@
  *     `useFormContext` via `useFormField` : sans `FormProvider`, ils jettent) ;
  *  2. un CONTEXTE de routeur TanStack (`PageHeader` appelle `useDocumentTitle`,
  *     qui appelle `useLocation`) ;
- *  3. des RÉSULTATS de requête pour `QueryState`, soit fabriqués (matrice
- *     d'états, instantanée et déterministe), soit VRAIS (pour prouver qu'un
- *     bouton « Réessayer » relance réellement la requête).
+ *  3. des RÉSULTATS de requête FABRIQUÉS pour `QueryState` (matrice d'états,
+ *     instantanée et déterministe).
  *
  * Tout cela était sinon recopié dans chaque fichier de test.
  */
 import '@testing-library/jest-dom/vitest'
-import type { ReactElement, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useForm, type FieldValues, type UseFormReturn } from 'react-hook-form'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { UseQueryResult } from '@tanstack/react-query'
 import {
   RouterProvider,
@@ -76,22 +74,6 @@ export function renderAvecRouteur(ui: ReactNode): RenderResult {
 /* ------------------------------------------------------------------ */
 /* 3. Requêtes TanStack Query                                          */
 /* ------------------------------------------------------------------ */
-
-/** Client de test : aucune reprise automatique, aucun cache résiduel. */
-export function creerQueryClient(): QueryClient {
-  return new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, gcTime: 0, staleTime: 0 },
-      mutations: { retry: false },
-    },
-  })
-}
-
-/** Rend `ui` sous un `QueryClientProvider` neuf. */
-export function renderAvecQueryClient(ui: ReactElement): RenderResult {
-  const client = creerQueryClient()
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
-}
 
 /**
  * Résultats de requête FABRIQUÉS, pour piloter `QueryState` sans réseau ni
