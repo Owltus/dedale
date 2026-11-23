@@ -16,7 +16,7 @@ import {
 } from '@/features/evenements/etat'
 import { dateAffichee as dateAfficheeTravaux } from '@/features/travaux/format'
 import { dateAffichee as dateAfficheeEvenement } from '@/features/evenements/format'
-import { formatDate } from '@/lib/date'
+import { formatDateAvecSemaineIso } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 
 /**
@@ -33,7 +33,7 @@ import { segOfUnique } from '@/lib/slug'
 export interface LigneActivite {
   id: string
   titre: string
-  /** Date déjà formatée, affichée sous le titre. */
+  /** Date déjà formatée (avec la semaine ISO), affichée sous le statut ou le titre. */
   sousTitre: string
   /** Libellé du statut (pastille de droite). */
   statut: string
@@ -80,7 +80,7 @@ function construire<T>(rows: T[], src: SourceActivite<T>): LigneActivite[] {
   return ordonnees.map((r) => ({
     id: src.id(r),
     titre: src.nom(r),
-    sousTitre: formatDate(src.date(r)),
+    sousTitre: formatDateAvecSemaineIso(src.date(r)),
     statut: src.statut(r),
     tone: src.tone(r),
     termine: estTermine(r),
@@ -93,6 +93,8 @@ export interface RowDemande {
   id: string
   constat: string
   date_constat: string
+  /** Date de clôture : affichée à la place du constat une fois la DI clôturée. */
+  date_resolution?: string | null
   statut_di_id: number
 }
 
@@ -118,7 +120,11 @@ export function lignesDemandes(rows: RowDemande[]): LigneActivite[] {
   return construire(rows, {
     id: (d) => d.id,
     nom: (d) => diTitre(d.constat),
-    date: (d) => d.date_constat,
+    // Comme la page Demandes : date de clôture si clôturée, sinon d'ouverture.
+    date: (d) =>
+      d.statut_di_id === 3 && d.date_resolution
+        ? d.date_resolution
+        : d.date_constat,
     statut: (d) => statutLabelDi(d.statut_di_id),
     tone: (d) => statutToneDi(d.statut_di_id),
     statutId: (d) => d.statut_di_id,

@@ -77,7 +77,7 @@
 | `SectionHeader`                             | En-tête de section réutilisable (`h3` icône + titre + action). L'hôte fournit son enveloppe — le composant `Section` qui la fournissait n'avait aucun consommateur et a été retiré.                                                                                                                  | 2      |
 | `InfoNote`                                  | Encart d'information ou d'avertissement. **ORPHELINE depuis l'ADR 0007** : ses deux consommateurs (profil, fiche utilisateur) annonçaient des envois d'e-mail, supprimés avec le flux d'invitation. À retirer ou à faire adopter — cf. ADR 0006, une brique sans consommateur n'est plus une brique. | **0**  |
 | `SplitPanes`                                | Deux panneaux à défilement indépendant ≥ `lg`, repli empilé sous `lg`.                                                                                                                                                                                                                               | 3      |
-| `StatutColonne`                             | Colonne d'un tableau de bord groupée par statut.                                                                                                                                                                                                                                                     | 3      |
+| `StatutColonne`                             | Colonne de droite d'une carte de liste : badge de statut, date ou périodicité dessous, largeur fixe pour aligner les cartes (OT, DI, gammes…). `dense` pour les lignes `xs` du tableau de bord.                                                                                                      | 6      |
 
 ## Dialogs
 

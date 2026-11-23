@@ -6,8 +6,13 @@ import type { LucideIcon } from 'lucide-react'
 import { ListRow } from '@/components/common/list-row'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { StatusBadge } from '@/components/common/status-badge'
+import { StatutColonne } from '@/components/common/statut-colonne'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { demandesQueries } from '@/features/demandes/queries'
+import { useActionsDemande } from '@/features/demandes/use-actions-demande'
+import { useCurrentRole } from '@/hooks/use-current-role'
+import { useAuth } from '@/auth'
+import { lieuxParDi, LIEU_NON_PRECISE } from '@/features/demandes/lieux-par-di'
 import {
   travauxQueries,
   statutsTravauxQueries,
@@ -24,6 +29,11 @@ import {
   type LigneActivite,
 } from '../activite'
 import { DashboardListCard } from './dashboard-list-card'
+
+/** `select` STABLE (hors composant) : l'index n'est recalculé qu'au rafraîchissement. */
+function demandesIndexees<T extends { id: string }>(rows: T[]): Map<string, T> {
+  return new Map(rows.map((d) => [d.id, d]))
+}
 
 interface ZoneActiviteProps {
   siteId: string
@@ -122,6 +132,25 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
   const demandesQuery = useQuery({
     ...demandesQueries.list(siteId),
     select: lignesDemandes,
+  })
+  // Menu contextuel des demandes : MÊME brique que la page Demandes (statut,
+  // modifier, supprimer), sur la ligne complète de la DI (même cache de requête).
+  const { session } = useAuth()
+  const { data: role } = useCurrentRole()
+  const { actionsDe, dialogues } = useActionsDemande({
+    siteId,
+    role,
+    userId: session?.user.id,
+  })
+  const { data: demandesParId } = useQuery({
+    ...demandesQueries.list(siteId),
+    select: demandesIndexees,
+  })
+
+  // Lieu(x) de chaque DI : titre des cartes Demandes, comme sur la page Demandes.
+  const { data: lieux = new Map<string, string>() } = useQuery({
+    ...demandesQueries.locauxParDi(siteId),
+    select: lieuxParDi,
   })
   const travauxQuery = useQuery({
     ...travauxQueries.list(siteId),
@@ -233,9 +262,44 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
           ONGLETS.map((o) => (
             <TabsContent key={o.value} value={o.value} className={listStack}>
               {o.value === actif
-                ? lignes
-                    .slice(0, nbLignes)
-                    .map((l) => (
+                ? lignes.slice(0, nbLignes).map((l) => {
+                    // Demandes : même carte que la page Demandes (lieu, puis
+                    // constat ; statut + date à droite), en version serrée
+                    // pour garder la hauteur `xs` des lignes du tableau de bord.
+                    if (o.value === 'demandes') {
+                      const lieu = lieux.get(l.id) ?? null
+                      const demande = demandesParId?.get(l.id)
+                      const actions = demande ? actionsDe(demande) : []
+                      const colonne = (
+                        <StatutColonne
+                          dense
+                          statut={{ label: l.statut, tone: l.tone }}
+                          meta={l.sousTitre}
+                        />
+                      )
+                      return (
+                        <ListRow
+                          key={l.id}
+                          size="xs"
+                          tone={l.tone}
+                          media={<RowMediaIcon icon={o.icon} />}
+                          title={
+                            lieu ?? (
+                              <span className="text-muted-foreground italic">
+                                {LIEU_NON_PRECISE}
+                              </span>
+                            )
+                          }
+                          titleLabel={`${lieu ?? LIEU_NON_PRECISE} — ${l.titre}`}
+                          subtitle={l.titre}
+                          badges={colonne}
+                          mobileBadge={colonne}
+                          onClick={() => ouvrir(l)}
+                          menuActions={actions.length ? actions : undefined}
+                        />
+                      )
+                    }
+                    return (
                       <ListRow
                         key={l.id}
                         size="xs"
@@ -251,12 +315,14 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
                         }
                         onClick={() => ouvrir(l)}
                       />
-                    ))
+                    )
+                  })
                 : null}
             </TabsContent>
           ))
         }
       </DashboardListCard>
+      {dialogues}
     </Tabs>
   )
 }

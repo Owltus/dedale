@@ -14,18 +14,26 @@ import { cn } from '@/lib/utils'
 export function StatutColonne({
   statut,
   meta,
+  dense = false,
   className,
 }: {
   /** Statut affiché (libellé + tonalité). Absent → badge masqué (place réservée). */
   statut?: { label: string; tone: StatusTone }
   /** Ligne secondaire sous le badge (date prévue, périodicité…). Masquée si absente. */
   meta?: ReactNode
+  /**
+   * Variante SERRÉE pour les lignes `size="xs"` (tableau de bord, h-11) : colonne
+   * plus étroite, date en petit, sans espace → badge + date tiennent dans la
+   * hauteur de la ligne sans l'agrandir.
+   */
+  dense?: boolean
   className?: string
 }) {
   return (
     <div
       className={cn(
-        'flex w-36 flex-col items-center gap-1 text-center',
+        'flex flex-col items-center text-center',
+        dense ? 'w-28 gap-0.5' : 'w-36 gap-1',
         className,
       )}
     >
@@ -35,7 +43,14 @@ export function StatutColonne({
         </StatusBadge>
       )}
       {meta != null && (
-        <span className="text-sm text-muted-foreground">{meta}</span>
+        <span
+          className={cn(
+            'text-muted-foreground',
+            dense ? 'text-[11px] leading-none' : 'text-sm',
+          )}
+        >
+          {meta}
+        </span>
       )}
     </div>
   )

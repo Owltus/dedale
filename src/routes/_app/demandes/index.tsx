@@ -1,38 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import {
-  CheckCircle2,
-  Circle,
-  ClipboardList,
-  Clock,
-  Pencil,
-  Plus,
-  Trash2,
-} from 'lucide-react'
-import { toast } from 'sonner'
+import { ClipboardList, Plus } from 'lucide-react'
 import { demandesQueries } from '@/features/demandes/queries'
 import { DiFormDialog } from '@/features/demandes/components/di-form-dialog'
-import { DiEditDialog } from '@/features/demandes/components/di-edit-dialog'
-import {
-  useDeleteDemande,
-  useReopenDemande,
-  usePrendreEnCharge,
-  useCloturerDemande,
-} from '@/features/demandes/mutations'
-import { utilisateursQueries } from '@/features/utilisateurs/queries'
+import { useActionsDemande } from '@/features/demandes/use-actions-demande'
 import { diTitre } from '@/features/demandes/schemas'
+import { lieuxParDi, LIEU_NON_PRECISE } from '@/features/demandes/lieux-par-di'
 import {
   statutLabel,
   statutTone,
   STATUTS_DI_TERMINAUX,
 } from '@/features/demandes/etat'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { useEntityDialog } from '@/hooks/use-entity-dialog'
-import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useAuth } from '@/auth'
 import { formatDateAvecSemaineIso } from '@/lib/date'
-import { writeErrorMessage } from '@/lib/form'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
@@ -46,7 +28,6 @@ import { useSiteContext } from '@/lib/site-context'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { VirtualList } from '@/components/common/virtual-list'
-import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import {
@@ -54,14 +35,9 @@ import {
   statutFilterOptions,
   FILTRE_NON_TERMINES,
 } from '@/components/common/list-filter-bar'
-import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { StatutColonne } from '@/components/common/statut-colonne'
-import type { Database } from '@/lib/database.types'
-
-type Demande = Database['public']['Tables']['demandes_intervention']['Row']
-
 export const Route = createFileRoute('/_app/demandes/')({
   component: DemandesPage,
 })
@@ -99,51 +75,25 @@ function DemandesContent({
   const navigate = useNavigate()
   const { activeSite } = useSiteContext()
   const query = useQuery(demandesQueries.list(siteId))
-  const del = useDeleteDemande()
-  const reopen = useReopenDemande()
-  const enCharge = usePrendreEnCharge()
-  const cloturer = useCloturerDemande()
-  // Changement de statut (Ouvert/En cours/Clôturé) via le menu : rôles métier.
+  const { actionsDe, dialogues } = useActionsDemande({ siteId, role, userId })
+  // Rôles métier : bouton de connexion Dmbook (D19).
   const canResolve = perm.canResolveDemande(role)
   // Liste LIVE : tout INSERT/UPDATE/DELETE sur demandes_intervention (n'importe
   // quelle fenêtre, n'importe quel utilisateur du site) rafraîchit la liste sans F5.
   useRealtimeRefresh('demandes_intervention', demandesQueries.all())
 
-  // Noms des créateurs (la RLS users filtre : un rôle métier voit ses pairs de
-  // site ; un demandeur ne voit que LUI → ses DI affichent son nom, pas celles
-  // des autres). id → nom_complet pour un accès O(1) par ligne.
-  const { data: users = [] } = useQuery(utilisateursQueries.list())
-  const usersById = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const u of users) if (u.nom_complet) m.set(u.id, u.nom_complet)
-    return m
-  }, [users])
-
-  // Lieu(x) de chaque DI (di_id → « Chambre 214, Chambre 109 ») : TITRE de la
-  // carte ET cible de recherche. Une seule requête RLS-scopée pour toute la liste.
-  const { data: locLinks = [] } = useQuery(demandesQueries.locauxParDi(siteId))
-  const localParDi = useMemo(() => {
-    const noms = new Map<string, string[]>()
-    for (const r of locLinks) {
-      const nom = r.locaux.nom
-      if (!nom) continue
-      const liste = noms.get(r.di_id) ?? []
-      if (!liste.includes(nom)) liste.push(nom)
-      noms.set(r.di_id, liste)
-    }
-    return new Map([...noms].map(([id, l]) => [id, l.join(', ')]))
-  }, [locLinks])
+  // Lieu(x) de chaque DI : TITRE de la carte ET cible de recherche. Une seule
+  // requête RLS-scopée pour toute la liste.
+  const { data: localParDi = new Map<string, string>() } = useQuery({
+    ...demandesQueries.locauxParDi(siteId),
+    select: lieuxParDi,
+  })
   const [formOpen, setFormOpen] = useState(false)
   const [recherche, setRecherche] = useState('')
   // Filtre statut : 'all' ou l'id de statut (1 Ouvert, 2 En cours, 3 Clôturé).
   // Défaut : on masque les demandes clôturées — le filtre permet d'afficher un
   // statut précis ou « Tous les statuts ».
   const [statutFilter, setStatutFilter] = useState(FILTRE_NON_TERMINES)
-  const editDialog = useEntityDialog<Demande>()
-  const suppression = useConfirmDelete<Demande>({
-    onDelete: (d) => del.mutateAsync(d.id),
-    successMessage: 'Demande supprimée',
-  })
 
   const newButton = canCreate ? (
     <Button onClick={() => setFormOpen(true)}>
@@ -241,78 +191,8 @@ function DemandesContent({
                 items={shown}
                 getKey={(d) => d.id}
                 renderItem={(d) => {
-                  // Édition ET suppression décidées PAR LIGNE : propriété + statut
-                  // pour le demandeur (son scope) ; toujours vrai pour admin/manager/tech.
-                  const canEdit = perm.canEditDemande(role, d, userId)
-                  const canDelete = perm.canDeleteDemande(role, d, userId)
-                  const rowActions: RowAction[] = []
-                  // Groupe « statut » EN HAUT (rôles métier) : icône colorée —
-                  // Ouvert gris, En cours orange, Clôturé vert. Statut courant
-                  // désactivé ; Clôturer ouvre la saisie de la note (dialog).
-                  if (canResolve) {
-                    rowActions.push({
-                      label: 'Ouvert',
-                      icon: Circle,
-                      iconClassName: 'text-muted-foreground',
-                      disabled: d.statut_di_id === 1,
-                      onSelect: () =>
-                        reopen.mutate(d.id, {
-                          onSuccess: () => toast.success('Demande rouverte'),
-                          onError: (e) => toast.error(writeErrorMessage(e)),
-                        }),
-                    })
-                    rowActions.push({
-                      label: 'En cours',
-                      icon: Clock,
-                      iconClassName: 'text-warning',
-                      disabled: d.statut_di_id === 2,
-                      onSelect: () =>
-                        enCharge.mutate(d.id, {
-                          onSuccess: () =>
-                            toast.success('Demande prise en charge'),
-                          onError: (e) => toast.error(writeErrorMessage(e)),
-                        }),
-                    })
-                    rowActions.push({
-                      label: 'Clôturé',
-                      icon: CheckCircle2,
-                      iconClassName: 'text-success',
-                      disabled: d.statut_di_id === 3,
-                      onSelect: () =>
-                        cloturer.mutate(d.id, {
-                          onSuccess: () => toast.success('Demande clôturée'),
-                          onError: (e) => toast.error(writeErrorMessage(e)),
-                        }),
-                    })
-                  }
-                  // Modifier / Supprimer EN BAS, séparés du groupe statut.
-                  const sep = rowActions.length > 0
-                  if (canEdit)
-                    rowActions.push({
-                      label: 'Modifier',
-                      icon: Pencil,
-                      separatorBefore: sep,
-                      onSelect: () => editDialog.openEdit(d),
-                    })
-                  if (canDelete)
-                    rowActions.push({
-                      label: 'Supprimer',
-                      icon: Trash2,
-                      destructive: true,
-                      separatorBefore: sep && !canEdit,
-                      onSelect: () => suppression.demander(d),
-                    })
-                  // Venue de Dmbook : l'auteur tel qu'écrit dans Dmbook, jamais deviné (D21).
-                  const auteurDmbook = d.dmbook_liens?.auteur ?? null
-                  const createur = d.created_by
-                    ? (usersById.get(d.created_by) ?? null)
-                    : null
+                  const rowActions = actionsDe(d)
                   const local = localParDi.get(d.id) ?? null
-                  const signale = auteurDmbook
-                    ? ` · signalé par ${auteurDmbook} (Dmbook)`
-                    : createur
-                      ? ` · signalé par ${createur}`
-                      : ''
                   // Colonne de droite, comme les OT (`OtCard`) : statut + date
                   // dessous. Clôturée → date de clôture ; Ouverte ou En cours →
                   // date d'ouverture (le constat). Semaine ISO comme partout.
@@ -334,16 +214,16 @@ function DemandesContent({
                       key={d.id}
                       tone={statutTone(d.statut_di_id)}
                       media={<RowMediaIcon icon={ClipboardList} />}
-                      // Ligne 1 : le lieu ; ligne 2 : le constat et qui l'a signalé.
+                      // Ligne 1 : le lieu ; ligne 2 : le constat (ni auteur ni origine, choix PO).
                       title={
                         local ?? (
                           <span className="text-muted-foreground italic">
-                            Lieu non précisé
+                            {LIEU_NON_PRECISE}
                           </span>
                         )
                       }
-                      titleLabel={`${local ?? 'Lieu non précisé'} — ${diTitre(d.constat)}`}
-                      subtitle={`${diTitre(d.constat)}${signale}`}
+                      titleLabel={`${local ?? LIEU_NON_PRECISE} — ${diTitre(d.constat)}`}
+                      subtitle={diTitre(d.constat)}
                       onClick={() =>
                         void navigate({
                           to: '/demandes/$demande',
@@ -376,23 +256,7 @@ function DemandesContent({
         />
       )}
 
-      <DiEditDialog
-        key={editDialog.dialogKey}
-        open={editDialog.open}
-        onOpenChange={editDialog.onOpenChange}
-        demande={editDialog.entity}
-        siteId={siteId}
-      />
-
-      <ConfirmDeleteDialog
-        {...suppression.dialogProps}
-        entityLabel="la demande"
-        warning={
-          suppression.toDelete
-            ? `« ${diTitre(suppression.toDelete.constat)} » sera supprimée définitivement.`
-            : undefined
-        }
-      />
+      {dialogues}
     </PageContainer>
   )
 }
