@@ -56,7 +56,7 @@ export function OperationListRow({
   const typeAffiche = necessiteSeuils && seuils ? seuils : typeLibelle
   return (
     <ListRow
-      className="h-12"
+      size="fine"
       media={
         <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
           <ClipboardCheck className="size-8" />

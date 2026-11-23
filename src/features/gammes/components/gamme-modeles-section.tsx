@@ -128,7 +128,7 @@ export function GammeModelesSection({
                   key={m.id}
                   // Carte VOLONTAIREMENT plus fine (h-12, comme les opérations) avec
                   // un grand SVG de repli centré (carré muté) à la place de l'image.
-                  className="h-12"
+                  size="fine"
                   media={
                     <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
                       <Layers className="size-8" />
