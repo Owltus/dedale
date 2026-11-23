@@ -1,12 +1,10 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { z } from 'zod'
 import { RUNS, RUNS_COURT } from './hostile-inputs.test'
 import {
   deleteErrorMessage,
   errorMessage,
   exportErrorMessage,
-  fieldErrors,
   pgCode,
   writeErrorMessage,
 } from './form'
@@ -55,45 +53,6 @@ describe('errorMessage', () => {
     expect(errorMessage('texte brut', 'Échec sur mesure')).toBe(
       'Échec sur mesure',
     )
-  })
-})
-
-describe('fieldErrors', () => {
-  it('map la première erreur par nom de champ depuis une ZodError', () => {
-    const schema = z.object({
-      nom: z.string().min(1, 'Le nom est requis'),
-      email: z.email('Email invalide'),
-    })
-    const res = schema.safeParse({ nom: '', email: 'pas-un-email' })
-    expect(res.success).toBe(false)
-    if (res.success) return
-    expect(fieldErrors(res.error)).toEqual({
-      nom: 'Le nom est requis',
-      email: 'Email invalide',
-    })
-  })
-
-  it('ne garde que la première erreur rencontrée par champ', () => {
-    const schema = z.object({
-      code: z
-        .string()
-        .min(3, 'Trop court')
-        .regex(/^[A-Z]+$/, 'Majuscules seulement'),
-    })
-    const res = schema.safeParse({ code: 'a' })
-    expect(res.success).toBe(false)
-    if (res.success) return
-    const errs = fieldErrors(res.error)
-    expect(errs.code).toBe('Trop court')
-  })
-
-  it('ignore les issues dont le chemin ne commence pas par une string', () => {
-    const schema = z.array(z.string())
-    const res = schema.safeParse(['ok', 42])
-    expect(res.success).toBe(false)
-    if (res.success) return
-    // Le chemin est un index numérique → aucun champ nommé collecté.
-    expect(fieldErrors(res.error)).toEqual({})
   })
 })
 
@@ -295,38 +254,6 @@ describe('pgCode — entrées hostiles', () => {
     expect(pgCode({ code: ['42501'] })).toBeUndefined()
     expect(pgCode([])).toBeUndefined()
     expect(pgCode(Object.create(null))).toBeUndefined()
-  })
-})
-
-describe('fieldErrors — cas limites', () => {
-  it('rend un objet vide pour une ZodError sans issue nommée', () => {
-    const res = z.string().safeParse(42)
-    expect(res.success).toBe(false)
-    if (res.success) return
-    // Chemin vide (la racine) → aucun champ nommé.
-    expect(fieldErrors(res.error)).toEqual({})
-  })
-
-  it('collecte les erreurs de PLUSIEURS champs, sans en perdre', () => {
-    // Propriété : tout champ en erreur apparaît exactement une fois.
-    const schema = z.object({
-      a: z.string().min(1, 'a requis'),
-      b: z.string().min(1, 'b requis'),
-      c: z.string().min(1, 'c requis'),
-    })
-    const res = schema.safeParse({ a: '', b: '', c: '' })
-    expect(res.success).toBe(false)
-    if (res.success) return
-    expect(Object.keys(fieldErrors(res.error)).sort()).toEqual(['a', 'b', 'c'])
-  })
-
-  it('ignore un chemin imbriqué dont la racine n’est pas nommée', () => {
-    const schema = z.array(z.object({ nom: z.string().min(1, 'requis') }))
-    const res = schema.safeParse([{ nom: '' }])
-    expect(res.success).toBe(false)
-    if (res.success) return
-    // Le chemin est [0, 'nom'] : la racine est un index → rien de collecté.
-    expect(fieldErrors(res.error)).toEqual({})
   })
 })
 

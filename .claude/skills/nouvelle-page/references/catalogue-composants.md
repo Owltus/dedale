@@ -192,7 +192,7 @@ Briques de plomberie hors hooks : `actionsEditionSuppression` (duo Modifier/Supp
 - **caractéristiques typées** (`champs`) : `parseChamps` · `prepareChamps` · `serializeChamps` · `formatChampValeur` · `resoudreValeurTexte` / `parseDateFrVersIso` (valeur d'une cellule CSV → valeur typée, **source unique** des formats FR : virgule décimale, JJ/MM/AAAA, Oui/Non)
 - `perm.*` (`permissions`) · `useSiteContext` (`site-context`) · `useAuth` (`@/auth`) · `requireNav` (`nav-guard`) · `canSeeNav`/`NavKey` (`nav`)
 - `segOfUnique`/`slugify` (`slug`) — **jamais l'UUID brut dans une URL**
-- `fieldErrors` / `errorMessage` / `writeErrorMessage(e, overrides?)` / `deleteErrorMessage(e, overrides?)` (`form`) — `overrides` = libellés par code SQLSTATE
+- `errorMessage` / `writeErrorMessage(e, overrides?)` / `deleteErrorMessage(e, overrides?)` (`form`) — `overrides` = libellés par code SQLSTATE
 - **périmètre** (`scope`) : `estCommunOuDuSite` · `siteIdPourPortee` · `LockedScope` · `resolvePorteeScope`
 - `referentielQueryOptions(table, select, orderBy)` (`referentiel`) — factory des tables de référence, `staleTime` 5 min
 - `listStack` / `cardGrid` (`responsive`)
