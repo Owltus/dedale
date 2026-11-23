@@ -56,7 +56,7 @@ Répartition des rôles, à ne pas mélanger : **RHF** porte l'état et la valid
 
 ### Les cinq pièges vérifiés
 
-1. **`key={dlg.dialogKey}`, jamais `key={item.id}`.** La clé vaut `` `${id}-${open}` `` : c'est le `-${open}` qui purge l'état à la fermeture. Avec une clé constante, **une saisie annulée réapparaît à la réouverture** — le défaut qu'avait la fiche Travaux.
+1. **`key={dlg.dialogKey}`, jamais `key={item.id}`.** La clé vaut `` `${instance}-${id ?? 'new'}-${open}` `` (`instance` = `useId()`) : c'est le `-${open}` qui purge l'état à la fermeture. Avec une clé constante, **une saisie annulée réapparaît à la réouverture** — le défaut qu'avait la fiche Travaux.
 2. **Ne pas re-wrapper le `<form>`.** Celui de `FormDialog` fait déjà `preventDefault` + `stopPropagation` (les formulaires imbriqués fonctionnent). Un bouton icône dans un formulaire prend `type="button"`, sinon il soumet.
 3. **Sur un `<form>` NU (hors `FormDialog`), passer l'événement** : `onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}`. Sans lui, pas de `preventDefault`, donc **soumission native et rechargement de la page** — le bug qu'avait Mon profil.
 4. **Jamais d'option `{ value: '' }`** dans un `SelectField` : Radix y voit « pas de valeur » et le libellé choisi ne s'affiche jamais. Utiliser `optionAucune`.
