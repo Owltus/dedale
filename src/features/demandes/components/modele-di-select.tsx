@@ -1,15 +1,9 @@
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from 'react'
+import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Check, ChevronsUpDown, FileText } from 'lucide-react'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { Label } from '@/components/ui/label'
+import { useClicExterieur } from '@/hooks/use-clic-exterieur'
 import { ComboBoxPanel } from '@/components/common/combobox-panel'
 import { cn } from '@/lib/utils'
 
@@ -67,16 +61,7 @@ export function ModeleDiSelect({
     value === '' ? 0 : modeles.findIndex((m) => m.id === value) + 1
 
   // Clic hors du composant → on referme.
-  useEffect(() => {
-    if (!open) return
-    function onDown(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
+  useClicExterieur(boxRef, open, setOpen)
 
   function openMenu() {
     setActive(selectedIndex < 0 ? 0 : selectedIndex)

@@ -1,16 +1,10 @@
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from 'react'
+import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { MapPin, Search, X } from 'lucide-react'
 import { equipementsQueries } from '../queries'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { useClicExterieur } from '@/hooks/use-clic-exterieur'
 import { ComboBoxPanel } from '@/components/common/combobox-panel'
 import { cn } from '@/lib/utils'
 
@@ -112,16 +106,7 @@ export function LocalSearchSelect({
   }, [locaux, query])
 
   // Clic hors du composant → on referme la liste.
-  useEffect(() => {
-    if (!open) return
-    function onDown(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
+  useClicExterieur(boxRef, open, setOpen)
 
   // Sélection : on replie « Bâtiment › Niveau › Local » DANS le champ (pas de
   // ligne de confirmation en dessous → la modale ne grandit pas).
