@@ -38,9 +38,10 @@ servir, jamais une source dont un écran de site dépendrait.
 1. **Cloison en lecture.** Hors de la Bibliothèque, un écran de site ne
    propose que ce qui est rattaché au site. La règle est portée par les
    **queries** (`modelesEquipementsQueries.list`,
-   `modelesOperationsQueries.liables`, `demandesQueries.modelesDi.list`,
-   `gammesQueries.list`), jamais par un filtre de composant : un futur écran
-   qui réutilise la query hérite de la règle sans avoir à la connaître.
+   `modelesOperationsQueries.liables`, `modelesDiQueries.list`
+   (module `src/features/demandes/queries.ts`), `gammesQueries.list`),
+   jamais par un filtre de composant : un futur écran qui réutilise la
+   query hérite de la règle sans avoir à la connaître.
 2. **Un geste pour se servir.** Depuis la Bibliothèque, sous le périmètre
    d'un site, « Importer depuis le commun » installe une **copie
    indépendante** des éléments choisis (RPC `copier_modele_equipement`,
