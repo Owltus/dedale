@@ -18,10 +18,6 @@ type OtRow = Database['public']['Tables']['ordres_travail']['Row']
 type OperationExecution =
   Database['public']['Tables']['operations_execution']['Row']
 
-// Prédicat d'état terminal (déplacé dans ./operation-predicats) — ré-exporté pour
-// l'écran, qui en dérive le compteur et le repli des groupes par équipement.
-export { statutOpTerminal } from './operation-predicats'
-
 interface UseOperationsEditorParams {
   /** OT courant (nullable tant que le détail charge). */
   ot: OtRow | null | undefined

@@ -96,12 +96,3 @@ export const equipementsQueries = {
       },
     }),
 }
-
-// Le catalogue de modèles d'équipements est désormais géré dans la feature
-// dédiée `modeles-equipements`. On ré-exporte ici pour les consommateurs
-// historiques (instanciation depuis l'écran Équipements) sans dupliquer la
-// définition ni la clé de cache.
-export {
-  modelesEquipementsQueries,
-  type ModeleEquipement,
-} from '@/features/modeles-equipements/queries'

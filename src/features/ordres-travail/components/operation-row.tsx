@@ -29,11 +29,7 @@ import {
 
 // Prédicats métier exposés au module (déplacés dans ./operation-predicats) —
 // ré-exportés à l'identique pour les consommateurs existants (ex. ot-detail).
-export {
-  estMesureExecution,
-  estCompteur,
-  estCompteurCumulatif,
-} from '../operation-predicats'
+export { estCompteur, estCompteurCumulatif } from '../operation-predicats'
 
 /** Valeurs éditables d'une opération (déplacées dans ./operation-predicats). */
 export type { OperationEdit } from '../operation-predicats'
