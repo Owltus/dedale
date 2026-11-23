@@ -1,4 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
+import { toutesLesLignes } from '@/lib/pagination'
 import { supabase } from '@/lib/supabase'
 import { modelesDiQueries as modelesDiCatalogueQueries } from '@/features/modeles-di/queries'
 
@@ -13,17 +14,22 @@ export const demandesQueries = {
     queryOptions({
       queryKey: [...demandesQueries.all(), 'list', siteId] as const,
       enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('demandes_intervention')
-          .select('*')
-          .eq('site_id', siteId!)
-          .order('date_constat', { ascending: false })
-          .order('created_at', { ascending: false })
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      // Paginé : l'historique Dmbook (4 000+ DI depuis 2021) dépasse le plafond de
+      // 1 000 lignes par réponse ; sans ça, seules les plus récentes s'affichaient (cf. pagination.ts).
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('demandes_intervention')
+            // Auteur Dmbook tel qu'écrit et numéro du ticket, si la DI vient de Dmbook (D16, D21).
+            .select('*, dmbook_liens(numero, auteur)')
+            .eq('site_id', siteId!)
+            .order('date_constat', { ascending: false })
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
     }),
 
   /**
@@ -37,13 +43,37 @@ export const demandesQueries = {
     queryOptions({
       queryKey: [...demandesQueries.all(), 'locaux-par-di', siteId] as const,
       enabled: siteId !== null,
+      // Paginé, comme la liste : au-delà de 1 000 liaisons, les cartes perdaient leur lieu.
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('di_localisations')
+            // `demandes_intervention!inner` ne sert qu'au FILTRE (site actif).
+            .select('di_id, locaux(nom), demandes_intervention!inner(site_id)')
+            .eq('demandes_intervention.site_id', siteId!)
+            .order('di_id', { ascending: true })
+            .order('local_id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
+    }),
+
+  /**
+   * Ticket Dmbook lié à une DI (synchro Dmbook, 164-165) : numéro et auteur tel
+   * qu'écrit dans Dmbook (D21), jamais rapproché d'un compte Dédale. Null si la DI
+   * n'est pas reliée à Dmbook.
+   */
+  lienDmbook: (diId: string) =>
+    queryOptions({
+      queryKey: [...demandesQueries.all(), 'lien-dmbook', diId] as const,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
-          .from('di_localisations')
-          // `demandes_intervention!inner` ne sert qu'au FILTRE (site actif).
-          .select('di_id, locaux(nom), demandes_intervention!inner(site_id)')
-          .eq('demandes_intervention.site_id', siteId!)
+          .from('dmbook_liens')
+          .select('numero, auteur')
+          .eq('di_id', diId)
           .abortSignal(signal)
+          .maybeSingle()
           .throwOnError()
         return data
       },

@@ -7,6 +7,7 @@ import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/fields/text-field'
 import { useConnexionDmbook } from '../mutations'
+import type { ConnexionDmbook } from '../queries'
 
 const schema = z.object({
   code: z
@@ -27,19 +28,18 @@ type Code = z.output<typeof schema>
 interface ModaleCodeDmbookProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Boîte e-mail masquée où Dmbook a envoyé le code. */
-  boite: string | null
+  connexion: ConnexionDmbook
 }
 
 /**
- * Saisie du code envoyé par Dmbook (D7). Le code part UNE fois : s'il est
- * refusé, le serveur passe en « erreur » et il faudra relancer la connexion.
- * Volontairement AUCUN bouton « renvoyer le code » (consigne PO : pas de spam).
+ * Saisie du code envoyé par Dmbook (D7) pour UN site. Le code part UNE fois :
+ * s'il est refusé, le serveur passe en « erreur » et il faudra relancer la
+ * connexion. Volontairement AUCUN bouton « renvoyer le code » (pas de spam).
  */
 export function ModaleCodeDmbook({
   open,
   onOpenChange,
-  boite,
+  connexion,
 }: ModaleCodeDmbookProps) {
   const { envoyerCode } = useConnexionDmbook()
   const form = useForm<Saisie, unknown, Code>({
@@ -49,8 +49,12 @@ export function ModaleCodeDmbook({
 
   const soumettre = async ({ code }: Code) => {
     try {
-      const r = await envoyerCode.mutateAsync(code)
-      if (r.etat === 'ok') toast.success('Dédale est reconnecté à Dmbook')
+      const r = await envoyerCode.mutateAsync({
+        siteId: connexion.site_id,
+        code,
+      })
+      if (r.etat === 'ok')
+        toast.success(`${connexion.site_nom} est reconnecté à Dmbook`)
       else toast.error(r.message)
       onOpenChange(false)
     } catch (e) {
@@ -58,12 +62,13 @@ export function ModaleCodeDmbook({
     }
   }
 
+  const boite = connexion.boite_code
   return (
     <Form {...form}>
       <FormDialog
         open={open}
         onOpenChange={onOpenChange}
-        title="Code Dmbook"
+        title={`Code Dmbook — ${connexion.site_nom}`}
         description={`Dmbook a envoyé un code par e-mail${boite ? ` à ${boite}` : ''} pour reconnecter Dédale. Saisis-le une seule fois.`}
         onSubmit={() => void form.handleSubmit(soumettre)()}
         submitLabel="Valider"

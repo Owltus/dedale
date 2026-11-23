@@ -41,8 +41,11 @@ import { EmptyState } from '@/components/common/empty-state'
 import { ListPageBody } from '@/components/common/list-page-body'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/demandes/page-meta'
+import { BoutonDmbook } from '@/features/dmbook/components/bouton-dmbook'
+import { useSiteContext } from '@/lib/site-context'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
+import { VirtualList } from '@/components/common/virtual-list'
 import type { RowAction } from '@/components/common/row-actions'
 import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
@@ -94,6 +97,7 @@ function DemandesContent({
   userId: string | undefined
 }) {
   const navigate = useNavigate()
+  const { activeSite } = useSiteContext()
   const query = useQuery(demandesQueries.list(siteId))
   const del = useDeleteDemande()
   const reopen = useReopenDemande()
@@ -150,13 +154,24 @@ function DemandesContent({
         title={PAGE_META.titre}
         description={PAGE_META.description}
         action={
-          canCreate ? (
-            <TooltipIconButton
-              icon={<Plus />}
-              label="Nouvelle demande"
-              variant="outline"
-              onClick={() => setFormOpen(true)}
-            />
+          canCreate || canResolve ? (
+            <div className="flex items-center gap-2">
+              {/* Connexion Dmbook du site : admin / manager / technicien (D19). */}
+              {canResolve && (
+                <BoutonDmbook
+                  siteId={siteId}
+                  siteNom={activeSite?.nom ?? 'ce site'}
+                />
+              )}
+              {canCreate && (
+                <TooltipIconButton
+                  icon={<Plus />}
+                  label="Nouvelle demande"
+                  variant="outline"
+                  onClick={() => setFormOpen(true)}
+                />
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -218,107 +233,116 @@ function DemandesContent({
               isEmpty={shown.length === 0}
               emptySearchDescription="Aucune demande ne correspond à ces critères."
             >
-              {shown.map((d) => {
-                // Édition ET suppression décidées PAR LIGNE : propriété + statut
-                // pour le demandeur (son scope) ; toujours vrai pour admin/manager/tech.
-                const canEdit = perm.canEditDemande(role, d, userId)
-                const canDelete = perm.canDeleteDemande(role, d, userId)
-                const rowActions: RowAction[] = []
-                // Groupe « statut » EN HAUT (rôles métier) : icône colorée —
-                // Ouvert gris, En cours orange, Clôturé vert. Statut courant
-                // désactivé ; Clôturer ouvre la saisie de la note (dialog).
-                if (canResolve) {
-                  rowActions.push({
-                    label: 'Ouvert',
-                    icon: Circle,
-                    iconClassName: 'text-muted-foreground',
-                    disabled: d.statut_di_id === 1,
-                    onSelect: () =>
-                      reopen.mutate(d.id, {
-                        onSuccess: () => toast.success('Demande rouverte'),
-                        onError: (e) => toast.error(writeErrorMessage(e)),
-                      }),
-                  })
-                  rowActions.push({
-                    label: 'En cours',
-                    icon: Clock,
-                    iconClassName: 'text-warning',
-                    disabled: d.statut_di_id === 2,
-                    onSelect: () =>
-                      enCharge.mutate(d.id, {
-                        onSuccess: () =>
-                          toast.success('Demande prise en charge'),
-                        onError: (e) => toast.error(writeErrorMessage(e)),
-                      }),
-                  })
-                  rowActions.push({
-                    label: 'Clôturé',
-                    icon: CheckCircle2,
-                    iconClassName: 'text-success',
-                    disabled: d.statut_di_id === 3,
-                    onSelect: () =>
-                      cloturer.mutate(d.id, {
-                        onSuccess: () => toast.success('Demande clôturée'),
-                        onError: (e) => toast.error(writeErrorMessage(e)),
-                      }),
-                  })
-                }
-                // Modifier / Supprimer EN BAS, séparés du groupe statut.
-                const sep = rowActions.length > 0
-                if (canEdit)
-                  rowActions.push({
-                    label: 'Modifier',
-                    icon: Pencil,
-                    separatorBefore: sep,
-                    onSelect: () => editDialog.openEdit(d),
-                  })
-                if (canDelete)
-                  rowActions.push({
-                    label: 'Supprimer',
-                    icon: Trash2,
-                    destructive: true,
-                    separatorBefore: sep && !canEdit,
-                    onSelect: () => suppression.demander(d),
-                  })
-                const createur = d.created_by
-                  ? (usersById.get(d.created_by) ?? null)
-                  : null
-                const local = localParDi.get(d.id) ?? null
-                const ligne = createur
-                  ? `Signalé par ${createur} · le ${formatDate(d.date_constat)}`
-                  : `Constaté le ${formatDate(d.date_constat)}`
-                return (
-                  <ListRow
-                    key={d.id}
-                    tone={statutTone(d.statut_di_id)}
-                    media={<RowMediaIcon icon={ClipboardList} />}
-                    title={diTitre(d.constat)}
-                    subtitle={local ? `${local} · ${ligne}` : ligne}
-                    onClick={() =>
-                      void navigate({
-                        to: '/demandes/$demande',
-                        params: {
-                          demande: segOfUnique(
-                            { nom: diTitre(d.constat), id: d.id },
-                            sibs,
-                          ),
-                        },
-                      })
-                    }
-                    badges={
-                      <StatusBadge tone={statutTone(d.statut_di_id)}>
-                        {statutLabel(d.statut_di_id)}
-                      </StatusBadge>
-                    }
-                    mobileMeta={
-                      local
-                        ? `${local} · ${statutLabel(d.statut_di_id)}`
-                        : statutLabel(d.statut_di_id)
-                    }
-                    menuActions={rowActions.length ? rowActions : undefined}
-                  />
-                )
-              })}
+              {/* Virtualisée : tout l'historique Dmbook (4 000+ DI) sans ralentir la page. */}
+              <VirtualList
+                items={shown}
+                getKey={(d) => d.id}
+                renderItem={(d) => {
+                  // Édition ET suppression décidées PAR LIGNE : propriété + statut
+                  // pour le demandeur (son scope) ; toujours vrai pour admin/manager/tech.
+                  const canEdit = perm.canEditDemande(role, d, userId)
+                  const canDelete = perm.canDeleteDemande(role, d, userId)
+                  const rowActions: RowAction[] = []
+                  // Groupe « statut » EN HAUT (rôles métier) : icône colorée —
+                  // Ouvert gris, En cours orange, Clôturé vert. Statut courant
+                  // désactivé ; Clôturer ouvre la saisie de la note (dialog).
+                  if (canResolve) {
+                    rowActions.push({
+                      label: 'Ouvert',
+                      icon: Circle,
+                      iconClassName: 'text-muted-foreground',
+                      disabled: d.statut_di_id === 1,
+                      onSelect: () =>
+                        reopen.mutate(d.id, {
+                          onSuccess: () => toast.success('Demande rouverte'),
+                          onError: (e) => toast.error(writeErrorMessage(e)),
+                        }),
+                    })
+                    rowActions.push({
+                      label: 'En cours',
+                      icon: Clock,
+                      iconClassName: 'text-warning',
+                      disabled: d.statut_di_id === 2,
+                      onSelect: () =>
+                        enCharge.mutate(d.id, {
+                          onSuccess: () =>
+                            toast.success('Demande prise en charge'),
+                          onError: (e) => toast.error(writeErrorMessage(e)),
+                        }),
+                    })
+                    rowActions.push({
+                      label: 'Clôturé',
+                      icon: CheckCircle2,
+                      iconClassName: 'text-success',
+                      disabled: d.statut_di_id === 3,
+                      onSelect: () =>
+                        cloturer.mutate(d.id, {
+                          onSuccess: () => toast.success('Demande clôturée'),
+                          onError: (e) => toast.error(writeErrorMessage(e)),
+                        }),
+                    })
+                  }
+                  // Modifier / Supprimer EN BAS, séparés du groupe statut.
+                  const sep = rowActions.length > 0
+                  if (canEdit)
+                    rowActions.push({
+                      label: 'Modifier',
+                      icon: Pencil,
+                      separatorBefore: sep,
+                      onSelect: () => editDialog.openEdit(d),
+                    })
+                  if (canDelete)
+                    rowActions.push({
+                      label: 'Supprimer',
+                      icon: Trash2,
+                      destructive: true,
+                      separatorBefore: sep && !canEdit,
+                      onSelect: () => suppression.demander(d),
+                    })
+                  // Venue de Dmbook : l'auteur tel qu'écrit dans Dmbook, jamais deviné (D21).
+                  const auteurDmbook = d.dmbook_liens?.auteur ?? null
+                  const createur = d.created_by
+                    ? (usersById.get(d.created_by) ?? null)
+                    : null
+                  const local = localParDi.get(d.id) ?? null
+                  const ligne = auteurDmbook
+                    ? `Signalé dans Dmbook par ${auteurDmbook} · le ${formatDate(d.date_constat)}`
+                    : createur
+                      ? `Signalé par ${createur} · le ${formatDate(d.date_constat)}`
+                      : `Constaté le ${formatDate(d.date_constat)}`
+                  return (
+                    <ListRow
+                      key={d.id}
+                      tone={statutTone(d.statut_di_id)}
+                      media={<RowMediaIcon icon={ClipboardList} />}
+                      title={diTitre(d.constat)}
+                      subtitle={local ? `${local} · ${ligne}` : ligne}
+                      onClick={() =>
+                        void navigate({
+                          to: '/demandes/$demande',
+                          params: {
+                            demande: segOfUnique(
+                              { nom: diTitre(d.constat), id: d.id },
+                              sibs,
+                            ),
+                          },
+                        })
+                      }
+                      badges={
+                        <StatusBadge tone={statutTone(d.statut_di_id)}>
+                          {statutLabel(d.statut_di_id)}
+                        </StatusBadge>
+                      }
+                      mobileMeta={
+                        local
+                          ? `${local} · ${statutLabel(d.statut_di_id)}`
+                          : statutLabel(d.statut_di_id)
+                      }
+                      menuActions={rowActions.length ? rowActions : undefined}
+                    />
+                  )
+                }}
+              />
             </ListPageBody>
           )
         }}

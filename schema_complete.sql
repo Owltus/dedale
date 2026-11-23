@@ -16936,176 +16936,9 @@ REVOKE ALL ON FUNCTION public.refuser_connecteur_historique() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.refuser_connecteur_historique() TO authenticated, service_role;
 
 -- =============================================================================
--- 163 — Synchro Dmbook : socle de connexion (état, session chiffrée, verrou)
+-- 163 — Synchro Dmbook : socle de connexion sur une ligne (dmbook_etat).
+-- Remplacé par 165 (dmbook_connexions, une ligne par site) : rien à recréer ici.
 -- =============================================================================
--- Symptôme corrigé : aucun. Premier morceau de la synchro Dmbook ⇄ Dédale
--- (plan/sync-dmbook, étapes 3a et 8a). Dédale doit pouvoir se connecter à
--- Dmbook depuis le serveur et, quand Dmbook demande le code reçu par e-mail,
--- le montrer dans l'application pour que le PO le saisisse UNE fois.
---
--- Cause : rien dans la base ne savait garder une session Dmbook ni dire
--- « Dmbook attend un code ».
---
--- Correctif :
---   1. Table `dmbook_etat` (UNE ligne) : état de la connexion, message,
---      boîte e-mail MASQUÉE où arrive le code, dates, verrou, adresse Dmbook et
---      carnet (lus par le serveur ; ils ne sont pas dans le dépôt public).
---      Aucun accès direct pour anon / authenticated.
---   2. Secret `dmbook_session` dans le coffre chiffré (vault) : cookies + reprise
---      de l'écran « code ». Lu et écrit seulement par les fonctions serveur.
---   3. Fonctions `dmbook_session_lire/ecrire`, `dmbook_verrou_prendre/rendre`
---      (service_role seulement) et `dmbook_etat_public()` (application) qui ne
---      renvoie que l'état, le message, la boîte masquée et les dates, aux
---      admin / manager / technicien du site (décision D15).
---   Ne fait PAS : liens ticket ⇄ DI, file d'envoi, déclencheurs, pg_net,
---   pg_cron (migrations suivantes).
---
--- Innocuité : trois objets nouveaux, aucune table existante touchée, aucune
--- donnée existante modifiée. La seule ligne insérée est celle de dmbook_etat.
---
--- Vérification après application :
---     SELECT etat, site_id IS NOT NULL AS site_ok FROM public.dmbook_etat;   -- jamais_connecte, true
---     SELECT has_table_privilege('authenticated', 'public.dmbook_etat', 'SELECT');  -- false
---     SELECT has_function_privilege('authenticated', 'public.dmbook_session_lire()', 'EXECUTE');  -- false
---     SELECT has_function_privilege('authenticated', 'public.dmbook_etat_public()', 'EXECUTE');   -- true
--- =============================================================================
-
--- ─── 1. État de la connexion ────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS public.dmbook_etat (
-    id                  boolean PRIMARY KEY DEFAULT true CHECK (id),
-    site_id             uuid NOT NULL REFERENCES public.sites(id) ON DELETE RESTRICT,
-    base                text NOT NULL,
-    carnet              text NOT NULL,
-    etat                text NOT NULL DEFAULT 'jamais_connecte'
-                        CONSTRAINT dmbook_etat_etat_valide
-                        CHECK (etat IN ('jamais_connecte', 'ok', 'code_requis', 'pause', 'erreur')),
-    message             text,
-    boite_code          text,
-    code_demande_le     timestamptz,
-    derniere_connexion  timestamptz,
-    dernier_passage     timestamptz,
-    verrou_jusqu_a      timestamptz,
-    maj_le              timestamptz NOT NULL DEFAULT now()
-);
-
-COMMENT ON TABLE public.dmbook_etat IS
-    'Synchro Dmbook (163) : UNE ligne. État de la connexion au Dmbook, lu par l''application via dmbook_etat_public() seulement. La session vit dans le coffre (secret dmbook_session).';
-COMMENT ON COLUMN public.dmbook_etat.boite_code IS
-    'Boîte e-mail où Dmbook envoie le code, MASQUÉE (ex. « p…@exemple.fr ») : un technicien sait qui prévenir (163).';
-COMMENT ON COLUMN public.dmbook_etat.verrou_jusqu_a IS
-    'Empêche deux passages (ou deux saisies de code) en même temps ; expire seul (163).';
-
-ALTER TABLE public.dmbook_etat ENABLE ROW LEVEL SECURITY;
--- Aucune policy : seuls le serveur (service_role) et les fonctions ci-dessous y accèdent.
-REVOKE ALL ON public.dmbook_etat FROM anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.dmbook_etat TO service_role;
-
--- La ligne unique (site lié, adresse Dmbook, carnet) est insérée par la migration
--- 163, gitignorée : données réelles, absentes du dépôt public. À recréer à la main
--- après une reconstruction de la base.
-
--- ─── 2. Session chiffrée (coffre) ───────────────────────────────────────────
-
-CREATE OR REPLACE FUNCTION public.dmbook_session_lire()
- RETURNS jsonb
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-    SELECT coalesce(
-        (SELECT d.decrypted_secret::jsonb FROM vault.decrypted_secrets d WHERE d.name = 'dmbook_session'),
-        '{}'::jsonb
-    )
-$function$;
-
-CREATE OR REPLACE FUNCTION public.dmbook_session_ecrire(p_session jsonb)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-DECLARE
-    v_id uuid;
-BEGIN
-    SELECT s.id INTO v_id FROM vault.secrets s WHERE s.name = 'dmbook_session';
-    IF v_id IS NULL THEN
-        PERFORM vault.create_secret(p_session::text, 'dmbook_session',
-            'Synchro Dmbook (163) : cookies de session et reprise de l''écran du code. Jamais de mot de passe.');
-    ELSE
-        PERFORM vault.update_secret(v_id, p_session::text);
-    END IF;
-END;
-$function$;
-
-COMMENT ON FUNCTION public.dmbook_session_lire() IS
-    'Synchro Dmbook (163) : session (cookies + reprise du code) lue dans le coffre. Serveur seulement.';
-COMMENT ON FUNCTION public.dmbook_session_ecrire(jsonb) IS
-    'Synchro Dmbook (163) : session rangée dans le coffre chiffré. Serveur seulement.';
-
--- ─── 3. Verrou ──────────────────────────────────────────────────────────────
-
-CREATE OR REPLACE FUNCTION public.dmbook_verrou_prendre(p_secondes integer)
- RETURNS boolean
- LANGUAGE sql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-    WITH pris AS (
-        UPDATE public.dmbook_etat
-        SET    verrou_jusqu_a = now() + make_interval(secs => least(greatest(p_secondes, 10), 900))
-        WHERE  id AND (verrou_jusqu_a IS NULL OR verrou_jusqu_a < now())
-        RETURNING 1
-    )
-    SELECT EXISTS (SELECT 1 FROM pris)
-$function$;
-
-CREATE OR REPLACE FUNCTION public.dmbook_verrou_rendre()
- RETURNS void
- LANGUAGE sql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-    UPDATE public.dmbook_etat SET verrou_jusqu_a = NULL WHERE id
-$function$;
-
-COMMENT ON FUNCTION public.dmbook_verrou_prendre(integer) IS
-    'Synchro Dmbook (163) : vrai si le verrou est pris (10 s à 15 min), faux si un passage tourne déjà.';
-
--- ─── 4. Ce que l'application a le droit de voir (D15) ───────────────────────
-
-CREATE OR REPLACE FUNCTION public.dmbook_etat_public()
- RETURNS TABLE (
-    site_id uuid, etat text, message text, boite_code text,
-    code_demande_le timestamptz, derniere_connexion timestamptz,
-    dernier_passage timestamptz, maj_le timestamptz
- )
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-    SELECT e.site_id, e.etat, e.message, e.boite_code,
-           e.code_demande_le, e.derniere_connexion, e.dernier_passage, e.maj_le
-    FROM   public.dmbook_etat e
-    WHERE  (SELECT public.current_role()) IN ('admin', 'manager', 'technicien')
-      AND  public.has_site_access(e.site_id)
-$function$;
-
-COMMENT ON FUNCTION public.dmbook_etat_public() IS
-    'Synchro Dmbook (163) : état de la connexion pour les admin / manager / technicien du site (D15). Ni session, ni reprise, ni adresse Dmbook. Vide pour les autres rôles.';
-
--- ─── 5. Droits d'exécution ──────────────────────────────────────────────────
-
-REVOKE ALL ON FUNCTION public.dmbook_session_lire()           FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.dmbook_session_ecrire(jsonb)    FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.dmbook_verrou_prendre(integer)  FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.dmbook_verrou_rendre()          FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.dmbook_etat_public()            FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.dmbook_session_lire()          TO service_role;
-GRANT EXECUTE ON FUNCTION public.dmbook_session_ecrire(jsonb)   TO service_role;
-GRANT EXECUTE ON FUNCTION public.dmbook_verrou_prendre(integer) TO service_role;
-GRANT EXECUTE ON FUNCTION public.dmbook_verrou_rendre()         TO service_role;
-GRANT EXECUTE ON FUNCTION public.dmbook_etat_public()           TO authenticated, service_role;
 
 -- =============================================================================
 -- 164 — Synchro Dmbook : liens ticket ⇄ DI, file d'envoi, déclencheurs anti-écho
@@ -17145,29 +16978,7 @@ GRANT EXECUTE ON FUNCTION public.dmbook_etat_public()           TO authenticated
 
 -- ─── 1. Compléments de dmbook_etat ──────────────────────────────────────────
 
-ALTER TABLE public.dmbook_etat ADD COLUMN IF NOT EXISTS compte_id uuid REFERENCES public.users(id) ON DELETE SET NULL;
-ALTER TABLE public.dmbook_etat ADD COLUMN IF NOT EXISTS dernier_passage_complet timestamptz;
-ALTER TABLE public.dmbook_etat ADD COLUMN IF NOT EXISTS cle_tache text;
-
-COMMENT ON COLUMN public.dmbook_etat.compte_id IS
-    'Compte Dédale qui signe les DI venues de Dmbook (compte du PO, D14) (164).';
-COMMENT ON COLUMN public.dmbook_etat.cle_tache IS
-    'Secret partagé entre la tâche planifiée et la fonction dmbook-sync (164). Jamais exposé à l''application.';
-
--- compte_id (compte du PO) et cle_tache (aléatoire) sont posés par la migration 164,
--- gitignorée : à reposer à la main après une reconstruction de la base.
-
-CREATE OR REPLACE FUNCTION public.dmbook_site_id()
- RETURNS uuid
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-    SELECT site_id FROM public.dmbook_etat WHERE id
-$function$;
-
-COMMENT ON FUNCTION public.dmbook_site_id() IS
-    'Synchro Dmbook (164) : le site lié à Dmbook, ou NULL. Sert aux déclencheurs et aux policies.';
+-- (dmbook_etat et dmbook_site_id() : remplacés par dmbook_connexions et dmbook_site_lie() en 165.)
 
 -- ─── 2. Liens ticket ⇄ DI ───────────────────────────────────────────────────
 
@@ -17229,12 +17040,7 @@ REVOKE ALL ON public.dmbook_file FROM anon, authenticated;
 GRANT SELECT ON public.dmbook_file TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.dmbook_file TO service_role;
 
-DROP POLICY IF EXISTS dmbook_file_select ON public.dmbook_file;
-CREATE POLICY dmbook_file_select ON public.dmbook_file FOR SELECT TO authenticated
-    USING ((SELECT public.current_role()) IN ('admin', 'manager', 'technicien')
-           AND public.has_site_access(public.dmbook_site_id()));
-COMMENT ON POLICY dmbook_file_select ON public.dmbook_file IS
-    'État de la synchro visible des admin / manager / technicien du site lié (D15) (164).';
+-- (policy dmbook_file_select : définie en 165, par site.)
 
 -- ─── 4. Déclencheurs : remplir la file ──────────────────────────────────────
 
@@ -17494,8 +17300,7 @@ COMMENT ON FUNCTION public.dmbook_supprimer_di(text) IS
 
 -- ─── 6. Droits d'exécution ──────────────────────────────────────────────────
 
-REVOKE ALL ON FUNCTION public.dmbook_site_id() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.dmbook_site_id() TO authenticated, service_role;
+
 
 REVOKE ALL ON FUNCTION public.dmbook_deposer(uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.trg_dmbook_di() FROM PUBLIC, anon, authenticated;
@@ -17508,3 +17313,599 @@ REVOKE ALL ON FUNCTION public.dmbook_supprimer_di(text) FROM PUBLIC, anon, authe
 GRANT EXECUTE ON FUNCTION public.dmbook_creer_di(text, integer, text, integer, uuid[], timestamptz, bigint, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.dmbook_maj_di(uuid, text, integer, uuid[], bigint, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.dmbook_supprimer_di(text) TO service_role;
+
+-- =============================================================================
+-- 165 — Synchro Dmbook : une connexion par site, réglée dans Dédale ; auteur Dmbook
+-- =============================================================================
+-- Symptôme corrigé : la connexion Dmbook vivait dans les réglages Supabase
+-- (identifiants du PO) et sur UNE ligne (dmbook_etat) : impossible d'avoir
+-- plusieurs sites, et rien dans Dédale ne disait à quel site Dmbook était relié.
+--
+-- Cause : socle 163-164 conçu pour un seul site et un seul compte (décision D14,
+-- remplacée le 22/11 par D18-D21 : plan/sync-dmbook/3b-connexion-par-site.md).
+--
+-- Correctif :
+--   1. `dmbook_connexions` : une ligne par site lié (adresse du carnet, état,
+--      compte masqué, qui l'a réglée). La ligne de dmbook_etat y est recopiée,
+--      puis dmbook_etat est supprimée.
+--   2. Coffre : `dmbook_session_<site>` (session recopiée, elle reste valable),
+--      `dmbook_identifiants_<site>` (saisis dans l'application), `dmbook_cle_tache`.
+--   3. `dmbook_liens.auteur` : auteur Dmbook tel qu'écrit (D21), lisible par qui voit la DI.
+--   4. `dmbook_file.site_id` + policy par site ; déclencheurs « le site de la DI
+--      a-t-il une connexion Dmbook ? » au lieu du site unique.
+--   5. `dmbook_creer_di` reçoit le site et l'auteur ; signataire = qui a réglé la connexion.
+--   6. Application : `dmbook_connexions_public()` et `dmbook_peut_regler(site)`.
+--
+-- Innocuité : aucune DI modifiée ; les 4 061 liens restent ; la file est vide.
+-- Les fonctions serveur dmbook-* doivent être redéployées JUSTE APRÈS (elles
+-- lisaient dmbook_etat) ; aucune tâche planifiée ne tourne encore.
+--
+-- Vérification après application :
+--     SELECT site_id, etat FROM public.dmbook_connexions;                  -- 1 ligne, ok
+--     SELECT to_regclass('public.dmbook_etat');                             -- NULL
+--     SELECT name FROM vault.secrets WHERE name LIKE 'dmbook%' ORDER BY 1;  -- cle_tache + session_<site>
+-- =============================================================================
+
+-- ─── 1. Connexions par site ─────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.dmbook_connexions (
+    site_id                 uuid PRIMARY KEY REFERENCES public.sites(id) ON DELETE CASCADE,
+    base                    text NOT NULL
+                            CONSTRAINT dmbook_connexions_base_valide CHECK (base ~ '^https://[a-z0-9-]+\.dmbook\.pro$'),
+    carnet                  text NOT NULL
+                            CONSTRAINT dmbook_connexions_carnet_valide CHECK (carnet ~ '^[0-9]{1,12}$'),
+    etat                    text NOT NULL DEFAULT 'jamais_connecte'
+                            CONSTRAINT dmbook_connexions_etat_valide
+                            CHECK (etat IN ('jamais_connecte', 'ok', 'code_requis', 'pause', 'erreur')),
+    message                 text,
+    boite_code              text,
+    code_demande_le         timestamptz,
+    derniere_connexion      timestamptz,
+    dernier_passage         timestamptz,
+    dernier_passage_complet timestamptz,
+    verrou_jusqu_a          timestamptz,
+    regle_par               uuid REFERENCES public.users(id) ON DELETE SET NULL,
+    regle_le                timestamptz,
+    maj_le                  timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT dmbook_connexions_carnet_unique UNIQUE (base, carnet)
+);
+
+COMMENT ON TABLE public.dmbook_connexions IS
+    'Synchro Dmbook (165) : une connexion par site lié (D18). Identifiants et session dans le coffre (dmbook_identifiants_<site>, dmbook_session_<site>), jamais ici.';
+COMMENT ON COLUMN public.dmbook_connexions.regle_par IS
+    'Qui a réglé la connexion (admin / manager / technicien du site, D19). Signe en arrière-plan les DI venues de Dmbook (D21) (165).';
+COMMENT ON COLUMN public.dmbook_connexions.boite_code IS
+    'Identifiant Dmbook MASQUÉ (« p…@exemple.fr ») : la boîte où arrive le code (165).';
+
+ALTER TABLE public.dmbook_connexions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.dmbook_connexions FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.dmbook_connexions TO service_role;
+
+-- (Reprise de la ligne de dmbook_etat : faite par la migration 165, gitignorée.)
+
+-- ─── 2. Coffre : noms par site ──────────────────────────────────────────────
+
+-- Secrets du coffre (dmbook_cle_tache, dmbook_session_<site>, dmbook_identifiants_<site>) :
+-- créés par la migration 165 et par l'application ; à recréer après une reconstruction.
+
+-- Nom de secret admis : les fonctions ne touchent jamais à un autre secret du coffre.
+CREATE OR REPLACE FUNCTION public.dmbook_nom_secret_valide(p_nom text)
+ RETURNS boolean
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+    SELECT p_nom = 'dmbook_cle_tache'
+        OR p_nom ~ '^dmbook_(session|identifiants)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+$function$;
+
+CREATE OR REPLACE FUNCTION public.dmbook_secret_lire(p_nom text)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    IF NOT public.dmbook_nom_secret_valide(p_nom) THEN
+        RAISE EXCEPTION 'Secret Dmbook inconnu : %', p_nom;
+    END IF;
+    RETURN (SELECT d.decrypted_secret FROM vault.decrypted_secrets d WHERE d.name = p_nom);
+END;
+$function$;
+
+-- p_valeur NULL = effacer le secret.
+CREATE OR REPLACE FUNCTION public.dmbook_secret_ecrire(p_nom text, p_valeur text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_id uuid;
+BEGIN
+    IF NOT public.dmbook_nom_secret_valide(p_nom) OR p_nom = 'dmbook_cle_tache' THEN
+        RAISE EXCEPTION 'Secret Dmbook non modifiable : %', p_nom;
+    END IF;
+    SELECT s.id INTO v_id FROM vault.secrets s WHERE s.name = p_nom;
+    IF p_valeur IS NULL THEN
+        DELETE FROM vault.secrets WHERE id = v_id;
+    ELSIF v_id IS NULL THEN
+        PERFORM vault.create_secret(p_valeur, p_nom, 'Synchro Dmbook (165).');
+    ELSE
+        PERFORM vault.update_secret(v_id, p_valeur);
+    END IF;
+END;
+$function$;
+
+COMMENT ON FUNCTION public.dmbook_secret_lire(text) IS
+    'Synchro Dmbook (165) : lit un secret dmbook_* du coffre. Serveur seulement.';
+COMMENT ON FUNCTION public.dmbook_secret_ecrire(text, text) IS
+    'Synchro Dmbook (165) : écrit ou efface (NULL) un secret dmbook_session_/identifiants_<site>. Serveur seulement.';
+
+-- ─── 3. Verrou par site, site lié ───────────────────────────────────────────
+
+DROP FUNCTION IF EXISTS public.dmbook_verrou_prendre(integer);
+DROP FUNCTION IF EXISTS public.dmbook_verrou_rendre();
+
+CREATE OR REPLACE FUNCTION public.dmbook_verrou_prendre(p_site uuid, p_secondes integer)
+ RETURNS boolean
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    WITH pris AS (
+        UPDATE public.dmbook_connexions
+        SET    verrou_jusqu_a = now() + make_interval(secs => least(greatest(p_secondes, 10), 900))
+        WHERE  site_id = p_site AND (verrou_jusqu_a IS NULL OR verrou_jusqu_a < now())
+        RETURNING 1
+    )
+    SELECT EXISTS (SELECT 1 FROM pris)
+$function$;
+
+CREATE OR REPLACE FUNCTION public.dmbook_verrou_rendre(p_site uuid)
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    UPDATE public.dmbook_connexions SET verrou_jusqu_a = NULL WHERE site_id = p_site
+$function$;
+
+CREATE OR REPLACE FUNCTION public.dmbook_site_lie(p_site uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    SELECT EXISTS (SELECT 1 FROM public.dmbook_connexions c WHERE c.site_id = p_site)
+$function$;
+
+COMMENT ON FUNCTION public.dmbook_site_lie(uuid) IS
+    'Synchro Dmbook (165) : vrai si le site a une connexion Dmbook. Sert aux déclencheurs.';
+
+-- ─── 4. Liens : auteur Dmbook (D21) ─────────────────────────────────────────
+
+ALTER TABLE public.dmbook_liens ADD COLUMN IF NOT EXISTS auteur text;
+COMMENT ON COLUMN public.dmbook_liens.auteur IS
+    'Auteur du ticket tel qu''écrit dans Dmbook (« Signalée dans Dmbook par … »). Jamais rapproché d''un compte Dédale (D21) (165).';
+GRANT SELECT (auteur) ON public.dmbook_liens TO authenticated;
+
+-- ─── 5. File par site ───────────────────────────────────────────────────────
+
+ALTER TABLE public.dmbook_file ADD COLUMN IF NOT EXISTS site_id uuid REFERENCES public.sites(id) ON DELETE CASCADE;
+UPDATE public.dmbook_file f SET site_id = d.site_id
+FROM   public.demandes_intervention d WHERE d.id = f.di_id AND f.site_id IS NULL;
+
+DROP POLICY IF EXISTS dmbook_file_select ON public.dmbook_file;
+CREATE POLICY dmbook_file_select ON public.dmbook_file FOR SELECT TO authenticated
+    USING ((SELECT public.current_role()) IN ('admin', 'manager', 'technicien')
+           AND public.has_site_access(site_id));
+COMMENT ON POLICY dmbook_file_select ON public.dmbook_file IS
+    'État de la synchro visible des admin / manager / technicien du site (D15, D19) (165).';
+
+CREATE OR REPLACE FUNCTION public.dmbook_deposer(p_di_id uuid, p_action text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    IF p_action IN ('texte', 'statut') AND EXISTS (
+        SELECT 1 FROM public.dmbook_file f
+        WHERE f.di_id = p_di_id AND f.action = 'creer' AND f.fait_le IS NULL) THEN
+        RETURN;
+    END IF;
+    INSERT INTO public.dmbook_file (di_id, dmbook_id, action, site_id)
+    VALUES (p_di_id, (SELECT l.dmbook_id FROM public.dmbook_liens l WHERE l.di_id = p_di_id), p_action,
+            (SELECT d.site_id FROM public.demandes_intervention d WHERE d.id = p_di_id))
+    ON CONFLICT (di_id, action) WHERE fait_le IS NULL DO NOTHING;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.trg_dmbook_di()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_lien text;
+BEGIN
+    IF current_setting('dedale.synchro_dmbook', true) = 'on' THEN
+        RETURN coalesce(NEW, OLD);
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        IF NOT public.dmbook_site_lie(OLD.site_id) THEN RETURN OLD; END IF;
+        UPDATE public.dmbook_file SET fait_le = now(), issue = 'annule'
+        WHERE  di_id = OLD.id AND fait_le IS NULL;
+        SELECT l.dmbook_id INTO v_lien FROM public.dmbook_liens l WHERE l.di_id = OLD.id;
+        IF v_lien IS NOT NULL THEN
+            INSERT INTO public.dmbook_file (di_id, dmbook_id, action, site_id) VALUES (OLD.id, v_lien, 'supprimer', OLD.site_id);
+        END IF;
+        RETURN OLD;
+    END IF;
+
+    IF NOT public.dmbook_site_lie(NEW.site_id) THEN RETURN NEW; END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        PERFORM public.dmbook_deposer(NEW.id, 'creer');
+    ELSE
+        IF NEW.constat IS DISTINCT FROM OLD.constat THEN
+            PERFORM public.dmbook_deposer(NEW.id, 'texte');
+        END IF;
+        IF NEW.statut_di_id IS DISTINCT FROM OLD.statut_di_id THEN
+            PERFORM public.dmbook_deposer(NEW.id, 'statut');
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.trg_dmbook_di_localisation()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_di    uuid := coalesce(NEW.di_id, OLD.di_id);
+    v_local uuid := coalesce(NEW.local_id, OLD.local_id);
+    v_site  uuid;
+BEGIN
+    IF current_setting('dedale.synchro_dmbook', true) = 'on' THEN
+        RETURN NULL;
+    END IF;
+    SELECT d.site_id INTO v_site FROM public.demandes_intervention d WHERE d.id = v_di;
+    IF v_site IS NULL OR NOT public.dmbook_site_lie(v_site) THEN
+        RETURN NULL;
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.locaux l WHERE l.id = v_local AND l.nom ~ '^Chambre [0-9]{3}$') THEN
+        PERFORM public.dmbook_deposer(v_di, 'texte');
+    END IF;
+    UPDATE public.dmbook_liens SET lieu_manuel = EXISTS (
+        SELECT 1 FROM public.di_localisations x JOIN public.locaux l ON l.id = x.local_id
+        WHERE x.di_id = v_di AND l.nom !~ '^Chambre [0-9]{3}$')
+    WHERE di_id = v_di;
+    RETURN NULL;
+END;
+$function$;
+
+-- ─── 6. Écritures de la synchro ─────────────────────────────────────────────
+
+DROP FUNCTION IF EXISTS public.dmbook_creer_di(text, integer, text, integer, uuid[], timestamptz, bigint, text, text);
+
+CREATE OR REPLACE FUNCTION public.dmbook_creer_di(
+    p_site_id uuid, p_dmbook_id text, p_numero integer, p_auteur text, p_constat text, p_statut integer,
+    p_locaux uuid[], p_cree_le timestamptz,
+    p_ts bigint, p_empreinte_dmbook text, p_empreinte_dedale text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_compte uuid;
+    v_di     uuid;
+BEGIN
+    PERFORM set_config('dedale.synchro_dmbook', 'on', true);
+    SELECT regle_par INTO v_compte FROM public.dmbook_connexions WHERE site_id = p_site_id;
+    IF v_compte IS NULL THEN
+        RAISE EXCEPTION 'Synchro Dmbook : aucune connexion réglée pour ce site (signataire inconnu).';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.dmbook_liens WHERE dmbook_id = p_dmbook_id) THEN
+        RAISE EXCEPTION 'Synchro Dmbook : le ticket % est déjà lié.', p_dmbook_id;
+    END IF;
+
+    INSERT INTO public.demandes_intervention (site_id, created_by, constat, date_constat, created_at, statut_di_id)
+    VALUES (p_site_id, v_compte, p_constat,
+            coalesce((p_cree_le AT TIME ZONE 'Europe/Paris')::date, current_date),
+            coalesce(p_cree_le, now()), 1)
+    RETURNING id INTO v_di;
+
+    PERFORM public.dmbook_poser_lieux(v_di, coalesce(p_locaux, '{}'));
+    IF p_statut <> 1 THEN
+        PERFORM public.dmbook_poser_statut(v_di, p_statut, v_compte);
+    END IF;
+
+    INSERT INTO public.dmbook_liens (dmbook_id, numero, di_id, auteur, dmbook_ts, dmbook_empreinte, dedale_empreinte, synchro_le)
+    VALUES (p_dmbook_id, p_numero, v_di, nullif(trim(p_auteur), ''), p_ts, p_empreinte_dmbook, p_empreinte_dedale, now());
+    RETURN v_di;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.dmbook_maj_di(
+    p_di_id uuid, p_constat text, p_statut integer, p_locaux uuid[],
+    p_ts bigint, p_empreinte_dmbook text, p_empreinte_dedale text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_compte uuid;
+BEGIN
+    PERFORM set_config('dedale.synchro_dmbook', 'on', true);
+    SELECT c.regle_par INTO v_compte
+    FROM   public.demandes_intervention d JOIN public.dmbook_connexions c ON c.site_id = d.site_id
+    WHERE  d.id = p_di_id;
+    IF p_constat IS NOT NULL THEN
+        UPDATE public.demandes_intervention SET constat = p_constat
+        WHERE  id = p_di_id AND constat IS DISTINCT FROM p_constat;
+    END IF;
+    IF p_locaux IS NOT NULL THEN
+        PERFORM public.dmbook_poser_lieux(p_di_id, p_locaux);
+    END IF;
+    IF p_statut IS NOT NULL THEN
+        PERFORM public.dmbook_poser_statut(p_di_id, p_statut, v_compte);
+    END IF;
+    UPDATE public.dmbook_liens
+    SET    dmbook_ts = p_ts, dmbook_empreinte = p_empreinte_dmbook,
+           dedale_empreinte = p_empreinte_dedale, synchro_le = now(),
+           lieu_manuel = CASE WHEN p_locaux IS NULL THEN lieu_manuel ELSE false END
+    WHERE  di_id = p_di_id;
+END;
+$function$;
+
+COMMENT ON FUNCTION public.dmbook_creer_di(uuid, text, integer, text, text, integer, uuid[], timestamptz, bigint, text, text) IS
+    'Synchro Dmbook (165) : DI créée depuis un nouveau ticket du carnet du site, signée en arrière-plan par qui a réglé la connexion, auteur Dmbook gardé (D21).';
+
+-- ─── 7. Ce que l'application voit et peut faire ─────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.dmbook_peut_regler(p_site uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    SELECT (SELECT public.current_role()) IN ('admin', 'manager', 'technicien')
+       AND NOT (SELECT public.via_connecteur())
+       AND public.has_site_access(p_site)
+$function$;
+
+COMMENT ON FUNCTION public.dmbook_peut_regler(uuid) IS
+    'Synchro Dmbook (165) : admin / manager / technicien du site, depuis l''application (pas via Claude) (D19).';
+
+CREATE OR REPLACE FUNCTION public.dmbook_connexions_public()
+ RETURNS TABLE (
+    site_id uuid, site_nom text, adresse text, etat text, message text, boite_code text,
+    code_demande_le timestamptz, derniere_connexion timestamptz, dernier_passage timestamptz,
+    regle_par_nom text, regle_le timestamptz, identifiants_enregistres boolean
+ )
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+    SELECT c.site_id, s.nom, c.base || '/tickets/' || c.carnet, c.etat, c.message, c.boite_code,
+           c.code_demande_le, c.derniere_connexion, c.dernier_passage,
+           u.nom_complet, c.regle_le,
+           EXISTS (SELECT 1 FROM vault.secrets v WHERE v.name = 'dmbook_identifiants_' || c.site_id)
+    FROM   public.dmbook_connexions c
+    JOIN   public.sites s ON s.id = c.site_id
+    LEFT JOIN public.users u ON u.id = c.regle_par
+    WHERE  public.dmbook_peut_regler(c.site_id)
+$function$;
+
+COMMENT ON FUNCTION public.dmbook_connexions_public() IS
+    'Synchro Dmbook (165) : connexions des sites que je règle (D19). Ni identifiant en clair, ni mot de passe, ni session.';
+
+-- ─── 8. Fin de l'ancienne ligne unique ──────────────────────────────────────
+
+DROP POLICY IF EXISTS dmbook_file_select_ancienne ON public.dmbook_file;
+DROP FUNCTION IF EXISTS public.dmbook_etat_public();
+DROP FUNCTION IF EXISTS public.dmbook_session_lire();
+DROP FUNCTION IF EXISTS public.dmbook_session_ecrire(jsonb);
+DROP FUNCTION IF EXISTS public.dmbook_site_id();
+
+
+-- ─── 9. Droits d'exécution ──────────────────────────────────────────────────
+
+REVOKE ALL ON FUNCTION public.dmbook_nom_secret_valide(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_secret_lire(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_secret_ecrire(text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_verrou_prendre(uuid, integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_verrou_rendre(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_site_lie(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_deposer(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.trg_dmbook_di() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.trg_dmbook_di_localisation() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_creer_di(uuid, text, integer, text, text, integer, uuid[], timestamptz, bigint, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_maj_di(uuid, text, integer, uuid[], bigint, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.dmbook_peut_regler(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.dmbook_connexions_public() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.dmbook_nom_secret_valide(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_secret_lire(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_secret_ecrire(text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_verrou_prendre(uuid, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_verrou_rendre(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_site_lie(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_creer_di(uuid, text, integer, text, text, integer, uuid[], timestamptz, bigint, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_maj_di(uuid, text, integer, uuid[], bigint, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_peut_regler(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.dmbook_connexions_public() TO authenticated, service_role;
+
+-- =============================================================================
+-- 166 — Faire tourner la synchro Dmbook toute seule
+-- =============================================================================
+-- Symptôme corrigé : la synchro Dmbook ⇄ Dédale ne tournait que lancée à la main.
+-- Une demande modifiée dans Dédale restait en file, et Dmbook n'était pas relu.
+--
+-- Cause : rien n'appelait la fonction `dmbook-sync` (étape 7 du plan sync-dmbook).
+--
+-- Correctif :
+--   1. Extension pg_net (appels HTTP depuis la base, envoyés APRÈS validation de
+--      la transaction : une modification annulée ne réveille rien).
+--   2. `dmbook_appeler(site, corps)` : appelle `dmbook-sync` avec la clé de la
+--      tâche lue dans le coffre. La clé n'apparaît ni dans cron.job ni dans le code.
+--   3. Tâche pg_cron `dmbook_synchro` toutes les 5 min → `dmbook_tic()` : pour
+--      chaque site connecté (état « ok »), un passage toutes les 5 min de 7 h à
+--      19 h (heure de Paris), une fois par heure la nuit (D6). La fonction décide
+--      seule du tour complet horaire.
+--   4. Réveil immédiat (D6, « tout de suite ») : chaque nouvelle ligne de
+--      `dmbook_file` appelle le mode « envoi » pour son site. Plusieurs lignes
+--      d'une même transaction → un seul appel. Si un envoi tourne déjà, la fonction
+--      reprend la file avant de rendre la main.
+--   5. `dmbook_deposer` : une action déjà en attente est « rafraîchie » (cree_le
+--      = now()) au lieu d'être ignorée ; l'envoi ne clôt une ligne que si elle n'a
+--      pas bougé pendant qu'il l'écrivait (aucune modification perdue).
+--
+-- Ne fait PAS : ouvrir l'écriture à toutes les demandes (secret DMBOOK_ECRITURE,
+-- « test » aujourd'hui) ; toucher aux trois tâches pg_cron existantes.
+--
+-- Arrêt d'urgence : UPDATE public.dmbook_connexions SET etat = 'pause' WHERE site_id = …;
+-- (plus aucun appel pour ce site, ni tâche ni réveil), ou
+-- SELECT cron.unschedule('dmbook_synchro');
+--
+-- Innocuité : aucune DI modifiée. Les déclencheurs ne font qu'ajouter un appel
+-- en file pg_net ; une panne de la fonction n'empêche jamais d'enregistrer une
+-- demande dans Dédale.
+--
+-- Vérification après application :
+--     SELECT jobname, schedule, command FROM cron.job ORDER BY jobname;  -- 4 tâches, dmbook_synchro '*/5 * * * *'
+--     SELECT count(*) FROM pg_trigger WHERE tgname = 'trg_dmbook_file_reveil';  -- 1
+--     SELECT id, status_code, left(content, 200) FROM net._http_response ORDER BY id DESC LIMIT 5;
+-- =============================================================================
+
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+
+ALTER TABLE public.dmbook_connexions ADD COLUMN IF NOT EXISTS dernier_reveil timestamptz;
+COMMENT ON COLUMN public.dmbook_connexions.dernier_reveil IS
+    'Dernier réveil immédiat de la synchro par une action Dédale (166) : un appel par transaction.';
+
+-- ─── 1. Appel de la fonction ────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.dmbook_appeler(p_site uuid, p_corps jsonb)
+ RETURNS bigint
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_cle text;
+BEGIN
+    SELECT s.decrypted_secret INTO v_cle FROM vault.decrypted_secrets s WHERE s.name = 'dmbook_cle_tache';
+    IF v_cle IS NULL THEN
+        RETURN NULL;
+    END IF;
+    RETURN net.http_post(
+        url := 'https://ybxuojtyevldrbieaykh.supabase.co/functions/v1/dmbook-sync',
+        body := p_corps || jsonb_build_object('site_id', p_site, 'reel', true),
+        headers := jsonb_build_object('Content-Type', 'application/json', 'x-dmbook-cle', v_cle),
+        timeout_milliseconds := 150000);
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.dmbook_appeler(uuid, jsonb) FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION public.dmbook_appeler(uuid, jsonb) IS
+    'Synchro Dmbook (166) : appelle dmbook-sync pour un site, clé de la tâche lue dans le coffre. Réservé à la base.';
+
+-- ─── 2. Tâche planifiée ─────────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.dmbook_tic()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_heure integer := extract(hour FROM now() AT TIME ZONE 'Europe/Paris');
+    v_jour  boolean := v_heure >= 7 AND v_heure < 19;
+    v_n     integer := 0;
+    c       record;
+BEGIN
+    FOR c IN
+        SELECT site_id FROM public.dmbook_connexions
+        WHERE  etat = 'ok'
+          AND  (v_jour OR dernier_passage IS NULL OR dernier_passage < now() - interval '55 minutes')
+    LOOP
+        PERFORM public.dmbook_appeler(c.site_id, '{"mode":"passage"}'::jsonb);
+        v_n := v_n + 1;
+    END LOOP;
+    RETURN v_n;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.dmbook_tic() FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION public.dmbook_tic() IS
+    'Synchro Dmbook (166) : appelée par pg_cron toutes les 5 min ; un passage par site connecté, 1 par heure la nuit (D6).';
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'dmbook_synchro') THEN
+        PERFORM cron.unschedule('dmbook_synchro');
+    END IF;
+END $$;
+SELECT cron.schedule('dmbook_synchro', '*/5 * * * *', $$ SELECT public.dmbook_tic(); $$);
+
+-- ─── 3. Réveil immédiat sur action Dédale ───────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.trg_dmbook_file_reveil()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    IF NEW.site_id IS NULL OR NEW.fait_le IS NOT NULL THEN
+        RETURN NULL;
+    END IF;
+    -- now() = début de la transaction : plusieurs lignes d'une même action → un seul appel.
+    UPDATE public.dmbook_connexions SET dernier_reveil = now()
+    WHERE  site_id = NEW.site_id AND etat = 'ok'
+      AND  (dernier_reveil IS NULL OR dernier_reveil < now());
+    IF FOUND THEN
+        PERFORM public.dmbook_appeler(NEW.site_id, '{"mode":"envoi"}'::jsonb);
+    END IF;
+    RETURN NULL;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS trg_dmbook_file_reveil ON public.dmbook_file;
+CREATE TRIGGER trg_dmbook_file_reveil
+    AFTER INSERT OR UPDATE OF cree_le ON public.dmbook_file
+    FOR EACH ROW EXECUTE FUNCTION public.trg_dmbook_file_reveil();
+REVOKE ALL ON FUNCTION public.trg_dmbook_file_reveil() FROM PUBLIC, anon, authenticated;
+
+-- ─── 4. Action déjà en attente : rafraîchie, pas ignorée ────────────────────
+
+CREATE OR REPLACE FUNCTION public.dmbook_deposer(p_di_id uuid, p_action text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+    IF p_action IN ('texte', 'statut') THEN
+        -- Une création pas encore partie enverra l'état complet ; si elle part en ce
+        -- moment même, la date qui bouge lui dit de renvoyer la suite (166).
+        UPDATE public.dmbook_file SET cree_le = now()
+        WHERE  di_id = p_di_id AND action = 'creer' AND fait_le IS NULL;
+        IF FOUND THEN
+            RETURN;
+        END IF;
+    END IF;
+    INSERT INTO public.dmbook_file (di_id, dmbook_id, action, site_id)
+    VALUES (p_di_id, (SELECT l.dmbook_id FROM public.dmbook_liens l WHERE l.di_id = p_di_id), p_action,
+            (SELECT d.site_id FROM public.demandes_intervention d WHERE d.id = p_di_id))
+    -- Déjà en attente : la date bouge, l'envoi en cours saura qu'il doit renvoyer (166).
+    ON CONFLICT (di_id, action) WHERE fait_le IS NULL DO UPDATE SET cree_le = now();
+END;
+$function$;

@@ -11,7 +11,7 @@ const locaux = new Locaux([
   { id: 'club', nom: 'Club', niveau: 'RDC' },
 ])
 const fiche = (texte: string, statut: TicketDetail['statut'] = 'ouvert'): TicketDetail =>
-  ({ id: '10', numero: 7040, texte, statut, creeLe: '21 nov. 2026 à 09:05' })
+  ({ id: '10', numero: 7040, texte, statut, creeLe: '21 nov. 2026 à 09:05', auteur: 'Jean Test' })
 const lien = async (texte: string, statut = 'ouvert', autre: Partial<Lien> = {}): Promise<Lien> =>
   ({ dmbook_id: '10', numero: 7040, di_id: 'd1', dmbook_ts: 100, dmbook_empreinte: await empreinteDmbook(texte, statut), lieu_manuel: false, ...autre })
 const di = (autre: Partial<DiActuelle> = {}): DiActuelle =>
@@ -21,7 +21,7 @@ Deno.test('nouveau ticket : DI à créer, chambre lue en tête, date de Paris', 
   const d = await decider(fiche('#114 Fuite lavabo'), 200, undefined, undefined, locaux)
   assertEquals(d.type, 'creer')
   if (d.type !== 'creer') return
-  assertEquals([d.constat, d.lieux, d.statut, d.cree_le], ['Fuite lavabo', ['c114'], 1, '2026-11-21 09:05:00 Europe/Paris'])
+  assertEquals([d.constat, d.lieux, d.statut, d.cree_le, d.auteur], ['Fuite lavabo', ['c114'], 1, '2026-11-21 09:05:00 Europe/Paris', 'Jean Test'])
 })
 
 Deno.test('activité sans changement (commentaire) : on note seulement la date (D12)', async () => {

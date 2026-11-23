@@ -75,6 +75,8 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
     () => users.find((u) => u.id === demande.created_by)?.nom_complet ?? null,
     [users, demande.created_by],
   )
+  // DI venue de Dmbook : auteur tel qu'écrit dans Dmbook (D21) et numéro discret (D16).
+  const { data: lienDmbook } = useQuery(demandesQueries.lienDmbook(demande.id))
   const enCharge = usePrendreEnCharge()
   const reopen = useReopenDemande()
   const del = useDeleteDemande()
@@ -117,7 +119,7 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
     <PageContainer className="flex flex-col">
       <PageHeader
         title={diTitre(demande.constat)}
-        description={`Constaté le ${formatDate(demande.date_constat)}`}
+        description={`Constaté le ${formatDate(demande.date_constat)}${lienDmbook?.numero ? ` · Dmbook #${String(lienDmbook.numero)}` : ''}`}
         breadcrumb={[
           {
             label: "Demandes d'intervention",
@@ -188,7 +190,9 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
         columns={2}
         fallbackIcon={MessageSquareWarning}
         fields={[
-          { label: 'Signalé par', value: createur ?? null },
+          lienDmbook?.auteur
+            ? { label: 'Signalé dans Dmbook par', value: lienDmbook.auteur }
+            : { label: 'Signalé par', value: createur ?? null },
           {
             label: 'Date de constat',
             value: formatDateLong(demande.date_constat),

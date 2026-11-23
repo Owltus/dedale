@@ -29,7 +29,7 @@ export type Rapport = {
   lus: number
   fiches: number
   reportees: number
-  decisions: { creer: number; maj: number; ts: number; supprimer: number; ignorer: number; conflits: number }
+  decisions: { creer: number; maj: number; ts: number; supprimer: number; ignorer: number; conflits: number; auteurs: number }
   details: string[]
   pause?: string
   requetes: number
@@ -47,7 +47,7 @@ async function toutLire<T>(q: () => { range: (de: number, a: number) => Page }, 
   }
 }
 
-async function chargerLocaux(sb: SupabaseClient, site: string): Promise<Locaux> {
+export async function chargerLocaux(sb: SupabaseClient, site: string): Promise<Locaux> {
   type L = { id: string; nom: string; niveaux: { nom: string } }
   const l = await toutLire<L>(() =>
     sb.from('locaux').select('id, nom, niveaux!inner(nom, batiments!inner(site_id))').eq('niveaux.batiments.site_id', site).order('id'))
@@ -74,12 +74,12 @@ async function chargerDi(sb: SupabaseClient, ids: string[], attente: Map<string,
 export async function passage(sb: SupabaseClient, dm: Dmbook, site: string, opts: { reel: boolean; complet: boolean }): Promise<Rapport> {
   const r: Rapport = {
     mode: opts.reel ? 'reel' : 'a_blanc', tour_complet: opts.complet, lus: 0, fiches: 0, reportees: 0,
-    decisions: { creer: 0, maj: 0, ts: 0, supprimer: 0, ignorer: 0, conflits: 0 }, details: [], requetes: 0,
+    decisions: { creer: 0, maj: 0, ts: 0, supprimer: 0, ignorer: 0, conflits: 0, auteurs: 0 }, details: [], requetes: 0,
   }
 
   // ── Ce que Dédale sait déjà ──
   const liens = new Map((await toutLire<Lien>(() =>
-    sb.from('dmbook_liens').select('dmbook_id, numero, di_id, dmbook_ts, dmbook_empreinte, lieu_manuel').order('dmbook_id'))).map((l) => [l.dmbook_id, l]))
+    sb.from('dmbook_liens').select('dmbook_id, numero, di_id, dmbook_ts, dmbook_empreinte, lieu_manuel, auteur').order('dmbook_id'))).map((l) => [l.dmbook_id, l]))
   const attente = new Map<string, string[]>()
   for (const f of await toutLire<{ di_id: string; action: string }>(() =>
     sb.from('dmbook_file').select('di_id, action').is('fait_le', null).order('id')))
@@ -157,13 +157,20 @@ export async function passage(sb: SupabaseClient, dm: Dmbook, site: string, opts
   for (const s of suppressions) r.details.push(`#${liens.get(s.dmbook_id)?.numero ?? s.dmbook_id} : supprimé dans Dmbook (page introuvable) → DI à supprimer`)
   if (suppressions.length > SUPPRESSIONS_MAX) r.pause = `${suppressions.length} tickets disparus d'un coup : synchro mise en pause, rien n'est supprimé.`
   r.requetes = dm.requetes
+  // Auteur Dmbook encore inconnu sur un lien (D21) : lu dans la liste, sans ouvrir de fiche.
+  // '' = demande née dans Dédale (envoyer.ts) : on n'y met jamais d'auteur Dmbook.
+  const auteurs = [...vus.values()].filter((x) => x.auteur && liens.has(x.id) && liens.get(x.id)!.auteur == null).slice(0, 50)
+  r.decisions.auteurs = auteurs.length
 
   if (!opts.reel || r.pause) return r
+
+  for (const x of auteurs) await sb.from('dmbook_liens').update({ auteur: x.auteur }).eq('dmbook_id', x.id)
 
   // ── Écriture réelle (anti-écho posé par les fonctions SQL) ──
   for (const d of decisions) {
     if (d.type === 'creer') {
       const { error } = await sb.rpc('dmbook_creer_di', {
+        p_site_id: site, p_auteur: d.auteur,
         p_dmbook_id: d.dmbook_id, p_numero: d.numero, p_constat: d.constat, p_statut: d.statut, p_locaux: d.lieux,
         p_cree_le: d.cree_le, p_ts: d.ts, p_empreinte_dmbook: d.eDm, p_empreinte_dedale: d.eDe,
       })

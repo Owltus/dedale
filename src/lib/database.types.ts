@@ -549,6 +549,194 @@ export type Database = {
           },
         ]
       }
+      dmbook_connexions: {
+        Row: {
+          base: string
+          boite_code: string | null
+          carnet: string
+          code_demande_le: string | null
+          dernier_passage: string | null
+          dernier_passage_complet: string | null
+          dernier_reveil: string | null
+          derniere_connexion: string | null
+          etat: string
+          maj_le: string
+          message: string | null
+          regle_le: string | null
+          regle_par: string | null
+          site_id: string
+          verrou_jusqu_a: string | null
+        }
+        Insert: {
+          base: string
+          boite_code?: string | null
+          carnet: string
+          code_demande_le?: string | null
+          dernier_passage?: string | null
+          dernier_passage_complet?: string | null
+          dernier_reveil?: string | null
+          derniere_connexion?: string | null
+          etat?: string
+          maj_le?: string
+          message?: string | null
+          regle_le?: string | null
+          regle_par?: string | null
+          site_id: string
+          verrou_jusqu_a?: string | null
+        }
+        Update: {
+          base?: string
+          boite_code?: string | null
+          carnet?: string
+          code_demande_le?: string | null
+          dernier_passage?: string | null
+          dernier_passage_complet?: string | null
+          dernier_reveil?: string | null
+          derniere_connexion?: string | null
+          etat?: string
+          maj_le?: string
+          message?: string | null
+          regle_le?: string | null
+          regle_par?: string | null
+          site_id?: string
+          verrou_jusqu_a?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dmbook_connexions_regle_par_fkey"
+            columns: ["regle_par"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dmbook_connexions_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: true
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dmbook_connexions_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: true
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["site_id"]
+          },
+          {
+            foreignKeyName: "dmbook_connexions_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: true
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["site_id"]
+          },
+        ]
+      }
+      dmbook_file: {
+        Row: {
+          action: string
+          cree_le: string
+          di_id: string | null
+          dmbook_id: string | null
+          erreur: string | null
+          fait_le: string | null
+          id: number
+          issue: string | null
+          site_id: string | null
+          tentatives: number
+        }
+        Insert: {
+          action: string
+          cree_le?: string
+          di_id?: string | null
+          dmbook_id?: string | null
+          erreur?: string | null
+          fait_le?: string | null
+          id?: never
+          issue?: string | null
+          site_id?: string | null
+          tentatives?: number
+        }
+        Update: {
+          action?: string
+          cree_le?: string
+          di_id?: string | null
+          dmbook_id?: string | null
+          erreur?: string | null
+          fait_le?: string | null
+          id?: never
+          issue?: string | null
+          site_id?: string | null
+          tentatives?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dmbook_file_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dmbook_file_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["site_id"]
+          },
+          {
+            foreignKeyName: "dmbook_file_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["site_id"]
+          },
+        ]
+      }
+      dmbook_liens: {
+        Row: {
+          auteur: string | null
+          dedale_empreinte: string | null
+          di_id: string | null
+          dmbook_empreinte: string | null
+          dmbook_id: string
+          dmbook_ts: number | null
+          lieu_manuel: boolean
+          numero: number | null
+          synchro_le: string | null
+        }
+        Insert: {
+          auteur?: string | null
+          dedale_empreinte?: string | null
+          di_id?: string | null
+          dmbook_empreinte?: string | null
+          dmbook_id: string
+          dmbook_ts?: number | null
+          lieu_manuel?: boolean
+          numero?: number | null
+          synchro_le?: string | null
+        }
+        Update: {
+          auteur?: string | null
+          dedale_empreinte?: string | null
+          di_id?: string | null
+          dmbook_empreinte?: string | null
+          dmbook_id?: string
+          dmbook_ts?: number | null
+          lieu_manuel?: boolean
+          numero?: number | null
+          synchro_le?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dmbook_liens_di_id_fkey"
+            columns: ["di_id"]
+            isOneToOne: true
+            referencedRelation: "demandes_intervention"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_chapitres: {
         Row: {
           created_at: string
@@ -4190,19 +4378,6 @@ export type Database = {
         Returns: undefined
       }
       detect_security_anomalies: { Args: never; Returns: undefined }
-      dmbook_etat_public: {
-        Args: never
-        Returns: {
-          boite_code: string | null
-          code_demande_le: string | null
-          dernier_passage: string | null
-          derniere_connexion: string | null
-          etat: string
-          maj_le: string
-          message: string | null
-          site_id: string
-        }[]
-      }
       di_code_confirmation: {
         Args: {
           p_demande: Json
@@ -4242,6 +4417,82 @@ export type Database = {
         Args: { p_equipement_ids: string[]; p_local_id: string }
         Returns: string
       }
+      dmbook_appeler: {
+        Args: { p_corps: Json; p_site: string }
+        Returns: number
+      }
+      dmbook_connexions_public: {
+        Args: never
+        Returns: {
+          adresse: string
+          boite_code: string
+          code_demande_le: string
+          dernier_passage: string
+          derniere_connexion: string
+          etat: string
+          identifiants_enregistres: boolean
+          message: string
+          regle_le: string
+          regle_par_nom: string
+          site_id: string
+          site_nom: string
+        }[]
+      }
+      dmbook_creer_di: {
+        Args: {
+          p_auteur: string
+          p_constat: string
+          p_cree_le: string
+          p_dmbook_id: string
+          p_empreinte_dedale: string
+          p_empreinte_dmbook: string
+          p_locaux: string[]
+          p_numero: number
+          p_site_id: string
+          p_statut: number
+          p_ts: number
+        }
+        Returns: string
+      }
+      dmbook_deposer: {
+        Args: { p_action: string; p_di_id: string }
+        Returns: undefined
+      }
+      dmbook_maj_di: {
+        Args: {
+          p_constat: string
+          p_di_id: string
+          p_empreinte_dedale: string
+          p_empreinte_dmbook: string
+          p_locaux: string[]
+          p_statut: number
+          p_ts: number
+        }
+        Returns: undefined
+      }
+      dmbook_nom_secret_valide: { Args: { p_nom: string }; Returns: boolean }
+      dmbook_peut_regler: { Args: { p_site: string }; Returns: boolean }
+      dmbook_poser_lieux: {
+        Args: { p_di_id: string; p_locaux: string[] }
+        Returns: undefined
+      }
+      dmbook_poser_statut: {
+        Args: { p_compte: string; p_di_id: string; p_statut: number }
+        Returns: undefined
+      }
+      dmbook_secret_ecrire: {
+        Args: { p_nom: string; p_valeur: string }
+        Returns: undefined
+      }
+      dmbook_secret_lire: { Args: { p_nom: string }; Returns: string }
+      dmbook_site_lie: { Args: { p_site: string }; Returns: boolean }
+      dmbook_supprimer_di: { Args: { p_dmbook_id: string }; Returns: undefined }
+      dmbook_tic: { Args: never; Returns: number }
+      dmbook_verrou_prendre: {
+        Args: { p_secondes: number; p_site: string }
+        Returns: boolean
+      }
+      dmbook_verrou_rendre: { Args: { p_site: string }; Returns: undefined }
       equipements_attendus: {
         Args: { p_gamme_id: string }
         Returns: {

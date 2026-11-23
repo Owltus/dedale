@@ -668,10 +668,11 @@
         }
       }
     },
-    "dmbook_etat": {
+    "dmbook_connexions": {
       "checks": {
-        "dmbook_etat_etat_valide": "CHECK ((etat = ANY (ARRAY['jamais_connecte'::text, 'ok'::text, 'code_requis'::text, 'pause'::text, 'erreur'::text])))",
-        "dmbook_etat_id_check": "CHECK (id)"
+        "dmbook_connexions_base_valide": "CHECK ((base ~ '^https://[a-z0-9-]+\\.dmbook\\.pro$'::text))",
+        "dmbook_connexions_carnet_valide": "CHECK ((carnet ~ '^[0-9]{1,12}$'::text))",
+        "dmbook_connexions_etat_valide": "CHECK ((etat = ANY (ARRAY['jamais_connecte'::text, 'ok'::text, 'code_requis'::text, 'pause'::text, 'erreur'::text])))"
       },
       "colonnes": {
         "base": {
@@ -698,14 +699,6 @@
           "precision": null,
           "type": "text"
         },
-        "cle_tache": {
-          "aUnDefaut": false,
-          "echelle": null,
-          "longueurMax": null,
-          "nullable": true,
-          "precision": null,
-          "type": "text"
-        },
         "code_demande_le": {
           "aUnDefaut": false,
           "echelle": null,
@@ -713,14 +706,6 @@
           "nullable": true,
           "precision": null,
           "type": "timestamp with time zone"
-        },
-        "compte_id": {
-          "aUnDefaut": false,
-          "echelle": null,
-          "longueurMax": null,
-          "nullable": true,
-          "precision": null,
-          "type": "uuid"
         },
         "dernier_passage": {
           "aUnDefaut": false,
@@ -731,6 +716,14 @@
           "type": "timestamp with time zone"
         },
         "dernier_passage_complet": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "dernier_reveil": {
           "aUnDefaut": false,
           "echelle": null,
           "longueurMax": null,
@@ -754,14 +747,6 @@
           "precision": null,
           "type": "text"
         },
-        "id": {
-          "aUnDefaut": true,
-          "echelle": null,
-          "longueurMax": null,
-          "nullable": false,
-          "precision": null,
-          "type": "boolean"
-        },
         "maj_le": {
           "aUnDefaut": true,
           "echelle": null,
@@ -777,6 +762,22 @@
           "nullable": true,
           "precision": null,
           "type": "text"
+        },
+        "regle_le": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "timestamp with time zone"
+        },
+        "regle_par": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
         },
         "site_id": {
           "aUnDefaut": false,
@@ -866,6 +867,14 @@
           "precision": null,
           "type": "text"
         },
+        "site_id": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
         "tentatives": {
           "aUnDefaut": true,
           "echelle": 0,
@@ -879,6 +888,14 @@
     "dmbook_liens": {
       "checks": {},
       "colonnes": {
+        "auteur": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "text"
+        },
         "dedale_empreinte": {
           "aUnDefaut": false,
           "echelle": null,

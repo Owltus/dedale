@@ -3,19 +3,19 @@ import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
 
 /**
- * État de la connexion Dédale → Dmbook (migration 163), via `dmbook_etat_public()`.
- * La base ne répond qu'aux admin / manager / technicien du site lié (D15) : pour
- * les autres, la réponse est vide et rien ne s'affiche. Ni session, ni adresse
- * Dmbook, ni code ne passent par ici.
+ * Connexions Dmbook des sites que la personne peut régler (migration 165, D18-D19),
+ * via `dmbook_connexions_public()`. La base ne répond qu'aux admin / manager /
+ * technicien du site : pour les autres, la liste est vide. Ni identifiant en
+ * clair, ni mot de passe, ni session ne passent par ici.
  */
 export const dmbookQueries = {
-  etat: () =>
+  connexions: () =>
     queryOptions({
-      queryKey: ['dmbook', 'etat'],
+      queryKey: ['dmbook', 'connexions'],
       queryFn: async () => {
-        const { data, error } = await supabase.rpc('dmbook_etat_public')
+        const { data, error } = await supabase.rpc('dmbook_connexions_public')
         if (error) throw error
-        return data[0] ?? null
+        return data
       },
       // Le serveur change l'état seul (code demandé, session expirée) : on relit.
       refetchInterval: 30_000,
@@ -23,5 +23,5 @@ export const dmbookQueries = {
     }),
 }
 
-export type EtatDmbook =
-  Database['public']['Functions']['dmbook_etat_public']['Returns'][number]
+export type ConnexionDmbook =
+  Database['public']['Functions']['dmbook_connexions_public']['Returns'][number]

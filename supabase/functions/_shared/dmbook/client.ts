@@ -48,6 +48,8 @@ export type TicketDetail = {
   texte: string
   statut: Statut | null
   creeLe: string | null
+  /** Auteur tel qu'écrit dans Dmbook (« Jean Dupont »), sans son identifiant de connexion (D21). */
+  auteur: string | null
 }
 
 export class SessionExpiree extends Error {
@@ -384,7 +386,17 @@ export function lireListe(html: string): { total: number; tickets: TicketResume[
   return { total, tickets }
 }
 
-export type TicketLeger = Omit<TicketResume, 'titre' | 'creeLe'>
+export type TicketLeger = Omit<TicketResume, 'titre' | 'creeLe'> & { auteur: string | null }
+
+/** Entités HTML courantes d'un attribut (« &#039; », « &amp; »), sans DOM. */
+const entites = (s: string) =>
+  s.replace(/&#0*39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+
+/** « Jean DUPONT (jdupont) » → « Jean DUPONT » : on garde le nom, pas l'identifiant de connexion. */
+export const nomAuteur = (s: string | null | undefined) => {
+  const n = (s ?? '').replace(/\s*\([^()]*\)\s*$/, '').replace(/\s+/g, ' ').trim()
+  return n || null
+}
 
 /**
  * Lecture LÉGÈRE d'une page de liste, sans construire de DOM : identifiant,
@@ -402,6 +414,7 @@ export function lireListeLegere(html: string): { total: number; tickets: TicketL
       modifieLe: Number(m.match(/\bdata-ts="(\d+)"/)?.[1] ?? 0),
       numero: meta ? Number(meta[1]) : null,
       statut: STATUT_PAR_LIBELLE[meta?.[2].trim() ?? ''] ?? null,
+      auteur: nomAuteur(entites(m.match(/class="author"[^>]*\btitle="([^"]*)"/)?.[1] ?? '')),
     }
   })
   if (tickets.some((t) => !t.id || !t.modifieLe)) throw new Error('Page de liste Dmbook illisible (format inattendu).')
@@ -433,6 +446,7 @@ export function lireFiche(id: string, html: string): TicketDetail {
     texte,
     statut: Object.entries(STATUT_PAR_CLASSE).find(([c]) => classe.includes(c))?.[1] ?? null,
     creeLe: blocs.find((b) => b.startsWith('Date de création'))?.replace('Date de création ', '') ?? null,
+    auteur: nomAuteur(txt(d.querySelector('.ticket-author'))),
   }
 }
 

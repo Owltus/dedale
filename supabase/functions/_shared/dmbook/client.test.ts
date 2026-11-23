@@ -43,7 +43,14 @@ Deno.test('liste légère (sans DOM) : mêmes identifiants, activité, numéros 
   const complete = lireListe(LISTE)
   const legere = lireListeLegere(LISTE)
   assertEquals(legere.total, 2)
-  assertEquals(legere.tickets, complete.tickets.map(({ id, modifieLe, numero, statut }) => ({ id, modifieLe, numero, statut })))
+  assertEquals(legere.tickets.map(({ auteur: _a, ...t }) => t), complete.tickets.map(({ id, modifieLe, numero, statut }) => ({ id, modifieLe, numero, statut })))
+})
+
+Deno.test('auteur Dmbook (D21) : nom tel qu’écrit, sans l’identifiant de connexion', () => {
+  const ligneAuteur = `<tr class="entry ticket" data-id="12" data-ts="5"><td><span class="content">x <span class="author" title="Jean D&#039;Arc"> —&nbsp;jdarc</span></span><span class="meta">#7 - Ouvert - Hier</span></td></tr>`
+  assertEquals(lireListeLegere(`Total : <strong>1</strong>${ligneAuteur}`).tickets[0].auteur, "Jean D'Arc")
+  const f = lireFiche('10', fiche('10', 'x', 'y').replace('</body>', '<li class="ticket-author"><i></i> Marc TESTEUR (MarcT) </li></body>'))
+  assertEquals(f.auteur, 'Marc TESTEUR')
 })
 
 Deno.test('fiche d\'une ligne : le titre (copie retouchée) est ignoré, bouton Éditer exclu', () => {

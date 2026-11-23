@@ -23,6 +23,7 @@ export type Lien = {
   dmbook_ts: number
   dmbook_empreinte: string | null
   lieu_manuel: boolean
+  auteur?: string | null
 }
 
 export type DiActuelle = {
@@ -35,7 +36,7 @@ export type DiActuelle = {
 }
 
 export type Decision =
-  | { type: 'creer'; dmbook_id: string; numero: number | null; constat: string; statut: number; lieux: string[]; source: string; cree_le: string | null; ts: number; eDm: string; eDe: string }
+  | { type: 'creer'; dmbook_id: string; numero: number | null; auteur: string | null; constat: string; statut: number; lieux: string[]; source: string; cree_le: string | null; ts: number; eDm: string; eDe: string }
   | { type: 'ts'; dmbook_id: string; di_id: string; ts: number }
   | {
       type: 'maj'; dmbook_id: string; di_id: string; ts: number; eDm: string; eDe: string
@@ -76,7 +77,7 @@ export async function decider(
   if (!lien) {
     const a = analyser(t.texte, locaux)
     return {
-      type: 'creer', dmbook_id: t.id, numero: t.numero, constat: a.constat, statut, lieux: a.lieux, source: a.source,
+      type: 'creer', dmbook_id: t.id, numero: t.numero, auteur: t.auteur, constat: a.constat, statut, lieux: a.lieux, source: a.source,
       cree_le: dateDmbook(t.creeLe), ts, eDm, eDe: await empreinteDedale(a.constat, a.chambres, statut),
     }
   }
