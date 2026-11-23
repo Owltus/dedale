@@ -12,7 +12,7 @@
 // Rôle de la fonction :
 //   1. Authentifie l'appelant via son JWT (header Authorization).
 //   2. Vérifie qu'il a le droit de créer le rôle demandé (cascade).
-//   3. Valide le mot de passe (voir piège 3 ci-dessous).
+//   3. Valide le mot de passe (piège 3 ci-dessous, _shared/mot-de-passe.ts).
 //   4. Crée le compte via auth.admin.createUser, en posant les métadonnées dans
 //      user_metadata. Le trigger handle_new_auth_user crée alors public.users +
 //      user_sites et re-valide la cascade côté base (défense en profondeur).
@@ -40,13 +40,15 @@
 // 3. GoTrue NE VALIDE PAS le mot de passe à la création. Son contrôle de
 //    robustesse n'est appelé qu'à la modification, jamais dans adminUserCreate.
 //    La politique de mot de passe du projet Supabase est donc SANS EFFET ici :
-//    c'est `parseBody` ci-dessous qui fait autorité. Sans elle, un compte au mot
-//    de passe « a » serait accepté — et se verrait refuser la connexion plus
-//    tard si la politique projet était durcie.
+//    c'est `parseBody` ci-dessous, avec les règles de `_shared/mot-de-passe.ts`,
+//    qui fait autorité. Sans elle, un compte au mot de passe « a » serait
+//    accepté — et se verrait refuser la connexion plus tard si la politique
+//    projet était durcie.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { jetonDeConnecteur, REFUS_CONNECTEUR } from '../_shared/connecteur.ts'
 import { CORS_HEADERS, json } from '../_shared/http.ts'
+import { erreurMotDePasse } from '../_shared/mot-de-passe.ts'
 
 const ROLES_VALIDES = [
   'admin',
@@ -79,40 +81,6 @@ interface InviteBody {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-// ─── Règles de mot de passe ─────────────────────────────────────────────────
-// MIROIR EXACT de PASSWORD_REGLES (src/features/utilisateurs/schemas.ts). Les
-// deux listes doivent rester alignées : le front guide la saisie, celle-ci
-// décide. Voir le piège 3 en tête de fichier.
-const PASSWORD_REGLES: ReadonlyArray<{ libelle: string; test: RegExp | null }> =
-  [
-    { libelle: 'une majuscule', test: /[A-ZÀ-Ý]/ },
-    { libelle: 'une minuscule', test: /[a-zà-ÿ]/ },
-    { libelle: 'un chiffre', test: /[0-9]/ },
-    { libelle: 'un caractère spécial', test: /[^A-Za-zÀ-ÿ0-9]/ },
-  ]
-
-const PASSWORD_MIN = 12
-// En OCTETS et non en caractères : bcrypt tronque au-delà de 72 octets, et un
-// mot de passe d'emoji atteint la limite dès 18 caractères.
-const PASSWORD_OCTETS_MAX = 72
-
-/** Message d'erreur si le mot de passe est refusé, `null` s'il est accepté. */
-function erreurMotDePasse(v: string): string | null {
-  if (v.length < PASSWORD_MIN) {
-    return `Le mot de passe doit faire au moins ${String(PASSWORD_MIN)} caractères.`
-  }
-  if (new TextEncoder().encode(v).length > PASSWORD_OCTETS_MAX) {
-    return `Mot de passe trop long (${String(PASSWORD_OCTETS_MAX)} octets au maximum).`
-  }
-  const manquantes = PASSWORD_REGLES.filter(
-    (r) => r.test !== null && !r.test.test(v),
-  ).map((r) => r.libelle)
-  if (manquantes.length > 0) {
-    return `Le mot de passe doit contenir ${manquantes.join(', ')}.`
-  }
-  return null
-}
 
 // Valide et normalise le corps de la requête. Renvoie un message d'erreur
 // (string) si invalide, sinon les valeurs nettoyées.
