@@ -7,49 +7,17 @@
 //   { user_id, email }   → mise à jour de l'e-mail (confirmé d'office).
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { jetonDeConnecteur, REFUS_CONNECTEUR } from '../_shared/connecteur.ts'
-import { CORS_HEADERS, json } from '../_shared/http.ts'
+import { json, lireAppel } from '../_shared/http.ts'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS_HEADERS })
-  }
-  if (req.method !== 'POST') {
-    return json({ error: 'Méthode non autorisée.' }, 405)
-  }
-
-  const url = Deno.env.get('SUPABASE_URL')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
-  if (!url || !serviceRoleKey || !anonKey) {
-    return json({ error: 'Configuration serveur incomplète.' }, 500)
-  }
-
-  const token = (req.headers.get('Authorization') ?? '')
-    .replace(/^Bearer\s+/i, '')
-    .trim()
-  if (!token) {
-    return json({ error: 'Authentification requise.' }, 401)
-  }
-  // 162 : jamais depuis le connecteur Claude (clé de service = hors RLS et hors garde).
-  if (jetonDeConnecteur(token)) {
-    return json({ error: REFUS_CONNECTEUR }, 403)
-  }
-
-  let raw: unknown
-  try {
-    raw = await req.json()
-  } catch {
-    return json({ error: 'Corps de requête JSON invalide.' }, 400)
-  }
-  if (typeof raw !== 'object' || raw === null) {
-    return json({ error: 'Corps de requête JSON attendu.' }, 400)
-  }
-  const b = raw as Record<string, unknown>
+  // Préflight, méthode, configuration, jeton, connecteur et corps JSON.
+  const appel = await lireAppel(req)
+  if (appel instanceof Response) return appel
+  const { token, corps: b, url, anonKey, serviceRoleKey } = appel
 
   const userId = typeof b.user_id === 'string' ? b.user_id.trim() : ''
   if (!UUID_RE.test(userId)) {

@@ -46,8 +46,7 @@
 //    projet était durcie.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { jetonDeConnecteur, REFUS_CONNECTEUR } from '../_shared/connecteur.ts'
-import { CORS_HEADERS, json } from '../_shared/http.ts'
+import { json, lireAppel } from '../_shared/http.ts'
 import { erreurMotDePasse } from '../_shared/mot-de-passe.ts'
 
 const ROLES_VALIDES = [
@@ -84,14 +83,10 @@ const UUID_RE =
 
 // Valide et normalise le corps de la requête. Renvoie un message d'erreur
 // (string) si invalide, sinon les valeurs nettoyées.
+// Le contrôle « objet JSON » est déjà fait par `lireAppel`.
 function parseBody(
-  raw: unknown,
+  b: Record<string, unknown>,
 ): { error: string } | { value: InviteBody } {
-  if (typeof raw !== 'object' || raw === null) {
-    return { error: 'Corps de requête JSON attendu.' }
-  }
-  const b = raw as Record<string, unknown>
-
   const email = typeof b.email === 'string' ? b.email.trim().toLowerCase() : ''
   if (!EMAIL_RE.test(email)) {
     return { error: 'Adresse e-mail invalide.' }
@@ -139,42 +134,13 @@ function parseBody(
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  // (a) Préflight CORS.
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS_HEADERS })
-  }
+  // (a) Préflight CORS, méthode, configuration, (b) JWT de l'appelant,
+  // connecteur et corps JSON (objet attendu).
+  const appel = await lireAppel(req)
+  if (appel instanceof Response) return appel
+  const { token, corps, url, anonKey, serviceRoleKey } = appel
 
-  if (req.method !== 'POST') {
-    return json({ error: 'Méthode non autorisée.' }, 405)
-  }
-
-  const url = Deno.env.get('SUPABASE_URL')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
-  if (!url || !serviceRoleKey || !anonKey) {
-    // Mauvaise configuration serveur — ne JAMAIS détailler quelles clés manquent.
-    return json({ error: 'Configuration serveur incomplète.' }, 500)
-  }
-
-  // (b) JWT de l'appelant.
-  const authHeader = req.headers.get('Authorization') ?? ''
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
-  if (!token) {
-    return json({ error: 'Authentification requise.' }, 401)
-  }
-  // 162 : jamais depuis le connecteur Claude (clé de service = hors RLS et hors garde).
-  if (jetonDeConnecteur(token)) {
-    return json({ error: REFUS_CONNECTEUR }, 403)
-  }
-
-  // Corps JSON.
-  let rawBody: unknown
-  try {
-    rawBody = await req.json()
-  } catch {
-    return json({ error: 'Corps de requête JSON invalide.' }, 400)
-  }
-  const parsed = parseBody(rawBody)
+  const parsed = parseBody(corps)
   if ('error' in parsed) {
     return json({ error: parsed.error }, 400)
   }
