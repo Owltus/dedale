@@ -46,6 +46,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { jetonDeConnecteur, REFUS_CONNECTEUR } from '../_shared/connecteur.ts'
+import { CORS_HEADERS, json } from '../_shared/http.ts'
 
 const ROLES_VALIDES = [
   'admin',
@@ -65,20 +66,6 @@ const CASCADE: Record<RoleCode, ReadonlyArray<RoleCode>> = {
   technicien: ['lecteur', 'demandeur'],
   lecteur: [],
   demandeur: [],
-}
-
-const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-  })
 }
 
 interface InviteBody {

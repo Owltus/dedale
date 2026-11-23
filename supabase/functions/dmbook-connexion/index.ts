@@ -19,18 +19,10 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { jetonDeConnecteur, REFUS_CONNECTEUR } from '../_shared/connecteur.ts'
+import { CORS_HEADERS as CORS, json } from '../_shared/http.ts'
 import {
   clientServeur, enregistrer, ErreurSaisie, lireConnexion, prendreVerrou, raison, rendreVerrou, seConnecter, validerCode,
 } from '../_shared/dmbook/serveur.ts'
-
-const CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-const json = (corps: unknown, statut = 200) =>
-  new Response(JSON.stringify(corps), { status: statut, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
 const CODE_RE = /^[A-Za-z0-9]{4,12}$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
