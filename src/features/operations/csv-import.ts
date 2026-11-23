@@ -1,5 +1,3 @@
-import { champValeurEnTexte, type ChampValeur } from '@/lib/champs'
-
 /**
  * Colonnes d'une OPÉRATION dans un CSV d'import, partagées par les deux
  * catalogues qui en contiennent : « Modèles d'opérations » (items d'un modèle)
@@ -17,17 +15,6 @@ export const COL_UNITE = 'Unité'
 export const COL_SEUIL_MIN = 'Seuil minimum'
 export const COL_SEUIL_MAX = 'Seuil maximum'
 export const COL_OP_DESCRIPTION = "Description de l'opération"
-
-/** Colonnes d'opération, dans l'ordre attendu dans l'en-tête du CSV. */
-export const COLONNES_OPERATION = [
-  COL_OPERATION,
-  COL_ORDRE,
-  COL_TYPE,
-  COL_UNITE,
-  COL_SEUIL_MIN,
-  COL_SEUIL_MAX,
-  COL_OP_DESCRIPTION,
-] as const
 
 /** Type d'opération du référentiel (`types_operations`). */
 export interface TypeOperationRef {
@@ -253,13 +240,4 @@ export function resumeOperation(
     unite ? `, ${libelleUnite(unite)}` : '',
     bornes,
   ].join('')
-}
-
-/** Valeur de champ affichable dans un résumé (types du JSONB `specifications`). */
-export function texteValeur(v: ChampValeur): string {
-  if (v === null) return ''
-  if (typeof v === 'boolean') return v ? 'Oui' : 'Non'
-  // Une double référence est un OBJET : `String()` en ferait « [object Object] ».
-  // `champValeurEnTexte` rend la forme compacte « 3/12 », relisible à l'import.
-  return champValeurEnTexte(v)
 }

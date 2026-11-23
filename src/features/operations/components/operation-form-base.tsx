@@ -21,17 +21,6 @@ export interface OperationFormValues {
   description: string
 }
 
-/** Valeurs vides (l'ordre est fixé par l'hôte selon le contexte). */
-export const EMPTY_OPERATION_FORM: OperationFormValues = {
-  nom: '',
-  ordre: '',
-  type_operation_id: '',
-  unite_id: '',
-  seuil_minimum: '',
-  seuil_maximum: '',
-  description: '',
-}
-
 interface FlaggedRef {
   id: number
   necessite_seuils: boolean

@@ -14,7 +14,6 @@ import {
   parseOuiNon,
   resoudreOperation,
   resumeOperation,
-  texteValeur,
   type OperationCsvResolue,
   type OperationCsvValues,
   type OperationRefs,
@@ -707,19 +706,5 @@ describe('resumeOperation — l’aperçu ligne par ligne', () => {
         refs,
       ),
     ).toBe('Relever')
-  })
-})
-
-describe('texteValeur', () => {
-  it('rend les valeurs du JSONB specifications lisibles', () => {
-    // Oracle : `null` = non renseigné (chaîne vide) ; un booléen se lit
-    // « Oui »/« Non » en français ; tout le reste se lit tel quel.
-    expect(texteValeur(null)).toBe('')
-    expect(texteValeur(true)).toBe('Oui')
-    expect(texteValeur(false)).toBe('Non')
-    expect(texteValeur(0)).toBe('0')
-    expect(texteValeur(42)).toBe('42')
-    expect(texteValeur('')).toBe('')
-    expect(texteValeur('Classe 2')).toBe('Classe 2')
   })
 })

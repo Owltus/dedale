@@ -2,8 +2,6 @@ import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
 
-export type Miniature = Database['public']['Tables']['miniatures']['Row']
-
 type PoolRow = Database['public']['Views']['v_miniatures_pool']['Row']
 
 /** Durée de validité des URL signées d'affichage (bucket privé), en secondes. */
