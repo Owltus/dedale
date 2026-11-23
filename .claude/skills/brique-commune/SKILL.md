@@ -5,7 +5,7 @@ description: Extrait, crée ou fait adopter un composant partagé de l'app Déda
 
 # Ajouter une brique partagée
 
-> **Une brique à un seul consommateur n'est pas une brique.** Soit on la généralise, soit on la retire du catalogue. C'est la règle centrale de ce skill : le projet compte 24 briques mono-consommateur, et son problème n'est pas de manquer de composants — c'est qu'on en recrée à côté de ceux qui existent.
+> **Une brique à un seul consommateur n'est pas une brique.** Soit on la généralise, soit on la retire du catalogue. C'est la règle centrale de ce skill : le projet compte des briques mono-consommateur (les mesurer avec la commande de la §6), et son problème n'est pas de manquer de composants — c'est qu'on en recrée à côté de ceux qui existent.
 
 ## 1. Chercher avant de créer
 
@@ -50,7 +50,7 @@ export function MaBrique({ className, ...props }: ComponentProps<'div'> & { … 
 Créer la brique ne suffit pas — le projet a des briques créées et jamais adoptées.
 
 1. Migrer **tous** les appels existants dans le même chantier, pas « au fil de l'eau ».
-2. **Supprimer** ce qu'elle remplace. Tant que l'ancien fichier existe, il sera réimporté ; c'est ainsi que quatre paires de champs coexistent encore.
+2. **Supprimer** ce qu'elle remplace. Tant que l'ancien fichier existe, il sera réimporté ; c'est ainsi que quatre paires de champs ont coexisté jusqu'à 862832f.
 3. Mettre à jour le **catalogue** : ligne de la brique + colonne « Usages » des briques touchées.
 4. Si la brique reste à un seul consommateur en fin de chantier, trancher : généraliser ou retirer.
 
@@ -76,7 +76,7 @@ done | sort -n
 Deux pièges de lecture :
 
 - **Un module dont on importe aussi un type** gonfle le chiffre. `site-scoped-route` a 26 importeurs de module pour **15** usages du composant : les 11 autres importent le type `PageMeta`. En cas de doute, compter le symbole : `grep -rl '<MaBrique' src/ | wc -l`.
-- **Un fichier consommé peut contenir un export mort.** `section.tsx` a 2 importeurs, mais ils prennent tous `SectionHeader` — `Section` n'est utilisée nulle part. Le comptage par fichier ne voit pas ça.
+- **Un fichier consommé peut contenir un export mort.** `section.tsx` avait 2 importeurs, mais ils prenaient tous `SectionHeader` — `Section` n'était utilisée nulle part (retirée depuis en fb7239a). Le comptage par fichier ne voit pas ça.
 
 ## Vérifier avant de conclure
 
