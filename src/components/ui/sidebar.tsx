@@ -21,7 +21,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 
@@ -141,30 +140,25 @@ function SidebarProvider({
 
   return (
     <SidebarContext.Provider value={contextValue}>
-      {/* 200 ms = délai standard de l'app (le canonique met 0). Comme SidebarInset
-          — donc tout le contenu des pages — est un enfant, on garde 200 pour ne pas
-          rendre TOUS les tooltips de l'app instantanés. */}
-      <TooltipProvider delayDuration={200}>
-        <div
-          data-slot="sidebar-wrapper"
-          style={
-            {
-              '--sidebar-width': SIDEBAR_WIDTH,
-              '--sidebar-width-icon': SIDEBAR_WIDTH_ICON,
-              ...style,
-            } as CSSProperties
-          }
-          // App shell : pleine hauteur, JAMAIS de scroll document (le défilement
-          // vit dans les zones internes) → `h-full overflow-hidden` (≠ `min-h-svh`).
-          className={cn(
-            'group/sidebar-wrapper flex h-full w-full overflow-hidden has-data-[variant=inset]:bg-sidebar',
-            className,
-          )}
-          {...props}
-        >
-          {children}
-        </div>
-      </TooltipProvider>
+      <div
+        data-slot="sidebar-wrapper"
+        style={
+          {
+            '--sidebar-width': SIDEBAR_WIDTH,
+            '--sidebar-width-icon': SIDEBAR_WIDTH_ICON,
+            ...style,
+          } as CSSProperties
+        }
+        // App shell : pleine hauteur, JAMAIS de scroll document (le défilement
+        // vit dans les zones internes) → `h-full overflow-hidden` (≠ `min-h-svh`).
+        className={cn(
+          'group/sidebar-wrapper flex h-full w-full overflow-hidden has-data-[variant=inset]:bg-sidebar',
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </div>
     </SidebarContext.Provider>
   )
 }
