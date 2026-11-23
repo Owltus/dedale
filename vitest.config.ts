@@ -12,7 +12,6 @@ const alias = { '@': fileURLToPath(new URL('./src', import.meta.url)) }
 //    suffixés `.dom.test.tsx` / `.dom.test.ts` pour que l'appartenance soit lisible
 //    dans le nom plutôt que dans une configuration lointaine.
 export default defineConfig({
-  resolve: { alias },
   test: {
     projects: [
       {
