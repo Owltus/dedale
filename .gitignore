@@ -64,3 +64,17 @@ supabase/.temp/
 # Mutation testing — rapports et cache incrémental (régénérés par `npx stryker run`)
 .stryker-tmp/
 reports/
+
+# Supabase CLI lancé depuis un sous-dossier : son état local atterrit n'importe où
+**/supabase/.temp/
+**/.temp/
+
+# Deno (tests des fonctions serveur) : verrou régénéré à chaque lancement
+deno.lock
+
+# Documents d'exploitation réels (relevés de températures remplis) : jamais publiés
+docs/Feuille_de_Releves*
+docs/Releves_*/
+
+# Essais locaux (poc, scripts jetables) : le suffixe .local suffit à les exclure
+*.local/
