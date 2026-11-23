@@ -163,6 +163,8 @@ Référence : `ContratCard` (`features/prestataires/components/contrat-card.tsx`
 
 `Donut` · `BarresEmpilees` · `Sunburst` (3 niveaux, `opacite`/`hachures`/`blink`) — 1\* chacun, un cadran par graphe. Contrat partagé : `ChartSegment`, `toneToken` (tonalité → variable CSS, **jamais** de couleur en dur).
 
+`ChartTemporel` (`serie-temporelle.tsx`, logique pure dans `temporel.ts`) — séries temporelles en ligne ou colonnes, sur **recharts** via `ui/chart.tsx` — 1 (`releve-detail`).
+
 Navigation temporelle synchronisée : `useFenetreTemporelle` monté **une seule fois** par l'orchestrateur, `useColonnesAuto` pour le nombre de colonnes responsive.
 
 ## Actions et layout

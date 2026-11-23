@@ -27,7 +27,7 @@ navigation temporelle doit être **synchronisée au clavier** avec les barres.
   « en cours » accentuée.
 - `sunburst.tsx` (`Sunburst`) — anneaux domaine → famille → gamme, `opacite` /
   `hachures` / `blink` par feuille.
-- `chart-legend.tsx` (`ChartLegend`) + le contrat partagé `ChartSegment`, la table
+- `chart-tokens.ts` : le contrat partagé `ChartSegment`, la table
   `TONE_VAR`/`toneToken` (tonalité → variable CSS) et le helper `onKeyActivate`.
 
 La **couleur** ne passe QUE par `StatusTone` → `toneToken()` → variable CSS
@@ -44,6 +44,12 @@ les flèches ← → déplacent les deux de la même période, sans double bond.
 n'instancie sa propre fenêtre (mode autonome) que s'il n'en reçoit pas.
 
 ## Conséquences
+
+> **Mise à jour** — `chart-legend.tsx` a été renommé `chart-tokens.ts` et `ChartLegend`
+> supprimé. Une seconde voie existe depuis : `recharts` (dépendance ajoutée) porte la
+> primitive shadcn `ui/chart.tsx` et `ChartTemporel` (`common/charts/serie-temporelle.tsx`,
+> séries temporelles de la fiche relevé). Le SVG maison reste la règle pour les cadrans du
+> tableau de bord ; « Bundle inchangé » ci-dessous décrit l'état d'origine.
 
 - **Bundle inchangé** (aucune dépendance ajoutée) et **homogénéité totale** avec le
   thème : dark mode, tokens, `prefers-reduced-motion` gérés nativement.
