@@ -14,7 +14,7 @@ import { TIRAGES, texteHostileArb } from '@/test/harness'
  */
 
 /** Toutes les densités du système, pour les propriétés « quelle que soit la taille ». */
-const TAILLES: ListRowSize[] = ['xs', 'fine', 'sm', 'md', 'lg']
+const TAILLES: ListRowSize[] = ['xs', 'fine', 'sm', 'md']
 
 /** La card = le premier `div` rendu (la ligne elle-même). */
 function card(container: HTMLElement): HTMLElement {

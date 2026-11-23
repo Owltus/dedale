@@ -10,7 +10,7 @@ import { iconeFormat } from '@/components/common/file-format-icons'
 interface DocumentRowProps {
   doc: DocumentMeta
   /** Densité de la ligne (transmise à `ListRow`). Défaut `sm`. */
-  size?: 'xs' | 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md'
   /** Clic sur la ligne (typiquement : ouvrir l'aperçu). */
   onClick?: () => void
   /** Badges à droite (ex. type métier) — masqués sous `sm`, cf. `mobileMeta`. */

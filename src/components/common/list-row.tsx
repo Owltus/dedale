@@ -73,7 +73,7 @@ export interface ListRowProps {
   /**
    * Densité (hauteur) de la carte, cadrée par le composant pour rester homogène :
    * `'md'` par défaut (variante média `h-20`, standard `py-3`), `'sm'` plus
-   * compacte, `'lg'` plus aérée, `'xs'` la plus dense (variante média `h-11`, texte
+   * compacte, `'xs'` la plus dense (variante média `h-11`, texte
    * réduit — pour les listes très denses type tableau de bord). La vignette média
    * suit (`h-full`).
    */
@@ -86,7 +86,7 @@ export interface ListRowProps {
    * Les fusionner retirerait une hauteur au système, au prix d'un changement
    * visuel sur 4 listes — décision de produit, pas de refactorisation.
    */
-  size?: 'xs' | 'fine' | 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'fine' | 'sm' | 'md'
   className?: string
 }
 
@@ -115,14 +115,12 @@ export const MEDIA_HEIGHT: Record<ListRowSize, string> = {
   fine: 'h-12',
   sm: 'h-14',
   md: 'h-20',
-  lg: 'h-24',
 }
 const ROW_PADDING: Record<ListRowSize, string> = {
   xs: 'py-1',
   fine: 'py-1',
   sm: 'py-1.5',
   md: 'py-3',
-  lg: 'py-4',
 }
 
 // Liseré d'accent (bord gauche) par tonalité de statut — même code couleur que

@@ -7,7 +7,7 @@ interface ListRowSkeletonsProps {
   count?: number
   /**
    * MÊME densité que les `ListRow` réelles de la liste (`xs` h-11 · `sm` h-14 ·
-   * `md` h-20 · `lg` h-24). Les hauteurs viennent de `MEDIA_HEIGHT`, la table
+   * `md` h-20). Les hauteurs viennent de `MEDIA_HEIGHT`, la table
    * exportée par `ListRow` : une seule source, donc aucun écart possible entre
    * le squelette et le contenu qu'il annonce.
    */
@@ -31,7 +31,7 @@ export function ListRowSkeletons({
   // Sous-titre : seules les densités hautes en affichent un (les lignes fines
   // n'ont qu'un titre) — le squelette suit, sinon il annonce une ligne à deux
   // lignes de texte là où le contenu n'en aura qu'une.
-  const avecSousTitre = size === 'md' || size === 'lg'
+  const avecSousTitre = size === 'md'
 
   return (
     <div className={listStack}>
