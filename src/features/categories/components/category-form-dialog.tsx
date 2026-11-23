@@ -78,12 +78,6 @@ interface CategoryFormDialogProps {
    */
   hideDescription?: boolean
   /**
-   * Masque le champ « Image » (MiniatureField). Pour les contextes hors
-   * périmètre du pool de vignettes (ex. onglet Équipement, dont les cards
-   * n'affichent pas d'image) : contrôle mort retiré.
-   */
-  hideMiniature?: boolean
-  /**
    * Autorise le DÉPLACEMENT d'une sous-catégorie vers une autre catégorie
    * parente, même en mode `minimal` : affiche un sélecteur « Catégorie parente »
    * en ÉDITION d'une sous-catégorie (jamais à la création ni sur une racine).
@@ -165,7 +159,6 @@ export function CategoryFormDialog({
   hideScope,
   hidePortee: hidePorteeProp,
   hideDescription,
-  hideMiniature,
   allowReparent,
 }: CategoryFormDialogProps) {
   const isEdit = Boolean(categorie)
@@ -301,15 +294,11 @@ export function CategoryFormDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={
-            hideMiniature
-              ? undefined
-              : {
-                  name: 'miniature_id',
-                  targetSiteId: miniatureSite,
-                  canUpload: canUploadMiniature,
-                }
-          }
+          image={{
+            name: 'miniature_id',
+            targetSiteId: miniatureSite,
+            canUpload: canUploadMiniature,
+          }}
         />
         {(showScope || showPortee) && (
           <div

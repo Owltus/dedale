@@ -35,11 +35,6 @@ interface LocalEquipementFieldsProps {
   /** Libellé du champ Équipement (défaut « Équipement »). */
   equipementLabel?: string
   /**
-   * Désactive AUSSI le select Équipement quand le lieu choisi n'a aucun
-   * équipement (défaut `false` : il reste actif avec la seule option « Aucun »).
-   */
-  disableEquipementWhenEmpty?: boolean
-  /**
    * Rend le champ Équipement DANS le sélecteur de lieu (via son `aside`) plutôt
    * qu'en dessous. Le lieu occupe alors la colonne gauche, l'équipement la
    * droite — utile dans un dialogue large, où trois champs empilés étirent la
@@ -69,7 +64,6 @@ export function LocalEquipementFields({
   renderLieu,
   errors,
   equipementLabel = 'Équipement',
-  disableEquipementWhenEmpty = false,
   equipementEnAside = false,
 }: LocalEquipementFieldsProps) {
   const { data: equipements = [] } = useQuery(equipementsQueries.list(siteId))
@@ -86,10 +80,7 @@ export function LocalEquipementFields({
       label={equipementLabel}
       value={equipementId}
       onChange={(id) => onChange({ localId, equipementId: id })}
-      disabled={
-        localId === '' ||
-        (disableEquipementWhenEmpty && equipementsDuLocal.length === 0)
-      }
+      disabled={localId === ''}
       error={errors?.equipement_id}
       options={equipementsDuLocal.map((eq) => ({
         value: eq.id ?? '',
