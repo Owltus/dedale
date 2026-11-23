@@ -103,7 +103,7 @@ Planning et Gammes divergent encore aujourd'hui pour cette raison exacte.
 ## Fiche détail (`components/<entite>-detail.tsx`)
 
 - **Fiche simple (sans onglets)** : `<PageContainer className="flex flex-col">` (le `flex flex-col` s'applique à la zone défilante → permet une zone documents en `flex-1`) › `<PageHeader title description titleBadges action />`. Colonne étroite (réglages, fiche d'une personne) → `bodyMaxWidth="max-w-2xl"` plutôt qu'un `div` centré englobant : envelopper en-tête ET cartes ne laisse qu'**un** enfant au conteneur, et l'en-tête part alors au défilement.
-- **Fiche À ONGLETS** : `DetailTabsShell` (`@/components/common/detail-tabs-shell`) — en-tête + carte d'en-tête + `SubTabs` fixes, puis zone de contenu défilante. Trois consommateurs : gamme, ordre de travail, prestataire.
+- **Fiche À ONGLETS** : `DetailTabsShell` (`@/components/common/detail-tabs-shell`) — en-tête + carte d'en-tête + `SubTabs` fixes, puis zone de contenu défilante. Quatre consommateurs : gamme, ordre de travail, prestataire, équipement.
 
   > **Contrainte non négociable : l'hôte est en `<PageContainer fill>`.** Le shell porte **sa propre** zone défilante ; hors mode `fill`, `PageContainer` traite son 1er enfant comme en-tête FIXE `shrink-0` — et comme le shell fusionne en-tête _et_ corps en un seul enfant, la fiche entière y atterrit : le corps perd sa hauteur bornée, cesse de défiler et se fait clipper par le `main`. C'est exactement la régression corrigée en `070e007`, qui rendait les dernières opérations d'un OT inatteignables. Le mode `fill` ne pose aucun padding : reprendre les gouttières à la main (`px-4 pt-6 pb-6 sm:px-6 lg:px-8`) sur le `className` du shell.
   >
