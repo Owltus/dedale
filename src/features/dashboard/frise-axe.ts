@@ -1,7 +1,6 @@
 import { useLayoutEffect, useState } from 'react'
-import { ajouterJours, lundiDeLaSemaine } from '@/lib/date'
+import { ajouterJours, JOUR_MS, lundiDeLaSemaine } from '@/lib/date'
 
-const JOUR = 86_400_000
 /** Portée des frises : mois de passé et d'avenir autour du centre. */
 const MOIS_PASSE = 2
 const MOIS_AVENIR = 4
@@ -41,8 +40,8 @@ export function axeFrise(
   todayMs: number,
 ): AxeFrise {
   const centreMs = centre.getTime()
-  const t0ms = centreMs - Math.round(MOIS_PASSE * 30.44) * JOUR
-  const t1ms = centreMs + Math.round(MOIS_AVENIR * 30.44) * JOUR
+  const t0ms = centreMs - Math.round(MOIS_PASSE * 30.44) * JOUR_MS
+  const t1ms = centreMs + Math.round(MOIS_AVENIR * 30.44) * JOUR_MS
   const projX = (ms: number) => ((ms - t0ms) / (t1ms - t0ms)) * viewW
 
   const mois: { x: number; label: string }[] = []

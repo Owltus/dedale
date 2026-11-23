@@ -153,6 +153,20 @@ describe('parseDateLocale', () => {
     const d = parseDateLocale('2026-07-02T23:30:00Z')
     expect(isoLocale(d)).toBe('2026-07-02')
   })
+
+  it('donne les millisecondes du minuit local (frises), y compris aux changements d’heure', () => {
+    for (const [a, m, j] of [
+      [2026, 3, 29],
+      [2026, 10, 25],
+      [2024, 2, 29],
+      [2026, 12, 31],
+    ] as const) {
+      const iso = `${String(a)}-${String(m).padStart(2, '0')}-${String(j).padStart(2, '0')}`
+      expect(parseDateLocale(iso).getTime()).toBe(
+        new Date(a, m - 1, j).getTime(),
+      )
+    }
+  })
 })
 
 describe('lundiDeLaSemaine', () => {

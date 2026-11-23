@@ -22,7 +22,7 @@ import {
   type FenetreTemporelle,
 } from '@/features/planning/use-fenetre-temporelle'
 import { useColonnesAuto } from '@/features/planning/use-colonnes-auto'
-import { formatDate, todayLocal } from '@/lib/date'
+import { formatDate, JOUR_MS, parseDateLocale, todayLocal } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 import { DashboardCard } from './dashboard-card'
 import { dashboardQueries } from '../queries'
@@ -109,17 +109,13 @@ const POINTS_TOP = AXE_H + R + 6
 const BARRE_H = R * 1.6 // épaisseur de la barre de préavis
 const GAP = R * 1.2 // espace mini entre deux éléments d'une même ligne
 const BAS = 4 // respiration sous la dernière ligne
-const JOUR = 86_400_000
-
-/** Millisecondes (minuit local) d'une date nue `YYYY-MM-DD`. */
-function msDeIso(iso: string): number {
-  const [a, m, j] = iso.split('-')
-  return new Date(Number(a), Number(m) - 1, Number(j)).getTime()
-}
 
 /** Nombre de jours de `aIso` à `bIso` (signé), en heure locale. */
 function joursEntre(aIso: string, bIso: string): number {
-  return Math.round((msDeIso(bIso) - msDeIso(aIso)) / JOUR)
+  return Math.round(
+    (parseDateLocale(bIso).getTime() - parseDateLocale(aIso).getTime()) /
+      JOUR_MS,
+  )
 }
 
 /** « aujourd'hui » / « dans N j » / « il y a N j » à partir d'un écart en jours. */
@@ -256,7 +252,7 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
 
   const modele = useMemo(() => {
     const todayIso = todayLocal()
-    const todayMs = msDeIso(todayIso)
+    const todayMs = parseDateLocale(todayIso).getTime()
     // Axe COMMUN aux frises (mois alignés avec la frise des obligations).
     const axe = axeFrise(fenetre.centre, viewW, todayMs)
     const { t0ms, t1ms, semaineDe } = axe
@@ -305,8 +301,13 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
         // Reconductions couvrant la fenêtre (barre = préavis en amont de chacune).
         let k = 1
         let d = ajouterMoisIso(c.date_debut, c.duree_cycle_mois * k)
-        while (d && msDeIso(d) <= t1ms + dp * JOUR && k < 10_000) {
-          if (msDeIso(d) >= t0ms) pushEcheance(d, 'Reconduction')
+        while (
+          d &&
+          parseDateLocale(d).getTime() <= t1ms + dp * JOUR_MS &&
+          k < 10_000
+        ) {
+          if (parseDateLocale(d).getTime() >= t0ms)
+            pushEcheance(d, 'Reconduction')
           k += 1
           d = ajouterMoisIso(c.date_debut, c.duree_cycle_mois * k)
         }
@@ -338,7 +339,7 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
     const occ: Occ[] = []
 
     for (const p of points) {
-      const ms = msDeIso(p.date)
+      const ms = parseDateLocale(p.date).getTime()
       if (ms < t0ms || ms > t1ms) continue
       const xc = semaineDe(ms).centre
       const nature: NatureCle =
@@ -364,8 +365,8 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
     }
 
     for (const b of barres) {
-      const msD = msDeIso(b.debut)
-      const msE = msDeIso(b.echeance)
+      const msD = parseDateLocale(b.debut).getTime()
+      const msE = parseDateLocale(b.echeance).getTime()
       if (msE < t0ms || msD > t1ms) continue
       // Barre : du lundi de la semaine de début au dimanche de celle de l'échéance.
       const bx0 = borneX(semaineDe(msD).debut)

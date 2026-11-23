@@ -10,7 +10,7 @@ import {
 import type { FenetreTemporelle } from '@/features/planning/use-fenetre-temporelle'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
-import { parseDateLocale, todayLocal } from '@/lib/date'
+import { JOUR_MS, parseDateLocale, todayLocal } from '@/lib/date'
 import { DashboardCard } from './dashboard-card'
 import { AxeFriseSvg, AXE_FRISE_H } from './axe-frise-svg'
 import { useDashboardData } from '../use-dashboard-data'
@@ -36,7 +36,6 @@ const ECART_CARRE = 10 // le carré d'état est plus petit que son contour d'aut
 const LIGNE_H = 26
 const AXE_H = AXE_FRISE_H + 4
 const BAS = 3 // respiration sous la dernière ligne
-const JOUR = 86_400_000
 const FMT_MOIS = new Intl.DateTimeFormat('fr-FR', {
   month: 'long',
   year: 'numeric',
@@ -132,7 +131,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
     // partant TOUJOURS de la ligne du haut, indépendamment des mois voisins.
     // La marque ne dépasse jamais la largeur d'un mois (elle rétrécit sur un
     // écran étroit) : deux mois voisins ne se touchent pas.
-    const moisPx = (30.44 * JOUR * viewW) / (axe.t1ms - axe.t0ms)
+    const moisPx = (30.44 * JOUR_MS * viewW) / (axe.t1ms - axe.t0ms)
     const contour = Math.max(
       CONTOUR_MIN,
       Math.min(CONTOUR_MAX, Math.floor(moisPx) - 6),
