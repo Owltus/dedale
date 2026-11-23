@@ -10,15 +10,20 @@
 // pour REFUSER. Un jeton sans `client_id` reste vérifié ensuite par
 // auth.getUser(), comme avant.
 
-export function jetonDeConnecteur(jeton: string): boolean {
+/** Lit la charge utile d'un JWT, sans vérifier la signature ; `{}` si illisible. */
+export function chargeJeton(jeton: string): Record<string, unknown> {
   try {
     const b64 = jeton.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    const charge = JSON.parse(atob(b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=')))
-    return charge !== null && typeof charge === 'object' && 'client_id' in charge
+    return JSON.parse(atob(b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=')))
   } catch {
     // Jeton illisible : auth.getUser() le refusera.
-    return false
+    return {}
   }
+}
+
+export function jetonDeConnecteur(jeton: string): boolean {
+  const charge: unknown = chargeJeton(jeton)
+  return charge !== null && typeof charge === 'object' && 'client_id' in charge
 }
 
 export const REFUS_CONNECTEUR = 'Action impossible depuis un connecteur (Claude) : passe par l’application Dédale.'

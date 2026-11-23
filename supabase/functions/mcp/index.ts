@@ -24,6 +24,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { OUTILS, executerOutil, type Contexte } from './outils.ts'
+import { chargeJeton } from '../_shared/connecteur.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -65,16 +66,6 @@ function nonAutorise(url: URL, message: string) {
   return json({ error: 'invalid_token', error_description: message }, 401, {
     'WWW-Authenticate': `Bearer resource_metadata="${metadonnees(url)}"`,
   })
-}
-
-/** Lit la charge utile d'un JWT (déjà validé par Supabase Auth). */
-function charge(jeton: string): Record<string, unknown> {
-  try {
-    const b64 = jeton.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    return JSON.parse(atob(b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=')))
-  } catch {
-    return {}
-  }
 }
 
 const INSTRUCTIONS = `Dédale est la GMAO (maintenance) de l'établissement. Tu agis avec les droits de la personne connectée : tu ne vois que ses sites. Le connecteur ne donne jamais accès aux fichiers (PDF, images), seulement à leurs noms.
@@ -180,7 +171,7 @@ Deno.serve(async (req) => {
   })
   const { data: qui, error: erreurJeton } = await supabase.auth.getUser(jeton)
   if (erreurJeton || !qui.user) return nonAutorise(url, 'Jeton invalide ou expiré.')
-  const claims = charge(jeton)
+  const claims = chargeJeton(jeton) // déjà validé par Supabase Auth
   if (typeof claims.client_id !== 'string' || claims.client_id === '')
     return nonAutorise(url, 'Seuls les jetons émis au connecteur sont acceptés.')
 
