@@ -18,7 +18,7 @@ import {
 } from '@/features/equipements/format'
 import { EquipementBadges } from '@/features/equipements/components/equipement-badges'
 import { useAuth } from '@/auth'
-import { useFileDrop } from '@/hooks/use-file-drop'
+import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { listStack } from '@/lib/responsive'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
@@ -74,25 +74,16 @@ export function GammeDetail({
   // useTabAddAction), plus dans un en-tête de section.
   const [createOtOpen, setCreateOtOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
-  const [uploadOpen, setUploadOpen] = useState(false)
-  // Fichiers issus d'un glisser-déposer pleine page → pré-remplissent l'upload.
-  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
-
   // Glisser-déposer sur TOUTE la page (réservé aux éditeurs) : un dépôt bascule
-  // sur l'onglet Documents et ouvre l'upload pré-rempli des fichiers.
-  const { dragging } = useFileDrop({
-    enabled: canEdit,
-    onFiles: (files) => {
-      setDroppedFiles(files)
-      setTab('documents')
-      setUploadOpen(true)
-    },
-  })
-  // Fermeture de l'upload : on oublie les fichiers déposés pour repartir propre.
-  const handleUploadOpenChange = (open: boolean) => {
-    setUploadOpen(open)
-    if (!open) setDroppedFiles([])
-  }
+  // sur l'onglet Documents et ouvre l'upload pré-rempli des fichiers ; la
+  // fermeture de l'upload oublie les fichiers déposés.
+  const {
+    uploadOpen,
+    droppedFiles,
+    dragging,
+    openUploadEmpty,
+    onUploadOpenChange,
+  } = useUploadDrop({ enabled: canEdit, onDrop: () => setTab('documents') })
 
   // Bouton « ajouter » de la top bar, DYNAMIQUE selon l'onglet actif (Opérations
   // exclu : il garde son propre bouton interne). Enregistré via le contexte
@@ -104,13 +95,9 @@ export function GammeDetail({
     if (tab === 'ordres')
       return gamme.est_active ? () => setCreateOtOpen(true) : null
     if (tab === 'equipements') return () => setLinkOpen(true)
-    if (tab === 'documents')
-      return () => {
-        setDroppedFiles([])
-        setUploadOpen(true)
-      }
+    if (tab === 'documents') return openUploadEmpty
     return null
-  }, [tab, canEdit, gamme.est_active])
+  }, [tab, canEdit, gamme.est_active, openUploadEmpty])
   const addLabel =
     tab === 'ordres'
       ? 'Nouvel ordre de travail'
@@ -221,7 +208,7 @@ export function GammeDetail({
                 parentColumn="gamme_id"
                 parentId={gamme.id}
                 uploadOpen={uploadOpen}
-                onUploadOpenChange={handleUploadOpenChange}
+                onUploadOpenChange={onUploadOpenChange}
                 uploadInitialFiles={droppedFiles}
                 className="min-h-full"
               />

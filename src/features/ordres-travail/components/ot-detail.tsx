@@ -34,7 +34,7 @@ import { gammesQueries } from '@/features/gammes/queries'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { useFileDrop } from '@/hooks/use-file-drop'
+import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { formatDate } from '@/lib/date'
@@ -105,9 +105,6 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
   const [onglet, setOnglet] = useState<Onglet>('operations')
   const [annulerOpen, setAnnulerOpen] = useState(false)
   const [datePrevueOpen, setDatePrevueOpen] = useState(false)
-  const [uploadOpen, setUploadOpen] = useState(false)
-  // Fichiers issus d'un glisser-déposer pleine page → pré-remplissent l'upload.
-  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
 
   // Opérations calculées AVANT les retours anticipés : le moteur d'édition
   // (`useOperationsEditor`) appelle `useBlocker`/`useSaveShortcut`, qui doivent
@@ -210,20 +207,18 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
     messageHistoriqueIntrouvable(op, idsOperationsGammeQuery.data)
 
   // Glisser-déposer sur TOUTE la page (réservé aux gestionnaires) : un dépôt
-  // bascule sur l'onglet Documents et ouvre l'upload pré-rempli des fichiers.
-  const { dragging } = useFileDrop({
+  // bascule sur l'onglet Documents et ouvre l'upload pré-rempli des fichiers ;
+  // la fermeture de l'upload oublie les fichiers déposés.
+  const {
+    uploadOpen,
+    droppedFiles,
+    dragging,
+    openUploadEmpty,
+    onUploadOpenChange,
+  } = useUploadDrop({
     enabled: canManage,
-    onFiles: (files) => {
-      setDroppedFiles(files)
-      setOnglet('documents')
-      setUploadOpen(true)
-    },
+    onDrop: () => setOnglet('documents'),
   })
-  // Fermeture de l'upload : on oublie les fichiers déposés pour repartir propre.
-  const handleUploadOpenChange = (open: boolean) => {
-    setUploadOpen(open)
-    if (!open) setDroppedFiles([])
-  }
 
   // À l'ouverture de l'onglet Opérations (données chargées), on place le focus sur
   // le 1er champ valeur VIDE et non désactivé → saisie immédiate sans cliquer (puis
@@ -411,10 +406,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
       suppressionPending={suppression.pending}
       onSave={() => void saveAllOps()}
       onRecloturer={recloturer}
-      onRattacherDocument={() => {
-        setDroppedFiles([])
-        setUploadOpen(true)
-      }}
+      onRattacherDocument={openUploadEmpty}
       onModifierDate={() => setDatePrevueOpen(true)}
       onAnnuler={() => setAnnulerOpen(true)}
       onReouvrir={handleReouvrir}
@@ -586,7 +578,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                 parentColumn="ordre_travail_id"
                 parentId={otId}
                 uploadOpen={uploadOpen}
-                onUploadOpenChange={handleUploadOpenChange}
+                onUploadOpenChange={onUploadOpenChange}
                 uploadInitialFiles={droppedFiles}
                 className="min-h-0 flex-1"
                 namingContext={{

@@ -16,7 +16,7 @@ import { OtListeParGammes } from '@/features/ordres-travail/components/ot-liste-
 import { GammesLinkDialog } from './gammes-link-dialog'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
-import { useFileDrop } from '@/hooks/use-file-drop'
+import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { parseChamps, formatChampValeur } from '@/lib/champs'
 import { formatDate, formatDateAvecSemaineIso } from '@/lib/date'
 import {
@@ -71,38 +71,25 @@ export function EquipementDetail({
   const liesIds = liesQuery.data ?? []
 
   const [linkOpen, setLinkOpen] = useState(false)
-  const [uploadOpen, setUploadOpen] = useState(false)
-  // Fichiers issus d'un glisser-déposer pleine page → pré-remplissent l'upload.
-  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
-
   // Glisser-déposer sur TOUTE la page (réservé aux éditeurs) : un dépôt bascule
   // sur l'onglet Documents et ouvre l'upload pré-rempli des fichiers — même
   // patron que GammeDetail.
-  const { dragging } = useFileDrop({
-    enabled: canEdit,
-    onFiles: (files) => {
-      setDroppedFiles(files)
-      setTab('documents')
-      setUploadOpen(true)
-    },
-  })
-  const handleUploadOpenChange = (open: boolean) => {
-    setUploadOpen(open)
-    if (!open) setDroppedFiles([])
-  }
+  const {
+    uploadOpen,
+    droppedFiles,
+    dragging,
+    openUploadEmpty,
+    onUploadOpenChange,
+  } = useUploadDrop({ enabled: canEdit, onDrop: () => setTab('documents') })
 
   // Bouton « ajouter » de la top bar, DYNAMIQUE selon l'onglet actif — même
   // patron que GammeDetail (Caractéristiques/Ordres exclus : lecture seule).
   const addAction = useMemo<(() => void) | null>(() => {
     if (!canEdit) return null
     if (tab === 'gammes') return () => setLinkOpen(true)
-    if (tab === 'documents')
-      return () => {
-        setDroppedFiles([])
-        setUploadOpen(true)
-      }
+    if (tab === 'documents') return openUploadEmpty
     return null
-  }, [tab, canEdit])
+  }, [tab, canEdit, openUploadEmpty])
   const addLabel =
     tab === 'gammes'
       ? 'Lier des gammes'
@@ -186,7 +173,7 @@ export function EquipementDetail({
                 parentColumn="equipement_id"
                 parentId={equipementId}
                 uploadOpen={uploadOpen}
-                onUploadOpenChange={handleUploadOpenChange}
+                onUploadOpenChange={onUploadOpenChange}
                 uploadInitialFiles={droppedFiles}
                 className="min-h-full"
               />

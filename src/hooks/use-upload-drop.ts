@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useFileDrop } from './use-file-drop'
 
 /**
@@ -8,7 +8,9 @@ import { useFileDrop } from './use-file-drop'
  * (repartir propre au coup suivant), et `useFileDrop` branché pour « fichiers
  * déposés n'importe où sur la page → dialog d'upload pré-rempli ».
  *
- * `dragging` alimente la surcouche visuelle (`FileDropOverlay`).
+ * `dragging` alimente la surcouche visuelle (`FileDropOverlay`). `onDrop`
+ * (facultatif) est appelé à chaque dépôt, ex. pour basculer sur l'onglet
+ * Documents. `openUploadEmpty` et `onUploadOpenChange` sont stables (memo).
  *
  * Usage :
  * ```tsx
@@ -22,7 +24,14 @@ import { useFileDrop } from './use-file-drop'
  * <FileDropOverlay show={upload.dragging} />
  * ```
  */
-export function useUploadDrop({ enabled }: { enabled: boolean }): {
+export function useUploadDrop({
+  enabled,
+  onDrop,
+}: {
+  enabled: boolean
+  /** Appelé à chaque dépôt de fichiers (ex. bascule sur l'onglet Documents). */
+  onDrop?: () => void
+}): {
   /** Vrai si le dialog d'upload est ouvert. */
   uploadOpen: boolean
   /** Fichiers issus d'un glisser-déposer, pré-remplis dans le dialog. */
@@ -42,21 +51,25 @@ export function useUploadDrop({ enabled }: { enabled: boolean }): {
     enabled,
     onFiles: (files) => {
       setDroppedFiles(files)
+      onDrop?.()
       setUploadOpen(true)
     },
   })
+
+  const openUploadEmpty = useCallback(() => {
+    setDroppedFiles([])
+    setUploadOpen(true)
+  }, [])
+  const onUploadOpenChange = useCallback((open: boolean) => {
+    setUploadOpen(open)
+    if (!open) setDroppedFiles([])
+  }, [])
 
   return {
     uploadOpen,
     droppedFiles,
     dragging,
-    openUploadEmpty: () => {
-      setDroppedFiles([])
-      setUploadOpen(true)
-    },
-    onUploadOpenChange: (open) => {
-      setUploadOpen(open)
-      if (!open) setDroppedFiles([])
-    },
+    openUploadEmpty,
+    onUploadOpenChange,
   }
 }
