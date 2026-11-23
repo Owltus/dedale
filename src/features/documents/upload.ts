@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { imageToWebp, isBitmapImage } from '@/lib/image'
+import { imageToWebp, isBitmapImage, sha256Hex } from '@/lib/image'
 import { splitExtension } from './naming'
 
 export const MAX_TAILLE_OCTETS = 20 * 1024 * 1024 // 20 Mo
@@ -87,15 +87,6 @@ async function preparerFichier(file: File): Promise<File> {
   return new File([blob], nom, { type: 'image/webp' })
 }
 
-/** SHA-256 hexadécimal (64 caractères) du contenu du fichier. */
-async function hashSha256(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer()
-  const digest = await crypto.subtle.digest('SHA-256', buffer)
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
 /** Nettoie un nom de fichier pour un chemin Storage sûr (anti path-traversal). */
 function nomFichierSur(nom: string): string {
   return nom
@@ -148,7 +139,7 @@ export async function uploadDocument(params: {
 
   const id = crypto.randomUUID()
   const storagePath = `${siteId}/${id}-${nomFichierSur(file.name)}`
-  const hash = await hashSha256(file)
+  const hash = await sha256Hex(file)
 
   // (a) Upload Storage
   const { error: uploadError } = await supabase.storage
@@ -231,7 +222,7 @@ export async function replaceDocumentFile(params: {
   if (fetchError) throw fetchError
 
   const file = await preparerFichier(params.file)
-  const hash = await hashSha256(file)
+  const hash = await sha256Hex(file)
   const siteSegment = actuel.site_id ?? 'entreprise'
   const newStoragePath = `${siteSegment}/${documentId}-${crypto.randomUUID().slice(0, 8)}-${nomFichierSur(file.name)}`
 
