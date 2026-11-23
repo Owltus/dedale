@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { focusOnglet, indexSuivant } from './tabs-clavier'
 
 export interface SubTabItem<T extends string = string> {
   id: T
@@ -74,27 +75,16 @@ export function SubTabs<T extends string>({
   const listRef = useRef<HTMLDivElement>(null)
   const styles = VARIANT_STYLES[variant]
 
-  function focusAt(index: number) {
-    const buttons =
-      listRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-    buttons?.[index]?.focus()
-  }
-
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     const current = items.findIndex((t) => t.id === value)
     if (current < 0) return
-    let next: number | null = null
-    if (e.key === 'ArrowRight') next = (current + 1) % items.length
-    else if (e.key === 'ArrowLeft')
-      next = (current - 1 + items.length) % items.length
-    else if (e.key === 'Home') next = 0
-    else if (e.key === 'End') next = items.length - 1
+    const next = indexSuivant(e.key, current, items.length)
     if (next === null) return
     e.preventDefault()
     const target = items[next]
     if (!target) return
     onValueChange(target.id)
-    focusAt(next)
+    focusOnglet(listRef.current, next)
   }
 
   return (

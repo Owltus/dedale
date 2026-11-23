@@ -3,6 +3,7 @@ import type { KeyboardEvent, ReactNode } from 'react'
 import { Plus } from 'lucide-react'
 import { SelectMenu } from './select-menu'
 import { cn } from '@/lib/utils'
+import { focusOnglet, indexSuivant } from './tabs-clavier'
 import { TooltipIconButton } from './tooltip-icon-button'
 import { PageHeader, type PageHeaderCrumb } from './page-header'
 import { FillHeader, ScrollBody } from './page-container'
@@ -87,27 +88,16 @@ export function Tabs({ items, title, value, onValueChange }: TabsProps) {
   // navigation au clavier (flèches + Début/Fin) avec roving tabIndex.
   const tablistRef = useRef<HTMLDivElement>(null)
 
-  function focusTabAt(index: number) {
-    const buttons =
-      tablistRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-    buttons?.[index]?.focus()
-  }
-
   function onTablistKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     const current = items.findIndex((t) => t.id === activeItem?.id)
     if (current < 0) return
-    let next: number | null = null
-    if (e.key === 'ArrowRight') next = (current + 1) % items.length
-    else if (e.key === 'ArrowLeft')
-      next = (current - 1 + items.length) % items.length
-    else if (e.key === 'Home') next = 0
-    else if (e.key === 'End') next = items.length - 1
+    const next = indexSuivant(e.key, current, items.length)
     if (next === null) return
     e.preventDefault()
     const target = items[next]
     if (!target) return
     selectTab(target.id)
-    focusTabAt(next)
+    focusOnglet(tablistRef.current, next)
   }
 
   // Sécurité : si la barre d'onglets (desktop, `sm:flex`) déborde, on ramène
