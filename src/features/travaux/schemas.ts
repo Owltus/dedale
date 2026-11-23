@@ -1,9 +1,4 @@
 import { z } from 'zod'
-import {
-  STATUTS_ZONE,
-  LIBELLES_STATUT_ZONE,
-  variantStatutZone,
-} from '@/features/equipements/statut-zone'
 import type { StatutZone } from '@/features/equipements/statut-zone'
 import { tachesInlineSchema } from '@/features/equipements/tache-schema'
 import { dateObligatoire } from '@/lib/dates-zod'
@@ -54,12 +49,8 @@ export function emptyTravaux(dateDuJour: string): TravauxFormValues {
 
 // ─── Tâches (checklist à statut) d'un travail ────────────────────────────────
 
-// Statut d'une tâche = statut de zone (module partagé avec Événements, 088) —
-// réexporté sous ces noms pour ne rien casser côté consommateurs existants.
-export const STATUTS_TACHE = STATUTS_ZONE
+// Statut d'une tâche = statut de zone (module partagé avec Événements, 088).
 export type StatutTache = StatutZone
-export const LIBELLES_STATUT_TACHE = LIBELLES_STATUT_ZONE
-export const variantStatutTache = variantStatutZone
 
 // Tâche généralisée (090, module partagé avec Événements) : un libellé libre
 // (identité, requis) ; local/équipement/commentaire facultatifs.

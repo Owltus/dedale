@@ -93,8 +93,4 @@ export type ClotureFormValues = z.infer<typeof clotureSchema>
 
 // Tâche généralisée (090, module partagé avec Travaux) : un libellé libre
 // (identité, requis) ; local/équipement/commentaire facultatifs.
-export {
-  tacheSchema as lieuSchema,
-  emptyTache as emptyLieu,
-} from '@/features/equipements/tache-schema'
 export type { TacheFormValues as LieuFormValues } from '@/features/equipements/tache-schema'
