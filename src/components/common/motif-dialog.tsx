@@ -9,7 +9,7 @@ import { texteObligatoire } from '@/lib/texte-zod'
 // Motif obligatoire et borné (miroir des garde-fous backend : CHECK
 // motif_annulation, p_motif des RPC). Schéma local : la brique commune ne
 // dépend d'aucune feature.
-const motifSchema = z.object({
+export const motifSchema = z.object({
   motif: texteObligatoire('Le motif est obligatoire', 'motif').max(2000),
 })
 
