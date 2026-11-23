@@ -40,7 +40,6 @@ export const REGLES_COMMUNS: [RegExp, string][] = [
   [/surpresseur/i, 'Local Surpresseur'],
   [/tgbt|tableau g[ée]n[ée]ral/i, 'LOCAL TGBT'],
   [/\bvdi\b|baie (de )?brassage|local informatique|serveur/i, 'LOCAL VDI'],
-  [/ascenseur/i, "Cage d'ascenseur"],
   [/entr[ée]e (du )?parking|barri[èe]re|portail parking/i, 'Entrée Parking'],
   [/parking/i, 'Zonne Parking'],
   [/toiture|terrasse technique|\bcta\b|groupe froid|zone technique/i, 'Zone technique'],
