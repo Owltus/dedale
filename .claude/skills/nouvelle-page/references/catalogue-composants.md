@@ -10,7 +10,7 @@
 > # Importeurs réels d'une brique (imports aliasés ET relatifs), le fichier lui-même exclu
 > for f in src/components/common/*.tsx src/components/common/fields/*.tsx; do
 >   b=$(basename "$f" .tsx)
->   n=$(grep -rlE "from '[^']*/$b'" src/ | grep -v "^$f$" | wc -l)
+>   n=$(grep -rlE "from '[^']*/$b'" src/ | grep -v "^$f$" | grep -v '\.test\.' | wc -l)
 >   printf "%3d  %s\n" "$n" "$b"
 > done | sort -n
 > ```

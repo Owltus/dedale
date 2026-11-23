@@ -68,7 +68,7 @@ La colonne « Usages » du catalogue n'a de valeur que si elle est **calculée**
 # Importeurs réels de chaque brique (imports aliasés ET relatifs), fichier lui-même exclu
 for f in src/components/common/*.tsx src/components/common/fields/*.tsx; do
   b=$(basename "$f" .tsx)
-  n=$(grep -rlE "from '[^']*/$b'" src/ | grep -v "^$f$" | wc -l)
+  n=$(grep -rlE "from '[^']*/$b'" src/ | grep -v "^$f$" | grep -v '\.test\.' | wc -l)
   printf "%3d  %s\n" "$n" "$b"
 done | sort -n
 ```
