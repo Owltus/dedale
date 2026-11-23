@@ -1,4 +1,5 @@
-import { useLayoutEffect, useMemo, useState, type RefObject } from 'react'
+import { useMemo, type RefObject } from 'react'
+import { useDimension } from '@/hooks/use-dimension'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Géométrie PARTAGÉE des cartes de liste du tableau de bord (Demandes, Documents).
@@ -37,27 +38,7 @@ export function useElementHeight(
   ref: RefObject<HTMLElement | null>,
   actif = true,
 ): number {
-  const [hauteur, setHauteur] = useState(0)
-
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    let raf = 0
-    const relever = () =>
-      setHauteur((prev) => (prev === el.clientHeight ? prev : el.clientHeight))
-    relever()
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(relever)
-    })
-    ro.observe(el)
-    return () => {
-      cancelAnimationFrame(raf)
-      ro.disconnect()
-    }
-  }, [ref, actif])
-
-  return hauteur
+  return useDimension(ref, 'clientHeight', { actif })
 }
 
 /**
@@ -70,29 +51,7 @@ export function useParentClientHeight(
   ref: RefObject<HTMLElement | null>,
   actif = true,
 ): number {
-  const [hauteur, setHauteur] = useState(0)
-
-  useLayoutEffect(() => {
-    const parent = ref.current?.parentElement
-    if (!parent) return
-    let raf = 0
-    const relever = () =>
-      setHauteur((prev) =>
-        prev === parent.clientHeight ? prev : parent.clientHeight,
-      )
-    relever()
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(relever)
-    })
-    ro.observe(parent)
-    return () => {
-      cancelAnimationFrame(raf)
-      ro.disconnect()
-    }
-  }, [ref, actif])
-
-  return hauteur
+  return useDimension(ref, 'clientHeight', { parent: true, actif })
 }
 
 /**

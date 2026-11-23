@@ -1,4 +1,5 @@
-import { useLayoutEffect, useMemo, useState, type RefObject } from 'react'
+import { useMemo, type RefObject } from 'react'
+import { useDimension } from '@/hooks/use-dimension'
 
 /**
  * Largeur FIXE d'une colonne-semaine (px). Ne change JAMAIS : c'est le NOMBRE de
@@ -52,28 +53,10 @@ export function useColonnesAuto(
   const familleMin = options?.familleMin ?? FAMILLE_MIN
   const minSemaines = options?.minSemaines ?? MIN_SEMAINES
   const maxSemaines = options?.maxSemaines ?? MAX_SEMAINES
-  const [largeur, setLargeur] = useState(0)
-
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    let raf = 0
-    // `clientWidth` = largeur INTÉRIEURE (hors bordure ET hors barre de défilement
-    // verticale) → exactement la place disponible pour la table. Relevé initial
-    // synchrone (avant le paint) : pas de saut 10 → N colonnes.
-    const relever = () =>
-      setLargeur((prev) => (prev === el.clientWidth ? prev : el.clientWidth))
-    relever()
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(relever)
-    })
-    ro.observe(el)
-    return () => {
-      cancelAnimationFrame(raf)
-      ro.disconnect()
-    }
-  }, [ref])
+  // `clientWidth` = largeur INTÉRIEURE (hors bordure ET hors barre de défilement
+  // verticale) → exactement la place disponible pour la table. Relevé initial
+  // synchrone (avant le paint) : pas de saut 10 → N colonnes.
+  const largeur = useDimension(ref, 'clientWidth')
 
   return useMemo(() => {
     const utile = Math.floor(largeur)

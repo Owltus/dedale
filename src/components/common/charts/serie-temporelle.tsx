@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
+import { useDimension } from '@/hooks/use-dimension'
 import {
   Bar,
   BarChart,
@@ -155,25 +156,7 @@ export function ChartTemporel({
   className,
 }: ChartTemporelProps) {
   const conteneurRef = useRef<HTMLDivElement>(null)
-  const [largeur, setLargeur] = useState(0)
-
-  useLayoutEffect(() => {
-    const el = conteneurRef.current
-    if (!el) return
-    let raf = 0
-    const relever = () =>
-      setLargeur((prev) => (prev === el.clientWidth ? prev : el.clientWidth))
-    relever()
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(relever)
-    })
-    ro.observe(el)
-    return () => {
-      cancelAnimationFrame(raf)
-      ro.disconnect()
-    }
-  }, [])
+  const largeur = useDimension(conteneurRef, 'clientWidth')
 
   const maxEtiquettes = Math.max(2, Math.floor(largeur / LARGEUR_ETIQUETTE_PX))
 

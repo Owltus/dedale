@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react'
+import { useDimension } from '@/hooks/use-dimension'
 import { ajouterJours, JOUR_MS, lundiDeLaSemaine } from '@/lib/date'
 
 /** Portée des frises : mois de passé et d'avenir autour du centre. */
@@ -90,22 +90,5 @@ export function axeFrise(
  * des éléments quand la carte s'élargit).
  */
 export function useLargeur(el: HTMLElement | null): number {
-  const [largeur, setLargeur] = useState(0)
-  useLayoutEffect(() => {
-    if (!el) return
-    let raf = 0
-    const relever = () =>
-      setLargeur((p) => (p === el.clientWidth ? p : el.clientWidth))
-    relever()
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(relever)
-    })
-    ro.observe(el)
-    return () => {
-      cancelAnimationFrame(raf)
-      ro.disconnect()
-    }
-  }, [el])
-  return largeur
+  return useDimension(el, 'clientWidth')
 }

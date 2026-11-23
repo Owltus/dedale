@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Truck } from 'lucide-react'
@@ -22,6 +22,7 @@ import {
   type FenetreTemporelle,
 } from '@/features/planning/use-fenetre-temporelle'
 import { useColonnesAuto } from '@/features/planning/use-colonnes-auto'
+import { useDimension } from '@/hooks/use-dimension'
 import { formatDate, JOUR_MS, parseDateLocale, todayLocal } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 import { DashboardCard } from './dashboard-card'
@@ -222,24 +223,7 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
 
   // Largeur réelle du conteneur → `viewW` (le viewBox est en pixels 1:1).
   const boxRef = useRef<HTMLDivElement | null>(null)
-  const [largeur, setLargeur] = useState(0)
-  useLayoutEffect(() => {
-    const el = boxRef.current
-    if (!el) return
-    let raf = 0
-    const relever = () =>
-      setLargeur((p) => (p === el.clientWidth ? p : el.clientWidth))
-    relever()
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(relever)
-    })
-    ro.observe(el)
-    return () => {
-      cancelAnimationFrame(raf)
-      ro.disconnect()
-    }
-  }, [])
+  const largeur = useDimension(boxRef, 'clientWidth')
   // Ref partagée : mesure interne (viewW) + `mesureRef` du mode autonome (nbSemaines).
   const setRefs = useCallback(
     (el: HTMLDivElement | null) => {
