@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FileText, PackagePlus, Pencil, Trash2, Upload } from 'lucide-react'
+import { FileText, PackagePlus, Upload } from 'lucide-react'
 import { modelesDiQueries, type ModeleDi } from '../queries'
 import { useCreateModeleDi, useDeleteModeleDi } from '../mutations'
 import { ModeleDiFormDialog } from './modele-di-form-dialog'
@@ -24,7 +24,10 @@ import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ScopeBadges } from '@/components/common/scope-badges'
 import { ListRow } from '@/components/common/list-row'
-import type { RowAction } from '@/components/common/row-actions'
+import {
+  actionsEditionSuppression,
+  type RowAction,
+} from '@/components/common/row-actions'
 import { listStack } from '@/lib/responsive'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
@@ -190,17 +193,12 @@ export function ModelesDiPanel() {
                   sites.find((s) => s.id === modele.site_id)?.nom ?? null
                 const rowActions: RowAction[] = []
                 if (canManage && canEditThis) {
-                  rowActions.push({
-                    label: 'Modifier',
-                    icon: Pencil,
-                    onSelect: () => dialog.openEdit(modele),
-                  })
-                  rowActions.push({
-                    label: 'Supprimer',
-                    icon: Trash2,
-                    destructive: true,
-                    onSelect: () => suppression.demander(modele),
-                  })
+                  rowActions.push(
+                    ...actionsEditionSuppression({
+                      onModifier: () => dialog.openEdit(modele),
+                      onSupprimer: () => suppression.demander(modele),
+                    }),
+                  )
                 }
                 return (
                   <ListRow

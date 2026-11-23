@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Clock, Pencil, Trash2 } from 'lucide-react'
+import { CheckCircle2, Circle, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { DiEditDialog } from '@/features/demandes/components/di-edit-dialog'
 import {
@@ -12,7 +12,10 @@ import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { writeErrorMessage } from '@/lib/form'
 import * as perm from '@/lib/permissions'
-import type { RowAction } from '@/components/common/row-actions'
+import {
+  actionsEditionSuppression,
+  type RowAction,
+} from '@/components/common/row-actions'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import type { Database } from '@/lib/database.types'
 
@@ -92,22 +95,13 @@ export function useActionsDemande({
     }
     const canEdit = perm.canEditDemande(role, d, userId)
     const canDelete = perm.canDeleteDemande(role, d, userId)
-    const sep = actions.length > 0
-    if (canEdit)
-      actions.push({
-        label: 'Modifier',
-        icon: Pencil,
-        separatorBefore: sep,
-        onSelect: () => editDialog.openEdit(d),
-      })
-    if (canDelete)
-      actions.push({
-        label: 'Supprimer',
-        icon: Trash2,
-        destructive: true,
-        separatorBefore: sep && !canEdit,
-        onSelect: () => suppression.demander(d),
-      })
+    actions.push(
+      ...actionsEditionSuppression({
+        onModifier: canEdit ? () => editDialog.openEdit(d) : undefined,
+        onSupprimer: canDelete ? () => suppression.demander(d) : undefined,
+        separatorBefore: actions.length > 0,
+      }),
+    )
     return actions
   }
 

@@ -6,7 +6,6 @@ import {
   FolderTree,
   PackagePlus,
   Pencil,
-  Trash2,
   Upload,
   Wrench,
 } from 'lucide-react'
@@ -58,7 +57,10 @@ import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ListRow } from '@/components/common/list-row'
-import type { RowAction } from '@/components/common/row-actions'
+import {
+  actionsEditionSuppression,
+  type RowAction,
+} from '@/components/common/row-actions'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { listStack } from '@/lib/responsive'
 
@@ -702,17 +704,12 @@ export function GammesBiblioPanel() {
                         onSelect: () => setCopierContenu(cat),
                       })
                     if (canEntreprise) {
-                      rowActions.push({
-                        label: 'Modifier',
-                        icon: Pencil,
-                        onSelect: () => handleEditCategory(cat),
-                      })
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () => setToDeleteCategorie(cat),
-                      })
+                      rowActions.push(
+                        ...actionsEditionSuppression({
+                          onModifier: () => handleEditCategory(cat),
+                          onSupprimer: () => setToDeleteCategorie(cat),
+                        }),
+                      )
                     }
                     const menuActions = rowActions.length
                       ? rowActions
@@ -757,17 +754,13 @@ export function GammesBiblioPanel() {
                         onSelect: () => openExportGamme(g),
                       })
                     if (canEntreprise) {
-                      rowActions.push({
-                        label: 'Modifier',
-                        icon: Pencil,
-                        onSelect: () => setGammeForm({ open: true, gamme: g }),
-                      })
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () => setToDeleteGamme(g),
-                      })
+                      rowActions.push(
+                        ...actionsEditionSuppression({
+                          onModifier: () =>
+                            setGammeForm({ open: true, gamme: g }),
+                          onSupprimer: () => setToDeleteGamme(g),
+                        }),
+                      )
                     }
                     return (
                       <GammeCard

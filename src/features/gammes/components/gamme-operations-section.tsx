@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ListChecks, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { gammesQueries, type GammeOperation } from '../queries'
 import { useDeleteOperation } from '../mutations'
@@ -15,7 +15,10 @@ import { OperationListRow } from '@/components/common/operation-list-row'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
-import type { RowAction } from '@/components/common/row-actions'
+import {
+  actionsEditionSuppression,
+  type RowAction,
+} from '@/components/common/row-actions'
 
 /**
  * Section « Opérations spécifiques » d'une gamme : la liste des opérations propres
@@ -97,17 +100,12 @@ export function GammeOperationsSection({
           {operations.map((op) => {
             const rowActions: RowAction[] = []
             if (canEdit) {
-              rowActions.push({
-                label: 'Modifier',
-                icon: Pencil,
-                onSelect: () => setForm({ open: true, op }),
-              })
-              rowActions.push({
-                label: 'Supprimer',
-                icon: Trash2,
-                destructive: true,
-                onSelect: () => setToDelete(op),
-              })
+              rowActions.push(
+                ...actionsEditionSuppression({
+                  onModifier: () => setForm({ open: true, op }),
+                  onSupprimer: () => setToDelete(op),
+                }),
+              )
             }
             return (
               <OperationListRow

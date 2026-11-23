@@ -7,7 +7,6 @@ import {
   FolderTree,
   PackagePlus,
   Pencil,
-  Trash2,
   Upload,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -46,7 +45,10 @@ import { ErrorState } from '@/components/common/error-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ListRow } from '@/components/common/list-row'
-import type { RowAction } from '@/components/common/row-actions'
+import {
+  actionsEditionSuppression,
+  type RowAction,
+} from '@/components/common/row-actions'
 import { ScopeBadges } from '@/components/common/scope-badges'
 import { listStack } from '@/lib/responsive'
 
@@ -640,17 +642,12 @@ export function CataloguePanel<T extends CatalogueModele>({
                   {childCategories.map((cat) => {
                     const rowActions: RowAction[] = []
                     if (canManageCat(cat)) {
-                      rowActions.push({
-                        label: 'Modifier',
-                        icon: Pencil,
-                        onSelect: () => handleEditCategory(cat),
-                      })
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () => setToDeleteCategorie(cat),
-                      })
+                      rowActions.push(
+                        ...actionsEditionSuppression({
+                          onModifier: () => handleEditCategory(cat),
+                          onSupprimer: () => setToDeleteCategorie(cat),
+                        }),
+                      )
                     }
                     return (
                       <ListRow
@@ -696,17 +693,13 @@ export function CataloguePanel<T extends CatalogueModele>({
                         onSelect: () => setExportState({ open: true, modele }),
                       })
                     if (editable) {
-                      rowActions.push({
-                        label: 'Modifier',
-                        icon: Pencil,
-                        onSelect: () => setModeleForm({ open: true, modele }),
-                      })
-                      rowActions.push({
-                        label: 'Supprimer',
-                        icon: Trash2,
-                        destructive: true,
-                        onSelect: () => onAskDeleteModele(modele),
-                      })
+                      rowActions.push(
+                        ...actionsEditionSuppression({
+                          onModifier: () =>
+                            setModeleForm({ open: true, modele }),
+                          onSupprimer: () => onAskDeleteModele(modele),
+                        }),
+                      )
                     }
                     return (
                       <ListRow
