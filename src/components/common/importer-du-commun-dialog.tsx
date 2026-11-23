@@ -30,7 +30,6 @@ interface ImporterDuCommunDialogProps {
   /** Le même au pluriel (« modèles », « gammes »). */
   motPluriel: string
   loading?: boolean
-  error?: ReactNode
 }
 
 /**
@@ -59,7 +58,6 @@ export function ImporterDuCommunDialog({
   motSingulier,
   motPluriel,
   loading,
-  error,
 }: ImporterDuCommunDialogProps) {
   const items = useMemo(
     () =>
@@ -117,7 +115,6 @@ export function ImporterDuCommunDialog({
       pendingLabel="Installation…"
       requireSelection
       loading={loading}
-      error={error}
       empty={
         nbDejaInstalles > 0
           ? `Tout le catalogue commun est déjà installé sur ce site.`

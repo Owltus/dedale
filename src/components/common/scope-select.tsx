@@ -8,11 +8,6 @@ interface ScopeSelectProps {
   /** Optionnel : inutile à l'état verrouillé (lecture seule). */
   onChange?: (scope: string) => void
   /**
-   * Inclure l'option « Commun » (site_id NULL). `false` pour les catalogues à
-   * scope SITE strict, qui n'ont pas de niveau commun.
-   */
-  allowCommun?: boolean
-  /**
    * VERROUILLÉ : vrai `<select>` NATIVEMENT désactivé (grisé, non ouvrable, hors
    * tabulation) — indicateur d'origine en lecture seule quand le périmètre est fixé
    * par la catégorie / le modèle ouvert. Pas de simulacre : `disabled` natif.
@@ -39,7 +34,6 @@ interface ScopeSelectProps {
 export function ScopeSelect({
   value,
   onChange,
-  allowCommun = true,
   disabled = false,
   fluid = false,
 }: ScopeSelectProps) {
@@ -62,7 +56,7 @@ export function ScopeSelect({
       containerClassName={cn(fluid && 'flex w-full sm:inline-flex sm:w-auto')}
       className={fluid ? 'w-full sm:w-44' : 'w-44'}
     >
-      {allowCommun && <option value={SCOPE_COMMUN}>Commun</option>}
+      <option value={SCOPE_COMMUN}>Commun</option>
       {sites.map((s) => (
         <option key={s.id} value={s.id}>
           {s.nom}

@@ -35,7 +35,6 @@ interface PageHeaderProps {
   breadcrumb?: PageHeaderCrumb[]
   /** Bouton « Retour » simple (repli des états transitoires : chargement/erreur). */
   onBack?: () => void
-  backLabel?: string
   /** Badges affichés à côté du titre (ex. statut actif / anonymisé / type). */
   titleBadges?: ReactNode
 }
@@ -62,7 +61,6 @@ export function PageHeader({
   extra,
   breadcrumb,
   onBack,
-  backLabel = 'Retour',
   titleBadges,
 }: PageHeaderProps) {
   // L'en-tête connaît le titre de CHAQUE écran : c'est donc lui qui alimente le
@@ -87,7 +85,7 @@ export function PageHeader({
             className="mb-0.5 -ml-2 h-auto gap-1 px-2 py-1 text-muted-foreground"
           >
             <ChevronLeft className="size-4" />
-            {backLabel}
+            Retour
           </Button>
         )}
         {/* Ligne 1 — fil EN TITRE : ancêtres discrets → nœud courant en grand. Une

@@ -102,7 +102,7 @@ const submit = useSubmitDialog<Values>({ onSubmit, successMessage, close: () => 
 </Form>
 ```
 
-La coquille ne gère que le **visuel** ; l'état + la validation viennent de RHF/`zodResolver`, la soumission (toast + close + traduction d'erreur) de `useSubmitDialog`, le reset du **remontage** (`key`). Props utiles : `submitVariant="destructive"`, `size`, `contentClassName`.
+La coquille ne gère que le **visuel** ; l'état + la validation viennent de RHF/`zodResolver`, la soumission (toast + close + traduction d'erreur) de `useSubmitDialog`, le reset du **remontage** (`key`). Props utiles : `submitVariant="destructive"`, `size`.
 
 - **Un seul modal visible à la fois** ; ne pas empiler.
 - Modal métier d'édition → composant dédié `features/<domaine>/components/<entite>-form-dialog.tsx` (**kebab-case**, comme tout fichier de composant).

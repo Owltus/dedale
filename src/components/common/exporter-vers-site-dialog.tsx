@@ -28,7 +28,6 @@ interface ExporterVersSiteDialogProps {
   titre: string
   /** Résumé INLINE de ce qui sera copié (rendu dans la description du dialog). */
   resume: ReactNode
-  confirmLabel?: string
   /**
    * Réalise la copie vers le site choisi et renvoie le bilan. Peut lever : une
    * erreur (RLS 42501 sur un site hors périmètre…) est catchée → toast d'erreur,
@@ -48,7 +47,6 @@ export function ExporterVersSiteDialog({
   onOpenChange,
   titre,
   resume,
-  confirmLabel = 'Copier',
   onConfirm,
 }: ExporterVersSiteDialogProps) {
   const { sites, activeSiteId } = useSiteContext()
@@ -110,7 +108,7 @@ export function ExporterVersSiteDialog({
             onClick={() => void handleConfirm()}
             disabled={pending || sites.length === 0 || !siteCible}
           >
-            {pending ? '…' : confirmLabel}
+            {pending ? '…' : 'Copier'}
           </Button>
         </>
       }

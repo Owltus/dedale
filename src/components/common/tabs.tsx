@@ -36,8 +36,6 @@ export interface TabItem {
 
 interface TabsProps {
   items: TabItem[]
-  /** Onglet actif initial (mode NON contrôlé uniquement ; défaut : le premier). */
-  defaultTabId?: string
   /**
    * Titre de SECTION (ex. « Bibliothèque »). Affiché en grand titre à la RACINE de
    * chaque onglet (le nom de l'onglet actif est déjà porté par le bouton surligné).
@@ -63,18 +61,10 @@ interface TabsProps {
  * tous deux fournis par le panneau actif via `useTabAddAction` (cf.
  * ./tab-actions). Nécessite un parent à hauteur bornée (cf. <PageContainer fill>).
  */
-export function Tabs({
-  items,
-  defaultTabId,
-  title,
-  value,
-  onValueChange,
-}: TabsProps) {
+export function Tabs({ items, title, value, onValueChange }: TabsProps) {
   // Mode contrôlé si `value` est fourni : l'onglet actif vient alors du parent,
   // le state interne sert de repli pour l'usage non contrôlé.
-  const [internalActive, setInternalActive] = useState(
-    defaultTabId ?? items[0]?.id,
-  )
+  const [internalActive, setInternalActive] = useState(items[0]?.id)
   const isControlled = value !== undefined
   const active = isControlled ? value : internalActive
 

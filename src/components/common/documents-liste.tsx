@@ -42,20 +42,6 @@ interface DocumentsListeProps {
   badges?: (doc: DocumentMeta) => ReactNode
   /** Repli mobile de l'info clé (sous le titre, sous `sm`). */
   mobileMeta?: (doc: DocumentMeta) => ReactNode
-  /**
-   * Clic sur une rangée. Défaut : ouvre l'APERÇU interne
-   * (`DocumentPreviewDialog`). Fournir une fonction remplace ce comportement
-   * (l'aperçu interne n'est alors pas rendu).
-   */
-  onPreview?: (doc: DocumentMeta) => void
-  /** Avertissement du modal de suppression (défaut : retiré de toutes les fiches + stockage). */
-  deleteWarning?: ReactNode
-  /**
-   * Traducteur du message d'erreur de suppression/détachement. Défaut :
-   * `deleteErrorMessage` (traduit les codes SQLSTATE : 42501 hors périmètre,
-   * PGRST116 déjà supprimé, 23503 FK…). À surcharger pour un message contextuel.
-   */
-  errorTranslate?: (e: unknown) => string
   /** Classe du conteneur de liste (défaut : `listStack`). */
   className?: string
   /**
@@ -120,9 +106,6 @@ export function DocumentsListe({
   onDetach,
   badges,
   mobileMeta,
-  onPreview,
-  deleteWarning = DEFAULT_DELETE_WARNING,
-  errorTranslate = deleteErrorMessage,
   className,
   draggable = false,
   compact = false,
@@ -138,12 +121,12 @@ export function DocumentsListe({
   const suppression = useConfirmDelete<DocumentMeta>({
     onDelete: (doc) => (onDelete ? onDelete(doc) : Promise.resolve()),
     successMessage: 'Document supprimé',
-    errorMessage: errorTranslate,
+    errorMessage: deleteErrorMessage,
   })
   const detachement = useConfirmDelete<DocumentMeta>({
     onDelete: (doc) => (onDetach ? onDetach(doc) : Promise.resolve()),
     successMessage: 'Document détaché',
-    errorMessage: errorTranslate,
+    errorMessage: deleteErrorMessage,
   })
 
   return (
@@ -180,7 +163,7 @@ export function DocumentsListe({
             <DocumentRow
               doc={doc}
               size={compact ? 'xs' : 'sm'}
-              onClick={() => (onPreview ? onPreview(doc) : setToPreview(doc))}
+              onClick={() => setToPreview(doc)}
               badges={badges?.(doc)}
               mobileMeta={mobileMeta?.(doc)}
               menuActions={actions}
@@ -202,14 +185,12 @@ export function DocumentsListe({
         })}
       </div>
 
-      {onPreview === undefined && (
-        <DocumentPreviewDialog
-          doc={toPreview}
-          onOpenChange={(open) => {
-            if (!open) setToPreview(null)
-          }}
-        />
-      )}
+      <DocumentPreviewDialog
+        doc={toPreview}
+        onOpenChange={(open) => {
+          if (!open) setToPreview(null)
+        }}
+      />
 
       {canEdit && (
         <DocumentEditDialog
@@ -241,7 +222,7 @@ export function DocumentsListe({
               ? `le document « ${suppression.toDelete.nom_original} »`
               : 'le document'
           }
-          warning={deleteWarning}
+          warning={DEFAULT_DELETE_WARNING}
         />
       )}
     </>

@@ -20,7 +20,6 @@ interface TooltipIconButtonProps {
    */
   variant?: ComponentProps<typeof Button>['variant']
   disabled?: boolean
-  type?: ComponentProps<typeof Button>['type']
   /**
    * Surcharge de classes (ex. accoler ce bouton à un contrôle voisin dans un
    * même groupe visuel : `rounded-l-none -ml-px`). Fusionné APRÈS `shrink-0`
@@ -41,12 +40,11 @@ export function TooltipIconButton({
   onClick,
   variant = 'ghost',
   disabled,
-  type = 'button',
   className,
 }: TooltipIconButtonProps) {
   const button = (
     <Button
-      type={type}
+      type="button"
       size="icon"
       variant={variant}
       aria-label={label}

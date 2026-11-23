@@ -16,13 +16,8 @@ interface FormDialogProps {
   /** Désactive la validation hors envoi (ex. champ requis sans option possible). */
   submitDisabled?: boolean
   submitVariant?: 'default' | 'destructive'
-  cancelLabel?: string
-  /** Largeur normalisée (défaut `md`). Préférer à `contentClassName` pour la largeur. */
+  /** Largeur normalisée (défaut `md`). */
   size?: DialogSize
-  /** Filet de séparation au-dessus des actions (défaut true — ancre la barre). */
-  footerSeparator?: boolean
-  /** Classe additionnelle sur DialogContent (ex. hauteur sur mesure). */
-  contentClassName?: string
   /** Les champs du formulaire. */
   children: ReactNode
 }
@@ -44,10 +39,7 @@ export function FormDialog({
   pending,
   submitDisabled = false,
   submitVariant = 'default',
-  cancelLabel = 'Annuler',
   size,
-  footerSeparator = false,
-  contentClassName,
   children,
 }: FormDialogProps) {
   return (
@@ -57,8 +49,6 @@ export function FormDialog({
       title={title}
       description={description}
       size={size}
-      footerSeparator={footerSeparator}
-      contentClassName={contentClassName}
       wrap={(inner) => (
         <form
           // FormDialog IMBRIQUÉ (ex. « Ajouter une caractéristique » dans le modal
@@ -85,7 +75,7 @@ export function FormDialog({
             onClick={() => onOpenChange(false)}
             disabled={pending}
           >
-            {cancelLabel}
+            Annuler
           </Button>
           <Button
             type="submit"

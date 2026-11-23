@@ -16,7 +16,6 @@ interface IdentiteFieldsProps<T extends FieldValues> {
   control: Control<T, unknown, FieldValues>
   nomName: FieldPath<T>
   nomLabel?: string
-  nomRequired?: boolean
   /** Champ description (optionnel : certaines entités n'en ont pas). */
   descriptionName?: FieldPath<T>
   descriptionLabel?: string
@@ -35,7 +34,6 @@ export function IdentiteFields<T extends FieldValues>({
   control,
   nomName,
   nomLabel,
-  nomRequired,
   descriptionName,
   descriptionLabel,
   descriptionRequired,
@@ -46,7 +44,7 @@ export function IdentiteFields<T extends FieldValues>({
       control={control}
       name={nomName}
       label={nomLabel ?? 'Nom'}
-      required={nomRequired ?? true}
+      required
     />
   )
 

@@ -38,12 +38,6 @@ interface DocumentsTabProps {
    */
   tacheId?: string | null
   /**
-   * Restreint les formats acceptés à l'upload (défaut : PDF + WebP). Ex.
-   * `MIME_PDF` pour n'autoriser que le PDF (investissements). Transmis tel quel
-   * au dialogue d'upload.
-   */
-  acceptedMimes?: readonly string[]
-  /**
    * Titre de section (ex. « Documents »). Si fourni, l'en-tête affiche le titre
    * à gauche et le bouton de rattachement (icône + tooltip) à droite, sur une
    * seule ligne. Sans titre, seul le bouton est rendu (aligné à droite).
@@ -119,7 +113,6 @@ export function DocumentsTab({
   parentColumn,
   parentId,
   tacheId,
-  acceptedMimes,
   title,
   uploadOpen,
   onUploadOpenChange,
@@ -274,7 +267,6 @@ export function DocumentsTab({
               })
           }
           pending={uploadAttach.isPending}
-          acceptedMimes={acceptedMimes}
           initialFiles={uploadInitialFiles}
           defaultTypeNom={uploadDefaultTypeNom}
           namingContext={namingContext}

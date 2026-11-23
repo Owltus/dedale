@@ -24,10 +24,6 @@ interface MotifDialogProps {
   destructive?: boolean
   pending: boolean
   onConfirm: (motif: string) => void
-  /** Libellé du champ de saisie (défaut « Motif »). */
-  label?: string
-  /** Hauteur du champ de saisie, en lignes (défaut 4). */
-  rows?: number
 }
 
 /**
@@ -45,8 +41,6 @@ export function MotifDialog({
   destructive,
   pending,
   onConfirm,
-  label = 'Motif',
-  rows = 4,
 }: MotifDialogProps) {
   const form = useForm<MotifValues>({
     resolver: zodResolver(motifSchema),
@@ -77,9 +71,9 @@ export function MotifDialog({
         <TextareaField
           control={form.control}
           name="motif"
-          label={label}
+          label="Motif"
           required
-          rows={rows}
+          rows={4}
           // Focus d'emblée sur la saisie (et non le bouton « X » de fermeture).
           autoFocus
         />

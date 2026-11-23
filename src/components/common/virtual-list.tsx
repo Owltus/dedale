@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { cn } from '@/lib/utils'
 
 /** Premier ancêtre qui défile verticalement (le `ScrollBody` de la page). */
 function zoneDefilante(el: HTMLElement | null): HTMLElement | null {
@@ -16,11 +15,6 @@ interface VirtualListProps<T> {
   /** Clé stable d'une ligne (son id) : garde la mesure et le focus au bon endroit. */
   getKey: (item: T) => string
   renderItem: (item: T) => ReactNode
-  /** Hauteur estimée d'une ligne, en px ; la vraie hauteur est mesurée ensuite. */
-  estimateSize?: number
-  /** Espace entre deux lignes, en px (8 = `listStack`). */
-  gap?: number
-  className?: string
 }
 
 /**
@@ -42,9 +36,6 @@ export function VirtualList<T>({
   items,
   getKey,
   renderItem,
-  estimateSize = 72,
-  gap = 8,
-  className,
 }: VirtualListProps<T>) {
   const [liste, setListe] = useState<HTMLDivElement | null>(null)
   const zone = zoneDefilante(liste)
@@ -61,12 +52,14 @@ export function VirtualList<T>({
   const v = useVirtualizer({
     count: items.length,
     getScrollElement: () => zone,
-    estimateSize: () => estimateSize,
+    // Hauteur estimée d'une ligne, en px ; la vraie hauteur est mesurée ensuite.
+    estimateSize: () => 72,
     getItemKey: (i) => {
       const item = items[i]
       return item === undefined ? i : getKey(item)
     },
-    gap,
+    // Espace entre deux lignes, en px (8 = `listStack`).
+    gap: 8,
     overscan: 8,
     scrollMargin: marge,
   })
@@ -74,7 +67,7 @@ export function VirtualList<T>({
   return (
     <div
       ref={setListe}
-      className={cn('relative w-full', className)}
+      className="relative w-full"
       style={{ height: v.getTotalSize() }}
     >
       {v.getVirtualItems().map((ligne) => {
