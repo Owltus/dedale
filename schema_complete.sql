@@ -16950,8 +16950,7 @@ GRANT EXECUTE ON FUNCTION public.refuser_connecteur_historique() TO authenticate
 -- garder trace de ce qui a été fait dans Dédale et reste à envoyer à Dmbook.
 --
 -- Correctif :
---   1. `dmbook_etat` gagne le compte qui signe les DI venues de Dmbook (D14),
---      la date du dernier tour complet et la clé de la tâche planifiée.
+--   1. (`dmbook_etat` : remplacé par 165.)
 --   2. `dmbook_liens` : un ticket par ligne (id Dmbook, numéro, DI, dernière
 --      version vue des deux côtés). Le numéro est lisible par quiconque voit la DI (D16).
 --   3. `dmbook_file` : ce qui a été fait dans Dédale et doit partir vers Dmbook
@@ -16962,7 +16961,7 @@ GRANT EXECUTE ON FUNCTION public.refuser_connecteur_historique() TO authenticate
 --      écrit (`dedale.synchro_dmbook = on`, anti-écho).
 --   5. Fonctions de la synchro (service_role seulement) : créer, mettre à jour,
 --      supprimer une DI venue de Dmbook, en posant l'anti-écho.
---   Ne fait PAS : remplir les liens de l'historique (étape 4), pg_net, pg_cron (165).
+--   Ne fait PAS : remplir les liens de l'historique (étape 4), pg_net, pg_cron (166).
 --
 -- Innocuité : aucune DI modifiée. Les déclencheurs existants (audit, statut
 -- initial, resolved_by, réouverture, site du local) restent inchangés et
@@ -16972,7 +16971,6 @@ GRANT EXECUTE ON FUNCTION public.refuser_connecteur_historique() TO authenticate
 -- Vérification après application :
 --     SELECT count(*) FROM public.dmbook_liens;  -- 0 (rempli à l'étape 4)
 --     SELECT count(*) FROM public.dmbook_file;   -- 0
---     SELECT compte_id IS NOT NULL FROM public.dmbook_etat;  -- true
 --     SELECT count(*) FROM pg_trigger WHERE tgname LIKE 'trg_dmbook_%';  -- 4
 -- =============================================================================
 
