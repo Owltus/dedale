@@ -12,6 +12,7 @@ import { CELL_SIZE } from '@/features/planning/use-colonnes-auto'
 import { labelSemaine } from '@/features/planning/semaines'
 import type { SemaineIso } from '@/features/planning/semaines'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ajouterJours } from '@/lib/date'
 import { cn } from '@/lib/utils'
 
 /**
@@ -290,11 +291,7 @@ function grouperSemaines(
  * parce que son lundi est encore en décembre) → décalage visible avec le n° de semaine.
  */
 function jeudiDe(s: SemaineIso): Date {
-  return new Date(
-    s.debut.getFullYear(),
-    s.debut.getMonth(),
-    s.debut.getDate() + 3,
-  )
+  return ajouterJours(s.debut, 3)
 }
 
 /**
