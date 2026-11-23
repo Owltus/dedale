@@ -17195,46 +17195,6 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.dmbook_creer_di(
-    p_dmbook_id text, p_numero integer, p_constat text, p_statut integer,
-    p_locaux uuid[], p_cree_le timestamptz,
-    p_ts bigint, p_empreinte_dmbook text, p_empreinte_dedale text)
- RETURNS uuid
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-DECLARE
-    v_etat public.dmbook_etat;
-    v_di   uuid;
-BEGIN
-    PERFORM set_config('dedale.synchro_dmbook', 'on', true);
-    SELECT * INTO v_etat FROM public.dmbook_etat WHERE id;
-    IF v_etat.compte_id IS NULL THEN
-        RAISE EXCEPTION 'Synchro Dmbook : aucun compte signataire (dmbook_etat.compte_id).';
-    END IF;
-    IF EXISTS (SELECT 1 FROM public.dmbook_liens WHERE dmbook_id = p_dmbook_id) THEN
-        RAISE EXCEPTION 'Synchro Dmbook : le ticket % est déjà lié.', p_dmbook_id;
-    END IF;
-
-    -- Création forcément « Ouvert » (validation_statut_initial_di), puis statut réel.
-    INSERT INTO public.demandes_intervention (site_id, created_by, constat, date_constat, created_at, statut_di_id)
-    VALUES (v_etat.site_id, v_etat.compte_id, p_constat,
-            coalesce((p_cree_le AT TIME ZONE 'Europe/Paris')::date, current_date),
-            coalesce(p_cree_le, now()), 1)
-    RETURNING id INTO v_di;
-
-    PERFORM public.dmbook_poser_lieux(v_di, coalesce(p_locaux, '{}'));
-    IF p_statut <> 1 THEN
-        PERFORM public.dmbook_poser_statut(v_di, p_statut, v_etat.compte_id);
-    END IF;
-
-    INSERT INTO public.dmbook_liens (dmbook_id, numero, di_id, dmbook_ts, dmbook_empreinte, dedale_empreinte, synchro_le)
-    VALUES (p_dmbook_id, p_numero, v_di, p_ts, p_empreinte_dmbook, p_empreinte_dedale, now());
-    RETURN v_di;
-END;
-$function$;
-
 -- NULL = inchangé, pour p_constat, p_statut et p_locaux.
 CREATE OR REPLACE FUNCTION public.dmbook_maj_di(
     p_di_id uuid, p_constat text, p_statut integer, p_locaux uuid[],
@@ -17289,8 +17249,6 @@ BEGIN
 END;
 $function$;
 
-COMMENT ON FUNCTION public.dmbook_creer_di(text, integer, text, integer, uuid[], timestamptz, bigint, text, text) IS
-    'Synchro Dmbook (164) : DI créée depuis un nouveau ticket, signée du compte du PO, avec ses lieux, son statut et son lien.';
 COMMENT ON FUNCTION public.dmbook_maj_di(uuid, text, integer, uuid[], bigint, text, text) IS
     'Synchro Dmbook (164) : DI alignée sur son ticket (NULL = inchangé) et dernière version vue enregistrée.';
 COMMENT ON FUNCTION public.dmbook_supprimer_di(text) IS
@@ -17305,10 +17263,8 @@ REVOKE ALL ON FUNCTION public.trg_dmbook_di() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.trg_dmbook_di_localisation() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.dmbook_poser_lieux(uuid, uuid[]) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.dmbook_poser_statut(uuid, integer, uuid) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.dmbook_creer_di(text, integer, text, integer, uuid[], timestamptz, bigint, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.dmbook_maj_di(uuid, text, integer, uuid[], bigint, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.dmbook_supprimer_di(text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.dmbook_creer_di(text, integer, text, integer, uuid[], timestamptz, bigint, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.dmbook_maj_di(uuid, text, integer, uuid[], bigint, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.dmbook_supprimer_di(text) TO service_role;
 
@@ -17591,8 +17547,6 @@ $function$;
 
 -- ─── 6. Écritures de la synchro ─────────────────────────────────────────────
 
-DROP FUNCTION IF EXISTS public.dmbook_creer_di(text, integer, text, integer, uuid[], timestamptz, bigint, text, text);
-
 CREATE OR REPLACE FUNCTION public.dmbook_creer_di(
     p_site_id uuid, p_dmbook_id text, p_numero integer, p_auteur text, p_constat text, p_statut integer,
     p_locaux uuid[], p_cree_le timestamptz,
@@ -17818,32 +17772,7 @@ COMMENT ON FUNCTION public.dmbook_appeler(uuid, jsonb) IS
 
 -- ─── 2. Tâche planifiée ─────────────────────────────────────────────────────
 
-CREATE OR REPLACE FUNCTION public.dmbook_tic()
- RETURNS integer
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-DECLARE
-    v_heure integer := extract(hour FROM now() AT TIME ZONE 'Europe/Paris');
-    v_jour  boolean := v_heure >= 7 AND v_heure < 19;
-    v_n     integer := 0;
-    c       record;
-BEGIN
-    FOR c IN
-        SELECT site_id FROM public.dmbook_connexions
-        WHERE  etat = 'ok'
-          AND  (v_jour OR dernier_passage IS NULL OR dernier_passage < now() - interval '55 minutes')
-    LOOP
-        PERFORM public.dmbook_appeler(c.site_id, '{"mode":"passage"}'::jsonb);
-        v_n := v_n + 1;
-    END LOOP;
-    RETURN v_n;
-END;
-$function$;
-REVOKE ALL ON FUNCTION public.dmbook_tic() FROM PUBLIC, anon, authenticated;
-COMMENT ON FUNCTION public.dmbook_tic() IS
-    'Synchro Dmbook (166) : appelée par pg_cron toutes les 5 min ; un passage par site connecté, 1 par heure la nuit (D6).';
+-- (dmbook_tic : définie en 167.)
 
 DO $$
 BEGIN
