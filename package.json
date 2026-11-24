@@ -14,7 +14,7 @@
     "test:deno": "cd supabase/functions && deno test --allow-all --no-lock --node-modules-dir=none --quiet",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run test:deno",
     "preview": "vite preview",
-    "gen:types": "npx --yes supabase gen types typescript --project-id ybxuojtyevldrbieaykh --schema public > src/lib/database.types.ts",
+    "gen:types": "npx --yes supabase gen types typescript --project-id ybxuojtyevldrbieaykh --schema public > src/lib/database.types.ts && prettier --write src/lib/database.types.ts && node -e \"require('fs').copyFileSync('src/lib/database.types.ts','supabase/functions/_shared/database.types.ts')\"",
     "contraintes:instantane": "node scripts/instantane-contraintes.mjs",
     "contraintes:verifier": "node scripts/instantane-contraintes.mjs --verifier"
   },

@@ -25,6 +25,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { OUTILS, executerOutil, type Contexte } from './outils.ts'
 import { chargeJeton } from '../_shared/connecteur.ts'
+import type { Database } from '../_shared/database.types.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -165,7 +166,7 @@ Deno.serve(async (req) => {
   // Pas de flux SSE côté serveur : uniquement des réponses JSON.
   if (req.method !== 'POST') return json({ error: 'Méthode non prise en charge' }, 405, { Allow: 'POST' })
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${jeton}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   })

@@ -8,6 +8,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { json, lireAppel } from '../_shared/http.ts'
+import type { Database } from '../_shared/database.types.ts'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID_RE =
@@ -31,7 +32,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // L'appelant doit être admin (rôle réel lu via current_role, respecte le
   // kill-switch est_actif).
-  const callerClient = createClient(url, anonKey, {
+  const callerClient = createClient<Database>(url, anonKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   })
@@ -44,7 +45,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: 'Action réservée aux administrateurs.' }, 403)
   }
 
-  const adminClient = createClient(url, serviceRoleKey, {
+  const adminClient = createClient<Database>(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 

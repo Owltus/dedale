@@ -32,6 +32,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { json, lireAppel } from '../_shared/http.ts'
 import { erreurMotDePasse } from '../_shared/mot-de-passe.ts'
+import type { Database } from '../_shared/database.types.ts'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -60,7 +61,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Client de l'APPELANT : clé anon + son JWT, donc soumis à la RLS et à
   // current_role() — c'est ce qui porte le kill-switch `est_actif`. Ne jamais
   // basculer ces vérifications sur le client service_role.
-  const callerClient = createClient(url, anonKey, {
+  const callerClient = createClient<Database>(url, anonKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   })
@@ -131,7 +132,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  const adminClient = createClient(url, serviceRoleKey, {
+  const adminClient = createClient<Database>(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 

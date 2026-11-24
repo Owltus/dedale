@@ -48,6 +48,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { json, lireAppel } from '../_shared/http.ts'
 import { erreurMotDePasse } from '../_shared/mot-de-passe.ts'
+import type { Database } from '../_shared/database.types.ts'
 
 const ROLES_VALIDES = [
   'admin',
@@ -148,7 +149,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Client "appelant" : clé anon + JWT de l'utilisateur → soumis à la RLS et
   // à current_role(). Sert à identifier l'inviteur et lire son rôle réel.
-  const callerClient = createClient(url, anonKey, {
+  const callerClient = createClient<Database>(url, anonKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   })
@@ -187,7 +188,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // (d) Création via service_role. Les métadonnées partent dans `user_metadata`,
   // que GoTrue pose dès l'INSERT — et c'est de là que le trigger
   // handle_new_auth_user les lit (app_metadata reste prioritaire s'il existe).
-  const adminClient = createClient(url, serviceRoleKey, {
+  const adminClient = createClient<Database>(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 

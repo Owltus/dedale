@@ -23,6 +23,7 @@ import { CORS_HEADERS as CORS, json } from '../_shared/http.ts'
 import {
   clientServeur, enregistrer, ErreurSaisie, lireConnexion, prendreVerrou, raison, rendreVerrou, seConnecter, validerCode,
 } from '../_shared/dmbook/serveur.ts'
+import type { Database } from '../_shared/database.types.ts'
 
 const CODE_RE = /^[A-Za-z0-9]{4,12}$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
   // Droit : la base décide (rôle + site), avec le jeton de la personne.
   const url = Deno.env.get('SUPABASE_URL') ?? ''
   const anon = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-  const personne = createClient(url, anon, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } })
+  const personne = createClient<Database>(url, anon, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } })
   const { data: moi } = await personne.auth.getUser(jeton)
   if (!moi?.user) return json({ error: 'Connexion à Dédale requise.' }, 401)
   const { data: peut, error: refus } = await personne.rpc('dmbook_peut_regler', { p_site: site })
