@@ -103,7 +103,7 @@ Une contrainte CHECK ajoutée en production sur une table de formulaire rend le 
 
 ### Un schéma Zod hors de `schemas.ts` est un schéma hors filet
 
-Le test ci-dessus ne sonde que des schémas **exportés depuis un module**. Un `z.object({…})` déclaré en ligne dans un `.tsx` lui est invisible — et ce sont précisément ces schémas-là qui portaient les divergences de bornes de l'audit de septembre 2026. Sept vivent encore ainsi : `common/motif-dialog`, `documents/document-edit-dialog`, `equipements/equipement-parc-dialog`, `equipements/parc-sous-categorie-dialog`, `ordres-travail/date-prevue-dialog`, `utilisateurs/utilisateur-identite-card`, `routes/_app/profil.tsx`.
+Le test ci-dessus ne sonde que des schémas **exportés depuis un module**. Un `z.object({…})` déclaré en ligne dans un `.tsx` lui est invisible — et ce sont précisément ces schémas-là qui portaient les divergences de bornes de l'audit de septembre 2026. Sept vivent encore ainsi : `common/motif-dialog`, `documents/document-edit-dialog`, `equipements/equipement-parc-dialog`, `equipements/parc-sous-categorie-dialog`, `ordres-travail/date-prevue-dialog`, `utilisateurs/utilisateur-identite-card`, `utilisateurs/profil`.
 
 **Règle** : tout schéma de formulaire vit dans le `schemas.ts` de sa feature et y est **exporté**. Une modale de brique commune, qui ne peut dépendre d'aucune feature (`motif-dialog`), garde son schéma local mais l'**exporte** quand même, pour rester sondable.
 
