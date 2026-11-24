@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import type { QueryKey } from '@tanstack/react-query'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { documentsQueries } from '@/features/documents/queries'
 import { dashboardQueries } from './queries'
 import { useDashboardRealtime } from './use-dashboard-data'
 
@@ -35,14 +34,19 @@ describe('useDashboardRealtime', () => {
     })
   })
 
-  it('un changement de document rafraîchit AUSSI le tableau de bord', () => {
-    // L'alerte « documents manquants » lit `documents_ordres_travail` mais
-    // vit sous `['dashboard']` : sans cette clé, joindre le document
-    // laissait l'alerte affichée, et l'utilisateur concluait que son envoi
-    // n'avait pas marché.
-    const cles = clesDe('documents')
-    expect(cles).toContainEqual(documentsQueries.all())
-    expect(cles).toContainEqual(dashboardQueries.all())
+  it('n’écoute que des tables publiées en temps réel (pas documents, contrats, gammes)', () => {
+    // Décision PO du 24/11/2026 : les écoutes de tables non publiées ne
+    // recevaient jamais rien et ont été retirées.
+    const tables = abonnement.mock.calls.map(([nom]) => nom)
+    for (const morte of ['documents', 'contrats', 'gammes']) {
+      expect(tables).not.toContain(morte)
+    }
+  })
+
+  it('l’alerte « documents manquants » est relue à chaque arrivée (staleTime 0)', () => {
+    // Remplace l'ancienne écoute `documents`, qui ne fonctionnait pas : joindre
+    // le document depuis une fiche OT fait disparaître l'alerte au retour.
+    expect(dashboardQueries.documentsManquants('S').staleTime).toBe(0)
   })
 
   it('un changement d’OT rafraîchit aussi le tableau de bord', () => {

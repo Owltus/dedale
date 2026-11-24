@@ -176,6 +176,11 @@ export const dashboardQueries = {
         siteId,
       ] as const,
       enabled: siteId !== null,
+      // Relue à CHAQUE arrivée sur le tableau de bord (petite lecture) : joindre
+      // le document manquant depuis une fiche OT doit faire disparaître l'alerte
+      // au retour. La table `documents` n'est pas publiée en temps réel, et les
+      // mutations de documents ne connaissent pas les clés du tableau de bord.
+      staleTime: 0,
       queryFn: async ({ signal }) => {
         const { data } = await supabase
           .from('v_ot_documents_manquants')
