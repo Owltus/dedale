@@ -28,6 +28,7 @@ import {
 } from '@/components/common/list-filter-bar'
 import { gammeNatures, NATURE_GAMME_LABEL } from '@/features/gammes/schemas'
 import { EmptyState } from '@/components/common/empty-state'
+import { VirtualList } from '@/components/common/virtual-list'
 import { ListPageBody } from '@/components/common/list-page-body'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/ordres-travail/page-meta'
@@ -189,25 +190,31 @@ function OrdresTravailContent({
               isEmpty={filtered.length === 0}
               emptySearchDescription="Aucun ordre de travail ne correspond à ces critères."
             >
-              {filtered.map((ot) => {
-                const actions = canManage
-                  ? actionsEditionSuppression({
-                      onSupprimer: () =>
-                        setToDelete({ id: ot.id, nom: ot.nom_gamme }),
-                    })
-                  : []
-                return (
-                  <OtCard
-                    key={ot.id}
-                    ot={ot}
-                    urlOf={urlOf}
-                    refreshMiniatures={refreshMiniatures}
-                    menuActions={actions.length ? actions : undefined}
-                    releve={releveParOt.get(ot.id) ?? null}
-                    documents={documentsParOt.get(ot.id) ?? []}
-                  />
-                )
-              })}
+              {/* Virtualisée : ~900 OT avec « Tous » ; seules les cartes visibles
+                  (et quelques-unes autour) sont montées, chacune avec son menu
+                  contextuel, sa miniature et son icône documents. */}
+              <VirtualList
+                items={filtered}
+                getKey={(ot) => ot.id}
+                renderItem={(ot) => {
+                  const actions = canManage
+                    ? actionsEditionSuppression({
+                        onSupprimer: () =>
+                          setToDelete({ id: ot.id, nom: ot.nom_gamme }),
+                      })
+                    : []
+                  return (
+                    <OtCard
+                      ot={ot}
+                      urlOf={urlOf}
+                      refreshMiniatures={refreshMiniatures}
+                      menuActions={actions.length ? actions : undefined}
+                      releve={releveParOt.get(ot.id) ?? null}
+                      documents={documentsParOt.get(ot.id) ?? []}
+                    />
+                  )
+                }}
+              />
             </ListPageBody>
           )
         }}

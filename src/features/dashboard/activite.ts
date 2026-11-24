@@ -71,21 +71,28 @@ interface SourceActivite<T> {
  * (symétrie `segOfUnique`), sinon un clic ouvrirait la mauvaise fiche.
  */
 function construire<T>(rows: T[], src: SourceActivite<T>): LigneActivite[] {
-  const sibs = rows.map((r) => ({ nom: src.nom(r), id: src.id(r) }))
+  // Nom calculé UNE fois par ligne (il servait trois fois : frères, titre, slug).
+  const noms = new Map(rows.map((r) => [r, src.nom(r)]))
+  const sibs = rows.map((r) => ({ nom: noms.get(r)!, id: src.id(r) }))
   const estTermine = (r: T) => src.terminaux.includes(src.statutId(r))
   const ordonnees = [
     ...rows.filter((r) => !estTermine(r)),
     ...rows.filter((r) => estTermine(r)),
   ]
-  return ordonnees.map((r) => ({
-    id: src.id(r),
-    titre: src.nom(r),
-    sousTitre: formatDateAvecSemaineIso(src.date(r)),
-    statut: src.statut(r),
-    tone: src.tone(r),
-    termine: estTermine(r),
-    slug: segOfUnique({ nom: src.nom(r), id: src.id(r) }, sibs),
-  }))
+  return ordonnees.map((r) => {
+    const nom = noms.get(r)!
+    return {
+      id: src.id(r),
+      titre: nom,
+      sousTitre: formatDateAvecSemaineIso(src.date(r)),
+      statut: src.statut(r),
+      tone: src.tone(r),
+      termine: estTermine(r),
+      // `sibs` est le MÊME tableau pour toutes les lignes : l'index des slugs
+      // n'est construit qu'une fois (cf. `segOfUnique`).
+      slug: segOfUnique({ nom, id: src.id(r) }, sibs),
+    }
+  })
 }
 
 /** Colonnes nécessaires d'une demande d'intervention (`demandes_intervention`). */

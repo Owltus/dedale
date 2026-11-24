@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
 /** Premier ancêtre qui défile verticalement (le `ScrollBody` de la page). */
@@ -38,14 +38,40 @@ export function VirtualList<T>({
   renderItem,
 }: VirtualListProps<T>) {
   const [liste, setListe] = useState<HTMLDivElement | null>(null)
-  const zone = zoneDefilante(liste)
-  // Position de la liste dans la zone défilante (la barre de recherche est au-dessus).
-  const marge =
-    liste && zone
-      ? liste.getBoundingClientRect().top -
-        zone.getBoundingClientRect().top +
-        zone.scrollTop
-      : 0
+  const [zone, setZone] = useState<HTMLElement | null>(null)
+  // Position de la liste dans la zone défilante (la barre de recherche est
+  // au-dessus). Mesurée APRÈS le rendu et seulement quand une taille change —
+  // la lire pendant chaque rendu forçait un recalcul de mise en page à chaque
+  // ligne mesurée et à chaque défilement.
+  const [marge, setMarge] = useState(0)
+
+  useLayoutEffect(() => {
+    if (!liste) return
+    const z = zoneDefilante(liste)
+    setZone(z)
+    if (!z) return
+    const mesurer = () => {
+      const m =
+        liste.getBoundingClientRect().top -
+        z.getBoundingClientRect().top +
+        z.scrollTop
+      setMarge((avant) => (Math.abs(avant - m) < 1 ? avant : m))
+    }
+    mesurer()
+    // Ce qui peut déplacer la liste : la zone elle-même et tout ce qui la
+    // précède, à chaque niveau entre la liste et la zone.
+    const ro = new ResizeObserver(mesurer)
+    ro.observe(z)
+    for (
+      let el: Element | null = liste;
+      el && el !== z;
+      el = el.parentElement
+    ) {
+      for (let p = el.previousElementSibling; p; p = p.previousElementSibling)
+        ro.observe(p)
+    }
+    return () => ro.disconnect()
+  }, [liste])
 
   // Avertissement « incompatible library » attendu : React Compiler ne mémoïse pas
   // ce composant (les fonctions du virtualiseur changent à chaque défilement). C'est voulu.
