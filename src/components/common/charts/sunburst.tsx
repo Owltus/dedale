@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { cn } from '@/lib/utils'
 import { onKeyActivate } from '@/components/common/charts/chart-tokens'
 import {
@@ -45,15 +46,7 @@ const GAP_DEG = 0.7
 
 /** Détecte `prefers-reduced-motion: reduce` et suit ses changements. */
 function useReducedMotion() {
-  const [reduit, setReduit] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const maj = () => setReduit(mq.matches)
-    maj()
-    mq.addEventListener('change', maj)
-    return () => mq.removeEventListener('change', maj)
-  }, [])
-  return reduit
+  return useMediaQuery('(prefers-reduced-motion: reduce)')
 }
 
 /**

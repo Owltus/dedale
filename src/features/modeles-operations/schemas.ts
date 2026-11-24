@@ -55,7 +55,7 @@ const optionalNumber = z
   .trim()
   .refine(
     (v) => v === '' || (NOMBRE_USUEL.test(v) && Number.isFinite(Number(v))),
-    { message: 'Saisissez un nombre fini (ni infini, ni texte).' },
+    { error: 'Saisissez un nombre fini (ni infini, ni texte).' },
   )
 
 /** `modeles_operations_items.ordre INTEGER` : 2 147 483 647 au plus. */

@@ -3,8 +3,10 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
+import { defineConfig } from 'eslint/config'
 
-export default tseslint.config(
+// `defineConfig` d'ESLint remplace `tseslint.config()`, déprécié.
+export default defineConfig(
   // Code généré : jamais linté (casse le typed-linting et n'a pas à être corrigé).
   // Code généré + Edge Functions Deno (hors tsconfig du front).
   {

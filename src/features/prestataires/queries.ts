@@ -89,6 +89,8 @@ export const prestatairesQueries = {
           .eq('ordres_travail.site_id', siteId)
           .abortSignal(signal)
           .throwOnError()
+        // Conversion nécessaire : l'inférence de supabase-js ne type pas cette
+        // sélection (elle renvoie GenericStringError) — vérifié le 24/11/2026.
         const rows = data as unknown as { documents: DocumentMeta | null }[]
         const parDoc = new Map<string, DocumentMeta>()
         for (const row of rows) {

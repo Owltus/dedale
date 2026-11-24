@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import type { ReactNode } from 'react'
 
 type Theme = 'light' | 'dark' | 'system'
@@ -13,10 +14,6 @@ interface ThemeContextValue {
 const STORAGE_KEY = 'dedale-theme'
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 
-function prefersDark() {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -24,19 +21,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       ? stored
       : 'system'
   })
-  const [systemDark, setSystemDark] = useState(prefersDark)
-
-  // Suit les changements de préférence système (utile quand theme === 'system').
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => {
-      setSystemDark(mq.matches)
-    }
-    mq.addEventListener('change', onChange)
-    return () => {
-      mq.removeEventListener('change', onChange)
-    }
-  }, [])
+  // Préférence système, suivie en direct (utile quand theme === 'system').
+  const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
 
   const resolved: 'light' | 'dark' =
     theme === 'system' ? (systemDark ? 'dark' : 'light') : theme

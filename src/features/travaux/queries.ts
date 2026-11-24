@@ -70,10 +70,9 @@ export const travauxQueries = {
           .eq('interventions_travaux.site_id', siteId!)
           .abortSignal(signal)
           .throwOnError()
-        const rows = data as unknown as {
-          travaux_id: string
-          documents: DocumentMeta | null
-        }[]
+        // Typé par la sélection (jointure documents:document_id) : aucune conversion.
+        const rows: { travaux_id: string; documents: DocumentMeta | null }[] =
+          data
         const map = new Map<string, DocumentMeta[]>()
         for (const row of rows) {
           if (row.documents == null) continue

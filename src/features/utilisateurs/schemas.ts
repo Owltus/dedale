@@ -131,7 +131,7 @@ export const creerCompteSchema = z
       .max(255)
       .pipe(z.email('Adresse e-mail invalide')),
     nom_complet: texteObligatoire('Le nom complet est obligatoire').max(200),
-    role: z.enum(ROLE_CODES, { message: 'Choisis un rôle' }),
+    role: z.enum(ROLE_CODES, { error: 'Choisis un rôle' }),
     site_ids: z.array(z.uuid()),
     password: passwordSchema,
     password_confirm: z.string(),
