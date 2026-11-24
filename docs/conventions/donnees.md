@@ -28,6 +28,23 @@ export const equipementQueries = {
 - **Jamais de filtre `deleted_at`** : la colonne n'existe plus (hard-delete, migrations 034-036). Cf. `CLAUDE.md` → Doctrine backend, point 4.
 - `staleTime` raisonnable (~60 s) par défaut, pas `0` partout.
 - v5 : c'est `isPending` (pas `isLoading`) ; `onSuccess`/`onError` n'existent plus sur `useQuery`.
+- **Paramètre absent → `skipToken`**, pas `enabled` + assertion `!` :
+  `queryFn: siteId === null ? skipToken : ({ signal }) => …`. Le typage garantit
+  qu'aucune lecture ne part sans son paramètre.
+- **Une liste qui grossit se pagine** : `infiniteQueryOptions` (50 par page,
+  `demandesQueries.page`, `ordresTravailQueries.terminesPage`). `toutesLesLignes`
+  (`lib/pagination.ts`, lots de 1 000) seulement quand l'écran a besoin du tout
+  (agrégat, tri client), avec un `.order('id')` stable. Jamais de lecture nue :
+  PostgREST plafonne **silencieusement** à 1 000 lignes.
+- **Une racine de clé par table lue** : toutes les lectures d'OT (liste, fiche,
+  planning, tableau de bord, prestataire) vivent sous `ordresTravailQueries.all()`
+  — une écriture d'OT n'invalide qu'elle. `fraicheur.test.ts` vérifie la portée.
+- **Recherche texte** : `lib/recherche.ts`, UNE règle (casse et accents
+  ignorés) — `correspondRecherche` côté client, `motifRechercheServeur` (opérateur
+  `imatch`) côté PostgREST. Jamais `toLowerCase().includes`.
+- **Temps réel** : `useRealtimeRefresh(table, clés)` n'accepte que les tables
+  publiées (`TablePubliee`) ; écouter une autre table ne reçoit rien. Pour en
+  ajouter une, la publier par migration.
 
 ## Écriture — mutations
 
@@ -50,6 +67,19 @@ export function useUpdateEquipement() {
 ```
 
 - `invalidateQueries` par défaut (sûr) ; `setQueryData` quand on a déjà la donnée ; optimiste (`onMutate`/rollback) réservé aux actions sûres — **jamais** sur une suppression.
+- **Écriture sur plusieurs tables = UNE RPC transactionnelle** (`SECURITY
+INVOKER`, RLS de l'appelant) : `creer_demande`, `modifier_demande`,
+  `enregistrer_travaux`, `enregistrer_evenement`, `poser_devis_retenus` (175-176),
+  `copier_gamme`… Jamais un enchaînement de requêtes PostgREST : un échec au
+  milieu laisse un état partiel. Le calcul (ex. diff des tâches) peut rester
+  dans le front ; l'application des écritures, non. Paramètre facultatif de la
+  RPC → `DEFAULT NULL`, sinon le type généré le rend obligatoire.
+- **Erreur d'écriture** : `writeErrorMessage` / `deleteErrorMessage`
+  (`lib/erreurs.ts`) via `useSubmitDialog` / `useConfirmDelete` — jamais le
+  message brut. Une RPC qui ne touche aucune ligne lève `42501`, traduit comme
+  un `PGRST116`.
+- **Mémoïsation** : React Compiler est actif — pas de `useMemo`/`useCallback`
+  dans le nouveau code (les existants restent).
 - Une transition d'état interdite (machine à états backend) renvoie une **erreur** → la catcher et l'afficher (toast/inline), idéalement griser l'action impossible en amont.
 
 ## Erreurs : distinguer vide RLS vs vraie erreur
@@ -62,6 +92,7 @@ export function useUpdateEquipement() {
 - `npm run gen:types` (après `npx supabase login`) régénère `src/lib/database.types.ts` : c'est la voie normale, à relancer après chaque migration backend.
 - **Une seule exception à l'édition manuelle** : tant qu'une migration n'est pas déployée en production, `gen:types` ne peut pas la voir. On édite alors le fichier **à la main, en pont**, et on régénère dès le déploiement. Toute autre édition manuelle est une erreur.
 - Une fois généré : `createClient<Database>(...)` dans `src/lib/supabase.ts` → `.from()`/`.rpc()` entièrement typés. En attendant : cast explicite ponctuel.
+- `gen:types` écrit aussi la copie lue par les Edge Functions (`supabase/functions/_shared/database.types.ts`, elles ne peuvent pas importer `src/`) ; `database-types-copie.test.ts` rougit si elle dérive.
 
 ## Upload de document = 3 étapes
 

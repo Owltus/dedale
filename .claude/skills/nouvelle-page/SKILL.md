@@ -43,7 +43,7 @@ Un « détail » rendu par dialogue piloté par état local (ex. aperçu d'un do
 
 ## 2. Les invariants d'une page
 
-Quel que soit le patron, une page de Dédale respecte ces sept points. Ils sont non négociables parce que chacun a déjà été enfreint et a produit un défaut visible.
+Quel que soit le patron, une page de Dédale respecte ces huit points. Ils sont non négociables parce que chacun a déjà été enfreint et a produit un défaut visible.
 
 1. **Racine `PageContainer`.** Défaut : le 1er enfant est l'en-tête FIXE, le reste défile. **Avec un enfant unique, tout défile, en-tête compris** — colonne centrée → `bodyMaxWidth` ; écran qui gère son propre défilement → `fill` + `FillHeader`/`ScrollBody`.
 2. **Deux gardes distinctes.** Rôle au **layout** (`requireNav`, **fail-open** : si la RPC rôle échoue on laisse passer, la RLS tranche) ; site via **`SiteScopedRoute`** dans la liste **ET** le détail, **avant toute query**.
@@ -52,6 +52,7 @@ Quel que soit le patron, une page de Dédale respecte ces sept points. Ils sont 
 5. **Corps de liste = `ListPageBody`** (barre `ListFilterBar` pleine largeur + aucun résultat + `listStack`). Sentinelles `FILTRE_TOUS`/`FILTRE_NON_TERMINES`, jamais une chaîne vide. Défaut « non terminés » sur toute liste à statuts terminaux.
 6. **`segOfUnique` symétrique** : même ensemble de frères (toute la liste **non filtrée**) en génération ET en résolution. Replis : slug vide → `id` ; collision → suffixe. **Jamais l'UUID brut dans l'URL.**
 7. **Cloisonnement site redondant** côté query (`.eq('site_id', siteId)`) en plus de la RLS.
+8. **Route mince.** Le fichier de `routes/` ne porte que `createFileRoute`, ses gardes (`beforeLoad`) et le cadre `SiteScopedRoute` ; l'écran est un composant de feature (`features/<x>/components/<x>-liste.tsx`, ex. `TravauxListe`). Deux patrons coexistaient (logique dans la route ou dans la feature) : depuis l'audit d'architecture de 11/2026, un seul.
 
 ## 3. Règles toujours actives
 

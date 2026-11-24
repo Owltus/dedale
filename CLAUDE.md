@@ -64,11 +64,15 @@ Le **catalogue des briques réutilisables** (~70 documentées, avec leur nombre 
 - **ESLint strict + Prettier** : ne pas formater ni trier les classes Tailwind à la main.
 - Couleurs : **tokens sémantiques** (`bg-primary`…), jamais en dur. Coller au style du code existant.
 - **Mobile-first** : toute page s'ouvre sur `<PageContainer>`, grilles via `cardGrid` (`src/lib/responsive.ts`). Détails : `docs/conventions/ui.md` → Responsive design.
+- **Glossaire** : « local » dans le code, « lieu » à l'écran ; « commun » = catalogue du siège ; « gamme » dans le code, « Plan de maintenance » à l'écran ; OT, DI. Hooks CRUD en anglais (`useCreate…`/`useUpdate…`/`useDelete…`), tout le reste en français ; droits `can…`, prédicats `est…`. Détail : `docs/conventions/architecture.md`.
+- **Routes minces** : la route ne porte que `createFileRoute`, ses gardes et `SiteScopedRoute` ; l'écran vit dans `features/<x>/components/<x>-liste.tsx`. Coquille de l'appli dans `components/layout/`.
+- **Données** (détail : `docs/conventions/donnees.md`) : écriture sur plusieurs tables = **une RPC transactionnelle**, jamais un enchaînement de requêtes ; liste qui grossit = `infiniteQueryOptions` ou `toutesLesLignes` (jamais de lecture nue, plafond silencieux à 1 000) ; paramètre absent = `skipToken` ; recherche = `lib/recherche.ts` ; clé d'une autre feature = sa fabrique, jamais un littéral ; temps réel = tables publiées seulement (`TablePubliee`) ; statuts = constantes nommées (`etat.ts`), jamais `=== 3`.
+- **React Compiler** actif : pas de `useMemo`/`useCallback` dans le nouveau code.
 
 ## Garde-fous automatiques
 
 - **Hook** `.claude/hooks/check.mjs` (PostToolUse) : après chaque édition `.ts`/`.tsx`, **formate le fichier édité** (Prettier) puis lance le type-check. Le formatage est non bloquant ; seule une erreur de types remonte.
-- **Gate** : `npm run verify` = typecheck + lint + format + tests. C'est la seule commande à lancer en fin de chantier (avec `npm run build`).
+- **Gate** : `npm run verify` = typecheck + lint + format + tests (Vitest **et** Deno des Edge Functions). C'est la seule commande à lancer en fin de chantier (avec `npm run build`). Un commit ne part que si elle est verte.
 - **Allow-list** `.claude/settings.json` : npm/git (hors push)/tsc/eslint/prettier sans confirmation. Tout ce qui n'y figure pas — dont `git push` et les suppressions de fichiers — demande une confirmation ; il n'y a pas de liste `deny` explicite.
 
 ## Repères & pièges

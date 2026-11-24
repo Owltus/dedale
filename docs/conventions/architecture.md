@@ -7,30 +7,63 @@
 ```
 src/
   routes/            # Routing file-based TanStack Router (l'URL = l'arbre).
-                     # MINCE : une route compose depuis features/, pas de logique métier ici.
+                     # MINCE : createFileRoute + gardes (beforeLoad) + cadre
+                     # SiteScopedRoute ; l'écran vit dans sa feature (cf. ci-dessous).
   features/          # Cœur métier. Une feature = un dossier autonome.
     <domaine>/
       components/    # composants métier (EquipementDetail, ContratCard…)
+        <x>-liste.tsx  # l'ÉCRAN liste de la route (TravauxListe, DemandesListe…)
       page-meta.ts   # identité de la page : titre / description / hint / icone
       queries.ts     # queryOptions (lecture) — cf. conventions/donnees.md
       mutations.ts   # hooks useMutation (écriture)
       schemas.ts     # schémas Zod (réutilisés par form ET search params)
+      etat.ts        # statuts nommés et prédicats (STATUT_DI_CLOTURE, estVerrouille…)
+    taches/          # tâches partagées par Travaux et Événements (diff, ligne, dialogue)
   components/
     ui/              # composants génériques shadcn/ui (button, card, dialog…). Zéro métier.
-    common/          # transverses maison (EmptyState, ErrorState, PageHeader, SiteScopedRoute…)
+    common/          # briques réutilisables maison (EmptyState, PageHeader, ListRow…)
+    layout/          # coquille de l'application : sidebar, barre du haut, en-tête
+                     # mobile, menu utilisateur, sélecteur de site, préchargement
     theme.tsx        # ThemeProvider + useTheme (clair/sombre)
-  lib/               # transverse : supabase.ts (client), utils.ts (cn), database.types.ts (généré)
+  lib/               # transverse sans métier : supabase.ts, date.ts, erreurs.ts
+                     # (traduction des erreurs), recherche.ts, pagination.ts…
   auth.tsx           # AuthProvider + useAuth
   hooks/             # hooks transverses (useEntityDialog, useConfirmDelete, useRealtimeRefresh…)
   main.tsx           # point d'entrée (Query + Theme + Auth + Router)
 ```
 
-## Règles de dépendances
+Une brique qui ne sert qu'un domaine vit dans ce domaine, même si plusieurs
+fiches l'emploient (`DocumentsTab` → `features/documents/components`). Un hook
+qui n'a qu'un consommateur vit à côté de lui (`use-gammes-drill` → `features/gammes`).
 
-- Sens unique : `features/` → `components/common` → `components/ui` → `lib`. Jamais l'inverse.
-- Un composant `components/ui` n'importe **jamais** depuis `features/`.
-- Pas de dépendance croisée entre features : ce qui est partagé remonte dans `common/` ou `lib/`.
-- **Colocation** : un composant métier vit dans sa feature, là où il sert.
+## Règles de dépendances (réalistes, mesurées le 24/11/2026)
+
+- `components/ui` n'importe **jamais** depuis `features/` ni `common/`.
+- `lib/` et `hooks/` n'importent une feature que pour le **socle** : le rôle
+  courant (`features/utilisateurs/queries` → `currentRoleQueryOptions`) et le
+  site actif (`features/sites/site-context`). Rien d'autre.
+- `components/common` peut lire ce même socle (site actif, sites) ; il n'importe
+  aucun composant de feature.
+- **Features socle**, importables par toutes : `sites` (site actif), `utilisateurs`
+  (rôle), `documents` (format, briques de fiche), `miniatures` (vignettes),
+  `taches`. Entre deux autres features, on importe les **queries**, **schemas**,
+  **format** et **types** de l'autre — jamais l'inverse d'une dépendance déjà
+  posée (pas de cycle). Une clé de cache d'une autre feature se dérive de sa
+  fabrique (`...ordresTravailQueries.all()`), jamais d'un littéral.
+
+## Glossaire (validé par le PO le 24/11/2026)
+
+| Concept                             | Dans le code                            | À l'écran                          |
+| ----------------------------------- | --------------------------------------- | ---------------------------------- |
+| Pièce, zone                         | `local` (`locaux`)                      | « lieu »                           |
+| Catalogue du siège (`site_id NULL`) | `commun` (`entreprise` pour une portée) | « commun »                         |
+| Gamme                               | `gamme`                                 | « Plan de maintenance » (section)  |
+| Ordre de travail                    | `ot`, `ordres_travail`                  | « OT », « Ordre de travail »       |
+| Demande d'intervention              | `demande`, `di`                         | « DI », « Demande d'intervention » |
+
+Verbes : les hooks CRUD gardent l'anglais (`useCreate…`, `useUpdate…`,
+`useDelete…`) ; tout le reste est en français (`estVerrouille`, `poserRetenus`).
+Droits : `can…` ; prédicats métier : `est…`.
 
 ## Routing (TanStack Router)
 
