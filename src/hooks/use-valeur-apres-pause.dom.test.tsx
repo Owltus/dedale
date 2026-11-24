@@ -12,11 +12,17 @@ describe('useValeurApresPause', () => {
       { initialProps: { v: '' } },
     )
     rerender({ v: 'p' })
-    act(() => vi.advanceTimersByTime(100))
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
     rerender({ v: 'pe' })
-    act(() => vi.advanceTimersByTime(249))
+    act(() => {
+      vi.advanceTimersByTime(249)
+    })
     expect(result.current).toBe('')
-    act(() => vi.advanceTimersByTime(1))
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
     expect(result.current).toBe('pe')
   })
 })
