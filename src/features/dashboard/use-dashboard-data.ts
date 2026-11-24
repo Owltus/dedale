@@ -79,7 +79,7 @@ export const PlageOtContext = createContext<PlageOt | null>(null)
  * seule fois par l'orchestrateur (sinon un canal par cadran → fuite).
  *
  * `siteId` peut être `null` (site non encore résolu) : chaque query est alors
- * désactivée (`enabled: siteId !== null`) et les dérivations tombent à vide.
+ * désactivée (`queryFn: skipToken`) et les dérivations tombent à vide.
  */
 export function useDashboardData(
   siteId: string | null,

@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { ajouterJours, isoLocale, parseDateLocale } from '@/lib/date'
 
@@ -29,24 +29,26 @@ export const planningQueries = {
   fenetre: (siteId: string | null, debut: string, fin: string) =>
     queryOptions({
       queryKey: [...planningQueries.all(), 'fenetre', siteId, debut, fin],
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const debutCloture = decalerJourIso(debut, -1)
-        const finCloture = decalerJourIso(fin, 1)
-        const { data } = await supabase
-          .from('ordres_travail')
-          .select(
-            'id, statut, origine, tolerance_jours, gamme_id, nom_gamme, nature_gamme, nom_prestataire, nom_equipement, description_gamme, nom_categorie, libelle_periodicite, date_prevue, date_debut, date_cloture, miniature_id',
-          )
-          .eq('site_id', siteId!)
-          .or(
-            `and(date_prevue.gte.${debut},date_prevue.lte.${fin}),` +
-              `and(date_cloture.gte.${debutCloture},date_cloture.lte.${finCloture})`,
-          )
-          .order('date_prevue', { ascending: true })
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const debutCloture = decalerJourIso(debut, -1)
+              const finCloture = decalerJourIso(fin, 1)
+              const { data } = await supabase
+                .from('ordres_travail')
+                .select(
+                  'id, statut, origine, tolerance_jours, gamme_id, nom_gamme, nature_gamme, nom_prestataire, nom_equipement, description_gamme, nom_categorie, libelle_periodicite, date_prevue, date_debut, date_cloture, miniature_id',
+                )
+                .eq('site_id', siteId)
+                .or(
+                  `and(date_prevue.gte.${debut},date_prevue.lte.${fin}),` +
+                    `and(date_cloture.gte.${debutCloture},date_cloture.lte.${finCloture})`,
+                )
+                .order('date_prevue', { ascending: true })
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 }

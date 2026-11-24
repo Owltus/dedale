@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { listeFr } from '@/lib/liste'
 import { supabase } from '@/lib/supabase'
 
@@ -9,52 +9,58 @@ export const localisationsQueries = {
   batiments: (siteId: string | null) =>
     queryOptions({
       queryKey: [...localisationsQueries.all(), 'batiments', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('batiments')
-          .select('*')
-          .eq('site_id', siteId!)
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('batiments')
+                .select('*')
+                .eq('site_id', siteId)
+                .order('nom')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /** Niveaux actifs d'un bâtiment. */
   niveaux: (batimentId: string | null) =>
     queryOptions({
       queryKey: [...localisationsQueries.all(), 'niveaux', batimentId] as const,
-      enabled: batimentId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('niveaux')
-          .select('*')
-          .eq('batiment_id', batimentId!)
-          .order('ordre')
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        batimentId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('niveaux')
+                .select('*')
+                .eq('batiment_id', batimentId)
+                .order('ordre')
+                .order('nom')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /** Locaux actifs d'un niveau. */
   locaux: (niveauId: string | null) =>
     queryOptions({
       queryKey: [...localisationsQueries.all(), 'locaux', niveauId] as const,
-      enabled: niveauId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('locaux')
-          .select('*')
-          .eq('niveau_id', niveauId!)
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        niveauId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('locaux')
+                .select('*')
+                .eq('niveau_id', niveauId)
+                .order('nom')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /**
@@ -87,38 +93,41 @@ export const localisationsQueries = {
   arbre: (siteId: string | null) =>
     queryOptions({
       queryKey: [...localisationsQueries.all(), 'arbre', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data: batiments } = await supabase
-          .from('batiments')
-          .select('id, nom')
-          .eq('site_id', siteId!)
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        const batimentIds = batiments.map((b) => b.id)
-        if (batimentIds.length === 0) {
-          return { batiments, niveaux: [], locaux: [] }
-        }
-        const { data: niveaux } = await supabase
-          .from('niveaux')
-          .select('id, nom, batiment_id')
-          .in('batiment_id', batimentIds)
-          .order('ordre')
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        const niveauIds = niveaux.map((n) => n.id)
-        if (niveauIds.length === 0) return { batiments, niveaux, locaux: [] }
-        const { data: locaux } = await supabase
-          .from('locaux')
-          .select('id, nom, niveau_id')
-          .in('niveau_id', niveauIds)
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return { batiments, niveaux, locaux }
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data: batiments } = await supabase
+                .from('batiments')
+                .select('id, nom')
+                .eq('site_id', siteId)
+                .order('nom')
+                .abortSignal(signal)
+                .throwOnError()
+              const batimentIds = batiments.map((b) => b.id)
+              if (batimentIds.length === 0) {
+                return { batiments, niveaux: [], locaux: [] }
+              }
+              const { data: niveaux } = await supabase
+                .from('niveaux')
+                .select('id, nom, batiment_id')
+                .in('batiment_id', batimentIds)
+                .order('ordre')
+                .order('nom')
+                .abortSignal(signal)
+                .throwOnError()
+              const niveauIds = niveaux.map((n) => n.id)
+              if (niveauIds.length === 0)
+                return { batiments, niveaux, locaux: [] }
+              const { data: locaux } = await supabase
+                .from('locaux')
+                .select('id, nom, niveau_id')
+                .in('niveau_id', niveauIds)
+                .order('nom')
+                .abortSignal(signal)
+                .throwOnError()
+              return { batiments, niveaux, locaux }
+            },
     }),
 
   /** Surface roulée par bâtiment du site (somme des locaux). */
@@ -129,18 +138,20 @@ export const localisationsQueries = {
         'batiments-surface',
         siteId,
       ] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('v_batiments_surface')
-          .select(
-            'batiment_id, surface_m2, surface_chauffee_m2, volume_m3, capacite_personnes',
-          )
-          .eq('site_id', siteId!)
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('v_batiments_surface')
+                .select(
+                  'batiment_id, surface_m2, surface_chauffee_m2, volume_m3, capacite_personnes',
+                )
+                .eq('site_id', siteId)
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /** Surface roulée par niveau d'un bâtiment (somme des locaux). */
@@ -151,18 +162,20 @@ export const localisationsQueries = {
         'niveaux-surface',
         batimentId,
       ] as const,
-      enabled: batimentId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('v_niveaux_surface')
-          .select(
-            'niveau_id, surface_m2, surface_chauffee_m2, volume_m3, capacite_personnes',
-          )
-          .eq('batiment_id', batimentId!)
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        batimentId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('v_niveaux_surface')
+                .select(
+                  'niveau_id, surface_m2, surface_chauffee_m2, volume_m3, capacite_personnes',
+                )
+                .eq('batiment_id', batimentId)
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /** Types de locaux actifs (référentiel global), pour le dropdown. */
@@ -198,9 +211,11 @@ export const localisationsQueries = {
         target?.kind ?? null,
         target?.id ?? null,
       ] as const,
-      enabled: target !== null,
       staleTime: 0,
-      queryFn: ({ signal }) => fetchBlockingChildren(target!, signal),
+      queryFn:
+        target === null
+          ? skipToken
+          : ({ signal }) => fetchBlockingChildren(target, signal),
     }),
 
   /**
@@ -215,9 +230,11 @@ export const localisationsQueries = {
         'local-cascade',
         localId,
       ] as const,
-      enabled: localId !== null,
       staleTime: 0,
-      queryFn: ({ signal }) => fetchLocalCascadeLinks(localId!, signal),
+      queryFn:
+        localId === null
+          ? skipToken
+          : ({ signal }) => fetchLocalCascadeLinks(localId, signal),
     }),
 }
 

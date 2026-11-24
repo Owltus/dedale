@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { toutesLesLignes } from '@/lib/pagination'
 import { gammesAvecReleves, type HistoriqueLigne } from './pipeline'
@@ -42,8 +42,10 @@ export const relevesQueries = {
   historique: (siteId: string | null) =>
     queryOptions({
       queryKey: [...relevesQueries.all(), 'historique', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: ({ signal }) => fetchHistorique(siteId!, signal),
+      queryFn:
+        siteId === null
+          ? skipToken
+          : ({ signal }) => fetchHistorique(siteId, signal),
       staleTime: 60_000,
     }),
 
@@ -56,9 +58,11 @@ export const relevesQueries = {
   gammesListe: (siteId: string | null) =>
     queryOptions({
       queryKey: [...relevesQueries.all(), 'gammes-liste', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) =>
-        gammesAvecReleves(await fetchHistorique(siteId!, signal)),
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) =>
+              gammesAvecReleves(await fetchHistorique(siteId, signal)),
       staleTime: 60_000,
     }),
 
@@ -72,31 +76,33 @@ export const relevesQueries = {
   localisationGamme: (gammeId: string | null) =>
     queryOptions({
       queryKey: [...relevesQueries.all(), 'localisation', gammeId] as const,
-      enabled: gammeId !== null,
-      queryFn: async ({ signal }) => {
-        const { data: liens } = await supabase
-          .from('gammes_equipements')
-          .select('equipement_id')
-          .eq('gamme_id', gammeId!)
-          .abortSignal(signal)
-          .throwOnError()
-        const ids = liens.map((l) => l.equipement_id)
-        if (ids.length === 0) return null
-        const { data: equipements } = await supabase
-          .from('v_equipements_complet')
-          .select('localisation_complete')
-          .in('id', ids)
-          .abortSignal(signal)
-          .throwOnError()
-        const noms = [
-          ...new Set(
-            equipements
-              .map((e) => e.localisation_complete)
-              .filter((v): v is string => Boolean(v)),
-          ),
-        ]
-        return noms.length > 0 ? noms.join(' · ') : null
-      },
+      queryFn:
+        gammeId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data: liens } = await supabase
+                .from('gammes_equipements')
+                .select('equipement_id')
+                .eq('gamme_id', gammeId)
+                .abortSignal(signal)
+                .throwOnError()
+              const ids = liens.map((l) => l.equipement_id)
+              if (ids.length === 0) return null
+              const { data: equipements } = await supabase
+                .from('v_equipements_complet')
+                .select('localisation_complete')
+                .in('id', ids)
+                .abortSignal(signal)
+                .throwOnError()
+              const noms = [
+                ...new Set(
+                  equipements
+                    .map((e) => e.localisation_complete)
+                    .filter((v): v is string => Boolean(v)),
+                ),
+              ]
+              return noms.length > 0 ? noms.join(' · ') : null
+            },
       staleTime: 60_000,
     }),
 }

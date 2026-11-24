@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { toutesLesLignes } from '@/lib/pagination'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
@@ -10,21 +10,23 @@ export const equipementsQueries = {
   list: (siteId: string | null) =>
     queryOptions({
       queryKey: [...equipementsQueries.all(), 'list', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('v_equipements_complet')
-          .select('*')
-          .eq('site_id', siteId!)
-          // 105 : plus de colonne nom sur equipements — tri par nom de
-          // catégorie (regroupe les équipements du même type), puis par
-          // identifiant à l'intérieur d'un même type.
-          .order('categorie_nom')
-          .order('code_inventaire')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('v_equipements_complet')
+                .select('*')
+                .eq('site_id', siteId)
+                // 105 : plus de colonne nom sur equipements — tri par nom de
+                // catégorie (regroupe les équipements du même type), puis par
+                // identifiant à l'intérieur d'un même type.
+                .order('categorie_nom')
+                .order('code_inventaire')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /** Ids des gammes liées à un équipement (table de liaison gammes_equipements). */
@@ -56,21 +58,23 @@ export const equipementsQueries = {
         'historique-equipement',
         equipementId,
       ] as const,
-      enabled: equipementId !== '',
-      queryFn: ({ signal }) =>
-        toutesLesLignes((debut, fin) =>
-          supabase
-            .from('operations_execution')
-            .select(
-              'id, nom, statut, date_execution, ordre, ordres_travail!inner(id, nom_gamme, statut, date_prevue, date_cloture)',
-            )
-            .eq('equipement_id', equipementId)
-            .order('created_at', { ascending: false })
-            .order('id', { ascending: true })
-            .range(debut, fin)
-            .abortSignal(signal)
-            .throwOnError(),
-        ),
+      queryFn:
+        equipementId === ''
+          ? skipToken
+          : ({ signal }) =>
+              toutesLesLignes((debut, fin) =>
+                supabase
+                  .from('operations_execution')
+                  .select(
+                    'id, nom, statut, date_execution, ordre, ordres_travail!inner(id, nom_gamme, statut, date_prevue, date_cloture)',
+                  )
+                  .eq('equipement_id', equipementId)
+                  .order('created_at', { ascending: false })
+                  .order('id', { ascending: true })
+                  .range(debut, fin)
+                  .abortSignal(signal)
+                  .throwOnError(),
+              ),
     }),
 
   /** Locaux actifs du site actif (pour le dropdown emplacement), via la vue chemin. */
@@ -81,18 +85,20 @@ export const equipementsQueries = {
       // Realtime de localisations (qui invalident ['localisations']) rafraîchit ce
       // chemin, tandis qu'une modification d'équipement ne le refetch pas inutilement.
       queryKey: ['localisations', 'chemins', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('v_locaux_chemin')
-          .select(
-            'local_id, local_nom, chemin_court, batiment_id, batiment_nom, niveau_id, niveau_nom',
-          )
-          .eq('site_id', siteId!)
-          .order('chemin_court')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('v_locaux_chemin')
+                .select(
+                  'local_id, local_nom, chemin_court, batiment_id, batiment_nom, niveau_id, niveau_nom',
+                )
+                .eq('site_id', siteId)
+                .order('chemin_court')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 }

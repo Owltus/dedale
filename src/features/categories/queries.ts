@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { estCommunOuDuSite } from '@/lib/scope'
 import type { Database } from '@/lib/database.types'
@@ -32,17 +32,19 @@ export const categoriesQueries = {
   byId: (id: string | null) =>
     queryOptions({
       queryKey: [...categoriesQueries.all(), 'by-id', id] as const,
-      enabled: id !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('categories')
-          .select('id, nom')
-          .eq('id', id!)
-          .abortSignal(signal)
-          .maybeSingle()
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        id === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('categories')
+                .select('id, nom')
+                .eq('id', id)
+                .abortSignal(signal)
+                .maybeSingle()
+                .throwOnError()
+              return data
+            },
     }),
 
   /**

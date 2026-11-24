@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from '@tanstack/react-query'
+import { queryOptions, useQuery, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { demandesQueries } from '@/features/demandes/queries'
@@ -26,17 +26,19 @@ function nonClotures(
 ) {
   return queryOptions({
     queryKey: [...all, 'non-clotures', siteId] as const,
-    enabled: siteId !== null,
-    queryFn: async ({ signal }) => {
-      const { count } = await supabase
-        .from(table)
-        .select('id', { count: 'exact', head: true })
-        .eq('site_id', siteId!)
-        .not(colonneStatut, 'in', `(${terminaux.join(',')})`)
-        .abortSignal(signal)
-        .throwOnError()
-      return count ?? 0
-    },
+    queryFn:
+      siteId === null
+        ? skipToken
+        : async ({ signal }) => {
+            const { count } = await supabase
+              .from(table)
+              .select('id', { count: 'exact', head: true })
+              .eq('site_id', siteId)
+              .not(colonneStatut, 'in', `(${terminaux.join(',')})`)
+              .abortSignal(signal)
+              .throwOnError()
+            return count ?? 0
+          },
   })
 }
 

@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { referentielQueryOptions } from '@/lib/referentiel'
 import type { DocumentMeta } from '@/features/documents/format'
@@ -60,28 +60,32 @@ export const travauxQueries = {
         'documents-par-travaux',
         siteId,
       ] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('documents_interventions_travaux')
-          .select(
-            'travaux_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at), interventions_travaux!inner(site_id)',
-          )
-          .eq('interventions_travaux.site_id', siteId!)
-          .abortSignal(signal)
-          .throwOnError()
-        // Typé par la sélection (jointure documents:document_id) : aucune conversion.
-        const rows: { travaux_id: string; documents: DocumentMeta | null }[] =
-          data
-        const map = new Map<string, DocumentMeta[]>()
-        for (const row of rows) {
-          if (row.documents == null) continue
-          const liste = map.get(row.travaux_id) ?? []
-          liste.push(row.documents)
-          map.set(row.travaux_id, liste)
-        }
-        return map
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('documents_interventions_travaux')
+                .select(
+                  'travaux_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at), interventions_travaux!inner(site_id)',
+                )
+                .eq('interventions_travaux.site_id', siteId)
+                .abortSignal(signal)
+                .throwOnError()
+              // Typé par la sélection (jointure documents:document_id) : aucune conversion.
+              const rows: {
+                travaux_id: string
+                documents: DocumentMeta | null
+              }[] = data
+              const map = new Map<string, DocumentMeta[]>()
+              for (const row of rows) {
+                if (row.documents == null) continue
+                const liste = map.get(row.travaux_id) ?? []
+                liste.push(row.documents)
+                map.set(row.travaux_id, liste)
+              }
+              return map
+            },
     }),
 }
 

@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { toutesLesLignes } from '@/lib/pagination'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
@@ -39,20 +39,22 @@ export const dashboardQueries = {
         'tableau-de-bord-ouverts',
         siteId,
       ] as const,
-      enabled: siteId !== null,
-      queryFn: ({ signal }) =>
-        toutesLesLignes((debut, fin) =>
-          supabase
-            .from('ordres_travail')
-            .select(COLONNES_OT)
-            .eq('site_id', siteId!)
-            .not('statut', 'in', '(cloture,annule)')
-            .order('date_prevue', { ascending: true })
-            .order('id', { ascending: true })
-            .range(debut, fin)
-            .abortSignal(signal)
-            .throwOnError(),
-        ),
+      queryFn:
+        siteId === null
+          ? skipToken
+          : ({ signal }) =>
+              toutesLesLignes((debut, fin) =>
+                supabase
+                  .from('ordres_travail')
+                  .select(COLONNES_OT)
+                  .eq('site_id', siteId)
+                  .not('statut', 'in', '(cloture,annule)')
+                  .order('date_prevue', { ascending: true })
+                  .order('id', { ascending: true })
+                  .range(debut, fin)
+                  .abortSignal(signal)
+                  .throwOnError(),
+              ),
     }),
 
   otPeriode: (siteId: string | null, debut: string, fin: string) =>
@@ -64,25 +66,27 @@ export const dashboardQueries = {
         debut,
         fin,
       ] as const,
-      enabled: siteId !== null,
-      queryFn: ({ signal }) =>
-        toutesLesLignes((de, a) =>
-          supabase
-            .from('ordres_travail')
-            .select(COLONNES_OT)
-            .eq('site_id', siteId!)
-            .in('statut', ['cloture', 'annule'])
-            // Date effective dans la période : la clôture si elle existe, sinon
-            // la date prévue (même règle que `dateSemaineOt`).
-            .or(
-              `and(date_cloture.gte.${debut},date_cloture.lt.${fin}),and(date_cloture.is.null,date_prevue.gte.${debut},date_prevue.lt.${fin})`,
-            )
-            .order('date_prevue', { ascending: true })
-            .order('id', { ascending: true })
-            .range(de, a)
-            .abortSignal(signal)
-            .throwOnError(),
-        ),
+      queryFn:
+        siteId === null
+          ? skipToken
+          : ({ signal }) =>
+              toutesLesLignes((de, a) =>
+                supabase
+                  .from('ordres_travail')
+                  .select(COLONNES_OT)
+                  .eq('site_id', siteId)
+                  .in('statut', ['cloture', 'annule'])
+                  // Date effective dans la période : la clôture si elle existe, sinon
+                  // la date prévue (même règle que `dateSemaineOt`).
+                  .or(
+                    `and(date_cloture.gte.${debut},date_cloture.lt.${fin}),and(date_cloture.is.null,date_prevue.gte.${debut},date_prevue.lt.${fin})`,
+                  )
+                  .order('date_prevue', { ascending: true })
+                  .order('id', { ascending: true })
+                  .range(de, a)
+                  .abortSignal(signal)
+                  .throwOnError(),
+              ),
     }),
 
   derniersPassages: (siteId: string | null) =>
@@ -92,21 +96,23 @@ export const dashboardQueries = {
         'tableau-de-bord-derniers-passages',
         siteId,
       ] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('v_gammes_dernier_passage')
-          .select('gamme_id, date_cloture')
-          .eq('site_id', siteId!)
-          .abortSignal(signal)
-          .throwOnError()
-        const parGamme = new Map<string, string>()
-        for (const r of data) {
-          if (r.gamme_id && r.date_cloture)
-            parGamme.set(r.gamme_id, r.date_cloture)
-        }
-        return parGamme
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('v_gammes_dernier_passage')
+                .select('gamme_id, date_cloture')
+                .eq('site_id', siteId)
+                .abortSignal(signal)
+                .throwOnError()
+              const parGamme = new Map<string, string>()
+              for (const r of data) {
+                if (r.gamme_id && r.date_cloture)
+                  parGamme.set(r.gamme_id, r.date_cloture)
+              }
+              return parGamme
+            },
     }),
 
   /**
@@ -118,49 +124,51 @@ export const dashboardQueries = {
   onboarding: (siteId: string | null) =>
     queryOptions({
       queryKey: [...dashboardQueries.all(), 'onboarding', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const site = siteId!
-        const [batiments, equipements, prestataires, gammes, ots] =
-          await Promise.all([
-            supabase
-              .from('batiments')
-              .select('id', { count: 'exact', head: true })
-              .eq('site_id', site)
-              .abortSignal(signal)
-              .throwOnError(),
-            supabase
-              .from('v_equipements_complet')
-              .select('id', { count: 'exact', head: true })
-              .eq('site_id', site)
-              .abortSignal(signal)
-              .throwOnError(),
-            supabase
-              .from('prestataires')
-              .select('id', { count: 'exact', head: true })
-              .abortSignal(signal)
-              .throwOnError(),
-            supabase
-              .from('gammes')
-              .select('id', { count: 'exact', head: true })
-              .eq('site_id', site)
-              .abortSignal(signal)
-              .throwOnError(),
-            supabase
-              .from('ordres_travail')
-              .select('id', { count: 'exact', head: true })
-              .eq('site_id', site)
-              .abortSignal(signal)
-              .throwOnError(),
-          ])
-        return {
-          aBatiment: (batiments.count ?? 0) > 0,
-          aEquipement: (equipements.count ?? 0) > 0,
-          aPrestataire: (prestataires.count ?? 0) > 0,
-          aGamme: (gammes.count ?? 0) > 0,
-          aOt: (ots.count ?? 0) > 0,
-        }
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const site = siteId
+              const [batiments, equipements, prestataires, gammes, ots] =
+                await Promise.all([
+                  supabase
+                    .from('batiments')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('site_id', site)
+                    .abortSignal(signal)
+                    .throwOnError(),
+                  supabase
+                    .from('v_equipements_complet')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('site_id', site)
+                    .abortSignal(signal)
+                    .throwOnError(),
+                  supabase
+                    .from('prestataires')
+                    .select('id', { count: 'exact', head: true })
+                    .abortSignal(signal)
+                    .throwOnError(),
+                  supabase
+                    .from('gammes')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('site_id', site)
+                    .abortSignal(signal)
+                    .throwOnError(),
+                  supabase
+                    .from('ordres_travail')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('site_id', site)
+                    .abortSignal(signal)
+                    .throwOnError(),
+                ])
+              return {
+                aBatiment: (batiments.count ?? 0) > 0,
+                aEquipement: (equipements.count ?? 0) > 0,
+                aPrestataire: (prestataires.count ?? 0) > 0,
+                aGamme: (gammes.count ?? 0) > 0,
+                aOt: (ots.count ?? 0) > 0,
+              }
+            },
     }),
 
   /**
@@ -175,37 +183,41 @@ export const dashboardQueries = {
         'documents-manquants',
         siteId,
       ] as const,
-      enabled: siteId !== null,
       // Relue à CHAQUE arrivée sur le tableau de bord (petite lecture) : joindre
       // le document manquant depuis une fiche OT doit faire disparaître l'alerte
       // au retour. La table `documents` n'est pas publiée en temps réel, et les
       // mutations de documents ne connaissent pas les clés du tableau de bord.
       staleTime: 0,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('v_ot_documents_manquants')
-          .select('id, nom_gamme, nom_equipement, nature_gamme, date_cloture')
-          .eq('site_id', siteId!)
-          .order('date_cloture', { ascending: false })
-          .order('id')
-          .abortSignal(signal)
-          .throwOnError()
-        // Une vue expose toutes ses colonnes en nullable : on rétablit les
-        // NOT NULL de `ordres_travail` (id, nom_gamme, nature_gamme).
-        return data.flatMap((r) =>
-          r.id !== null && r.nom_gamme !== null && r.nature_gamme !== null
-            ? [
-                {
-                  id: r.id,
-                  nom_gamme: r.nom_gamme,
-                  nature_gamme: r.nature_gamme,
-                  nom_equipement: r.nom_equipement,
-                  date_cloture: r.date_cloture,
-                },
-              ]
-            : [],
-        )
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('v_ot_documents_manquants')
+                .select(
+                  'id, nom_gamme, nom_equipement, nature_gamme, date_cloture',
+                )
+                .eq('site_id', siteId)
+                .order('date_cloture', { ascending: false })
+                .order('id')
+                .abortSignal(signal)
+                .throwOnError()
+              // Une vue expose toutes ses colonnes en nullable : on rétablit les
+              // NOT NULL de `ordres_travail` (id, nom_gamme, nature_gamme).
+              return data.flatMap((r) =>
+                r.id !== null && r.nom_gamme !== null && r.nature_gamme !== null
+                  ? [
+                      {
+                        id: r.id,
+                        nom_gamme: r.nom_gamme,
+                        nature_gamme: r.nature_gamme,
+                        nom_equipement: r.nom_equipement,
+                        date_cloture: r.date_cloture,
+                      },
+                    ]
+                  : [],
+              )
+            },
     }),
 
   /**
@@ -221,21 +233,23 @@ export const dashboardQueries = {
   contratsFrise: (siteId: string | null) =>
     queryOptions({
       queryKey: [...dashboardQueries.all(), 'contrats-frise', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('contrats')
-          // Select sur UNE seule ligne : l'inférence de type supabase ne parse pas
-          // un littéral concaténé (`+`) → elle renverrait un `GenericStringError`.
-          .select(
-            'id, prestataire_id, type_contrat_id, date_debut, date_fin, date_signature, date_resiliation, date_notification, delai_preavis_jours, duree_cycle_mois, fenetre_resiliation_jours, prestataires(id, libelle)',
-          )
-          .eq('site_id', siteId!)
-          .eq('est_archive', false)
-          .order('date_debut', { ascending: true })
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('contrats')
+                // Select sur UNE seule ligne : l'inférence de type supabase ne parse pas
+                // un littéral concaténé (`+`) → elle renverrait un `GenericStringError`.
+                .select(
+                  'id, prestataire_id, type_contrat_id, date_debut, date_fin, date_signature, date_resiliation, date_notification, delai_preavis_jours, duree_cycle_mois, fenetre_resiliation_jours, prestataires(id, libelle)',
+                )
+                .eq('site_id', siteId)
+                .eq('est_archive', false)
+                .order('date_debut', { ascending: true })
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 }

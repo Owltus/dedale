@@ -1,4 +1,8 @@
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  skipToken,
+} from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { NatureGamme } from '@/features/gammes/schemas'
 import { toutesLesLignes } from '@/lib/pagination'
@@ -156,30 +160,32 @@ export const ordresTravailQueries = {
         'releves-liste',
         siteId,
       ] as const,
-      enabled: siteId !== null,
       // Paginé : même table que les relevés (968 mesures au 24/11/2026, au ras
       // du plafond silencieux de 1 000 lignes). Tri total par id.
-      queryFn: ({ signal }) =>
-        toutesLesLignes((debut, fin) =>
-          supabase
-            .from('operations_execution')
-            .select(
-              // `nom` sert la corrélation de repli de l'ADR 0012 (cf. correlation.ts) :
-              // sans lui, une opération supprimée du modèle casse la série de relevés.
-              // `equipement_id` (ADR 0013) : une série par équipement, jamais fusionnées.
-              'ordre_travail_id, source_type, source_id, nom, equipement_id, valeur_mesuree, index_depose, index_pose, statut, date_execution, created_at, unite_symbole, ordres_travail!inner(gamme_id, date_prevue)',
-            )
-            .eq('ordres_travail.site_id', siteId!)
-            .eq('unite_est_cumulatif', true)
-            .is('seuil_minimum', null)
-            .is('seuil_maximum', null)
-            .not('valeur_mesuree', 'is', null)
-            .order('id', { ascending: true })
-            .range(debut, fin)
-            .abortSignal(signal)
-            .throwOnError()
-            .overrideTypes<ReleveLigne[], { merge: false }>(),
-        ),
+      queryFn:
+        siteId === null
+          ? skipToken
+          : ({ signal }) =>
+              toutesLesLignes((debut, fin) =>
+                supabase
+                  .from('operations_execution')
+                  .select(
+                    // `nom` sert la corrélation de repli de l'ADR 0012 (cf. correlation.ts) :
+                    // sans lui, une opération supprimée du modèle casse la série de relevés.
+                    // `equipement_id` (ADR 0013) : une série par équipement, jamais fusionnées.
+                    'ordre_travail_id, source_type, source_id, nom, equipement_id, valeur_mesuree, index_depose, index_pose, statut, date_execution, created_at, unite_symbole, ordres_travail!inner(gamme_id, date_prevue)',
+                  )
+                  .eq('ordres_travail.site_id', siteId)
+                  .eq('unite_est_cumulatif', true)
+                  .is('seuil_minimum', null)
+                  .is('seuil_maximum', null)
+                  .not('valeur_mesuree', 'is', null)
+                  .order('id', { ascending: true })
+                  .range(debut, fin)
+                  .abortSignal(signal)
+                  .throwOnError()
+                  .overrideTypes<ReleveLigne[], { merge: false }>(),
+              ),
     }),
 
   /**
@@ -198,30 +204,32 @@ export const ordresTravailQueries = {
         'documents-par-ot',
         siteId,
       ] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('documents_ordres_travail')
-          .select(
-            'ordre_travail_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at), ordres_travail!inner(site_id)',
-          )
-          .eq('ordres_travail.site_id', siteId!)
-          .abortSignal(signal)
-          .throwOnError()
-        // Typé par la sélection (jointure documents:document_id) : aucune conversion.
-        const rows: {
-          ordre_travail_id: string
-          documents: DocumentMeta | null
-        }[] = data
-        const map = new Map<string, DocumentMeta[]>()
-        for (const row of rows) {
-          if (row.documents == null) continue
-          const liste = map.get(row.ordre_travail_id) ?? []
-          liste.push(row.documents)
-          map.set(row.ordre_travail_id, liste)
-        }
-        return map
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('documents_ordres_travail')
+                .select(
+                  'ordre_travail_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at), ordres_travail!inner(site_id)',
+                )
+                .eq('ordres_travail.site_id', siteId)
+                .abortSignal(signal)
+                .throwOnError()
+              // Typé par la sélection (jointure documents:document_id) : aucune conversion.
+              const rows: {
+                ordre_travail_id: string
+                documents: DocumentMeta | null
+              }[] = data
+              const map = new Map<string, DocumentMeta[]>()
+              for (const row of rows) {
+                if (row.documents == null) continue
+                const liste = map.get(row.ordre_travail_id) ?? []
+                liste.push(row.documents)
+                map.set(row.ordre_travail_id, liste)
+              }
+              return map
+            },
     }),
 
   /** Un OT précis (détail en page). */
@@ -365,17 +373,21 @@ export const gammesPourOtQueries = {
   list: (siteId: string | null) =>
     queryOptions({
       queryKey: ['gammes', 'creables-ot', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('gammes')
-          .select('id, nom, nature, prestataire_id, periodicites(libelle)')
-          .eq('site_id', siteId!)
-          .eq('est_active', true)
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('gammes')
+                .select(
+                  'id, nom, nature, prestataire_id, periodicites(libelle)',
+                )
+                .eq('site_id', siteId)
+                .eq('est_active', true)
+                .order('nom')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 }

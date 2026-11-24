@@ -1,4 +1,8 @@
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  skipToken,
+} from '@tanstack/react-query'
 import { toutesLesLignes } from '@/lib/pagination'
 import { supabase } from '@/lib/supabase'
 import { bornesUuid } from '@/lib/slug'
@@ -136,7 +140,6 @@ export const demandesQueries = {
   list: (siteId: string | null) =>
     queryOptions({
       queryKey: [...demandesQueries.all(), 'list', siteId] as const,
-      enabled: siteId !== null,
       // 5 min au lieu de 60 s : 4 000+ lignes à relire à chaque retour sur la page
       // pour rien. Le temps réel (canal `demandes_intervention`, ouvert en
       // permanence par les compteurs de la sidebar) invalide déjà la liste au
@@ -144,21 +147,24 @@ export const demandesQueries = {
       staleTime: 5 * 60_000,
       // Paginé : l'historique Dmbook (4 000+ DI depuis 2021) dépasse le plafond de
       // 1 000 lignes par réponse ; sans ça, seules les plus récentes s'affichaient (cf. pagination.ts).
-      queryFn: ({ signal }) =>
-        toutesLesLignes((debut, fin) =>
-          supabase
-            .from('demandes_intervention')
-            // Sans la jointure `dmbook_liens` : la liste ne s'en sert pas (la fiche lit
-            // `lienDmbook`), et elle doublait le temps de chaque page (0,9 s → 0,4 s).
-            .select('*')
-            .eq('site_id', siteId!)
-            .order('date_constat', { ascending: false })
-            .order('created_at', { ascending: false })
-            .order('id', { ascending: true })
-            .range(debut, fin)
-            .abortSignal(signal)
-            .throwOnError(),
-        ),
+      queryFn:
+        siteId === null
+          ? skipToken
+          : ({ signal }) =>
+              toutesLesLignes((debut, fin) =>
+                supabase
+                  .from('demandes_intervention')
+                  // Sans la jointure `dmbook_liens` : la liste ne s'en sert pas (la fiche lit
+                  // `lienDmbook`), et elle doublait le temps de chaque page (0,9 s → 0,4 s).
+                  .select('*')
+                  .eq('site_id', siteId)
+                  .order('date_constat', { ascending: false })
+                  .order('created_at', { ascending: false })
+                  .order('id', { ascending: true })
+                  .range(debut, fin)
+                  .abortSignal(signal)
+                  .throwOnError(),
+              ),
     }),
 
   /**
@@ -235,17 +241,19 @@ export const modelesDiDuSiteQueries = {
   list: (siteId: string | null) =>
     queryOptions({
       queryKey: [...modelesDiDuSiteQueries.all(), 'list', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('modeles_di')
-          .select('id, libelle, constat_modele, miniature_id')
-          .eq('site_id', siteId!)
-          .eq('est_actif', true)
-          .order('libelle')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('modeles_di')
+                .select('id, libelle, constat_modele, miniature_id')
+                .eq('site_id', siteId)
+                .eq('est_actif', true)
+                .order('libelle')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 }

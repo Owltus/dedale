@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { demandesQueries, lieuxDesDemandes } from '@/features/demandes/queries'
 import { STATUTS_DI_TERMINAUX } from '@/features/demandes/etat'
@@ -41,36 +41,38 @@ export const activiteQueries = {
   demandes: (siteId: string | null) =>
     queryOptions({
       queryKey: [...demandesQueries.all(), 'tableau-de-bord', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const base = () =>
-          supabase
-            .from('demandes_intervention')
-            .select('*')
-            .eq('site_id', siteId!)
-        const [ouverts, termines] = await Promise.all([
-          base()
-            .not('statut_di_id', 'in', enListe(STATUTS_DI_TERMINAUX))
-            .order('date_constat', { ascending: false })
-            .order('created_at', { ascending: false })
-            .order('id')
-            .limit(LIGNES_ACTIVITE)
-            .abortSignal(signal)
-            .throwOnError(),
-          base()
-            // `eq` et non `in` : avec `in` (= ANY), PostgreSQL ne lit pas l'index
-            // 169 dans l'ordre et trie les ~4 000 DI clôturées (RLS comprise)
-            // avant d'en garder 30 : 220 ms → 3 ms (plan vérifié le 24/11/2026).
-            .eq('statut_di_id', STATUT_DI_CLOTURE)
-            .order('date_constat', { ascending: false })
-            .order('created_at', { ascending: false })
-            .order('id')
-            .limit(LIGNES_ACTIVITE)
-            .abortSignal(signal)
-            .throwOnError(),
-        ])
-        return ouvertsPuisRecents(ouverts.data, termines.data)
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const base = () =>
+                supabase
+                  .from('demandes_intervention')
+                  .select('*')
+                  .eq('site_id', siteId)
+              const [ouverts, termines] = await Promise.all([
+                base()
+                  .not('statut_di_id', 'in', enListe(STATUTS_DI_TERMINAUX))
+                  .order('date_constat', { ascending: false })
+                  .order('created_at', { ascending: false })
+                  .order('id')
+                  .limit(LIGNES_ACTIVITE)
+                  .abortSignal(signal)
+                  .throwOnError(),
+                base()
+                  // `eq` et non `in` : avec `in` (= ANY), PostgreSQL ne lit pas l'index
+                  // 169 dans l'ordre et trie les ~4 000 DI clôturées (RLS comprise)
+                  // avant d'en garder 30 : 220 ms → 3 ms (plan vérifié le 24/11/2026).
+                  .eq('statut_di_id', STATUT_DI_CLOTURE)
+                  .order('date_constat', { ascending: false })
+                  .order('created_at', { ascending: false })
+                  .order('id')
+                  .limit(LIGNES_ACTIVITE)
+                  .abortSignal(signal)
+                  .throwOnError(),
+              ])
+              return ouvertsPuisRecents(ouverts.data, termines.data)
+            },
     }),
 
   /** Lieu(x) des SEULES demandes affichées (di_id → « Chambre 214, Chambre 109 »). */
@@ -155,19 +157,21 @@ export const activiteQueries = {
   documents: (siteId: string | null) =>
     queryOptions({
       queryKey: [...documentsQueries.all(), 'tableau-de-bord', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('documents')
-          .select(
-            'id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at',
-          )
-          .eq('site_id', siteId!)
-          .order('uploaded_at', { ascending: false })
-          .limit(LIGNES_DOCUMENTS)
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('documents')
+                .select(
+                  'id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at',
+                )
+                .eq('site_id', siteId)
+                .order('uploaded_at', { ascending: false })
+                .limit(LIGNES_DOCUMENTS)
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 }

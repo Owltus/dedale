@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { categoriesQueries } from '@/features/categories/queries'
 import { referentielQueryOptions } from '@/lib/referentiel'
@@ -82,19 +82,21 @@ export const gammesQueries = {
   list: (siteId: string | null) =>
     queryOptions({
       queryKey: [...gammesQueries.all(), 'list', siteId] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('gammes')
-          .select(
-            '*, periodicites(id, libelle, jours_periodicite), prestataires(id, libelle)',
-          )
-          .eq('site_id', siteId!)
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('gammes')
+                .select(
+                  '*, periodicites(id, libelle, jours_periodicite), prestataires(id, libelle)',
+                )
+                .eq('site_id', siteId)
+                .order('nom')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /**
@@ -139,28 +141,30 @@ export const gammesQueries = {
         'sous-categories-gamme',
         siteId,
       ] as const,
-      enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('categories')
-          .select('id, nom, parent_id, scope, site_id, est_actif, ordre')
-          .eq('est_actif', true)
-          .in('scope', ['gamme', 'mixte'])
-          .order('ordre')
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-        // Sélection niveau 2 + périmètre factorisée (partagée avec le panneau
-        // Bibliothèque) : on n'a plus qu'à mettre en forme pour l'affichage.
-        return sousCategoriesNiveau2(data, siteId).map(
-          ({ sous, racine }): SousCategorieGamme => ({
-            id: sous.id,
-            nom: sous.nom,
-            parentId: racine.id,
-            parentNom: racine.nom,
-          }),
-        )
-      },
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('categories')
+                .select('id, nom, parent_id, scope, site_id, est_actif, ordre')
+                .eq('est_actif', true)
+                .in('scope', ['gamme', 'mixte'])
+                .order('ordre')
+                .order('nom')
+                .abortSignal(signal)
+                .throwOnError()
+              // Sélection niveau 2 + périmètre factorisée (partagée avec le panneau
+              // Bibliothèque) : on n'a plus qu'à mettre en forme pour l'affichage.
+              return sousCategoriesNiveau2(data, siteId).map(
+                ({ sous, racine }): SousCategorieGamme => ({
+                  id: sous.id,
+                  nom: sous.nom,
+                  parentId: racine.id,
+                  parentNom: racine.nom,
+                }),
+              )
+            },
       staleTime: 60_000,
     }),
 
@@ -228,16 +232,18 @@ export const gammesQueries = {
   idsOperations: (gammeId: string | null) =>
     queryOptions({
       queryKey: [...gammesQueries.all(), 'operations-ids', gammeId] as const,
-      enabled: gammeId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('operations')
-          .select('id')
-          .eq('gamme_id', gammeId!)
-          .abortSignal(signal)
-          .throwOnError()
-        return new Set(data.map((o) => o.id))
-      },
+      queryFn:
+        gammeId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('operations')
+                .select('id')
+                .eq('gamme_id', gammeId)
+                .abortSignal(signal)
+                .throwOnError()
+              return new Set(data.map((o) => o.id))
+            },
       staleTime: 60_000,
     }),
 
