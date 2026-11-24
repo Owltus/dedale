@@ -194,9 +194,9 @@ Briques de plomberie hors hooks : `actionsEditionSuppression` (duo Modifier/Supp
 
 - **colonnes d'opération d'un CSV** (`features/operations/csv-import`) : `blocColonnesOperation` (bloc de prompt énumérant types et unités du référentiel) · `resoudreOperation` / `resumeOperation` · `parseNombreFr` / `parseOuiNon` — **source unique** partagée par les imports « Modèles d'opérations » et « Plan de maintenance » (mêmes colonnes, mêmes règles : unité ⇐ type Mesure, seuils ⇐ unité)
 - **caractéristiques typées** (`champs`) : `parseChamps` · `prepareChamps` · `serializeChamps` · `formatChampValeur` · `resoudreValeurTexte` / `parseDateFrVersIso` (valeur d'une cellule CSV → valeur typée, **source unique** des formats FR : virgule décimale, JJ/MM/AAAA, Oui/Non)
-- `perm.*` (`permissions`) · `useSiteContext` (`site-context`) · `useAuth` (`@/auth`) · `requireNav` (`nav-guard`) · `canSeeNav`/`NavKey` (`nav`)
+- `perm.*` (`permissions`) · `useSiteContext` (`features/sites/site-context`) · `useAuth` (`@/auth`) · `requireNav` (`nav-guard`) · `canSeeNav`/`NavKey` (`nav`)
 - `segOfUnique`/`slugify` (`slug`) — **jamais l'UUID brut dans une URL**
-- `errorMessage` / `writeErrorMessage(e, overrides?)` / `deleteErrorMessage(e, overrides?)` (`form`) — `overrides` = libellés par code SQLSTATE
+- `errorMessage` / `writeErrorMessage(e, overrides?)` / `deleteErrorMessage(e, overrides?)` (`erreurs`) — `overrides` = libellés par code SQLSTATE
 - **périmètre** (`scope`) : `estCommunOuDuSite` · `siteIdPourPortee` · `LockedScope` · `resolvePorteeScope`
 - `referentielQueryOptions(table, select, orderBy)` (`referentiel`) — factory des tables de référence, `staleTime` 5 min
 - `listStack` / `cardGrid` (`responsive`)

@@ -10,7 +10,7 @@ import { ModeleDiSelect } from './modele-di-select'
 import { LocalEquipementFields } from '@/features/equipements/components/local-equipement-fields'
 import { LocalSearchSelect } from '@/features/equipements/components/local-search-select'
 import { useAuth } from '@/auth'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import {
   Form,

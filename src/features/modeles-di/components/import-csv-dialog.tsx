@@ -4,7 +4,7 @@ import { buildImportPrompt, parseImportCsv } from '../csv-import'
 import { useCreateModeleDi } from '../mutations'
 import type { ModeleDi } from '../queries'
 import { useAuth } from '@/auth'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import {
   CsvImportDialog,
   type CsvImportLigne,

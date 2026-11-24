@@ -14,7 +14,7 @@ import {
   serializeChamps,
   type Champ,
 } from '@/lib/champs'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'

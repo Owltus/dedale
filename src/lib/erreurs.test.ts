@@ -1,13 +1,13 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { RUNS, RUNS_COURT } from './hostile-inputs.test'
+import { RUNS, RUNS_COURT } from '@/lib/hostile-inputs.test'
 import {
   deleteErrorMessage,
   errorMessage,
   exportErrorMessage,
   pgCode,
   writeErrorMessage,
-} from './form'
+} from '@/lib/erreurs'
 
 /** Fabrique une erreur façon supabase-js (`{ code, message, details }`). */
 function pgError(
@@ -244,7 +244,7 @@ describe('pgCode — entrées hostiles', () => {
   })
 
   it('lit le code d’une VRAIE Error enrichie (cas PostgrestError)', () => {
-    // Oracle : commentaire de `form.ts` — « PostgrestError étend Error ».
+    // Oracle : commentaire de `erreurs.ts` — « PostgrestError étend Error ».
     expect(pgCode(pgErrorReel('42501', 'permission denied'))).toBe('42501')
   })
 
@@ -321,7 +321,7 @@ describe('traducteurs d’erreur — totalité', () => {
 describe('writeErrorMessage — contraintes CHECK', () => {
   /**
    * Oracle : les entrées « ordres de travail » de `MESSAGES_CONTRAINTE_CHECK`
-   * (lib/form.ts), dont le libellé exact est figé ici. Une entrée non testée est
+   * (lib/erreurs.ts), dont le libellé exact est figé ici. Une entrée non testée est
    * une traduction qu'on peut casser sans s'en apercevoir. Les contraintes des
    * autres tables sont couvertes plus bas, à partir de la liste de production.
    */
@@ -588,7 +588,7 @@ describe('writeErrorMessage — couverture des contraintes de production', () =>
 
 describe('deleteErrorMessage — codes non traduits', () => {
   it('laisse passer le message FR de la base pour restrict_violation (23001)', () => {
-    // Oracle : commentaire de `form.ts` — « le message FR de la base est déjà
+    // Oracle : commentaire de `erreurs.ts` — « le message FR de la base est déjà
     // explicite → tel quel ». Cela n'est vrai que si l'erreur est une Error
     // (c'est le cas de PostgrestError) : avec un objet brut, `errorMessage`
     // retombe sur le générique, ce que le test existant documente déjà.

@@ -15,7 +15,7 @@ import {
 } from '@/features/utilisateurs/schemas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth'
-import { messageErreurAuth, writeErrorMessage } from '@/lib/form'
+import { messageErreurAuth, writeErrorMessage } from '@/lib/erreurs'
 import { useSiteContext } from '@/features/sites/site-context'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'

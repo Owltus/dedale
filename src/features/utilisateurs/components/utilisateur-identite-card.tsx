@@ -17,7 +17,7 @@ import type {
   ProfileFormValues,
 } from '../schemas'
 import type { UserRow } from './utilisateur-types'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import { TextField } from '@/components/common/fields/text-field'
 import { PasswordField } from '@/components/common/fields/password-field'
 import { PasswordRules } from './password-rules'

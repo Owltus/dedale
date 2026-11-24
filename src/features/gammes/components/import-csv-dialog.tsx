@@ -14,7 +14,7 @@ import { gammesQueries, referentielsQueries } from '../queries'
 import { useCreateGammeBiblio, useCreateOperation } from '../mutations'
 import { resumeOperation } from '@/features/operations/csv-import'
 import { useAuth } from '@/auth'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import {
   CsvImportDialog,
   type CsvImportLigne,

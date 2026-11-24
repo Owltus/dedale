@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 
 interface UseSubmitDialogOptions<Parsed, Result> {
   /** Écriture effective (mutateAsync…) avec les données VALIDÉES par le resolver. */

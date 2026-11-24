@@ -15,7 +15,7 @@ import { CataloguePanel } from '@/features/bibliotheque/components/catalogue-pan
 import { parseChamps } from '@/lib/champs'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/features/sites/site-context'
-import { deleteErrorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/erreurs'
 import * as perm from '@/lib/permissions'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 

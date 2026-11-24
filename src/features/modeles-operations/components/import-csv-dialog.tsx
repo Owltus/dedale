@@ -13,7 +13,7 @@ import { modelesOperationsQueries, type ModeleOperation } from '../queries'
 import { useCreateModeleOperation, useCreateOperationItem } from '../mutations'
 import { referentielsQueries } from '@/features/gammes/queries'
 import { resumeOperation } from '@/features/operations/csv-import'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import {
   CsvImportDialog,
   type CsvImportLigne,

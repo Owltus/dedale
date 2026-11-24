@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { deleteErrorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/erreurs'
 
 interface UseConfirmDeleteOptions<T> {
   /**

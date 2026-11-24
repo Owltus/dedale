@@ -12,7 +12,7 @@ import {
 } from '../naming'
 import { useAuth } from '@/auth'
 import { formatDate } from '@/lib/date'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import { DialogShell } from '@/components/common/dialog-shell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FileDropField } from '@/components/common/file-drop-field'

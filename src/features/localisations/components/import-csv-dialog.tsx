@@ -17,7 +17,7 @@ import {
   type CsvImportRowOk,
   type PlanImport,
 } from '../csv-import'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import { parseChamps, serializeChamps } from '@/lib/champs'
 import {
   CsvImportDialog,

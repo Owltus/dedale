@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import type { MiniatureWithUrl } from './queries'
 import { supabase } from '@/lib/supabase'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 
 // Déclenche un téléchargement navigateur d'un blob.
 function downloadBlob(blob: Blob, filename: string) {

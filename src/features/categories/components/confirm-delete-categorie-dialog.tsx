@@ -1,6 +1,6 @@
 import { toast } from 'sonner'
 import { useDeleteCategorie } from '../mutations'
-import { deleteErrorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/erreurs'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 
 interface ConfirmDeleteCategorieDialogProps {

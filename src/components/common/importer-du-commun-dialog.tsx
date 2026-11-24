@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { ChecklistDialog } from '@/components/common/checklist-dialog'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 
 /** Un élément du catalogue commun, candidat à l'installation sur un site. */
 export interface ElementCommun {

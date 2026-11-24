@@ -15,7 +15,7 @@ import { ImporterDuCommunDialog } from '@/components/common/importer-du-commun-d
 import { useSiteContext } from '@/features/sites/site-context'
 import { CataloguePanel } from '@/features/bibliotheque/components/catalogue-panel'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { errorMessage, pgCode } from '@/lib/form'
+import { errorMessage, pgCode } from '@/lib/erreurs'
 import * as perm from '@/lib/permissions'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 

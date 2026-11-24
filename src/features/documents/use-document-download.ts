@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { getSignedUrl } from './upload'
 import type { DocumentMeta } from './format'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 
 /**
  * Ouvre un document dans un nouvel onglet (URL signée temporaire). Factorise la

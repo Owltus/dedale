@@ -28,7 +28,7 @@ import {
 } from '@/hooks/use-valeur-apres-pause'
 import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { useAuth } from '@/auth'
-import { deleteErrorMessage } from '@/lib/form'
+import { deleteErrorMessage } from '@/lib/erreurs'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import {

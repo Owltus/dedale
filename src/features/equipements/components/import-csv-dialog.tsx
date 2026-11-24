@@ -11,7 +11,7 @@ import {
   type EquipementExistantPourImport,
 } from '../csv-import'
 import { parseChamps, type Champ } from '@/lib/champs'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import {
   CsvImportDialog,
   type CsvImportLigne,

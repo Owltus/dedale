@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ZoomIn, ZoomOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { canvasToWebp, sha256Hex } from '@/lib/image'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import { DialogShell } from '@/components/common/dialog-shell'
 import { Button } from '@/components/ui/button'
 

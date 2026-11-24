@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useLierModelesOperation } from '../mutations'
 import { modelesOperationsQueries } from '@/features/modeles-operations/queries'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import { ChecklistDialog } from '@/components/common/checklist-dialog'
 import { ErrorState } from '@/components/common/error-state'
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { messageErreurAuth } from './form'
+import { messageErreurAuth } from '@/lib/erreurs'
 
 describe('messageErreurAuth', () => {
   it('traduit les codes GoTrue connus', () => {

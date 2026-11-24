@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { supabase } from '@/lib/supabase'
-import { messageErreurAuth } from '@/lib/form'
+import { messageErreurAuth } from '@/lib/erreurs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

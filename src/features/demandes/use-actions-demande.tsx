@@ -10,7 +10,7 @@ import {
 import { diTitre } from '@/features/demandes/schemas'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import * as perm from '@/lib/permissions'
 import {
   actionsEditionSuppression,

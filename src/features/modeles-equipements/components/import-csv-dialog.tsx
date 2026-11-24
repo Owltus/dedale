@@ -13,7 +13,7 @@ import {
 } from '../mutations'
 import type { ModeleEquipement } from '../queries'
 import { parseChamps } from '@/lib/champs'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 import {
   CsvImportDialog,
   type CsvImportLigne,

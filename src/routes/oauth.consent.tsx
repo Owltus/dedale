@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { ShieldCheck, ShieldOff } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { errorMessage } from '@/lib/form'
+import { errorMessage } from '@/lib/erreurs'
 import { useAuth } from '@/auth'
 import {
   lieuDeRetour,

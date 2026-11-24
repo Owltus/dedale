@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
-import { writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/erreurs'
 
 /**
  * Descripteur d'une action de statut confirmée (Refuser, Annuler, Réactiver,
