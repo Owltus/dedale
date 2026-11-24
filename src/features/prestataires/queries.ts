@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { toutesLesLignes } from '@/lib/pagination'
 import { referentielQueryOptions } from '@/lib/referentiel'
 import type { GammeRow } from '@/features/gammes/components/gamme-detail'
 import type { DocumentMeta } from '@/features/documents/format'
@@ -113,23 +114,27 @@ export const prestatairesQueries = {
         prestataireId,
         siteId,
       ] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('ordres_travail')
-          // Champs requis par `OtCard` (`OtCardData`) + le tri par urgence
-          // (`date_cloture`). On réutilise la carte OT de la liste : rendu identique.
-          // Select sur UNE seule ligne : l'inférence de type supabase ne parse pas un
-          // littéral concaténé (`+`) → elle renverrait un `GenericStringError`.
-          .select(
-            'id, statut, origine, date_prevue, date_cloture, tolerance_jours, nom_gamme, nom_equipement, description_gamme, miniature_id',
-          )
-          .eq('prestataire_id', prestataireId)
-          .eq('site_id', siteId)
-          .order('date_prevue', { ascending: false })
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      // Paginé : un prestataire actif accumule ses OT programmés sans fin ;
+      // au-delà de 1 000, les plus anciens manquaient en silence.
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('ordres_travail')
+            // Champs requis par `OtCard` (`OtCardData`) + le tri par urgence
+            // (`date_cloture`). On réutilise la carte OT de la liste : rendu identique.
+            // Select sur UNE seule ligne : l'inférence de type supabase ne parse pas un
+            // littéral concaténé (`+`) → elle renverrait un `GenericStringError`.
+            .select(
+              'id, statut, origine, date_prevue, date_cloture, tolerance_jours, nom_gamme, nom_equipement, description_gamme, miniature_id',
+            )
+            .eq('prestataire_id', prestataireId)
+            .eq('site_id', siteId)
+            .order('date_prevue', { ascending: false })
+            .order('id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
     }),
 }
 

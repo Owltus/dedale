@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { toutesLesLignes } from '@/lib/pagination'
 import { referentielQueryOptions } from '@/lib/referentiel'
 import { getSignedUrl } from './upload'
 import type { DocumentMeta } from './format'
@@ -50,18 +51,22 @@ export const documentsQueries = {
   list: (siteId: string) =>
     queryOptions({
       queryKey: [...documentsQueries.all(), 'list', siteId] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('documents')
-          .select(
-            'id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at',
-          )
-          .eq('site_id', siteId)
-          .order('uploaded_at', { ascending: false })
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      // Paginé : au-delà de 1 000 documents, les plus anciens disparaissaient
+      // en silence (plafond PostgREST, cf. pagination.ts). Tri total (+ id).
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('documents')
+            .select(
+              'id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at',
+            )
+            .eq('site_id', siteId)
+            .order('uploaded_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
     }),
 
   /**
@@ -71,18 +76,21 @@ export const documentsQueries = {
   listLiables: (siteId: string) =>
     queryOptions({
       queryKey: [...documentsQueries.all(), 'list-liables', siteId] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('documents')
-          .select(
-            'id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at, site_id',
-          )
-          .or(`site_id.is.null,site_id.eq.${siteId}`)
-          .order('uploaded_at', { ascending: false })
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      // Paginé (même raison que `list`).
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('documents')
+            .select(
+              'id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at, site_id',
+            )
+            .or(`site_id.is.null,site_id.eq.${siteId}`)
+            .order('uploaded_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
     }),
 
   /**
