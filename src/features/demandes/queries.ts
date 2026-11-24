@@ -14,6 +14,11 @@ export const demandesQueries = {
     queryOptions({
       queryKey: [...demandesQueries.all(), 'list', siteId] as const,
       enabled: siteId !== null,
+      // 5 min au lieu de 60 s : 4 000+ lignes à relire à chaque retour sur la page
+      // pour rien. Le temps réel (canal `demandes_intervention`, ouvert en
+      // permanence par les compteurs de la sidebar) invalide déjà la liste au
+      // moindre changement, synchro Dmbook comprise.
+      staleTime: 5 * 60_000,
       // Paginé : l'historique Dmbook (4 000+ DI depuis 2021) dépasse le plafond de
       // 1 000 lignes par réponse ; sans ça, seules les plus récentes s'affichaient (cf. pagination.ts).
       queryFn: ({ signal }) =>
@@ -33,30 +38,26 @@ export const demandesQueries = {
     }),
 
   /**
-   * Nom du local lié à chaque DI VISIBLE (di_id → local), pour l'afficher en
-   * liste SANS une requête par carte. On BORNE au site actif via une jointure
-   * `!inner` sur la DI (les liaisons ne portent pas `site_id`) : la RLS suffirait
-   * à cloisonner, mais ce filtre évite de rapatrier les liaisons des autres sites
-   * et scope la clé de cache au site. On récupère juste le nom du local.
+   * Lieu(x) de chaque DI du site (di_id → « Chambre 214, Chambre 109 »), pour
+   * titrer les cartes SANS une requête par carte. Converti en Map par
+   * `lieuxParDi` (`select`).
    */
   locauxParDi: (siteId: string | null) =>
     queryOptions({
       queryKey: [...demandesQueries.all(), 'locaux-par-di', siteId] as const,
       enabled: siteId !== null,
-      // Paginé, comme la liste : au-delà de 1 000 liaisons, les cartes perdaient leur lieu.
-      queryFn: ({ signal }) =>
-        toutesLesLignes((debut, fin) =>
-          supabase
-            .from('di_localisations')
-            // `demandes_intervention!inner` ne sert qu'au FILTRE (site actif).
-            .select('di_id, locaux(nom), demandes_intervention!inner(site_id)')
-            .eq('demandes_intervention.site_id', siteId!)
-            .order('di_id', { ascending: true })
-            .order('local_id', { ascending: true })
-            .range(debut, fin)
-            .abortSignal(signal)
-            .throwOnError(),
-        ),
+      // Même fraîcheur que la liste (cf. `list`).
+      staleTime: 5 * 60_000,
+      // UN appel (168) : la base vérifie l'accès au site une fois et renvoie
+      // { di_id: "Lieu 1, Lieu 2" }. L'ancienne lecture de `di_localisations`
+      // par pages réévaluait la RLS de trois tables ligne par ligne : ~4 s.
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .rpc('lieux_di_du_site', { p_site_id: siteId! })
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
     }),
 
   /**

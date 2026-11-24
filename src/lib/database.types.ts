@@ -4652,6 +4652,7 @@ export type Database = {
         Returns: string
       }
       libelle_equipement: { Args: { p_equipement_id: string }; Returns: string }
+      lieux_di_du_site: { Args: { p_site_id: string }; Returns: Json }
       localisation_equipement: {
         Args: { p_equipement_id: string }
         Returns: string

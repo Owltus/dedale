@@ -1,21 +1,22 @@
+import type { Json } from '@/lib/database.types'
+
 /**
  * Lieu(x) de chaque demande, prêts à afficher : di_id → « Chambre 214, Chambre 109 ».
  * `select` de `demandesQueries.locauxParDi` : partagé par la page Demandes et le
- * tableau de bord, qui titrent leurs cartes par le lieu (une DI peut en avoir
- * plusieurs, dans l'ordre de la requête, sans doublon).
+ * tableau de bord, qui titrent leurs cartes par le lieu.
+ *
+ * La base compose déjà le texte (fonction `lieux_di_du_site`, 168 : noms dans
+ * l'ordre des locaux, sans doublon ni nom vide) ; il ne reste qu'à passer de
+ * l'objet JSON à une Map, en ignorant toute valeur qui ne serait pas un texte.
  */
-export function lieuxParDi(
-  rows: readonly { di_id: string; locaux: { nom: string | null } }[],
-): Map<string, string> {
-  const noms = new Map<string, string[]>()
-  for (const r of rows) {
-    const nom = r.locaux.nom
-    if (!nom) continue
-    const liste = noms.get(r.di_id) ?? []
-    if (!liste.includes(nom)) liste.push(nom)
-    noms.set(r.di_id, liste)
+export function lieuxParDi(objet: Json): Map<string, string> {
+  if (!objet || typeof objet !== 'object' || Array.isArray(objet))
+    return new Map()
+  const lieux = new Map<string, string>()
+  for (const [diId, texte] of Object.entries(objet)) {
+    if (typeof texte === 'string' && texte) lieux.set(diId, texte)
   }
-  return new Map([...noms].map(([id, l]) => [id, l.join(', ')]))
+  return lieux
 }
 
 /** Titre d'une DI sans lieu (aucun local rattaché). */

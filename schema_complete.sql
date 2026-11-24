@@ -16983,3 +16983,84 @@ $function$;
 REVOKE ALL ON FUNCTION public.dmbook_tic() FROM PUBLIC, anon, authenticated;
 COMMENT ON FUNCTION public.dmbook_tic() IS
     'Synchro Dmbook (166, 167) : appelée par pg_cron toutes les 5 min ; un passage par site connecté de 7 h à 23 h, 1 par heure la nuit.';
+
+
+-- =============================================================================
+-- 168 — Lire les lieux de toutes les demandes d'un site en un seul appel
+-- =============================================================================
+-- Symptôme corrigé : la page Demandes (et l'onglet Demandes du tableau de bord)
+-- mettait 4 à 5 secondes à afficher le lieu des cartes.
+--
+-- Cause : le front lisait `di_localisations` (4 037 liaisons) par pages de
+-- 1 000, avec la jointure `demandes_intervention!inner` pour filtrer le site.
+-- Chaque page faisait réévaluer, ligne par ligne, les policies RLS de trois
+-- tables (di_localisations → EXISTS sur la DI + has_site_access ; la DI ; le
+-- local → niveau → bâtiment + has_site_access) : ~0,7 à 1,1 s par page, mesuré
+-- le 24/11/2026 sous les droits d'un technicien.
+--
+-- Correctif : une fonction de lecture `public.lieux_di_du_site(p_site_id)` qui
+-- vérifie UNE fois l'accès au site, puis renvoie en un seul objet JSON
+-- { di_id: "Chambre 214, Chambre 109", … } — le même texte que celui que le front
+-- composait (noms dans l'ordre des local_id, sans doublon ni nom vide).
+-- Un seul objet, pas un ensemble de lignes : le plafond de 1 000 lignes de
+-- l'API ne s'applique pas, plus de pagination.
+--
+-- Innocuité :
+-- - lecture seule, aucune table ni policy modifiée ;
+-- - droits identiques à la lecture directe : tous les rôles qui voient une DI
+--   d'un site voient ses liaisons et les locaux du site (policies *_select de
+--   demandes_intervention, di_localisations et locaux reposent toutes sur
+--   has_site_access) ; la fonction exige has_site_access(p_site_id) et ne
+--   renvoie que des locaux DU site (bâtiment du site) ;
+-- - SECURITY DEFINER avec search_path figé ; exécution réservée à
+--   `authenticated` (anon refusé).
+--
+-- Vérification après application :
+--     SELECT count(*) FROM jsonb_object_keys(public.lieux_di_du_site('<site>'));
+--     -- en service_role (pas de session) : 0 clé, l'accès est refusé.
+--     -- sous un compte du site : autant de clés que de DI ayant un lieu nommé.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.lieux_di_du_site(p_site_id uuid)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    WITH noms AS (
+        -- Un nom par (DI, nom), rangé à la place de son premier local.
+        SELECT dl.di_id,
+               l.nom,
+               (array_agg(dl.local_id ORDER BY dl.local_id))[1] AS premier_local
+        FROM public.di_localisations dl
+        JOIN public.demandes_intervention d ON d.id = dl.di_id
+        JOIN public.locaux l ON l.id = dl.local_id
+        JOIN public.niveaux n ON n.id = l.niveau_id
+        JOIN public.batiments b ON b.id = n.batiment_id
+        WHERE d.site_id = p_site_id
+          AND b.site_id = p_site_id
+          AND l.nom IS NOT NULL
+          AND l.nom <> ''
+        GROUP BY dl.di_id, l.nom
+    )
+    SELECT COALESCE(
+        jsonb_object_agg(di_id, lieux),
+        '{}'::jsonb
+    )
+    FROM (
+        SELECT di_id, string_agg(nom, ', ' ORDER BY premier_local) AS lieux
+        FROM noms
+        GROUP BY di_id
+    ) par_di
+    -- Contrôle d'accès UNE fois pour tout le site (au lieu de ligne par ligne).
+    WHERE public.has_site_access(p_site_id);
+$$;
+
+COMMENT ON FUNCTION public.lieux_di_du_site(uuid) IS
+  'Lieux de chaque DI d''un site, en un objet JSON { di_id: "Lieu 1, Lieu 2" } : '
+  'titre des cartes de la page Demandes et du tableau de bord. Accès vérifié une '
+  'fois par has_site_access (168).';
+
+REVOKE ALL ON FUNCTION public.lieux_di_du_site(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.lieux_di_du_site(uuid) TO authenticated;

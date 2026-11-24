@@ -7,6 +7,7 @@ import { DiFormDialog } from '@/features/demandes/components/di-form-dialog'
 import { useActionsDemande } from '@/features/demandes/use-actions-demande'
 import { diTitre } from '@/features/demandes/schemas'
 import { lieuxParDi, LIEU_NON_PRECISE } from '@/features/demandes/lieux-par-di'
+import { TitreLieu } from '@/features/demandes/components/titre-lieu'
 import {
   statutLabel,
   statutTone,
@@ -84,7 +85,10 @@ function DemandesContent({
 
   // Lieu(x) de chaque DI : TITRE de la carte ET cible de recherche. Une seule
   // requête RLS-scopée pour toute la liste.
-  const { data: localParDi = new Map<string, string>() } = useQuery({
+  const {
+    data: localParDi = new Map<string, string>(),
+    isPending: lieuxEnChargement,
+  } = useQuery({
     ...demandesQueries.locauxParDi(siteId),
     select: lieuxParDi,
   })
@@ -216,11 +220,10 @@ function DemandesContent({
                       media={<RowMediaIcon icon={ClipboardList} />}
                       // Ligne 1 : le lieu ; ligne 2 : le constat (ni auteur ni origine, choix PO).
                       title={
-                        local ?? (
-                          <span className="text-muted-foreground italic">
-                            {LIEU_NON_PRECISE}
-                          </span>
-                        )
+                        <TitreLieu
+                          lieu={local}
+                          chargement={lieuxEnChargement}
+                        />
                       }
                       titleLabel={`${local ?? LIEU_NON_PRECISE} — ${diTitre(d.constat)}`}
                       subtitle={diTitre(d.constat)}
