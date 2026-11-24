@@ -92,9 +92,15 @@ export function useGammeBadges({
       for (const g of gammeRowsUnderNode(node)) ids.add(g.id)
     return [...ids]
   }, [gammesInCurrent, childCategories, gammeRowsUnderNode])
-  const otsParGammeQuery = useQuery(
-    ordresTravailQueries.byGammes(siteId, gammeIdsBadges),
-  )
+  // Seuls les OT OUVERTS décident d'une pastille (`statutAffichageGamme` /
+  // `statutAffichageAgrege` : une gamme sans OT ouvert est « À programmer »,
+  // quel que soit son historique). On lit donc les OT ouverts du site (~90,
+  // même cache que la page Ordres de travail), pas tout l'historique des
+  // gammes du palier (~900 OT).
+  const otsParGammeQuery = useQuery({
+    ...ordresTravailQueries.ouverts(siteId),
+    enabled: gammeIdsBadges.length > 0,
+  })
   useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
   // Badges INDISPONIBLES : seulement pendant un fetch réel (`isLoading` — PAS
   // `isPending`, qui reste vrai pour une requête DÉSACTIVÉE quand il n'y a aucune

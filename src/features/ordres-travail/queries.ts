@@ -1,12 +1,119 @@
-import { queryOptions } from '@tanstack/react-query'
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { NatureGamme } from '@/features/gammes/schemas'
 import { toutesLesLignes } from '@/lib/pagination'
 import type { ReleveLigne } from './releves'
 import { cleNom, cleProvenance, type IndexPrecedents } from './correlation'
 import type { DocumentMeta } from '@/features/documents/format'
 
+/** Colonnes d'une carte OT de la liste. */
+const COLONNES_LISTE =
+  'id, statut, origine, tolerance_jours, gamme_id, nom_gamme, nom_prestataire, nom_equipement, description_gamme, nature_gamme, date_prevue, date_cloture, libelle_periodicite, miniature_id'
+
+/** OT terminés chargés par page (défilement). */
+export const OT_PAR_PAGE = 50
+
+/**
+ * Motif `ilike` PostgREST pour « contient `texte` » (casse ignorée), comme le
+ * `includes` d'avant. Les jokers (%, _, *) et les caractères d'échappement
+ * (\, ") sont RETIRÉS du texte cherché plutôt qu'échappés : PostgREST et SQL ne
+ * s'accordent pas sur l'échappement à l'intérieur d'un filtre `or`.
+ */
+function motifRecherche(texte: string): string | null {
+  const t = texte.trim().replace(/[%_*"\\]/g, '')
+  return t ? `"*${t}*"` : null
+}
+
 export const ordresTravailQueries = {
   all: () => ['ordres_travail'] as const,
+
+  /**
+   * OT NON terminés du site (planifiés, en cours, réouverts) : la vue par défaut
+   * de la liste, triée par urgence côté client comme avant. Petit volume (~90).
+   */
+  ouverts: (siteId: string) =>
+    queryOptions({
+      queryKey: [...ordresTravailQueries.all(), 'ouverts', siteId] as const,
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('ordres_travail')
+            .select(COLONNES_LISTE)
+            .eq('site_id', siteId)
+            .not('statut', 'in', '(cloture,annule)')
+            .order('date_prevue', { ascending: true })
+            .order('id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
+    }),
+
+  /**
+   * OT TERMINÉS (clôturés / annulés), 50 à la fois au fil du défilement, dans
+   * l'ordre EXACT du tri par urgence pour ce groupe (`trierOtParUrgence`) :
+   * clôture la plus récente d'abord, sans clôture en dernier, puis date prévue
+   * et id (l'ordre d'entrée que le tri stable conservait). Nature et recherche
+   * filtrées par la base.
+   */
+  terminesPage: (
+    siteId: string,
+    statuts: readonly string[],
+    nature: NatureGamme | null,
+    recherche: string,
+  ) =>
+    infiniteQueryOptions({
+      queryKey: [
+        ...ordresTravailQueries.all(),
+        'termines',
+        siteId,
+        statuts.join(','),
+        nature,
+        recherche,
+      ] as const,
+      initialPageParam: 0,
+      queryFn: async ({ pageParam, signal }) => {
+        let q = supabase
+          .from('ordres_travail')
+          .select(COLONNES_LISTE)
+          .eq('site_id', siteId)
+          .in('statut', [...statuts])
+        if (nature) q = q.eq('nature_gamme', nature)
+        const motif = motifRecherche(recherche)
+        if (motif)
+          q = q.or(
+            `nom_gamme.ilike.${motif},nom_equipement.ilike.${motif},nom_prestataire.ilike.${motif}`,
+          )
+        const { data } = await q
+          .order('date_cloture', { ascending: false, nullsFirst: false })
+          .order('date_prevue', { ascending: true })
+          .order('id', { ascending: true })
+          .range(pageParam, pageParam + OT_PAR_PAGE - 1)
+          .abortSignal(signal)
+          .throwOnError()
+        return { ots: data, decalage: pageParam }
+      },
+      getNextPageParam: (derniere) =>
+        derniere.ots.length < OT_PAR_PAGE
+          ? undefined
+          : derniere.decalage + OT_PAR_PAGE,
+    }),
+
+  /** Le site a-t-il au moins un OT ? (écran vide d'accueil de la page) */
+  existe: (siteId: string) =>
+    queryOptions({
+      queryKey: [...ordresTravailQueries.all(), 'existe', siteId] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('ordres_travail')
+          .select('id')
+          .eq('site_id', siteId)
+          .limit(1)
+          .abortSignal(signal)
+          .throwOnError()
+        return data.length > 0
+      },
+    }),
 
   /** OT du site actif (non supprimés), pour les cartes de la liste. */
   list: (siteId: string | null) =>

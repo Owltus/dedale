@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { VirtualList } from '@/components/common/virtual-list'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList } from 'lucide-react'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
@@ -9,7 +10,6 @@ import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { OtCard } from './ot-card'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { listStack } from '@/lib/responsive'
 import { QueryState } from '@/components/common/query-state'
 import { EmptyState } from '@/components/common/empty-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
@@ -61,18 +61,21 @@ export function OtListeParGammes({
       empty={<EmptyState icon={ClipboardList} title="Aucun ordre de travail" />}
     >
       {() => (
-        <div className={listStack}>
-          {ordresTries.map((ot) => (
+        // Virtualisée : une sous-catégorie ou une gamme mensuelle ancienne peut
+        // porter des centaines d'OT ; seules les cartes visibles sont montées.
+        <VirtualList
+          items={ordresTries}
+          getKey={(ot) => ot.id}
+          renderItem={(ot) => (
             <OtCard
-              key={ot.id}
               ot={ot}
               urlOf={urlOf}
               refreshMiniatures={refreshMiniatures}
               releve={releveParOt.get(ot.id) ?? null}
               documents={documentsParOt.get(ot.id) ?? []}
             />
-          ))}
-        </div>
+          )}
+        />
       )}
     </QueryState>
   )

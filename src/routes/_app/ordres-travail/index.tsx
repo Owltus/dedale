@@ -1,6 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from '@tanstack/react-query'
 import { ClipboardList, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
@@ -9,6 +13,7 @@ import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { useDeleteOt } from '@/features/ordres-travail/mutations'
 import {
   matchStatutOt,
+  STATUTS_OT_TERMINAUX,
   statutOtFilterOptions,
 } from '@/features/ordres-travail/schemas'
 import { OtCard } from '@/features/ordres-travail/components/ot-card'
@@ -26,7 +31,11 @@ import {
   FILTRE_NON_TERMINES,
   FILTRE_TOUS,
 } from '@/components/common/list-filter-bar'
-import { gammeNatures, NATURE_GAMME_LABEL } from '@/features/gammes/schemas'
+import {
+  gammeNatures,
+  NATURE_GAMME_LABEL,
+  type NatureGamme,
+} from '@/features/gammes/schemas'
 import { EmptyState } from '@/components/common/empty-state'
 import { VirtualList } from '@/components/common/virtual-list'
 import { ListPageBody } from '@/components/common/list-page-body'
@@ -68,7 +77,6 @@ function OrdresTravailContent({
   const { session } = useAuth()
   // Mise à jour LIVE : un changement d'OT (clôture, statut…) rafraîchit la liste sans F5.
   useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
-  const query = useQuery(ordresTravailQueries.list(siteId))
   // Relevés (consommations) des compteurs cumulatifs du site, en UNE requête
   // groupée → map `ot_id → « 80 kWh »` (même règle que la fiche détail).
   const relevesQuery = useQuery(ordresTravailQueries.relevesListe(siteId))
@@ -91,10 +99,29 @@ function OrdresTravailContent({
   // Nature de l'OT = celle de sa gamme (`nature_gamme`, alignée par la 132).
   const [natureFilter, setNatureFilter] = useState<string>(FILTRE_TOUS)
 
-  // Filtre (recherche + statut) puis tri par urgence — mémoïsé pour ne PAS
-  // refiltrer/retrier tous les OT du site à chaque ouverture de dialog ; seul un
-  // changement de données / recherche / filtre le recalcule.
-  const filtered = useMemo(() => {
+  // Deux morceaux, dans l'ordre du tri par urgence (`trierOtParUrgence`) :
+  // 1. les OT NON terminés (~90) : tous chargés, filtrés et triés ici comme
+  //    avant — c'est la vue par défaut ;
+  // 2. les OT TERMINÉS (~800) : seulement si le filtre les demande, 50 par 50
+  //    au fil du défilement, nature et recherche filtrées par la base, dans
+  //    l'ordre exact du tri (clôture la plus récente d'abord).
+  const query = useQuery(ordresTravailQueries.ouverts(siteId))
+  const { data: siteADesOt } = useQuery(ordresTravailQueries.existe(siteId))
+  const rechercheServeur = useValeurApresPause(search.trim(), 250)
+  const statutsTermines = STATUTS_OT_TERMINAUX.filter((st) =>
+    matchStatutOt(st, statutFilter),
+  )
+  const termines = useInfiniteQuery({
+    ...ordresTravailQueries.terminesPage(
+      siteId,
+      statutsTermines,
+      natureFilter === FILTRE_TOUS ? null : (natureFilter as NatureGamme),
+      rechercheServeur,
+    ),
+    enabled: statutsTermines.length > 0,
+    placeholderData: keepPreviousData,
+  })
+  const ouvertsFiltres = useMemo(() => {
     const q = search.trim().toLowerCase()
     return trierOtParUrgence(
       (query.data ?? []).filter((ot) => {
@@ -108,6 +135,19 @@ function OrdresTravailContent({
       }),
     )
   }, [query.data, search, statutFilter, natureFilter])
+  const filtered = useMemo(
+    () => [
+      ...ouvertsFiltres,
+      ...(statutsTermines.length > 0
+        ? (termines.data?.pages.flatMap((p) => p.ots) ?? [])
+        : []),
+    ],
+    [ouvertsFiltres, statutsTermines.length, termines.data],
+  )
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = termines
+  const chargerLaSuite = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   // Documents rattachés aux OT du site, en UNE requête groupée filtrée par site
   // (pas par liste d'ids : un `.in()` sur des centaines d'OT dépasse la taille
@@ -155,17 +195,21 @@ function OrdresTravailContent({
       <QueryState
         query={query}
         pending={<ListRowSkeletons count={5} />}
+        // « Aucun OT » seulement si le site n'en a VRAIMENT aucun : la liste
+        // chargée ici ne contient que les OT non terminés.
         empty={
-          <EmptyState
-            icon={ClipboardList}
-            title="Aucun ordre de travail"
-            description={
-              canManage
-                ? 'Génère un OT depuis une gamme pour démarrer l’exécution.'
-                : 'Aucun OT enregistré pour ce site.'
-            }
-            action={newButton}
-          />
+          siteADesOt === false ? (
+            <EmptyState
+              icon={ClipboardList}
+              title="Aucun ordre de travail"
+              description={
+                canManage
+                  ? 'Génère un OT depuis une gamme pour démarrer l’exécution.'
+                  : 'Aucun OT enregistré pour ce site.'
+              }
+              action={newButton}
+            />
+          ) : undefined
         }
       >
         {() => {
@@ -196,6 +240,7 @@ function OrdresTravailContent({
               <VirtualList
                 items={filtered}
                 getKey={(ot) => ot.id}
+                surFin={chargerLaSuite}
                 renderItem={(ot) => {
                   const actions = canManage
                     ? actionsEditionSuppression({
@@ -246,4 +291,14 @@ function OrdresTravailContent({
       />
     </PageContainer>
   )
+}
+
+/** `valeur`, mais seulement une fois qu'elle n'a plus bougé pendant `ms`. */
+function useValeurApresPause<T>(valeur: T, ms: number): T {
+  const [stable, setStable] = useState(valeur)
+  useEffect(() => {
+    const t = setTimeout(() => setStable(valeur), ms)
+    return () => clearTimeout(t)
+  }, [valeur, ms])
+  return stable
 }
