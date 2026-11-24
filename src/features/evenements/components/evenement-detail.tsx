@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { evenementsQueries, statutsEvenementsQueries } from '../queries'
 import { statutEvenementTone } from '../etat'
 import { STATUT_CLOTURE } from '../schemas'
-import type { TacheFormValues } from '@/features/equipements/tache-schema'
+import type { TacheFormValues } from '@/features/taches/tache-schema'
 import {
   useChangeStatutEvenement,
   useUpdateClotureEvenement,
@@ -27,14 +27,14 @@ import {
 } from '../mutations'
 import { EvenementFormDialog } from './evenement-form-dialog'
 import { ClotureEvenementDialog } from './cloture-evenement-dialog'
-import { TacheDialog } from '@/features/equipements/components/tache-dialog'
+import { TacheDialog } from '@/features/taches/components/tache-dialog'
 import {
   TacheRow,
   type TacheItem,
-} from '@/features/equipements/components/tache-row'
-import { TachesDndContext } from '@/features/equipements/components/taches-dnd-context'
-import { DocumentsFicheDropZone } from '@/features/equipements/components/documents-fiche-drop-zone'
-import type { StatutZone } from '@/features/equipements/statut-zone'
+} from '@/features/taches/components/tache-row'
+import { TachesDndContext } from '@/features/taches/components/taches-dnd-context'
+import { DocumentsFicheDropZone } from '@/features/taches/components/documents-fiche-drop-zone'
+import type { StatutZone } from '@/features/taches/statut-zone'
 import { useAuth } from '@/auth'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'

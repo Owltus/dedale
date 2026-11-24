@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import type { StatutZone } from '@/features/equipements/statut-zone'
-import { tachesInlineSchema } from '@/features/equipements/tache-schema'
+import type { StatutZone } from '@/features/taches/statut-zone'
+import { tachesInlineSchema } from '@/features/taches/tache-schema'
 import { dateObligatoire } from '@/lib/dates-zod'
 import { texteObligatoire } from '@/lib/texte-zod'
 
@@ -54,8 +54,8 @@ export type StatutTache = StatutZone
 
 // Tâche généralisée (090, module partagé avec Événements) : un libellé libre
 // (identité, requis) ; local/équipement/commentaire facultatifs.
-export { tacheSchema, emptyTache } from '@/features/equipements/tache-schema'
-export type { TacheFormValues } from '@/features/equipements/tache-schema'
+export { tacheSchema, emptyTache } from '@/features/taches/tache-schema'
+export type { TacheFormValues } from '@/features/taches/tache-schema'
 
 /**
  * Clôture d'un travaux : date de fin + compte-rendu.

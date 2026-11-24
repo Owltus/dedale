@@ -31,7 +31,7 @@ import {
   creerCompteSchema,
   profileSchema,
 } from '@/features/utilisateurs/schemas'
-import { tacheSchema } from '@/features/equipements/tache-schema'
+import { tacheSchema } from '@/features/taches/tache-schema'
 
 /**
  * CONCORDANCE FRONT / BASE — le test qui empêche la récidive.

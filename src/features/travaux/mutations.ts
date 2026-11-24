@@ -4,12 +4,12 @@ import { travauxQueries } from './queries'
 import { evenementsQueries } from '../evenements/queries'
 import { STATUT_TERMINE } from './schemas'
 import type { TravauxFormValues, TacheFormValues, StatutTache } from './schemas'
-import type { TacheEntree } from '@/features/equipements/components/taches-multiples-field'
+import type { TacheEntree } from '@/features/taches/components/taches-multiples-field'
 import {
   diffTaches,
   tachesACreer,
   type TacheExistante,
-} from '@/features/equipements/taches-sync'
+} from '@/features/taches/taches-sync'
 
 // Convertit les champs du formulaire en payload base (vides → null).
 // `date_demande` est désormais saisissable (symétrie Événements, retour

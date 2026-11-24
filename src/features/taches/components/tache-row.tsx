@@ -7,7 +7,7 @@ import {
   STATUTS_ZONE,
   toneStatutZone,
   type StatutZone,
-} from '@/features/equipements/statut-zone'
+} from '../statut-zone'
 import { documentsQueries } from '@/features/documents/queries'
 import type { LiaisonAvecTache } from '@/features/documents/queries'
 import { DocumentsListe } from '@/components/common/documents-liste'

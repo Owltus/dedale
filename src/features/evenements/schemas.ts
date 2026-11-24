@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { tachesInlineSchema } from '@/features/equipements/tache-schema'
+import { tachesInlineSchema } from '@/features/taches/tache-schema'
 import { formatDate } from '@/lib/date'
 import { dateObligatoire } from '@/lib/dates-zod'
 import { texteObligatoire } from '@/lib/texte-zod'
@@ -93,4 +93,4 @@ export type ClotureFormValues = z.infer<typeof clotureSchema>
 
 // Tâche généralisée (090, module partagé avec Travaux) : un libellé libre
 // (identité, requis) ; local/équipement/commentaire facultatifs.
-export type { TacheFormValues as LieuFormValues } from '@/features/equipements/tache-schema'
+export type { TacheFormValues as LieuFormValues } from '@/features/taches/tache-schema'

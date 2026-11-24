@@ -10,7 +10,7 @@ import {
   testeRejetBlanc,
   testeTotalite,
 } from '@/lib/hostile-inputs.test'
-import { tacheSchema } from '@/features/equipements/tache-schema'
+import { tacheSchema } from '@/features/taches/tache-schema'
 import { clotureSchema, evenementSchema } from './schemas'
 
 /**
@@ -22,7 +22,7 @@ import { clotureSchema, evenementSchema } from './schemas'
  *   evenements_lieux.libelle   TEXT NOT NULL   (une tâche porte un libellé)
  *
  * Le libellé de tâche a une définition de référence : `tacheSchema`
- * (features/equipements/tache-schema.ts) — « un libellé libre est son IDENTITÉ
+ * (features/taches/tache-schema.ts) — « un libellé libre est son IDENTITÉ
  * (seul champ requis) », borné à 200 caractères.
  */
 

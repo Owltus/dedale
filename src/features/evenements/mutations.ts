@@ -4,13 +4,13 @@ import { evenementsQueries } from './queries'
 import { travauxQueries } from '../travaux/queries'
 import { STATUT_CLOTURE } from './schemas'
 import type { EvenementFormValues, LieuFormValues } from './schemas'
-import type { TacheEntree } from '@/features/equipements/components/taches-multiples-field'
+import type { TacheEntree } from '@/features/taches/components/taches-multiples-field'
 import {
   diffTaches,
   tachesACreer,
   type TacheExistante,
-} from '@/features/equipements/taches-sync'
-import type { StatutZone } from '@/features/equipements/statut-zone'
+} from '@/features/taches/taches-sync'
+import type { StatutZone } from '@/features/taches/statut-zone'
 
 /**
  * Formulaire → payload base. Les chaînes vides deviennent `null` : `''` est la

@@ -1,13 +1,9 @@
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  tacheSchema,
-  emptyTache,
-  type TacheFormValues,
-} from '@/features/equipements/tache-schema'
+import { tacheSchema, emptyTache, type TacheFormValues } from '../tache-schema'
 import type { TacheItem } from './tache-row'
-import { LocalEquipementFields } from './local-equipement-fields'
-import { EmplacementSelect } from './emplacement-select'
+import { LocalEquipementFields } from '@/features/equipements/components/local-equipement-fields'
+import { EmplacementSelect } from '@/features/equipements/components/emplacement-select'
 import type { LiaisonTable } from '@/features/documents/queries'
 import { DocumentsTab } from '@/components/common/documents-tab'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'

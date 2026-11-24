@@ -11,7 +11,7 @@ import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import {
   TachesMultiplesField,
   type TacheEntree,
-} from '@/features/equipements/components/taches-multiples-field'
+} from '@/features/taches/components/taches-multiples-field'
 import { LocalEquipementFields } from '@/features/equipements/components/local-equipement-fields'
 import { LocalSearchSelect } from '@/features/equipements/components/local-search-select'
 import { isoLocale } from '@/lib/date'

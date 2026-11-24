@@ -23,18 +23,18 @@ import {
   useReordonnerTaches,
 } from '../mutations'
 import { STATUT_TERMINE } from '../schemas'
-import type { TacheFormValues } from '@/features/equipements/tache-schema'
+import type { TacheFormValues } from '@/features/taches/tache-schema'
 import { statutTravauxTone } from '../etat'
 import { TravauxFormDialog } from './travaux-form-dialog'
 import { ClotureDialog } from './cloture-dialog'
-import { TacheDialog } from '@/features/equipements/components/tache-dialog'
+import { TacheDialog } from '@/features/taches/components/tache-dialog'
 import {
   TacheRow,
   type TacheItem,
-} from '@/features/equipements/components/tache-row'
-import { TachesDndContext } from '@/features/equipements/components/taches-dnd-context'
-import { DocumentsFicheDropZone } from '@/features/equipements/components/documents-fiche-drop-zone'
-import type { StatutZone } from '@/features/equipements/statut-zone'
+} from '@/features/taches/components/tache-row'
+import { TachesDndContext } from '@/features/taches/components/taches-dnd-context'
+import { DocumentsFicheDropZone } from '@/features/taches/components/documents-fiche-drop-zone'
+import type { StatutZone } from '@/features/taches/statut-zone'
 import { useAuth } from '@/auth'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
