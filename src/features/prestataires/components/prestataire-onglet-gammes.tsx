@@ -1,0 +1,96 @@
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+import { Wrench } from 'lucide-react'
+import { prestatairesQueries } from '../queries'
+import { type OtTriable } from '@/features/ordres-travail/tri'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
+import { GammeCard } from '@/features/gammes/components/gamme-card'
+import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
+import { listStack } from '@/lib/responsive'
+import { ONGLET_ETAT_VIDE } from '@/components/common/detail-tabs-shell'
+import { EmptyState } from '@/components/common/empty-state'
+import { QueryState } from '@/components/common/query-state'
+import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
+import type { MiniatureAccess } from './prestataire-onglets'
+
+/**
+ * Onglet Gammes : gammes du prestataire sur le site (lien direct
+ * `gammes.prestataire_id`), en LECTURE SEULE. Réutilise `GammeCard` (variante
+ * Bibliothèque) — on masque le prestataire (`showPrestataire={false}`) puisqu'on
+ * est déjà sur sa fiche. Le clic ouvre la fiche gamme dans le Plan de maintenance
+ * via `?open=<id>` (l'explorateur reconstruit le chemin d'URL catégorie → gamme).
+ */
+export function GammesPanel({
+  prestataireId,
+  siteId,
+  urlOf,
+  refreshMiniatures,
+}: { prestataireId: string; siteId: string } & MiniatureAccess) {
+  const navigate = useNavigate()
+  const query = useQuery(prestatairesQueries.gammes(prestataireId, siteId))
+
+  // OT des gammes affichées → badge de statut + périodicité sur chaque carte, comme
+  // dans le Plan de maintenance (MÊME variante de `GammeCard` via `statutOts`).
+  const gammeIds = useMemo(
+    () => (query.data ?? []).map((g) => g.id),
+    [query.data],
+  )
+  const otsQuery = useQuery(ordresTravailQueries.byGammes(siteId, gammeIds))
+  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
+  // Badge masqué seulement pendant un vrai fetch / sur erreur (pas de statut trompeur).
+  const otsIndispo = otsQuery.isLoading || otsQuery.isError
+  const otsParGamme = useMemo(() => {
+    const map = new Map<string, OtTriable[]>()
+    for (const ot of otsQuery.data ?? []) {
+      if (ot.gamme_id === null) continue
+      const liste = map.get(ot.gamme_id) ?? []
+      liste.push(ot)
+      map.set(ot.gamme_id, liste)
+    }
+    return map
+  }, [otsQuery.data])
+
+  return (
+    <QueryState
+      query={query}
+      pending={<ListRowSkeletons count={3} />}
+      empty={
+        <EmptyState
+          icon={Wrench}
+          title="Aucune gamme"
+          description="Aucune gamme rattachée à ce prestataire sur le site actif."
+          className={ONGLET_ETAT_VIDE}
+        />
+      }
+    >
+      {(gammes) => (
+        <div className={listStack}>
+          {gammes.map((g) => (
+            <GammeCard
+              key={g.id}
+              gamme={g}
+              urlOf={urlOf}
+              refreshMiniatures={refreshMiniatures}
+              showPrestataire={false}
+              // Variante « Plan de maintenance » : badge de statut + périodicité.
+              statutOts={otsParGamme.get(g.id) ?? []}
+              statutPending={otsIndispo}
+              // Ouvre la fiche gamme dans le Plan de maintenance : on passe l'id via
+              // `?open=` et l'explorateur reconstruit le chemin propre (catégorie →
+              // sous-catégorie → gamme) — pas de duplication de cette logique ici.
+              onClick={() =>
+                void navigate({
+                  to: '/gammes/$',
+                  params: { _splat: '' },
+                  search: { open: g.id },
+                })
+              }
+            />
+          ))}
+        </div>
+      )}
+    </QueryState>
+  )
+}
