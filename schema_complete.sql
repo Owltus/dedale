@@ -17220,3 +17220,712 @@ COMMENT ON FUNCTION public.demandes_du_site(uuid, text, text, integer, integer) 
 
 REVOKE ALL ON FUNCTION public.demandes_du_site(uuid, text, text, integer, integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.demandes_du_site(uuid, text, text, integer, integer) TO authenticated;
+
+
+-- =============================================================================
+-- 172 — Droits par site évalués une fois par requête (et non ligne par ligne)
+-- =============================================================================
+-- Symptôme corrigé : lectures lentes dès qu'une table compte quelques milliers
+-- de lignes (liste des demandes, lieux, opérations, documents…), et charge CPU
+-- de la base (le temps réel réévalue les droits à chaque changement).
+--
+-- Cause : 129 policies (40 tables) appellent public.has_site_access(site_id)
+-- POUR CHAQUE LIGNE. Cette fonction SQL SECURITY DEFINER n'est pas inlinable :
+-- chaque appel fait 2 EXISTS (users/roles, user_sites/users) et appelle
+-- connecteur_ok(). pg_stat : 37 M parcours séquentiels de `users`, 27 M de
+-- `roles`.
+--
+-- Correctif : une fonction public.mes_site_ids() renvoie la LISTE des sites de
+-- l'appelant (même règle que has_site_access), et chaque appel
+--     has_site_access(X)   devient   (X = ANY ((SELECT public.mes_site_ids())::uuid[]))
+-- Le `(SELECT …)` est un InitPlan : calculé une fois par requête, puis chaque
+-- ligne n'est qu'une comparaison. Seul ce test change : la partie « rôle »
+-- (current_role) et les chaînes de parenté (EXISTS sur le parent) sont
+-- recopiées à l'identique depuis pg_policies.
+--
+-- Innocuité :
+-- - équivalence ligne à ligne pour tout site_id non NULL (clé étrangère vers
+--   sites) ;
+-- - site_id NULL : has_site_access(NULL) valait VRAI pour un admin, la
+--   nouvelle forme vaut FAUX ; sans effet car chaque table a sa policy
+--   *_admin_all, qui ne dépend pas du site ; pour les autres rôles, FAUX dans
+--   les deux formes ;
+-- - vérifié en répétition (annulée) : empreinte identique des lignes visibles,
+--   table par table, pour chaque compte existant ;
+-- - has_site_access est conservée (fonctions SECURITY DEFINER, RPC).
+--
+-- Retour arrière : réappliquer les définitions de policies de
+-- schema_complete.sql d'avant 172 (ou remplacer l'expression en sens inverse).
+--
+-- Vérification après application :
+--     SELECT count(*) FROM pg_policies WHERE schemaname = 'public'
+--       AND coalesce(qual,'') || coalesce(with_check,'') LIKE '%has_site_access%';
+--     -- attendu : 0
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.mes_site_ids()
+RETURNS uuid[]
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    -- MÊME règle que has_site_access (admin actif = tous les sites ; sinon les
+    -- sites de user_sites ; compte actif et connecteur autorisé), calculée UNE
+    -- fois par requête sous forme de liste.
+    SELECT CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM public.users u
+            WHERE u.id = (SELECT auth.uid())
+              AND u.role_id = (SELECT id FROM public.roles WHERE code = 'admin')
+              AND u.est_actif = true
+              AND public.connecteur_ok(u.acces_ia)
+        )
+        THEN ARRAY(SELECT s.id FROM public.sites s)
+        ELSE ARRAY(
+            SELECT us.site_id
+            FROM public.user_sites us
+            JOIN public.users u ON u.id = us.user_id
+            WHERE us.user_id = (SELECT auth.uid())
+              AND u.est_actif = true
+              AND public.connecteur_ok(u.acces_ia)
+        )
+    END
+$$;
+
+COMMENT ON FUNCTION public.mes_site_ids() IS
+  'Sites accessibles à l''appelant, en liste : même règle que has_site_access, évaluée une fois par requête dans les policies (172).';
+REVOKE ALL ON FUNCTION public.mes_site_ids() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.mes_site_ids() TO authenticated;
+
+ALTER POLICY "batiments_demandeur_select" ON public."batiments"
+    USING (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "batiments_site_scoped_delete" ON public."batiments"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "batiments_site_scoped_select" ON public."batiments"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "batiments_site_scoped_update" ON public."batiments"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "batiments_site_scoped_write" ON public."batiments"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "categories_site_scoped_delete" ON public."categories"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "categories_site_scoped_select" ON public."categories"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "categories_site_scoped_update" ON public."categories"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "categories_site_scoped_write" ON public."categories"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "categories_technicien_delete" ON public."categories"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "categories_technicien_update" ON public."categories"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "categories_technicien_write" ON public."categories"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "contrats_manager_insert" ON public."contrats"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "contrats_manager_select" ON public."contrats"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "contrats_manager_update" ON public."contrats"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "contrats_technicien_all" ON public."contrats"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "di_demandeur_insert" ON public."demandes_intervention"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])) AND (created_by = ( SELECT auth.uid() AS uid))));
+
+ALTER POLICY "di_demandeur_select" ON public."demandes_intervention"
+    USING (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "di_demandeur_update" ON public."demandes_intervention"
+    USING (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (created_by = ( SELECT auth.uid() AS uid)) AND (statut_di_id = 1)))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (created_by = ( SELECT auth.uid() AS uid)) AND (statut_di_id = 1) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "di_site_scoped_delete" ON public."demandes_intervention"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "di_site_scoped_insert" ON public."demandes_intervention"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])) AND (created_by = ( SELECT auth.uid() AS uid))));
+
+ALTER POLICY "di_site_scoped_select" ON public."demandes_intervention"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "di_site_scoped_update" ON public."demandes_intervention"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "di_equipements_demandeur_select" ON public."di_equipements"
+    USING (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = di_equipements.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "di_equipements_scoped" ON public."di_equipements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = di_equipements.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = di_equipements.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "di_equipements_select" ON public."di_equipements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = di_equipements.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "di_localisations_demandeur_select" ON public."di_localisations"
+    USING (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = di_localisations.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "di_localisations_scoped" ON public."di_localisations"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = di_localisations.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = di_localisations.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "di_localisations_select" ON public."di_localisations"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = di_localisations.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "dmbook_file_select" ON public."dmbook_file"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['admin'::text, 'manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "documents_demandeur_insert" ON public."documents"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (uploaded_by = ( SELECT auth.uid() AS uid)) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "documents_manager_tech_insert" ON public."documents"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))) AND (uploaded_by = ( SELECT auth.uid() AS uid))));
+
+ALTER POLICY "documents_manager_update" ON public."documents"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "documents_site_scoped_delete" ON public."documents"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "documents_site_scoped_select" ON public."documents"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "documents_technicien_update" ON public."documents"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "doc_contrats_scoped" ON public."documents_contrats"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (EXISTS ( SELECT 1
+   FROM contrats c
+  WHERE ((c.id = documents_contrats.contrat_id) AND (c.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (EXISTS ( SELECT 1
+   FROM contrats c
+  WHERE ((c.id = documents_contrats.contrat_id) AND (c.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "doc_contrats_select" ON public."documents_contrats"
+    USING (((( SELECT "current_role"() AS "current_role") = 'admin'::text) OR ((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM contrats c
+  WHERE ((c.id = documents_contrats.contrat_id) AND (c.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "doc_contrats_technicien" ON public."documents_contrats"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (EXISTS ( SELECT 1
+   FROM contrats ctr
+  WHERE ((ctr.id = documents_contrats.contrat_id) AND (ctr.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (EXISTS ( SELECT 1
+   FROM contrats ctr
+  WHERE ((ctr.id = documents_contrats.contrat_id) AND (ctr.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "doc_di_scoped" ON public."documents_di"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = documents_di.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = documents_di.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "doc_di_select" ON public."documents_di"
+    USING (((( SELECT "current_role"() AS "current_role") = 'admin'::text) OR ((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM demandes_intervention di
+  WHERE ((di.id = documents_di.di_id) AND (di.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "doc_eq_select" ON public."documents_equipements"
+    USING (((( SELECT "current_role"() AS "current_role") = 'admin'::text) OR ((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM (((equipements e
+     JOIN locaux l ON ((l.id = e.local_id)))
+     JOIN niveaux n ON ((n.id = l.niveau_id)))
+     JOIN batiments b ON ((b.id = n.batiment_id)))
+  WHERE ((e.id = documents_equipements.equipement_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "doc_evenements_scoped" ON public."documents_evenements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM evenements e
+  WHERE ((e.id = documents_evenements.evenement_id) AND (e.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM evenements e
+  WHERE ((e.id = documents_evenements.evenement_id) AND (e.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "doc_evenements_select" ON public."documents_evenements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM evenements e
+  WHERE ((e.id = documents_evenements.evenement_id) AND (e.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "doc_travaux_scoped" ON public."documents_interventions_travaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM interventions_travaux ic
+  WHERE ((ic.id = documents_interventions_travaux.travaux_id) AND (ic.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM interventions_travaux ic
+  WHERE ((ic.id = documents_interventions_travaux.travaux_id) AND (ic.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "doc_travaux_select" ON public."documents_interventions_travaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM interventions_travaux ic
+  WHERE ((ic.id = documents_interventions_travaux.travaux_id) AND (ic.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "doc_capex_scoped" ON public."documents_investissements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM investissements i
+  WHERE ((i.id = documents_investissements.investissement_id) AND (i.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM investissements i
+  WHERE ((i.id = documents_investissements.investissement_id) AND (i.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "doc_capex_select" ON public."documents_investissements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM investissements i
+  WHERE ((i.id = documents_investissements.investissement_id) AND (i.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "doc_locaux_select" ON public."documents_locaux"
+    USING (((( SELECT "current_role"() AS "current_role") = 'admin'::text) OR ((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM ((locaux l
+     JOIN niveaux n ON ((n.id = l.niveau_id)))
+     JOIN batiments b ON ((b.id = n.batiment_id)))
+  WHERE ((l.id = documents_locaux.local_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "doc_ot_scoped" ON public."documents_ordres_travail"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM ordres_travail ot
+  WHERE ((ot.id = documents_ordres_travail.ordre_travail_id) AND (ot.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM ordres_travail ot
+  WHERE ((ot.id = documents_ordres_travail.ordre_travail_id) AND (ot.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "doc_ot_select" ON public."documents_ordres_travail"
+    USING (((( SELECT "current_role"() AS "current_role") = 'admin'::text) OR ((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM ordres_travail ot
+  WHERE ((ot.id = documents_ordres_travail.ordre_travail_id) AND (ot.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "evenements_site_scoped_delete" ON public."evenements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "evenements_site_scoped_insert" ON public."evenements"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])) AND (created_by = ( SELECT auth.uid() AS uid))));
+
+ALTER POLICY "evenements_site_scoped_select" ON public."evenements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "evenements_site_scoped_update" ON public."evenements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "evenements_lieux_scoped" ON public."evenements_lieux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM evenements e
+  WHERE ((e.id = evenements_lieux.evenement_id) AND (e.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM evenements e
+  WHERE ((e.id = evenements_lieux.evenement_id) AND (e.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "evenements_lieux_select" ON public."evenements_lieux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM evenements e
+  WHERE ((e.id = evenements_lieux.evenement_id) AND (e.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "gammes_manager_site_write" ON public."gammes"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "gammes_select" ON public."gammes"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "gammes_technicien_site_write" ON public."gammes"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "gammes_equipements_select" ON public."gammes_equipements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM (((equipements e
+     JOIN locaux l ON ((l.id = e.local_id)))
+     JOIN niveaux n ON ((n.id = l.niveau_id)))
+     JOIN batiments b ON ((b.id = n.batiment_id)))
+  WHERE ((e.id = gammes_equipements.equipement_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "travaux_site_scoped_delete" ON public."interventions_travaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "travaux_site_scoped_insert" ON public."interventions_travaux"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])) AND (created_by = ( SELECT auth.uid() AS uid))));
+
+ALTER POLICY "travaux_site_scoped_select" ON public."interventions_travaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "travaux_site_scoped_update" ON public."interventions_travaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "capex_site_scoped_delete" ON public."investissements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "capex_site_scoped_insert" ON public."investissements"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])) AND (created_by = ( SELECT auth.uid() AS uid))));
+
+ALTER POLICY "capex_site_scoped_select" ON public."investissements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "capex_site_scoped_update" ON public."investissements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "capex_decisions_select" ON public."investissements_decisions"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM investissements i
+  WHERE ((i.id = investissements_decisions.investissement_id) AND (i.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "inv_devis_scoped" ON public."investissements_devis"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM investissements i
+  WHERE ((i.id = investissements_devis.investissement_id) AND (i.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM investissements i
+  WHERE ((i.id = investissements_devis.investissement_id) AND (i.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "inv_devis_select" ON public."investissements_devis"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM investissements i
+  WHERE ((i.id = investissements_devis.investissement_id) AND (i.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "locaux_demandeur_select" ON public."locaux"
+    USING (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (EXISTS ( SELECT 1
+   FROM (niveaux n
+     JOIN batiments b ON ((b.id = n.batiment_id)))
+  WHERE ((n.id = locaux.niveau_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "locaux_site_scoped_delete" ON public."locaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM (niveaux n
+     JOIN batiments b ON ((b.id = n.batiment_id)))
+  WHERE ((n.id = locaux.niveau_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "locaux_site_scoped_select" ON public."locaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM (niveaux n
+     JOIN batiments b ON ((b.id = n.batiment_id)))
+  WHERE ((n.id = locaux.niveau_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "locaux_site_scoped_update" ON public."locaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM (niveaux n
+     JOIN batiments b ON ((b.id = n.batiment_id)))
+  WHERE ((n.id = locaux.niveau_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM (niveaux n
+     JOIN batiments b ON ((b.id = n.batiment_id)))
+  WHERE ((n.id = locaux.niveau_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "locaux_site_scoped_write" ON public."locaux"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM (niveaux n
+     JOIN batiments b ON ((b.id = n.batiment_id)))
+  WHERE ((n.id = locaux.niveau_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "miniatures_manager_all" ON public."miniatures"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "miniatures_select" ON public."miniatures"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text, 'demandeur'::text])) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "miniatures_technicien_all" ON public."miniatures"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "modeles_di_manager_all" ON public."modeles_di"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "modeles_di_select" ON public."modeles_di"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text, 'demandeur'::text])) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "modeles_di_technicien_all" ON public."modeles_di"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "modeles_equipements_manager_all" ON public."modeles_equipements"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "modeles_equipements_select" ON public."modeles_equipements"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "modeles_equipements_technicien_all" ON public."modeles_equipements"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "modeles_operations_manager_all" ON public."modeles_operations"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "modeles_operations_select" ON public."modeles_operations"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND ((site_id IS NULL) OR (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))));
+
+ALTER POLICY "modeles_operations_technicien_all" ON public."modeles_operations"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id IS NOT NULL) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "modeles_items_manager_write" ON public."modeles_operations_items"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (EXISTS ( SELECT 1
+   FROM modeles_operations mo
+  WHERE ((mo.id = modeles_operations_items.modele_operation_id) AND ((mo.site_id IS NULL) OR (mo.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (EXISTS ( SELECT 1
+   FROM modeles_operations mo
+  WHERE ((mo.id = modeles_operations_items.modele_operation_id) AND ((mo.site_id IS NULL) OR (mo.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "modeles_items_select" ON public."modeles_operations_items"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM modeles_operations mo
+  WHERE ((mo.id = modeles_operations_items.modele_operation_id) AND ((mo.site_id IS NULL) OR (mo.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "modeles_items_technicien_all" ON public."modeles_operations_items"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (EXISTS ( SELECT 1
+   FROM modeles_operations mo
+  WHERE ((mo.id = modeles_operations_items.modele_operation_id) AND (mo.site_id IS NOT NULL) AND (mo.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (EXISTS ( SELECT 1
+   FROM modeles_operations mo
+  WHERE ((mo.id = modeles_operations_items.modele_operation_id) AND (mo.site_id IS NOT NULL) AND (mo.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "niveaux_demandeur_select" ON public."niveaux"
+    USING (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (EXISTS ( SELECT 1
+   FROM batiments b
+  WHERE ((b.id = niveaux.batiment_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "niveaux_site_scoped_delete" ON public."niveaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM batiments b
+  WHERE ((b.id = niveaux.batiment_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "niveaux_site_scoped_select" ON public."niveaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM batiments b
+  WHERE ((b.id = niveaux.batiment_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "niveaux_site_scoped_update" ON public."niveaux"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM batiments b
+  WHERE ((b.id = niveaux.batiment_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM batiments b
+  WHERE ((b.id = niveaux.batiment_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "niveaux_site_scoped_write" ON public."niveaux"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM batiments b
+  WHERE ((b.id = niveaux.batiment_id) AND (b.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "observations_site_scoped_insert" ON public."observations"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])) AND (created_by = ( SELECT auth.uid() AS uid))));
+
+ALTER POLICY "observations_site_scoped_select" ON public."observations"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "observations_site_scoped_update" ON public."observations"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "operations_manager_write" ON public."operations"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (EXISTS ( SELECT 1
+   FROM gammes g
+  WHERE ((g.id = operations.gamme_id) AND ((g.site_id IS NULL) OR (g.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (EXISTS ( SELECT 1
+   FROM gammes g
+  WHERE ((g.id = operations.gamme_id) AND ((g.site_id IS NULL) OR (g.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "operations_select" ON public."operations"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM gammes g
+  WHERE ((g.id = operations.gamme_id) AND ((g.site_id IS NULL) OR (g.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "operations_technicien_write" ON public."operations"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (EXISTS ( SELECT 1
+   FROM gammes g
+  WHERE ((g.id = operations.gamme_id) AND (g.site_id IS NOT NULL) AND (g.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (EXISTS ( SELECT 1
+   FROM gammes g
+  WHERE ((g.id = operations.gamme_id) AND (g.site_id IS NOT NULL) AND (g.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "opex_manager_update" ON public."operations_execution"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (EXISTS ( SELECT 1
+   FROM ordres_travail ot
+  WHERE ((ot.id = operations_execution.ordre_travail_id) AND (ot.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (EXISTS ( SELECT 1
+   FROM ordres_travail ot
+  WHERE ((ot.id = operations_execution.ordre_travail_id) AND (ot.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "opex_site_scoped_select" ON public."operations_execution"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM ordres_travail ot
+  WHERE ((ot.id = operations_execution.ordre_travail_id) AND (ot.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "opex_technicien_update" ON public."operations_execution"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (EXISTS ( SELECT 1
+   FROM ordres_travail ot
+  WHERE ((ot.id = operations_execution.ordre_travail_id) AND (ot.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (EXISTS ( SELECT 1
+   FROM ordres_travail ot
+  WHERE ((ot.id = operations_execution.ordre_travail_id) AND (ot.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "ot_manager_delete" ON public."ordres_travail"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "ot_manager_insert" ON public."ordres_travail"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])) AND (created_by = ( SELECT auth.uid() AS uid))));
+
+ALTER POLICY "ot_manager_update" ON public."ordres_travail"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "ot_site_scoped_select" ON public."ordres_travail"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "ot_technicien_delete" ON public."ordres_travail"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "ot_technicien_insert" ON public."ordres_travail"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])) AND (created_by = ( SELECT auth.uid() AS uid))));
+
+ALTER POLICY "ot_technicien_update" ON public."ordres_travail"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "prestataires_manager_delete" ON public."prestataires"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((NOT (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE (ps.prestataire_id = prestataires.id)))) OR (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE ((ps.prestataire_id = prestataires.id) AND (ps.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "prestataires_manager_update" ON public."prestataires"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((NOT (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE (ps.prestataire_id = prestataires.id)))) OR (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE ((ps.prestataire_id = prestataires.id) AND (ps.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((NOT (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE (ps.prestataire_id = prestataires.id)))) OR (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE ((ps.prestataire_id = prestataires.id) AND (ps.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "prestataires_manager_write" ON public."prestataires"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND ((NOT (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE (ps.prestataire_id = prestataires.id)))) OR (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE ((ps.prestataire_id = prestataires.id) AND (ps.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "prestataires_site_scoped_select" ON public."prestataires"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND ((NOT (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE (ps.prestataire_id = prestataires.id)))) OR (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE ((ps.prestataire_id = prestataires.id) AND (ps.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "prestataires_technicien_delete" ON public."prestataires"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND ((NOT (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE (ps.prestataire_id = prestataires.id)))) OR (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE ((ps.prestataire_id = prestataires.id) AND (ps.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "prestataires_technicien_insert" ON public."prestataires"
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND ((NOT (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE (ps.prestataire_id = prestataires.id)))) OR (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE ((ps.prestataire_id = prestataires.id) AND (ps.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "prestataires_technicien_update" ON public."prestataires"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND ((NOT (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE (ps.prestataire_id = prestataires.id)))) OR (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE ((ps.prestataire_id = prestataires.id) AND (ps.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND ((NOT (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE (ps.prestataire_id = prestataires.id)))) OR (EXISTS ( SELECT 1
+   FROM prestataires_sites ps
+  WHERE ((ps.prestataire_id = prestataires.id) AND (ps.site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))))));
+
+ALTER POLICY "prestataires_sites_manager_all" ON public."prestataires_sites"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "prestataires_sites_select" ON public."prestataires_sites"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "prestataires_sites_technicien_all" ON public."prestataires_sites"
+    USING (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'technicien'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "sites_demandeur_select" ON public."sites"
+    USING (((( SELECT "current_role"() AS "current_role") = 'demandeur'::text) AND (id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "sites_site_scoped_select" ON public."sites"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+ALTER POLICY "travaux_taches_scoped" ON public."travaux_taches"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM interventions_travaux ic
+  WHERE ((ic.id = travaux_taches.travaux_id) AND (ic.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text])) AND (EXISTS ( SELECT 1
+   FROM interventions_travaux ic
+  WHERE ((ic.id = travaux_taches.travaux_id) AND (ic.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "travaux_taches_select" ON public."travaux_taches"
+    USING (((( SELECT "current_role"() AS "current_role") = ANY (ARRAY['manager'::text, 'technicien'::text, 'lecteur'::text])) AND (EXISTS ( SELECT 1
+   FROM interventions_travaux ic
+  WHERE ((ic.id = travaux_taches.travaux_id) AND (ic.site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))))));
+
+ALTER POLICY "user_sites_manager_provision" ON public."user_sites"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])) AND (EXISTS ( SELECT 1
+   FROM users u
+  WHERE ((u.id = user_sites.user_id) AND (u.role_id IN ( SELECT roles.id
+           FROM roles
+          WHERE (roles.code = ANY (ARRAY['technicien'::text, 'lecteur'::text, 'demandeur'::text])))))))))
+    WITH CHECK (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])) AND (EXISTS ( SELECT 1
+   FROM users u
+  WHERE ((u.id = user_sites.user_id) AND (u.role_id IN ( SELECT roles.id
+           FROM roles
+          WHERE (roles.code = ANY (ARRAY['technicien'::text, 'lecteur'::text, 'demandeur'::text])))))))));
+
+ALTER POLICY "user_sites_manager_select" ON public."user_sites"
+    USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));

@@ -4722,6 +4722,7 @@ export type Database = {
         Args: { p_equipement_id: string }
         Returns: string
       }
+      mes_site_ids: { Args: never; Returns: string[] }
       miniature_scope_ok: {
         Args: { p_miniature_id: string; p_target_site_id: string }
         Returns: boolean
