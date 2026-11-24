@@ -13,36 +13,22 @@ import {
 
 /**
  * Gel du comportement (C54) : Travaux et Événements synchronisent leurs tâches
- * de la même façon — mêmes requêtes, dans le même ordre, mêmes payloads, seule
- * la table et la clé étrangère changent. Le client Supabase est remplacé par un
- * enregistreur : chaque `from(table)` ouvre une chaîne dont on note les appels.
+ * de la même façon — même diff, mêmes payloads ; seule la RPC change
+ * (enregistrer_travaux / enregistrer_evenement, 175-176, une transaction). Le
+ * client Supabase est remplacé par un enregistreur des appels `rpc`.
  */
 const appels = vi.hoisted(() => ({
-  liste: [] as { table: string; chaine: [string, unknown[]][] }[],
+  liste: [] as { fonction: string; args: Record<string, unknown> }[],
 }))
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from(table: string) {
-      const entree = { table, chaine: [] as [string, unknown[]][] }
-      appels.liste.push(entree)
-      const builder: Record<string, unknown> = new Proxy(
-        {},
-        {
-          get(_cible, propriete) {
-            if (propriete === 'then') return undefined
-            if (propriete === 'throwOnError') {
-              return () =>
-                Promise.resolve({ data: { id: 'PARENT' }, error: null })
-            }
-            return (...args: unknown[]) => {
-              entree.chaine.push([String(propriete), args])
-              return builder
-            }
-          },
-        },
-      )
-      return builder
+    rpc(fonction: string, args: Record<string, unknown>) {
+      appels.liste.push({ fonction, args })
+      return {
+        throwOnError: () =>
+          Promise.resolve({ data: { id: 'PARENT' }, error: null }),
+      }
     },
   },
 }))
@@ -77,195 +63,126 @@ const tachesEdition = [
   { libelle: '', local_id: '', equipement_id: '' }, // vide : ignorée
 ]
 
-function attenduCreation(table: string, fk: string) {
-  return {
-    table,
-    chaine: [
-      [
-        'insert',
-        [
-          [
-            {
-              [fk]: 'PARENT',
-              libelle: 'Peinture',
-              local_id: 'L1',
-              equipement_id: null,
-              ordre: 0,
-              created_by: 'U',
-            },
-            {
-              [fk]: 'PARENT',
-              libelle: 'Tâche',
-              local_id: 'L2',
-              equipement_id: 'E2',
-              ordre: 1,
-              created_by: 'U',
-            },
-          ],
-        ],
-      ],
-    ],
-  }
+const attenduCreation = {
+  ajouter: [
+    { libelle: 'Peinture', local_id: 'L1', equipement_id: null, ordre: 0 },
+    { libelle: 'Tâche', local_id: 'L2', equipement_id: 'E2', ordre: 1 },
+  ],
 }
 
-function attenduEdition(table: string, fk: string) {
-  return [
-    {
-      table,
-      chaine: [
-        ['delete', []],
-        ['in', ['id', ['T3']]],
-      ],
-    },
-    {
-      table,
-      chaine: [
-        [
-          'insert',
-          [
-            [
-              {
-                [fk]: 'P',
-                libelle: 'Nouvelle',
-                local_id: null,
-                equipement_id: null,
-                ordre: 3,
-                created_by: 'U',
-              },
-            ],
-          ],
-        ],
-      ],
-    },
-    {
-      table,
-      chaine: [
-        ['update', [{ libelle: 'Après', local_id: 'L9', equipement_id: 'E9' }]],
-        ['eq', ['id', 'T2']],
-      ],
-    },
-  ]
+// T3 retirée ; « Nouvelle » ajoutée APRÈS les existants (ordre 3) ; T2
+// modifiée (libellé nettoyé) ; T1 inchangée → absente du diff, statut intact.
+const attenduEdition = {
+  supprimer: ['T3'],
+  ajouter: [
+    { libelle: 'Nouvelle', local_id: null, equipement_id: null, ordre: 3 },
+  ],
+  modifier: [
+    { id: 'T2', libelle: 'Après', local_id: 'L9', equipement_id: 'E9' },
+  ],
+}
+
+const ficheTravaux = {
+  titre: 'T',
+  description: '',
+  date_demande: '2026-01-01',
+  local_id: '',
+  equipement_id: '',
+}
+const ficheEvenement = {
+  titre: 'T',
+  description: '',
+  date_evenement: '2026-01-01',
+  local_id: '',
+  equipement_id: '',
 }
 
 describe('synchronisation des tâches (Travaux / Événements)', () => {
-  it('création travaux : insère les tâches saisies, ordonnées', async () => {
+  it('création travaux : un appel, tâches saisies ordonnées', async () => {
     const { result } = renderHook(() => useCreateTravaux(), { wrapper })
     result.current.mutate({
       siteId: 'S',
-      createdBy: 'U',
-      values: {
-        titre: 'T',
-        description: '',
-        date_demande: '2026-01-01',
-        local_id: '',
-        equipement_id: '',
-        taches: tachesCreation,
-      },
+      values: { ...ficheTravaux, taches: tachesCreation },
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(appels.liste.slice(1)).toEqual([
-      attenduCreation('travaux_taches', 'travaux_id'),
+    expect(appels.liste).toEqual([
+      {
+        fonction: 'enregistrer_travaux',
+        args: {
+          p_site_id: 'S',
+          p_fiche: {
+            titre: 'T',
+            description: null,
+            date_demande: '2026-01-01',
+            local_id: null,
+            equipement_id: null,
+          },
+          p_taches: attenduCreation,
+        },
+      },
     ])
   })
 
-  it('création événement : insère les tâches saisies, ordonnées', async () => {
+  it('création événement : même diff, autre RPC', async () => {
     const { result } = renderHook(() => useCreateEvenement(), { wrapper })
     result.current.mutate({
       siteId: 'S',
-      createdBy: 'U',
-      values: {
-        titre: 'T',
-        description: '',
-        date_evenement: '2026-01-01',
-        local_id: '',
-        equipement_id: '',
-        taches: tachesCreation,
-      },
+      values: { ...ficheEvenement, taches: tachesCreation },
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(appels.liste.slice(1)).toEqual([
-      attenduCreation('evenements_lieux', 'evenement_id'),
-    ])
+    expect(appels.liste).toHaveLength(1)
+    expect(appels.liste[0]!.fonction).toBe('enregistrer_evenement')
+    expect(appels.liste[0]!.args.p_taches).toEqual(attenduCreation)
   })
 
-  it('création sans tâche : aucune requête sur la table des tâches', async () => {
+  it('création sans tâche : liste d’ajouts vide', async () => {
     const { result } = renderHook(() => useCreateTravaux(), { wrapper })
     result.current.mutate({
       siteId: 'S',
-      createdBy: 'U',
-      values: {
-        titre: 'T',
-        description: '',
-        date_demande: '2026-01-01',
-        local_id: '',
-        equipement_id: '',
-        taches: [],
-      },
+      values: { ...ficheTravaux, taches: [] },
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(appels.liste).toHaveLength(1)
+    expect(appels.liste[0]!.args.p_taches).toEqual({ ajouter: [] })
   })
 
-  it('édition travaux : retire, ajoute, modifie — la conservée intacte', async () => {
+  it('édition travaux : retire, ajoute, modifie — la conservée absente du diff', async () => {
     const { result } = renderHook(() => useUpdateTravaux(), { wrapper })
     result.current.mutate({
       id: 'P',
-      values: {
-        titre: 'T',
-        description: '',
-        date_demande: '2026-01-01',
-        local_id: '',
-        equipement_id: '',
-        taches: [],
-      },
+      values: { ...ficheTravaux, taches: [] },
       taches: tachesEdition,
       createdBy: 'U',
       existants,
-    })
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(appels.liste[0]!.table).toBe('interventions_travaux')
-    expect(appels.liste.slice(1)).toEqual(
-      attenduEdition('travaux_taches', 'travaux_id'),
-    )
-  })
-
-  it('édition événement : retire, ajoute, modifie — la conservée intacte', async () => {
-    const { result } = renderHook(() => useUpdateEvenement(), { wrapper })
-    result.current.mutate({
-      id: 'P',
-      values: {
-        titre: 'T',
-        description: '',
-        date_evenement: '2026-01-01',
-        local_id: '',
-        equipement_id: '',
-        taches: [],
-      },
-      taches: tachesEdition,
-      createdBy: 'U',
-      existants,
-    })
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(appels.liste[0]!.table).toBe('evenements')
-    expect(appels.liste.slice(1)).toEqual(
-      attenduEdition('evenements_lieux', 'evenement_id'),
-    )
-  })
-
-  it('édition sans tâches fournies : seul le parent est mis à jour', async () => {
-    const { result } = renderHook(() => useUpdateEvenement(), { wrapper })
-    result.current.mutate({
-      id: 'P',
-      values: {
-        titre: 'T',
-        description: '',
-        date_evenement: '2026-01-01',
-        local_id: '',
-        equipement_id: '',
-        taches: [],
-      },
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(appels.liste).toHaveLength(1)
+    expect(appels.liste[0]!.fonction).toBe('enregistrer_travaux')
+    expect(appels.liste[0]!.args.p_id).toBe('P')
+    expect(appels.liste[0]!.args.p_taches).toEqual(attenduEdition)
+  })
+
+  it('édition événement : même diff', async () => {
+    const { result } = renderHook(() => useUpdateEvenement(), { wrapper })
+    result.current.mutate({
+      id: 'P',
+      values: { ...ficheEvenement, taches: [] },
+      taches: tachesEdition,
+      createdBy: 'U',
+      existants,
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(appels.liste[0]!.fonction).toBe('enregistrer_evenement')
+    expect(appels.liste[0]!.args.p_taches).toEqual(attenduEdition)
+  })
+
+  it('édition sans tâches fournies : p_taches absent (tâches intouchées)', async () => {
+    const { result } = renderHook(() => useUpdateEvenement(), { wrapper })
+    result.current.mutate({
+      id: 'P',
+      values: { ...ficheEvenement, taches: [] },
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(appels.liste).toHaveLength(1)
+    expect(appels.liste[0]!.args.p_taches).toBeUndefined()
   })
 })

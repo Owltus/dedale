@@ -137,7 +137,6 @@ export function EvenementFormDialog({
       }
       return create.mutateAsync({
         siteId,
-        createdBy: session.user.id,
         values: { ...data, taches },
       })
     },

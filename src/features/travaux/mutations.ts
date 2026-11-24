@@ -30,39 +30,20 @@ export function useCreateTravaux() {
   return useMutation({
     mutationFn: async ({
       siteId,
-      createdBy,
       values,
     }: {
       siteId: string
-      createdBy: string
       values: TravauxFormValues
     }) => {
+      // UNE transaction (RPC enregistrer_travaux, 175-176) : la fiche et ses tâches
+      // sont écrites ensemble ou pas du tout. created_by = auth.uid() côté base.
       const { data } = await supabase
-        .from('interventions_travaux')
-        .insert({
-          ...toPayload(values),
-          site_id: siteId,
-          created_by: createdBy,
+        .rpc('enregistrer_travaux', {
+          p_site_id: siteId,
+          p_fiche: toPayload(values),
+          p_taches: { ajouter: tachesACreer(values.taches) },
         })
-        .select()
-        .single()
         .throwOnError()
-
-      // Tâches ajoutées directement à la création (facultatif).
-      const taches = tachesACreer(values.taches)
-      if (taches.length) {
-        await supabase
-          .from('travaux_taches')
-          .insert(
-            taches.map((c) => ({
-              travaux_id: data.id,
-              ...c,
-              created_by: createdBy,
-            })),
-          )
-          .throwOnError()
-      }
-
       return data
     },
     onSuccess: (data) => {
@@ -100,46 +81,27 @@ export function useUpdateTravaux() {
       createdBy?: string
       existants?: TacheExistante[]
     }) => {
+      // UNE transaction (RPC enregistrer_travaux, 175-176) : fiche + diff des tâches
+      // (calculé ici, cf. diffTaches) appliqués ensemble. Tâches absentes →
+      // on n'y touche pas. Hors périmètre (0 ligne) → 42501, même message.
+      const diff =
+        taches && existants && createdBy ? diffTaches(taches, existants) : null
       const { data } = await supabase
-        .from('interventions_travaux')
-        .update(toPayload(values))
-        .eq('id', id)
-        .select()
-        .single()
+        .rpc('enregistrer_travaux', {
+          p_id: id,
+          p_fiche: toPayload(values),
+          p_taches: diff
+            ? {
+                supprimer: diff.aSupprimer,
+                ajouter: diff.aAjouter,
+                modifier: diff.aModifier.map((m) => ({
+                  id: m.id,
+                  ...m.champs,
+                })),
+              }
+            : undefined,
+        })
         .throwOnError()
-
-      if (taches && existants && createdBy) {
-        const { aSupprimer, aAjouter, aModifier } = diffTaches(
-          taches,
-          existants,
-        )
-        if (aSupprimer.length) {
-          await supabase
-            .from('travaux_taches')
-            .delete()
-            .in('id', aSupprimer)
-            .throwOnError()
-        }
-        if (aAjouter.length) {
-          await supabase
-            .from('travaux_taches')
-            .insert(
-              aAjouter.map((c) => ({
-                travaux_id: id,
-                ...c,
-                created_by: createdBy,
-              })),
-            )
-            .throwOnError()
-        }
-        for (const m of aModifier) {
-          await supabase
-            .from('travaux_taches')
-            .update(m.champs)
-            .eq('id', m.id)
-            .throwOnError()
-        }
-      }
 
       return data
     },

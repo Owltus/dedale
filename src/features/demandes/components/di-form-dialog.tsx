@@ -65,7 +65,6 @@ export function DiFormDialog({
       if (!session) throw new Error(SESSION_EXPIREE)
       return create.mutateAsync({
         siteId,
-        createdBy: session.user.id,
         values: data,
       })
     },

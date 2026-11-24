@@ -4408,6 +4408,34 @@ export type Database = {
         Returns: number
       }
       couper_connexions_claude: { Args: { p_user_id: string }; Returns: number }
+      creer_demande: {
+        Args: {
+          p_constat: string
+          p_date_constat: string
+          p_equipement_id?: string
+          p_local_id?: string
+          p_site_id: string
+        }
+        Returns: {
+          constat: string
+          created_at: string
+          created_by: string
+          date_constat: string
+          date_resolution: string | null
+          description_resolution: string | null
+          id: string
+          resolved_by: string | null
+          site_id: string
+          statut_di_id: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "demandes_intervention"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_role: { Args: never; Returns: string }
       deactivate_inactive_users: { Args: never; Returns: undefined }
       demandes_du_site: {
@@ -4558,6 +4586,68 @@ export type Database = {
         Returns: boolean
       }
       dmbook_verrou_rendre: { Args: { p_site: string }; Returns: undefined }
+      enregistrer_evenement: {
+        Args: {
+          p_fiche: Json
+          p_id?: string
+          p_site_id?: string
+          p_taches?: Json
+        }
+        Returns: {
+          cloture_by: string | null
+          compte_rendu: string | null
+          created_at: string
+          created_by: string
+          date_cloture: string | null
+          date_evenement: string
+          description: string | null
+          equipement_id: string | null
+          id: string
+          local_id: string | null
+          site_id: string
+          statut_evenement_id: number
+          titre: string
+          updated_at: string
+          verrouille: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "evenements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      enregistrer_travaux: {
+        Args: {
+          p_fiche: Json
+          p_id?: string
+          p_site_id?: string
+          p_taches?: Json
+        }
+        Returns: {
+          cloture_by: string | null
+          compte_rendu: string | null
+          created_at: string
+          created_by: string
+          date_demande: string
+          date_fin: string | null
+          description: string | null
+          equipement_id: string | null
+          id: string
+          local_id: string | null
+          site_id: string
+          statut_travaux_id: number
+          titre: string
+          updated_at: string
+          verrouille: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "interventions_travaux"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       equipements_attendus: {
         Args: { p_gamme_id: string }
         Returns: {
@@ -4727,6 +4817,16 @@ export type Database = {
         Args: { p_miniature_id: string; p_target_site_id: string }
         Returns: boolean
       }
+      modifier_demande: {
+        Args: {
+          p_constat: string
+          p_equipement_id?: string
+          p_id: string
+          p_liaisons: boolean
+          p_local_id?: string
+        }
+        Returns: undefined
+      }
       ot_code_confirmation: {
         Args: { p_demande: Json; p_geste: string; p_ot_id: string }
         Returns: string
@@ -4784,6 +4884,10 @@ export type Database = {
       ot_suivant_genere: { Args: { p_ot_id: string }; Returns: Json }
       ot_verifier_code: {
         Args: { p_appliquer: boolean; p_attendu: string; p_code: string }
+        Returns: undefined
+      }
+      poser_devis_retenus: {
+        Args: { p_projet_id: string; p_retenus: string[] }
         Returns: undefined
       }
       prochaine_date_ot: {

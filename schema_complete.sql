@@ -18007,3 +18007,296 @@ ALTER POLICY documents_technicien_update ON public.documents
 
 COMMENT ON POLICY documents_site_scoped_delete ON public.documents IS
   'Suppression manager/technicien : documents de LEURS sites seulement ; un document entreprise (site_id NULL) relève de l''admin (174).';
+
+
+-- =============================================================================
+-- 175 — Écritures en plusieurs étapes rendues atomiques (RPC transactionnelles)
+-- =============================================================================
+-- Symptôme corrigé : un échec au milieu d'un enregistrement laissait un état
+-- partiel — une DI sans son lieu, des travaux ou un événement sans leurs
+-- tâches, des devis tous décochés — et le nouvel essai créait un doublon.
+--
+-- Cause : le front enchaînait 2 à 6 requêtes PostgREST indépendantes
+-- (src/features/demandes/mutations.ts, travaux/mutations.ts,
+-- evenements/mutations.ts, investissements/mutations.ts → poserRetenus).
+--
+-- Correctif : cinq fonctions qui font EXACTEMENT les mêmes écritures, dans la
+-- même transaction :
+--   creer_demande, modifier_demande, enregistrer_travaux,
+--   enregistrer_evenement, poser_devis_retenus.
+-- SECURITY INVOKER (défaut) : la RLS et les déclencheurs s'appliquent comme
+-- avant, au rôle de la personne. created_by = auth.uid() (le front envoyait
+-- l'id de session, même valeur). Une ligne principale hors périmètre (0 ligne
+-- touchée) lève 42501 — le front l'affichait déjà comme PGRST116, même message.
+-- Ce qu'elle ne fait PAS : aucune règle métier nouvelle ; le calcul du diff
+-- des tâches reste dans le front (taches-sync.ts, testé).
+--
+-- Innocuité : fonctions NOUVELLES, aucun objet existant modifié. Répétition
+-- (annulée) : par rôle technicien sur son site, résultat identique à
+-- l'enchaînement d'avant ; échec au milieu → rien n'est écrit.
+--
+-- Vérification après application :
+--     SELECT proname, prosecdef FROM pg_proc
+--     WHERE pronamespace = 'public'::regnamespace AND proname IN
+--       ('creer_demande','modifier_demande','enregistrer_travaux',
+--        'enregistrer_evenement','poser_devis_retenus');
+--     -- 5 lignes, prosecdef = false.
+-- =============================================================================
+
+-- ─── DI ──────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.creer_demande(
+    p_site_id uuid,
+    p_constat text,
+    p_date_constat date,
+    p_local_id uuid DEFAULT NULL,
+    p_equipement_id uuid DEFAULT NULL)
+ RETURNS public.demandes_intervention
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_di public.demandes_intervention;
+BEGIN
+    INSERT INTO public.demandes_intervention (site_id, created_by, constat, date_constat)
+    VALUES (p_site_id, (SELECT auth.uid()), p_constat, p_date_constat)
+    RETURNING * INTO v_di;
+    IF p_local_id IS NOT NULL THEN
+        INSERT INTO public.di_localisations (di_id, local_id) VALUES (v_di.id, p_local_id);
+    END IF;
+    IF p_equipement_id IS NOT NULL THEN
+        INSERT INTO public.di_equipements (di_id, equipement_id) VALUES (v_di.id, p_equipement_id);
+    END IF;
+    RETURN v_di;
+END;
+$function$;
+
+-- p_liaisons = false : seul le constat bouge (cas du demandeur, que la RLS
+-- n'autorise pas à retirer une liaison).
+CREATE OR REPLACE FUNCTION public.modifier_demande(
+    p_id uuid,
+    p_constat text,
+    p_liaisons boolean,
+    p_local_id uuid DEFAULT NULL,
+    p_equipement_id uuid DEFAULT NULL)
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+    UPDATE public.demandes_intervention SET constat = p_constat WHERE id = p_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Modification refusée : demande introuvable ou hors de ton périmètre.'
+            USING ERRCODE = '42501';
+    END IF;
+    IF NOT p_liaisons THEN
+        RETURN;
+    END IF;
+    DELETE FROM public.di_localisations WHERE di_id = p_id;
+    IF p_local_id IS NOT NULL THEN
+        INSERT INTO public.di_localisations (di_id, local_id) VALUES (p_id, p_local_id);
+    END IF;
+    DELETE FROM public.di_equipements WHERE di_id = p_id;
+    IF p_equipement_id IS NOT NULL THEN
+        INSERT INTO public.di_equipements (di_id, equipement_id) VALUES (p_id, p_equipement_id);
+    END IF;
+END;
+$function$;
+
+-- ─── Travaux et événements (fiche + tâches) : définis plus bas (176) ────────
+-- p_id NULL = création sur p_site_id ; sinon modification.
+-- p_fiche : {titre, description, date_(demande|evenement), local_id, equipement_id}
+-- p_taches NULL = on ne touche pas aux tâches ; sinon
+--   {supprimer: [uuid], ajouter: [{libelle, local_id, equipement_id, ordre}],
+--    modifier: [{id, libelle, local_id, equipement_id}]}
+-- appliqué dans cet ordre (celui du front avant 175).
+
+
+
+
+
+-- ─── Investissements : devis retenus ────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.poser_devis_retenus(
+    p_projet_id uuid,
+    p_retenus uuid[])
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+    UPDATE public.investissements_devis SET retenu = false
+    WHERE investissement_id = p_projet_id;
+    IF coalesce(array_length(p_retenus, 1), 0) > 0 THEN
+        UPDATE public.investissements_devis SET retenu = true
+        WHERE investissement_id = p_projet_id AND id = ANY (p_retenus);
+    END IF;
+END;
+$function$;
+
+-- ─── Droits ──────────────────────────────────────────────────────────────────
+
+REVOKE ALL ON FUNCTION public.creer_demande(uuid, text, date, uuid, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.modifier_demande(uuid, text, boolean, uuid, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.poser_devis_retenus(uuid, uuid[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.creer_demande(uuid, text, date, uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.modifier_demande(uuid, text, boolean, uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.poser_devis_retenus(uuid, uuid[]) TO authenticated;
+
+COMMENT ON FUNCTION public.creer_demande(uuid, text, date, uuid, uuid) IS
+  'Crée une DI et ses liaisons (local, équipement) en UNE transaction, sous la RLS de l''appelant (175).';
+COMMENT ON FUNCTION public.modifier_demande(uuid, text, boolean, uuid, uuid) IS
+  'Modifie le constat d''une DI et, si p_liaisons, remet ses liaisons à plat — en UNE transaction (175).';
+COMMENT ON FUNCTION public.poser_devis_retenus(uuid, uuid[]) IS
+  'Coche exactement p_retenus parmi les devis du projet, en UNE transaction (175).';
+
+
+-- =============================================================================
+-- 176 — enregistrer_travaux / enregistrer_evenement : paramètres facultatifs
+-- =============================================================================
+-- Symptôme corrigé : le type généré (gen:types) déclarait p_id et p_site_id
+-- OBLIGATOIRES et non nuls, alors que la création passe p_id = NULL et la
+-- modification n'a pas de p_site_id — le front aurait dû mentir au typage.
+--
+-- Cause : un paramètre sans DEFAULT est généré requis, quel que soit l'usage.
+--
+-- Correctif : mêmes corps qu'en 175, signature (p_fiche, p_taches, p_id,
+-- p_site_id) avec DEFAULT NULL sur les trois derniers. PostgREST appelle par
+-- nom : l'ordre est sans effet pour l'appelant. Aucun appelant n'existait
+-- encore (le front passe sur ces fonctions dans le même chantier).
+--
+-- Innocuité : remplace deux fonctions créées par 175 le même soir, jamais
+-- appelées. Répétition (annulée) refaite sur la nouvelle signature.
+--
+-- Vérification après application :
+--     SELECT pg_get_function_identity_arguments(oid) FROM pg_proc
+--     WHERE proname IN ('enregistrer_travaux','enregistrer_evenement');
+--     -- p_fiche jsonb, p_taches jsonb, p_id uuid, p_site_id uuid
+-- =============================================================================
+
+DROP FUNCTION IF EXISTS public.enregistrer_travaux(uuid, uuid, jsonb, jsonb);
+DROP FUNCTION IF EXISTS public.enregistrer_evenement(uuid, uuid, jsonb, jsonb);
+
+
+CREATE OR REPLACE FUNCTION public.enregistrer_travaux(
+    p_fiche jsonb,
+    p_taches jsonb DEFAULT NULL,
+    p_id uuid DEFAULT NULL,
+    p_site_id uuid DEFAULT NULL)
+ RETURNS public.interventions_travaux
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v public.interventions_travaux;
+BEGIN
+    IF p_id IS NULL THEN
+        INSERT INTO public.interventions_travaux
+            (site_id, created_by, titre, description, date_demande, local_id, equipement_id)
+        VALUES (p_site_id, (SELECT auth.uid()), p_fiche->>'titre', p_fiche->>'description',
+                (p_fiche->>'date_demande')::date, (p_fiche->>'local_id')::uuid,
+                (p_fiche->>'equipement_id')::uuid)
+        RETURNING * INTO v;
+    ELSE
+        UPDATE public.interventions_travaux SET
+            titre = p_fiche->>'titre',
+            description = p_fiche->>'description',
+            date_demande = (p_fiche->>'date_demande')::date,
+            local_id = (p_fiche->>'local_id')::uuid,
+            equipement_id = (p_fiche->>'equipement_id')::uuid
+        WHERE id = p_id
+        RETURNING * INTO v;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Modification refusée : travaux introuvables ou hors de ton périmètre.'
+                USING ERRCODE = '42501';
+        END IF;
+    END IF;
+
+    IF p_taches IS NOT NULL THEN
+        DELETE FROM public.travaux_taches
+        WHERE travaux_id = v.id
+          AND id IN (SELECT jsonb_array_elements_text(coalesce(p_taches->'supprimer', '[]'))::uuid);
+
+        INSERT INTO public.travaux_taches (travaux_id, libelle, local_id, equipement_id, ordre, created_by)
+        SELECT v.id, a.libelle, a.local_id, a.equipement_id, a.ordre, (SELECT auth.uid())
+        FROM jsonb_to_recordset(coalesce(p_taches->'ajouter', '[]'))
+             AS a(libelle text, local_id uuid, equipement_id uuid, ordre integer)
+        ORDER BY a.ordre;
+
+        UPDATE public.travaux_taches t SET
+            libelle = m.libelle, local_id = m.local_id, equipement_id = m.equipement_id
+        FROM jsonb_to_recordset(coalesce(p_taches->'modifier', '[]'))
+             AS m(id uuid, libelle text, local_id uuid, equipement_id uuid)
+        WHERE t.id = m.id AND t.travaux_id = v.id;
+    END IF;
+
+    RETURN v;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.enregistrer_evenement(
+    p_fiche jsonb,
+    p_taches jsonb DEFAULT NULL,
+    p_id uuid DEFAULT NULL,
+    p_site_id uuid DEFAULT NULL)
+ RETURNS public.evenements
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v public.evenements;
+BEGIN
+    IF p_id IS NULL THEN
+        INSERT INTO public.evenements
+            (site_id, created_by, titre, description, date_evenement, local_id, equipement_id)
+        VALUES (p_site_id, (SELECT auth.uid()), p_fiche->>'titre', p_fiche->>'description',
+                (p_fiche->>'date_evenement')::date, (p_fiche->>'local_id')::uuid,
+                (p_fiche->>'equipement_id')::uuid)
+        RETURNING * INTO v;
+    ELSE
+        UPDATE public.evenements SET
+            titre = p_fiche->>'titre',
+            description = p_fiche->>'description',
+            date_evenement = (p_fiche->>'date_evenement')::date,
+            local_id = (p_fiche->>'local_id')::uuid,
+            equipement_id = (p_fiche->>'equipement_id')::uuid
+        WHERE id = p_id
+        RETURNING * INTO v;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Modification refusée : événement introuvable ou hors de ton périmètre.'
+                USING ERRCODE = '42501';
+        END IF;
+    END IF;
+
+    IF p_taches IS NOT NULL THEN
+        DELETE FROM public.evenements_lieux
+        WHERE evenement_id = v.id
+          AND id IN (SELECT jsonb_array_elements_text(coalesce(p_taches->'supprimer', '[]'))::uuid);
+
+        INSERT INTO public.evenements_lieux (evenement_id, libelle, local_id, equipement_id, ordre, created_by)
+        SELECT v.id, a.libelle, a.local_id, a.equipement_id, a.ordre, (SELECT auth.uid())
+        FROM jsonb_to_recordset(coalesce(p_taches->'ajouter', '[]'))
+             AS a(libelle text, local_id uuid, equipement_id uuid, ordre integer)
+        ORDER BY a.ordre;
+
+        UPDATE public.evenements_lieux t SET
+            libelle = m.libelle, local_id = m.local_id, equipement_id = m.equipement_id
+        FROM jsonb_to_recordset(coalesce(p_taches->'modifier', '[]'))
+             AS m(id uuid, libelle text, local_id uuid, equipement_id uuid)
+        WHERE t.id = m.id AND t.evenement_id = v.id;
+    END IF;
+
+    RETURN v;
+END;
+$function$;
+
+
+REVOKE ALL ON FUNCTION public.enregistrer_travaux(jsonb, jsonb, uuid, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.enregistrer_evenement(jsonb, jsonb, uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.enregistrer_travaux(jsonb, jsonb, uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.enregistrer_evenement(jsonb, jsonb, uuid, uuid) TO authenticated;
+
+COMMENT ON FUNCTION public.enregistrer_travaux(jsonb, jsonb, uuid, uuid) IS
+  'Crée (p_id absent : sur p_site_id) ou modifie des travaux et applique le diff de tâches calculé par le front, en UNE transaction (175, 176).';
+COMMENT ON FUNCTION public.enregistrer_evenement(jsonb, jsonb, uuid, uuid) IS
+  'Crée (p_id absent : sur p_site_id) ou modifie un événement et applique le diff de tâches calculé par le front, en UNE transaction (175, 176).';

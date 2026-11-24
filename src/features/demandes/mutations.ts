@@ -7,42 +7,26 @@ import { STATUT_DI_CLOTURE, STATUT_DI_EN_COURS, STATUT_DI_OUVERT } from './etat'
 export function useCreateDemande() {
   const qc = useQueryClient()
   return useMutation({
+    // UNE transaction (RPC creer_demande, 175) : la DI et ses liaisons
+    // (local, équipement) sont écrites ensemble ou pas du tout — plus de DI
+    // sans lieu après un échec au milieu. created_by = auth.uid() côté base ;
+    // RLS et déclencheurs (site du local/équipement, synchro Dmbook) inchangés.
     mutationFn: async ({
       siteId,
-      createdBy,
       values,
     }: {
       siteId: string
-      createdBy: string
       values: DiFormValues
     }) => {
-      // 1. Insertion de la DI (statut Ouvert forcé par défaut/trigger serveur).
       const { data } = await supabase
-        .from('demandes_intervention')
-        .insert({
-          site_id: siteId,
-          created_by: createdBy,
-          constat: values.constat.trim(),
-          date_constat: values.date_constat,
+        .rpc('creer_demande', {
+          p_site_id: siteId,
+          p_constat: values.constat.trim(),
+          p_date_constat: values.date_constat,
+          p_local_id: values.local_id || undefined,
+          p_equipement_id: values.equipement_id || undefined,
         })
-        .select()
-        .single()
         .throwOnError()
-
-      // 2. Liaisons optionnelles (le local/équipement doivent appartenir au site,
-      //    contrôlé par trigger côté serveur).
-      if (values.local_id) {
-        await supabase
-          .from('di_localisations')
-          .insert({ di_id: data.id, local_id: values.local_id })
-          .throwOnError()
-      }
-      if (values.equipement_id) {
-        await supabase
-          .from('di_equipements')
-          .insert({ di_id: data.id, equipement_id: values.equipement_id })
-          .throwOnError()
-      }
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: demandesQueries.all() }),
@@ -118,46 +102,23 @@ export function useUpdateDemande() {
       constat: string
       // `null` → on NE touche PAS aux liaisons. Cas du DEMANDEUR : la RLS ne lui
       // donne que SELECT/INSERT sur di_localisations/di_equipements (jamais
-      // DELETE/UPDATE) → un delete-réinsert échouerait. Il n'édite que le constat.
+      // DELETE/UPDATE) → une remise à plat échouerait. Il n'édite que le constat.
       // Renseigné → réconciliation complète (admin/manager/technicien : FOR ALL).
       liaisons: { localId: string; equipementId: string } | null
     }) => {
-      // 1. Constat (RLS : manager/tech sur le site, demandeur sur SA DI Ouverte).
-      //    .select('id').single() → un refus RLS (0 ligne) devient une vraie erreur.
+      // UNE transaction (RPC modifier_demande, 175) : constat + remise à plat
+      // des liaisons ensemble. Hors périmètre (0 ligne) → 42501, même message
+      // qu'avant (PGRST116).
       await supabase
-        .from('demandes_intervention')
-        .update({ constat: constat.trim() })
-        .eq('id', id)
-        .select('id')
-        .single()
+        .rpc('modifier_demande', {
+          p_id: id,
+          p_constat: constat.trim(),
+          p_liaisons: liaisons !== null,
+          p_local_id: liaisons?.localId === '' ? undefined : liaisons?.localId,
+          p_equipement_id:
+            liaisons?.equipementId === '' ? undefined : liaisons?.equipementId,
+        })
         .throwOnError()
-
-      if (liaisons === null) return
-
-      // 2. Réconciliation des liaisons : on remet à plat puis on réinsère la
-      //    sélection courante (au plus une localisation + un équipement ici).
-      await supabase
-        .from('di_localisations')
-        .delete()
-        .eq('di_id', id)
-        .throwOnError()
-      if (liaisons.localId) {
-        await supabase
-          .from('di_localisations')
-          .insert({ di_id: id, local_id: liaisons.localId })
-          .throwOnError()
-      }
-      await supabase
-        .from('di_equipements')
-        .delete()
-        .eq('di_id', id)
-        .throwOnError()
-      if (liaisons.equipementId) {
-        await supabase
-          .from('di_equipements')
-          .insert({ di_id: id, equipement_id: liaisons.equipementId })
-          .throwOnError()
-      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: demandesQueries.all() }),
   })

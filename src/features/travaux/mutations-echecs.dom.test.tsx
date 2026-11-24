@@ -20,8 +20,9 @@ import { emptyEvenement } from '@/features/evenements/schemas'
 
 /**
  * TESTS DE GEL (phase 0 de l'audit d'architecture) — complément de
- * `taches-sync.dom.test.tsx`, qui fige déjà les séquences nominales : ici, les
- * INVALIDATIONS et l'état laissé quand une étape échoue (aucune transaction).
+ * `taches-sync.dom.test.tsx` : les INVALIDATIONS et l'état après un échec.
+ * Depuis 175-176 (étape 3.2), fiche et tâches partent en UN appel RPC
+ * transactionnel : un échec n'écrit rien et n'invalide rien.
  */
 const enr = vi.hoisted(() => ({ courant: null as Enregistreur | null }))
 vi.mock('@/lib/supabase', () => ({ supabase: clientEnregistreur(enr) }))
@@ -40,16 +41,33 @@ function harnais() {
 const uneTache = [{ libelle: 'Peinture', local_id: 'L1', equipement_id: '' }]
 
 describe('Travaux — gel des invalidations et des échecs', () => {
-  it('création réussie : invalide la liste et les tâches du travaux', async () => {
+  it('création réussie : un appel enregistrer_travaux, puis invalide la liste et les tâches', async () => {
     enr.courant = nouvelEnregistreur({ reponses: [{ id: 'T' }] })
     const { wrapper, invalidations } = harnais()
     const { result } = renderHook(() => useCreateTravaux(), { wrapper })
     result.current.mutate({
       siteId: 'S',
-      createdBy: 'U',
       values: { ...emptyTravaux('2026-11-24'), titre: 'x', taches: uneTache },
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(sequence(enr.courant)).toEqual(['rpc:enregistrer_travaux args'])
+    expect(enr.courant.requetes[0]!.appels[0]).toMatchObject([
+      'args',
+      {
+        p_site_id: 'S',
+        p_taches: {
+          ajouter: [
+            {
+              libelle: 'Peinture',
+              local_id: 'L1',
+              equipement_id: null,
+              ordre: 0,
+            },
+          ],
+        },
+      },
+    ])
     expect(invalidations).toHaveBeenCalledWith({
       queryKey: travauxQueries.all(),
     })
@@ -58,25 +76,21 @@ describe('Travaux — gel des invalidations et des échecs', () => {
     })
   })
 
-  it('ÉTAT ACTUEL : si les tâches échouent, le travaux reste créé sans elles', async () => {
-    enr.courant = nouvelEnregistreur({ reponses: [{ id: 'T' }], echecA: 2 })
+  it('échec : une seule requête, rien d’invalidé (la base annule fiche ET tâches)', async () => {
+    enr.courant = nouvelEnregistreur({ reponses: [{ id: 'T' }], echecA: 1 })
     const { wrapper, invalidations } = harnais()
     const { result } = renderHook(() => useCreateTravaux(), { wrapper })
     result.current.mutate({
       siteId: 'S',
-      createdBy: 'U',
       values: { ...emptyTravaux('2026-11-24'), titre: 'x', taches: uneTache },
     })
     await waitFor(() => expect(result.current.isError).toBe(true))
-    expect(sequence(enr.courant)).toEqual([
-      'from:interventions_travaux insert',
-      'from:travaux_taches insert',
-    ])
+    expect(sequence(enr.courant)).toEqual(['rpc:enregistrer_travaux args'])
     expect(invalidations).not.toHaveBeenCalled()
   })
 
-  it('ÉTAT ACTUEL : modification — si l’ajout échoue, les tâches retirées le sont déjà', async () => {
-    enr.courant = nouvelEnregistreur({ reponses: [{ id: 'T' }], echecA: 3 })
+  it('modification : le diff (retrait + ajout) part dans le même appel', async () => {
+    enr.courant = nouvelEnregistreur({ reponses: [{ id: 'T' }] })
     const { wrapper } = harnais()
     const { result } = renderHook(() => useUpdateTravaux(), { wrapper })
     result.current.mutate({
@@ -88,11 +102,18 @@ describe('Travaux — gel des invalidations et des échecs', () => {
       ],
       taches: uneTache,
     })
-    await waitFor(() => expect(result.current.isError).toBe(true))
-    expect(sequence(enr.courant)).toEqual([
-      'from:interventions_travaux update',
-      'from:travaux_taches delete',
-      'from:travaux_taches insert',
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(sequence(enr.courant)).toEqual(['rpc:enregistrer_travaux args'])
+    expect(enr.courant.requetes[0]!.appels[0]).toMatchObject([
+      'args',
+      {
+        p_id: 'T',
+        p_taches: {
+          supprimer: ['A'],
+          ajouter: [{ libelle: 'Peinture', ordre: 1 }],
+          modifier: [],
+        },
+      },
     ])
   })
 })
@@ -104,10 +125,10 @@ describe('Événements — gel des invalidations et des échecs', () => {
     const { result } = renderHook(() => useCreateEvenement(), { wrapper })
     result.current.mutate({
       siteId: 'S',
-      createdBy: 'U',
       values: { ...emptyEvenement('2026-11-24'), titre: 'x', taches: uneTache },
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(sequence(enr.courant)).toEqual(['rpc:enregistrer_evenement args'])
     expect(invalidations).toHaveBeenCalledWith({
       queryKey: evenementsQueries.all(),
     })
@@ -116,23 +137,20 @@ describe('Événements — gel des invalidations et des échecs', () => {
     })
   })
 
-  it('ÉTAT ACTUEL : si les tâches échouent, l’événement reste créé sans elles', async () => {
-    enr.courant = nouvelEnregistreur({ reponses: [{ id: 'E' }], echecA: 2 })
-    const { wrapper } = harnais()
+  it('échec : une seule requête, rien d’invalidé', async () => {
+    enr.courant = nouvelEnregistreur({ reponses: [{ id: 'E' }], echecA: 1 })
+    const { wrapper, invalidations } = harnais()
     const { result } = renderHook(() => useCreateEvenement(), { wrapper })
     result.current.mutate({
       siteId: 'S',
-      createdBy: 'U',
       values: { ...emptyEvenement('2026-11-24'), titre: 'x', taches: uneTache },
     })
     await waitFor(() => expect(result.current.isError).toBe(true))
-    expect(sequence(enr.courant)).toEqual([
-      'from:evenements insert',
-      'from:evenements_lieux insert',
-    ])
+    expect(sequence(enr.courant)).toEqual(['rpc:enregistrer_evenement args'])
+    expect(invalidations).not.toHaveBeenCalled()
   })
 
-  it('modification sans tâches fournies : seul l’événement est mis à jour', async () => {
+  it('modification sans tâches fournies : p_taches absent, les tâches ne bougent pas', async () => {
     enr.courant = nouvelEnregistreur({ reponses: [{ id: 'E' }] })
     const { wrapper } = harnais()
     const { result } = renderHook(() => useUpdateEvenement(), { wrapper })
@@ -141,6 +159,10 @@ describe('Événements — gel des invalidations et des échecs', () => {
       values: { ...emptyEvenement('2026-11-24'), titre: 'x' },
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(sequence(enr.courant)).toEqual(['from:evenements update'])
+    expect(sequence(enr.courant)).toEqual(['rpc:enregistrer_evenement args'])
+    expect(enr.courant.requetes[0]!.appels[0]).toMatchObject([
+      'args',
+      { p_id: 'E', p_taches: undefined },
+    ])
   })
 })

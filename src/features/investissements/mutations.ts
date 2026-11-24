@@ -217,20 +217,15 @@ export function useModifierDateValidation() {
   })
 }
 
-/** Coche exactement `retenus` parmi les devis du projet (147). */
+/**
+ * Coche exactement `retenus` parmi les devis du projet (147), en UNE
+ * transaction (RPC poser_devis_retenus, 175) : plus d'état « tout décoché »
+ * si la seconde étape échoue.
+ */
 async function poserRetenus(projetId: string, retenus: string[]) {
   await supabase
-    .from('investissements_devis')
-    .update({ retenu: false })
-    .eq('investissement_id', projetId)
+    .rpc('poser_devis_retenus', { p_projet_id: projetId, p_retenus: retenus })
     .throwOnError()
-  if (retenus.length > 0)
-    await supabase
-      .from('investissements_devis')
-      .update({ retenu: true })
-      .eq('investissement_id', projetId)
-      .in('id', retenus)
-      .throwOnError()
 }
 
 function devisPayload(v: DevisFormValues) {

@@ -20,16 +20,14 @@ import {
 
 /**
  * TESTS DE GEL (phase 0 de l'audit d'architecture du 24/11/2026) : ils figent
- * le comportement ACTUEL des écritures de demandes — tables touchées, ordre,
- * valeurs, invalidation, et ce qu'il reste quand une étape échoue — avant
- * toute réorganisation. Un changement voulu (ex. passage à une RPC
- * transactionnelle) doit modifier ces tests EXPRÈS.
+ * les écritures de demandes — requêtes, valeurs, invalidation, état après un
+ * échec. Création et modification passent par des RPC transactionnelles
+ * depuis 175 (étape 3.2) : un seul appel, la base annule tout en cas d'échec.
  */
 const enr = vi.hoisted(() => ({ courant: null as Enregistreur | null }))
 vi.mock('@/lib/supabase', () => ({ supabase: clientEnregistreur(enr) }))
 
 const SITE = '11111111-1111-1111-1111-111111111111'
-const USER = '22222222-2222-2222-2222-222222222222'
 const DI = '33333333-3333-3333-3333-333333333333'
 const LOCAL = '44444444-4444-4444-4444-444444444444'
 const EQUIP = '55555555-5555-5555-5555-555555555555'
@@ -52,22 +50,23 @@ const valeurs = (p: { local_id?: string; equipement_id?: string } = {}) => ({
   equipement_id: p.equipement_id ?? '',
 })
 
-describe('useCreateDemande — gel', () => {
-  it('DI seule : 1 insertion (constat nettoyé), puis invalidation des demandes', async () => {
+describe('useCreateDemande — gel (RPC transactionnelle, 175)', () => {
+  it('DI seule : 1 appel creer_demande (constat nettoyé, sans liaison), puis invalidation', async () => {
     enr.courant = nouvelEnregistreur({ reponses: [{ id: DI }] })
     const { wrapper, invalidations } = harnais()
     const { result } = renderHook(() => useCreateDemande(), { wrapper })
-    result.current.mutate({ siteId: SITE, createdBy: USER, values: valeurs() })
+    result.current.mutate({ siteId: SITE, values: valeurs() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(sequence(enr.courant)).toEqual(['from:demandes_intervention insert'])
+    expect(sequence(enr.courant)).toEqual(['rpc:creer_demande args'])
     expect(enr.courant.requetes[0]!.appels[0]).toEqual([
-      'insert',
+      'args',
       {
-        site_id: SITE,
-        created_by: USER,
-        constat: 'Fuite lavabo',
-        date_constat: '2026-11-24',
+        p_site_id: SITE,
+        p_constat: 'Fuite lavabo',
+        p_date_constat: '2026-11-24',
+        p_local_id: undefined,
+        p_equipement_id: undefined,
       },
     ])
     expect(invalidations).toHaveBeenCalledWith({
@@ -75,44 +74,33 @@ describe('useCreateDemande — gel', () => {
     })
   })
 
-  it('avec lieu et équipement : DI, puis lieu, puis équipement (3 requêtes)', async () => {
+  it('avec lieu et équipement : TOUT part dans le même appel', async () => {
     enr.courant = nouvelEnregistreur({ reponses: [{ id: DI }] })
     const { wrapper } = harnais()
     const { result } = renderHook(() => useCreateDemande(), { wrapper })
     result.current.mutate({
       siteId: SITE,
-      createdBy: USER,
       values: valeurs({ local_id: LOCAL, equipement_id: EQUIP }),
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(sequence(enr.courant)).toEqual([
-      'from:demandes_intervention insert',
-      'from:di_localisations insert',
-      'from:di_equipements insert',
-    ])
-    expect(enr.courant.requetes[1]!.appels[0]).toEqual([
-      'insert',
-      { di_id: DI, local_id: LOCAL },
+    expect(sequence(enr.courant)).toEqual(['rpc:creer_demande args'])
+    expect(enr.courant.requetes[0]!.appels[0]).toMatchObject([
+      'args',
+      { p_local_id: LOCAL, p_equipement_id: EQUIP },
     ])
   })
 
-  it('ÉTAT ACTUEL : si le lieu échoue, la DI reste créée (pas de transaction) et rien n’est invalidé', async () => {
-    enr.courant = nouvelEnregistreur({ reponses: [{ id: DI }], echecA: 2 })
+  it('échec : une seule requête, rien d’invalidé (la base annule tout)', async () => {
+    enr.courant = nouvelEnregistreur({ reponses: [{ id: DI }], echecA: 1 })
     const { wrapper, invalidations } = harnais()
     const { result } = renderHook(() => useCreateDemande(), { wrapper })
     result.current.mutate({
       siteId: SITE,
-      createdBy: USER,
       values: valeurs({ local_id: LOCAL, equipement_id: EQUIP }),
     })
     await waitFor(() => expect(result.current.isError).toBe(true))
-
-    // La DI a été insérée, le lieu a échoué, l'équipement n'a pas été tenté.
-    expect(sequence(enr.courant)).toEqual([
-      'from:demandes_intervention insert',
-      'from:di_localisations insert',
-    ])
+    expect(sequence(enr.courant)).toEqual(['rpc:creer_demande args'])
     expect(invalidations).not.toHaveBeenCalled()
   })
 })
@@ -146,23 +134,29 @@ describe('changements de statut — gel', () => {
   }
 })
 
-describe('useUpdateDemande — gel', () => {
-  it('demandeur (liaisons null) : seul le constat est modifié', async () => {
-    enr.courant = nouvelEnregistreur({ reponses: [{ id: DI }] })
+describe('useUpdateDemande — gel (RPC transactionnelle, 175)', () => {
+  it('demandeur (liaisons null) : p_liaisons=false, seul le constat bouge', async () => {
+    enr.courant = nouvelEnregistreur({ reponses: [null] })
     const { wrapper } = harnais()
     const { result } = renderHook(() => useUpdateDemande(), { wrapper })
     result.current.mutate({ id: DI, constat: ' Nouveau ', liaisons: null })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(sequence(enr.courant)).toEqual(['from:demandes_intervention update'])
+    expect(sequence(enr.courant)).toEqual(['rpc:modifier_demande args'])
     expect(enr.courant.requetes[0]!.appels[0]).toEqual([
-      'update',
-      { constat: 'Nouveau' },
+      'args',
+      {
+        p_id: DI,
+        p_constat: 'Nouveau',
+        p_liaisons: false,
+        p_local_id: undefined,
+        p_equipement_id: undefined,
+      },
     ])
   })
 
-  it('rôle métier : constat, puis lieux supprimés et réinsérés, puis équipements', async () => {
-    enr.courant = nouvelEnregistreur({ reponses: [{ id: DI }] })
+  it('rôle métier : remise à plat des liaisons dans le même appel (vide → absent)', async () => {
+    enr.courant = nouvelEnregistreur({ reponses: [null] })
     const { wrapper } = harnais()
     const { result } = renderHook(() => useUpdateDemande(), { wrapper })
     result.current.mutate({
@@ -172,29 +166,16 @@ describe('useUpdateDemande — gel', () => {
     })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(sequence(enr.courant)).toEqual([
-      'from:demandes_intervention update',
-      'from:di_localisations delete',
-      'from:di_localisations insert',
-      'from:di_equipements delete',
-    ])
-  })
-
-  it('ÉTAT ACTUEL : si la réinsertion du lieu échoue, l’ancien lieu est déjà supprimé', async () => {
-    enr.courant = nouvelEnregistreur({ reponses: [{ id: DI }], echecA: 3 })
-    const { wrapper } = harnais()
-    const { result } = renderHook(() => useUpdateDemande(), { wrapper })
-    result.current.mutate({
-      id: DI,
-      constat: 'x',
-      liaisons: { localId: LOCAL, equipementId: EQUIP },
-    })
-    await waitFor(() => expect(result.current.isError).toBe(true))
-
-    expect(sequence(enr.courant)).toEqual([
-      'from:demandes_intervention update',
-      'from:di_localisations delete',
-      'from:di_localisations insert',
+    expect(sequence(enr.courant)).toEqual(['rpc:modifier_demande args'])
+    expect(enr.courant.requetes[0]!.appels[0]).toEqual([
+      'args',
+      {
+        p_id: DI,
+        p_constat: 'x',
+        p_liaisons: true,
+        p_local_id: LOCAL,
+        p_equipement_id: undefined,
+      },
     ])
   })
 })

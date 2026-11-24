@@ -8,8 +8,13 @@ import type { TacheEntree } from './components/taches-multiples-field'
  * `.from()` générique sur les deux tables ne se type pas sans cast).
  */
 
-/** Champs communs d'une ligne à insérer, avant clé étrangère et auteur. */
-export interface ChampsTache {
+/**
+ * Champs communs d'une ligne à insérer, avant clé étrangère et auteur.
+ * Alias de type (pas `interface`) : il doit rester assignable à `Json`, le
+ * diff partant tel quel aux RPC enregistrer_travaux / enregistrer_evenement.
+ */
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- une interface n'est pas assignable à Json
+export type ChampsTache = {
   libelle: string
   local_id: string | null
   equipement_id: string | null
