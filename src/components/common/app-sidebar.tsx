@@ -21,6 +21,11 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useCurrentRole } from '@/hooks/use-current-role'
+import { useNonClotures, type NonClotures } from '@/hooks/use-non-clotures'
+import { useSiteContext } from '@/lib/site-context'
+import { PastilleATraiter } from '@/components/common/pastille-a-traiter'
+import { prechargerPage } from '@/components/common/prechargement-pages'
+import { useQueryClient } from '@tanstack/react-query'
 import { canSeeNav, NAV_LABELS, type NavKey } from '@/lib/nav'
 import { SidebarSiteSwitcher } from '@/components/common/site-switcher'
 import { SidebarUserMenu } from '@/components/common/user-menu'
@@ -73,6 +78,13 @@ const REFERENTIELS: NavItem[] = [
   { to: '/utilisateurs', icon: Users },
 ]
 
+// Entrées qui portent la compteur des éléments non clôturés.
+const PASTILLES: Partial<Record<NavKey, keyof NonClotures>> = {
+  '/demandes': 'demandes',
+  '/travaux': 'travaux',
+  '/evenements': 'evenements',
+}
+
 // Item actif : fond accentué + texte en gras. Piloté par le routeur (activeProps),
 // pas par `isActive` — cohérent avec le reste de l'app.
 const ACTIVE_CLASS =
@@ -82,12 +94,17 @@ function NavGroup({
   title,
   items,
   role,
+  nonClotures,
   onNavigate,
+  onIntention,
 }: {
   title: string
   items: NavItem[]
   role: string | null | undefined
+  nonClotures: NonClotures
   onNavigate?: () => void
+  /** Survol / focus / toucher d'un lien : précharge les données de la page. */
+  onIntention: (page: NavKey) => void
 }) {
   // canSeeNav renvoie true tant que le rôle n'est pas chargé (évite un flash de
   // menu vide) ; il filtre dès que le rôle est connu.
@@ -101,6 +118,7 @@ function NavGroup({
           {visible.map((item) => {
             const Icon = item.icon
             const label = NAV_LABELS[item.to]
+            const cle = PASTILLES[item.to]
             return (
               <SidebarMenuItem key={item.to}>
                 <SidebarMenuButton asChild tooltip={label}>
@@ -110,9 +128,20 @@ function NavGroup({
                     // aria-current="page" posé automatiquement par TanStack Router.
                     activeProps={{ className: ACTIVE_CLASS }}
                     onClick={onNavigate}
+                    onMouseEnter={() => onIntention(item.to)}
+                    onFocus={() => onIntention(item.to)}
+                    onTouchStart={() => onIntention(item.to)}
                   >
                     <Icon />
                     <span>{label}</span>
+                    {cle ? (
+                      // Ouverte : au bout de la ligne. Repliée (rail
+                      // d'icônes) : en coin de l'icône.
+                      <PastilleATraiter
+                        nombre={nonClotures[cle]}
+                        className="ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:h-3.5 group-data-[collapsible=icon]:min-w-3.5 group-data-[collapsible=icon]:text-[9px]"
+                      />
+                    ) : null}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -132,6 +161,10 @@ function NavGroup({
 export function AppSidebar() {
   const { data: role } = useCurrentRole()
   const { isMobile, setOpenMobile } = useSidebar()
+  const { activeSiteId } = useSiteContext()
+  const nonClotures = useNonClotures(activeSiteId)
+  const qc = useQueryClient()
+  const intention = (page: NavKey) => prechargerPage(qc, page, activeSiteId)
   // Un clic sur un lien ferme le drawer mobile (sur desktop, sans effet).
   const closeMobile = () => {
     if (isMobile) setOpenMobile(false)
@@ -172,13 +205,17 @@ export function AppSidebar() {
           title="Opérationnel"
           items={OPERATIONNEL}
           role={role}
+          nonClotures={nonClotures}
           onNavigate={closeMobile}
+          onIntention={intention}
         />
         <NavGroup
           title="Référentiels"
           items={REFERENTIELS}
           role={role}
+          nonClotures={nonClotures}
           onNavigate={closeMobile}
+          onIntention={intention}
         />
       </SidebarContent>
 

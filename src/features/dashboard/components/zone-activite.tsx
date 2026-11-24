@@ -13,6 +13,7 @@ import { useActionsDemande } from '@/features/demandes/use-actions-demande'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
 import { lieuxParDi, LIEU_NON_PRECISE } from '@/features/demandes/lieux-par-di'
+import { TitreLieu } from '@/features/demandes/components/titre-lieu'
 import {
   travauxQueries,
   statutsTravauxQueries,
@@ -22,6 +23,8 @@ import {
   statutsEvenementsQueries,
 } from '@/features/evenements/queries'
 import { listStack } from '@/lib/responsive'
+import { useNonClotures } from '@/hooks/use-non-clotures'
+import { PastilleATraiter } from '@/components/common/pastille-a-traiter'
 import {
   lignesDemandes,
   lignesEvenements,
@@ -95,6 +98,8 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
   // alors déduit des données (cf. plus bas). Dès qu'il clique, son choix tient.
   const [onglet, setOnglet] = useState<Onglet | null>(null)
   const navigate = useNavigate()
+  // Compteur sur l'onglet : lignes non clôturées (même source que la sidebar).
+  const nonClotures = useNonClotures(siteId)
 
   // Référentiels de statuts : les travaux et les événements tirent leur libellé
   // de la base (les demandes ont trois statuts figés côté front).
@@ -148,7 +153,10 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
   })
 
   // Lieu(x) de chaque DI : titre des cartes Demandes, comme sur la page Demandes.
-  const { data: lieux = new Map<string, string>() } = useQuery({
+  const {
+    data: lieux = new Map<string, string>(),
+    isPending: lieuxEnChargement,
+  } = useQuery({
     ...demandesQueries.locauxParDi(siteId),
     select: lieuxParDi,
   })
@@ -249,6 +257,7 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
               >
                 <o.icon />
                 {o.label}
+                <PastilleATraiter nombre={nonClotures[o.value]} />
               </TabsTrigger>
             ))}
           </TabsList>
@@ -284,11 +293,10 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
                           tone={l.tone}
                           media={<RowMediaIcon icon={o.icon} />}
                           title={
-                            lieu ?? (
-                              <span className="text-muted-foreground italic">
-                                {LIEU_NON_PRECISE}
-                              </span>
-                            )
+                            <TitreLieu
+                              lieu={lieu}
+                              chargement={lieuxEnChargement}
+                            />
                           }
                           titleLabel={`${lieu ?? LIEU_NON_PRECISE} — ${l.titre}`}
                           subtitle={l.titre}
