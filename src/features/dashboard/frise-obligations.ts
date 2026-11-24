@@ -105,7 +105,11 @@ function etatOt(ot: PlanningOt, aujourdHui: Date): EtatJalon | null {
  *     d'aujourd'hui, et la base recalcule depuis la clôture) ;
  *   - sinon → la dernière clôture (c'est d'elle que la base repart).
  */
-function baseEstimation(ots: PlanningOt[], aujourdHui: Date): Date | null {
+function baseEstimation(
+  ots: PlanningOt[],
+  aujourdHui: Date,
+  dernierPassage?: string,
+): Date | null {
   const lundi = lundiDeLaSemaine(aujourdHui)
   const ouverts = ots.filter(
     (o) => o.statut !== 'cloture' && o.statut !== 'annule',
@@ -119,6 +123,9 @@ function baseEstimation(ots: PlanningOt[], aujourdHui: Date): Date | null {
   const clotures = ots
     .filter((o) => o.statut === 'cloture' && o.date_cloture !== null)
     .map((o) => parseDateLocale(o.date_cloture!))
+  // Le tableau de bord ne charge que la période affichée : le dernier passage
+  // (vue 170) couvre les gammes dont la dernière clôture est plus ancienne.
+  if (dernierPassage) clotures.push(parseDateLocale(dernierPassage))
   if (clotures.length === 0) return null
   return clotures.reduce((a, b) => (b > a ? b : a))
 }
@@ -135,6 +142,8 @@ export function construireBandes(params: {
   debut: Date
   fin: Date
   aujourdHui?: Date
+  /** Date du dernier OT clôturé par gamme (vue 170), hors période chargée. */
+  derniersPassages?: ReadonlyMap<string, string>
 }): BandeNature[] {
   const aujourdHui = minuit(params.aujourdHui ?? new Date())
   const t0 = minuit(params.debut).getTime()
@@ -173,7 +182,11 @@ export function construireBandes(params: {
       }
 
       if (!g.est_active || g.jours <= 0) continue
-      let d = baseEstimation(ots, aujourdHui)
+      let d = baseEstimation(
+        ots,
+        aujourdHui,
+        params.derniersPassages?.get(g.id),
+      )
       for (let k = 0; d !== null && k < MAX_ESTIMES; k += 1) {
         d = prochaineDateOt(d, g.jours)
         if (d === null || d.getTime() > t1) break

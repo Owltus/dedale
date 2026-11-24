@@ -3922,6 +3922,43 @@ export type Database = {
           },
         ]
       }
+      v_gammes_dernier_passage: {
+        Row: {
+          date_cloture: string | null
+          gamme_id: string | null
+          site_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordres_travail_gamme_id_fkey"
+            columns: ["gamme_id"]
+            isOneToOne: false
+            referencedRelation: "gammes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordres_travail_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordres_travail_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_equipements_complet"
+            referencedColumns: ["site_id"]
+          },
+          {
+            foreignKeyName: "ordres_travail_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "v_locaux_chemin"
+            referencedColumns: ["site_id"]
+          },
+        ]
+      }
       v_locaux_chemin: {
         Row: {
           batiment_id: string | null

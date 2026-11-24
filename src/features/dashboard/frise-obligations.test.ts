@@ -132,3 +132,39 @@ describe('construireBandes (frise des obligations)', () => {
     ])
   })
 })
+
+describe('construireBandes — chargement limité (vue 170)', () => {
+  // Gamme quinquennale : dernier passage clôturé il y a 3 ans, HORS de la
+  // période chargée par le tableau de bord.
+  const quinquennale = gamme({ id: 'g5', nom: 'Installation gaz', jours: 1826 })
+  const ancien = ot({
+    id: 'ancien',
+    gamme_id: 'g5',
+    statut: 'cloture',
+    date_prevue: '2023-11-01',
+    date_cloture: '2023-11-06',
+  })
+  const parametres = {
+    gammes: [quinquennale],
+    debut: new Date(2026, 8, 1),
+    fin: new Date(2029, 11, 31),
+    aujourdHui: AUJOURDHUI,
+  }
+  const estimes = (b: ReturnType<typeof construireBandes>) =>
+    b.flatMap((x) => x.jalons).filter((j) => j.etat === 'estime')
+
+  it('mêmes estimations qu’avec tout l’historique, grâce au dernier passage', () => {
+    const complet = construireBandes({ ...parametres, ots: [ancien] })
+    const limite = construireBandes({
+      ...parametres,
+      ots: [],
+      derniersPassages: new Map([['g5', '2023-11-06']]),
+    })
+    expect(estimes(complet).length).toBeGreaterThan(0)
+    expect(estimes(limite)).toEqual(estimes(complet))
+  })
+
+  it('sans dernier passage ni OT : aucune estimation (comme avant)', () => {
+    expect(estimes(construireBandes({ ...parametres, ots: [] }))).toEqual([])
+  })
+})

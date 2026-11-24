@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { createContext, useContext, useMemo } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { ajouterSemaines, isoLocale, lundiDeLaSemaine } from '@/lib/date'
 import { demandesQueries } from '@/features/demandes/queries'
 import { travauxQueries } from '@/features/travaux/queries'
 import { evenementsQueries } from '@/features/evenements/queries'
@@ -48,6 +49,32 @@ export function useDashboardRealtime(): void {
   useRealtimeRefresh('gammes', [gammesQueries.all(), dashboardQueries.all()])
 }
 
+/** Période d'OT terminés chargée par le tableau de bord : `[debut ; fin[` (ISO). */
+export interface PlageOt {
+  debut: string
+  fin: string
+}
+
+/**
+ * Demi-largeur minimale de la période chargée, en semaines, de part et d'autre
+ * du centre de la fenêtre. Couvre la frise (−2 / +4 mois) et les barres
+ * (largeur d'écran) avec de la marge.
+ */
+const DEMI_PLAGE_SEMAINES = 30
+
+/** Période chargée pour une fenêtre affichée (centre + nombre de semaines). */
+export function plageDepuisFenetre(centre: Date, nbSemaines: number): PlageOt {
+  const demi = Math.max(DEMI_PLAGE_SEMAINES, Math.ceil(nbSemaines / 2) + 2)
+  const lundi = lundiDeLaSemaine(centre)
+  return {
+    debut: isoLocale(ajouterSemaines(lundi, -demi)),
+    fin: isoLocale(ajouterSemaines(lundi, demi)),
+  }
+}
+
+/** Période posée par l'orchestrateur (`dashboard.tsx`), lue par les cadrans. */
+export const PlageOtContext = createContext<PlageOt | null>(null)
+
 /**
  * Hook agrégateur du tableau de bord : centralise les requêtes du site actif (OT
  * unifiés, documents, catégories, gammes, counts d'onboarding, documents
@@ -62,11 +89,28 @@ export function useDashboardRealtime(): void {
  * `siteId` peut être `null` (site non encore résolu) : chaque query est alors
  * désactivée (`enabled: siteId !== null`) et les dérivations tombent à vide.
  */
-export function useDashboardData(siteId: string | null) {
+export function useDashboardData(
+  siteId: string | null,
+  plageImposee?: PlageOt,
+) {
+  const plageContexte = useContext(PlageOtContext)
+  const plage =
+    plageImposee ??
+    plageContexte ??
+    plageDepuisFenetre(lundiDeLaSemaine(new Date()), 0)
+
   // ── Requêtes ───────────────────────────────────────────────────────────────
-  // OT UNIFIÉS : alimentent à eux seuls donut + barres + sunburst (row shape
-  // compatible `PlanningOt`).
-  const ordresTravailQuery = useQuery(dashboardQueries.ordresTravail(siteId))
+  // OT en trois morceaux (ouverts + période affichée + dernier passage par
+  // gamme) : jamais tout l'historique. Quand la période change (flèches), la
+  // précédente reste affichée le temps de lire la suivante.
+  const ouvertsQuery = useQuery(dashboardQueries.otOuverts(siteId))
+  const periodeQuery = useQuery({
+    ...dashboardQueries.otPeriode(siteId, plage.debut, plage.fin),
+    placeholderData: keepPreviousData,
+  })
+  const derniersPassagesQuery = useQuery(
+    dashboardQueries.derniersPassages(siteId),
+  )
   // Derniers fichiers : un APERÇU borné (`LIGNES_DOCUMENTS`), pas toute la
   // bibliothèque du site.
   const documentsQuery = useQuery(activiteQueries.documents(siteId))
@@ -77,19 +121,49 @@ export function useDashboardData(siteId: string | null) {
   )
 
   // ── Dérivations mémoïsées ────────────────────────────────────────────────────
+  // Même ordre qu'avant (date prévue, puis id) : les cadrans en dépendent.
   const ordresTravail = useMemo<PlanningOt[]>(
-    () => ordresTravailQuery.data ?? [],
-    [ordresTravailQuery.data],
+    () =>
+      [...(ouvertsQuery.data ?? []), ...(periodeQuery.data ?? [])].sort(
+        (a, b) =>
+          a.date_prevue < b.date_prevue
+            ? -1
+            : a.date_prevue > b.date_prevue
+              ? 1
+              : a.id < b.id
+                ? -1
+                : a.id > b.id
+                  ? 1
+                  : 0,
+      ),
+    [ouvertsQuery.data, periodeQuery.data],
   )
+  const derniersPassages = useMemo(
+    () => derniersPassagesQuery.data ?? new Map<string, string>(),
+    [derniersPassagesQuery.data],
+  )
+
+  // État d'ensemble des OT, pour l'orchestrateur (squelette / erreur / premiers
+  // pas). « Aucun OT » = rien d'ouvert, rien dans la période, aucun passage.
+  const requetesOt = [ouvertsQuery, periodeQuery, derniersPassagesQuery]
+  const ordresTravailEtat = {
+    isPending: requetesOt.some((q) => q.isPending),
+    isError: requetesOt.some((q) => q.isError),
+    aucunOt: ordresTravail.length === 0 && derniersPassages.size === 0,
+    refetch: () => {
+      for (const q of requetesOt) if (q.isError) void q.refetch()
+    },
+  }
 
   return {
     // Requêtes brutes (états loading/error consommés par l'orchestrateur).
-    ordresTravailQuery,
+    ordresTravailEtat,
     documentsQuery,
     categoriesQuery,
     gammesQuery,
     documentsManquantsQuery,
     // Dérivations mémoïsées.
     ordresTravail,
+    derniersPassages,
   }
 }

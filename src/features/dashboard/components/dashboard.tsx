@@ -1,11 +1,16 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/common/error-state'
 import { useColonnesAuto } from '@/features/planning/use-colonnes-auto'
 import { useFenetreTemporelle } from '@/features/planning/use-fenetre-temporelle'
 import { cardGrid } from '@/lib/responsive'
 import { cn } from '@/lib/utils'
-import { useDashboardData, useDashboardRealtime } from '../use-dashboard-data'
+import {
+  PlageOtContext,
+  plageDepuisFenetre,
+  useDashboardData,
+  useDashboardRealtime,
+} from '../use-dashboard-data'
 import {
   CHROME_CARTE,
   CHROME_ONGLETS,
@@ -62,7 +67,13 @@ export function Dashboard({ siteId }: DashboardProps) {
   const { nbSemaines } = useColonnesAuto(mesureRef)
   const fenetre = useFenetreTemporelle({ nbSemaines })
 
-  const { ordresTravailQuery } = useDashboardData(siteId)
+  // Période d'OT terminés à charger : celle que montrent barres et frises (et
+  // de la marge), jamais tout l'historique. Partagée avec les cadrans.
+  const plage = useMemo(
+    () => plageDepuisFenetre(fenetre.centre, nbSemaines),
+    [fenetre.centre, nbSemaines],
+  )
+  const { ordresTravailEtat, ordresTravail } = useDashboardData(siteId, plage)
 
   // Bascule « FILL-OR-SCROLL ». On DÉDUIT la place de la zone 3 (sans la mesurer
   // directement, ce qui serait instable une fois le plancher appliqué) : hauteur VISIBLE du
@@ -76,7 +87,9 @@ export function Dashboard({ siteId }: DashboardProps) {
   // Mesures relancées quand le tableau REMPLACE l'écran de chargement (les refs
   // n'existent qu'à ce moment-là).
   const monte =
-    ordresTravailQuery.isSuccess && ordresTravailQuery.data.length > 0
+    !ordresTravailEtat.isPending &&
+    !ordresTravailEtat.isError &&
+    ordresTravail.length > 0
   const hauteurCorps = useParentClientHeight(rootRef, monte)
   const hauteurZone1 = useElementHeight(zone1Ref, monte)
   const hauteurZone2 = useElementHeight(mesureRef, monte)
@@ -89,7 +102,7 @@ export function Dashboard({ siteId }: DashboardProps) {
   )
   const contraint = hauteurCorps > 0 && hauteurZone1 > 0 && lignesPossibles <= 1
 
-  if (ordresTravailQuery.isPending) {
+  if (ordresTravailEtat.isPending) {
     return (
       <div className="space-y-6">
         <div className={cardGrid.default}>
@@ -107,17 +120,17 @@ export function Dashboard({ siteId }: DashboardProps) {
     )
   }
 
-  if (ordresTravailQuery.isError) {
+  if (ordresTravailEtat.isError) {
     return (
       <ErrorState
         message="Impossible de charger le tableau de bord."
-        onRetry={() => void ordresTravailQuery.refetch()}
+        onRetry={ordresTravailEtat.refetch}
       />
     )
   }
 
   // Base quasi vierge : le guide d'amorçage REMPLACE le tableau de bord.
-  if (ordresTravailQuery.data.length === 0) {
+  if (ordresTravailEtat.aucunOt) {
     return <PremiersPas siteId={siteId} />
   }
 
@@ -143,42 +156,43 @@ export function Dashboard({ siteId }: DashboardProps) {
   //    compacts, barres greedy, zéro vide), la zone 3 par `auto-fit`/`minmax(min(N,100%),1fr)`
   //    (`min(N,100%)` interdit tout débordement horizontal sous N px).
   return (
-    <div
-      ref={rootRef}
-      className={cn(
-        'flex flex-col gap-4 md:flex-1',
-        // Normal : borné (`md:min-h-0`) + `overflow-hidden` → aucune scrollbar (même
-        // sub-pixel). Contraint : les deux sont LEVÉS → le plancher des cellules fait
-        // grandir le tableau au-delà de la fenêtre, et le parent (`overflow-y-auto`)
-        // reprend la scrollbar de page.
-        !contraint && 'md:min-h-0 md:overflow-hidden',
-      )}
-    >
-      {/* Zone 1 — Synthèse : simple flexbox (cf. `ZoneSynthese`). `@container` fournit le
+    <PlageOtContext value={plage}>
+      <div
+        ref={rootRef}
+        className={cn(
+          'flex flex-col gap-4 md:flex-1',
+          // Normal : borné (`md:min-h-0`) + `overflow-hidden` → aucune scrollbar (même
+          // sub-pixel). Contraint : les deux sont LEVÉS → le plancher des cellules fait
+          // grandir le tableau au-delà de la fenêtre, et le parent (`overflow-y-auto`)
+          // reprend la scrollbar de page.
+          !contraint && 'md:min-h-0 md:overflow-hidden',
+        )}
+      >
+        {/* Zone 1 — Synthèse : simple flexbox (cf. `ZoneSynthese`). `@container` fournit le
           contexte de mesure pour la bascule colonne → ligne selon la place disponible. Le
           `ref` sert à connaître sa hauteur (base du calcul de place de la zone 3). */}
-      <div ref={zone1Ref} className="@container shrink-0">
-        <ZoneSynthese siteId={siteId} fenetre={fenetre} />
-      </div>
+        <div ref={zone1Ref} className="@container shrink-0">
+          <ZoneSynthese siteId={siteId} fenetre={fenetre} />
+        </div>
 
-      {/* Zone 2 — Échéances : frise pilotée par la MÊME fenêtre. Le wrapper (pleine
+        {/* Zone 2 — Échéances : frise pilotée par la MÊME fenêtre. Le wrapper (pleine
           largeur, sans padding horizontal) sert de conteneur de mesure au calcul
           `useColonnesAuto` du `nbSemaines` partagé. */}
-      <div ref={mesureRef} className="@container shrink-0">
-        {/* Contrats et obligations CÔTE À CÔTE dès que la zone dépasse 56 rem
+        <div ref={mesureRef} className="@container shrink-0">
+          {/* Contrats et obligations CÔTE À CÔTE dès que la zone dépasse 56 rem
             (≈ 900 px), empilés en dessous (demande PO du 09/11/2026). Chaque
             frise mesure sa propre largeur : son axe s'adapte à sa moitié. */}
-        <div className="flex flex-col gap-4 @4xl:flex-row">
-          <div className="min-w-0 flex-1">
-            <FriseReconductions siteId={siteId} fenetre={fenetre} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <FriseObligations siteId={siteId} fenetre={fenetre} />
+          <div className="flex flex-col gap-4 @4xl:flex-row">
+            <div className="min-w-0 flex-1">
+              <FriseReconductions siteId={siteId} fenetre={fenetre} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <FriseObligations siteId={siteId} fenetre={fenetre} />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Zone 3 — Action : chaîne 100 % FLEX (zéro grid, zéro hauteur en %). NORMAL : `flex-1
+        {/* Zone 3 — Action : chaîne 100 % FLEX (zéro grid, zéro hauteur en %). NORMAL : `flex-1
           min-h-0` → la zone absorbe la place restante, les cartes la remplissent et le
           fit-to-height ajuste les lignes (aucun scroll). CONTRAINT (place < ~1 ligne) : le
           `min-h-0` est LEVÉ ici ET sur le tableau, et le PLANCHER `md:min-h-[27rem]` (~8
@@ -186,19 +200,20 @@ export function Dashboard({ siteId }: DashboardProps) {
           la page défile. Sous `md` : `flex-col` (2 cartes empilées). Dès `md` : `md:flex-row`
           (sans wrap → TOUJOURS 2 colonnes côte à côte via `min-w-0`), `align-items:stretch`
           donne à chaque cellule la hauteur de la zone. */}
-      <div
-        className={cn(
-          'flex flex-1 flex-col gap-4 md:flex-row',
-          !contraint && 'min-h-0',
-        )}
-      >
-        <div className={classeCellule}>
-          <ZoneActivite siteId={siteId} />
-        </div>
-        <div className={classeCellule}>
-          <DerniersDocuments siteId={siteId} />
+        <div
+          className={cn(
+            'flex flex-1 flex-col gap-4 md:flex-row',
+            !contraint && 'min-h-0',
+          )}
+        >
+          <div className={classeCellule}>
+            <ZoneActivite siteId={siteId} />
+          </div>
+          <div className={classeCellule}>
+            <DerniersDocuments siteId={siteId} />
+          </div>
         </div>
       </div>
-    </div>
+    </PlageOtContext>
   )
 }

@@ -17096,3 +17096,47 @@ CREATE INDEX IF NOT EXISTS idx_di_site_statut_date
 
 COMMENT ON INDEX public.idx_di_site_statut_date IS
   'Aperçu borné des demandes (tableau de bord : 30 ouvertes puis 30 récentes) (169).';
+
+
+-- =============================================================================
+-- 170 — Dernier passage clôturé de chaque gamme (vue légère du tableau de bord)
+-- =============================================================================
+-- Symptôme corrigé : le tableau de bord chargeait TOUS les OT du site (889 et
+-- en hausse constante) pour n'en montrer que quelques mois.
+--
+-- Cause : la frise des obligations estime les prochains passages à partir du
+-- DERNIER passage de chaque gamme. Pour une gamme quinquennale, il peut dater
+-- de plusieurs années : borner la lecture aux mois affichés aurait fait
+-- disparaître ces estimations. D'où le chargement de tout l'historique.
+--
+-- Correctif : une vue `v_gammes_dernier_passage` (gamme_id, site_id, date du
+-- dernier OT clôturé). Le tableau de bord lit désormais : les OT ouverts, les
+-- OT de la période affichée, et cette vue (une ligne par gamme, ~100).
+--
+-- Innocuité :
+-- - lecture seule, aucune table modifiée ;
+-- - `security_invoker = true` : la RLS de `ordres_travail` s'applique à
+--   l'appelant (aucun OT d'un site non autorisé ne compte) ;
+-- - lecture ouverte à `authenticated` uniquement.
+--
+-- Vérification après application :
+--     SELECT count(*) FROM public.v_gammes_dernier_passage;
+--     -- = nombre de gammes ayant au moins un OT clôturé daté.
+-- =============================================================================
+
+CREATE OR REPLACE VIEW public.v_gammes_dernier_passage
+WITH (security_invoker = true) AS
+SELECT ot.gamme_id,
+       ot.site_id,
+       max(ot.date_cloture) AS date_cloture
+FROM public.ordres_travail ot
+WHERE ot.statut = 'cloture'
+  AND ot.date_cloture IS NOT NULL
+  AND ot.gamme_id IS NOT NULL
+GROUP BY ot.gamme_id, ot.site_id;
+
+COMMENT ON VIEW public.v_gammes_dernier_passage IS
+  'Dernier OT clôturé par gamme : base des estimations de la frise des obligations, sans charger tout l''historique des OT (170).';
+
+REVOKE ALL ON public.v_gammes_dernier_passage FROM PUBLIC, anon;
+GRANT SELECT ON public.v_gammes_dernier_passage TO authenticated;

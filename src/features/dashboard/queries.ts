@@ -12,43 +12,101 @@ import { ordresTravailQueries } from '@/features/ordres-travail/queries'
  * aussi les données que le tableau de bord est seul à agréger : contrats (frise des
  * reconductions), counts d'onboarding et documents manquants.
  */
+/** Colonnes d'un OT côté tableau de bord (row shape `PlanningOt`). */
+const COLONNES_OT =
+  'id, statut, origine, tolerance_jours, gamme_id, nom_gamme, nature_gamme, nom_prestataire, nom_equipement, description_gamme, nom_categorie, libelle_periodicite, date_prevue, date_debut, date_cloture, miniature_id'
+
 export const dashboardQueries = {
   all: () => ['dashboard'] as const,
 
   /**
-   * OT du site (tous statuts, non filtrés par date) — requête UNIFIÉE du tableau
-   * de bord. Le `select` reprend EXACTEMENT les colonnes de `planningQueries.fenetre`
-   * → le row shape est compatible avec `PlanningOt` (`planning/grille`) et se prête
-   * donc à `dateSemaineOt`, `statutPlanningOt`, `OtCard`… pour donut/barres/sunburst.
-   *
-   * Clé rangée sous le namespace `ordres_travail` (et non `dashboard`) : les
-   * écritures d'OT et le realtime `ordres_travail` invalident déjà `ordresTravailQueries.all()`
-   * → la donnée du dashboard se rafraîchit sans câblage supplémentaire.
+   * OT du tableau de bord, lus en TROIS morceaux plutôt que tout l'historique
+   * (889 OT et en hausse) :
+   * - `otOuverts` : tout ce qui n'est ni clôturé ni annulé, quelle que soit la
+   *   date (retards, en cours, à venir : jauge, sunburst, frise, barres) ;
+   * - `otPeriode` : les OT terminés dont la date effective (clôture, sinon
+   *   prévue — `dateSemaineOt`) tombe dans la période affichée ;
+   * - `derniersPassages` : la date du dernier OT clôturé de chaque gamme (vue
+   *   170), seule donnée d'historique dont la frise a besoin pour estimer.
+   * Même colonnes que `planningQueries.fenetre` (row shape `PlanningOt`). Clés
+   * sous `ordres_travail` : les écritures et le temps réel des OT les
+   * rafraîchissent sans câblage supplémentaire.
    */
-  ordresTravail: (siteId: string | null) =>
+  otOuverts: (siteId: string | null) =>
     queryOptions({
       queryKey: [
         ...ordresTravailQueries.all(),
-        'dashboard-unifie',
+        'tableau-de-bord-ouverts',
         siteId,
       ] as const,
       enabled: siteId !== null,
-      // Paginé : tous les OT du site dépassent bientôt le plafond de 1 000 lignes
-      // par réponse — les OT À VENIR manqueraient en silence (cf. pagination.ts).
       queryFn: ({ signal }) =>
         toutesLesLignes((debut, fin) =>
           supabase
             .from('ordres_travail')
-            .select(
-              'id, statut, origine, tolerance_jours, gamme_id, nom_gamme, nature_gamme, nom_prestataire, nom_equipement, description_gamme, nom_categorie, libelle_periodicite, date_prevue, date_debut, date_cloture, miniature_id',
-            )
+            .select(COLONNES_OT)
             .eq('site_id', siteId!)
+            .not('statut', 'in', '(cloture,annule)')
             .order('date_prevue', { ascending: true })
             .order('id', { ascending: true })
             .range(debut, fin)
             .abortSignal(signal)
             .throwOnError(),
         ),
+    }),
+
+  otPeriode: (siteId: string | null, debut: string, fin: string) =>
+    queryOptions({
+      queryKey: [
+        ...ordresTravailQueries.all(),
+        'tableau-de-bord-periode',
+        siteId,
+        debut,
+        fin,
+      ] as const,
+      enabled: siteId !== null,
+      queryFn: ({ signal }) =>
+        toutesLesLignes((de, a) =>
+          supabase
+            .from('ordres_travail')
+            .select(COLONNES_OT)
+            .eq('site_id', siteId!)
+            .in('statut', ['cloture', 'annule'])
+            // Date effective dans la période : la clôture si elle existe, sinon
+            // la date prévue (même règle que `dateSemaineOt`).
+            .or(
+              `and(date_cloture.gte.${debut},date_cloture.lt.${fin}),and(date_cloture.is.null,date_prevue.gte.${debut},date_prevue.lt.${fin})`,
+            )
+            .order('date_prevue', { ascending: true })
+            .order('id', { ascending: true })
+            .range(de, a)
+            .abortSignal(signal)
+            .throwOnError(),
+        ),
+    }),
+
+  derniersPassages: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [
+        ...ordresTravailQueries.all(),
+        'tableau-de-bord-derniers-passages',
+        siteId,
+      ] as const,
+      enabled: siteId !== null,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('v_gammes_dernier_passage')
+          .select('gamme_id, date_cloture')
+          .eq('site_id', siteId!)
+          .abortSignal(signal)
+          .throwOnError()
+        const parGamme = new Map<string, string>()
+        for (const r of data) {
+          if (r.gamme_id && r.date_cloture)
+            parGamme.set(r.gamme_id, r.date_cloture)
+        }
+        return parGamme
+      },
     }),
 
   /**

@@ -72,7 +72,8 @@ interface MarquePlacee extends MoisBande {
  */
 export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
   const navigate = useNavigate()
-  const { ordresTravail, gammesQuery } = useDashboardData(siteId)
+  const { ordresTravail, derniersPassages, gammesQuery } =
+    useDashboardData(siteId)
   const [boite, setBoite] = useState<HTMLDivElement | null>(null)
   const viewW = useLargeur(boite) || 1000
   const [survol, setSurvol] = useState<string | null>(null)
@@ -104,6 +105,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
     const bandes = construireBandes({
       gammes,
       ots: ordresTravail,
+      derniersPassages,
       debut: new Date(axe.t0ms),
       fin: new Date(axe.t1ms),
     })
@@ -151,7 +153,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
       cote: contour - ECART_CARRE,
       hauteur: AXE_H + nbLignes * LIGNE_H + BAS,
     }
-  }, [fenetre.centre, viewW, gammes, ordresTravail])
+  }, [fenetre.centre, viewW, gammes, ordresTravail, derniersPassages])
 
   if (gammesQuery.isError)
     return (
