@@ -32,6 +32,41 @@ const registry = new Map<string, TableSubscription>()
 let seq = 0
 
 /**
+ * Regroupement des RAFALES : une série d'événements rapprochés sur une table
+ * (la synchro Dmbook écrit jusqu'à 40 DI d'affilée) ne déclenche qu'UNE
+ * invalidation par clé, au lieu d'une relecture complète (4 071 DI) par
+ * événement. L'invalidation part 400 ms après le DERNIER événement, et au plus
+ * tard 2 s après le PREMIER : une modification reste visible en ~½ s.
+ */
+export const DELAI_REGROUPEMENT_MS = 400
+export const ATTENTE_MAX_MS = 2000
+
+const enAttente = new Map<
+  string,
+  { minuterie: ReturnType<typeof setTimeout>; premier: number }
+>()
+
+function regrouper(table: string, keys: Map<string, KeyEntry>): void {
+  const maintenant = Date.now()
+  const courant = enAttente.get(table)
+  const premier = courant?.premier ?? maintenant
+  if (courant) clearTimeout(courant.minuterie)
+  const delai = Math.min(
+    DELAI_REGROUPEMENT_MS,
+    Math.max(0, premier + ATTENTE_MAX_MS - maintenant),
+  )
+  const minuterie = setTimeout(() => {
+    enAttente.delete(table)
+    // Chaque clé enregistrée (au moment de l'envoi) est invalidée UNE seule
+    // fois (la Map est dédupliquée par hash de clé).
+    for (const { key, qc } of keys.values()) {
+      void qc.invalidateQueries({ queryKey: key })
+    }
+  }, delai)
+  enAttente.set(table, { minuterie, premier })
+}
+
+/**
  * Normalise le 2e paramètre : une `QueryKey` est ELLE-MÊME un tableau, on
  * distingue donc « une clé » d'« une liste de clés » par le contenu (liste =
  * tous les éléments sont des tableaux). Rétrocompatible avec les appels
@@ -53,11 +88,7 @@ function acquireChannel(table: string): void {
     const channel = supabase
       .channel(`rt:${table}:${String(seq)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table }, () => {
-        // Chaque clé enregistrée est invalidée UNE seule fois par événement
-        // (la Map est dédupliquée par hash de clé).
-        for (const { key, qc } of keys.values()) {
-          void qc.invalidateQueries({ queryKey: key })
-        }
+        regrouper(table, keys)
       })
       .subscribe()
     entry = { channel, subscribers: 0, keys }
