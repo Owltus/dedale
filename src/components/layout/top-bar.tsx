@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
-import { SiteSwitcher } from '@/components/common/site-switcher'
-import { UserMenu } from '@/components/common/user-menu'
+import { SiteSwitcher } from '@/components/layout/site-switcher'
+import { UserMenu } from '@/components/layout/user-menu'
 
 /**
  * Barre supérieure du layout demandeur : marque (nom de l'app, cliquable vers les

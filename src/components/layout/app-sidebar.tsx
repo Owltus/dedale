@@ -24,11 +24,11 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useNonClotures, type NonClotures } from '@/hooks/use-non-clotures'
 import { useSiteContext } from '@/lib/site-context'
 import { PastilleATraiter } from '@/components/common/pastille-a-traiter'
-import { prechargerPage } from '@/components/common/prechargement-pages'
+import { prechargerPage } from '@/components/layout/prechargement-pages'
 import { useQueryClient } from '@tanstack/react-query'
 import { canSeeNav, NAV_LABELS, type NavKey } from '@/lib/nav'
-import { SidebarSiteSwitcher } from '@/components/common/site-switcher'
-import { SidebarUserMenu } from '@/components/common/user-menu'
+import { SidebarSiteSwitcher } from '@/components/layout/site-switcher'
+import { SidebarUserMenu } from '@/components/layout/user-menu'
 import {
   Sidebar,
   SidebarContent,

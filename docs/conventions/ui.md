@@ -24,7 +24,7 @@ Toutes les couleurs vivent dans `src/index.css` (tokens `:root` clair + `.dark` 
 
 ## Mode sombre
 
-Clair + sombre gérés via la classe `.dark` sur `<html>`, pilotée par `ThemeProvider` (`src/components/theme.tsx`, persistance `localStorage`, défaut = préférence système). La bascule vit dans le **menu utilisateur** (`common/user-menu.tsx`, via `useTheme`) — il n'existe pas de composant `ModeToggle` autonome. Comme on n'utilise que des tokens sémantiques, le sombre est automatique.
+Clair + sombre gérés via la classe `.dark` sur `<html>`, pilotée par `ThemeProvider` (`src/components/theme.tsx`, persistance `localStorage`, défaut = préférence système). La bascule vit dans le **menu utilisateur** (`layout/user-menu.tsx`, via `useTheme`) — il n'existe pas de composant `ModeToggle` autonome. Comme on n'utilise que des tokens sémantiques, le sombre est automatique.
 
 ## Composants
 
