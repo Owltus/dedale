@@ -46,7 +46,7 @@ export const activiteQueries = {
         const base = () =>
           supabase
             .from('demandes_intervention')
-            .select('*, dmbook_liens(numero, auteur)')
+            .select('*')
             .eq('site_id', siteId!)
         const [ouverts, termines] = await Promise.all([
           base()

@@ -13,11 +13,21 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 60_000 } },
 })
 
+// Après une mise en ligne, un onglet resté ouvert réclame d'anciens fichiers
+// (noms hachés) qui n'existent plus : on recharge la page pour prendre la
+// nouvelle version au lieu de casser la navigation.
+window.addEventListener('vite:preloadError', () => {
+  window.location.reload()
+})
+
 // L'auth est injectée à l'exécution via le `context` du RouterProvider (cf. InnerApp).
 const router = createRouter({
   routeTree,
   context: { auth: undefined!, queryClient },
   defaultPreload: 'intent',
+  // Les données sont gérées par TanStack Query (recommandation de la doc
+  // TanStack quand Query est utilisé) : le routeur ne garde pas sa propre copie.
+  defaultPreloadStaleTime: 0,
 })
 
 declare module '@tanstack/react-router' {

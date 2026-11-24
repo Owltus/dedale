@@ -25,8 +25,9 @@ export const demandesQueries = {
         toutesLesLignes((debut, fin) =>
           supabase
             .from('demandes_intervention')
-            // Auteur Dmbook tel qu'écrit et numéro du ticket, si la DI vient de Dmbook (D16, D21).
-            .select('*, dmbook_liens(numero, auteur)')
+            // Sans la jointure `dmbook_liens` : la liste ne s'en sert pas (la fiche lit
+            // `lienDmbook`), et elle doublait le temps de chaque page (0,9 s → 0,4 s).
+            .select('*')
             .eq('site_id', siteId!)
             .order('date_constat', { ascending: false })
             .order('created_at', { ascending: false })

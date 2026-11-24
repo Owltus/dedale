@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { MailWarning, Unplug } from 'lucide-react'
 import { toast } from 'sonner'
@@ -9,8 +9,16 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { dmbookQueries } from '../queries'
 import { useConnexionDmbook } from '../mutations'
-import { ModaleCodeDmbook } from './modale-code-dmbook'
-import { ConnexionDmbookDialog } from './connexion-dmbook-dialog'
+// Chargées seulement à l'ouverture : sans cela, ces deux formulaires (et leur
+// moteur de formulaire) entraient dans le code de CHAQUE page de l'application.
+const ModaleCodeDmbook = lazy(() =>
+  import('./modale-code-dmbook').then((m) => ({ default: m.ModaleCodeDmbook })),
+)
+const ConnexionDmbookDialog = lazy(() =>
+  import('./connexion-dmbook-dialog').then((m) => ({
+    default: m.ConnexionDmbookDialog,
+  })),
+)
 
 const ROLES_DMBOOK = ['admin', 'manager', 'technicien']
 
@@ -101,20 +109,24 @@ export function BandeauDmbook() {
             : 'Se connecter'}
       </Button>
 
-      <ModaleCodeDmbook
-        key={`code-${String(ouvert === 'code')}`}
-        open={ouvert === 'code'}
-        onOpenChange={(o) => setOuvert(o ? 'code' : null)}
-        connexion={c}
-      />
-      <ConnexionDmbookDialog
-        key={`regler-${String(ouvert === 'regler')}`}
-        open={ouvert === 'regler'}
-        onOpenChange={(o) => setOuvert(o ? 'regler' : null)}
-        siteId={c.site_id}
-        siteNom={c.site_nom}
-        connexion={c}
-      />
+      {ouvert === 'code' || ouvert === 'regler' ? (
+        <Suspense fallback={null}>
+          <ModaleCodeDmbook
+            key={`code-${String(ouvert === 'code')}`}
+            open={ouvert === 'code'}
+            onOpenChange={(o) => setOuvert(o ? 'code' : null)}
+            connexion={c}
+          />
+          <ConnexionDmbookDialog
+            key={`regler-${String(ouvert === 'regler')}`}
+            open={ouvert === 'regler'}
+            onOpenChange={(o) => setOuvert(o ? 'regler' : null)}
+            siteId={c.site_id}
+            siteNom={c.site_nom}
+            connexion={c}
+          />
+        </Suspense>
+      ) : null}
       <ConfirmDialog
         open={ouvert === 'connecter'}
         onOpenChange={(o) => setOuvert(o ? 'connecter' : null)}
