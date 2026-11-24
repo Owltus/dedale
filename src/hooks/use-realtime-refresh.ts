@@ -8,6 +8,24 @@ import {
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
+/**
+ * Tables PUBLIÉES en temps réel par la base (publication `supabase_realtime`,
+ * relevée en production le 24/11/2026). Écouter une autre table ne reçoit
+ * jamais rien : le typage l'interdit. Pour en ajouter une, la publier d'abord
+ * par migration (`ALTER PUBLICATION supabase_realtime ADD TABLE …`).
+ */
+export type TablePubliee =
+  | 'categories'
+  | 'demandes_intervention'
+  | 'evenements'
+  | 'interventions_travaux'
+  | 'miniatures'
+  | 'modeles_di'
+  | 'modeles_equipements'
+  | 'modeles_operations'
+  | 'operations_execution'
+  | 'ordres_travail'
+
 /** Clé enregistrée sur un canal, refcomptée entre abonnés. */
 interface KeyEntry {
   key: QueryKey
@@ -163,7 +181,7 @@ function registerKeys(
  * - `useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)` (plusieurs clés)
  */
 export function useRealtimeRefresh(
-  table: string,
+  table: TablePubliee,
   queryKey: QueryKey | readonly QueryKey[],
 ): void {
   const qc = useQueryClient()

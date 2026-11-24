@@ -81,7 +81,6 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
 
   const categoriesQuery = useQuery(categoriesQueries.pool())
   const gammesQuery = useQuery(gammesQueries.list(siteId))
-  useRealtimeRefresh('gammes', gammesQueries.all())
   useRealtimeRefresh('categories', categoriesQueries.all())
 
   const del = useDeleteGamme()

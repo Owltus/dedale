@@ -12,7 +12,6 @@ import {
 } from '@/features/investissements/etat'
 import { BarreBudget } from '@/features/investissements/components/barre-budget'
 import { PAGE_META } from '@/features/investissements/page-meta'
-import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { QueryState } from '@/components/common/query-state'
@@ -46,7 +45,6 @@ function BudgetsPage() {
 function BudgetsContent({ siteId }: { siteId: string }) {
   const navigate = useNavigate()
   const query = useQuery(investissementsQueries.list(siteId))
-  useRealtimeRefresh('investissements', investissementsQueries.all())
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const noms = new Map(statuts.map((s) => [s.id, s.nom]))
 

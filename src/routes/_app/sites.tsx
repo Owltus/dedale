@@ -9,7 +9,6 @@ import { SiteFormDialog } from '@/features/sites/components/site-form-dialog'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
-import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -36,8 +35,6 @@ function SitesPage() {
   const { data: role } = useCurrentRole()
   const isAdmin = perm.isAdmin(role)
   const query = useQuery(sitesQueries.list())
-  // Rafraîchit la liste en LIVE entre onglets/utilisateurs (cf. useRealtimeRefresh).
-  useRealtimeRefresh('sites', sitesQueries.all())
   const del = useDeleteSite()
   const form = useEntityDialog<Site>()
   const suppression = useConfirmDelete<Site>({

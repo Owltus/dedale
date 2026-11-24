@@ -17,7 +17,6 @@ import { anneeDeParam } from '@/features/investissements/annee'
 import { InvestissementFormDialog } from '@/features/investissements/components/investissement-form-dialog'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
-import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { formatDate } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 import { cn } from '@/lib/utils'
@@ -81,8 +80,6 @@ function InvestissementsContent({
 }) {
   const navigate = useNavigate()
   const query = useQuery(investissementsQueries.parAnnee(siteId, annee))
-  // Liste en LIVE (création/changement de statut visible sans F5).
-  useRealtimeRefresh('investissements', investissementsQueries.all())
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const del = useDeleteInvestissement()
   const form = useEntityDialog<Investissement>()

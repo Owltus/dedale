@@ -4,7 +4,6 @@ import { ajouterSemaines, isoLocale, lundiDeLaSemaine } from '@/lib/date'
 import { demandesQueries } from '@/features/demandes/queries'
 import { travauxQueries } from '@/features/travaux/queries'
 import { evenementsQueries } from '@/features/evenements/queries'
-import { documentsQueries } from '@/features/documents/queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import { gammesQueries } from '@/features/gammes/queries'
 import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
@@ -25,13 +24,12 @@ import { activiteQueries } from './activite-queries'
  *   (pour que l'onboarding « Premiers pas » et l'alerte documents manquants se
  *   rafraîchissent aussi dès le 1er OT créé) ;
  * - `demandes_intervention` → `demandes`, `interventions_travaux` → `travaux` et
- *   `evenements` → `evenements` (les trois onglets de la carte Activité) ;
- *   `documents` → `documents` + `dashboard` (l'alerte « documents manquants »
- *   lit `documents_ordres_travail` mais vit sous `dashboard` : sans cette clé,
- *   joindre un document laissait l'alerte affichée) ;
- * - `contrats` → `dashboard` (contrats à échéance + frise reconductions) ;
- * - `gammes` → `gammes` (santé du sunburst) + `dashboard` (l'interrupteur
- *   « document exigé » d'une gamme change l'alerte documents manquants).
+ *   `evenements` → `evenements` (les trois onglets de la carte Activité).
+ *
+ * Seules les tables PUBLIÉES en temps réel par la base sont écoutées (cf.
+ * `TablePubliee`) : documents, contrats et gammes ne le sont pas (décision PO
+ * du 24/11/2026) — leurs cartes se relisent au retour sur la page ou après une
+ * écriture faite ici.
  */
 export function useDashboardRealtime(): void {
   useRealtimeRefresh('ordres_travail', [
@@ -41,12 +39,6 @@ export function useDashboardRealtime(): void {
   useRealtimeRefresh('demandes_intervention', demandesQueries.all())
   useRealtimeRefresh('interventions_travaux', travauxQueries.all())
   useRealtimeRefresh('evenements', evenementsQueries.all())
-  useRealtimeRefresh('documents', [
-    documentsQueries.all(),
-    dashboardQueries.all(),
-  ])
-  useRealtimeRefresh('contrats', dashboardQueries.all())
-  useRealtimeRefresh('gammes', [gammesQueries.all(), dashboardQueries.all()])
 }
 
 /** Période d'OT terminés chargée par le tableau de bord : `[debut ; fin[` (ISO). */

@@ -108,8 +108,8 @@ export function GammesBiblioPanel() {
 
   const gammesQuery = useQuery(gammesQueries.biblioPool())
   const categoriesQuery = useQuery(categoriesQueries.pool())
-  // Mises à jour live (gammes ET catégories) entre fenêtres / comptes.
-  useRealtimeRefresh('gammes', gammesQueries.all())
+  // Catégories en direct (table publiée en temps réel) ; les gammes se
+  // relisent au retour sur la page ou après une écriture.
   useRealtimeRefresh('categories', categoriesQueries.all())
   const delGamme = useDeleteGamme()
   const copierGamme = useCopierGamme()
@@ -951,12 +951,6 @@ function GammeBiblioDetail({
 }) {
   // Vignette de la gamme (image de sa card d'en-tête) : URL signées en lot.
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
-  // Opérations en TEMPS RÉEL (comme les liaisons modèles via gamme_modeles) :
-  // abonnement porté ICI par l'hôte (la brique GammeOperationsSection ne s'abonne
-  // pas elle-même — le calque gamme de SITE, lui, ne s'y abonne pas). Si
-  // `operations` n'est pas dans la publication realtime Supabase, l'abonnement
-  // reste inerte — aucune erreur (cf. `useRealtimeRefresh`).
-  useRealtimeRefresh('operations', gammesQueries.all())
 
   return (
     <div className="flex h-full flex-col gap-4">

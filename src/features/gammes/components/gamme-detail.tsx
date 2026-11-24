@@ -19,7 +19,6 @@ import {
 import { EquipementBadges } from '@/features/equipements/components/equipement-badges'
 import { useAuth } from '@/auth'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
-import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { listStack } from '@/lib/responsive'
 import { DetailHeaderCard } from '@/components/common/detail-header-card'
 import {
@@ -65,10 +64,6 @@ export function GammeDetail({
 }) {
   const { session } = useAuth()
   const [tab, setTab] = useState<Tab>('ordres')
-  // Opérations de la gamme de SITE en LIVE : le realtime `operations` est porté par
-  // l'HÔTE (cf. commentaire de GammeOperationsSection, brique partagée) — la version
-  // Bibliothèque s'y abonne de son côté. Symétrise le comportement (cf. AUDIT/D-03).
-  useRealtimeRefresh('operations', gammesQueries.all())
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   // Dialogues d'ajout pilotés ICI → leur déclencheur vit dans la TOP BAR (via
   // useTabAddAction), plus dans un en-tête de section.

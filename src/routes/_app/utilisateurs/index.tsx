@@ -7,7 +7,6 @@ import { CreerCompteDialog } from '@/features/utilisateurs/components/creer-comp
 import { roleLabel } from '@/features/utilisateurs/schemas'
 import { useAuth } from '@/auth'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { segOfUnique } from '@/lib/slug'
 import * as perm from '@/lib/permissions'
 import { PageContainer } from '@/components/common/page-container'
@@ -37,8 +36,6 @@ function UtilisateursIndexPage() {
   const [search, setSearch] = useState('')
 
   const query = useQuery({ ...utilisateursQueries.list(), enabled: canManage })
-  // Liste en LIVE (arrivée/départ d'un utilisateur visible sans F5).
-  useRealtimeRefresh('users', utilisateursQueries.all())
 
   // Garde primaire = beforeLoad de la route (requireNav). Filet composant pour le
   // cas fail-open (rôle non résolu) : on refuse proprement l'accès.

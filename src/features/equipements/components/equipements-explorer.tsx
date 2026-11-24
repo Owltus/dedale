@@ -126,8 +126,8 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
   const categoriesQuery = useQuery(categoriesQueries.pool())
   const equipementsQuery = useQuery(equipementsQueries.list(siteId))
   const modelesQuery = useQuery(modelesEquipementsQueries.list(siteId))
-  // Mises à jour live (équipements ET catégories) entre fenêtres / comptes.
-  useRealtimeRefresh('equipements', equipementsQueries.all())
+  // Catégories en direct (table publiée en temps réel) ; les équipements se
+  // relisent au retour sur la page ou après une écriture.
   useRealtimeRefresh('categories', categoriesQueries.all())
 
   const del = useDeleteEquipement()
