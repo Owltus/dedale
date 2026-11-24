@@ -115,29 +115,6 @@ export const ordresTravailQueries = {
       },
     }),
 
-  /** OT du site actif (non supprimés), pour les cartes de la liste. */
-  list: (siteId: string | null) =>
-    queryOptions({
-      queryKey: [...ordresTravailQueries.all(), 'list', siteId] as const,
-      enabled: siteId !== null,
-      // Paginé : le site dépasse bientôt le plafond de 1 000 lignes par réponse,
-      // et ce sont les OT À VENIR (fin du tri) qui manqueraient (cf. pagination.ts).
-      queryFn: ({ signal }) =>
-        toutesLesLignes((debut, fin) =>
-          supabase
-            .from('ordres_travail')
-            .select(
-              'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, description_gamme, nature_gamme, date_prevue, date_cloture, libelle_periodicite, miniature_id',
-            )
-            .eq('site_id', siteId!)
-            .order('date_prevue', { ascending: true })
-            .order('id', { ascending: true })
-            .range(debut, fin)
-            .abortSignal(signal)
-            .throwOnError(),
-        ),
-    }),
-
   /**
    * OT du site rattachés à une liste de gammes (panneau bas du Plan de
    * maintenance, au palier sous-catégorie). TOUS statuts confondus, triés par

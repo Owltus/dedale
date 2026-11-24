@@ -48,7 +48,8 @@ const PAGES: Partial<
     qc.prefetchInfiniteQuery(demandesQueries.page(s, FILTRE_NON_TERMINES, '')),
   ],
   '/ordres-travail': (qc, s) => [
-    qc.prefetchQuery(ordresTravailQueries.list(s)),
+    // La page lit d'abord les OT non terminés (les terminés au défilement).
+    qc.prefetchQuery(ordresTravailQueries.ouverts(s)),
     qc.prefetchQuery(ordresTravailQueries.documentsParOt(s)),
     qc.prefetchQuery(ordresTravailQueries.relevesListe(s)),
   ],
