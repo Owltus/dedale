@@ -48,8 +48,38 @@ export function segOfUnique(
 ): string {
   const s = slugify(obj.nom)
   if (!s) return obj.id
-  const collision = siblings.some(
-    (x) => x.id !== obj.id && slugify(x.nom) === s,
-  )
+  // Collision = un AUTRE frère (id différent) porte le même slug. L'index des
+  // frères (slug → ids) est construit une fois par tableau : la boucle
+  // « un appel par ligne » coûtait n × n `slugify` (4 071 DI → ~16 M, 8 s de gel
+  // du tableau de bord, mesuré le 24/11/2026).
+  const ids = indexDesFreres(siblings).get(s)
+  const collision = ids?.some((id) => id !== obj.id) ?? false
   return collision ? `${s}~${obj.id.slice(0, 8)}` : s
+}
+
+/**
+ * Index slug → ids des frères, mémorisé PAR TABLEAU (WeakMap : libéré avec lui).
+ * La longueur sert de garde : un tableau allongé ou raccourci sur place est
+ * réindexé. Les tableaux de frères viennent des requêtes (jamais modifiés en
+ * place) ou sont construits à la volée (`[...liste, nouveau]`).
+ */
+const indexParTableau = new WeakMap<
+  object,
+  { taille: number; parSlug: Map<string, string[]> }
+>()
+
+function indexDesFreres(
+  siblings: { nom: string; id: string }[],
+): Map<string, string[]> {
+  const deja = indexParTableau.get(siblings)
+  if (deja?.taille === siblings.length) return deja.parSlug
+  const parSlug = new Map<string, string[]>()
+  for (const x of siblings) {
+    const slug = slugify(x.nom)
+    const ids = parSlug.get(slug)
+    if (ids) ids.push(x.id)
+    else parSlug.set(slug, [x.id])
+  }
+  indexParTableau.set(siblings, { taille: siblings.length, parSlug })
+  return parSlug
 }
