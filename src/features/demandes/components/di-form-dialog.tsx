@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { diSchema, emptyDi } from '../schemas'
 import type { DiFormValues } from '../schemas'
 import { useCreateDemande } from '../mutations'
-import { modelesDiQueries } from '../queries'
+import { modelesDiDuSiteQueries } from '../queries'
 import { ModeleDiSelect } from './modele-di-select'
 import { LocalEquipementFields } from '@/features/equipements/components/local-equipement-fields'
 import { LocalSearchSelect } from '@/features/equipements/components/local-search-select'
@@ -51,7 +51,7 @@ export function DiFormDialog({
 }: DiFormDialogProps) {
   const { session } = useAuth()
   const create = useCreateDemande()
-  const { data: modeles = [] } = useQuery(modelesDiQueries.list(siteId))
+  const { data: modeles = [] } = useQuery(modelesDiDuSiteQueries.list(siteId))
 
   // Puce de modèle active (mise en évidence visuelle seulement).
   const [modeleId, setModeleId] = useState('')

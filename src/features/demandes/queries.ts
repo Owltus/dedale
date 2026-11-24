@@ -223,7 +223,7 @@ export const demandesQueries = {
  * renommage du littéral là-bas se propage ici au lieu de rompre l'invalidation
  * en silence (verrouillé par `fraicheur.test.ts`).
  */
-export const modelesDiQueries = {
+export const modelesDiDuSiteQueries = {
   all: () => modelesDiCatalogueQueries.all(),
 
   /**
@@ -234,7 +234,7 @@ export const modelesDiQueries = {
    */
   list: (siteId: string | null) =>
     queryOptions({
-      queryKey: [...modelesDiQueries.all(), 'list', siteId] as const,
+      queryKey: [...modelesDiDuSiteQueries.all(), 'list', siteId] as const,
       enabled: siteId !== null,
       queryFn: async ({ signal }) => {
         const { data } = await supabase

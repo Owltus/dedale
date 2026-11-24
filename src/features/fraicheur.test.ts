@@ -9,7 +9,7 @@ import { dashboardQueries } from './dashboard/queries'
 import { gammesQueries } from './gammes/queries'
 import { modelesOperationsQueries } from './modeles-operations/queries'
 import { modelesDiQueries as modelesDiCatalogueQueries } from './modeles-di/queries'
-import { modelesDiQueries as modelesDiDemandesQueries } from './demandes/queries'
+import { modelesDiDuSiteQueries as modelesDiDemandesQueries } from './demandes/queries'
 
 // Les modules de requêtes construisent le client Supabase à l'import, ce qui
 // exige des variables d'environnement. Rien ici n'appelle le réseau : on
@@ -108,8 +108,8 @@ describe('G3 — liaisons gamme_modeles', () => {
   })
 })
 
-// ── G4 — les deux `modelesDiQueries` homonymes ────────────────────────────────
-describe('G4 — modelesDiQueries (catalogue vs demandes)', () => {
+// ── G4 — `modelesDiQueries` (catalogue) et `modelesDiDuSiteQueries` (demandes) ────────────────────────────────
+describe('G4 — modelesDiQueries (catalogue) vs modelesDiDuSiteQueries (demandes)', () => {
   it('les deux modules partagent la même clé racine', () => {
     // Les deux modules exposent un objet de requêtes pour la MÊME table. Leurs
     // clés racines doivent coïncider, sinon une mutation n'invalide plus qu'une

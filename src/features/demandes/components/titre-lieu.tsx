@@ -1,5 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton'
-import { LIEU_NON_PRECISE } from '@/features/demandes/lieux-par-di'
+import { LIEU_NON_PRECISE } from '@/features/demandes/etat'
 
 /**
  * Titre d'une carte de demande : son lieu. Partagé par la page Demandes et le

@@ -26,7 +26,7 @@ import { STATUT_TERMINE } from '../schemas'
 import type { TacheFormValues } from '@/features/taches/tache-schema'
 import { statutTravauxTone } from '../etat'
 import { TravauxFormDialog } from './travaux-form-dialog'
-import { ClotureDialog } from './cloture-dialog'
+import { ClotureTravauxDialog } from './cloture-travaux-dialog'
 import { TacheDialog } from '@/features/taches/components/tache-dialog'
 import {
   TacheRow,
@@ -641,7 +641,7 @@ export function TravauxDetail({
           statut et verrou intacts). 094 : `attendConfirmationCloture`
           (trigger auto-basculé, date_fin encore NULL) passe aussi par la
           branche clôture — c'est une clôture FRAÎCHE, pas une correction. */}
-      <ClotureDialog
+      <ClotureTravauxDialog
         key={clotureOpen ? 'open' : 'closed'}
         open={clotureOpen}
         onOpenChange={setClotureOpen}

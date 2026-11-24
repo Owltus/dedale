@@ -8,7 +8,7 @@ import { FormDialog } from '@/components/common/form-dialog'
 import { DateField } from '@/components/common/fields/date-field'
 import { DescriptionField } from '@/components/common/fields/description-field'
 
-interface ClotureDialogProps {
+interface ClotureTravauxDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   pending: boolean
@@ -38,14 +38,14 @@ interface ClotureDialogProps {
  *
  * L'hôte reste maître de la mutation : ce dialogue ne fait que collecter.
  */
-export function ClotureDialog({
+export function ClotureTravauxDialog({
   open,
   onOpenChange,
   pending,
   dateDemande,
   initial,
   onConfirm,
-}: ClotureDialogProps) {
+}: ClotureTravauxDialogProps) {
   const correction = initial !== undefined
 
   const form = useForm<ClotureTravauxFormValues>({

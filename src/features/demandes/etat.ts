@@ -37,3 +37,6 @@ const TONES: Record<number, StatusTone> = {
 export function statutTone(statutId: number): StatusTone {
   return statusToneById(statutId, TONES)
 }
+
+/** Titre d'une DI sans lieu (aucun local rattaché). */
+export const LIEU_NON_PRECISE = 'Lieu non précisé'
