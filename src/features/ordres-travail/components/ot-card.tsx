@@ -14,6 +14,7 @@ import { DocumentIndicator } from '@/components/common/document-indicator'
 import type { DocumentMeta } from '@/features/documents/format'
 import type { ReleveAffiche } from '@/features/ordres-travail/releves'
 import { cn } from '@/lib/utils'
+import { estVerrouille } from '../schemas'
 
 /**
  * Champs nécessaires au rendu d'une carte OT — communs aux requêtes `list`
@@ -118,7 +119,7 @@ export function OtCard({
   // affichée porte SYSTÉMATIQUEMENT son n° de semaine ISO 8601 (convention FR :
   // la semaine commence le lundi, cf. `formatDateAvecSemaineIso`) — y compris la
   // date de clôture, qui ne faisait jusqu'ici exception à tort.
-  const estTerminal = ot.statut === 'cloture' || ot.statut === 'annule'
+  const estTerminal = estVerrouille(ot.statut)
   const dateAffichee =
     estTerminal && ot.date_cloture
       ? formatDateAvecSemaineIso(ot.date_cloture)

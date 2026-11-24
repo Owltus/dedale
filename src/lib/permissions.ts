@@ -134,7 +134,9 @@ export function canEditDemande(
   if (canManageMetier(role)) return true
   if (isDemandeur(role))
     return (
-      !!userId && demande.created_by === userId && demande.statut_di_id === 1
+      !!userId &&
+      demande.created_by === userId &&
+      demande.statut_di_id === 1 /* STATUT_DI_OUVERT (demandes/etat) */
     )
   return false
 }
@@ -156,7 +158,9 @@ export function canDeleteDemande(
   if (canManageMetier(role)) return true
   if (isDemandeur(role))
     return (
-      !!userId && demande.created_by === userId && demande.statut_di_id === 1
+      !!userId &&
+      demande.created_by === userId &&
+      demande.statut_di_id === 1 /* STATUT_DI_OUVERT (demandes/etat) */
     )
   return false
 }

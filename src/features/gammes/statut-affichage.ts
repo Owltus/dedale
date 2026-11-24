@@ -8,6 +8,7 @@ import {
   trierOtParUrgence,
   type OtTriable,
 } from '@/features/ordres-travail/tri'
+import { estVerrouille } from '@/features/ordres-travail/schemas'
 
 /**
  * Statut d'AFFICHAGE d'une gamme (libellé + couleur de pastille `StatusBadge`) :
@@ -33,7 +34,7 @@ const A_PROGRAMMER: StatutAffichage = {
 
 /** Au moins un OT encore à faire (ni clôturé ni annulé). */
 function aUnOtAVenir(ots: OtTriable[]): boolean {
-  return ots.some((o) => o.statut !== 'cloture' && o.statut !== 'annule')
+  return ots.some((o) => !estVerrouille(o.statut))
 }
 
 /** Une gamme vue par la synthèse d'une sous-catégorie : son activité + ses OT. */
@@ -56,7 +57,7 @@ function statutDuPireOt(
   aujourdHui?: Date,
 ): StatutAffichage {
   if (!top) return A_PROGRAMMER
-  if (top.statut === 'cloture' || top.statut === 'annule')
+  if (estVerrouille(top.statut))
     return { label: 'À jour', tone: 'success', temporel: false }
 
   const aff = statutAffichageOt({

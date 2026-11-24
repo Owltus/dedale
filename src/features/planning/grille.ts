@@ -4,6 +4,7 @@ import { parseDateLocale } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
 import type { Categorie } from '@/features/categories/queries'
 import type { Database } from '@/lib/database.types'
+import { estVerrouille } from '@/features/ordres-travail/schemas'
 
 /** OT minimal nécessaire à la grille (cf. `planningQueries.fenetre`). */
 export interface PlanningOt {
@@ -91,7 +92,7 @@ export interface GroupeDomaine {
  * en heure locale, comme la semaine courante et la date prévue.
  */
 export function dateSemaineOt(ot: PlanningOt): Date {
-  const estTerminal = ot.statut === 'cloture' || ot.statut === 'annule'
+  const estTerminal = estVerrouille(ot.statut)
   if (estTerminal && ot.date_cloture) return new Date(ot.date_cloture)
   return parseDateLocale(ot.date_prevue)
 }

@@ -18,6 +18,7 @@ import {
 } from '@/components/common/row-actions'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import type { Database } from '@/lib/database.types'
+import { STATUT_DI_CLOTURE, STATUT_DI_EN_COURS, STATUT_DI_OUVERT } from './etat'
 
 type Demande = Database['public']['Tables']['demandes_intervention']['Row']
 
@@ -62,7 +63,7 @@ export function useActionsDemande({
           label: 'Ouvert',
           icon: Circle,
           iconClassName: 'text-muted-foreground',
-          disabled: d.statut_di_id === 1,
+          disabled: d.statut_di_id === STATUT_DI_OUVERT,
           onSelect: () =>
             reopen.mutate(d.id, {
               onSuccess: () => toast.success('Demande rouverte'),
@@ -73,7 +74,7 @@ export function useActionsDemande({
           label: 'En cours',
           icon: Clock,
           iconClassName: 'text-warning',
-          disabled: d.statut_di_id === 2,
+          disabled: d.statut_di_id === STATUT_DI_EN_COURS,
           onSelect: () =>
             enCharge.mutate(d.id, {
               onSuccess: () => toast.success('Demande prise en charge'),
@@ -84,7 +85,7 @@ export function useActionsDemande({
           label: 'Clôturé',
           icon: CheckCircle2,
           iconClassName: 'text-success',
-          disabled: d.statut_di_id === 3,
+          disabled: d.statut_di_id === STATUT_DI_CLOTURE,
           onSelect: () =>
             cloturer.mutate(d.id, {
               onSuccess: () => toast.success('Demande clôturée'),

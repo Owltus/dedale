@@ -18,6 +18,7 @@ import { dateAffichee as dateAfficheeTravaux } from '@/features/travaux/format'
 import { dateAffichee as dateAfficheeEvenement } from '@/features/evenements/format'
 import { formatDateAvecSemaineIso } from '@/lib/date'
 import { segAlias } from '@/lib/slug'
+import { STATUT_DI_CLOTURE } from '@/features/demandes/etat'
 
 /**
  * Normalisation des trois journaux du site (demandes d'intervention, travaux,
@@ -123,7 +124,7 @@ export function lignesDemandes(rows: RowDemande[]): LigneActivite[] {
     nom: (d) => diTitre(d.constat),
     // Comme la page Demandes : date de clôture si clôturée, sinon d'ouverture.
     date: (d) =>
-      d.statut_di_id === 3 && d.date_resolution
+      d.statut_di_id === STATUT_DI_CLOTURE && d.date_resolution
         ? d.date_resolution
         : d.date_constat,
     statut: (d) => statutLabelDi(d.statut_di_id),

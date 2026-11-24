@@ -42,6 +42,7 @@ import {
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { StatutColonne } from '@/components/common/statut-colonne'
+import { STATUT_DI_CLOTURE } from '@/features/demandes/etat'
 export const Route = createFileRoute('/_app/demandes/')({
   component: DemandesPage,
 })
@@ -196,7 +197,7 @@ function DemandesContent({
               // dessous. Clôturée → date de clôture ; Ouverte ou En cours →
               // date d'ouverture (le constat). Semaine ISO comme partout.
               const dateStatut =
-                d.statut_di_id === 3 && d.date_resolution
+                d.statut_di_id === STATUT_DI_CLOTURE && d.date_resolution
                   ? d.date_resolution
                   : d.date_constat
               const statutColonne = (

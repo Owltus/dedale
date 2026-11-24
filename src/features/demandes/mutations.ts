@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { demandesQueries } from './queries'
 import type { DiFormValues } from './schemas'
+import { STATUT_DI_CLOTURE, STATUT_DI_EN_COURS, STATUT_DI_OUVERT } from './etat'
 
 export function useCreateDemande() {
   const qc = useQueryClient()
@@ -57,7 +58,7 @@ export function useCloturerDemande() {
     mutationFn: async (id: string) => {
       const { data } = await supabase
         .from('demandes_intervention')
-        .update({ statut_di_id: 3 })
+        .update({ statut_di_id: STATUT_DI_CLOTURE })
         .eq('id', id)
         .select()
         .single()
@@ -76,7 +77,7 @@ export function useReopenDemande() {
     mutationFn: async (id: string) => {
       const { data } = await supabase
         .from('demandes_intervention')
-        .update({ statut_di_id: 1 })
+        .update({ statut_di_id: STATUT_DI_OUVERT })
         .eq('id', id)
         .select()
         .single()
@@ -94,7 +95,7 @@ export function usePrendreEnCharge() {
     mutationFn: async (id: string) => {
       const { data } = await supabase
         .from('demandes_intervention')
-        .update({ statut_di_id: 2 })
+        .update({ statut_di_id: STATUT_DI_EN_COURS })
         .eq('id', id)
         .select()
         .single()

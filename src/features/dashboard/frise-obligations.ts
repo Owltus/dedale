@@ -9,6 +9,7 @@ import {
   minuit,
   parseDateLocale,
 } from '@/lib/date'
+import { estVerrouille } from '@/features/ordres-travail/schemas'
 
 /**
  * État d'un passage sur la frise des obligations. La distinction qui compte
@@ -111,9 +112,7 @@ function baseEstimation(
   dernierPassage?: string,
 ): Date | null {
   const lundi = lundiDeLaSemaine(aujourdHui)
-  const ouverts = ots.filter(
-    (o) => o.statut !== 'cloture' && o.statut !== 'annule',
-  )
+  const ouverts = ots.filter((o) => !estVerrouille(o.statut))
   if (ouverts.length > 0) {
     const plusLoin = ouverts
       .map((o) => parseDateLocale(o.date_prevue))
