@@ -38,6 +38,7 @@ import { StatutColonne } from '@/components/common/statut-colonne'
 import { StatusBadge } from '@/components/common/status-badge'
 import { BarreBudget } from '@/features/investissements/components/barre-budget'
 import type { Database } from '@/lib/database.types'
+import { normaliserRecherche } from '@/lib/recherche'
 
 type Investissement = Database['public']['Tables']['investissements']['Row']
 
@@ -150,15 +151,17 @@ function InvestissementsContent({
         }
       >
         {(investissements) => {
-          const q = recherche.trim().toLowerCase()
+          const q = normaliserRecherche(recherche)
           const shown = investissements.filter((inv) => {
             if (q === '') return true
             return (
-              inv.libelle.toLowerCase().includes(q) ||
+              normaliserRecherche(inv.libelle).includes(q) ||
               inv.devis.some((d) =>
-                `${d.fournisseur} ${d.objet ?? ''}`.toLowerCase().includes(q),
+                normaliserRecherche(
+                  `${d.fournisseur} ${d.objet ?? ''}`,
+                ).includes(q),
               ) ||
-              (inv.description ?? '').toLowerCase().includes(q)
+              normaliserRecherche(inv.description ?? '').includes(q)
             )
           })
           // Frères pour le slug d'URL : MÊME ensemble qu'à la résolution dans la

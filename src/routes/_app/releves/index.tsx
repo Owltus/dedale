@@ -16,6 +16,7 @@ import { ListRow } from '@/components/common/list-row'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
+import { normaliserRecherche } from '@/lib/recherche'
 
 export const Route = createFileRoute('/_app/releves/')({
   component: RelevesIndexPage,
@@ -52,9 +53,9 @@ function RelevesList({ siteId }: { siteId: string }) {
       >
         {(gammes) => {
           const sibs = gammes.map((g) => ({ nom: g.nomGamme, id: g.id }))
-          const q = search.trim().toLowerCase()
+          const q = normaliserRecherche(search)
           const shown = q
-            ? gammes.filter((g) => g.nomGamme.toLowerCase().includes(q))
+            ? gammes.filter((g) => normaliserRecherche(g.nomGamme).includes(q))
             : gammes
           return (
             <ListPageBody

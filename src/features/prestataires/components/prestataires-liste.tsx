@@ -27,6 +27,7 @@ import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import type { Database } from '@/lib/database.types'
+import { normaliserRecherche } from '@/lib/recherche'
 
 type Prestataire = Database['public']['Tables']['prestataires']['Row']
 
@@ -102,9 +103,11 @@ export function PrestatairesListe({
           // Slug d'URL lisible et unique parmi les prestataires (mêmes `siblings`
           // qu'à la résolution côté détail → l'URL se relit à l'identique).
           const sibs = prestataires.map((p) => ({ nom: p.libelle, id: p.id }))
-          const q = search.trim().toLowerCase()
+          const q = normaliserRecherche(search)
           const shown = q
-            ? prestataires.filter((p) => p.libelle.toLowerCase().includes(q))
+            ? prestataires.filter((p) =>
+                normaliserRecherche(p.libelle).includes(q),
+              )
             : prestataires
           return (
             <ListPageBody

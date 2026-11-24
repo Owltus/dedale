@@ -20,6 +20,7 @@ import { CheckboxList } from '@/components/common/checkbox-list'
 import { DialogShell } from '@/components/common/dialog-shell'
 import { SearchInput } from '@/components/common/search-input'
 import type { Database } from '@/lib/database.types'
+import { normaliserRecherche } from '@/lib/recherche'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
 
@@ -229,7 +230,7 @@ export function EquipementsLinkDialog({
     }
   }
 
-  const q = search.trim().toLowerCase()
+  const q = normaliserRecherche(search)
   const arbreFiltre = useMemo(() => {
     if (q === '') return arbre
     return arbre
@@ -246,7 +247,7 @@ export function EquipementsLinkDialog({
                 e.niveau_nom,
                 e.local_nom,
                 e.localisation_courte,
-              ].some((v) => (v ?? '').toLowerCase().includes(q)),
+              ].some((v) => normaliserRecherche(v ?? '').includes(q)),
             )
             return equipements.length > 0 ? { ...sc, equipements } : null
           })

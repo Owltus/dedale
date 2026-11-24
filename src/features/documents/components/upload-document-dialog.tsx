@@ -28,6 +28,7 @@ import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { normaliserRecherche } from '@/lib/recherche'
 
 interface UploadDocumentDialogProps {
   open: boolean
@@ -420,9 +421,11 @@ export function UploadDocumentDialog({
     )
   }, [liables, linkedSet, acceptedMimes])
   const filtresExistants = useMemo(() => {
-    const q = searchExistants.trim().toLowerCase()
+    const q = normaliserRecherche(searchExistants)
     if (q === '') return candidats
-    return candidats.filter((doc) => doc.nom_original.toLowerCase().includes(q))
+    return candidats.filter((doc) =>
+      normaliserRecherche(doc.nom_original).includes(q),
+    )
   }, [candidats, searchExistants])
 
   function toggleExistant(id: string) {

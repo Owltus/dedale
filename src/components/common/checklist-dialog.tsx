@@ -6,6 +6,7 @@ import { CheckboxList } from '@/components/common/checkbox-list'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DialogShell } from '@/components/common/dialog-shell'
 import { SearchInput } from '@/components/common/search-input'
+import { normaliserRecherche } from '@/lib/recherche'
 
 export interface CheckRowProps {
   /** Média optionnel à gauche (ex. `<RowMediaIcon icon={...} />`), taille libre à l'appelant. */
@@ -171,12 +172,12 @@ export function ChecklistDialog({
   }
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
+    const q = normaliserRecherche(search)
     if (q === '') return items
     return items.filter(
       (it) =>
-        it.titre.toLowerCase().includes(q) ||
-        (it.sousTitre ?? '').toLowerCase().includes(q),
+        normaliserRecherche(it.titre).includes(q) ||
+        normaliserRecherche(it.sousTitre ?? '').includes(q),
     )
   }, [items, search])
 

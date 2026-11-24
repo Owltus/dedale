@@ -33,6 +33,7 @@ import { DocumentsListe } from '@/features/documents/components/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { normaliserRecherche } from '@/lib/recherche'
 
 export function TousLesDocuments({
   siteId,
@@ -121,10 +122,11 @@ export function TousLesDocuments({
           }
         >
           {(documents) => {
-            const q = search.trim().toLowerCase()
+            const q = normaliserRecherche(search)
             const shown = documents.filter((d) => {
               const okType = matchTypeFilter(d.type_document_id, typeFilter)
-              const okNom = q === '' || d.nom_original.toLowerCase().includes(q)
+              const okNom =
+                q === '' || normaliserRecherche(d.nom_original).includes(q)
               return okType && okNom
             })
             if (shown.length === 0)

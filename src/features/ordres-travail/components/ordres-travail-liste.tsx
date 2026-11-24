@@ -48,6 +48,7 @@ import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
+import { normaliserRecherche } from '@/lib/recherche'
 
 /** Filtre « Nature » : toutes, puis les 8 natures dans l'ordre des gammes. */
 const NATURE_FILTER_OPTIONS = [
@@ -113,7 +114,7 @@ export function OrdresTravailListe({
     placeholderData: keepPreviousData,
   })
   const ouvertsFiltres = useMemo(() => {
-    const q = search.trim().toLowerCase()
+    const q = normaliserRecherche(search)
     return trierOtParUrgence(
       (query.data ?? []).filter((ot) => {
         if (!matchStatutOt(ot.statut, statutFilter)) return false
@@ -121,7 +122,7 @@ export function OrdresTravailListe({
           return false
         if (q === '') return true
         return [ot.nom_gamme, ot.nom_equipement, ot.nom_prestataire].some((v) =>
-          v?.toLowerCase().includes(q),
+          normaliserRecherche(v ?? '').includes(q),
         )
       }),
     )

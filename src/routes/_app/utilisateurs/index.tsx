@@ -22,6 +22,7 @@ import { StatusBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { normaliserRecherche } from '@/lib/recherche'
 
 export const Route = createFileRoute('/_app/utilisateurs/')({
   component: UtilisateursIndexPage,
@@ -97,14 +98,14 @@ function UtilisateursIndexPage() {
           // Mêmes « frères » qu'à la résolution côté détail (self exclu des deux
           // côtés) → le slug d'URL se relit à l'identique.
           const sibs = users.map((u) => ({ nom: u.nom_complet, id: u.id }))
-          const q = search.trim().toLowerCase()
+          const q = normaliserRecherche(search)
           const shown =
             q === ''
               ? users
               : users.filter(
                   (u) =>
-                    u.nom_complet.toLowerCase().includes(q) ||
-                    roleLabel(u.roles.code).toLowerCase().includes(q),
+                    normaliserRecherche(u.nom_complet).includes(q) ||
+                    normaliserRecherche(roleLabel(u.roles.code)).includes(q),
                 )
           return (
             <ListPageBody

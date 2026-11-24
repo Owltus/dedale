@@ -19,6 +19,7 @@ import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { ListPageBody } from '@/components/common/list-page-body'
 import { FILTRE_NON_TERMINES } from '@/components/common/list-filter-bar'
 import type { MiniatureAccess } from './prestataire-onglets'
+import { normaliserRecherche } from '@/lib/recherche'
 
 /**
  * Onglet Ordres de travail : OT du prestataire sur le site, en LECTURE SEULE.
@@ -42,13 +43,13 @@ export function OtPanel({
   const [statutFilter, setStatutFilter] = useState<string>(FILTRE_NON_TERMINES)
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
+    const q = normaliserRecherche(search)
     return trierOtParUrgence(
       (query.data ?? []).filter((ot) => {
         if (!matchStatutOt(ot.statut, statutFilter)) return false
         if (q === '') return true
         return [ot.nom_gamme, ot.nom_equipement].some((v) =>
-          v?.toLowerCase().includes(q),
+          normaliserRecherche(v ?? '').includes(q),
         )
       }),
     )

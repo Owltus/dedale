@@ -53,6 +53,7 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
+import { normaliserRecherche } from '@/lib/recherche'
 
 // 098 : enrichi de locaux/équipements (lieu principal) par evenementsQueries.list.
 type Evenement = Database['public']['Tables']['evenements']['Row'] & {
@@ -153,7 +154,7 @@ export function EvenementsListe({
         }
       >
         {(evenements) => {
-          const q = recherche.trim().toLowerCase()
+          const q = normaliserRecherche(recherche)
           const shown = evenements.filter((ev) => {
             if (
               !matchStatutFilter(
@@ -169,9 +170,9 @@ export function EvenementsListe({
             // evenements_lieux, 0..N, non cherché), corrigé avec le lieu
             // principal qui le remplace pour le cas simple.
             return (
-              ev.titre.toLowerCase().includes(q) ||
-              (ev.description ?? '').toLowerCase().includes(q) ||
-              (ev.locaux?.nom ?? '').toLowerCase().includes(q)
+              normaliserRecherche(ev.titre).includes(q) ||
+              normaliserRecherche(ev.description ?? '').includes(q) ||
+              normaliserRecherche(ev.locaux?.nom ?? '').includes(q)
             )
           })
           // Frères pour le slug : MÊME ensemble qu'à la résolution du détail

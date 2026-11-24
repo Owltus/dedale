@@ -7,11 +7,7 @@ import { Input } from '@/components/ui/input'
 import { useClicExterieur } from '@/hooks/use-clic-exterieur'
 import { ComboBoxPanel } from '@/components/common/combobox-panel'
 import { cn } from '@/lib/utils'
-
-/** Normalise pour une recherche TOLÉRANTE aux accents et à la casse. */
-function normalize(s: string): string {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-}
+import { normaliserRecherche } from '@/lib/recherche'
 
 /**
  * Contexte hiérarchique « Bâtiment › Niveau » (sans le local), dans cet ORDRE.
@@ -95,12 +91,12 @@ export function LocalSearchSelect({
 
   // Suggestions : nom du local OU chemin contiennent la saisie (normalisée).
   const suggestions = useMemo(() => {
-    const q = normalize(query.trim())
+    const q = normaliserRecherche(query)
     if (q === '') return []
     return locaux
       .filter((l) => {
         const ctx = [l.batiment_nom, l.niveau_nom].filter(Boolean).join(' ')
-        return normalize(`${l.local_nom ?? ''} ${ctx}`).includes(q)
+        return normaliserRecherche(`${l.local_nom ?? ''} ${ctx}`).includes(q)
       })
       .slice(0, MAX_SUGGESTIONS)
   }, [locaux, query])

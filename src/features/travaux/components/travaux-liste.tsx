@@ -47,6 +47,7 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
 import type { Database } from '@/lib/database.types'
+import { normaliserRecherche } from '@/lib/recherche'
 
 // 098 : enrichi de locaux/équipements (lieu principal) par travauxQueries.list.
 type Travaux = Database['public']['Tables']['interventions_travaux']['Row'] & {
@@ -149,7 +150,7 @@ export function TravauxListe({
         }
       >
         {(travaux) => {
-          const q = recherche.trim().toLowerCase()
+          const q = normaliserRecherche(recherche)
           const shown = travaux.filter((c) => {
             if (
               !matchStatutFilter(
@@ -161,9 +162,9 @@ export function TravauxListe({
               return false
             if (q === '') return true
             return (
-              c.titre.toLowerCase().includes(q) ||
-              (c.description ?? '').toLowerCase().includes(q) ||
-              (c.locaux?.nom ?? '').toLowerCase().includes(q)
+              normaliserRecherche(c.titre).includes(q) ||
+              normaliserRecherche(c.description ?? '').includes(q) ||
+              normaliserRecherche(c.locaux?.nom ?? '').includes(q)
             )
           })
           // Frères pour le slug d'URL : MÊME ensemble qu'à la résolution dans la

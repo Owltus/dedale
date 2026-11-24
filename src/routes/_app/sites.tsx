@@ -23,6 +23,7 @@ import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
+import { normaliserRecherche } from '@/lib/recherche'
 
 type Site = Database['public']['Tables']['sites']['Row']
 
@@ -83,14 +84,14 @@ function SitesPage() {
         }
       >
         {(sites) => {
-          const q = recherche.trim().toLowerCase()
+          const q = normaliserRecherche(recherche)
           const shown =
             q === ''
               ? sites
               : sites.filter(
                   (s) =>
-                    s.nom.toLowerCase().includes(q) ||
-                    (s.ville ?? '').toLowerCase().includes(q),
+                    normaliserRecherche(s.nom).includes(q) ||
+                    normaliserRecherche(s.ville ?? '').includes(q),
                 )
           return (
             <ListPageBody

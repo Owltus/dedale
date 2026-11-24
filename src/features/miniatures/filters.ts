@@ -1,4 +1,5 @@
 import type { MiniatureWithUrl } from './queries'
+import { normaliserRecherche } from '@/lib/recherche'
 
 /**
  * Filtre les vignettes par recherche sur les NOMS des entités liées (`libelles`,
@@ -9,7 +10,7 @@ export function filterMiniatures(
   list: MiniatureWithUrl[],
   recherche: string,
 ): MiniatureWithUrl[] {
-  const q = recherche.trim().toLowerCase()
+  const q = normaliserRecherche(recherche)
   if (q === '') return list
-  return list.filter((m) => m.libelles.toLowerCase().includes(q))
+  return list.filter((m) => normaliserRecherche(m.libelles).includes(q))
 }

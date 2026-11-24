@@ -5,6 +5,7 @@ import { toutesLesLignes } from '@/lib/pagination'
 import type { ReleveLigne } from './releves'
 import { cleNom, cleProvenance, type IndexPrecedents } from './correlation'
 import type { DocumentMeta } from '@/features/documents/format'
+import { motifRechercheServeur } from '@/lib/recherche'
 
 /** Colonnes d'une carte OT de la liste. */
 const COLONNES_LISTE =
@@ -12,17 +13,6 @@ const COLONNES_LISTE =
 
 /** OT terminés chargés par page (défilement). */
 export const OT_PAR_PAGE = 50
-
-/**
- * Motif `ilike` PostgREST pour « contient `texte` » (casse ignorée), comme le
- * `includes` d'avant. Les jokers (%, _, *) et les caractères d'échappement
- * (\, ") sont RETIRÉS du texte cherché plutôt qu'échappés : PostgREST et SQL ne
- * s'accordent pas sur l'échappement à l'intérieur d'un filtre `or`.
- */
-function motifRecherche(texte: string): string | null {
-  const t = texte.trim().replace(/[%_*"\\]/g, '')
-  return t ? `"*${t}*"` : null
-}
 
 export const ordresTravailQueries = {
   all: () => ['ordres_travail'] as const,
@@ -79,10 +69,10 @@ export const ordresTravailQueries = {
           .eq('site_id', siteId)
           .in('statut', [...statuts])
         if (nature) q = q.eq('nature_gamme', nature)
-        const motif = motifRecherche(recherche)
+        const motif = motifRechercheServeur(recherche)
         if (motif)
           q = q.or(
-            `nom_gamme.ilike.${motif},nom_equipement.ilike.${motif},nom_prestataire.ilike.${motif}`,
+            `nom_gamme.imatch.${motif},nom_equipement.imatch.${motif},nom_prestataire.imatch.${motif}`,
           )
         const { data } = await q
           .order('date_cloture', { ascending: false, nullsFirst: false })
