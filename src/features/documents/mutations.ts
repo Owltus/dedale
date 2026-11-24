@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { documentsQueries, liaisonTable } from './queries'
-import type { LiaisonTable } from './queries'
+import { CLE_PAR_TACHE } from './queries'
+import type { DocumentDeTache, LiaisonTable } from './queries'
 import type { DocumentMeta } from './format'
 import { replaceDocumentFile, uploadDocument } from './upload'
 
@@ -140,28 +141,50 @@ export function useDeplacerDocumentTache() {
     onMutate: async (params) => {
       const { liaison, parentId, documentId, tacheId } = params
       await qc.cancelQueries({ queryKey: documentsQueries.all() })
-      // Toutes les listes déjà en cache pour CETTE fiche (niveau fiche +
-      // chaque tâche déjà affichée), quel que soit leur filtre `tache_id`.
-      const caches = qc.getQueriesData<DocumentMeta[]>({
+      // Toutes les listes déjà en cache pour CETTE fiche, quel que soit leur
+      // filtre : niveau fiche (`byEntity`, DocumentMeta[]) ET documents de
+      // toutes les tâches (`parTache`, DocumentDeTache[], une seule entrée).
+      const caches = qc.getQueriesData<DocumentMeta[] | DocumentDeTache[]>({
         queryKey: [...documentsQueries.all(), 'by-entity', liaison, parentId],
       })
+      const estParTache = (key: readonly unknown[]) => key[4] === CLE_PAR_TACHE
       let movedDoc: DocumentMeta | undefined
-      caches.forEach(([, data]) => {
-        const found = data?.find((d) => d.id === documentId)
+      caches.forEach(([key, data]) => {
+        if (!data) return
+        const found = estParTache(key)
+          ? (data as DocumentDeTache[]).find((r) => r.doc.id === documentId)
+              ?.doc
+          : (data as DocumentMeta[]).find((d) => d.id === documentId)
         if (found) movedDoc = found
       })
       caches.forEach(([key, data]) => {
         if (!data) return
+        if (estParTache(key)) {
+          // Documents de toutes les tâches : on déplace la ligne (ou on la
+          // retire si le document remonte au niveau fiche, ou l'ajoute s'il
+          // en descend).
+          const rows = (data as DocumentDeTache[]).filter(
+            (r) => r.doc.id !== documentId,
+          )
+          qc.setQueryData(
+            key,
+            tacheId !== null && movedDoc
+              ? [{ tacheId, doc: movedDoc }, ...rows]
+              : rows,
+          )
+          return
+        }
+        const liste = data as DocumentMeta[]
         const entryFilter = key[4] as string | null | undefined
         const isDestination = (entryFilter ?? null) === tacheId
         if (isDestination) {
-          if (movedDoc && !data.some((d) => d.id === documentId)) {
-            qc.setQueryData(key, [movedDoc, ...data])
+          if (movedDoc && !liste.some((d) => d.id === documentId)) {
+            qc.setQueryData(key, [movedDoc, ...liste])
           }
-        } else if (data.some((d) => d.id === documentId)) {
+        } else if (liste.some((d) => d.id === documentId)) {
           qc.setQueryData(
             key,
-            data.filter((d) => d.id !== documentId),
+            liste.filter((d) => d.id !== documentId),
           )
         }
       })

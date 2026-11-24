@@ -9,7 +9,7 @@ import {
   type StatutZone,
 } from '@/features/equipements/statut-zone'
 import { documentsQueries } from '@/features/documents/queries'
-import type { LiaisonTable } from '@/features/documents/queries'
+import type { LiaisonAvecTache } from '@/features/documents/queries'
 import { DocumentsListe } from '@/components/common/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { SelectDropdown } from '@/components/ui/select-dropdown'
@@ -54,7 +54,7 @@ interface TacheRowProps {
    * de la tâche), et zone de dépôt pour en rattacher un nouveau.
    */
   documents: {
-    liaison: LiaisonTable
+    liaison: LiaisonAvecTache
     parentColumn: string
     parentId: string
   }
@@ -83,14 +83,17 @@ export function TacheRow({
   documents,
 }: TacheRowProps) {
   const statut = tache.statut as StatutZone
-  const docsQuery = useQuery(
-    documentsQueries.byEntity(
+  // UNE lecture par fiche (partagée par toutes ses lignes de tâche, même clé),
+  // filtrée ici sur CETTE tâche — et non plus une requête par tâche (N+1).
+  const docsQuery = useQuery({
+    ...documentsQueries.parTache(
       documents.liaison,
       documents.parentColumn,
       documents.parentId,
-      tache.id,
     ),
-  )
+    select: (rows) =>
+      rows.filter((r) => r.tacheId === tache.id).map((r) => r.doc),
+  })
   const docs = docsQuery.data ?? []
 
   const {

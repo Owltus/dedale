@@ -29,6 +29,20 @@ export function liaisonTable(liaison: LiaisonTable) {
   return supabase.from(liaison as 'documents_ordres_travail')
 }
 
+/** Liaisons qui portent une colonne `tache_id` (091). */
+export type LiaisonAvecTache =
+  | 'documents_interventions_travaux'
+  | 'documents_evenements'
+
+/** Marqueur de la clé de `parTache` (distingue cette forme de données). */
+export const CLE_PAR_TACHE = 'par-tache'
+
+/** Un document rattaché à une tâche précise d'une fiche. */
+export interface DocumentDeTache {
+  tacheId: string
+  doc: DocumentMeta
+}
+
 export const documentsQueries = {
   all: () => ['documents'] as const,
 
@@ -127,6 +141,51 @@ export const documentsQueries = {
         return rows
           .map((row) => row.documents)
           .filter((doc): doc is DocumentMeta => doc != null)
+      },
+    }),
+
+  /**
+   * Documents de TOUTES les tâches d'une fiche (travaux / événement), avec la
+   * tâche de chacun : UNE lecture par fiche, que chaque ligne de tâche filtre
+   * (`select`). Remplace une requête `byEntity(…, tacheId)` PAR tâche (N+1).
+   * Clé sous `[…, 'by-entity', liaison, parentId]` : le déplacement optimiste
+   * d'un document entre tâches (`useDeplacerDocumentTache`) la met à jour.
+   */
+  parTache: (
+    liaison: LiaisonAvecTache,
+    parentColumn: string,
+    parentId: string,
+  ) =>
+    queryOptions({
+      queryKey: [
+        ...documentsQueries.all(),
+        'by-entity',
+        liaison,
+        parentId,
+        CLE_PAR_TACHE,
+      ] as const,
+      queryFn: async ({ signal }): Promise<DocumentDeTache[]> => {
+        const base = liaisonTable(liaison).select(
+          'tache_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at)',
+        )
+        // `tache_id` n'existe que sur ces 2 liaisons : le typage générique de
+        // `liaisonTable` ne le connaît pas (même relâchement que `byEntity`).
+        const { data } = await (
+          base as unknown as {
+            eq: (c: string, v: string) => typeof base
+          }
+        )
+          .eq(parentColumn, parentId)
+          .not('tache_id', 'is', null)
+          .abortSignal(signal)
+          .throwOnError()
+        const rows = data as unknown as {
+          tache_id: string
+          documents: DocumentMeta | null
+        }[]
+        return rows.flatMap((r) =>
+          r.documents ? [{ tacheId: r.tache_id, doc: r.documents }] : [],
+        )
       },
     }),
 
