@@ -17929,3 +17929,30 @@ ALTER POLICY "user_sites_manager_provision" ON public."user_sites"
 
 ALTER POLICY "user_sites_manager_select" ON public."user_sites"
     USING (((( SELECT "current_role"() AS "current_role") = 'manager'::text) AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[]))));
+
+
+-- =============================================================================
+-- 173 — Index pour l'historique d'un équipement
+-- =============================================================================
+-- Symptôme corrigé : l'onglet Historique d'une fiche équipement parcourait tout
+-- un index d'operations_execution pour quelques lignes (213 blocs lus pour 4
+-- lignes, EXPLAIN du 24/11/2026).
+--
+-- Cause : la requête filtre `equipement_id = …` et trie par `created_at DESC`,
+-- mais aucun index ne commence par equipement_id.
+--
+-- Correctif : index partiel (equipement_id, created_at DESC, id) sur les lignes
+-- rattachées à un équipement.
+--
+-- Innocuité : ajout d'index uniquement ; 2 803 lignes, création instantanée.
+--
+-- Vérification après application :
+--     SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_opex_equipement_date';
+-- =============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_opex_equipement_date
+    ON public.operations_execution (equipement_id, created_at DESC, id)
+    WHERE equipement_id IS NOT NULL;
+
+COMMENT ON INDEX public.idx_opex_equipement_date IS
+  'Historique d''un équipement (onglet Historique de la fiche) (173).';
