@@ -6,6 +6,7 @@ import { routeTree } from './routeTree.gen'
 import { AuthProvider, useAuth } from './auth'
 import { ThemeProvider } from './components/theme'
 import { Toaster } from './components/ui/sonner'
+import { ErreurDeRendu } from './components/common/erreur-de-rendu'
 import './index.css'
 
 // Fraîcheur par défaut 60 s pour TOUTES les queries : évite le re-fetch à chaque montage (c'était déjà le défaut de facto, répété query par query).
@@ -28,6 +29,8 @@ const router = createRouter({
   // Les données sont gérées par TanStack Query (recommandation de la doc
   // TanStack quand Query est utilisé) : le routeur ne garde pas sa propre copie.
   defaultPreloadStaleTime: 0,
+  // Une page qui plante au rendu affiche un écran français avec « Réessayer ».
+  defaultErrorComponent: ErreurDeRendu,
 })
 
 declare module '@tanstack/react-router' {
