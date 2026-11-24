@@ -25,7 +25,9 @@ vi.mock('@/auth', () => ({
 }))
 vi.mock('./mutations', () => ({
   useUpdateOperationExecution: vi.fn(),
+  useRafraichirOt: () => rafraichir,
 }))
+const rafraichir = vi.hoisted(() => vi.fn())
 
 /** Arguments observés d'une écriture d'opération (le reste ne nous dit rien). */
 interface EcritureOp {
@@ -42,6 +44,7 @@ vi.mocked(useUpdateOperationExecution).mockReturnValue({
 } as unknown as ReturnType<typeof useUpdateOperationExecution>)
 
 beforeEach(() => {
+  rafraichir.mockClear()
   ecrire.mockClear()
   erreur.mockClear()
 })
@@ -119,6 +122,7 @@ describe('useOperationsEditor — une mesure terminée exige sa valeur', () => {
     await enregistrer()
 
     expect(ecrire).not.toHaveBeenCalled()
+    expect(rafraichir).not.toHaveBeenCalled()
     expect(erreur).toHaveBeenCalledWith(
       'Valeur mesurée manquante : Relevé compteur eau',
     )
@@ -148,7 +152,10 @@ describe('useOperationsEditor — une mesure terminée exige sa valeur', () => {
       expect(ecrire.mock.calls[0]?.[0]).toMatchObject({
         statut,
         valeurMesuree: null,
+        // L'éditeur rafraîchit lui-même, une fois, après la boucle (1.7).
+        differerRafraichissement: true,
       })
+      expect(rafraichir).toHaveBeenCalledTimes(1)
     },
   )
 

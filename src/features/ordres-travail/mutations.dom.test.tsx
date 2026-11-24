@@ -9,13 +9,13 @@ import {
   type Enregistreur,
 } from '@/test/supabase-enregistreur'
 import { OT_QUERY_KEYS } from './query-keys'
-import { useUpdateOperationExecution } from './mutations'
+import { useRafraichirOt, useUpdateOperationExecution } from './mutations'
 
 /**
  * TESTS DE GEL (phase 0 de l'audit d'architecture) : l'enregistrement d'une
  * opération d'OT. État actuel : UNE écriture `operations_execution` par
- * opération, suivie de l'invalidation de TOUTES les clés OT (`OT_QUERY_KEYS`) —
- * donc N invalidations quand l'éditeur enregistre N opérations en série.
+ * opération. Isolée, elle invalide toutes les clés OT ; l'éditeur, qui en
+ * enregistre plusieurs, reporte et rafraîchit UNE fois (étape 1.7).
  */
 const enr = vi.hoisted(() => ({ courant: null as Enregistreur | null }))
 vi.mock('@/lib/supabase', () => ({ supabase: clientEnregistreur(enr) }))
@@ -61,7 +61,7 @@ describe('useUpdateOperationExecution — gel', () => {
     }
   })
 
-  it('ÉTAT ACTUEL : trois opérations enregistrées en série = trois vagues d’invalidation', async () => {
+  it('sans report : chaque opération rafraîchit (appel isolé)', async () => {
     enr.courant = nouvelEnregistreur({ reponses: [{}, {}, {}] })
     const { wrapper, invalidations } = harnais()
     const { result } = renderHook(() => useUpdateOperationExecution(), {
@@ -70,7 +70,29 @@ describe('useUpdateOperationExecution — gel', () => {
     for (const id of ['op-1', 'op-2', 'op-3']) {
       await result.current.mutateAsync({ ...saisie, id })
     }
-    expect(enr.courant.requetes).toHaveLength(3)
     expect(invalidations).toHaveBeenCalledTimes(3 * OT_QUERY_KEYS.length)
+  })
+
+  it('avec report (éditeur, 1.7) : aucune invalidation par opération, une seule via useRafraichirOt', async () => {
+    enr.courant = nouvelEnregistreur({ reponses: [{}, {}, {}] })
+    const { wrapper, invalidations } = harnais()
+    const { result } = renderHook(
+      () => ({
+        maj: useUpdateOperationExecution(),
+        rafraichir: useRafraichirOt(),
+      }),
+      { wrapper },
+    )
+    for (const id of ['op-1', 'op-2', 'op-3']) {
+      await result.current.maj.mutateAsync({
+        ...saisie,
+        id,
+        differerRafraichissement: true,
+      })
+    }
+    expect(enr.courant.requetes).toHaveLength(3)
+    expect(invalidations).not.toHaveBeenCalled()
+    result.current.rafraichir()
+    expect(invalidations).toHaveBeenCalledTimes(OT_QUERY_KEYS.length)
   })
 })

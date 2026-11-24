@@ -7,7 +7,7 @@ import { todayLocal } from '@/lib/date'
 import { writeErrorMessage } from '@/lib/form'
 import type { Database } from '@/lib/database.types'
 import { estVerrouille } from './schemas'
-import { useUpdateOperationExecution } from './mutations'
+import { useRafraichirOt, useUpdateOperationExecution } from './mutations'
 import {
   estMesureExecution,
   statutOpTerminal,
@@ -49,6 +49,7 @@ export function useOperationsEditor({
 }: UseOperationsEditorParams) {
   const { session } = useAuth()
   const updateOp = useUpdateOperationExecution()
+  const rafraichirOt = useRafraichirOt()
 
   // Édition des opérations (clé = id) : un SEUL bouton adaptatif sauvegarde les
   // opérations modifiées. La clôture d'un OT normal est AUTOMATIQUE côté backend
@@ -230,12 +231,17 @@ export function useOperationsEditor({
               ? e.dateRemplacement
               : e.dateExec
             : null,
+          // Un seul rafraîchissement après la boucle (et non un par opération).
+          differerRafraichissement: true,
         })
       } catch (err) {
         errors.push(err)
       }
     }
     setSavingOps(false)
+    // Au moins une opération enregistrée : le statut de l'OT a pu changer
+    // (trigger) → liste, détail, planning et opérations relus, UNE fois.
+    if (errors.length < dirtyOps.length) rafraichirOt()
     if (errors.length === 0) {
       // Calculé AVANT de vider edits. Re-clôture auto d'un OT rouvert : si
       // l'enregistrement n'a changé AUCUN statut d'opération, le trigger de clôture

@@ -241,6 +241,12 @@ export function useUpdateOperationExecution() {
       indexDepose: number | null
       indexPose: number | null
       dateRemplacement: string | null
+      /**
+       * Vrai quand l'appelant enregistre PLUSIEURS opérations à la suite : il
+       * rafraîchit lui-même une seule fois à la fin (`useRafraichirOt`), au lieu
+       * d'une vague d'invalidation par opération.
+       */
+      differerRafraichissement?: boolean
     }) => {
       let dateExecution = p.dateExecution
       if (p.statut === 'en_attente') {
@@ -273,6 +279,19 @@ export function useUpdateOperationExecution() {
     // Le statut de l'OT a pu basculer (trigger gestion_statut_ot) → liste + détail +
     // planning + opérations, tous couverts par `invalidateOt` (la clé `['ordres_travail']`
     // invalide par préfixe `['ordres_travail','operations',otId]`).
-    onSuccess: () => invalidateOt(qc),
+    onSuccess: (_data, p) => {
+      if (!p.differerRafraichissement) invalidateOt(qc)
+    },
   })
+}
+
+/**
+ * Rafraîchit en UNE fois tout ce qu'un changement d'OT impacte : pour un
+ * appelant qui a enchaîné plusieurs écritures (`differerRafraichissement`).
+ */
+export function useRafraichirOt() {
+  const qc = useQueryClient()
+  return () => {
+    invalidateOt(qc)
+  }
 }
