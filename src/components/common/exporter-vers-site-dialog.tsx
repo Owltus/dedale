@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
-import { useSiteContext } from '@/lib/site-context'
+import { useSiteContext } from '@/features/sites/site-context'
 import { exportErrorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/common/dialog-shell'

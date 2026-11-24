@@ -6,7 +6,8 @@ import { gammesQueries } from '../queries'
 import { useGammeBadges } from '../use-gamme-badges'
 import { useDeleteGamme } from '../mutations'
 import { GammeFormDialog } from './gamme-form-dialog'
-import { GammeDetail, type GammeRow } from './gamme-detail'
+import { GammeDetail } from './gamme-detail'
+import type { GammeRow } from '../queries'
 import { GammeCard } from './gamme-card'
 import { SousCategorieSplit } from './sous-categorie-split'
 import {
@@ -18,7 +19,7 @@ import { ConfirmDeleteCategorieDialog } from '@/features/categories/components/c
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { CategorieCard } from '@/features/categories/components/categorie-card'
 import { SousCategorieCard } from '@/features/categories/components/sous-categorie-card'
-import { useGammesDrill } from '@/hooks/use-gammes-drill'
+import { useGammesDrill } from '../use-gammes-drill'
 import {
   useCatalogueDrill,
   type CatalogueDrillCat,

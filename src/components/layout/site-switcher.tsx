@@ -1,5 +1,5 @@
 import { Building2, Check, ChevronDown, ChevronsUpDown } from 'lucide-react'
-import { useSiteContext } from '@/lib/site-context'
+import { useSiteContext } from '@/features/sites/site-context'
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -2,7 +2,7 @@ import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { toutesLesLignes } from '@/lib/pagination'
 import { referentielQueryOptions } from '@/lib/referentiel'
-import type { GammeRow } from '@/features/gammes/components/gamme-detail'
+import type { GammeRow } from '@/features/gammes/queries'
 import type { DocumentMeta } from '@/features/documents/format'
 import type { Database } from '@/lib/database.types'
 

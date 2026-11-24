@@ -1,6 +1,6 @@
 import { redirect } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
-import { currentRoleQueryOptions } from '@/hooks/use-current-role'
+import { currentRoleQueryOptions } from '@/features/utilisateurs/queries'
 import type { Role } from '@/lib/permissions'
 import { canSeeNav, landingFor, type NavKey } from '@/lib/nav'
 

@@ -18,7 +18,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
  * de type `button`.
  */
 
-vi.mock('@/lib/site-context', () => ({
+vi.mock('@/features/sites/site-context', () => ({
   useSiteContext: () => ({
     sites: [{ id: 's1', nom: 'Site A' }],
   }),

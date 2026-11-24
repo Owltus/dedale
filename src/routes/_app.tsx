@@ -8,12 +8,10 @@ import {
 } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
-import {
-  currentRoleQueryOptions,
-  useCurrentRole,
-} from '@/hooks/use-current-role'
+import { useCurrentRole } from '@/hooks/use-current-role'
+import { currentRoleQueryOptions } from '@/features/utilisateurs/queries'
 import { sitesQueries } from '@/features/sites/queries'
-import { SiteProvider, useSiteContext } from '@/lib/site-context'
+import { SiteProvider, useSiteContext } from '@/features/sites/site-context'
 import * as perm from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 import { AppSidebar } from '@/components/layout/app-sidebar'

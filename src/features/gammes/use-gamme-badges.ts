@@ -9,7 +9,7 @@ import {
   statutAffichageAgrege,
   type GammeStatutInput,
 } from './statut-affichage'
-import type { GammeRow } from './components/gamme-detail'
+import type { GammeRow } from './queries'
 
 /** Catégorie de gamme (scope 'gamme'/'mixte') telle que consommée pour les badges. */
 interface GammeCat {

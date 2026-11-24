@@ -4,7 +4,7 @@ import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import type { DocumentMeta } from '@/features/documents/format'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
-import { useSiteContext } from '@/lib/site-context'
+import { useSiteContext } from '@/features/sites/site-context'
 import type { PlanningOt } from '@/features/planning/grille'
 import { DialogShell } from '@/components/common/dialog-shell'
 

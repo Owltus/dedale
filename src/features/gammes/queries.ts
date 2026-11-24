@@ -5,6 +5,16 @@ import { referentielQueryOptions } from '@/lib/referentiel'
 import { sousCategoriesNiveau2 } from '@/lib/scope'
 import type { Database } from '@/lib/database.types'
 
+/** Gamme de site avec sa périodicité et son prestataire (fiche, cartes, prestataires). */
+export type GammeRow = Database['public']['Tables']['gammes']['Row'] & {
+  periodicites: {
+    id: number
+    libelle: string
+    jours_periodicite: number
+  } | null
+  prestataires: { id: string; libelle: string } | null
+}
+
 /**
  * Opération d'une gamme, enrichie de son type et de son unité (retour exact de
  * `gammesQueries.operations`). Partagée par la fiche de gamme de site

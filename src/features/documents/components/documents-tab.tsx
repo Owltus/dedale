@@ -12,7 +12,7 @@ import {
 import { UploadDocumentDialog } from '@/features/documents/components/upload-document-dialog'
 import type { DocumentNamingContext } from '@/features/documents/naming'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { useSiteContext } from '@/lib/site-context'
+import { useSiteContext } from '@/features/sites/site-context'
 import { cn } from '@/lib/utils'
 import * as perm from '@/lib/permissions'
 import { EmptyState } from '@/components/common/empty-state'

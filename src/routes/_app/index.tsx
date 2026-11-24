@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireNav } from '@/lib/nav-guard'
-import { useSiteContext } from '@/lib/site-context'
+import { useSiteContext } from '@/features/sites/site-context'
 import { Dashboard } from '@/features/dashboard/components/dashboard'
 import { PAGE_META } from '@/features/dashboard/page-meta'
 import {

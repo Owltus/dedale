@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ScopeContext, type ScopeContextValue } from '@/hooks/use-scope'
-import { useSiteContext } from '@/lib/site-context'
+import { useSiteContext } from '@/features/sites/site-context'
 import { SCOPE_COMMUN } from '@/lib/scope'
 
 /**

@@ -21,8 +21,11 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { useNonClotures, type NonClotures } from '@/hooks/use-non-clotures'
-import { useSiteContext } from '@/lib/site-context'
+import {
+  useNonClotures,
+  type NonClotures,
+} from '@/features/dashboard/use-non-clotures'
+import { useSiteContext } from '@/features/sites/site-context'
 import { PastilleATraiter } from '@/components/common/pastille-a-traiter'
 import { prechargerPage } from '@/components/layout/prechargement-pages'
 import { useQueryClient } from '@tanstack/react-query'

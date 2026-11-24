@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Package, Paperclip, Plus, Wrench } from 'lucide-react'
-import { gammesQueries } from '@/features/gammes/queries'
+import { gammesQueries, type GammeRow } from '@/features/gammes/queries'
 import { NATURE_GAMME_LABEL } from '@/features/gammes/schemas'
 import { EquipementsLinkDialog } from '@/features/gammes/components/equipements-link-dialog'
 import { GammeModelesSection } from '@/features/gammes/components/gamme-modeles-section'
@@ -33,16 +33,6 @@ import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRow } from '@/components/common/list-row'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import type { Database } from '@/lib/database.types'
-
-export type GammeRow = Database['public']['Tables']['gammes']['Row'] & {
-  periodicites: {
-    id: number
-    libelle: string
-    jours_periodicite: number
-  } | null
-  prestataires: { id: string; libelle: string } | null
-}
 
 type Tab = 'ordres' | 'operations' | 'equipements' | 'documents'
 

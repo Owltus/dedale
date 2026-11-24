@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { useCurrentRole } from '@/hooks/use-current-role'
-import { useSiteContext } from '@/lib/site-context'
+import { useSiteContext } from '@/features/sites/site-context'
 import * as perm from '@/lib/permissions'
 import type { Role } from '@/lib/permissions'
 import { NoSiteSelected } from '@/components/common/no-site-selected'

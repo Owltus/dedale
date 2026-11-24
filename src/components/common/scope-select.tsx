@@ -1,4 +1,4 @@
-import { useSiteContext } from '@/lib/site-context'
+import { useSiteContext } from '@/features/sites/site-context'
 import { SelectMenu } from '@/components/common/select-menu'
 import { SCOPE_COMMUN } from '@/lib/scope'
 import { cn } from '@/lib/utils'

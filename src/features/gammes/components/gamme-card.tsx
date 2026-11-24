@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import type { OtTriable } from '@/features/ordres-travail/tri'
 import { NATURE_GAMME_LABEL } from '../schemas'
 import { statutAffichageGamme } from '../statut-affichage'
-import type { GammeRow } from './gamme-detail'
+import type { GammeRow } from '../queries'
 
 /**
  * Carte (ListRow média) d'une gamme : vignette + nom + sous-titre + nature +

@@ -1,7 +1,11 @@
 import { useCallback, useMemo } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
-import { useTreeDrill, type TreeDrill, type TreeNode } from './use-tree-drill'
-import { joinSplat, splatCatSegs } from './drill-splat'
+import {
+  useTreeDrill,
+  type TreeDrill,
+  type TreeNode,
+} from '@/hooks/use-tree-drill'
+import { joinSplat, splatCatSegs } from '@/hooks/drill-splat'
 
 // API typée de la route SPLAT `/equipements/<cat>/<sous>/<équipement>`. Via
 // `getRouteApi` pour ne PAS inverser la dépendance features → routes.

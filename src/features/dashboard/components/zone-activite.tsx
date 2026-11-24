@@ -17,7 +17,7 @@ import { statutsTravauxQueries } from '@/features/travaux/queries'
 import { statutsEvenementsQueries } from '@/features/evenements/queries'
 import { activiteQueries } from '../activite-queries'
 import { listStack } from '@/lib/responsive'
-import { useNonClotures } from '@/hooks/use-non-clotures'
+import { useNonClotures } from '../use-non-clotures'
 import { PastilleATraiter } from '@/components/common/pastille-a-traiter'
 import {
   lignesDemandes,

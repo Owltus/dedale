@@ -35,7 +35,7 @@ import { CategoryFormDialog } from '@/features/categories/components/category-fo
 import { ConfirmDeleteCategorieDialog } from '@/features/categories/components/confirm-delete-categorie-dialog'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
-import { useEquipementsDrill } from '@/hooks/use-equipements-drill'
+import { useEquipementsDrill } from '../use-equipements-drill'
 import {
   useCatalogueDrill,
   type CatalogueDrillCat,

@@ -16,7 +16,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth'
 import { messageErreurAuth, writeErrorMessage } from '@/lib/form'
-import { useSiteContext } from '@/lib/site-context'
+import { useSiteContext } from '@/features/sites/site-context'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { TextField } from '@/components/common/fields/text-field'
