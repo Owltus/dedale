@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import type { NavKey } from '@/lib/nav'
+import { FILTRE_NON_TERMINES } from '@/components/common/list-filter-bar'
 import { demandesQueries } from '@/features/demandes/queries'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import {
@@ -43,8 +44,8 @@ const PAGES: Partial<
   Record<NavKey, (qc: QueryClient, siteId: string) => Promise<unknown>[]>
 > = {
   '/demandes': (qc, s) => [
-    qc.prefetchQuery(demandesQueries.list(s)),
-    qc.prefetchQuery(demandesQueries.locauxParDi(s)),
+    // 1re page du filtre par défaut (« non terminées »), lieux compris.
+    qc.prefetchInfiniteQuery(demandesQueries.page(s, FILTRE_NON_TERMINES, '')),
   ],
   '/ordres-travail': (qc, s) => [
     qc.prefetchQuery(ordresTravailQueries.list(s)),

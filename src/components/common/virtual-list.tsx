@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
 /** Premier ancêtre qui défile verticalement (le `ScrollBody` de la page). */
@@ -15,6 +15,11 @@ interface VirtualListProps<T> {
   /** Clé stable d'une ligne (son id) : garde la mesure et le focus au bon endroit. */
   getKey: (item: T) => string
   renderItem: (item: T) => ReactNode
+  /**
+   * Appelé quand les dernières lignes chargées deviennent visibles : la page
+   * demande alors la suite (chargement au fil du défilement).
+   */
+  surFin?: () => void
 }
 
 /**
@@ -36,6 +41,7 @@ export function VirtualList<T>({
   items,
   getKey,
   renderItem,
+  surFin,
 }: VirtualListProps<T>) {
   const [liste, setListe] = useState<HTMLDivElement | null>(null)
   const [zone, setZone] = useState<HTMLElement | null>(null)
@@ -89,6 +95,13 @@ export function VirtualList<T>({
     overscan: 8,
     scrollMargin: marge,
   })
+
+  // Suite à charger : la dernière ligne rendue est à moins de 10 lignes du bout.
+  const derniere = v.getVirtualItems().at(-1)?.index ?? -1
+  const presDuBout = items.length > 0 && derniere >= items.length - 10
+  useEffect(() => {
+    if (presDuBout) surFin?.()
+  }, [presDuBout, items.length, surFin])
 
   return (
     <div

@@ -69,6 +69,8 @@ function DemandeResolver({
       identity={(d) => ({ nom: diTitre(d.constat), id: d.id })}
       onSlugChange={onSlugChange}
       apercu={apercu}
+      // Lien `slug~id` : lecture directe de LA demande, jamais des 4 000+.
+      parIdCourt={(court) => demandesQueries.parIdCourt(siteId, court)}
       title="Demande d'intervention"
       onBack={() => void navigate({ to: '/demandes' })}
       notFound={{

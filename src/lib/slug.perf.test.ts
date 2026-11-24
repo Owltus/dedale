@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { resoudreAlias, segAlias, segOfUnique, slugify } from './slug'
+import {
+  bornesUuid,
+  partiesAlias,
+  resoudreAlias,
+  segAlias,
+  segOfUnique,
+  slugify,
+} from './slug'
 
 /** Version d'AVANT (24/11/2026), recopiée telle quelle : l'oracle du résultat. */
 function segOfUniqueReference(
@@ -109,5 +116,31 @@ describe('segAlias / resoudreAlias — liens d’aperçu', () => {
     expect(resoudreAlias('retouche-peinture', items, ident)).toBeNull()
     expect(resoudreAlias('retouche-peinture~zzzzzzzz', items, ident)).toBeNull()
     expect(resoudreAlias('autre-chose~aaaaaaaa', items, ident)).toBeNull()
+  })
+})
+
+describe('partiesAlias / bornesUuid — lecture directe d’une fiche', () => {
+  it('découpe un lien `slug~id court` valide', () => {
+    expect(partiesAlias('fuite-ch-214~3f2a9c1b')).toEqual({
+      base: 'fuite-ch-214',
+      court: '3f2a9c1b',
+    })
+  })
+
+  it('refuse un slug pur, un discriminant non hexadécimal ou mal dimensionné', () => {
+    expect(partiesAlias('fuite-ch-214')).toBeNull()
+    expect(partiesAlias('fuite~zzzzzzzz')).toBeNull()
+    expect(partiesAlias('fuite~3f2a9c1')).toBeNull()
+    expect(partiesAlias('~3f2a9c1b')).toBeNull()
+  })
+
+  it('bornes : couvrent exactement les uuid commençant par le discriminant', () => {
+    const [de, a] = bornesUuid('3f2a9c1b')
+    const dedans = '3f2a9c1b-1234-4abc-8def-0123456789ab'
+    const avant = '3f2a9c1a-ffff-ffff-ffff-ffffffffffff'
+    const apres = '3f2a9c1c-0000-0000-0000-000000000000'
+    expect(de <= dedans && dedans <= a).toBe(true)
+    expect(avant < de).toBe(true)
+    expect(apres > a).toBe(true)
   })
 })

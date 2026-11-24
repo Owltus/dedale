@@ -17140,3 +17140,83 @@ COMMENT ON VIEW public.v_gammes_dernier_passage IS
 
 REVOKE ALL ON public.v_gammes_dernier_passage FROM PUBLIC, anon;
 GRANT SELECT ON public.v_gammes_dernier_passage TO authenticated;
+
+
+-- =============================================================================
+-- 171 — Page de demandes filtrée et cherchée côté base
+-- =============================================================================
+-- Symptôme corrigé : la page Demandes téléchargeait les 4 071 DI du site (5
+-- pages) à chaque ouverture et à chaque mise à jour temps réel, pour en
+-- afficher une vingtaine (13 non clôturées par défaut). Filtre et recherche se
+-- faisaient ensuite en JavaScript.
+--
+-- Cause : la recherche porte aussi sur le NOM DU LIEU (table de liaison
+-- di_localisations), que PostgREST ne sait pas filtrer efficacement sous RLS
+-- (réévaluation ligne par ligne, cf. 168).
+--
+-- Correctif : `public.demandes_du_site(p_site_id, p_statut, p_recherche,
+-- p_limite, p_decalage)` renvoie UNE PAGE de demandes du site :
+--   - p_statut : 'non_terminees' (Ouvert + En cours), 'toutes', ou '1'/'2'/'3' ;
+--   - p_recherche : texte cherché (sans tenir compte de la casse) dans le
+--     constat OU le nom d'un lieu de la demande — même règle que la recherche
+--     JavaScript d'avant (`includes` sur le texte en minuscules) ;
+--   - tri : date_constat ↓, created_at ↓, id (celui de la liste d'avant).
+-- Accès vérifié UNE fois par has_site_access(p_site_id), comme 168.
+--
+-- Innocuité :
+-- - lecture seule ; aucune table ni policy modifiée ;
+-- - droits identiques à la lecture directe : toutes les policies SELECT de
+--   demandes_intervention (admin_all, site_scoped_select, demandeur_select)
+--   reviennent à has_site_access(site_id) — admin compris — et la fonction ne
+--   lit que les demandes DU site demandé ;
+-- - SECURITY DEFINER, search_path figé ; exécution réservée à authenticated.
+--
+-- Vérification après application :
+--     SELECT has_function_privilege('anon', 'public.demandes_du_site(uuid,text,text,integer,integer)', 'EXECUTE');
+--     -- attendu : false
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.demandes_du_site(
+    p_site_id   uuid,
+    p_statut    text    DEFAULT 'non_terminees',
+    p_recherche text    DEFAULT NULL,
+    p_limite    integer DEFAULT 50,
+    p_decalage  integer DEFAULT 0
+)
+RETURNS SETOF public.demandes_intervention
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT d.*
+    FROM public.demandes_intervention d
+    WHERE d.site_id = p_site_id
+      -- Contrôle d'accès UNE fois pour tout le site (au lieu de ligne par ligne).
+      AND public.has_site_access(p_site_id)
+      AND CASE
+            WHEN p_statut = 'non_terminees' THEN d.statut_di_id <> 3
+            WHEN p_statut = 'toutes'        THEN TRUE
+            ELSE d.statut_di_id::text = p_statut
+          END
+      AND (
+            coalesce(btrim(p_recherche), '') = ''
+            OR strpos(lower(d.constat), lower(btrim(p_recherche))) > 0
+            OR EXISTS (
+                SELECT 1
+                FROM public.di_localisations dl
+                JOIN public.locaux l ON l.id = dl.local_id
+                WHERE dl.di_id = d.id
+                  AND strpos(lower(l.nom), lower(btrim(p_recherche))) > 0
+            )
+          )
+    ORDER BY d.date_constat DESC, d.created_at DESC, d.id
+    LIMIT greatest(1, least(coalesce(p_limite, 50), 200))
+    OFFSET greatest(0, coalesce(p_decalage, 0));
+$$;
+
+COMMENT ON FUNCTION public.demandes_du_site(uuid, text, text, integer, integer) IS
+  'Une page de demandes du site, filtrée par statut et cherchée (constat ou lieu) côté base ; accès vérifié une fois par has_site_access (171).';
+
+REVOKE ALL ON FUNCTION public.demandes_du_site(uuid, text, text, integer, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.demandes_du_site(uuid, text, text, integer, integer) TO authenticated;

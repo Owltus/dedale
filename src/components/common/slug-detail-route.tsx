@@ -4,7 +4,13 @@ import { useQuery } from '@tanstack/react-query'
 import type { QueryKey, UseQueryOptions } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
 import { useSlugResolved } from '@/hooks/use-slug-resolved'
-import { resoudreAlias, segOfUnique } from '@/lib/slug'
+import {
+  partiesAlias,
+  resoudreAlias,
+  segAlias,
+  segOfUnique,
+  slugify,
+} from '@/lib/slug'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -15,6 +21,7 @@ import { Button } from '@/components/ui/button'
 interface SlugDetailRouteProps<
   TItem extends { id: string },
   TQueryKey extends QueryKey,
+  TCleCourt extends QueryKey = QueryKey,
 > {
   /**
    * Options de la query LISTE (cache partagé avec la page liste — pas de query
@@ -64,6 +71,15 @@ interface SlugDetailRouteProps<
    * pendant que la liste complète se charge, au lieu d'un squelette.
    */
   apercu?: readonly TItem[]
+  /**
+   * Lecture DIRECTE d'une fiche ouverte par un lien `slug~id court`
+   * (`segAlias`) : la poignée de lignes dont l'id commence par ces 8
+   * caractères, au lieu de toute la liste. Sans elle (ou pour un ancien lien
+   * en slug pur), la fiche se résout par la liste, comme avant.
+   */
+  parIdCourt?: (
+    court: string,
+  ) => UseQueryOptions<TItem[], Error, TItem[], TCleCourt>
 }
 
 /**
@@ -77,6 +93,7 @@ interface SlugDetailRouteProps<
 export function SlugDetailRoute<
   TItem extends { id: string },
   TQueryKey extends QueryKey,
+  TCleCourt extends QueryKey = QueryKey,
 >({
   options,
   slug,
@@ -88,8 +105,25 @@ export function SlugDetailRoute<
   notFound,
   children,
   apercu,
-}: SlugDetailRouteProps<TItem, TQueryKey>) {
-  const { data, isPending, isError, refetch } = useQuery(options)
+  parIdCourt,
+}: SlugDetailRouteProps<TItem, TQueryKey, TCleCourt>) {
+  // Lien `slug~id court` + lecture directe disponible → on ne lit PAS la liste.
+  const alias = parIdCourt ? partiesAlias(slug) : null
+  const optionsDirectes = alias && parIdCourt ? parIdCourt(alias.court) : null
+  const { data, isPending, isError, refetch } = useQuery({
+    ...options,
+    enabled: optionsDirectes ? false : options.enabled,
+  })
+  const directe = useQuery({
+    ...(optionsDirectes ??
+      (options as unknown as UseQueryOptions<
+        TItem[],
+        Error,
+        TItem[],
+        TCleCourt
+      >)),
+    enabled: optionsDirectes !== null,
+  })
 
   // Résolution slug → entité (MÊMES frères qu'à la génération du lien, symétrie
   // segOfUnique) AVEC repli par id : renommer l'entité ouverte ne l'éjecte plus
@@ -120,10 +154,50 @@ export function SlugDetailRoute<
   const parAlias = item ? null : resoudreAlias(slug, items, identity)
   const canonique = parAlias ? segOfUnique(identity(parAlias), sibs) : null
   useEffect(() => {
-    if (canonique && canonique !== slug) onSlugChange(canonique)
-  }, [canonique, slug, onSlugChange])
+    if (!optionsDirectes && canonique && canonique !== slug)
+      onSlugChange(canonique)
+  }, [optionsDirectes, canonique, slug, onSlugChange])
 
-  if (isPending) {
+  // ── Mode direct (lien `slug~id court`) ──────────────────────────────────────
+  // L'id désigne l'entité : si plusieurs ids partagent ces 8 caractères (rare),
+  // le slug départage ; un seul → c'est elle, même renommée depuis (l'URL est
+  // alors remise à jour vers son nouveau lien).
+  const choisir = (rows: readonly TItem[]): TItem | null => {
+    if (!alias) return null
+    const memeId = rows.filter((r) => identity(r).id.startsWith(alias.court))
+    return (
+      memeId.find((r) => slugify(identity(r).nom) === alias.base) ??
+      (memeId.length === 1 ? memeId[0]! : null)
+    )
+  }
+  const itemDirect = optionsDirectes ? choisir(directe.data ?? []) : null
+  const lienFrais = itemDirect ? segAlias(identity(itemDirect)) : null
+  useEffect(() => {
+    if (lienFrais && lienFrais !== slug) onSlugChange(lienFrais)
+  }, [lienFrais, slug, onSlugChange])
+
+  if (optionsDirectes) {
+    if (directe.isPending) {
+      // Déjà en cache (aperçu du tableau de bord, liste déjà lue) : tout de suite.
+      const deja = choisir([...(apercu ?? []), ...(data ?? [])])
+      if (deja) return <>{children(deja)}</>
+      return (
+        <PageContainer>
+          <PageHeader title={title} onBack={onBack} />
+          <DetailSkeleton />
+        </PageContainer>
+      )
+    }
+    if (directe.isError) {
+      return (
+        <PageContainer>
+          <PageHeader title={title} onBack={onBack} />
+          <ErrorState onRetry={() => void directe.refetch()} />
+        </PageContainer>
+      )
+    }
+    if (itemDirect) return <>{children(itemDirect)}</>
+  } else if (isPending) {
     const deja = apercu ? resoudreAlias(slug, apercu, identity) : null
     if (deja) return <>{children(deja)}</>
     return (

@@ -1,10 +1,133 @@
-import { queryOptions } from '@tanstack/react-query'
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 import { toutesLesLignes } from '@/lib/pagination'
 import { supabase } from '@/lib/supabase'
+import { bornesUuid } from '@/lib/slug'
+import {
+  FILTRE_NON_TERMINES,
+  FILTRE_TOUS,
+} from '@/components/common/list-filter-bar'
 import { modelesDiQueries as modelesDiCatalogueQueries } from '@/features/modeles-di/queries'
+
+/** Taille d'une page de la liste des demandes (chargée au fil du défilement). */
+export const DEMANDES_PAR_PAGE = 50
+
+/** Filtre de statut de la liste → paramètre `p_statut` de `demandes_du_site` (171). */
+function statutPourBase(filtre: string): string {
+  if (filtre === FILTRE_NON_TERMINES) return 'non_terminees'
+  if (filtre === FILTRE_TOUS) return 'toutes'
+  return filtre
+}
+
+/**
+ * Lieu(x) de quelques demandes (di_id → « Chambre 214, Chambre 109 ») : noms
+ * dans l'ordre des locaux, sans doublon ni nom vide — même texte que la
+ * fonction 168. Pour une page de liste ou un aperçu, jamais tout le site.
+ */
+export async function lieuxDesDemandes(
+  ids: readonly string[],
+  signal: AbortSignal,
+): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map()
+  const { data } = await supabase
+    .from('di_localisations')
+    .select('di_id, local_id, locaux(nom)')
+    .in('di_id', [...ids])
+    .order('di_id')
+    .order('local_id')
+    .abortSignal(signal)
+    .throwOnError()
+  const noms = new Map<string, string[]>()
+  for (const r of data) {
+    const nom = r.locaux.nom
+    if (!nom) continue
+    const liste = noms.get(r.di_id) ?? []
+    if (!liste.includes(nom)) liste.push(nom)
+    noms.set(r.di_id, liste)
+  }
+  return new Map([...noms].map(([id, l]) => [id, l.join(', ')]))
+}
 
 export const demandesQueries = {
   all: () => ['demandes_intervention'] as const,
+
+  /**
+   * Liste PAGINÉE de la page Demandes : filtre de statut et recherche (constat
+   * OU nom du lieu) faits par la base (`demandes_du_site`, 171), 50 demandes à
+   * la fois, chargées au fil du défilement. Chaque page porte les lieux de SES
+   * demandes. Par défaut (« non terminées »), une seule petite page suffit.
+   */
+  page: (siteId: string, filtre: string, recherche: string) =>
+    infiniteQueryOptions({
+      queryKey: [
+        ...demandesQueries.all(),
+        'page',
+        siteId,
+        filtre,
+        recherche,
+      ] as const,
+      initialPageParam: 0,
+      queryFn: async ({ pageParam, signal }) => {
+        const { data } = await supabase
+          .rpc('demandes_du_site', {
+            p_site_id: siteId,
+            p_statut: statutPourBase(filtre),
+            p_recherche: recherche,
+            p_limite: DEMANDES_PAR_PAGE,
+            p_decalage: pageParam,
+          })
+          .abortSignal(signal)
+          .throwOnError()
+        const lieux = await lieuxDesDemandes(
+          data.map((d) => d.id),
+          signal,
+        )
+        return { demandes: data, lieux, decalage: pageParam }
+      },
+      getNextPageParam: (derniere) =>
+        derniere.demandes.length < DEMANDES_PAR_PAGE
+          ? undefined
+          : derniere.decalage + DEMANDES_PAR_PAGE,
+      staleTime: 5 * 60_000,
+    }),
+
+  /** Le site a-t-il au moins une demande ? (écran vide d'accueil de la page) */
+  existe: (siteId: string) =>
+    queryOptions({
+      queryKey: [...demandesQueries.all(), 'existe', siteId] as const,
+      queryFn: async ({ signal }) => {
+        // Une seule ligne lue (un comptage exact parcourait les 4 000+ DI).
+        const { data } = await supabase
+          .from('demandes_intervention')
+          .select('id')
+          .eq('site_id', siteId)
+          .limit(1)
+          .abortSignal(signal)
+          .throwOnError()
+        return data.length > 0
+      },
+    }),
+
+  /**
+   * Fiche ouverte par son lien `slug~id court` : la (rare) poignée de demandes
+   * dont l'id commence par ces 8 caractères — une lecture d'index, jamais la
+   * liste du site. Même forme de ligne que `list`.
+   */
+  parIdCourt: (siteId: string, court: string) =>
+    queryOptions({
+      queryKey: [...demandesQueries.all(), 'id-court', siteId, court] as const,
+      queryFn: async ({ signal }) => {
+        const [de, a] = bornesUuid(court)
+        const { data } = await supabase
+          .from('demandes_intervention')
+          .select('*')
+          .eq('site_id', siteId)
+          .gte('id', de)
+          .lte('id', a)
+          .abortSignal(signal)
+          .throwOnError()
+        return data
+      },
+    }),
 
   /**
    * DI du site actif (non supprimées). La RLS restreint déjà la visibilité :
@@ -36,29 +159,6 @@ export const demandesQueries = {
             .abortSignal(signal)
             .throwOnError(),
         ),
-    }),
-
-  /**
-   * Lieu(x) de chaque DI du site (di_id → « Chambre 214, Chambre 109 »), pour
-   * titrer les cartes SANS une requête par carte. Converti en Map par
-   * `lieuxParDi` (`select`).
-   */
-  locauxParDi: (siteId: string | null) =>
-    queryOptions({
-      queryKey: [...demandesQueries.all(), 'locaux-par-di', siteId] as const,
-      enabled: siteId !== null,
-      // Même fraîcheur que la liste (cf. `list`).
-      staleTime: 5 * 60_000,
-      // UN appel (168) : la base vérifie l'accès au site une fois et renvoie
-      // { di_id: "Lieu 1, Lieu 2" }. L'ancienne lecture de `di_localisations`
-      // par pages réévaluait la RLS de trois tables ligne par ligne : ~4 s.
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .rpc('lieux_di_du_site', { p_site_id: siteId! })
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
     }),
 
   /**

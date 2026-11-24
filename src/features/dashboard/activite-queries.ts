@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { demandesQueries } from '@/features/demandes/queries'
+import { demandesQueries, lieuxDesDemandes } from '@/features/demandes/queries'
 import { STATUTS_DI_TERMINAUX } from '@/features/demandes/etat'
 import { travauxQueries } from '@/features/travaux/queries'
 import { STATUTS_TRAVAUX_TERMINAUX } from '@/features/travaux/etat'
@@ -83,27 +83,7 @@ export const activiteQueries = {
         ids,
       ] as const,
       enabled: siteId !== null && ids.length > 0,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('di_localisations')
-          .select('di_id, local_id, locaux(nom)')
-          .in('di_id', [...ids])
-          .order('di_id')
-          .order('local_id')
-          .abortSignal(signal)
-          .throwOnError()
-        // Même texte que `lieux_di_du_site` (168) : noms dans l'ordre des
-        // locaux, sans doublon ni nom vide.
-        const noms = new Map<string, string[]>()
-        for (const r of data) {
-          const nom = r.locaux.nom
-          if (!nom) continue
-          const liste = noms.get(r.di_id) ?? []
-          if (!liste.includes(nom)) liste.push(nom)
-          noms.set(r.di_id, liste)
-        }
-        return new Map([...noms].map(([id, l]) => [id, l.join(', ')]))
-      },
+      queryFn: ({ signal }) => lieuxDesDemandes(ids, signal),
     }),
 
   travaux: (siteId: string) =>

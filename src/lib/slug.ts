@@ -118,3 +118,32 @@ export function resoudreAlias<T>(
     }) ?? null
   )
 }
+
+/** Discriminant d'un lien `segAlias` : 8 caractères hexadécimaux. */
+const COURT_HEX = /^[0-9a-f]{8}$/
+
+/**
+ * Découpe un lien `slug~id court` en `{ base, court }` ; `null` si le segment
+ * n'a pas cette forme (slug pur, uuid complet…).
+ */
+export function partiesAlias(
+  seg: string,
+): { base: string; court: string } | null {
+  const i = seg.lastIndexOf('~')
+  if (i <= 0) return null
+  const court = seg.slice(i + 1)
+  if (!COURT_HEX.test(court)) return null
+  return { base: seg.slice(0, i), court }
+}
+
+/**
+ * Bornes d'uuid couvrant tous les ids qui commencent par `court` (8 hex) :
+ * l'ordre des uuid suit celui de leur écriture hexadécimale, donc une lecture
+ * d'intervalle sur la clé primaire.
+ */
+export function bornesUuid(court: string): [string, string] {
+  return [
+    `${court}-0000-0000-0000-000000000000`,
+    `${court}-ffff-ffff-ffff-ffffffffffff`,
+  ]
+}

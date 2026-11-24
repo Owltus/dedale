@@ -4410,6 +4410,34 @@ export type Database = {
       couper_connexions_claude: { Args: { p_user_id: string }; Returns: number }
       current_role: { Args: never; Returns: string }
       deactivate_inactive_users: { Args: never; Returns: undefined }
+      demandes_du_site: {
+        Args: {
+          p_decalage?: number
+          p_limite?: number
+          p_recherche?: string
+          p_site_id: string
+          p_statut?: string
+        }
+        Returns: {
+          constat: string
+          created_at: string
+          created_by: string
+          date_constat: string
+          date_resolution: string | null
+          description_resolution: string | null
+          id: string
+          resolved_by: string | null
+          site_id: string
+          statut_di_id: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "demandes_intervention"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       detacher_et_supprimer_modele_operation: {
         Args: { p_id: string }
         Returns: undefined
