@@ -178,7 +178,7 @@ function registerKeys(
  *
  * Usage :
  * - `useRealtimeRefresh('miniatures', miniaturesQueries.all())`
- * - `useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)` (plusieurs clés)
+ * - `useRealtimeRefresh('ordres_travail', [ordresTravailQueries.all(), dashboardQueries.all()])` (plusieurs clés)
  */
 export function useRealtimeRefresh(
   table: TablePubliee,

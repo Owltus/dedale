@@ -4,12 +4,15 @@ import { documentsQueries } from './documents/queries'
 import { travauxQueries } from './travaux/queries'
 import { evenementsQueries } from './evenements/queries'
 import { ordresTravailQueries } from './ordres-travail/queries'
-import { OT_QUERY_KEYS } from './ordres-travail/query-keys'
 import { dashboardQueries } from './dashboard/queries'
 import { gammesQueries } from './gammes/queries'
 import { modelesOperationsQueries } from './modeles-operations/queries'
 import { modelesDiQueries as modelesDiCatalogueQueries } from './modeles-di/queries'
 import { modelesDiDuSiteQueries as modelesDiDemandesQueries } from './demandes/queries'
+import { planningQueries } from './planning/queries'
+import { prestatairesQueries } from './prestataires/queries'
+import { equipementsQueries } from './equipements/queries'
+import { localisationsQueries } from './localisations/queries'
 
 // Les modules de requêtes construisent le client Supabase à l'import, ce qui
 // exige des variables d'environnement. Rien ici n'appelle le réseau : on
@@ -89,13 +92,11 @@ describe('G2 — alerte « documents manquants »', () => {
     expect(atteintePar(cle, dashboardQueries.all())).toBe(true)
   })
 
-  it('n’est pas davantage atteinte par les clés OT', () => {
-    // Le document se joint depuis la fiche OT : ni `ordres_travail` ni
-    // `planning` ne couvrent l'alerte, d'où `dashboardQueries.all()` ajouté au
+  it('n’est pas davantage atteinte par la racine OT', () => {
+    // Le document se joint depuis la fiche OT : la racine `ordres_travail`
+    // ne couvre pas l'alerte, d'où `dashboardQueries.all()` ajouté au
     // `onLiaisonChanged` de la fiche.
-    for (const racine of OT_QUERY_KEYS) {
-      expect(atteintePar(cle, racine)).toBe(false)
-    }
+    expect(atteintePar(cle, ordresTravailQueries.all())).toBe(false)
   })
 })
 
@@ -128,5 +129,40 @@ describe('G4 — modelesDiQueries (catalogue) vs modelesDiDuSiteQueries (demande
       true,
     )
     expect(atteintePar(clePool, modelesDiDemandesQueries.all())).toBe(true)
+  })
+})
+
+// ── 3.1 — une seule racine pour toutes les lectures d'OT ──────────────────────
+describe('3.1 — toutes les lectures d’OT sous la racine ordres_travail', () => {
+  const PRESTA = '22222222-2222-2222-2222-222222222222'
+  const lectures: readonly (readonly [string, QueryKey])[] = [
+    [
+      'planning',
+      planningQueries.fenetre(SITE, '2026-11-23', '2026-12-20').queryKey,
+    ],
+    ['tableau de bord (ouverts)', dashboardQueries.otOuverts(SITE).queryKey],
+    [
+      'tableau de bord (période)',
+      dashboardQueries.otPeriode(SITE, '2026-11-01', '2026-12-01').queryKey,
+    ],
+    [
+      'tableau de bord (derniers passages)',
+      dashboardQueries.derniersPassages(SITE).queryKey,
+    ],
+    [
+      'prestataire (onglet OT)',
+      prestatairesQueries.ordresTravail(PRESTA, SITE).queryKey,
+    ],
+    ['liste (ouverts)', ordresTravailQueries.ouverts(SITE).queryKey],
+  ]
+  for (const [nom, cle] of lectures) {
+    it(`${nom} : atteint par une écriture d’OT`, () => {
+      expect(atteintePar(cle, ordresTravailQueries.all())).toBe(true)
+    })
+  }
+
+  it('le chemin des locaux (équipements) suit les localisations', () => {
+    const cle = equipementsQueries.locaux(SITE).queryKey
+    expect(atteintePar(cle, localisationsQueries.all())).toBe(true)
   })
 })

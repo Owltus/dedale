@@ -2,6 +2,7 @@ import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { toutesLesLignes } from '@/lib/pagination'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import { localisationsQueries } from '@/features/localisations/queries'
 
 export const equipementsQueries = {
   all: () => ['equipements'] as const,
@@ -84,7 +85,7 @@ export const equipementsQueries = {
       // dépend des localisations, pas des équipements. Ainsi une mutation ou un
       // Realtime de localisations (qui invalident ['localisations']) rafraîchit ce
       // chemin, tandis qu'une modification d'équipement ne le refetch pas inutilement.
-      queryKey: ['localisations', 'chemins', siteId] as const,
+      queryKey: [...localisationsQueries.all(), 'chemins', siteId] as const,
       queryFn:
         siteId === null
           ? skipToken

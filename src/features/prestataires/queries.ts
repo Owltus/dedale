@@ -5,6 +5,7 @@ import { referentielQueryOptions } from '@/lib/referentiel'
 import type { GammeRow } from '@/features/gammes/queries'
 import type { DocumentMeta } from '@/features/documents/format'
 import type { Database } from '@/lib/database.types'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 
 /** Ligne `contrats` enrichie du libellé de son type (forme renvoyée par `list`/`versions`). */
 export type ContratRow = Database['public']['Tables']['contrats']['Row'] & {
@@ -111,7 +112,7 @@ export const prestatairesQueries = {
   ordresTravail: (prestataireId: string, siteId: string) =>
     queryOptions({
       queryKey: [
-        'ordres_travail',
+        ...ordresTravailQueries.all(),
         'par-prestataire',
         prestataireId,
         siteId,

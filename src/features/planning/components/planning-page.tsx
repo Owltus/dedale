@@ -31,12 +31,12 @@ import { cn } from '@/lib/utils'
 import { useColonnesAuto } from '@/features/planning/use-colonnes-auto'
 import { useFenetreTemporelle } from '@/features/planning/use-fenetre-temporelle'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
-import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { FillHeader, PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 
 /** Fenêtre du « Focus » et du sur-fetch : 12 semaines (≈ un trimestre). */
 const FOCUS_SEMAINES = 12
@@ -54,7 +54,7 @@ export function PlanningContent({ siteId }: { siteId: string }) {
 
   // Mise à jour LIVE : tout changement d'OT (clôture, statut, date…) — fait ici, dans
   // un autre onglet ou par un autre utilisateur — rafraîchit la grille sans F5.
-  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
+  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
 
   const [focus, setFocus] = useState(false)
   const [cellule, setCellule] = useState<{

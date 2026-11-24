@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import { ClipboardList } from 'lucide-react'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import type { DocumentMeta } from '@/features/documents/format'
-import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { OtCard } from './ot-card'
@@ -52,7 +51,7 @@ export function OtListeParGammes({
   const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(siteId))
   const documentsParOt =
     documentsQuery.data ?? new Map<string, DocumentMeta[]>()
-  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
+  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
 
   return (
     <QueryState

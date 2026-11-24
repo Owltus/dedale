@@ -1,6 +1,7 @@
 import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { ajouterJours, isoLocale, parseDateLocale } from '@/lib/date'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 
 /** Décale une date ISO nue (`YYYY-MM-DD`) de `delta` jours, en heure locale. */
 function decalerJourIso(iso: string, delta: number): string {
@@ -12,7 +13,9 @@ function decalerJourIso(iso: string, delta: number): string {
  * pour la grille gamme × semaine. Lecture seule, non supprimés.
  */
 export const planningQueries = {
-  all: () => ['planning'] as const,
+  // Sous la racine `ordres_travail` (3.1) : toute invalidation d'OT atteint
+  // le planning par préfixe — plus de seconde clé à ne pas oublier.
+  all: () => [...ordresTravailQueries.all(), 'planning'] as const,
 
   /**
    * OT du site TOMBANT dans `[debut, fin]` (bornes = lundi de la 1ʳᵉ semaine visible →

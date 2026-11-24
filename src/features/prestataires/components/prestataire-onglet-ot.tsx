@@ -9,7 +9,6 @@ import {
 } from '@/features/ordres-travail/schemas'
 import { trierOtParUrgence } from '@/features/ordres-travail/tri'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
-import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import type { DocumentMeta } from '@/features/documents/format'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { ONGLET_ETAT_VIDE } from '@/components/common/detail-tabs-shell'
@@ -38,7 +37,7 @@ export function OtPanel({
   )
   // Onglet OT en LIVE (clôture/changement de statut ailleurs visible sans F5).
   // Canal `ordres_travail` partagé/refcompté avec l'onglet Gammes → aucun surcoût.
-  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
+  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
   const [search, setSearch] = useState('')
   const [statutFilter, setStatutFilter] = useState<string>(FILTRE_NON_TERMINES)
 

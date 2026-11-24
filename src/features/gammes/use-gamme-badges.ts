@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
-import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import type { OtTriable } from '@/features/ordres-travail/tri'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import type { CatalogueDrillCat } from '@/hooks/use-catalogue-drill'
@@ -101,7 +100,7 @@ export function useGammeBadges({
     ...ordresTravailQueries.ouverts(siteId),
     enabled: gammeIdsBadges.length > 0,
   })
-  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
+  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
   // Badges INDISPONIBLES : seulement pendant un fetch réel (`isLoading` — PAS
   // `isPending`, qui reste vrai pour une requête DÉSACTIVÉE quand il n'y a aucune
   // gamme à charger, ce qui masquerait à tort « Vide »), ou en cas d'erreur (on évite

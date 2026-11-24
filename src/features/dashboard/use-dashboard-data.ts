@@ -6,7 +6,7 @@ import { travauxQueries } from '@/features/travaux/queries'
 import { evenementsQueries } from '@/features/evenements/queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import { gammesQueries } from '@/features/gammes/queries'
-import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import type { PlanningOt } from '@/features/planning/grille'
 import { dashboardQueries } from './queries'
@@ -20,7 +20,7 @@ import { activiteQueries } from './activite-queries'
  * donc cette centralisation est un choix de lisibilité, pas une contrainte technique.
  *
  * Correspondance table → clés invalidées :
- * - `ordres_travail` → `OT_QUERY_KEYS` (`ordres_travail` + `planning`) + `dashboard`
+ * - `ordres_travail` → `ordres_travail` (planning compris, 3.1) + `dashboard`
  *   (pour que l'onboarding « Premiers pas » et l'alerte documents manquants se
  *   rafraîchissent aussi dès le 1er OT créé) ;
  * - `demandes_intervention` → `demandes`, `interventions_travaux` → `travaux` et
@@ -33,7 +33,7 @@ import { activiteQueries } from './activite-queries'
  */
 export function useDashboardRealtime(): void {
   useRealtimeRefresh('ordres_travail', [
-    ...OT_QUERY_KEYS,
+    ordresTravailQueries.all(),
     dashboardQueries.all(),
   ])
   useRealtimeRefresh('demandes_intervention', demandesQueries.all())

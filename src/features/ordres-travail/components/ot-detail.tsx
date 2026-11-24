@@ -5,7 +5,6 @@ import { ClipboardList, ListChecks } from 'lucide-react'
 import { toast } from 'sonner'
 import { ordresTravailQueries } from '../queries'
 import { messageHistoriqueIntrouvable, valeurPrecedente } from '../correlation'
-import { OT_QUERY_KEYS } from '../query-keys'
 import { consoOperation } from '../schemas'
 import { libelleReleve } from '../releves'
 import {
@@ -81,7 +80,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
   const operationsQuery = useQuery(ordresTravailQueries.operations(otId))
   // Mise à jour LIVE du détail : changement de l'OT (statut/dates) ou de ses
   // opérations (saisie d'exécution) — ici, autre onglet ou autre utilisateur — sans F5.
-  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
+  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
   useRealtimeRefresh('operations_execution', ordresTravailQueries.all())
   // Focus auto réservé aux pointeurs fins (desktop) : sur tactile, un focus
   // programmatique ouvrirait le clavier virtuel sans valeur ajoutée (pas de Tab).
@@ -597,7 +596,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                 // existant n'écrit que la table de liaison, aucun événement.
                 onLiaisonChanged={() => {
                   for (const queryKey of [
-                    ...OT_QUERY_KEYS,
+                    ordresTravailQueries.all(),
                     dashboardQueries.all(),
                   ]) {
                     void qc.invalidateQueries({ queryKey })

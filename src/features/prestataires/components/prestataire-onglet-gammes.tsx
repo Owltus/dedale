@@ -5,7 +5,6 @@ import { Wrench } from 'lucide-react'
 import { prestatairesQueries } from '../queries'
 import { type OtTriable } from '@/features/ordres-travail/tri'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
-import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { GammeCard } from '@/features/gammes/components/gamme-card'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { listStack } from '@/lib/responsive'
@@ -38,7 +37,7 @@ export function GammesPanel({
     [query.data],
   )
   const otsQuery = useQuery(ordresTravailQueries.byGammes(siteId, gammeIds))
-  useRealtimeRefresh('ordres_travail', OT_QUERY_KEYS)
+  useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
   // Badge masqué seulement pendant un vrai fetch / sur erreur (pas de statut trompeur).
   const otsIndispo = otsQuery.isLoading || otsQuery.isError
   const otsParGamme = useMemo(() => {

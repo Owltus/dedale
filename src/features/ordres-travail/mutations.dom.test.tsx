@@ -8,8 +8,8 @@ import {
   sequence,
   type Enregistreur,
 } from '@/test/supabase-enregistreur'
-import { OT_QUERY_KEYS } from './query-keys'
 import { useRafraichirOt, useUpdateOperationExecution } from './mutations'
+import { ordresTravailQueries } from './queries'
 
 /**
  * TESTS DE GEL (phase 0 de l'audit d'architecture) : l'enregistrement d'une
@@ -56,9 +56,10 @@ describe('useUpdateOperationExecution — gel', () => {
 
     expect(sequence(enr.courant)).toEqual(['from:operations_execution update'])
     expect(enr.courant.requetes[0]!.appels).toContainEqual(['eq', 'id', 'op-1'])
-    for (const queryKey of OT_QUERY_KEYS) {
-      expect(invalidations).toHaveBeenCalledWith({ queryKey })
-    }
+    // Une seule racine (3.1) : elle couvre aussi le planning.
+    expect(invalidations).toHaveBeenCalledWith({
+      queryKey: ordresTravailQueries.all(),
+    })
   })
 
   it('sans report : chaque opération rafraîchit (appel isolé)', async () => {
@@ -70,7 +71,7 @@ describe('useUpdateOperationExecution — gel', () => {
     for (const id of ['op-1', 'op-2', 'op-3']) {
       await result.current.mutateAsync({ ...saisie, id })
     }
-    expect(invalidations).toHaveBeenCalledTimes(3 * OT_QUERY_KEYS.length)
+    expect(invalidations).toHaveBeenCalledTimes(3)
   })
 
   it('avec report (éditeur, 1.7) : aucune invalidation par opération, une seule via useRafraichirOt', async () => {
@@ -93,6 +94,6 @@ describe('useUpdateOperationExecution — gel', () => {
     expect(enr.courant.requetes).toHaveLength(3)
     expect(invalidations).not.toHaveBeenCalled()
     result.current.rafraichir()
-    expect(invalidations).toHaveBeenCalledTimes(OT_QUERY_KEYS.length)
+    expect(invalidations).toHaveBeenCalledTimes(1)
   })
 })
