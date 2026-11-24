@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { toutesLesLignes } from '@/lib/pagination'
 import { gammesAvecReleves, type HistoriqueLigne } from './pipeline'
 
 const SELECT_HISTORIQUE =
@@ -9,16 +10,22 @@ async function fetchHistorique(
   siteId: string,
   signal: AbortSignal,
 ): Promise<HistoriqueLigne[]> {
-  const { data } = await supabase
-    .from('operations_execution')
-    .select(SELECT_HISTORIQUE)
-    .eq('ordres_travail.site_id', siteId)
-    .eq('statut', 'terminee')
-    .not('valeur_mesuree', 'is', null)
-    .abortSignal(signal)
-    .throwOnError()
-    .overrideTypes<HistoriqueLigne[], { merge: false }>()
-  return data ?? []
+  // Paginé : 968 mesures au 24/11/2026, au ras du plafond de 1 000 lignes par
+  // réponse — au-delà, des gammes et des dernières valeurs auraient manqué EN
+  // SILENCE (cf. pagination.ts). Tri total par id pour des pages sans trou.
+  return toutesLesLignes((debut, fin) =>
+    supabase
+      .from('operations_execution')
+      .select(SELECT_HISTORIQUE)
+      .eq('ordres_travail.site_id', siteId)
+      .eq('statut', 'terminee')
+      .not('valeur_mesuree', 'is', null)
+      .order('id', { ascending: true })
+      .range(debut, fin)
+      .abortSignal(signal)
+      .throwOnError()
+      .overrideTypes<HistoriqueLigne[], { merge: false }>(),
+  )
 }
 
 export const relevesQueries = {

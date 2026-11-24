@@ -83,25 +83,29 @@ export const ordresTravailQueries = {
         siteId,
       ] as const,
       enabled: siteId !== null,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('operations_execution')
-          .select(
-            // `nom` sert la corrélation de repli de l'ADR 0012 (cf. correlation.ts) :
-            // sans lui, une opération supprimée du modèle casse la série de relevés.
-            // `equipement_id` (ADR 0013) : une série par équipement, jamais fusionnées.
-            'ordre_travail_id, source_type, source_id, nom, equipement_id, valeur_mesuree, index_depose, index_pose, statut, date_execution, created_at, unite_symbole, ordres_travail!inner(gamme_id, date_prevue)',
-          )
-          .eq('ordres_travail.site_id', siteId!)
-          .eq('unite_est_cumulatif', true)
-          .is('seuil_minimum', null)
-          .is('seuil_maximum', null)
-          .not('valeur_mesuree', 'is', null)
-          .abortSignal(signal)
-          .throwOnError()
-          .overrideTypes<ReleveLigne[], { merge: false }>()
-        return data
-      },
+      // Paginé : même table que les relevés (968 mesures au 24/11/2026, au ras
+      // du plafond silencieux de 1 000 lignes). Tri total par id.
+      queryFn: ({ signal }) =>
+        toutesLesLignes((debut, fin) =>
+          supabase
+            .from('operations_execution')
+            .select(
+              // `nom` sert la corrélation de repli de l'ADR 0012 (cf. correlation.ts) :
+              // sans lui, une opération supprimée du modèle casse la série de relevés.
+              // `equipement_id` (ADR 0013) : une série par équipement, jamais fusionnées.
+              'ordre_travail_id, source_type, source_id, nom, equipement_id, valeur_mesuree, index_depose, index_pose, statut, date_execution, created_at, unite_symbole, ordres_travail!inner(gamme_id, date_prevue)',
+            )
+            .eq('ordres_travail.site_id', siteId!)
+            .eq('unite_est_cumulatif', true)
+            .is('seuil_minimum', null)
+            .is('seuil_maximum', null)
+            .not('valeur_mesuree', 'is', null)
+            .order('id', { ascending: true })
+            .range(debut, fin)
+            .abortSignal(signal)
+            .throwOnError()
+            .overrideTypes<ReleveLigne[], { merge: false }>(),
+        ),
     }),
 
   /**
