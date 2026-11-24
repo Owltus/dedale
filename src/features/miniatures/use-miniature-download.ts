@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import type { MiniatureWithUrl } from './queries'
 import { supabase } from '@/lib/supabase'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 
 // Déclenche un téléchargement navigateur d'un blob.
 function downloadBlob(blob: Blob, filename: string) {
@@ -43,7 +43,7 @@ export function useMiniatureDownload(selectedMiniatures: MiniatureWithUrl[]) {
       }
       downloadBlob(data, fileNameFor(m))
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }, [])
 
@@ -86,7 +86,7 @@ export function useMiniatureDownload(selectedMiniatures: MiniatureWithUrl[]) {
       const archive = await zip.generateAsync({ type: 'blob' })
       downloadBlob(archive, 'vignettes.zip')
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     } finally {
       setZipping(false)
     }

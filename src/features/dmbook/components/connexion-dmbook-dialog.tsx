@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { formatDateAvecSemaineIso } from '@/lib/date'
 import { Form } from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
@@ -87,7 +87,7 @@ export function ConnexionDmbookDialog({
       toast.success(r.message)
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 
@@ -102,7 +102,7 @@ export function ConnexionDmbookDialog({
       else toast.error(r.message)
       onOpenChange(false)
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

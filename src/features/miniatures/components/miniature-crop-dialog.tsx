@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ZoomIn, ZoomOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { canvasToWebp, sha256Hex } from '@/lib/image'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { DialogShell } from '@/components/common/dialog-shell'
 import { Button } from '@/components/ui/button'
 
@@ -223,7 +223,7 @@ export function MiniatureCropDialog({
       const hash = await sha256Hex(blob)
       onConfirm({ blob, hash })
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     } finally {
       setEncoding(false)
     }

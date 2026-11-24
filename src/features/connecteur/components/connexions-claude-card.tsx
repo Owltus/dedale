@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { formatDateAvecSemaineIso } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,7 +39,7 @@ export function ConnexionsClaudeCard() {
       })
       void queryClient.invalidateQueries({ queryKey: CLE })
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(writeErrorMessage(e)),
   })
 
   // En cours, serveur OAuth indisponible ou aucune connexion : rien à montrer

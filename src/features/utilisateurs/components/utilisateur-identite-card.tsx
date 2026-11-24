@@ -17,7 +17,7 @@ import type {
   ProfileFormValues,
 } from '../schemas'
 import type { UserRow } from './utilisateur-types'
-import { errorMessage, writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { TextField } from '@/components/common/fields/text-field'
 import { PasswordField } from '@/components/common/fields/password-field'
 import { PasswordRules } from '@/components/common/password-rules'
@@ -237,7 +237,7 @@ function EmailForm({ userId, current }: { userId: string; current: string }) {
       form.reset({ email: data.email.trim() })
       toast.success('E-mail mis à jour')
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 
@@ -312,7 +312,7 @@ function PasswordBlock({ userId }: { userId: string }) {
       // fois posé.
       form.reset({ password: '', password_confirm: '' })
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }
 

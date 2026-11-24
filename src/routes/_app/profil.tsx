@@ -15,7 +15,7 @@ import {
 } from '@/features/utilisateurs/schemas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth'
-import { errorMessage, writeErrorMessage } from '@/lib/form'
+import { messageErreurAuth, writeErrorMessage } from '@/lib/form'
 import { useSiteContext } from '@/lib/site-context'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
@@ -279,7 +279,9 @@ function SecurityCard({ email }: { email: string }) {
       password: data.password,
     })
     if (err) {
-      toast.error(errorMessage(err))
+      toast.error(
+        messageErreurAuth(err, 'Le mot de passe n’a pas pu être modifié.'),
+      )
       return
     }
     toast.success('Mot de passe modifié')

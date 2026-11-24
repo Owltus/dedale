@@ -299,3 +299,31 @@ export function writeErrorMessage(
   }
   return errorMessage(e)
 }
+
+/**
+ * Messages FRANÇAIS des erreurs d'authentification (GoTrue renvoie un texte
+ * anglais, ex. « Invalid login credentials », auparavant affiché tel quel).
+ * Clé = `code` de l'AuthError de supabase-js.
+ */
+const MESSAGES_AUTH: Record<string, string> = {
+  invalid_credentials: 'E-mail ou mot de passe incorrect.',
+  email_not_confirmed: 'Adresse e-mail non confirmée.',
+  user_banned: 'Ce compte est désactivé.',
+  over_request_rate_limit:
+    'Trop de tentatives : patientez quelques minutes avant de réessayer.',
+  over_email_send_rate_limit:
+    'Trop de tentatives : patientez quelques minutes avant de réessayer.',
+  weak_password: 'Mot de passe trop faible.',
+  same_password: 'Le nouveau mot de passe doit être différent de l’actuel.',
+  session_not_found: 'Session expirée : reconnectez-vous.',
+  session_expired: 'Session expirée : reconnectez-vous.',
+}
+
+/** Message français d'une erreur d'authentification, ou `repli` si inconnue. */
+export function messageErreurAuth(
+  e: unknown,
+  repli = 'La connexion a échoué. Réessayez dans un instant.',
+): string {
+  const code = pgCode(e)
+  return (code !== undefined ? MESSAGES_AUTH[code] : undefined) ?? repli
+}

@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { getSignedUrl } from './upload'
 import type { DocumentMeta } from './format'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 
 /**
  * Ouvre un document dans un nouvel onglet (URL signée temporaire). Factorise la
@@ -15,7 +15,7 @@ export function useDocumentDownload() {
       const url = await getSignedUrl(doc.storage_path)
       window.open(url, '_blank', 'noopener,noreferrer')
     } catch (e) {
-      toast.error(errorMessage(e))
+      toast.error(writeErrorMessage(e))
     }
   }, [])
 }

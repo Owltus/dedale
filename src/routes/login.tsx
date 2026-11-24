@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { supabase } from '@/lib/supabase'
+import { messageErreurAuth } from '@/lib/form'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,7 +66,7 @@ function LoginPage() {
 
     setLoading(false)
     if (error) {
-      setError(error.message)
+      setError(messageErreurAuth(error))
       return
     }
     if (autorisation)

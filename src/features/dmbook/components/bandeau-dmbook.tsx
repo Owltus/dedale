@@ -4,7 +4,7 @@ import { MailWarning, Unplug } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useSiteContext } from '@/lib/site-context'
-import { errorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { dmbookQueries } from '../queries'
@@ -69,7 +69,7 @@ export function BandeauDmbook() {
       else toast.error(r.message)
       setOuvert(null)
     } catch (err) {
-      toast.error(errorMessage(err))
+      toast.error(writeErrorMessage(err))
     }
   }
 

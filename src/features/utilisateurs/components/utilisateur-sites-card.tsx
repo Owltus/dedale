@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { utilisateursQueries } from '../queries'
 import { useAssignSite, useUnassignSite } from '../mutations'
 import { sitesQueries } from '@/features/sites/queries'
-import { errorMessage, writeErrorMessage } from '@/lib/form'
+import { writeErrorMessage } from '@/lib/form'
 import { Button } from '@/components/ui/button'
 import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { ErrorState } from '@/components/common/error-state'
@@ -82,7 +82,7 @@ export function SitesCard({
       { userId, siteId },
       {
         onSuccess: () => toast.success('Site retiré'),
-        onError: (e) => toast.error(errorMessage(e)),
+        onError: (e) => toast.error(writeErrorMessage(e)),
         onSettled: () => setBusy(null),
       },
     )
