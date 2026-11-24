@@ -21,6 +21,7 @@ import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import { DocumentsListe } from '@/components/common/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
+import type { DocumentMeta } from '@/features/documents/format'
 
 interface DocumentsTabProps {
   /** Nom de la table de liaison (ex. 'documents_ordres_travail'). */
@@ -128,6 +129,11 @@ export function DocumentsTab({
   const canManage = perm.canManageMetier(role)
   // Hard-delete d'un document = manager + technicien sur leurs sites (migration 053).
   const canDelete = perm.canManageMetier(role)
+  // Un document ENTREPRISE (site_id NULL, partagé par tous les sites) n'est
+  // modifiable ou supprimable que par l'admin (décision PO, migration 174) ; il
+  // reste consultable et détachable de la fiche par tous.
+  const estModifiable = (doc: DocumentMeta) =>
+    doc.site_id !== null || perm.canManageAdmin(role)
   const { activeSiteId } = useSiteContext()
 
   const query = useQuery(
@@ -216,6 +222,7 @@ export function DocumentsTab({
             docs={list}
             draggable={draggable}
             canEdit={canManage}
+            estModifiable={estModifiable}
             canDetach={canManage}
             onDetach={(doc) =>
               detach

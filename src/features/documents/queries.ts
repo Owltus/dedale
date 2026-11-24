@@ -122,7 +122,7 @@ export const documentsQueries = {
         const base = liaisonTable(liaison)
           // On joint le document parent rattaché à l'entité.
           .select(
-            'document_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at)',
+            'document_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at, site_id)',
           )
           .eq(parentColumn, parentId)
         // `tache_id` (091) n'existe que sur 2 des 10 tables de liaison — le
@@ -174,7 +174,7 @@ export const documentsQueries = {
       ] as const,
       queryFn: async ({ signal }): Promise<DocumentDeTache[]> => {
         const base = liaisonTable(liaison).select(
-          'tache_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at)',
+          'tache_id, documents:document_id (id, nom_original, mime_type, taille_octets, type_document_id, storage_path, uploaded_at, site_id)',
         )
         // `tache_id` n'existe que sur ces 2 liaisons : le typage générique de
         // `liaisonTable` ne le connaît pas (même relâchement que `byEntity`).

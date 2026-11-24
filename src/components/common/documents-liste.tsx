@@ -30,6 +30,12 @@ interface DocumentsListeProps {
   /** Autorise l'action « Supprimer » (hard-delete). Requiert `onDelete`. */
   canDelete?: boolean
   /**
+   * Restreint « Modifier » et « Supprimer » document par document (ex. un
+   * document entreprise n'est modifiable que par l'admin, migration 174).
+   * Défaut : tous modifiables selon `canEdit` / `canDelete`.
+   */
+  estModifiable?: (doc: DocumentMeta) => boolean
+  /**
    * Suppression effective (ex. `del.mutateAsync(doc.id)`). La liste porte le
    * toast (« Document supprimé » / erreur) et la confirmation impact-aware.
    */
@@ -101,6 +107,7 @@ export function DocumentsListe({
   docs,
   canEdit = false,
   canDelete = false,
+  estModifiable = () => true,
   onDelete,
   canDetach = false,
   onDetach,
@@ -140,7 +147,8 @@ export function DocumentsListe({
               onSelect: () => void download(doc),
             },
           ]
-          if (canEdit)
+          const modifiable = estModifiable(doc)
+          if (canEdit && modifiable)
             actions.push({
               label: 'Modifier',
               icon: Pencil,
@@ -152,7 +160,7 @@ export function DocumentsListe({
               icon: Link2Off,
               onSelect: () => detachement.demander(doc),
             })
-          if (showDelete)
+          if (showDelete && modifiable)
             actions.push({
               label: 'Supprimer',
               icon: Trash2,
