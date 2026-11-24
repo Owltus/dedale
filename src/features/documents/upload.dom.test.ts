@@ -7,15 +7,23 @@ import { uploadDocument } from './upload'
  * voulues par le code — succès, doublon de contenu réutilisé, échec avec
  * retour arrière du fichier envoyé. On fige ces trois issues.
  */
-const scenario = vi.hoisted(() => ({
-  journal: [] as string[],
-  uploadErreur: null as { message: string } | null,
+interface Scenario {
+  journal: string[]
+  uploadErreur: { message: string } | null
   insertReponse: {
-    data: null as unknown,
-    error: null as null | { code: string; message: string },
-  },
-  existant: { data: null as unknown, error: null as unknown },
-}))
+    data: { id: string; storage_path: string } | null
+    error: { code: string; message: string } | null
+  }
+  existant: { data: { id: string; storage_path: string } | null; error: null }
+}
+const scenario = vi.hoisted(
+  (): Scenario => ({
+    journal: [],
+    uploadErreur: null,
+    insertReponse: { data: null, error: null },
+    existant: { data: null, error: null },
+  }),
+)
 
 vi.mock('@/lib/supabase', () => {
   const requeteDocuments = () => {
