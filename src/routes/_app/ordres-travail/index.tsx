@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   keepPreviousData,
@@ -22,6 +22,10 @@ import { calculerRelevesParOt } from '@/features/ordres-travail/releves'
 import { OtCreateDialog } from '@/features/ordres-travail/components/ot-create-dialog'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
+import {
+  PAUSE_RECHERCHE_MS,
+  useValeurApresPause,
+} from '@/hooks/use-valeur-apres-pause'
 import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { useAuth } from '@/auth'
 import { deleteErrorMessage } from '@/lib/form'
@@ -107,7 +111,10 @@ function OrdresTravailContent({
   //    l'ordre exact du tri (clôture la plus récente d'abord).
   const query = useQuery(ordresTravailQueries.ouverts(siteId))
   const { data: siteADesOt } = useQuery(ordresTravailQueries.existe(siteId))
-  const rechercheServeur = useValeurApresPause(search.trim(), 250)
+  const rechercheServeur = useValeurApresPause(
+    search.trim(),
+    PAUSE_RECHERCHE_MS,
+  )
   const statutsTermines = STATUTS_OT_TERMINAUX.filter((st) =>
     matchStatutOt(st, statutFilter),
   )
@@ -291,14 +298,4 @@ function OrdresTravailContent({
       />
     </PageContainer>
   )
-}
-
-/** `valeur`, mais seulement une fois qu'elle n'a plus bougé pendant `ms`. */
-function useValeurApresPause<T>(valeur: T, ms: number): T {
-  const [stable, setStable] = useState(valeur)
-  useEffect(() => {
-    const t = setTimeout(() => setStable(valeur), ms)
-    return () => clearTimeout(t)
-  }, [valeur, ms])
-  return stable
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   keepPreviousData,
@@ -14,6 +14,10 @@ import { LIEU_NON_PRECISE } from '@/features/demandes/lieux-par-di'
 import { TitreLieu } from '@/features/demandes/components/titre-lieu'
 import { statutLabel, statutTone } from '@/features/demandes/etat'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
+import {
+  PAUSE_RECHERCHE_MS,
+  useValeurApresPause,
+} from '@/hooks/use-valeur-apres-pause'
 import { useAuth } from '@/auth'
 import { formatDateAvecSemaineIso } from '@/lib/date'
 import { segAlias } from '@/lib/slug'
@@ -84,7 +88,10 @@ function DemandesContent({
   const [formOpen, setFormOpen] = useState(false)
   const [recherche, setRecherche] = useState('')
   // La base cherche 250 ms après la dernière frappe (pas une requête par lettre).
-  const rechercheServeur = useValeurApresPause(recherche.trim(), 250)
+  const rechercheServeur = useValeurApresPause(
+    recherche.trim(),
+    PAUSE_RECHERCHE_MS,
+  )
   // Filtre statut : 'all' ou l'id de statut (1 Ouvert, 2 En cours, 3 Clôturé).
   // Défaut : on masque les demandes clôturées — le filtre permet d'afficher un
   // statut précis ou « Tous les statuts ».
@@ -244,14 +251,4 @@ function DemandesContent({
       {dialogues}
     </PageContainer>
   )
-}
-
-/** `valeur`, mais seulement une fois qu'elle n'a plus bougé pendant `ms`. */
-function useValeurApresPause<T>(valeur: T, ms: number): T {
-  const [stable, setStable] = useState(valeur)
-  useEffect(() => {
-    const t = setTimeout(() => setStable(valeur), ms)
-    return () => clearTimeout(t)
-  }, [valeur, ms])
-  return stable
 }
