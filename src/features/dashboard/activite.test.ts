@@ -32,10 +32,11 @@ describe('lignesDemandes', () => {
     expect(lignesDemandes(rows).map((l) => l.id)).toEqual(['b', 'a'])
   })
 
-  it('titre = première ligne du constat, slug dérivé du titre', () => {
+  it('titre = première ligne du constat, lien `slug~id` dérivé du titre', () => {
     const [ouverte] = lignesDemandes(rows)
     expect(ouverte?.titre).toBe('Porte bloquée')
-    expect(ouverte?.slug).toBe('porte-bloquee')
+    // Aperçu partiel : la forme `slug~id court`, que la fiche relit (resoudreAlias).
+    expect(ouverte?.slug).toBe(`porte-bloquee~${ouverte!.id.slice(0, 8)}`)
     expect(ouverte?.statut).toBe('Ouvert')
   })
 

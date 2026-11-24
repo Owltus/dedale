@@ -16,7 +16,7 @@ interface DerniersDocumentsProps {
 /**
  * Colonne « Documents » du tableau de bord (zone 3, droite) : l'alerte des
  * documents manquants EN TÊTE (`header`), puis les derniers fichiers du site
- * (triés `uploaded_at` DESC par `documentsQueries.list`). Rendu via la brique partagée
+ * (les 20 plus récents, `activiteQueries.documents`). Rendu via la brique partagée
  * `DocumentRow` ; clic → aperçu (`DocumentPreviewDialog`, en `after`) ; menu →
  * téléchargement (`useDocumentDownload`).
  *

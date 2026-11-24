@@ -1,5 +1,7 @@
 import { useCallback } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { activiteQueries } from '@/features/dashboard/activite-queries'
 import { demandesQueries } from '@/features/demandes/queries'
 import { PAGE_META } from '@/features/demandes/page-meta'
 import { DiDetail } from '@/features/demandes/components/di-detail'
@@ -40,6 +42,12 @@ function DemandeResolver({
   canResolve: boolean
 }) {
   const navigate = useNavigate()
+  // Aperçu du tableau de bord (30 DI déjà en cache) : venir d'une de ses cartes
+  // ouvre la fiche immédiatement, pendant que la liste complète se charge.
+  const { data: apercu } = useQuery({
+    ...activiteQueries.demandes(siteId),
+    enabled: false,
+  })
   // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
   // rendu (contrat de `useSlugResolved`).
   const onSlugChange = useCallback(
@@ -60,6 +68,7 @@ function DemandeResolver({
       // DI ouverte resynchronise l'URL au lieu d'éjecter vers « introuvable ».
       identity={(d) => ({ nom: diTitre(d.constat), id: d.id })}
       onSlugChange={onSlugChange}
+      apercu={apercu}
       title="Demande d'intervention"
       onBack={() => void navigate({ to: '/demandes' })}
       notFound={{

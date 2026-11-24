@@ -17,7 +17,7 @@ import {
 import { dateAffichee as dateAfficheeTravaux } from '@/features/travaux/format'
 import { dateAffichee as dateAfficheeEvenement } from '@/features/evenements/format'
 import { formatDateAvecSemaineIso } from '@/lib/date'
-import { segOfUnique } from '@/lib/slug'
+import { segAlias } from '@/lib/slug'
 
 /**
  * Normalisation des trois journaux du site (demandes d'intervention, travaux,
@@ -65,22 +65,15 @@ interface SourceActivite<T> {
  * Ordonne et convertit une liste. Les lignes NON TERMINÉES passent en tête (ce
  * qui reste à traiter se lit en premier), l'ordre de récence fourni par la query
  * étant préservé à l'intérieur de chaque groupe par un filtrage stable.
- *
- * Les frères du slug sont calculés sur la liste COMPLÈTE, avant tri et avant
- * toute troncature : même ensemble qu'à la résolution dans la fiche détail
- * (symétrie `segOfUnique`), sinon un clic ouvrirait la mauvaise fiche.
  */
 function construire<T>(rows: T[], src: SourceActivite<T>): LigneActivite[] {
-  // Nom calculé UNE fois par ligne (il servait trois fois : frères, titre, slug).
-  const noms = new Map(rows.map((r) => [r, src.nom(r)]))
-  const sibs = rows.map((r) => ({ nom: noms.get(r)!, id: src.id(r) }))
   const estTermine = (r: T) => src.terminaux.includes(src.statutId(r))
   const ordonnees = [
     ...rows.filter((r) => !estTermine(r)),
     ...rows.filter((r) => estTermine(r)),
   ]
   return ordonnees.map((r) => {
-    const nom = noms.get(r)!
+    const nom = src.nom(r)
     return {
       id: src.id(r),
       titre: nom,
@@ -88,9 +81,10 @@ function construire<T>(rows: T[], src: SourceActivite<T>): LigneActivite[] {
       statut: src.statut(r),
       tone: src.tone(r),
       termine: estTermine(r),
-      // `sibs` est le MÊME tableau pour toutes les lignes : l'index des slugs
-      // n'est construit qu'une fois (cf. `segOfUnique`).
-      slug: segOfUnique({ nom, id: src.id(r) }, sibs),
+      // Le tableau de bord ne charge qu'un APERÇU (30 lignes) : il ne connaît
+      // pas tous les frères, donc pas le slug canonique. Il pointe vers la forme
+      // `slug~id`, que la fiche accepte et remet au propre (`resoudreAlias`).
+      slug: segAlias({ nom, id: src.id(r) }),
     }
   })
 }

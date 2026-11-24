@@ -4,7 +4,7 @@ import { STATUTS_DI_TERMINAUX } from '@/features/demandes/etat'
 import { STATUTS_EVENEMENTS_TERMINAUX } from '@/features/evenements/etat'
 import { STATUTS_TRAVAUX_TERMINAUX } from '@/features/travaux/etat'
 import { diTitre } from '@/features/demandes/schemas'
-import { segOfUnique } from '@/lib/slug'
+import { segAlias, resoudreAlias } from '@/lib/slug'
 import type {
   LigneActivite,
   RowDemande,
@@ -191,9 +191,13 @@ describe('lignesDemandes — propriétés', () => {
     fc.assert(
       fc.property(demandes, (rows) => {
         const lignes = lignesDemandes(rows)
+        // Lien d'aperçu : la fiche le relit vers la MÊME demande (`resoudreAlias`
+        // sur les couples (titre, id) affichés), quels que soient les homonymes.
         const sibs = lignes.map((l) => ({ nom: l.titre, id: l.id }))
         for (const l of lignes) {
-          expect(l.slug).toBe(segOfUnique({ nom: l.titre, id: l.id }, sibs))
+          expect(l.slug).toBe(segAlias({ nom: l.titre, id: l.id }))
+          const cible = resoudreAlias(l.slug, sibs, (x) => x)
+          if (l.slug.includes('~')) expect(cible?.id).toBe(l.id)
         }
         const parId = new Map(rows.map((r) => [r.id, r]))
         for (const l of lignes) {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ClipboardList, HardHat, OctagonAlert } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { ListRow } from '@/components/common/list-row'
@@ -8,20 +8,14 @@ import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { StatusBadge } from '@/components/common/status-badge'
 import { StatutColonne } from '@/components/common/statut-colonne'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { demandesQueries } from '@/features/demandes/queries'
 import { useActionsDemande } from '@/features/demandes/use-actions-demande'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
-import { lieuxParDi, LIEU_NON_PRECISE } from '@/features/demandes/lieux-par-di'
+import { LIEU_NON_PRECISE } from '@/features/demandes/lieux-par-di'
 import { TitreLieu } from '@/features/demandes/components/titre-lieu'
-import {
-  travauxQueries,
-  statutsTravauxQueries,
-} from '@/features/travaux/queries'
-import {
-  evenementsQueries,
-  statutsEvenementsQueries,
-} from '@/features/evenements/queries'
+import { statutsTravauxQueries } from '@/features/travaux/queries'
+import { statutsEvenementsQueries } from '@/features/evenements/queries'
+import { activiteQueries } from '../activite-queries'
 import { listStack } from '@/lib/responsive'
 import { useNonClotures } from '@/hooks/use-non-clotures'
 import { PastilleATraiter } from '@/components/common/pastille-a-traiter'
@@ -134,8 +128,10 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
     [labelsEvenements],
   )
 
+  // APERÇUS bornés (30 lignes par journal : ce qui reste à traiter, puis le
+  // plus récent) — jamais l'historique entier : la carte en montre une vingtaine.
   const demandesQuery = useQuery({
-    ...demandesQueries.list(siteId),
+    ...activiteQueries.demandes(siteId),
     select: lignesDemandes,
   })
   // Menu contextuel des demandes : MÊME brique que la page Demandes (statut,
@@ -148,24 +144,29 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
     userId: session?.user.id,
   })
   const { data: demandesParId } = useQuery({
-    ...demandesQueries.list(siteId),
+    ...activiteQueries.demandes(siteId),
     select: demandesIndexees,
   })
 
-  // Lieu(x) de chaque DI : titre des cartes Demandes, comme sur la page Demandes.
+  // Lieu(x) des SEULES demandes de l'aperçu : titre des cartes, comme sur la
+  // page Demandes. L'ancien aperçu reste affiché pendant un rafraîchissement.
+  const idsDemandes = useMemo(
+    () => [...(demandesParId?.keys() ?? [])],
+    [demandesParId],
+  )
   const {
     data: lieux = new Map<string, string>(),
     isPending: lieuxEnChargement,
   } = useQuery({
-    ...demandesQueries.locauxParDi(siteId),
-    select: lieuxParDi,
+    ...activiteQueries.lieuxDemandes(siteId, idsDemandes),
+    placeholderData: keepPreviousData,
   })
   const travauxQuery = useQuery({
-    ...travauxQueries.list(siteId),
+    ...activiteQueries.travaux(siteId),
     select: selTravaux,
   })
   const evenementsQuery = useQuery({
-    ...evenementsQueries.list(siteId),
+    ...activiteQueries.evenements(siteId),
     select: selEvenements,
   })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { segOfUnique, slugify } from './slug'
+import { resoudreAlias, segAlias, segOfUnique, slugify } from './slug'
 
 /** Version d'AVANT (24/11/2026), recopiée telle quelle : l'oracle du résultat. */
 function segOfUniqueReference(
@@ -80,5 +80,34 @@ describe('segOfUnique — même résultat qu’avant, en temps linéaire', () =>
     const t0 = performance.now()
     for (const x of sibs) segOfUnique(x, sibs)
     expect(performance.now() - t0).toBeLessThan(500)
+  })
+})
+
+describe('segAlias / resoudreAlias — liens d’aperçu', () => {
+  const items = [
+    { id: 'aaaaaaaa-1111', nom: 'Retouche peinture' },
+    { id: 'bbbbbbbb-2222', nom: 'Retouche peinture' },
+    { id: 'cccccccc-3333', nom: '###' },
+  ]
+  const ident = (x: { id: string; nom: string }) => x
+
+  it('forme slug~id court, ou l’id si le slug est vide', () => {
+    expect(segAlias(items[0]!)).toBe('retouche-peinture~aaaaaaaa')
+    expect(segAlias(items[2]!)).toBe('cccccccc-3333')
+  })
+
+  it('un alias se relit vers la bonne entité, même entre homonymes', () => {
+    for (const x of items.slice(0, 2))
+      expect(resoudreAlias(segAlias(x), items, ident)).toBe(x)
+  })
+
+  it('l’alias d’une entité en collision EST son segment canonique', () => {
+    expect(segAlias(items[0]!)).toBe(segOfUnique(items[0]!, items))
+  })
+
+  it('segment sans alias ou id inconnu → null', () => {
+    expect(resoudreAlias('retouche-peinture', items, ident)).toBeNull()
+    expect(resoudreAlias('retouche-peinture~zzzzzzzz', items, ident)).toBeNull()
+    expect(resoudreAlias('autre-chose~aaaaaaaa', items, ident)).toBeNull()
   })
 })

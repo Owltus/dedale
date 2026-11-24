@@ -83,3 +83,38 @@ function indexDesFreres(
   indexParTableau.set(siblings, { taille: siblings.length, parSlug })
   return parSlug
 }
+
+/**
+ * Lien d'une entité SANS connaître ses frères : `slug~<id court>` (ou l'id si
+ * le slug est vide). C'est la forme que `segOfUnique` donne en cas de
+ * collision ; la fiche détail l'accepte toujours (`resoudreAlias`) puis remet
+ * l'URL sous sa forme canonique. Sert aux aperçus partiels (tableau de bord)
+ * qui n'ont chargé qu'une partie de la liste.
+ */
+export function segAlias(obj: { nom: string; id: string }): string {
+  const s = slugify(obj.nom)
+  return s ? `${s}~${obj.id.slice(0, 8)}` : obj.id
+}
+
+/**
+ * Retrouve l'entité désignée par un lien `segAlias` : même slug de nom ET id
+ * qui commence par le discriminant. `null` si le segment n'a pas cette forme
+ * ou ne désigne rien.
+ */
+export function resoudreAlias<T>(
+  seg: string,
+  items: readonly T[],
+  identity: (item: T) => { nom: string; id: string },
+): T | null {
+  const i = seg.lastIndexOf('~')
+  if (i <= 0) return null
+  const base = seg.slice(0, i)
+  const court = seg.slice(i + 1)
+  if (court.length !== 8) return null
+  return (
+    items.find((item) => {
+      const { nom, id } = identity(item)
+      return id.startsWith(court) && slugify(nom) === base
+    }) ?? null
+  )
+}

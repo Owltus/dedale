@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { QueryKey, UseQueryOptions } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
 import { useSlugResolved } from '@/hooks/use-slug-resolved'
-import { segOfUnique } from '@/lib/slug'
+import { resoudreAlias, segOfUnique } from '@/lib/slug'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -58,6 +58,12 @@ interface SlugDetailRouteProps<
   }
   /** Rendu de la fiche une fois l'entité résolue. */
   children: (item: TItem) => ReactNode
+  /**
+   * Éléments DÉJÀ en cache ailleurs (ex. l'aperçu du tableau de bord). Si le
+   * lien `slug~id` (`segAlias`) en désigne un, la fiche s'affiche tout de suite
+   * pendant que la liste complète se charge, au lieu d'un squelette.
+   */
+  apercu?: readonly TItem[]
 }
 
 /**
@@ -81,6 +87,7 @@ export function SlugDetailRoute<
   onBack,
   notFound,
   children,
+  apercu,
 }: SlugDetailRouteProps<TItem, TQueryKey>) {
   const { data, isPending, isError, refetch } = useQuery(options)
 
@@ -108,7 +115,17 @@ export function SlugDetailRoute<
     onSlugChange,
   )
 
+  // Lien `slug~id` venu d'un aperçu partiel (`segAlias`) : on retrouve l'entité
+  // par son id court, puis on remet l'URL sous sa forme canonique.
+  const parAlias = item ? null : resoudreAlias(slug, items, identity)
+  const canonique = parAlias ? segOfUnique(identity(parAlias), sibs) : null
+  useEffect(() => {
+    if (canonique && canonique !== slug) onSlugChange(canonique)
+  }, [canonique, slug, onSlugChange])
+
   if (isPending) {
+    const deja = apercu ? resoudreAlias(slug, apercu, identity) : null
+    if (deja) return <>{children(deja)}</>
     return (
       <PageContainer>
         <PageHeader title={title} onBack={onBack} />
@@ -127,6 +144,8 @@ export function SlugDetailRoute<
       </PageContainer>
     )
   }
+
+  if (!item && parAlias) return <>{children(parAlias)}</>
 
   if (!item) {
     return (

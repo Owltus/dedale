@@ -10,6 +10,7 @@ import { OT_QUERY_KEYS } from '@/features/ordres-travail/query-keys'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import type { PlanningOt } from '@/features/planning/grille'
 import { dashboardQueries } from './queries'
+import { activiteQueries } from './activite-queries'
 
 /**
  * Abonnements Realtime du tableau de bord — posés UNE SEULE FOIS par l'orchestrateur
@@ -66,12 +67,9 @@ export function useDashboardData(siteId: string | null) {
   // OT UNIFIÉS : alimentent à eux seuls donut + barres + sunburst (row shape
   // compatible `PlanningOt`).
   const ordresTravailQuery = useQuery(dashboardQueries.ordresTravail(siteId))
-  // `documentsQueries.list` attend un `string` sans garde `enabled` → on la spread
-  // et on borne l'exécution au site résolu.
-  const documentsQuery = useQuery({
-    ...documentsQueries.list(siteId ?? ''),
-    enabled: siteId !== null,
-  })
+  // Derniers fichiers : un APERÇU borné (`LIGNES_DOCUMENTS`), pas toute la
+  // bibliothèque du site.
+  const documentsQuery = useQuery(activiteQueries.documents(siteId))
   const categoriesQuery = useQuery(categoriesQueries.list(siteId))
   const gammesQuery = useQuery(gammesQueries.list(siteId))
   const documentsManquantsQuery = useQuery(

@@ -17064,3 +17064,35 @@ COMMENT ON FUNCTION public.lieux_di_du_site(uuid) IS
 
 REVOKE ALL ON FUNCTION public.lieux_di_du_site(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.lieux_di_du_site(uuid) TO authenticated;
+
+
+-- =============================================================================
+-- 169 — Index pour l'aperçu des demandes du tableau de bord
+-- =============================================================================
+-- Symptôme corrigé : l'onglet Demandes du tableau de bord attendait ~1 s la
+-- lecture des 30 dernières demandes clôturées.
+--
+-- Cause : le tableau de bord ne lit plus l'historique entier mais un aperçu
+-- borné (`limit 30`, trié par date_constat décroissante). Sans index adapté,
+-- PostgreSQL trie les ~4 058 demandes clôturées du site (en évaluant la RLS de
+-- chacune) avant d'en garder 30 : ~210 ms en base sous les droits d'un
+-- technicien, ~1 s vu du navigateur (mesuré le 24/11/2026).
+--
+-- Correctif : un index (site_id, statut_di_id, date_constat DESC, created_at
+-- DESC, id) — l'ordre exact de la requête — qui permet de lire directement les
+-- 30 premières lignes. Répétition (annulée) : 2 à 7 ms au lieu de ~210 ms.
+--
+-- Innocuité : ajout d'index uniquement ; aucune donnée, policy ni fonction
+-- modifiée. 4 071 lignes : création instantanée.
+--
+-- Vérification après application :
+--     SELECT indexdef FROM pg_indexes
+--     WHERE indexname = 'idx_di_site_statut_date';
+-- =============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_di_site_statut_date
+    ON public.demandes_intervention
+    (site_id, statut_di_id, date_constat DESC, created_at DESC, id);
+
+COMMENT ON INDEX public.idx_di_site_statut_date IS
+  'Aperçu borné des demandes (tableau de bord : 30 ouvertes puis 30 récentes) (169).';
