@@ -1,6 +1,7 @@
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { dateObligatoire } from '@/lib/dates-zod'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { DateField } from '@/components/common/fields/date-field'
@@ -9,10 +10,12 @@ import type { Database } from '@/lib/database.types'
 
 type OtOrigine = Database['public']['Enums']['ot_origine']
 
-// Formulaire local : date prévue (non vide) + type d'OT. `z.enum` correspond
+// Formulaire local : date prévue (valide) + type d'OT. `z.enum` correspond
 // exactement à l'énum `ot_origine` du backend (programme / planifie).
 const datePrevueSchema = z.object({
-  datePrevue: z.string().min(1),
+  // Date nue réelle (helper partagé) : un texte non daté ne part plus vers
+  // Postgres, qui répondait par une erreur brute (cf. lib/dates-zod).
+  datePrevue: dateObligatoire('La date prévue est obligatoire'),
   origine: z.enum(['planifie', 'programme']),
 })
 type DatePrevueValues = z.infer<typeof datePrevueSchema>
