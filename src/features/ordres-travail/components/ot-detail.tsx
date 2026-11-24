@@ -57,7 +57,7 @@ import { ErrorState } from '@/components/common/error-state'
 import { EmptyState } from '@/components/common/empty-state'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
-import { DocumentsTab } from '@/components/common/documents-tab'
+import { DocumentsTab } from '@/features/documents/components/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { Button } from '@/components/ui/button'
 

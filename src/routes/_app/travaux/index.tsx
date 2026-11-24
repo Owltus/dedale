@@ -41,7 +41,7 @@ import {
   FILTRE_TOUS,
 } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import { DocumentIndicator } from '@/components/common/document-indicator'
+import { DocumentIndicator } from '@/features/documents/components/document-indicator'
 import type { DocumentMeta } from '@/features/documents/format'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'

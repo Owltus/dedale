@@ -31,7 +31,7 @@ import {
   DetailTabsShell,
   ONGLET_ETAT_VIDE,
 } from '@/components/common/detail-tabs-shell'
-import { DocumentsTab } from '@/components/common/documents-tab'
+import { DocumentsTab } from '@/features/documents/components/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
-import { DocumentsListe } from '@/components/common/documents-liste'
+import { DocumentsListe } from './documents-liste'
 import { DialogShell } from '@/components/common/dialog-shell'
 import type { DocumentMeta } from '@/features/documents/format'
 

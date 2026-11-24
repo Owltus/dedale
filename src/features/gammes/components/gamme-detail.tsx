@@ -26,7 +26,7 @@ import {
   ONGLET_ETAT_VIDE,
 } from '@/components/common/detail-tabs-shell'
 import { SplitPanes } from '@/components/common/split-panes'
-import { DocumentsTab } from '@/components/common/documents-tab'
+import { DocumentsTab } from '@/features/documents/components/documents-tab'
 import { FileDropOverlay } from '@/components/common/file-drop-overlay'
 import { useTabAddAction } from '@/components/common/tab-actions'
 import { EmptyState } from '@/components/common/empty-state'

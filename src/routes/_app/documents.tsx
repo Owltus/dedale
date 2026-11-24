@@ -32,7 +32,7 @@ import {
   matchTypeFilter,
   typeFilterOptions,
 } from '@/components/common/list-filter-bar'
-import { DocumentsListe } from '@/components/common/documents-liste'
+import { DocumentsListe } from '@/features/documents/components/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

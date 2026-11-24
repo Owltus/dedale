@@ -21,7 +21,7 @@ import { ContratResilierDialog } from './contrat-resilier-dialog'
 import { ContratCard } from './contrat-card'
 import { ContratCardSkeleton } from './contrat-card-skeleton'
 import { ContratVersionsHistorique } from './contrat-versions-historique'
-import { DocumentsTab } from '@/components/common/documents-tab'
+import { DocumentsTab } from '@/features/documents/components/documents-tab'
 import { OtCard } from '@/features/ordres-travail/components/ot-card'
 import {
   matchStatutOt,
@@ -52,7 +52,7 @@ import {
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { DocumentsListe } from '@/components/common/documents-liste'
+import { DocumentsListe } from '@/features/documents/components/documents-liste'
 import { ListPageBody } from '@/components/common/list-page-body'
 import { FILTRE_NON_TERMINES } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'

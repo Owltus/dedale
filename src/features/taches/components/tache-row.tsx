@@ -10,7 +10,7 @@ import {
 } from '../statut-zone'
 import { documentsQueries } from '@/features/documents/queries'
 import type { LiaisonAvecTache } from '@/features/documents/queries'
-import { DocumentsListe } from '@/components/common/documents-liste'
+import { DocumentsListe } from '@/features/documents/components/documents-liste'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { DateField } from '@/components/ui/date-field'
