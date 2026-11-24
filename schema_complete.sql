@@ -17956,3 +17956,54 @@ CREATE INDEX IF NOT EXISTS idx_opex_equipement_date
 
 COMMENT ON INDEX public.idx_opex_equipement_date IS
   'Historique d''un équipement (onglet Historique de la fiche) (173).';
+
+
+-- =============================================================================
+-- 174 — Documents « entreprise » : modification et suppression réservées à l'admin
+-- =============================================================================
+-- Symptôme corrigé : un manager ou un technicien de N'IMPORTE QUEL site pouvait
+-- renommer, remplacer ou supprimer un document « entreprise » (site_id NULL),
+-- partagé par tous les sites.
+--
+-- Cause : les policies DELETE / UPDATE acceptaient « site_id IS NULL OR site
+-- de l'appelant ».
+--
+-- Décision PO (24/11/2026) : un manager ou un technicien modifie les données
+-- UNIQUEMENT des sites auxquels il a accès. Un document entreprise n'appartient
+-- à aucun site : seul l'admin (policy documents_admin_all, inchangée) le
+-- modifie ou le supprime.
+--
+-- Correctif : la branche `site_id IS NULL` est retirée des trois policies
+-- documents_site_scoped_delete, documents_manager_update et
+-- documents_technicien_update. Lecture (SELECT), création (INSERT) et
+-- rattachement à une fiche (tables de liaison) : INCHANGÉS.
+--
+-- Innocuité : 0 document entreprise au 24/11/2026 ; documents de site :
+-- droits identiques. Répétition (annulée) : un technicien ne peut plus
+-- modifier ni supprimer un document entreprise, l'admin si, et le technicien
+-- garde ses droits sur un document de son site.
+--
+-- Vérification après application :
+--     SELECT policyname, qual FROM pg_policies
+--     WHERE tablename = 'documents' AND cmd IN ('UPDATE', 'DELETE');
+--     -- aucune ne doit contenir « site_id IS NULL ».
+-- =============================================================================
+
+ALTER POLICY documents_site_scoped_delete ON public.documents
+    USING (((SELECT public."current_role"()) = ANY (ARRAY['manager'::text, 'technicien'::text]))
+           AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])));
+
+ALTER POLICY documents_manager_update ON public.documents
+    USING (((SELECT public."current_role"()) = 'manager'::text)
+           AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))
+    WITH CHECK (((SELECT public."current_role"()) = 'manager'::text)
+           AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])));
+
+ALTER POLICY documents_technicien_update ON public.documents
+    USING (((SELECT public."current_role"()) = 'technicien'::text)
+           AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])))
+    WITH CHECK (((SELECT public."current_role"()) = 'technicien'::text)
+           AND (site_id = ANY ((SELECT public.mes_site_ids())::uuid[])));
+
+COMMENT ON POLICY documents_site_scoped_delete ON public.documents IS
+  'Suppression manager/technicien : documents de LEURS sites seulement ; un document entreprise (site_id NULL) relève de l''admin (174).';
