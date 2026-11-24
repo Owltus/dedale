@@ -53,6 +53,17 @@ Si les types changent : relancer `npm run verify`.
 
 La poussée sur `main` déclenche le déploiement. Vercel refuse de publier si `tsc -b` échoue — c'est le seul garde-fou distant : **ni lint, ni format, ni tests ne tournent côté Vercel**.
 
+### 4 bis. Edge Functions (si `supabase/functions/` a changé)
+
+```bash
+npm run test:deno                                   # 63+ tests, déjà dans verify
+npx supabase functions deploy <fonction> --project-ref ybxuojtyevldrbieaykh
+npx supabase functions list --project-ref ybxuojtyevldrbieaykh -o json   # contrôle verify_jwt
+```
+
+- Le réglage `verify_jwt` de chaque fonction est versionné dans **`supabase/config.toml`** : `false` partout sauf `dmbook-connexion`. Déployer depuis la racine du dépôt pour qu'il soit lu ; vérifier ensuite avec `functions list`.
+- Un `verify_jwt` repassé à `true` casse le connecteur Claude (`mcp`, qui doit renvoyer SON 401 OAuth) et la synchro Dmbook (`dmbook-sync`, appelée par pg_cron avec sa clé).
+
 ### 5. Contrôle après mise en ligne
 
 ```bash

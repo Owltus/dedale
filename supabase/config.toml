@@ -1,0 +1,29 @@
+# Configuration Supabase versionnée — UNIQUEMENT le réglage des Edge Functions.
+#
+# `verify_jwt` dit si la passerelle Supabase exige un jeton valide AVANT
+# d'appeler la fonction. Il était seulement écrit en commentaire : un
+# `supabase functions deploy <fonction>` lancé sans `--no-verify-jwt` le
+# remettait à `true`, ce qui cassait le connecteur Claude (qui doit renvoyer SON
+# propre 401 OAuth) et la synchro Dmbook (appelée par pg_cron avec sa clé).
+# Valeurs relevées en production le 24/11/2026 (`supabase functions list`).
+#
+# Les fonctions à `false` vérifient elles-mêmes l'appelant (préambule
+# _shared/http.ts, jeton OAuth du connecteur, clé de tâche Dmbook).
+
+[functions.mcp]
+verify_jwt = false
+
+[functions.dmbook-sync]
+verify_jwt = false
+
+[functions.invite_user]
+verify_jwt = false
+
+[functions.set_user_password]
+verify_jwt = false
+
+[functions.update_user_email]
+verify_jwt = false
+
+[functions.dmbook-connexion]
+verify_jwt = true
