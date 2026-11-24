@@ -29,6 +29,9 @@ function ouvertsPuisRecents<T>(ouverts: T[], termines: T[]): T[] {
 
 const enListe = (ids: readonly number[]) => `(${ids.join(',')})`
 
+/** Le seul statut terminal d'une DI (Clôturé). */
+const [STATUT_DI_CLOTURE] = STATUTS_DI_TERMINAUX
+
 /**
  * Requêtes BORNÉES du tableau de bord. Les clés vivent SOUS celles des features
  * (`[...xxxQueries.all(), 'tableau-de-bord', site]`) : les mutations et le temps
@@ -55,7 +58,10 @@ export const activiteQueries = {
             .abortSignal(signal)
             .throwOnError(),
           base()
-            .in('statut_di_id', [...STATUTS_DI_TERMINAUX])
+            // `eq` et non `in` : avec `in` (= ANY), PostgreSQL ne lit pas l'index
+            // 169 dans l'ordre et trie les ~4 000 DI clôturées (RLS comprise)
+            // avant d'en garder 30 : 220 ms → 3 ms (plan vérifié le 24/11/2026).
+            .eq('statut_di_id', STATUT_DI_CLOTURE)
             .order('date_constat', { ascending: false })
             .order('created_at', { ascending: false })
             .order('id')
