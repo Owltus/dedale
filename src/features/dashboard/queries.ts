@@ -1,6 +1,7 @@
 import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { toutesLesLignes } from '@/lib/pagination'
+import { clesRacines } from '@/lib/cles-racines'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 
 /**
@@ -17,7 +18,7 @@ const COLONNES_OT =
   'id, statut, origine, tolerance_jours, gamme_id, nom_gamme, nature_gamme, nom_prestataire, nom_equipement, description_gamme, nom_categorie, libelle_periodicite, date_prevue, date_debut, date_cloture, miniature_id'
 
 export const dashboardQueries = {
-  all: () => ['dashboard'] as const,
+  all: clesRacines.tableauDeBord,
 
   /**
    * OT du tableau de bord, lus en TROIS morceaux plutôt que tout l'historique

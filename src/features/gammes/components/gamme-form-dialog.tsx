@@ -12,7 +12,8 @@ import {
 } from '../schemas'
 import type { GammeFormValues } from '../schemas'
 import { useCreateGamme, useUpdateGamme } from '../mutations'
-import { gammesQueries, referentielsQueries } from '../queries'
+import { gammesQueries } from '../queries'
+import { referentielsQueries } from '@/lib/referentiel'
 import type { SousCategorieGamme } from '../queries'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { categoriesQueries } from '@/features/categories/queries'
@@ -21,6 +22,7 @@ import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { MiniatureIdentiteField } from '@/features/miniatures/components/miniature-identite-field'
 import { SelectField } from '@/components/common/fields/select-field'
 import { SwitchField } from '@/components/common/fields/switch-field'
 import type { Database } from '@/lib/database.types'
@@ -197,11 +199,14 @@ export function GammeFormDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={{
-            name: 'miniature_id',
-            targetSiteId: siteId,
-            canUpload: true,
-          }}
+          image={
+            <MiniatureIdentiteField
+              control={form.control}
+              name="miniature_id"
+              targetSiteId={siteId}
+              canUpload
+            />
+          }
         />
 
         <SelectField

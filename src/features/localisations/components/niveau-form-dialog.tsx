@@ -8,6 +8,7 @@ import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { TextField } from '@/components/common/fields/text-field'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { MiniatureIdentiteField } from '@/features/miniatures/components/miniature-identite-field'
 import type { Database } from '@/lib/database.types'
 
 type Niveau = Database['public']['Tables']['niveaux']['Row']
@@ -72,11 +73,14 @@ export function NiveauFormDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={{
-            name: 'miniature_id',
-            targetSiteId: siteId,
-            canUpload: true,
-          }}
+          image={
+            <MiniatureIdentiteField
+              control={form.control}
+              name="miniature_id"
+              targetSiteId={siteId}
+              canUpload
+            />
+          }
         />
         <TextField
           control={form.control}

@@ -36,3 +36,33 @@ export function referentielQueryOptions<
     staleTime: 5 * 60_000,
   })
 }
+
+/**
+ * Référentiels globaux des opérations (périodicités, types d'opération, unités),
+ * partagés par le Plan de maintenance, les opérations et les modèles d'opérations.
+ */
+export const referentielsQueries = {
+  /** Périodicités (référentiel global, peu mouvant). */
+  periodicites: () =>
+    referentielQueryOptions(
+      'periodicites',
+      'id, libelle, jours_periodicite',
+      'jours_periodicite',
+    ),
+
+  /** Types d'opération (référentiel global). */
+  typesOperations: () =>
+    referentielQueryOptions(
+      'types_operations',
+      'id, libelle, necessite_seuils',
+      'libelle',
+    ),
+
+  /** Unités de mesure (référentiel global). */
+  unites: () =>
+    referentielQueryOptions(
+      'unites',
+      'id, nom, symbole, necessite_seuils',
+      'nom',
+    ),
+}

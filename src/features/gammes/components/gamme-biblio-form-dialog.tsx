@@ -11,13 +11,15 @@ import {
 } from '../schemas'
 import type { GammeBiblioFormValues } from '../schemas'
 import { useCreateGammeBiblio, useUpdateGammeBiblio } from '../mutations'
-import { referentielsQueries, type GammeBiblioRow } from '../queries'
+import type { GammeBiblioRow } from '../queries'
+import { referentielsQueries } from '@/lib/referentiel'
 import { useAuth } from '@/auth'
 import { writeErrorMessage, type SqlstateOverrides } from '@/lib/erreurs'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { MiniatureIdentiteField } from '@/features/miniatures/components/miniature-identite-field'
 import { SelectField } from '@/components/common/fields/select-field'
 import { SwitchField } from '@/components/common/fields/switch-field'
 
@@ -148,7 +150,14 @@ export function GammeBiblioFormDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={{ name: 'miniature_id', targetSiteId: null, canUpload: true }}
+          image={
+            <MiniatureIdentiteField
+              control={form.control}
+              name="miniature_id"
+              targetSiteId={null}
+              canUpload
+            />
+          }
         />
 
         <SelectField

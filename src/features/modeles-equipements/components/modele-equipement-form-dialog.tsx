@@ -13,6 +13,7 @@ import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { MiniatureIdentiteField } from '@/features/miniatures/components/miniature-identite-field'
 import { SelectField } from '@/components/common/fields/select-field'
 import { RadioField } from '@/components/common/fields/radio-field'
 import { PorteeField } from '@/components/common/fields/portee-field'
@@ -168,11 +169,14 @@ export function ModeleEquipementFormDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={{
-            name: 'miniature_id',
-            targetSiteId: miniatureSite,
-            canUpload: canUploadMiniature,
-          }}
+          image={
+            <MiniatureIdentiteField
+              control={form.control}
+              name="miniature_id"
+              targetSiteId={miniatureSite}
+              canUpload={canUploadMiniature}
+            />
+          }
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SelectField

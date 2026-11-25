@@ -1,7 +1,7 @@
 import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { categoriesQueries } from '@/features/categories/queries'
-import { referentielQueryOptions } from '@/lib/referentiel'
+import { clesRacines } from '@/lib/cles-racines'
 import { sousCategoriesNiveau2 } from '@/lib/scope'
 import type { Database } from '@/lib/database.types'
 
@@ -76,7 +76,7 @@ export interface ModeleOperationLie {
 }
 
 export const gammesQueries = {
-  all: () => ['gammes'] as const,
+  all: clesRacines.gammes,
 
   /** Gammes actives du site actif, enrichies de la périodicité et du prestataire. */
   list: (siteId: string | null) =>
@@ -296,30 +296,4 @@ export const gammesQueries = {
       },
       staleTime: 60_000,
     }),
-}
-
-export const referentielsQueries = {
-  /** Périodicités (référentiel global, peu mouvant). */
-  periodicites: () =>
-    referentielQueryOptions(
-      'periodicites',
-      'id, libelle, jours_periodicite',
-      'jours_periodicite',
-    ),
-
-  /** Types d'opération (référentiel global). */
-  typesOperations: () =>
-    referentielQueryOptions(
-      'types_operations',
-      'id, libelle, necessite_seuils',
-      'libelle',
-    ),
-
-  /** Unités de mesure (référentiel global). */
-  unites: () =>
-    referentielQueryOptions(
-      'unites',
-      'id, nom, symbole, necessite_seuils',
-      'nom',
-    ),
 }

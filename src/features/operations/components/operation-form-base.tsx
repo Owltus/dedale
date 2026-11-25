@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useFormContext, useWatch, type UseFormReturn } from 'react-hook-form'
-import { referentielsQueries } from '@/features/gammes/queries'
+import { referentielsQueries } from '@/lib/referentiel'
 import { TextField } from '@/components/common/fields/text-field'
 import { SelectField } from '@/components/common/fields/select-field'
 import { DescriptionField } from '@/components/common/fields/description-field'

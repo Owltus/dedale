@@ -224,27 +224,4 @@ export default defineConfig(
       ],
     },
   },
-  {
-    // EXCEPTION MOTIVÉE — antérieure au 25/11/2026, à corriger (chantier
-    // séparé) : `IdentiteFields` monte le champ vignette `MiniatureField`, qui
-    // vit dans la feature socle `miniatures`. À résorber en remontant
-    // `miniature-field` dans common/fields/. Seul CET import est toléré : tout
-    // autre composant de feature reste interdit dans ce fichier.
-    files: ['src/components/common/fields/identite-fields.tsx'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: IMPORTS_COMMUNS,
-          patterns: [
-            {
-              ...COMMON_SANS_COMPOSANT,
-              regex:
-                '^@/features/(?!miniatures/components/miniature-field$)[^/]+/components/',
-            },
-          ],
-        },
-      ],
-    },
-  },
 )

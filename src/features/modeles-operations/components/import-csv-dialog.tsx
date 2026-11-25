@@ -11,7 +11,7 @@ import {
 } from '../csv-import'
 import { modelesOperationsQueries, type ModeleOperation } from '../queries'
 import { useCreateModeleOperation, useCreateOperationItem } from '../mutations'
-import { referentielsQueries } from '@/features/gammes/queries'
+import { referentielsQueries } from '@/lib/referentiel'
 import { resumeOperation } from '@/features/operations/csv-import'
 import { writeErrorMessage } from '@/lib/erreurs'
 import {

@@ -1,16 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'react'
-import { Controller } from 'react-hook-form'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { Control, FieldPath, FieldValues } from 'react-hook-form'
 import { TextField } from './text-field'
 import { DescriptionField } from './description-field'
-import { MiniatureField } from '@/features/miniatures/components/miniature-field'
-
-interface ImageConfig<T extends FieldValues> {
-  name: FieldPath<T>
-  /** Périmètre de l'entité (NULL = commun) : scope des vignettes + cible d'upload. */
-  targetSiteId: string | null
-  canUpload: boolean
-}
 
 interface IdentiteFieldsProps<T extends FieldValues> {
   control: Control<T, unknown, FieldValues>
@@ -20,15 +11,19 @@ interface IdentiteFieldsProps<T extends FieldValues> {
   descriptionName?: FieldPath<T>
   descriptionLabel?: string
   descriptionRequired?: boolean
-  /** Bloc image (optionnel : omis quand l'entité n'expose pas de vignette). */
-  image?: ImageConfig<T>
+  /**
+   * Bloc image injecté (optionnel : omis quand l'entité n'expose pas de
+   * vignette) — en pratique `<MiniatureIdentiteField>` de la feature socle
+   * `miniatures`, calé ici dans le carré de gauche.
+   */
+  image?: ReactNode
 }
 
 /**
  * En-tête « identité » commun aux formulaires d'entité (version react-hook-form) :
  * image à GAUCHE (carré à taille fixe), Nom au-dessus de la Description à DROITE.
  * Deux colonnes sur large, empilé sur mobile. Sans image : Nom + Description pleine
- * largeur. Mutualise l'unique `MiniatureField` → présentation HOMOGÈNE.
+ * largeur. Mutualise la disposition du bloc image → présentation HOMOGÈNE.
  */
 export function IdentiteFields<T extends FieldValues>({
   control,
@@ -91,19 +86,7 @@ export function IdentiteFields<T extends FieldValues>({
             : undefined
         }
       >
-        <Controller
-          control={control}
-          name={image.name}
-          render={({ field }) => (
-            <MiniatureField
-              orientation="tile"
-              value={field.value ?? null}
-              onChange={field.onChange}
-              targetSiteId={image.targetSiteId}
-              canUpload={image.canUpload}
-            />
-          )}
-        />
+        {image}
       </div>
       <div ref={champsRef} className="grid flex-1 content-start gap-4">
         {champNom}
