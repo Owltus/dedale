@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Library, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -404,29 +404,24 @@ export function UploadDocumentDialog({
   const [searchExistants, setSearchExistants] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  const linkedSet = useMemo(
-    () => new Set(linkedDocumentIds),
-    [linkedDocumentIds],
-  )
+  const linkedSet = new Set(linkedDocumentIds)
   // Même restriction de format que l'onglet « Téléverser » (ex. PDF seul pour
   // les investissements) : sans ce filtre, lier un document existant contournait
   // acceptedMimes.
-  const candidats = useMemo(() => {
-    const mimeAccepte = (mime: string) =>
-      acceptedMimes.some((m) =>
-        m === 'image/*' ? mime.startsWith('image/') : mime === m,
-      )
-    return (liables ?? []).filter(
-      (doc) => !linkedSet.has(doc.id) && mimeAccepte(doc.mime_type),
+  const mimeAccepte = (mime: string) =>
+    acceptedMimes.some((m) =>
+      m === 'image/*' ? mime.startsWith('image/') : mime === m,
     )
-  }, [liables, linkedSet, acceptedMimes])
-  const filtresExistants = useMemo(() => {
+  const candidats = (liables ?? []).filter(
+    (doc) => !linkedSet.has(doc.id) && mimeAccepte(doc.mime_type),
+  )
+  const filtresExistants = (() => {
     const q = normaliserRecherche(searchExistants)
     if (q === '') return candidats
     return candidats.filter((doc) =>
       normaliserRecherche(doc.nom_original).includes(q),
     )
-  }, [candidats, searchExistants])
+  })()
 
   function toggleExistant(id: string) {
     setSelected((prev) => {
@@ -439,13 +434,15 @@ export function UploadDocumentDialog({
 
   async function handleAttachSubmit() {
     if (selected.size === 0 || onAttachExisting === undefined) return
+    // Message préparé hors du try (React Compiler : pas de conditionnelle dans
+    // un try/catch).
+    const succes =
+      selected.size > 1
+        ? `${String(selected.size)} documents liés`
+        : 'Document lié'
     try {
       await onAttachExisting([...selected])
-      toast.success(
-        selected.size > 1
-          ? `${String(selected.size)} documents liés`
-          : 'Document lié',
-      )
+      toast.success(succes)
       onOpenChange(false)
     } catch (e) {
       toast.error(writeErrorMessage(e))

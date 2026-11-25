@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { ZoomIn, ZoomOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { canvasToWebp, sha256Hex } from '@/lib/image'
@@ -125,7 +125,7 @@ export function MiniatureCropDialog({
 
   // Mesure le viewport + l'image et centre le cadrage (cover). Appelé à la
   // charge de l'image et au redimensionnement de la fenêtre.
-  const recenter = useCallback(() => {
+  const recenter = () => {
     const container = containerRef.current
     const img = imgRef.current
     if (!container || !img) return
@@ -145,12 +145,15 @@ export function MiniatureCropDialog({
         natH,
       ),
     )
-  }, [])
+  }
 
+  // Écouteur posé une seule fois ; il appelle toujours le `recenter` à jour.
+  const surRedimensionnement = useEffectEvent(() => recenter())
   useEffect(() => {
-    window.addEventListener('resize', recenter)
-    return () => window.removeEventListener('resize', recenter)
-  }, [recenter])
+    const onResize = () => surRedimensionnement()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   // Molette : listener natif non-passif (onWheel React est passif → preventDefault inerte).
   useEffect(() => {
@@ -224,9 +227,10 @@ export function MiniatureCropDialog({
       onConfirm({ blob, hash })
     } catch (e) {
       toast.error(writeErrorMessage(e))
-    } finally {
-      setEncoding(false)
     }
+    // Hors d'un `finally` (non compilé par React Compiler) : le catch ci-dessus
+    // absorbe toute erreur, on passe donc toujours ici.
+    setEncoding(false)
   }
 
   const scale = (geom !== null ? coverScale(geom) : 1) * view.s

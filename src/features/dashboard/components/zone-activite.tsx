@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ClipboardList, HardHat, OctagonAlert } from 'lucide-react'
@@ -45,6 +45,9 @@ interface MetaOnglet {
   emptyTitle: string
   emptyDescription: string
 }
+
+/** Repli partagé tant que les lieux ne sont pas chargés (jamais muté). */
+const AUCUN_LIEU = new Map<string, string>()
 
 const ONGLETS: MetaOnglet[] = [
   {
@@ -101,14 +104,8 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
   const { data: statutsEvenements = [] } = useQuery(
     statutsEvenementsQueries.list(),
   )
-  const labelsTravaux = useMemo(
-    () => new Map(statutsTravaux.map((s) => [s.id, s.nom])),
-    [statutsTravaux],
-  )
-  const labelsEvenements = useMemo(
-    () => new Map(statutsEvenements.map((s) => [s.id, s.nom])),
-    [statutsEvenements],
-  )
+  const labelsTravaux = new Map(statutsTravaux.map((s) => [s.id, s.nom]))
+  const labelsEvenements = new Map(statutsEvenements.map((s) => [s.id, s.nom]))
 
   // `select` : la normalisation se fait DANS la query (donc une fois par
   // rafraîchissement, pas à chaque rendu) et les trois requêtes en ressortent
@@ -116,17 +113,13 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
   // la carte sans cast. Les clés restent celles des features : la liste des
   // demandes est ainsi partagée avec le reste du tableau de bord. Les deux
   // journaux dont le libellé de statut vient d'un référentiel referment dessus,
-  // d'où le `useCallback` (`lignesDemandes`, elle, est déjà stable).
-  const selTravaux = useCallback(
-    (rows: Parameters<typeof lignesTravaux>[0]) =>
-      lignesTravaux(rows, labelsTravaux),
-    [labelsTravaux],
-  )
-  const selEvenements = useCallback(
-    (rows: Parameters<typeof lignesEvenements>[0]) =>
-      lignesEvenements(rows, labelsEvenements),
-    [labelsEvenements],
-  )
+  // d'où une fonction par journal, d'identité stable tant que le référentiel ne
+  // change pas (mémoïsée par React Compiler ; `lignesDemandes`, elle, est déjà
+  // stable).
+  const selTravaux = (rows: Parameters<typeof lignesTravaux>[0]) =>
+    lignesTravaux(rows, labelsTravaux)
+  const selEvenements = (rows: Parameters<typeof lignesEvenements>[0]) =>
+    lignesEvenements(rows, labelsEvenements)
 
   // APERÇUS bornés (30 lignes par journal : ce qui reste à traiter, puis le
   // plus récent) — jamais l'historique entier : la carte en montre une vingtaine.
@@ -150,14 +143,8 @@ export function ZoneActivite({ siteId }: ZoneActiviteProps) {
 
   // Lieu(x) des SEULES demandes de l'aperçu : titre des cartes, comme sur la
   // page Demandes. L'ancien aperçu reste affiché pendant un rafraîchissement.
-  const idsDemandes = useMemo(
-    () => [...(demandesParId?.keys() ?? [])],
-    [demandesParId],
-  )
-  const {
-    data: lieux = new Map<string, string>(),
-    isPending: lieuxEnChargement,
-  } = useQuery({
+  const idsDemandes = [...(demandesParId?.keys() ?? [])]
+  const { data: lieux = AUCUN_LIEU, isPending: lieuxEnChargement } = useQuery({
     ...activiteQueries.lieuxDemandes(siteId, idsDemandes),
     placeholderData: keepPreviousData,
   })

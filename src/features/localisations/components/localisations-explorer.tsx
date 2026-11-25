@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Building, DoorOpen, Layers, Plus, Upload } from 'lucide-react'
@@ -43,6 +43,35 @@ type Batiment = Database['public']['Tables']['batiments']['Row']
 type Niveau = Database['public']['Tables']['niveaux']['Row']
 type Local = Database['public']['Tables']['locaux']['Row']
 
+/**
+ * Sous-titre d'une ligne de local : type, mesures, équipements de confort puis
+ * caractéristiques du type renseignées. Hors du composant : React Compiler ne
+ * compile pas une conditionnelle prise dans le test d'un `||`.
+ */
+function sousTitreLocal(l: Local, typeNom: string | null): string | undefined {
+  return (
+    [
+      typeNom,
+      l.surface_m2 === null ? null : `${String(l.surface_m2)} m²`,
+      l.hauteur_m === null ? null : `${String(l.hauteur_m)} m`,
+      l.capacite_personnes === null
+        ? null
+        : `${String(l.capacite_personnes)} pers.`,
+      l.chauffe_climatise ? 'Chauffé/climatisé' : null,
+      l.accessible_pmr ? 'PMR' : null,
+      // Caractéristiques du type (112) : seules celles qui portent une valeur,
+      // pour ne pas allonger la ligne inutilement.
+      ...parseChamps(l.specifications)
+        .filter(
+          (c) => c.valeur !== null && c.valeur !== undefined && c.valeur !== '',
+        )
+        .map((c) => `${c.cle} : ${formatChampValeur(c, c.valeur ?? null)}`),
+    ]
+      .filter(Boolean)
+      .join(' · ') || undefined
+  )
+}
+
 type Suppression =
   | { kind: 'batiment'; item: Batiment }
   | { kind: 'niveau'; item: Niveau }
@@ -68,23 +97,20 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   const batimentsQuery = useQuery(localisationsQueries.batiments(siteId))
-  const batiments = useMemo(
-    () => batimentsQuery.data ?? [],
-    [batimentsQuery.data],
-  )
-  const batiment = useMemo(() => {
+  const batiments = batimentsQuery.data ?? []
+  const batiment = (() => {
     if (segs[0] === undefined) return null
     return batiments.find((b) => segOfUnique(b, batiments) === segs[0]) ?? null
-  }, [segs, batiments])
+  })()
 
   const niveauxQuery = useQuery(
     localisationsQueries.niveaux(batiment?.id ?? null),
   )
-  const niveaux = useMemo(() => niveauxQuery.data ?? [], [niveauxQuery.data])
-  const niveau = useMemo(() => {
+  const niveaux = niveauxQuery.data ?? []
+  const niveau = (() => {
     if (segs[1] === undefined || !batiment) return null
     return niveaux.find((n) => segOfUnique(n, niveaux) === segs[1]) ?? null
-  }, [segs, batiment, niveaux])
+  })()
 
   const locauxQuery = useQuery(localisationsQueries.locaux(niveau?.id ?? null))
   const { data: types = [] } = useQuery(localisationsQueries.typesLocaux())
@@ -99,17 +125,11 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   const niveauxSurfaceQuery = useQuery(
     localisationsQueries.niveauxSurface(batiment?.id ?? null),
   )
-  const surfaceBatiment = useMemo(
-    () =>
-      new Map(
-        (batimentsSurfaceQuery.data ?? []).map((r) => [r.batiment_id, r]),
-      ),
-    [batimentsSurfaceQuery.data],
+  const surfaceBatiment = new Map(
+    (batimentsSurfaceQuery.data ?? []).map((r) => [r.batiment_id, r]),
   )
-  const surfaceNiveau = useMemo(
-    () =>
-      new Map((niveauxSurfaceQuery.data ?? []).map((r) => [r.niveau_id, r])),
-    [niveauxSurfaceQuery.data],
+  const surfaceNiveau = new Map(
+    (niveauxSurfaceQuery.data ?? []).map((r) => [r.niveau_id, r]),
   )
   // Libellé roulé : « X m² · Y m² chauffé · Z m³ · N pers. » — chaque terme
   // n'apparaît que s'il est > 0 (pas de bruit « 0 m² » sur un conteneur vide).
@@ -368,33 +388,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                   />
                 }
                 title={l.nom}
-                subtitle={
-                  [
-                    typeLabel(l.type_local_id),
-                    l.surface_m2 === null ? null : `${String(l.surface_m2)} m²`,
-                    l.hauteur_m === null ? null : `${String(l.hauteur_m)} m`,
-                    l.capacite_personnes === null
-                      ? null
-                      : `${String(l.capacite_personnes)} pers.`,
-                    l.chauffe_climatise ? 'Chauffé/climatisé' : null,
-                    l.accessible_pmr ? 'PMR' : null,
-                    // Caractéristiques du type (112) : seules celles qui portent
-                    // une valeur, pour ne pas allonger la ligne inutilement.
-                    ...parseChamps(l.specifications)
-                      .filter(
-                        (c) =>
-                          c.valeur !== null &&
-                          c.valeur !== undefined &&
-                          c.valeur !== '',
-                      )
-                      .map(
-                        (c) =>
-                          `${c.cle} : ${formatChampValeur(c, c.valeur ?? null)}`,
-                      ),
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || undefined
-                }
+                subtitle={sousTitreLocal(l, typeLabel(l.type_local_id))}
                 menuActions={rowActions(
                   () => locDialog.openEdit(l),
                   () => suppression.demander({ kind: 'local', item: l }),

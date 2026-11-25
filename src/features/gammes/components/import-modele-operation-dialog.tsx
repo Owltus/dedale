@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useLierModelesOperation } from '../mutations'
@@ -53,12 +52,10 @@ export function ImportModeleOperationDialog({
   // liables, trigger 23514 — ils feraient échouer l'INSERT groupé atomique) et
   // ceux déjà rattachés à la gamme.
   const poolQuery = useQuery(modelesOperationsQueries.liables(gammeSiteId))
-  const candidates = useMemo(() => {
-    const lies = new Set(liesIds)
-    return (poolQuery.data ?? []).filter(
-      (m) => m.nbItems > 0 && !lies.has(m.id),
-    )
-  }, [poolQuery.data, liesIds])
+  const lies = new Set(liesIds)
+  const candidates = (poolQuery.data ?? []).filter(
+    (m) => m.nbItems > 0 && !lies.has(m.id),
+  )
 
   return (
     <ChecklistDialog
@@ -88,13 +85,13 @@ export function ImportModeleOperationDialog({
       empty="Aucun modèle d’opération sur ce site. Va en chercher un dans la Bibliothèque (onglet « Modèles d’opérations », bouton « Importer depuis le commun »)."
       noResults="Aucun modèle ne correspond à ta recherche."
       onSubmit={async (ids) => {
+        // Message préparé hors du try (React Compiler : pas de conditionnelle
+        // dans un try/catch).
+        const succes =
+          ids.length > 1 ? 'Modèles d’opération liés' : 'Modèle d’opération lié'
         try {
           await lier.mutateAsync({ gammeId, modeleIds: ids })
-          toast.success(
-            ids.length > 1
-              ? 'Modèles d’opération liés'
-              : 'Modèle d’opération lié',
-          )
+          toast.success(succes)
         } catch (e) {
           toast.error(writeErrorMessage(e, LIER_ERROR_OVERRIDES))
           throw e

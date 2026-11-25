@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import type { Categorie } from '@/features/categories/queries'
 import type { GammeBiblioRow } from '../queries'
@@ -42,7 +42,7 @@ export function CopierContenuDialog({
   const isRoot = source !== null && source.parent_id === null
 
   // Gammes par sous-catégorie concernée (racine → ses enfants ; sous-cat → elle).
-  const gammesDe = useMemo(() => {
+  const gammesDe = (() => {
     const map = new Map<string, GammeBiblioRow[]>()
     const cibles = isRoot
       ? sousCats.map((c) => c.id)
@@ -56,7 +56,7 @@ export function CopierContenuDialog({
       )
     }
     return map
-  }, [isRoot, sousCats, source, gammes])
+  })()
 
   // Sélection par défaut : TOUT le contenu coché (l'utilisateur décoche au besoin).
   const [siteCible, setSiteCible] = useState('')
@@ -121,6 +121,12 @@ export function CopierContenuDialog({
 
   async function handleSubmit() {
     if (!source || siteCible === '') return
+    // Message préparé hors du try : React Compiler ne compile pas une expression
+    // conditionnelle à l'intérieur d'un try/catch.
+    const nomSite = sites.find((s) => s.id === siteCible)?.nom
+    const succes = `« ${source.nom} » copiée sur ${
+      nomSite ? `le site « ${nomSite} »` : 'le site'
+    }. Retrouve le contenu dans la page Plan de maintenance du site.`
     try {
       await copier.mutateAsync({
         sourceCategorieId: source.id,
@@ -128,12 +134,7 @@ export function CopierContenuDialog({
         sousCatIds: [...selSous],
         gammeIds: [...selGammes],
       })
-      const nomSite = sites.find((s) => s.id === siteCible)?.nom
-      toast.success(
-        `« ${source.nom} » copiée sur ${
-          nomSite ? `le site « ${nomSite} »` : 'le site'
-        }. Retrouve le contenu dans la page Plan de maintenance du site.`,
-      )
+      toast.success(succes)
       onOpenChange(false)
     } catch (e) {
       toast.error(exportErrorMessage(e))

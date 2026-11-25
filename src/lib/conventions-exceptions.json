@@ -67,68 +67,14 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/features/dashboard/components/zone-activite.tsx",
-    "occurrences": 5,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/documents/components/upload-document-dialog.tsx",
-    "occurrences": 3,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
     "fichier": "src/features/equipements/components/equipements-explorer.tsx",
     "occurrences": 9,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/features/gammes/components/copier-contenu-dialog.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
     "fichier": "src/features/gammes/components/gammes-explorer.tsx",
     "occurrences": 3,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/gammes/components/import-modele-operation-dialog.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/localisations/components/import-csv-dialog.tsx",
-    "occurrences": 5,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/localisations/components/localisations-explorer.tsx",
-    "occurrences": 6,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/miniatures/components/miniature-crop-dialog.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/miniatures/components/miniatures-panel.tsx",
-    "occurrences": 9,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/miniatures/use-miniature-download.ts",
-    "occurrences": 2,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
   {

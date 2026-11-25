@@ -107,7 +107,7 @@ function SidebarProvider({
 
   // Raccourci clavier : l'écouteur est posé une seule fois et lit toujours la
   // bascule à jour (useEffectEvent), sans se réabonner à chaque rendu.
-  const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+  const surRaccourci = useEffectEvent((event: KeyboardEvent) => {
     if (
       event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
       (event.metaKey || event.ctrlKey)
@@ -118,6 +118,7 @@ function SidebarProvider({
   })
 
   useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => surRaccourci(event)
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])

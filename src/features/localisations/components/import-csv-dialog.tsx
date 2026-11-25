@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { localisationsQueries } from '../queries'
@@ -61,39 +61,20 @@ export function ImportCsvDialog({
   // Chaque type porte son gabarit de caractéristiques (112) : le prompt en
   // décrit les colonnes et le parseur valide chaque ligne sur le gabarit de
   // SON type.
-  const types = useMemo(
-    () =>
-      typesBruts.map((t) => ({
-        id: t.id,
-        libelle: t.libelle,
-        champs: parseChamps(t.specifications),
-      })),
-    [typesBruts],
-  )
+  const types = typesBruts.map((t) => ({
+    id: t.id,
+    libelle: t.libelle,
+    champs: parseChamps(t.specifications),
+  }))
 
-  const contexte = useMemo<ContexteImport>(
-    () => ({
-      batiment: batiment ? { id: batiment.id, nom: batiment.nom } : null,
-      niveau: niveau ? { id: niveau.id, nom: niveau.nom } : null,
-    }),
-    [batiment, niveau],
-  )
-  const prompt = useMemo(
-    () => buildImportPrompt({ arbre, types, contexte }),
-    [arbre, types, contexte],
-  )
-  const resultat = useMemo(
-    () => parseImportCsv(csvTexte, arbre, types, contexte),
-    [csvTexte, arbre, types, contexte],
-  )
-  const lignesValides = useMemo(
-    () => resultat.lignes.filter((l): l is CsvImportRowOk => l.ok),
-    [resultat],
-  )
-  const plan = useMemo(
-    () => construirePlan(lignesValides, arbre),
-    [lignesValides, arbre],
-  )
+  const contexte: ContexteImport = {
+    batiment: batiment ? { id: batiment.id, nom: batiment.nom } : null,
+    niveau: niveau ? { id: niveau.id, nom: niveau.nom } : null,
+  }
+  const prompt = buildImportPrompt({ arbre, types, contexte })
+  const resultat = parseImportCsv(csvTexte, arbre, types, contexte)
+  const lignesValides = resultat.lignes.filter((l): l is CsvImportRowOk => l.ok)
+  const plan = construirePlan(lignesValides, arbre)
   const lignesApercu: CsvImportLigne[] = resultat.lignes.map((l) =>
     l.ok
       ? { ligne: l.ligne, ok: true, texte: l.chemin }
@@ -107,91 +88,15 @@ export function ImportCsvDialog({
     setImporting(false)
   }
 
-  /** Exécute le plan parent → enfant ; compte les créations et les échecs. */
-  async function executer(p: PlanImport) {
-    let crees = 0
-    let echecs = 0
-    let premiereErreur: unknown
-    const noter = (e: unknown, poids: number) => {
-      echecs += poids
-      premiereErreur ??= e
-    }
-    for (const b of p.batiments) {
-      let batimentId = b.existantId
-      if (batimentId === null) {
-        try {
-          const cree = await createBatiment.mutateAsync({
-            siteId,
-            values: {
-              nom: b.nom,
-              description: b.description ?? '',
-              miniature_id: null,
-            },
-          })
-          batimentId = cree.id
-          crees += 1
-        } catch (e) {
-          // Sans bâtiment, tout ce qu'il contenait tombe avec lui.
-          noter(
-            e,
-            1 + b.niveaux.reduce((acc, n) => acc + 1 + n.locaux.length, 0),
-          )
-          continue
-        }
-      }
-      for (const n of b.niveaux) {
-        let niveauId = n.existantId
-        if (niveauId === null) {
-          try {
-            const cree = await createNiveau.mutateAsync({
-              batimentId,
-              values: {
-                nom: n.nom,
-                description: n.description ?? '',
-                ordre: n.ordre,
-                miniature_id: null,
-              },
-            })
-            niveauId = cree.id
-            crees += 1
-          } catch (e) {
-            noter(e, 1 + n.locaux.length)
-            continue
-          }
-        }
-        const idNiveau = niveauId
-        const resultats = await Promise.allSettled(
-          n.locaux.map((l) =>
-            createLocal.mutateAsync({
-              niveauId: idNiveau,
-              values: {
-                nom: l.nom,
-                description: l.description ?? '',
-                surface_m2: l.surface,
-                type_local_id: l.typeLocalId,
-                miniature_id: null,
-                chauffe_climatise: l.chauffe,
-                hauteur_m: l.hauteur,
-                capacite_personnes: l.capacite,
-                accessible_pmr: l.pmr,
-              },
-              specifications: serializeChamps(l.champs),
-            }),
-          ),
-        )
-        for (const r of resultats) {
-          if (r.status === 'fulfilled') crees += 1
-          else noter(r.reason, 1)
-        }
-      }
-    }
-    return { crees, echecs, premiereErreur }
-  }
-
   async function confirmerImport() {
     if (lignesValides.length === 0) return
     setImporting(true)
-    const { crees, echecs, premiereErreur } = await executer(plan)
+    const { crees, echecs, premiereErreur } = await executerPlan(plan, {
+      siteId,
+      creerBatiment: createBatiment.mutateAsync,
+      creerNiveau: createNiveau.mutateAsync,
+      creerLocal: createLocal.mutateAsync,
+    })
     setImporting(false)
     if (echecs === 0) {
       toast.success(`${resume} créé${crees > 1 ? 's' : ''}`)
@@ -238,4 +143,94 @@ export function ImportCsvDialog({
       onImport={() => void confirmerImport()}
     />
   )
+}
+
+/** Écritures du plan : les MÊMES mutations que la création manuelle. */
+interface Ecritures {
+  siteId: string
+  creerBatiment: ReturnType<typeof useCreateBatiment>['mutateAsync']
+  creerNiveau: ReturnType<typeof useCreateNiveau>['mutateAsync']
+  creerLocal: ReturnType<typeof useCreateLocal>['mutateAsync']
+}
+
+/**
+ * Exécute le plan parent → enfant ; compte les créations et les échecs. Hors du
+ * composant : React Compiler ne compile pas les conditionnelles prises dans
+ * ses try/catch.
+ */
+async function executerPlan(p: PlanImport, ecrire: Ecritures) {
+  let crees = 0
+  let echecs = 0
+  let premiereErreur: unknown
+  const noter = (e: unknown, poids: number) => {
+    echecs += poids
+    if (premiereErreur === undefined) premiereErreur = e
+  }
+  for (const b of p.batiments) {
+    let batimentId = b.existantId
+    if (batimentId === null) {
+      try {
+        const cree = await ecrire.creerBatiment({
+          siteId: ecrire.siteId,
+          values: {
+            nom: b.nom,
+            description: b.description ?? '',
+            miniature_id: null,
+          },
+        })
+        batimentId = cree.id
+        crees += 1
+      } catch (e) {
+        // Sans bâtiment, tout ce qu'il contenait tombe avec lui.
+        noter(e, 1 + b.niveaux.reduce((acc, n) => acc + 1 + n.locaux.length, 0))
+        continue
+      }
+    }
+    for (const n of b.niveaux) {
+      let niveauId = n.existantId
+      if (niveauId === null) {
+        try {
+          const cree = await ecrire.creerNiveau({
+            batimentId,
+            values: {
+              nom: n.nom,
+              description: n.description ?? '',
+              ordre: n.ordre,
+              miniature_id: null,
+            },
+          })
+          niveauId = cree.id
+          crees += 1
+        } catch (e) {
+          noter(e, 1 + n.locaux.length)
+          continue
+        }
+      }
+      const idNiveau = niveauId
+      const resultats = await Promise.allSettled(
+        n.locaux.map((l) =>
+          ecrire.creerLocal({
+            niveauId: idNiveau,
+            values: {
+              nom: l.nom,
+              description: l.description ?? '',
+              surface_m2: l.surface,
+              type_local_id: l.typeLocalId,
+              miniature_id: null,
+              chauffe_climatise: l.chauffe,
+              hauteur_m: l.hauteur,
+              capacite_personnes: l.capacite,
+              accessible_pmr: l.pmr,
+            },
+            specifications: serializeChamps(l.champs),
+          }),
+        ),
+      )
+      for (const r of resultats) {
+        if (r.status === 'fulfilled') crees += 1
+        else noter(r.reason, 1)
+      }
+    }
+  }
+  return { crees, echecs, premiereErreur }
 }

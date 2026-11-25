@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Download, ImageOff, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -95,30 +95,25 @@ export function MiniaturesPanel() {
       : `Ajouter à ${selectedSiteName ?? 'ce site'}`
 
   // Vignettes sélectionnées + sous-ensemble réellement supprimable par le rôle.
-  const selectedMiniatures = useMemo(
-    () => (query.data ?? []).filter((m) => selected.has(m.id)),
-    [query.data, selected],
+  const selectedMiniatures = (query.data ?? []).filter((m) =>
+    selected.has(m.id),
   )
-  const deletableSelected = useMemo(
-    () =>
-      selectedMiniatures.filter(
-        (m) => canManage && (canEntreprise || m.site_id !== null),
-      ),
-    [selectedMiniatures, canManage, canEntreprise],
+  const deletableSelected = selectedMiniatures.filter(
+    (m) => canManage && (canEntreprise || m.site_id !== null),
   )
   const selectedCount = selected.size
   const canDeleteAny = deletableSelected.length > 0
 
-  const toggleSelect = useCallback((id: string) => {
+  const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
-  }, [])
-  const clearSelection = useCallback(() => setSelected(new Set()), [])
-  const openMassDelete = useCallback(() => setMassDeleteOpen(true), [])
+  }
+  const clearSelection = () => setSelected(new Set())
+  const openMassDelete = () => setMassDeleteOpen(true)
 
   // Téléchargements (unitaire au survol / sélection en ZIP au-delà d'une image).
   const { zipping, downloadOne, downloadSelection } =
@@ -163,85 +158,72 @@ export function MiniaturesPanel() {
   }
 
   // Sélecteur de périmètre (partagé entre onglets). Changer réinitialise la sélection.
-  const scopeControl = useMemo(
-    () => (
-      <ScopeSelect
-        value={scope}
-        onChange={(s) => {
-          setScope(s)
-          setSelected(new Set())
-        }}
-        fluid
-      />
-    ),
-    [scope, setScope],
+  const scopeControl = (
+    <ScopeSelect
+      value={scope}
+      onChange={(s) => {
+        setScope(s)
+        setSelected(new Set())
+      }}
+      fluid
+    />
   )
 
   // Actions de masse (sélection) : boutons COMPACTS → `actions` de la barre (restent
   // en haut à droite avec le +). Le filtre de périmètre, lui, est passé en `extra`
   // (sa propre ligne pleine largeur sur mobile). `null` quand rien n'est sélectionné.
-  const massActions = useMemo(
-    () =>
-      selectedCount > 0 ? (
-        <>
-          <span className="px-1 text-xs text-muted-foreground tabular-nums">
-            {selectedCount}
-          </span>
+  const massActions =
+    selectedCount > 0 ? (
+      <>
+        <span className="px-1 text-xs text-muted-foreground tabular-nums">
+          {selectedCount}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          onClick={() => void downloadSelection()}
+          disabled={zipping}
+          aria-label="Télécharger la sélection"
+          title="Télécharger"
+        >
+          <Download className="text-info" />
+        </Button>
+        {canDeleteAny && (
           <Button
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => void downloadSelection()}
-            disabled={zipping}
-            aria-label="Télécharger la sélection"
-            title="Télécharger"
+            onClick={openMassDelete}
+            aria-label="Supprimer la sélection"
+            title="Supprimer"
           >
-            <Download className="text-info" />
+            <Trash2 className="text-destructive" />
           </Button>
-          {canDeleteAny && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={openMassDelete}
-              aria-label="Supprimer la sélection"
-              title="Supprimer"
-            >
-              <Trash2 className="text-destructive" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={clearSelection}
-            aria-label="Tout désélectionner"
-            title="Désélectionner"
-          >
-            <X className="text-muted-foreground" />
-          </Button>
-        </>
-      ) : null,
-    [
-      selectedCount,
-      zipping,
-      canDeleteAny,
-      downloadSelection,
-      openMassDelete,
-      clearSelection,
-    ],
-  )
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          onClick={clearSelection}
+          aria-label="Tout désélectionner"
+          title="Désélectionner"
+        >
+          <X className="text-muted-foreground" />
+        </Button>
+      </>
+    ) : null
 
   // Ajout au pool : s'assurer d'être en mode AJOUT (pas de cible de remplacement).
-  const handleAddImage = useCallback(() => {
+  const handleAddImage = () => {
     setReplaceTarget(null)
     fileInput.current?.click()
-  }, [])
+  }
   // Remplacement : mémoriser la vignette ciblée puis ouvrir le même sélecteur.
-  const startReplace = useCallback((m: MiniatureWithUrl) => {
+  const startReplace = (m: MiniatureWithUrl) => {
     setReplaceTarget(m)
     fileInput.current?.click()
-  }, [])
+  }
   // Le + reste visible mais désactivé hors périmètre ajoutable.
   useTabAddAction(handleAddImage, addLabel, {
     disabled: !canAdd,
@@ -275,13 +257,7 @@ export function MiniaturesPanel() {
           blob: result.blob,
           hash: result.hash,
         })
-        toast.success(
-          unchanged
-            ? 'Image inchangée (déjà cette vignette).'
-            : refs > 0
-              ? `Image remplacée — ${String(refs)} élément(s) mis à jour.`
-              : 'Image remplacée.',
-        )
+        toast.success(messageRemplacement(unchanged, refs))
         setCropFile(null)
         setReplaceTarget(null)
       } catch (e) {
@@ -461,4 +437,15 @@ export function MiniaturesPanel() {
       />
     </div>
   )
+}
+
+/**
+ * Message de succès d'un remplacement de vignette. Hors du composant : React
+ * Compiler ne compile pas une conditionnelle écrite dans un try/catch.
+ */
+function messageRemplacement(unchanged: boolean, refs: number): string {
+  if (unchanged) return 'Image inchangée (déjà cette vignette).'
+  return refs > 0
+    ? `Image remplacée — ${String(refs)} élément(s) mis à jour.`
+    : 'Image remplacée.'
 }
