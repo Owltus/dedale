@@ -6,3 +6,6 @@
 .env.keys
 .env.local
 .env.*.local
+
+# Lien temporaire vers ../../supabase/functions, posé par base-locale.mjs tester
+functions

@@ -16,7 +16,8 @@ export function composer(constat: string, chambres: string[]): string {
 
 // Tête de chambres telle qu'écrite par les gens : « #112 », « 112 - », « # 112 / 113 », « #403 #404 ».
 // Une mesure (« 110 degrés », « 105 € ») n'est jamais une tête de chambre.
-const TETE_ECRITE = /^\s*(?:#?\s?[1-6](?:0[1-9]|[12]\d|3[01])(?![\d:h]|\s?(?:°|%|€|degr|cm|mm|kg|min|euros?\b))\s*(?:[-,/+]|et\b)?\s*)+/i
+const TETE_ECRITE =
+  /^\s*(?:#?\s?[1-6](?:0[1-9]|[12]\d|3[01])(?![\d:h]|\s?(?:°|%|€|degr|cm|mm|kg|min|euros?\b))\s*(?:[-,/+]|et\b)?\s*)+/i
 
 /**
  * Seules les chambres ont changé : on garde le texte Dmbook tel quel (signature,

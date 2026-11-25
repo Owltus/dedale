@@ -39,7 +39,8 @@ Deux natures de preuve :
 
 ## Limites connues
 
-- `tests/securite/edge-functions.mjs` n'est pas lancée par `base:tester` (elle
-  exige `supabase functions serve`, cf. `tests/securite/README.md`).
-- `tests/securite/triggers-ot.sql` se joue encore à la main (transaction annulée) ;
-  son branchement sur la base locale demande un semis d'OT suffisant.
+- `tests/securite/edge-functions.mjs` et `tests/securite/triggers-ot.sql` sont
+  joués par `base:tester` (fonctions servies le temps de la sonde, OT semé par
+  `semis-ot.sql`) : ils exigent Docker, donc ne tournent pas dans `npm run verify`.
+- `tests/securite/audit-sql.mjs` (catalogue SQL, cliquet
+  `audit-sql-exceptions.json`) aussi : la gate locale ne le voit pas sans pile.

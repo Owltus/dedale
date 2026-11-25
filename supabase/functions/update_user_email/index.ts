@@ -11,8 +11,7 @@ import { json, lireAppel } from '../_shared/http.ts'
 import type { Database } from '../_shared/database.types.ts'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 Deno.serve(async (req: Request): Promise<Response> => {
   // Préflight, méthode, configuration, jeton, connecteur et corps JSON.
@@ -36,8 +35,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   })
-  const { data: callerRole, error: roleErr } =
-    await callerClient.rpc('current_role')
+  const { data: callerRole, error: roleErr } = await callerClient.rpc('current_role')
   if (roleErr) {
     return json({ error: 'Impossible de vérifier vos droits.' }, 403)
   }

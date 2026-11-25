@@ -16,7 +16,8 @@ const LISTE = `<html><body><p>Total : <strong>2</strong></p><table>
 ${ligne('11', 1795098235, 7031, 'Ouvert', '#305 Rideau penderie décroché')}
 ${ligne('10', 1644232595, 2616, 'Fermé', '#513 Lessivage mur')}
 </table></body></html>`
-const fiche = (id: string, h2: string, corps: string, classe = 'ticket-status-bg-close') => `<html><body>
+const fiche = (id: string, h2: string, corps: string, classe = 'ticket-status-bg-close') =>
+  `<html><body>
 <h2><div class="pull-right"><a href="/ticket/${id}/update?return_to=show" class="btn update-entry">Éditer</a></div>
 ${h2} &nbsp;<small class="ticket-number">technique#2616</small></h2>
 <div class="ticket-meta"><span class="label label-default ${classe}">Fermé</span></div>
@@ -42,14 +43,21 @@ Deno.test('liste légère (sans DOM) : identifiants, activité, numéros, statut
 })
 
 Deno.test('auteur Dmbook (D21) : nom tel qu’écrit, sans l’identifiant de connexion', () => {
-  const ligneAuteur = `<tr class="entry ticket" data-id="12" data-ts="5"><td><span class="content">x <span class="author" title="Jean D&#039;Arc"> —&nbsp;jdarc</span></span><span class="meta">#7 - Ouvert - Hier</span></td></tr>`
+  const ligneAuteur =
+    `<tr class="entry ticket" data-id="12" data-ts="5"><td><span class="content">x <span class="author" title="Jean D&#039;Arc"> —&nbsp;jdarc</span></span><span class="meta">#7 - Ouvert - Hier</span></td></tr>`
   assertEquals(lireListeLegere(`Total : <strong>1</strong>${ligneAuteur}`).tickets[0].auteur, "Jean D'Arc")
-  const f = lireFiche('10', fiche('10', 'x', 'y').replace('</body>', '<li class="ticket-author"><i></i> Marc TESTEUR (MarcT) </li></body>'))
+  const f = lireFiche(
+    '10',
+    fiche('10', 'x', 'y').replace('</body>', '<li class="ticket-author"><i></i> Marc TESTEUR (MarcT) </li></body>'),
+  )
   assertEquals(f.auteur, 'Marc TESTEUR')
 })
 
-Deno.test('fiche d\'une ligne : le titre (copie retouchée) est ignoré, bouton Éditer exclu', () => {
-  const f = lireFiche('10', fiche('10', 'Lessivage mur côté TV', '<a href="/search?q=%23513">#513</a> Lessivage mur côté TV'))
+Deno.test("fiche d'une ligne : le titre (copie retouchée) est ignoré, bouton Éditer exclu", () => {
+  const f = lireFiche(
+    '10',
+    fiche('10', 'Lessivage mur côté TV', '<a href="/search?q=%23513">#513</a> Lessivage mur côté TV'),
+  )
   assertEquals(f.texte, '#513 Lessivage mur côté TV')
   assertEquals(f.statut, 'ferme')
   assertEquals(f.numero, 2616)

@@ -12,7 +12,7 @@
  *   - le code est envoyé UNE fois ; jamais « renvoyer le code ».
  */
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
-import { Dmbook, type Cookie, type Reprise } from './client.ts'
+import { type Cookie, Dmbook, type Reprise } from './client.ts'
 
 export type EtatConnexion = 'jamais_connecte' | 'ok' | 'code_requis' | 'pause' | 'erreur'
 
@@ -47,7 +47,10 @@ export async function lireConnexion(sb: SupabaseClient, site: string): Promise<C
 }
 
 export async function majConnexion(sb: SupabaseClient, site: string, champs: Record<string, unknown>) {
-  const { error } = await sb.from('dmbook_connexions').update({ ...champs, maj_le: new Date().toISOString() }).eq('site_id', site)
+  const { error } = await sb.from('dmbook_connexions').update({ ...champs, maj_le: new Date().toISOString() }).eq(
+    'site_id',
+    site,
+  )
   if (error) throw new Error(`Connexion Dmbook non enregistrée : ${error.message}`)
 }
 
@@ -58,7 +61,10 @@ async function lireSecret<T>(sb: SupabaseClient, nom: string): Promise<T | null>
 }
 
 async function ecrireSecret(sb: SupabaseClient, nom: string, valeur: unknown | null) {
-  const { error } = await sb.rpc('dmbook_secret_ecrire', { p_nom: nom, p_valeur: valeur === null ? null : JSON.stringify(valeur) })
+  const { error } = await sb.rpc('dmbook_secret_ecrire', {
+    p_nom: nom,
+    p_valeur: valeur === null ? null : JSON.stringify(valeur),
+  })
   if (error) throw new Error(`Coffre non enregistré : ${error.message}`)
 }
 
@@ -68,13 +74,16 @@ export async function lireCleTache(sb: SupabaseClient): Promise<string | null> {
   return (data as string | null) ?? null
 }
 
-const lireSession = async (sb: SupabaseClient, site: string) => (await lireSecret<Session>(sb, `dmbook_session_${site}`)) ?? {}
-const ecrireSession = (sb: SupabaseClient, site: string, s: Session | null) => ecrireSecret(sb, `dmbook_session_${site}`, s)
+const lireSession = async (sb: SupabaseClient, site: string) =>
+  (await lireSecret<Session>(sb, `dmbook_session_${site}`)) ?? {}
+const ecrireSession = (sb: SupabaseClient, site: string, s: Session | null) =>
+  ecrireSecret(sb, `dmbook_session_${site}`, s)
 
 async function identifiants(sb: SupabaseClient, site: string): Promise<Identifiants> {
   const i = await lireSecret<Identifiants>(sb, `dmbook_identifiants_${site}`)
-  if (!i?.identifiant || !i?.mot_de_passe)
+  if (!i?.identifiant || !i?.mot_de_passe) {
     throw new Error('Identifiants Dmbook du site non enregistrés : règle-les dans Dédale (Demandes → Dmbook).')
+  }
   return i
 }
 
@@ -112,7 +121,12 @@ export function lireAdresse(adresse: string): { base: string; carnet: string } |
 }
 
 function nouveauClient(c: Connexion, session: Session, plafond = 20) {
-  const dm = new Dmbook({ base: c.base, carnet: c.carnet, plafond, trace: (l) => console.log(`[dmbook ${c.site_id.slice(0, 8)}] ${l}`) })
+  const dm = new Dmbook({
+    base: c.base,
+    carnet: c.carnet,
+    plafond,
+    trace: (l) => console.log(`[dmbook ${c.site_id.slice(0, 8)}] ${l}`),
+  })
   if (session.cookies?.length) dm.importerSession(session.cookies)
   return dm
 }
@@ -123,11 +137,17 @@ function nouveauClient(c: Connexion, session: Session, plafond = 20) {
  * il faudra cliquer « Se connecter » (rien n'est tenté ici).
  */
 export async function enregistrer(
-  sb: SupabaseClient, site: string, par: string,
+  sb: SupabaseClient,
+  site: string,
+  par: string,
   saisie: { adresse: string; identifiant: string; motDePasse: string | null },
 ): Promise<Issue> {
   const a = lireAdresse(saisie.adresse)
-  if (!a) throw new ErreurSaisie('Adresse du carnet non reconnue : colle l’adresse de la page des tickets Dmbook (https://….dmbook.pro/tickets/…).')
+  if (!a) {
+    throw new ErreurSaisie(
+      'Adresse du carnet non reconnue : colle l’adresse de la page des tickets Dmbook (https://….dmbook.pro/tickets/…).',
+    )
+  }
   const identifiant = saisie.identifiant.trim()
   if (!identifiant) throw new ErreurSaisie('L’identifiant Dmbook est obligatoire.')
 
@@ -138,11 +158,18 @@ export async function enregistrer(
 
   // Premiers identifiants saisis sur une connexion déjà ouverte (reprise des réglages
   // Supabase, 22/11) : la session reste valable, on ne la jette pas (pas de code e-mail inutile).
-  const change = !avant || avant.base !== a.base || avant.carnet !== a.carnet
-    || (!!anciens && (anciens.identifiant !== identifiant || (saisie.motDePasse !== null && saisie.motDePasse !== anciens.mot_de_passe)))
+  const change = !avant || avant.base !== a.base || avant.carnet !== a.carnet ||
+    (!!anciens &&
+      (anciens.identifiant !== identifiant ||
+        (saisie.motDePasse !== null && saisie.motDePasse !== anciens.mot_de_passe)))
   const ligne = {
-    site_id: site, base: a.base, carnet: a.carnet, boite_code: masquer(identifiant),
-    regle_par: par, regle_le: new Date().toISOString(), maj_le: new Date().toISOString(),
+    site_id: site,
+    base: a.base,
+    carnet: a.carnet,
+    boite_code: masquer(identifiant),
+    regle_par: par,
+    regle_le: new Date().toISOString(),
+    maj_le: new Date().toISOString(),
     ...(change ? { etat: 'jamais_connecte', message: null, code_demande_le: null } : {}),
   }
   const { error } = await sb.from('dmbook_connexions').upsert(ligne, { onConflict: 'site_id' })
@@ -155,9 +182,11 @@ export async function enregistrer(
   return change
     ? { etat: 'jamais_connecte', message: 'Connexion enregistrée. Clique sur « Se connecter » pour la tester.' }
     : {
-        etat: avant?.etat ?? 'jamais_connecte',
-        message: anciens ? 'Connexion enregistrée, rien n’a changé.' : 'Identifiants enregistrés. La connexion en cours est gardée.',
-      }
+      etat: avant?.etat ?? 'jamais_connecte',
+      message: anciens
+        ? 'Connexion enregistrée, rien n’a changé.'
+        : 'Identifiants enregistrés. La connexion en cours est gardée.',
+    }
 }
 
 export class ErreurSaisie extends Error {}
@@ -203,7 +232,12 @@ export async function validerCode(sb: SupabaseClient, c: Connexion, code: string
   } catch (e) {
     // La reprise ne resservira pas : un code ne s'envoie qu'une fois.
     await ecrireSession(sb, c.site_id, { cookies: dm.exporterSession(), reprise: null })
-    const issue: Issue = { etat: 'erreur', message: `Code non accepté : ${raison(e)} Relance la connexion quand tu es prêt : Dmbook enverra un nouveau code.` }
+    const issue: Issue = {
+      etat: 'erreur',
+      message: `Code non accepté : ${
+        raison(e)
+      } Relance la connexion quand tu es prêt : Dmbook enverra un nouveau code.`,
+    }
     await majConnexion(sb, c.site_id, { ...issue, code_demande_le: null })
     return issue
   }
@@ -213,7 +247,11 @@ export async function validerCode(sb: SupabaseClient, c: Connexion, code: string
  * Client prêt à lire. La session rangée est essayée ; expirée → UNE connexion.
  * Code demandé → état « code_requis », pas de client.
  */
-export async function ouvrir(sb: SupabaseClient, c: Connexion, plafond: number): Promise<{ dm: Dmbook } | { issue: Issue }> {
+export async function ouvrir(
+  sb: SupabaseClient,
+  c: Connexion,
+  plafond: number,
+): Promise<{ dm: Dmbook } | { issue: Issue }> {
   try {
     const { identifiant, mot_de_passe } = await identifiants(sb, c.site_id)
     const dm = nouveauClient(c, await lireSession(sb, c.site_id), plafond)
@@ -221,7 +259,11 @@ export async function ouvrir(sb: SupabaseClient, c: Connexion, plafond: number):
     if (r.etat === 'code_requis') {
       await ecrireSession(sb, c.site_id, { cookies: dm.exporterSession(), reprise: r.reprise })
       const issue: Issue = { etat: 'code_requis', message: 'Dmbook demande le code reçu par e-mail.' }
-      await majConnexion(sb, c.site_id, { ...issue, boite_code: masquer(identifiant), code_demande_le: new Date().toISOString() })
+      await majConnexion(sb, c.site_id, {
+        ...issue,
+        boite_code: masquer(identifiant),
+        code_demande_le: new Date().toISOString(),
+      })
       return { issue }
     }
     return { dm }

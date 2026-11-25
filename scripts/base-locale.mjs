@@ -4,8 +4,11 @@
 // =============================================================================
 //   node scripts/base-locale.mjs monter    démarre la pile, charge le schéma,
 //                                          neutralise pg_cron, vérifie, sème
-//   node scripts/base-locale.mjs tester    déroule les sondes de sécurité, puis
-//                                          les tests de tests/integration/
+//   node scripts/base-locale.mjs tester    déroule les sondes de sécurité, les
+//                                          tests de tests/integration/, le test
+//                                          des déclencheurs d'OT, l'audit SQL
+//                                          et l'attaque des Edge Functions
+//                                          (servies le temps de la sonde)
 //   node scripts/base-locale.mjs demonter  arrête la pile et jette ses données
 //
 // Source du schéma : `schema_complete.sql` (racine), appliqué en UN passage.
@@ -17,8 +20,19 @@
 //   `db dump` ; toutes les adresses obtenues doivent être 127.0.0.1/localhost.
 // - Les tâches pg_cron sont désarmées sur CETTE base locale seulement.
 // =============================================================================
-import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  rmdirSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -27,6 +41,9 @@ const PILE = join(RACINE, 'supabase-local')
 const SCHEMA = join(RACINE, 'schema_complete.sql')
 const SONDES = join(RACINE, 'tests', 'securite')
 const INTEGRATION = join(RACINE, 'tests', 'integration')
+/** Fonctions du dépôt, et le lien temporaire qui les montre à la pile locale. */
+const FONCTIONS = join(RACINE, 'supabase', 'functions')
+const LIEN_FONCTIONS = join(PILE, 'supabase', 'functions')
 const WINDOWS = process.platform === 'win32'
 
 /** Policies Storage attendues après chargement (le bloc DO du schéma les avale en silence s'il échoue). */
@@ -220,6 +237,13 @@ function monter() {
   process.stdout.write(semis.sortie)
   if (semis.code !== 0) echec('Le semis a échoué.')
 
+  etape("Semis d'un cycle d'OT (tests/securite/semis-ot.sql)")
+  const semisOt = psql(s.DB_URL, { fichier: join(SONDES, 'semis-ot.sql') })
+  if (semisOt.status !== 0) echec(`Semis OT : ${semisOt.stderr}`)
+  console.log(
+    `  ✓ ${/Semis OT : (.*)/.exec(semisOt.stderr)?.[1] ?? 'gamme et OT posés'}`,
+  )
+
   const duree = Math.round((Date.now() - debut) / 1000)
   console.log(`\n✓ Base locale prête en ${duree} s — ${s.API_URL}`)
   console.log('  Suite : node scripts/base-locale.mjs tester')
@@ -255,9 +279,127 @@ const SONDES_A_LANCER = [
   },
 ]
 
-function tester() {
+/**
+ * Test des déclencheurs d'OT : le bloc DO se termine TOUJOURS par une
+ * exception (annulation), dont le message commence par « TEST OK » ou
+ * « TEST ECHEC ». psql sort donc en erreur dans les deux cas : on lit le message.
+ */
+function testerTriggersOt(dbUrl) {
+  const r = psql(dbUrl, { fichier: join(SONDES, 'triggers-ot.sql') })
+  const message = /ERROR: +(TEST .*)/.exec(r.stderr ?? '')?.[1]
+  console.log(`  ${message ?? (r.stderr ?? '').slice(-600)}`)
+  if (!message) return 'ÉCHEC D’EXÉCUTION'
+  return message.startsWith('TEST OK') ? 'OK' : 'en écart'
+}
+
+/** Montre `supabase/functions` (racine) à la pile locale, le temps de la sonde. */
+function lierFonctions() {
+  if (existsSync(LIEN_FONCTIONS)) {
+    if (!lstatSync(LIEN_FONCTIONS).isSymbolicLink())
+      echec(
+        `${LIEN_FONCTIONS} existe et n'est pas un lien : on ne le remplace pas.`,
+      )
+    delierFonctions()
+  }
+  // « junction » : lien de dossier sans droits d'administrateur sous Windows
+  // (ignoré ailleurs, où c'est un lien symbolique ordinaire).
+  symlinkSync(FONCTIONS, LIEN_FONCTIONS, 'junction')
+}
+
+function delierFonctions() {
+  let lien = false
+  try {
+    lien = lstatSync(LIEN_FONCTIONS).isSymbolicLink()
+  } catch {
+    return
+  }
+  if (!lien) return
+  // Retire le LIEN seul — jamais un rm récursif, qui viderait la cible.
+  try {
+    unlinkSync(LIEN_FONCTIONS)
+  } catch {
+    rmdirSync(LIEN_FONCTIONS)
+  }
+}
+
+/**
+ * Sert les Edge Functions du dépôt sur la pile locale (`functions serve
+ * --no-verify-jwt`), joue edge-functions.mjs, puis arrête le service.
+ * Fichier d'environnement VIDE et explicite : aucun `.env` présent sur la
+ * machine (secrets Dmbook réels…) n'est chargé ; les variables SUPABASE_* sont
+ * celles de la pile locale, injectées par la CLI.
+ */
+async function testerEdgeFunctions(apiUrl) {
+  lierFonctions()
+  const dossierEnv = mkdtempSync(join(tmpdir(), 'dedale-fonctions-'))
+  const fichierEnv = join(dossierEnv, 'vide.env')
+  writeFileSync(fichierEnv, '# Aucun secret : base locale jetable.\n')
+  const args = [
+    '--yes',
+    'supabase',
+    'functions',
+    'serve',
+    '--no-verify-jwt',
+    '--env-file',
+    fichierEnv,
+    '--workdir',
+    PILE,
+  ]
+  const service = spawn(WINDOWS ? 'npx.cmd' : 'npx', args, {
+    cwd: RACINE,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: WINDOWS,
+  })
+  let journal = ''
+  service.stdout.on('data', (d) => (journal += d))
+  service.stderr.on('data', (d) => (journal += d))
+  try {
+    // Prête quand une fonction répond par SON refus (401 sans jeton), pas
+    // par le 404/5xx de la passerelle pendant le démarrage.
+    const limite = Date.now() + 180_000
+    let prete = false
+    while (!prete && Date.now() < limite && service.exitCode === null) {
+      try {
+        const r = await fetch(`${apiUrl}/functions/v1/invite_user`, {
+          method: 'POST',
+          body: '{}',
+        })
+        prete = r.status === 401
+      } catch {
+        /* pas encore à l'écoute */
+      }
+      if (!prete) await new Promise((ok) => setTimeout(ok, 2000))
+    }
+    if (!prete) {
+      console.log(journal.slice(-1500))
+      return 'ÉCHEC D’EXÉCUTION (fonctions non servies)'
+    }
+    const r = lancerNode(join(SONDES, 'edge-functions.mjs'), SONDES)
+    process.stdout.write(r.sortie)
+    const n =
+      r.code === 0
+        ? Number(/=== (\d+) ecart\(s\)/.exec(r.sortie)?.[1] ?? NaN)
+        : NaN
+    return Number.isNaN(n)
+      ? 'ÉCHEC D’EXÉCUTION'
+      : n === 0
+        ? 'OK'
+        : `${n} écart(s)`
+  } finally {
+    // npx passe par un shell sous Windows : tuer l'arbre, pas le seul shell.
+    if (WINDOWS)
+      spawnSync('taskkill', ['/pid', String(service.pid), '/T', '/F'], {
+        stdio: 'ignore',
+      })
+    else service.kill('SIGINT')
+    delierFonctions()
+    rmSync(dossierEnv, { recursive: true, force: true })
+  }
+}
+
+async function tester() {
   prerequis()
-  statut() // garde-fou local avant toute sonde
+  const s = statut() // garde-fou local avant toute sonde
   let total = 0
   const bilan = []
   for (const { script, ecarts } of SONDES_A_LANCER) {
@@ -306,11 +448,44 @@ function tester() {
       `  ${verdict === 'OK' ? '✓' : '✗'} integration/${fichier}  ${verdict}${epingles ? ` · ${epingles} épinglé(s)` : ''}`,
     )
   }
+  const consigner = (nom, verdict, suffixe = '') => {
+    if (verdict !== 'OK') total++
+    bilan.push(
+      `  ${verdict === 'OK' ? '✓' : '✗'} ${nom.padEnd(16)} ${verdict}${suffixe}`,
+    )
+  }
+
+  etape("Déclencheurs d'OT (triggers-ot.sql, transaction annulée)")
+  consigner('triggers-ot.sql', testerTriggersOt(s.DB_URL))
+
+  // Audit SQL : « === N gelé(s) === » (exceptions motivées, non bloquantes)
+  // puis « === N écart(s) === » (NOUVEAUX) ; code 0 sans écart, 3 avec.
+  etape('Audit SQL du catalogue (audit-sql.mjs, lecture seule)')
+  const audit = lancerNode(join(SONDES, 'audit-sql.mjs'), SONDES)
+  process.stdout.write(audit.sortie)
+  const nAudit =
+    audit.code === 0 || audit.code === 3
+      ? Number(/=== (\d+) écart\(s\) ===/.exec(audit.sortie)?.[1] ?? NaN)
+      : NaN
+  const gelesAudit = Number(
+    /=== (\d+) gelé\(s\) ===/.exec(audit.sortie)?.[1] ?? 0,
+  )
+  consigner(
+    'audit-sql.mjs',
+    Number.isNaN(nAudit)
+      ? 'ÉCHEC D’EXÉCUTION'
+      : nAudit === 0
+        ? 'OK'
+        : `${nAudit} écart(s) nouveau(x)`,
+    gelesAudit ? ` · ${gelesAudit} gelé(s)` : '',
+  )
+
+  // En dernier : la sonde crée un compte (scénario PERMIS).
+  etape('Edge Functions servies localement (edge-functions.mjs)')
+  consigner('edge-functions.mjs', await testerEdgeFunctions(s.API_URL))
+
   console.log('\n=== Bilan des sondes et des tests d’intégration ===')
   console.log(bilan.join('\n'))
-  console.log(
-    '  · edge-functions.mjs non lancée : elle exige `supabase functions serve --no-verify-jwt` (voir tests/securite/README.md).',
-  )
   if (total)
     echec(
       `${total} sonde(s) ou test(s) d'intégration en écart : à examiner (ne pas corriger une policy à l'aveugle).`,
@@ -335,4 +510,4 @@ if (!commandes[commande]) {
   console.error('Usage : node scripts/base-locale.mjs monter|tester|demonter')
   process.exit(2)
 }
-commandes[commande]()
+await commandes[commande]()

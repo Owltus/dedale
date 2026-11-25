@@ -95,7 +95,8 @@ type El = {
 const txt = (e: El | null | undefined) => ((e?.textContent as string | undefined) ?? '').replace(/\s+/g, ' ').trim()
 const lettres = (s: string) => s.toLowerCase().replace(/[^a-zà-ÿ]/g, '')
 /** Décode les entités HTML d'un texte brut (« &amp; » → « & »), sans interpréter de balise. */
-const decoder = (brut: string) => (doc(`<p>${brut.replace(/</g, '&lt;')}</p>`).querySelector('p')?.textContent as string) ?? brut
+const decoder = (brut: string) =>
+  (doc(`<p>${brut.replace(/</g, '&lt;')}</p>`).querySelector('p')?.textContent as string) ?? brut
 
 export type OptionsClient = {
   base: string
@@ -173,7 +174,9 @@ export class Dmbook {
       if (type === 'hidden') champs[nom] = i.getAttribute('value') ?? ''
       else aSaisir.push(nom)
     }
-    const message = txt(d.querySelector('#input-error, .kc-feedback-text, .alert-error, .alert-warning, .alert-info, [class*="alert"]'))
+    const message = txt(
+      d.querySelector('#input-error, .kc-feedback-text, .alert-error, .alert-warning, .alert-info, [class*="alert"]'),
+    )
     return { action: (form.getAttribute('action') as string).replace(/&amp;/g, '&'), champs, aSaisir, message }
   }
 
@@ -201,16 +204,29 @@ export class Dmbook {
       if (!veutId && !veutMdp) {
         // Écran du code e-mail (champ emailCode). Jamais « resend » : ce serait un nouvel e-mail.
         const champCode = f.aSaisir.find((n) => /code|otp/i.test(n))
-        if (!champCode) throw new Error(`Écran de connexion inconnu (champs : ${f.aSaisir.join(', ') || 'aucun'}) — arrêt.`)
+        if (!champCode) {
+          throw new Error(`Écran de connexion inconnu (champs : ${f.aSaisir.join(', ') || 'aucun'}) — arrêt.`)
+        }
         return { etat: 'code_requis', message: f.message, reprise: { action: f.action, champs: f.champs, champCode } }
       }
-      if ((veutId && envoyes.has('username')) || (veutMdp && envoyes.has('password')))
+      if ((veutId && envoyes.has('username')) || (veutMdp && envoyes.has('password'))) {
         throw new Error(`Connexion refusée : ${f.message || 'identifiants non acceptés'} — aucun nouvel essai.`)
+      }
       const corps = new URLSearchParams(f.champs)
       if (page.html.includes('name="rememberMe"')) corps.set('rememberMe', 'on')
-      if (veutId) { corps.set('username', identifiant); envoyes.add('username') }
-      if (veutMdp) { corps.set('password', motDePasse); envoyes.add('password') }
-      page = await this.#req(f.action, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: corps })
+      if (veutId) {
+        corps.set('username', identifiant)
+        envoyes.add('username')
+      }
+      if (veutMdp) {
+        corps.set('password', motDePasse)
+        envoyes.add('password')
+      }
+      page = await this.#req(f.action, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: corps,
+      })
     }
     if (!(await this.connecte())) throw new Error('Connexion non aboutie — arrêt.')
     return { etat: 'connecte' }
@@ -220,18 +236,31 @@ export class Dmbook {
   async fournirCode(reprise: Reprise, code: string) {
     const corps = new URLSearchParams(reprise.champs)
     corps.set(reprise.champCode, code.trim())
-    let p = await this.#req(reprise.action, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: corps })
+    let p = await this.#req(reprise.action, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: corps,
+    })
     if (new URL(p.url).pathname.endsWith('required-action')) {
       const d = doc(p.html)
       const form = d.querySelector('form[method=post], form')
       const boutons: El[] = form ? [...form.querySelectorAll('button[name], input[type=submit][name]')] : []
       const libelle = (b: El) => `${txt(b)} ${b.getAttribute('value') ?? ''}`
-      const oui = boutons.find((b) => /\b(oui|yes|trust|confiance)\b/i.test(`${libelle(b)} ${b.getAttribute('name') ?? ''}`) && !/\b(non|no)\b/i.test(libelle(b)))
+      const oui = boutons.find((b) =>
+        /\b(oui|yes|trust|confiance)\b/i.test(`${libelle(b)} ${b.getAttribute('name') ?? ''}`) &&
+        !/\b(non|no)\b/i.test(libelle(b))
+      )
       if (form && oui) {
         const c = new URLSearchParams()
-        for (const i of form.querySelectorAll('input[type=hidden][name]')) c.set(i.getAttribute('name')!, i.getAttribute('value') ?? '')
+        for (const i of form.querySelectorAll('input[type=hidden][name]')) {
+          c.set(i.getAttribute('name')!, i.getAttribute('value') ?? '')
+        }
         c.set(oui.getAttribute('name')!, oui.getAttribute('value') ?? '')
-        p = await this.#req(new URL((form.getAttribute('action') as string).replace(/&amp;/g, '&'), p.url).toString(), { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: c })
+        p = await this.#req(new URL((form.getAttribute('action') as string).replace(/&amp;/g, '&'), p.url).toString(), {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: c,
+        })
       }
     }
     if (new URL(p.url).hostname === 'id.loungeup.com') {
@@ -252,7 +281,10 @@ export class Dmbook {
   }
 
   /** Une page de la liste en lecture légère (voir `lireListeLegere`). */
-  async listerLeger(page = 1, statuts: Statut[] = ['ouvert', 'en_cours', 'ferme']): Promise<{ total: number; tickets: TicketLeger[] }> {
+  async listerLeger(
+    page = 1,
+    statuts: Statut[] = ['ouvert', 'en_cours', 'ferme'],
+  ): Promise<{ total: number; tickets: TicketLeger[] }> {
     const { html } = await this.#req(this.#urlListe(page, statuts))
     if (this.#estPageDeRenvoi(html)) throw new SessionExpiree()
     return lireListeLegere(html)
@@ -262,7 +294,12 @@ export class Dmbook {
    * Toute la liste. `complet` n'est vrai que si le nombre lu égale le total affiché
    * par Dmbook : condition OBLIGATOIRE avant de conclure qu'un ticket a disparu.
    */
-  async listerTout(pauseMs = 300, de = 1, a = 500, statuts: Statut[] = ['ouvert', 'en_cours', 'ferme']): Promise<{ total: number; tickets: TicketLeger[]; complet: boolean; derniere: number; fini: boolean }> {
+  async listerTout(
+    pauseMs = 300,
+    de = 1,
+    a = 500,
+    statuts: Statut[] = ['ouvert', 'en_cours', 'ferme'],
+  ): Promise<{ total: number; tickets: TicketLeger[]; complet: boolean; derniere: number; fini: boolean }> {
     const tous = new Map<string, TicketLeger>()
     let total = -1
     let derniere = de - 1
@@ -272,11 +309,20 @@ export class Dmbook {
       derniere = page
       if (total < 0) total = r.total
       for (const t of r.tickets) tous.set(t.id, t)
-      if (r.tickets.length < 50) { fini = true; break }
+      if (r.tickets.length < 50) {
+        fini = true
+        break
+      }
       await new Promise((ok) => setTimeout(ok, pauseMs))
     }
     // « complet » : lecture partie de la page 1, allée jusqu'au bout, et autant de tickets que le total affiché.
-    return { total, tickets: [...tous.values()], complet: de === 1 && fini && total > 0 && tous.size === total, derniere, fini }
+    return {
+      total,
+      tickets: [...tous.values()],
+      complet: de === 1 && fini && total > 0 && tous.size === total,
+      derniere,
+      fini,
+    }
   }
 
   async detail(id: string): Promise<TicketDetail> {
@@ -319,20 +365,31 @@ export class Dmbook {
     const form = doc(html).querySelector(selecteur)
     if (!form) throw new Error(`Formulaire introuvable (${selecteur})`)
     const champs = new URLSearchParams()
-    for (const i of form.querySelectorAll('input[name]'))
+    for (const i of form.querySelectorAll('input[name]')) {
       if ((i.getAttribute('type') ?? '') !== 'file') champs.set(i.getAttribute('name')!, i.getAttribute('value') ?? '')
-    return { champs, action: new URL((form.getAttribute('action') as string).replace(/&amp;/g, '&'), this.base).toString() }
+    }
+    return {
+      champs,
+      action: new URL((form.getAttribute('action') as string).replace(/&amp;/g, '&'), this.base).toString(),
+    }
   }
 
   async #poster(action: string, corps: URLSearchParams, quoi: string) {
-    const { res, html } = await this.#req(action, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: corps })
+    const { res, html } = await this.#req(action, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: corps,
+    })
     if (this.#estPageDeRenvoi(html)) throw new SessionExpiree()
     if (!res.ok) throw new Error(`${quoi} refusé par Dmbook (${res.status})`)
   }
 
   async changerStatut(id: string, statut: Statut) {
     this.#verrou()
-    const { champs, action } = await this.#csrf(`${this.base}/ticket/${id}`, `form[action*="/ticket/${id}/setTicketStatus?ticket_status_id=${STATUT[statut]}"]`)
+    const { champs, action } = await this.#csrf(
+      `${this.base}/ticket/${id}`,
+      `form[action*="/ticket/${id}/setTicketStatus?ticket_status_id=${STATUT[statut]}"]`,
+    )
     await this.#poster(action, champs, 'Changement de statut')
   }
 
@@ -346,7 +403,10 @@ export class Dmbook {
 
   async creer(texte: string) {
     this.#verrou()
-    const { champs, action } = await this.#csrf(`${this.base}/tickets/${this.carnet}/create`, 'form[method=post][enctype], form[method=post]')
+    const { champs, action } = await this.#csrf(
+      `${this.base}/tickets/${this.carnet}/create`,
+      'form[method=post][enctype], form[method=post]',
+    )
     champs.set('content', texte)
     await this.#poster(action, champs, 'Création')
   }
@@ -360,11 +420,20 @@ export class Dmbook {
 
 // --- Lecture des pages (fonctions pures, testées sur des pages fabriquées) -------
 
-export type TicketLeger = { id: string; numero: number | null; modifieLe: number; statut: Statut | null; auteur: string | null }
+export type TicketLeger = {
+  id: string
+  numero: number | null
+  modifieLe: number
+  statut: Statut | null
+  auteur: string | null
+}
 
 /** Entités HTML courantes d'un attribut (« &#039; », « &amp; »), sans DOM. */
 const entites = (s: string) =>
-  s.replace(/&#0*39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+  s.replace(/&#0*39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(
+    /&nbsp;/g,
+    ' ',
+  ).replace(/&amp;/g, '&')
 
 /** « Jean DUPONT (jdupont) » → « Jean DUPONT » : on garde le nom, pas l'identifiant de connexion. */
 export const nomAuteur = (s: string | null | undefined) => {
@@ -405,11 +474,11 @@ export function lireFiche(id: string, html: string): TicketDetail {
   // Le h2 contient aussi les boutons « Éditer » / « Nouveau ticket » : on ne garde que ses textes directs et les liens « #631 ».
   const titre = h2
     ? ([...h2.childNodes] as El[])
-        .filter((n) => n.nodeType === 3 || (n.tagName === 'A' && (n.getAttribute('href') ?? '').startsWith('/search')))
-        .map((n) => n.textContent ?? '')
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim()
+      .filter((n) => n.nodeType === 3 || (n.tagName === 'A' && (n.getAttribute('href') ?? '').startsWith('/search')))
+      .map((n) => n.textContent ?? '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
     : ''
   // Ticket d'une ligne : le titre est une copie retouchée du corps → ignoré.
   const texte = titre && !lettres(corps).includes(lettres(titre)) ? `${titre}\n${corps}` : corps
@@ -435,8 +504,9 @@ export function lireEdition(id: string, html: string, base: string) {
     // linkedom laisse les entités du textarea telles quelles (« &amp; ») : on les décode comme un
     // navigateur, sinon chaque renvoi abîmerait le texte Dmbook (« & » → « &amp; » → « &amp;amp; »).
     if (balise === 'textarea') champs.set(nom, decoder(i.innerHTML ?? i.textContent ?? ''))
-    else if (balise === 'select') champs.set(nom, (i.querySelector('option[selected]') ?? i.querySelector('option'))?.getAttribute('value') ?? '')
-    else champs.set(nom, i.getAttribute('value') ?? '')
+    else if (balise === 'select') {
+      champs.set(nom, (i.querySelector('option[selected]') ?? i.querySelector('option'))?.getAttribute('value') ?? '')
+    } else champs.set(nom, i.getAttribute('value') ?? '')
   }
   return {
     texte: (champs.get('content') ?? '').replace(/\r\n/g, '\n'),

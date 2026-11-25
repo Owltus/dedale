@@ -79,8 +79,7 @@ interface InviteBody {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // Valide et normalise le corps de la requête. Renvoie un message d'erreur
 // (string) si invalide, sinon les valeurs nettoyées.
@@ -109,8 +108,7 @@ function parseBody(
     }
   }
 
-  const nom_complet =
-    typeof b.nom_complet === 'string' ? b.nom_complet.trim() : ''
+  const nom_complet = typeof b.nom_complet === 'string' ? b.nom_complet.trim() : ''
   if (nom_complet.length === 0) {
     return { error: 'Le nom complet est obligatoire.' }
   }
@@ -162,8 +160,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Rôle réel de l'appelant via la RPC current_role() (lit la table users,
   // renvoie NULL si le compte est désactivé → kill-switch respecté).
-  const { data: callerRole, error: roleErr } =
-    await callerClient.rpc('current_role')
+  const { data: callerRole, error: roleErr } = await callerClient.rpc('current_role')
   if (roleErr) {
     return json({ error: 'Impossible de vérifier vos droits.' }, 403)
   }
@@ -192,21 +189,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
-  const { data: created, error: createErr } =
-    await adminClient.auth.admin.createUser({
-      email,
-      password,
-      // Piège 1 (voir en-tête) : sans ceci, le compte ne peut JAMAIS se
-      // connecter, et aucun e-mail n'existe pour le débloquer.
-      email_confirm: true,
-      // Piège 2 (voir en-tête) : `role` reste ICI. À la racine de createUser, il
-      // écraserait le rôle Postgres du JWT et casserait la RLS.
-      user_metadata: { role, nom_complet, created_by: callerId, site_ids },
-    })
+  const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
+    email,
+    password,
+    // Piège 1 (voir en-tête) : sans ceci, le compte ne peut JAMAIS se
+    // connecter, et aucun e-mail n'existe pour le débloquer.
+    email_confirm: true,
+    // Piège 2 (voir en-tête) : `role` reste ICI. À la racine de createUser, il
+    // écraserait le rôle Postgres du JWT et casserait la RLS.
+    user_metadata: { role, nom_complet, created_by: callerId, site_ids },
+  })
 
   if (createErr) {
-    const status =
-      createErr.status && createErr.status >= 400 ? createErr.status : 400
+    const status = createErr.status && createErr.status >= 400 ? createErr.status : 400
 
     // Une exception du trigger (cascade ou scope de sites refusés) fait rollback
     // de la transaction, et GoTrue la convertit en « Database error creating new

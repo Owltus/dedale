@@ -11,13 +11,17 @@
 
 // Chambre de l'hôtel : étage 1 à 6, numéro 01 à 31 (101…631).
 export const CHAMBRE = '[1-6](?:0[1-9]|[12]\\d|3[01])'
-export const TETE_CHAMBRES = new RegExp(`^(?:\\s*(?:chambre\\s*)?#?\\s?${CHAMBRE}(?![\\dh]|\\/(?!\\s?${CHAMBRE}(?!\\d))|:\\d|[.,]\\d|\\s?(?:°|%|€|cm|mm|kg|min|euros?\\b))\\s*(?:[-,/+&:]|et\\b)?\\s*)+`, 'i')
+export const TETE_CHAMBRES = new RegExp(
+  `^(?:\\s*(?:chambre\\s*)?#?\\s?${CHAMBRE}(?![\\dh]|\\/(?!\\s?${CHAMBRE}(?!\\d))|:\\d|[.,]\\d|\\s?(?:°|%|€|cm|mm|kg|min|euros?\\b))\\s*(?:[-,/+&:]|et\\b)?\\s*)+`,
+  'i',
+)
 export const UNE_CHAMBRE = new RegExp(CHAMBRE, 'g')
 
 // Initiales vues après une barre oblique dans les tickets Dmbook (relevé du 19/11/2026).
 // Sans barre, on n'accepte que celles-ci, en MAJUSCULES (ou « - ew »), pour ne
 // jamais couper un vrai mot (« HS », « WC », « TV », « OK », « PB », « KC »…).
-const INITIALES_SANS_BARRE = /(?:^|\s+|\s*[-–.]\s*|\s*\+\s*)(YF|JD|TL|AH|EW|LFG|LIC|CBS|ALB|YS|AB|MR|VB|FA|EB|FH|LF|JR|CV|SG|ND|KL|TG|LL|LUC|BL|MV|JG|EP|PLB|QD|ALD|AXH|LP|LC|YD|LG|-\s*ew)\s*$/
+const INITIALES_SANS_BARRE =
+  /(?:^|\s+|\s*[-–.]\s*|\s*\+\s*)(YF|JD|TL|AH|EW|LFG|LIC|CBS|ALB|YS|AB|MR|VB|FA|EB|FH|LF|JR|CV|SG|ND|KL|TG|LL|LUC|BL|MV|JG|EP|PLB|QD|ALD|AXH|LP|LC|YD|LG|-\s*ew)\s*$/
 const SIGNATURE_BARRE = /\s*[\/\\]{1,3}\s*[A-Za-zÀ-ÿ.]{1,6}(?:\s*\+\s*[A-Za-zÀ-ÿ]{1,6})*[\s\/\\]*$/
 const SMILEY_FIN = /\s*(?::-?\)|:-?\(|;-?\)|:D|:p)\s*$/i
 const BARRES_FIN = /[\s\/\\]+$/
@@ -28,7 +32,8 @@ export function retirerSignature(texte: string): string {
     const avant = s
     s = s
       .replace(/\s*[\/\\]{1,3}\s*[A-Za-z]{2,4}\s*-\s*(\d{2}\/\d{2}\/\d{4})\s*$/, ' $1') // « /FH - 04/02/2022 » → « 04/02/2022 »
-      .replace(SMILEY_FIN, '').replace(SIGNATURE_BARRE, '').replace(INITIALES_SANS_BARRE, '').replace(BARRES_FIN, '').trim()
+      .replace(SMILEY_FIN, '').replace(SIGNATURE_BARRE, '').replace(INITIALES_SANS_BARRE, '').replace(BARRES_FIN, '')
+      .trim()
     if (s === avant) break
   }
   return s

@@ -34,8 +34,7 @@ import { json, lireAppel } from '../_shared/http.ts'
 import { erreurMotDePasse } from '../_shared/mot-de-passe.ts'
 import type { Database } from '../_shared/database.types.ts'
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Rôles qu'un manager peut dépanner. Jamais un pair, jamais un admin. */
 const CIBLES_MANAGER = ['technicien', 'lecteur', 'demandeur']
@@ -75,15 +74,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (callerId === userId) {
     return json(
       {
-        error:
-          'Pour changer votre propre mot de passe, passez par votre profil.',
+        error: 'Pour changer votre propre mot de passe, passez par votre profil.',
       },
       403,
     )
   }
 
-  const { data: callerRole, error: roleErr } =
-    await callerClient.rpc('current_role')
+  const { data: callerRole, error: roleErr } = await callerClient.rpc('current_role')
   if (roleErr) {
     return json({ error: 'Impossible de vérifier vos droits.' }, 403)
   }

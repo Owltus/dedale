@@ -28,7 +28,15 @@
 // (`--no-verify-jwt` : l'appel vient de la base, avec la clé de la tâche, pas d'un jeton de personne).
 
 import {
-  clientServeur, garderSession, lireCleTache, lireConnexion, majConnexion, ouvrir, prendreVerrou, raison, rendreVerrou,
+  clientServeur,
+  garderSession,
+  lireCleTache,
+  lireConnexion,
+  majConnexion,
+  ouvrir,
+  prendreVerrou,
+  raison,
+  rendreVerrou,
 } from '../_shared/dmbook/serveur.ts'
 import { SessionExpiree } from '../_shared/dmbook/client.ts'
 import { chargerLocaux, passage } from './passage.ts'
@@ -61,11 +69,14 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'Corps de requête JSON attendu.' }, 400)
   }
-  if (corps.mode !== 'photo' && corps.mode !== 'passage' && corps.mode !== 'envoi') return json({ error: 'Mode inconnu.' }, 400)
+  if (corps.mode !== 'photo' && corps.mode !== 'passage' && corps.mode !== 'envoi') {
+    return json({ error: 'Mode inconnu.' }, 400)
+  }
   const de = Number(corps.de ?? 1)
   const a = Number(corps.a ?? de + 29)
-  if (!Number.isInteger(de) || !Number.isInteger(a) || de < 1 || a < de || a - de > 29)
+  if (!Number.isInteger(de) || !Number.isInteger(a) || de < 1 || a < de || a - de > 29) {
     return json({ error: 'Pages : de ≥ 1, a ≥ de, 30 pages au plus.' }, 400)
+  }
 
   const site = typeof corps.site_id === 'string' ? corps.site_id : ''
   const c = /^[0-9a-f-]{36}$/i.test(site) ? await lireConnexion(sb, site) : null
@@ -103,7 +114,8 @@ Deno.serve(async (req) => {
     }
     if (corps.mode === 'passage') {
       try {
-        const { data: dates } = await sb.from('dmbook_connexions').select('dernier_passage_complet').eq('site_id', site).single()
+        const { data: dates } = await sb.from('dmbook_connexions').select('dernier_passage_complet').eq('site_id', site)
+          .single()
         const dernier = dates?.dernier_passage_complet ? Date.parse(dates.dernier_passage_complet) : 0
         const complet = typeof corps.complet === 'boolean' ? corps.complet : Date.now() - dernier > 55 * 60_000
         const reel = corps.reel === true && Deno.env.get('DMBOOK_SYNC_REEL') === 'oui'
@@ -123,7 +135,13 @@ Deno.serve(async (req) => {
           dm.ecritureAutorisee = true
           try {
             const suite = await envoyer(sb, dm, site, await chargerLocaux(sb, site), niveau)
-            if (suite.envoyes) envoi = { ...envoi, envoyes: envoi.envoyes + suite.envoyes, details: [...envoi.details, ...suite.details] }
+            if (suite.envoyes) {
+              envoi = {
+                ...envoi,
+                envoyes: envoi.envoyes + suite.envoyes,
+                details: [...envoi.details, ...suite.details],
+              }
+            }
           } finally {
             dm.ecritureAutorisee = false
           }
@@ -131,8 +149,14 @@ Deno.serve(async (req) => {
         await garderSession(sb, site, dm)
         if (reel) {
           const maintenant = new Date().toISOString()
-          if (rapport.pause) await majConnexion(sb, site, { etat: 'pause', message: rapport.pause, dernier_passage: maintenant })
-          else await majConnexion(sb, site, { dernier_passage: maintenant, ...(complet && !rapport.details.some((d) => d.includes('incomplet')) ? { dernier_passage_complet: maintenant } : {}) })
+          if (rapport.pause) {
+            await majConnexion(sb, site, { etat: 'pause', message: rapport.pause, dernier_passage: maintenant })
+          } else {await majConnexion(sb, site, {
+              dernier_passage: maintenant,
+              ...(complet && !rapport.details.some((d) => d.includes('incomplet'))
+                ? { dernier_passage_complet: maintenant }
+                : {}),
+            })}
         }
         return json({ sortie: 'passage', ...rapport, requetes: dm.requetes, envoi })
       } catch (e) {
