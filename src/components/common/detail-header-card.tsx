@@ -5,8 +5,11 @@ import { cn } from '@/lib/utils'
 
 export interface DetailHeaderField {
   label: string
-  /** Valeur affichée ; « — » si null. */
-  value: string | null
+  /**
+   * Valeur affichée ; « — » si null. Un nœud est admis pour une valeur
+   * cliquable (ex. `LienLieu`) — il doit rester du contenu EN LIGNE.
+   */
+  value: ReactNode
   /** Tonalité optionnelle : colore la valeur (ex. écart budgétaire en dépassement). */
   tone?: StatusTone
 }

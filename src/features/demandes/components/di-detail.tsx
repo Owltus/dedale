@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -26,6 +27,7 @@ import {
 import { diTitre } from '../schemas'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { nomAfficheTexte } from '@/features/equipements/format'
+import { LienLieu } from '@/features/localisations/components/lien-lieu'
 import { useCurrentRole } from '@/hooks/use-current-role'
 import { useAuth } from '@/auth'
 import { formatDate, formatDateLong } from '@/lib/date'
@@ -202,7 +204,12 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
           localisations.length > 0
             ? {
                 label: 'Localisations',
-                value: localisations.map((l) => l.locaux.nom).join(', '),
+                value: localisations.map((l, i) => (
+                  <Fragment key={l.local_id}>
+                    {i > 0 && ', '}
+                    <LienLieu localId={l.local_id} texte={l.locaux.nom} />
+                  </Fragment>
+                )),
               }
             : null,
           equipements.length > 0

@@ -10,16 +10,16 @@
       "branches": 0
     },
     "components/common": {
-      "lignes": 60.4,
-      "branches": 51.1
+      "lignes": 62.4,
+      "branches": 52.2
     },
     "components/layout": {
       "lignes": 0,
       "branches": 0
     },
     "components/ui": {
-      "lignes": 55.9,
-      "branches": 44.3
+      "lignes": 63,
+      "branches": 48.3
     },
     "features/bibliotheque": {
       "lignes": 0,
@@ -30,8 +30,8 @@
       "branches": 0.7
     },
     "features/connecteur": {
-      "lignes": 98.7,
-      "branches": 93.4
+      "lignes": 98.8,
+      "branches": 93.5
     },
     "features/connexion": {
       "lignes": 100,
@@ -70,8 +70,8 @@
       "branches": 26.8
     },
     "features/localisations": {
-      "lignes": 42.8,
-      "branches": 39.9
+      "lignes": 59.1,
+      "branches": 54.1
     },
     "features/miniatures": {
       "lignes": 2.9,
@@ -126,15 +126,15 @@
       "branches": 16.8
     },
     "hooks": {
-      "lignes": 89.6,
+      "lignes": 89.8,
       "branches": 81.5
     },
     "lib": {
-      "lignes": 87.6,
-      "branches": 91.3
+      "lignes": 87.7,
+      "branches": 91.4
     },
     "routes": {
-      "lignes": 54.5,
+      "lignes": 56.5,
       "branches": 81.3
     },
     "routes/_app": {

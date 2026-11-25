@@ -11,9 +11,10 @@ import {
 interface DetailNoteCardProps {
   /**
    * En-tête de la carte : ce que le texte EST, daté.
-   * Ex. « Survenu le 12/08/2026 », « Terminé le 19/08/2026 ».
+   * Ex. « Survenu le 12/08/2026 », « Terminé le 19/08/2026 ». Un nœud est
+   * admis pour y glisser un lien en ligne (ex. le lieu via `LienLieu`).
    */
-  label: string
+  label: ReactNode
   /** Le texte lui-même. Vide ou absent → `emptyText` en gris. */
   text?: string | null
   /** Ce qu'on lit à la place quand il n'y a pas de texte. */

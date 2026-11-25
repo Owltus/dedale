@@ -28,6 +28,7 @@ import { statutTravauxTone } from '../etat'
 import { TravauxFormDialog } from './travaux-form-dialog'
 import { ClotureTravauxDialog } from './cloture-travaux-dialog'
 import { TacheDialog } from '@/features/taches/components/tache-dialog'
+import { LienLieu } from '@/features/localisations/components/lien-lieu'
 import {
   TacheRow,
   type TacheItem,
@@ -216,13 +217,10 @@ export function TravauxDetail({
     travaux.statut_travaux_id === STATUT_TERMINE && travaux.date_fin === null
   const realisees = taches.filter((t) => t.statut === 'realise').length
   // Lieu principal (098) — sous le titre, à côté de la date de création (D5).
-  const lieuPrincipalTexte = [
-    travaux.locaux?.nom,
-    travaux.equipements &&
-      (travaux.equipements.categories?.nom ?? 'Équipement'),
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  // Le lieu est CLIQUABLE (ouvre sa fiche) ; l'équipement reste en texte.
+  const equipementTexte = travaux.equipements
+    ? (travaux.equipements.categories?.nom ?? 'Équipement')
+    : null
 
   // Ouvre la confirmation de clôture UNE FOIS, au moment où la bascule en
   // Terminé par le trigger se produit SOUS LES YEUX de l'utilisateur (on
@@ -363,9 +361,19 @@ export function TravauxDetail({
               : 'lg:col-span-2'
           }
           label={
-            lieuPrincipalTexte
-              ? `${lieuPrincipalTexte} · Créé le ${formatDate(travaux.date_demande)}`
-              : `Créé le ${formatDate(travaux.date_demande)}`
+            <>
+              {travaux.locaux && (
+                <>
+                  <LienLieu
+                    localId={travaux.locaux.id}
+                    texte={travaux.locaux.nom}
+                  />
+                  {' · '}
+                </>
+              )}
+              {equipementTexte && `${equipementTexte} · `}
+              {`Créé le ${formatDate(travaux.date_demande)}`}
+            </>
           }
           text={travaux.description}
           emptyText="Aucune description."

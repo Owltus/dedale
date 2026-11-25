@@ -12,6 +12,7 @@ import {
 import { equipementsQueries } from '../queries'
 import { OtListeParGammes } from '@/features/ordres-travail/components/ot-liste-par-gammes'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
+import { LienLieu } from '@/features/localisations/components/lien-lieu'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
 import { parseChamps, formatChampValeur } from '@/lib/champs'
@@ -141,7 +142,14 @@ export function EquipementDetail({
               { label: 'Catégorie', value: equipement.categorie_nom },
               {
                 label: 'Emplacement',
-                value: equipement.localisation_complete ?? equipement.local_nom,
+                value: (
+                  <LienLieu
+                    localId={equipement.local_id}
+                    texte={
+                      equipement.localisation_complete ?? equipement.local_nom
+                    }
+                  />
+                ),
               },
               {
                 label: 'Mise en service',

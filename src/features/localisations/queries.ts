@@ -1,6 +1,7 @@
 import { queryOptions, skipToken } from '@tanstack/react-query'
 import { listeFr } from '@/lib/liste'
 import { supabase } from '@/lib/supabase'
+import type { Tables } from '@/lib/database.types'
 
 export const localisationsQueries = {
   all: () => ['localisations'] as const,
@@ -61,6 +62,21 @@ export const localisationsQueries = {
                 .throwOnError()
               return data
             },
+    }),
+
+  /**
+   * UN lieu par son id : la ligne `locaux` + son chemin (`v_locaux_chemin` :
+   * site, bâtiment, niveau, chemin court/complet, type). `null` quand le lieu
+   * n'existe plus ou que la RLS le masque — cas normal, d'où `.maybeSingle()`.
+   * Sert à la fiche du lieu et à la fabrique de lien (`useLienLieu`).
+   */
+  local: (localId: string | null) =>
+    queryOptions({
+      queryKey: [...localisationsQueries.all(), 'local', localId] as const,
+      queryFn:
+        localId === null
+          ? skipToken
+          : ({ signal }) => fetchLieu(localId, signal),
     }),
 
   /**
@@ -236,6 +252,49 @@ export const localisationsQueries = {
           ? skipToken
           : ({ signal }) => fetchLocalCascadeLinks(localId, signal),
     }),
+}
+
+// --- Un lieu et son chemin ---
+
+/** Ligne `locaux` enrichie de son chemin (bâtiment, niveau, site, type). */
+export type LieuDetail = Tables<'locaux'> & {
+  site_id: string | null
+  batiment_id: string | null
+  batiment_nom: string | null
+  niveau_nom: string | null
+  chemin_court: string | null
+  chemin_complet: string | null
+  type_local: string | null
+}
+
+/**
+ * Lit un lieu et son chemin en parallèle. `null` si l'une des deux lectures
+ * ne renvoie rien (lieu supprimé ou hors des sites de la personne).
+ */
+export async function fetchLieu(
+  localId: string,
+  signal: AbortSignal,
+): Promise<LieuDetail | null> {
+  const [{ data: local }, { data: chemin }] = await Promise.all([
+    supabase
+      .from('locaux')
+      .select('*')
+      .eq('id', localId)
+      .abortSignal(signal)
+      .maybeSingle()
+      .throwOnError(),
+    supabase
+      .from('v_locaux_chemin')
+      .select(
+        'site_id, batiment_id, batiment_nom, niveau_nom, chemin_court, chemin_complet, type_local',
+      )
+      .eq('local_id', localId)
+      .abortSignal(signal)
+      .maybeSingle()
+      .throwOnError(),
+  ])
+  if (!local || !chemin) return null
+  return { ...chemin, ...local }
 }
 
 // --- Blocage de suppression (FK RESTRICT dans la hiérarchie des lieux) ---

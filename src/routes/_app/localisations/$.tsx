@@ -6,8 +6,9 @@ import { PAGE_META } from '@/features/localisations/page-meta'
 
 /**
  * Localisations : navigation par CHEMIN d'URL (route splat `$`) :
- * `/localisations/<bâtiment>/<niveau>`, segments slugifiés. Racine = bâtiments du
- * site → niveaux → locaux. Chemin nu `/localisations` (splat vide) → racine. La
+ * `/localisations/<bâtiment>/<niveau>/<lieu>`, segments slugifiés. Racine =
+ * bâtiments du site → niveaux → locaux → fiche du lieu (3ᵉ segment). Chemin nu
+ * `/localisations` (splat vide) → racine. La
  * garde de rôle est portée par le layout parent (`requireNav`).
  */
 export const Route = createFileRoute('/_app/localisations/$')({
