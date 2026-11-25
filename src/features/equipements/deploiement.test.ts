@@ -9,6 +9,7 @@ import {
   lireApercuDeploiement,
   messageErreurDeploiement,
   nbEquipements,
+  regrouperLots,
   valeurInitiale,
   valeursDeploiement,
 } from './deploiement'
@@ -309,5 +310,33 @@ describe('nbEquipements', () => {
     expect(nbEquipements(1)).toBe('1 équipement')
     expect(nbEquipements(0)).toBe('0 équipement')
     expect(nbEquipements(12)).toBe('12 équipements')
+  })
+})
+
+describe('regrouperLots — un lot par déploiement, du plus récent', () => {
+  it('compte, date au premier équipement, ignore les hors-lot, trie', () => {
+    expect(
+      regrouperLots([
+        { lot_deploiement: 'A', created_at: '2026-11-02T10:00:05Z' },
+        { lot_deploiement: null, created_at: '2026-11-20T09:00:00Z' },
+        { lot_deploiement: 'B', created_at: '2026-11-24T08:00:00Z' },
+        { lot_deploiement: 'A', created_at: '2026-11-02T10:00:00Z' },
+        { lot_deploiement: 'A', created_at: '2026-11-02T10:00:09Z' },
+      ]),
+    ).toEqual([
+      { lot: 'B', debut: '2026-11-24T08:00:00Z', nombre: 1 },
+      { lot: 'A', debut: '2026-11-02T10:00:00Z', nombre: 3 },
+    ])
+  })
+
+  it('même instant : ordre stable par lot ; aucune ligne → aucun lot', () => {
+    const t = '2026-11-02T10:00:00Z'
+    expect(
+      regrouperLots([
+        { lot_deploiement: 'Z', created_at: t },
+        { lot_deploiement: 'M', created_at: t },
+      ]).map((l) => l.lot),
+    ).toEqual(['M', 'Z'])
+    expect(regrouperLots([])).toEqual([])
   })
 })

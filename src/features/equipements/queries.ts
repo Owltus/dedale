@@ -12,6 +12,7 @@ import {
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import { localisationsQueries } from '@/features/localisations/queries'
 import { clesRacines } from '@/lib/cles-racines'
+import { regrouperLots } from './deploiement'
 
 export const equipementsQueries = {
   all: () => ['equipements'] as const,
@@ -140,6 +141,36 @@ export const equipementsQueries = {
                   .range(debut, fin)
                   .abortSignal(signal)
                   .throwOnError(),
+              ),
+    }),
+
+  /**
+   * Déploiements en masse d'une flotte (sous-catégorie de parc), regroupés par
+   * lot, du plus récent. Lit la TABLE `equipements` : `v_equipements_complet`
+   * a été créée avec `e.*` avant la colonne `lot_deploiement` et ne la porte
+   * pas. Pas d'auteur : la table n'a pas de `created_by`. Paginée
+   * (`toutesLesLignes`) : une flotte peut dépasser 1 000 équipements.
+   */
+  lots: (categorieId: string | null) =>
+    queryOptions({
+      queryKey: [...equipementsQueries.all(), 'lots', categorieId] as const,
+      queryFn:
+        categorieId === null
+          ? skipToken
+          : async ({ signal }) =>
+              regrouperLots(
+                await toutesLesLignes((debut, fin) =>
+                  supabase
+                    .from('equipements')
+                    .select('id, lot_deploiement, created_at')
+                    .eq('categorie_id', categorieId)
+                    .not('lot_deploiement', 'is', null)
+                    .order('created_at')
+                    .order('id')
+                    .range(debut, fin)
+                    .abortSignal(signal)
+                    .throwOnError(),
+                ),
               ),
     }),
 

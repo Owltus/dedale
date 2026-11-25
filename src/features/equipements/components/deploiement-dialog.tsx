@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { FolderTree, Info, ListChecks } from 'lucide-react'
 import {
-  useAnnulerDeploiement,
   useApercuDeploiement,
   useDeployerEquipements,
   type ParametresDeploiement,
@@ -22,8 +21,11 @@ import {
 } from '../deploiement'
 import { categoriesQueries } from '@/features/categories/queries'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
+import {
+  AnnulationDeploiementDialog,
+  useAnnulationDeploiement,
+} from './annulation-deploiement-dialog'
 import { SelecteurLieux } from '@/features/localisations/components/selecteur-lieux'
-import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { formatChampValeur, type ChampValeur } from '@/lib/champs'
 import { correspondRecherche } from '@/lib/recherche'
 import { Button } from '@/components/ui/button'
@@ -32,7 +34,6 @@ import { DialogShell } from '@/components/common/dialog-shell'
 import { ChampValeurInput } from '@/components/common/champ-valeur-input'
 import { CheckRow } from '@/components/common/checklist-dialog'
 import { CheckboxList } from '@/components/common/checkbox-list'
-import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { InfoNote } from '@/components/common/info-note'
@@ -84,19 +85,7 @@ export function DeploiementDialog({
   categorieIdParDefaut = null,
   localIdsParDefaut = [],
 }: DeploiementDialogProps) {
-  const apercuAnnulation = useAnnulerDeploiement()
-  const annulation = useAnnulerDeploiement()
-  const suppression = useConfirmDelete<string>({
-    onDelete: (lot) => annulation.mutateAsync({ lot, appliquer: true }),
-    successMessage: () =>
-      `Déploiement annulé : ${nbEquipements(apercuAnnulation.data?.aSupprimer ?? 0)} supprimé${(apercuAnnulation.data?.aSupprimer ?? 0) > 1 ? 's' : ''}`,
-    errorMessage: messageErreurDeploiement,
-  })
-  const apercu = apercuAnnulation.data
-  const conserves = apercu?.conserves ?? []
-  const retirees = (apercu?.gammes ?? []).filter(
-    (g) => g.operationsRetirees > 0,
-  )
+  const annulation = useAnnulationDeploiement()
 
   function annoncer(r: ApercuDeploiement) {
     const n = r.equipementIds.length
@@ -109,10 +98,7 @@ export function DeploiementDialog({
           ? undefined
           : {
               label: 'Annuler ce déploiement',
-              onClick: () => {
-                apercuAnnulation.mutate({ lot, appliquer: false })
-                suppression.demander(lot)
-              },
+              onClick: () => annulation.demander(lot),
             },
     })
   }
@@ -128,34 +114,7 @@ export function DeploiementDialog({
         localIdsParDefaut={localIdsParDefaut}
         onDeploye={annoncer}
       />
-      <ConfirmDeleteDialog
-        {...suppression.dialogProps}
-        entityLabel={
-          apercu?.aSupprimer === 1
-            ? 'l’équipement de ce déploiement'
-            : apercu
-              ? `les ${nbEquipements(apercu.aSupprimer)} de ce déploiement`
-              : 'les équipements de ce déploiement'
-        }
-        loadingImpacts={apercuAnnulation.isPending}
-        blocked={apercuAnnulation.isError || apercu?.aSupprimer === 0}
-        blockedReason={
-          apercuAnnulation.isError
-            ? messageErreurDeploiement(apercuAnnulation.error)
-            : 'Tous les équipements de ce déploiement ont déjà un historique : il n’y a rien à supprimer.'
-        }
-        impactsTitle={
-          conserves.length > 0
-            ? `${nbEquipements(conserves.length)} conservé${conserves.length > 1 ? 's' : ''}, car déjà utilisé${conserves.length > 1 ? 's' : ''} :`
-            : undefined
-        }
-        impacts={conserves.map((c) => `${c.lieu} (${c.raisons.join(', ')})`)}
-        warning={
-          apercu
-            ? `Suppression définitive des équipements créés par ce déploiement, détachés de leurs plans de maintenance.${retirees.length > 0 ? ` Opérations retirées des ordres de travail ouverts : ${retirees.map((g) => `${g.nom} (${String(g.operationsRetirees)})`).join(', ')}.` : ''}`
-            : undefined
-        }
-      />
+      <AnnulationDeploiementDialog annulation={annulation} />
     </>
   )
 }

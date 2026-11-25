@@ -317,3 +317,44 @@ export function messageErreurDeploiement(e: unknown): string {
       'Déploiement refusé : un lieu, la famille ou un plan de maintenance est hors de vos sites, ou votre rôle ne le permet pas.',
   })
 }
+
+// --- Lots d'une flotte (accès durable à l'annulation) -----------------------
+
+/** Un déploiement passé d'une flotte, tel qu'il reste en base. */
+export interface LotDeploiement {
+  lot: string
+  /** Premier `created_at` du lot (instant du déploiement). */
+  debut: string
+  /** Équipements du lot encore présents. */
+  nombre: number
+}
+
+/**
+ * Regroupe les équipements d'une flotte par `lot_deploiement` : un lot par
+ * déploiement, daté de son premier équipement, du plus récent au plus ancien.
+ * Les équipements hors lot (créés un par un, importés) sont ignorés.
+ */
+export function regrouperLots(
+  lignes: readonly { lot_deploiement: string | null; created_at: string }[],
+): LotDeploiement[] {
+  const parLot = new Map<string, LotDeploiement>()
+  for (const l of lignes) {
+    if (l.lot_deploiement === null) continue
+    const deja = parLot.get(l.lot_deploiement)
+    if (!deja) {
+      parLot.set(l.lot_deploiement, {
+        lot: l.lot_deploiement,
+        debut: l.created_at,
+        nombre: 1,
+      })
+      continue
+    }
+    deja.nombre += 1
+    if (Date.parse(l.created_at) < Date.parse(deja.debut))
+      deja.debut = l.created_at
+  }
+  return [...parLot.values()].sort(
+    (a, b) =>
+      Date.parse(b.debut) - Date.parse(a.debut) || (a.lot < b.lot ? -1 : 1),
+  )
+}

@@ -10,8 +10,8 @@
       "branches": 0
     },
     "components/common": {
-      "lignes": 68.1,
-      "branches": 57.7
+      "lignes": 68.3,
+      "branches": 59.5
     },
     "components/layout": {
       "lignes": 0,
@@ -19,7 +19,7 @@
     },
     "components/ui": {
       "lignes": 64.2,
-      "branches": 49.6
+      "branches": 50.6
     },
     "features/bibliotheque": {
       "lignes": 0,
@@ -54,8 +54,8 @@
       "branches": 30.2
     },
     "features/equipements": {
-      "lignes": 49.9,
-      "branches": 44.1
+      "lignes": 63.2,
+      "branches": 56.1
     },
     "features/evenements": {
       "lignes": 36.3,
@@ -127,7 +127,7 @@
     },
     "hooks": {
       "lignes": 89.8,
-      "branches": 81.5
+      "branches": 81.7
     },
     "lib": {
       "lignes": 88.3,

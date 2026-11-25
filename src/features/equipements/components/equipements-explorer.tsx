@@ -5,6 +5,7 @@ import {
   Folder,
   FolderTree,
   Inbox,
+  History,
   MapPinned,
   Package,
   Pencil,
@@ -28,6 +29,7 @@ import { EquipementDetail, type GammesDeLaFiche } from './equipement-detail'
 import { EquipementBadges } from './equipement-badges'
 import { ImportCsvDialog } from './import-csv-dialog'
 import { DeploiementDialog } from './deploiement-dialog'
+import { DeploiementsDialog } from './deploiements-dialog'
 import { gabaritSousCategorie } from '../deploiement'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
 import {
@@ -225,6 +227,7 @@ export function EquipementsExplorer({
   }>({ open: false, eq: null })
   const [importCsvOpen, setImportCsvOpen] = useState(false)
   const [deploiementOpen, setDeploiementOpen] = useState(false)
+  const [lotsOpen, setLotsOpen] = useState(false)
   const suppression = useConfirmDelete<Equipement>({
     onDelete: async (e) => {
       if (e.id) await del.mutateAsync(e.id)
@@ -384,6 +387,16 @@ export function EquipementsExplorer({
         onClick={() => setDeploiementOpen(true)}
       />
     ) : null
+  // Déploiements passés de la famille : accès durable à leur annulation.
+  const lotsBtn =
+    canDeployer && canCreateEquipHere ? (
+      <TooltipIconButton
+        icon={<History />}
+        label="Déploiements"
+        variant="outline"
+        onClick={() => setLotsOpen(true)}
+      />
+    ) : null
   const importCsvBtn = canCreateEquipHere ? (
     <TooltipIconButton
       icon={<Upload />}
@@ -529,6 +542,7 @@ export function EquipementsExplorer({
               {editSubcatBtn}
               {newEquipBtn}
               {deployerBtn}
+              {lotsBtn}
               {importCsvBtn}
               {selectBtn}
             </>
@@ -655,6 +669,15 @@ export function EquipementsExplorer({
           categorieIdParDefaut={
             current && !current.virtual && depth >= 2 ? current.id : null
           }
+        />
+      )}
+
+      {canDeployer && (
+        <DeploiementsDialog
+          open={lotsOpen}
+          onOpenChange={setLotsOpen}
+          categorieId={current && !current.virtual ? current.id : null}
+          sousCategorieNom={current?.nom ?? ''}
         />
       )}
 
