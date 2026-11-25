@@ -2474,97 +2474,9 @@ COMMENT ON FUNCTION public.protect_copie_depuis_modele_immutable() IS
 --   copier_gamme (matrice de droits identique).
 -- =============================================================================
 
-CREATE OR REPLACE FUNCTION public.instancier_equipement(
-    p_modele_id        UUID,
-    p_local_id         UUID,
-    p_code_inventaire  TEXT,
-    p_categorie_id     UUID DEFAULT NULL   -- 028 : catégorie de PARC où ranger l'équipement
-) RETURNS UUID
-LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-    v_role        TEXT := public.current_role();
-    v_modele      public.modeles_equipements%ROWTYPE;
-    v_local_site  UUID;
-    v_new_id      UUID;
-BEGIN
-    -- 1. Auth caller
-    IF v_role IS NULL THEN
-        RAISE EXCEPTION 'instancier_equipement : utilisateur non authentifié ou désactivé.'
-            USING ERRCODE = 'insufficient_privilege';
-    END IF;
-    IF v_role NOT IN ('admin', 'manager', 'technicien') THEN
-        RAISE EXCEPTION 'instancier_equipement : rôle % non autorisé.', v_role
-            USING ERRCODE = 'insufficient_privilege';
-    END IF;
-
-    -- 2. Résoudre le site du local cible (via hiérarchie spatiale)
-    SELECT s.id INTO v_local_site
-      FROM public.locaux    l
-      JOIN public.niveaux   n ON n.id = l.niveau_id
-      JOIN public.batiments b ON b.id = n.batiment_id
-      JOIN public.sites     s ON s.id = b.site_id
-     WHERE l.id = p_local_id;
-
-    IF v_local_site IS NULL THEN
-        RAISE EXCEPTION 'instancier_equipement : local % introuvable ou hiérarchie spatiale incomplète.', p_local_id
-            USING ERRCODE = 'no_data_found';
-    END IF;
-
-    -- 3. Vérifier accès du caller au site cible (admin bypass)
-    -- F28 audit sécu : message neutralisé — ne pas révéler le site_id du local
-    -- (l'attaquant fournit p_local_id sans nécessairement connaître son site).
-    IF v_role <> 'admin' AND NOT public.has_site_access(v_local_site) THEN
-        RAISE EXCEPTION 'instancier_equipement : accès refusé au local cible.'
-            USING ERRCODE = 'insufficient_privilege';
-    END IF;
-
-    -- 4. Lire le modèle source (vivant + actif)
-    SELECT * INTO v_modele
-      FROM public.modeles_equipements
-     WHERE id = p_modele_id
-       AND est_actif = true;
-
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'instancier_equipement : modèle % introuvable ou archivé.', p_modele_id
-            USING ERRCODE = 'no_data_found';
-    END IF;
-
-    -- 5. Compatibilité scope modèle / site local
-    --    - modèle entreprise (site_id NULL) : utilisable partout
-    --    - modèle scope site : doit cibler le même site que le local
-    -- F28 audit sécu : message sans UUIDs — ne pas révéler le site du modèle
-    -- (l'attaquant a peut-être passé p_modele_id sans connaître son scope).
-    IF v_modele.site_id IS NOT NULL AND v_modele.site_id IS DISTINCT FROM v_local_site THEN
-        RAISE EXCEPTION 'instancier_equipement : modèle incompatible avec le site du local cible.'
-            USING ERRCODE = 'check_violation';
-    END IF;
-
-    -- 6. INSERT equipements (copie par valeur — snapshot Pattern 1).
-    --    028 : la catégorie vient du PARC (p_categorie_id, scope 'parc' ; NULL =
-    --    Non classé), PAS du modèle (scope 'equipement') — le trigger
-    --    check_equipement_categorie_scope la valide. (031 : plus de colonne
-    --    commentaires sur equipements.)
-    INSERT INTO public.equipements (
-        id, local_id, categorie_id,
-        code_inventaire,
-        specifications, image_path,
-        copie_depuis_modele_id
-    ) VALUES (
-        gen_random_uuid(), p_local_id, p_categorie_id,
-        p_code_inventaire,
-        v_modele.specifications, v_modele.image_path,
-        p_modele_id
-    )
-    RETURNING id INTO v_new_id;
-
-    RETURN v_new_id;
-END;
-$$;
-
-COMMENT ON FUNCTION public.instancier_equipement(UUID, UUID, TEXT, UUID) IS
-    'Crée un équipement réel à partir d''un modèle (copie PAR VALEUR — snapshot Pattern 1). L''équipement est totalement indépendant du modèle après création. La catégorie vient du PARC (p_categorie_id, scope ''parc'' ; NULL = Non classé), pas du modèle. Droits : admin/manager/technicien ayant accès au site du local cible. Le modèle doit être vivant + est_actif. Si scope site, doit cibler le site du local. Retourne l''id du nouvel équipement.';
+-- instancier_equipement : retirée par la migration 184 (aucun appelant ; remplacée
+-- par deployer_equipements, qui suit le modèle actuel : sous-catégorie de parc,
+-- code_inventaire généré, miniature héritée).
 
 -- -----------------------------------------------------------------------------
 -- copier_modele_equipement — duplique un modèle entre scopes
@@ -12379,6 +12291,11 @@ RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
+    -- (184) Déploiement en masse : la synchro est faite UNE fois par gamme par
+    -- trg_fn_synchro_lot_gammes_equipements, en fin d'instruction.
+    IF current_setting('dedale.deploiement_en_cours', true) = 'on' THEN
+        RETURN NULL;
+    END IF;
     IF TG_OP IN ('UPDATE', 'DELETE') THEN
         PERFORM public.rafraichir_snapshots_ot_ouverts(OLD.gamme_id);
         PERFORM public.synchroniser_ops_gamme(OLD.gamme_id);
@@ -13163,7 +13080,6 @@ GRANT EXECUTE ON FUNCTION public.copier_categorie(uuid, uuid, uuid[], uuid[]) TO
 GRANT EXECUTE ON FUNCTION public.copier_modele_equipement(uuid, uuid)    TO authenticated;
 GRANT EXECUTE ON FUNCTION public.copier_modele_operation(uuid, uuid)     TO authenticated;
 GRANT EXECUTE ON FUNCTION public.detacher_et_supprimer_modele_operation(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.instancier_equipement(uuid, uuid, text, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.count_document_refs(uuid)               TO authenticated;
 GRANT EXECUTE ON FUNCTION public.count_miniature_refs(uuid)              TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_audit_log(text, int, timestamptz)   TO authenticated;
@@ -19009,3 +18925,584 @@ GRANT EXECUTE ON FUNCTION public.di_du_lieu(uuid, boolean, integer, integer) TO 
 GRANT EXECUTE ON FUNCTION public.travaux_du_lieu(uuid, boolean, integer, integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.evenements_du_lieu(uuid, boolean, integer, integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.gammes_du_lieu(uuid, boolean, integer, integer) TO authenticated;
+
+-- =============================================================================
+-- 184 — Déployer une flotte d'équipements dans N lieux en une transaction
+-- =============================================================================
+-- Symptôme corrigé : poser « ce détecteur dans les 200 chambres » oblige à créer
+-- les équipements un par un (ou par l'import CSV, en Promise.allSettled : non
+-- atomique, sans rattachement aux plans de maintenance). Rattacher ensuite 200
+-- équipements à une gamme répétée déclenche 200 synchronisations complètes des
+-- OT ouverts de cette gamme. Un déploiement raté ne se défait qu'à la main.
+--
+-- Cause :
+--   - aucune écriture « en lot » côté base ; instancier_equipement (013c,
+--     SECURITY DEFINER) n'est appelée nulle part (src/, supabase/functions :
+--     aucun appelant, vérifié le 25/11/2026) et diverge du modèle actuel
+--     (code_inventaire saisi, pas de sous-catégorie de parc, pas de miniature) ;
+--   - trg_snapshots_gammes_equipements est PAR LIGNE : chaque INSERT/DELETE de
+--     gammes_equipements relance rafraichir_snapshots_ot_ouverts +
+--     synchroniser_ops_gamme sur TOUTE la gamme (O(N²) pour une gamme répétée).
+--
+-- Correctif :
+--   1. equipements.lot_deploiement uuid NULL (+ index partiel) : le numéro du
+--      déploiement qui a créé l'équipement. Une colonne plutôt qu'une table :
+--      elle hérite de la RLS d'equipements (aucune nouvelle policy), et tout le
+--      reste (site, sous-catégorie, date, nombre) se déduit des équipements du
+--      lot. Posée UNIQUEMENT par deployer_equipements (protect_lot_deploiement :
+--      42501 sinon) ; la remettre à NULL reste permis.
+--   2. Indicateur de transaction `dedale.deploiement_en_cours` :
+--      - trg_fn_snapshots_gammes_equipements (par ligne) se TAIT quand il vaut
+--        'on' ; sinon corps strictement identique à 127/128 ;
+--      - nouveau déclencheur PAR INSTRUCTION (tables de transition, INSERT et
+--        DELETE) qui, seulement quand l'indicateur vaut 'on', appelle UNE fois
+--        par gamme distincte rafraichir_snapshots_ot_ouverts puis
+--        synchroniser_ops_gamme. Hors lot il ne fait rien.
+--      C'est la « synchro explicite en fin de lot », portée par un déclencheur
+--      SECURITY DEFINER plutôt que par une RPC : les deux fonctions de synchro
+--      sont DEFINER et fermées à authenticated ; une RPC publique pour les
+--      appeler aurait été une entrée de plus.
+--   3. deployer_equipements(...) → jsonb, SECURITY INVOKER (RLS et déclencheurs
+--      de cohérence de la personne), aperçu joué puis annulé (patron claude_*).
+--   4. annuler_deploiement(p_lot, p_appliquer) → jsonb : supprime les
+--      équipements du lot SANS historique, garde (et signale) les autres.
+--   5. DROP FUNCTION instancier_equipement.
+-- Ne fait PAS : aucune donnée existante n'est modifiée ; aucun droit élargi
+-- (INSERT/DELETE equipements et gammes_equipements = policies existantes :
+-- admin partout, manager et technicien sur leurs sites).
+--
+-- Innocuité : colonne NULL partout, index partiel vide. Le déclencheur par
+-- ligne ne change que si l'indicateur vaut 'on', que seules les deux nouvelles
+-- fonctions posent (SET LOCAL, remis à 'off' avant de rendre la main) ; le
+-- client ne peut pas l'écrire (set_config n'est pas exposé par PostgREST).
+-- instancier_equipement : aucun appelant dans le dépôt ; EN PROD, vérifier en
+-- lecture seule avant d'appliquer :
+--     SELECT p.oid::regprocedure FROM pg_proc p
+--     WHERE p.prosrc ILIKE '%instancier_equipement(%' AND p.proname <> 'instancier_equipement';
+--     -- attendu : aucune ligne (copier_modele_equipement et count_miniature_refs
+--     -- ne la citent qu'en commentaire, sans parenthèse ouvrante)
+--
+-- Vérification après application :
+--     SELECT count(*) FROM public.equipements WHERE lot_deploiement IS NOT NULL;  -- 0
+--     SELECT to_regprocedure('public.instancier_equipement(uuid,uuid,text,uuid)'); -- NULL
+--     SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.gammes_equipements'::regclass
+--       AND NOT tgisinternal ORDER BY 1;
+--     -- trg_gamme_equipement_site, trg_snapshots_gammes_equipements,
+--     -- trg_synchro_lot_gammes_equipements_del, trg_synchro_lot_gammes_equipements_ins
+-- =============================================================================
+
+-- 1. Numéro de lot ------------------------------------------------------------
+ALTER TABLE public.equipements ADD COLUMN IF NOT EXISTS lot_deploiement uuid;
+
+COMMENT ON COLUMN public.equipements.lot_deploiement IS
+    '(184) Numéro du déploiement en masse qui a créé l''équipement (deployer_equipements). NULL = créé à l''unité. Sert à annuler un déploiement en un geste (annuler_deploiement).';
+
+CREATE INDEX IF NOT EXISTS idx_equipements_lot_deploiement
+    ON public.equipements (lot_deploiement) WHERE lot_deploiement IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION public.protect_lot_deploiement()
+RETURNS trigger LANGUAGE plpgsql
+SET search_path TO ''
+AS $$
+BEGIN
+    IF NEW.lot_deploiement IS NOT NULL
+       AND (TG_OP = 'INSERT' OR NEW.lot_deploiement IS DISTINCT FROM OLD.lot_deploiement)
+       AND current_setting('dedale.deploiement_en_cours', true) IS DISTINCT FROM 'on' THEN
+        RAISE EXCEPTION 'Le numéro de lot d''un équipement est posé par le déploiement en masse seulement.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.protect_lot_deploiement() IS
+    '(184) lot_deploiement ne se pose que pendant deployer_equipements (indicateur dedale.deploiement_en_cours) ; le remettre à NULL reste permis.';
+
+DROP TRIGGER IF EXISTS trg_equipements_protect_lot ON public.equipements;
+CREATE TRIGGER trg_equipements_protect_lot
+    BEFORE INSERT OR UPDATE OF lot_deploiement ON public.equipements
+    FOR EACH ROW EXECUTE FUNCTION public.protect_lot_deploiement();
+
+-- 2. Synchro unique en fin de lot ----------------------------------------------
+-- 2a. trg_fn_snapshots_gammes_equipements se tait pendant un lot : corps mis à
+-- jour EN PLACE (section 127, « Équipement ajouté / retiré d'une gamme »).
+
+-- 2b. Synchro par instruction, seulement pendant un lot.
+CREATE OR REPLACE FUNCTION public.trg_fn_synchro_lot_gammes_equipements()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_gamme uuid;
+BEGIN
+    IF current_setting('dedale.deploiement_en_cours', true) IS DISTINCT FROM 'on' THEN
+        RETURN NULL;
+    END IF;
+    FOR v_gamme IN SELECT DISTINCT gamme_id FROM lignes LOOP
+        PERFORM public.rafraichir_snapshots_ot_ouverts(v_gamme);
+        PERFORM public.synchroniser_ops_gamme(v_gamme);
+    END LOOP;
+    RETURN NULL;
+END;
+$$;
+
+COMMENT ON FUNCTION public.trg_fn_synchro_lot_gammes_equipements() IS
+    '(184) Pendant un déploiement en masse (dedale.deploiement_en_cours = on) : rafraîchit et synchronise UNE fois chaque gamme touchée par l''instruction. Sans effet hors lot (le déclencheur par ligne fait alors le travail).';
+
+DROP TRIGGER IF EXISTS trg_synchro_lot_gammes_equipements_ins ON public.gammes_equipements;
+CREATE TRIGGER trg_synchro_lot_gammes_equipements_ins
+    AFTER INSERT ON public.gammes_equipements
+    REFERENCING NEW TABLE AS lignes
+    FOR EACH STATEMENT EXECUTE FUNCTION public.trg_fn_synchro_lot_gammes_equipements();
+
+DROP TRIGGER IF EXISTS trg_synchro_lot_gammes_equipements_del ON public.gammes_equipements;
+CREATE TRIGGER trg_synchro_lot_gammes_equipements_del
+    AFTER DELETE ON public.gammes_equipements
+    REFERENCING OLD TABLE AS lignes
+    FOR EACH STATEMENT EXECUTE FUNCTION public.trg_fn_synchro_lot_gammes_equipements();
+
+REVOKE EXECUTE ON FUNCTION public.trg_fn_synchro_lot_gammes_equipements() FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.trg_fn_synchro_lot_gammes_equipements() TO service_role;
+
+-- 3. Opérations en attente des OT ouverts d'une gamme (aperçus) -----------------
+-- Interne : compte ce que la personne voit (INVOKER), sert à chiffrer l'effet
+-- d'un déploiement ou d'une annulation sur les OT ouverts.
+CREATE OR REPLACE FUNCTION public.nb_operations_ot_ouverts(p_gamme_id uuid)
+RETURNS integer LANGUAGE sql STABLE
+SET search_path TO ''
+AS $$
+    SELECT count(*)::integer
+    FROM public.operations_execution e
+    JOIN public.ordres_travail o ON o.id = e.ordre_travail_id
+    WHERE o.gamme_id = p_gamme_id
+      AND o.statut IN ('planifie', 'en_cours', 'reouvert');
+$$;
+COMMENT ON FUNCTION public.nb_operations_ot_ouverts(uuid) IS
+    '(184) Nombre de lignes d''opérations des OT OUVERTS (planifie/en_cours/reouvert) d''une gamme, sous la RLS de l''appelant. Sert aux aperçus de deployer_equipements et annuler_deploiement.';
+REVOKE EXECUTE ON FUNCTION public.nb_operations_ot_ouverts(uuid) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.nb_operations_ot_ouverts(uuid) TO authenticated, service_role;
+
+-- 4. Déployer --------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.deployer_equipements(
+    p_categorie_id     uuid,
+    p_local_ids        uuid[],
+    p_valeurs          jsonb   DEFAULT NULL,
+    p_gamme_ids        uuid[]  DEFAULT NULL,
+    p_ignorer_doublons boolean DEFAULT true,
+    p_appliquer        boolean DEFAULT false)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_role        text := public.current_role();
+    v_locaux      uuid[];
+    v_nb          integer;
+    v_vus         integer;
+    v_sites       uuid[];
+    v_site        uuid;
+    v_site_nom    text;
+    v_cat         public.categories;
+    v_parent      public.categories;
+    v_modele_nom  text;
+    v_gabarit     jsonb;
+    v_miniature   uuid;
+    v_champs      jsonb;
+    v_idx         integer;
+    v_cle         text;
+    v_val         jsonb;
+    v_champ       jsonb;
+    v_type        text;
+    v_ok          boolean;
+    v_manquants   text;
+    v_gammes      uuid[];
+    v_nb_gammes   integer;
+    v_cibles      uuid[];
+    v_lieux       jsonb;
+    v_lot         uuid := gen_random_uuid();
+    v_ids         uuid[] := '{}';
+    v_avant       jsonb := '{}';
+    v_gammes_out  jsonb := '[]';
+BEGIN
+    IF v_role IS NULL OR v_role NOT IN ('admin', 'manager', 'technicien') THEN
+        RAISE EXCEPTION 'Déploiement refusé : ton rôle ne permet pas de créer des équipements.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    -- Lieux : dédoublonnés, 1 à 500, tous visibles, un seul site.
+    SELECT array_agg(DISTINCT x) INTO v_locaux FROM unnest(p_local_ids) x WHERE x IS NOT NULL;
+    v_nb := coalesce(cardinality(v_locaux), 0);
+    IF v_nb = 0 THEN
+        RAISE EXCEPTION 'Choisis au moins un lieu.';
+    END IF;
+    IF v_nb > 500 THEN
+        RAISE EXCEPTION 'Au plus 500 lieux par déploiement (% demandés) : découpe-le en plusieurs fois.', v_nb;
+    END IF;
+    SELECT count(*), array_agg(DISTINCT b.site_id) INTO v_vus, v_sites
+    FROM public.locaux l
+    JOIN public.niveaux n ON n.id = l.niveau_id
+    JOIN public.batiments b ON b.id = n.batiment_id
+    WHERE l.id = ANY (v_locaux);
+    IF v_vus < v_nb THEN
+        RAISE EXCEPTION 'Déploiement refusé : % lieu(x) introuvable(s) ou hors de tes sites.', v_nb - v_vus
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF cardinality(v_sites) > 1 THEN
+        RAISE EXCEPTION 'Les lieux choisis sont sur % sites : un déploiement ne vise qu''un site à la fois.', cardinality(v_sites);
+    END IF;
+    v_site := v_sites[1];
+    IF NOT public.has_site_access(v_site) THEN
+        RAISE EXCEPTION 'Déploiement refusé : ce site n''est pas dans tes sites.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    SELECT nom INTO v_site_nom FROM public.sites WHERE id = v_site;
+
+    -- Sous-catégorie de parc (2e niveau) du même site, active.
+    SELECT * INTO v_cat FROM public.categories WHERE id = p_categorie_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Déploiement refusé : sous-catégorie introuvable ou hors de tes sites.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF v_cat.parent_id IS NOT NULL THEN
+        SELECT * INTO v_parent FROM public.categories WHERE id = v_cat.parent_id;
+    END IF;
+    IF v_cat.scope <> 'parc' OR v_cat.parent_id IS NULL OR v_parent.id IS NULL
+       OR v_parent.parent_id IS NOT NULL THEN
+        RAISE EXCEPTION 'On déploie une sous-catégorie de parc (une famille rangée sous une catégorie) : « % » n''en est pas une.', v_cat.nom;
+    END IF;
+    IF v_cat.site_id IS DISTINCT FROM v_site THEN
+        RAISE EXCEPTION 'La sous-catégorie « % » n''est pas du site des lieux choisis.', v_cat.nom;
+    END IF;
+    IF NOT v_cat.est_actif THEN
+        RAISE EXCEPTION 'La sous-catégorie « % » est archivée.', v_cat.nom;
+    END IF;
+
+    -- Gabarit : celui du modèle fixé, sinon celui de la sous-catégorie (comme
+    -- equipements-explorer.tsx → currentTemplate).
+    IF v_cat.modele_equipement_id IS NOT NULL THEN
+        SELECT m.specifications, m.miniature_id, m.nom INTO v_gabarit, v_miniature, v_modele_nom
+        FROM public.modeles_equipements m WHERE m.id = v_cat.modele_equipement_id;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Le modèle de la sous-catégorie « % » est introuvable.', v_cat.nom;
+        END IF;
+    ELSE
+        v_gabarit := v_cat.specifications;
+        v_miniature := v_cat.miniature_id;
+    END IF;
+
+    -- Champs : forme de parseChamps (clés connues, champs invalides écartés,
+    -- ordre gardé) puis `valeur = valeur ?? defaut ?? null` (equipement-parc-dialog).
+    SELECT coalesce(jsonb_agg(
+               (SELECT jsonb_object_agg(k.key, k.value) FROM jsonb_each(c.elem) k
+                WHERE k.key IN ('cle', 'type', 'unite', 'options', 'libelleA', 'libelleB', 'requis', 'defaut'))
+               || jsonb_build_object('valeur', coalesce(nullif(c.elem->'valeur', 'null'::jsonb),
+                                                        nullif(c.elem->'defaut', 'null'::jsonb),
+                                                        'null'::jsonb))
+               ORDER BY c.ord), '[]'::jsonb)
+    INTO v_champs
+    FROM jsonb_array_elements(
+             CASE WHEN jsonb_typeof(v_gabarit->'champs') = 'array' THEN v_gabarit->'champs' ELSE '[]'::jsonb END
+         ) WITH ORDINALITY AS c(elem, ord)
+    WHERE jsonb_typeof(c.elem) = 'object'
+      AND jsonb_typeof(c.elem->'cle') = 'string' AND btrim(c.elem->>'cle') <> ''
+      AND c.elem->>'type' IN ('texte', 'nombre', 'date', 'oui-non', 'liste', 'double-reference')
+      AND jsonb_typeof(c.elem->'requis') = 'boolean'
+      AND c.elem ? 'defaut';
+
+    -- Valeurs communes à tous les équipements du lot.
+    IF p_valeurs IS NOT NULL AND jsonb_typeof(p_valeurs) <> 'null' THEN
+        IF jsonb_typeof(p_valeurs) <> 'object' THEN
+            RAISE EXCEPTION 'Les valeurs se donnent en objet { caractéristique: valeur }.';
+        END IF;
+        FOR v_cle, v_val IN SELECT key, value FROM jsonb_each(p_valeurs) LOOP
+            SELECT (i - 1)::integer, e INTO v_idx, v_champ
+            FROM jsonb_array_elements(v_champs) WITH ORDINALITY AS t(e, i)
+            WHERE e->>'cle' = v_cle;
+            IF NOT FOUND THEN
+                RAISE EXCEPTION 'Caractéristique inconnue de « % » : « % ».', v_cat.nom, v_cle;
+            END IF;
+            v_type := v_champ->>'type';
+            v_ok := jsonb_typeof(v_val) = 'null' OR CASE v_type
+                WHEN 'texte'  THEN jsonb_typeof(v_val) = 'string'
+                WHEN 'date'   THEN jsonb_typeof(v_val) = 'string' AND (v_val #>> '{}') ~ '^\d{4}-\d{2}-\d{2}$'
+                WHEN 'nombre' THEN jsonb_typeof(v_val) = 'number'
+                WHEN 'oui-non' THEN jsonb_typeof(v_val) = 'boolean'
+                WHEN 'liste'  THEN jsonb_typeof(v_val) = 'string'
+                                   AND coalesce(v_champ->'options', '[]'::jsonb) ? (v_val #>> '{}')
+                WHEN 'double-reference' THEN jsonb_typeof(v_val) = 'object'
+                                   AND jsonb_typeof(v_val->'a') = 'string' AND jsonb_typeof(v_val->'b') = 'string'
+                ELSE false END;
+            IF NOT v_ok THEN
+                RAISE EXCEPTION 'Valeur refusée pour « % » (type %).', v_cle, v_type;
+            END IF;
+            IF v_type = 'double-reference' AND jsonb_typeof(v_val) = 'object' THEN
+                v_val := jsonb_build_object('a', v_val->'a', 'b', v_val->'b');
+            END IF;
+            v_champs := jsonb_set(v_champs, ARRAY[v_idx::text, 'valeur'], v_val);
+        END LOOP;
+    END IF;
+
+    -- Valeur principale = nom du lieu, si la sous-catégorie en désigne une de
+    -- type texte et que la personne ne l'a pas fixée elle-même.
+    v_idx := NULL;
+    IF v_cat.valeur_principale IS NOT NULL
+       AND NOT (coalesce(p_valeurs, '{}'::jsonb) ? v_cat.valeur_principale) THEN
+        SELECT (i - 1)::integer INTO v_idx
+        FROM jsonb_array_elements(v_champs) WITH ORDINALITY AS t(e, i)
+        WHERE e->>'cle' = v_cat.valeur_principale AND e->>'type' = 'texte';
+    END IF;
+
+    -- Caractéristiques obligatoires (miroir de la modale : oui-non exclu).
+    SELECT string_agg('« ' || (e->>'cle') || ' »', ', ' ORDER BY i) INTO v_manquants
+    FROM jsonb_array_elements(v_champs) WITH ORDINALITY AS t(e, i)
+    WHERE (e->>'requis')::boolean AND e->>'type' <> 'oui-non'
+      AND (v_idx IS NULL OR i - 1 <> v_idx)
+      AND (jsonb_typeof(e->'valeur') = 'null' OR e->'valeur' = '""'::jsonb);
+    IF v_manquants IS NOT NULL THEN
+        RAISE EXCEPTION 'Caractéristique(s) obligatoire(s) sans valeur : %.', v_manquants;
+    END IF;
+
+    -- Plans de maintenance : du même site, jamais du commun.
+    SELECT array_agg(DISTINCT x) INTO v_gammes FROM unnest(p_gamme_ids) x WHERE x IS NOT NULL;
+    v_gammes := coalesce(v_gammes, '{}');
+    IF cardinality(v_gammes) > 0 THEN
+        SELECT count(*) INTO v_nb_gammes FROM public.gammes g WHERE g.id = ANY (v_gammes);
+        IF v_nb_gammes < cardinality(v_gammes) THEN
+            RAISE EXCEPTION 'Déploiement refusé : % plan(s) de maintenance introuvable(s) ou hors de tes sites.',
+                cardinality(v_gammes) - v_nb_gammes USING ERRCODE = 'insufficient_privilege';
+        END IF;
+        IF EXISTS (SELECT 1 FROM public.gammes g WHERE g.id = ANY (v_gammes) AND g.site_id IS NULL) THEN
+            RAISE EXCEPTION 'Un plan de maintenance du commun ne se rattache pas : installe-le d''abord sur le site.';
+        END IF;
+        IF EXISTS (SELECT 1 FROM public.gammes g WHERE g.id = ANY (v_gammes) AND g.site_id <> v_site) THEN
+            RAISE EXCEPTION 'Un plan de maintenance choisi n''est pas du site des lieux.';
+        END IF;
+    END IF;
+
+    -- Lieux, doublons (un équipement de la sous-catégorie y est déjà) et cibles.
+    SELECT jsonb_agg(jsonb_build_object(
+               'local_id', l.id, 'lieu', l.nom, 'batiment', b.nom, 'niveau', n.nom,
+               'existants', (SELECT count(*) FROM public.equipements e
+                             WHERE e.local_id = l.id AND e.categorie_id = p_categorie_id))
+               ORDER BY b.nom, n.ordre, n.nom, l.nom, l.id)
+    INTO v_lieux
+    FROM public.locaux l
+    JOIN public.niveaux n ON n.id = l.niveau_id
+    JOIN public.batiments b ON b.id = n.batiment_id
+    WHERE l.id = ANY (v_locaux);
+
+    SELECT coalesce(array_agg((x->>'local_id')::uuid ORDER BY o), '{}') INTO v_cibles
+    FROM jsonb_array_elements(v_lieux) WITH ORDINALITY AS t(x, o)
+    WHERE NOT p_ignorer_doublons OR (x->>'existants')::int = 0;
+
+    SELECT coalesce(jsonb_object_agg(g, public.nb_operations_ot_ouverts(g)), '{}') INTO v_avant
+    FROM unnest(v_gammes) g;
+
+    -- Écriture : jouée en vrai, annulée si ce n'est qu'un aperçu.
+    BEGIN
+        PERFORM set_config('dedale.deploiement_en_cours', 'on', true);
+
+        WITH cibles AS (
+            SELECT l.id, l.nom, t.o
+            FROM unnest(v_cibles) WITH ORDINALITY AS t(id, o)
+            JOIN public.locaux l ON l.id = t.id
+        ), ins AS (
+            INSERT INTO public.equipements
+                (local_id, categorie_id, miniature_id, specifications, copie_depuis_modele_id, lot_deploiement)
+            SELECT c.id, p_categorie_id, v_miniature,
+                   jsonb_build_object('champs',
+                       CASE WHEN v_idx IS NULL THEN v_champs
+                            ELSE jsonb_set(v_champs, ARRAY[v_idx::text, 'valeur'], to_jsonb(c.nom)) END),
+                   v_cat.modele_equipement_id, v_lot
+            FROM cibles c ORDER BY c.o
+            RETURNING id
+        )
+        SELECT coalesce(array_agg(id), '{}') INTO v_ids FROM ins;
+
+        IF cardinality(v_gammes) > 0 AND cardinality(v_ids) > 0 THEN
+            INSERT INTO public.gammes_equipements (gamme_id, equipement_id)
+            SELECT g, e FROM unnest(v_gammes) g CROSS JOIN unnest(v_ids) e;
+        END IF;
+
+        SELECT coalesce(jsonb_agg(jsonb_build_object(
+                   'id', g.id, 'nom', g.nom, 'repeter_par_equipement', g.repeter_par_equipement,
+                   'ot_ouverts', (SELECT count(*) FROM public.ordres_travail o
+                                  WHERE o.gamme_id = g.id AND o.statut IN ('planifie', 'en_cours', 'reouvert')),
+                   'operations_ajoutees_ot_ouverts',
+                       public.nb_operations_ot_ouverts(g.id) - coalesce((v_avant->>g.id::text)::int, 0))
+                   ORDER BY g.nom), '[]')
+        INTO v_gammes_out
+        FROM public.gammes g WHERE g.id = ANY (v_gammes);
+
+        PERFORM set_config('dedale.deploiement_en_cours', 'off', true);
+        IF NOT p_appliquer THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0A01', MESSAGE = 'aperçu';
+        END IF;
+    EXCEPTION WHEN SQLSTATE 'P0A01' THEN
+        NULL;
+    END;
+
+    RETURN jsonb_build_object(
+        'mode', CASE WHEN p_appliquer THEN 'enregistré' ELSE 'aperçu (rien n''est enregistré)' END,
+        'site', jsonb_build_object('id', v_site, 'nom', v_site_nom),
+        'sous_categorie', jsonb_build_object('id', v_cat.id, 'nom', v_cat.nom,
+                                             'categorie', v_parent.nom, 'modele', v_modele_nom),
+        'lieux_demandes', v_nb,
+        'a_creer', cardinality(v_cibles),
+        'doublons_ignores', p_ignorer_doublons,
+        'doublons', (SELECT coalesce(jsonb_agg(x ORDER BY o), '[]')
+                     FROM jsonb_array_elements(v_lieux) WITH ORDINALITY AS t(x, o)
+                     WHERE (x->>'existants')::int > 0),
+        'par_batiment_niveau', (
+            SELECT coalesce(jsonb_agg(jsonb_build_object('batiment', bat, 'niveau', niv,
+                                                         'a_creer', a_creer, 'doublons', doublons)
+                                      ORDER BY premier), '[]')
+            FROM (SELECT x->>'batiment' AS bat, x->>'niveau' AS niv, min(o) AS premier,
+                         count(*) FILTER (WHERE NOT p_ignorer_doublons OR (x->>'existants')::int = 0) AS a_creer,
+                         count(*) FILTER (WHERE (x->>'existants')::int > 0) AS doublons
+                  FROM jsonb_array_elements(v_lieux) WITH ORDINALITY AS t(x, o)
+                  GROUP BY 1, 2) s),
+        'exemples', (
+            SELECT coalesce(jsonb_agg(jsonb_build_object(
+                       'lieu', l.nom,
+                       'libelle', CASE WHEN v_idx IS NOT NULL THEN v_cat.nom || ' ' || l.nom
+                                       WHEN v_cat.valeur_principale IS NOT NULL
+                                            AND coalesce(p_valeurs->>v_cat.valeur_principale, '') <> ''
+                                       THEN v_cat.nom || ' ' || (p_valeurs->>v_cat.valeur_principale)
+                                       ELSE v_cat.nom END,
+                       'specifications', jsonb_build_object('champs',
+                           CASE WHEN v_idx IS NULL THEN v_champs
+                                ELSE jsonb_set(v_champs, ARRAY[v_idx::text, 'valeur'], to_jsonb(l.nom)) END))
+                       ORDER BY t.o), '[]')
+            FROM unnest(v_cibles[1:3]) WITH ORDINALITY AS t(id, o)
+            JOIN public.locaux l ON l.id = t.id),
+        'gammes', v_gammes_out,
+        'lot', CASE WHEN p_appliquer AND cardinality(v_ids) > 0 THEN v_lot END,
+        'equipement_ids', CASE WHEN p_appliquer THEN to_jsonb(v_ids) ELSE '[]'::jsonb END);
+END;
+$$;
+
+COMMENT ON FUNCTION public.deployer_equipements(uuid, uuid[], jsonb, uuid[], boolean, boolean) IS
+    '(184) Déploie une sous-catégorie de parc (flotte) dans 1 à 500 lieux d''UN site, en une transaction : un équipement par lieu (gabarit du modèle ou de la sous-catégorie + défauts + p_valeurs ; valeur principale texte = nom du lieu), rattaché aux plans de maintenance p_gamme_ids (du site), OT ouverts synchronisés une fois par gamme. Doublon = la sous-catégorie a déjà un équipement dans le lieu : ignoré si p_ignorer_doublons. p_appliquer = false : aperçu joué puis annulé. Retour : site, sous_categorie, a_creer, doublons, par_batiment_niveau, exemples, gammes (operations_ajoutees_ot_ouverts), lot, equipement_ids. SECURITY INVOKER : admin, manager, technicien sur leurs sites.';
+
+REVOKE EXECUTE ON FUNCTION public.deployer_equipements(uuid, uuid[], jsonb, uuid[], boolean, boolean) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.deployer_equipements(uuid, uuid[], jsonb, uuid[], boolean, boolean) TO authenticated, service_role;
+
+-- 5. Annuler un déploiement -----------------------------------------------------
+CREATE OR REPLACE FUNCTION public.annuler_deploiement(p_lot uuid, p_appliquer boolean DEFAULT false)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_role       text := public.current_role();
+    v_eqs        jsonb;
+    v_suppr      uuid[];
+    v_gammes     uuid[];
+    v_avant      jsonb := '{}';
+    v_gammes_out jsonb := '[]';
+    v_n          integer := 0;
+BEGIN
+    IF v_role IS NULL OR v_role NOT IN ('admin', 'manager', 'technicien') THEN
+        RAISE EXCEPTION 'Annulation refusée : ton rôle ne permet pas de supprimer des équipements.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF p_lot IS NULL THEN
+        RAISE EXCEPTION 'Numéro de lot manquant.';
+    END IF;
+
+    -- Équipements du lot visibles, avec ce qui les rattache à l'histoire.
+    SELECT jsonb_agg(jsonb_build_object(
+               'id', e.id, 'lieu', l.nom, 'sous_categorie', c.nom,
+               'raisons', to_jsonb(array_remove(ARRAY[
+                   CASE WHEN EXISTS (
+                       SELECT 1 FROM public.operations_execution x
+                       JOIN public.ordres_travail o ON o.id = x.ordre_travail_id
+                       WHERE x.equipement_id = e.id
+                         AND NOT (o.statut IN ('planifie', 'en_cours', 'reouvert')
+                                  AND x.statut = 'en_attente' AND x.date_execution IS NULL
+                                  AND x.valeur_mesuree IS NULL AND x.commentaires IS NULL
+                                  AND x.index_depose IS NULL AND x.index_pose IS NULL))
+                        THEN 'OT exécutés' END,
+                   CASE WHEN EXISTS (SELECT 1 FROM public.documents_equipements d WHERE d.equipement_id = e.id)
+                        THEN 'documents' END,
+                   CASE WHEN EXISTS (SELECT 1 FROM public.di_equipements d WHERE d.equipement_id = e.id)
+                        THEN 'DI liées' END,
+                   CASE WHEN EXISTS (SELECT 1 FROM public.interventions_travaux t WHERE t.equipement_id = e.id)
+                          OR EXISTS (SELECT 1 FROM public.travaux_taches t WHERE t.equipement_id = e.id)
+                        THEN 'travaux' END,
+                   CASE WHEN EXISTS (SELECT 1 FROM public.evenements v WHERE v.equipement_id = e.id)
+                          OR EXISTS (SELECT 1 FROM public.evenements_lieux v WHERE v.equipement_id = e.id)
+                        THEN 'événements' END,
+                   CASE WHEN EXISTS (SELECT 1 FROM public.observations ob WHERE ob.equipement_id = e.id)
+                        THEN 'observations' END], NULL)))
+               ORDER BY l.nom, e.id)
+    INTO v_eqs
+    FROM public.equipements e
+    JOIN public.locaux l ON l.id = e.local_id
+    LEFT JOIN public.categories c ON c.id = e.categorie_id
+    WHERE e.lot_deploiement = p_lot;
+
+    IF v_eqs IS NULL THEN
+        RAISE EXCEPTION 'Lot introuvable : aucun équipement de ce déploiement sur tes sites.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    SELECT coalesce(array_agg((x->>'id')::uuid), '{}') INTO v_suppr
+    FROM jsonb_array_elements(v_eqs) x WHERE jsonb_array_length(x->'raisons') = 0;
+
+    SELECT coalesce(array_agg(DISTINCT ge.gamme_id), '{}') INTO v_gammes
+    FROM public.gammes_equipements ge WHERE ge.equipement_id = ANY (v_suppr);
+    SELECT coalesce(jsonb_object_agg(g, public.nb_operations_ot_ouverts(g)), '{}') INTO v_avant
+    FROM unnest(v_gammes) g;
+
+    BEGIN
+        PERFORM set_config('dedale.deploiement_en_cours', 'on', true);
+        -- Liaisons d'abord (FK RESTRICT), en UNE instruction : synchro unique.
+        DELETE FROM public.gammes_equipements WHERE equipement_id = ANY (v_suppr);
+        DELETE FROM public.equipements WHERE id = ANY (v_suppr);
+        GET DIAGNOSTICS v_n = ROW_COUNT;
+        IF v_n < cardinality(v_suppr) THEN
+            RAISE EXCEPTION 'Suppression refusée : ton rôle ne permet pas de supprimer % de ces équipements.',
+                cardinality(v_suppr) - v_n USING ERRCODE = 'insufficient_privilege';
+        END IF;
+
+        SELECT coalesce(jsonb_agg(jsonb_build_object(
+                   'id', g.id, 'nom', g.nom,
+                   'operations_retirees_ot_ouverts',
+                       coalesce((v_avant->>g.id::text)::int, 0) - public.nb_operations_ot_ouverts(g.id))
+                   ORDER BY g.nom), '[]')
+        INTO v_gammes_out
+        FROM public.gammes g WHERE g.id = ANY (v_gammes);
+
+        PERFORM set_config('dedale.deploiement_en_cours', 'off', true);
+        IF NOT p_appliquer THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0A01', MESSAGE = 'aperçu';
+        END IF;
+    EXCEPTION WHEN SQLSTATE 'P0A01' THEN
+        NULL;
+    END;
+
+    RETURN jsonb_build_object(
+        'mode', CASE WHEN p_appliquer THEN 'enregistré' ELSE 'aperçu (rien n''est enregistré)' END,
+        'lot', p_lot,
+        'total', jsonb_array_length(v_eqs),
+        'a_supprimer', cardinality(v_suppr),
+        'supprimes', CASE WHEN p_appliquer THEN v_n ELSE 0 END,
+        'conserves', (SELECT coalesce(jsonb_agg(x ORDER BY o), '[]')
+                      FROM jsonb_array_elements(v_eqs) WITH ORDINALITY AS t(x, o)
+                      WHERE jsonb_array_length(x->'raisons') > 0),
+        'gammes', v_gammes_out);
+END;
+$$;
+
+COMMENT ON FUNCTION public.annuler_deploiement(uuid, boolean) IS
+    '(184) Défait un déploiement : supprime les équipements du lot SANS historique (opérations saisies ou OT terminé, documents, DI, travaux, événements, observations) après les avoir détachés de leurs plans de maintenance (synchro unique par gamme) ; les autres sont conservés et listés avec leurs raisons. p_appliquer = false : aperçu joué puis annulé. SECURITY INVOKER : admin, manager, technicien sur leurs sites.';
+
+REVOKE EXECUTE ON FUNCTION public.annuler_deploiement(uuid, boolean) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.annuler_deploiement(uuid, boolean) TO authenticated, service_role;
+
+-- 6. instancier_equipement remplacée -------------------------------------------
+DROP FUNCTION IF EXISTS public.instancier_equipement(uuid, uuid, text, uuid);

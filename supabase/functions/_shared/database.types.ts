@@ -1279,6 +1279,7 @@ export type Database = {
           id: string
           image_path: string | null
           local_id: string
+          lot_deploiement: string | null
           miniature_id: string | null
           specifications: Json
           updated_at: string
@@ -1293,6 +1294,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           local_id: string
+          lot_deploiement?: string | null
           miniature_id?: string | null
           specifications?: Json
           updated_at?: string
@@ -1307,6 +1309,7 @@ export type Database = {
           id?: string
           image_path?: string | null
           local_id?: string
+          lot_deploiement?: string | null
           miniature_id?: string | null
           specifications?: Json
           updated_at?: string
@@ -4158,6 +4161,10 @@ export type Database = {
       }
     }
     Functions: {
+      annuler_deploiement: {
+        Args: { p_appliquer?: boolean; p_lot: string }
+        Returns: Json
+      }
       anonymize_user: {
         Args: { p_user_id: string }
         Returns: {
@@ -4465,6 +4472,17 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      deployer_equipements: {
+        Args: {
+          p_appliquer?: boolean
+          p_categorie_id: string
+          p_gamme_ids?: string[]
+          p_ignorer_doublons?: boolean
+          p_local_ids: string[]
+          p_valeurs?: Json
+        }
+        Returns: Json
       }
       detacher_et_supprimer_modele_operation: {
         Args: { p_id: string }
@@ -4889,15 +4907,6 @@ export type Database = {
       }
       get_user_telephone: { Args: { p_user_id: string }; Returns: string }
       has_site_access: { Args: { target_site_id: string }; Returns: boolean }
-      instancier_equipement: {
-        Args: {
-          p_categorie_id?: string
-          p_code_inventaire: string
-          p_local_id: string
-          p_modele_id: string
-        }
-        Returns: string
-      }
       libelle_equipement: { Args: { p_equipement_id: string }; Returns: string }
       lieux_di_du_site: { Args: { p_site_id: string }; Returns: Json }
       localisation_equipement: {
@@ -4918,6 +4927,10 @@ export type Database = {
           p_local_id?: string
         }
         Returns: undefined
+      }
+      nb_operations_ot_ouverts: {
+        Args: { p_gamme_id: string }
+        Returns: number
       }
       ot_code_confirmation: {
         Args: { p_demande: Json; p_geste: string; p_ot_id: string }

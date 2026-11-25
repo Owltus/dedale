@@ -1590,6 +1590,14 @@
           "precision": null,
           "type": "uuid"
         },
+        "lot_deploiement": {
+          "aUnDefaut": false,
+          "echelle": null,
+          "longueurMax": null,
+          "nullable": true,
+          "precision": null,
+          "type": "uuid"
+        },
         "miniature_id": {
           "aUnDefaut": false,
           "echelle": null,

@@ -143,7 +143,7 @@ describe('champSchema — structure', () => {
     // Régression couverte : `z.string().trim().max(60)` n'avait PAS de
     // `.min(1)`. `prepareChamps` rattrapait à l'ÉCRITURE, mais `parseChamps` —
     // qui relit le JSONB déjà en base, y compris les specs importées ou posées
-    // par une RPC (`copier_modele_equipement`, `instancier_equipement`) —
+    // par une RPC (`copier_modele_equipement`, `deployer_equipements`) —
     // acceptait la clé vide et l'affichait comme une ligne anonyme dans la
     // fiche. `texteObligatoire` (lib/texte-zod) impose le `.min(1)` ET au moins
     // un caractère visible.
