@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { equipementsQueries } from '../queries'
 import { StandaloneSelect } from '@/components/common/standalone-fields'
@@ -46,13 +46,13 @@ export function EmplacementSelect({
   const { data: locaux = [] } = useQuery(equipementsQueries.locaux(siteId))
 
   // Bâtiments distincts du site.
-  const batiments = useMemo(() => {
+  const batiments = (() => {
     const map = new Map<string, string>()
     for (const l of locaux) {
       if (l.batiment_id) map.set(l.batiment_id, l.batiment_nom ?? '')
     }
     return [...map].map(([id, nom]) => ({ id, nom }))
-  }, [locaux])
+  })()
   const batimentUnique = batiments.length <= 1
 
   const [batimentId, setBatimentId] = useState('')
@@ -61,10 +61,7 @@ export function EmplacementSelect({
   // Local correspondant à la valeur courante : sert à PRÉ-POSITIONNER la cascade
   // en édition (bâtiment/niveau déduits du local), SANS état ni effet — dès qu'un
   // choix amont est fait, c'est l'état interne qui prime.
-  const localRow = useMemo(
-    () => locaux.find((l) => l.local_id === value) ?? null,
-    [locaux, value],
-  )
+  const localRow = locaux.find((l) => l.local_id === value) ?? null
 
   // Bâtiment / niveau EFFECTIFS : choix interne s'il existe, sinon déduit du local
   // courant (édition). Bâtiment unique → toujours l'unique.
@@ -76,7 +73,7 @@ export function EmplacementSelect({
   const effNiveau = niveauId !== '' ? niveauId : (localRow?.niveau_id ?? '')
 
   // Niveaux distincts du bâtiment effectif.
-  const niveaux = useMemo(() => {
+  const niveaux = (() => {
     const map = new Map<string, string>()
     for (const l of locaux) {
       if (l.batiment_id === effBatiment && l.niveau_id) {
@@ -84,10 +81,10 @@ export function EmplacementSelect({
       }
     }
     return [...map].map(([id, nom]) => ({ id, nom }))
-  }, [locaux, effBatiment])
+  })()
 
   // Locaux du niveau choisi (hors locaux explicitement exclus).
-  const locauxNiveau = useMemo(() => {
+  const locauxNiveau = (() => {
     const exclus = new Set(excludeLocalIds ?? [])
     return locaux.filter(
       (l) =>
@@ -95,7 +92,7 @@ export function EmplacementSelect({
         l.niveau_id === effNiveau &&
         !exclus.has(l.local_id ?? ''),
     )
-  }, [locaux, effBatiment, effNiveau, excludeLocalIds])
+  })()
 
   // Aucun de ces trois menus ne propose d'option « Aucun » (Niveau/Local sont
   // requis dès qu'un lieu est choisi, Bâtiment de même) : leurs items n'ont

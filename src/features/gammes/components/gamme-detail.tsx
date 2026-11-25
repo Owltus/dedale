@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Package, Paperclip, Plus, Wrench } from 'lucide-react'
 import { gammesQueries, type GammeRow } from '@/features/gammes/queries'
@@ -73,7 +73,7 @@ export function GammeDetail({
   // Bouton « ajouter » de la top bar, DYNAMIQUE selon l'onglet actif (Opérations
   // exclu : il garde son propre bouton interne). Enregistré via le contexte
   // d'actions consommé par l'en-tête de l'explorateur.
-  const addAction = useMemo<(() => void) | null>(() => {
+  const addAction: (() => void) | null = (() => {
     if (!canEdit) return null
     // Création d'OT seulement pour une gamme ACTIVE (sinon le backend refuse) ;
     // la gamme courante est pré-remplie et verrouillée dans le dialog.
@@ -82,7 +82,7 @@ export function GammeDetail({
     if (tab === 'equipements') return () => setLinkOpen(true)
     if (tab === 'documents') return openUploadEmpty
     return null
-  }, [tab, canEdit, gamme.est_active, openUploadEmpty])
+  })()
   const addLabel =
     tab === 'ordres'
       ? 'Nouvel ordre de travail'
@@ -285,11 +285,9 @@ function EquipementsTab({
   const liesQuery = useQuery(gammesQueries.equipementsLies(gammeId))
   const liesIds = liesQuery.data ?? []
 
-  const lies = useMemo(() => {
-    const equipements = equipementsQuery.data ?? []
-    const ids = liesQuery.data ?? []
-    return equipements.filter((e) => e.id !== null && ids.includes(e.id))
-  }, [equipementsQuery.data, liesQuery.data])
+  const equipements = equipementsQuery.data ?? []
+  const ids = liesQuery.data ?? []
+  const lies = equipements.filter((e) => e.id !== null && ids.includes(e.id))
 
   return (
     <>

@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { equipementsQueries } from '../queries'
 import { nomAfficheTexte } from '../format'
@@ -69,11 +69,8 @@ export function LocalEquipementFields({
   const { data: equipements = [] } = useQuery(equipementsQueries.list(siteId))
 
   // Équipements DU lieu choisi (sinon liste vide → select réduit à « Aucun »).
-  const equipementsDuLocal = useMemo(
-    () =>
-      localId === '' ? [] : equipements.filter((e) => e.local_id === localId),
-    [equipements, localId],
-  )
+  const equipementsDuLocal =
+    localId === '' ? [] : equipements.filter((e) => e.local_id === localId)
 
   const champEquipement = (
     <StandaloneSelect

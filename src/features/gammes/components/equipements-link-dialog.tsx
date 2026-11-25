@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -69,47 +69,45 @@ function useArbreEquipements(siteId: string) {
   const { data: categories = [] } = useQuery(categoriesQueries.pool())
   const { data: equipements = [] } = useQuery(equipementsQueries.list(siteId))
 
-  return useMemo(() => {
-    const parcCats = categories.filter(
-      (c) => c.scope === 'parc' && c.site_id === siteId && c.est_actif,
+  const parcCats = categories.filter(
+    (c) => c.scope === 'parc' && c.site_id === siteId && c.est_actif,
+  )
+  const parSousCat = new Map<string, Equipement[]>()
+  for (const e of equipements) {
+    if (!e.categorie_id) continue
+    const arr = parSousCat.get(e.categorie_id) ?? []
+    arr.push(e)
+    parSousCat.set(e.categorie_id, arr)
+  }
+  for (const arr of parSousCat.values()) {
+    arr.sort((a, b) =>
+      titreAffiche(a).localeCompare(titreAffiche(b), undefined, {
+        numeric: true,
+      }),
     )
-    const parSousCat = new Map<string, Equipement[]>()
-    for (const e of equipements) {
-      if (!e.categorie_id) continue
-      const arr = parSousCat.get(e.categorie_id) ?? []
-      arr.push(e)
-      parSousCat.set(e.categorie_id, arr)
+  }
+  const sousCatsByParent = new Map<string, typeof parcCats>()
+  for (const c of parcCats) {
+    if (c.parent_id === null) continue
+    const arr = sousCatsByParent.get(c.parent_id) ?? []
+    arr.push(c)
+    sousCatsByParent.set(c.parent_id, arr)
+  }
+  const arbre: CatNode[] = []
+  for (const racine of parcCats.filter((c) => c.parent_id === null)) {
+    const sousCategories = (sousCatsByParent.get(racine.id) ?? [])
+      .map((sc): SousCatNode | null => {
+        const eqs = parSousCat.get(sc.id) ?? []
+        return eqs.length > 0
+          ? { id: sc.id, nom: sc.nom, equipements: eqs }
+          : null
+      })
+      .filter((x): x is SousCatNode => x !== null)
+    if (sousCategories.length > 0) {
+      arbre.push({ id: racine.id, nom: racine.nom, sousCategories })
     }
-    for (const arr of parSousCat.values()) {
-      arr.sort((a, b) =>
-        titreAffiche(a).localeCompare(titreAffiche(b), undefined, {
-          numeric: true,
-        }),
-      )
-    }
-    const sousCatsByParent = new Map<string, typeof parcCats>()
-    for (const c of parcCats) {
-      if (c.parent_id === null) continue
-      const arr = sousCatsByParent.get(c.parent_id) ?? []
-      arr.push(c)
-      sousCatsByParent.set(c.parent_id, arr)
-    }
-    const arbre: CatNode[] = []
-    for (const racine of parcCats.filter((c) => c.parent_id === null)) {
-      const sousCategories = (sousCatsByParent.get(racine.id) ?? [])
-        .map((sc): SousCatNode | null => {
-          const eqs = parSousCat.get(sc.id) ?? []
-          return eqs.length > 0
-            ? { id: sc.id, nom: sc.nom, equipements: eqs }
-            : null
-        })
-        .filter((x): x is SousCatNode => x !== null)
-      if (sousCategories.length > 0) {
-        arbre.push({ id: racine.id, nom: racine.nom, sousCategories })
-      }
-    }
-    return arbre
-  }, [categories, equipements, siteId])
+  }
+  return arbre
 }
 
 /** Rangée cochable À TIROIR (chevron facultatif) — sous-brique locale : `CheckRow`
@@ -231,7 +229,7 @@ export function EquipementsLinkDialog({
   }
 
   const q = normaliserRecherche(search)
-  const arbreFiltre = useMemo(() => {
+  const arbreFiltre = (() => {
     if (q === '') return arbre
     return arbre
       .map((cat): CatNode | null => {
@@ -255,7 +253,7 @@ export function EquipementsLinkDialog({
         return sousCategories.length > 0 ? { ...cat, sousCategories } : null
       })
       .filter((x): x is CatNode => x !== null)
-  }, [arbre, q])
+  })()
   // En recherche, tout ce qui reste dans l'arbre filtré est déjà pertinent :
   // on force le dépliage plutôt que de laisser l'utilisateur rouvrir chaque
   // branche à la main pour voir un résultat qu'il vient de trouver.

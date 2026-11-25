@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType } from 'react'
+import { useState, type ComponentType } from 'react'
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -104,12 +104,12 @@ export function EquipementDetail({
 
   // Bouton « ajouter » de la top bar, DYNAMIQUE selon l'onglet actif — même
   // patron que GammeDetail (Caractéristiques/Ordres exclus : lecture seule).
-  const addAction = useMemo<(() => void) | null>(() => {
+  const addAction: (() => void) | null = (() => {
     if (!canEdit) return null
     if (tab === 'gammes') return () => setLinkOpen(true)
     if (tab === 'documents') return openUploadEmpty
     return null
-  }, [tab, canEdit, openUploadEmpty])
+  })()
   const addLabel =
     tab === 'gammes'
       ? 'Lier des gammes'
@@ -268,39 +268,37 @@ function HistoriqueTab({ equipementId }: { equipementId: string }) {
   const navigate = useNavigate()
   const historiqueQuery = useQuery(equipementsQueries.historique(equipementId))
 
-  const interventions = useMemo(() => {
-    const parOt = new Map<
-      string,
-      {
-        otId: string
-        gamme: string
-        date: string | null
-        lignes: { id: string; nom: string; statut: string; ordre: number }[]
-      }
-    >()
-    for (const l of historiqueQuery.data ?? []) {
-      const ot = l.ordres_travail
-      const entree = parOt.get(ot.id) ?? {
-        otId: ot.id,
-        gamme: ot.nom_gamme,
-        date: ot.date_cloture ?? ot.date_prevue,
-        lignes: [],
-      }
-      entree.lignes.push({
-        id: l.id,
-        nom: l.nom,
-        statut: l.statut,
-        ordre: l.ordre,
-      })
-      parOt.set(ot.id, entree)
+  const parOt = new Map<
+    string,
+    {
+      otId: string
+      gamme: string
+      date: string | null
+      lignes: { id: string; nom: string; statut: string; ordre: number }[]
     }
-    return [...parOt.values()]
-      .map((i) => ({
-        ...i,
-        lignes: i.lignes.sort((a, b) => a.ordre - b.ordre),
-      }))
-      .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
-  }, [historiqueQuery.data])
+  >()
+  for (const l of historiqueQuery.data ?? []) {
+    const ot = l.ordres_travail
+    const entree = parOt.get(ot.id) ?? {
+      otId: ot.id,
+      gamme: ot.nom_gamme,
+      date: ot.date_cloture ?? ot.date_prevue,
+      lignes: [],
+    }
+    entree.lignes.push({
+      id: l.id,
+      nom: l.nom,
+      statut: l.statut,
+      ordre: l.ordre,
+    })
+    parOt.set(ot.id, entree)
+  }
+  const interventions = [...parOt.values()]
+    .map((i) => ({
+      ...i,
+      lignes: i.lignes.sort((a, b) => a.ordre - b.ordre),
+    }))
+    .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
 
   return (
     <QueryState

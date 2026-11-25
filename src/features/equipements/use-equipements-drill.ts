@@ -1,4 +1,3 @@
-import { useCallback, useMemo } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import {
   useTreeDrill,
@@ -27,16 +26,17 @@ export function useEquipementsDrill<T extends TreeNode>(
 ): TreeDrill<T> {
   const { _splat } = route.useParams()
   const navigate = route.useNavigate()
-  const catSegs = useMemo(() => splatCatSegs(_splat, false), [_splat])
-  const navigateTo = useCallback(
-    (segs: string[], leaf: string | undefined, opts: { replace: boolean }) => {
-      void navigate({
-        to: '/equipements/$',
-        params: { _splat: joinSplat([], segs, leaf) },
-        replace: opts.replace,
-      })
-    },
-    [navigate],
-  )
+  const catSegs = splatCatSegs(_splat, false)
+  const navigateTo = (
+    segs: string[],
+    leaf: string | undefined,
+    opts: { replace: boolean },
+  ) => {
+    void navigate({
+      to: '/equipements/$',
+      params: { _splat: joinSplat([], segs, leaf) },
+      replace: opts.replace,
+    })
+  }
   return useTreeDrill(cats, catSegs, navigateTo)
 }

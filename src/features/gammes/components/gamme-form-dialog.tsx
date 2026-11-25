@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -107,10 +106,7 @@ export function GammeFormDialog({
   )
   const { data: prestataires = [] } = useQuery(prestatairesQueries.list())
   const sousCategoriesQuery = useQuery(gammesQueries.sousCategories(siteId))
-  const sousCategories = useMemo(
-    () => sousCategoriesQuery.data ?? [],
-    [sousCategoriesQuery.data],
-  )
+  const sousCategories = sousCategoriesQuery.data ?? []
   const form = useForm<GammeFormValues>({
     resolver: zodResolver(gammeSchema),
     defaultValues: initialValues(gamme, presetCategorieId),
@@ -154,10 +150,7 @@ export function GammeFormDialog({
   // les `<optgroup>` → on aplatit en préfixant le libellé par le domaine parent
   // (`Domaine › Sous-catégorie`) pour conserver le regroupement et lever les
   // homonymes entre domaines.
-  const groupedSousCategories = useMemo(
-    () => groupByParent(sousCategories),
-    [sousCategories],
-  )
+  const groupedSousCategories = groupByParent(sousCategories)
 
   const periodiciteOptions = [
     ...periodicites.map((p) => ({ value: String(p.id), label: p.libelle })),

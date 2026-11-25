@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { Wrench } from 'lucide-react'
 import { gammesQueries } from '../queries'
@@ -24,11 +23,9 @@ export function EquipementGammesOnglet({
 }) {
   const gammesQuery = useQuery(gammesQueries.list(siteId))
 
-  const lies = useMemo(() => {
-    const gammes = gammesQuery.data ?? []
-    const liesIds = liesQuery.data ?? []
-    return gammes.filter((g) => liesIds.includes(g.id))
-  }, [gammesQuery.data, liesQuery.data])
+  const gammes = gammesQuery.data ?? []
+  const liesIds = liesQuery.data ?? []
+  const lies = gammes.filter((g) => liesIds.includes(g.id))
 
   return (
     <QueryState query={liesQuery} pending={<ListRowSkeletons count={3} />}>

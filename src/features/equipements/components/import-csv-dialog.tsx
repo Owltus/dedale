@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { equipementsQueries } from '../queries'
@@ -65,51 +65,30 @@ export function ImportCsvDialog({
 
   // Titres pour le prompt (l'IA les exclut du CSV) + forme réduite pour la
   // détection de doublon (même local, même valeur de champ principal).
-  const existantsTitres = useMemo(
-    () => equipementsExistants.map((e) => titreAffiche(e)),
-    [equipementsExistants],
-  )
-  const existantsPourDoublon = useMemo<EquipementExistantPourImport[]>(
-    () =>
-      equipementsExistants.map((e) => ({
-        localId: e.local_id,
-        principal: champPrincipalCle
-          ? parseChamps(e.specifications).find(
-              (c) => c.cle === champPrincipalCle,
-            )?.valeur
-          : undefined,
-        titre: titreAffiche(e),
-      })),
-    [equipementsExistants, champPrincipalCle],
-  )
+  const existantsTitres = equipementsExistants.map((e) => titreAffiche(e))
+  const existantsPourDoublon: EquipementExistantPourImport[] =
+    equipementsExistants.map((e) => ({
+      localId: e.local_id,
+      principal: champPrincipalCle
+        ? parseChamps(e.specifications).find((c) => c.cle === champPrincipalCle)
+            ?.valeur
+        : undefined,
+      titre: titreAffiche(e),
+    }))
 
-  const prompt = useMemo(
-    () =>
-      buildImportPrompt({
-        sousCategorieNom,
-        champs: template.champs,
-        locaux,
-        equipementsExistants: existantsTitres,
-      }),
-    [sousCategorieNom, template.champs, locaux, existantsTitres],
-  )
+  const prompt = buildImportPrompt({
+    sousCategorieNom,
+    champs: template.champs,
+    locaux,
+    equipementsExistants: existantsTitres,
+  })
 
-  const resultat = useMemo(
-    () =>
-      parseImportCsv(
-        csvTexte,
-        template.champs,
-        locaux,
-        champPrincipalCle,
-        existantsPourDoublon,
-      ),
-    [
-      csvTexte,
-      template.champs,
-      locaux,
-      champPrincipalCle,
-      existantsPourDoublon,
-    ],
+  const resultat = parseImportCsv(
+    csvTexte,
+    template.champs,
+    locaux,
+    champPrincipalCle,
+    existantsPourDoublon,
   )
   const lignesValides = resultat.lignes.filter(
     (l): l is Extract<CsvImportRow, { ok: true }> => l.ok,

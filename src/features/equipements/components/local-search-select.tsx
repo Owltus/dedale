@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { MapPin, Search, X } from 'lucide-react'
 import { equipementsQueries } from '../queries'
@@ -69,10 +69,7 @@ export function LocalSearchSelect({
   const [active, setActive] = useState(0)
 
   // Le site a-t-il PLUSIEURS bâtiments ? Sinon on n'affiche pas le bâtiment.
-  const multiBatiment = useMemo(
-    () => new Set(locaux.map((l) => l.batiment_id)).size > 1,
-    [locaux],
-  )
+  const multiBatiment = new Set(locaux.map((l) => l.batiment_id)).size > 1
 
   // Valeur posée DE L'EXTÉRIEUR (pré-remplissage en édition) : le champ n'affiche
   // que `query`, on l'amorce donc UNE FOIS depuis le local déjà sélectionné —
@@ -90,7 +87,7 @@ export function LocalSearchSelect({
   }
 
   // Suggestions : nom du local OU chemin contiennent la saisie (normalisée).
-  const suggestions = useMemo(() => {
+  const suggestions = (() => {
     const q = normaliserRecherche(query)
     if (q === '') return []
     return locaux
@@ -99,7 +96,7 @@ export function LocalSearchSelect({
         return normaliserRecherche(`${l.local_nom ?? ''} ${ctx}`).includes(q)
       })
       .slice(0, MAX_SUGGESTIONS)
-  }, [locaux, query])
+  })()
 
   // Clic hors du composant → on referme la liste.
   useClicExterieur(boxRef, open, setOpen)
