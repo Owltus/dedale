@@ -257,20 +257,19 @@ describe('useChangeStatutCapex', () => {
     expect(result.current.isError).toBe(true)
   })
 
-  it.fails(
-    'BUG CANDIDAT : le statut échoue après la pose des devis — la base a changé (devis retenus) mais le cache n’est pas invalidé, l’écran garde l’ancien choix',
-    async () => {
-      enr.courant = nouvelEnregistreur({ reponses: [null], echecA: 2 })
-      const { invalidations } = await jouer(
-        () => useChangeStatutCapex(),
-        { id: PROJET, statutId: 2, annee: 2027, devisRetenus: [DEVIS] },
-        'echec',
-      )
-      expect(invalidations).toHaveBeenCalledWith({
-        queryKey: investissementsQueries.all(),
-      })
-    },
-  )
+  it('le statut échoue après la pose des devis — la base a changé (devis retenus) : le cache est invalidé ET l’erreur remonte', async () => {
+    enr.courant = nouvelEnregistreur({ reponses: [null], echecA: 2 })
+    const { result, invalidations } = await jouer(
+      () => useChangeStatutCapex(),
+      { id: PROJET, statutId: 2, annee: 2027, devisRetenus: [DEVIS] },
+      'echec',
+    )
+    expect(invalidations).toHaveBeenCalledWith({
+      queryKey: investissementsQueries.all(),
+    })
+    // L'invalidation ne masque pas l'échec.
+    expect(result.current.isError).toBe(true)
+  })
 })
 
 describe('useDeleteInvestissement', () => {

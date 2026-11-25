@@ -150,8 +150,8 @@ describe('useCreerCompte (Edge Function invite_user)', () => {
 })
 
 describe('useUpdateUser (profil et changement de rôle)', () => {
-  it('changement de rôle : role_id dans le même UPDATE que le profil, sans .select() (téléphone révoqué)', async () => {
-    enr.courant = nouvelEnregistreur()
+  it('changement de rôle : role_id dans le même UPDATE que le profil, ne relit QUE l’id (téléphone révoqué)', async () => {
+    enr.courant = nouvelEnregistreur({ reponses: [[{ id: USER }]] })
     const { invalidations } = await jouer(() => useUpdateUser(), {
       id: USER,
       nom_complet: '  Jeanne ',
@@ -164,14 +164,18 @@ describe('useUpdateUser (profil et changement de rôle)', () => {
       { nom_complet: 'Jeanne', telephone: null, role_id: 2 },
     ])
     expect(appels(0)).toContainEqual(['eq', 'id', USER])
-    expect(appels(0).map(([m]) => m)).not.toContain('select')
+    // `select('id')` seul : un `.select()` nu demanderait telephone (SELECT
+    // révoqué, RGPD) et ferait échouer tout l'UPDATE.
+    expect(appels(0).filter(([m]) => m === 'select')).toEqual([
+      ['select', 'id'],
+    ])
     expect(invalidations).toHaveBeenCalledWith({
       queryKey: utilisateursQueries.all(),
     })
   })
 
   it('sans role_id (non-admin) : le rôle n’est pas dans le patch', async () => {
-    enr.courant = nouvelEnregistreur()
+    enr.courant = nouvelEnregistreur({ reponses: [[{ id: USER }]] })
     await jouer(() => useUpdateUser(), {
       id: USER,
       nom_complet: 'Jeanne',
@@ -194,19 +198,19 @@ describe('useUpdateUser (profil et changement de rôle)', () => {
     expect(invalidations).not.toHaveBeenCalled()
   })
 
-  it.fails(
-    'BUG CANDIDAT : un UPDATE filtré par la RLS (0 ligne, aucun code d’erreur — constaté sur la base locale : manager → admin = 204) passe pour un succès ; le hook devrait échouer',
-    async () => {
-      // La base renvoie « rien », sans erreur : c'est ce que fait PostgREST
-      // quand la policy USING écarte la ligne.
-      enr.courant = nouvelEnregistreur({ reponses: [[]] })
-      await jouer(
-        () => useUpdateUser(),
-        { id: USER, nom_complet: 'Jeanne', telephone: '' },
-        'echec',
-      )
-    },
-  )
+  it('un UPDATE filtré par la RLS (0 ligne, aucun code d’erreur — constaté sur la base locale : manager → admin = 204) échoue en PGRST116, rien d’invalidé', async () => {
+    // La base renvoie « rien », sans erreur : c'est ce que fait PostgREST
+    // quand la policy USING écarte la ligne.
+    enr.courant = nouvelEnregistreur({ reponses: [[]] })
+    const { result, invalidations } = await jouer(
+      () => useUpdateUser(),
+      { id: USER, nom_complet: 'Jeanne', telephone: '' },
+      'echec',
+    )
+    // Code traduit par `writeErrorMessage` (« hors de votre périmètre »).
+    expect(result.current.error).toMatchObject({ code: 'PGRST116' })
+    expect(invalidations).not.toHaveBeenCalled()
+  })
 })
 
 describe('autres écritures de comptes', () => {

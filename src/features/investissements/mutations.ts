@@ -130,32 +130,42 @@ export function useChangeStatutCapex() {
       // Le choix des devis d'abord : si le statut échoue ensuite, un devis
       // coché sans validation ne compte pas (montantProjet).
       if (devisRetenus !== undefined) await poserRetenus(id, devisRetenus)
-      const { data } = await supabase
-        .from('investissements')
-        .update({
-          statut_capex_id: statutId,
-          annee_budget: annee,
-          ...(bilan !== undefined && { bilan: bilan.trim() || null }),
-          ...(dateCloture !== undefined && { date_cloture: dateCloture }),
-          ...(clotureBy !== undefined && { cloture_by: clotureBy }),
-          ...(motifArret !== undefined && {
-            motif_arret: motifArret.trim() || null,
-          }),
-          ...(dateArret !== undefined && { date_arret: dateArret }),
-          ...(arreteBy !== undefined && { arrete_by: arreteBy }),
-          ...(refusNiveau !== undefined && { refus_niveau: refusNiveau }),
-          ...(dateValidation !== undefined && {
-            date_validation: dateValidation,
-          }),
-          ...(datePrevalidation !== undefined && {
-            date_prevalidation: datePrevalidation,
-          }),
-        })
-        .eq('id', id)
-        .select()
-        .single()
-        .throwOnError()
-      return data
+      try {
+        const { data } = await supabase
+          .from('investissements')
+          .update({
+            statut_capex_id: statutId,
+            annee_budget: annee,
+            ...(bilan !== undefined && { bilan: bilan.trim() || null }),
+            ...(dateCloture !== undefined && { date_cloture: dateCloture }),
+            ...(clotureBy !== undefined && { cloture_by: clotureBy }),
+            ...(motifArret !== undefined && {
+              motif_arret: motifArret.trim() || null,
+            }),
+            ...(dateArret !== undefined && { date_arret: dateArret }),
+            ...(arreteBy !== undefined && { arrete_by: arreteBy }),
+            ...(refusNiveau !== undefined && { refus_niveau: refusNiveau }),
+            ...(dateValidation !== undefined && {
+              date_validation: dateValidation,
+            }),
+            ...(datePrevalidation !== undefined && {
+              date_prevalidation: datePrevalidation,
+            }),
+          })
+          .eq('id', id)
+          .select()
+          .single()
+          .throwOnError()
+        return data
+      } catch (e) {
+        // ÉCHEC PARTIEL : les devis retenus sont déjà en base, le statut non.
+        // On invalide quand même (l'écran doit montrer le choix réellement
+        // enregistré), puis l'erreur remonte telle quelle.
+        if (devisRetenus !== undefined) {
+          void qc.invalidateQueries({ queryKey: investissementsQueries.all() })
+        }
+        throw e
+      }
     },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: investissementsQueries.all() }),
