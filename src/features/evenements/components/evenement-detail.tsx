@@ -28,6 +28,7 @@ import {
 import { EvenementFormDialog } from './evenement-form-dialog'
 import { ClotureEvenementDialog } from './cloture-evenement-dialog'
 import { TacheDialog } from '@/features/taches/components/tache-dialog'
+import { LienLieu } from '@/features/localisations/components/lien-lieu'
 import {
   TacheRow,
   type TacheItem,
@@ -177,12 +178,10 @@ export function EvenementDetail({
 
   const realisees = lieux.filter((l) => l.statut === 'realise').length
   // Lieu principal (098) — sous le titre, à côté de la date de survenue (D5).
-  const lieuPrincipalTexte = [
-    ev.locaux?.nom,
-    ev.equipements && (ev.equipements.categories?.nom ?? 'Équipement'),
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  // Le lieu est CLIQUABLE (ouvre sa fiche) ; l'équipement reste en texte.
+  const equipementTexte = ev.equipements
+    ? (ev.equipements.categories?.nom ?? 'Équipement')
+    : null
 
   // 094 : avec des tâches, le statut se calcule tout seul — plus de choix
   // manuel. Le verrou (posé à toute clôture) bloque tout jusqu'au
@@ -352,9 +351,16 @@ export function EvenementDetail({
               : 'lg:col-span-2'
           }
           label={
-            lieuPrincipalTexte
-              ? `${lieuPrincipalTexte} · Survenu le ${formatDate(ev.date_evenement)}`
-              : `Survenu le ${formatDate(ev.date_evenement)}`
+            <>
+              {ev.locaux && (
+                <>
+                  <LienLieu localId={ev.locaux.id} texte={ev.locaux.nom} />
+                  {' · '}
+                </>
+              )}
+              {equipementTexte && `${equipementTexte} · `}
+              {`Survenu le ${formatDate(ev.date_evenement)}`}
+            </>
           }
           text={ev.description}
           emptyText="Aucun constat détaillé."

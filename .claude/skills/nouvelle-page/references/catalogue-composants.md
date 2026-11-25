@@ -209,6 +209,8 @@ Briques de plomberie hors hooks : `actionsEditionSuppression` (duo Modifier/Supp
 
 - `catalogue-panel` (`features/categories/components/`) — ossature générique d'un panneau de catalogue, paramétrée par `queries`/`mutations`/libellés/dialogs. 2 consommateurs (modèles d'équipements, modèles d'opérations) ; rangé dans `categories` car il monte ses dialogs de catégorie (pas promouvable dans `common/`). `features/bibliotheque` ne garde que l'écran à onglets (`bibliotheque-ecran`) et son préchargement.
 - `CategorieCard` (`features/categories/components/`) — source unique du rendu d'une catégorie. 2 consommateurs hors feature (`gammes-explorer`, `gammes-biblio-panel`) : **même remarque**.
+- `LienLieu` (`features/localisations/components/lien-lieu.tsx`) — lieu cité dans une fiche, rendu en **chemin court cliquable** vers sa fiche dans l'arbre (`/localisations/<bâtiment>/<niveau>/<lieu>`) ; repli texte (`texte`) si le lieu n'est pas visible. Adresse calculée par `useLienLieu(localId)` + `segmentsLieu` (`features/localisations/lien-lieu.ts`, symétrique avec l'explorateur) ; cible de navigation : `lienLocalisations(segs)`. 4 consommateurs (DI, travaux, événement, équipement). Les valeurs de `DetailHeaderCard` et le `label` de `DetailNoteCard` acceptent un nœud pour l'accueillir.
+- `LieuFiche` (`features/localisations/components/lieu-fiche.tsx`) — fiche d'un lieu (3ᵉ palier de l'arbre) : carte d'en-tête puis slot `onglets`. 1 consommateur (`localisations-explorer`).
 
 ## Application de la règle D5 — état au 2026-08-16
 
