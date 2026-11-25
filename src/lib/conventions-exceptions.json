@@ -213,13 +213,13 @@
     "regle": "route-mince",
     "fichier": "src/routes/_app/bibliotheque/$.tsx",
     "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "racine de composition des 6 panneaux du catalogue : déplacé dans features/bibliotheque, l’écran créerait les cycles bibliotheque ⇄ modeles-equipements et ⇄ modeles-operations (qui importent CataloguePanel) ; à rendre mince quand CataloguePanel sortira de features/bibliotheque"
   },
   {
     "regle": "route-mince",
     "fichier": "src/routes/_app/demandes/$demande.tsx",
     "occurrences": 2,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "lit l’aperçu du tableau de bord (activiteQueries, feature dashboard) : déplacé dans features/demandes, l’écran créerait le cycle demandes ⇄ dashboard ; à rendre mince quand la clé d’aperçu des DI vivra dans demandes/queries"
   },
   {
     "regle": "statut-nombre",
