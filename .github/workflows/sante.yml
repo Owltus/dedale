@@ -1,0 +1,80 @@
+# Bilan de santé à chaque poussée et à chaque demande de fusion vers main.
+# Plan garde-fous permanents, étape 10 — décision PO du 25/11/2026 (ADR 0017),
+# qui remplace « pas de CI » (16/08/2026).
+#
+# Dépôt PUBLIC : aucun secret, aucune connexion à la production. Le build
+# n'a pas besoin des clés Supabase (lues à l'exécution, pas à la compilation).
+name: Santé
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sante-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sante:
+    name: Bilan (types, lint, format, tests, Deno, build, code mort, audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.x
+      - run: npm ci
+      - name: Bilan de santé (strict — « non vérifié » compte comme un échec)
+        run: npm run sante -- --strict
+      - name: Couverture — aucun recul par module
+        run: |
+          npm run test:couverture
+          node scripts/couverture-cliquet.mjs
+
+  secrets:
+    name: Secrets (gitleaks, tout l'historique)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Scan maison (mêmes familles que le poste)
+        run: node scripts/secrets.mjs --historique
+
+  base-locale:
+    name: Base locale — schéma rejouable, droits (RLS), intégration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Monter la base jetable depuis schema_complete.sql
+        run: npm run base:monter
+      - name: Sondes de sécurité et tests d'intégration
+        run: npm run base:tester
+      - name: Démonter
+        if: always()
+        run: npm run base:demonter

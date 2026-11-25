@@ -26,11 +26,11 @@ description: Met Dédale en production — gate de vérification, migrations SQL
 ### 1. Gate locale
 
 ```bash
-npm run verify   # typecheck + lint + format + tests
-npm run build
+npm run sante:complet   # verify (types, lint, format, Vitest, Deno) + build + clone propre
+                        # + tests ×2 + couverture + code mort + audit + base locale
 ```
 
-Tout doit être vert. `verify` inclut format et tests — l'ancienne gate s'arrêtait à `typecheck && lint && build`, ce qui a laissé 170 fichiers dériver hors format et 2 tests rouges passer inaperçus.
+Tout doit être vert (aucun ÉCHEC ; un NON VÉRIFIÉ se justifie). À défaut de Docker, `npm run sante` couvre tout sauf la base locale. `verify` inclut format et tests — l'ancienne gate s'arrêtait à `typecheck && lint && build`, ce qui a laissé 170 fichiers dériver hors format et 2 tests rouges passer inaperçus.
 
 ### 2. Les migrations en attente
 
@@ -99,18 +99,15 @@ Le contrôle continu correspondant existe déjà : l'invariant `US03` de `tests/
 - **Supabase met un projet gratuit en pause** après une longue inactivité. Une application qui renvoie des erreurs réseau après plusieurs jours sans usage, c'est souvent ça.
 - **Les URL de redirection Auth** doivent contenir le domaine de production, sinon les liens de réinitialisation de mot de passe renvoient vers l'URL par défaut.
 
-## Pas d'intégration continue — décision assumée
+## Intégration continue et garde-fous — ADR 0017
 
-**Tranché le 2026-08-16 : le projet n'aura pas de CI.** Ce n'est pas un sujet en attente, c'est un choix, avec sa contrepartie.
+**Le 25/11/2026, le PO a remplacé la décision « pas de CI » du 16/08** : le bilan de santé avait montré ce que la discipline manuelle laissait passer (Edge Functions jamais lintées, `schema_complete.sql` non rejouable, droits jamais sondés). Détail : `docs/decisions/0017-garde-fous-permanents.md`.
 
-Ce qui protège le dépôt :
+Ce qui protège désormais le dépôt :
 
-- le hook `.claude/hooks/check.mjs`, qui **formate puis type-vérifie** chaque fichier édité via l'outil ;
-- le build Vercel, qui refuse de publier si `tsc -b` échoue.
+- le hook `.claude/hooks/check.mjs` (format + types à chaque édition via l'outil) ;
+- `.githooks/pre-commit` → `npm run sante:rapide`, et `.githooks/pre-push` → `npm run sante`, branchés par `npm install` — ils couvrent aussi les éditions **hors de Claude Code** ;
+- la CI `.github/workflows/sante.yml` : bilan strict, cliquet de couverture, gitleaks, base locale + sondes RLS ;
+- le build Vercel (`tsc -b`).
 
-Ce que cela ne couvre pas, et qui devient donc une **discipline** :
-
-- une édition faite **hors de Claude Code** (éditeur, autre machine, correction à la volée) ne passe par aucun garde-fou ;
-- Vercel n'exécute **ni lint, ni format, ni tests** : un test rouge ou 170 fichiers hors format se déploient sans broncher. C'est exactement ce qui s'est produit une fois.
-
-**Règle qui remplace la CI : lancer `npm run verify` à la main avant toute poussée dont une partie n'a pas été écrite via l'outil.** Si cette règle s'avère trop souvent oubliée, la conclusion sera de créer la CI — pas de renforcer le rappel.
+**Avant une mise en production : `npm run sante:complet`.** Reste ouvert : Vercel déploie même si la CI est rouge (réglage à décider par le PO).

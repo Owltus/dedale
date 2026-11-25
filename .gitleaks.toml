@@ -1,0 +1,22 @@
+# Configuration gitleaks (CI) — plan garde-fous permanents, étapes 8 et 10.
+# Règles par défaut de gitleaks, plus deux tolérances documentées :
+#  - les clés de DÉMONSTRATION de Supabase (JWT « supabase-demo », identiques
+#    sur toutes les installations, sans pouvoir hors de 127.0.0.1), versionnées
+#    par 0c7cf31 puis retirées par 4323d3a le 16/09/2026 ;
+#  - les mots de passe des comptes de test de la base locale jetable.
+# Toute autre alerte est un vrai problème : retirer ET révoquer la valeur.
+title = "Dédale"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Clés de démonstration Supabase et comptes de test locaux"
+commits = [
+  "0c7cf31d612a1d10dedea9b0434a014c3aa6aa28",
+  "4323d3a72983014ca5839dd14ffd2e1a995437b0",
+]
+paths = [
+  '''tests/securite/.*\.mjs''',
+  '''package-lock\.json''',
+]
