@@ -12,8 +12,8 @@ export const Route = createFileRoute('/_app/travaux/$travaux')({
 function TravauxDetailPage() {
   const { travaux: slug } = Route.useParams()
   const navigate = useNavigate()
-  // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
-  // rendu (contrat de `useSlugResolved`).
+  // Mémoïsé par React Compiler : la resynchronisation d'URL est un ÉVÉNEMENT, pas
+  // un effet de chaque rendu (contrat de `useSlugResolved`).
   const onSlugChange = (freshSlug: string) =>
     void navigate({
       to: '/travaux/$travaux',

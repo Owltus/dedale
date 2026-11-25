@@ -13,8 +13,8 @@ function ReleveDetailPage() {
   const { releve: slug } = Route.useParams()
   const navigate = useNavigate()
   const goBack = () => void navigate({ to: '/releves' })
-  // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
-  // rendu (contrat de `useSlugResolved`).
+  // Mémoïsé par React Compiler : la resynchronisation d'URL est un ÉVÉNEMENT, pas
+  // un effet de chaque rendu (contrat de `useSlugResolved`).
   const onSlugChange = (freshSlug: string) =>
     void navigate({
       to: '/releves/$releve',

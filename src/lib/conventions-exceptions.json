@@ -7,15 +7,9 @@
   },
   {
     "regle": "enabled-skiptoken",
-    "fichier": "src/features/connecteur/queries.ts",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
     "fichier": "src/features/demandes/components/demande-ecran.tsx",
     "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "lecture du CACHE seule (`enabled: false`) : l’aperçu des 30 DI chargé par le tableau de bord ouvre la fiche tout de suite, mais cet écran ne doit jamais le lancer lui-même ; aucun paramètre ne manque (siteId est présent). Un `queryFn: skipToken` s’inscrirait dans les options de la clé partagée (QueryObserver.setOptions → query.setOptions) et risquerait de neutraliser le rafraîchissement du tableau de bord"
   },
   {
     "regle": "enabled-skiptoken",
@@ -51,7 +45,7 @@
     "regle": "enabled-skiptoken",
     "fichier": "src/features/utilisateurs/components/utilisateurs-liste.tsx",
     "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "lecture conditionnée au RÔLE (canManageAdmin : admin seul), pas à un paramètre absent : utilisateursQueries.list n’en prend aucun ; filet du composant derrière la garde beforeLoad de la route"
   },
   {
     "regle": "mutation-multi-ecritures",

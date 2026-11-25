@@ -689,7 +689,8 @@ const REGLES: Regle[] = [
     quoiFaire:
       'retirer la mémoïsation manuelle : React Compiler s’en charge (les fichiers anciens sont gelés, leur compte ne peut que baisser)',
     corpus: () => PROD.length,
-    ecarts: () => parLigne('use-memo-callback', PROD, /\buse(Memo|Callback)\(/),
+    ecarts: () =>
+      parLigne('use-memo-callback', PROD, /\buse(Memo|Callback)\s*[(<]/),
   },
   {
     id: 'enabled-skiptoken',

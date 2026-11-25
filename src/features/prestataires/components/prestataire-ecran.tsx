@@ -21,8 +21,8 @@ export function PrestataireEcran({
   const navigate = useNavigate()
 
   const goBack = () => void navigate({ to: '/prestataires' })
-  // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
-  // rendu (contrat de `useSlugResolved`).
+  // Mémoïsé par React Compiler : la resynchronisation d'URL est un ÉVÉNEMENT, pas
+  // un effet de chaque rendu (contrat de `useSlugResolved`).
   const onSlugChange = (freshSlug: string) =>
     void navigate({
       to: '/prestataires/$prestataire',

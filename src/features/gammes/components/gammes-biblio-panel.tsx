@@ -485,7 +485,7 @@ export function GammesBiblioPanel() {
   // fil « Bibliothèque › Plan de maintenance › … » rendu par <Tabs>. Vue détail :
   // la gamme ouverte devient le segment courant (titre), sa sous-catégorie passe
   // en ancêtre. À la RACINE (depth 0) → `null` : titre de section « Bibliothèque ».
-  // Mémoïsé (contrat de `useTabHeader`).
+  // Mémoïsé par React Compiler (contrat de `useTabHeader`).
   const header: TabHeader | null = (() => {
     if (openGamme !== null) {
       // `openGamme` est déjà la donnée FRAÎCHE (issu de `gammes.find`) : pas de
