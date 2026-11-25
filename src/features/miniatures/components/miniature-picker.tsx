@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Camera, ImageOff, Library, Upload } from 'lucide-react'
@@ -79,9 +79,8 @@ export function MiniaturePicker({
   // Vignettes compatibles avec le périmètre de l'entité (pool entreprise + même
   // site) : une vignette de site ne peut pas être liée à une entité d'un autre
   // périmètre (trigger). Pour le commun, seules les vignettes communes restent.
-  const compatibles = useMemo(
-    () => (pool ?? []).filter((m) => estCommunOuDuSite(m, targetSiteId)),
-    [pool, targetSiteId],
+  const compatibles = (pool ?? []).filter((m) =>
+    estCommunOuDuSite(m, targetSiteId),
   )
 
   function choisir(id: string) {

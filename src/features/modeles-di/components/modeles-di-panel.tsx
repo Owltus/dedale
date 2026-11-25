@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileText, PackagePlus, Upload } from 'lucide-react'
 import { modelesDiQueries, type ModeleDi } from '../queries'
@@ -80,39 +80,32 @@ export function ModelesDiPanel() {
   useEffect(() => {
     openCreateRef.current = dialog.openCreate
   })
-  const handleAdd = useCallback(() => openCreateRef.current(), [])
-  const scopeControl = useMemo(
-    () => <ScopeSelect value={scope} onChange={setScope} fluid />,
-    [scope, setScope],
-  )
+  const handleAdd = () => openCreateRef.current()
+  const scopeControl = <ScopeSelect value={scope} onChange={setScope} fluid />
   // Import en masse (CSV généré via IA générative) : même chemin d'écriture que
   // le +, donc mêmes conditions — un périmètre créable (pas « Tout »).
   const [importOpen, setImportOpen] = useState(false)
   // « Importer depuis le commun » : le site se sert dans le catalogue du siège.
   const [importCommunOpen, setImportCommunOpen] = useState(false)
-  const importAction = useMemo(
-    () =>
-      canAdd ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Sans objet sous « Commun » (on y est déjà) ni sous « Tout ». */}
-          {typeof targetSiteId === 'string' && (
-            <TooltipIconButton
-              icon={<PackagePlus />}
-              label="Importer depuis le commun"
-              variant="outline"
-              onClick={() => setImportCommunOpen(true)}
-            />
-          )}
-          <TooltipIconButton
-            icon={<Upload />}
-            label="Importer un CSV"
-            variant="outline"
-            onClick={() => setImportOpen(true)}
-          />
-        </div>
-      ) : undefined,
-    [canAdd, targetSiteId],
-  )
+  const importAction = canAdd ? (
+    <div className="flex flex-wrap items-center gap-2">
+      {/* Sans objet sous « Commun » (on y est déjà) ni sous « Tout ». */}
+      {typeof targetSiteId === 'string' && (
+        <TooltipIconButton
+          icon={<PackagePlus />}
+          label="Importer depuis le commun"
+          variant="outline"
+          onClick={() => setImportCommunOpen(true)}
+        />
+      )}
+      <TooltipIconButton
+        icon={<Upload />}
+        label="Importer un CSV"
+        variant="outline"
+        onClick={() => setImportOpen(true)}
+      />
+    </div>
+  ) : undefined
   // Bouton toujours visible pour un rôle métier, mais DÉSACTIVÉ si le périmètre
   // n'est pas créable (Tout, ou Commun sans le droit) → UX stable.
   useTabAddAction(
@@ -127,7 +120,7 @@ export function ModelesDiPanel() {
 
   // Candidats à l'installation : modèles COMMUNS actifs dont aucun homonyme
   // n'est déjà sur le site (on ne propose jamais d'y créer un doublon).
-  const communsAImporter = useMemo(() => {
+  const communsAImporter = (() => {
     const tous = query.data ?? []
     const surLeSite = new Set(
       tous
@@ -139,7 +132,7 @@ export function ModelesDiPanel() {
       (m) => !surLeSite.has(m.libelle.trim().toLowerCase()),
     )
     return { candidats, nbDejaInstalles: communs.length - candidats.length }
-  }, [query.data, targetSiteId])
+  })()
 
   // Mises à jour live entre fenêtres / comptes (Realtime).
   useRealtimeRefresh('modeles_di', modelesDiQueries.all())

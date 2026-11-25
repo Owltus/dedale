@@ -115,19 +115,7 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/features/localisations/use-localisations-drill.ts",
-    "occurrences": 2,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
     "fichier": "src/features/miniatures/components/miniature-crop-dialog.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/miniatures/components/miniature-picker.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
@@ -140,54 +128,6 @@
   {
     "regle": "use-memo-callback",
     "fichier": "src/features/miniatures/use-miniature-download.ts",
-    "occurrences": 2,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/miniatures/use-miniature-urls.ts",
-    "occurrences": 3,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/modeles-di/components/import-csv-dialog.tsx",
-    "occurrences": 2,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/modeles-di/components/modeles-di-panel.tsx",
-    "occurrences": 4,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/modeles-equipements/components/import-csv-dialog.tsx",
-    "occurrences": 4,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/modeles-equipements/components/modele-equipement-detail.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/modeles-operations/components/import-csv-dialog.tsx",
-    "occurrences": 4,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/ordres-travail/components/ordres-travail-liste.tsx",
-    "occurrences": 4,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/ordres-travail/components/ot-liste-par-gammes.tsx",
     "occurrences": 2,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },

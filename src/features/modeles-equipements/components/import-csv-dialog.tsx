@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import {
   buildImportPrompt,
@@ -48,36 +48,22 @@ export function ImportCsvDialog({
   const create = useCreateModeleEquipement()
   const completer = useUpdateModeleSpecifications()
 
-  const existantsPourImport = useMemo(
-    () =>
-      existants.map((m) => ({
-        id: m.id,
-        nom: m.nom,
-        champs: parseChamps(m.specifications),
-      })),
-    [existants],
-  )
+  const existantsPourImport = existants.map((m) => ({
+    id: m.id,
+    nom: m.nom,
+    champs: parseChamps(m.specifications),
+  }))
 
-  const prompt = useMemo(
-    () =>
-      buildImportPrompt({
-        categorieNom: categorie.nom,
-        existants: existantsPourImport,
-      }),
-    [categorie.nom, existantsPourImport],
-  )
+  const prompt = buildImportPrompt({
+    categorieNom: categorie.nom,
+    existants: existantsPourImport,
+  })
 
-  const resultat = useMemo(
-    () => parseImportCsv(csvTexte, existantsPourImport),
-    [csvTexte, existantsPourImport],
-  )
+  const resultat = parseImportCsv(csvTexte, existantsPourImport)
   const lignesValides = resultat.lignes.filter(
     (l): l is ModeleEquipementCsvRowOk => l.ok,
   )
-  const plan = useMemo(
-    () => construirePlan(lignesValides, existantsPourImport),
-    [lignesValides, existantsPourImport],
-  )
+  const plan = construirePlan(lignesValides, existantsPourImport)
   const lignesApercu: CsvImportLigne[] = resultat.lignes.map((l) =>
     l.ok
       ? {

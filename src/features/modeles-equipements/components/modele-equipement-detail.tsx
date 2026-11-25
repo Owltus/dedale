@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
   Package,
   Pencil,
@@ -42,10 +42,7 @@ export function ModeleEquipementDetail({
 }) {
   const update = useUpdateModeleSpecifications()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
-  const champs = useMemo(
-    () => parseChamps(modele.specifications),
-    [modele.specifications],
-  )
+  const champs = parseChamps(modele.specifications)
   const [champForm, setChampForm] = useState<{
     open: boolean
     champ: Champ | null

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { buildImportPrompt, parseImportCsv } from '../csv-import'
 import { useCreateModeleDi } from '../mutations'
@@ -40,23 +40,15 @@ export function ImportCsvDialog({
   const create = useCreateModeleDi()
   const portee = siteId === null ? 'entreprise' : 'site'
 
-  const prompt = useMemo(
-    () =>
-      buildImportPrompt({
-        existants: existants.map((m) => ({ libelle: m.libelle })),
-        portee,
-        siteNom,
-      }),
-    [existants, portee, siteNom],
-  )
+  const prompt = buildImportPrompt({
+    existants: existants.map((m) => ({ libelle: m.libelle })),
+    portee,
+    siteNom,
+  })
 
-  const resultat = useMemo(
-    () =>
-      parseImportCsv(
-        csvTexte,
-        existants.map((m) => ({ libelle: m.libelle })),
-      ),
-    [csvTexte, existants],
+  const resultat = parseImportCsv(
+    csvTexte,
+    existants.map((m) => ({ libelle: m.libelle })),
   )
   const lignesValides = resultat.lignes.filter((l) => l.ok)
   const lignesApercu: CsvImportLigne[] = resultat.lignes.map((l) =>

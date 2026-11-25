@@ -1,4 +1,3 @@
-import { useCallback, useMemo } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 
 // API typée de la route SPLAT `/localisations/<bâtiment>/<niveau>`.
@@ -20,18 +19,12 @@ export function useLocalisationsDrill(): {
 } {
   const { _splat } = route.useParams()
   const navigate = route.useNavigate()
-  const segs = useMemo(
-    () => (_splat ?? '').split('/').filter(Boolean),
-    [_splat],
-  )
-  const goTo = useCallback(
-    (next: string[]) => {
-      void navigate({
-        to: '/localisations/$',
-        params: { _splat: next.join('/') },
-      })
-    },
-    [navigate],
-  )
+  const segs = (_splat ?? '').split('/').filter(Boolean)
+  const goTo = (next: string[]) => {
+    void navigate({
+      to: '/localisations/$',
+      params: { _splat: next.join('/') },
+    })
+  }
   return { segs, goTo }
 }

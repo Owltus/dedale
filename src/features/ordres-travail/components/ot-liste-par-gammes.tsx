@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { VirtualList } from '@/components/common/virtual-list'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList } from 'lucide-react'
@@ -35,17 +34,11 @@ export function OtListeParGammes({
   // `ot_id → « 80 kWh »`. Site-scopé (un précédent peut vivre sur un autre OT du
   // site) : on charge tout le site, on filtre par OT au rendu — comme la page liste.
   const relevesQuery = useQuery(ordresTravailQueries.relevesListe(siteId))
-  const releveParOt = useMemo(
-    () => calculerRelevesParOt(relevesQuery.data ?? []),
-    [relevesQuery.data],
-  )
+  const releveParOt = calculerRelevesParOt(relevesQuery.data ?? [])
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   // Tri par urgence mémoïsé : ne se recalcule que quand les OT changent (pas à
   // chaque re-render du split parent), au même titre que `releveParOt`.
-  const ordresTries = useMemo(
-    () => trierOtParUrgence(query.data ?? []),
-    [query.data],
-  )
+  const ordresTries = trierOtParUrgence(query.data ?? [])
   // Documents rattachés aux OT du site, en UNE requête groupée filtrée par site
   // (pas par liste d'ids — cf. `ordresTravailQueries.documentsParOt`).
   const documentsQuery = useQuery(ordresTravailQueries.documentsParOt(siteId))

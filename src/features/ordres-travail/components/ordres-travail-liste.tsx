@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -74,10 +74,7 @@ export function OrdresTravailListe({
   // Relevés (consommations) des compteurs cumulatifs du site, en UNE requête
   // groupée → map `ot_id → « 80 kWh »` (même règle que la fiche détail).
   const relevesQuery = useQuery(ordresTravailQueries.relevesListe(siteId))
-  const releveParOt = useMemo(
-    () => calculerRelevesParOt(relevesQuery.data ?? []),
-    [relevesQuery.data],
-  )
+  const releveParOt = calculerRelevesParOt(relevesQuery.data ?? [])
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
   const del = useDeleteOt()
 
@@ -117,33 +114,28 @@ export function OrdresTravailListe({
     ),
     placeholderData: keepPreviousData,
   })
-  const ouvertsFiltres = useMemo(() => {
-    const q = normaliserRecherche(search)
-    return trierOtParUrgence(
-      (query.data ?? []).filter((ot) => {
-        if (!matchStatutOt(ot.statut, statutFilter)) return false
-        if (natureFilter !== FILTRE_TOUS && ot.nature_gamme !== natureFilter)
-          return false
-        if (q === '') return true
-        return [ot.nom_gamme, ot.nom_equipement, ot.nom_prestataire].some((v) =>
-          normaliserRecherche(v ?? '').includes(q),
-        )
-      }),
-    )
-  }, [query.data, search, statutFilter, natureFilter])
-  const filtered = useMemo(
-    () => [
-      ...ouvertsFiltres,
-      ...(statutsTermines.length > 0
-        ? (termines.data?.pages.flatMap((p) => p.ots) ?? [])
-        : []),
-    ],
-    [ouvertsFiltres, statutsTermines.length, termines.data],
+  const q = normaliserRecherche(search)
+  const ouvertsFiltres = trierOtParUrgence(
+    (query.data ?? []).filter((ot) => {
+      if (!matchStatutOt(ot.statut, statutFilter)) return false
+      if (natureFilter !== FILTRE_TOUS && ot.nature_gamme !== natureFilter)
+        return false
+      if (q === '') return true
+      return [ot.nom_gamme, ot.nom_equipement, ot.nom_prestataire].some((v) =>
+        normaliserRecherche(v ?? '').includes(q),
+      )
+    }),
   )
+  const filtered = [
+    ...ouvertsFiltres,
+    ...(statutsTermines.length > 0
+      ? (termines.data?.pages.flatMap((p) => p.ots) ?? [])
+      : []),
+  ]
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = termines
-  const chargerLaSuite = useCallback(() => {
+  const chargerLaSuite = () => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+  }
 
   // Documents rattachés aux OT du site, en UNE requête groupée filtrée par site
   // (pas par liste d'ids : un `.in()` sur des centaines d'OT dépasse la taille

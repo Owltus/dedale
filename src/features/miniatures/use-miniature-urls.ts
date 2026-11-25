@@ -1,4 +1,3 @@
-import { useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { miniaturesQueries } from './queries'
@@ -22,21 +21,16 @@ export function useMiniatureUrls() {
   // de la Bibliothèque, champ image…) sans recâbler chaque écran.
   useRealtimeRefresh('miniatures', miniaturesQueries.all())
 
-  const urlById = useMemo(() => {
-    const map = new Map<string, string | null>()
-    for (const m of data ?? []) map.set(m.id, m.url)
-    return map
-  }, [data])
-
-  const urlOf = useCallback(
-    (id: string | null): string | null =>
-      id !== null ? (urlById.get(id) ?? null) : null,
-    [urlById],
+  const urlById = new Map<string, string | null>(
+    (data ?? []).map((m) => [m.id, m.url]),
   )
 
-  const refresh = useCallback(() => {
+  const urlOf = (id: string | null): string | null =>
+    id !== null ? (urlById.get(id) ?? null) : null
+
+  const refresh = () => {
     void qc.invalidateQueries({ queryKey: miniaturesQueries.all() })
-  }, [qc])
+  }
 
   return { urlOf, refresh }
 }

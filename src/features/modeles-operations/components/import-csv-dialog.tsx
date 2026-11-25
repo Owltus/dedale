@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -50,46 +50,32 @@ export function ImportCsvDialog({
 
   const { data: types = [] } = useQuery(referentielsQueries.typesOperations())
   const { data: unites = [] } = useQuery(referentielsQueries.unites())
-  const refs = useMemo(() => ({ types, unites }), [types, unites])
+  const refs = { types, unites }
 
   // Opérations déjà en place dans les modèles de la catégorie : le prompt les
   // annonce à l'IA, et le parseur s'en sert pour ne pas les recréer.
   const { data: items = [] } = useQuery(
     modelesOperationsQueries.itemsDesModeles(existants.map((m) => m.id)),
   )
-  const existantsPourImport = useMemo<ModeleOperationExistant[]>(
-    () =>
-      existants.map((m) => ({
-        id: m.id,
-        nom: m.nom,
-        operations: items
-          .filter((i) => i.modele_operation_id === m.id)
-          .map((i) => i.nom),
-      })),
-    [existants, items],
-  )
+  const existantsPourImport: ModeleOperationExistant[] = existants.map((m) => ({
+    id: m.id,
+    nom: m.nom,
+    operations: items
+      .filter((i) => i.modele_operation_id === m.id)
+      .map((i) => i.nom),
+  }))
 
-  const prompt = useMemo(
-    () =>
-      buildImportPrompt({
-        categorieNom: categorie.nom,
-        refs,
-        existants: existantsPourImport,
-      }),
-    [categorie.nom, refs, existantsPourImport],
-  )
+  const prompt = buildImportPrompt({
+    categorieNom: categorie.nom,
+    refs,
+    existants: existantsPourImport,
+  })
 
-  const resultat = useMemo(
-    () => parseImportCsv(csvTexte, refs, existantsPourImport),
-    [csvTexte, refs, existantsPourImport],
-  )
+  const resultat = parseImportCsv(csvTexte, refs, existantsPourImport)
   const lignesValides = resultat.lignes.filter(
     (l): l is ModeleOperationCsvRowOk => l.ok,
   )
-  const plan = useMemo(
-    () => construirePlan(lignesValides, existantsPourImport),
-    [lignesValides, existantsPourImport],
-  )
+  const plan = construirePlan(lignesValides, existantsPourImport)
   const lignesApercu: CsvImportLigne[] = resultat.lignes.map((l) =>
     l.ok
       ? {
