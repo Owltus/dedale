@@ -18307,3 +18307,127 @@ COMMENT ON FUNCTION public.enregistrer_travaux(jsonb, jsonb, uuid, uuid) IS
   'Crée (p_id absent : sur p_site_id) ou modifie des travaux et applique le diff de tâches calculé par le front, en UNE transaction (175, 176).';
 COMMENT ON FUNCTION public.enregistrer_evenement(jsonb, jsonb, uuid, uuid) IS
   'Crée (p_id absent : sur p_site_id) ou modifie un événement et applique le diff de tâches calculé par le front, en UNE transaction (175, 176).';
+
+
+-- =============================================================================
+-- 179 — Retirer à anon l'EXECUTE de cinq fonctions internes
+-- =============================================================================
+-- Symptôme corrigé : aucun visible. Trouvé le 25/11/2026 par
+-- tests/securite/audit-sql.mjs (règle « anon-execute ») : le rôle anon (requête
+-- sans session) peut appeler cinq fonctions SECURITY INVOKER que rien ne lui
+-- destine :
+--     resolve_prestataire_effectif(uuid, uuid, date)
+--     resolve_prestataire_for_ot(uuid)
+--     snapshot_ot_from_gamme(uuid)
+--     prochaine_date_ot(date, integer)
+--     storage_objet_modifiable(text)
+--
+-- Cause : PostgreSQL accorde EXECUTE à PUBLIC à la création d'une fonction. La
+-- boucle de durcissement (schema_complete.sql, « EXECUTE des fonctions
+-- SECURITY DEFINER ») ne traite que les DEFINER ; ces cinq-là sont INVOKER et
+-- n'ont jamais reçu leur REVOKE. Pour storage_objet_modifiable, le
+-- `REVOKE … FROM anon` existant est SANS EFFET : anon hérite du droit par PUBLIC.
+--
+-- Correctif : REVOKE EXECUTE FROM PUBLIC, anon ; GRANT explicite à
+-- authenticated et service_role (les déclencheurs et les policies qui les
+-- appellent tournent sous ces rôles, ou sous le propriétaire). Ne change NI le
+-- corps NI la signature des fonctions.
+--
+-- Innocuité : INVOKER, donc sous anon elles s'exécutaient déjà avec les droits
+-- d'anon (aucun accès aux tables publiques depuis la révocation globale) : rien
+-- d'exploitable aujourd'hui, c'est de la défense en profondeur et la mise en
+-- conformité avec la règle « jamais anon sauf besoin documenté ». Les appels
+-- de l'application (authenticated), des Edge Functions (service_role) et de
+-- pg_cron (postgres) sont inchangés. Les policies storage qui appellent
+-- storage_objet_modifiable appellent avant lui public.current_role(), qu'anon
+-- ne peut déjà pas exécuter : le refus d'anon y est déjà une erreur.
+--
+-- Vérification après application :
+--     SELECT p.oid::regprocedure
+--     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+--     WHERE n.nspname = 'public'
+--       AND p.prorettype NOT IN ('trigger'::regtype, 'event_trigger'::regtype)
+--       AND has_function_privilege('anon', p.oid, 'EXECUTE');
+--     -- attendu : via_connecteur() et garde_connecteur() seulement (besoin
+--     -- documenté : pré-requête PostgREST, jouée aussi pour anon — 157).
+-- =============================================================================
+
+REVOKE EXECUTE ON FUNCTION public.resolve_prestataire_effectif(uuid, uuid, date) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.resolve_prestataire_for_ot(uuid)               FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.snapshot_ot_from_gamme(uuid)                   FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.prochaine_date_ot(date, integer)               FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.storage_objet_modifiable(text)                 FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.resolve_prestataire_effectif(uuid, uuid, date) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.resolve_prestataire_for_ot(uuid)               TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.snapshot_ot_from_gamme(uuid)                   TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.prochaine_date_ot(date, integer)               TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.storage_objet_modifiable(text)                 TO authenticated, service_role;
+
+
+-- =============================================================================
+-- 180 — Cloisonner par site les trois policies « à soi » du demandeur
+-- =============================================================================
+-- Symptôme corrigé : aucun visible. Trouvé le 25/11/2026 par
+-- tests/securite/audit-sql.mjs (règle « cloisonnement-site ») : trois policies
+-- du demandeur, sur des tables à site_id, ne testent que l'auteur de la ligne :
+--     demandes_intervention.di_demandeur_update   (USING)
+--     demandes_intervention.di_demandeur_delete   (USING)
+--     documents.documents_demandeur_select        (USING)
+--
+-- Cause : elles raisonnent « ma ligne » (created_by / uploaded_by = auth.uid())
+-- et non « mes sites ». Un demandeur RETIRÉ d'un site garde donc, sur le papier,
+-- ses droits sur ce qu'il y a créé : la doctrine dit « sécurité = rôle + sites »
+-- — c'est le même oubli que documents_demandeur_insert (corrigé plus tôt).
+-- En pratique l'UPDATE était déjà bloqué par son WITH CHECK (qui teste le
+-- site), et l'UPDATE/DELETE filtré par la policy SELECT de la DI (qui teste le
+-- site) ; restait la lecture de ses propres documents d'un ancien site.
+--
+-- Correctif : ajouter `site_id = ANY ((SELECT public.mes_site_ids())::uuid[])`
+-- (forme « une fois par requête » de 172, identique aux policies voisines) au
+-- USING des trois policies. ALTER POLICY : rejouable tel quel. Le reste des
+-- conditions (rôle, auteur, statut Ouvert) est inchangé.
+--
+-- Innocuité : un demandeur rattaché au site de la ligne ne voit aucune
+-- différence (toute DI / tout document qu'il crée porte un site de son
+-- périmètre : policies d'INSERT). Seul change le cas d'un demandeur retiré du
+-- site. Aucune donnée modifiée. Autres rôles non concernés.
+--
+-- Vérification après application :
+--     SELECT policyname, qual ~ 'mes_site_ids' AS cloisonnee
+--     FROM pg_policies
+--     WHERE schemaname = 'public'
+--       AND policyname IN ('di_demandeur_update', 'di_demandeur_delete',
+--                          'documents_demandeur_select');
+--     -- attendu : 3 lignes, cloisonnee = true
+-- =============================================================================
+
+ALTER POLICY di_demandeur_update ON public.demandes_intervention
+    USING (
+        (SELECT public.current_role()) = 'demandeur'
+        AND created_by = (SELECT auth.uid())
+        AND statut_di_id = 1
+        AND site_id = ANY ((SELECT public.mes_site_ids())::uuid[])
+    );
+
+ALTER POLICY di_demandeur_delete ON public.demandes_intervention
+    USING (
+        (SELECT public.current_role()) = 'demandeur'
+        AND created_by = (SELECT auth.uid())
+        AND statut_di_id = 1
+        AND site_id = ANY ((SELECT public.mes_site_ids())::uuid[])
+    );
+
+ALTER POLICY documents_demandeur_select ON public.documents
+    USING (
+        (SELECT public.current_role()) = 'demandeur'
+        AND uploaded_by = (SELECT auth.uid())
+        AND site_id = ANY ((SELECT public.mes_site_ids())::uuid[])
+    );
+
+COMMENT ON POLICY di_demandeur_update ON public.demandes_intervention IS
+    'Demandeur : modifie SA DI encore Ouverte, sur un site de son périmètre, sans en changer le statut (052, 180).';
+COMMENT ON POLICY di_demandeur_delete ON public.demandes_intervention IS
+    'Demandeur : supprime SA DI encore Ouverte, sur un site de son périmètre (050, 180).';
+COMMENT ON POLICY documents_demandeur_select ON public.documents IS
+    'Demandeur : lit les documents qu''il a déposés, sur les sites de son périmètre (180).';
