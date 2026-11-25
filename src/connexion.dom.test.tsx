@@ -88,31 +88,15 @@ describe('écran de connexion', () => {
     })
   })
 
-  it('autorisation mal formée : COMPORTEMENT ACTUEL — elle est quand même transmise à /oauth/consent', async () => {
+  it('autorisation mal formée : ignorée (revalidée malgré la recherche brute), retour à l’accueil', async () => {
     signIn.mockReset().mockResolvedValue({ data: {}, error: null })
     const router = monter('/login?autorisation=https://pirate.example/x')
     await saisir('jean@exemple.fr', 'Secret!2026')
-    await screen.findByText('Écran de consentement')
-    // La destination reste interne (pas de redirection ouverte), mais la valeur
-    // refusée par `validateSearch` passe : TanStack fusionne la recherche BRUTE
-    // et la recherche validée, retourner `{}` n'efface donc rien.
-    expect(router.state.location.search).toEqual({
-      authorization_id: 'https://pirate.example/x',
-    })
+    await waitFor(() =>
+      expect(router.state.location.pathname).not.toBe('/login'),
+    )
+    expect(router.state.location.pathname).toBe('/')
   })
-
-  it.fails(
-    'BUG CANDIDAT : une autorisation mal formée devrait être ignorée (validateSearch qui renvoie {} n’efface pas la valeur brute) et ramener à l’accueil',
-    async () => {
-      signIn.mockReset().mockResolvedValue({ data: {}, error: null })
-      const router = monter('/login?autorisation=https://pirate.example/x')
-      await saisir('jean@exemple.fr', 'Secret!2026')
-      await waitFor(() =>
-        expect(router.state.location.pathname).not.toBe('/login'),
-      )
-      expect(router.state.location.pathname).toBe('/')
-    },
-  )
 
   it('identifiants refusés : message français traduit, on reste sur la page', async () => {
     signIn.mockReset().mockResolvedValue({
