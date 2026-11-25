@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { ShieldOff, Users } from 'lucide-react'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
@@ -25,15 +24,12 @@ export function UtilisateurEcran() {
   const goBack = () => void navigate({ to: '/utilisateurs' })
   // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
   // rendu (contrat de `useSlugResolved`).
-  const onSlugChange = useCallback(
-    (freshSlug: string) =>
-      void navigate({
-        to: '/utilisateurs/$utilisateur',
-        params: { utilisateur: freshSlug },
-        replace: true,
-      }),
-    [navigate],
-  )
+  const onSlugChange = (freshSlug: string) =>
+    void navigate({
+      to: '/utilisateurs/$utilisateur',
+      params: { utilisateur: freshSlug },
+      replace: true,
+    })
 
   if (rolePending) {
     return (

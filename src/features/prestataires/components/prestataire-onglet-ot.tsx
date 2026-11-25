@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardList } from 'lucide-react'
 import { prestatairesQueries } from '../queries'
@@ -41,18 +41,16 @@ export function OtPanel({
   const [search, setSearch] = useState('')
   const [statutFilter, setStatutFilter] = useState<string>(FILTRE_NON_TERMINES)
 
-  const filtered = useMemo(() => {
-    const q = normaliserRecherche(search)
-    return trierOtParUrgence(
-      (query.data ?? []).filter((ot) => {
-        if (!matchStatutOt(ot.statut, statutFilter)) return false
-        if (q === '') return true
-        return [ot.nom_gamme, ot.nom_equipement].some((v) =>
-          normaliserRecherche(v ?? '').includes(q),
-        )
-      }),
-    )
-  }, [query.data, search, statutFilter])
+  const q = normaliserRecherche(search)
+  const filtered = trierOtParUrgence(
+    (query.data ?? []).filter((ot) => {
+      if (!matchStatutOt(ot.statut, statutFilter)) return false
+      if (q === '') return true
+      return [ot.nom_gamme, ot.nom_equipement].some((v) =>
+        normaliserRecherche(v ?? '').includes(q),
+      )
+    }),
+  )
 
   // Documents rattachés aux OT du site, en UNE requête groupée filtrée par site
   // (pas par liste d'ids — cf. `ordresTravailQueries.documentsParOt`).

@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { PAGE_META } from '@/features/prestataires/page-meta'
@@ -24,15 +23,12 @@ export function PrestataireEcran({
   const goBack = () => void navigate({ to: '/prestataires' })
   // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
   // rendu (contrat de `useSlugResolved`).
-  const onSlugChange = useCallback(
-    (freshSlug: string) =>
-      void navigate({
-        to: '/prestataires/$prestataire',
-        params: { prestataire: freshSlug },
-        replace: true,
-      }),
-    [navigate],
-  )
+  const onSlugChange = (freshSlug: string) =>
+    void navigate({
+      to: '/prestataires/$prestataire',
+      params: { prestataire: freshSlug },
+      replace: true,
+    })
 
   return (
     <SiteScopedRoute meta={PAGE_META}>

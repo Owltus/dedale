@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { sitesQueries } from '@/features/sites/queries'
@@ -22,9 +22,8 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   // Tri alphabétique : la RPC get_my_sites ne garantit aucun ordre → on ordonne
   // la liste du sélecteur ET on rend le défaut déterministe (le « premier site »
   // au tout premier login = le premier dans l'ordre alphabétique).
-  const sites = useMemo(
-    () => [...(data ?? [])].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')),
-    [data],
+  const sites = [...(data ?? [])].sort((a, b) =>
+    a.nom.localeCompare(b.nom, 'fr'),
   )
   const [storedId, setStoredId] = useState<string | null>(() =>
     localStorage.getItem(STORAGE_KEY),
@@ -41,18 +40,15 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     }
   }, [activeSiteId])
 
-  const value = useMemo<SiteContextValue>(
-    () => ({
-      sites,
-      activeSiteId,
-      activeSite: sites.find((s) => s.id === activeSiteId) ?? null,
-      setActiveSiteId: (id) => {
-        setStoredId(id)
-      },
-      isPending,
-    }),
-    [sites, activeSiteId, isPending],
-  )
+  const value: SiteContextValue = {
+    sites,
+    activeSiteId,
+    activeSite: sites.find((s) => s.id === activeSiteId) ?? null,
+    setActiveSiteId: (id) => {
+      setStoredId(id)
+    },
+    isPending,
+  }
 
   return <SiteContext value={value}>{children}</SiteContext>
 }

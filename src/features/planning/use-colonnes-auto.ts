@@ -1,4 +1,4 @@
-import { useMemo, type RefObject } from 'react'
+import { type RefObject } from 'react'
 import { useDimension } from '@/hooks/use-dimension'
 
 /**
@@ -58,15 +58,13 @@ export function useColonnesAuto(
   // synchrone (avant le paint) : pas de saut 10 → N colonnes.
   const largeur = useDimension(ref, 'clientWidth')
 
-  return useMemo(() => {
-    const utile = Math.floor(largeur)
-    if (utile <= familleMin)
-      return { nbSemaines: minSemaines, familleWidth: familleMin }
-    const nbSemaines = Math.min(
-      maxSemaines,
-      Math.max(minSemaines, Math.floor((utile - familleMin) / cellSize)),
-    )
-    const familleWidth = Math.max(familleMin, utile - nbSemaines * cellSize)
-    return { nbSemaines, familleWidth }
-  }, [largeur, cellSize, familleMin, minSemaines, maxSemaines])
+  const utile = Math.floor(largeur)
+  if (utile <= familleMin)
+    return { nbSemaines: minSemaines, familleWidth: familleMin }
+  const nbSemaines = Math.min(
+    maxSemaines,
+    Math.max(minSemaines, Math.floor((utile - familleMin) / cellSize)),
+  )
+  const familleWidth = Math.max(familleMin, utile - nbSemaines * cellSize)
+  return { nbSemaines, familleWidth }
 }

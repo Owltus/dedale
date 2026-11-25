@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, Download, Gauge } from 'lucide-react'
@@ -42,26 +42,14 @@ export function ReleveDetail({
   const [periode, setPeriode] = useState<Periode>('12m')
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
-  const toutesSeries = useMemo(
-    () => seriesParGamme(historiqueQuery.data ?? [], gamme.id),
-    [historiqueQuery.data, gamme.id],
-  )
-  const series = useMemo(
-    () => filtrerParPeriode(toutesSeries, periode, new Date()),
-    [toutesSeries, periode],
-  )
-  const groupes = useMemo(() => chartGroups(series), [series])
+  const toutesSeries = seriesParGamme(historiqueQuery.data ?? [], gamme.id)
+  const series = filtrerParPeriode(toutesSeries, periode, new Date())
+  const groupes = chartGroups(series)
   // Fenêtre CONCEPTUELLE de la période choisie (ex. les 3 mois entiers), pas
   // seulement l'étendue des points restants après filtre — sinon une gamme n'ayant
   // qu'un seul relevé dans la fenêtre réduirait l'axe à un unique repère.
-  const domaine = useMemo(
-    () => fenetrePeriode(periode, new Date(), toutesSeries),
-    [periode, toutesSeries],
-  )
-  const bandeau = useMemo(
-    () => calculerBandeau(series, localisationQuery.data ?? null),
-    [series, localisationQuery.data],
-  )
+  const domaine = fenetrePeriode(periode, new Date(), toutesSeries)
+  const bandeau = calculerBandeau(series, localisationQuery.data ?? null)
 
   const allerVersOt = (otId: string) =>
     void navigate({ to: '/ordres-travail/$otId', params: { otId } })

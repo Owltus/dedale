@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { statutPlanningOt } from '@/features/ordres-travail/statut-affichage'
 import { NATURES_OBLIGATION } from '@/features/gammes/natures-obligation'
@@ -339,30 +339,22 @@ export function PlanningGrille({
 
   // Bandes d'en-tête : années puis mois (sans l'année, portée par la bande du dessus),
   // chacune étalée sur ses semaines consécutives.
-  const anneeGroupes = useMemo(
-    () =>
-      grouperSemaines(
-        semaines,
-        (s) => String(jeudiDe(s).getFullYear()),
-        (s) => String(jeudiDe(s).getFullYear()),
-      ),
-    [semaines],
+  const anneeGroupes = grouperSemaines(
+    semaines,
+    (s) => String(jeudiDe(s).getFullYear()),
+    (s) => String(jeudiDe(s).getFullYear()),
   )
-  const moisGroupes = useMemo(
-    () =>
-      grouperSemaines(
-        semaines,
-        (s) =>
-          `${String(jeudiDe(s).getFullYear())}-${String(jeudiDe(s).getMonth())}`,
-        (s) => jeudiDe(s).toLocaleDateString('fr-FR', { month: 'long' }),
-      ),
-    [semaines],
+  const moisGroupes = grouperSemaines(
+    semaines,
+    (s) =>
+      `${String(jeudiDe(s).getFullYear())}-${String(jeudiDe(s).getMonth())}`,
+    (s) => jeudiDe(s).toLocaleDateString('fr-FR', { month: 'long' }),
   )
 
   // OT par semaine (toutes familles), calculés UNE fois : sert l'affordance du n° de
   // semaine cliquable (présence) ET la liste passée au clic. Le parcours de la grille
   // est de toute façon déjà fait pour le rendu du corps.
-  const otsParSemaine = useMemo(() => {
+  const otsParSemaine = (() => {
     const parSemaine = new Map<string, PlanningOt[]>()
     for (const domaine of groupes)
       for (const famille of domaine.familles)
@@ -373,7 +365,7 @@ export function PlanningGrille({
           else parSemaine.set(cle, [...cellule])
         }
     return parSemaine
-  }, [groupes])
+  })()
 
   return (
     // Le DÉFILEMENT (vertical des lignes + horizontal des semaines) est porté par le

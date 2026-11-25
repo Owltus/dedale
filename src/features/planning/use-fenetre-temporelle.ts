@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ajouterSemaines,
   fenetreSemaines,
@@ -52,30 +52,15 @@ export function useFenetreTemporelle({
 
   // Ancre = lundi de la 1ʳᵉ semaine visible : on recule de la moitié de la fenêtre
   // pour centrer `centre`. Recentrage automatique au redimensionnement (nbSemaines).
-  const ancre = useMemo(
-    () => ajouterSemaines(centre, -Math.floor(nbSemaines / 2)),
-    [centre, nbSemaines],
-  )
-  const semaines = useMemo(
-    () => fenetreSemaines(ancre, nbSemaines),
-    [ancre, nbSemaines],
-  )
+  const ancre = ajouterSemaines(centre, -Math.floor(nbSemaines / 2))
+  const semaines = fenetreSemaines(ancre, nbSemaines)
 
   // Décalage du centre par les flèches / le clavier (PAS_NAV = 4 s. ≈ 1 mois).
   // `ajouterSemaines` est CALENDAIRE (insensible au changement d'heure, cf. semaines.ts)
   // → le centre reste pile sur le lundi de minuit, même en naviguant très loin.
-  const reculer = useCallback(
-    () => setCentre((c) => ajouterSemaines(c, -PAS_NAV)),
-    [],
-  )
-  const avancer = useCallback(
-    () => setCentre((c) => ajouterSemaines(c, PAS_NAV)),
-    [],
-  )
-  const revenirAujourdhui = useCallback(
-    () => setCentre(lundiDeLaSemaine(new Date())),
-    [],
-  )
+  const reculer = () => setCentre((c) => ajouterSemaines(c, -PAS_NAV))
+  const avancer = () => setCentre((c) => ajouterSemaines(c, PAS_NAV))
+  const revenirAujourdhui = () => setCentre(lundiDeLaSemaine(new Date()))
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

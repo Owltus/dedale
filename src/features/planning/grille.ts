@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { cleSemaine } from '@/features/planning/semaines'
 import { parseDateLocale } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
@@ -195,81 +194,79 @@ export function useResolveCategorie(
   categories: Categorie[],
   gammes: GammeSkelInput[],
 ): { skeleton: CategorieInfo[]; ofOt: ResolveCategorie } {
-  return useMemo(() => {
-    const parId = new Map(categories.map((c) => [c.id, c]))
-    const gammeCategorie = new Map(gammes.map((g) => [g.id, g.categorie_id]))
-    // Catégories de GAMME visibles (calque de l'explorateur Plan de maintenance) :
-    // squelette des familles + décide la navigabilité + compose les slugs.
-    const gammeCats = categories.filter(
-      (c) => c.est_actif && (c.scope === 'gamme' || c.scope === 'mixte'),
-    )
-    const gammeCatIds = new Set(gammeCats.map((c) => c.id))
-    const racines = gammeCats
-      .filter((c) => c.parent_id === null)
-      .map((c) => ({ nom: c.nom, id: c.id }))
-    const enfantsParParent = new Map<string, { nom: string; id: string }[]>()
-    for (const c of gammeCats) {
-      if (c.parent_id === null) continue
-      const arr = enfantsParParent.get(c.parent_id) ?? []
-      arr.push({ nom: c.nom, id: c.id })
-      enfantsParParent.set(c.parent_id, arr)
+  const parId = new Map(categories.map((c) => [c.id, c]))
+  const gammeCategorie = new Map(gammes.map((g) => [g.id, g.categorie_id]))
+  // Catégories de GAMME visibles (calque de l'explorateur Plan de maintenance) :
+  // squelette des familles + décide la navigabilité + compose les slugs.
+  const gammeCats = categories.filter(
+    (c) => c.est_actif && (c.scope === 'gamme' || c.scope === 'mixte'),
+  )
+  const gammeCatIds = new Set(gammeCats.map((c) => c.id))
+  const racines = gammeCats
+    .filter((c) => c.parent_id === null)
+    .map((c) => ({ nom: c.nom, id: c.id }))
+  const enfantsParParent = new Map<string, { nom: string; id: string }[]>()
+  for (const c of gammeCats) {
+    if (c.parent_id === null) continue
+    const arr = enfantsParParent.get(c.parent_id) ?? []
+    arr.push({ nom: c.nom, id: c.id })
+    enfantsParParent.set(c.parent_id, arr)
+  }
+
+  // Projette une sous-catégorie (famille) en `CategorieInfo` (domaine = parent).
+  const infoDeCategorie = (fam: Categorie): CategorieInfo => {
+    const parent = fam.parent_id ? parId.get(fam.parent_id) : undefined
+    let splat: string | null = null
+    if (
+      parent &&
+      gammeCatIds.has(fam.id) &&
+      gammeCatIds.has(parent.id) &&
+      parent.parent_id === null
+    ) {
+      const domSeg = segOfUnique({ nom: parent.nom, id: parent.id }, racines)
+      const famSeg = segOfUnique(
+        { nom: fam.nom, id: fam.id },
+        enfantsParParent.get(parent.id) ?? [],
+      )
+      splat = `${domSeg}/${famSeg}`
     }
-
-    // Projette une sous-catégorie (famille) en `CategorieInfo` (domaine = parent).
-    const infoDeCategorie = (fam: Categorie): CategorieInfo => {
-      const parent = fam.parent_id ? parId.get(fam.parent_id) : undefined
-      let splat: string | null = null
-      if (
-        parent &&
-        gammeCatIds.has(fam.id) &&
-        gammeCatIds.has(parent.id) &&
-        parent.parent_id === null
-      ) {
-        const domSeg = segOfUnique({ nom: parent.nom, id: parent.id }, racines)
-        const famSeg = segOfUnique(
-          { nom: fam.nom, id: fam.id },
-          enfantsParParent.get(parent.id) ?? [],
-        )
-        splat = `${domSeg}/${famSeg}`
-      }
-      // Domaine = parent ; cas défensif (sous-cat racine) → son propre domaine.
-      return {
-        familleCle: fam.id,
-        familleNom: fam.nom,
-        familleOrdre: fam.ordre,
-        domaineCle: parent ? parent.id : `racine:${fam.id}`,
-        domaineOrdre: parent ? parent.ordre : fam.ordre,
-        splat,
-      }
+    // Domaine = parent ; cas défensif (sous-cat racine) → son propre domaine.
+    return {
+      familleCle: fam.id,
+      familleNom: fam.nom,
+      familleOrdre: fam.ordre,
+      domaineCle: parent ? parent.id : `racine:${fam.id}`,
+      domaineOrdre: parent ? parent.ordre : fam.ordre,
+      splat,
     }
+  }
 
-    // Squelette = toutes les sous-catégories de gamme (parent non nul).
-    const skeleton = gammeCats
-      .filter((c) => c.parent_id !== null)
-      .map(infoDeCategorie)
+  // Squelette = toutes les sous-catégories de gamme (parent non nul).
+  const skeleton = gammeCats
+    .filter((c) => c.parent_id !== null)
+    .map(infoDeCategorie)
 
-    const nonClasse = (label: string | null): CategorieInfo => ({
-      familleCle: label ? `cat-nom:${label.toLowerCase()}` : '__non_classe__',
-      familleNom: label ?? 'Non classé',
-      familleOrdre: Number.MAX_SAFE_INTEGER,
-      domaineCle: '__non_classe__',
-      domaineOrdre: Number.MAX_SAFE_INTEGER,
-      splat: null,
-    })
+  const nonClasse = (label: string | null): CategorieInfo => ({
+    familleCle: label ? `cat-nom:${label.toLowerCase()}` : '__non_classe__',
+    familleNom: label ?? 'Non classé',
+    familleOrdre: Number.MAX_SAFE_INTEGER,
+    domaineCle: '__non_classe__',
+    domaineOrdre: Number.MAX_SAFE_INTEGER,
+    splat: null,
+  })
 
-    const ofOt = (ot: PlanningOt): CategorieInfo => {
-      const categorieId = ot.gamme_id
-        ? gammeCategorie.get(ot.gamme_id)
-        : undefined
-      const fam = categorieId ? parId.get(categorieId) : undefined
-      if (!fam) {
-        // Chaîne vide → « Non classé » (≠ `??` : `''` doit retomber sur `null`).
-        const label = ot.nom_categorie?.trim()
-        return nonClasse(label && label.length > 0 ? label : null)
-      }
-      return infoDeCategorie(fam)
+  const ofOt = (ot: PlanningOt): CategorieInfo => {
+    const categorieId = ot.gamme_id
+      ? gammeCategorie.get(ot.gamme_id)
+      : undefined
+    const fam = categorieId ? parId.get(categorieId) : undefined
+    if (!fam) {
+      // Chaîne vide → « Non classé » (≠ `??` : `''` doit retomber sur `null`).
+      const label = ot.nom_categorie?.trim()
+      return nonClasse(label && label.length > 0 ? label : null)
     }
+    return infoDeCategorie(fam)
+  }
 
-    return { skeleton, ofOt }
-  }, [categories, gammes])
+  return { skeleton, ofOt }
 }

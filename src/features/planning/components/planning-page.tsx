@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { CalendarCheck, CalendarRange, Target } from 'lucide-react'
@@ -71,44 +71,32 @@ export function PlanningContent({ siteId }: { siteId: string }) {
   // (dépendance interne du hook). Comportement strictement identique à l'inline.
   const { ancre, semaines, reculer, avancer, revenirAujourdhui } =
     useFenetreTemporelle({ nbSemaines })
-  const cleSemaineCourante = useMemo(() => cleSemaine(new Date()), [])
+  const cleSemaineCourante = cleSemaine(new Date())
 
   // Plage de fetch = fenêtre VISIBLE uniquement (remplit les cases).
-  const { debut, fin, clesFenetre } = useMemo(() => {
-    const winStart = semaines[0]?.debut ?? ancre
-    const winEndExcl = ajouterSemaines(winStart, nbSemaines)
-    return {
-      debut: isoLocale(winStart),
-      // Dernier jour visible = veille (calendaire) du lundi exclu → dimanche de la
-      // dernière semaine. Calendaire (pas `- JOUR_MS` en ms) pour rester juste au DST.
-      fin: isoLocale(
-        new Date(
-          winEndExcl.getFullYear(),
-          winEndExcl.getMonth(),
-          winEndExcl.getDate() - 1,
-        ),
-      ),
-      clesFenetre: new Set(semaines.map((s) => s.cle)),
-    }
-  }, [semaines, nbSemaines, ancre])
+  const winStart = semaines[0]?.debut ?? ancre
+  const winEndExcl = ajouterSemaines(winStart, nbSemaines)
+  const debut = isoLocale(winStart)
+  // Dernier jour visible = veille (calendaire) du lundi exclu → dimanche de la
+  // dernière semaine. Calendaire (pas `- JOUR_MS` en ms) pour rester juste au DST.
+  const fin = isoLocale(
+    new Date(
+      winEndExcl.getFullYear(),
+      winEndExcl.getMonth(),
+      winEndExcl.getDate() - 1,
+    ),
+  )
+  const clesFenetre = new Set(semaines.map((s) => s.cle))
 
   // Plage du « Focus » : les 12 prochaines semaines depuis AUJOURD'HUI — FIXE, donc
   // le jeu de sous-catégories actives ne change PAS quand on navigue (passé/futur).
-  const { focusDebut, focusFin, cles12 } = useMemo(() => {
-    const lundiAuj = lundiDeLaSemaine(new Date())
-    const endExcl = ajouterSemaines(lundiAuj, FOCUS_SEMAINES)
-    return {
-      focusDebut: isoLocale(lundiAuj),
-      focusFin: isoLocale(
-        new Date(
-          endExcl.getFullYear(),
-          endExcl.getMonth(),
-          endExcl.getDate() - 1,
-        ),
-      ),
-      cles12: clesProchaines(lundiAuj, FOCUS_SEMAINES),
-    }
-  }, [])
+  const lundiAuj = lundiDeLaSemaine(new Date())
+  const endExcl = ajouterSemaines(lundiAuj, FOCUS_SEMAINES)
+  const focusDebut = isoLocale(lundiAuj)
+  const focusFin = isoLocale(
+    new Date(endExcl.getFullYear(), endExcl.getMonth(), endExcl.getDate() - 1),
+  )
+  const cles12 = clesProchaines(lundiAuj, FOCUS_SEMAINES)
 
   // `keepPreviousData` : en naviguant, on GARDE la fenêtre précédente affichée le
   // temps que la nouvelle arrive (pas de squelette à chaque clic ; les colonnes qui
@@ -128,40 +116,33 @@ export function PlanningContent({ siteId }: { siteId: string }) {
   const gammesQuery = useQuery(gammesQueries.list(siteId))
 
   const { skeleton, ofOt } = useResolveCategorie(
-    useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]),
-    useMemo(() => gammesQuery.data ?? [], [gammesQuery.data]),
+    categoriesQuery.data ?? [],
+    gammesQuery.data ?? [],
   )
 
   // OT de la fenêtre (le row shape de la requête EST déjà `PlanningOt`).
-  const ots = useMemo<PlanningOt[]>(() => query.data ?? [], [query.data])
+  const ots: PlanningOt[] = query.data ?? []
 
   // OT positionnés DANS la fenêtre visible (par leur date de positionnement selon le
   // statut, cf. `dateSemaineOt` : clôture si terminal, sinon prévue) → cellules.
-  const otsFenetre = useMemo(
-    () => ots.filter((ot) => clesFenetre.has(cleSemaine(dateSemaineOt(ot)))),
-    [ots, clesFenetre],
+  const otsFenetre = ots.filter((ot) =>
+    clesFenetre.has(cleSemaine(dateSemaineOt(ot))),
   )
   // Lignes = TOUTES les sous-catégories (squelette), toujours affichées ; les OT
   // de la fenêtre ne font que remplir les cases.
-  const groupes = useMemo(
-    () => construireGroupes(skeleton, otsFenetre, ofOt),
-    [skeleton, otsFenetre, ofOt],
-  )
+  const groupes = construireGroupes(skeleton, otsFenetre, ofOt)
 
   // Familles ayant ≥ 1 OT dans les 12 prochaines semaines depuis AUJOURD'HUI (jeu
   // FIXE, issu de la requête Focus dédiée → stable quand on navigue).
-  const famillesActives12 = useMemo(() => {
-    const set = new Set<string>()
-    for (const ot of focusQuery.data ?? [])
-      if (cles12.has(cleSemaine(dateSemaineOt(ot))))
-        set.add(ofOt(ot).familleCle)
-    return set
-  }, [focusQuery.data, cles12, ofOt])
+  const famillesActives12 = new Set<string>()
+  for (const ot of focusQuery.data ?? [])
+    if (cles12.has(cleSemaine(dateSemaineOt(ot))))
+      famillesActives12.add(ofOt(ot).familleCle)
 
   // Filtrage des lignes : Focus 12 s (masque les familles sans OT à venir), basé sur
   // aujourd'hui. On n'élague PAS tant que la requête Focus n'a pas répondu (évite un
   // flash « vide »). Les domaines devenus vides sont retirés.
-  const groupesAffichage = useMemo(() => {
+  const groupesAffichage = (() => {
     if (!focus || focusQuery.data === undefined) return groupes
     return groupes
       .map((d) => ({
@@ -169,7 +150,7 @@ export function PlanningContent({ siteId }: { siteId: string }) {
         familles: d.familles.filter((f) => famillesActives12.has(f.cle)),
       }))
       .filter((d) => d.familles.length > 0)
-  }, [groupes, focus, focusQuery.data, famillesActives12])
+  })()
 
   // Ouverture directe de la fiche d'un OT (cellule / semaine à un seul OT).
   const ouvrirOt = (otId: string) =>
