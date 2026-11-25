@@ -4484,6 +4484,33 @@ export type Database = {
         Args: { p_equipement_ids: string[]; p_local_id: string; p_sauf: string }
         Returns: Json
       }
+      di_du_lieu: {
+        Args: {
+          p_decalage?: number
+          p_limite?: number
+          p_local_id: string
+          p_ouverts_seulement?: boolean
+        }
+        Returns: {
+          constat: string
+          created_at: string
+          created_by: string
+          date_constat: string
+          date_resolution: string | null
+          description_resolution: string | null
+          id: string
+          resolved_by: string | null
+          site_id: string
+          statut_di_id: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "demandes_intervention"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       di_equipement_texte: {
         Args: { p_equipement_id: string }
         Returns: string
@@ -4654,6 +4681,37 @@ export type Database = {
           equipement_id: string
         }[]
       }
+      evenements_du_lieu: {
+        Args: {
+          p_decalage?: number
+          p_limite?: number
+          p_local_id: string
+          p_ouverts_seulement?: boolean
+        }
+        Returns: {
+          cloture_by: string | null
+          compte_rendu: string | null
+          created_at: string
+          created_by: string
+          date_cloture: string | null
+          date_evenement: string
+          description: string | null
+          equipement_id: string | null
+          id: string
+          local_id: string | null
+          site_id: string
+          statut_evenement_id: number
+          titre: string
+          updated_at: string
+          verrouille: boolean
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "evenements"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       exiger_ecriture_claude: { Args: never; Returns: undefined }
       fiche_cfg: { Args: { p_type: string }; Returns: Json }
       fiche_code_confirmation: {
@@ -4693,6 +4751,7 @@ export type Database = {
         Args: { p_equipement_id: string; p_local_id: string }
         Returns: string
       }
+      fiche_local: { Args: { p_local_id: string }; Returns: Json }
       fiche_refuser_demandeur: { Args: never; Returns: undefined }
       fiche_statut_tache_texte: { Args: { p_statut: string }; Returns: string }
       fiche_taches_nouvelles: {
@@ -4712,6 +4771,39 @@ export type Database = {
       fiche_verifier_lieu: {
         Args: { p_equipement_id: string; p_local_id: string; p_site: string }
         Returns: string
+      }
+      gammes_du_lieu: {
+        Args: {
+          p_decalage?: number
+          p_limite?: number
+          p_local_id: string
+          p_ouverts_seulement?: boolean
+        }
+        Returns: {
+          categorie_id: string
+          copie_depuis_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          document_requis: boolean
+          est_active: boolean
+          id: string
+          image_path: string | null
+          miniature_id: string | null
+          nature: Database["public"]["Enums"]["gamme_nature"]
+          nom: string
+          periodicite_id: number
+          prestataire_id: string | null
+          repeter_par_equipement: boolean
+          site_id: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "gammes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       garde_connecteur: { Args: never; Returns: undefined }
       generate_identifiant_equipement: { Args: never; Returns: string }
@@ -4830,6 +4922,50 @@ export type Database = {
       ot_code_confirmation: {
         Args: { p_demande: Json; p_geste: string; p_ot_id: string }
         Returns: string
+      }
+      ot_du_lieu: {
+        Args: {
+          p_decalage?: number
+          p_limite?: number
+          p_local_id: string
+          p_ouverts_seulement?: boolean
+        }
+        Returns: {
+          closed_by: string | null
+          commentaires: string | null
+          created_at: string
+          created_by: string
+          date_cloture: string | null
+          date_debut: string | null
+          date_prevue: string
+          description_gamme: string | null
+          gamme_id: string | null
+          id: string
+          image_path: string | null
+          jours_periodicite: number
+          libelle_periodicite: string
+          miniature_id: string | null
+          motif_annulation: string | null
+          motif_reouverture: string | null
+          nature_gamme: Database["public"]["Enums"]["gamme_nature"]
+          nom_categorie: string | null
+          nom_equipement: string | null
+          nom_gamme: string
+          nom_localisation: string | null
+          nom_prestataire: string
+          origine: Database["public"]["Enums"]["ot_origine"]
+          prestataire_id: string
+          site_id: string
+          statut: string
+          tolerance_jours: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ordres_travail"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       ot_etat_resume: { Args: { p_ot_id: string }; Returns: Json }
       ot_geste_claude: {
@@ -4972,6 +5108,37 @@ export type Database = {
         Returns: undefined
       }
       synchroniser_ops_ot: { Args: { p_ot_id: string }; Returns: undefined }
+      travaux_du_lieu: {
+        Args: {
+          p_decalage?: number
+          p_limite?: number
+          p_local_id: string
+          p_ouverts_seulement?: boolean
+        }
+        Returns: {
+          cloture_by: string | null
+          compte_rendu: string | null
+          created_at: string
+          created_by: string
+          date_demande: string
+          date_fin: string | null
+          description: string | null
+          equipement_id: string | null
+          id: string
+          local_id: string | null
+          site_id: string
+          statut_travaux_id: number
+          titre: string
+          updated_at: string
+          verrouille: boolean
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "interventions_travaux"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       via_connecteur: { Args: never; Returns: boolean }
     }
     Enums: {
