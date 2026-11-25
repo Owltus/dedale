@@ -1,5 +1,7 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
+import { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
 
 const alias = { '@': fileURLToPath(new URL('./src', import.meta.url)) }
 
@@ -41,6 +43,17 @@ export default defineConfig({
       },
       {
         resolve: { alias },
+        // React Compiler, comme en production (vite.config.ts) : les composants et
+        // hooks testés sont mémoïsés par le compilateur, pas à la main — une
+        // identité stable entre rendus ne se vérifie qu'avec lui. Le code de TEST
+        // (fichiers *.test.*, harnais src/test/) reste non compilé : il lit l'état
+        // du formulaire par `watch()` au rendu, ce que le compilateur figerait.
+        plugins: [
+          babel({
+            presets: [reactCompilerPreset()],
+            exclude: [/\.test\.tsx?$/, /\/src\/test\//],
+          }),
+        ],
         test: {
           name: 'dom',
           include: ['src/**/*.dom.test.{ts,tsx}'],

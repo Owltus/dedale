@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react'
 
 interface UseLeafResyncOptions<T> {
   /** Segment de FEUILLE de l'URL (undefined = pas de détail ouvert). */
@@ -11,7 +11,7 @@ interface UseLeafResyncOptions<T> {
   getItemId: (item: T) => string
   /**
    * Réécrit l'URL sur le chemin frais de l'élément — typiquement le `goToX`
-   * (mémoïsé `useCallback`) du panneau, appelé avec `{ replace: true }`.
+   * du panneau, appelé avec `{ replace: true }`.
    */
   goToItem: (item: T, opts: { replace: boolean }) => void
   /**
@@ -63,8 +63,10 @@ export function useLeafResync<T>({
     }
   }, [openItem, leafSeg, getItemId])
 
-  // Corps de resynchro, identique quel que soit le timing.
-  const resync = useCallback(() => {
+  // Corps de resynchro, identique quel que soit le timing. Événement d'effet :
+  // il lit toujours les valeurs à jour ; les effets ci-dessous listent eux-mêmes
+  // ce qui déclenche une resynchro.
+  const resync = useEffectEvent(() => {
     if (leafSeg === undefined || openItem !== null) return
     if (leafSeg !== lastSegRef.current) return
     const id = lastIdRef.current
@@ -72,14 +74,14 @@ export function useLeafResync<T>({
     const fresh = items.find((item) => getItemId(item) === id)
     if (!fresh) return
     goToItem(fresh, { replace: true })
-  }, [leafSeg, openItem, items, getItemId, goToItem])
+  })
 
   // Un seul des deux effets agit (layout constant pour un point d'appel donné) ;
   // les deux sont déclarés inconditionnellement (règles des hooks).
   useEffect(() => {
     if (!layout) resync()
-  }, [resync, layout])
+  }, [leafSeg, openItem, items, getItemId, goToItem, layout])
   useLayoutEffect(() => {
     if (layout) resync()
-  }, [resync, layout])
+  }, [leafSeg, openItem, items, getItemId, goToItem, layout])
 }

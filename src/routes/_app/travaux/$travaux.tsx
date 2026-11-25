@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { travauxQueries } from '@/features/travaux/queries'
 import { PAGE_META } from '@/features/travaux/page-meta'
@@ -15,15 +14,12 @@ function TravauxDetailPage() {
   const navigate = useNavigate()
   // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
   // rendu (contrat de `useSlugResolved`).
-  const onSlugChange = useCallback(
-    (freshSlug: string) =>
-      void navigate({
-        to: '/travaux/$travaux',
-        params: { travaux: freshSlug },
-        replace: true,
-      }),
-    [navigate],
-  )
+  const onSlugChange = (freshSlug: string) =>
+    void navigate({
+      to: '/travaux/$travaux',
+      params: { travaux: freshSlug },
+      replace: true,
+    })
 
   return (
     <SiteScopedRoute meta={PAGE_META}>

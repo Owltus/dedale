@@ -1,4 +1,3 @@
-import { useCallback, useMemo } from 'react'
 import { segOfUnique } from '@/lib/slug'
 
 /** Nœud d'arbre minimal : un id, un nom (pour le slug), un parent. */
@@ -53,7 +52,7 @@ export function useTreeDrill<T extends TreeNode>(
     opts: { replace: boolean },
   ) => void,
 ): TreeDrill<T> {
-  const path = useMemo<T[]>(() => {
+  const path: T[] = (() => {
     const result: T[] = []
     let parentId: string | null = null
     for (const seg of catSegs) {
@@ -64,42 +63,30 @@ export function useTreeDrill<T extends TreeNode>(
       parentId = match.id
     }
     return result
-  }, [catSegs, cats])
+  })()
 
   const current = path.at(-1) ?? null
   const leafSeg = catSegs[path.length]
 
-  const children = useMemo(
-    () => cats.filter((c) => c.parent_id === (current?.id ?? null)),
-    [cats, current],
-  )
+  const children = cats.filter((c) => c.parent_id === (current?.id ?? null))
 
   // Segments de catégorie d'un chemin : slug de chaque catégorie sur SES frères
   // (`parent_id` identique), désambiguïsé (`segOfUnique`).
-  const buildCatSegs = useCallback(
-    (chain: T[]) =>
-      chain.map((c) =>
-        segOfUnique(
-          c,
-          cats.filter((x) => x.parent_id === c.parent_id),
-        ),
+  const buildCatSegs = (chain: T[]) =>
+    chain.map((c) =>
+      segOfUnique(
+        c,
+        cats.filter((x) => x.parent_id === c.parent_id),
       ),
-    [cats],
-  )
+    )
 
-  const goTo = useCallback(
-    (chain: T[]) =>
-      navigateTo(buildCatSegs(chain), undefined, { replace: false }),
-    [navigateTo, buildCatSegs],
-  )
+  const goTo = (chain: T[]) =>
+    navigateTo(buildCatSegs(chain), undefined, { replace: false })
 
-  const goToLeaf = useCallback(
-    (chain: T[], leaf: string, opts?: { replace?: boolean }) =>
-      navigateTo(buildCatSegs(chain), leaf, {
-        replace: opts?.replace ?? false,
-      }),
-    [navigateTo, buildCatSegs],
-  )
+  const goToLeaf = (chain: T[], leaf: string, opts?: { replace?: boolean }) =>
+    navigateTo(buildCatSegs(chain), leaf, {
+      replace: opts?.replace ?? false,
+    })
 
   return {
     path,

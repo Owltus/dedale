@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { useFileDrop } from './use-file-drop'
 
 /**
@@ -56,14 +56,14 @@ export function useUploadDrop({
     },
   })
 
-  const openUploadEmpty = useCallback(() => {
+  const openUploadEmpty = () => {
     setDroppedFiles([])
     setUploadOpen(true)
-  }, [])
-  const onUploadOpenChange = useCallback((open: boolean) => {
+  }
+  const onUploadOpenChange = (open: boolean) => {
     setUploadOpen(open)
     if (!open) setDroppedFiles([])
-  }, [])
+  }
 
   return {
     uploadOpen,

@@ -133,50 +133,8 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/hooks/use-biblio-tree-drill.ts",
-    "occurrences": 2,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
     "fichier": "src/hooks/use-catalogue-drill.ts",
     "occurrences": 10,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/hooks/use-leaf-resync.ts",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/hooks/use-tree-drill.ts",
-    "occurrences": 4,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/hooks/use-upload-drop.ts",
-    "occurrences": 2,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/routes/_app/evenements/$evenement.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/routes/_app/releves/$releve.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/routes/_app/travaux/$travaux.tsx",
-    "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   }
 ]

@@ -1,4 +1,3 @@
-import { useCallback, useMemo } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { useTreeDrill, type TreeDrill, type TreeNode } from './use-tree-drill'
 import { joinSplat, splatCatSegs } from './drill-splat'
@@ -28,16 +27,17 @@ export function useBiblioTreeDrill<T extends TreeNode>(
   const { _splat } = route.useParams()
   const navigate = route.useNavigate()
   // segments[0] = l'onglet (résolu par la route) ; les suivants = le chemin de cat.
-  const catSegs = useMemo(() => splatCatSegs(_splat, true), [_splat])
-  const navigateTo = useCallback(
-    (segs: string[], leaf: string | undefined, opts: { replace: boolean }) => {
-      void navigate({
-        to: '/bibliotheque/$',
-        params: { _splat: joinSplat([onglet], segs, leaf) },
-        replace: opts.replace,
-      })
-    },
-    [navigate, onglet],
-  )
+  const catSegs = splatCatSegs(_splat, true)
+  const navigateTo = (
+    segs: string[],
+    leaf: string | undefined,
+    opts: { replace: boolean },
+  ) => {
+    void navigate({
+      to: '/bibliotheque/$',
+      params: { _splat: joinSplat([onglet], segs, leaf) },
+      replace: opts.replace,
+    })
+  }
   return useTreeDrill(cats, catSegs, navigateTo)
 }
