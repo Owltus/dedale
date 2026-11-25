@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { identifiantOAuthValide } from '@/lib/identifiant-oauth'
 
 // Via `getRouteApi` pour ne PAS inverser la dépendance features → routes.
 const Route = getRouteApi('/oauth/consent')
@@ -27,7 +28,10 @@ function useDemande(authorizationId: string | undefined, userId: string) {
 
 export function ConsentementEcran() {
   useDocumentTitle('Autoriser Claude')
-  const { authorization_id: authorizationId } = Route.useSearch()
+  // Revalidé ici : la recherche brute survit à `validateSearch` (cf. lib/identifiant-oauth.ts).
+  const authorizationId = identifiantOAuthValide(
+    Route.useSearch().authorization_id,
+  )
   const { session } = useAuth()
   const demande = useDemande(authorizationId, session?.user.id ?? '')
   const [envoi, setEnvoi] = useState<'oui' | 'non' | null>(null)

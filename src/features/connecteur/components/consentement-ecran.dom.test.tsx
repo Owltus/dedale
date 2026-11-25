@@ -148,23 +148,18 @@ describe('écran de consentement — demande', () => {
     expect(document.title).toContain('Autoriser Claude')
   })
 
-  // `validateSearch` de la route renvoie `{}` pour un identifiant mal formé,
-  // mais TanStack Router FUSIONNE la recherche validée avec celle du parent (la
-  // racine, sans validation : la recherche brute). `Route.useSearch()` rend donc
-  // l'identifiant brut, qui part tel quel vers `getAuthorizationDetails` (et
-  // `beforeLoad` le reporte aussi vers /login). Le filtre `IDENTIFIANT` est sans
-  // effet ; Supabase refuse ensuite la demande (« plus valable »).
-  it.fails(
-    'BUG CANDIDAT : identifiant mal formé transmis à Supabase malgré le filtre de la route',
-    async () => {
-      preparer()
-      monter('/oauth/consent?authorization_id=https://pirate.example')
-      expect(
-        await screen.findByText(/Le lien utilisé est incomplet/),
-      ).toBeInTheDocument()
-      expect(sb.details).not.toHaveBeenCalled()
-    },
-  )
+  // `validateSearch` renvoie `{}` pour un identifiant mal formé, mais TanStack
+  // Router FUSIONNE la recherche validée avec la recherche brute de la racine :
+  // l'écran et `beforeLoad` revalident donc chaque lecture
+  // (lib/identifiant-oauth.ts). Rien ne part vers Supabase.
+  it('identifiant mal formé : lien incomplet, rien n’est demandé à Supabase', async () => {
+    preparer()
+    monter('/oauth/consent?authorization_id=https://pirate.example')
+    expect(
+      await screen.findByText(/Le lien utilisé est incomplet/),
+    ).toBeInTheDocument()
+    expect(sb.details).not.toHaveBeenCalled()
+  })
 
   it('sans session : renvoi vers la connexion, l’identifiant suit dans « autorisation »', async () => {
     preparer()

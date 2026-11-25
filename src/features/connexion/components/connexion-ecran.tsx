@@ -6,7 +6,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { autorisationValide } from '@/features/connexion/autorisation'
+import { identifiantOAuthValide } from '@/lib/identifiant-oauth'
 import {
   Card,
   CardContent,
@@ -24,8 +24,8 @@ export function ConnexionEcran() {
   // dans l'onglet, sur un écran qui ne l'affiche plus.
   useDocumentTitle('Connexion')
   const navigate = useNavigate()
-  // Revalidée ici : la recherche brute survit à `validateSearch` (cf. autorisation.ts).
-  const autorisation = autorisationValide(Route.useSearch().autorisation)
+  // Revalidée ici : la recherche brute survit à `validateSearch` (cf. lib/identifiant-oauth.ts).
+  const autorisation = identifiantOAuthValide(Route.useSearch().autorisation)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
