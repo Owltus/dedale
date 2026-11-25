@@ -13,6 +13,22 @@ const alias = { '@': fileURLToPath(new URL('./src', import.meta.url)) }
 //    dans le nom plutôt que dans une configuration lointaine.
 export default defineConfig({
   test: {
+    // Couverture (`npm run test:couverture`) : mesurée sur tout `src/`, hors code
+    // généré. Pas de seuil global : `scripts/couverture-cliquet.mjs` interdit le
+    // RECUL module par module (décision PO du 25/11/2026).
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/test/**',
+        'src/routeTree.gen.ts',
+        'src/lib/database.types.ts',
+        'src/vite-env.d.ts',
+      ],
+      reporter: ['text-summary', 'json-summary'],
+      reportsDirectory: 'reports/couverture',
+    },
     projects: [
       {
         resolve: { alias },
