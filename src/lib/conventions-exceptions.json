@@ -7,18 +7,6 @@
   },
   {
     "regle": "cycle-features",
-    "fichier": "src/features/dashboard ⇄ src/features/gammes",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "cycle-features",
-    "fichier": "src/features/dashboard ⇄ src/features/ordres-travail",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "cycle-features",
     "fichier": "src/features/equipements ⇄ src/features/gammes",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
@@ -26,18 +14,6 @@
   {
     "regle": "cycle-features",
     "fichier": "src/features/evenements ⇄ src/features/travaux",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "cycle-features",
-    "fichier": "src/features/gammes ⇄ src/features/modeles-operations",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "cycle-features",
-    "fichier": "src/features/gammes ⇄ src/features/operations",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },

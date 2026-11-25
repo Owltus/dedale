@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { siteIdPourPortee } from '@/lib/scope'
-import { gammesQueries } from '@/features/gammes/queries'
+import { clesRacines } from '@/lib/cles-racines'
 import { modelesOperationsQueries } from './queries'
 import type {
   ModeleOperationFormValues,
@@ -68,7 +68,7 @@ export function useUpdateModeleOperation() {
       // Le renommage d'un modèle se projette dans la section « Modèles
       // d'opération liés » d'une gamme (namespace `['gammes']`).
       void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
-      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+      void qc.invalidateQueries({ queryKey: clesRacines.gammes() })
     },
   })
 }
@@ -125,7 +125,7 @@ export function useDetacherEtSupprimerModeleOperation() {
     onSuccess: () => {
       // Les liaisons modifiées impactent aussi l'affichage des gammes.
       void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
-      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+      void qc.invalidateQueries({ queryKey: clesRacines.gammes() })
     },
   })
 }
@@ -184,7 +184,7 @@ export function useCreateOperationItem() {
       // Le nombre d'items d'un modèle est projeté dans la section « Modèles
       // d'opération liés » d'une gamme (namespace `['gammes']`).
       void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
-      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+      void qc.invalidateQueries({ queryKey: clesRacines.gammes() })
     },
   })
 }
@@ -216,7 +216,7 @@ export function useUpdateOperationItem() {
       // Le nombre d'items d'un modèle est projeté dans la section « Modèles
       // d'opération liés » d'une gamme (namespace `['gammes']`).
       void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
-      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+      void qc.invalidateQueries({ queryKey: clesRacines.gammes() })
     },
   })
 }
@@ -235,7 +235,7 @@ export function useDeleteOperationItem() {
       // Le nombre d'items d'un modèle est projeté dans la section « Modèles
       // d'opération liés » d'une gamme (namespace `['gammes']`).
       void qc.invalidateQueries({ queryKey: modelesOperationsQueries.all() })
-      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+      void qc.invalidateQueries({ queryKey: clesRacines.gammes() })
     },
   })
 }

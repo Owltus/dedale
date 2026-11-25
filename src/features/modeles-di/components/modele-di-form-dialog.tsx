@@ -10,6 +10,7 @@ import { resolvePorteeScope, type LockedScope } from '@/lib/scope'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { MiniatureIdentiteField } from '@/features/miniatures/components/miniature-identite-field'
 import { RadioField } from '@/components/common/fields/radio-field'
 import { PorteeField } from '@/components/common/fields/portee-field'
 
@@ -128,11 +129,14 @@ export function ModeleDiFormDialog({
           descriptionName="constat_modele"
           descriptionLabel="Constat (modèle)"
           descriptionRequired
-          image={{
-            name: 'miniature_id',
-            targetSiteId: miniatureSite,
-            canUpload: canUploadMiniature,
-          }}
+          image={
+            <MiniatureIdentiteField
+              control={form.control}
+              name="miniature_id"
+              targetSiteId={miniatureSite}
+              canUpload={canUploadMiniature}
+            />
+          }
         />
         <PorteeField
           control={form.control}

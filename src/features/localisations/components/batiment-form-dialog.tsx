@@ -7,6 +7,7 @@ import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { MiniatureIdentiteField } from '@/features/miniatures/components/miniature-identite-field'
 import type { Database } from '@/lib/database.types'
 
 type Batiment = Database['public']['Tables']['batiments']['Row']
@@ -67,11 +68,14 @@ export function BatimentFormDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={{
-            name: 'miniature_id',
-            targetSiteId: siteId,
-            canUpload: true,
-          }}
+          image={
+            <MiniatureIdentiteField
+              control={form.control}
+              name="miniature_id"
+              targetSiteId={siteId}
+              canUpload
+            />
+          }
         />
       </FormDialog>
     </Form>

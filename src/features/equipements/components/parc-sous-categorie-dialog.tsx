@@ -19,6 +19,7 @@ import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { MiniatureIdentiteField } from '@/features/miniatures/components/miniature-identite-field'
 import { SelectField } from '@/components/common/fields/select-field'
 import { ChampsListEditor } from '@/components/common/champs-list-editor'
 import type { Categorie } from '@/features/categories/queries'
@@ -266,7 +267,14 @@ export function ParcSousCategorieDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={{ name: 'miniatureId', targetSiteId: siteId, canUpload: true }}
+          image={
+            <MiniatureIdentiteField
+              control={form.control}
+              name="miniatureId"
+              targetSiteId={siteId}
+              canUpload
+            />
+          }
         />
 
         {!lieAUnModele && modeles.length > 0 && (

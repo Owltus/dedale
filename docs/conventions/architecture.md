@@ -49,7 +49,11 @@ qui n'a qu'un consommateur vit à côté de lui (`use-gammes-drill` → `feature
   `taches`. Entre deux autres features, on importe les **queries**, **schemas**,
   **format** et **types** de l'autre — jamais l'inverse d'une dépendance déjà
   posée (pas de cycle). Une clé de cache d'une autre feature se dérive de sa
-  fabrique (`...ordresTravailQueries.all()`), jamais d'un littéral.
+  fabrique (`...ordresTravailQueries.all()`), jamais d'un littéral ; si la
+  feature n'en a besoin QUE pour invalider et que l'import créerait un cycle,
+  elle prend la racine dans `lib/cles-racines.ts` (qui définit la fabrique).
+  Les référentiels globaux (périodicités, types d'opération, unités) vivent
+  dans `lib/referentiel.ts` (`referentielsQueries`).
 
 ## Glossaire (validé par le PO le 24/11/2026)
 

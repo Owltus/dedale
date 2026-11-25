@@ -10,7 +10,8 @@ import {
   type GammeExistante,
 } from '../csv-import'
 import { documentCocheDoffice } from '../schemas'
-import { gammesQueries, referentielsQueries } from '../queries'
+import { gammesQueries } from '../queries'
+import { referentielsQueries } from '@/lib/referentiel'
 import { useCreateGammeBiblio, useCreateOperation } from '../mutations'
 import { resumeOperation } from '@/features/operations/csv-import'
 import { useAuth } from '@/auth'

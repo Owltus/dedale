@@ -13,6 +13,7 @@ import type { LockedScope } from '@/lib/scope'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { MiniatureIdentiteField } from '@/features/miniatures/components/miniature-identite-field'
 import { SelectField } from '@/components/common/fields/select-field'
 
 interface CategorieOption {
@@ -151,11 +152,14 @@ export function GammeTypeFormDialog({
           control={form.control}
           nomName="nom"
           descriptionName="description"
-          image={{
-            name: 'miniature_id',
-            targetSiteId: miniatureSite,
-            canUpload: canUploadMiniature,
-          }}
+          image={
+            <MiniatureIdentiteField
+              control={form.control}
+              name="miniature_id"
+              targetSiteId={miniatureSite}
+              canUpload={canUploadMiniature}
+            />
+          }
         />
         <SelectField
           control={form.control}

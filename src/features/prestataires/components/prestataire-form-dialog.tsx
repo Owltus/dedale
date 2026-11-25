@@ -7,6 +7,7 @@ import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
 import { FormDialog } from '@/components/common/form-dialog'
 import { IdentiteFields } from '@/components/common/fields/identite-fields'
+import { MiniatureIdentiteField } from '@/features/miniatures/components/miniature-identite-field'
 import type { Database } from '@/lib/database.types'
 
 type Prestataire = Database['public']['Tables']['prestataires']['Row']
@@ -73,11 +74,14 @@ export function PrestataireFormDialog({
           // est de toute façon bornée au site actif (contrats/docs idem). Revers
           // assumé : l'image n'est visible que depuis ce site (RLS). Le trigger
           // backend `check_miniature_prestataire` autorise désormais ce scope.
-          image={{
-            name: 'miniature_id',
-            targetSiteId: siteId,
-            canUpload: true,
-          }}
+          image={
+            <MiniatureIdentiteField
+              control={form.control}
+              name="miniature_id"
+              targetSiteId={siteId}
+              canUpload
+            />
+          }
         />
       </FormDialog>
     </Form>

@@ -28,7 +28,7 @@ import { OperationsGroupeEquipement } from './operations-groupe-equipement'
 import { OtDetailActions } from './ot-detail-actions'
 import { MotifDialog } from '@/components/common/motif-dialog'
 import { DatePrevueDialog } from './date-prevue-dialog'
-import { dashboardQueries } from '@/features/dashboard/queries'
+import { clesRacines } from '@/lib/cles-racines'
 import { gammesQueries } from '@/features/gammes/queries'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
@@ -597,7 +597,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                 onLiaisonChanged={() => {
                   for (const queryKey of [
                     ordresTravailQueries.all(),
-                    dashboardQueries.all(),
+                    clesRacines.tableauDeBord(),
                   ]) {
                     void qc.invalidateQueries({ queryKey })
                   }

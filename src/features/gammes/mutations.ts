@@ -5,7 +5,7 @@ import { syncGammesEquipements } from '@/lib/gammes-equipements'
 import { gammesQueries } from './queries'
 import { categoriesQueries } from '@/features/categories/queries'
 import { modelesOperationsQueries } from '@/features/modeles-operations/queries'
-import { dashboardQueries } from '@/features/dashboard/queries'
+import { clesRacines } from '@/lib/cles-racines'
 import {
   gammeBiblioSchema,
   gammeSchema,
@@ -110,7 +110,7 @@ export function useUpdateGamme() {
     onSuccess: () =>
       Promise.all([
         qc.invalidateQueries({ queryKey: gammesQueries.all() }),
-        qc.invalidateQueries({ queryKey: dashboardQueries.all() }),
+        qc.invalidateQueries({ queryKey: clesRacines.tableauDeBord() }),
       ]),
   })
 }
