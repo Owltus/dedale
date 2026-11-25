@@ -1,0 +1,45 @@
+# Parcours critiques — où est la preuve
+
+Un parcours est **critique** quand une panne y coûte de l'argent, une donnée, un
+accès indu ou la confiance du PO. Chacun doit nommer **au moins un fichier de
+test** qui le prouve. Le registre ci-dessous est lui-même vérifié :
+`src/lib/parcours-critiques.test.ts` échoue si un parcours n'a aucun fichier, ou
+si un fichier cité n'existe plus (renommé, supprimé).
+
+**Ajouter une fonctionnalité qui touche un de ces parcours = ajouter ou citer son
+test ici.** Un nouveau parcours critique = une nouvelle ligne.
+
+Deux natures de preuve :
+
+- **simulation** (`src/**/*.test.ts(x)`, `npx vitest run`) : ce que le front
+  envoie, invalide et affiche — la base y est un faux client
+  (`src/test/supabase-enregistreur.ts`) ;
+- **base réelle** (`tests/securite/*`, `tests/integration/*`,
+  `npm run base:monter && npm run base:tester`) : ce que la RLS, les
+  déclencheurs et les RPC acceptent vraiment, sur une base locale jetable.
+
+<!-- registre-parcours : début (format lu par le test, une ligne par parcours) -->
+
+| Parcours                                  | Fichiers de tests                                                                                                                                                                                                                      | Ce qui est prouvé                                                                                                               |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Connexion                                 | `src/auth.dom.test.tsx`, `src/connexion.dom.test.tsx`, `src/lib/erreurs-auth.test.ts`                                                                                                                                                  | session restaurée et suivie, cache purgé à la déconnexion, redirection après succès, erreur traduite en français, champs requis |
+| Droits côté base (RLS, Storage, escalade) | `tests/securite/escalade.mjs`, `tests/securite/sonde-rls.mjs`, `tests/securite/stockage.mjs`, `tests/securite/edge-functions.mjs`                                                                                                      | cloisonnement par site et par rôle, élévation de privilèges refusée, fichiers d'un autre site illisibles                        |
+| Droits côté appli (miroir front)          | `src/lib/permissions.test.ts`, `src/lib/nav.test.ts`, `src/lib/scope.test.ts`                                                                                                                                                          | boutons et menus reflètent le rôle ; la base reste juge                                                                         |
+| Demandes d'intervention                   | `src/features/demandes/mutations.dom.test.tsx`, `src/features/demandes/use-actions-demande.dom.test.tsx`, `src/features/demandes/schemas.test.ts`, `tests/integration/rpc-transactionnelles.mjs`                                       | création/modification en une RPC, rôle × site, atomicité (lieu ou équipement d'un autre site → rien d'écrit)                    |
+| Travaux, événements et tâches             | `src/features/travaux/mutations-echecs.dom.test.tsx`, `src/features/taches/taches-sync.dom.test.tsx`, `src/features/travaux/schemas.test.ts`, `src/features/evenements/schemas.test.ts`, `tests/integration/rpc-transactionnelles.mjs` | diff des tâches, rôle × site, atomicité (tâche hors site → fiche non créée, suppression annulée)                                |
+| OT : opérations et clôture                | `src/features/ordres-travail/mutations.dom.test.tsx`, `src/features/ordres-travail/use-operations-editor.dom.test.tsx`, `src/features/ordres-travail/operation-predicats.test.ts`, `tests/securite/triggers-ot.sql`                    | saisie des opérations, statut déduit, clôture et réouverture                                                                    |
+| Investissements (projets, devis, accords) | `src/features/investissements/mutations.dom.test.tsx`, `src/features/investissements/etat.test.ts`, `src/features/investissements/schemas.test.ts`, `tests/integration/rpc-transactionnelles.mjs`                                      | chaque écriture (table, valeurs, invalidation, échec), `poser_devis_retenus` rôle × site et atomique                            |
+| Contrats                                  | `src/features/prestataires/etat.test.ts`, `src/features/prestataires/schemas.test.ts`                                                                                                                                                  | statut, échéances, préavis, chaîne d'avenants                                                                                   |
+| Documents                                 | `src/features/documents/upload.dom.test.ts`, `src/features/documents/deplacer-document.dom.test.tsx`, `src/features/documents/naming.test.ts`, `tests/securite/stockage.mjs`                                                           | envoi en 3 étapes, déplacement, nommage, cloisonnement du bucket                                                                |
+| Comptes (création, rôle, accès)           | `src/features/utilisateurs/mutations.dom.test.tsx`, `src/features/utilisateurs/password.test.ts`, `supabase/functions/_shared/preambule-comptes.test.ts`, `supabase/functions/_shared/mot-de-passe.test.ts`                            | création par l'Edge Function `invite_user`, changement de rôle, refus 42501, règles de mot de passe                             |
+| Synchronisation Dmbook                    | `supabase/functions/dmbook-sync/rapprocher.test.ts`, `supabase/functions/dmbook-sync/envoyer.test.ts`, `supabase/functions/_shared/dmbook/client.test.ts`, `supabase/functions/_shared/dmbook/composer.test.ts`                        | rapprochement, envoi, client et composition des messages                                                                        |
+| Concordance front / base                  | `src/lib/concordance-sql.test.ts`, `src/lib/database-types-copie.test.ts`, `src/lib/schema-fonctions-uniques.test.ts`                                                                                                                  | contraintes SQL et schémas Zod alignés, types générés à jour, pas de fonction SQL en double                                     |
+
+<!-- registre-parcours : fin -->
+
+## Limites connues
+
+- `tests/securite/edge-functions.mjs` n'est pas lancée par `base:tester` (elle
+  exige `supabase functions serve`, cf. `tests/securite/README.md`).
+- `tests/securite/triggers-ot.sql` se joue encore à la main (transaction annulée) ;
+  son branchement sur la base locale demande un semis d'OT suffisant.

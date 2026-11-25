@@ -16,7 +16,7 @@ Prérequis : Docker Desktop lancé, `psql` dans le PATH. **Aucun accès à la pr
 
 ```bash
 npm run base:monter    # pile locale (supabase-local/, ports 445xx) + schéma + vérifs + semis
-npm run base:tester    # escalade.mjs, sonde-rls.mjs, stockage.mjs, puis un bilan
+npm run base:tester    # escalade.mjs, sonde-rls.mjs, stockage.mjs, tests/integration/*.mjs, puis un bilan
 npm run base:demonter  # supabase stop --no-backup : la pile et ses données sont jetées
 ```
 

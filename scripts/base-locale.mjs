@@ -4,7 +4,8 @@
 // =============================================================================
 //   node scripts/base-locale.mjs monter    démarre la pile, charge le schéma,
 //                                          neutralise pg_cron, vérifie, sème
-//   node scripts/base-locale.mjs tester    déroule les sondes de sécurité
+//   node scripts/base-locale.mjs tester    déroule les sondes de sécurité, puis
+//                                          les tests de tests/integration/
 //   node scripts/base-locale.mjs demonter  arrête la pile et jette ses données
 //
 // Source du schéma : `schema_complete.sql` (racine), appliqué en UN passage.
@@ -17,7 +18,7 @@
 // - Les tâches pg_cron sont désarmées sur CETTE base locale seulement.
 // =============================================================================
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -25,6 +26,7 @@ const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..')
 const PILE = join(RACINE, 'supabase-local')
 const SCHEMA = join(RACINE, 'schema_complete.sql')
 const SONDES = join(RACINE, 'tests', 'securite')
+const INTEGRATION = join(RACINE, 'tests', 'integration')
 const WINDOWS = process.platform === 'win32'
 
 /** Policies Storage attendues après chargement (le bloc DO du schéma les avale en silence s'il échoue). */
@@ -273,16 +275,49 @@ function tester() {
       `  ${verdict === 'OK' ? '✓' : '✗'} ${script.padEnd(16)} ${verdict}`,
     )
   }
-  console.log('\n=== Bilan des sondes ===')
+  // Tests d'intégration (tests/integration/*.mjs) : chacun imprime
+  // « === N épinglé(s) === » puis « === N écart(s) === » (écarts NOUVEAUX) en
+  // fin de course — code 0 sans écart nouveau, 3 avec, tout
+  // autre code = panne (le bilan n'est alors pas lu).
+  const integration = existsSync(INTEGRATION)
+    ? readdirSync(INTEGRATION)
+        .filter((f) => f.endsWith('.mjs'))
+        .sort()
+    : []
+  for (const fichier of integration) {
+    etape(`Intégration ${fichier}`)
+    const r = lancerNode(join(INTEGRATION, fichier), INTEGRATION)
+    process.stdout.write(r.sortie)
+    const n =
+      r.code === 0 || r.code === 3
+        ? Number(/=== (\d+) écart\(s\) ===/.exec(r.sortie)?.[1] ?? NaN)
+        : NaN
+    // Écarts connus, épinglés dans le fichier : affichés, jamais bloquants.
+    const epingles = Number(
+      /=== (\d+) épinglé\(s\) ===/.exec(r.sortie)?.[1] ?? 0,
+    )
+    const verdict = Number.isNaN(n)
+      ? 'ÉCHEC D’EXÉCUTION'
+      : n === 0
+        ? 'OK'
+        : `${n} écart(s) nouveau(x)`
+    if (verdict !== 'OK') total++
+    bilan.push(
+      `  ${verdict === 'OK' ? '✓' : '✗'} integration/${fichier}  ${verdict}${epingles ? ` · ${epingles} épinglé(s)` : ''}`,
+    )
+  }
+  console.log('\n=== Bilan des sondes et des tests d’intégration ===')
   console.log(bilan.join('\n'))
   console.log(
     '  · edge-functions.mjs non lancée : elle exige `supabase functions serve --no-verify-jwt` (voir tests/securite/README.md).',
   )
   if (total)
     echec(
-      `${total} sonde(s) en écart : à examiner (ne pas corriger une policy à l'aveugle).`,
+      `${total} sonde(s) ou test(s) d'intégration en écart : à examiner (ne pas corriger une policy à l'aveugle).`,
     )
-  console.log('\n✓ Toutes les sondes conformes.')
+  console.log(
+    '\n✓ Toutes les sondes et tous les tests d’intégration sont conformes.',
+  )
 }
 
 // -----------------------------------------------------------------------------

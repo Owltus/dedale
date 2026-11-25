@@ -76,8 +76,18 @@ export const ANON = statut.ANON_KEY
  */
 export const SERVICE = statut.SERVICE_ROLE_KEY
 
+/**
+ * Chaîne de connexion PostgreSQL de la pile locale. Elle ne sert qu'aux tests
+ * d'intégration qui doivent PRÉPARER une panne (déclencheur temporaire pour
+ * provoquer un échec au milieu d'une transaction) — jamais à jouer un rôle.
+ */
+export const DB = statut.DB_URL
+
 /** Garde-fou : on refuse de démarrer si la cible n'est pas locale. */
-if (!/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/.test(API)) {
+if (
+  !/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/.test(API) ||
+  !/^postgres(ql)?:\/\/([^@/]*@)?(127\.0\.0\.1|localhost)[:/]/.test(DB ?? '')
+) {
   console.error(
     `Cible refusée : ${API} n'est pas une adresse locale. Ces sondes écrivent ; ` +
       'elles ne tournent que contre une base locale jetable.',

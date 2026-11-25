@@ -58,7 +58,9 @@ export const ROLES_METIER_LECTURE: readonly string[] = [
   ...ROLES_METIER,
   'lecteur',
 ]
-/** Gestion administrative (utilisateurs, investissements). */
+/** Gestion administrative (utilisateurs). Les investissements n’en relèvent PAS :
+ *  manager ET technicien les gèrent sur leurs sites (RLS capex_site_scoped_*,
+ *  inv_devis_scoped ; cf. lib/nav.ts). */
 export const ROLES_ADMINISTRATIF: readonly string[] = ['admin', 'manager']
 /** Super-utilisateur (gestion des sites, colonnes sensibles…). */
 export const ROLES_ADMIN: readonly string[] = ['admin']
@@ -86,7 +88,8 @@ export function canManageMetier(role: Role): boolean {
   return !!role && ROLES_METIER.includes(role)
 }
 
-/** Gestion administrative (utilisateurs, investissements, prestataires).
+/** Gestion administrative (utilisateurs, catalogue commun…) — pas les
+ *  investissements, ouverts au technicien sur son site (canManageMetier).
  *  Type predicate : permet de narrower le rôle après une garde
  *  `if (!canManageAdmin(role)) return`. */
 export function canManageAdmin(role: Role): role is 'admin' | 'manager' {
