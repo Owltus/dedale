@@ -4,7 +4,7 @@ import { syncGammesEquipements } from '@/lib/gammes-equipements'
 import { equipementsQueries } from './queries'
 import { parseChamps, serializeChamps, type Champ } from '@/lib/champs'
 import { categoriesQueries } from '@/features/categories/queries'
-import { gammesQueries } from '@/features/gammes/queries'
+import { clesRacines } from '@/lib/cles-racines'
 
 /**
  * ÉDITION des attributs de BASE d'une SOUS-catégorie de parc : nom / description /
@@ -351,7 +351,7 @@ export function useSyncEquipementGammes() {
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: equipementsQueries.all() })
-      void qc.invalidateQueries({ queryKey: gammesQueries.all() })
+      void qc.invalidateQueries({ queryKey: clesRacines.gammes() })
     },
   })
 }

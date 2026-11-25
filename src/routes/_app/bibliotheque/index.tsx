@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { ONGLET_IDS } from './$'
+import { ONGLET_IDS } from '@/features/bibliotheque/components/bibliotheque-ecran'
 
 /**
  * Accueil `/bibliotheque` : pas de vue propre. On redirige (REPLACE → pas

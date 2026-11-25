@@ -2,14 +2,22 @@ import { useCallback } from 'react'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { prestatairesQueries } from '@/features/prestataires/queries'
 import { PAGE_META } from '@/features/prestataires/page-meta'
-import { PrestataireDetail } from '@/features/prestataires/components/prestataire-detail'
+import {
+  PrestataireDetail,
+  type GammesPanelInjecte,
+} from '@/features/prestataires/components/prestataire-detail'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { SlugDetailRoute } from '@/components/common/slug-detail-route'
 
 // Via `getRouteApi` pour ne PAS inverser la dépendance features → routes.
 const Route = getRouteApi('/_app/prestataires/$prestataire')
 
-export function PrestataireEcran() {
+export function PrestataireEcran({
+  GammesPanel,
+}: {
+  /** Onglet Gammes de la fiche, injecté par la route. */
+  GammesPanel: GammesPanelInjecte
+}) {
   const { prestataire: slug } = Route.useParams()
   const navigate = useNavigate()
 
@@ -51,6 +59,7 @@ export function PrestataireEcran() {
               siteId={siteId}
               canManage={canManage}
               onBack={goBack}
+              GammesPanel={GammesPanel}
             />
           )}
         </SlugDetailRoute>

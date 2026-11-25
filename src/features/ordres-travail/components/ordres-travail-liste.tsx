@@ -33,11 +33,7 @@ import {
   FILTRE_NON_TERMINES,
   FILTRE_TOUS,
 } from '@/components/common/list-filter-bar'
-import {
-  gammeNatures,
-  NATURE_GAMME_LABEL,
-  type NatureGamme,
-} from '@/features/gammes/schemas'
+import type { Database } from '@/lib/database.types'
 import { EmptyState } from '@/components/common/empty-state'
 import { VirtualList } from '@/components/common/virtual-list'
 import { ListPageBody } from '@/components/common/list-page-body'
@@ -49,19 +45,29 @@ import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import { normaliserRecherche } from '@/lib/recherche'
 
-/** Filtre « Nature » : toutes, puis les 8 natures dans l'ordre des gammes. */
-const NATURE_FILTER_OPTIONS = [
-  { value: FILTRE_TOUS, label: 'Toutes les natures' },
-  ...gammeNatures.map((n) => ({ value: n, label: NATURE_GAMME_LABEL[n] })),
-]
+/** Nature d'une gamme (enum base `gamme_nature`, recopiée sur l'OT). */
+type NatureGamme = Database['public']['Enums']['gamme_nature']
 
 export function OrdresTravailListe({
   siteId,
   canManage,
+  natures,
+  libellesNature,
 }: {
   siteId: string
   canManage: boolean
+  /**
+   * Natures du filtre, dans l'ordre des gammes, et leurs libellés — INJECTÉS par
+   * la route depuis la feature gammes (qui dépend d'ordres-travail : pas de cycle).
+   */
+  natures: readonly NatureGamme[]
+  libellesNature: Readonly<Record<NatureGamme, string>>
 }) {
+  /** Filtre « Nature » : toutes, puis les 8 natures dans l'ordre des gammes. */
+  const natureFilterOptions = [
+    { value: FILTRE_TOUS, label: 'Toutes les natures' },
+    ...natures.map((n) => ({ value: n, label: libellesNature[n] })),
+  ]
   const { session } = useAuth()
   // Mise à jour LIVE : un changement d'OT (clôture, statut…) rafraîchit la liste sans F5.
   useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
@@ -216,7 +222,7 @@ export function OrdresTravailListe({
                 {
                   value: natureFilter,
                   onChange: setNatureFilter,
-                  options: NATURE_FILTER_OPTIONS,
+                  options: natureFilterOptions,
                   label: 'Filtrer par nature',
                 },
               ]}

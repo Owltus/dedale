@@ -1,17 +1,12 @@
-import { useState } from 'react'
+import { useState, type ComponentType } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 import { ArrowRightLeft, HardHat, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   travauxQueries,
   statutsTravauxQueries,
 } from '@/features/travaux/queries'
-import { evenementsQueries } from '@/features/evenements/queries'
-import {
-  useDeleteTravaux,
-  useConvertirEnEvenement,
-} from '@/features/travaux/mutations'
+import { useDeleteTravaux } from '@/features/travaux/mutations'
 import {
   statutTravauxTone,
   STATUTS_TRAVAUX_TERMINAUX,
@@ -23,7 +18,6 @@ import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { formatDate } from '@/lib/date'
 import { segOfUnique } from '@/lib/slug'
-import { writeErrorMessage } from '@/lib/erreurs'
 import { PageContainer } from '@/components/common/page-container'
 import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
@@ -43,7 +37,6 @@ import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { DocumentIndicator } from '@/features/documents/components/document-indicator'
 import type { DocumentMeta } from '@/features/documents/format'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
 import type { Database } from '@/lib/database.types'
@@ -59,13 +52,22 @@ export function TravauxListe({
   siteId,
   canManage,
   canDelete,
+  ConvertirEnEvenement,
 }: {
   siteId: string
   canManage: boolean
   canDelete: boolean
+  /**
+   * Confirmation de conversion en Événement, INJECTÉE par la route (elle vit
+   * dans la feature evenements, qui dépend déjà de travaux : pas de cycle).
+   */
+  ConvertirEnEvenement: ComponentType<{
+    siteId: string
+    aConvertir: { id: string; titre: string } | null
+    onFermer: () => void
+  }>
 }) {
   const navigate = useNavigate()
-  const qc = useQueryClient()
   const query = useQuery(travauxQueries.list(siteId))
   // Liste en LIVE (nouveau chantier/travaux visible sans F5).
   useRealtimeRefresh('interventions_travaux', travauxQueries.all())
@@ -76,7 +78,6 @@ export function TravauxListe({
   const documentsParTravaux =
     documentsQuery.data ?? new Map<string, DocumentMeta[]>()
   const del = useDeleteTravaux()
-  const convertir = useConvertirEnEvenement()
   const [aConvertir, setAConvertir] = useState<Travaux | null>(null)
   const dialog = useEntityDialog<Travaux>()
   const suppression = useConfirmDelete<Travaux>({
@@ -338,42 +339,10 @@ export function TravauxListe({
         warning="Cette suppression est définitive. Le travaux et ses liaisons (locaux, équipements) sont retirés ; les documents rattachés restent dans la bibliothèque du site."
       />
 
-      <ConfirmDialog
-        open={aConvertir !== null}
-        onOpenChange={(open) => !open && setAConvertir(null)}
-        title="Convertir en Événement ?"
-        description={
-          aConvertir
-            ? `« ${aConvertir.titre} » sera supprimé et remplacé par un nouvel Événement — toutes les zones concernées et le statut actuel sont conservés. Les documents rattachés suivent la conversion.`
-            : undefined
-        }
-        confirmLabel="Convertir"
-        loading={convertir.isPending}
-        onConfirm={() => {
-          if (!aConvertir) return
-          const titre = aConvertir.titre
-          void (async () => {
-            try {
-              const nouvelId = await convertir.mutateAsync(aConvertir.id)
-              setAConvertir(null)
-              toast.success('Converti en Événement')
-              // Slug calculé sur la liste Événements FRAÎCHE (siblings à jour,
-              // gère une éventuelle collision de titre) — symétrie segOfUnique.
-              const evenements = await qc.fetchQuery(
-                evenementsQueries.list(siteId),
-              )
-              const sibs = evenements.map((e) => ({ nom: e.titre, id: e.id }))
-              void navigate({
-                to: '/evenements/$evenement',
-                params: {
-                  evenement: segOfUnique({ nom: titre, id: nouvelId }, sibs),
-                },
-              })
-            } catch (e) {
-              toast.error(writeErrorMessage(e))
-            }
-          })()
-        }}
+      <ConvertirEnEvenement
+        siteId={siteId}
+        aConvertir={aConvertir}
+        onFermer={() => setAConvertir(null)}
       />
     </PageContainer>
   )

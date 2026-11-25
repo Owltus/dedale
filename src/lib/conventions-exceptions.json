@@ -1,29 +1,5 @@
 [
   {
-    "regle": "cycle-features",
-    "fichier": "src/features/equipements ⇄ src/features/gammes",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "cycle-features",
-    "fichier": "src/features/evenements ⇄ src/features/travaux",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "cycle-features",
-    "fichier": "src/features/gammes ⇄ src/features/ordres-travail",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "cycle-features",
-    "fichier": "src/features/gammes ⇄ src/features/prestataires",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
     "regle": "enabled-skiptoken",
     "fichier": "src/components/common/slug-detail-route.tsx",
     "occurrences": 2,
@@ -32,6 +8,12 @@
   {
     "regle": "enabled-skiptoken",
     "fichier": "src/features/connecteur/queries.ts",
+    "occurrences": 1,
+    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+  },
+  {
+    "regle": "enabled-skiptoken",
+    "fichier": "src/features/demandes/components/demande-ecran.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
@@ -72,12 +54,6 @@
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
   {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/routes/_app/demandes/$demande.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
     "regle": "mutation-multi-ecritures",
     "fichier": "src/features/equipements/mutations.ts",
     "occurrences": 1,
@@ -88,18 +64,6 @@
     "fichier": "src/features/miniatures/mutations.ts",
     "occurrences": 2,
     "motif": "une seule écriture en table ; l’appel suivant (RPC supprimer_blob_orphelin) ne fait que nettoyer le fichier Storage, volontairement non bloquant (antérieur au 25/11/2026)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/bibliotheque/$.tsx",
-    "occurrences": 1,
-    "motif": "racine de composition des 6 panneaux du catalogue : déplacé dans features/bibliotheque, l’écran créerait les cycles bibliotheque ⇄ modeles-equipements et ⇄ modeles-operations (qui importent CataloguePanel) ; à rendre mince quand CataloguePanel sortira de features/bibliotheque"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/demandes/$demande.tsx",
-    "occurrences": 2,
-    "motif": "lit l’aperçu du tableau de bord (activiteQueries, feature dashboard) : déplacé dans features/demandes, l’écran créerait le cycle demandes ⇄ dashboard ; à rendre mince quand la clé d’aperçu des DI vivra dans demandes/queries"
   },
   {
     "regle": "use-memo-callback",
@@ -133,7 +97,7 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/features/bibliotheque/components/catalogue-panel.tsx",
+    "fichier": "src/features/categories/components/catalogue-panel.tsx",
     "occurrences": 13,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
@@ -193,6 +157,12 @@
   },
   {
     "regle": "use-memo-callback",
+    "fichier": "src/features/demandes/components/demande-ecran.tsx",
+    "occurrences": 1,
+    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
+  },
+  {
+    "regle": "use-memo-callback",
     "fichier": "src/features/demandes/components/demandes-liste.tsx",
     "occurrences": 3,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
@@ -236,7 +206,7 @@
   {
     "regle": "use-memo-callback",
     "fichier": "src/features/equipements/components/equipement-detail.tsx",
-    "occurrences": 2,
+    "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
   {
@@ -272,6 +242,12 @@
   {
     "regle": "use-memo-callback",
     "fichier": "src/features/gammes/components/copier-contenu-dialog.tsx",
+    "occurrences": 1,
+    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
+  },
+  {
+    "regle": "use-memo-callback",
+    "fichier": "src/features/gammes/components/equipement-gammes-onglet.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
@@ -321,6 +297,12 @@
     "regle": "use-memo-callback",
     "fichier": "src/features/gammes/components/import-modele-operation-dialog.tsx",
     "occurrences": 1,
+    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
+  },
+  {
+    "regle": "use-memo-callback",
+    "fichier": "src/features/gammes/components/prestataire-gammes-panel.tsx",
+    "occurrences": 2,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
   {
@@ -487,12 +469,6 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/features/prestataires/components/prestataire-onglet-gammes.tsx",
-    "occurrences": 2,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
     "fichier": "src/features/prestataires/components/prestataire-onglet-ot.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
@@ -543,12 +519,6 @@
     "regle": "use-memo-callback",
     "fichier": "src/hooks/use-upload-drop.ts",
     "occurrences": 2,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/routes/_app/demandes/$demande.tsx",
-    "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
   {

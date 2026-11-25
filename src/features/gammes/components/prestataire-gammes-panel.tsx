@@ -2,17 +2,17 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Wrench } from 'lucide-react'
-import { prestatairesQueries } from '../queries'
+import { gammesQueries } from '../queries'
 import { type OtTriable } from '@/features/ordres-travail/tri'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
-import { GammeCard } from '@/features/gammes/components/gamme-card'
+import { GammeCard } from './gamme-card'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
 import { listStack } from '@/lib/responsive'
 import { ONGLET_ETAT_VIDE } from '@/components/common/detail-tabs-shell'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import type { MiniatureAccess } from './prestataire-onglets'
+import type { MiniatureAccess } from '@/features/prestataires/components/prestataire-onglets'
 
 /**
  * Onglet Gammes : gammes du prestataire sur le site (lien direct
@@ -20,15 +20,17 @@ import type { MiniatureAccess } from './prestataire-onglets'
  * Bibliothèque) — on masque le prestataire (`showPrestataire={false}`) puisqu'on
  * est déjà sur sa fiche. Le clic ouvre la fiche gamme dans le Plan de maintenance
  * via `?open=<id>` (l'explorateur reconstruit le chemin d'URL catégorie → gamme).
+ * Vit côté gammes et est injecté dans la fiche prestataire par la route :
+ * prestataires ne dépend pas de gammes (qui dépend, lui, de prestataires).
  */
-export function GammesPanel({
+export function PrestataireGammesPanel({
   prestataireId,
   siteId,
   urlOf,
   refreshMiniatures,
 }: { prestataireId: string; siteId: string } & MiniatureAccess) {
   const navigate = useNavigate()
-  const query = useQuery(prestatairesQueries.gammes(prestataireId, siteId))
+  const query = useQuery(gammesQueries.parPrestataire(prestataireId, siteId))
 
   // OT des gammes affichées → badge de statut + périodicité sur chaque carte, comme
   // dans le Plan de maintenance (MÊME variante de `GammeCard` via `statutOts`).

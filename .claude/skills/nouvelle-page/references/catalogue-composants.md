@@ -207,7 +207,7 @@ Briques de plomberie hors hooks : `actionsEditionSuppression` (duo Modifier/Supp
 
 ## Ossatures de feature partagées
 
-- `catalogue-panel` (`features/bibliotheque/components/`) — ossature générique d'un panneau de catalogue, paramétrée par `queries`/`mutations`/libellés/dialogs. 2 consommateurs, tous deux hors de sa feature : **candidate à la promotion dans `common/`**.
+- `catalogue-panel` (`features/categories/components/`) — ossature générique d'un panneau de catalogue, paramétrée par `queries`/`mutations`/libellés/dialogs. 2 consommateurs (modèles d'équipements, modèles d'opérations) ; rangé dans `categories` car il monte ses dialogs de catégorie (pas promouvable dans `common/`). `features/bibliotheque` ne garde que l'écran à onglets (`bibliotheque-ecran`) et son préchargement.
 - `CategorieCard` (`features/categories/components/`) — source unique du rendu d'une catégorie. 2 consommateurs hors feature (`gammes-explorer`, `gammes-biblio-panel`) : **même remarque**.
 
 ## Application de la règle D5 — état au 2026-08-16

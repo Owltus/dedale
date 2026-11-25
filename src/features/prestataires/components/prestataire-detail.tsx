@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ComponentType } from 'react'
 import { Pencil, Plus, Truck } from 'lucide-react'
 import type { ContratRow } from '../queries'
 import { useDeleteContrat } from '../mutations'
@@ -20,11 +20,18 @@ import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { Badge } from '@/components/ui/badge'
 import { ContratsPanel } from './prestataire-onglet-contrats'
 import { OtDocumentsPanel } from './prestataire-onglet-documents'
-import { GammesPanel } from './prestataire-onglet-gammes'
 import { OtPanel } from './prestataire-onglet-ot'
-import type { Onglet } from './prestataire-onglets'
+import type { MiniatureAccess, Onglet } from './prestataire-onglets'
 
 type Prestataire = Database['public']['Tables']['prestataires']['Row']
+
+/**
+ * Onglet Gammes de la fiche, INJECTÉ par la route : il vit dans la feature
+ * gammes (qui dépend déjà de prestataires).
+ */
+export type GammesPanelInjecte = ComponentType<
+  { prestataireId: string; siteId: string } & MiniatureAccess
+>
 
 /**
  * Fiche Prestataire détail, calquée sur les fiches Gamme / OT : page autonome
@@ -40,11 +47,13 @@ export function PrestataireDetail({
   siteId,
   canManage,
   onBack,
+  GammesPanel,
 }: {
   prestataire: Prestataire
   siteId: string
   canManage: boolean
   onBack: () => void
+  GammesPanel: GammesPanelInjecte
 }) {
   const [onglet, setOnglet] = useState<Onglet>('contrats')
   const [editPrestataire, setEditPrestataire] = useState(false)

@@ -1,36 +1,15 @@
 import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { LIGNES_ACTIVITE, enListe, ouvertsPuisRecents } from '@/lib/apercu'
 import { demandesQueries, lieuxDesDemandes } from '@/features/demandes/queries'
-import { STATUTS_DI_TERMINAUX } from '@/features/demandes/etat'
 import { travauxQueries } from '@/features/travaux/queries'
 import { STATUTS_TRAVAUX_TERMINAUX } from '@/features/travaux/etat'
 import { evenementsQueries } from '@/features/evenements/queries'
 import { STATUTS_EVENEMENTS_TERMINAUX } from '@/features/evenements/etat'
 import { documentsQueries } from '@/features/documents/queries'
 
-/**
- * Lignes chargées par journal du tableau de bord. La carte en affiche une
- * vingtaine au plus (calage à la hauteur) : charger l'historique entier (4 071
- * demandes) pour en montrer 15 n'avait aucun sens.
- */
-export const LIGNES_ACTIVITE = 30
-
 /** Documents chargés pour la colonne « Documents » (une quinzaine affichés). */
 export const LIGNES_DOCUMENTS = 20
-
-/**
- * Ce qu'il reste à traiter d'abord, puis le plus récent : MÊME ordre que
- * l'ancienne normalisation sur la liste complète (non terminés en tête, récence
- * à l'intérieur de chaque groupe), mais sur deux lectures bornées.
- */
-function ouvertsPuisRecents<T>(ouverts: T[], termines: T[]): T[] {
-  return [...ouverts, ...termines].slice(0, LIGNES_ACTIVITE)
-}
-
-const enListe = (ids: readonly number[]) => `(${ids.join(',')})`
-
-/** Le seul statut terminal d'une DI (Clôturé). */
-const [STATUT_DI_CLOTURE] = STATUTS_DI_TERMINAUX
 
 /**
  * Requêtes BORNÉES du tableau de bord. Les clés vivent SOUS celles des features
@@ -38,42 +17,8 @@ const [STATUT_DI_CLOTURE] = STATUTS_DI_TERMINAUX
  * réel qui invalident une feature rafraîchissent aussi ces aperçus.
  */
 export const activiteQueries = {
-  demandes: (siteId: string | null) =>
-    queryOptions({
-      queryKey: [...demandesQueries.all(), 'tableau-de-bord', siteId] as const,
-      queryFn:
-        siteId === null
-          ? skipToken
-          : async ({ signal }) => {
-              const base = () =>
-                supabase
-                  .from('demandes_intervention')
-                  .select('*')
-                  .eq('site_id', siteId)
-              const [ouverts, termines] = await Promise.all([
-                base()
-                  .not('statut_di_id', 'in', enListe(STATUTS_DI_TERMINAUX))
-                  .order('date_constat', { ascending: false })
-                  .order('created_at', { ascending: false })
-                  .order('id')
-                  .limit(LIGNES_ACTIVITE)
-                  .abortSignal(signal)
-                  .throwOnError(),
-                base()
-                  // `eq` et non `in` : avec `in` (= ANY), PostgreSQL ne lit pas l'index
-                  // 169 dans l'ordre et trie les ~4 000 DI clôturées (RLS comprise)
-                  // avant d'en garder 30 : 220 ms → 3 ms (plan vérifié le 24/11/2026).
-                  .eq('statut_di_id', STATUT_DI_CLOTURE)
-                  .order('date_constat', { ascending: false })
-                  .order('created_at', { ascending: false })
-                  .order('id')
-                  .limit(LIGNES_ACTIVITE)
-                  .abortSignal(signal)
-                  .throwOnError(),
-              ])
-              return ouvertsPuisRecents(ouverts.data, termines.data)
-            },
-    }),
+  /** Aperçu des DI : vit dans `demandesQueries.apercu` (la fiche DI le relit). */
+  demandes: (siteId: string | null) => demandesQueries.apercu(siteId),
 
   /** Lieu(x) des SEULES demandes affichées (di_id → « Chambre 214, Chambre 109 »). */
   lieuxDemandes: (siteId: string | null, ids: readonly string[]) =>

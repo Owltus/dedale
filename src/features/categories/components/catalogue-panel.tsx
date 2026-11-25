@@ -14,8 +14,8 @@ import {
   categoriesQueries,
   type Categorie,
 } from '@/features/categories/queries'
-import { CategoryFormDialog } from '@/features/categories/components/category-form-dialog'
-import { ConfirmDeleteCategorieDialog } from '@/features/categories/components/confirm-delete-categorie-dialog'
+import { CategoryFormDialog } from './category-form-dialog'
+import { ConfirmDeleteCategorieDialog } from './confirm-delete-categorie-dialog'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useCurrentRole } from '@/hooks/use-current-role'

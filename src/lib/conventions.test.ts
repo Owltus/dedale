@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { join, posix, relative, sep } from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import exceptionsBrutes from './conventions-exceptions.json'
@@ -436,7 +436,12 @@ const REGLES: Regle[] = [
         const a = /^src\/features\/([^/]+)\//.exec(f.rel)?.[1]
         if (!a) continue
         for (const i of imports(f)) {
-          const b = /^@\/features\/([^/]+)/.exec(i.chemin)?.[1]
+          // Alias `@/features/<b>` OU chemin relatif (`../<b>/…`) résolu depuis
+          // le fichier : un import relatif entre features crée le même cycle.
+          const cible = i.chemin.startsWith('.')
+            ? posix.join(posix.dirname(f.rel), i.chemin)
+            : i.chemin.replace(/^@\//, 'src/')
+          const b = /^src\/features\/([^/]+)/.exec(cible)?.[1]
           if (b && b !== a && !SOCLE.has(b) && !SOCLE.has(a)) {
             const cle = `${a}>${b}`
             if (!aretes.has(cle))

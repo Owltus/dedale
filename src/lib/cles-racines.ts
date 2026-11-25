@@ -5,7 +5,9 @@
  * la référence : elle est DÉFINIE par la racine ci-dessous. Une autre feature
  * qui doit seulement invalider ce cache importe la racine d'ici plutôt que la
  * fabrique, sans quoi deux features s'importeraient mutuellement (cycle).
- * N'y mettre que des racines réellement invalidées à distance.
+ * Même chose pour une requête rangée hors de sa feature mais gardée sous sa
+ * racine (`operationsQueries.idsOperations`, sous `gammes`). N'y mettre que des
+ * racines réellement utilisées à distance.
  */
 export const clesRacines = {
   /** Racine des clés du Plan de maintenance (`gammesQueries.all`). */
