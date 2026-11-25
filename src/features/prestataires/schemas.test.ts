@@ -135,20 +135,17 @@ describe('prestataireSchema', () => {
     }
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : miniature_id n’a aucune borne de longueur',
-    () => {
-      // Attendu : `miniature_id` est un UUID du pool de vignettes → 36
-      // caractères, format contraint. Observé : `z.string().nullable()` accepte
-      // 100 000 caractères, envoyés tels quels à PostgREST (erreur 22P02 brute).
-      expect(
-        rejette(prestataireSchema, {
-          ...PRESTATAIRE,
-          miniature_id: 'x'.repeat(100_000),
-        }),
-      ).toBe(true)
-    },
-  )
+  it('BUG CANDIDAT Martin : miniature_id n’a aucune borne de longueur', () => {
+    // Attendu : `miniature_id` est un UUID du pool de vignettes → 36
+    // caractères, format contraint. Observé : `z.string().nullable()` accepte
+    // 100 000 caractères, envoyés tels quels à PostgREST (erreur 22P02 brute).
+    expect(
+      rejette(prestataireSchema, {
+        ...PRESTATAIRE,
+        miniature_id: 'x'.repeat(100_000),
+      }),
+    ).toBe(true)
+  })
 })
 
 // ─── contratSchema : cohérence des dates ─────────────────────────────────────
@@ -291,19 +288,16 @@ describe('contratSchema — cohérence des dates', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : type_contrat_id n’a aucune borne ni format',
-    () => {
-      // Attendu : identifiant d'un référentiel SMALLINT (`types_contrats.id`).
-      // Observé : `z.string().min(1)` accepte 100 000 caractères arbitraires.
-      expect(
-        rejette(contratSchema, {
-          ...CONTRAT,
-          type_contrat_id: 'x'.repeat(100_000),
-        }),
-      ).toBe(true)
-    },
-  )
+  it('BUG CANDIDAT Martin : type_contrat_id n’a aucune borne ni format', () => {
+    // Attendu : identifiant d'un référentiel SMALLINT (`types_contrats.id`).
+    // Observé : `z.string().min(1)` accepte 100 000 caractères arbitraires.
+    expect(
+      rejette(contratSchema, {
+        ...CONTRAT,
+        type_contrat_id: 'x'.repeat(100_000),
+      }),
+    ).toBe(true)
+  })
 })
 
 // ─── contratSchema : bornes numériques ───────────────────────────────────────
@@ -379,8 +373,10 @@ describe('contratSchema — compteurs', () => {
     ).toBe(true)
     fc.assert(
       fc.property(
+        // Tout AUTRE identifiant de `types_contrats` (SMALLINT, cf. plus haut).
         fc
-          .string({ minLength: 1, maxLength: 5 })
+          .integer({ min: 1, max: 32_767 })
+          .map(String)
           .filter((s) => s !== TYPE_CONTRAT_TACITE),
         (autreType) => {
           expect(

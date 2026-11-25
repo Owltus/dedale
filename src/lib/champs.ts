@@ -78,40 +78,59 @@ export function champValeurEnTexte(valeur: ChampValeur): string {
 }
 
 /**
+ * Bornes d'une liste de choix. Aucune n'existe telle quelle en base : le seul
+ * plafond est `specifications::text < 10 000` (CHECK
+ * `chk_modeles_equipements_specs_structure`), que `prepareChamps` approche à
+ * 9 500. Ces deux valeurs, raisonnables pour un sélecteur, empêchent qu'une
+ * seule liste absorbe ce budget ; `prepareChamps` les applique à l'identique.
+ */
+const OPTIONS_MAX = 200
+const OPTION_LONGUEUR_MAX = 200
+
+/**
  * Un champ typé. Le MODÈLE porte la définition (avec `defaut`) ; l'ÉQUIPEMENT
  * garde un snapshot de la définition et remplit `valeur`.
  */
-export const champSchema = z.object({
-  cle: texteObligatoire('Le nom du champ est obligatoire').max(60),
-  type: z.enum([
-    'texte',
-    'nombre',
-    'date',
-    'oui-non',
-    'liste',
-    'double-reference',
-  ]),
-  /** Pertinent si type = nombre (ex. kW, bars). */
-  unite: z.string().trim().max(20).optional(),
-  /** Choix possibles, requis si type = liste. */
-  options: z.array(z.string().trim().min(1)).optional(),
-  /**
-   * Libellé de la 1re part d'une double référence (ex. « Zone », « Bus »).
-   * Sert à la SAISIE : c'est l'étiquette de la première case.
-   */
-  libelleA: z.string().trim().max(30).optional(),
-  /**
-   * Libellé de la 2de part (ex. « Point », « adresse »). Sert à la saisie, et
-   * commande la LECTURE : rempli, il apparaît dans la valeur affichée
-   * (« 2 / adresse 45 ») ; vide, la forme reste compacte (« 3/12 »).
-   */
-  libelleB: z.string().trim().max(30).optional(),
-  requis: z.boolean(),
-  /** Valeur par défaut (sur le modèle). */
-  defaut: champValeurSchema,
-  /** Valeur saisie (sur l'équipement). */
-  valeur: champValeurSchema.optional(),
-})
+export const champSchema = z
+  .object({
+    cle: texteObligatoire('Le nom du champ est obligatoire').max(60),
+    type: z.enum([
+      'texte',
+      'nombre',
+      'date',
+      'oui-non',
+      'liste',
+      'double-reference',
+    ]),
+    /** Pertinent si type = nombre (ex. kW, bars). */
+    unite: z.string().trim().max(20).optional(),
+    /** Choix possibles, requis si type = liste. */
+    options: z
+      .array(z.string().trim().min(1).max(OPTION_LONGUEUR_MAX))
+      .max(OPTIONS_MAX)
+      .optional(),
+    /**
+     * Libellé de la 1re part d'une double référence (ex. « Zone », « Bus »).
+     * Sert à la SAISIE : c'est l'étiquette de la première case.
+     */
+    libelleA: z.string().trim().max(30).optional(),
+    /**
+     * Libellé de la 2de part (ex. « Point », « adresse »). Sert à la saisie, et
+     * commande la LECTURE : rempli, il apparaît dans la valeur affichée
+     * (« 2 / adresse 45 ») ; vide, la forme reste compacte (« 3/12 »).
+     */
+    libelleB: z.string().trim().max(30).optional(),
+    requis: z.boolean(),
+    /** Valeur par défaut (sur le modèle). */
+    defaut: champValeurSchema,
+    /** Valeur saisie (sur l'équipement). */
+    valeur: champValeurSchema.optional(),
+  })
+  // Une liste sans choix n'est pas saisissable (même règle que prepareChamps).
+  .refine((c) => c.type !== 'liste' || (c.options ?? []).length > 0, {
+    message: 'Une liste doit avoir au moins une option.',
+    path: ['options'],
+  })
 export type Champ = z.infer<typeof champSchema>
 
 /**
@@ -258,6 +277,19 @@ export function prepareChamps(
       ok: false,
       error:
         'Trop de caractéristiques (ou options trop longues) : réduis-en le nombre ou la taille.',
+    }
+  }
+  // Bornes ALIGNÉES sur champSchema (≤ 200 options de ≤ 200 caractères) : sinon
+  // la liste s'écrirait puis serait JETÉE en silence par parseChamps.
+  const listeDemesuree = cleaned.find(
+    (c) =>
+      (c.options?.length ?? 0) > OPTIONS_MAX ||
+      (c.options ?? []).some((o) => o.length > OPTION_LONGUEUR_MAX),
+  )
+  if (listeDemesuree) {
+    return {
+      ok: false,
+      error: `Le champ « ${listeDemesuree.cle} » (liste) dépasse ${String(OPTIONS_MAX)} options ou ${String(OPTION_LONGUEUR_MAX)} caractères par option.`,
     }
   }
   return { ok: true, champs: cleaned }

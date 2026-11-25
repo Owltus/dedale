@@ -3,6 +3,16 @@ import { todayLocal } from '@/lib/date'
 import { dateObligatoire } from '@/lib/dates-zod'
 import { texteObligatoire } from '@/lib/texte-zod'
 
+/**
+ * Identifiant FACULTATIF saisi par une liste déroulante : '' = aucun, sinon un
+ * UUID (toute autre chaîne partirait en 22P02 côté PostgREST).
+ */
+const idFacultatif = z
+  .string()
+  .refine((v) => v === '' || z.uuid().safeParse(v).success, {
+    message: 'Référence invalide : rechargez la page puis réessayez.',
+  })
+
 // Création d'une DI. Le constat est obligatoire ; liaisons et prestataire
 // optionnels. La table demandes_intervention n'a PAS de colonne `titre` :
 // le constat tient lieu de description du signalement (le titre affiché en
@@ -10,8 +20,8 @@ import { texteObligatoire } from '@/lib/texte-zod'
 export const diSchema = z.object({
   constat: texteObligatoire('Le constat est obligatoire', 'constat').max(4000),
   date_constat: dateObligatoire('La date de constat est obligatoire'),
-  local_id: z.string(), // '' = aucun
-  equipement_id: z.string(), // '' = aucun
+  local_id: idFacultatif, // '' = aucun
+  equipement_id: idFacultatif, // '' = aucun
 })
 
 export type DiFormValues = z.infer<typeof diSchema>
@@ -34,8 +44,8 @@ export const diEditSchema = z.object({
   // d'ÉDITION était plus permissif que celui de création ET que la base — un
   // constat rallongé au-delà de 5 000 caractères partait chercher un 23514.
   constat: texteObligatoire('Le constat est obligatoire', 'constat').max(4000),
-  local_id: z.string(), // '' = aucun
-  equipement_id: z.string(), // '' = aucun
+  local_id: idFacultatif, // '' = aucun
+  equipement_id: idFacultatif, // '' = aucun
 })
 
 export type DiEditFormValues = z.infer<typeof diEditSchema>

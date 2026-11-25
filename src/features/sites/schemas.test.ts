@@ -81,7 +81,7 @@ describe('siteSchema', () => {
     }
   })
 
-  it.fails('BUG CANDIDAT Martin : le code postal n’a aucun format', () => {
+  it('BUG CANDIDAT Martin : le code postal n’a aucun format', () => {
     // Attendu : un code postal est une suite de chiffres/lettres/espaces/
     // tirets (5 chiffres en France, formats étrangers admis dans 20 caractères).
     // Observé : `z.string().trim().max(20)` accepte '<script>', '../../etc' ou

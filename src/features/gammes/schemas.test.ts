@@ -304,20 +304,17 @@ describe('operationSchema — seuils', () => {
     }
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un seuil en notation exponentielle démesurée passe',
-    () => {
-      // Attendu : aucune grandeur relevée sur le terrain ne vaut 1e300.
-      // Observé : accepté — la notation exponentielle doit rester admise
-      // (`String(5e-324)` la produit seul), et 1e300 est un NUMERIC parfaitement
-      // légal côté base. Ce n'est donc PAS une divergence front/base mais une
-      // borne de PLAUSIBILITÉ, qui reste à arbitrer : la poser trop bas
-      // refuserait un index de compteur légitime.
-      expect(
-        rejette(operationSchema, { ...OPERATION, seuil_minimum: '1e300' }),
-      ).toBe(true)
-    },
-  )
+  it('BUG CANDIDAT Martin : un seuil en notation exponentielle démesurée passe', () => {
+    // Attendu : aucune grandeur relevée sur le terrain ne vaut 1e300.
+    // Observé : accepté — la notation exponentielle doit rester admise
+    // (`String(5e-324)` la produit seul), et 1e300 est un NUMERIC parfaitement
+    // légal côté base. Ce n'est donc PAS une divergence front/base mais une
+    // borne de PLAUSIBILITÉ, qui reste à arbitrer : la poser trop bas
+    // refuserait un index de compteur légitime.
+    expect(
+      rejette(operationSchema, { ...OPERATION, seuil_minimum: '1e300' }),
+    ).toBe(true)
+  })
 
   it('n’accepte QUE la notation numérique usuelle, finie', () => {
     // Oracle : la garantie qu'offre `optionalNumber` — on l'énonce ici en toutes
@@ -330,7 +327,9 @@ describe('operationSchema — seuils', () => {
       fc.property(arbTexteNumeriquePiege(), (texte) => {
         const t = texte.trim()
         const attenduAccepte =
-          t === '' || (NOMBRE_USUEL.test(t) && Number.isFinite(Number(t)))
+          t === '' ||
+          (NOMBRE_USUEL.test(t) &&
+            Math.abs(Number(t)) <= Number.MAX_SAFE_INTEGER)
         expect(
           operationSchema.safeParse({ ...OPERATION, seuil_minimum: texte })
             .success,

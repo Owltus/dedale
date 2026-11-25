@@ -119,19 +119,16 @@ describe('categorieSchema', () => {
     }
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : parent_id et miniature_id ne sont ni bornés ni typés',
-    () => {
-      // Attendu : UUID (ou '' pour parent_id). Observé : `z.string()` nu accepte
-      // 100 000 caractères → 22P02 côté PostgREST.
-      for (const champ of ['parent_id', 'miniature_id']) {
-        expect(
-          rejette(categorieSchema, {
-            ...CATEGORIE,
-            [champ]: 'x'.repeat(100_000),
-          }),
-        ).toBe(true)
-      }
-    },
-  )
+  it('BUG CANDIDAT Martin : parent_id et miniature_id ne sont ni bornés ni typés', () => {
+    // Attendu : UUID (ou '' pour parent_id). Observé : `z.string()` nu accepte
+    // 100 000 caractères → 22P02 côté PostgREST.
+    for (const champ of ['parent_id', 'miniature_id']) {
+      expect(
+        rejette(categorieSchema, {
+          ...CATEGORIE,
+          [champ]: 'x'.repeat(100_000),
+        }),
+      ).toBe(true)
+    }
+  })
 })

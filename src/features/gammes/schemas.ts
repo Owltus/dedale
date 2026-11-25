@@ -201,6 +201,15 @@ export const emptyGammeBiblio: GammeBiblioFormValues = {
 const NOMBRE_USUEL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/
 
 /**
+ * Borne de PLAUSIBILITÉ d’un seuil (la colonne NUMERIC n’en a aucune) :
+ * `Number.MAX_SAFE_INTEGER` (≈ 9 × 10^15). Au-delà, un nombre JavaScript ne
+ * distingue plus deux entiers voisins — la valeur relue ne serait plus celle
+ * saisie — et aucune grandeur relevée (index de compteur compris) ne l’approche.
+ * Refuse du même coup l’infini et les exponentielles démesurées (`1e300`).
+ */
+const SEUIL_PLAUSIBLE_MAX = Number.MAX_SAFE_INTEGER
+
+/**
  * Opérations : seuils saisis en texte (input number) → '' = non renseigné.
  *
  * NE PAS mutualiser avec l'homonyme de `localisations/schemas.ts` (décision
@@ -216,8 +225,13 @@ const optionalNumber = z
   .string()
   .trim()
   .refine(
-    (v) => v === '' || (NOMBRE_USUEL.test(v) && Number.isFinite(Number(v))),
-    { error: 'Saisissez un nombre fini (ni infini, ni texte).' },
+    (v) =>
+      v === '' ||
+      (NOMBRE_USUEL.test(v) && Math.abs(Number(v)) <= SEUIL_PLAUSIBLE_MAX),
+    {
+      error:
+        'Saisissez un nombre fini, d’au plus 9 000 000 000 000 000 en valeur absolue.',
+    },
   )
 
 /** `operations.ordre INTEGER` : 2 147 483 647 au plus. */
