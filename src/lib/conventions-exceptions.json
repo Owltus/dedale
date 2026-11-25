@@ -6,12 +6,6 @@
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
   {
-    "regle": "cle-litterale",
-    "fichier": "src/routes/oauth.consent.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
     "regle": "cycle-features",
     "fichier": "src/features/dashboard ⇄ src/features/gammes",
     "occurrences": 1,
@@ -181,13 +175,13 @@
   },
   {
     "regle": "enabled-skiptoken",
-    "fichier": "src/routes/_app/utilisateurs/index.tsx",
+    "fichier": "src/features/utilisateurs/components/utilisateurs-liste.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
   {
     "regle": "enabled-skiptoken",
-    "fichier": "src/routes/oauth.consent.tsx",
+    "fichier": "src/features/connecteur/queries.ts",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
@@ -217,12 +211,6 @@
   },
   {
     "regle": "route-mince",
-    "fichier": "src/routes/_app.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
     "fichier": "src/routes/_app/bibliotheque/$.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
@@ -232,66 +220,6 @@
     "fichier": "src/routes/_app/demandes/$demande.tsx",
     "occurrences": 2,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/index.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/investissements/$annee/$investissement.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/investissements/$annee/index.tsx",
-    "occurrences": 4,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/prestataires/$prestataire.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/releves/index.tsx",
-    "occurrences": 3,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/sites.tsx",
-    "occurrences": 3,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/utilisateurs/$utilisateur.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/utilisateurs/index.tsx",
-    "occurrences": 4,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/login.tsx",
-    "occurrences": 5,
-    "motif": "écran hors application (connexion, consentement OAuth) resté dans sa route ; antérieur au 25/11/2026, à déplacer dans sa feature (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/oauth.consent.tsx",
-    "occurrences": 6,
-    "motif": "écran hors application (connexion, consentement OAuth) resté dans sa route ; antérieur au 25/11/2026, à déplacer dans sa feature (chantier séparé)"
   },
   {
     "regle": "statut-nombre",
@@ -745,13 +673,13 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/routes/_app/investissements/$annee/$investissement.tsx",
+    "fichier": "src/features/investissements/components/investissement-ecran.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/routes/_app/prestataires/$prestataire.tsx",
+    "fichier": "src/features/prestataires/components/prestataire-ecran.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
@@ -769,7 +697,7 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/routes/_app/utilisateurs/$utilisateur.tsx",
+    "fichier": "src/features/utilisateurs/components/utilisateur-ecran.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   }
