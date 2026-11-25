@@ -1,5 +1,6 @@
 import { queryOptions, skipToken } from '@tanstack/react-query'
 import { listeFr } from '@/lib/liste'
+import { toutesLesLignes } from '@/lib/pagination'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/lib/database.types'
 import { lireCompteursLieu } from './fiche-lieu'
@@ -125,9 +126,11 @@ export const localisationsQueries = {
     }),
 
   /**
-   * Arbre COMPLET des lieux du site (bâtiments → niveaux → locaux, noms et
-   * rattachements seulement) : sert à l'import CSV pour réutiliser l'existant
-   * et repérer les doublons avant de créer.
+   * Arbre COMPLET des lieux du site (bâtiments → niveaux → locaux, noms,
+   * rattachements et type de local) : sert à l'import CSV (réutiliser
+   * l'existant, repérer les doublons) et au sélecteur de lieux du déploiement
+   * en masse. Niveaux et locaux lus par pages (`toutesLesLignes`) : un site
+   * dépasse vite 1 000 lieux, plafond que PostgREST applique en silence.
    */
   arbre: (siteId: string | null) =>
     queryOptions({
@@ -141,30 +144,39 @@ export const localisationsQueries = {
                 .select('id, nom')
                 .eq('site_id', siteId)
                 .order('nom')
+                .order('id')
                 .abortSignal(signal)
                 .throwOnError()
               const batimentIds = batiments.map((b) => b.id)
               if (batimentIds.length === 0) {
                 return { batiments, niveaux: [], locaux: [] }
               }
-              const { data: niveaux } = await supabase
-                .from('niveaux')
-                .select('id, nom, batiment_id')
-                .in('batiment_id', batimentIds)
-                .order('ordre')
-                .order('nom')
-                .abortSignal(signal)
-                .throwOnError()
+              const niveaux = await toutesLesLignes((debut, fin) =>
+                supabase
+                  .from('niveaux')
+                  .select('id, nom, batiment_id')
+                  .in('batiment_id', batimentIds)
+                  .order('ordre')
+                  .order('nom')
+                  .order('id')
+                  .range(debut, fin)
+                  .abortSignal(signal)
+                  .throwOnError(),
+              )
               const niveauIds = niveaux.map((n) => n.id)
               if (niveauIds.length === 0)
                 return { batiments, niveaux, locaux: [] }
-              const { data: locaux } = await supabase
-                .from('locaux')
-                .select('id, nom, niveau_id')
-                .in('niveau_id', niveauIds)
-                .order('nom')
-                .abortSignal(signal)
-                .throwOnError()
+              const locaux = await toutesLesLignes((debut, fin) =>
+                supabase
+                  .from('locaux')
+                  .select('id, nom, niveau_id, type_local_id')
+                  .in('niveau_id', niveauIds)
+                  .order('nom')
+                  .order('id')
+                  .range(debut, fin)
+                  .abortSignal(signal)
+                  .throwOnError(),
+              )
               return { batiments, niveaux, locaux }
             },
     }),

@@ -5,6 +5,7 @@ import {
   Folder,
   FolderTree,
   Inbox,
+  MapPinned,
   Package,
   Pencil,
   Plus,
@@ -26,6 +27,8 @@ import { ParcSousCategorieDialog } from './parc-sous-categorie-dialog'
 import { EquipementDetail, type GammesDeLaFiche } from './equipement-detail'
 import { EquipementBadges } from './equipement-badges'
 import { ImportCsvDialog } from './import-csv-dialog'
+import { DeploiementDialog } from './deploiement-dialog'
+import { gabaritSousCategorie } from '../deploiement'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
 import {
   categoriesQueries,
@@ -129,6 +132,7 @@ export function EquipementsExplorer({
   const { data: role } = useCurrentRole()
   const canEdit = perm.canManageMetier(role)
   const canEntreprise = perm.canManageAdmin(role)
+  const canDeployer = perm.canDeployerEquipements(role)
 
   const categoriesQuery = useQuery(categoriesQueries.pool())
   const equipementsQuery = useQuery(equipementsQueries.list(siteId))
@@ -220,6 +224,7 @@ export function EquipementsExplorer({
     eq: Equipement | null
   }>({ open: false, eq: null })
   const [importCsvOpen, setImportCsvOpen] = useState(false)
+  const [deploiementOpen, setDeploiementOpen] = useState(false)
   const suppression = useConfirmDelete<Equipement>({
     onDelete: async (e) => {
       if (e.id) await del.mutateAsync(e.id)
@@ -294,20 +299,7 @@ export function EquipementsExplorer({
   const currentTemplate = (() => {
     if (!current || current.virtual) return null
     const cat = categoriesById.get(current.id)
-    if (!cat) return null
-    if (current.modeleId) {
-      const m = (modelesQuery.data ?? []).find((x) => x.id === current.modeleId)
-      return {
-        champs: parseChamps(m?.specifications),
-        miniatureId: m?.miniature_id ?? null,
-        modeleId: current.modeleId,
-      }
-    }
-    return {
-      champs: parseChamps(cat.specifications),
-      miniatureId: cat.miniature_id ?? null,
-      modeleId: null,
-    }
+    return cat ? gabaritSousCategorie(cat, modelesQuery.data ?? []) : null
   })()
 
   // La descente vient de l'URL : le bouton Précédent du navigateur peut
@@ -382,6 +374,16 @@ export function EquipementsExplorer({
   ) : null
   // Import en masse (CSV généré via IA générative) : même gabarit que la
   // création manuelle, réservé à une sous-catégorie déjà existante.
+  // Déploiement en masse de la famille courante dans plusieurs lieux (184).
+  const deployerBtn =
+    canDeployer && canCreateEquipHere ? (
+      <TooltipIconButton
+        icon={<MapPinned />}
+        label="Déployer dans plusieurs lieux"
+        variant="outline"
+        onClick={() => setDeploiementOpen(true)}
+      />
+    ) : null
   const importCsvBtn = canCreateEquipHere ? (
     <TooltipIconButton
       icon={<Upload />}
@@ -526,6 +528,7 @@ export function EquipementsExplorer({
               {newSubCategoryBtn}
               {editSubcatBtn}
               {newEquipBtn}
+              {deployerBtn}
               {importCsvBtn}
               {selectBtn}
             </>
@@ -639,6 +642,19 @@ export function EquipementsExplorer({
           equipementsExistants={equipements.filter(
             (e) => e.categorie_id === current.id,
           )}
+        />
+      )}
+
+      {/* Déploiement en masse : garde STABLE (le rôle), jamais le palier
+          courant — l'annulation proposée par le toast vit dans la modale. */}
+      {canDeployer && (
+        <DeploiementDialog
+          open={deploiementOpen}
+          onOpenChange={setDeploiementOpen}
+          siteId={siteId}
+          categorieIdParDefaut={
+            current && !current.virtual && depth >= 2 ? current.id : null
+          }
         />
       )}
 

@@ -5,6 +5,15 @@ import { equipementsQueries } from './queries'
 import { parseChamps, serializeChamps, type Champ } from '@/lib/champs'
 import { categoriesQueries } from '@/features/categories/queries'
 import { clesRacines } from '@/lib/cles-racines'
+import type { Json } from '@/lib/database.types'
+import { ordresTravailQueries } from '@/features/ordres-travail/queries'
+import { localisationsQueries } from '@/features/localisations/queries'
+import {
+  lireApercuAnnulation,
+  lireApercuDeploiement,
+  type ApercuAnnulation,
+  type ApercuDeploiement,
+} from './deploiement'
 
 /**
  * ÉDITION des attributs de BASE d'une SOUS-catégorie de parc : nom / description /
@@ -349,4 +358,96 @@ export function useSyncEquipementGammes() {
       void qc.invalidateQueries({ queryKey: clesRacines.gammes() })
     },
   })
+}
+
+/** Paramètres d'un déploiement en masse (`deployer_equipements`, 184). */
+export interface ParametresDeploiement {
+  categorieId: string
+  localIds: string[]
+  /** Caractéristiques communes changées `{ clé: valeur }` ; null = défauts. */
+  valeurs: Record<string, Json> | null
+  gammeIds: string[]
+  /** Lieux où la sous-catégorie a déjà un équipement : ignorés (défaut). */
+  ignorerDoublons: boolean
+}
+
+function appelDeploiement(p: ParametresDeploiement, appliquer: boolean) {
+  return supabase
+    .rpc('deployer_equipements', {
+      p_categorie_id: p.categorieId,
+      p_local_ids: p.localIds,
+      p_valeurs: p.valeurs,
+      p_gamme_ids: p.gammeIds,
+      p_ignorer_doublons: p.ignorerDoublons,
+      p_appliquer: appliquer,
+    })
+    .throwOnError()
+}
+
+/**
+ * APERÇU d'un déploiement : la base joue le déploiement puis l'annule (rien
+ * n'est écrit) et renvoie ce qu'elle ferait — chiffres, doublons, exemples,
+ * opérations ajoutées aux OT ouverts. Aucune invalidation.
+ */
+export function useApercuDeploiement() {
+  return useMutation({
+    mutationFn: async (
+      p: ParametresDeploiement,
+    ): Promise<ApercuDeploiement> => {
+      const { data } = await appelDeploiement(p, false)
+      return lireApercuDeploiement(data)
+    },
+  })
+}
+
+/**
+ * Déploie une flotte dans plusieurs lieux, en UNE transaction : équipements,
+ * rattachement aux plans de maintenance et OT ouverts synchronisés. Rafraîchit
+ * équipements, plans, OT et fiches de lieu (compteurs).
+ */
+export function useDeployerEquipements() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (
+      p: ParametresDeploiement,
+    ): Promise<ApercuDeploiement> => {
+      const { data } = await appelDeploiement(p, true)
+      return lireApercuDeploiement(data)
+    },
+    onSuccess: () => invaliderDeploiement(qc),
+  })
+}
+
+/**
+ * Annule un déploiement par son numéro de lot. `appliquer: false` = aperçu
+ * (ce qui serait supprimé, ce qui est conservé et pourquoi) ; `true` = supprime
+ * les équipements du lot sans historique. Seule l'application invalide.
+ */
+export function useAnnulerDeploiement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      lot,
+      appliquer,
+    }: {
+      lot: string
+      appliquer: boolean
+    }): Promise<ApercuAnnulation> => {
+      const { data } = await supabase
+        .rpc('annuler_deploiement', { p_lot: lot, p_appliquer: appliquer })
+        .throwOnError()
+      return lireApercuAnnulation(data)
+    },
+    onSuccess: (_r, { appliquer }) => {
+      if (appliquer) invaliderDeploiement(qc)
+    },
+  })
+}
+
+/** Ce qu'un déploiement (ou son annulation) change : 4 racines de cache. */
+function invaliderDeploiement(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: equipementsQueries.all() })
+  void qc.invalidateQueries({ queryKey: clesRacines.gammes() })
+  void qc.invalidateQueries({ queryKey: ordresTravailQueries.all() })
+  void qc.invalidateQueries({ queryKey: localisationsQueries.all() })
 }

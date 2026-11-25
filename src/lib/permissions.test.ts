@@ -5,6 +5,7 @@ import {
   ROLE_CODES,
   canCreateDemande,
   canDeleteDemande,
+  canDeployerEquipements,
   canEditDemande,
   canEditUser,
   canManageAdmin,
@@ -31,6 +32,18 @@ describe('canManageMetier', () => {
     expect(canManageMetier('lecteur')).toBe(false)
     expect(canManageMetier('demandeur')).toBe(false)
     expect(canManageMetier(null)).toBe(false)
+  })
+})
+
+describe('canDeployerEquipements', () => {
+  it('admin, manager et technicien ; ni lecteur, ni demandeur, ni sans rôle', () => {
+    expect(canDeployerEquipements('admin')).toBe(true)
+    expect(canDeployerEquipements('manager')).toBe(true)
+    expect(canDeployerEquipements('technicien')).toBe(true)
+    expect(canDeployerEquipements('lecteur')).toBe(false)
+    expect(canDeployerEquipements('demandeur')).toBe(false)
+    expect(canDeployerEquipements(null)).toBe(false)
+    expect(canDeployerEquipements('')).toBe(false)
   })
 })
 

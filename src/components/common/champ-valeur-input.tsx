@@ -17,6 +17,11 @@ interface ChampValeurInputProps {
   value: ChampValeur
   onChange: (value: ChampValeur) => void
   error?: string
+  /**
+   * Texte d'attente d'un champ TEXTE vide (ex. « Nom du lieu » : la valeur
+   * que la base posera si on n'en saisit pas). Ignoré par les autres types.
+   */
+  placeholder?: string
 }
 
 /**
@@ -86,6 +91,7 @@ export function ChampValeurInput({
   value,
   onChange,
   error,
+  placeholder,
 }: ChampValeurInputProps) {
   const fieldId = useId()
   const label = champ.cle
@@ -277,6 +283,7 @@ export function ChampValeurInput({
             id={fieldId}
             value={typeof value === 'string' ? value : ''}
             onChange={(e) => onChange(e.target.value || null)}
+            placeholder={placeholder}
             aria-invalid={error != null && error !== ''}
           />
         </Enveloppe>

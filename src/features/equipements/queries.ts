@@ -11,6 +11,7 @@ import {
 } from '@/lib/pagination'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import { localisationsQueries } from '@/features/localisations/queries'
+import { clesRacines } from '@/lib/cles-racines'
 
 export const equipementsQueries = {
   all: () => ['equipements'] as const,
@@ -108,6 +109,34 @@ export const equipementsQueries = {
                   .eq('equipement_id', equipementId)
                   .order('created_at', { ascending: false })
                   .order('id', { ascending: true })
+                  .range(debut, fin)
+                  .abortSignal(signal)
+                  .throwOnError(),
+              ),
+    }),
+
+  /**
+   * Plans de maintenance ACTIFS du site, proposés au déploiement en masse
+   * (rattachés aux équipements créés). Le commun n'y figure jamais
+   * (`site_id` du site, ADR 0009) : la base le refuserait. Clé rangée sous la
+   * racine des gammes (`clesRacines`) : toute écriture de gamme la rafraîchit,
+   * sans qu'equipements importe la feature gammes (qui l'importe, elle).
+   */
+  gammesDeployables: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [...clesRacines.gammes(), 'deployables', siteId] as const,
+      queryFn:
+        siteId === null
+          ? skipToken
+          : ({ signal }) =>
+              toutesLesLignes((debut, fin) =>
+                supabase
+                  .from('gammes')
+                  .select('id, nom, repeter_par_equipement')
+                  .eq('site_id', siteId)
+                  .eq('est_active', true)
+                  .order('nom')
+                  .order('id')
                   .range(debut, fin)
                   .abortSignal(signal)
                   .throwOnError(),

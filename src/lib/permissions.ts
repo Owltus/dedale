@@ -99,6 +99,16 @@ export function canManageAdmin(role: Role): role is 'admin' | 'manager' {
 }
 
 /**
+ * Déployer une flotte d'équipements en masse (`deployer_equipements`, 184) et
+ * annuler un déploiement : admin, manager et technicien sur leurs sites
+ * (décision PO du 25/11/2026, comme la création d'un équipement). Miroir de la
+ * garde de rôle de la RPC ; le périmètre de sites reste jugé par la base.
+ */
+export function canDeployerEquipements(role: Role): boolean {
+  return canManageMetier(role)
+}
+
+/**
  * Signaler une demande d'intervention : tout rôle actif sauf le lecteur.
  * Un rôle absent (null/undefined — ex. compte désactivé via le kill-switch,
  * `current_role()` renvoyant NULL) ne peut PAS créer : durcissement volontaire
