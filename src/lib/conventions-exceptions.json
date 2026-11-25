@@ -64,23 +64,5 @@
     "fichier": "src/features/miniatures/mutations.ts",
     "occurrences": 2,
     "motif": "une seule écriture en table ; l’appel suivant (RPC supprimer_blob_orphelin) ne fait que nettoyer le fichier Storage, volontairement non bloquant (antérieur au 25/11/2026)"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/equipements/components/equipements-explorer.tsx",
-    "occurrences": 9,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/gammes/components/gammes-explorer.tsx",
-    "occurrences": 3,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/hooks/use-catalogue-drill.ts",
-    "occurrences": 10,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   }
 ]

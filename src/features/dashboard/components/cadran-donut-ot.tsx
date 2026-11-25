@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Donut } from '@/components/common/charts/donut'
 import type { ChartSegment } from '@/components/common/charts/chart-tokens'
 import { CelluleDialog } from '@/features/planning/components/cellule-dialog'
@@ -64,7 +64,7 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
 
   // Listes par part, filtrées avec les prédicats canoniques (une seule lecture
   // d'horloge partagée par tous les prédicats de ce recalcul).
-  const parts = useMemo<PartOt[]>(() => {
+  const parts: PartOt[] = (() => {
     const maintenant = new Date()
     const cleCourante = cleSemaine(maintenant)
     const estEnCours = (ot: PlanningOt) =>
@@ -192,7 +192,7 @@ export function CadranDonutOt({ siteId }: CadranDonutOtProps) {
         ots,
       }),
     )
-  }, [ordresTravail])
+  })()
 
   // Le centre = RESTE À FAIRE = tous les arcs NON terminaux (Clôturé + Annulé de la
   // semaine EXCLUS : c'est déjà « fait »/abandonné). Cadran masqué s'il n'y a AUCUN arc.

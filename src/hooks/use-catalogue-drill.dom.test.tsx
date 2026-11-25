@@ -13,7 +13,7 @@ import {
   useCatalogueDrill,
   type CatalogueDrillCat,
 } from './use-catalogue-drill'
-import { useTreeDrill, type TreeDrill, type TreeNode } from './use-tree-drill'
+import type { DrillRoute } from './use-tree-drill'
 import { idAt } from '@/test/harness-hooks'
 
 /**
@@ -50,10 +50,10 @@ const RouteurCtx = createContext<Routeur>({
   navigateTo: () => undefined,
 })
 
-/** Adaptateur de route de test : même rôle que `useGammesDrill`. */
-function useDrillTest<T extends TreeNode>(cats: T[]): TreeDrill<T> {
+/** Adaptateur de route de test : même rôle que `useGammesDrillRoute`. */
+function useRouteTest(): DrillRoute {
   const { segs, navigateTo } = useContext(RouteurCtx)
-  return useTreeDrill(cats, segs, navigateTo)
+  return { catSegs: segs, navigateTo }
 }
 
 function FauxRouteur({
@@ -151,7 +151,7 @@ function monter(opts: {
         getItemId,
         getItemNom,
         getCategorieId,
-        useDrill: useDrillTest,
+        route: useRouteTest(),
       }),
     {
       initialProps: { cats: opts.cats ?? CATS, items: opts.items },

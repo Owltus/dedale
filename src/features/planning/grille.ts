@@ -194,6 +194,10 @@ export function useResolveCategorie(
   categories: Categorie[],
   gammes: GammeSkelInput[],
 ): { skeleton: CategorieInfo[]; ofOt: ResolveCategorie } {
+  // Directive : ce hook n'appelle aucun hook que React Compiler reconnaisse
+  // (`route.useX()` ou calcul pur), le compilateur ne l'inférerait donc pas ;
+  // on le lui fait compiler pour que ses valeurs gardent leur identité.
+  'use memo'
   const parId = new Map(categories.map((c) => [c.id, c]))
   const gammeCategorie = new Map(gammes.map((g) => [g.id, g.categorie_id]))
   // Catégories de GAMME visibles (calque de l'explorateur Plan de maintenance) :

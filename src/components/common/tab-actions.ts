@@ -37,8 +37,8 @@ export const TabActionContext = createContext<TabActionApi | null>(null)
  * Enregistre, pour l'onglet actif, l'action « ajouter » (bouton + mutualisé de
  * l'en-tête, avec tooltip `label`), un état `disabled` optionnel, et un éventuel
  * contrôle `extra` affiché à sa gauche. `action: null` sans `extra` masque tout.
- * L'action et l'`extra` doivent être stables (useCallback / useMemo) pour éviter
- * des ré-enregistrements.
+ * L'action et l'`extra` doivent être stables d'un rendu à l'autre (React Compiler
+ * les mémoïse chez l'appelant) pour éviter des ré-enregistrements.
  *
  * Hook + contexte volontairement isolés du composant <Tabs> : un module Vite ne
  * doit pas mélanger composant et non-composant (sinon Fast Refresh casse).
@@ -104,8 +104,9 @@ export const TabHeaderContext = createContext<TabHeaderApi | null>(null)
  * `<Tabs>` via `<PageHeader>`. `null` (ou hook non appelé) → en-tête de section
  * par défaut (titre = prop `title` de <Tabs>, sans fil d'Ariane).
  *
- * L'objet doit être STABLE : l'appelant le mémoïse (useMemo) — sinon il se ré-
- * enregistre à chaque rendu. Même contrat que `useTabAddAction`.
+ * L'objet doit être STABLE : il l'est chez un appelant compilé par React
+ * Compiler (mémoïsation automatique) — sinon il se ré-enregistre à chaque
+ * rendu. Même contrat que `useTabAddAction`.
  *
  * Contexte/hook volontairement isolés du composant <Tabs> : un module Vite ne
  * doit pas mélanger composant et non-composant (sinon Fast Refresh casse).

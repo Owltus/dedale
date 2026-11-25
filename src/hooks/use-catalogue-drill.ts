@@ -1,6 +1,5 @@
-import { useCallback, useMemo } from 'react'
 import { segOfUnique } from '@/lib/slug'
-import type { TreeDrill, TreeNode } from './use-tree-drill'
+import { useTreeDrill, type DrillRoute, type TreeNode } from './use-tree-drill'
 import { useLeafResync } from './use-leaf-resync'
 
 /**
@@ -29,7 +28,7 @@ interface UseCatalogueDrillParams<TItem, TCat extends CatalogueDrillCat> {
   realCats: TCat[]
   /**
    * Fabrique le nœud « Non classé » (id `NON_CLASSE_ID`, `virtual: true`) avec les
-   * champs propres à l'explorateur. À mémoïser (`useCallback`) pour la stabilité.
+   * champs propres à l'explorateur.
    */
   makeVirtual: () => TCat
   /** Éléments feuilles du site (gammes, équipements…). */
@@ -37,8 +36,8 @@ interface UseCatalogueDrillParams<TItem, TCat extends CatalogueDrillCat> {
   getItemId: (item: TItem) => string
   getItemNom: (item: TItem) => string
   getCategorieId: (item: TItem) => string | null
-  /** Adaptateur de route (`useGammesDrill` / `useEquipementsDrill`) enveloppant `useTreeDrill`. */
-  useDrill: (cats: TCat[]) => TreeDrill<TCat>
+  /** Lecture de l'URL et navigation (`useGammesDrillRoute()` / `useEquipementsDrillRoute()`). */
+  route: DrillRoute
 }
 
 export interface CatalogueDrill<TItem, TCat> {
@@ -76,13 +75,14 @@ export interface CatalogueDrill<TItem, TCat> {
 /**
  * Socle COMMUN des explorateurs de catalogue par catégorie (Plan de maintenance,
  * Équipements) : bac virtuel « Non classé » + orphelins, descente `useTreeDrill`
- * (via l'adaptateur de route fourni), regroupement des éléments par catégorie,
+ * (sur la route fournie par l'hôte), regroupement des éléments par catégorie,
  * résolution de la feuille ouverte, `catChain`, `goToItem` et re-synchronisation
  * de l'URL au renommage. Chaque explorateur ne garde que ses cartes, badges et
  * split spécifiques.
  *
  * Les fonctions d'accès (`getItemId`/`getItemNom`/`getCategorieId`/`makeVirtual`)
- * DOIVENT être mémoïsées côté hôte : elles alimentent les dépendances des `useMemo`
+ * doivent garder leur identité d'un rendu à l'autre (fonctions de module, ou
+ * mémoïsées par React Compiler chez l'hôte) : elles conditionnent les calculs
  * internes (bac « Non classé », drill, tri).
  */
 export function useCatalogueDrill<TItem, TCat extends CatalogueDrillCat>({
@@ -92,110 +92,83 @@ export function useCatalogueDrill<TItem, TCat extends CatalogueDrillCat>({
   getItemId,
   getItemNom,
   getCategorieId,
-  useDrill,
+  route,
 }: UseCatalogueDrillParams<TItem, TCat>): CatalogueDrill<TItem, TCat> {
   // Élément « de racine » : sans catégorie OU rangé dans une catégorie non visible
   // ici → regroupé dans le bac « Non classé ».
-  const visibleCatIds = useMemo(
-    () => new Set(realCats.map((c) => c.id)),
-    [realCats],
-  )
-  const isRoot = useCallback(
-    (item: TItem) => {
-      const cid = getCategorieId(item)
-      return cid === null || !visibleCatIds.has(cid)
-    },
-    [visibleCatIds, getCategorieId],
-  )
-  const orphans = useMemo(() => items.filter(isRoot), [items, isRoot])
+  const visibleCatIds = new Set(realCats.map((c) => c.id))
+  const isRoot = (item: TItem) => {
+    const cid = getCategorieId(item)
+    return cid === null || !visibleCatIds.has(cid)
+  }
+  const orphans = items.filter(isRoot)
 
   // Catégories du drill = catégories projetées + bac « Non classé » (s'il y a des
   // orphelins uniquement → dataset propre).
-  const drillCats = useMemo<TCat[]>(
-    () => (orphans.length > 0 ? [...realCats, makeVirtual()] : realCats),
-    [realCats, orphans, makeVirtual],
-  )
+  const drillCats: TCat[] =
+    orphans.length > 0 ? [...realCats, makeVirtual()] : realCats
 
   const { path, current, depth, children, goTo, leafSeg, goToLeaf } =
-    useDrill(drillCats)
+    useTreeDrill(drillCats, route.catSegs, route.navigateTo)
 
-  const childCategories = useMemo(
-    () =>
-      [...children].sort(
-        (a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom),
-      ),
-    [children],
+  const childCategories = [...children].sort(
+    (a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom),
   )
 
   // Segment d'URL d'un élément, désambiguïsé entre frères (même palier).
-  const itemSeg = useCallback(
-    (item: TItem, siblings: TItem[]) =>
-      segOfUnique(
-        { id: getItemId(item), nom: getItemNom(item) },
-        siblings.map((s) => ({ id: getItemId(s), nom: getItemNom(s) })),
-      ),
-    [getItemId, getItemNom],
-  )
+  const itemSeg = (item: TItem, siblings: TItem[]) =>
+    segOfUnique(
+      { id: getItemId(item), nom: getItemNom(item) },
+      siblings.map((s) => ({ id: getItemId(s), nom: getItemNom(s) })),
+    )
 
-  const itemsUnder = useCallback(
-    (catId: string | null) =>
-      catId === NON_CLASSE_ID
-        ? orphans
-        : catId === null
-          ? []
-          : items.filter((it) => getCategorieId(it) === catId),
-    [items, orphans, getCategorieId],
-  )
-
-  const itemsInCurrent = useMemo(
-    () =>
-      current === null
+  const itemsUnder = (catId: string | null) =>
+    catId === NON_CLASSE_ID
+      ? orphans
+      : catId === null
         ? []
-        : [...itemsUnder(current.id)].sort((a, b) =>
-            // `numeric: true` = tri NATUREL : les segments numériques sont
-            // comparés par valeur (« 5 » < « 5.1 » < « 6 » < « 10 »), pas
-            // caractère par caractère (qui placerait « 10 » avant « 2 »).
-            getItemNom(a).localeCompare(getItemNom(b), undefined, {
-              numeric: true,
-            }),
-          ),
-    [itemsUnder, current, getItemNom],
-  )
+        : items.filter((it) => getCategorieId(it) === catId)
+
+  const itemsInCurrent =
+    current === null
+      ? []
+      : [...itemsUnder(current.id)].sort((a, b) =>
+          // `numeric: true` = tri NATUREL : les segments numériques sont
+          // comparés par valeur (« 5 » < « 5.1 » < « 6 » < « 10 »), pas
+          // caractère par caractère (qui placerait « 10 » avant « 2 »).
+          getItemNom(a).localeCompare(getItemNom(b), undefined, {
+            numeric: true,
+          }),
+        )
 
   // Élément OUVERT résolu parmi les éléments du palier courant (mêmes frères qu'à
   // la génération → slug stable).
-  const openItem = useMemo(() => {
+  const openItem = (() => {
     if (leafSeg === undefined || current === null) return null
     const siblings = itemsUnder(current.id)
     return siblings.find((it) => itemSeg(it, siblings) === leafSeg) ?? null
-  }, [leafSeg, current, itemsUnder, itemSeg])
+  })()
 
-  const catChain = useCallback(
-    (catId: string | null): TCat[] => {
-      const chain: TCat[] = []
-      let id = catId
-      while (id) {
-        const c = drillCats.find((x) => x.id === id)
-        if (!c) break
-        chain.unshift(c)
-        id = c.parent_id
-      }
-      return chain
-    },
-    [drillCats],
-  )
+  const catChain = (catId: string | null): TCat[] => {
+    const chain: TCat[] = []
+    let id = catId
+    while (id) {
+      const c = drillCats.find((x) => x.id === id)
+      if (!c) break
+      chain.unshift(c)
+      id = c.parent_id
+    }
+    return chain
+  }
 
-  const goToItem = useCallback(
-    (item: TItem, opts?: { replace?: boolean }) => {
-      // Orphelin → bac « Non classé » ; sinon le chemin réel de sa catégorie.
-      const orphan = isRoot(item)
-      const cid = getCategorieId(item)
-      const chain = orphan ? catChain(NON_CLASSE_ID) : catChain(cid)
-      const siblings = itemsUnder(orphan ? NON_CLASSE_ID : cid)
-      goToLeaf(chain, itemSeg(item, siblings), { replace: opts?.replace })
-    },
-    [isRoot, getCategorieId, catChain, itemsUnder, itemSeg, goToLeaf],
-  )
+  const goToItem = (item: TItem, opts?: { replace?: boolean }) => {
+    // Orphelin → bac « Non classé » ; sinon le chemin réel de sa catégorie.
+    const orphan = isRoot(item)
+    const cid = getCategorieId(item)
+    const chain = orphan ? catChain(NON_CLASSE_ID) : catChain(cid)
+    const siblings = itemsUnder(orphan ? NON_CLASSE_ID : cid)
+    goToLeaf(chain, itemSeg(item, siblings), { replace: opts?.replace })
+  }
 
   // Re-synchronise l'URL si l'élément OUVERT est renommé (« Modifier » ou réception
   // realtime) : implémentation UNIQUE partagée (`useLeafResync`). `layout: true` →

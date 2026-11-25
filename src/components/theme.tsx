@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import type { ReactNode } from 'react'
 
@@ -31,17 +31,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.documentElement.classList.toggle('dark', resolved === 'dark')
   }, [resolved])
 
-  const value = useMemo<ThemeContextValue>(
-    () => ({
-      theme,
-      resolved,
-      setTheme: (next) => {
-        localStorage.setItem(STORAGE_KEY, next)
-        setThemeState(next)
-      },
-    }),
-    [theme, resolved],
-  )
+  const value: ThemeContextValue = {
+    theme,
+    resolved,
+    setTheme: (next) => {
+      localStorage.setItem(STORAGE_KEY, next)
+      setThemeState(next)
+    },
+  }
 
   return <ThemeContext value={value}>{children}</ThemeContext>
 }

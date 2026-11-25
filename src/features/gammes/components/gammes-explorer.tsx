@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import { FolderTree, Pencil, Plus, Trash2, Wrench } from 'lucide-react'
@@ -19,7 +19,7 @@ import { ConfirmDeleteCategorieDialog } from '@/features/categories/components/c
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { CategorieCard } from '@/features/categories/components/categorie-card'
 import { SousCategorieCard } from '@/features/categories/components/sous-categorie-card'
-import { useGammesDrill } from '../use-gammes-drill'
+import { useGammesDrillRoute } from '../use-gammes-drill'
 import {
   useCatalogueDrill,
   type CatalogueDrillCat,
@@ -61,6 +61,9 @@ const gammeId = (g: GammeRow) => g.id
 const gammeNom = (g: GammeRow) => g.nom
 const gammeCategorieId = (g: GammeRow) => g.categorie_id
 
+/** Repli stable tant que les gammes ne sont pas chargées (jamais muté). */
+const AUCUNE_GAMME: GammeRow[] = []
+
 /**
  * Explorateur du Plan de maintenance du SITE actif : navigation par CATÉGORIE
  * portée par l'URL (même patron que la page Équipements via `useCatalogueDrill`),
@@ -100,57 +103,40 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
   // Catégories de GAMME visibles : scope 'gamme'/'mixte' (jamais 'parc'/'equipement'
   // seul), actives, du commun (site_id null) OU du site actif — cohérent avec le
   // périmètre des sous-catégories sélectionnables (cf. gammesQueries.sousCategories).
-  const gammeCats = useMemo(
-    () =>
-      (categoriesQuery.data ?? []).filter(
-        (c) =>
-          c.est_actif &&
-          (c.scope === 'gamme' || c.scope === 'mixte') &&
-          (c.site_id === null || c.site_id === siteId),
-      ),
-    [categoriesQuery.data, siteId],
+  const gammeCats = (categoriesQuery.data ?? []).filter(
+    (c) =>
+      c.est_actif &&
+      (c.scope === 'gamme' || c.scope === 'mixte') &&
+      (c.site_id === null || c.site_id === siteId),
   )
   // Accès rapide à la catégorie COMPLÈTE (pour l'édition via le formulaire) ; le
   // drill ne manipule qu'une projection `CatalogueDrillCat`.
-  const categoriesById = useMemo(
-    () => new Map(gammeCats.map((c) => [c.id, c])),
-    [gammeCats],
-  )
+  const categoriesById = new Map(gammeCats.map((c) => [c.id, c]))
 
-  const gammes = useMemo<GammeRow[]>(
-    () => gammesQuery.data ?? [],
-    [gammesQuery.data],
-  )
+  const gammes = gammesQuery.data ?? AUCUNE_GAMME
 
   // Projection des catégories réelles + fabrique du bac virtuel « Non classé »,
   // consommées par `useCatalogueDrill` (bac + orphelins, drill, resync).
-  const realCats = useMemo<CatalogueDrillCat[]>(
-    () =>
-      gammeCats.map((c) => ({
-        id: c.id,
-        nom: c.nom,
-        parent_id: c.parent_id,
-        site_id: c.site_id,
-        description: c.description,
-        miniature_id: c.miniature_id,
-        ordre: c.ordre,
-        virtual: false,
-      })),
-    [gammeCats],
-  )
-  const makeVirtual = useCallback<() => CatalogueDrillCat>(
-    () => ({
-      id: NON_CLASSE_ID,
-      nom: 'Non classé',
-      parent_id: null,
-      site_id: siteId,
-      description: 'Gammes sans catégorie',
-      miniature_id: null,
-      ordre: Number.MAX_SAFE_INTEGER,
-      virtual: true,
-    }),
-    [siteId],
-  )
+  const realCats: CatalogueDrillCat[] = gammeCats.map((c) => ({
+    id: c.id,
+    nom: c.nom,
+    parent_id: c.parent_id,
+    site_id: c.site_id,
+    description: c.description,
+    miniature_id: c.miniature_id,
+    ordre: c.ordre,
+    virtual: false,
+  }))
+  const makeVirtual = (): CatalogueDrillCat => ({
+    id: NON_CLASSE_ID,
+    nom: 'Non classé',
+    parent_id: null,
+    site_id: siteId,
+    description: 'Gammes sans catégorie',
+    miniature_id: null,
+    ordre: Number.MAX_SAFE_INTEGER,
+    virtual: true,
+  })
 
   const {
     path,
@@ -169,7 +155,7 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     getItemId: gammeId,
     getItemNom: gammeNom,
     getCategorieId: gammeCategorieId,
-    useDrill: useGammesDrill,
+    route: useGammesDrillRoute(),
   })
 
   // Badges de statut AGRÉGÉS du palier (calcul des OT à charger + agrégation par
@@ -234,9 +220,8 @@ export function GammesExplorer({ siteId }: { siteId: string }) {
     canEdit && !c.virtual && c.site_id !== null
 
   // Racines de gamme DU SITE (parent candidat à l'édition ; masqué en mode minimal).
-  const parentCandidates = useMemo(
-    () => gammeCats.filter((c) => c.parent_id === null && c.site_id === siteId),
-    [gammeCats, siteId],
+  const parentCandidates = gammeCats.filter(
+    (c) => c.parent_id === null && c.site_id === siteId,
   )
 
   // Création d'une catégorie RACINE / SOUS-catégorie PROPRE AU SITE (scope gamme,

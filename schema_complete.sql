@@ -18441,7 +18441,10 @@ REVOKE EXECUTE ON FUNCTION public.storage_objet_modifiable(text)                
 GRANT EXECUTE ON FUNCTION public.resolve_prestataire_effectif(uuid, uuid, date) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.resolve_prestataire_for_ot(uuid)               TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.snapshot_ot_from_gamme(uuid)                   TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.prochaine_date_ot(date, integer)               TO authenticated, service_role;
+-- prochaine_date_ot : PAS d'authenticated — en prod (relevé du 25/11/2026) seuls
+-- postgres et service_role l'exécutent ; elle n'est appelée que depuis des
+-- fonctions SECURITY DEFINER. L'accorder serait un élargissement.
+GRANT EXECUTE ON FUNCTION public.prochaine_date_ot(date, integer)               TO service_role;
 GRANT EXECUTE ON FUNCTION public.storage_objet_modifiable(text)                 TO authenticated, service_role;
 
 

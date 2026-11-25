@@ -1,6 +1,6 @@
 /**
  * Helpers PURS partagés par les adaptateurs de drill par CHEMIN d'URL
- * (`useGammesDrill`, `useEquipementsDrill`, `useBiblioTreeDrill`). Ces trois hooks
+ * (`useGammesDrillRoute`, `useEquipementsDrillRoute`, `useBiblioTreeDrill`). Ces trois hooks
  * ne diffèrent que par leur route TanStack typée (`getRouteApi` + littéral `to`) —
  * qu'on garde propre à chacun pour préserver le typage strict des routes — et par
  * la présence d'un préfixe d'onglet. La logique réellement dupliquée (et sujette

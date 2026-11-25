@@ -7,6 +7,21 @@ export interface TreeNode {
   parent_id: string | null
 }
 
+/**
+ * Ce qu'un adaptateur de route (`useGammesDrillRoute`, `useEquipementsDrillRoute`)
+ * fournit au drill : les segments de catégorie lus dans l'URL et la navigation
+ * qui reconstruit le `_splat`. Donnée (pas un hook) : un hôte la lit lui-même et
+ * la passe à `useCatalogueDrill`, ce qui garde l'appel des hooks statique.
+ */
+export interface DrillRoute {
+  catSegs: string[]
+  navigateTo: (
+    catSegs: string[],
+    leaf: string | undefined,
+    opts: { replace: boolean },
+  ) => void
+}
+
 export interface TreeDrill<T> {
   /** Chemin résolu (racine → courant), tronqué au 1er segment invalide. */
   path: T[]
@@ -31,7 +46,7 @@ export interface TreeDrill<T> {
 /**
  * Cœur GÉNÉRIQUE (sans route) de la descente multi-niveaux d'un arbre de
  * catégories portée par le chemin d'URL. Les wrappers liés à une route concrète
- * (`useBiblioTreeDrill`, `useEquipementsDrill`) fournissent les segments de
+ * (`useBiblioTreeDrill`, `useEquipementsDrillRoute`) fournissent les segments de
  * catégorie déjà extraits du `_splat` (`catSegs`) et la fonction `navigateTo` qui
  * reconstruit le `_splat` complet (préfixe d'onglet éventuel + segments + feuille)
  * et appelle le routeur.
@@ -52,6 +67,10 @@ export function useTreeDrill<T extends TreeNode>(
     opts: { replace: boolean },
   ) => void,
 ): TreeDrill<T> {
+  // Directive : ce hook n'appelle aucun hook que React Compiler reconnaisse
+  // (`route.useX()` ou calcul pur), le compilateur ne l'inférerait donc pas ;
+  // on le lui fait compiler pour que ses valeurs gardent leur identité.
+  'use memo'
   const path: T[] = (() => {
     const result: T[] = []
     let parentId: string | null = null

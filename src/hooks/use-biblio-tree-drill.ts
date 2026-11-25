@@ -15,7 +15,7 @@ const route = getRouteApi('/_app/bibliotheque/$')
  *
  * Mince adaptateur de route : la logique de résolution/navigation vit dans
  * `useTreeDrill`. Pour une descente hors Bibliothèque (page Équipements), voir
- * `useEquipementsDrill`. Pour une descente à UN seul niveau, voir `useBiblioDrill`.
+ * `useEquipementsDrillRoute`. Pour une descente à UN seul niveau, voir `useBiblioDrill`.
  *
  * `cats` = TOUTES les catégories ouvrables (NON filtrées par périmètre) pour que
  * le chemin se résolve quel que soit le filtre courant (Commun / site / Tout).

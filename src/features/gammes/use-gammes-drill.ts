@@ -1,9 +1,5 @@
 import { getRouteApi } from '@tanstack/react-router'
-import {
-  useTreeDrill,
-  type TreeDrill,
-  type TreeNode,
-} from '@/hooks/use-tree-drill'
+import type { DrillRoute } from '@/hooks/use-tree-drill'
 import { joinSplat, splatCatSegs } from '@/hooks/drill-splat'
 
 // API typée de la route SPLAT `/gammes/<cat>/<sous>/<gamme>`. Via `getRouteApi`
@@ -13,15 +9,16 @@ const route = getRouteApi('/_app/gammes/$')
 /**
  * Descente par CATÉGORIES de la page Plan de maintenance, portée par le CHEMIN
  * d'URL : `/gammes/<cat>/<sous>/<gamme>`. Même patron que la page Équipements
- * (`useEquipementsDrill`) : tous les segments du `_splat` composent le chemin de
- * catégories, la FEUILLE éventuelle (une gamme ouverte) étant résolue par
- * l'explorateur. Mince adaptateur de route : toute la logique vit dans
- * `useTreeDrill`.
- *
- * `cats` = TOUTES les catégories de gamme ouvrables (commun + site), NON filtrées
- * davantage, pour que le chemin se résolve de bout en bout.
+ * (`useEquipementsDrillRoute`) : tous les segments du `_splat` composent le
+ * chemin de catégories, la FEUILLE éventuelle (une gamme ouverte) étant résolue
+ * par l'explorateur. Mince adaptateur de route : il ne fait que lire l'URL et
+ * naviguer, toute la logique vit dans `useTreeDrill` (via `useCatalogueDrill`).
  */
-export function useGammesDrill<T extends TreeNode>(cats: T[]): TreeDrill<T> {
+export function useGammesDrillRoute(): DrillRoute {
+  // Directive : ce hook n'appelle aucun hook que React Compiler reconnaisse
+  // (`route.useX()` ou calcul pur), le compilateur ne l'inférerait donc pas ;
+  // on le lui fait compiler pour que ses valeurs gardent leur identité.
+  'use memo'
   const { _splat } = route.useParams()
   const navigate = route.useNavigate()
   const catSegs = splatCatSegs(_splat, false)
@@ -36,5 +33,5 @@ export function useGammesDrill<T extends TreeNode>(cats: T[]): TreeDrill<T> {
       replace: opts.replace,
     })
   }
-  return useTreeDrill(cats, catSegs, navigateTo)
+  return { catSegs, navigateTo }
 }

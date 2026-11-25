@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { ScopeContext, type ScopeContextValue } from '@/hooks/use-scope'
 import { useSiteContext } from '@/features/sites/site-context'
@@ -15,6 +15,6 @@ import { SCOPE_COMMUN } from '@/lib/scope'
 export function ScopeProvider({ children }: { children: ReactNode }) {
   const { activeSiteId } = useSiteContext()
   const [scope, setScope] = useState<string>(() => activeSiteId ?? SCOPE_COMMUN)
-  const value = useMemo<ScopeContextValue>(() => ({ scope, setScope }), [scope])
+  const value: ScopeContextValue = { scope, setScope }
   return <ScopeContext value={value}>{children}</ScopeContext>
 }

@@ -24,8 +24,8 @@ import { useEffect, useRef, useState } from 'react'
  * dépendance de l'effet. La réécriture d'URL est un ÉVÉNEMENT (le slug vient de
  * devenir périmé), pas un effet de chaque rendu : des callbacks recréés à chaque
  * rendu — ce que font les appelants qui referment sur la fratrie fraîche — ne
- * rejouent donc PAS la navigation. Les appelants mémoïsent tout de même ce qu'ils
- * peuvent (`onSlugChange` des routes, `useCallback` sur `navigate`).
+ * rejouent donc PAS la navigation (les appelants, compilés par React Compiler,
+ * les gardent d'ailleurs stables).
  *
  * Mutualisé par les fiches détail résolues par slug (investissements, travaux…).
  */

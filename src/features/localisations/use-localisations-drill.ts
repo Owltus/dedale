@@ -17,6 +17,10 @@ export function useLocalisationsDrill(): {
   /** Navigue vers un chemin (PUSH) : `[]` racine, `[bât]`, `[bât, niveau]`. */
   goTo: (segs: string[]) => void
 } {
+  // Directive : ce hook n'appelle aucun hook que React Compiler reconnaisse
+  // (`route.useX()` ou calcul pur), le compilateur ne l'inférerait donc pas ;
+  // on le lui fait compiler pour que ses valeurs gardent leur identité.
+  'use memo'
   const { _splat } = route.useParams()
   const navigate = route.useNavigate()
   const segs = (_splat ?? '').split('/').filter(Boolean)

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Check,
@@ -35,7 +35,7 @@ import { CategoryFormDialog } from '@/features/categories/components/category-fo
 import { ConfirmDeleteCategorieDialog } from '@/features/categories/components/confirm-delete-categorie-dialog'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
-import { useEquipementsDrill } from '../use-equipements-drill'
+import { useEquipementsDrillRoute } from '../use-equipements-drill'
 import {
   useCatalogueDrill,
   type CatalogueDrillCat,
@@ -109,7 +109,7 @@ const equipementCategorieId = (e: Equipement) => e.categorie_id
 /**
  * Explorateur des Équipements du SITE actif : navigation par CATÉGORIE portée par
  * l'URL (même patron que le panneau « Modèles d'équipements » de la Bibliothèque,
- * via `useEquipementsDrill`), mais pour les ÉQUIPEMENTS RÉELS — chemin CLASSIQUE :
+ * via `useEquipementsDrillRoute`), mais pour les ÉQUIPEMENTS RÉELS — chemin CLASSIQUE :
  * - Racine : les catégories d'équipement DU SITE (+ un bac « Non classé » si des
  *   équipements n'ont pas de catégorie de site). On n'y crée QUE des catégories.
  * - Dans une catégorie : ses équipements ; on y crée un équipement (manuel) ou on
@@ -152,56 +152,39 @@ export function EquipementsExplorer({
 
   // Catégories de PARC du site actif (scope 'parc', taxonomie DÉDIÉE aux
   // équipements réels — séparée des catégories de modèles depuis 028), actives.
-  const equipmentCats = useMemo(
-    () =>
-      (categoriesQuery.data ?? []).filter(
-        (c) => c.est_actif && c.scope === 'parc' && c.site_id === siteId,
-      ),
-    [categoriesQuery.data, siteId],
+  const equipmentCats = (categoriesQuery.data ?? []).filter(
+    (c) => c.est_actif && c.scope === 'parc' && c.site_id === siteId,
   )
   // Accès rapide à la catégorie COMPLÈTE (pour l'édition via le formulaire).
-  const categoriesById = useMemo(
-    () => new Map(equipmentCats.map((c) => [c.id, c])),
-    [equipmentCats],
-  )
+  const categoriesById = new Map(equipmentCats.map((c) => [c.id, c]))
 
-  const equipements = useMemo(
-    () => equipementsQuery.data ?? [],
-    [equipementsQuery.data],
-  )
+  const equipements = equipementsQuery.data ?? []
 
   // Projection des catégories réelles + fabrique du bac virtuel « Non classé »
   // (avec le champ `modeleId` propre au parc), consommées par `useCatalogueDrill`.
-  const realCats = useMemo<DrillCat[]>(
-    () =>
-      equipmentCats.map((c) => ({
-        id: c.id,
-        nom: c.nom,
-        parent_id: c.parent_id,
-        site_id: c.site_id,
-        description: c.description,
-        miniature_id: c.miniature_id,
-        ordre: c.ordre,
-        modeleId: c.modele_equipement_id,
-        virtual: false,
-      })),
-    [equipmentCats],
-  )
-  const makeVirtual = useCallback<() => DrillCat>(
-    () => ({
-      id: NON_CLASSE_ID,
-      nom: 'Non classé',
-      parent_id: null,
-      site_id: siteId,
-      description: 'Équipements sans catégorie',
-      miniature_id: null,
-      // Toujours en DERNIER dans la liste des catégories racine.
-      ordre: Number.MAX_SAFE_INTEGER,
-      modeleId: null,
-      virtual: true,
-    }),
-    [siteId],
-  )
+  const realCats: DrillCat[] = equipmentCats.map((c) => ({
+    id: c.id,
+    nom: c.nom,
+    parent_id: c.parent_id,
+    site_id: c.site_id,
+    description: c.description,
+    miniature_id: c.miniature_id,
+    ordre: c.ordre,
+    modeleId: c.modele_equipement_id,
+    virtual: false,
+  }))
+  const makeVirtual = (): DrillCat => ({
+    id: NON_CLASSE_ID,
+    nom: 'Non classé',
+    parent_id: null,
+    site_id: siteId,
+    description: 'Équipements sans catégorie',
+    miniature_id: null,
+    // Toujours en DERNIER dans la liste des catégories racine.
+    ordre: Number.MAX_SAFE_INTEGER,
+    modeleId: null,
+    virtual: true,
+  })
 
   const {
     path,
@@ -219,7 +202,7 @@ export function EquipementsExplorer({
     getItemId: equipementId,
     getItemNom: equipementNom,
     getCategorieId: equipementCategorieId,
-    useDrill: useEquipementsDrill,
+    route: useEquipementsDrillRoute(),
   })
 
   // --- Dialogs ---
@@ -248,18 +231,18 @@ export function EquipementsExplorer({
   // l'interface ». `selectedIds` vide en dehors du mode, jamais affichée.
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const toggleSelection = useCallback((id: string) => {
+  const toggleSelection = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
-  }, [])
-  const quitterSelection = useCallback(() => {
+  }
+  const quitterSelection = () => {
     setSelectionMode(false)
     setSelectedIds(new Set())
-  }, [])
+  }
   // Suppression GROUPÉE : même mutation unitaire que la suppression simple,
   // en parallèle. `Promise.allSettled` (pas `all`) : un refus isolé (ex.
   // équipement rattaché à une gamme) ne doit pas faire échouer tout le lot
@@ -291,31 +274,24 @@ export function EquipementsExplorer({
 
   // Une catégorie réelle de site est gérable par le rôle métier ; le bac virtuel
   // « Non classé » ne l'est jamais.
-  const canManageCat = useCallback(
-    (c: DrillCat) =>
-      !c.virtual && canEdit && (canEntreprise || c.site_id !== null),
-    [canEdit, canEntreprise],
-  )
+  const canManageCat = (c: DrillCat) =>
+    !c.virtual && canEdit && (canEntreprise || c.site_id !== null)
 
   // Modèles proposés comme POINT DE DÉPART d'une sous-catégorie. Le périmètre
   // (site uniquement, jamais le catalogue commun) est porté par la query
   // `modelesEquipementsQueries.list` — ici on ne fait que la mise en forme.
-  const modeleOptions = useMemo(
-    () =>
-      (modelesQuery.data ?? []).map((m) => ({
-        id: m.id,
-        nom: m.nom,
-        description: m.description,
-        champs: parseChamps(m.specifications),
-        miniatureId: m.miniature_id,
-      })),
-    [modelesQuery.data],
-  )
+  const modeleOptions = (modelesQuery.data ?? []).map((m) => ({
+    id: m.id,
+    nom: m.nom,
+    description: m.description,
+    champs: parseChamps(m.specifications),
+    miniatureId: m.miniature_id,
+  }))
 
   // Gabarit hérité par un équipement créé dans la sous-catégorie courante :
   // caractéristiques + image. Source = le MODÈLE fixé, sinon le gabarit
   // « spécifique » local de la sous-catégorie. `null` hors sous-catégorie.
-  const currentTemplate = useMemo(() => {
+  const currentTemplate = (() => {
     if (!current || current.virtual) return null
     const cat = categoriesById.get(current.id)
     if (!cat) return null
@@ -332,7 +308,7 @@ export function EquipementsExplorer({
       miniatureId: cat.miniature_id ?? null,
       modeleId: null,
     }
-  }, [current, categoriesById, modelesQuery.data])
+  })()
 
   // La descente vient de l'URL : le bouton Précédent du navigateur peut
   // changer de palier pendant qu'un dialog est ouvert (voire avec un Select ou
@@ -360,10 +336,7 @@ export function EquipementsExplorer({
   }
 
   // Catégories racines (parent candidat à l'édition).
-  const parentCandidates = useMemo(
-    () => equipmentCats.filter((c) => c.parent_id === null),
-    [equipmentCats],
-  )
+  const parentCandidates = equipmentCats.filter((c) => c.parent_id === null)
 
   // --- En-tête : titre de page (racine) ou fil d'Ariane (descente) + actions. ---
   const isVirtualCurrent = current?.virtual ?? false
