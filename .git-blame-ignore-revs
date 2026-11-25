@@ -7,3 +7,6 @@
 
 # style(format): reformatage Prettier global (170 fichiers)
 8f5a6c45f8fa389e631894992a96f94988aa2610
+
+# style(edge): deno fmt appliqué aux Edge Functions (24 fichiers)
+17d35ff2526aeff425b88e7bf3a1719c41a9ec31

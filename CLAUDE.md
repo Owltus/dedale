@@ -9,7 +9,7 @@ Le front ne fait que **présenter et consommer** l'API. **Règle d'or : le front
 - `npm run dev` — dev sur **http://localhost:5181** (port fixe). Raccourci : `dev.bat`.
 - `npm run build` — build de prod. `npm run typecheck` — `tsc -b`. `npm run lint` — ESLint. `npm run format` — Prettier.
 - `npm run gen:types` — régénère les types Supabase (après `npx supabase login`, à relancer après chaque migration backend).
-- `npm run test` (Vitest) · `npm run deno:verifier` (lint + types + tests des Edge Functions, **Deno requis**) · `npm run test:couverture`.
+- `npm run test` (Vitest) · `npm run deno:verifier` (format + lint + types + tests des Edge Functions, **Deno requis**) · `npm run test:couverture`.
 - `npm run sante` / `sante:rapide` / `sante:complet` — bilan de santé (voir « Garde-fous automatiques »).
 - `npm run base:monter` / `base:tester` / `base:demonter` — **base locale jetable** (Docker) depuis `schema_complete.sql`, comptes de test, sondes RLS (`tests/securite/`) et tests d'intégration (`tests/integration/`). Jamais la prod. Prérequis et détails : `README.md`.
 

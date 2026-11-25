@@ -73,7 +73,7 @@ Chaque point reçoit **OK**, **ÉCHEC** ou **NON VÉRIFIÉ** (outil absent : jam
 | `npm run build` / `preview`                               | build de production (`dist/`) / prévisualisation                            |
 | `npm run typecheck` · `lint` · `format` · `format:check`  | types · ESLint · Prettier                                                   |
 | `npm run test` · `test:couverture`                        | Vitest · Vitest avec couverture                                             |
-| `npm run test:deno` · `deno:verifier`                     | tests Deno · lint + types + tests des Edge Functions                        |
+| `npm run test:deno` · `deno:verifier`                     | tests Deno · format + lint + types + tests des Edge Functions               |
 | `npm run gen:types`                                       | régénère les types Supabase depuis la prod (`npx supabase login` d'abord)   |
 | `npm run contraintes:instantane` · `contraintes:verifier` | instantané des contraintes SQL de la prod (oracle de concordance Zod ↔ SQL) |
 | `npx stryker run`                                         | tests de mutation (`stryker.config.json`, hors gate : long)                 |

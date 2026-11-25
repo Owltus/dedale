@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:couverture": "vitest run --coverage",
     "test:deno": "cd supabase/functions && deno test --allow-all --no-lock --node-modules-dir=none --quiet",
-    "deno:verifier": "cd supabase/functions && deno lint --rules-exclude=no-import-prefix && deno check --quiet --no-lock --node-modules-dir=none */index.ts && deno test --allow-all --no-lock --node-modules-dir=none --quiet",
+    "deno:verifier": "cd supabase/functions && deno fmt --check --single-quote --no-semicolons --line-width 120 --ignore=_shared/database.types.ts && deno lint --rules-exclude=no-import-prefix && deno check --quiet --no-lock --node-modules-dir=none */index.ts && deno test --allow-all --no-lock --node-modules-dir=none --quiet",
     "base:monter": "node scripts/base-locale.mjs monter",
     "base:tester": "node scripts/base-locale.mjs tester",
     "base:demonter": "node scripts/base-locale.mjs demonter",
