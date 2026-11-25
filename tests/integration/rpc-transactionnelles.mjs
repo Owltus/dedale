@@ -90,21 +90,12 @@ const ECRIVAINS = {
  * (`rpc · identité · site`) → motif. Un cas épinglé qui échoue comme prévu ne
  * fait pas échouer la suite ; un cas épinglé qui PASSE la fait échouer (le bug
  * est corrigé : retirer l'épinglage) ; tout autre écart la fait échouer.
+ *
+ * Historique : les 8 refus silencieux de poser_devis_retenus (25/11/2026) sont
+ * corrigés par la migration 177 (refus explicite 42501) — épinglage retiré.
  */
-const MOTIF_DEVIS =
-  'BUG CANDIDAT 25/11/2026 : poser_devis_retenus ne lève pas 42501 hors périmètre — décision PO attendue'
-const ECARTS_CONNUS = new Map(
-  [
-    'managerA · B',
-    'technicienA · B',
-    'lecteurA · A',
-    'lecteurA · B',
-    'demandeurA · A',
-    'demandeurA · B',
-    'managerB · A',
-    'technicienB · A',
-  ].map((cas) => [`poser_devis_retenus · ${cas}`, MOTIF_DEVIS]),
-)
+/** @type {Map<string, string>} */
+const ECARTS_CONNUS = new Map()
 
 function attendu(rpc, identite, site) {
   if (identite === 'admin') return 'ok'

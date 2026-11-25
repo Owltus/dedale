@@ -18125,6 +18125,13 @@ CREATE OR REPLACE FUNCTION public.poser_devis_retenus(
  SET search_path TO ''
 AS $function$
 BEGIN
+    -- Projet invisible ou non modifiable par l'appelant (RLS) → refus explicite (177).
+    PERFORM 1 FROM public.investissements WHERE id = p_projet_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Projet hors de votre périmètre'
+            USING ERRCODE = '42501';
+    END IF;
+
     UPDATE public.investissements_devis SET retenu = false
     WHERE investissement_id = p_projet_id;
     IF coalesce(array_length(p_retenus, 1), 0) > 0 THEN
@@ -18148,7 +18155,7 @@ COMMENT ON FUNCTION public.creer_demande(uuid, text, date, uuid, uuid) IS
 COMMENT ON FUNCTION public.modifier_demande(uuid, text, boolean, uuid, uuid) IS
   'Modifie le constat d''une DI et, si p_liaisons, remet ses liaisons à plat — en UNE transaction (175).';
 COMMENT ON FUNCTION public.poser_devis_retenus(uuid, uuid[]) IS
-  'Coche exactement p_retenus parmi les devis du projet, en UNE transaction (175).';
+  'Coche exactement p_retenus parmi les devis du projet, en UNE transaction (175). Projet hors périmètre (invisible ou non modifiable) → 42501 (177).';
 
 
 -- =============================================================================
