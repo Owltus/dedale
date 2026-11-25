@@ -10,8 +10,8 @@
       "branches": 0
     },
     "components/common": {
-      "lignes": 64.3,
-      "branches": 54.3
+      "lignes": 68.1,
+      "branches": 57.7
     },
     "components/layout": {
       "lignes": 0,
@@ -26,7 +26,7 @@
       "branches": 0
     },
     "features/categories": {
-      "lignes": 4.3,
+      "lignes": 4.7,
       "branches": 0.7
     },
     "features/connecteur": {
@@ -54,8 +54,8 @@
       "branches": 30.2
     },
     "features/equipements": {
-      "lignes": 30.1,
-      "branches": 24.6
+      "lignes": 49.9,
+      "branches": 44.1
     },
     "features/evenements": {
       "lignes": 36.3,
@@ -70,8 +70,8 @@
       "branches": 26.8
     },
     "features/localisations": {
-      "lignes": 61.4,
-      "branches": 56.4
+      "lignes": 65.8,
+      "branches": 59.1
     },
     "features/miniatures": {
       "lignes": 2.9,
@@ -82,8 +82,8 @@
       "branches": 22.1
     },
     "features/modeles-equipements": {
-      "lignes": 44.7,
-      "branches": 49.6
+      "lignes": 47.5,
+      "branches": 50
     },
     "features/modeles-operations": {
       "lignes": 28.6,
