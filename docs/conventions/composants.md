@@ -121,3 +121,12 @@ La coquille ne gère que le **visuel** ; l'état + la validation viennent de RHF
 - ❌ Mettre de la logique métier dans `components/ui`.
 - ❌ Concaténer des classes conditionnelles à la main au lieu de CVA pour les variantes.
 - ❌ Modifier lourdement un composant `ui` shadcn sans raison (préférer wrapper dans `common/`).
+
+## Contrôlé par
+
+Les règles ne sont pas recopiées ici : chaque contrôle porte son message et renvoie à cette page.
+
+- **ESLint** (`eslint.config.js`, blocs « Conventions ») : `DialogContent` hors de `DialogShell` ; `forwardRef` ; `<select>`/`<textarea>` natifs hors `components/ui` ; `components/common` n'importe aucun composant de feature (une exception motivée, déclarée dans la config : `fields/identite-fields.tsx` → `MiniatureField`).
+- **`src/lib/conventions.test.ts`** : `cle-litterale`, `ecran-sans-page-container`.
+
+**Contrôlé par la revue (non automatisable)** : une seule modale visible à la fois ; `key={dlg.dialogKey}` (jamais une clé constante) ; choix de la coquille selon l'intention ; rôle jamais comparé en dur (`role === 'admin'`) hors `lib/permissions` ; `SiteScopedRoute` sur liste ET détail ; `isError` déstructuré (pas de `?? []` qui masque une panne) ; factoriser dans `common/` dès la 2ᵉ répétition.

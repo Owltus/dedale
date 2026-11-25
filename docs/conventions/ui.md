@@ -93,3 +93,11 @@ import { cardGrid } from '@/lib/responsive'
 - ❌ Une grille de cartes fixe (`grid-cols-3`) sans breakpoints : utiliser `cardGrid`.
 - ❌ Skeleton générique qui ne ressemble pas au contenu réel.
 - ❌ Spinner plein écran pour chaque liste (préférer les skeletons).
+
+## Contrôlé par
+
+Les règles ne sont pas recopiées ici : chaque contrôle porte son message et renvoie à cette page. Exceptions gelées et motivées : `src/lib/conventions-exceptions.json`.
+
+- **`src/lib/conventions.test.ts`** : `couleur-brute` (palette Tailwind ou hexadécimal), `ecran-sans-page-container` (`features/*/components/*-liste.tsx`), `texte-sans-accent` (textes affichés : JSX, libellés, toasts, messages d'erreur).
+
+**Contrôlé par la revue (non automatisable)** : `cn()` sur tout composant qui accepte `className` ; grilles via `cardGrid`, jamais `grid-cols-3` sans breakpoint ; règle des 4 états et squelette calqué sur le contenu ; toast pour un retour, dialog pour une confirmation destructive ; `destructive` solide réservé aux actions ; français correct au-delà des accents (orthographe, ton, glossaire).

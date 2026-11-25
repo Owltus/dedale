@@ -1,0 +1,6 @@
+#!/bin/sh
+# Garde-fou avant commit (plan garde-fous permanents, étape 9) — < 20 s.
+# Fichiers indexés : format, ESLint, conventions, secrets, fichiers interdits.
+# Contourner (`git commit --no-verify`) reste possible mais visible ; la CI
+# rejoue tout à la poussée.
+exec npm run --silent sante:rapide

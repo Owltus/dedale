@@ -1,0 +1,5 @@
+#!/bin/sh
+# Garde-fou avant poussée (plan garde-fous permanents, étape 9) — ~2 min.
+# Bilan complet par défaut : types, lint, format, tests Vitest et Deno, build,
+# concordance du schéma, code mort, vulnérabilités du code livré.
+exec npm run --silent sante

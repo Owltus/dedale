@@ -169,3 +169,13 @@ Quatre chemins écrivent une de ces deux colonnes **sans** passer par lui ni par
 - ❌ Déclarer un `z.object({…})` de formulaire **en ligne dans un `.tsx`** : il échappe au test de concordance.
 - ❌ Recopier une borne SQL **à la main** dans un commentaire ou un test comme oracle : la source est `contraintes-sql.json`, régénéré.
 - ❌ Fusionner deux helpers de validation homonymes sans avoir comparé les bornes des **colonnes** qu'ils visent.
+
+## Contrôlé par
+
+Les règles ne sont pas recopiées ici : chaque contrôle porte son message et renvoie à cette page. Exceptions gelées et motivées : `src/lib/conventions-exceptions.json`.
+
+- **ESLint** (`eslint.config.js`, blocs « Conventions ») : `createClient` hors `lib/supabase.ts` ; recherche maison `toLowerCase().includes`.
+- **`src/lib/conventions.test.ts`** : `enabled-skiptoken` (un `enabled:` passé à `queryOptions`/`useQuery`/`infiniteQueryOptions`), `mutation-multi-ecritures`, `deleted-at`, `use-memo-callback` (fichiers anciens gelés avec leur compte, tout fichier nouveau est rouge), `statut-nombre`, et côté SQL `sql-definer-sans-search-path`, `sql-vue-sans-invoker`, `sql-helper-auth`.
+- **Autres tests** : `concordance-sql.test.ts` (bornes Zod ↔ contraintes), `fraicheur.test.ts` (racine de clé), `database-types-copie.test.ts` ; le type `TablePubliee` (temps réel) est vérifié par TypeScript.
+
+**Contrôlé par la revue (non automatisable)** : gestion des erreurs Supabase (`.throwOnError()` ou `{ error }` traité — l'heuristique a été retirée : les cas signalés étaient gérés plus loin ou volontairement non bloquants) ; `.maybeSingle()` quand le vide est normal (sémantique) ; lecture de liste non bornée (heuristique trop bruyante : 60 cas, surtout de petites tables de référence) ; clés de query complètes ; `staleTime` ; `isPending` plutôt que `isLoading` (usages légitimes existants) ; message d'erreur traduit, jamais brut ; pas d'optimiste sur une suppression ; upload de document en 3 étapes ; schéma Zod de formulaire exporté depuis `schemas.ts`.

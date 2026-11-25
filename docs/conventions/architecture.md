@@ -79,3 +79,12 @@ Droits : `can…` ; prédicats métier : `est…`.
 - Composants (le symbole) : `PascalCase`. Convention métier : `<Entité>Card`, `<Entité>Detail`, `<Entité>FormDialog`.
 - Fichiers de composants (le fichier) : **`kebab-case.tsx` partout**, `ui/`, `common/` **et** `features/` — ex. `site-form-dialog.tsx` exportant `SiteFormDialog`. Aucune exception.
 - Imports : alias **`@/`** pour tout `src/` (pas de `../../../`).
+
+## Contrôlé par
+
+Les règles ne sont pas recopiées ici : chaque contrôle porte son message et renvoie à cette page. Exceptions gelées et motivées : `src/lib/conventions-exceptions.json` (un écart nouveau est rouge, une exception devenue inutile aussi).
+
+- **ESLint** (`eslint.config.js`, blocs « Conventions ») : règles de dépendances `components/ui`, `lib/`, `hooks/`, `components/common`.
+- **`src/lib/conventions.test.ts`** : `route-mince`, `cycle-features`, `cle-litterale`, `nommage-hooks-crud`, `dossier-non-documente` (un dossier de `supabase/functions/`, `scripts/` ou `tests/` cité nulle part dans CLAUDE.md ni README.md).
+
+**Contrôlé par la revue (non automatisable)** : garde d'auth et de rôle dans `beforeLoad` (pas dans un hook) ; `isRedirect` relancé dans un `catch` ; filtres de liste en état local ; une brique d'un seul domaine reste dans ce domaine ; nommage métier (`<Entité>Card`, `<Entité>Detail`…), fichiers en `kebab-case`, alias `@/` ; glossaire à l'écran (« lieu », « Plan de maintenance »).
