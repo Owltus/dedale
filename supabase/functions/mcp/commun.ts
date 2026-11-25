@@ -36,7 +36,8 @@ export function dateFr(iso: string | null | undefined): string | null {
   const jour = (d.getUTCDay() + 6) % 7
   d.setUTCDate(d.getUTCDate() - jour + 3)
   const premierJeudi = new Date(Date.UTC(d.getUTCFullYear(), 0, 4))
-  const semaine = 1 + Math.round(((d.getTime() - premierJeudi.getTime()) / 86400000 - 3 + ((premierJeudi.getUTCDay() + 6) % 7)) / 7)
+  const semaine = 1 +
+    Math.round(((d.getTime() - premierJeudi.getTime()) / 86400000 - 3 + ((premierJeudi.getUTCDay() + 6) % 7)) / 7)
   return `${String(j).padStart(2, '0')}/${String(m).padStart(2, '0')}/${a} (S${semaine})`
 }
 
@@ -47,10 +48,16 @@ export const ECRITURE_SENSIBLE = { ...ECRITURE, destructiveHint: true }
 
 export const uuid = z.string().uuid('Identifiant invalide')
 export const appliquer = z.boolean().default(false)
-export const code = z.string().regex(/^[0-9A-Fa-f]{8}$/, 'Code de confirmation : 8 caractères, donné par l’aperçu').optional()
+export const code = z.string().regex(/^[0-9A-Fa-f]{8}$/, 'Code de confirmation : 8 caractères, donné par l’aperçu')
+  .optional()
 
 export const PROPRIETES_CONFIRMATION = {
-  appliquer: { type: 'boolean', default: false, description: 'false (défaut) = APERÇU, rien n’est enregistré. true = enregistrer, seulement après un oui explicite de la personne sur l’aperçu.' },
+  appliquer: {
+    type: 'boolean',
+    default: false,
+    description:
+      'false (défaut) = APERÇU, rien n’est enregistré. true = enregistrer, seulement après un oui explicite de la personne sur l’aperçu.',
+  },
   code: { type: 'string', description: 'Code de confirmation rendu par l’aperçu (obligatoire avec appliquer=true).' },
 }
 
@@ -71,7 +78,13 @@ export function datesEnFrancais(v: unknown): unknown {
 }
 
 /** Appelle une fonction claude_* et rend un résultat prêt à montrer. */
-export async function geste(ctx: Contexte, fonction: string, params: Record<string, unknown>, appliquerDemande: boolean, apres: string) {
+export async function geste(
+  ctx: Contexte,
+  fonction: string,
+  params: Record<string, unknown>,
+  appliquerDemande: boolean,
+  apres: string,
+) {
   const { data, error } = await ctx.supabase.rpc(fonction, params)
   // Les messages viennent de la base (fonctions 158-159, triggers) : en français,
   // destinés à la personne.
@@ -79,16 +92,21 @@ export async function geste(ctx: Contexte, fonction: string, params: Record<stri
     // 162 : seuls les messages écrits pour la personne (RAISE des fonctions
     // claude_* = P0001, refus de droit = 42501) sont relayés. Le reste
     // (contraintes, syntaxe, PostgREST) reste dans les journaux.
-    if (error.code === 'P0001' || error.code === '42501') throw new ErreurOutil(`Rien n’a été enregistré. ${error.message}`)
+    if (error.code === 'P0001' || error.code === '42501') {
+      throw new ErreurOutil(`Rien n’a été enregistré. ${error.message}`)
+    }
     console.error(fonction, error)
-    throw new ErreurOutil('Rien n’a été enregistré : Dédale a refusé ces valeurs (format ou cohérence). Relis la fiche ou l’OT, puis refais l’aperçu.')
+    throw new ErreurOutil(
+      'Rien n’a été enregistré : Dédale a refusé ces valeurs (format ou cohérence). Relis la fiche ou l’OT, puis refais l’aperçu.',
+    )
   }
   const resultat = datesEnFrancais(data) as Record<string, unknown>
   return {
     ...resultat,
     consigne: appliquerDemande
       ? `C’est enregistré. ${apres}`
-      : `APERÇU SEULEMENT. Montre ce récapitulatif à la personne et attends un oui explicite. Ensuite seulement, rappelle cet outil avec EXACTEMENT les mêmes paramètres, appliquer=true et code=${String(resultat.code_confirmation)}.`,
+      : `APERÇU SEULEMENT. Montre ce récapitulatif à la personne et attends un oui explicite. Ensuite seulement, rappelle cet outil avec EXACTEMENT les mêmes paramètres, appliquer=true et code=${
+        String(resultat.code_confirmation)
+      }.`,
   }
 }
-

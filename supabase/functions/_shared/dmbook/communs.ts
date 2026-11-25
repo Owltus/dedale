@@ -49,21 +49,31 @@ export const REGLES_COMMUNS: [RegExp, string][] = [
   [/tapis (de )?course/i, 'Salle de sports'],
   [/chasse d'?eau/i, 'Sanitaires'],
   [/porche/i, "SAS d'entrée"],
-  [/\bfour\b|lave[\s-]?vaisselle|trancheuse|bac [àa] graisse|machine [àa] (oeuf|œuf)|cuire les (oeufs|œufs)|frigo [àa] lait/i, 'Cuisine Club'],
-  [/gla[cç]on|buffet|viennoiserie|planche [àa] pain|\bpdj\b|castalie|fontaine [àa] eau|machine [àa] eau|machine [àa] k?f[ée]/i, 'Club'],
+  [
+    /\bfour\b|lave[\s-]?vaisselle|trancheuse|bac [àa] graisse|machine [àa] (oeuf|œuf)|cuire les (oeufs|œufs)|frigo [àa] lait/i,
+    'Cuisine Club',
+  ],
+  [
+    /gla[cç]on|buffet|viennoiserie|planche [àa] pain|\bpdj\b|castalie|fontaine [àa] eau|machine [àa] eau|machine [àa] k?f[ée]/i,
+    'Club',
+  ],
 ]
 
 /** Un local Dédale : nom + niveau (les « Circulation » existent à chaque étage). */
 export type LocalVise = { nom: string; niveau?: string }
 
 // « couloir du 4ème », « 1er étage », « palier 6eme »… → Circulation R+N.
-const ETAGE = /(couloir|[ée]tage|palier|plinthe|signal[ée]tique)[^.#\d]{0,25}?([1-6])\s?(?:er|[èée]me|e|ėme)(?![a-z])|\b([1-6])\s?(?:er|[èée]me|ėme)\s+(?:[ée]tage|couloir)/i
+const ETAGE =
+  /(couloir|[ée]tage|palier|plinthe|signal[ée]tique)[^.#\d]{0,25}?([1-6])\s?(?:er|[èée]me|e|ėme)(?![a-z])|\b([1-6])\s?(?:er|[èée]me|ėme)\s+(?:[ée]tage|couloir)/i
 
 // Écritures plus libres (« #2em … couloir », « #5èm spot », « réserve du 3ème »,
 // « 3e étage ») — essayées seulement si ETAGE n'a rien trouvé.
 const RANG = '([1-6])\\s?(?:er|[èéeė]me|[èée]m|em|e)\\b'
 const LIEU_ETAGE = 'couloir|moquette|spot|escalier|peinture|baguette|[ée]tage|extincteur|hublot'
-const ETAGE_LARGE = new RegExp(`(?:^|[\\s#])${RANG}(?=[^.]{0,40}(?:${LIEU_ETAGE}))|(?:${LIEU_ETAGE}|r[ée]serve)[^.#\\d]{0,30}?(?:^|\\s)(?:du |au )?${RANG}`, 'i')
+const ETAGE_LARGE = new RegExp(
+  `(?:^|[\\s#])${RANG}(?=[^.]{0,40}(?:${LIEU_ETAGE}))|(?:${LIEU_ETAGE}|r[ée]serve)[^.#\\d]{0,30}?(?:^|\\s)(?:du |au )?${RANG}`,
+  'i',
+)
 
 export function lireCommun(texte: string): LocalVise | null {
   for (const [re, nom] of REGLES_COMMUNS) if (re.test(texte)) return { nom }
@@ -73,4 +83,3 @@ export function lireCommun(texte: string): LocalVise | null {
   if (m2) return { nom: 'Circulation', niveau: `R+${m2[1] ?? m2[2]}` }
   return null
 }
-

@@ -29,14 +29,16 @@ export function chambresEnTete(texte: string): string[] {
 /** Chambres citées n'importe où : « #508 », « la #304 », « en 413 », « chambre 629 ». */
 const CITEE = /(?:#\s?|\bchambre\s+#?|\b(?:en|la|de la|du)\s+#?)([1-6](?:0[1-9]|[12]\d|3[01]))(?!\d)/gi
 // Numéro nu (« 505 // 202 ») : retenu SEULEMENT s'il est une chambre connue et pas une mesure.
-const NU = /(?<![\d\/.,:-])([1-6](?:0[1-9]|[12]\d|3[01]))(?![\d\/.,:]|\s?(?:°|%|€|h\b|min|cm|mm|m\b|kg|l\b|w\b|v\b|euros?))/gi
+const NU =
+  /(?<![\d\/.,:-])([1-6](?:0[1-9]|[12]\d|3[01]))(?![\d\/.,:]|\s?(?:°|%|€|h\b|min|cm|mm|m\b|kg|l\b|w\b|v\b|euros?))/gi
 export function chambresDansLeTexte(texte: string, connues?: Set<string>): string[] {
   const citees = [...texte.matchAll(CITEE)].map((m) => m[1])
   const nues = connues ? [...texte.matchAll(NU)].map((m) => m[1]).filter((c) => connues.has(c)) : []
   return [...new Set([...citees, ...nues])]
 }
 
-export const CITATION_AMBIGUE = /\bcl(?:[ée]{1,2}s?|efs?)(?![a-zà-ÿ])|carte(s)? de (s[ée]cu|chambre)|saflo|entre (la )?(chambre )?#?\s?\d{3}|\bdevant\b|en face/i
+export const CITATION_AMBIGUE =
+  /\bcl(?:[ée]{1,2}s?|efs?)(?![a-zà-ÿ])|carte(s)? de (s[ée]cu|chambre)|saflo|entre (la )?(chambre )?#?\s?\d{3}|\bdevant\b|en face/i
 
 /** Un local Dédale du site lié à Dmbook. `niveau` = nom du niveau (« R+1 »…). */
 export type Local = { id: string; nom: string; niveau: string }
@@ -79,11 +81,17 @@ export function analyser(texte: string, locaux: Locaux): Analyse {
     const citees = chambresDansLeTexte(brut, connues).filter((c) => connues.has(c)) // « #515 » : chambre inexistante → ignorée
     if (citees.length) {
       if (CITATION_AMBIGUE.test(brut)) source = 'ambigu'
-      else { chambres = citees; source = 'citee' }
+      else {
+        chambres = citees
+        source = 'citee'
+      }
     } else {
       const co = lireCommun(brut)
       const l = co && locaux.commun(co.nom, co.niveau)
-      if (l) { lieux.push(l.id); source = 'commun' }
+      if (l) {
+        lieux.push(l.id)
+        source = 'commun'
+      }
     }
   }
   for (const c of chambres) lieux.push(locaux.chambres.get(c)!.id)

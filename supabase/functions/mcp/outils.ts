@@ -8,7 +8,7 @@
 //   - textes de recherche nettoyés avant d'entrer dans un filtre PostgREST.
 
 import { z } from 'npm:zod@3.23.8'
-import { type Contexte, type Outil, type Resultat, ErreurOutil, date, dateFr } from './commun.ts'
+import { type Contexte, date, dateFr, ErreurOutil, type Outil, type Resultat } from './commun.ts'
 import { OUTILS_ECRITURE } from './outils-ecriture.ts'
 import { OUTILS_ECRITURE_DI } from './outils-ecriture-di.ts'
 import { OUTILS_ECRITURE_FICHES } from './outils-ecriture-fiches.ts'
@@ -20,7 +20,11 @@ export type { Contexte }
 const LECTURE = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 const OT_OUVERTS = ['planifie', 'en_cours', 'reouvert']
 const STATUT_OT: Record<string, string> = {
-  planifie: 'À faire', en_cours: 'En cours', cloture: 'Clôturé', annule: 'Annulé', reouvert: 'Rouvert',
+  planifie: 'À faire',
+  en_cours: 'En cours',
+  cloture: 'Clôturé',
+  annule: 'Annulé',
+  reouvert: 'Rouvert',
 }
 
 const site = z.string().min(1).max(120).optional()
@@ -69,8 +73,13 @@ async function sitesCibles(ctx: Contexte, demande: string | undefined) {
   if (!demande) return sites
   const d = demande.toLowerCase()
   const trouves = sites.filter((s) => s.id === demande || s.nom.toLowerCase().includes(d))
-  if (!trouves.length)
-    throw new ErreurOutil(`Aucun de tes sites ne correspond à « ${demande} ». Tes sites : ${sites.map((s) => s.nom).join(', ') || 'aucun'}.`)
+  if (!trouves.length) {
+    throw new ErreurOutil(
+      `Aucun de tes sites ne correspond à « ${demande} ». Tes sites : ${
+        sites.map((s) => s.nom).join(', ') || 'aucun'
+      }.`,
+    )
+  }
   return trouves
 }
 
@@ -84,9 +93,21 @@ const OT_COLONNES =
   'id, nom_gamme, nature_gamme, nom_equipement, nom_localisation, nom_prestataire, nom_categorie, libelle_periodicite, date_prevue, date_debut, date_cloture, statut, origine, tolerance_jours, site_id'
 
 type OtLigne = {
-  id: string; nom_gamme: string; nature_gamme: string; nom_equipement: string | null; nom_localisation: string | null
-  nom_prestataire: string; nom_categorie: string | null; libelle_periodicite: string; date_prevue: string
-  date_debut: string | null; date_cloture: string | null; statut: string; origine: string; tolerance_jours: number; site_id: string
+  id: string
+  nom_gamme: string
+  nature_gamme: string
+  nom_equipement: string | null
+  nom_localisation: string | null
+  nom_prestataire: string
+  nom_categorie: string | null
+  libelle_periodicite: string
+  date_prevue: string
+  date_debut: string | null
+  date_cloture: string | null
+  statut: string
+  origine: string
+  tolerance_jours: number
+  site_id: string
 }
 
 function presenterOt(ot: OtLigne, sites: { id: string; nom: string }[]) {
@@ -118,18 +139,33 @@ function lieuFiche(o: LieuJoint): string | null {
   const local = l ? [l.niveaux?.nom, l.nom].filter(Boolean).join(' / ') : null
   return [local, e ? `équipement ${e.code_inventaire}` : null].filter(Boolean).join(' — ') || null
 }
-type TacheJointe = LieuJoint & { id: string; libelle: string; statut: string; date_tache: string | null; ordre: number; commentaire: string | null }
+type TacheJointe = LieuJoint & {
+  id: string
+  libelle: string
+  statut: string
+  date_tache: string | null
+  ordre: number
+  commentaire: string | null
+}
 function tachesFiche(t: unknown) {
   return (t as TacheJointe[])
     .sort((x, y) => x.ordre - y.ordre)
-    .map((k) => ({ id: k.id, libelle: k.libelle, statut: k.statut, date: dateFr(k.date_tache), commentaire: k.commentaire, lieu: lieuFiche(k) }))
+    .map((k) => ({
+      id: k.id,
+      libelle: k.libelle,
+      statut: k.statut,
+      date: dateFr(k.date_tache),
+      commentaire: k.commentaire,
+      lieu: lieuFiche(k),
+    }))
 }
 
 const OUTILS_INTERNES: Outil[] = [
   {
     name: 'mes_sites',
     title: 'Mes sites et mon rôle',
-    description: 'Rôle de la personne connectée, ses sites (nom et identifiant) et si elle peut enregistrer via Claude (peut_ecrire). À appeler en premier.',
+    description:
+      'Rôle de la personne connectée, ses sites (nom et identifiant) et si elle peut enregistrer via Claude (peut_ecrire). À appeler en premier.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: LECTURE,
     schema: z.object({}).strict(),
@@ -143,7 +179,10 @@ const OUTILS_INTERNES: Outil[] = [
       return {
         role,
         peut_ecrire: peutEcrire,
-        ...(peutEcrire ? {} : { a_dire: 'Accès en lecture seule : tu peux consulter mais rien enregistrer. Un administrateur peut ouvrir la modification sur la fiche utilisateur.' }),
+        ...(peutEcrire ? {} : {
+          a_dire:
+            'Accès en lecture seule : tu peux consulter mais rien enregistrer. Un administrateur peut ouvrir la modification sur la fiche utilisateur.',
+        }),
         sites: sites.map((s) => ({ id: s.id, nom: s.nom })),
       }
     },
@@ -151,13 +190,19 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'ordres_travail',
     title: 'Chercher des ordres de travail',
-    description: 'Liste des ordres de travail (OT), filtrables par site, statut, retard, période de date prévue et texte (gamme, équipement, localisation). Par défaut : les OT non terminés.',
+    description:
+      'Liste des ordres de travail (OT), filtrables par site, statut, retard, période de date prévue et texte (gamme, équipement, localisation). Par défaut : les OT non terminés.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
       properties: {
         site: { type: 'string', description: 'Nom (ou partie du nom) du site ; par défaut tous mes sites' },
-        statut: { type: 'string', enum: ['ouverts', 'planifie', 'en_cours', 'reouvert', 'cloture', 'annule', 'tous'], default: 'ouverts', description: 'ouverts = à faire, en cours ou rouverts' },
+        statut: {
+          type: 'string',
+          enum: ['ouverts', 'planifie', 'en_cours', 'reouvert', 'cloture', 'annule', 'tous'],
+          default: 'ouverts',
+          description: 'ouverts = à faire, en cours ou rouverts',
+        },
         en_retard: { type: 'boolean', description: 'Seulement les OT en retard' },
         du: { type: 'string', description: 'Date prévue à partir de (AAAA-MM-JJ)' },
         au: { type: 'string', description: 'Date prévue jusqu’au (AAAA-MM-JJ)' },
@@ -168,20 +213,42 @@ const OUTILS_INTERNES: Outil[] = [
     },
     annotations: LECTURE,
     schema: z.object({
-      site, statut: z.enum(['ouverts', 'planifie', 'en_cours', 'reouvert', 'cloture', 'annule', 'tous']).default('ouverts'),
-      en_retard: z.boolean().optional(), du: date.optional(), au: date.optional(), recherche: z.string().max(120).optional(),
-      limite: limite(100, 30), page,
+      site,
+      statut: z.enum(['ouverts', 'planifie', 'en_cours', 'reouvert', 'cloture', 'annule', 'tous']).default('ouverts'),
+      en_retard: z.boolean().optional(),
+      du: date.optional(),
+      au: date.optional(),
+      recherche: z.string().max(120).optional(),
+      limite: limite(100, 30),
+      page,
     }).strict(),
-    run: async (a: { site?: string; statut: string; en_retard?: boolean; du?: string; au?: string; recherche?: string; limite: number; page: number }, ctx) => {
+    run: async (
+      a: {
+        site?: string
+        statut: string
+        en_retard?: boolean
+        du?: string
+        au?: string
+        recherche?: string
+        limite: number
+        page: number
+      },
+      ctx,
+    ) => {
       const sites = await sitesCibles(ctx, a.site)
-      let q = ctx.supabase.from('ordres_travail').select(OT_COLONNES, { count: 'exact' }).in('site_id', sites.map((s) => s.id))
+      let q = ctx.supabase.from('ordres_travail').select(OT_COLONNES, { count: 'exact' }).in(
+        'site_id',
+        sites.map((s) => s.id),
+      )
       if (a.en_retard || a.statut === 'ouverts') q = q.in('statut', OT_OUVERTS)
       else if (a.statut !== 'tous') q = q.eq('statut', a.statut)
       if (a.en_retard) q = q.lt('date_prevue', jourIso(new Date()))
       if (a.du) q = q.gte('date_prevue', a.du)
       if (a.au) q = q.lte('date_prevue', a.au)
       const texte = nettoyer(a.recherche)
-      if (texte) q = q.or(`nom_gamme.ilike.*${texte}*,nom_equipement.ilike.*${texte}*,nom_localisation.ilike.*${texte}*`)
+      if (texte) {
+        q = q.or(`nom_gamme.ilike.*${texte}*,nom_equipement.ilike.*${texte}*,nom_localisation.ilike.*${texte}*`)
+      }
       q = q.order('date_prevue', { ascending: true })
       if (a.en_retard) {
         // Le retard dépend de la tolérance de chaque OT : filtré ici.
@@ -189,7 +256,11 @@ const OUTILS_INTERNES: Outil[] = [
         if (error) throw error
         const tous = (data as OtLigne[]).filter(enRetard)
         const debut = (a.page - 1) * a.limite
-        return { total: tous.length, page: a.page, ordres_travail: tous.slice(debut, debut + a.limite).map((o) => presenterOt(o, sites)) }
+        return {
+          total: tous.length,
+          page: a.page,
+          ordres_travail: tous.slice(debut, debut + a.limite).map((o) => presenterOt(o, sites)),
+        }
       }
       const debut = (a.page - 1) * a.limite
       const { data, error, count } = await q.range(debut, debut + a.limite - 1)
@@ -200,8 +271,14 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'ordre_travail',
     title: 'Détail d’un ordre de travail',
-    description: 'Tout un OT : ses opérations (identifiant, type, statut, date, mesure, seuils, conformité, commentaire), les noms de ses documents, ses observations. L’identifiant vient de l’outil ordres_travail. À relire juste avant toute écriture.',
-    inputSchema: { type: 'object', additionalProperties: false, required: ['id'], properties: { id: { type: 'string', description: 'Identifiant de l’OT' } } },
+    description:
+      'Tout un OT : ses opérations (identifiant, type, statut, date, mesure, seuils, conformité, commentaire), les noms de ses documents, ses observations. L’identifiant vient de l’outil ordres_travail. À relire juste avant toute écriture.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['id'],
+      properties: { id: { type: 'string', description: 'Identifiant de l’OT' } },
+    },
     annotations: LECTURE,
     schema: z.object({ id: z.string().uuid('Identifiant d’OT invalide') }).strict(),
     run: async (a: { id: string }, ctx) => {
@@ -215,13 +292,25 @@ const OUTILS_INTERNES: Outil[] = [
       if (!ot) throw new ErreurOutil('OT introuvable (ou hors de tes sites).')
       const [ops, docs, obs] = await Promise.all([
         ctx.supabase.from('operations_execution')
-          .select('id, nom, description, type_operation, nom_equipement, nom_localisation, statut, date_execution, valeur_mesuree, unite_symbole, seuil_minimum, seuil_maximum, est_conforme, index_pose, index_depose, commentaires, ordre')
+          .select(
+            'id, nom, description, type_operation, nom_equipement, nom_localisation, statut, date_execution, valeur_mesuree, unite_symbole, seuil_minimum, seuil_maximum, est_conforme, index_pose, index_depose, commentaires, ordre',
+          )
           .eq('ordre_travail_id', a.id).order('ordre'),
-        ctx.supabase.from('documents_ordres_travail').select('commentaire, documents(nom_original, mime_type, uploaded_at)').eq('ordre_travail_id', a.id),
-        ctx.supabase.from('observations').select('description, gravite, statut, echeance, date_levee').eq('ot_id', a.id),
+        ctx.supabase.from('documents_ordres_travail').select(
+          'commentaire, documents(nom_original, mime_type, uploaded_at)',
+        ).eq('ordre_travail_id', a.id),
+        ctx.supabase.from('observations').select('description, gravite, statut, echeance, date_levee').eq(
+          'ot_id',
+          a.id,
+        ),
       ])
       for (const r of [ops, docs, obs]) if (r.error) throw r.error
-      const o = ot as OtLigne & { description_gamme: string | null; commentaires: string | null; motif_annulation: string | null; motif_reouverture: string | null }
+      const o = ot as OtLigne & {
+        description_gamme: string | null
+        commentaires: string | null
+        motif_annulation: string | null
+        motif_reouverture: string | null
+      }
       return {
         ...presenterOt(o, sites),
         description: o.description_gamme,
@@ -231,22 +320,41 @@ const OUTILS_INTERNES: Outil[] = [
         operations: (ops.data ?? []).map((p) => ({ ...p, date_execution: dateFr(p.date_execution as string | null) })),
         documents: (docs.data ?? []).map((d) => {
           const doc = d.documents as unknown as { nom_original: string; mime_type: string; uploaded_at: string } | null
-          return { nom: doc?.nom_original, type: doc?.mime_type, ajoute_le: dateFr(doc?.uploaded_at), commentaire: d.commentaire }
+          return {
+            nom: doc?.nom_original,
+            type: doc?.mime_type,
+            ajoute_le: dateFr(doc?.uploaded_at),
+            commentaire: d.commentaire,
+          }
         }),
-        observations: (obs.data ?? []).map((b) => ({ ...b, echeance: dateFr(b.echeance as string | null), levee_le: dateFr(b.date_levee as string | null) })),
+        observations: (obs.data ?? []).map((b) => ({
+          ...b,
+          echeance: dateFr(b.echeance as string | null),
+          levee_le: dateFr(b.date_levee as string | null),
+        })),
       }
     },
   },
   {
     name: 'planning',
     title: 'Planning',
-    description: 'Les OT dont la date prévue tombe dans une période (93 jours au plus), triés par date, avec leur semaine. Montre ce qui est programmé (automatique) et planifié (placé à la main).',
+    description:
+      'Les OT dont la date prévue tombe dans une période (93 jours au plus), triés par date, avec leur semaine. Montre ce qui est programmé (automatique) et planifié (placé à la main).',
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['du', 'au'],
-      properties: { du: { type: 'string', description: 'AAAA-MM-JJ' }, au: { type: 'string', description: 'AAAA-MM-JJ' }, site: { type: 'string' } },
+      type: 'object',
+      additionalProperties: false,
+      required: ['du', 'au'],
+      properties: {
+        du: { type: 'string', description: 'AAAA-MM-JJ' },
+        au: { type: 'string', description: 'AAAA-MM-JJ' },
+        site: { type: 'string' },
+      },
     },
     annotations: LECTURE,
-    schema: z.object({ du: date, au: date, site }).strict().refine((a) => a.du <= a.au && ajouterJours(a.du, 93) >= a.au, 'Période invalide : « du » avant « au », 93 jours au plus.'),
+    schema: z.object({ du: date, au: date, site }).strict().refine(
+      (a) => a.du <= a.au && ajouterJours(a.du, 93) >= a.au,
+      'Période invalide : « du » avant « au », 93 jours au plus.',
+    ),
     run: async (a: { du: string; au: string; site?: string }, ctx) => {
       const sites = await sitesCibles(ctx, a.site)
       const { data, error } = await ctx.supabase.from('ordres_travail').select(OT_COLONNES)
@@ -259,9 +367,11 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'plan_maintenance',
     title: 'Plan de maintenance',
-    description: 'Les gammes du plan de maintenance (périodicité, nature, prestataire) avec leur prochain OT et s’il est en retard. Filtre par site, texte ou nature.',
+    description:
+      'Les gammes du plan de maintenance (périodicité, nature, prestataire) avec leur prochain OT et s’il est en retard. Filtre par site, texte ou nature.',
     inputSchema: {
-      type: 'object', additionalProperties: false,
+      type: 'object',
+      additionalProperties: false,
       properties: {
         site: { type: 'string' },
         recherche: { type: 'string', description: 'Texte cherché dans le nom de la gamme' },
@@ -269,11 +379,14 @@ const OUTILS_INTERNES: Outil[] = [
       },
     },
     annotations: LECTURE,
-    schema: z.object({ site, recherche: z.string().max(120).optional(), inclure_inactives: z.boolean().default(false) }).strict(),
+    schema: z.object({ site, recherche: z.string().max(120).optional(), inclure_inactives: z.boolean().default(false) })
+      .strict(),
     run: async (a: { site?: string; recherche?: string; inclure_inactives: boolean }, ctx) => {
       const sites = await sitesCibles(ctx, a.site)
       let q = ctx.supabase.from('gammes')
-        .select('id, nom, nature, est_active, document_requis, site_id, periodicites(libelle), categories(nom), prestataires(libelle)')
+        .select(
+          'id, nom, nature, est_active, document_requis, site_id, periodicites(libelle), categories(nom), prestataires(libelle)',
+        )
         .in('site_id', sites.map((s) => s.id)).order('nom').limit(300)
       if (!a.inclure_inactives) q = q.eq('est_active', true)
       const texte = nettoyer(a.recherche)
@@ -282,7 +395,10 @@ const OUTILS_INTERNES: Outil[] = [
       if (error) throw error
       const ids = gammes.map((g) => g.id)
       const { data: ots, error: e2 } = ids.length
-        ? await ctx.supabase.from('ordres_travail').select('gamme_id, date_prevue, tolerance_jours, statut').in('gamme_id', ids).in('statut', OT_OUVERTS).order('date_prevue')
+        ? await ctx.supabase.from('ordres_travail').select('gamme_id, date_prevue, tolerance_jours, statut').in(
+          'gamme_id',
+          ids,
+        ).in('statut', OT_OUVERTS).order('date_prevue')
         : { data: [], error: null }
       if (e2) throw e2
       const prochain = new Map<string, { date_prevue: string; tolerance_jours: number; statut: string }>()
@@ -310,23 +426,36 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'releves',
     title: 'Relevés et mesures',
-    description: 'Historique des mesures saisies dans les OT (compteurs, températures…), du plus récent au plus ancien, avec seuils et conformité. Chercher par nom d’opération, d’équipement ou de localisation.',
+    description:
+      'Historique des mesures saisies dans les OT (compteurs, températures…), du plus récent au plus ancien, avec seuils et conformité. Chercher par nom d’opération, d’équipement ou de localisation.',
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['recherche'],
+      type: 'object',
+      additionalProperties: false,
+      required: ['recherche'],
       properties: {
         recherche: { type: 'string', description: 'Ex. « compteur eau », « chambre froide »' },
-        site: { type: 'string' }, du: { type: 'string', description: 'AAAA-MM-JJ' }, au: { type: 'string', description: 'AAAA-MM-JJ' },
+        site: { type: 'string' },
+        du: { type: 'string', description: 'AAAA-MM-JJ' },
+        au: { type: 'string', description: 'AAAA-MM-JJ' },
         limite: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
       },
     },
     annotations: LECTURE,
-    schema: z.object({ recherche: z.string().min(2).max(120), site, du: date.optional(), au: date.optional(), limite: limite(200, 50) }).strict(),
+    schema: z.object({
+      recherche: z.string().min(2).max(120),
+      site,
+      du: date.optional(),
+      au: date.optional(),
+      limite: limite(200, 50),
+    }).strict(),
     run: async (a: { recherche: string; site?: string; du?: string; au?: string; limite: number }, ctx) => {
       const sites = await sitesCibles(ctx, a.site)
       const texte = nettoyer(a.recherche)
       if (!texte) throw new ErreurOutil('Recherche vide.')
       let q = ctx.supabase.from('operations_execution')
-        .select('nom, nom_equipement, nom_localisation, valeur_mesuree, unite_symbole, unite_nom, seuil_minimum, seuil_maximum, est_conforme, date_execution, index_pose, index_depose, ordres_travail!inner(nom_gamme, site_id)')
+        .select(
+          'nom, nom_equipement, nom_localisation, valeur_mesuree, unite_symbole, unite_nom, seuil_minimum, seuil_maximum, est_conforme, date_execution, index_pose, index_depose, ordres_travail!inner(nom_gamme, site_id)',
+        )
         .not('valeur_mesuree', 'is', null)
         .in('ordres_travail.site_id', sites.map((s) => s.id))
         .or(`nom.ilike.*${texte}*,nom_equipement.ilike.*${texte}*,nom_localisation.ilike.*${texte}*`)
@@ -339,7 +468,9 @@ const OUTILS_INTERNES: Outil[] = [
       return {
         nombre: data.length,
         releves: data.map(({ ordres_travail: ot, date_execution, ...r }) => ({
-          ...r, date: dateFr(date_execution as string | null), gamme: (ot as unknown as { nom_gamme: string }).nom_gamme,
+          ...r,
+          date: dateFr(date_execution as string | null),
+          gamme: (ot as unknown as { nom_gamme: string }).nom_gamme,
         })),
       }
     },
@@ -347,9 +478,11 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'demandes',
     title: 'Demandes d’intervention',
-    description: 'Demandes d’intervention (DI) avec leurs lieux et équipements. Par défaut : celles qui ne sont pas clôturées.',
+    description:
+      'Demandes d’intervention (DI) avec leurs lieux et équipements. Par défaut : celles qui ne sont pas clôturées.',
     inputSchema: {
-      type: 'object', additionalProperties: false,
+      type: 'object',
+      additionalProperties: false,
       properties: {
         site: { type: 'string' },
         statut: { type: 'string', enum: ['ouvertes', 'ouvert', 'en_cours', 'cloture', 'toutes'], default: 'ouvertes' },
@@ -358,12 +491,19 @@ const OUTILS_INTERNES: Outil[] = [
       },
     },
     annotations: LECTURE,
-    schema: z.object({ site, statut: z.enum(['ouvertes', 'ouvert', 'en_cours', 'cloture', 'toutes']).default('ouvertes'), recherche: z.string().max(120).optional(), limite: limite(100, 30) }).strict(),
+    schema: z.object({
+      site,
+      statut: z.enum(['ouvertes', 'ouvert', 'en_cours', 'cloture', 'toutes']).default('ouvertes'),
+      recherche: z.string().max(120).optional(),
+      limite: limite(100, 30),
+    }).strict(),
     run: async (a: { site?: string; statut: string; recherche?: string; limite: number }, ctx) => {
       const sites = await sitesCibles(ctx, a.site)
       const ids: Record<string, number[]> = { ouvertes: [1, 2], ouvert: [1], en_cours: [2], cloture: [3] }
       let q = ctx.supabase.from('demandes_intervention')
-        .select('id, constat, date_constat, date_resolution, description_resolution, site_id, statuts_di(nom), di_localisations(local_id, locaux(nom, niveaux(nom))), di_equipements(equipement_id, equipements(code_inventaire, categories(nom)))')
+        .select(
+          'id, constat, date_constat, date_resolution, description_resolution, site_id, statuts_di(nom), di_localisations(local_id, locaux(nom, niveaux(nom))), di_equipements(equipement_id, equipements(code_inventaire, categories(nom)))',
+        )
         .in('site_id', sites.map((s) => s.id)).order('date_constat', { ascending: false }).limit(a.limite)
       if (a.statut !== 'toutes') q = q.in('statut_di_id', ids[a.statut])
       const texte = nettoyer(a.recherche)
@@ -379,10 +519,22 @@ const OUTILS_INTERNES: Outil[] = [
           date_constat: dateFr(d.date_constat),
           resolution: d.description_resolution,
           date_resolution: dateFr(d.date_resolution),
-          lieux: (d.di_localisations as unknown as { local_id: string; locaux: { nom: string; niveaux: { nom: string } | null } | null }[])
-            .map((l) => ({ local_id: l.local_id, texte: [l.locaux?.niveaux?.nom, l.locaux?.nom].filter(Boolean).join(' / ') })),
-          equipements: (d.di_equipements as unknown as { equipement_id: string; equipements: { code_inventaire: string | null; categories: { nom: string } | null } | null }[])
-            .map((e) => ({ id: e.equipement_id, texte: [e.equipements?.categories?.nom, e.equipements?.code_inventaire].filter(Boolean).join(' ') })),
+          lieux: (d.di_localisations as unknown as {
+            local_id: string
+            locaux: { nom: string; niveaux: { nom: string } | null } | null
+          }[])
+            .map((l) => ({
+              local_id: l.local_id,
+              texte: [l.locaux?.niveaux?.nom, l.locaux?.nom].filter(Boolean).join(' / '),
+            })),
+          equipements: (d.di_equipements as unknown as {
+            equipement_id: string
+            equipements: { code_inventaire: string | null; categories: { nom: string } | null } | null
+          }[])
+            .map((e) => ({
+              id: e.equipement_id,
+              texte: [e.equipements?.categories?.nom, e.equipements?.code_inventaire].filter(Boolean).join(' '),
+            })),
           site: nomSite(sites, d.site_id),
         })),
       }
@@ -395,7 +547,9 @@ const OUTILS_INTERNES: Outil[] = [
       'Trouve un local par son nom (ex. « 214 », « Circulation », « Accueil »), avec son niveau, son bâtiment et les équipements qui s’y trouvent (identifiants compris). ' +
       'Sert à cibler une demande d’intervention : un nom présent sur plusieurs niveaux est ambigu, faire préciser le niveau.',
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['recherche'],
+      type: 'object',
+      additionalProperties: false,
+      required: ['recherche'],
       properties: {
         recherche: { type: 'string', description: 'Tout ou partie du nom du local' },
         niveau: { type: 'string', description: 'Tout ou partie du nom du niveau (ex. « R+2 », « RDC »)' },
@@ -404,13 +558,20 @@ const OUTILS_INTERNES: Outil[] = [
       },
     },
     annotations: LECTURE,
-    schema: z.object({ recherche: z.string().min(1).max(120), niveau: z.string().max(60).optional(), site, limite: limite(50, 20) }).strict(),
+    schema: z.object({
+      recherche: z.string().min(1).max(120),
+      niveau: z.string().max(60).optional(),
+      site,
+      limite: limite(50, 20),
+    }).strict(),
     run: async (a: { recherche: string; niveau?: string; site?: string; limite: number }, ctx) => {
       const sites = await sitesCibles(ctx, a.site)
       const texte = nettoyer(a.recherche)
       if (!texte) throw new ErreurOutil('Recherche vide.')
       let q = ctx.supabase.from('locaux')
-        .select('id, nom, niveaux!inner(nom, ordre, batiments!inner(nom, site_id)), equipements(id, code_inventaire, categories(nom))')
+        .select(
+          'id, nom, niveaux!inner(nom, ordre, batiments!inner(nom, site_id)), equipements(id, code_inventaire, categories(nom))',
+        )
         .in('niveaux.batiments.site_id', sites.map((s) => s.id))
         .ilike('nom', `%${texte}%`)
         .order('nom').limit(a.limite)
@@ -418,7 +579,12 @@ const OUTILS_INTERNES: Outil[] = [
       if (niveau) q = q.ilike('niveaux.nom', `%${niveau}%`)
       const { data, error } = await q
       if (error) throw error
-      type Ligne = { id: string; nom: string; niveaux: { nom: string; batiments: { nom: string; site_id: string } }; equipements: { id: string; code_inventaire: string | null; categories: { nom: string } | null }[] }
+      type Ligne = {
+        id: string
+        nom: string
+        niveaux: { nom: string; batiments: { nom: string; site_id: string } }
+        equipements: { id: string; code_inventaire: string | null; categories: { nom: string } | null }[]
+      }
       const lignes = data as unknown as Ligne[]
       return {
         nombre: lignes.length,
@@ -428,7 +594,11 @@ const OUTILS_INTERNES: Outil[] = [
           niveau: l.niveaux.nom,
           batiment: l.niveaux.batiments.nom,
           site: nomSite(sites, l.niveaux.batiments.site_id),
-          equipements: l.equipements.map((e) => ({ id: e.id, famille: e.categories?.nom ?? null, code: e.code_inventaire })),
+          equipements: l.equipements.map((e) => ({
+            id: e.id,
+            famille: e.categories?.nom ?? null,
+            code: e.code_inventaire,
+          })),
         })),
       }
     },
@@ -449,16 +619,22 @@ const OUTILS_INTERNES: Outil[] = [
       if (error) throw error
       return {
         nombre: data.length,
-        problemes: data.map((m) => ({ libelle: m.libelle, constat_type: m.constat_modele, site: nomSite(sites, m.site_id) })),
+        problemes: data.map((m) => ({
+          libelle: m.libelle,
+          constat_type: m.constat_modele,
+          site: nomSite(sites, m.site_id),
+        })),
       }
     },
   },
   {
     name: 'travaux',
     title: 'Travaux',
-    description: 'Travaux avec leur lieu, leur cadenas et leurs tâches (identifiants inclus, pour les faire avancer). Par défaut : ceux qui ne sont pas terminés.',
+    description:
+      'Travaux avec leur lieu, leur cadenas et leurs tâches (identifiants inclus, pour les faire avancer). Par défaut : ceux qui ne sont pas terminés.',
     inputSchema: {
-      type: 'object', additionalProperties: false,
+      type: 'object',
+      additionalProperties: false,
       properties: {
         site: { type: 'string' },
         statut: { type: 'string', enum: ['ouverts', 'ouvert', 'en_cours', 'termine', 'tous'], default: 'ouverts' },
@@ -467,12 +643,19 @@ const OUTILS_INTERNES: Outil[] = [
       },
     },
     annotations: LECTURE,
-    schema: z.object({ site, statut: z.enum(['ouverts', 'ouvert', 'en_cours', 'termine', 'tous']).default('ouverts'), recherche: z.string().max(120).optional(), limite: limite(100, 30) }).strict(),
+    schema: z.object({
+      site,
+      statut: z.enum(['ouverts', 'ouvert', 'en_cours', 'termine', 'tous']).default('ouverts'),
+      recherche: z.string().max(120).optional(),
+      limite: limite(100, 30),
+    }).strict(),
     run: async (a: { site?: string; statut: string; recherche?: string; limite: number }, ctx) => {
       const sites = await sitesCibles(ctx, a.site)
       const ids: Record<string, number[]> = { ouverts: [1, 2], ouvert: [1], en_cours: [2], termine: [4] }
       let q = ctx.supabase.from('interventions_travaux')
-        .select('id, titre, description, date_demande, date_fin, compte_rendu, site_id, verrouille, statut_travaux_id, locaux(nom, niveaux(nom)), equipements(code_inventaire), statuts_travaux(nom), travaux_taches(id, libelle, statut, date_tache, ordre, commentaire, locaux(nom, niveaux(nom)), equipements(code_inventaire))')
+        .select(
+          'id, titre, description, date_demande, date_fin, compte_rendu, site_id, verrouille, statut_travaux_id, locaux(nom, niveaux(nom)), equipements(code_inventaire), statuts_travaux(nom), travaux_taches(id, libelle, statut, date_tache, ordre, commentaire, locaux(nom, niveaux(nom)), equipements(code_inventaire))',
+        )
         .in('site_id', sites.map((s) => s.id)).order('date_demande', { ascending: false }).limit(a.limite)
       if (a.statut !== 'tous') q = q.in('statut_travaux_id', ids[a.statut])
       const texte = nettoyer(a.recherche)
@@ -482,10 +665,16 @@ const OUTILS_INTERNES: Outil[] = [
       return {
         nombre: data.length,
         travaux: data.map((t) => ({
-          id: t.id, titre: t.titre, description: t.description,
+          id: t.id,
+          titre: t.titre,
+          description: t.description,
           statut: (t.statuts_travaux as unknown as { nom: string } | null)?.nom,
-          date_demande: dateFr(t.date_demande), date_fin: dateFr(t.date_fin), compte_rendu: t.compte_rendu,
-          lieu: lieuFiche(t), verrouille: t.verrouille, cloture_a_confirmer: t.statut_travaux_id === 4 && !t.date_fin,
+          date_demande: dateFr(t.date_demande),
+          date_fin: dateFr(t.date_fin),
+          compte_rendu: t.compte_rendu,
+          lieu: lieuFiche(t),
+          verrouille: t.verrouille,
+          cloture_a_confirmer: t.statut_travaux_id === 4 && !t.date_fin,
           taches: tachesFiche(t.travaux_taches),
           site: nomSite(sites, t.site_id),
         })),
@@ -495,9 +684,11 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'evenements',
     title: 'Événements',
-    description: 'Événements avec leur lieu, leur cadenas et leurs tâches (identifiants inclus, pour les faire avancer). Par défaut : ceux qui ne sont pas clôturés.',
+    description:
+      'Événements avec leur lieu, leur cadenas et leurs tâches (identifiants inclus, pour les faire avancer). Par défaut : ceux qui ne sont pas clôturés.',
     inputSchema: {
-      type: 'object', additionalProperties: false,
+      type: 'object',
+      additionalProperties: false,
       properties: {
         site: { type: 'string' },
         statut: { type: 'string', enum: ['ouverts', 'ouvert', 'en_cours', 'cloture', 'tous'], default: 'ouverts' },
@@ -506,12 +697,19 @@ const OUTILS_INTERNES: Outil[] = [
       },
     },
     annotations: LECTURE,
-    schema: z.object({ site, statut: z.enum(['ouverts', 'ouvert', 'en_cours', 'cloture', 'tous']).default('ouverts'), recherche: z.string().max(120).optional(), limite: limite(100, 30) }).strict(),
+    schema: z.object({
+      site,
+      statut: z.enum(['ouverts', 'ouvert', 'en_cours', 'cloture', 'tous']).default('ouverts'),
+      recherche: z.string().max(120).optional(),
+      limite: limite(100, 30),
+    }).strict(),
     run: async (a: { site?: string; statut: string; recherche?: string; limite: number }, ctx) => {
       const sites = await sitesCibles(ctx, a.site)
       const ids: Record<string, number[]> = { ouverts: [1, 2], ouvert: [1], en_cours: [2], cloture: [4] }
       let q = ctx.supabase.from('evenements')
-        .select('id, titre, description, date_evenement, date_cloture, compte_rendu, site_id, verrouille, statut_evenement_id, locaux(nom, niveaux(nom)), equipements(code_inventaire), statuts_evenements(nom), evenements_lieux(id, libelle, statut, date_tache, ordre, commentaire, locaux(nom, niveaux(nom)), equipements(code_inventaire))')
+        .select(
+          'id, titre, description, date_evenement, date_cloture, compte_rendu, site_id, verrouille, statut_evenement_id, locaux(nom, niveaux(nom)), equipements(code_inventaire), statuts_evenements(nom), evenements_lieux(id, libelle, statut, date_tache, ordre, commentaire, locaux(nom, niveaux(nom)), equipements(code_inventaire))',
+        )
         .in('site_id', sites.map((s) => s.id)).order('date_evenement', { ascending: false }).limit(a.limite)
       if (a.statut !== 'tous') q = q.in('statut_evenement_id', ids[a.statut])
       const texte = nettoyer(a.recherche)
@@ -521,10 +719,16 @@ const OUTILS_INTERNES: Outil[] = [
       return {
         nombre: data.length,
         evenements: data.map((e) => ({
-          id: e.id, titre: e.titre, description: e.description,
+          id: e.id,
+          titre: e.titre,
+          description: e.description,
           statut: (e.statuts_evenements as unknown as { nom: string } | null)?.nom,
-          date: dateFr(e.date_evenement), cloture: dateFr(e.date_cloture), compte_rendu: e.compte_rendu,
-          lieu: lieuFiche(e), verrouille: e.verrouille, cloture_a_confirmer: e.statut_evenement_id === 4 && !e.date_cloture,
+          date: dateFr(e.date_evenement),
+          cloture: dateFr(e.date_cloture),
+          compte_rendu: e.compte_rendu,
+          lieu: lieuFiche(e),
+          verrouille: e.verrouille,
+          cloture_a_confirmer: e.statut_evenement_id === 4 && !e.date_cloture,
           taches: tachesFiche(e.evenements_lieux),
           site: nomSite(sites, e.site_id),
         })),
@@ -536,8 +740,14 @@ const OUTILS_INTERNES: Outil[] = [
     title: 'Équipements',
     description: 'Recherche d’équipements par famille, code d’inventaire ou localisation, avec leurs caractéristiques.',
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['recherche'],
-      properties: { recherche: { type: 'string' }, site: { type: 'string' }, limite: { type: 'integer', minimum: 1, maximum: 100, default: 30 } },
+      type: 'object',
+      additionalProperties: false,
+      required: ['recherche'],
+      properties: {
+        recherche: { type: 'string' },
+        site: { type: 'string' },
+        limite: { type: 'integer', minimum: 1, maximum: 100, default: 30 },
+      },
     },
     annotations: LECTURE,
     schema: z.object({ recherche: z.string().min(1).max(120), site, limite: limite(100, 30) }).strict(),
@@ -546,7 +756,9 @@ const OUTILS_INTERNES: Outil[] = [
       const texte = nettoyer(a.recherche)
       if (!texte) throw new ErreurOutil('Recherche vide.')
       const { data, error } = await ctx.supabase.from('v_equipements_complet')
-        .select('id, local_id, categorie_nom, code_inventaire, localisation_complete, site_id, date_mise_en_service, date_fin_garantie, specifications')
+        .select(
+          'id, local_id, categorie_nom, code_inventaire, localisation_complete, site_id, date_mise_en_service, date_fin_garantie, specifications',
+        )
         .in('site_id', sites.map((s) => s.id))
         .or(`categorie_nom.ilike.*${texte}*,code_inventaire.ilike.*${texte}*,localisation_complete.ilike.*${texte}*`)
         .order('localisation_complete').limit(a.limite)
@@ -554,9 +766,15 @@ const OUTILS_INTERNES: Outil[] = [
       return {
         nombre: data.length,
         equipements: data.map((e) => ({
-          id: e.id, local_id: e.local_id, famille: e.categorie_nom, code: e.code_inventaire, localisation: e.localisation_complete,
-          mise_en_service: dateFr(e.date_mise_en_service), fin_garantie: dateFr(e.date_fin_garantie),
-          caracteristiques: e.specifications, site: nomSite(sites, e.site_id),
+          id: e.id,
+          local_id: e.local_id,
+          famille: e.categorie_nom,
+          code: e.code_inventaire,
+          localisation: e.localisation_complete,
+          mise_en_service: dateFr(e.date_mise_en_service),
+          fin_garantie: dateFr(e.date_fin_garantie),
+          caracteristiques: e.specifications,
+          site: nomSite(sites, e.site_id),
         })),
       }
     },
@@ -564,14 +782,21 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'contrats',
     title: 'Contrats',
-    description: 'Contrats des prestataires : type, dates, préavis, résiliation. Par défaut sans les contrats archivés.',
-    inputSchema: { type: 'object', additionalProperties: false, properties: { site: { type: 'string' }, inclure_archives: { type: 'boolean', default: false } } },
+    description:
+      'Contrats des prestataires : type, dates, préavis, résiliation. Par défaut sans les contrats archivés.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { site: { type: 'string' }, inclure_archives: { type: 'boolean', default: false } },
+    },
     annotations: LECTURE,
     schema: z.object({ site, inclure_archives: z.boolean().default(false) }).strict(),
     run: async (a: { site?: string; inclure_archives: boolean }, ctx) => {
       const sites = await sitesCibles(ctx, a.site)
       let q = ctx.supabase.from('contrats')
-        .select('reference, date_signature, date_debut, date_fin, date_resiliation, delai_preavis_jours, est_archive, contrat_parent_id, objet_avenant, commentaires, site_id, prestataires(libelle), types_contrats(libelle)')
+        .select(
+          'reference, date_signature, date_debut, date_fin, date_resiliation, delai_preavis_jours, est_archive, contrat_parent_id, objet_avenant, commentaires, site_id, prestataires(libelle), types_contrats(libelle)',
+        )
         .in('site_id', sites.map((s) => s.id)).order('date_fin', { ascending: true, nullsFirst: false }).limit(200)
       if (!a.inclure_archives) q = q.eq('est_archive', false)
       const { data, error } = await q
@@ -582,10 +807,16 @@ const OUTILS_INTERNES: Outil[] = [
           reference: c.reference,
           prestataire: (c.prestataires as unknown as { libelle: string } | null)?.libelle,
           type: (c.types_contrats as unknown as { libelle: string } | null)?.libelle,
-          avenant: c.contrat_parent_id !== null, objet_avenant: c.objet_avenant,
-          signature: dateFr(c.date_signature), debut: dateFr(c.date_debut), fin: dateFr(c.date_fin),
-          resiliation: dateFr(c.date_resiliation), preavis_jours: c.delai_preavis_jours, archive: c.est_archive,
-          commentaires: c.commentaires, site: nomSite(sites, c.site_id),
+          avenant: c.contrat_parent_id !== null,
+          objet_avenant: c.objet_avenant,
+          signature: dateFr(c.date_signature),
+          debut: dateFr(c.date_debut),
+          fin: dateFr(c.date_fin),
+          resiliation: dateFr(c.date_resiliation),
+          preavis_jours: c.delai_preavis_jours,
+          archive: c.est_archive,
+          commentaires: c.commentaires,
+          site: nomSite(sites, c.site_id),
         })),
       }
     },
@@ -593,15 +824,30 @@ const OUTILS_INTERNES: Outil[] = [
   {
     name: 'investissements',
     title: 'Investissements (budget)',
-    description: 'Projets d’investissement d’une année de budget : étape du parcours, devis (fournisseur, montant HT, retenu ou non) et montant retenu.',
-    inputSchema: { type: 'object', additionalProperties: false, properties: { annee: { type: 'integer', minimum: 2000, maximum: 2100, description: 'Année de budget ; par défaut l’an prochain' }, site: { type: 'string' } } },
+    description:
+      'Projets d’investissement d’une année de budget : étape du parcours, devis (fournisseur, montant HT, retenu ou non) et montant retenu.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        annee: {
+          type: 'integer',
+          minimum: 2000,
+          maximum: 2100,
+          description: 'Année de budget ; par défaut l’an prochain',
+        },
+        site: { type: 'string' },
+      },
+    },
     annotations: LECTURE,
     schema: z.object({ annee: z.number().int().min(2000).max(2100).optional(), site }).strict(),
     run: async (a: { annee?: number; site?: string }, ctx) => {
       const sites = await sitesCibles(ctx, a.site)
       const annee = a.annee ?? new Date().getFullYear() + 1
       const { data, error } = await ctx.supabase.from('investissements')
-        .select('libelle, description, statut_capex_id, refus_niveau, date_demande, date_prevalidation, date_validation, date_cloture, date_arret, motif_arret, bilan, site_id, statuts_capex(nom), investissements_devis(fournisseur, objet, montant_ht, retenu)')
+        .select(
+          'libelle, description, statut_capex_id, refus_niveau, date_demande, date_prevalidation, date_validation, date_cloture, date_arret, motif_arret, bilan, site_id, statuts_capex(nom), investissements_devis(fournisseur, objet, montant_ht, retenu)',
+        )
         .in('site_id', sites.map((s) => s.id)).eq('annee_budget', annee).order('libelle')
       if (error) throw error
       // Mémoire du parcours (152) : des dates restent gardées hors de leur étape ;
@@ -610,7 +856,12 @@ const OUTILS_INTERNES: Outil[] = [
         annee,
         projets: data.map((p) => {
           const s = p.statut_capex_id
-          const devis = (p.investissements_devis as unknown as { fournisseur: string; objet: string | null; montant_ht: number; retenu: boolean }[])
+          const devis = p.investissements_devis as unknown as {
+            fournisseur: string
+            objet: string | null
+            montant_ht: number
+            retenu: boolean
+          }[]
           const retenus = devis.filter((d) => d.retenu)
           const refusN2 = s === 4 && (p.refus_niveau !== null ? p.refus_niveau === 2 : p.date_prevalidation !== null)
           return {
@@ -622,7 +873,13 @@ const OUTILS_INTERNES: Outil[] = [
             confirmation: [2, 3].includes(s) ? dateFr(p.date_validation) : null,
             realisation: s === 3 ? dateFr(p.date_cloture) : null,
             bilan: s === 3 ? p.bilan : null,
-            refus: s === 4 ? { date: dateFr(p.date_arret), motif: p.motif_arret, niveau: refusN2 ? 'à la confirmation' : 'à la prévalidation' } : null,
+            refus: s === 4
+              ? {
+                date: dateFr(p.date_arret),
+                motif: p.motif_arret,
+                niveau: refusN2 ? 'à la confirmation' : 'à la prévalidation',
+              }
+              : null,
             devis,
             montant_retenu_ht: retenus.length ? retenus.reduce((t, d) => t + Number(d.montant_ht), 0) : null,
             site: nomSite(sites, p.site_id),
@@ -633,7 +890,12 @@ const OUTILS_INTERNES: Outil[] = [
   },
 ]
 
-const TOUS_LES_OUTILS: Outil[] = [...OUTILS_INTERNES, ...OUTILS_ECRITURE, ...OUTILS_ECRITURE_DI, ...OUTILS_ECRITURE_FICHES]
+const TOUS_LES_OUTILS: Outil[] = [
+  ...OUTILS_INTERNES,
+  ...OUTILS_ECRITURE,
+  ...OUTILS_ECRITURE_DI,
+  ...OUTILS_ECRITURE_FICHES,
+]
 export const OUTILS = TOUS_LES_OUTILS
 
 function texte(t: string, isError = false): Resultat {
@@ -647,12 +909,22 @@ export async function executerOutil(nom: string, args: Record<string, unknown>, 
 
   // Le verrou est en base (153) ; on le lit seulement pour un message clair.
   const { data: role } = await ctx.supabase.rpc('current_role')
-  if (!role)
-    return texte('Ton accès Claude n’est pas ouvert (ou ton compte est désactivé). Demande à un administrateur de l’activer sur ta fiche utilisateur dans Dédale.', true)
+  if (!role) {
+    return texte(
+      'Ton accès Claude n’est pas ouvert (ou ton compte est désactivé). Demande à un administrateur de l’activer sur ta fiche utilisateur dans Dédale.',
+      true,
+    )
+  }
 
   const parse = outil.schema.safeParse(args)
-  if (!parse.success)
-    return texte(`Paramètres refusés : ${parse.error.issues.map((i) => `${i.path.join('.') || 'paramètres'} — ${i.message}`).join(' ; ')}`, true)
+  if (!parse.success) {
+    return texte(
+      `Paramètres refusés : ${
+        parse.error.issues.map((i) => `${i.path.join('.') || 'paramètres'} — ${i.message}`).join(' ; ')
+      }`,
+      true,
+    )
+  }
 
   try {
     const resultat = await outil.run(parse.data as never, ctx)

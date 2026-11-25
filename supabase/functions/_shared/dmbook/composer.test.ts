@@ -25,16 +25,24 @@ Deno.test('changement de chambre : écritures variées de la tête', () => {
   assertEquals(changerChambres('#403 #404 odeur', ['301']), '#301 odeur')
 })
 Deno.test('changement de chambre : chambre citée au milieu → on ajoute en tête sans toucher la phrase', () => {
-  assertEquals(changerChambres('Sèche-cheveux remplacé par celui de #110', ['112']), '#112 Sèche-cheveux remplacé par celui de #110')
+  assertEquals(
+    changerChambres('Sèche-cheveux remplacé par celui de #110', ['112']),
+    '#112 Sèche-cheveux remplacé par celui de #110',
+  )
 })
 Deno.test('chambre retirée sans remplacement → tête retirée', () => {
   assertEquals(changerChambres('#112 - nuage LED', []), 'nuage LED')
 })
-Deno.test('pas de faux positif : une mesure en tête n\'est pas une chambre', () => {
+Deno.test("pas de faux positif : une mesure en tête n'est pas une chambre", () => {
   assertEquals(changerChambres('110 degrés au sauna', ['112']), '#112 110 degrés au sauna')
 })
 Deno.test('aller-retour : le texte composé redonne les mêmes chambres et le même constat', () => {
-  for (const [constat, ch] of [['Réparer nuage LED', ['112']], ['Rideau décroché', ['301', '307']], ['Four en panne', []]] as const) {
+  for (
+    const [constat, ch] of [['Réparer nuage LED', ['112']], ['Rideau décroché', ['301', '307']], [
+      'Four en panne',
+      [],
+    ]] as const
+  ) {
     const t = composer(constat, [...ch])
     assertEquals(chambresEnTete(t), [...ch])
     const a = analyser(t, locaux)

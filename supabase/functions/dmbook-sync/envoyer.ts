@@ -35,7 +35,14 @@ const MARQUE_TEST = /^\s*(?:#\d{3}\s+)*ZZ TEST/i
 
 export const STATUT_DMBOOK: Record<number, Statut> = { 1: 'ouvert', 2: 'en_cours', 3: 'ferme' }
 
-export type Ligne = { id: number; di_id: string | null; dmbook_id: string | null; action: string; tentatives: number; cree_le?: string }
+export type Ligne = {
+  id: number
+  di_id: string | null
+  dmbook_id: string | null
+  action: string
+  tentatives: number
+  cree_le?: string
+}
 export type Groupe = { di_id: string | null; dmbook_id: string | null; actions: Set<string>; lignes: Ligne[] }
 
 /**
@@ -72,7 +79,9 @@ export function texteVoulu(texteActuel: string, constat: string, chambres: strin
 
 /** Après un échec : nouvelle tentative au prochain passage, ou mise de côté. */
 export const apresEchec = (tentatives: number) =>
-  tentatives + 1 >= ECHECS_MAX ? { tentatives: tentatives + 1, issue: 'mis_de_cote' as const } : { tentatives: tentatives + 1, issue: null }
+  tentatives + 1 >= ECHECS_MAX
+    ? { tentatives: tentatives + 1, issue: 'mis_de_cote' as const }
+    : { tentatives: tentatives + 1, issue: null }
 
 export type RapportEnvoi = {
   niveau: Niveau
@@ -110,8 +119,22 @@ async function chargerDi(sb: SupabaseClient, id: string): Promise<Di | null> {
 
 type LienEnvoi = { dmbook_id: string; numero: number | null; dmbook_empreinte: string | null }
 
-export async function envoyer(sb: SupabaseClient, dm: Dmbook, site: string, locaux: Locaux, niveau: Niveau): Promise<RapportEnvoi> {
-  const r: RapportEnvoi = { niveau, en_attente: 0, envoyes: 0, remplaces_par_dmbook: 0, echecs: 0, ignores_hors_test: 0, details: [] }
+export async function envoyer(
+  sb: SupabaseClient,
+  dm: Dmbook,
+  site: string,
+  locaux: Locaux,
+  niveau: Niveau,
+): Promise<RapportEnvoi> {
+  const r: RapportEnvoi = {
+    niveau,
+    en_attente: 0,
+    envoyes: 0,
+    remplaces_par_dmbook: 0,
+    echecs: 0,
+    ignores_hors_test: 0,
+    details: [],
+  }
   const { data, error } = await sb.from('dmbook_file').select('id, di_id, dmbook_id, action, tentatives, cree_le')
     .eq('site_id', site).is('fait_le', null).order('id')
   if (error) throw new Error(error.message)
@@ -125,26 +148,34 @@ export async function envoyer(sb: SupabaseClient, dm: Dmbook, site: string, loca
   // Envoyé : on ne clôt que les lignes qui n'ont pas bougé pendant l'écriture (166). Une
   // modification faite entre-temps garde sa ligne en attente et repart au tour suivant.
   const cloreEnvoye = (g: Groupe, debut: string) =>
-    sb.from('dmbook_file').update({ fait_le: maintenant(), issue: 'envoye', erreur: null }).in('id', g.lignes.map((l) => l.id)).lte('cree_le', debut)
+    sb.from('dmbook_file').update({ fait_le: maintenant(), issue: 'envoye', erreur: null }).in(
+      'id',
+      g.lignes.map((l) => l.id),
+    ).lte('cree_le', debut)
 
   let envois = 0
   let lus = 0
   for (const g of groupes) {
     // Au plus LECTURES_MAX demandes relues par passage : le reste attend, rien n'est perdu.
-    if (++lus > LECTURES_MAX) { r.details.push(`${groupes.length - LECTURES_MAX} demande(s) attendent le passage suivant.`); break }
+    if (++lus > LECTURES_MAX) {
+      r.details.push(`${groupes.length - LECTURES_MAX} demande(s) attendent le passage suivant.`)
+      break
+    }
     const debut = maintenant()
     const lien: LienEnvoi | null = g.dmbook_id
-      ? ((await sb.from('dmbook_liens').select('dmbook_id, numero, dmbook_empreinte').eq('dmbook_id', g.dmbook_id).maybeSingle()).data as LienEnvoi | null)
+      ? ((await sb.from('dmbook_liens').select('dmbook_id, numero, dmbook_empreinte').eq('dmbook_id', g.dmbook_id)
+        .maybeSingle()).data as LienEnvoi | null)
       : g.di_id
-        ? ((await sb.from('dmbook_liens').select('dmbook_id, numero, dmbook_empreinte').eq('di_id', g.di_id).maybeSingle()).data as LienEnvoi | null)
-        : null
+      ? ((await sb.from('dmbook_liens').select('dmbook_id, numero, dmbook_empreinte').eq('di_id', g.di_id)
+        .maybeSingle()).data as LienEnvoi | null)
+      : null
     const di = g.di_id ? await chargerDi(sb, g.di_id) : null
     const nom = lien?.numero ? `#${lien.numero}` : di ? `« ${di.constat.slice(0, 50)} »` : 'ticket'
     const quoi = [...g.actions].join(' + ')
 
     // DI disparue entre-temps (sauf suppression) : plus rien à envoyer.
     if (!g.actions.has('supprimer') && !di) {
-      if (niveau !== 'aucune') await clore(g, 'annule', 'Demande supprimée dans Dédale avant l\'envoi.')
+      if (niveau !== 'aucune') await clore(g, 'annule', "Demande supprimée dans Dédale avant l'envoi.")
       r.details.push(`${nom} : ${quoi} annulé, la demande n'existe plus.`)
       continue
     }
@@ -152,10 +183,16 @@ export async function envoyer(sb: SupabaseClient, dm: Dmbook, site: string, loca
     try {
       // ── Contrôle « ZZ TEST » et état actuel côté Dmbook ──
       // Mode test : une demande connue qui n'est pas « ZZ TEST » est écartée sans contacter Dmbook.
-      if (niveau === 'test' && di && !MARQUE_TEST.test(di.constat)) { r.ignores_hors_test++; continue }
+      if (niveau === 'test' && di && !MARQUE_TEST.test(di.constat)) {
+        r.ignores_hors_test++
+        continue
+      }
       const fiche = lien ? await dm.detail(lien.dmbook_id) : null
       const estTest = MARQUE_TEST.test(di?.constat ?? '') || (!!fiche && /ZZ TEST/i.test(fiche.texte))
-      if (niveau === 'test' && !estTest) { r.ignores_hors_test++; continue }
+      if (niveau === 'test' && !estTest) {
+        r.ignores_hors_test++
+        continue
+      }
 
       // D2 : le ticket a bougé dans Dmbook depuis le dernier passage → Dmbook gagne.
       if (lien && fiche && fiche.statut) {
@@ -176,11 +213,17 @@ export async function envoyer(sb: SupabaseClient, dm: Dmbook, site: string, loca
         r.details.push(`${nom} : ${quoi} partirait vers Dmbook.`)
         continue
       }
-      if (envois >= ENVOIS_MAX) { r.details.push(`${nom} : attend le passage suivant (${ENVOIS_MAX} envois au plus).`); continue }
+      if (envois >= ENVOIS_MAX) {
+        r.details.push(`${nom} : attend le passage suivant (${ENVOIS_MAX} envois au plus).`)
+        continue
+      }
       envois++
 
       if (g.actions.has('supprimer')) {
-        if (!lien) { await clore(g, 'annule', 'Aucun ticket Dmbook lié.'); continue }
+        if (!lien) {
+          await clore(g, 'annule', 'Aucun ticket Dmbook lié.')
+          continue
+        }
         const e = await dm.existe(lien.dmbook_id)
         if (e === 'inconnu') throw new Error('Réponse incertaine de Dmbook')
         if (e === 'present') await dm.supprimer(lien.dmbook_id)
@@ -193,7 +236,10 @@ export async function envoyer(sb: SupabaseClient, dm: Dmbook, site: string, loca
 
       const d = di!
       if (g.actions.has('creer')) {
-        if (lien) { await clore(g, 'annule', 'Déjà lié à un ticket Dmbook.'); continue }
+        if (lien) {
+          await clore(g, 'annule', 'Déjà lié à un ticket Dmbook.')
+          continue
+        }
         const texte = composer(d.constat, d.chambres)
         const avant = new Set((await dm.listerLeger(1)).tickets.map((t) => t.id))
         await dm.creer(texte)
@@ -202,11 +248,18 @@ export async function envoyer(sb: SupabaseClient, dm: Dmbook, site: string, loca
         let trouve: { id: string; numero: number | null } | null = null
         for (const t of apres) {
           const f = await dm.detail(t.id)
-          if (normaliser(f.texte).includes(normaliser(texte))) { trouve = { id: t.id, numero: f.numero ?? t.numero }; break }
+          if (normaliser(f.texte).includes(normaliser(texte))) {
+            trouve = { id: t.id, numero: f.numero ?? t.numero }
+            break
+          }
         }
         if (!trouve) {
           // Créé mais non retrouvé : JAMAIS de nouvel essai (il y aurait un doublon dans Dmbook).
-          await sb.from('dmbook_file').update({ fait_le: maintenant(), issue: 'mis_de_cote', erreur: 'Créé dans Dmbook mais non retrouvé : à vérifier à la main.' })
+          await sb.from('dmbook_file').update({
+            fait_le: maintenant(),
+            issue: 'mis_de_cote',
+            erreur: 'Créé dans Dmbook mais non retrouvé : à vérifier à la main.',
+          })
             .in('id', g.lignes.map((l) => l.id))
           r.echecs++
           r.details.push(`${nom} : créé dans Dmbook mais non retrouvé, à vérifier à la main.`)
@@ -216,33 +269,52 @@ export async function envoyer(sb: SupabaseClient, dm: Dmbook, site: string, loca
         const f = await dm.detail(trouve.id)
         // auteur '' = demande née dans Dédale : pas de « Signalé dans Dmbook par » (D21).
         const { error: e } = await sb.from('dmbook_liens').insert({
-          dmbook_id: trouve.id, numero: trouve.numero, di_id: d.id, auteur: '', dmbook_ts: 0, lieu_manuel: false,
+          dmbook_id: trouve.id,
+          numero: trouve.numero,
+          di_id: d.id,
+          auteur: '',
+          dmbook_ts: 0,
+          lieu_manuel: false,
           dmbook_empreinte: await empreinteDmbook(f.texte, f.statut ?? STATUT_DMBOOK[d.statut]),
-          dedale_empreinte: await empreinteDedale(d.constat, d.chambres, d.statut), synchro_le: maintenant(),
+          dedale_empreinte: await empreinteDedale(d.constat, d.chambres, d.statut),
+          synchro_le: maintenant(),
         })
         if (e) throw new Error(`Lien non enregistré : ${e.message}`)
         await clore(g, 'envoye') // toujours : le ticket existe, il ne faut jamais le recréer
         // Modifiée pendant la création ? La suite part comme une modification ordinaire.
         const apresCreation = await chargerDi(sb, d.id)
-        if (apresCreation && (await empreinteDedale(apresCreation.constat, apresCreation.chambres, apresCreation.statut)) !== (await empreinteDedale(d.constat, d.chambres, d.statut)))
-          await sb.from('dmbook_file').insert(['texte', 'statut'].map((action) => ({ di_id: d.id, dmbook_id: trouve.id, action, site_id: site })))
+        if (
+          apresCreation &&
+          (await empreinteDedale(apresCreation.constat, apresCreation.chambres, apresCreation.statut)) !==
+            (await empreinteDedale(d.constat, d.chambres, d.statut))
+        ) {
+          await sb.from('dmbook_file').insert(
+            ['texte', 'statut'].map((action) => ({ di_id: d.id, dmbook_id: trouve.id, action, site_id: site })),
+          )
+        }
         r.envoyes++
         r.details.push(`#${trouve.numero ?? '?'} : créé dans Dmbook.`)
         continue
       }
 
       // texte et / ou statut sur un ticket existant.
-      if (!lien || !fiche) { await clore(g, 'annule', 'Aucun ticket Dmbook lié.'); continue }
+      if (!lien || !fiche) {
+        await clore(g, 'annule', 'Aucun ticket Dmbook lié.')
+        continue
+      }
       if (g.actions.has('texte')) {
         const actuel = (await dm.formulaireEdition(lien.dmbook_id)).texte
         const voulu = texteVoulu(actuel, d.constat, d.chambres, locaux)
         if (normaliser(voulu) !== normaliser(actuel)) await dm.modifierTexte(lien.dmbook_id, voulu)
       }
-      if (g.actions.has('statut') && fiche.statut !== STATUT_DMBOOK[d.statut]) await dm.changerStatut(lien.dmbook_id, STATUT_DMBOOK[d.statut])
+      if (g.actions.has('statut') && fiche.statut !== STATUT_DMBOOK[d.statut]) {
+        await dm.changerStatut(lien.dmbook_id, STATUT_DMBOOK[d.statut])
+      }
       // Anti-écho : nouvelle empreinte Dmbook ; data-ts à 0 → le passage suivant ne fait que noter la date.
       const f = await dm.detail(lien.dmbook_id)
       await sb.from('dmbook_liens').update({
-        dmbook_ts: 0, synchro_le: maintenant(),
+        dmbook_ts: 0,
+        synchro_le: maintenant(),
         dmbook_empreinte: await empreinteDmbook(f.texte, f.statut ?? STATUT_DMBOOK[d.statut]),
         dedale_empreinte: await empreinteDedale(d.constat, d.chambres, d.statut),
       }).eq('dmbook_id', lien.dmbook_id)
@@ -258,7 +330,11 @@ export async function envoyer(sb: SupabaseClient, dm: Dmbook, site: string, loca
       const msg = raison(e).slice(0, 300)
       for (const l of g.lignes) {
         const s = apresEchec(l.tentatives)
-        await sb.from('dmbook_file').update({ tentatives: s.tentatives, erreur: msg, ...(s.issue ? { issue: s.issue, fait_le: maintenant() } : {}) }).eq('id', l.id)
+        await sb.from('dmbook_file').update({
+          tentatives: s.tentatives,
+          erreur: msg,
+          ...(s.issue ? { issue: s.issue, fait_le: maintenant() } : {}),
+        }).eq('id', l.id)
       }
       r.details.push(`${nom} : échec (${msg}), nouvel essai au prochain passage.`)
     }

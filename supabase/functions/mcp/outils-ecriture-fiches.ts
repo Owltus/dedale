@@ -8,7 +8,19 @@
 // appliquer=true et le code, après un oui explicite de la personne.
 
 import { z } from 'npm:zod@3.23.8'
-import { type Contexte, type Outil, ErreurOutil, date, uuid, appliquer, code, PROPRIETES_CONFIRMATION, ECRITURE, ECRITURE_SENSIBLE, geste } from './commun.ts'
+import {
+  appliquer,
+  code,
+  type Contexte,
+  date,
+  ECRITURE,
+  ECRITURE_SENSIBLE,
+  ErreurOutil,
+  geste,
+  type Outil,
+  PROPRIETES_CONFIRMATION,
+  uuid,
+} from './commun.ts'
 
 const APRES_FICHE = 'Résume à la personne la fiche telle qu’enregistrée (statut, cadenas, tâches, alertes).'
 
@@ -20,8 +32,9 @@ async function siteParNom(ctx: Contexte, nom: string): Promise<string> {
   const n = nom.toLowerCase()
   const trouves = sites.filter((s) => s.id === nom || s.nom.toLowerCase() === n)
   const proches = trouves.length ? trouves : sites.filter((s) => s.nom.toLowerCase().includes(n))
-  if (proches.length !== 1)
+  if (proches.length !== 1) {
     throw new ErreurOutil(`Précise le site parmi : ${sites.map((s) => s.nom).join(', ') || 'aucun'}.`)
+  }
   return proches[0].id
 }
 
@@ -34,7 +47,11 @@ const PROPRIETE_FICHE = {
 }
 const PROPRIETE_ID = { type: 'string', description: 'Identifiant de la fiche (outil travaux ou evenements)' }
 
-const tacheNouvelle = z.object({ libelle: z.string().trim().min(1).max(200), local_id: uuid.optional(), equipement_id: uuid.optional() }).strict()
+const tacheNouvelle = z.object({
+  libelle: z.string().trim().min(1).max(200),
+  local_id: uuid.optional(),
+  equipement_id: uuid.optional(),
+}).strict()
 const PROPRIETE_TACHES = {
   type: 'array',
   maxItems: 100,
@@ -43,7 +60,10 @@ const PROPRIETE_TACHES = {
     additionalProperties: false,
     required: ['libelle'],
     properties: {
-      libelle: { type: 'string', description: 'Ce qu’il y a à faire, ou l’endroit (ex. « Chambre 214 ») ; 1 à 200 caractères' },
+      libelle: {
+        type: 'string',
+        description: 'Ce qu’il y a à faire, ou l’endroit (ex. « Chambre 214 ») ; 1 à 200 caractères',
+      },
       local_id: { type: 'string', description: 'Local de la tâche (outil lieux), facultatif' },
       equipement_id: { type: 'string', description: 'Équipement de ce local, facultatif ; jamais sans son local' },
     },
@@ -63,28 +83,78 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
       required: ['fiche', 'titre'],
       properties: {
         fiche: PROPRIETE_FICHE,
-        titre: { type: 'string', description: 'Court et parlant, où + quoi (ex. « Ch. 413 – Traces d’humidité au plafond ») ; 3 à 200 caractères' },
-        description: { type: 'string', description: 'Faits rapportés par la personne : quoi, où, depuis quand, conséquence. Rien d’inventé. Max 2000 (travaux) ou 5000 (événement)' },
-        date: { type: 'string', description: 'Date de déclaration (travaux) ou du constat (événement), AAAA-MM-JJ ; défaut aujourd’hui ; jamais future' },
+        titre: {
+          type: 'string',
+          description:
+            'Court et parlant, où + quoi (ex. « Ch. 413 – Traces d’humidité au plafond ») ; 3 à 200 caractères',
+        },
+        description: {
+          type: 'string',
+          description:
+            'Faits rapportés par la personne : quoi, où, depuis quand, conséquence. Rien d’inventé. Max 2000 (travaux) ou 5000 (événement)',
+        },
+        date: {
+          type: 'string',
+          description:
+            'Date de déclaration (travaux) ou du constat (événement), AAAA-MM-JJ ; défaut aujourd’hui ; jamais future',
+        },
         local_id: { type: 'string', description: 'Lieu principal (outil lieux), facultatif' },
         equipement_id: { type: 'string', description: 'Équipement principal, dans ce local' },
         taches: PROPRIETE_TACHES,
-        site: { type: 'string', description: 'Nom du site (outil mes_sites), seulement si la fiche n’a pas de lieu et que la personne a plusieurs sites' },
+        site: {
+          type: 'string',
+          description:
+            'Nom du site (outil mes_sites), seulement si la fiche n’a pas de lieu et que la personne a plusieurs sites',
+        },
         ...PROPRIETES_CONFIRMATION,
       },
     },
     annotations: ECRITURE,
     schema: z.object({
-      fiche, titre: z.string().trim().min(3).max(200), description: z.string().max(5000).optional(), date: date.optional(),
-      local_id: uuid.optional(), equipement_id: uuid.optional(), taches: z.array(tacheNouvelle).max(100).default([]),
-      site: z.string().min(1).max(120).optional(), appliquer, code,
+      fiche,
+      titre: z.string().trim().min(3).max(200),
+      description: z.string().max(5000).optional(),
+      date: date.optional(),
+      local_id: uuid.optional(),
+      equipement_id: uuid.optional(),
+      taches: z.array(tacheNouvelle).max(100).default([]),
+      site: z.string().min(1).max(120).optional(),
+      appliquer,
+      code,
     }).strict(),
-    run: async (a: { fiche: string; titre: string; description?: string; date?: string; local_id?: string; equipement_id?: string; taches: unknown[]; site?: string; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_creer_fiche', {
-        p_type: a.fiche, p_titre: a.titre, p_description: a.description ?? null, p_date: a.date ?? null,
-        p_local_id: a.local_id ?? null, p_equipement_id: a.equipement_id ?? null, p_taches: a.taches,
-        p_site_id: a.site ? await siteParNom(ctx, a.site) : null, p_appliquer: a.appliquer, p_code: a.code ?? null,
-      }, a.appliquer, APRES_FICHE),
+    run: async (
+      a: {
+        fiche: string
+        titre: string
+        description?: string
+        date?: string
+        local_id?: string
+        equipement_id?: string
+        taches: unknown[]
+        site?: string
+        appliquer: boolean
+        code?: string
+      },
+      ctx,
+    ) =>
+      geste(
+        ctx,
+        'claude_creer_fiche',
+        {
+          p_type: a.fiche,
+          p_titre: a.titre,
+          p_description: a.description ?? null,
+          p_date: a.date ?? null,
+          p_local_id: a.local_id ?? null,
+          p_equipement_id: a.equipement_id ?? null,
+          p_taches: a.taches,
+          p_site_id: a.site ? await siteParNom(ctx, a.site) : null,
+          p_appliquer: a.appliquer,
+          p_code: a.code ?? null,
+        },
+        a.appliquer,
+        APRES_FICHE,
+      ),
   },
   {
     name: 'modifier_fiche',
@@ -99,7 +169,10 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
         fiche: PROPRIETE_FICHE,
         fiche_id: PROPRIETE_ID,
         titre: { type: 'string', description: 'Nouveau titre (3 à 200 caractères)' },
-        description: { type: 'string', description: 'Nouvelle description COMPLÈTE (remplace l’ancienne ; vide pour l’effacer)' },
+        description: {
+          type: 'string',
+          description: 'Nouvelle description COMPLÈTE (remplace l’ancienne ; vide pour l’effacer)',
+        },
         local_id: { type: 'string', description: 'Nouveau lieu principal (outil lieux)' },
         equipement_id: { type: 'string', description: 'Équipement principal, dans le local de la fiche' },
         sans_equipement: { type: 'boolean', description: 'true pour retirer l’équipement principal' },
@@ -108,15 +181,47 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
     },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({
-      fiche, fiche_id: uuid, titre: z.string().trim().min(3).max(200).optional(), description: z.string().max(5000).optional(),
-      local_id: uuid.optional(), equipement_id: uuid.optional(), sans_equipement: z.boolean().optional(), appliquer, code,
+      fiche,
+      fiche_id: uuid,
+      titre: z.string().trim().min(3).max(200).optional(),
+      description: z.string().max(5000).optional(),
+      local_id: uuid.optional(),
+      equipement_id: uuid.optional(),
+      sans_equipement: z.boolean().optional(),
+      appliquer,
+      code,
     }).strict(),
-    run: (a: { fiche: string; fiche_id: string; titre?: string; description?: string; local_id?: string; equipement_id?: string; sans_equipement?: boolean; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_modifier_fiche', {
-        p_type: a.fiche, p_id: a.fiche_id, p_titre: a.titre ?? null, p_description: a.description ?? null,
-        p_local_id: a.local_id ?? null, p_equipement_id: a.equipement_id ?? null, p_sans_equipement: a.sans_equipement ?? null,
-        p_appliquer: a.appliquer, p_code: a.code ?? null,
-      }, a.appliquer, APRES_FICHE),
+    run: (
+      a: {
+        fiche: string
+        fiche_id: string
+        titre?: string
+        description?: string
+        local_id?: string
+        equipement_id?: string
+        sans_equipement?: boolean
+        appliquer: boolean
+        code?: string
+      },
+      ctx,
+    ) =>
+      geste(
+        ctx,
+        'claude_modifier_fiche',
+        {
+          p_type: a.fiche,
+          p_id: a.fiche_id,
+          p_titre: a.titre ?? null,
+          p_description: a.description ?? null,
+          p_local_id: a.local_id ?? null,
+          p_equipement_id: a.equipement_id ?? null,
+          p_sans_equipement: a.sans_equipement ?? null,
+          p_appliquer: a.appliquer,
+          p_code: a.code ?? null,
+        },
+        a.appliquer,
+        APRES_FICHE,
+      ),
   },
   {
     name: 'ajouter_taches',
@@ -127,12 +232,24 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
       type: 'object',
       additionalProperties: false,
       required: ['fiche', 'fiche_id', 'taches'],
-      properties: { fiche: PROPRIETE_FICHE, fiche_id: PROPRIETE_ID, taches: { ...PROPRIETE_TACHES, minItems: 1 }, ...PROPRIETES_CONFIRMATION },
+      properties: {
+        fiche: PROPRIETE_FICHE,
+        fiche_id: PROPRIETE_ID,
+        taches: { ...PROPRIETE_TACHES, minItems: 1 },
+        ...PROPRIETES_CONFIRMATION,
+      },
     },
     annotations: ECRITURE,
-    schema: z.object({ fiche, fiche_id: uuid, taches: z.array(tacheNouvelle).min(1).max(100), appliquer, code }).strict(),
+    schema: z.object({ fiche, fiche_id: uuid, taches: z.array(tacheNouvelle).min(1).max(100), appliquer, code })
+      .strict(),
     run: (a: { fiche: string; fiche_id: string; taches: unknown[]; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_ajouter_taches', { p_type: a.fiche, p_id: a.fiche_id, p_taches: a.taches, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_FICHE),
+      geste(
+        ctx,
+        'claude_ajouter_taches',
+        { p_type: a.fiche, p_id: a.fiche_id, p_taches: a.taches, p_appliquer: a.appliquer, p_code: a.code ?? null },
+        a.appliquer,
+        APRES_FICHE,
+      ),
   },
   {
     name: 'avancer_taches',
@@ -157,9 +274,18 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
             required: ['tache_id'],
             properties: {
               tache_id: { type: 'string', description: 'Identifiant de la tâche (outil travaux ou evenements)' },
-              statut: { type: 'string', enum: ['en_attente', 'en_cours', 'realise', 'non_realise', 'non_applicable'], description: 'realise = fait ; non_realise = prévu mais pas fait ; non_applicable = ne s’applique pas ; en_attente = pas commencé' },
+              statut: {
+                type: 'string',
+                enum: ['en_attente', 'en_cours', 'realise', 'non_realise', 'non_applicable'],
+                description:
+                  'realise = fait ; non_realise = prévu mais pas fait ; non_applicable = ne s’applique pas ; en_attente = pas commencé',
+              },
               date: { type: 'string', description: 'Jour où la tâche a été faite, AAAA-MM-JJ, jamais future' },
-              commentaire: { type: 'string', description: 'Dit par la personne, max 2000 ; s’ajoute à la suite du commentaire existant (vide = l’effacer)' },
+              commentaire: {
+                type: 'string',
+                description:
+                  'Dit par la personne, max 2000 ; s’ajoute à la suite du commentaire existant (vide = l’effacer)',
+              },
               libelle: { type: 'string', description: 'Nouveau libellé (1 à 200)' },
             },
           },
@@ -169,25 +295,50 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
     },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({
-      fiche, fiche_id: uuid,
-      saisies: z.array(z.object({
-        tache_id: uuid, statut: z.enum(['en_attente', 'en_cours', 'realise', 'non_realise', 'non_applicable']).optional(),
-        date: date.optional(), commentaire: z.string().max(2000).optional(), libelle: z.string().trim().min(1).max(200).optional(),
-      }).strict()).min(1).max(100),
-      appliquer, code,
+      fiche,
+      fiche_id: uuid,
+      saisies: z.array(
+        z.object({
+          tache_id: uuid,
+          statut: z.enum(['en_attente', 'en_cours', 'realise', 'non_realise', 'non_applicable']).optional(),
+          date: date.optional(),
+          commentaire: z.string().max(2000).optional(),
+          libelle: z.string().trim().min(1).max(200).optional(),
+        }).strict(),
+      ).min(1).max(100),
+      appliquer,
+      code,
     }).strict(),
     run: (a: { fiche: string; fiche_id: string; saisies: unknown[]; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_avancer_taches', { p_type: a.fiche, p_id: a.fiche_id, p_saisies: a.saisies, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_FICHE),
+      geste(
+        ctx,
+        'claude_avancer_taches',
+        { p_type: a.fiche, p_id: a.fiche_id, p_saisies: a.saisies, p_appliquer: a.appliquer, p_code: a.code ?? null },
+        a.appliquer,
+        APRES_FICHE,
+      ),
   },
   {
     name: 'prendre_en_charge_fiche',
     title: 'Prendre en charge une fiche sans tâches',
-    description: 'Passe un travaux ou un événement SANS tâches de « Ouvert » à « En cours ». Avec des tâches, le statut suit les tâches (avancer_taches). Aperçu d’abord, puis enregistrement après accord.',
-    inputSchema: { type: 'object', additionalProperties: false, required: ['fiche', 'fiche_id'], properties: { fiche: PROPRIETE_FICHE, fiche_id: PROPRIETE_ID, ...PROPRIETES_CONFIRMATION } },
+    description:
+      'Passe un travaux ou un événement SANS tâches de « Ouvert » à « En cours ». Avec des tâches, le statut suit les tâches (avancer_taches). Aperçu d’abord, puis enregistrement après accord.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['fiche', 'fiche_id'],
+      properties: { fiche: PROPRIETE_FICHE, fiche_id: PROPRIETE_ID, ...PROPRIETES_CONFIRMATION },
+    },
     annotations: ECRITURE,
     schema: z.object({ fiche, fiche_id: uuid, appliquer, code }).strict(),
     run: (a: { fiche: string; fiche_id: string; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_prendre_en_charge_fiche', { p_type: a.fiche, p_id: a.fiche_id, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_FICHE),
+      geste(
+        ctx,
+        'claude_prendre_en_charge_fiche',
+        { p_type: a.fiche, p_id: a.fiche_id, p_appliquer: a.appliquer, p_code: a.code ?? null },
+        a.appliquer,
+        APRES_FICHE,
+      ),
   },
   {
     name: 'cloturer_fiche',
@@ -202,18 +353,44 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
       properties: {
         fiche: PROPRIETE_FICHE,
         fiche_id: PROPRIETE_ID,
-        compte_rendu: { type: 'string', description: 'Ce qui a été fait, dit par la personne ; 5 à 5000 caractères ; facultatif' },
-        date: { type: 'string', description: 'Jour de fin AAAA-MM-JJ (défaut aujourd’hui ; jamais futur ni avant la date de la fiche)' },
+        compte_rendu: {
+          type: 'string',
+          description: 'Ce qui a été fait, dit par la personne ; 5 à 5000 caractères ; facultatif',
+        },
+        date: {
+          type: 'string',
+          description: 'Jour de fin AAAA-MM-JJ (défaut aujourd’hui ; jamais futur ni avant la date de la fiche)',
+        },
         ...PROPRIETES_CONFIRMATION,
       },
     },
     annotations: ECRITURE_SENSIBLE,
-    schema: z.object({ fiche, fiche_id: uuid, compte_rendu: z.string().trim().min(5).max(5000).optional(), date: date.optional(), appliquer, code }).strict(),
-    run: (a: { fiche: string; fiche_id: string; compte_rendu?: string; date?: string; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_cloturer_fiche', {
-        p_type: a.fiche, p_id: a.fiche_id, p_compte_rendu: a.compte_rendu ?? null, p_date: a.date ?? null,
-        p_appliquer: a.appliquer, p_code: a.code ?? null,
-      }, a.appliquer, APRES_FICHE),
+    schema: z.object({
+      fiche,
+      fiche_id: uuid,
+      compte_rendu: z.string().trim().min(5).max(5000).optional(),
+      date: date.optional(),
+      appliquer,
+      code,
+    }).strict(),
+    run: (
+      a: { fiche: string; fiche_id: string; compte_rendu?: string; date?: string; appliquer: boolean; code?: string },
+      ctx,
+    ) =>
+      geste(
+        ctx,
+        'claude_cloturer_fiche',
+        {
+          p_type: a.fiche,
+          p_id: a.fiche_id,
+          p_compte_rendu: a.compte_rendu ?? null,
+          p_date: a.date ?? null,
+          p_appliquer: a.appliquer,
+          p_code: a.code ?? null,
+        },
+        a.appliquer,
+        APRES_FICHE,
+      ),
   },
   {
     name: 'rouvrir_fiche',
@@ -229,16 +406,48 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
         fiche: PROPRIETE_FICHE,
         fiche_id: PROPRIETE_ID,
         motif: { type: 'string', description: 'Ce qui ne va pas, factuellement, et quand (10 à 1000 caractères)' },
-        taches_a_reprendre: { type: 'array', items: { type: 'string' }, maxItems: 100, description: 'Tâches à refaire (obligatoire si la fiche a des tâches)' },
+        taches_a_reprendre: {
+          type: 'array',
+          items: { type: 'string' },
+          maxItems: 100,
+          description: 'Tâches à refaire (obligatoire si la fiche a des tâches)',
+        },
         ...PROPRIETES_CONFIRMATION,
       },
     },
     annotations: ECRITURE_SENSIBLE,
-    schema: z.object({ fiche, fiche_id: uuid, motif: z.string().trim().min(10).max(1000), taches_a_reprendre: z.array(uuid).max(100).optional(), appliquer, code }).strict(),
-    run: (a: { fiche: string; fiche_id: string; motif: string; taches_a_reprendre?: string[]; appliquer: boolean; code?: string }, ctx) =>
-      geste(ctx, 'claude_rouvrir_fiche', {
-        p_type: a.fiche, p_id: a.fiche_id, p_motif: a.motif, p_taches_a_reprendre: a.taches_a_reprendre ?? null,
-        p_appliquer: a.appliquer, p_code: a.code ?? null,
-      }, a.appliquer, APRES_FICHE),
+    schema: z.object({
+      fiche,
+      fiche_id: uuid,
+      motif: z.string().trim().min(10).max(1000),
+      taches_a_reprendre: z.array(uuid).max(100).optional(),
+      appliquer,
+      code,
+    }).strict(),
+    run: (
+      a: {
+        fiche: string
+        fiche_id: string
+        motif: string
+        taches_a_reprendre?: string[]
+        appliquer: boolean
+        code?: string
+      },
+      ctx,
+    ) =>
+      geste(
+        ctx,
+        'claude_rouvrir_fiche',
+        {
+          p_type: a.fiche,
+          p_id: a.fiche_id,
+          p_motif: a.motif,
+          p_taches_a_reprendre: a.taches_a_reprendre ?? null,
+          p_appliquer: a.appliquer,
+          p_code: a.code ?? null,
+        },
+        a.appliquer,
+        APRES_FICHE,
+      ),
   },
 ]
