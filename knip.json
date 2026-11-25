@@ -5,6 +5,7 @@
     "src/routes/**/*.tsx",
     "scripts/*.mjs",
     "tests/securite/*.mjs",
+    "tests/integration/*.mjs",
     ".claude/hooks/*.mjs",
     "vitest.stryker.config.ts"
   ],
