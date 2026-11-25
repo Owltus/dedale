@@ -2,24 +2,24 @@
   "_note": "Plancher de couverture par module (% lignes, % branches). Généré par scripts/couverture-cliquet.mjs --relever ; ne se baisse jamais à la main sans décision du PO.",
   "modules": {
     "(racine)": {
-      "lignes": 66.7,
-      "branches": 66.7
+      "lignes": 71,
+      "branches": 75
     },
     "components": {
       "lignes": 0,
       "branches": 0
     },
     "components/common": {
-      "lignes": 41.3,
-      "branches": 39.8
+      "lignes": 60.4,
+      "branches": 51.1
     },
     "components/layout": {
       "lignes": 0,
       "branches": 0
     },
     "components/ui": {
-      "lignes": 34.6,
-      "branches": 18.5
+      "lignes": 55.9,
+      "branches": 44.3
     },
     "features/bibliotheque": {
       "lignes": 0,
@@ -27,54 +27,58 @@
     },
     "features/categories": {
       "lignes": 4.3,
-      "branches": 0
+      "branches": 0.7
     },
     "features/connecteur": {
-      "lignes": 41.4,
-      "branches": 58.3
+      "lignes": 98.7,
+      "branches": 93.4
+    },
+    "features/connexion": {
+      "lignes": 100,
+      "branches": 95.9
     },
     "features/dashboard": {
-      "lignes": 15.8,
-      "branches": 8.9
+      "lignes": 16.1,
+      "branches": 9.2
     },
     "features/demandes": {
-      "lignes": 30.2,
-      "branches": 19
+      "lignes": 36.7,
+      "branches": 26.7
     },
     "features/dmbook": {
       "lignes": 0,
       "branches": 0
     },
     "features/documents": {
-      "lignes": 23.3,
-      "branches": 19.3
+      "lignes": 27.3,
+      "branches": 24
     },
     "features/equipements": {
-      "lignes": 20.7,
-      "branches": 17
+      "lignes": 27.3,
+      "branches": 23.3
     },
     "features/evenements": {
-      "lignes": 12.3,
-      "branches": 7.2
+      "lignes": 31.1,
+      "branches": 19.9
     },
     "features/gammes": {
       "lignes": 19.6,
       "branches": 16.2
     },
     "features/investissements": {
-      "lignes": 29.4,
-      "branches": 26.3
+      "lignes": 30.5,
+      "branches": 26.8
     },
     "features/localisations": {
-      "lignes": 42.4,
+      "lignes": 42.8,
       "branches": 39.9
     },
     "features/miniatures": {
-      "lignes": 0.9,
-      "branches": 0.9
+      "lignes": 2.9,
+      "branches": 6.7
     },
     "features/modeles-di": {
-      "lignes": 24.3,
+      "lignes": 24.6,
       "branches": 22.1
     },
     "features/modeles-equipements": {
@@ -82,7 +86,7 @@
       "branches": 49.6
     },
     "features/modeles-operations": {
-      "lignes": 28.3,
+      "lignes": 28.6,
       "branches": 32.6
     },
     "features/operations": {
@@ -94,16 +98,16 @@
       "branches": 42.5
     },
     "features/planning": {
-      "lignes": 7.4,
-      "branches": 6.4
+      "lignes": 7.6,
+      "branches": 8.2
     },
     "features/prestataires": {
-      "lignes": 43.6,
-      "branches": 43
+      "lignes": 45.1,
+      "branches": 44.8
     },
     "features/releves": {
-      "lignes": 76.1,
-      "branches": 70.2
+      "lignes": 88,
+      "branches": 76.9
     },
     "features/sites": {
       "lignes": 3.6,
@@ -114,24 +118,24 @@
       "branches": 22.9
     },
     "features/travaux": {
-      "lignes": 10.8,
-      "branches": 5.5
+      "lignes": 11.9,
+      "branches": 6.5
     },
     "features/utilisateurs": {
-      "lignes": 26.3,
-      "branches": 8.2
+      "lignes": 27.6,
+      "branches": 16.8
     },
     "hooks": {
-      "lignes": 87.8,
-      "branches": 78
+      "lignes": 89.6,
+      "branches": 81.5
     },
     "lib": {
-      "lignes": 87.5,
-      "branches": 90.5
+      "lignes": 87.6,
+      "branches": 91.3
     },
     "routes": {
-      "lignes": 25.2,
-      "branches": 14.7
+      "lignes": 54.5,
+      "branches": 81.3
     },
     "routes/_app": {
       "lignes": 0,
