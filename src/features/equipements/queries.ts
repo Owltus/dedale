@@ -1,6 +1,14 @@
-import { queryOptions, skipToken } from '@tanstack/react-query'
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  skipToken,
+} from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { toutesLesLignes } from '@/lib/pagination'
+import {
+  LIGNES_PAR_ONGLET,
+  decalageSuivant,
+  toutesLesLignes,
+} from '@/lib/pagination'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import { localisationsQueries } from '@/features/localisations/queries'
 
@@ -28,6 +36,34 @@ export const equipementsQueries = {
                 .throwOnError()
               return data
             },
+    }),
+
+  /**
+   * Équipements d'un LIEU, 50 à la fois (vue enrichie, même ligne que `list`) :
+   * lecture bornée par `local_id`, tri par catégorie puis identifiant.
+   */
+  duLieu: (localId: string | null) =>
+    infiniteQueryOptions({
+      queryKey: [...equipementsQueries.all(), 'du-lieu', localId] as const,
+      initialPageParam: 0,
+      // Lieu absent (onglet vide d’après le compteur) → aucune lecture.
+      queryFn:
+        localId === null
+          ? skipToken
+          : async ({ pageParam, signal }) => {
+              const { data } = await supabase
+                .from('v_equipements_complet')
+                .select('*')
+                .eq('local_id', localId)
+                .order('categorie_nom')
+                .order('code_inventaire')
+                .order('id')
+                .range(pageParam, pageParam + LIGNES_PAR_ONGLET - 1)
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
+      getNextPageParam: decalageSuivant,
     }),
 
   /** Ids des gammes liées à un équipement (table de liaison gammes_equipements). */

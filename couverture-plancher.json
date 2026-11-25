@@ -10,16 +10,16 @@
       "branches": 0
     },
     "components/common": {
-      "lignes": 62.4,
-      "branches": 52.2
+      "lignes": 64.3,
+      "branches": 54.3
     },
     "components/layout": {
       "lignes": 0,
       "branches": 0
     },
     "components/ui": {
-      "lignes": 63,
-      "branches": 48.3
+      "lignes": 64.2,
+      "branches": 49.6
     },
     "features/bibliotheque": {
       "lignes": 0,
@@ -42,36 +42,36 @@
       "branches": 9.2
     },
     "features/demandes": {
-      "lignes": 36.7,
-      "branches": 26.7
+      "lignes": 46.9,
+      "branches": 38.9
     },
     "features/dmbook": {
       "lignes": 0,
       "branches": 0
     },
     "features/documents": {
-      "lignes": 27.3,
-      "branches": 24
+      "lignes": 32.1,
+      "branches": 30.2
     },
     "features/equipements": {
-      "lignes": 27.3,
-      "branches": 23.3
+      "lignes": 30.1,
+      "branches": 24.6
     },
     "features/evenements": {
-      "lignes": 31.1,
-      "branches": 19.9
+      "lignes": 36.3,
+      "branches": 28.2
     },
     "features/gammes": {
-      "lignes": 19.6,
-      "branches": 16.2
+      "lignes": 20.5,
+      "branches": 17.3
     },
     "features/investissements": {
       "lignes": 30.5,
       "branches": 26.8
     },
     "features/localisations": {
-      "lignes": 59.1,
-      "branches": 54.1
+      "lignes": 61.4,
+      "branches": 56.4
     },
     "features/miniatures": {
       "lignes": 2.9,
@@ -94,8 +94,8 @@
       "branches": 73.6
     },
     "features/ordres-travail": {
-      "lignes": 44,
-      "branches": 42.5
+      "lignes": 49.3,
+      "branches": 50.3
     },
     "features/planning": {
       "lignes": 7.6,
@@ -114,12 +114,12 @@
       "branches": 0
     },
     "features/taches": {
-      "lignes": 28,
-      "branches": 22.9
+      "lignes": 39.6,
+      "branches": 30.9
     },
     "features/travaux": {
-      "lignes": 11.9,
-      "branches": 6.5
+      "lignes": 20.8,
+      "branches": 18.9
     },
     "features/utilisateurs": {
       "lignes": 27.6,
@@ -130,7 +130,7 @@
       "branches": 81.5
     },
     "lib": {
-      "lignes": 87.7,
+      "lignes": 88.3,
       "branches": 91.4
     },
     "routes": {

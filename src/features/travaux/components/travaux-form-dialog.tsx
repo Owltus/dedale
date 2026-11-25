@@ -34,10 +34,19 @@ interface TravauxFormDialogProps {
    * s'en sert pour rediriger vers la fiche où l'on ajoute les tâches.
    */
   onCreated?: (travaux: Travaux) => void
+  /** Lieu pré-rempli en CRÉATION (depuis la fiche d'un lieu), modifiable. */
+  localIdParDefaut?: string
 }
 
-function initialValues(travaux: Travaux | null | undefined): TravauxFormValues {
-  if (!travaux) return emptyTravaux(isoLocale(new Date()))
+function initialValues(
+  travaux: Travaux | null | undefined,
+  localIdParDefaut: string | undefined,
+): TravauxFormValues {
+  if (!travaux)
+    return {
+      ...emptyTravaux(isoLocale(new Date())),
+      local_id: localIdParDefaut ?? '',
+    }
   // taches : jamais peuplé ici — état à part, cf. plus bas.
   return {
     titre: travaux.titre,
@@ -55,6 +64,7 @@ export function TravauxFormDialog({
   siteId,
   travaux,
   onCreated,
+  localIdParDefaut,
 }: TravauxFormDialogProps) {
   const isEdit = Boolean(travaux)
   const { session } = useAuth()
@@ -103,7 +113,7 @@ export function TravauxFormDialog({
 
   const form = useForm<TravauxFormValues>({
     resolver: zodResolver(travauxSchema),
-    defaultValues: initialValues(travaux),
+    defaultValues: initialValues(travaux, localIdParDefaut),
   })
   // Cascade Localisation → Équipement (lieu principal, 098) — même patron
   // que DiFormDialog : lu via useWatch, écrit via setValue.

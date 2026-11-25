@@ -27,6 +27,8 @@ interface DiFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   siteId: string
+  /** Lieu pré-rempli (création depuis la fiche d'un lieu), modifiable. */
+  localIdParDefaut?: string
 }
 
 // Sentinelle : session expirée entre l'ouverture du modal et l'envoi. Levée
@@ -48,6 +50,7 @@ export function DiFormDialog({
   open,
   onOpenChange,
   siteId,
+  localIdParDefaut,
 }: DiFormDialogProps) {
   const { session } = useAuth()
   const create = useCreateDemande()
@@ -58,7 +61,7 @@ export function DiFormDialog({
 
   const form = useForm<DiFormValues>({
     resolver: zodResolver(diSchema),
-    defaultValues: emptyDi(),
+    defaultValues: { ...emptyDi(), local_id: localIdParDefaut ?? '' },
   })
   const submit = useSubmitDialog<DiFormValues>({
     onSubmit: (data) => {

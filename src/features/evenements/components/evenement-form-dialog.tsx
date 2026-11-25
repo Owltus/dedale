@@ -31,6 +31,8 @@ interface EvenementFormDialogProps {
   evenement?: Evenement | null
   /** Appelé après une CRÉATION réussie (l'hôte redirige vers la fiche). */
   onCreated?: (evenement: Evenement) => void
+  /** Lieu pré-rempli en CRÉATION (depuis la fiche d'un lieu), modifiable. */
+  localIdParDefaut?: string
 }
 
 export function EvenementFormDialog({
@@ -39,6 +41,7 @@ export function EvenementFormDialog({
   siteId,
   evenement,
   onCreated,
+  localIdParDefaut,
 }: EvenementFormDialogProps) {
   const isEdit = Boolean(evenement)
   const { session } = useAuth()
@@ -106,7 +109,10 @@ export function EvenementFormDialog({
           taches: [],
         }
       : undefined,
-    defaultValues: emptyEvenement(isoLocale(new Date())),
+    defaultValues: {
+      ...emptyEvenement(isoLocale(new Date())),
+      local_id: localIdParDefaut ?? '',
+    },
   })
   // Cascade Localisation → Équipement (lieu principal, 098) — même patron
   // que DiFormDialog : lu via useWatch, écrit via setValue.

@@ -1,4 +1,9 @@
-import { queryOptions, skipToken } from '@tanstack/react-query'
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  skipToken,
+} from '@tanstack/react-query'
+import { LIGNES_PAR_ONGLET, decalageSuivant } from '@/lib/pagination'
 import { supabase } from '@/lib/supabase'
 import { referentielQueryOptions } from '@/lib/referentiel'
 import type { DocumentMeta } from '@/features/documents/format'
@@ -24,6 +29,35 @@ export const travauxQueries = {
           .throwOnError()
         return data
       },
+    }),
+
+  /**
+   * Travaux d'un LIEU (`travaux_du_lieu`, 183), 50 à la fois : lieu principal
+   * (le lieu ou un de ses équipements) ∪ tâches posées dessus. `ouverts` = non
+   * terminés. Même forme de ligne que `list` (lieu principal joint).
+   */
+  duLieu: (localId: string | null, ouverts: boolean) =>
+    infiniteQueryOptions({
+      queryKey: [...travauxQueries.all(), 'du-lieu', localId, ouverts] as const,
+      initialPageParam: 0,
+      // Lieu absent (onglet vide d’après le compteur) → aucune lecture.
+      queryFn:
+        localId === null
+          ? skipToken
+          : async ({ pageParam, signal }) => {
+              const { data } = await supabase
+                .rpc('travaux_du_lieu', {
+                  p_local_id: localId,
+                  p_ouverts_seulement: ouverts,
+                  p_limite: LIGNES_PAR_ONGLET,
+                  p_decalage: pageParam,
+                })
+                .select('*, locaux(id, nom), equipements(id, categories(nom))')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
+      getNextPageParam: decalageSuivant,
     }),
 
   /** Tâches d'un travail : libellé (identité), lieu facultatif, statut (090). */

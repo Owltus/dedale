@@ -2,6 +2,7 @@ import { queryOptions, skipToken } from '@tanstack/react-query'
 import { listeFr } from '@/lib/liste'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/lib/database.types'
+import { lireCompteursLieu } from './fiche-lieu'
 
 export const localisationsQueries = {
   all: () => ['localisations'] as const,
@@ -77,6 +78,28 @@ export const localisationsQueries = {
         localId === null
           ? skipToken
           : ({ signal }) => fetchLieu(localId, signal),
+    }),
+
+  /**
+   * Compteurs de la fiche d'un lieu (`fiche_local`, 183) : un nombre par
+   * onglet, `null` quand le rôle ne voit pas l'onglet ; `null` global = lieu
+   * invisible. La fonction lit OT, DI, travaux, événements : la fiche les
+   * rafraîchit par le temps réel de ces tables (`LieuFiche`).
+   */
+  fiche: (localId: string | null) =>
+    queryOptions({
+      queryKey: [...localisationsQueries.all(), 'fiche', localId] as const,
+      queryFn:
+        localId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .rpc('fiche_local', { p_local_id: localId })
+                .abortSignal(signal)
+                .throwOnError()
+              return lireCompteursLieu(data)
+            },
+      staleTime: 30_000,
     }),
 
   /**

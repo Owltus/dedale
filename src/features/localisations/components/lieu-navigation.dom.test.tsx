@@ -26,6 +26,8 @@ import { LienLieu } from './lien-lieu'
  * lectures sont pré-chargées dans le cache : aucun appel réseau.
  */
 vi.mock('@/lib/supabase', () => ({ supabase: {} }))
+// Temps réel des compteurs de la fiche : hors sujet ici (aucun canal ouvert).
+vi.mock('@/hooks/use-realtime-refresh', () => ({ useRealtimeRefresh: vi.fn() }))
 vi.mock('@/features/miniatures/use-miniature-urls', () => ({
   useMiniatureUrls: () => ({ urlOf: () => null, refresh: vi.fn() }),
 }))
@@ -35,6 +37,8 @@ vi.mock('./batiment-form-dialog', () => ({ BatimentFormDialog: () => null }))
 vi.mock('./niveau-form-dialog', () => ({ NiveauFormDialog: () => null }))
 vi.mock('./local-form-dialog', () => ({ LocalFormDialog: () => null }))
 vi.mock('./import-csv-dialog', () => ({ ImportCsvDialog: () => null }))
+// Onglet Documents de la fiche : jamais ouvert ici (aucun onglet injecté).
+vi.mock('./lieu-onglet-documents', () => ({ LieuOngletDocuments: () => null }))
 
 const SITE = 'site-1'
 const DATE = '2026-01-01T00:00:00Z'

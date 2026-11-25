@@ -24,6 +24,7 @@ import { useLocalisationsDrill } from '../use-localisations-drill'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
 import { LieuFiche } from './lieu-fiche'
+import type { OngletsDuLieu } from '../fiche-lieu'
 import { caracteristiquesLocal, surfaceLocal } from '../lieu-format'
 import { segOfUnique } from '@/lib/slug'
 import { listStack } from '@/lib/responsive'
@@ -32,6 +33,11 @@ import type { PageHeaderCrumb } from '@/components/common/page-header'
 import { DrillPageHeader } from '@/components/common/drill-page-header'
 import { FillHeader, ScrollBody } from '@/components/common/page-container'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
+import {
+  TabActionContext,
+  type TabActionApi,
+  type TabAddConfig,
+} from '@/components/common/tab-actions'
 import { ListRow } from '@/components/common/list-row'
 import { actionsEditionSuppression } from '@/components/common/row-actions'
 import { EmptyState } from '@/components/common/empty-state'
@@ -76,11 +82,25 @@ const SUPPRESSION_SUCCES: Record<Suppression['kind'], string> = {
  * dans un bâtiment : ses niveaux ; dans un niveau : ses locaux ; un local
  * ouvert : sa fiche (`LieuFiche`).
  */
-export function LocalisationsExplorer({ siteId }: { siteId: string }) {
+export function LocalisationsExplorer({
+  siteId,
+  onglets,
+}: {
+  siteId: string
+  /** Onglets métier de la fiche d'un lieu, injectés par la route. */
+  onglets?: OngletsDuLieu
+}) {
   const { data: role } = useCurrentRole()
   const canEdit = perm.canManageMetier(role)
   const { segs, goTo } = useLocalisationsDrill()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
+  // Bouton + de l'en-tête PILOTÉ par l'onglet actif de la fiche d'un lieu
+  // (`useTabAddAction` : nouvelle demande, travaux, événement, document…),
+  // même patron que la fiche équipement.
+  const [lieuAddConfig, setLieuAddConfig] = useState<TabAddConfig | null>(null)
+  const [lieuActionApi] = useState<TabActionApi>(() => ({
+    setAction: setLieuAddConfig,
+  }))
 
   const batimentsQuery = useQuery(localisationsQueries.batiments(siteId))
   const batiments = batimentsQuery.data ?? []
@@ -265,6 +285,17 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
           ? [racine]
           : []
 
+  const LieuAddIcon = lieuAddConfig?.icon ?? Plus
+  const lieuAddBtn =
+    lieuAddConfig?.action != null ? (
+      <TooltipIconButton
+        icon={<LieuAddIcon />}
+        label={lieuAddConfig.label}
+        variant="outline"
+        onClick={lieuAddConfig.action}
+      />
+    ) : undefined
+
   const header = (
     <DrillPageHeader
       titreRacine="Localisations"
@@ -272,9 +303,11 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
       titre={lieu?.nom ?? niveau?.nom ?? batiment?.nom}
       description={sectionDescription}
       action={
-        // Fiche d'un lieu : pas d'action de création (le lieu est une feuille) ;
-        // ses actions viendront avec ses onglets.
-        canEdit && !lieu ? (
+        // Fiche d'un lieu : l'action de l'onglet actif (le lieu est une
+        // feuille, rien à y créer en tant que tel).
+        lieu ? (
+          lieuAddBtn
+        ) : canEdit ? (
           <>
             {niveau && batiment
               ? newBtn('Nouveau local', locDialog.openCreate)
@@ -511,13 +544,18 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   // fixe. Le `key` remet la fiche à zéro d'un lieu à l'autre.
   if (lieu) {
     return (
-      <>
+      <TabActionContext.Provider value={lieuActionApi}>
         <div className="flex min-h-0 flex-1 flex-col">
           <FillHeader>{header}</FillHeader>
-          <LieuFiche key={lieu.id} localId={lieu.id} />
+          <LieuFiche
+            key={lieu.id}
+            localId={lieu.id}
+            siteId={siteId}
+            onglets={onglets}
+          />
         </div>
         {dialogs}
-      </>
+      </TabActionContext.Provider>
     )
   }
 

@@ -5,7 +5,11 @@ import {
 } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
-import { toutesLesLignes } from '@/lib/pagination'
+import {
+  LIGNES_PAR_ONGLET,
+  decalageSuivant,
+  toutesLesLignes,
+} from '@/lib/pagination'
 import type { ReleveLigne } from './releves'
 import { cleNom, cleProvenance, type IndexPrecedents } from './correlation'
 import type { DocumentMeta } from '@/features/documents/format'
@@ -23,6 +27,41 @@ export const OT_PAR_PAGE = 50
 
 export const ordresTravailQueries = {
   all: () => ['ordres_travail'] as const,
+
+  /**
+   * OT d'un LIEU (`ot_du_lieu`, 183), 50 à la fois : gammes liées aux
+   * équipements du lieu ∪ opérations exécutées sur l'un d'eux. `ouverts` =
+   * ni clôturés ni annulés (le plus ancien d'abord), sinon tous (le plus récent
+   * d'abord) — filtre et tri faits par la base, sous la RLS de la personne.
+   */
+  duLieu: (localId: string | null, ouverts: boolean) =>
+    infiniteQueryOptions({
+      queryKey: [
+        ...ordresTravailQueries.all(),
+        'du-lieu',
+        localId,
+        ouverts,
+      ] as const,
+      initialPageParam: 0,
+      // Lieu absent (onglet vide d’après le compteur) → aucune lecture.
+      queryFn:
+        localId === null
+          ? skipToken
+          : async ({ pageParam, signal }) => {
+              const { data } = await supabase
+                .rpc('ot_du_lieu', {
+                  p_local_id: localId,
+                  p_ouverts_seulement: ouverts,
+                  p_limite: LIGNES_PAR_ONGLET,
+                  p_decalage: pageParam,
+                })
+                .select(COLONNES_LISTE)
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
+      getNextPageParam: decalageSuivant,
+    }),
 
   /**
    * OT NON terminés du site (planifiés, en cours, réouverts) : la vue par défaut

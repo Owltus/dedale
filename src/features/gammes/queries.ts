@@ -1,4 +1,9 @@
-import { queryOptions, skipToken } from '@tanstack/react-query'
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  skipToken,
+} from '@tanstack/react-query'
+import { LIGNES_PAR_ONGLET, decalageSuivant } from '@/lib/pagination'
 import { supabase } from '@/lib/supabase'
 import { categoriesQueries } from '@/features/categories/queries'
 import { clesRacines } from '@/lib/cles-racines'
@@ -111,6 +116,38 @@ export const gammesQueries = {
           .overrideTypes<GammeRow[], { merge: false }>()
         return data ?? []
       },
+    }),
+
+  /**
+   * Plans de maintenance d'un LIEU (`gammes_du_lieu`, 183), 50 à la fois :
+   * gammes du site liées aux équipements du lieu (le commun exclu). `actives`
+   * = actives seulement. Même forme que `list` (`GammeRow`, pour `GammeCard`).
+   */
+  duLieu: (localId: string | null, actives: boolean) =>
+    infiniteQueryOptions({
+      queryKey: [...gammesQueries.all(), 'du-lieu', localId, actives] as const,
+      initialPageParam: 0,
+      // Lieu absent (onglet vide d’après le compteur) → aucune lecture.
+      queryFn:
+        localId === null
+          ? skipToken
+          : async ({ pageParam, signal }) => {
+              const { data } = await supabase
+                .rpc('gammes_du_lieu', {
+                  p_local_id: localId,
+                  p_ouverts_seulement: actives,
+                  p_limite: LIGNES_PAR_ONGLET,
+                  p_decalage: pageParam,
+                })
+                .select(
+                  '*, periodicites(id, libelle, jours_periodicite), prestataires(id, libelle)',
+                )
+                .abortSignal(signal)
+                .throwOnError()
+                .overrideTypes<GammeRow[], { merge: false }>()
+              return data ?? []
+            },
+      getNextPageParam: decalageSuivant,
     }),
 
   /** Gammes actives du site actif, enrichies de la périodicité et du prestataire. */

@@ -3,7 +3,11 @@ import {
   queryOptions,
   skipToken,
 } from '@tanstack/react-query'
-import { toutesLesLignes } from '@/lib/pagination'
+import {
+  LIGNES_PAR_ONGLET,
+  decalageSuivant,
+  toutesLesLignes,
+} from '@/lib/pagination'
 import { supabase } from '@/lib/supabase'
 import { bornesUuid } from '@/lib/slug'
 import { LIGNES_ACTIVITE, enListe, ouvertsPuisRecents } from '@/lib/apercu'
@@ -137,6 +141,43 @@ export const demandesQueries = {
           ? undefined
           : derniere.decalage + DEMANDES_PAR_PAGE,
       staleTime: 5 * 60_000,
+    }),
+
+  /**
+   * DI d'un LIEU (`di_du_lieu`, 183), 50 à la fois : demandes posées sur le
+   * lieu ∪ sur un de ses équipements. `ouvertes` = non clôturées. Chaque
+   * demande porte le texte de SES lieux (titre de la ligne, comme la liste).
+   */
+  duLieu: (localId: string | null, ouvertes: boolean) =>
+    infiniteQueryOptions({
+      queryKey: [
+        ...demandesQueries.all(),
+        'du-lieu',
+        localId,
+        ouvertes,
+      ] as const,
+      initialPageParam: 0,
+      // Lieu absent (onglet vide d’après le compteur) → aucune lecture.
+      queryFn:
+        localId === null
+          ? skipToken
+          : async ({ pageParam, signal }) => {
+              const { data } = await supabase
+                .rpc('di_du_lieu', {
+                  p_local_id: localId,
+                  p_ouverts_seulement: ouvertes,
+                  p_limite: LIGNES_PAR_ONGLET,
+                  p_decalage: pageParam,
+                })
+                .abortSignal(signal)
+                .throwOnError()
+              const lieux = await lieuxDesDemandes(
+                data.map((d) => d.id),
+                signal,
+              )
+              return data.map((d) => ({ ...d, lieu: lieux.get(d.id) ?? null }))
+            },
+      getNextPageParam: decalageSuivant,
     }),
 
   /** Le site a-t-il au moins une demande ? (écran vide d'accueil de la page) */
