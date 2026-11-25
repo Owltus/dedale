@@ -86,3 +86,6 @@ docs/Releves_*/
 
 # Réécrit à chaque semis de la base locale (npm run base:monter) : jamais versionné
 tests/securite/seed-data.json
+
+# Copies de travail (git worktree) des agents
+.claude/worktrees/

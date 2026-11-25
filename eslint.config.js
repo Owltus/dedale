@@ -96,6 +96,8 @@ export default defineConfig(
       'tests/securite',
       '.stryker-tmp',
       'reports',
+      // Copies de travail (git worktree) des agents : jamais lintées depuis la racine.
+      '.claude/worktrees',
     ],
   },
   {

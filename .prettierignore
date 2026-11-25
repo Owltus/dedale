@@ -17,3 +17,6 @@ tests/securite/seed-data.json
 .claude/skills/impeccable/
 .impeccable/
 DESIGN.md
+
+# Copies de travail (git worktree) des agents
+.claude/worktrees/

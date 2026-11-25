@@ -15,7 +15,8 @@
     "src/lib/database.types.ts",
     "supabase/**",
     ".claude/skills/**",
-    ".impeccable/**"
+    ".impeccable/**",
+    ".claude/worktrees/**"
   ],
   "ignoreDependencies": ["tailwindcss", "tw-animate-css", "shadcn"],
   "ignoreExportsUsedInFile": true
