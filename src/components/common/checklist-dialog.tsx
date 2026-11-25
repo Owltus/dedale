@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -171,7 +171,7 @@ export function ChecklistDialog({
     }
   }
 
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     const q = normaliserRecherche(search)
     if (q === '') return items
     return items.filter(
@@ -179,7 +179,7 @@ export function ChecklistDialog({
         normaliserRecherche(it.titre).includes(q) ||
         normaliserRecherche(it.sousTitre ?? '').includes(q),
     )
-  }, [items, search])
+  })()
 
   function toggle(id: string) {
     setSelected((prev) => {

@@ -67,66 +67,6 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/components/common/checklist-dialog.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/components/common/importer-du-commun-dialog.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/components/common/slug-detail-route.tsx",
-    "occurrences": 2,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/components/ui/chart.tsx",
-    "occurrences": 1,
-    "motif": "primitive shadcn gardée au plus près du bloc canonique (docs/conventions/composants.md) : sa mémoïsation d’origine reste"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/components/ui/sidebar.tsx",
-    "occurrences": 2,
-    "motif": "primitive shadcn gardée au plus près du bloc canonique (docs/conventions/composants.md) : sa mémoïsation d’origine reste"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/categories/components/catalogue-panel.tsx",
-    "occurrences": 13,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/dashboard/components/alerte-documents-manquants.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/dashboard/components/cadran-barres-planning.tsx",
-    "occurrences": 5,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/dashboard/components/cadran-sunburst-gammes.tsx",
-    "occurrences": 2,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/dashboard/components/dashboard.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
     "fichier": "src/features/dashboard/components/frise-obligations.tsx",
     "occurrences": 2,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"

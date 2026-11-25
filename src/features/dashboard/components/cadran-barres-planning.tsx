@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   BarresEmpilees,
@@ -198,20 +198,16 @@ function BarresVue({
     minSemaines: 6,
     maxSemaines: 26,
   })
-  const semaines = useMemo(
-    () =>
-      fenetreSemaines(
-        ajouterSemaines(fenetre.centre, -Math.floor(nbSemaines / 2)),
-        nbSemaines,
-      ),
-    [fenetre.centre, nbSemaines],
+  const semaines = fenetreSemaines(
+    ajouterSemaines(fenetre.centre, -Math.floor(nbSemaines / 2)),
+    nbSemaines,
   )
 
-  const cleSemaineCourante = useMemo(() => cleSemaine(new Date()), [])
+  const cleSemaineCourante = cleSemaine(new Date())
 
   // OT groupés par semaine ISO (date effective = clôture si terminal, sinon prévue,
   // cf. `dateSemaineOt`) — MÊME positionnement que la grille planning.
-  const parSemaine = useMemo(() => {
+  const parSemaine = (() => {
     const map = new Map<string, PlanningOt[]>()
     for (const ot of ordresTravail) {
       const cle = cleSemaine(dateSemaineOt(ot))
@@ -220,10 +216,10 @@ function BarresVue({
       else map.set(cle, [ot])
     }
     return map
-  }, [ordresTravail])
+  })()
 
   // Une colonne par semaine visible ; chaque colonne empile les 7 états.
-  const colonnes = useMemo<BarreColonne[]>(() => {
+  const colonnes: BarreColonne[] = (() => {
     const aujourdHui = new Date()
     return semaines.map((s) => {
       const ots = parSemaine.get(s.cle) ?? []
@@ -246,19 +242,17 @@ function BarresVue({
         segments,
       }
     })
-  }, [semaines, parSemaine, cleSemaineCourante])
+  })()
 
   // Année en filigrane : celle de la semaine centrale de la fenêtre visible.
-  const filigrane = useMemo(() => {
-    const milieu = semaines[Math.floor(semaines.length / 2)]
-    return milieu ? String(milieu.annee) : undefined
-  }, [semaines])
+  const milieu = semaines[Math.floor(semaines.length / 2)]
+  const filigrane = milieu ? String(milieu.annee) : undefined
 
-  const semaineParCle = useMemo(() => {
+  const semaineParCle = (() => {
     const map = new Map<string, SemaineIso>()
     for (const s of semaines) map.set(s.cle, s)
     return map
-  }, [semaines])
+  })()
 
   // Clic sur une barre : 1 OT → fiche directe, ≥ 2 → modal (patron du planning).
   const ouvrirSemaine = (cle: string) => {

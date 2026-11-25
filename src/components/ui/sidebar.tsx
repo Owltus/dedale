@@ -1,9 +1,8 @@
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
-  useMemo,
+  useEffectEvent,
   useState,
   type ComponentProps,
   type CSSProperties,
@@ -86,57 +85,54 @@ function SidebarProvider({
   // État interne (non contrôlé) — surchargeable via `open` contrôlé.
   const [_open, _setOpen] = useState(defaultOpen)
   const open = openProp ?? _open
-  const setOpen = useCallback(
-    (value: boolean | ((value: boolean) => boolean)) => {
-      const openState = typeof value === 'function' ? value(open) : value
-      if (setOpenProp) {
-        setOpenProp(openState)
-      } else {
-        _setOpen(openState)
-      }
-      // Persiste l'état pour les rechargements suivants.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${String(openState)}; path=/; max-age=${String(SIDEBAR_COOKIE_MAX_AGE)}`
-    },
-    [setOpenProp, open],
-  )
+  const setOpen = (value: boolean | ((value: boolean) => boolean)) => {
+    const openState = typeof value === 'function' ? value(open) : value
+    if (setOpenProp) {
+      setOpenProp(openState)
+    } else {
+      _setOpen(openState)
+    }
+    // Persiste l'état pour les rechargements suivants.
+    document.cookie = `${SIDEBAR_COOKIE_NAME}=${String(openState)}; path=/; max-age=${String(SIDEBAR_COOKIE_MAX_AGE)}`
+  }
 
   // Bascule : le drawer sur mobile, la sidebar fixe sinon.
-  const toggleSidebar = useCallback(() => {
+  const toggleSidebar = () => {
     if (isMobile) {
       setOpenMobile((o) => !o)
     } else {
       setOpen((o) => !o)
     }
-  }, [isMobile, setOpen, setOpenMobile])
+  }
+
+  // Raccourci clavier : l'écouteur est posé une seule fois et lit toujours la
+  // bascule à jour (useEffectEvent), sans se réabonner à chaque rendu.
+  const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (
+      event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
+      (event.metaKey || event.ctrlKey)
+    ) {
+      event.preventDefault()
+      toggleSidebar()
+    }
+  })
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-        (event.metaKey || event.ctrlKey)
-      ) {
-        event.preventDefault()
-        toggleSidebar()
-      }
-    }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [toggleSidebar])
+  }, [])
 
   const state = open ? 'expanded' : 'collapsed'
 
-  const contextValue = useMemo<SidebarContextProps>(
-    () => ({
-      state,
-      open,
-      setOpen,
-      isMobile,
-      openMobile,
-      setOpenMobile,
-      toggleSidebar,
-    }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar],
-  )
+  const contextValue: SidebarContextProps = {
+    state,
+    open,
+    setOpen,
+    isMobile,
+    openMobile,
+    setOpenMobile,
+    toggleSidebar,
+  }
 
   return (
     <SidebarContext.Provider value={contextValue}>

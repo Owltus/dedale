@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -256,59 +256,46 @@ export function CataloguePanel<T extends CatalogueModele>({
   // Catégories ouvrables (actives, scope propre à la famille) — TOUTES portées
   // confondues : sert de référentiel pour résoudre le chemin d'URL quel que soit
   // le filtre de périmètre (le sélecteur ne filtre que l'AFFICHAGE).
-  const cats = useMemo(
-    () => (categoriesQuery.data ?? []).filter(categoryScope),
-    [categoriesQuery.data, categoryScope],
-  )
+  const cats = (categoriesQuery.data ?? []).filter(categoryScope)
   // Descente d'arbre portée par l'URL (hook partagé de la Bibliothèque).
   const { path, current, depth, children, goTo, leafSeg, goToLeaf } =
     useBiblioTreeDrill(drillKey, cats)
 
-  const modeles = useMemo(() => modelesQuery.data ?? [], [modelesQuery.data])
+  const modeles = modelesQuery.data ?? []
 
   // Sous-catégories du palier courant, filtrées par périmètre puis triées.
-  const childCategories = useMemo(
-    () =>
-      children
-        .filter((c) => scopeMatches(scope, c.site_id))
-        .sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom)),
-    [children, scope],
-  )
+  const childCategories = children
+    .filter((c) => scopeMatches(scope, c.site_id))
+    .sort((a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom))
   // Modèles rangés DANS la catégorie courante (visibles dès qu'on est descendu).
-  const modelesInCurrent = useMemo(
-    () =>
-      current === null
-        ? []
-        : modeles
-            .filter(
-              (m) =>
-                m.categorie_id === current.id && scopeMatches(scope, m.site_id),
-            )
-            .sort((a, b) => a.nom.localeCompare(b.nom)),
-    [current, modeles, scope],
-  )
+  const modelesInCurrent =
+    current === null
+      ? []
+      : modeles
+          .filter(
+            (m) =>
+              m.categorie_id === current.id && scopeMatches(scope, m.site_id),
+          )
+          .sort((a, b) => a.nom.localeCompare(b.nom))
 
   // Modèle OUVERT (vue détail, niveau FEUILLE) : résolu depuis le segment de
   // feuille de l'URL parmi les modèles de la catégorie courante (mêmes frères
   // qu'à la génération → slug stable).
-  const openModele = useMemo(() => {
+  const openModele = (() => {
     if (leafSeg === undefined || current === null) return null
     const siblings = modeles.filter((m) => m.categorie_id === current.id)
     return siblings.find((m) => segOfUnique(m, siblings) === leafSeg) ?? null
-  }, [leafSeg, current, modeles])
+  })()
   // Ouvre un modèle : chemin RÉEL du modèle (sa catégorie) + slug désambiguïsé sur
   // ses frères. Le chemin réel (et non le `path` courant) garde l'URL cohérente
   // même après un déplacement de catégorie. Catalogue plat → chemin = [la catégorie].
-  const goToModele = useCallback(
-    (m: T, opts?: { replace?: boolean }) => {
-      const cat = cats.find((c) => c.id === m.categorie_id)
-      const siblings = modeles.filter((x) => x.categorie_id === m.categorie_id)
-      goToLeaf(cat ? [cat] : [], segOfUnique(m, siblings), {
-        replace: opts?.replace,
-      })
-    },
-    [cats, modeles, goToLeaf],
-  )
+  const goToModele = (m: T, opts?: { replace?: boolean }) => {
+    const cat = cats.find((c) => c.id === m.categorie_id)
+    const siblings = modeles.filter((x) => x.categorie_id === m.categorie_id)
+    goToLeaf(cat ? [cat] : [], segOfUnique(m, siblings), {
+      replace: opts?.replace,
+    })
+  }
 
   // Re-synchronise l'URL si le MODÈLE OUVERT est renommé/déplacé (« Modifier » ou
   // réception realtime) : son slug change → l'URL ne le résout plus → on réécrit
@@ -340,14 +327,10 @@ export function CataloguePanel<T extends CatalogueModele>({
 
   // Gestion d'une catégorie / d'un modèle selon le rôle + la portée de l'élément
   // (commun → entreprise, site → métier). La base reste l'arbitre réel.
-  const canManageCat = useCallback(
-    (c: Categorie) => canManage && (canEntreprise || c.site_id !== null),
-    [canManage, canEntreprise],
-  )
-  const canEditModele = useCallback(
-    (m: T) => canManage && (canEntreprise || m.site_id !== null),
-    [canManage, canEntreprise],
-  )
+  const canManageCat = (c: Categorie) =>
+    canManage && (canEntreprise || c.site_id !== null)
+  const canEditModele = (m: T) =>
+    canManage && (canEntreprise || m.site_id !== null)
 
   // Création de CATÉGORIE racine : adopte le périmètre du sélecteur. Désactivée
   // sur « Tout », ou sur Commun sans le droit entreprise.
@@ -356,16 +339,13 @@ export function CataloguePanel<T extends CatalogueModele>({
     canManage &&
     targetSiteId !== undefined &&
     (targetSiteId !== null || canEntreprise)
-  const rootLockedScope = useMemo<LockedScope | null>(
-    () =>
-      targetSiteId === undefined
-        ? null
-        : {
-            portee: targetSiteId === null ? 'entreprise' : 'site',
-            siteId: targetSiteId,
-          },
-    [targetSiteId],
-  )
+  const rootLockedScope: LockedScope | null =
+    targetSiteId === undefined
+      ? null
+      : {
+          portee: targetSiteId === null ? 'entreprise' : 'site',
+          siteId: targetSiteId,
+        }
 
   // Création d'un modèle DANS la catégorie courante : portée héritée de la
   // catégorie ; droit = rôle métier (+ entreprise si commun).
@@ -376,7 +356,7 @@ export function CataloguePanel<T extends CatalogueModele>({
   // la racine, puis VERROUILLÉ une fois entré dans une catégorie / un modèle — il
   // affiche alors l'ORIGINE (Commun ou le site) du modèle ouvert, sinon de la
   // catégorie courante, sans pouvoir l'ouvrir.
-  const scopeDisplay = useMemo(() => {
+  const scopeDisplay = (() => {
     if (current === null) {
       return <ScopeSelect value={scope} onChange={setScope} fluid />
     }
@@ -384,21 +364,18 @@ export function CataloguePanel<T extends CatalogueModele>({
     // dropdown NATIVEMENT désactivé (grisé) qui affiche l'origine.
     const origin = (openModele ?? current).site_id ?? SCOPE_COMMUN
     return <ScopeSelect value={origin} disabled fluid />
-  }, [current, openModele, scope, setScope])
+  })()
 
-  const handleAddRootCategory = useCallback(() => {
+  const handleAddRootCategory = () => {
     setCategoryForm({
       open: true,
       categorie: null,
       preset: { scope: categoryPresetScope },
       lockedScope: rootLockedScope,
     })
-  }, [rootLockedScope, categoryPresetScope])
+  }
 
-  const handleAddModele = useCallback(
-    () => setModeleForm({ open: true, modele: null }),
-    [],
-  )
+  const handleAddModele = () => setModeleForm({ open: true, modele: null })
 
   function handleEditCategory(categorie: Categorie) {
     setCategoryForm({ open: true, categorie, lockedScope: null })
@@ -412,26 +389,23 @@ export function CataloguePanel<T extends CatalogueModele>({
   // tous les paliers — on le cherche toujours au même endroit. Proposé dès qu'on
   // REGARDE un site : sans objet sous « Commun » (on y est déjà) et sans
   // destination unique sous « Tout ».
-  const importCommunBtn = useMemo(
-    () =>
-      renderImportCommun && canManage && typeof targetSiteId === 'string' ? (
-        <TooltipIconButton
-          icon={<PackagePlus />}
-          label="Importer depuis le commun"
-          variant="outline"
-          onClick={() => setImportCommunOpen(true)}
-        />
-      ) : null,
-    [renderImportCommun, canManage, targetSiteId],
-  )
+  const importCommunBtn =
+    renderImportCommun && canManage && typeof targetSiteId === 'string' ? (
+      <TooltipIconButton
+        icon={<PackagePlus />}
+        label="Importer depuis le commun"
+        variant="outline"
+        onClick={() => setImportCommunOpen(true)}
+      />
+    ) : null
 
-  const tabAddConfig = useMemo<{
+  const tabAddConfig: {
     action: (() => void) | null
     label: string
     disabled: boolean
     extra?: ReactNode
     actions?: ReactNode
-  }>(() => {
+  } = (() => {
     if (openModele !== null) {
       // Vue détail d'un modèle : pas de création (+ masqué), juste « Copier » (si
       // commun) et « Modifier » dans la barre d'onglet.
@@ -504,21 +478,7 @@ export function CataloguePanel<T extends CatalogueModele>({
           </div>
         ) : undefined,
     }
-  }, [
-    depth,
-    canAddCategory,
-    canManageHere,
-    handleAddRootCategory,
-    handleAddModele,
-    scopeDisplay,
-    openModele,
-    canExport,
-    canEditModele,
-    labelModifierModele,
-    labelNouveauModele,
-    renderImportCsv,
-    importCommunBtn,
-  ])
+  })()
   useTabAddAction(tabAddConfig.action, tabAddConfig.label, {
     disabled: tabAddConfig.disabled,
     extra: tabAddConfig.extra,
@@ -528,7 +488,7 @@ export function CataloguePanel<T extends CatalogueModele>({
   // En-tête de descente : le titre SUIT le nœud courant (catégorie ou modèle
   // ouvert) et les ancêtres cliquables alimentent le fil « Bibliothèque › … ›… »
   // rendu par <Tabs>. À la RACINE (depth 0) → `null` (titre de section).
-  const header = useMemo<TabHeader | null>(() => {
+  const header: TabHeader | null = (() => {
     if (openModele !== null) {
       const breadcrumb: PageHeaderCrumb[] = drillCrumbs(path, goTo)
       return {
@@ -548,15 +508,12 @@ export function CataloguePanel<T extends CatalogueModele>({
         ? current.description.trim()
         : undefined,
     }
-  }, [openModele, depth, path, current, goTo, sectionTitleFallback])
+  })()
   useTabHeader(header)
 
   // Catégories sélectionnables comme PARENT à l'édition : racines de la famille
   // (modèle strict à 2 niveaux max ; un niveau de plus serait refusé par la base).
-  const parentCandidates = useMemo(
-    () => cats.filter((c) => c.parent_id === null),
-    [cats],
-  )
+  const parentCandidates = cats.filter((c) => c.parent_id === null)
 
   const emptyHere =
     childCategories.length === 0 && modelesInCurrent.length === 0

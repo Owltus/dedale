@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AlertTriangle, FileWarning } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -40,18 +40,16 @@ export function AlerteDocumentsManquants({
   const navigate = useNavigate()
   const [ouvert, setOuvert] = useState(false)
 
-  const groupes = useMemo(() => {
-    const parNature = new Map<NatureGamme, typeof manquantsBruts>()
-    const manquantsBruts = documentsManquantsQuery.data ?? []
-    for (const ot of manquantsBruts) {
-      const liste = parNature.get(ot.nature_gamme) ?? []
-      liste.push(ot)
-      parNature.set(ot.nature_gamme, liste)
-    }
-    return [...parNature.entries()].sort(
-      ([a], [b]) => rangNature(a) - rangNature(b),
-    )
-  }, [documentsManquantsQuery.data])
+  const parNature = new Map<NatureGamme, typeof manquantsBruts>()
+  const manquantsBruts = documentsManquantsQuery.data ?? []
+  for (const ot of manquantsBruts) {
+    const liste = parNature.get(ot.nature_gamme) ?? []
+    liste.push(ot)
+    parNature.set(ot.nature_gamme, liste)
+  }
+  const groupes = [...parNature.entries()].sort(
+    ([a], [b]) => rangNature(a) - rangNature(b),
+  )
 
   // Une PANNE ne doit pas se lire comme « tout est en règle » : sur des
   // documents exigés, le silence est une affirmation.

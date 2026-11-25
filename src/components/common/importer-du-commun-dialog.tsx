@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { ChecklistDialog } from '@/components/common/checklist-dialog'
 import { writeErrorMessage } from '@/lib/erreurs'
@@ -59,16 +59,12 @@ export function ImporterDuCommunDialog({
   motPluriel,
   loading,
 }: ImporterDuCommunDialogProps) {
-  const items = useMemo(
-    () =>
-      elements.map((e) => ({
-        id: e.id,
-        titre: e.nom,
-        sousTitre: e.description ?? undefined,
-        badge: e.badge,
-      })),
-    [elements],
-  )
+  const items = elements.map((e) => ({
+    id: e.id,
+    titre: e.nom,
+    sousTitre: e.description ?? undefined,
+    badge: e.badge,
+  }))
 
   const description = (
     <>

@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useRef } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/common/error-state'
 import { useColonnesAuto } from '@/features/planning/use-colonnes-auto'
@@ -69,10 +69,7 @@ export function Dashboard({ siteId }: DashboardProps) {
 
   // Période d'OT terminés à charger : celle que montrent barres et frises (et
   // de la marge), jamais tout l'historique. Partagée avec les cadrans.
-  const plage = useMemo(
-    () => plageDepuisFenetre(fenetre.centre, nbSemaines),
-    [fenetre.centre, nbSemaines],
-  )
+  const plage = plageDepuisFenetre(fenetre.centre, nbSemaines)
   const { ordresTravailEtat, ordresTravail } = useDashboardData(siteId, plage)
 
   // Bascule « FILL-OR-SCROLL ». On DÉDUIT la place de la zone 3 (sans la mesurer

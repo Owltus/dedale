@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   Sunburst,
@@ -143,13 +143,10 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
   const navigate = useNavigate()
   const [pleinEcran, setPleinEcran] = useState(false)
 
-  const categories = useMemo(
-    () => categoriesQuery.data ?? [],
-    [categoriesQuery.data],
-  )
-  const gammes = useMemo(() => gammesQuery.data ?? [], [gammesQuery.data])
+  const categories = categoriesQuery.data ?? []
+  const gammes = gammesQuery.data ?? []
 
-  const { noeuds, totalGammes, gammesAJour } = useMemo<ArbreResultat>(() => {
+  const { noeuds, totalGammes, gammesAJour }: ArbreResultat = (() => {
     // OT regroupés par gamme (via `gamme_id`, jamais par nom) : source de la santé.
     const otsParGamme = new Map<string, PlanningOt[]>()
     for (const ot of ordresTravail) {
@@ -325,12 +322,12 @@ export function CadranSunburstGammes({ siteId }: CadranSunburstGammesProps) {
     }
 
     return { noeuds, totalGammes, gammesAJour }
-  }, [categories, gammes, ordresTravail, navigate])
+  })()
 
   // PANNE ≠ absence de gammes. Sans cette branche, `?? []` ramenait `totalGammes`
   // à 0 et le cadran disparaissait comme si le site n'avait aucune gamme — la
   // santé de la maintenance se lisait alors « rien à afficher » au lieu de
-  // « impossible à calculer ». Placé APRÈS les useMemo (règle des hooks).
+  // « impossible à calculer ». Placé APRÈS les hooks (règle des hooks).
   if (categoriesQuery.isError || gammesQuery.isError) {
     return (
       <ErrorState

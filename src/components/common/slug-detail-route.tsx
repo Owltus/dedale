@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { QueryKey, UseQueryOptions } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
@@ -137,11 +137,8 @@ export function SlugDetailRoute<
   // Mémorisés sur les données : la fratrie garde la MÊME référence d'un rendu à
   // l'autre, donc l'index des slugs (`segOfUnique`) n'est construit qu'une fois
   // par rafraîchissement, pas à chaque rendu de la fiche.
-  const items = useMemo(
-    () => (filterItems ? filterItems(data ?? []) : (data ?? [])),
-    [data, filterItems],
-  )
-  const sibs = useMemo(() => items.map(identity), [items, identity])
+  const items = filterItems ? filterItems(data ?? []) : (data ?? [])
+  const sibs = items.map(identity)
   const item = useSlugResolved(
     items,
     slug,
