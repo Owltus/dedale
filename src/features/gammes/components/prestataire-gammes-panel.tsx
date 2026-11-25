@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Wrench } from 'lucide-react'
@@ -34,15 +33,12 @@ export function PrestataireGammesPanel({
 
   // OT des gammes affichées → badge de statut + périodicité sur chaque carte, comme
   // dans le Plan de maintenance (MÊME variante de `GammeCard` via `statutOts`).
-  const gammeIds = useMemo(
-    () => (query.data ?? []).map((g) => g.id),
-    [query.data],
-  )
+  const gammeIds = (query.data ?? []).map((g) => g.id)
   const otsQuery = useQuery(ordresTravailQueries.byGammes(siteId, gammeIds))
   useRealtimeRefresh('ordres_travail', ordresTravailQueries.all())
   // Badge masqué seulement pendant un vrai fetch / sur erreur (pas de statut trompeur).
   const otsIndispo = otsQuery.isLoading || otsQuery.isError
-  const otsParGamme = useMemo(() => {
+  const otsParGamme = (() => {
     const map = new Map<string, OtTriable[]>()
     for (const ot of otsQuery.data ?? []) {
       if (ot.gamme_id === null) continue
@@ -51,7 +47,7 @@ export function PrestataireGammesPanel({
       map.set(ot.gamme_id, liste)
     }
     return map
-  }, [otsQuery.data])
+  })()
 
   return (
     <QueryState

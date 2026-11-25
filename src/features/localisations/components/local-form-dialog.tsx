@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -82,10 +82,10 @@ export function LocalFormDialog({
   const [dernierType, setDernierType] = useState<string>(
     initialValues(local).type_local_id,
   )
-  const gabaritDuType = useMemo(() => {
+  const gabaritDuType = (() => {
     const t = types.find((t) => String(t.id) === typeIdChoisi)
     return t ? parseChamps(t.specifications) : []
-  }, [types, typeIdChoisi])
+  })()
   // Ajustement PENDANT le rendu (pas d'effet) : aligne la liste sur le gabarit
   // du type dès que l'utilisateur en change.
   if (typeIdChoisi !== dernierType) {

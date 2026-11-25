@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Layers, Link2Off, Plus } from 'lucide-react'
 import { gammesQueries, type ModeleOperationLie } from '../queries'
@@ -72,8 +72,8 @@ export function GammeModelesSection({
     errorMessage: (e) => writeErrorMessage(e, DETACH_ERREURS),
   })
 
-  const lies = useMemo(() => query.data ?? [], [query.data])
-  const liesIds = useMemo(() => lies.map((m) => m.id), [lies])
+  const lies = query.data ?? []
+  const liesIds = lies.map((m) => m.id)
 
   // Bouton « Importer » : ICÔNE SEULE + tooltip, dans l'en-tête de la section,
   // toujours présent → plus d'action d'ajout dans l'EmptyState.

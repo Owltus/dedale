@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { DoorOpen, Tag } from 'lucide-react'
 import { localisationsQueries } from '../queries'
@@ -35,12 +35,8 @@ export function TypesLocauxPanel() {
   // le rendu plutôt que de le démonter ouvert.
   if (edite !== null && !canEdit) setEdite(null)
 
-  const champsParType = useMemo(
-    () =>
-      new Map(
-        (query.data ?? []).map((t) => [t.id, parseChamps(t.specifications)]),
-      ),
-    [query.data],
+  const champsParType = new Map(
+    (query.data ?? []).map((t) => [t.id, parseChamps(t.specifications)]),
   )
 
   return (

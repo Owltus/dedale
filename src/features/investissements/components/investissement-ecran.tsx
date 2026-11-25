@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import { getRouteApi, Navigate, useNavigate } from '@tanstack/react-router'
 import { investissementsQueries } from '@/features/investissements/queries'
 import { PAGE_META } from '@/features/investissements/page-meta'
@@ -16,15 +15,12 @@ export function InvestissementEcran() {
   const navigate = useNavigate()
   // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
   // rendu (contrat de `useSlugResolved`).
-  const onSlugChange = useCallback(
-    (freshSlug: string) =>
-      void navigate({
-        to: '/investissements/$annee/$investissement',
-        params: { annee: param, investissement: freshSlug },
-        replace: true,
-      }),
-    [navigate, param],
-  )
+  const onSlugChange = (freshSlug: string) =>
+    void navigate({
+      to: '/investissements/$annee/$investissement',
+      params: { annee: param, investissement: freshSlug },
+      replace: true,
+    })
 
   if (annee === null) return <Navigate to="/investissements" replace />
   const retour = () =>

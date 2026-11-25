@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import {
   Tooltip,
@@ -18,7 +18,7 @@ import {
 export function useTexteTronque(texte: string | null | undefined) {
   const [element, setElement] = useState<HTMLElement | null>(null)
   const [tronque, setTronque] = useState(false)
-  const ref = useCallback((el: HTMLElement | null) => setElement(el), [])
+  const ref = (el: HTMLElement | null) => setElement(el)
 
   useEffect(() => {
     if (!element) return

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -118,20 +118,16 @@ export function GammesBiblioPanel() {
 
   // Catégories de gamme COMMUNES (site_id NULL), actives, scope gamme/mixte :
   // l'onglet ne montre/édite que le périmètre entreprise.
-  const gammeCats = useMemo(
-    () =>
-      (categoriesQuery.data ?? []).filter(
-        (c) =>
-          c.site_id === null &&
-          c.est_actif &&
-          (c.scope === 'gamme' || c.scope === 'mixte'),
-      ),
-    [categoriesQuery.data],
+  const gammeCats = (categoriesQuery.data ?? []).filter(
+    (c) =>
+      c.site_id === null &&
+      c.est_actif &&
+      (c.scope === 'gamme' || c.scope === 'mixte'),
   )
   // Gammes-templates COMMUNES uniquement : le pool `biblioPool` filtre déjà
   // `site_id IS NULL` côté serveur (les gammes de site vivent dans la page Gammes
   // opérationnelle, pas dans la Bibliothèque).
-  const gammes = useMemo(() => gammesQuery.data ?? [], [gammesQuery.data])
+  const gammes = gammesQuery.data ?? []
 
   // NAVIGATION PAR CHEMIN via le hook partagé : la descente (catégorie →
   // sous-catégorie → gamme) vit dans le CHEMIN d'URL en NOMS slugifiés
@@ -192,18 +188,15 @@ export function GammesBiblioPanel() {
   // (sous-catégorie niv.2 → racine) sur la donnée FRAÎCHE. Sert à GÉNÉRER une URL
   // cohérente avec la catégorie courante de la gamme — même après un déplacement
   // realtime — et à dériver le fil d'Ariane d'une gamme ouverte (constat #1).
-  const pathForGamme = useCallback(
-    (g: GammeBiblioRow): Categorie[] => {
-      const sousCat = gammeCats.find((c) => c.id === g.categorie_id)
-      if (!sousCat) return []
-      const racine =
-        sousCat.parent_id !== null
-          ? (gammeCats.find((c) => c.id === sousCat.parent_id) ?? null)
-          : null
-      return racine ? [racine, sousCat] : [sousCat]
-    },
-    [gammeCats],
-  )
+  const pathForGamme = (g: GammeBiblioRow): Categorie[] => {
+    const sousCat = gammeCats.find((c) => c.id === g.categorie_id)
+    if (!sousCat) return []
+    const racine =
+      sousCat.parent_id !== null
+        ? (gammeCats.find((c) => c.id === sousCat.parent_id) ?? null)
+        : null
+    return racine ? [racine, sousCat] : [sousCat]
+  }
 
   // Gamme ouverte (vue détail), relue dans le pool FRAIS, résolue en DEUX temps :
   //  1) NOMINAL : la gamme dont `segOfUnique === leafSeg` (frères = les gammes de
@@ -216,7 +209,7 @@ export function GammesBiblioPanel() {
   //     l'URL reste cohérente SANS re-navigation. Ambiguë / introuvable → `null`
   //     (repli propre vers la vue navigation). `leafSeg` = 1er segment non consommé
   //     par le chemin de catégories (borné à 2 niveaux par le hook) = slug de gamme.
-  const openGamme = useMemo(() => {
+  const openGamme = (() => {
     if (leafSeg === undefined) return null
     const sousCat = validPath.length === 2 ? validPath[1] : null
     if (!sousCat) return null
@@ -233,28 +226,23 @@ export function GammesBiblioPanel() {
         ) === leafSeg,
     )
     return candidats.length === 1 ? (candidats[0] ?? null) : null
-  }, [leafSeg, validPath, gammes])
+  })()
 
   // ANCÊTRES du fil d'Ariane d'une gamme OUVERTE, dérivés de sa catégorie RÉELLE
   // (`categorie_id`) et non des slugs bruts (constat #1) : les ancêtres cliquables
   // ramènent vers la VRAIE sous-catégorie de la gamme, et l'URL reste cohérente
   // même après un déplacement realtime.
-  const gammePath = useMemo<Categorie[]>(
-    () => (openGamme !== null ? pathForGamme(openGamme) : []),
-    [openGamme, pathForGamme],
-  )
+  const gammePath: Categorie[] =
+    openGamme !== null ? pathForGamme(openGamme) : []
 
   // Ouvre une gamme (PUSH) : chemin dérivé de sa catégorie RÉELLE + slug du nom
   // désambiguïsé sur ses frères (les gammes de sa sous-catégorie), via `goToLeaf`.
-  const goToGamme = useCallback(
-    (g: GammeBiblioRow, opts?: { replace?: boolean }) => {
-      const siblings = gammes.filter((x) => x.categorie_id === g.categorie_id)
-      goToLeaf(pathForGamme(g), segOfUnique(g, siblings), {
-        replace: opts?.replace,
-      })
-    },
-    [goToLeaf, gammes, pathForGamme],
-  )
+  const goToGamme = (g: GammeBiblioRow, opts?: { replace?: boolean }) => {
+    const siblings = gammes.filter((x) => x.categorie_id === g.categorie_id)
+    goToLeaf(pathForGamme(g), segOfUnique(g, siblings), {
+      replace: opts?.replace,
+    })
+  }
 
   // Re-synchronise l'URL si la GAMME OUVERTE est renommée/déplacée (« Modifier »
   // depuis la barre d'onglet, ou réception realtime) : son slug change → l'URL ne
@@ -271,7 +259,7 @@ export function GammesBiblioPanel() {
   // Sous-catégories du palier courant : racines (niv.1) à la racine, sinon les
   // enfants directs (niv.2). Au niveau 2 (sous-catégorie ouverte) : aucun
   // sous-niveau (profondeur max atteinte).
-  const childCategories = useMemo(() => {
+  const childCategories = (() => {
     if (depth >= 2) return []
     const list =
       current === null
@@ -280,17 +268,14 @@ export function GammesBiblioPanel() {
     return [...list].sort(
       (a, b) => a.ordre - b.ordre || a.nom.localeCompare(b.nom),
     )
-  }, [gammeCats, current, depth])
+  })()
 
   // Gammes-templates rangées dans la sous-catégorie courante : visibles
   // UNIQUEMENT au niveau 2 (une gamme pointe toujours une sous-catégorie niv.2).
-  const gammesInCurrent = useMemo(
-    () =>
-      depth === 2 && current !== null
-        ? gammes.filter((g) => g.categorie_id === current.id)
-        : [],
-    [gammes, current, depth],
-  )
+  const gammesInCurrent =
+    depth === 2 && current !== null
+      ? gammes.filter((g) => g.categorie_id === current.id)
+      : []
 
   // --- Cibles d'ajout (commun uniquement, réservé aux rôles entreprise) ---
   // Création possible dans la catégorie courante (sous-catégorie au niveau 1,
@@ -350,16 +335,16 @@ export function GammesBiblioPanel() {
     />
   ) : null
 
-  const handleAddRootCategory = useCallback(() => {
+  const handleAddRootCategory = () => {
     setCategoryForm({
       open: true,
       categorie: null,
       preset: { scope: 'gamme' },
       lockedScope: COMMUN_LOCK,
     })
-  }, [])
+  }
 
-  const handleAddSubCategory = useCallback(() => {
+  const handleAddSubCategory = () => {
     if (current === null) return
     setCategoryForm({
       open: true,
@@ -367,24 +352,24 @@ export function GammesBiblioPanel() {
       preset: { scope: 'gamme', parent_id: current.id },
       lockedScope: COMMUN_LOCK,
     })
-  }, [current])
+  }
 
-  const handleAddGamme = useCallback(() => {
+  const handleAddGamme = () => {
     setGammeForm({ open: true, gamme: null })
-  }, [])
+  }
 
   // Actions de la barre d'onglet pour la VUE DÉTAIL d'une gamme. `openGamme` est
   // DÉJÀ issu de `gammes.find(...)` au rendu courant (donnée FRAÎCHE) : pas de
   // re-find redondant, on l'utilise directement.
-  const handleEditOpenGamme = useCallback(() => {
+  const handleEditOpenGamme = () => {
     if (openGamme === null) return
     setGammeForm({ open: true, gamme: openGamme })
-  }, [openGamme])
+  }
 
-  const openExportOpenGamme = useCallback(() => {
+  const openExportOpenGamme = () => {
     if (openGamme === null) return
     setExportState({ open: true, target: { kind: 'gamme', gamme: openGamme } })
-  }, [openGamme])
+  }
 
   // BARRE D'ONGLET = unique point d'entrée des actions, dépendant de la vue
   // courante (« boutons toujours au même endroit ») :
@@ -395,13 +380,14 @@ export function GammesBiblioPanel() {
   //   • sous-cat. (depth 2) → + « Nouvelle gamme », et extra « Copier vers un
   //     site » s'il y a au moins une gamme.
   // La création n'est proposée qu'aux rôles entreprise ; l'export selon
-  // `canExport`. action / label / extra sont MÉMOÏSÉS (un seul useMemo) pour ne
-  // pas se ré-enregistrer en boucle dans la barre d'onglet.
-  const tabAddConfig = useMemo<{
+  // `canExport`. action / label / extra gardent leur identité
+  // d'un rendu à l'autre (mémoïsés par React Compiler) pour ne pas se
+  // ré-enregistrer en boucle dans la barre d'onglet.
+  const tabAddConfig: {
     action: (() => void) | null
     label: string
     extra?: ReactNode
-  }>(() => {
+  } = (() => {
     if (openGamme !== null) {
       const extra =
         canExport || canEntreprise ? (
@@ -481,30 +467,12 @@ export function GammesBiblioPanel() {
         </div>
       ),
     }
-  }, [
-    openGamme,
-    depth,
-    canEntreprise,
-    canExport,
-    gammesInCurrent,
-    current,
-    handleAddRootCategory,
-    handleAddSubCategory,
-    handleAddGamme,
-    handleEditOpenGamme,
-    openExportOpenGamme,
-    activeSiteId,
-  ])
+  })()
 
   // Périmètre VERROUILLÉ « Commun » : le Plan de maintenance est commun-only, mais
   // on affiche quand même l'indicateur (non ouvrable) pour une interface homogène
   // avec les autres onglets de la Bibliothèque.
-  const scopeDisplay = useMemo(
-    // Plan de maintenance = commun uniquement → vrai dropdown NATIVEMENT désactivé
-    // (grisé), pas un simulacre.
-    () => <ScopeSelect value={SCOPE_COMMUN} disabled fluid />,
-    [],
-  )
+  const scopeDisplay = <ScopeSelect value={SCOPE_COMMUN} disabled fluid />
   useTabAddAction(tabAddConfig.action, tabAddConfig.label, {
     // Le filtre de périmètre = `extra` (sa propre ligne pleine largeur sur mobile) ;
     // les boutons (Copier / Modifier) = `actions` (compacts, en haut à droite).
@@ -518,7 +486,7 @@ export function GammesBiblioPanel() {
   // la gamme ouverte devient le segment courant (titre), sa sous-catégorie passe
   // en ancêtre. À la RACINE (depth 0) → `null` : titre de section « Bibliothèque ».
   // Mémoïsé (contrat de `useTabHeader`).
-  const header = useMemo<TabHeader | null>(() => {
+  const header: TabHeader | null = (() => {
     if (openGamme !== null) {
       // `openGamme` est déjà la donnée FRAÎCHE (issu de `gammes.find`) : pas de
       // re-find. Ancêtres dérivés de la catégorie RÉELLE de la gamme (`gammePath`),
@@ -546,7 +514,7 @@ export function GammesBiblioPanel() {
         ? current.description.trim()
         : undefined,
     }
-  }, [openGamme, validPath, gammePath, current, depth, goToCats])
+  })()
 
   useTabHeader(header)
 
@@ -570,7 +538,7 @@ export function GammesBiblioPanel() {
   }
   // Catégories sélectionnables dans le formulaire de gamme (édition) : même
   // portée que la gamme éditée, pour rester cohérent avec la RLS.
-  const editGammeCategories = useMemo(() => {
+  const editGammeCategories = (() => {
     // Sous-catégories de niveau 2 COMMUNES (parent = racine commune). `gammeCats`
     // est déjà restreinte au commun, au scope gamme/mixte et aux catégories
     // actives ; le helper n'arbitre plus que le niveau 2 (périmètre commun, `null`).
@@ -592,22 +560,18 @@ export function GammesBiblioPanel() {
       if (assigned) return [...valides, assigned]
     }
     return valides
-  }, [gammeForm.gamme, gammeCats, categoriesQuery.data])
+  })()
 
   // Catégories proposées comme PARENT à l'édition d'une catégorie : RACINES
   // (`parent_id` nul) COMMUNES de scope gamme/mixte. On limite à la racine pour
   // rester sur le modèle strict à 2 niveaux — rattacher sous une sous-catégorie
   // créerait un niveau 3 que la base refuse. (Le backend reste le filet pour le
   // cas d'une racine ayant déjà des enfants.)
-  const parentCandidates = useMemo(
-    () =>
-      (categoriesQuery.data ?? []).filter(
-        (c) =>
-          c.site_id === null &&
-          c.parent_id === null &&
-          (c.scope === 'gamme' || c.scope === 'mixte'),
-      ),
-    [categoriesQuery.data],
+  const parentCandidates = (categoriesQuery.data ?? []).filter(
+    (c) =>
+      c.site_id === null &&
+      c.parent_id === null &&
+      (c.scope === 'gamme' || c.scope === 'mixte'),
   )
 
   // ----- VUE DÉTAIL : une gamme-template ouverte -----

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -61,43 +61,32 @@ export function ImportCsvDialog({
   const { data: periodicites = [] } = useQuery(
     referentielsQueries.periodicites(),
   )
-  const refs = useMemo(() => ({ types, unites }), [types, unites])
+  const refs = { types, unites }
 
   const { data: operations = [] } = useQuery(
     gammesQueries.operationsDesGammes(existants.map((g) => g.id)),
   )
-  const existantsPourImport = useMemo<GammeExistante[]>(
-    () =>
-      existants.map((g) => ({
-        id: g.id,
-        nom: g.nom,
-        operations: operations
-          .filter((o) => o.gamme_id === g.id)
-          .map((o) => o.nom),
-      })),
-    [existants, operations],
-  )
+  const existantsPourImport: GammeExistante[] = existants.map((g) => ({
+    id: g.id,
+    nom: g.nom,
+    operations: operations.filter((o) => o.gamme_id === g.id).map((o) => o.nom),
+  }))
 
-  const prompt = useMemo(
-    () =>
-      buildImportPrompt({
-        sousCategorieNom: sousCategorie.nom,
-        refs,
-        periodicites,
-        existants: existantsPourImport,
-      }),
-    [sousCategorie.nom, refs, periodicites, existantsPourImport],
-  )
+  const prompt = buildImportPrompt({
+    sousCategorieNom: sousCategorie.nom,
+    refs,
+    periodicites,
+    existants: existantsPourImport,
+  })
 
-  const resultat = useMemo(
-    () => parseImportCsv(csvTexte, refs, periodicites, existantsPourImport),
-    [csvTexte, refs, periodicites, existantsPourImport],
+  const resultat = parseImportCsv(
+    csvTexte,
+    refs,
+    periodicites,
+    existantsPourImport,
   )
   const lignesValides = resultat.lignes.filter((l): l is GammeCsvRowOk => l.ok)
-  const plan = useMemo(
-    () => construirePlan(lignesValides, existantsPourImport),
-    [lignesValides, existantsPourImport],
-  )
+  const plan = construirePlan(lignesValides, existantsPourImport)
   const lignesApercu: CsvImportLigne[] = resultat.lignes.map((l) =>
     l.ok
       ? {

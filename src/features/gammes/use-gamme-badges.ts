@@ -1,4 +1,3 @@
-import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
 import type { OtTriable } from '@/features/ordres-travail/tri'
@@ -64,19 +63,16 @@ export function useGammeBadges({
   // TOUTES ses sous-catégories ; sous-catégorie (depth 1) → ses gammes directes ; bac
   // « Non classé » virtuel → les orphelines. Sert au calcul des ids à charger ET au
   // badge agrégé de la carte (MÊME règle à tous les niveaux).
-  const gammeRowsUnderNode = useCallback(
-    (node: CatalogueDrillCat): GammeRow[] => {
-      if (node.virtual) return orphans
-      if (depth === 0) {
-        const sousCatIds = new Set(
-          gammeCats.filter((c) => c.parent_id === node.id).map((c) => c.id),
-        )
-        return gammes.filter((g) => sousCatIds.has(g.categorie_id))
-      }
-      return gammes.filter((g) => g.categorie_id === node.id)
-    },
-    [depth, gammeCats, gammes, orphans],
-  )
+  const gammeRowsUnderNode = (node: CatalogueDrillCat): GammeRow[] => {
+    if (node.virtual) return orphans
+    if (depth === 0) {
+      const sousCatIds = new Set(
+        gammeCats.filter((c) => c.parent_id === node.id).map((c) => c.id),
+      )
+      return gammes.filter((g) => sousCatIds.has(g.categorie_id))
+    }
+    return gammes.filter((g) => g.categorie_id === node.id)
+  }
 
   // OT à charger pour les badges du palier : gammes LISTÉES (GammeCard) + gammes sous
   // chaque catégorie / sous-catégorie affichée (badge AGRÉGÉ). Au palier
@@ -84,13 +80,13 @@ export function useGammeBadges({
   // (SousCategorieSplit → OtListeParGammes) → pas de double fetch. Realtime OT pour
   // que les badges suivent clôtures/réouvertures — NÉCESSAIRE aux paliers
   // catégorie/sous-catégorie où le panneau OT n'est pas (toujours) rendu.
-  const gammeIdsBadges = useMemo(() => {
+  const gammeIdsBadges = (() => {
     const ids = new Set<string>()
     for (const g of gammesInCurrent) ids.add(g.id)
     for (const node of childCategories)
       for (const g of gammeRowsUnderNode(node)) ids.add(g.id)
     return [...ids]
-  }, [gammesInCurrent, childCategories, gammeRowsUnderNode])
+  })()
   // Seuls les OT OUVERTS décident d'une pastille (`statutAffichageGamme` /
   // `statutAffichageAgrege` : une gamme sans OT ouvert est « À programmer »,
   // quel que soit son historique). On lit donc les OT ouverts du site (~90,
@@ -107,7 +103,7 @@ export function useGammeBadges({
   // d'afficher un statut trompeur calculé sur des OT absents).
   const otsBadgesIndispo =
     otsParGammeQuery.isLoading || otsParGammeQuery.isError
-  const otsParGamme = useMemo(() => {
+  const otsParGamme = (() => {
     const map = new Map<string, OtTriable[]>()
     for (const ot of otsParGammeQuery.data ?? []) {
       if (ot.gamme_id === null) continue
@@ -116,23 +112,20 @@ export function useGammeBadges({
       map.set(ot.gamme_id, liste)
     }
     return map
-  }, [otsParGammeQuery.data])
+  })()
   // Gammes (activité + OT) sous un nœud, pour le badge AGRÉGÉ (pire cas — cf.
   // statutAffichageAgrege) de sa CategorieCard / SousCategorieCard.
-  const gammesStatutUnderNode = useCallback(
-    (node: CatalogueDrillCat): GammeStatutInput[] =>
-      gammeRowsUnderNode(node).map((g) => ({
-        estActive: g.est_active,
-        ots: otsParGamme.get(g.id) ?? [],
-      })),
-    [gammeRowsUnderNode, otsParGamme],
-  )
+  const gammesStatutUnderNode = (node: CatalogueDrillCat): GammeStatutInput[] =>
+    gammeRowsUnderNode(node).map((g) => ({
+      estActive: g.est_active,
+      ots: otsParGamme.get(g.id) ?? [],
+    }))
   // Badge de statut AGRÉGÉ par catégorie/sous-catégorie affichée, MÉMOÏSÉ :
   // l'agrégation + le tri par urgence de TOUS les OT du palier ne se recalculent que
   // si les nœuds affichés ou leurs OT changent — plus à chaque re-render (ouverture
   // de dialog, frappe dans le formulaire catégorie…). Map vide pendant le fetch / sur
   // erreur → badges masqués (cf. statutPending).
-  const statutParNode = useMemo(() => {
+  const statutParNode = (() => {
     const map = new Map<string, ReturnType<typeof statutAffichageAgrege>>()
     if (otsBadgesIndispo) return map
     for (const node of childCategories)
@@ -141,7 +134,7 @@ export function useGammeBadges({
         statutAffichageAgrege({ gammes: gammesStatutUnderNode(node) }),
       )
     return map
-  }, [childCategories, gammesStatutUnderNode, otsBadgesIndispo])
+  })()
 
   return { otsParGamme, otsBadgesIndispo, statutParNode }
 }
