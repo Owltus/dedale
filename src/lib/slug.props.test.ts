@@ -222,8 +222,11 @@ describe('segOfUnique — unicité parmi les frères', () => {
  * Deux chemins mènent à un segment : le SLUG (éventuellement suffixé `~<id[0..8]>`)
  * et le REPLI SUR L'ID. Les deux générateurs ci-dessous construisent, par
  * structure, les deux seules façons de faire converger ces chemins quand les ids
- * sont des uuid. Chaque cas généré EST un contre-exemple : l'échec est
- * déterministe, d'où `it.fails`.
+ * sont des uuid. Chaque cas généré ÉTAIT un contre-exemple (`it.fails`) ;
+ * corrigés depuis : discriminant allongé au-delà de 8 caractères seulement
+ * entre homonymes qui les partagent, et repli sur l'id compté comme collision.
+ * Les propriétés générales ci-dessus prouvent que la forme des segments SANS
+ * collision n'a pas bougé (slug pur, ou `slug~<8 caractères>`).
  */
 
 /** Frères homonymes dont les ids partagent les 8 PREMIERS caractères. */
@@ -254,49 +257,80 @@ const piegeIdEgaleSlug = fc
   ])
 
 describe('segOfUnique — pièges de convergence des deux chemins de segment', () => {
-  // BUG CANDIDAT Martin : attendu = segments distincts pour des ids distincts /
-  // observé = segment IDENTIQUE pour deux frères homonymes dont les ids
+  // RÉGRESSION (Martin) : attendu = segments distincts pour des ids distincts /
+  // observé avant correction = segment IDENTIQUE pour deux frères homonymes dont les ids
   // partagent leurs 8 premiers caractères (le discriminant `id.slice(0, 8)` ne
   // discrimine plus). Contre-exemple minimal rejouable :
   //   a = { nom: 'Pompe', id: '00000000-0000-4000-8000-000000000001' }
   //   b = { nom: 'Pompe', id: '00000000-0000-4000-8000-000000000002' }
   //   segOfUnique(a, [a, b]) === segOfUnique(b, [a, b]) === 'pompe~00000000'
-  it.fails(
-    'PIÈGE 1 — ids partageant les 8 premiers caractères : segments identiques',
-    () => {
-      // ORACLE : inchangé (injectivité des segments sur des ids distincts).
-      // On n'affaiblit pas l'assertion, on constate qu'elle ne tient pas.
-      fc.assert(
-        fc.property(piegePrefixeCommun, (sibs) => {
-          const segments = sibs.map((x) => segOfUnique(x, sibs))
-          expect(new Set(segments).size).toBe(segments.length)
-        }),
-        { numRuns: 200, seed: 42 },
-      )
-    },
-  )
+  it('PIÈGE 1 — ids partageant les 8 premiers caractères : segments identiques', () => {
+    // ORACLE : inchangé (injectivité des segments sur des ids distincts).
+    fc.assert(
+      fc.property(piegePrefixeCommun, (sibs) => {
+        const segments = sibs.map((x) => segOfUnique(x, sibs))
+        expect(new Set(segments).size).toBe(segments.length)
+      }),
+      { numRuns: 200, seed: 42 },
+    )
+  })
 
-  // BUG CANDIDAT Martin : attendu = segments distincts / observé = le repli sur
+  // RÉGRESSION (Martin) : attendu = segments distincts / observé avant
+  // correction = le repli sur
   // l'id d'un frère non slugifiable produit EXACTEMENT le slug d'un autre frère
   // (un uuid appartient à l'alphabet du slug). Contre-exemple rejouable :
   //   a = { nom: '###', id: '00000000-0000-4000-8000-000000000001' }
   //   b = { nom: '00000000 0000 4000 8000 000000000001', id: '…0002' }
   //   segOfUnique(a, [a, b]) === segOfUnique(b, [a, b])
   //                          === '00000000-0000-4000-8000-000000000001'
-  it.fails(
-    "PIÈGE 2 — repli sur l'id vs slug d'un frère : segments identiques",
-    () => {
-      // ORACLE : inchangé. Le repli sur l'id n'est pas marqué (pas de préfixe
-      // hors alphabet), il vit donc dans le même espace que les slugs purs.
-      fc.assert(
-        fc.property(piegeIdEgaleSlug, (sibs) => {
-          const segments = sibs.map((x) => segOfUnique(x, sibs))
-          expect(new Set(segments).size).toBe(segments.length)
-        }),
-        { numRuns: 200, seed: 42 },
-      )
-    },
-  )
+  it("PIÈGE 2 — repli sur l'id vs slug d'un frère : segments identiques", () => {
+    // ORACLE : inchangé. Le repli sur l'id n'est pas marqué (pas de préfixe
+    // hors alphabet), il vit donc dans le même espace que les slugs purs.
+    fc.assert(
+      fc.property(piegeIdEgaleSlug, (sibs) => {
+        const segments = sibs.map((x) => segOfUnique(x, sibs))
+        expect(new Set(segments).size).toBe(segments.length)
+      }),
+      { numRuns: 200, seed: 42 },
+    )
+  })
+
+  it('hors des deux pièges, la forme historique des liens est inchangée', () => {
+    // ORACLE : la règle d'avant correction, réécrite ici — slug pur sans
+    // homonyme, `slug~<8 premiers caractères>` sinon, id si slug vide. Les liens
+    // déjà partagés ne doivent pas casser : seule la convergence change.
+    const historique = (
+      x: { nom: string; id: string },
+      sibs: { nom: string; id: string }[],
+    ) => {
+      const s = slugify(x.nom)
+      if (!s) return x.id
+      const homonyme = sibs.some((y) => y.id !== x.id && slugify(y.nom) === s)
+      return homonyme ? `${s}~${x.id.slice(0, 8)}` : s
+    }
+    fc.assert(
+      fc.property(fratrie, (sibs) => {
+        const prefixesCommuns = sibs.some((a) =>
+          sibs.some(
+            (b) =>
+              a.id !== b.id &&
+              slugify(a.nom) !== '' &&
+              slugify(a.nom) === slugify(b.nom) &&
+              a.id.slice(0, 8) === b.id.slice(0, 8),
+          ),
+        )
+        const idCommeSlug = sibs.some(
+          (a) =>
+            slugify(a.nom) === '' && sibs.some((b) => slugify(b.nom) === a.id),
+        )
+        if (prefixesCommuns || idCommeSlug) return
+        for (const x of sibs) {
+          expect(segOfUnique(x, sibs)).toBe(historique(x, sibs))
+        }
+      }),
+      { numRuns: 2000, seed: 42 },
+    )
+  })
 
   it("un segment suffixé n'est JAMAIS confondu avec un slug pur", () => {
     // ORACLE : `~` est hors de l'alphabet fermé de `slugify` (cf. propriété

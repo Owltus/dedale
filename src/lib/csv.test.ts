@@ -333,21 +333,19 @@ describe('parseCsv — fins de ligne', () => {
     )
   })
 
-  // BUG CANDIDAT Martin (résiduel, connu et assumé) : une cellule protégée
-  // DEVRAIT revenir à l'identique, `\r` compris / `parseCsv` normalise le
-  // texte AVANT de parser, guillemets compris : un `\r` intérieur — isolé ou
-  // en `\r\n` — revient en `\n`. La cellule n'est plus COUPÉE (cf. le test
-  // ci-dessus), mais le CR est encore perdu. Déplacer cette normalisation dans
-  // la boucle de lecture est un autre chantier, non ouvert ici.
-  it.fails('préserve un retour chariot isolé dans une cellule protégée', () => {
+  // RÉGRESSION (Martin) : une cellule protégée revient à l'identique, `\r`
+  // compris. `parseCsv` normalisait le texte AVANT de parser, guillemets
+  // compris : un `\r` intérieur — isolé ou en `\r\n` — revenait en `\n`.
+  // Désormais seule la fin de ligne DU FICHIER se lit `\n` dans un champ
+  // protégé, et `formaterCsv` passe en LF quand une cellule porte un CRLF.
+  it('préserve un retour chariot isolé dans une cellule protégée', () => {
     const s = 'Ligne 1\rLigne 2'
     expect(parseCsv(formaterCsv(['a'], [[s]]))).toEqual([['a'], [s]])
   })
 
-  // BUG CANDIDAT Martin (résiduel) : même cause que ci-dessus, pour un texte
-  // multi-lignes saisi sous Windows (ex. une description).
-  // formaterCsv(['a'], [['x\r\ny']]) → relu 'x\ny' (le CR est perdu).
-  it.fails('préserve un CRLF à l’intérieur d’une cellule protégée', () => {
+  // RÉGRESSION (Martin) : même cause, pour un texte multi-lignes saisi sous
+  // Windows (ex. une description) : 'x\r\ny' était relu 'x\ny'.
+  it('préserve un CRLF à l’intérieur d’une cellule protégée', () => {
     const s = 'Ligne 1\r\nLigne 2'
     expect(parseCsv(formaterCsv(['a'], [[s]]))).toEqual([['a'], [s]])
   })
@@ -500,14 +498,11 @@ describe('formaterCsv — délimiteur', () => {
     )
   })
 
-  // BUG CANDIDAT Martin : avec `delimiter === '"'` le codec DEVRAIT soit
-  // fonctionner, soit refuser explicitement une configuration impossible /
-  // il accepte silencieusement et perd toutes les colonnes : dans `parseCsv`
-  // la branche `c === '"'` est testée AVANT `c === delimiter`, donc le
-  // guillemet n'est jamais lu comme séparateur. Contre-exemple :
-  // formaterCsv(['a','b'], [['x','y']], '"') → 'a"b\r\nx"y' relu
-  // [['ab\nxy']] — les 2 colonnes ET les 2 lignes fusionnées en UNE cellule.
-  it.fails('reste un codec quand le délimiteur est le guillemet', () => {
+  // RÉGRESSION (Martin) : avec `delimiter === '"'`, la branche `c === '"'`
+  // était testée AVANT `c === delimiter` : le guillemet n'était jamais lu comme
+  // séparateur, et 'a"b\r\nx"y' revenait en [['ab\nxy']]. Le guillemet est
+  // désormais SEULEMENT séparateur dans ce cas (aucune protection possible).
+  it('reste un codec quand le délimiteur est le guillemet', () => {
     expect(parseCsv(formaterCsv(['a', 'b'], [['x', 'y']], '"'), '"')).toEqual([
       ['a', 'b'],
       ['x', 'y'],

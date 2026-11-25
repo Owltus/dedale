@@ -54,6 +54,21 @@ export function placeholderRange(op: OperationExecution): string | undefined {
 }
 
 /**
+ * Lit un nombre SAISI (valeur mesurée, index de compteur) : point OU virgule
+ * décimale — l'application affiche ses nombres à la française (`12,5`), une
+ * valeur relue puis resaisie telle quelle doit être comprise. Seule la notation
+ * décimale usuelle est admise (ni `0x1F`, ni `Infinity`) ; vide ou illisible →
+ * `null`. SOURCE UNIQUE : l'aperçu de conformité et l'enregistrement lisent la
+ * saisie avec la même fonction, sinon l'un verrait un nombre que l'autre perd.
+ */
+export function lireNombreSaisi(saisie: string): number | null {
+  const s = saisie.trim().replace(',', '.')
+  if (!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(s)) return null
+  const n = Number(s)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
  * Conformité calculée EN DIRECT (aperçu) depuis la valeur saisie et les seuils :
  * dans la plage → conforme, hors plage → non conforme, sinon (pas de seuils / pas
  * de valeur / valeur invalide) → indéterminé. Le backend recalcule `est_conforme`
@@ -66,8 +81,8 @@ export function conformiteLocale(
   if (op.seuil_minimum === null && op.seuil_maximum === null) return null
   const s = valeur.trim()
   if (s === '') return null
-  const v = Number(s)
-  if (Number.isNaN(v)) return null
+  const v = lireNombreSaisi(s)
+  if (v === null) return null
   if (op.seuil_minimum !== null && v < op.seuil_minimum) return false
   if (op.seuil_maximum !== null && v > op.seuil_maximum) return false
   return true

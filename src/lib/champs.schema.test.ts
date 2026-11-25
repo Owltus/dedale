@@ -45,7 +45,12 @@ describe('champSchema — structure', () => {
   it('accepte les 5 types du référentiel, et eux seuls', () => {
     for (const { value } of CHAMP_TYPES) {
       expect(
-        champSchema.safeParse({ ...CHAMP_TEXTE, type: value }).success,
+        champSchema.safeParse({
+          ...CHAMP_TEXTE,
+          type: value,
+          // Une liste n'est valide qu'avec au moins un choix (cf. plus bas).
+          ...(value === 'liste' ? { options: ['A'] } : {}),
+        }).success,
       ).toBe(true)
     }
     const legaux = new Set(CHAMP_TYPES.map((t) => t.value as string))
@@ -148,43 +153,37 @@ describe('champSchema — structure', () => {
     }
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : un champ « liste » sans options est accepté',
-    () => {
-      // Attendu : une liste sans choix n'est pas saisissable — c'est d'ailleurs
-      // ce que `prepareChamps` refuse (« doit avoir au moins une option »).
-      // Observé : `options` est `.optional()` sans condition sur le type → le
-      // schéma laisse passer, et `parseChamps` réhydrate un sélecteur vide.
-      expect(
-        rejette(champSchema, { ...CHAMP_TEXTE, type: 'liste', options: [] }),
-      ).toBe(true)
-      expect(rejette(champSchema, { ...CHAMP_TEXTE, type: 'liste' })).toBe(true)
-    },
-  )
+  it('BUG CANDIDAT Martin : un champ « liste » sans options est accepté', () => {
+    // Attendu : une liste sans choix n'est pas saisissable — c'est d'ailleurs
+    // ce que `prepareChamps` refuse (« doit avoir au moins une option »).
+    // Observé : `options` est `.optional()` sans condition sur le type → le
+    // schéma laisse passer, et `parseChamps` réhydrate un sélecteur vide.
+    expect(
+      rejette(champSchema, { ...CHAMP_TEXTE, type: 'liste', options: [] }),
+    ).toBe(true)
+    expect(rejette(champSchema, { ...CHAMP_TEXTE, type: 'liste' })).toBe(true)
+  })
 
-  it.fails(
-    'BUG CANDIDAT Martin : ni le nombre ni la taille des options ne sont bornés',
-    () => {
-      // Attendu : le CHECK backend `chk_modeles_equipements_specs_structure`
-      // plafonne `specifications::text` à 10 000 caractères — le schéma doit
-      // s'en approcher plutôt que laisser passer puis échouer en 23514.
-      // Observé : 10 000 options, ou une option de 100 000 caractères, passent.
-      expect(
-        rejette(champSchema, {
-          ...CHAMP_TEXTE,
-          type: 'liste',
-          options: Array.from({ length: 10_000 }, (_, i) => `opt${String(i)}`),
-        }),
-      ).toBe(true)
-      expect(
-        rejette(champSchema, {
-          ...CHAMP_TEXTE,
-          type: 'liste',
-          options: ['x'.repeat(100_000)],
-        }),
-      ).toBe(true)
-    },
-  )
+  it('BUG CANDIDAT Martin : ni le nombre ni la taille des options ne sont bornés', () => {
+    // Attendu : le CHECK backend `chk_modeles_equipements_specs_structure`
+    // plafonne `specifications::text` à 10 000 caractères — le schéma doit
+    // s'en approcher plutôt que laisser passer puis échouer en 23514.
+    // Observé : 10 000 options, ou une option de 100 000 caractères, passent.
+    expect(
+      rejette(champSchema, {
+        ...CHAMP_TEXTE,
+        type: 'liste',
+        options: Array.from({ length: 10_000 }, (_, i) => `opt${String(i)}`),
+      }),
+    ).toBe(true)
+    expect(
+      rejette(champSchema, {
+        ...CHAMP_TEXTE,
+        type: 'liste',
+        options: ['x'.repeat(100_000)],
+      }),
+    ).toBe(true)
+  })
 })
 
 describe('champSchema — accord avec prepareChamps', () => {

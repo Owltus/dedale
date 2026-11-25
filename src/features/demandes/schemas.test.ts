@@ -73,18 +73,15 @@ describe('diSchema — création', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : local_id / equipement_id ne sont ni bornés ni typés',
-    () => {
-      // Attendu : UUID ou chaîne vide. Observé : `z.string()` nu accepte
-      // 100 000 caractères quelconques → 22P02 côté PostgREST.
-      for (const champ of ['local_id', 'equipement_id']) {
-        expect(rejette(diSchema, { ...DI, [champ]: 'x'.repeat(100_000) })).toBe(
-          true,
-        )
-      }
-    },
-  )
+  it('BUG CANDIDAT Martin : local_id / equipement_id ne sont ni bornés ni typés', () => {
+    // Attendu : UUID ou chaîne vide. Observé : `z.string()` nu accepte
+    // 100 000 caractères quelconques → 22P02 côté PostgREST.
+    for (const champ of ['local_id', 'equipement_id']) {
+      expect(rejette(diSchema, { ...DI, [champ]: 'x'.repeat(100_000) })).toBe(
+        true,
+      )
+    }
+  })
 })
 
 describe('diEditSchema — édition', () => {

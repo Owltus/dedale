@@ -11,18 +11,25 @@ export const CATEGORIE_SCOPES = [
   { value: 'mixte', label: 'Mixte' },
 ] as const
 
+const REFERENCE_INVALIDE =
+  'Référence invalide : rechargez la page puis réessayez.'
+
 export const categorieSchema = z.object({
   nom: texteObligatoire('Le nom est obligatoire').max(200),
   scope: z.enum(['equipement', 'gamme', 'mixte', 'operation', 'parc']),
   description: z.string().trim().max(2000),
   /** '' = catégorie racine (sans parent). */
-  parent_id: z.string(),
+  parent_id: z
+    .string()
+    .refine((v) => v === '' || z.uuid().safeParse(v).success, {
+      message: REFERENCE_INVALIDE,
+    }),
   /** entreprise = catalogue global (site_id NULL) ; site = catalogue du site actif. */
   portee: z.enum(['entreprise', 'site']),
   /** Activation sans suppression. */
   etat: z.enum(['actif', 'inactif']),
   /** Vignette du pool (`miniature_id`) ou `null`. */
-  miniature_id: z.string().nullable(),
+  miniature_id: z.uuid('Vignette invalide : rechargez la page.').nullable(),
 })
 
 export type CategorieFormValues = z.infer<typeof categorieSchema>

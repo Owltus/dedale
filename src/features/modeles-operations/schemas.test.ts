@@ -155,22 +155,19 @@ describe('operationItemSchema — seuils', () => {
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT Martin : mêmes trous que operationSchema (Infinity, hexa, exponentielle)',
-    () => {
-      // `optionalNumber` est DUPLIQUÉ ici à l'identique — le trou l'est aussi.
-      // Reste rouge pour le SEUL '1e300' : 'Infinity', '0x1F' et '0b101' sont
-      // désormais refusés des deux côtés (cf. `operationSchema — seuils`).
-      // '1e300' n'est pas une divergence avec la base — un NUMERIC Postgres
-      // l'accepte — mais un seuil hors d'échelle : le refuser demande une borne
-      // de plausibilité que personne n'a encore arbitrée.
-      for (const v of ['Infinity', '-Infinity', '0x1F', '0b101', '1e300']) {
-        expect(
-          rejette(operationItemSchema, { ...ITEM, seuil_minimum: v }),
-        ).toBe(true)
-      }
-    },
-  )
+  it('BUG CANDIDAT Martin : mêmes trous que operationSchema (Infinity, hexa, exponentielle)', () => {
+    // `optionalNumber` est DUPLIQUÉ ici à l'identique — le trou l'est aussi.
+    // Reste rouge pour le SEUL '1e300' : 'Infinity', '0x1F' et '0b101' sont
+    // désormais refusés des deux côtés (cf. `operationSchema — seuils`).
+    // '1e300' n'est pas une divergence avec la base — un NUMERIC Postgres
+    // l'accepte — mais un seuil hors d'échelle : le refuser demande une borne
+    // de plausibilité que personne n'a encore arbitrée.
+    for (const v of ['Infinity', '-Infinity', '0x1F', '0b101', '1e300']) {
+      expect(rejette(operationItemSchema, { ...ITEM, seuil_minimum: v })).toBe(
+        true,
+      )
+    }
+  })
 
   it('borne le rang à la capacité d’un INTEGER', () => {
     // ORACLE : `modeles_operations_items.ordre INTEGER` → 2 147 483 647 au plus.

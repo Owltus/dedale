@@ -37,6 +37,9 @@ export function slugify(s: string): string {
  *    r\u00e9solution (`find`) renvoie toujours le 1er \u2192 le 2e devient injoignable.
  *    On suffixe alors `~<id court>` (le `~` est hors de l'alphabet de `slugify`,
  *    qui ne garde que `[a-z0-9-]`, donc jamais de confusion slug/discriminant).
+ *    L'id court fait 8 caractères, allongé seulement si un homonyme partage
+ *    ces 8 caractères. Un slug qui s'écrit comme l'id d'un frère non
+ *    slugifiable (repli ci-dessus) compte aussi comme une collision.
  *
  * \u00c0 utiliser \u00c0 LA FOIS en G\u00c9N\u00c9RATION et en R\u00c9SOLUTION, avec EXACTEMENT le m\u00eame
  * ensemble de `siblings` de chaque c\u00f4t\u00e9 (sym\u00e9trie) : un segment doit toujours se
@@ -48,13 +51,27 @@ export function segOfUnique(
 ): string {
   const s = slugify(obj.nom)
   if (!s) return obj.id
-  // Collision = un AUTRE frère (id différent) porte le même slug. L'index des
-  // frères (slug → ids) est construit une fois par tableau : la boucle
-  // « un appel par ligne » coûtait n × n `slugify` (4 071 DI → ~16 M, 8 s de gel
-  // du tableau de bord, mesuré le 24/11/2026).
-  const ids = indexDesFreres(siblings).get(s)
-  const collision = ids?.some((id) => id !== obj.id) ?? false
-  return collision ? `${s}~${obj.id.slice(0, 8)}` : s
+  // Collision = un AUTRE frère (id différent) produirait le même segment : même
+  // slug, OU repli sur un id qui s'écrit exactement comme ce slug (un uuid est
+  // un slug valide). L'index des frères (segment → frères) est construit une
+  // fois par tableau : la boucle « un appel par ligne » coûtait n × n `slugify`
+  // (4 071 DI → ~16 M, 8 s de gel du tableau de bord, mesuré le 24/11/2026).
+  const autres = (indexDesFreres(siblings).get(s) ?? []).filter(
+    (f) => f.id !== obj.id,
+  )
+  if (autres.length === 0) return s
+  // Discriminant : 8 caractères d'id (forme historique des liens partagés),
+  // allongé SEULEMENT si un homonyme suffixé partage ces 8 caractères — sinon
+  // les deux recevraient le même segment et le 2e serait injoignable.
+  const homonymes = autres.filter((f) => f.parSlug).map((f) => f.id)
+  let longueur = 8
+  while (
+    longueur < obj.id.length &&
+    homonymes.some((id) => id.startsWith(obj.id.slice(0, longueur)))
+  ) {
+    longueur++
+  }
+  return `${s}~${obj.id.slice(0, longueur)}`
 }
 
 /**
@@ -63,25 +80,36 @@ export function segOfUnique(
  * réindexé. Les tableaux de frères viennent des requêtes (jamais modifiés en
  * place) ou sont construits à la volée (`[...liste, nouveau]`).
  */
+/**
+ * Frère rangé sous le segment qu'il produirait SANS désambiguïsation : son slug
+ * (`parSlug`), ou son id quand son slug est vide (repli de `segOfUnique`).
+ */
+interface Frere {
+  id: string
+  parSlug: boolean
+}
+
 const indexParTableau = new WeakMap<
   object,
-  { taille: number; parSlug: Map<string, string[]> }
+  { taille: number; parSegment: Map<string, Frere[]> }
 >()
 
 function indexDesFreres(
   siblings: { nom: string; id: string }[],
-): Map<string, string[]> {
+): Map<string, Frere[]> {
   const deja = indexParTableau.get(siblings)
-  if (deja?.taille === siblings.length) return deja.parSlug
-  const parSlug = new Map<string, string[]>()
+  if (deja?.taille === siblings.length) return deja.parSegment
+  const parSegment = new Map<string, Frere[]>()
   for (const x of siblings) {
     const slug = slugify(x.nom)
-    const ids = parSlug.get(slug)
-    if (ids) ids.push(x.id)
-    else parSlug.set(slug, [x.id])
+    const cle = slug || x.id
+    const frere = { id: x.id, parSlug: slug !== '' }
+    const freres = parSegment.get(cle)
+    if (freres) freres.push(frere)
+    else parSegment.set(cle, [frere])
   }
-  indexParTableau.set(siblings, { taille: siblings.length, parSlug })
-  return parSlug
+  indexParTableau.set(siblings, { taille: siblings.length, parSegment })
+  return parSegment
 }
 
 /**

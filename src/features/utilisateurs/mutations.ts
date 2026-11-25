@@ -122,8 +122,22 @@ export function useUpdateUser() {
         telephone: p.telephone.trim() || null,
       }
       if (p.role_id !== undefined) patch.role_id = p.role_id
-      // Pas de .select() : la colonne telephone est en SELECT révoqué (RGPD).
-      await supabase.from('users').update(patch).eq('id', p.id).throwOnError()
+      // `.select('id')` SEULEMENT : la colonne telephone est en SELECT révoqué
+      // (RGPD), mais `id` reste lisible. Sans retour, un UPDATE que la RLS
+      // écarte (0 ligne, 204 sans erreur — ex. manager → compte admin) passait
+      // pour un succès : on le traduit en PGRST116, comme `.single()` le ferait.
+      const { data } = await supabase
+        .from('users')
+        .update(patch)
+        .eq('id', p.id)
+        .select('id')
+        .throwOnError()
+      if (data.length === 0) {
+        throw Object.assign(
+          new Error('Aucun compte modifié : hors de votre périmètre.'),
+          { code: 'PGRST116' },
+        )
+      }
     },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: utilisateursQueries.all() }),

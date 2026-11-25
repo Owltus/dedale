@@ -10,7 +10,7 @@ import { texteObligatoire } from '@/lib/texte-zod'
 export const prestataireSchema = z.object({
   libelle: texteObligatoire('Le nom est obligatoire').max(200),
   commentaires: z.string().trim().max(2000),
-  miniature_id: z.string().nullable(),
+  miniature_id: z.uuid('Vignette invalide : rechargez la page.').nullable(),
 })
 
 export type PrestataireFormValues = z.infer<typeof prestataireSchema>
@@ -45,7 +45,13 @@ export const contratSchema = z
       'La référence est obligatoire',
       'reference',
     ).max(200),
-    type_contrat_id: z.string().min(1, 'Le type de contrat est obligatoire'),
+    // 	ypes_contrats.id est un SMALLINT : le <select> en porte le texte.
+    type_contrat_id: z
+      .string()
+      .min(1, 'Le type de contrat est obligatoire')
+      .refine((v) => /^\d+$/.test(v) && Number(v) >= 1 && Number(v) <= 32_767, {
+        message: 'Type de contrat invalide : choisissez-en un dans la liste.',
+      }),
     date_debut: dateObligatoire('La date de début est obligatoire'),
     date_fin: dateFacultative(),
     objet_avenant: z.string().trim().max(500),

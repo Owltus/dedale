@@ -10,6 +10,7 @@ import { estVerrouille } from './schemas'
 import { useRafraichirOt, useUpdateOperationExecution } from './mutations'
 import {
   estMesureExecution,
+  lireNombreSaisi,
   statutOpTerminal,
   type OperationEdit,
 } from './operation-predicats'
@@ -153,8 +154,10 @@ export function useOperationsEditor({
     // garde, puis `JSON.stringify(Infinity)` vaut `null` — une mesure déclarée
     // terminée repartait à `valeur_mesuree = NULL`, exactement le défaut que le
     // garde suivant ferme.
+    // Lecture par `lireNombreSaisi` (virgule décimale admise) : la même que
+    // l'aperçu de conformité, pour que l'écran et l'écriture voient le même nombre.
     const numInvalide = (s: string) =>
-      s.trim() !== '' && !Number.isFinite(Number(s))
+      s.trim() !== '' && lireNombreSaisi(s) === null
     for (const op of dirtyOps) {
       const e = edits[op.id]!
       if (estMesureExecution(op) && numInvalide(e.valeur)) {
@@ -201,10 +204,9 @@ export function useOperationsEditor({
     const errors: unknown[] = []
     for (const op of dirtyOps) {
       const e = edits[op.id]!
-      const valeurMesuree =
-        estMesureExecution(op) && e.valeur.trim() !== ''
-          ? Number(e.valeur)
-          : null
+      const valeurMesuree = estMesureExecution(op)
+        ? lireNombreSaisi(e.valeur)
+        : null
       // Remplacement : tout-ou-rien (miroir du CHECK). Le garde ci-dessus a déjà
       // rejeté le remplissage partiel ; ici on neutralise une date orpheline (date
       // sans index) et, si la date n'a pas été saisie, on défausse au jour du relevé.
@@ -224,8 +226,8 @@ export function useOperationsEditor({
           executedBy: session.user.id,
           commentaires: op.commentaires,
           // Remplacement de compteur (manuel) — tout-ou-rien, null sinon.
-          indexDepose: aRempl ? Number(e.indexDepose) : null,
-          indexPose: aRempl ? Number(e.indexPose) : null,
+          indexDepose: aRempl ? lireNombreSaisi(e.indexDepose) : null,
+          indexPose: aRempl ? lireNombreSaisi(e.indexPose) : null,
           dateRemplacement: aRempl
             ? e.dateRemplacement.trim() !== ''
               ? e.dateRemplacement
