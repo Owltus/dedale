@@ -121,7 +121,7 @@
   },
   {
     "regle": "enabled-skiptoken",
-    "fichier": "src/routes/_app/demandes/$demande.tsx",
+    "fichier": "src/features/demandes/components/demande-ecran.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
@@ -160,18 +160,6 @@
     "fichier": "src/features/utilisateurs/mutations.ts",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/bibliotheque/$.tsx",
-    "occurrences": 1,
-    "motif": "racine de composition des 6 panneaux du catalogue : déplacé dans features/bibliotheque, l’écran créerait les cycles bibliotheque ⇄ modeles-equipements et ⇄ modeles-operations (qui importent CataloguePanel) ; à rendre mince quand CataloguePanel sortira de features/bibliotheque"
-  },
-  {
-    "regle": "route-mince",
-    "fichier": "src/routes/_app/demandes/$demande.tsx",
-    "occurrences": 2,
-    "motif": "lit l’aperçu du tableau de bord (activiteQueries, feature dashboard) : déplacé dans features/demandes, l’écran créerait le cycle demandes ⇄ dashboard ; à rendre mince quand la clé d’aperçu des DI vivra dans demandes/queries"
   },
   {
     "regle": "statut-nombre",
@@ -217,7 +205,7 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/features/bibliotheque/components/catalogue-panel.tsx",
+    "fichier": "src/features/categories/components/catalogue-panel.tsx",
     "occurrences": 13,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
@@ -619,7 +607,7 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/routes/_app/demandes/$demande.tsx",
+    "fichier": "src/features/demandes/components/demande-ecran.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },

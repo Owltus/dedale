@@ -6,6 +6,8 @@ import {
 import { toutesLesLignes } from '@/lib/pagination'
 import { supabase } from '@/lib/supabase'
 import { bornesUuid } from '@/lib/slug'
+import { LIGNES_ACTIVITE, enListe, ouvertsPuisRecents } from '@/lib/apercu'
+import { STATUT_DI_CLOTURE, STATUTS_DI_TERMINAUX } from './etat'
 import {
   FILTRE_NON_TERMINES,
   FILTRE_TOUS,
@@ -53,6 +55,49 @@ export async function lieuxDesDemandes(
 
 export const demandesQueries = {
   all: () => ['demandes_intervention'] as const,
+
+  /**
+   * Aperçu BORNÉ des DI du site (non terminées d'abord, puis les plus
+   * récentes ; `LIGNES_ACTIVITE` de chaque) : journal du tableau de bord, et
+   * relu en cache par la fiche DI pour s'ouvrir sans attendre la liste.
+   * Clé sous `demandesQueries.all()` : mutations et temps réel la rafraîchissent.
+   */
+  apercu: (siteId: string | null) =>
+    queryOptions({
+      queryKey: [...demandesQueries.all(), 'tableau-de-bord', siteId] as const,
+      queryFn:
+        siteId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const base = () =>
+                supabase
+                  .from('demandes_intervention')
+                  .select('*')
+                  .eq('site_id', siteId)
+              const [ouverts, termines] = await Promise.all([
+                base()
+                  .not('statut_di_id', 'in', enListe(STATUTS_DI_TERMINAUX))
+                  .order('date_constat', { ascending: false })
+                  .order('created_at', { ascending: false })
+                  .order('id')
+                  .limit(LIGNES_ACTIVITE)
+                  .abortSignal(signal)
+                  .throwOnError(),
+                base()
+                  // `eq` et non `in` : avec `in` (= ANY), PostgreSQL ne lit pas l'index
+                  // 169 dans l'ordre et trie les ~4 000 DI clôturées (RLS comprise)
+                  // avant d'en garder 30 : 220 ms → 3 ms (plan vérifié le 24/11/2026).
+                  .eq('statut_di_id', STATUT_DI_CLOTURE)
+                  .order('date_constat', { ascending: false })
+                  .order('created_at', { ascending: false })
+                  .order('id')
+                  .limit(LIGNES_ACTIVITE)
+                  .abortSignal(signal)
+                  .throwOnError(),
+              ])
+              return ouvertsPuisRecents(ouverts.data, termines.data)
+            },
+    }),
 
   /**
    * Liste PAGINÉE de la page Demandes : filtre de statut et recherche (constat
