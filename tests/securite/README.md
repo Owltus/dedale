@@ -9,44 +9,45 @@ la contredisent ou la confirment, ce qui est l'inverse d'une relecture de code.
 > et jetable**. Un garde-fou dans `cible.mjs` refuse de démarrer si l'adresse obtenue
 > n'est pas `127.0.0.1` ou `localhost`.
 
-## Monter la cible locale
+## Monter, tester, jeter — trois commandes
 
-La pile locale doit porter **le schéma de production sans ses données**. On la fabrique
-en trois temps, dans un dossier hors du dépôt (les migrations ne sont pas publiées) :
+Prérequis : Docker Desktop lancé, `psql` dans le PATH. **Aucun accès à la prod**
+(ni `supabase login`, ni dump) : la base est fabriquée depuis `schema_complete.sql`.
 
 ```bash
-mkdir -p /tmp/dedale-local && cd /tmp/dedale-local
-npx supabase init
-
-# 1. Le schéma, tiré de la prod en LECTURE SEULE (aucune donnée : --data-only absent)
-npx supabase db dump --linked --project-ref ybxuojtyevldrbieaykh \
-  -f supabase/migrations/00000000000000_schema.sql
-npx supabase db dump --linked --project-ref ybxuojtyevldrbieaykh --schema storage \
-  -f /tmp/storage.sql
-# Recopier les CREATE POLICY de /tmp/storage.sql à la fin de la migration.
-
-# 2. Le trigger que le dump du schéma `public` NE transporte PAS
-cat >> supabase/migrations/00000000000000_schema.sql <<'SQL'
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
-SQL
-
-# 3. Les ports : 54321-54327 sont souvent déjà pris par une autre pile.
-#    Décaler tous les `port =` de supabase/config.toml vers 545xx.
-npx supabase start
+npm run base:monter    # pile locale (supabase-local/, ports 445xx) + schéma + vérifs + semis
+npm run base:tester    # escalade.mjs, sonde-rls.mjs, stockage.mjs, puis un bilan
+npm run base:demonter  # supabase stop --no-backup : la pile et ses données sont jetées
 ```
 
-Il reste à charger les référentiels (statuts, types, unités, périodicités) — libellés
-seuls, aucune donnée métier — puis le bucket `documents` :
+(Équivalents sans npm : `node scripts/base-locale.mjs monter|tester|demonter`.)
 
-```sql
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('documents','documents',false,20971520,array['application/pdf','image/webp'])
-on conflict (id) do nothing;
-```
+`monter` enchaîne, et **échoue** au premier écart :
 
-## Dérouler les sondes
+1. jette la pile précédente, démarre `supabase-local/` (config versionnée, `project_id`
+   fictif, inscription fermée comme en prod) ;
+2. applique `schema_complete.sql` **en un seul passage** (`psql -v ON_ERROR_STOP=1`) ;
+   un échec avalé par un bloc `DO … EXCEPTION … NOTICE` (policies Storage) est rattrapé ;
+3. désarme toutes les tâches pg_cron (`cron.unschedule`, base locale seulement) ;
+4. vérifie le trigger `on_auth_user_created` sur `auth.users`, le bucket `documents`,
+   les 5 policies de `storage.objects`, les lignes de `statuts_di`, et l'absence de
+   secret Dmbook dans le coffre (sans lui, `dmbook_appeler()` n'appelle jamais la prod) ;
+5. lance `semis.mjs` (2 sites, 7 comptes couvrant les 5 rôles, données en miroir).
+
+Le script refuse tout argument CLI qui viserait la prod (`--linked`, `--project-ref`,
+`login`, `link`, `dump`) et toute adresse autre que `127.0.0.1`/`localhost`.
+
+Ports : 445xx et non 543xx/545xx, car Windows (Hyper-V/WSL) réserve des plages
+mouvantes au-dessus de 49152 — `netsh interface ipv4 show excludedportrange
+protocol=tcp` les liste.
+
+> **Repli** — si `schema_complete.sql` cesse de s'appliquer d'une traite (objet utilisé
+> avant d'être déclaré), la correction attendue est un **déplacement** dans le fichier,
+> pas une deuxième passe. En dernier recours seulement, l'ancienne procédure reste
+> possible : schéma tiré de la prod en lecture seule (`supabase db dump --linked`),
+> trigger `on_auth_user_created` et policies Storage ajoutés à la main.
+
+## Dérouler les sondes une à une
 
 Les sondes ne portent **aucune clé** : elles interrogent `supabase status` pour
 obtenir l'adresse et les clés de la pile qui tourne sur cette machine. Le dépôt
@@ -54,10 +55,11 @@ obtenir l'adresse et les clés de la pile qui tourne sur cette machine. Le dép�
 installations et sans pouvoir hors de `127.0.0.1` — n'y ont pas leur place : un
 JWT `service_role` en clair déclenche tous les scanners de secrets.
 
-Il faut donc leur dire où vit le projet local monté plus haut :
+Il faut donc leur dire où vit la pile (`npm run base:*` le fait tout seul) :
 
 ```bash
-export MARTIN_LOCAL_DIR=/tmp/dedale-local
+export MARTIN_LOCAL_DIR="$PWD/supabase-local"   # depuis la racine du dépôt
+cd tests/securite
 ```
 
 Un garde-fou refuse de démarrer si l'adresse obtenue n'est pas locale.
@@ -71,11 +73,13 @@ node edge-functions.mjs    # les 3 fonctions à clé service_role, JWT faibles/f
 node stockage.mjs          # un site peut-il télécharger le document d'un autre ?
 ```
 
-`semis.mjs` est à rejouer après chaque `supabase db reset`.
+`semis.mjs` est à rejouer après chaque remontage ; il réécrit `seed-data.json`.
 
-Pour les Edge Functions, servez-les d'abord avec la vérification de jeton **désactivée** —
-c'est volontaire : on veut tester ce que le code contrôle lui-même, pas ce que la
-plateforme filtre en amont.
+`edge-functions.mjs` n'est **pas** lancée par `base:tester` : elle exige que les
+fonctions soient servies, avec la vérification de jeton **désactivée** — c'est
+volontaire : on veut tester ce que le code contrôle lui-même, pas ce que la
+plateforme filtre en amont. Les fonctions vivent dans `supabase/functions/` (hors de
+la pile locale) ; leur service local reste à outiller.
 
 ```bash
 npx supabase functions serve --no-verify-jwt

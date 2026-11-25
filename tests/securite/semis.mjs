@@ -1,5 +1,5 @@
 // =============================================================================
-// Martin — SEMIS de la base LOCALE JETABLE (127.0.0.1:54521)
+// Martin — SEMIS de la base LOCALE JETABLE (npm run base:monter)
 // =============================================================================
 // Cible sure : pile Supabase locale, schema de prod, ZERO donnee de prod.
 // La cle service_role ne sert QU ICI, a preparer le terrain (barriere 4 de
@@ -138,7 +138,7 @@ async function main() {
       statut_capex_id: 1,
       libelle: `Investissement ${k}`,
       date_demande: J(-10),
-      montant_demande: 1000,
+      // Plus de montant sur le projet depuis 149 : il vit sur ses devis.
     })
     const ctr = await ins('contrats', {
       prestataire_id: presta.id,

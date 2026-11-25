@@ -7,11 +7,11 @@
 -- ║   Concaténation des migrations/*.sql (121 au 2026-09-18), resynchronisée  ║
 -- ║   sur la PRODUCTION — c'est la seule source versionnée du schéma.         ║
 -- ║                                                                           ║
--- ║   ⚠ PAS rejouable d'une traite sur une base neuve : quelques objets sont  ║
--- ║   déclarés avant leur dépendance (equipements.code_inventaire appelle     ║
--- ║   generate_identifiant_equipement(), définie ~500 lignes plus bas). Il    ║
--- ║   faut deux passages pour que tout se pose. Le fichier vaut comme SOURCE  ║
--- ║   DE VÉRITÉ LISIBLE, pas comme programme d'installation.                  ║
+-- ║   Rejouable en UN passage sur une base Supabase neuve :                   ║
+-- ║   psql -v ON_ERROR_STOP=1 -f schema_complete.sql (npm run base:monter).   ║
+-- ║   Remis d'aplomb le 25/11/2026 : blocs déplacés tels quels, et 10         ║
+-- ║   délimiteurs de corps de fonction tronqués réparés ; aucune logique      ║
+-- ║   modifiée. Invariant : tout objet est déclaré AVANT son premier usage.   ║
 -- ║                                                                           ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 --
@@ -794,12 +794,12 @@ COMMENT ON TABLE user_sites IS 'Scope sites pour les rôles site-scopés (manage
 CREATE OR REPLACE FUNCTION public.via_connecteur() RETURNS boolean
     LANGUAGE sql STABLE
     SET search_path = ''
-AS $
+AS $$
     SELECT coalesce(
         nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'client_id',
         ''
     ) <> ''
-$;
+$$;
 COMMENT ON FUNCTION public.via_connecteur() IS
     'Vrai si la requête porte un jeton émis à un client OAuth (connecteur Claude) et non à l''application (153).';
 GRANT EXECUTE ON FUNCTION public.via_connecteur() TO authenticated, service_role;
@@ -847,7 +847,7 @@ GRANT EXECUTE ON FUNCTION public.client_ia_de_confiance() TO authenticated, serv
 CREATE OR REPLACE FUNCTION public.connecteur_ok(p_acces_ia boolean) RETURNS boolean
     LANGUAGE plpgsql STABLE
     SET search_path = ''
-AS $
+AS $$
 BEGIN
     -- Appel de l'application : rien de plus à vérifier (pas de lecture inutile).
     IF NOT public.via_connecteur() THEN
@@ -855,7 +855,7 @@ BEGIN
     END IF;
     RETURN coalesce(p_acces_ia, false) AND public.client_ia_de_confiance();
 END;
-$;
+$$;
 COMMENT ON FUNCTION public.connecteur_ok(boolean) IS
     'Règle du connecteur Claude (153-154) : appel de l''application → vrai ; appel d''un connecteur → accès Claude du compte ET application de confiance.';
 REVOKE ALL ON FUNCTION public.connecteur_ok(boolean) FROM PUBLIC, anon;
@@ -864,13 +864,13 @@ GRANT EXECUTE ON FUNCTION public.connecteur_ok(boolean) TO authenticated, servic
 CREATE OR REPLACE FUNCTION public.current_role() RETURNS TEXT
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path = ''
-AS $
+AS $$
     SELECT r.code
     FROM public.users u
     JOIN public.roles r ON r.id = u.role_id
     WHERE u.id = (SELECT auth.uid()) AND u.est_actif = true
       AND public.connecteur_ok(u.acces_ia)
-$;
+$$;
 COMMENT ON FUNCTION public.current_role() IS 'Helper RLS — code rôle (TEXT) de l''user connecté ACTIF, lu via la table roles. NULL si désactivé (kill-switch F02) ou si l''appel vient d''un connecteur non autorisé (153-154).';
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -900,7 +900,7 @@ AS $$
               AND u.est_actif = true
               AND public.connecteur_ok(u.acces_ia)
         )
-$;
+$$;
 COMMENT ON FUNCTION public.has_site_access(UUID) IS 'Helper RLS — true si l''user a accès au site cible (admin partout, manager/technicien/lecteur/demandeur via user_sites). Faux via un connecteur non autorisé (153-154).';
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -1197,7 +1197,7 @@ BEGIN
 
     RETURN NEW;
 END;
-$;
+$$;
 COMMENT ON FUNCTION public.protect_users_sensitive_columns() IS
     'Garde-fou par colonne sur public.users, là où la RLS ne sait pas aller : id et created_by immuables ; role_id et est_actif réservés à l''admin (est_actif tolère le cron système) ; anonymized_at réservé à l''anonymisation RGPD (115) ; acces_ia et acces_ia_ecriture réservés à l''admin depuis l''application (153, 156).';
 
@@ -1908,6 +1908,57 @@ COMMENT ON COLUMN categories.valeur_tertiaire IS
     'Sous-catégorie de PARC uniquement : clé (Champ.cle, dans specifications) d''une TROISIÈME caractéristique affichée en badge (ex. sous celui de valeur_secondaire). NULL = pas de badge tertiaire.';
 
 
+-- =============================================================================
+-- 105 — Identifiant d'équipement généré par la base
+-- =============================================================================
+-- generate_identifiant_equipement() — 8 caractères, alphabet de 32 (26
+--   lettres + 10 chiffres, moins O/0 et I/1 — ambiguïté de lecture terrain),
+--   soit 32^8 = 1 099 511 627 776 combinaisons. Unicité vérifiée sur TOUS les
+--   équipements (SECURITY DEFINER, contourne le cloisonnement par site de
+--   equipements). Sert de DEFAULT à equipements.code_inventaire : un INSERT
+--   qui omet la colonne reçoit un identifiant généré sans rien calculer côté
+--   front.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.generate_identifiant_equipement()
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_alphabet   CONSTANT TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    v_longueur   CONSTANT INT  := 8;
+    v_code       TEXT;
+    v_i          INT;
+    v_tentative  INT := 0;
+BEGIN
+    LOOP
+        v_code := '';
+        FOR v_i IN 1..v_longueur LOOP
+            v_code := v_code || substr(
+                v_alphabet,
+                1 + floor(random() * length(v_alphabet))::int,
+                1
+            );
+        END LOOP;
+        EXIT WHEN NOT EXISTS (
+            SELECT 1 FROM public.equipements WHERE code_inventaire = v_code
+        );
+        v_tentative := v_tentative + 1;
+        IF v_tentative > 20 THEN
+            RAISE EXCEPTION
+                'generate_identifiant_equipement : espace de codes épuisé après % tentatives (improbable sur 32^8 combinaisons — alerte réelle si ça se produit).',
+                v_tentative;
+        END IF;
+    END LOOP;
+    RETURN v_code;
+END;
+$$;
+
+COMMENT ON FUNCTION public.generate_identifiant_equipement() IS
+    'Génère un identifiant équipement aléatoire unique (8 car., alphabet de 32 sans O/0/I/1 — migration 105). SECURITY DEFINER : l''unicité se vérifie sur TOUS les équipements de l''entreprise, pas seulement ceux visibles par le rôle appelant.';
+
 -- ╔═════════════════════════════════════════════════════════════════════════╗
 -- ║  013_equipements.sql
 -- ╚═════════════════════════════════════════════════════════════════════════╝
@@ -2422,57 +2473,6 @@ COMMENT ON FUNCTION public.protect_copie_depuis_modele_immutable() IS
 --   scopes (site → entreprise pour promotion, ou inverse). Calque exact de
 --   copier_gamme (matrice de droits identique).
 -- =============================================================================
-
--- =============================================================================
--- 105 — Identifiant d'équipement généré par la base
--- =============================================================================
--- generate_identifiant_equipement() — 8 caractères, alphabet de 32 (26
---   lettres + 10 chiffres, moins O/0 et I/1 — ambiguïté de lecture terrain),
---   soit 32^8 = 1 099 511 627 776 combinaisons. Unicité vérifiée sur TOUS les
---   équipements (SECURITY DEFINER, contourne le cloisonnement par site de
---   equipements). Sert de DEFAULT à equipements.code_inventaire : un INSERT
---   qui omet la colonne reçoit un identifiant généré sans rien calculer côté
---   front.
--- =============================================================================
-
-CREATE OR REPLACE FUNCTION public.generate_identifiant_equipement()
-RETURNS TEXT
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO ''
-AS $$
-DECLARE
-    v_alphabet   CONSTANT TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    v_longueur   CONSTANT INT  := 8;
-    v_code       TEXT;
-    v_i          INT;
-    v_tentative  INT := 0;
-BEGIN
-    LOOP
-        v_code := '';
-        FOR v_i IN 1..v_longueur LOOP
-            v_code := v_code || substr(
-                v_alphabet,
-                1 + floor(random() * length(v_alphabet))::int,
-                1
-            );
-        END LOOP;
-        EXIT WHEN NOT EXISTS (
-            SELECT 1 FROM public.equipements WHERE code_inventaire = v_code
-        );
-        v_tentative := v_tentative + 1;
-        IF v_tentative > 20 THEN
-            RAISE EXCEPTION
-                'generate_identifiant_equipement : espace de codes épuisé après % tentatives (improbable sur 32^8 combinaisons — alerte réelle si ça se produit).',
-                v_tentative;
-        END IF;
-    END LOOP;
-    RETURN v_code;
-END;
-$$;
-
-COMMENT ON FUNCTION public.generate_identifiant_equipement() IS
-    'Génère un identifiant équipement aléatoire unique (8 car., alphabet de 32 sans O/0/I/1 — migration 105). SECURITY DEFINER : l''unicité se vérifie sur TOUS les équipements de l''entreprise, pas seulement ceux visibles par le rôle appelant.';
 
 CREATE OR REPLACE FUNCTION public.instancier_equipement(
     p_modele_id        UUID,
@@ -3372,6 +3372,50 @@ CREATE TRIGGER set_updated_at_operations
 -- ----------------------------------------------------------------------------
 ALTER TABLE operations ENABLE ROW LEVEL SECURITY;
 
+
+-- 2. miniatures : pool d'images de style (150px webp), dédupliqué par hash,
+--    scope entreprise (site_id NULL) / site. Pas de BLOB : fichier dans Storage,
+--    on garde le chemin. Le front produit le webp conforme + le hash.
+CREATE TABLE miniatures (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    site_id      UUID REFERENCES sites(id) ON DELETE CASCADE,   -- NULL = pool entreprise
+    hash_sha256  TEXT NOT NULL CHECK (length(hash_sha256) = 64),
+    storage_path TEXT NOT NULL CHECK (length(trim(storage_path)) > 0),
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT miniatures_storage_path_safe CHECK (
+        position('..' in storage_path) = 0
+        AND position('\' in storage_path) = 0
+        AND storage_path NOT LIKE '/%'
+        AND length(storage_path) < 500
+    )
+);
+-- Dédup SCOPÉE par hash (jamais globale) : NULLS NOT DISTINCT pour dédupliquer
+-- aussi le pool entreprise (site_id NULL). Un même contenu sur 2 sites = 2 lignes.
+CREATE UNIQUE INDEX uq_miniatures_scope_hash ON miniatures (site_id, hash_sha256) NULLS NOT DISTINCT;
+CREATE INDEX idx_miniatures_site ON miniatures(site_id);
+ALTER TABLE miniatures ENABLE ROW LEVEL SECURITY;
+COMMENT ON TABLE miniatures IS 'v0.14b — pool de miniatures (images de style 150px webp) dédupliquées par hash, scopées entreprise/site. Référencées par les entités via miniature_id.';
+
+CREATE POLICY miniatures_admin_all ON miniatures FOR ALL
+    USING ((SELECT public.current_role()) = 'admin')
+    WITH CHECK ((SELECT public.current_role()) = 'admin');
+-- 'demandeur' inclus (migration 051) : il choisit un modèle de DI à la création
+-- et doit en voir la vignette. Lecture seule ; débloque aussi le Storage (la
+-- policy SELECT du bucket teste l'existence d'une miniature VISIBLE).
+CREATE POLICY miniatures_select ON miniatures FOR SELECT
+    USING ((SELECT public.current_role()) IN ('manager','technicien','lecteur','demandeur')
+           AND (site_id IS NULL OR public.has_site_access(site_id)));
+CREATE POLICY miniatures_manager_all ON miniatures FOR ALL
+    USING ((SELECT public.current_role()) = 'manager'
+           AND (site_id IS NULL OR public.has_site_access(site_id)))
+    WITH CHECK ((SELECT public.current_role()) = 'manager'
+           AND (site_id IS NULL OR public.has_site_access(site_id)));
+CREATE POLICY miniatures_technicien_all ON miniatures FOR ALL
+    USING ((SELECT public.current_role()) = 'technicien'
+           AND site_id IS NOT NULL AND public.has_site_access(site_id))
+    WITH CHECK ((SELECT public.current_role()) = 'technicien'
+           AND site_id IS NOT NULL AND public.has_site_access(site_id));
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
 -- ║  025_modeles_operations.sql
@@ -4806,7 +4850,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 BEGIN
     INSERT INTO public.investissements_decisions
         (investissement_id, statut_capex_id, annee_budget, motif, created_by)
@@ -4819,7 +4863,7 @@ BEGIN
     );
     RETURN NULL;
 END;
-$;
+$$;
 
 COMMENT ON FUNCTION public.journaliser_decision_investissement() IS
     'Inscrit chaque changement de statut ou d''année de budget d''un investissement dans investissements_decisions (137, 138).';
@@ -5744,19 +5788,6 @@ CREATE INDEX idx_evenements_site        ON evenements(site_id);
 CREATE INDEX idx_evenements_statut      ON evenements(statut_evenement_id);
 CREATE INDEX idx_evenements_date        ON evenements(date_evenement DESC);
 
-CREATE TABLE documents_evenements (
-    document_id  UUID NOT NULL REFERENCES documents(id)  ON DELETE CASCADE,
-    evenement_id UUID NOT NULL REFERENCES evenements(id) ON DELETE CASCADE,
-    commentaire  TEXT,
-    tache_id     UUID REFERENCES evenements_lieux(id) ON DELETE SET NULL,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (document_id, evenement_id)
-);
-
-COMMENT ON TABLE documents_evenements IS 'Liaison document ↔ événement (077). CASCADE des deux côtés : retirer la liaison, pas le document lui-même.';
-COMMENT ON COLUMN documents_evenements.tache_id IS
-    '091 : tâche précise à laquelle ce document est rattaché — NULL = rattaché à la fiche entière.';
-
 -- 086 : lieux concernés par un événement (0..N), miroir de travaux_taches.
 -- 088 : porte désormais aussi un statut d'avancement par lieu, identique à
 -- travaux_taches.statut — Travaux et Événements suivent leurs zones pareil.
@@ -5784,6 +5815,19 @@ COMMENT ON COLUMN evenements_lieux.statut IS
 COMMENT ON COLUMN evenements_lieux.libelle IS '090 : identité de la tâche, texte libre — obligatoire.';
 COMMENT ON COLUMN evenements_lieux.commentaire IS '090 : commentaire libre facultatif.';
 COMMENT ON COLUMN evenements_lieux.date_tache IS '093 : date facultative de la tâche, libre d''interprétation (prévue ou réalisée selon le cas).';
+
+CREATE TABLE documents_evenements (
+    document_id  UUID NOT NULL REFERENCES documents(id)  ON DELETE CASCADE,
+    evenement_id UUID NOT NULL REFERENCES evenements(id) ON DELETE CASCADE,
+    commentaire  TEXT,
+    tache_id     UUID REFERENCES evenements_lieux(id) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (document_id, evenement_id)
+);
+
+COMMENT ON TABLE documents_evenements IS 'Liaison document ↔ événement (077). CASCADE des deux côtés : retirer la liaison, pas le document lui-même.';
+COMMENT ON COLUMN documents_evenements.tache_id IS
+    '091 : tâche précise à laquelle ce document est rattaché — NULL = rattaché à la fiche entière.';
 
 CREATE INDEX idx_evenements_lieux_evenement ON evenements_lieux(evenement_id);
 CREATE INDEX idx_doc_evenements_tache ON documents_evenements(tache_id);
@@ -5863,50 +5907,6 @@ CREATE POLICY document_chapitres_manager_all ON document_chapitres FOR ALL
     WITH CHECK ((SELECT public.current_role()) = 'manager');
 CREATE POLICY document_chapitres_select ON document_chapitres FOR SELECT
     USING ((SELECT public.current_role()) IN ('technicien', 'lecteur'));
-
--- 2. miniatures : pool d'images de style (150px webp), dédupliqué par hash,
---    scope entreprise (site_id NULL) / site. Pas de BLOB : fichier dans Storage,
---    on garde le chemin. Le front produit le webp conforme + le hash.
-CREATE TABLE miniatures (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    site_id      UUID REFERENCES sites(id) ON DELETE CASCADE,   -- NULL = pool entreprise
-    hash_sha256  TEXT NOT NULL CHECK (length(hash_sha256) = 64),
-    storage_path TEXT NOT NULL CHECK (length(trim(storage_path)) > 0),
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
-    CONSTRAINT miniatures_storage_path_safe CHECK (
-        position('..' in storage_path) = 0
-        AND position('\' in storage_path) = 0
-        AND storage_path NOT LIKE '/%'
-        AND length(storage_path) < 500
-    )
-);
--- Dédup SCOPÉE par hash (jamais globale) : NULLS NOT DISTINCT pour dédupliquer
--- aussi le pool entreprise (site_id NULL). Un même contenu sur 2 sites = 2 lignes.
-CREATE UNIQUE INDEX uq_miniatures_scope_hash ON miniatures (site_id, hash_sha256) NULLS NOT DISTINCT;
-CREATE INDEX idx_miniatures_site ON miniatures(site_id);
-ALTER TABLE miniatures ENABLE ROW LEVEL SECURITY;
-COMMENT ON TABLE miniatures IS 'v0.14b — pool de miniatures (images de style 150px webp) dédupliquées par hash, scopées entreprise/site. Référencées par les entités via miniature_id.';
-
-CREATE POLICY miniatures_admin_all ON miniatures FOR ALL
-    USING ((SELECT public.current_role()) = 'admin')
-    WITH CHECK ((SELECT public.current_role()) = 'admin');
--- 'demandeur' inclus (migration 051) : il choisit un modèle de DI à la création
--- et doit en voir la vignette. Lecture seule ; débloque aussi le Storage (la
--- policy SELECT du bucket teste l'existence d'une miniature VISIBLE).
-CREATE POLICY miniatures_select ON miniatures FOR SELECT
-    USING ((SELECT public.current_role()) IN ('manager','technicien','lecteur','demandeur')
-           AND (site_id IS NULL OR public.has_site_access(site_id)));
-CREATE POLICY miniatures_manager_all ON miniatures FOR ALL
-    USING ((SELECT public.current_role()) = 'manager'
-           AND (site_id IS NULL OR public.has_site_access(site_id)))
-    WITH CHECK ((SELECT public.current_role()) = 'manager'
-           AND (site_id IS NULL OR public.has_site_access(site_id)));
-CREATE POLICY miniatures_technicien_all ON miniatures FOR ALL
-    USING ((SELECT public.current_role()) = 'technicien'
-           AND site_id IS NOT NULL AND public.has_site_access(site_id))
-    WITH CHECK ((SELECT public.current_role()) = 'technicien'
-           AND site_id IS NOT NULL AND public.has_site_access(site_id));
 
 -- 3. documents : scope (site_id) + chapitre + dédup hash SCOPÉE (au lieu de globale)
 ALTER TABLE documents ADD COLUMN site_id     UUID REFERENCES sites(id) ON DELETE RESTRICT;

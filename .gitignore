@@ -69,6 +69,11 @@ reports/
 **/supabase/.temp/
 **/.temp/
 
+# Base locale jetable (npm run base:monter) : config versionnée, état de la CLI non
+supabase-local/supabase/.temp/
+supabase-local/supabase/.branches/
+supabase-local/supabase/snippets/
+
 # Deno (tests des fonctions serveur) : verrou régénéré à chaque lancement
 deno.lock
 
@@ -78,3 +83,6 @@ docs/Releves_*/
 
 # Essais locaux (poc, scripts jetables) : le suffixe .local suffit à les exclure
 *.local/
+
+# Réécrit à chaque semis de la base locale (npm run base:monter) : jamais versionné
+tests/securite/seed-data.json
