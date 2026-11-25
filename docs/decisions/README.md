@@ -47,3 +47,4 @@ Ce que ça implique (avantages, limites, ce qu'on s'interdit).
 - [0015 — Claude n'écrit dans Dédale que par des gestes nommés, avec aperçu puis code](0015-ecritures-via-claude.md)
 - [0016 — Synchro Dmbook ⇄ Dédale : Dmbook fait foi, Dédale s'adapte](0016-synchro-dmbook.md)
 - [0017 — Garde-fous permanents : une commande de santé, des hooks git et une CI](0017-garde-fous-permanents.md)
+- [0018 — Déployer une flotte d'équipements en une transaction, annulable par lot](0018-deploiement-equipements.md)

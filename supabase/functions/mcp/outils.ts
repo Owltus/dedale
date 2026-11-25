@@ -33,6 +33,7 @@ import { OUTILS_PARC } from './outils-parc.ts'
 import { OUTILS_ECRITURE } from './outils-ecriture.ts'
 import { OUTILS_ECRITURE_DI } from './outils-ecriture-di.ts'
 import { OUTILS_ECRITURE_FICHES } from './outils-ecriture-fiches.ts'
+import { OUTILS_ECRITURE_EQUIPEMENTS } from './outils-ecriture-equipements.ts'
 
 export type { Contexte }
 
@@ -738,6 +739,7 @@ const TOUS_LES_OUTILS: Outil[] = [
   ...OUTILS_ECRITURE,
   ...OUTILS_ECRITURE_DI,
   ...OUTILS_ECRITURE_FICHES,
+  ...OUTILS_ECRITURE_EQUIPEMENTS,
 ]
 export const OUTILS = TOUS_LES_OUTILS
 

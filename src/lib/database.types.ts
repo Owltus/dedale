@@ -4200,6 +4200,10 @@ export type Database = {
         Args: { p_prestataire_id: string }
         Returns: boolean
       }
+      choisir_par_nom: {
+        Args: { p_candidats: Json; p_demande: string; p_quoi: string }
+        Returns: string
+      }
       claude_ajouter_taches: {
         Args: {
           p_appliquer?: boolean
@@ -4207,6 +4211,15 @@ export type Database = {
           p_id: string
           p_taches: Json
           p_type: string
+        }
+        Returns: Json
+      }
+      claude_annuler_deploiement: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_flotte_id: string
+          p_lot_rang?: number
         }
         Returns: Json
       }
@@ -4277,6 +4290,33 @@ export type Database = {
           p_taches?: Json
           p_titre: string
           p_type: string
+        }
+        Returns: Json
+      }
+      claude_creer_modele_equipement: {
+        Args: {
+          p_appliquer?: boolean
+          p_categorie_id: string
+          p_champs?: Json
+          p_code?: string
+          p_creer_flotte?: boolean
+          p_description?: string
+          p_flotte_parent_id?: string
+          p_nom: string
+          p_site_id: string
+          p_valeur_principale?: string
+        }
+        Returns: Json
+      }
+      claude_deployer_equipements: {
+        Args: {
+          p_appliquer?: boolean
+          p_categorie_id: string
+          p_code?: string
+          p_gamme_ids?: string[]
+          p_ignorer_doublons?: boolean
+          p_selection: Json
+          p_valeurs?: Json
         }
         Returns: Json
       }
@@ -4913,6 +4953,10 @@ export type Database = {
       has_site_access: { Args: { target_site_id: string }; Returns: boolean }
       libelle_equipement: { Args: { p_equipement_id: string }; Returns: string }
       lieux_di_du_site: { Args: { p_site_id: string }; Returns: Json }
+      lieux_selection_deploiement: {
+        Args: { p_selection: Json; p_site_id: string }
+        Returns: Json
+      }
       localisation_equipement: {
         Args: { p_equipement_id: string }
         Returns: string
@@ -4936,6 +4980,7 @@ export type Database = {
         Args: { p_gamme_id: string }
         Returns: number
       }
+      normaliser_gabarit: { Args: { p_champs: Json }; Returns: Json }
       ot_code_confirmation: {
         Args: { p_demande: Json; p_geste: string; p_ot_id: string }
         Returns: string

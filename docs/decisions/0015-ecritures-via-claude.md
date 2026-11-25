@@ -14,6 +14,9 @@
     `fiche_local` et des `*_du_lieu` (183), plutôt qu'élargir la garde ;
     outils `bibliotheque`, `flottes`, `fiche_lieu`, `lieux` et `equipements`
     enrichis ;
+  - 186 (25/11) : trois gestes sur le parc — créer un modèle d'équipement du
+    site (et sa flotte), déployer une flotte dans des lieux, annuler un
+    déploiement récent (ADR 0018) ;
   - fonction `mcp` : outils d'écriture.
 
 ## Contexte
@@ -150,6 +153,34 @@ revérifiés en base. Aucun critique. Corrigé :
 Non vérifié faute de jeton réel : ce qu'un jeton OAuth permet sur l'API Auth
 elle-même (changer son propre mot de passe).
 
+## Modèles d'équipements et déploiements (migration 186, 25/11/2026)
+
+Trois gestes `claude_*`, même modèle (aperçu joué puis annulé, code) ; le
+déploiement lui-même est décrit par l'ADR 0018. Choix du PO :
+
+- **Ouverts à admin, manager et technicien** sur leurs sites, comme dans
+  l'application ; lecteur et demandeur refusés.
+- **Modèles du site seulement** (ADR 0009) : Claude ne crée jamais dans le
+  commun. Un homonyme du commun est signalé (l'installer depuis
+  l'application reste possible) ; un homonyme du site est refusé. Le modèle
+  vient par défaut avec sa **flotte**, rangée sous une catégorie de parc du
+  site et liée au modèle, avec sa valeur principale.
+- **Déploiement à partir d'une flotte**, plans de maintenance choisis à chaque
+  fois, **un site par appel** (celui de la flotte), **500 lieux au plus**. La
+  **base** résout les lieux : bâtiment, niveau et type de lieu par leurs noms
+  (refus listant les candidats si un nom est ambigu ou inconnu), ou les
+  identifiants de l'outil `lieux`. Le code couvre la liste triée des lieux et
+  l'état de la flotte : un équipement apparu entre l'aperçu et l'application
+  le périme.
+- **Annulation** : le N-ième déploiement le plus récent d'une flotte (Claude
+  ne voit aucun numéro de lot). C'est la **seule suppression d'équipements**
+  ouverte à Claude ; elle garde ceux qui ont un historique.
+- Côté connecteur, Claude parle en noms (site, catégorie, flotte, catégorie de
+  parc, plans de maintenance), résolus parmi ce que la personne voit puis
+  revérifiés par la base ; plafonds identiques en Zod et en SQL ; déploiement
+  et annulation annotés « destructifs » pour que claude.ai demande
+  confirmation.
+
 ## Conséquences
 
 - **Ajouter une écriture via Claude = écrire une fonction `claude_*`.**
@@ -157,7 +188,9 @@ elle-même (changer son propre mot de passe).
   utilisée par le connecteur doit être ajoutée à la liste de
   `garde_connecteur`.
 - **Fermés à Claude** :
-  - suppressions (OT, DI, travaux, événements, tâches) ;
+  - suppressions (OT, DI, travaux, événements, tâches ; équipements, modèles et
+    flottes, hors annulation d'un déploiement) ;
+  - modèles du commun ;
   - conversion travaux ↔ événement ;
   - déverrouillage d'une fiche ;
   - création d'OT ;

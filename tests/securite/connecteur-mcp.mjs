@@ -1,6 +1,6 @@
 // =============================================================================
-// Sonde du CONNECTEUR CLAUDE (fonction mcp), lectures du parc — base LOCALE
-// JETABLE uniquement. Appelée par edge-functions.mjs pendant que les fonctions
+// Sonde du CONNECTEUR CLAUDE (fonction mcp), lectures et écritures du parc —
+// base LOCALE JETABLE uniquement. Appelée par edge-functions.mjs pendant que les fonctions
 // sont servies (`supabase functions serve`).
 // =============================================================================
 // Le connecteur n'accepte que les jetons émis par le serveur OAuth à un client
@@ -13,7 +13,10 @@
 //   2. rejoue le vrai jeton de chaque compte en y ajoutant `client_id`, signé
 //      avec le secret HS256 de la pile LOCALE (accepté par Auth et PostgREST) ;
 //   3. pose un terrain (connecteur-lecture.semis.sql), appelle les outils du
-//      parc par le protocole MCP, et compare à l'attendu ;
+//      parc par le protocole MCP, et compare à l'attendu ; puis joue de bout
+//      en bout les gestes d'écriture du parc (186) : modèle, déploiement par
+//      les noms, annulation — aperçu → code → application ; code faux ou
+//      rejoué refusé, accès Claude en lecture seule refusé ;
 //   4. retire tout (terrain, application, accès) quoi qu'il arrive.
 // Un écart est un FINDING : on ne corrige pas l'attendu pour passer.
 // =============================================================================
@@ -141,6 +144,7 @@ export async function sonderConnecteur() {
     if (!ok) ecarts.push(`mcp / ${titre} : ${detail}`)
   }
   const ids = COMPTES.map((c) => `'${c}@martin.test'`).join(', ')
+  let exempleApercu = null
 
   const terrain = JSON.parse(
     psql([
@@ -330,9 +334,180 @@ export async function sonderConnecteur() {
         montres.join(', '),
       )
     }
+
+    // ─── Écriture du parc (186) : aperçu → code → application → annulation ───
+    console.log(
+      '\n=== Connecteur Claude : modèle, déploiement, annulation ===\n',
+    )
+    enAdmin(
+      `UPDATE public.users SET acces_ia_ecriture = true WHERE id = '${d.users.technicienA}';`,
+    )
+    const bat = psql(
+      [],
+      `SELECT nom FROM public.batiments WHERE id = '${d.A.batiment}'`,
+    )
+    const compter = () =>
+      JSON.parse(
+        psql(
+          [],
+          `SELECT json_build_object(
+             'modeles', (SELECT count(*) FROM public.modeles_equipements WHERE nom = 'Sirène cl ${x}'),
+             'equipements', (SELECT count(*) FROM public.equipements e JOIN public.categories c ON c.id = e.categorie_id
+                             WHERE c.nom = 'Sirène cl ${x}'))`,
+        ),
+      )
+    const modele = {
+      site: 'Site Alpha',
+      nom: `Sirène cl ${x}`,
+      categorie: `Sécurité cl ${x}`,
+      categorie_parc: `Sécurité incendie cl ${x}`,
+      caracteristiques: [
+        { libelle: 'Repère', type: 'texte', requis: true },
+        { libelle: 'Puissance', type: 'nombre', unite: 'dB', defaut: 90 },
+      ],
+      valeur_principale: 'Repère',
+    }
+    const refusLecture = await outil(
+      j.demandeura.connecteur,
+      'creer_modele_equipement',
+      modele,
+    )
+    controle(
+      'écriture : accès Claude en lecture seule refusé, rien d’écrit',
+      refusLecture.erreur &&
+        /lecture seule/.test(refusLecture.texte) &&
+        compter().modeles === 0,
+      refusLecture.texte,
+    )
+    const apM = await outil(tech, 'creer_modele_equipement', modele)
+    controle(
+      'creer_modele_equipement : aperçu (code, consigne, gabarit lisible), rien d’écrit',
+      !apM.erreur &&
+        /^[0-9A-F]{8}$/.test(apM.donnees?.code_confirmation ?? '') &&
+        /APERÇU SEULEMENT/.test(apM.donnees.consigne) &&
+        apM.donnees.modele?.gabarit?.[1]?.unite === 'dB' &&
+        apM.donnees.flotte?.valeur_principale === 'Repère' &&
+        compter().modeles === 0,
+      apM.texte.slice(0, 300),
+    )
+    const faux = await outil(tech, 'creer_modele_equipement', {
+      ...modele,
+      appliquer: true,
+      code: 'ABCDEF12',
+    })
+    controle(
+      'creer_modele_equipement : code faux refusé',
+      faux.erreur &&
+        /Code de confirmation/.test(faux.texte) &&
+        compter().modeles === 0,
+      faux.texte,
+    )
+    const okM = await outil(tech, 'creer_modele_equipement', {
+      ...modele,
+      appliquer: true,
+      code: apM.donnees?.code_confirmation,
+    })
+    controle(
+      'creer_modele_equipement : enregistré avec le code',
+      !okM.erreur &&
+        okM.donnees?.mode === 'enregistré' &&
+        compter().modeles === 1,
+      okM.texte.slice(0, 300),
+    )
+
+    const dep = {
+      flotte: `Sirène cl ${x}`,
+      batiment: bat,
+      niveau: `R+1 cl ${x}`,
+      plans_maintenance: [`Contrôle détecteurs cl ${x}`],
+    }
+    const apD = await outil(tech, 'deployer_equipements', dep)
+    exempleApercu = apD.donnees
+    controle(
+      'deployer_equipements : aperçu par les noms (3 lieux, exemples nommés par le lieu), rien d’écrit',
+      !apD.erreur &&
+        apD.donnees?.a_creer === 3 &&
+        apD.donnees.par_batiment_niveau?.[0]?.a_creer === 3 &&
+        apD.donnees.exemples?.[0]?.nom ===
+          `Sirène cl ${x} Chambre 101 cl ${x}` &&
+        apD.donnees.exemples[0].caracteristiques?.Puissance === '90 dB' &&
+        apD.donnees.plans_maintenance?.[0]?.nom ===
+          `Contrôle détecteurs cl ${x}` &&
+        compter().equipements === 0,
+      apD.texte.slice(0, 300),
+    )
+    const niveauInconnu = await outil(tech, 'deployer_equipements', {
+      ...dep,
+      niveau: 'R+9',
+    })
+    controle(
+      'deployer_equipements : niveau inconnu refusé en clair, candidats listés',
+      niveauInconnu.erreur &&
+        /Rien n’a été enregistré\. Aucun niveau/.test(niveauInconnu.texte) &&
+        niveauInconnu.texte.includes(`R+1 cl ${x}`),
+      niveauInconnu.texte,
+    )
+    const okD = await outil(tech, 'deployer_equipements', {
+      ...dep,
+      appliquer: true,
+      code: apD.donnees?.code_confirmation,
+    })
+    controle(
+      'deployer_equipements : enregistré avec le code (3 équipements)',
+      !okD.erreur &&
+        okD.donnees?.equipements_crees === 3 &&
+        compter().equipements === 3,
+      okD.texte.slice(0, 300),
+    )
+    const rejoue = await outil(tech, 'deployer_equipements', {
+      ...dep,
+      appliquer: true,
+      code: apD.donnees?.code_confirmation,
+    })
+    controle(
+      'deployer_equipements : code rejoué refusé (périmé)',
+      rejoue.erreur &&
+        /périmé/.test(rejoue.texte) &&
+        compter().equipements === 3,
+      rejoue.texte,
+    )
+    const apA = await outil(tech, 'annuler_deploiement', {
+      flotte: `Sirène cl ${x}`,
+    })
+    controle(
+      'annuler_deploiement : aperçu (3 à supprimer), rien d’écrit',
+      !apA.erreur &&
+        apA.donnees?.a_supprimer === 3 &&
+        compter().equipements === 3,
+      apA.texte.slice(0, 300),
+    )
+    const okA = await outil(tech, 'annuler_deploiement', {
+      flotte: `Sirène cl ${x}`,
+      appliquer: true,
+      code: apA.donnees?.code_confirmation,
+    })
+    controle(
+      'annuler_deploiement : enregistré avec le code (3 supprimés)',
+      !okA.erreur &&
+        okA.donnees?.supprimes === 3 &&
+        compter().equipements === 0,
+      okA.texte.slice(0, 300),
+    )
+    for (const [nom, r] of [
+      ['creer_modele_equipement', apM],
+      ['deployer_equipements', apD],
+      ['annuler_deploiement', apA],
+    ]) {
+      const montres = identifiantsMontres(r.donnees, [])
+      controle(
+        `${nom} : aucun identifiant montré`,
+        montres.length === 0,
+        montres.join(', '),
+      )
+    }
   } finally {
     enAdmin(
-      `UPDATE public.users SET acces_ia = false WHERE id IN (SELECT id FROM auth.users WHERE email IN (${ids}));`,
+      `UPDATE public.users SET acces_ia_ecriture = false, acces_ia = false WHERE id IN (SELECT id FROM auth.users WHERE email IN (${ids}));`,
     )
     psql(
       ['-v', `suffixe=${x}`, '-v', `client=${client}`],
@@ -343,6 +518,7 @@ DELETE FROM public.ordres_travail WHERE gamme_id IN (SELECT id FROM public.gamme
 DELETE FROM public.gammes_equipements WHERE gamme_id IN (SELECT id FROM public.gammes WHERE nom LIKE '% cl ' || current_setting('cl.x'));
 DELETE FROM public.gammes WHERE nom LIKE '% cl ' || current_setting('cl.x');
 DELETE FROM public.equipements WHERE code_inventaire LIKE 'DET%-' || current_setting('cl.x');
+DELETE FROM public.equipements WHERE categorie_id IN (SELECT id FROM public.categories WHERE nom LIKE '% cl ' || current_setting('cl.x'));
 DELETE FROM public.categories WHERE parent_id IS NOT NULL AND nom LIKE '% cl ' || current_setting('cl.x');
 DELETE FROM public.modeles_equipements WHERE nom LIKE '% cl ' || current_setting('cl.x');
 DELETE FROM public.categories WHERE nom LIKE '% cl ' || current_setting('cl.x');
@@ -351,5 +527,7 @@ DELETE FROM public.niveaux WHERE nom LIKE '% cl ' || current_setting('cl.x');
 COMMIT;`,
     )
   }
+  if (process.env.APERCU && exempleApercu)
+    console.log(JSON.stringify(exempleApercu, null, 2))
   return ecarts
 }

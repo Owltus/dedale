@@ -19659,3 +19659,792 @@ COMMENT ON FUNCTION public.claude_fiche_lieu(uuid, integer) IS
 
 REVOKE ALL ON FUNCTION public.claude_fiche_lieu(uuid, integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.claude_fiche_lieu(uuid, integer) TO authenticated;
+
+-- =============================================================================
+-- 186 — Connecteur Claude : créer un modèle d'équipement, déployer une flotte,
+--       annuler un déploiement
+-- =============================================================================
+-- Symptôme corrigé : via le connecteur, Claude lit la Bibliothèque, les flottes
+-- et les lieux (185) mais ne peut ni créer un modèle d'équipement ni poser « ce
+-- détecteur dans les 200 chambres » (étape 7 du plan
+-- fiche-lieu-et-deploiement-equipements). La garde d'entrée (157) refuse au
+-- connecteur tout ce qui n'est pas une RPC claude_* : deployer_equipements et
+-- annuler_deploiement (184) lui sont fermées, et à raison (ni aperçu obligatoire
+-- ni code de confirmation).
+--
+-- Cause : aucun geste claude_* sur le parc.
+--
+-- Correctif : trois gestes nommés, patron 158 (ADR 0015) — SECURITY INVOKER
+-- (RLS et déclencheurs de la personne), exiger_ecriture_claude(), aperçu JOUÉ
+-- puis annulé, code de confirmation = empreinte des paramètres normalisés, de
+-- la personne et de l'état ; l'application exige ce code.
+--   1. claude_creer_modele_equipement(site, nom, catégorie, description,
+--      caractéristiques, créer la flotte ?, catégorie de parc, valeur
+--      principale) : un modèle DU SITE (jamais le commun, décision PO du
+--      25/11/2026), caractéristiques au format du front (serializeChamps →
+--      { champs: [...] }, normalisées comme prepareChamps), et, si demandé, la
+--      flotte (sous-catégorie de parc) qui POINTE vers ce modèle, rangée sous la
+--      catégorie de parc choisie (check_categorie_modele : modèle du même site).
+--      Doublon de nom refusé avec un message clair (uniq_modeles_equipements_site,
+--      uq_categories_nom) ; un homonyme du commun est signalé.
+--   2. claude_deployer_equipements(flotte, sélection, valeurs, gammes,
+--      ignorer les doublons) : la BASE résout les lieux — liste d'identifiants
+--      OU bâtiment (+ niveau, + type de lieu) par leurs NOMS, sans ambiguïté
+--      (sinon refus listant les candidats) — puis appelle deployer_equipements
+--      (aperçu, puis application). Plafond 500 lieux, un site par appel (celui
+--      de la flotte). Code lié à la liste TRIÉE des lieux, aux paramètres et à
+--      l'état de la flotte (nombre et dernière mise à jour de ses équipements) :
+--      un équipement apparu entre l'aperçu et l'application périme le code.
+--   3. claude_annuler_deploiement(flotte, rang) : annule le N-ième déploiement
+--      le plus récent de la flotte (Claude ne voit aucun numéro de lot) via
+--      annuler_deploiement ; code lié au lot, à ses équipements et à ce que
+--      l'aperçu prévoit de supprimer ou de garder.
+-- Aides (sans préfixe claude_, donc fermées au connecteur par la garde) :
+--   - normaliser_gabarit(jsonb) : valide et normalise des caractéristiques ;
+--   - choisir_par_nom(text, text, jsonb) : un candidat par son nom ou refus ;
+--   - lieux_selection_deploiement(uuid, jsonb) : lieux d'une sélection.
+--
+-- Ne fait PAS : aucune policy, aucun déclencheur, aucune donnée modifiée ;
+-- deployer_equipements et annuler_deploiement inchangées ; aucune suppression
+-- d'équipement hors annulation d'un lot ; rien dans le commun.
+--
+-- Innocuité : fonctions nouvelles. Les trois gestes refusent tout appel hors
+-- connecteur (exiger_ecriture_claude) ; l'application garde ses RPC de 184.
+-- Droits : EXECUTE retiré à PUBLIC et anon, accordé à authenticated.
+--
+-- Vérification après application :
+--     SELECT p.oid::regprocedure, p.prosecdef, has_function_privilege('anon', p.oid, 'EXECUTE') AS anon
+--     FROM pg_proc p
+--     WHERE p.proname IN ('claude_creer_modele_equipement', 'claude_deployer_equipements',
+--                         'claude_annuler_deploiement', 'normaliser_gabarit', 'choisir_par_nom',
+--                         'lieux_selection_deploiement');
+--     -- 6 lignes, prosecdef = false, anon = false
+-- =============================================================================
+
+-- ─── Aides ───────────────────────────────────────────────────────────────────
+
+-- Caractéristiques d'un modèle : miroir de champSchema + prepareChamps
+-- (src/lib/champs.ts). Rend le tableau `champs` normalisé ou refuse.
+CREATE OR REPLACE FUNCTION public.normaliser_gabarit(p_champs jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path TO ''
+AS $$
+DECLARE
+    v_c       jsonb;
+    v_cle     text;
+    v_type    text;
+    v_requis  boolean;
+    v_unite   text;
+    v_options jsonb;
+    v_a       text;
+    v_b       text;
+    v_defaut  jsonb;
+    v_ok      boolean;
+    v_cles    text[] := '{}';
+    v_out     jsonb := '[]';
+    v_visible text := '[^[:space:][:cntrl:] ​-‏ - ⁠-⁤﻿]';
+BEGIN
+    IF p_champs IS NULL OR jsonb_typeof(p_champs) = 'null' THEN
+        RETURN '[]'::jsonb;
+    END IF;
+    IF jsonb_typeof(p_champs) <> 'array' THEN
+        RAISE EXCEPTION 'Les caractéristiques se donnent en liste.';
+    END IF;
+    IF jsonb_array_length(p_champs) > 40 THEN
+        RAISE EXCEPTION 'Au plus 40 caractéristiques par modèle (% demandées).', jsonb_array_length(p_champs);
+    END IF;
+
+    FOR v_c IN SELECT value FROM jsonb_array_elements(p_champs) LOOP
+        IF jsonb_typeof(v_c) <> 'object' OR EXISTS (
+            SELECT 1 FROM jsonb_object_keys(v_c) k
+            WHERE k NOT IN ('cle', 'type', 'unite', 'options', 'libelleA', 'libelleB', 'requis', 'defaut')) THEN
+            RAISE EXCEPTION 'Caractéristique mal formée : %.', left(v_c::text, 200);
+        END IF;
+
+        -- Nom : lisible, 60 caractères au plus, unique (casse ignorée).
+        IF jsonb_typeof(v_c->'cle') IS DISTINCT FROM 'string' THEN
+            RAISE EXCEPTION 'Chaque caractéristique doit avoir un nom.';
+        END IF;
+        v_cle := btrim(v_c->>'cle');
+        IF v_cle = '' OR v_cle !~ v_visible THEN
+            RAISE EXCEPTION 'Chaque caractéristique doit avoir un nom lisible.';
+        END IF;
+        IF length(v_cle) > 60 THEN
+            RAISE EXCEPTION 'Le nom « % » dépasse 60 caractères.', left(v_cle, 60);
+        END IF;
+        IF lower(v_cle) = ANY (v_cles) THEN
+            RAISE EXCEPTION 'Les noms de caractéristique doivent être uniques (« % » en double).', v_cle;
+        END IF;
+        v_cles := v_cles || lower(v_cle);
+
+        v_type := v_c->>'type';
+        IF v_type IS NULL OR v_type NOT IN ('texte', 'nombre', 'date', 'oui-non', 'liste', 'double-reference') THEN
+            RAISE EXCEPTION 'Type inconnu pour « % » : % (texte, nombre, date, oui-non, liste, double-reference).',
+                v_cle, coalesce(v_type, 'absent');
+        END IF;
+
+        IF v_c ? 'requis' AND jsonb_typeof(v_c->'requis') <> 'boolean' THEN
+            RAISE EXCEPTION '« requis » de « % » : vrai ou faux.', v_cle;
+        END IF;
+        -- Oui/Non n'est jamais obligatoire (prepareChamps).
+        v_requis := v_type <> 'oui-non' AND coalesce((v_c->>'requis')::boolean, false);
+
+        -- Unité : nombre seulement.
+        v_unite := NULL;
+        IF v_type = 'nombre' AND jsonb_typeof(v_c->'unite') = 'string' THEN
+            v_unite := nullif(btrim(v_c->>'unite'), '');
+            IF length(v_unite) > 20 THEN
+                RAISE EXCEPTION 'L''unité de « % » dépasse 20 caractères.', v_cle;
+            END IF;
+        END IF;
+
+        -- Choix : liste seulement, nettoyés, dédoublonnés, au moins un.
+        v_options := NULL;
+        IF v_type = 'liste' THEN
+            IF jsonb_typeof(v_c->'options') IS DISTINCT FROM 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(v_c->'options') o WHERE jsonb_typeof(o) <> 'string') THEN
+                RAISE EXCEPTION 'La liste « % » doit donner ses choix (textes).', v_cle;
+            END IF;
+            SELECT coalesce(jsonb_agg(to_jsonb(o) ORDER BY premier), '[]') INTO v_options
+            FROM (SELECT btrim(o) AS o, min(i) AS premier
+                  FROM jsonb_array_elements_text(v_c->'options') WITH ORDINALITY AS t(o, i)
+                  WHERE btrim(o) <> '' GROUP BY 1) s;
+            IF jsonb_array_length(v_options) = 0 THEN
+                RAISE EXCEPTION 'Le champ « % » (liste) doit avoir au moins une option.', v_cle;
+            END IF;
+            IF jsonb_array_length(v_options) > 200
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(v_options) o WHERE length(o) > 200) THEN
+                RAISE EXCEPTION 'Le champ « % » (liste) dépasse 200 options ou 200 caractères par option.', v_cle;
+            END IF;
+        END IF;
+
+        -- Libellés : double référence seulement, le premier obligatoire.
+        v_a := NULL;
+        v_b := NULL;
+        IF v_type = 'double-reference' THEN
+            v_a := CASE WHEN jsonb_typeof(v_c->'libelleA') = 'string' THEN nullif(btrim(v_c->>'libelleA'), '') END;
+            v_b := CASE WHEN jsonb_typeof(v_c->'libelleB') = 'string' THEN nullif(btrim(v_c->>'libelleB'), '') END;
+            IF v_a IS NULL THEN
+                RAISE EXCEPTION 'Le champ « % » (double référence) doit nommer sa première partie (ex. « Zone », « Bus »).', v_cle;
+            END IF;
+            IF length(v_a) > 30 OR length(v_b) > 30 THEN
+                RAISE EXCEPTION 'Les libellés du champ « % » dépassent 30 caractères.', v_cle;
+            END IF;
+        END IF;
+
+        -- Valeur par défaut : du type du champ, ou vide.
+        v_defaut := coalesce(v_c->'defaut', 'null'::jsonb);
+        v_ok := jsonb_typeof(v_defaut) = 'null' OR CASE v_type
+            WHEN 'texte'   THEN jsonb_typeof(v_defaut) = 'string' AND length(v_defaut #>> '{}') <= 500
+            WHEN 'nombre'  THEN jsonb_typeof(v_defaut) = 'number'
+            WHEN 'date'    THEN jsonb_typeof(v_defaut) = 'string'
+                                AND (v_defaut #>> '{}') ~ '^\d{4}-\d{2}-\d{2}$'
+            WHEN 'oui-non' THEN jsonb_typeof(v_defaut) = 'boolean'
+            WHEN 'liste'   THEN jsonb_typeof(v_defaut) = 'string' AND v_options ? (v_defaut #>> '{}')
+            WHEN 'double-reference' THEN jsonb_typeof(v_defaut) = 'object'
+                                AND jsonb_typeof(v_defaut->'a') = 'string' AND jsonb_typeof(v_defaut->'b') = 'string'
+            ELSE false END;
+        IF NOT v_ok THEN
+            RAISE EXCEPTION 'Valeur par défaut refusée pour « % » (type %).', v_cle, v_type;
+        END IF;
+        -- Date réelle (refuse 2026-02-30).
+        IF v_type = 'date' AND jsonb_typeof(v_defaut) = 'string' THEN
+            BEGIN
+                IF ((v_defaut #>> '{}')::date)::text <> (v_defaut #>> '{}') THEN
+                    RAISE EXCEPTION USING ERRCODE = '22008';
+                END IF;
+            EXCEPTION WHEN datetime_field_overflow OR invalid_datetime_format THEN
+                RAISE EXCEPTION 'Valeur par défaut de « % » : cette date n''existe pas.', v_cle;
+            END;
+        END IF;
+        IF v_type = 'double-reference' AND jsonb_typeof(v_defaut) = 'object' THEN
+            v_defaut := jsonb_build_object('a', v_defaut->'a', 'b', v_defaut->'b');
+        END IF;
+
+        v_out := v_out || jsonb_build_array(
+            jsonb_strip_nulls(jsonb_build_object(
+                'cle', v_cle, 'type', v_type, 'unite', v_unite, 'options', v_options,
+                'libelleA', v_a, 'libelleB', v_b, 'requis', v_requis))
+            || jsonb_build_object('defaut', v_defaut));
+    END LOOP;
+
+    -- Marge sous le CHECK chk_modeles_equipements_specs_structure (< 10 000).
+    IF length(jsonb_build_object('champs', v_out)::text) > 9500 THEN
+        RAISE EXCEPTION 'Trop de caractéristiques (ou options trop longues) : réduis-en le nombre ou la taille.';
+    END IF;
+    RETURN v_out;
+END;
+$$;
+
+COMMENT ON FUNCTION public.normaliser_gabarit(jsonb) IS
+    '(186) Valide et normalise des caractéristiques de modèle au format du front (champSchema + prepareChamps, src/lib/champs.ts) : ≤ 40 champs, nom lisible ≤ 60 unique, 6 types, unité (nombre) ≤ 20, choix (liste) nettoyés 1..200, libellés (double référence) ≤ 30 dont le 1er obligatoire, défaut du bon type, Oui/Non jamais obligatoire, taille ≤ 9 500. Rend le tableau `champs` ou lève une erreur en clair.';
+
+-- Un candidat par son nom : égalité (casse et espaces ignorés), sinon un seul
+-- nom qui le contient ; sinon refus en listant les candidats.
+CREATE OR REPLACE FUNCTION public.choisir_par_nom(p_quoi text, p_demande text, p_candidats jsonb)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path TO ''
+AS $$
+DECLARE
+    v_d     text := lower(btrim(coalesce(p_demande, '')));
+    v_ids   text[];
+    v_liste text;
+BEGIN
+    IF v_d = '' THEN
+        RAISE EXCEPTION 'Nom de % vide.', p_quoi;
+    END IF;
+    SELECT array_agg(c->>'id') INTO v_ids
+    FROM jsonb_array_elements(coalesce(p_candidats, '[]')) c
+    WHERE lower(btrim(c->>'nom')) = v_d;
+    IF cardinality(v_ids) = 1 THEN
+        RETURN v_ids[1];
+    END IF;
+    IF v_ids IS NULL THEN
+        SELECT array_agg(c->>'id') INTO v_ids
+        FROM jsonb_array_elements(coalesce(p_candidats, '[]')) c
+        WHERE strpos(lower(c->>'nom'), v_d) > 0;
+        IF cardinality(v_ids) = 1 THEN
+            RETURN v_ids[1];
+        END IF;
+    END IF;
+
+    SELECT string_agg('« ' || nom || ' »', ', ' ORDER BY nom) INTO v_liste
+    FROM (SELECT DISTINCT c->>'nom' AS nom
+          FROM jsonb_array_elements(coalesce(p_candidats, '[]')) c
+          WHERE v_ids IS NULL OR c->>'id' = ANY (v_ids)
+          ORDER BY 1 LIMIT 15) s;
+    IF v_ids IS NULL THEN
+        RAISE EXCEPTION 'Aucun % ne correspond à « % ». Possibles : %.', p_quoi, btrim(p_demande), coalesce(v_liste, 'aucun');
+    END IF;
+    RAISE EXCEPTION '« % » est ambigu : % % correspondent (%). Précise lequel.',
+        btrim(p_demande), cardinality(v_ids), p_quoi, v_liste;
+END;
+$$;
+
+COMMENT ON FUNCTION public.choisir_par_nom(text, text, jsonb) IS
+    '(186) Choisit UN candidat [{id, nom}] par son nom : égalité (casse et espaces ignorés), sinon un seul nom qui le contient. Sinon erreur en clair listant les candidats (15 au plus). Sert à résoudre bâtiment, niveau et type de lieu des gestes Claude.';
+
+-- Lieux d'une sélection, sur UN site : liste d'identifiants OU bâtiment
+-- (+ niveau, + type de lieu) par leurs noms. Rend { local_ids (triés),
+-- batiment, niveau, type_local } ou refuse.
+CREATE OR REPLACE FUNCTION public.lieux_selection_deploiement(p_site_id uuid, p_selection jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_ids     uuid[];
+    v_bat     uuid;
+    v_bat_nom text;
+    v_niv     uuid;
+    v_niv_nom text;
+    v_type    smallint;
+    v_type_nom text;
+    v_n       integer;
+BEGIN
+    IF jsonb_typeof(p_selection) IS DISTINCT FROM 'object' THEN
+        RAISE EXCEPTION 'Sélection des lieux attendue : { local_ids } ou { batiment, niveau, type_local }.';
+    END IF;
+    IF EXISTS (SELECT 1 FROM jsonb_object_keys(p_selection) k
+               WHERE k NOT IN ('local_ids', 'batiment', 'niveau', 'type_local')) THEN
+        RAISE EXCEPTION 'Sélection des lieux : clés permises local_ids, batiment, niveau, type_local.';
+    END IF;
+
+    IF p_selection ? 'local_ids' THEN
+        IF p_selection ?| ARRAY['batiment', 'niveau', 'type_local'] THEN
+            RAISE EXCEPTION 'Sélection des lieux : une liste de lieux OU un bâtiment, pas les deux.';
+        END IF;
+        IF jsonb_typeof(p_selection->'local_ids') IS DISTINCT FROM 'array'
+           OR EXISTS (SELECT 1 FROM jsonb_array_elements(p_selection->'local_ids') x
+                      WHERE jsonb_typeof(x) <> 'string'
+                         OR (x #>> '{}') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') THEN
+            RAISE EXCEPTION 'Sélection des lieux : local_ids doit être une liste d''identifiants de lieux (outil lieux).';
+        END IF;
+        SELECT array_agg(DISTINCT x::uuid ORDER BY x::uuid) INTO v_ids
+        FROM jsonb_array_elements_text(p_selection->'local_ids') x;
+        v_n := coalesce(cardinality(v_ids), 0);
+        IF v_n = 0 THEN
+            RAISE EXCEPTION 'Choisis au moins un lieu.';
+        END IF;
+        IF v_n > 500 THEN
+            RAISE EXCEPTION 'Au plus 500 lieux par déploiement (% demandés) : découpe-le en plusieurs fois.', v_n;
+        END IF;
+        RETURN jsonb_build_object('local_ids', to_jsonb(v_ids), 'batiment', NULL, 'niveau', NULL, 'type_local', NULL);
+    END IF;
+
+    IF jsonb_typeof(p_selection->'batiment') IS DISTINCT FROM 'string' THEN
+        RAISE EXCEPTION 'Sélection des lieux : donne le bâtiment (son nom), ou la liste des lieux.';
+    END IF;
+    IF (p_selection ? 'niveau' AND jsonb_typeof(p_selection->'niveau') <> 'string')
+       OR (p_selection ? 'type_local' AND jsonb_typeof(p_selection->'type_local') <> 'string') THEN
+        RAISE EXCEPTION 'Sélection des lieux : niveau et type de lieu se donnent par leur nom.';
+    END IF;
+
+    v_bat := public.choisir_par_nom('bâtiment', p_selection->>'batiment', (
+        SELECT jsonb_agg(jsonb_build_object('id', b.id, 'nom', b.nom))
+        FROM public.batiments b WHERE b.site_id = p_site_id))::uuid;
+    SELECT nom INTO v_bat_nom FROM public.batiments WHERE id = v_bat;
+
+    IF p_selection ? 'niveau' THEN
+        v_niv := public.choisir_par_nom('niveau de « ' || v_bat_nom || ' »', p_selection->>'niveau', (
+            SELECT jsonb_agg(jsonb_build_object('id', n.id, 'nom', n.nom))
+            FROM public.niveaux n WHERE n.batiment_id = v_bat))::uuid;
+        SELECT nom INTO v_niv_nom FROM public.niveaux WHERE id = v_niv;
+    END IF;
+
+    IF p_selection ? 'type_local' THEN
+        v_type := public.choisir_par_nom('type de lieu', p_selection->>'type_local', (
+            SELECT jsonb_agg(DISTINCT jsonb_build_object('id', t.id, 'nom', t.libelle))
+            FROM public.locaux l
+            JOIN public.niveaux n ON n.id = l.niveau_id
+            JOIN public.types_locaux t ON t.id = l.type_local_id
+            WHERE n.batiment_id = v_bat AND (v_niv IS NULL OR n.id = v_niv)))::smallint;
+        SELECT libelle INTO v_type_nom FROM public.types_locaux WHERE id = v_type;
+    END IF;
+
+    SELECT array_agg(l.id ORDER BY l.id) INTO v_ids
+    FROM public.locaux l
+    JOIN public.niveaux n ON n.id = l.niveau_id
+    WHERE n.batiment_id = v_bat
+      AND (v_niv IS NULL OR n.id = v_niv)
+      AND (v_type IS NULL OR l.type_local_id = v_type);
+    v_n := coalesce(cardinality(v_ids), 0);
+    IF v_n = 0 THEN
+        RAISE EXCEPTION 'Aucun lieu dans cette sélection (%).',
+            concat_ws(', ', v_bat_nom, v_niv_nom, v_type_nom);
+    END IF;
+    IF v_n > 500 THEN
+        RAISE EXCEPTION 'La sélection (%) compte % lieux : au plus 500 par déploiement. Précise un niveau ou un type de lieu.',
+            concat_ws(', ', v_bat_nom, v_niv_nom, v_type_nom), v_n;
+    END IF;
+    RETURN jsonb_build_object('local_ids', to_jsonb(v_ids), 'batiment', v_bat_nom, 'niveau', v_niv_nom,
+                              'type_local', v_type_nom);
+END;
+$$;
+
+COMMENT ON FUNCTION public.lieux_selection_deploiement(uuid, jsonb) IS
+    '(186) Lieux d''une sélection sur UN site, sous la RLS de l''appelant : { local_ids: [...] } (1 à 500) OU { batiment, niveau?, type_local? } par leurs noms, résolus sans ambiguïté (choisir_par_nom). Rend { local_ids triés, batiment, niveau, type_local } ; refuse une sélection vide, ambiguë ou de plus de 500 lieux.';
+
+-- ─── 1. Créer un modèle d'équipement du site (et sa flotte) ──────────────────
+
+CREATE OR REPLACE FUNCTION public.claude_creer_modele_equipement(
+    p_site_id           uuid,
+    p_nom               text,
+    p_categorie_id      uuid,
+    p_description       text    DEFAULT NULL,
+    p_champs            jsonb   DEFAULT NULL,
+    p_creer_flotte      boolean DEFAULT true,
+    p_flotte_parent_id  uuid    DEFAULT NULL,
+    p_valeur_principale text    DEFAULT NULL,
+    p_appliquer         boolean DEFAULT false,
+    p_code              text    DEFAULT NULL)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_role     text;
+    v_site_nom text;
+    v_nom      text := btrim(coalesce(p_nom, ''));
+    v_desc     text := nullif(btrim(coalesce(p_description, '')), '');
+    v_flotte   boolean := coalesce(p_creer_flotte, true);
+    v_vp       text := nullif(btrim(coalesce(p_valeur_principale, '')), '');
+    v_cat      public.categories;
+    v_parent   public.categories;
+    v_champs   jsonb;
+    v_etat     text;
+    v_code     text;
+    v_modele   uuid;
+    v_flotte_id uuid;
+    v_alertes  jsonb := '[]';
+BEGIN
+    PERFORM public.exiger_ecriture_claude();
+    v_role := public.current_role();
+    IF v_role IS NULL OR v_role NOT IN ('admin', 'manager', 'technicien') THEN
+        RAISE EXCEPTION 'Création refusée : ton rôle ne permet pas de créer un modèle d''équipement.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF p_site_id IS NULL OR NOT public.has_site_access(p_site_id) THEN
+        RAISE EXCEPTION 'Création refusée : ce site n''est pas dans tes sites. Via Claude, un modèle se crée sur un site, jamais dans le commun.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    SELECT nom INTO v_site_nom FROM public.sites WHERE id = p_site_id;
+
+    IF v_nom = '' OR length(v_nom) > 120 THEN
+        RAISE EXCEPTION 'Nom du modèle : 1 à 120 caractères.';
+    END IF;
+    IF length(v_desc) > 2000 THEN
+        RAISE EXCEPTION 'Description : 2000 caractères au plus.';
+    END IF;
+
+    -- Catégorie de la Bibliothèque : équipement (ou mixte), du commun ou du site, active.
+    SELECT * INTO v_cat FROM public.categories WHERE id = p_categorie_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Catégorie introuvable ou hors de tes sites.';
+    END IF;
+    IF v_cat.scope NOT IN ('equipement', 'mixte') THEN
+        RAISE EXCEPTION '« % » n''est pas une catégorie de modèles d''équipements (Bibliothèque).', v_cat.nom;
+    END IF;
+    IF v_cat.site_id IS NOT NULL AND v_cat.site_id <> p_site_id THEN
+        RAISE EXCEPTION 'La catégorie « % » n''est pas de ce site.', v_cat.nom;
+    END IF;
+    IF NOT v_cat.est_actif THEN
+        RAISE EXCEPTION 'La catégorie « % » est archivée.', v_cat.nom;
+    END IF;
+
+    v_champs := public.normaliser_gabarit(p_champs);
+
+    IF v_vp IS NOT NULL THEN
+        IF NOT v_flotte THEN
+            RAISE EXCEPTION 'La valeur principale se règle sur la flotte : demande aussi la création de la flotte.';
+        END IF;
+        SELECT e->>'cle' INTO v_vp FROM jsonb_array_elements(v_champs) e WHERE lower(e->>'cle') = lower(v_vp);
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'La valeur principale doit être une des caractéristiques du modèle (« % » n''en est pas une).',
+                btrim(p_valeur_principale);
+        END IF;
+    END IF;
+
+    -- Flotte : sous une catégorie de parc (racine) du site, active.
+    IF v_flotte THEN
+        IF p_flotte_parent_id IS NULL THEN
+            RAISE EXCEPTION 'Pour créer la flotte, choisis la catégorie de parc où la ranger (ex. « Sécurité incendie »).';
+        END IF;
+        SELECT * INTO v_parent FROM public.categories WHERE id = p_flotte_parent_id;
+        IF NOT FOUND OR v_parent.scope <> 'parc' OR v_parent.parent_id IS NOT NULL THEN
+            RAISE EXCEPTION 'Catégorie de parc introuvable (une catégorie de parc range des flottes, ex. « Sécurité incendie »).';
+        END IF;
+        IF v_parent.site_id IS DISTINCT FROM p_site_id THEN
+            RAISE EXCEPTION 'La catégorie de parc « % » n''est pas de ce site.', v_parent.nom;
+        END IF;
+        IF NOT v_parent.est_actif THEN
+            RAISE EXCEPTION 'La catégorie de parc « % » est archivée.', v_parent.nom;
+        END IF;
+    END IF;
+
+    -- Doublons de nom (index d'unicité par périmètre) : refus clair.
+    IF EXISTS (SELECT 1 FROM public.modeles_equipements m
+               WHERE m.site_id = p_site_id AND lower(m.nom) = lower(v_nom)) THEN
+        RAISE EXCEPTION 'Un modèle « % » existe déjà sur %, refusé (un nom par site) : utilise-le, ou choisis un autre nom.',
+            v_nom, v_site_nom;
+    END IF;
+    IF v_flotte AND EXISTS (SELECT 1 FROM public.categories c
+                            WHERE c.site_id = p_site_id AND c.parent_id = v_parent.id AND c.scope = 'parc'
+                              AND lower(c.nom) = lower(v_nom)) THEN
+        RAISE EXCEPTION 'Une flotte « % » existe déjà sous « % » : choisis un autre nom.', v_nom, v_parent.nom;
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.modeles_equipements m WHERE m.site_id IS NULL AND lower(m.nom) = lower(v_nom)) THEN
+        v_alertes := v_alertes || to_jsonb(format(
+            'Le commun a déjà un modèle « %s » : on peut aussi l''installer sur le site depuis la Bibliothèque de l''application (« Importer depuis le commun »), qui reprend son gabarit tel quel. Ici, c''est un modèle propre au site qui sera créé.',
+            v_nom));
+    END IF;
+    IF jsonb_array_length(v_champs) = 0 THEN
+        v_alertes := v_alertes || to_jsonb('Aucune caractéristique : les équipements de ce modèle n''auront rien à renseigner.'::text);
+    END IF;
+    IF v_flotte AND v_vp IS NULL THEN
+        v_alertes := v_alertes || to_jsonb('Sans valeur principale, tous les équipements de la flotte porteront le même nom (celui de la flotte).'::text);
+    END IF;
+
+    -- État : homonymes (modèle du site, flotte), conteneurs.
+    v_etat := concat_ws('/',
+        (SELECT count(*) FROM public.modeles_equipements m WHERE m.site_id = p_site_id AND lower(m.nom) = lower(v_nom)),
+        (SELECT count(*) FROM public.categories c WHERE c.site_id = p_site_id AND c.scope = 'parc'
+                                                    AND c.parent_id IS NOT DISTINCT FROM v_parent.id
+                                                    AND lower(c.nom) = lower(v_nom)),
+        v_cat.updated_at, v_parent.updated_at);
+    v_code := upper(substr(md5(concat_ws('|',
+        'creer_modele_equipement', p_site_id, v_nom, p_categorie_id, coalesce(v_desc, ''), v_champs::text,
+        v_flotte, coalesce(v_parent.id::text, ''), coalesce(v_vp, ''), (SELECT auth.uid())::text, v_etat)), 1, 8));
+    IF coalesce(p_appliquer, false) AND upper(btrim(coalesce(p_code, ''))) IS DISTINCT FROM v_code THEN
+        RAISE EXCEPTION 'Code de confirmation absent, faux ou périmé (la demande ou la Bibliothèque a changé) : refais l''aperçu et montre-le avant d''enregistrer.';
+    END IF;
+
+    BEGIN
+        BEGIN
+            INSERT INTO public.modeles_equipements (site_id, nom, categorie_id, description, specifications, est_actif, created_by)
+            VALUES (p_site_id, v_nom, p_categorie_id, v_desc, jsonb_build_object('champs', v_champs), true, (SELECT auth.uid()))
+            RETURNING id INTO v_modele;
+            IF v_flotte THEN
+                INSERT INTO public.categories (nom, scope, site_id, parent_id, description, modele_equipement_id, valeur_principale)
+                VALUES (v_nom, 'parc', p_site_id, v_parent.id, v_desc, v_modele, v_vp)
+                RETURNING id INTO v_flotte_id;
+            END IF;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE EXCEPTION 'Création refusée : ton rôle ne permet pas de créer un modèle ou une flotte sur ce site.'
+                USING ERRCODE = 'insufficient_privilege';
+        END;
+        IF NOT coalesce(p_appliquer, false) THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0A01', MESSAGE = 'aperçu';
+        END IF;
+    EXCEPTION WHEN SQLSTATE 'P0A01' THEN
+        v_modele := NULL;
+        v_flotte_id := NULL;
+    END;
+
+    RETURN jsonb_build_object(
+        'mode', CASE WHEN coalesce(p_appliquer, false) THEN 'enregistré' ELSE 'aperçu (rien n''est enregistré)' END,
+        'code_confirmation', CASE WHEN coalesce(p_appliquer, false) THEN NULL ELSE v_code END,
+        'site', v_site_nom,
+        'modele', jsonb_build_object('nom', v_nom, 'categorie', v_cat.nom, 'origine', 'Site',
+                                     'description', v_desc, 'specifications', jsonb_build_object('champs', v_champs)),
+        'flotte', CASE WHEN v_flotte THEN jsonb_build_object(
+                      'nom', v_nom, 'categorie', v_parent.nom, 'valeur_principale', v_vp,
+                      'gabarit', 'celui du modèle (lien : les équipements déployés en sont des copies)') END,
+        'alertes', v_alertes);
+END;
+$$;
+
+COMMENT ON FUNCTION public.claude_creer_modele_equipement(uuid, text, uuid, text, jsonb, boolean, uuid, text, boolean, text) IS
+    'Geste Claude (186) : crée un modèle d''équipement DU SITE (jamais le commun) — catégorie équipement/mixte du commun ou du site, caractéristiques normalisées (normaliser_gabarit, format serializeChamps) — et, si demandé, sa flotte : sous-catégorie de parc qui pointe vers le modèle, sous la catégorie de parc choisie, avec sa valeur principale. Doublon de nom refusé, homonyme du commun signalé. Aperçu joué puis annulé, code lié aux paramètres normalisés, à la personne et aux homonymes. SECURITY INVOKER : admin, manager, technicien sur leurs sites.';
+
+-- ─── 2. Déployer une flotte dans des lieux ───────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.claude_deployer_equipements(
+    p_categorie_id     uuid,
+    p_selection        jsonb,
+    p_valeurs          jsonb   DEFAULT NULL,
+    p_gamme_ids        uuid[]  DEFAULT NULL,
+    p_ignorer_doublons boolean DEFAULT true,
+    p_appliquer        boolean DEFAULT false,
+    p_code             text    DEFAULT NULL)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_role     text;
+    v_cat      public.categories;
+    v_sel      jsonb;
+    v_lieux    uuid[];
+    v_gammes   uuid[];
+    v_valeurs  jsonb;
+    v_ignorer  boolean := coalesce(p_ignorer_doublons, true);
+    v_appl     boolean := coalesce(p_appliquer, false);
+    v_etat     text;
+    v_code     text;
+    v_res      jsonb;
+    v_doublons integer;
+    v_alertes  jsonb := '[]';
+BEGIN
+    PERFORM public.exiger_ecriture_claude();
+    v_role := public.current_role();
+    IF v_role IS NULL OR v_role NOT IN ('admin', 'manager', 'technicien') THEN
+        RAISE EXCEPTION 'Déploiement refusé : ton rôle ne permet pas de créer des équipements.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    SELECT * INTO v_cat FROM public.categories WHERE id = p_categorie_id;
+    IF NOT FOUND OR v_cat.scope <> 'parc' OR v_cat.parent_id IS NULL THEN
+        RAISE EXCEPTION 'Flotte introuvable ou hors de tes sites (une flotte = une sous-catégorie de parc, outil flottes).';
+    END IF;
+
+    -- Lieux résolus par la base, sur le site de la flotte (un site par appel).
+    v_sel := public.lieux_selection_deploiement(v_cat.site_id, p_selection);
+    SELECT array_agg(x::uuid ORDER BY x::uuid) INTO v_lieux FROM jsonb_array_elements_text(v_sel->'local_ids') x;
+
+    IF cardinality(p_gamme_ids) > 20 THEN
+        RAISE EXCEPTION 'Au plus 20 plans de maintenance par déploiement.';
+    END IF;
+    SELECT coalesce(array_agg(DISTINCT x ORDER BY x), '{}') INTO v_gammes FROM unnest(p_gamme_ids) x WHERE x IS NOT NULL;
+
+    v_valeurs := CASE WHEN p_valeurs IS NULL OR jsonb_typeof(p_valeurs) = 'null' THEN NULL ELSE p_valeurs END;
+    IF jsonb_typeof(v_valeurs) = 'object' AND (SELECT count(*) FROM jsonb_object_keys(v_valeurs)) > 40 THEN
+        RAISE EXCEPTION 'Au plus 40 caractéristiques renseignées par déploiement.';
+    END IF;
+
+    -- État de la flotte : un équipement ajouté, modifié ou retiré périme le code.
+    SELECT concat_ws('/', count(*), max(e.updated_at)) INTO v_etat
+    FROM public.equipements e WHERE e.categorie_id = p_categorie_id;
+    v_code := upper(substr(md5(concat_ws('|',
+        'deployer_equipements', p_categorie_id, v_lieux::text, coalesce(v_valeurs::text, ''), v_gammes::text,
+        v_ignorer, (SELECT auth.uid())::text, v_etat, v_cat.updated_at)), 1, 8));
+    IF v_appl AND upper(btrim(coalesce(p_code, ''))) IS DISTINCT FROM v_code THEN
+        RAISE EXCEPTION 'Code de confirmation absent, faux ou périmé (la demande ou la flotte a changé) : refais l''aperçu et montre-le avant d''enregistrer.';
+    END IF;
+
+    -- deployer_equipements (184) : droits, site unique, gabarit, valeurs,
+    -- doublons, gammes ; joue puis annule en aperçu.
+    v_res := public.deployer_equipements(p_categorie_id, v_lieux, v_valeurs, v_gammes, v_ignorer, v_appl);
+
+    v_doublons := jsonb_array_length(v_res->'doublons');
+    IF (v_res->>'a_creer')::int = 0 THEN
+        v_alertes := v_alertes || to_jsonb('Rien à créer : chaque lieu choisi a déjà un équipement de cette flotte.'::text);
+    END IF;
+    IF v_doublons > 0 AND NOT v_ignorer THEN
+        v_alertes := v_alertes || to_jsonb(format(
+            '%s lieu(x) ont déjà un équipement de cette flotte : un second y sera créé.', v_doublons));
+    END IF;
+    IF cardinality(v_gammes) = 0 THEN
+        v_alertes := v_alertes || to_jsonb('Aucun plan de maintenance choisi : ces équipements n''entreront dans aucun OT.'::text);
+    END IF;
+
+    RETURN jsonb_build_object(
+        'mode', v_res->'mode',
+        'code_confirmation', CASE WHEN v_appl THEN NULL ELSE v_code END,
+        'site', v_res#>'{site,nom}',
+        'flotte', v_res#>'{sous_categorie,nom}',
+        'categorie', v_res#>'{sous_categorie,categorie}',
+        'modele', v_res#>'{sous_categorie,modele}',
+        'selection', CASE WHEN v_sel->>'batiment' IS NULL THEN to_jsonb('liste de lieux'::text)
+                          ELSE jsonb_strip_nulls(jsonb_build_object('batiment', v_sel->'batiment',
+                                   'niveau', v_sel->'niveau', 'type_lieu', v_sel->'type_local')) END,
+        'lieux', v_res->'lieux_demandes',
+        'a_creer', v_res->'a_creer',
+        'deja_equipes', v_doublons,
+        'doublons_ignores', v_ignorer,
+        'deja_equipes_exemples', (
+            SELECT coalesce(jsonb_agg(jsonb_build_object('lieu', x->'lieu', 'batiment', x->'batiment',
+                                                         'niveau', x->'niveau', 'equipements', x->'existants')
+                                      ORDER BY o), '[]')
+            FROM jsonb_array_elements(v_res->'doublons') WITH ORDINALITY AS t(x, o) WHERE o <= 10),
+        'par_batiment_niveau', (
+            SELECT coalesce(jsonb_agg(x ORDER BY o), '[]')
+            FROM jsonb_array_elements(v_res->'par_batiment_niveau') WITH ORDINALITY AS t(x, o) WHERE o <= 30),
+        'par_batiment_niveau_autres', greatest(jsonb_array_length(v_res->'par_batiment_niveau') - 30, 0),
+        'exemples', v_res->'exemples',
+        'plans_maintenance', (
+            SELECT coalesce(jsonb_agg(jsonb_build_object(
+                       'nom', g->'nom', 'repete_par_equipement', g->'repeter_par_equipement',
+                       'ot_ouverts', g->'ot_ouverts',
+                       'operations_ajoutees_ot_ouverts', g->'operations_ajoutees_ot_ouverts')), '[]')
+            FROM jsonb_array_elements(v_res->'gammes') g),
+        'equipements_crees', CASE WHEN v_appl THEN jsonb_array_length(v_res->'equipement_ids') END,
+        'alertes', v_alertes);
+END;
+$$;
+
+COMMENT ON FUNCTION public.claude_deployer_equipements(uuid, jsonb, jsonb, uuid[], boolean, boolean, text) IS
+    'Geste Claude (186) : déploie une flotte (sous-catégorie de parc) dans des lieux du SITE de la flotte. La base résout les lieux : { local_ids } ou { batiment, niveau?, type_local? } par leurs noms, sans ambiguïté, 500 au plus (lieux_selection_deploiement). Appelle deployer_equipements (184) en aperçu puis en application. Code lié à la liste triée des lieux, aux valeurs, aux plans de maintenance, aux doublons, à la personne et à l''état de la flotte (nombre et dernière mise à jour de ses équipements). Rendu sans identifiant. SECURITY INVOKER : admin, manager, technicien sur leurs sites.';
+
+-- ─── 3. Annuler un déploiement récent d'une flotte ───────────────────────────
+
+CREATE OR REPLACE FUNCTION public.claude_annuler_deploiement(
+    p_flotte_id uuid,
+    p_lot_rang  integer DEFAULT 1,
+    p_appliquer boolean DEFAULT false,
+    p_code      text    DEFAULT NULL)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+DECLARE
+    v_role    text;
+    v_rang    integer := coalesce(p_lot_rang, 1);
+    v_appl    boolean := coalesce(p_appliquer, false);
+    v_cat     public.categories;
+    v_parent  text;
+    v_site    text;
+    v_nb_lots integer;
+    v_lot     uuid;
+    v_debut   timestamptz;
+    v_nb      integer;
+    v_apercu  jsonb;
+    v_res     jsonb;
+    v_etat    text;
+    v_code    text;
+    v_alertes jsonb := '[]';
+BEGIN
+    PERFORM public.exiger_ecriture_claude();
+    v_role := public.current_role();
+    IF v_role IS NULL OR v_role NOT IN ('admin', 'manager', 'technicien') THEN
+        RAISE EXCEPTION 'Annulation refusée : ton rôle ne permet pas de supprimer des équipements.'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF v_rang NOT BETWEEN 1 AND 20 THEN
+        RAISE EXCEPTION 'Rang du déploiement : de 1 (le plus récent) à 20.';
+    END IF;
+
+    SELECT * INTO v_cat FROM public.categories WHERE id = p_flotte_id;
+    IF NOT FOUND OR v_cat.scope <> 'parc' OR v_cat.parent_id IS NULL THEN
+        RAISE EXCEPTION 'Flotte introuvable ou hors de tes sites (une flotte = une sous-catégorie de parc, outil flottes).';
+    END IF;
+    SELECT nom INTO v_parent FROM public.categories WHERE id = v_cat.parent_id;
+    SELECT nom INTO v_site FROM public.sites WHERE id = v_cat.site_id;
+
+    -- Lots de la flotte, du plus récent au plus ancien.
+    SELECT count(DISTINCT e.lot_deploiement) INTO v_nb_lots
+    FROM public.equipements e WHERE e.categorie_id = p_flotte_id AND e.lot_deploiement IS NOT NULL;
+    SELECT s.lot, s.debut, s.n INTO v_lot, v_debut, v_nb
+    FROM (SELECT e.lot_deploiement AS lot, min(e.created_at) AS debut, count(*)::integer AS n
+          FROM public.equipements e
+          WHERE e.categorie_id = p_flotte_id AND e.lot_deploiement IS NOT NULL
+          GROUP BY 1) s
+    ORDER BY s.debut DESC, s.lot
+    OFFSET v_rang - 1 LIMIT 1;
+    IF v_lot IS NULL THEN
+        IF v_nb_lots = 0 THEN
+            RAISE EXCEPTION 'La flotte « % » n''a aucun déploiement en masse à annuler (un équipement créé à l''unité se supprime dans l''application).', v_cat.nom;
+        END IF;
+        RAISE EXCEPTION 'La flotte « % » n''a que % déploiement(s) en masse : pas de n° %.', v_cat.nom, v_nb_lots, v_rang;
+    END IF;
+
+    -- Aperçu d'abord (toujours) : le code couvre ce qu'il prévoit.
+    v_apercu := public.annuler_deploiement(v_lot, false);
+    SELECT concat_ws('/', count(*), max(e.updated_at)) INTO v_etat
+    FROM public.equipements e WHERE e.lot_deploiement = v_lot;
+    v_code := upper(substr(md5(concat_ws('|',
+        'annuler_deploiement', p_flotte_id, v_lot, v_rang, (SELECT auth.uid())::text, v_etat,
+        v_apercu->>'a_supprimer',
+        (SELECT string_agg(c->>'id', ',' ORDER BY c->>'id') FROM jsonb_array_elements(v_apercu->'conserves') c))), 1, 8));
+    IF v_appl AND upper(btrim(coalesce(p_code, ''))) IS DISTINCT FROM v_code THEN
+        RAISE EXCEPTION 'Code de confirmation absent, faux ou périmé (le déploiement ou ses équipements ont changé) : refais l''aperçu et montre-le avant d''enregistrer.';
+    END IF;
+
+    v_res := CASE WHEN v_appl THEN public.annuler_deploiement(v_lot, true) ELSE v_apercu END;
+
+    IF jsonb_array_length(v_res->'conserves') > 0 THEN
+        v_alertes := v_alertes || to_jsonb(format(
+            '%s équipement(s) du déploiement ont déjà un historique (voir « conserves ») : ils sont gardés.',
+            jsonb_array_length(v_res->'conserves')));
+    END IF;
+    IF (v_res->>'a_supprimer')::int = 0 THEN
+        v_alertes := v_alertes || to_jsonb('Rien à supprimer : tous les équipements de ce déploiement ont un historique.'::text);
+    END IF;
+
+    RETURN jsonb_build_object(
+        'mode', v_res->'mode',
+        'code_confirmation', CASE WHEN v_appl THEN NULL ELSE v_code END,
+        'site', v_site,
+        'flotte', v_cat.nom,
+        'categorie', v_parent,
+        'deploiement', jsonb_build_object('rang', v_rang, 'date', (v_debut AT TIME ZONE 'Europe/Paris')::date,
+                                          'equipements', v_nb, 'deploiements_de_la_flotte', v_nb_lots),
+        'a_supprimer', v_res->'a_supprimer',
+        'supprimes', v_res->'supprimes',
+        'conserves', (SELECT coalesce(jsonb_agg(jsonb_build_object('lieu', c->'lieu', 'raisons', c->'raisons')
+                                                ORDER BY o), '[]')
+                      FROM jsonb_array_elements(v_res->'conserves') WITH ORDINALITY AS t(c, o) WHERE o <= 20),
+        'conserves_nombre', jsonb_array_length(v_res->'conserves'),
+        'plans_maintenance', (SELECT coalesce(jsonb_agg(jsonb_build_object(
+                                  'nom', g->'nom', 'operations_retirees_ot_ouverts', g->'operations_retirees_ot_ouverts')), '[]')
+                              FROM jsonb_array_elements(v_res->'gammes') g),
+        'alertes', v_alertes);
+END;
+$$;
+
+COMMENT ON FUNCTION public.claude_annuler_deploiement(uuid, integer, boolean, text) IS
+    'Geste Claude (186) : annule le N-ième déploiement en masse le plus récent d''une flotte (rang 1 à 20 ; Claude ne voit aucun numéro de lot) via annuler_deploiement (184) : supprime les équipements du lot sans historique, garde et liste les autres. Aperçu d''abord ; code lié au lot, à l''état de ses équipements et à ce que l''aperçu supprime ou garde. Rendu sans identifiant. SECURITY INVOKER : admin, manager, technicien sur leurs sites.';
+
+-- ─── Droits ──────────────────────────────────────────────────────────────────
+
+REVOKE ALL ON FUNCTION public.normaliser_gabarit(jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.choisir_par_nom(text, text, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.lieux_selection_deploiement(uuid, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.claude_creer_modele_equipement(uuid, text, uuid, text, jsonb, boolean, uuid, text, boolean, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.claude_deployer_equipements(uuid, jsonb, jsonb, uuid[], boolean, boolean, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.claude_annuler_deploiement(uuid, integer, boolean, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.normaliser_gabarit(jsonb) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.choisir_par_nom(text, text, jsonb) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.lieux_selection_deploiement(uuid, jsonb) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.claude_creer_modele_equipement(uuid, text, uuid, text, jsonb, boolean, uuid, text, boolean, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.claude_deployer_equipements(uuid, jsonb, jsonb, uuid[], boolean, boolean, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.claude_annuler_deploiement(uuid, integer, boolean, text) TO authenticated;
