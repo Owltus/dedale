@@ -19683,8 +19683,11 @@ GRANT EXECUTE ON FUNCTION public.claude_fiche_lieu(uuid, integer) TO authenticat
 --      principale) : un modèle DU SITE (jamais le commun, décision PO du
 --      25/11/2026), caractéristiques au format du front (serializeChamps →
 --      { champs: [...] }, normalisées comme prepareChamps), et, si demandé, la
---      flotte (sous-catégorie de parc) qui POINTE vers ce modèle, rangée sous la
---      catégorie de parc choisie (check_categorie_modele : modèle du même site).
+--      flotte (sous-catégorie de parc) rangée sous la catégorie de parc
+--      choisie. La flotte RECOPIE le modèle, comme « Partir d'un modèle » dans
+--      l'appli (décision PO du 09/09/2026, ParcSousCategorieDialog) : nom,
+--      description, miniature et caractéristiques copiés dans son gabarit local
+--      (`specifications`), `modele_equipement_id` NULL — aucun lien.
 --      Doublon de nom refusé avec un message clair (uniq_modeles_equipements_site,
 --      uq_categories_nom) ; un homonyme du commun est signalé.
 --   2. claude_deployer_equipements(flotte, sélection, valeurs, gammes,
@@ -20172,8 +20175,13 @@ BEGIN
             VALUES (p_site_id, v_nom, p_categorie_id, v_desc, jsonb_build_object('champs', v_champs), true, (SELECT auth.uid()))
             RETURNING id INTO v_modele;
             IF v_flotte THEN
-                INSERT INTO public.categories (nom, scope, site_id, parent_id, description, modele_equipement_id, valeur_principale)
-                VALUES (v_nom, 'parc', p_site_id, v_parent.id, v_desc, v_modele, v_vp)
+                -- Copie du modèle, sans lien (useCreateParcSousCategorie avec
+                -- modeleId = null, specifications = serializeChamps(champs)).
+                INSERT INTO public.categories (nom, scope, site_id, parent_id, description, miniature_id,
+                                               modele_equipement_id, specifications, valeur_principale)
+                SELECT m.nom, 'parc', p_site_id, v_parent.id, m.description, m.miniature_id,
+                       NULL, jsonb_build_object('champs', v_champs), v_vp
+                FROM public.modeles_equipements m WHERE m.id = v_modele
                 RETURNING id INTO v_flotte_id;
             END IF;
         EXCEPTION WHEN insufficient_privilege THEN
@@ -20196,13 +20204,13 @@ BEGIN
                                      'description', v_desc, 'specifications', jsonb_build_object('champs', v_champs)),
         'flotte', CASE WHEN v_flotte THEN jsonb_build_object(
                       'nom', v_nom, 'categorie', v_parent.nom, 'valeur_principale', v_vp,
-                      'gabarit', 'celui du modèle (lien : les équipements déployés en sont des copies)') END,
+                      'gabarit', 'copie de celui du modèle, sans lien (modifier le modèle ne change pas la flotte)') END,
         'alertes', v_alertes);
 END;
 $$;
 
 COMMENT ON FUNCTION public.claude_creer_modele_equipement(uuid, text, uuid, text, jsonb, boolean, uuid, text, boolean, text) IS
-    'Geste Claude (186) : crée un modèle d''équipement DU SITE (jamais le commun) — catégorie équipement/mixte du commun ou du site, caractéristiques normalisées (normaliser_gabarit, format serializeChamps) — et, si demandé, sa flotte : sous-catégorie de parc qui pointe vers le modèle, sous la catégorie de parc choisie, avec sa valeur principale. Doublon de nom refusé, homonyme du commun signalé. Aperçu joué puis annulé, code lié aux paramètres normalisés, à la personne et aux homonymes. SECURITY INVOKER : admin, manager, technicien sur leurs sites.';
+    'Geste Claude (186) : crée un modèle d''équipement DU SITE (jamais le commun) — catégorie équipement/mixte du commun ou du site, caractéristiques normalisées (normaliser_gabarit, format serializeChamps) — et, si demandé, sa flotte : sous-catégorie de parc sous la catégorie de parc choisie, qui RECOPIE le modèle (nom, description, miniature, caractéristiques dans son gabarit local ; modele_equipement_id NULL, comme l''appli), avec sa valeur principale. Doublon de nom refusé, homonyme du commun signalé. Aperçu joué puis annulé, code lié aux paramètres normalisés, à la personne et aux homonymes. SECURITY INVOKER : admin, manager, technicien sur leurs sites.';
 
 -- ─── 2. Déployer une flotte dans des lieux ───────────────────────────────────
 

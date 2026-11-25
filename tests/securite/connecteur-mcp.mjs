@@ -414,6 +414,20 @@ export async function sonderConnecteur() {
         compter().modeles === 1,
       okM.texte.slice(0, 300),
     )
+    const copie = JSON.parse(
+      psql(
+        [],
+        `SELECT json_build_object('lien', c.modele_equipement_id, 'meme_gabarit', c.specifications = m.specifications)
+         FROM public.modeles_equipements m
+         JOIN public.categories c ON c.nom = m.nom AND c.site_id = m.site_id AND c.scope = 'parc'
+         WHERE m.nom = 'Sirène cl ${x}'`,
+      ) || 'null',
+    )
+    controle(
+      'creer_modele_equipement : la flotte recopie le modèle, sans lien',
+      copie?.lien === null && copie?.meme_gabarit === true,
+      JSON.stringify(copie),
+    )
 
     const dep = {
       flotte: `Sirène cl ${x}`,

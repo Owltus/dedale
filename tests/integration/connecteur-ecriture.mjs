@@ -15,7 +15,8 @@
 //     rejoué ou PÉRIMÉ (un équipement apparu dans la flotte entre l'aperçu et
 //     l'application) refusé, rien d'écrit ;
 //   - créent un modèle DU SITE au format du front ({ champs: [...] }, normalisé)
-//     et sa flotte qui pointe vers lui ; refusent un doublon de nom ;
+//     et sa flotte qui le RECOPIE sans lien (modele_equipement_id NULL,
+//     gabarit égal à celui du modèle) ; refusent un doublon de nom ;
 //   - résolvent les lieux par leurs noms (bâtiment, niveau, type de lieu),
 //     refusent un nom ambigu ou inconnu en listant les candidats, et le
 //     dépassement du plafond (500 lieux) ;
@@ -375,9 +376,12 @@ async function main() {
         })
         const ecrit = sqlJson(`SELECT json_build_object(
             'specs', m.specifications, 'site', m.site_id, 'desc', m.description,
-            'flotte_modele', c.modele_equipement_id = m.id, 'vp', c.valeur_principale,
-            'parent', c.parent_id, 'specs_flotte', c.specifications)
-          FROM public.modeles_equipements m JOIN public.categories c ON c.modele_equipement_id = m.id
+            'lien', c.modele_equipement_id, 'vp', c.valeur_principale,
+            'parent', c.parent_id, 'meme_gabarit', c.specifications = m.specifications,
+            'meme_description', c.description IS NOT DISTINCT FROM m.description,
+            'meme_miniature', c.miniature_id IS NOT DISTINCT FROM m.miniature_id)
+          FROM public.modeles_equipements m
+          JOIN public.categories c ON c.nom = m.nom AND c.site_id = m.site_id AND c.scope = 'parc'
           WHERE m.nom = '${nomModele}'`)
         egal(`${identite} · modèle : forme du front`, ecrit, {
           specs: {
@@ -409,10 +413,12 @@ async function main() {
           },
           site: SEMIS.A.site,
           desc: 'Détecteur de test',
-          flotte_modele: true,
+          lien: null,
           vp: 'Numéro',
           parent: t.parc,
-          specs_flotte: null,
+          meme_gabarit: true,
+          meme_description: true,
+          meme_miniature: true,
         })
         const rejoue = await rpc(
           C(identite),

@@ -164,7 +164,8 @@ déploiement lui-même est décrit par l'ADR 0018. Choix du PO :
   commun. Un homonyme du commun est signalé (l'installer depuis
   l'application reste possible) ; un homonyme du site est refusé. Le modèle
   vient par défaut avec sa **flotte**, rangée sous une catégorie de parc du
-  site et liée au modèle, avec sa valeur principale.
+  site, avec sa valeur principale ; la flotte **recopie** le modèle sans lien,
+  comme dans l'application (décision PO du 09/09/2026).
 - **Déploiement à partir d'une flotte**, plans de maintenance choisis à chaque
   fois, **un site par appel** (celui de la flotte), **500 lieux au plus**. La
   **base** résout les lieux : bâtiment, niveau et type de lieu par leurs noms

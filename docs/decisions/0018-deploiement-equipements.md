@@ -26,10 +26,11 @@ déploiement raté ne se défaisait qu'à la main. Enfin `instancier_equipement`
 
 ## Décision
 
-1. **On déploie une flotte**, c'est-à-dire une sous-catégorie de parc, liée
-   à son modèle de la Bibliothèque ou dotée de son propre gabarit. Le modèle
-   seul ne suffit pas : c'est la flotte qui range les équipements et porte la
-   valeur principale. Aucune notion nouvelle.
+1. **On déploie une flotte**, c'est-à-dire une sous-catégorie de parc, avec
+   son gabarit (recopié d'un modèle de la Bibliothèque, ou un ancien lien
+   `modele_equipement_id`). Le modèle seul ne suffit pas : c'est la flotte qui
+   range les équipements et porte la valeur principale. Aucune notion
+   nouvelle.
 2. **Une transaction, un site, 500 lieux au plus.** Un équipement par lieu,
    au format exact du front (gabarit, valeurs par défaut, valeurs communes) ;
    une valeur principale de type texte prend le nom du lieu (« Détecteur
@@ -55,7 +56,9 @@ déploiement raté ne se défaisait qu'à la main. Enfin `instancier_equipement`
 8. **Droits** : admin, manager et technicien sur leurs sites, comme la
    création d'un équipement à l'unité ; les fonctions sont SECURITY INVOKER.
 9. **Connecteur Claude** (186) : trois gestes à aperçu et code (ADR 0015).
-   Claude crée un modèle du site (et sa flotte), déploie une flotte en
+   Claude crée un modèle du site et, par défaut, sa flotte, qui le RECOPIE
+   sans lien comme « Partir d'un modèle » dans l'application (décision PO du
+   09/09/2026 : `modele_equipement_id` NULL, gabarit local copié). Il déploie une flotte en
    désignant les lieux par bâtiment, niveau et type (résolus par la base, sans
    ambiguïté) ou par les lieux de l'outil `lieux`, et annule le N-ième
    déploiement le plus récent d'une flotte. Le code d'un déploiement est lié à

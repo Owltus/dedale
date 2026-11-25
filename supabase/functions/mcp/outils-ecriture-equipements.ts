@@ -295,7 +295,7 @@ export const OUTILS_ECRITURE_EQUIPEMENTS: Outil[] = [
     title: 'Créer un modèle d’équipement (et sa flotte)',
     description:
       'Crée un modèle d’équipement DU SITE dans la Bibliothèque (jamais dans le commun) : nom, catégorie de la Bibliothèque, description, caractéristiques à renseigner sur chaque équipement (gabarit). ' +
-      'Par défaut crée aussi sa FLOTTE (sous-catégorie de parc liée au modèle) sous une catégorie de parc du site, prête à être déployée (deployer_equipements). ' +
+      'Par défaut crée aussi sa FLOTTE (sous-catégorie de parc qui recopie le modèle, sans lien) sous une catégorie de parc du site, prête à être déployée (deployer_equipements). ' +
       'Avant : lire la Bibliothèque (outil bibliotheque) — si le commun a déjà ce modèle, proposer de l’installer depuis l’application plutôt que d’en créer un — et les flottes (outil flottes). Aperçu d’abord, puis enregistrement après accord.',
     inputSchema: {
       type: 'object',
@@ -341,7 +341,7 @@ export const OUTILS_ECRITURE_EQUIPEMENTS: Outil[] = [
         creer_flotte: {
           type: 'boolean',
           default: true,
-          description: 'Créer aussi la flotte liée au modèle (nécessaire pour la déployer)',
+          description: 'Créer aussi la flotte, copie du modèle (nécessaire pour la déployer)',
         },
         categorie_parc: {
           type: 'string',
