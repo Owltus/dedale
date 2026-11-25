@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Check, ChevronsUpDown, FileText } from 'lucide-react'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
@@ -50,10 +50,7 @@ export function ModeleDiSelect({
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
 
-  const selected = useMemo(
-    () => modeles.find((m) => m.id === value) ?? null,
-    [modeles, value],
-  )
+  const selected = modeles.find((m) => m.id === value) ?? null
 
   // Index 0 = « Aucun », puis chaque modèle (décalé de 1).
   const count = modeles.length + 1

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileText, Plus } from 'lucide-react'
 import {
@@ -53,10 +53,7 @@ export function TousLesDocuments({
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState(FILTRE_TOUS)
 
-  const typeNom = useMemo(
-    () => new Map(types.map((t) => [t.id, t.nom])),
-    [types],
-  )
+  const typeNom = new Map(types.map((t) => [t.id, t.nom]))
 
   const hasDocuments = (query.data?.length ?? 0) > 0
   const newButton = canManage ? (

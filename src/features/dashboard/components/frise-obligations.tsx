@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Wrench } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -80,26 +80,21 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
 
   // Image de chaque gamme (vignette de l'infobulle, demande PO 09/11/2026).
-  const miniatureParGamme = useMemo(
-    () => new Map((gammesQuery.data ?? []).map((g) => [g.id, g.miniature_id])),
-    [gammesQuery.data],
+  const miniatureParGamme = new Map(
+    (gammesQuery.data ?? []).map((g) => [g.id, g.miniature_id]),
   )
 
-  const gammes = useMemo<GammeFrise[]>(
-    () =>
-      (gammesQuery.data ?? [])
-        .filter((g) => g.document_requis)
-        .map((g) => ({
-          id: g.id,
-          nom: g.nom,
-          nature: g.nature,
-          est_active: g.est_active,
-          jours: g.periodicites.jours_periodicite,
-        })),
-    [gammesQuery.data],
-  )
+  const gammes: GammeFrise[] = (gammesQuery.data ?? [])
+    .filter((g) => g.document_requis)
+    .map((g) => ({
+      id: g.id,
+      nom: g.nom,
+      nature: g.nature,
+      est_active: g.est_active,
+      jours: g.periodicites.jours_periodicite,
+    }))
 
-  const modele = useMemo(() => {
+  const modele = (() => {
     const todayMs = parseDateLocale(todayLocal()).getTime()
     const axe = axeFrise(fenetre.centre, viewW, todayMs)
     const bandes = construireBandes({
@@ -153,7 +148,7 @@ export function FriseObligations({ siteId, fenetre }: FriseObligationsProps) {
       cote: contour - ECART_CARRE,
       hauteur: AXE_H + nbLignes * LIGNE_H + BAS,
     }
-  }, [fenetre.centre, viewW, gammes, ordresTravail, derniersPassages])
+  })()
 
   if (gammesQuery.isError)
     return (

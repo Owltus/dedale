@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { demandesQueries } from '@/features/demandes/queries'
@@ -48,15 +47,12 @@ function DemandeResolver({
   })
   // Mémoïsé : la resynchronisation d'URL est un ÉVÉNEMENT, pas un effet de chaque
   // rendu (contrat de `useSlugResolved`).
-  const onSlugChange = useCallback(
-    (freshSlug: string) =>
-      void navigate({
-        to: '/demandes/$demande',
-        params: { demande: freshSlug },
-        replace: true,
-      }),
-    [navigate],
-  )
+  const onSlugChange = (freshSlug: string) =>
+    void navigate({
+      to: '/demandes/$demande',
+      params: { demande: freshSlug },
+      replace: true,
+    })
 
   return (
     <SlugDetailRoute

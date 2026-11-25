@@ -1,4 +1,4 @@
-import { useMemo, type RefObject } from 'react'
+import { type RefObject } from 'react'
 import { useDimension } from '@/hooks/use-dimension'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,9 +70,7 @@ export function useLignesVisibles(
 ): number {
   const hauteur = useElementHeight(ref)
 
-  return useMemo(() => {
-    if (hauteur <= 0) return fallback
-    const n = Math.floor((hauteur + gap) / (hauteurLigne + gap))
-    return Math.max(0, n)
-  }, [hauteur, hauteurLigne, gap, fallback])
+  if (hauteur <= 0) return fallback
+  const n = Math.floor((hauteur + gap) / (hauteurLigne + gap))
+  return Math.max(0, n)
 }

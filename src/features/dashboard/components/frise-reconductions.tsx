@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Truck } from 'lucide-react'
@@ -215,26 +215,21 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
   const [survol, setSurvol] = useState<string | null>(null)
 
   // Image du prestataire (vignette) par id → affichée dans le tooltip.
-  const miniatureParPresta = useMemo(() => {
-    const m = new Map<string, string | null>()
-    for (const p of prestataires ?? []) m.set(p.id, p.miniature_id)
-    return m
-  }, [prestataires])
+  const miniatureParPresta = new Map<string, string | null>(
+    (prestataires ?? []).map((p) => [p.id, p.miniature_id]),
+  )
 
   // Largeur réelle du conteneur → `viewW` (le viewBox est en pixels 1:1).
   const boxRef = useRef<HTMLDivElement | null>(null)
   const largeur = useDimension(boxRef, 'clientWidth')
   // Ref partagée : mesure interne (viewW) + `mesureRef` du mode autonome (nbSemaines).
-  const setRefs = useCallback(
-    (el: HTMLDivElement | null) => {
-      boxRef.current = el
-      if (mesureRef) mesureRef.current = el
-    },
-    [mesureRef],
-  )
+  const setRefs = (el: HTMLDivElement | null) => {
+    boxRef.current = el
+    if (mesureRef) mesureRef.current = el
+  }
   const viewW = largeur || 1000
 
-  const modele = useMemo(() => {
+  const modele = (() => {
     const todayIso = todayLocal()
     const todayMs = parseDateLocale(todayIso).getTime()
     // Axe COMMUN aux frises (mois alignés avec la frise des obligations).
@@ -403,7 +398,7 @@ function FriseVue({ siteId, fenetre, mesureRef }: FriseVueProps) {
       hauteur,
       axe,
     }
-  }, [contrats, fenetre.centre, viewW])
+  })()
 
   const ouvrir = (prestataireId: string) => {
     const liste = prestataires ?? []

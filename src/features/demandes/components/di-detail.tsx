@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -76,10 +75,8 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
   )
   // Créateur de la DI : nom résolu via la RLS users (soit, ou pairs de site).
   const { data: users = [] } = useQuery(utilisateursQueries.list())
-  const createur = useMemo(
-    () => users.find((u) => u.id === demande.created_by)?.nom_complet ?? null,
-    [users, demande.created_by],
-  )
+  const createur =
+    users.find((u) => u.id === demande.created_by)?.nom_complet ?? null
   // DI venue de Dmbook : auteur tel qu'écrit dans Dmbook (D21) et numéro discret (D16).
   const { data: lienDmbook } = useQuery(demandesQueries.lienDmbook(demande.id))
   const enCharge = usePrendreEnCharge()

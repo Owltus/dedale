@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   keepPreviousData,
@@ -82,18 +82,12 @@ export function DemandesListe({
     placeholderData: keepPreviousData,
   })
   const { data: siteADesDemandes } = useQuery(demandesQueries.existe(siteId))
-  const demandes = useMemo(
-    () => query.data?.pages.flatMap((p) => p.demandes) ?? [],
-    [query.data],
-  )
-  const lieux = useMemo(
-    () => new Map(query.data?.pages.flatMap((p) => [...p.lieux]) ?? []),
-    [query.data],
-  )
+  const demandes = query.data?.pages.flatMap((p) => p.demandes) ?? []
+  const lieux = new Map(query.data?.pages.flatMap((p) => [...p.lieux]) ?? [])
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query
-  const chargerLaSuite = useCallback(() => {
+  const chargerLaSuite = () => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+  }
 
   const newButton = canCreate ? (
     <Button onClick={() => setFormOpen(true)}>

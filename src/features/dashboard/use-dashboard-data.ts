@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'react'
+import { createContext, useContext } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ajouterSemaines, isoLocale, lundiDeLaSemaine } from '@/lib/date'
 import { demandesQueries } from '@/features/demandes/queries'
@@ -114,26 +114,22 @@ export function useDashboardData(
 
   // ── Dérivations mémoïsées ────────────────────────────────────────────────────
   // Même ordre qu'avant (date prévue, puis id) : les cadrans en dépendent.
-  const ordresTravail = useMemo<PlanningOt[]>(
-    () =>
-      [...(ouvertsQuery.data ?? []), ...(periodeQuery.data ?? [])].sort(
-        (a, b) =>
-          a.date_prevue < b.date_prevue
-            ? -1
-            : a.date_prevue > b.date_prevue
-              ? 1
-              : a.id < b.id
-                ? -1
-                : a.id > b.id
-                  ? 1
-                  : 0,
-      ),
-    [ouvertsQuery.data, periodeQuery.data],
+  const ordresTravail: PlanningOt[] = [
+    ...(ouvertsQuery.data ?? []),
+    ...(periodeQuery.data ?? []),
+  ].sort((a, b) =>
+    a.date_prevue < b.date_prevue
+      ? -1
+      : a.date_prevue > b.date_prevue
+        ? 1
+        : a.id < b.id
+          ? -1
+          : a.id > b.id
+            ? 1
+            : 0,
   )
-  const derniersPassages = useMemo(
-    () => derniersPassagesQuery.data ?? new Map<string, string>(),
-    [derniersPassagesQuery.data],
-  )
+  const derniersPassages =
+    derniersPassagesQuery.data ?? new Map<string, string>()
 
   // État d'ensemble des OT, pour l'orchestrateur (squelette / erreur / premiers
   // pas). « Aucun OT » = rien d'ouvert, rien dans la période, aucun passage.
