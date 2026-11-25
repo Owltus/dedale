@@ -54,6 +54,12 @@ qui n'a qu'un consommateur vit à côté de lui (`use-gammes-drill` → `feature
   elle prend la racine dans `lib/cles-racines.ts` (qui définit la fabrique).
   Les référentiels globaux (périodicités, types d'opération, unités) vivent
   dans `lib/referentiel.ts` (`referentielsQueries`).
+- **Sens posés** (aucun cycle, imports relatifs compris) : `gammes` →
+  `ordres-travail`, `equipements`, `prestataires` ; `evenements` → `travaux`.
+  Quand l'écran du « bas » doit montrer une brique du « haut » (onglet Gammes
+  d'un équipement ou d'un prestataire, conversion en Événement, natures du
+  filtre OT), la **route l'injecte** par prop (`gammes={…}`,
+  `GammesPanel={…}`, `ConvertirEnEvenement={…}`, `natures={…}`).
 
 ## Glossaire (validé par le PO le 24/11/2026)
 

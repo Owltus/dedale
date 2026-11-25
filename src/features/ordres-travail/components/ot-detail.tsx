@@ -29,7 +29,7 @@ import { OtDetailActions } from './ot-detail-actions'
 import { MotifDialog } from '@/components/common/motif-dialog'
 import { DatePrevueDialog } from './date-prevue-dialog'
 import { clesRacines } from '@/lib/cles-racines'
-import { gammesQueries } from '@/features/gammes/queries'
+import { operationsQueries } from '@/features/operations/queries'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useRealtimeRefresh } from '@/hooks/use-realtime-refresh'
@@ -200,7 +200,9 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
   // « première mesure » que « historique perdu » — et seul le second mérite
   // d'être signalé. La requête est minimale (une colonne) et mise en cache.
   const idsOperationsGammeQuery = useQuery(
-    gammesQueries.idsOperations(aDesCompteurs ? (ot?.gamme_id ?? null) : null),
+    operationsQueries.idsOperations(
+      aDesCompteurs ? (ot?.gamme_id ?? null) : null,
+    ),
   )
   const messageHistoriqueDe = (op: (typeof operations)[number]) =>
     messageHistoriqueIntrouvable(op, idsOperationsGammeQuery.data)

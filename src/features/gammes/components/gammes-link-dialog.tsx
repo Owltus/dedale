@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useSyncEquipementGammes } from '../mutations'
-import { gammesQueries } from '@/features/gammes/queries'
+import { useSyncEquipementGammes } from '@/features/equipements/mutations'
+import { gammesQueries } from '../queries'
 import { writeErrorMessage } from '@/lib/erreurs'
 import { ChecklistDialog } from '@/components/common/checklist-dialog'
 

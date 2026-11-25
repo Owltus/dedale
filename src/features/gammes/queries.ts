@@ -78,6 +78,41 @@ export interface ModeleOperationLie {
 export const gammesQueries = {
   all: clesRacines.gammes,
 
+  /**
+   * Gammes du prestataire sur le site actif, par le lien DIRECT `gammes.prestataire_id`
+   * (décision PO : la couverture contractuelle via `contrats_gammes` n'étant pas
+   * peuplée, on s'appuie sur le rattachement direct gamme→prestataire ; compartimentage
+   * au site via `site_id`). Clé préfixée `gammes` → invalidée par les écritures de
+   * gammes. Pour la liste lecture seule de l'onglet Gammes.
+   */
+  parPrestataire: (prestataireId: string, siteId: string) =>
+    queryOptions({
+      queryKey: [
+        ...gammesQueries.all(),
+        'par-prestataire',
+        prestataireId,
+        siteId,
+      ] as const,
+      queryFn: async ({ signal }) => {
+        const { data } = await supabase
+          .from('gammes')
+          // `*` + jointures pour satisfaire `GammeRow` (réutilise `GammeCard`).
+          // `overrideTypes` fixe le type à `GammeRow[]` (le `select` imbriqué
+          // brouille l'inférence).
+          .select(
+            '*, periodicites(id, libelle, jours_periodicite), ' +
+              'prestataires(id, libelle)',
+          )
+          .eq('prestataire_id', prestataireId)
+          .eq('site_id', siteId)
+          .order('nom')
+          .abortSignal(signal)
+          .throwOnError()
+          .overrideTypes<GammeRow[], { merge: false }>()
+        return data ?? []
+      },
+    }),
+
   /** Gammes actives du site actif, enrichies de la périodicité et du prestataire. */
   list: (siteId: string | null) =>
     queryOptions({
@@ -214,37 +249,6 @@ export const gammesQueries = {
           .throwOnError()
         return data
       },
-    }),
-
-  /**
-   * Identifiants SEULS des opérations d'une gamme — de quoi savoir si le
-   * `source_id` d'une exécution pointe encore une opération vivante.
-   *
-   * Sert à l'ADR 0012 : la base autorise explicitement la suppression d'une
-   * opération référencée par des exécutions, et la fiche d'OT doit pouvoir
-   * DIRE « historique indisponible, l'opération d'origine a été supprimée »
-   * plutôt que d'afficher un tiret qu'on confond avec une première mesure.
-   * C'est le seul moyen d'affirmer cette cause sans la deviner.
-   *
-   * Volontairement minimal (une colonne) et mis en cache : appelé sur chaque
-   * fiche d'OT porteuse de compteurs.
-   */
-  idsOperations: (gammeId: string | null) =>
-    queryOptions({
-      queryKey: [...gammesQueries.all(), 'operations-ids', gammeId] as const,
-      queryFn:
-        gammeId === null
-          ? skipToken
-          : async ({ signal }) => {
-              const { data } = await supabase
-                .from('operations')
-                .select('id')
-                .eq('gamme_id', gammeId)
-                .abortSignal(signal)
-                .throwOnError()
-              return new Set(data.map((o) => o.id))
-            },
-      staleTime: 60_000,
     }),
 
   /**

@@ -4,12 +4,15 @@ import {
   skipToken,
 } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { NatureGamme } from '@/features/gammes/schemas'
+import type { Database } from '@/lib/database.types'
 import { toutesLesLignes } from '@/lib/pagination'
 import type { ReleveLigne } from './releves'
 import { cleNom, cleProvenance, type IndexPrecedents } from './correlation'
 import type { DocumentMeta } from '@/features/documents/format'
 import { motifRechercheServeur } from '@/lib/recherche'
+
+/** Nature d'une gamme (enum base `gamme_nature`, recopiée sur l'OT). */
+type NatureGamme = Database['public']['Enums']['gamme_nature']
 
 /** Colonnes d'une carte OT de la liste. */
 const COLONNES_LISTE =

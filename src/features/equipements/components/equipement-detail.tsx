@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ComponentType } from 'react'
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -8,12 +8,9 @@ import {
   Paperclip,
   Plus,
   Tag,
-  Wrench,
 } from 'lucide-react'
 import { equipementsQueries } from '../queries'
-import { gammesQueries } from '@/features/gammes/queries'
 import { OtListeParGammes } from '@/features/ordres-travail/components/ot-liste-par-gammes'
-import { GammesLinkDialog } from './gammes-link-dialog'
 import { MiniatureThumb } from '@/features/miniatures/components/miniature-thumb'
 import { useMiniatureUrls } from '@/features/miniatures/use-miniature-urls'
 import { useUploadDrop } from '@/hooks/use-upload-drop'
@@ -42,6 +39,26 @@ import type { Database } from '@/lib/database.types'
 
 type Equipement = Database['public']['Views']['v_equipements_complet']['Row']
 
+/**
+ * Briques « gammes » de la fiche, INJECTÉES par la route : elles vivent dans la
+ * feature gammes (qui lit la liste des gammes et dépend déjà d'equipements).
+ */
+export interface GammesDeLaFiche {
+  /** Onglet Gammes : les gammes liées à l'équipement. */
+  Onglet: ComponentType<{
+    siteId: string
+    liesQuery: UseQueryResult<string[]>
+  }>
+  /** Modale « Lier des gammes ». */
+  LierDialog: ComponentType<{
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    siteId: string
+    equipementId: string
+    current: string[]
+  }>
+}
+
 type Tab = 'caracteristiques' | 'gammes' | 'ordres' | 'historique' | 'documents'
 
 /**
@@ -57,11 +74,14 @@ export function EquipementDetail({
   equipement,
   siteId,
   canEdit,
+  gammes,
 }: {
   equipement: Equipement
   siteId: string
   canEdit: boolean
+  gammes: GammesDeLaFiche
 }) {
+  const { Onglet: GammesTab, LierDialog: GammesLinkDialog } = gammes
   const equipementId = equipement.id ?? ''
   const [tab, setTab] = useState<Tab>('caracteristiques')
   const specs = parseChamps(equipement.specifications)
@@ -320,51 +340,6 @@ function HistoriqueTab({ equipementId }: { equipementId: string }) {
                     to: '/ordres-travail/$otId',
                     params: { otId: i.otId },
                   })
-                }
-              />
-            ))}
-          </div>
-        )
-      }
-    </QueryState>
-  )
-}
-
-// --- Onglet Gammes ---
-
-function GammesTab({
-  siteId,
-  liesQuery,
-}: {
-  siteId: string
-  liesQuery: UseQueryResult<string[]>
-}) {
-  const gammesQuery = useQuery(gammesQueries.list(siteId))
-
-  const lies = useMemo(() => {
-    const gammes = gammesQuery.data ?? []
-    const liesIds = liesQuery.data ?? []
-    return gammes.filter((g) => liesIds.includes(g.id))
-  }, [gammesQuery.data, liesQuery.data])
-
-  return (
-    <QueryState query={liesQuery} pending={<ListRowSkeletons count={3} />}>
-      {() =>
-        lies.length === 0 ? (
-          <EmptyState
-            icon={Wrench}
-            title="Aucune gamme"
-            className={ONGLET_ETAT_VIDE}
-          />
-        ) : (
-          <div className={listStack}>
-            {lies.map((g) => (
-              <ListRow
-                key={g.id}
-                media={<RowMediaIcon icon={Wrench} />}
-                title={g.nom}
-                subtitle={
-                  g.description?.trim() ? g.description.trim() : undefined
                 }
               />
             ))}

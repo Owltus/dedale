@@ -2,7 +2,6 @@ import { queryOptions } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { toutesLesLignes } from '@/lib/pagination'
 import { referentielQueryOptions } from '@/lib/referentiel'
-import type { GammeRow } from '@/features/gammes/queries'
 import type { DocumentMeta } from '@/features/documents/format'
 import type { Database } from '@/lib/database.types'
 import { ordresTravailQueries } from '@/features/ordres-travail/queries'
@@ -30,36 +29,6 @@ export const prestatairesQueries = {
           .abortSignal(signal)
           .throwOnError()
         return data
-      },
-    }),
-
-  /**
-   * Gammes du prestataire sur le site actif, par le lien DIRECT `gammes.prestataire_id`
-   * (décision PO : la couverture contractuelle via `contrats_gammes` n'étant pas
-   * peuplée, on s'appuie sur le rattachement direct gamme→prestataire ; compartimentage
-   * au site via `site_id`). Clé préfixée `gammes` → invalidée par les écritures de
-   * gammes. Pour la liste lecture seule de l'onglet Gammes.
-   */
-  gammes: (prestataireId: string, siteId: string) =>
-    queryOptions({
-      queryKey: ['gammes', 'par-prestataire', prestataireId, siteId] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('gammes')
-          // `*` + jointures pour satisfaire `GammeRow` (réutilise `GammeCard`).
-          // `overrideTypes` fixe le type à `GammeRow[]` (le `select` imbriqué
-          // brouille l'inférence).
-          .select(
-            '*, periodicites(id, libelle, jours_periodicite), ' +
-              'prestataires(id, libelle)',
-          )
-          .eq('prestataire_id', prestataireId)
-          .eq('site_id', siteId)
-          .order('nom')
-          .abortSignal(signal)
-          .throwOnError()
-          .overrideTypes<GammeRow[], { merge: false }>()
-        return data ?? []
       },
     }),
 

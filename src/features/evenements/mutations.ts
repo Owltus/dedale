@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { evenementsQueries } from './queries'
-import { travauxQueries } from '../travaux/queries'
+import { travauxQueries } from '@/features/travaux/queries'
 import { STATUT_CLOTURE } from './schemas'
 import type { EvenementFormValues, LieuFormValues } from './schemas'
 import type { TacheEntree } from '@/features/taches/components/taches-multiples-field'
@@ -153,6 +153,28 @@ export function useConvertirEnTravaux() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: evenementsQueries.all() })
       void qc.invalidateQueries({ queryKey: travauxQueries.all() })
+    },
+  })
+}
+
+/**
+ * Convertit ce Travaux en Événement (copie + suppression du Travaux, RPC
+ * `convertir_travaux_en_evenement`) : documents et TOUTES les zones
+ * transférés, statut préservé (087). Retourne l'id du nouvel Événement (pour
+ * rediriger dessus).
+ */
+export function useConvertirEnEvenement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await supabase
+        .rpc('convertir_travaux_en_evenement', { p_travaux_id: id })
+        .throwOnError()
+      return data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: travauxQueries.all() })
+      void qc.invalidateQueries({ queryKey: evenementsQueries.all() })
     },
   })
 }

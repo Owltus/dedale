@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { EquipementsExplorer } from '@/features/equipements/components/equipements-explorer'
+import { EquipementGammesOnglet } from '@/features/gammes/components/equipement-gammes-onglet'
+import { GammesLinkDialog } from '@/features/gammes/components/gammes-link-dialog'
 import { PageContainer } from '@/components/common/page-container'
 import { SiteScopedRoute } from '@/components/common/site-scoped-route'
 import { PAGE_META } from '@/features/equipements/page-meta'
@@ -16,6 +18,10 @@ export const Route = createFileRoute('/_app/equipements/$')({
   component: EquipementsPage,
 })
 
+// Briques « gammes » de la fiche équipement, injectées ici : equipements ne
+// dépend pas de gammes (qui dépend, lui, d'equipements).
+const GAMMES = { Onglet: EquipementGammesOnglet, LierDialog: GammesLinkDialog }
+
 function EquipementsPage() {
   return (
     <SiteScopedRoute meta={PAGE_META}>
@@ -28,7 +34,7 @@ function EquipementsPage() {
           {/* key=site : remonte l'explorer à chaque changement de site actif →
               remise à zéro propre des refs/états internes (drill, modaux), pas
               de fuite d'état du site précédent. */}
-          <EquipementsExplorer key={siteId} siteId={siteId} />
+          <EquipementsExplorer key={siteId} siteId={siteId} gammes={GAMMES} />
         </PageContainer>
       )}
     </SiteScopedRoute>

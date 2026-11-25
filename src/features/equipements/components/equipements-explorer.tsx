@@ -23,7 +23,7 @@ import {
 } from '../format'
 import { EquipementParcDialog } from './equipement-parc-dialog'
 import { ParcSousCategorieDialog } from './parc-sous-categorie-dialog'
-import { EquipementDetail } from './equipement-detail'
+import { EquipementDetail, type GammesDeLaFiche } from './equipement-detail'
 import { EquipementBadges } from './equipement-badges'
 import { ImportCsvDialog } from './import-csv-dialog'
 import { modelesEquipementsQueries } from '@/features/modeles-equipements/queries'
@@ -118,7 +118,14 @@ const equipementCategorieId = (e: Equipement) => e.categorie_id
  * Le commun n'apparaît jamais ici (catalogue = Bibliothèque) ; pas de sélecteur de
  * périmètre (le site actif est fixé par la sidebar).
  */
-export function EquipementsExplorer({ siteId }: { siteId: string }) {
+export function EquipementsExplorer({
+  siteId,
+  gammes,
+}: {
+  siteId: string
+  /** Briques « gammes » de la fiche équipement, injectées par la route. */
+  gammes: GammesDeLaFiche
+}) {
   const { data: role } = useCurrentRole()
   const canEdit = perm.canManageMetier(role)
   const canEntreprise = perm.canManageAdmin(role)
@@ -703,6 +710,7 @@ export function EquipementsExplorer({ siteId }: { siteId: string }) {
             equipement={openEquipement}
             siteId={siteId}
             canEdit={canEdit}
+            gammes={gammes}
           />
         </div>
         {dialogs}

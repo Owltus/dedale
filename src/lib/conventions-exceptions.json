@@ -6,30 +6,6 @@
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
   {
-    "regle": "cycle-features",
-    "fichier": "src/features/equipements ⇄ src/features/gammes",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "cycle-features",
-    "fichier": "src/features/evenements ⇄ src/features/travaux",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "cycle-features",
-    "fichier": "src/features/gammes ⇄ src/features/ordres-travail",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "cycle-features",
-    "fichier": "src/features/gammes ⇄ src/features/prestataires",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
     "regle": "ecran-sans-page-container",
     "fichier": "src/features/documents/components/documents-liste.tsx",
     "occurrences": 1,
@@ -344,7 +320,13 @@
   {
     "regle": "use-memo-callback",
     "fichier": "src/features/equipements/components/equipement-detail.tsx",
-    "occurrences": 2,
+    "occurrences": 1,
+    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
+  },
+  {
+    "regle": "use-memo-callback",
+    "fichier": "src/features/gammes/components/equipement-gammes-onglet.tsx",
+    "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
   {
@@ -583,7 +565,7 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/features/prestataires/components/prestataire-onglet-gammes.tsx",
+    "fichier": "src/features/gammes/components/prestataire-gammes-panel.tsx",
     "occurrences": 2,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
