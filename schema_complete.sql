@@ -18541,3 +18541,471 @@ COMMENT ON POLICY documents_demandeur_select ON public.documents IS
 
 REVOKE EXECUTE ON FUNCTION public.generate_identifiant_equipement() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.generate_identifiant_equipement() TO authenticated, service_role;
+
+-- =============================================================================
+-- 182 — Indexer les rattachements au lieu des événements et des travaux
+-- =============================================================================
+-- Symptôme corrigé : aucun visible aujourd'hui. La fiche lieu (étape 1 du plan
+-- « fiche lieu », migration 183) cherche les événements et les travaux d'un
+-- lieu par leur lieu PRINCIPAL (local_id / equipement_id) et par leurs tâches
+-- d'événement (evenements_lieux) : sans index, chaque ouverture de fiche
+-- parcourrait ces tables en entier.
+--
+-- Cause : 098 a réintroduit `local_id` / `equipement_id` sur `evenements` et
+-- `interventions_travaux` sans index ; `evenements_lieux` n'est indexée que
+-- sur `evenement_id` (alors que `travaux_taches` l'est sur local_id et
+-- equipement_id depuis l'origine).
+--
+-- Correctif : six `CREATE INDEX IF NOT EXISTS` :
+--   evenements(local_id), evenements(equipement_id),
+--   evenements_lieux(local_id), evenements_lieux(equipement_id),
+--   interventions_travaux(local_id), interventions_travaux(equipement_id).
+-- Ne fait PAS : aucune donnée modifiée, aucune policy ni fonction touchée.
+--
+-- Innocuité : tables modestes (quelques milliers de lignes au plus) : le
+-- verrou SHARE de la création est bref, `CONCURRENTLY` est inutile (et
+-- interdit dans une transaction). Rejouable (IF NOT EXISTS).
+--
+-- Vérification après application :
+--     SELECT indexname FROM pg_indexes
+--     WHERE schemaname = 'public' AND indexname IN (
+--       'idx_evenements_local', 'idx_evenements_equipement',
+--       'idx_evenements_lieux_local', 'idx_evenements_lieux_equipement',
+--       'idx_travaux_local', 'idx_travaux_equipement');
+--     -- attendu : 6 lignes
+-- =============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_evenements_local
+    ON public.evenements (local_id);
+CREATE INDEX IF NOT EXISTS idx_evenements_equipement
+    ON public.evenements (equipement_id);
+CREATE INDEX IF NOT EXISTS idx_evenements_lieux_local
+    ON public.evenements_lieux (local_id);
+CREATE INDEX IF NOT EXISTS idx_evenements_lieux_equipement
+    ON public.evenements_lieux (equipement_id);
+CREATE INDEX IF NOT EXISTS idx_travaux_local
+    ON public.interventions_travaux (local_id);
+CREATE INDEX IF NOT EXISTS idx_travaux_equipement
+    ON public.interventions_travaux (equipement_id);
+
+COMMENT ON INDEX public.idx_evenements_local IS
+    'Événements par lieu principal — fiche lieu (182).';
+COMMENT ON INDEX public.idx_evenements_equipement IS
+    'Événements par équipement principal — fiche lieu (182).';
+COMMENT ON INDEX public.idx_evenements_lieux_local IS
+    'Tâches d''événement par lieu — fiche lieu (182).';
+COMMENT ON INDEX public.idx_evenements_lieux_equipement IS
+    'Tâches d''événement par équipement — fiche lieu (182).';
+COMMENT ON INDEX public.idx_travaux_local IS
+    'Travaux par lieu principal — fiche lieu (182).';
+COMMENT ON INDEX public.idx_travaux_equipement IS
+    'Travaux par équipement principal — fiche lieu (182).';
+
+-- =============================================================================
+-- 183 — Lire la fiche d'un lieu : en-tête, compteurs et listes par onglet
+-- =============================================================================
+-- Symptôme corrigé : aucun visible encore. Un lieu n'a pas de fiche : ses OT,
+-- DI, travaux, événements, plans de maintenance et documents ne se lisent
+-- qu'en partant de chaque objet (le lieu y est un simple texte).
+--
+-- Cause : les liens au lieu sont INDIRECTS et multiples —
+--   - OT : aucun local_id ; un OT touche un lieu par la gamme liée AUJOURD'HUI
+--     à un équipement du lieu (gammes_equipements), ou par une opération
+--     exécutée sur un équipement du lieu (operations_execution.equipement_id,
+--     gammes répétées par équipement, 128) — le second chemin garde l'histoire
+--     quand un équipement est détaché de la gamme ;
+--   - DI : di_localisations ∪ di_equipements ;
+--   - travaux : lieu principal (local_id ou équipement du lieu, 098) ∪
+--     travaux_taches ;
+--   - événements : lieu principal ∪ evenements_lieux (tâches) ;
+--   - documents : documents_locaux ∪ documents_equipements.
+-- Ces unions ne s'expriment pas en une requête PostgREST.
+--
+-- Correctif : six fonctions de LECTURE, SQL, STABLE, SECURITY INVOKER (la RLS
+-- de la personne s'applique partout), search_path vide :
+--   - fiche_local(p_local_id) → jsonb { local: {…}, compteurs: {…} } ;
+--   - ot_du_lieu / di_du_lieu / travaux_du_lieu / evenements_du_lieu /
+--     gammes_du_lieu (p_local_id, p_ouverts_seulement DEFAULT true,
+--     p_limite DEFAULT 50, p_decalage DEFAULT 0) → SETOF de la table PARENTE
+--     (le front y greffe ses jointures habituelles par PostgREST).
+-- Règles communes :
+--   - chaque ligne est lue dans sa table PARENTE (jamais une liaison seule) :
+--     ce qu'on ne voit pas n'est ni listé ni compté ;
+--   - dédoublonnage : un objet rattaché par plusieurs chemins sort une fois ;
+--   - « équipements du lieu » = ceux qui y sont AUJOURD'HUI ;
+--   - plans de maintenance : seulement ceux d'un site (site_id NOT NULL), le
+--     commun n'est jamais montré sur un lieu (ADR 0009) ;
+--   - p_limite borné à [1, 200], p_decalage ≥ 0 (même règle que 171) ;
+--   - tri stable : date puis id (voir chaque COMMENT).
+-- « Visible » dans les compteurs : NULL = onglet non visible pour le rôle (le
+-- demandeur n'a aucune policy SELECT sur ordres_travail, gammes,
+-- interventions_travaux, evenements, ni sur les liaisons documents_locaux /
+-- documents_equipements — il ne voit donc pas les documents d'un lieu, même
+-- ceux qu'il a déposés), à distinguer de 0 = « aucun ». Ce NULL suit
+-- public.current_role() ; le comptage lui-même reste celui de la RLS.
+-- Ne fait PAS : aucune écriture, aucune policy, aucun déclencheur.
+--
+-- Innocuité : fonctions nouvelles, sans appelant ; SECURITY INVOKER = mêmes
+-- droits que la lecture directe des tables. EXECUTE retiré à PUBLIC et anon,
+-- accordé à authenticated. Le connecteur Claude n'y a pas accès (garde 157,
+-- étape 6 du plan).
+--
+-- Vérification après application :
+--     SELECT p.proname, p.prosecdef, p.provolatile,
+--            has_function_privilege('anon', p.oid, 'EXECUTE') AS anon
+--     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+--     WHERE n.nspname = 'public' AND p.proname IN ('fiche_local', 'ot_du_lieu',
+--       'di_du_lieu', 'travaux_du_lieu', 'evenements_du_lieu', 'gammes_du_lieu');
+--     -- attendu : 6 lignes, prosecdef = false, provolatile = 's', anon = false
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- En-tête et compteurs
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.fiche_local(p_local_id uuid)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+    WITH
+    metier AS (
+        -- Rôles qui ont une policy SELECT sur OT, gammes, travaux, événements
+        -- et sur les liaisons documents_locaux / documents_equipements.
+        SELECT coalesce((SELECT public.current_role())
+                        IN ('admin', 'manager', 'technicien', 'lecteur'), false) AS ok
+    ),
+    eq AS (
+        SELECT e.id FROM public.equipements e WHERE e.local_id = p_local_id
+    ),
+    gam AS (
+        SELECT g.id, g.est_active
+        FROM public.gammes g
+        WHERE g.site_id IS NOT NULL
+          AND g.id IN (SELECT ge.gamme_id FROM public.gammes_equipements ge
+                       WHERE ge.equipement_id IN (SELECT id FROM eq))
+    ),
+    ot AS (
+        SELECT o.statut
+        FROM public.ordres_travail o
+        WHERE o.id IN (
+            SELECT o2.id FROM public.ordres_travail o2
+            WHERE o2.gamme_id IN (SELECT ge.gamme_id
+                                  FROM public.gammes_equipements ge
+                                  JOIN public.gammes g ON g.id = ge.gamme_id
+                                  WHERE g.site_id IS NOT NULL
+                                    AND ge.equipement_id IN (SELECT id FROM eq))
+            UNION
+            SELECT oe.ordre_travail_id FROM public.operations_execution oe
+            WHERE oe.equipement_id IN (SELECT id FROM eq)
+        )
+    ),
+    di AS (
+        SELECT d.statut_di_id
+        FROM public.demandes_intervention d
+        WHERE d.id IN (
+            SELECT dl.di_id FROM public.di_localisations dl WHERE dl.local_id = p_local_id
+            UNION
+            SELECT de.di_id FROM public.di_equipements de
+            WHERE de.equipement_id IN (SELECT id FROM eq)
+        )
+    ),
+    tra AS (
+        SELECT t.statut_travaux_id
+        FROM public.interventions_travaux t
+        WHERE t.id IN (
+            SELECT t2.id FROM public.interventions_travaux t2
+            WHERE t2.local_id = p_local_id
+            UNION
+            SELECT t3.id FROM public.interventions_travaux t3
+            WHERE t3.equipement_id IN (SELECT id FROM eq)
+            UNION
+            SELECT tt.travaux_id FROM public.travaux_taches tt
+            WHERE tt.local_id = p_local_id
+               OR tt.equipement_id IN (SELECT id FROM eq)
+        )
+    ),
+    eve AS (
+        SELECT v.statut_evenement_id
+        FROM public.evenements v
+        WHERE v.id IN (
+            SELECT v2.id FROM public.evenements v2 WHERE v2.local_id = p_local_id
+            UNION
+            SELECT v3.id FROM public.evenements v3
+            WHERE v3.equipement_id IN (SELECT id FROM eq)
+            UNION
+            SELECT el.evenement_id FROM public.evenements_lieux el
+            WHERE el.local_id = p_local_id
+               OR el.equipement_id IN (SELECT id FROM eq)
+        )
+    ),
+    doc AS (
+        SELECT d.id
+        FROM public.documents d
+        WHERE d.id IN (
+            SELECT dl.document_id FROM public.documents_locaux dl
+            WHERE dl.local_id = p_local_id
+            UNION
+            SELECT de.document_id FROM public.documents_equipements de
+            WHERE de.equipement_id IN (SELECT id FROM eq)
+        )
+    )
+    SELECT jsonb_build_object(
+        'local', jsonb_build_object(
+            'id',                 l.id,
+            'nom',                l.nom,
+            'description',        l.description,
+            'site_id',            c.site_id,
+            'site_nom',           c.site_nom,
+            'batiment_id',        c.batiment_id,
+            'batiment_nom',       c.batiment_nom,
+            'niveau_id',          l.niveau_id,
+            'niveau_nom',         c.niveau_nom,
+            'chemin_complet',     c.chemin_complet,
+            'chemin_court',       c.chemin_court,
+            'type_local_id',      l.type_local_id,
+            'type_local',         tl.libelle,
+            'surface_m2',         l.surface_m2,
+            'hauteur_m',          l.hauteur_m,
+            'volume_m3',          l.surface_m2 * l.hauteur_m,
+            'capacite_personnes', l.capacite_personnes,
+            'accessible_pmr',     l.accessible_pmr,
+            'chauffe_climatise',  l.chauffe_climatise,
+            'specifications',     l.specifications,
+            'image_path',         l.image_path,
+            'created_at',         l.created_at,
+            'updated_at',         l.updated_at
+        ),
+        'compteurs', jsonb_build_object(
+            'equipements', (SELECT count(*) FROM eq),
+            'gammes', CASE WHEN m.ok THEN jsonb_build_object(
+                'actives', (SELECT count(*) FROM gam WHERE gam.est_active),
+                'total',   (SELECT count(*) FROM gam)) END,
+            'ot', CASE WHEN m.ok THEN jsonb_build_object(
+                'ouverts', (SELECT count(*) FROM ot WHERE ot.statut NOT IN ('cloture', 'annule')),
+                'total',   (SELECT count(*) FROM ot)) END,
+            'di', jsonb_build_object(
+                'ouvertes', (SELECT count(*) FROM di WHERE di.statut_di_id <> 3),
+                'total',    (SELECT count(*) FROM di)),
+            'travaux', CASE WHEN m.ok THEN jsonb_build_object(
+                'ouverts', (SELECT count(*) FROM tra WHERE tra.statut_travaux_id <> 4),
+                'total',   (SELECT count(*) FROM tra)) END,
+            'evenements', CASE WHEN m.ok THEN jsonb_build_object(
+                'ouverts', (SELECT count(*) FROM eve WHERE eve.statut_evenement_id <> 4),
+                'total',   (SELECT count(*) FROM eve)) END,
+            'documents', CASE WHEN m.ok THEN (SELECT count(*) FROM doc) END
+        )
+    )
+    FROM public.locaux l
+    CROSS JOIN metier m
+    LEFT JOIN public.v_locaux_chemin c ON c.local_id = l.id
+    LEFT JOIN public.types_locaux tl ON tl.id = l.type_local_id
+    WHERE l.id = p_local_id;
+$$;
+
+COMMENT ON FUNCTION public.fiche_local(uuid) IS
+  'Fiche d''un lieu : en-tête (chemin, type, surface, hauteur, volume, capacité, PMR, caractéristiques) et compteurs par onglet (équipements, gammes {actives,total}, ot {ouverts,total}, di {ouvertes,total}, travaux {ouverts,total}, evenements {ouverts,total}, documents). Tout passe par la table parente sous la RLS de l''appelant. NULL entier = lieu invisible ; compteur NULL = onglet non visible pour le rôle (demandeur : gammes, OT, travaux, événements, documents). Lecture seule (183).';
+
+-- -----------------------------------------------------------------------------
+-- OT du lieu
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.ot_du_lieu(
+    p_local_id           uuid,
+    p_ouverts_seulement  boolean DEFAULT true,
+    p_limite             integer DEFAULT 50,
+    p_decalage           integer DEFAULT 0
+)
+RETURNS SETOF public.ordres_travail
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+    WITH eq AS (
+        SELECT e.id FROM public.equipements e WHERE e.local_id = p_local_id
+    )
+    SELECT o.*
+    FROM public.ordres_travail o
+    WHERE o.id IN (
+            SELECT o2.id FROM public.ordres_travail o2
+            WHERE o2.gamme_id IN (SELECT ge.gamme_id
+                                  FROM public.gammes_equipements ge
+                                  JOIN public.gammes g ON g.id = ge.gamme_id
+                                  WHERE g.site_id IS NOT NULL
+                                    AND ge.equipement_id IN (SELECT id FROM eq))
+            UNION
+            SELECT oe.ordre_travail_id FROM public.operations_execution oe
+            WHERE oe.equipement_id IN (SELECT id FROM eq)
+          )
+      AND (NOT coalesce(p_ouverts_seulement, true)
+           OR o.statut NOT IN ('cloture', 'annule'))
+    -- Ouverts : le plus ancien d'abord (ce qui presse) ; tous : le plus récent d'abord.
+    ORDER BY CASE WHEN coalesce(p_ouverts_seulement, true) THEN o.date_prevue END ASC,
+             o.date_prevue DESC, o.id
+    LIMIT greatest(1, least(coalesce(p_limite, 50), 200))
+    OFFSET greatest(0, coalesce(p_decalage, 0));
+$$;
+
+COMMENT ON FUNCTION public.ot_du_lieu(uuid, boolean, integer, integer) IS
+  'Une page des OT d''un lieu : gammes d''un site liées aujourd''hui aux équipements du lieu ∪ OT ayant une opération exécutée sur un équipement du lieu, dédoublonnés. Non terminés seulement par défaut (ni clôturés ni annulés). Tri : non terminés par date prévue croissante, sinon décroissante, puis id. Limite bornée à 200. RLS de l''appelant (183).';
+
+-- -----------------------------------------------------------------------------
+-- DI du lieu
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.di_du_lieu(
+    p_local_id           uuid,
+    p_ouverts_seulement  boolean DEFAULT true,
+    p_limite             integer DEFAULT 50,
+    p_decalage           integer DEFAULT 0
+)
+RETURNS SETOF public.demandes_intervention
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+    SELECT d.*
+    FROM public.demandes_intervention d
+    WHERE d.id IN (
+            SELECT dl.di_id FROM public.di_localisations dl WHERE dl.local_id = p_local_id
+            UNION
+            SELECT de.di_id FROM public.di_equipements de
+            JOIN public.equipements e ON e.id = de.equipement_id
+            WHERE e.local_id = p_local_id
+          )
+      AND (NOT coalesce(p_ouverts_seulement, true) OR d.statut_di_id <> 3)
+    ORDER BY d.date_constat DESC, d.created_at DESC, d.id
+    LIMIT greatest(1, least(coalesce(p_limite, 50), 200))
+    OFFSET greatest(0, coalesce(p_decalage, 0));
+$$;
+
+COMMENT ON FUNCTION public.di_du_lieu(uuid, boolean, integer, integer) IS
+  'Une page des demandes d''intervention d''un lieu : di_localisations ∪ di_equipements (équipement du lieu), dédoublonnées. Non clôturées seulement par défaut. Tri : date du constat ↓, création ↓, id (celui de demandes_du_site). Limite bornée à 200. RLS de l''appelant (183).';
+
+-- -----------------------------------------------------------------------------
+-- Travaux du lieu
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.travaux_du_lieu(
+    p_local_id           uuid,
+    p_ouverts_seulement  boolean DEFAULT true,
+    p_limite             integer DEFAULT 50,
+    p_decalage           integer DEFAULT 0
+)
+RETURNS SETOF public.interventions_travaux
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+    WITH eq AS (
+        SELECT e.id FROM public.equipements e WHERE e.local_id = p_local_id
+    )
+    SELECT t.*
+    FROM public.interventions_travaux t
+    WHERE t.id IN (
+            SELECT t2.id FROM public.interventions_travaux t2
+            WHERE t2.local_id = p_local_id
+            UNION
+            SELECT t3.id FROM public.interventions_travaux t3
+            WHERE t3.equipement_id IN (SELECT id FROM eq)
+            UNION
+            SELECT tt.travaux_id FROM public.travaux_taches tt
+            WHERE tt.local_id = p_local_id
+               OR tt.equipement_id IN (SELECT id FROM eq)
+          )
+      AND (NOT coalesce(p_ouverts_seulement, true) OR t.statut_travaux_id <> 4)
+    ORDER BY t.date_demande DESC, t.created_at DESC, t.id
+    LIMIT greatest(1, least(coalesce(p_limite, 50), 200))
+    OFFSET greatest(0, coalesce(p_decalage, 0));
+$$;
+
+COMMENT ON FUNCTION public.travaux_du_lieu(uuid, boolean, integer, integer) IS
+  'Une page des travaux d''un lieu : lieu principal (le lieu ou un de ses équipements) ∪ tâches posées sur le lieu ou un de ses équipements, dédoublonnés. Non terminés seulement par défaut. Tri : date de demande ↓, création ↓, id. Limite bornée à 200. RLS de l''appelant (183).';
+
+-- -----------------------------------------------------------------------------
+-- Événements du lieu
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.evenements_du_lieu(
+    p_local_id           uuid,
+    p_ouverts_seulement  boolean DEFAULT true,
+    p_limite             integer DEFAULT 50,
+    p_decalage           integer DEFAULT 0
+)
+RETURNS SETOF public.evenements
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+    WITH eq AS (
+        SELECT e.id FROM public.equipements e WHERE e.local_id = p_local_id
+    )
+    SELECT v.*
+    FROM public.evenements v
+    WHERE v.id IN (
+            SELECT v2.id FROM public.evenements v2 WHERE v2.local_id = p_local_id
+            UNION
+            SELECT v3.id FROM public.evenements v3
+            WHERE v3.equipement_id IN (SELECT id FROM eq)
+            UNION
+            SELECT el.evenement_id FROM public.evenements_lieux el
+            WHERE el.local_id = p_local_id
+               OR el.equipement_id IN (SELECT id FROM eq)
+          )
+      AND (NOT coalesce(p_ouverts_seulement, true) OR v.statut_evenement_id <> 4)
+    ORDER BY v.date_evenement DESC, v.created_at DESC, v.id
+    LIMIT greatest(1, least(coalesce(p_limite, 50), 200))
+    OFFSET greatest(0, coalesce(p_decalage, 0));
+$$;
+
+COMMENT ON FUNCTION public.evenements_du_lieu(uuid, boolean, integer, integer) IS
+  'Une page des événements d''un lieu : lieu principal (le lieu ou un de ses équipements) ∪ tâches d''événement (evenements_lieux) posées sur le lieu ou un de ses équipements, dédoublonnés. Non clôturés seulement par défaut. Tri : date de l''événement ↓, création ↓, id (celui de la liste). Limite bornée à 200. RLS de l''appelant (183).';
+
+-- -----------------------------------------------------------------------------
+-- Plans de maintenance (gammes) du lieu
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.gammes_du_lieu(
+    p_local_id           uuid,
+    p_ouverts_seulement  boolean DEFAULT true,
+    p_limite             integer DEFAULT 50,
+    p_decalage           integer DEFAULT 0
+)
+RETURNS SETOF public.gammes
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+    SELECT g.*
+    FROM public.gammes g
+    WHERE g.site_id IS NOT NULL
+      AND g.id IN (SELECT ge.gamme_id
+                   FROM public.gammes_equipements ge
+                   JOIN public.equipements e ON e.id = ge.equipement_id
+                   WHERE e.local_id = p_local_id)
+      AND (NOT coalesce(p_ouverts_seulement, true) OR g.est_active)
+    ORDER BY g.nom, g.id
+    LIMIT greatest(1, least(coalesce(p_limite, 50), 200))
+    OFFSET greatest(0, coalesce(p_decalage, 0));
+$$;
+
+COMMENT ON FUNCTION public.gammes_du_lieu(uuid, boolean, integer, integer) IS
+  'Une page des plans de maintenance (gammes) d''un lieu : gammes d''un site liées aux équipements du lieu (gammes_equipements) ; le catalogue commun est exclu. p_ouverts_seulement = actives seulement (défaut). Tri : nom, id. Limite bornée à 200. RLS de l''appelant (183).';
+
+-- -----------------------------------------------------------------------------
+-- Droits : authenticated seulement
+-- -----------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.fiche_local(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.ot_du_lieu(uuid, boolean, integer, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.di_du_lieu(uuid, boolean, integer, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.travaux_du_lieu(uuid, boolean, integer, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.evenements_du_lieu(uuid, boolean, integer, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.gammes_du_lieu(uuid, boolean, integer, integer) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.fiche_local(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.ot_du_lieu(uuid, boolean, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.di_du_lieu(uuid, boolean, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.travaux_du_lieu(uuid, boolean, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.evenements_du_lieu(uuid, boolean, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.gammes_du_lieu(uuid, boolean, integer, integer) TO authenticated;
