@@ -8,6 +8,27 @@ export interface CsvEnregistrement {
 }
 
 /**
+ * Première fin de ligne rencontrée HORS guillemets : la convention du fichier
+ * (`null` s'il tient sur une ligne).
+ */
+function finDeLigneDuFichier(
+  src: string,
+  protectionPossible: boolean,
+): string | null {
+  let dansGuillemets = false
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]
+    // `""` bascule deux fois : l'état reste juste sans traitement particulier.
+    if (c === '"' && protectionPossible) dansGuillemets = !dansGuillemets
+    else if (!dansGuillemets && c === '\n') return '\n'
+    else if (!dansGuillemets && c === '\r') {
+      return src[i + 1] === '\n' ? '\r\n' : '\r'
+    }
+  }
+  return null
+}
+
+/**
  * Cœur du lecteur : rend les enregistrements AVEC leur numéro de ligne
  * d'origine. `parseCsv` et `parseCsvIndexe` n'en sont que deux vues — le
  * découpage lui-même n'existe qu'ici, en un seul exemplaire.
@@ -30,11 +51,17 @@ function lireCsv(text: string, delimiter: string): CsvEnregistrement[] {
   // ECMA-262, production WhiteSpace) : ce filet reste REDONDANT, donc fragile —
   // une factorisation des sept modules qui le supprimerait réveillerait le
   // défaut dans les sept d'un coup. Le BOM se retire ICI, une fois pour toutes.
-  // \r\n / \r / \n tous acceptés : la source est un copier-coller, pas un
-  // fichier maîtrisé.
-  const src = (text.startsWith(BOM_UTF8) ? text.slice(1) : text)
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
+  const src = text.startsWith(BOM_UTF8) ? text.slice(1) : text
+  // Un délimiteur guillemet rend la protection impossible : le guillemet n'est
+  // alors QUE séparateur (cf. `formaterCsv`, qui ne protège rien dans ce cas).
+  const protectionPossible = delimiter !== '"'
+  // \r\n / \r / \n tous acceptés comme FIN D'ENREGISTREMENT : la source est un
+  // copier-coller, pas un fichier maîtrisé. À l'INTÉRIEUR d'un champ protégé,
+  // seule la fin de ligne du fichier lui-même se lit `\n` — ainsi un fichier
+  // converti en bloc (FTP texte, éditeur) se relit à l'identique ; toute AUTRE
+  // fin de ligne est une donnée et revient telle quelle (un `\r` isolé saisi
+  // dans une cellule d'un fichier CRLF, par exemple).
+  const finDeLigne = finDeLigneDuFichier(src, protectionPossible)
 
   const pushField = () => {
     row.push(field)
@@ -56,19 +83,26 @@ function lireCsv(text: string, delimiter: string): CsvEnregistrement[] {
         } else {
           inQuotes = false
         }
-      } else {
+      } else if (c === '\n' || c === '\r') {
         // Saut de ligne INTÉRIEUR à un champ protégé : il ne termine pas
-        // l'enregistrement, mais il fait bien avancer la ligne d'origine.
-        if (c === '\n') ligne++
+        // l'enregistrement, mais il fait bien avancer la ligne d'origine
+        // (`\r\n` ne compte qu'une fois).
+        const saut = c === '\r' && src[i + 1] === '\n' ? '\r\n' : c
+        i += saut.length - 1
+        ligne++
+        // Fichier d'une seule ligne : pas de convention, tout saut se lit `\n`.
+        field += finDeLigne === null || saut === finDeLigne ? '\n' : saut
+      } else {
         field += c
       }
       continue
     }
-    if (c === '"') {
+    if (c === '"' && protectionPossible) {
       inQuotes = true
     } else if (c === delimiter) {
       pushField()
-    } else if (c === '\n') {
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && src[i + 1] === '\n') i++
       pushRow()
       ligne++
       ligneDebut = ligne
@@ -134,11 +168,26 @@ export function formaterCsv(
   const echapperCaracteresSpeciaux = new RegExp(
     `["\\r\\n${delimiter.replace(/[\\\]^-]/g, '\\$&')}]`,
   )
+  // Délimiteur guillemet : aucune protection n'est exprimable (le guillemet
+  // sépare les colonnes), les cellules partent donc telles quelles. Le codec
+  // reste exact tant qu'aucune ne porte de guillemet ni de saut de ligne ;
+  // l'application n'emploie jamais ce délimiteur (`;` partout).
   const echapper = (v: string) =>
-    echapperCaracteresSpeciaux.test(v) ? `"${v.replace(/"/g, '""')}"` : v
-  return [entetes, ...lignes]
+    delimiter !== '"' && echapperCaracteresSpeciaux.test(v)
+      ? `"${v.replace(/"/g, '""')}"`
+      : v
+  // Fin d'enregistrement CRLF (RFC 4180), SAUF si une cellule porte elle-même
+  // un CRLF : `parseCsv` lirait alors ce CRLF intérieur comme la fin de ligne
+  // du fichier, donc `\n`. En LF, il revient à l'identique (Excel lit les deux).
+  const lignesCompletes = [entetes, ...lignes]
+  const finDeLigne = lignesCompletes.some((l) =>
+    l.some((v) => v.includes('\r\n')),
+  )
+    ? '\n'
+    : '\r\n'
+  return lignesCompletes
     .map((ligne) => ligne.map(echapper).join(delimiter))
-    .join('\r\n')
+    .join(finDeLigne)
 }
 
 /**
