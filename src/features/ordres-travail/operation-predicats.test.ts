@@ -237,14 +237,14 @@ describe('conformiteLocale — oracle indépendant', () => {
     )
   })
 
-  it.fails('une décimale à la française est comprise comme un nombre', () => {
+  it('une décimale à la française est comprise comme un nombre', () => {
     // ORACLE (UI 100 % française, cf. CLAUDE.md) : l'application affiche ses
     // nombres avec une virgule décimale (`toLocaleString('fr-FR')`). Une valeur
     // relue puis resaisie sous la forme affichée doit être comprise.
     //
-    // BUG CANDIDAT Martin : attendu `true` (12,5 est dans [0, 100]) / observé
-    // `null` (indéterminé). `Number('12,5')` vaut NaN → la conformité passe
-    // silencieusement en « indéterminé » au lieu d'être calculée.
+    // RÉGRESSION (Martin) : `Number('12,5')` vaut NaN → la conformité passait
+    // silencieusement en « indéterminé » au lieu d'être calculée. La saisie est
+    // désormais lue par `lireNombreSaisi`, aussi utilisé à l'enregistrement.
     // Rejouable : conformiteLocale('12,5', op({ seuil_minimum: 0, seuil_maximum: 100 }))
     // Portée : dépend du clavier obtenu par le champ de saisie ; sur mobile FR,
     // la virgule est la touche décimale proposée par défaut.

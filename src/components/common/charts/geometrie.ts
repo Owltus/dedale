@@ -59,13 +59,24 @@ export function anneauComplet(
   rExt: number,
   rInt: number,
 ) {
-  const cercle = (r: number) =>
-    [
-      `M${fmt(cx)} ${fmt(cy - r)}`,
-      `A${fmt(r)} ${fmt(r)} 0 1 1 ${fmt(cx)} ${fmt(cy + r)}`,
-      `A${fmt(r)} ${fmt(r)} 0 1 1 ${fmt(cx)} ${fmt(cy - r)}`,
+  // Le rayon IMPRIMÉ ne doit jamais dépasser la demi-corde IMPRIMÉE : arrondies
+  // séparément, `cy - r` et `cy + r` peuvent partir dans des sens opposés et
+  // raccourcir la corde ; un rayon plus grand que sa moitié décentre alors les
+  // deux demi-arcs (anneau lenticulaire, trop large). Un rayon plus PETIT, lui,
+  // est agrandi par le moteur SVG à la demi-corde exacte (spec F.6.6) : on
+  // l'arrondit donc par DÉFAUT, d'après la corde réellement imprimée.
+  const cercle = (r: number) => {
+    const haut = fmt(cy - r)
+    const bas = fmt(cy + r)
+    const demiCorde = (Number(bas) - Number(haut)) / 2
+    const rayon = fmt(Math.max(Math.floor(demiCorde * 100 + 1e-6) / 100, 0))
+    return [
+      `M${fmt(cx)} ${haut}`,
+      `A${rayon} ${rayon} 0 1 1 ${fmt(cx)} ${bas}`,
+      `A${rayon} ${rayon} 0 1 1 ${fmt(cx)} ${haut}`,
       'Z',
     ].join(' ')
+  }
   return `${cercle(rExt)} ${cercle(rInt)}`
 }
 

@@ -9,6 +9,7 @@ import {
 import {
   basculerStatut,
   conformiteLocale,
+  lireNombreSaisi,
   estCompteur,
   estMesureExecution,
   placeholderRange,
@@ -100,16 +101,11 @@ export function OperationRow({
   // par l'aria-label + le title, en plus de la couleur — pour lecteurs d'écran.
   const conformiteLabel =
     conforme === true ? 'conforme' : conforme === false ? 'hors seuils' : null
-  const courant = value.valeur.trim() === '' ? null : Number(value.valeur)
+  const courant = lireNombreSaisi(value.valeur)
   // Remplacement de compteur (manuel) : index dépose/pose saisis (number ou null).
-  const depose =
-    value.indexDepose.trim() === '' ? null : Number(value.indexDepose)
-  const pose = value.indexPose.trim() === '' ? null : Number(value.indexPose)
-  const aRemplacement =
-    depose !== null &&
-    !Number.isNaN(depose) &&
-    pose !== null &&
-    !Number.isNaN(pose)
+  const depose = lireNombreSaisi(value.indexDepose)
+  const pose = lireNombreSaisi(value.indexPose)
+  const aRemplacement = depose !== null && pose !== null
   // Consommation (helper UNIQUE, replacement-aware) : (dépose − précédent) +
   // (courant − pose), ou courant − précédent hors remplacement. Pour les compteurs.
   const conso = consoOperation({
@@ -120,9 +116,7 @@ export function OperationRow({
   })
   // Affichage LECTURE SEULE (OT clôturé) : valeur enregistrée formatée (« — » si vide).
   const valeurAffichee =
-    courant !== null && !Number.isNaN(courant)
-      ? courant.toLocaleString('fr-FR')
-      : '—'
+    courant !== null ? courant.toLocaleString('fr-FR') : '—'
   const statutLabel = LIBELLES_STATUT_OP[value.statut] ?? value.statut
 
   // Options du statut : les statuts saisissables + l'éventuel statut « système »

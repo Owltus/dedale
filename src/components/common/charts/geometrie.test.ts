@@ -410,28 +410,27 @@ describe('part unique couvrant tout le tour (bug de l’arc dégénéré)', () =
     )
   })
 
-  it.fails(
-    'BUG CANDIDAT — l’anneau déborde quand `fmt` arrondit ses deux extrémités dans des sens opposés',
-    () => {
-      // ORACLE : un anneau de rayon extérieur rExt occupe EXACTEMENT un carré de
-      // côté 2 × rExt. Ici cy - rExt tombe pile sur une valeur qui s'arrondit vers
-      // le BAS (« -18.34 ») pendant que cy + rExt s'arrondit vers le HAUT
-      // (« 18.35 ») : la corde imprimée (36,69) devient plus courte que le rayon
-      // imprimé (18,35) ne le permet, le moteur SVG décentre les deux demi-arcs de
-      // part et d'autre de la corde et l'anneau rendu mesure 37,56 au lieu de
-      // 36,69 — soit ~2,4 % trop large, et un anneau très légèrement lenticulaire.
-      //
-      // ATTENDU : 36,690 · OBSERVÉ : 37,557 (écart 0,867).
-      // Sans conséquence dans Dédale (le donut est toujours tracé en cx=cy=50,
-      // rExt=46 → coordonnées exactes au centième), mais c'est bien une imprécision
-      // du tracé, pas du test : d'où le `it.fails` plutôt qu'une tolérance élargie.
-      const cx = 0
-      const cy = 1.7763568394002505e-15
-      const rExt = 18.345000000000002
-      const boite = boiteEnglobante(anneauComplet(cx, cy, rExt, 1))
-      expect(Math.abs(boite!.xMax - boite!.xMin - 2 * rExt)).toBeLessThan(0.05)
-    },
-  )
+  it('l’anneau ne déborde pas quand `fmt` arrondit ses deux extrémités dans des sens opposés', () => {
+    // RÉGRESSION : corrigée en imprimant le rayon par DÉFAUT d'après la corde
+    // réellement imprimée (cf. `anneauComplet`). Constat d'origine :
+    // ORACLE : un anneau de rayon extérieur rExt occupe EXACTEMENT un carré de
+    // côté 2 × rExt. Ici cy - rExt tombe pile sur une valeur qui s'arrondit vers
+    // le BAS (« -18.34 ») pendant que cy + rExt s'arrondit vers le HAUT
+    // (« 18.35 ») : la corde imprimée (36,69) devient plus courte que le rayon
+    // imprimé (18,35) ne le permet, le moteur SVG décentre les deux demi-arcs de
+    // part et d'autre de la corde et l'anneau rendu mesure 37,56 au lieu de
+    // 36,69 — soit ~2,4 % trop large, et un anneau très légèrement lenticulaire.
+    //
+    // ATTENDU : 36,690 · OBSERVÉ : 37,557 (écart 0,867).
+    // Sans conséquence dans Dédale (le donut est toujours tracé en cx=cy=50,
+    // rExt=46 → coordonnées exactes au centième), mais c'est bien une imprécision
+    // du tracé, pas du test : corrigée plutôt que couverte par une tolérance.
+    const cx = 0
+    const cy = 1.7763568394002505e-15
+    const rExt = 18.345000000000002
+    const boite = boiteEnglobante(anneauComplet(cx, cy, rExt, 1))
+    expect(Math.abs(boite!.xMax - boite!.xMin - 2 * rExt)).toBeLessThan(0.05)
+  })
 
   it('l’ancien contournement (secteur 0,0001° → 359,999°) s’effondre — d’où `anneauComplet`', () => {
     // ORACLE : la spec SVG F.6.2 omet un arc dont les deux extrémités
