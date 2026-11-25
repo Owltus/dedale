@@ -102,32 +102,27 @@ export function useUpdateParcSousCategorieChamps() {
           'Trop de caractéristiques pour un équipement de cette sous-catégorie (limite de taille atteinte).',
         )
       }
+      // Gabarit + valeurs fusionnées des équipements en UNE transaction (RPC
+      // propager_gabarit_sous_categorie, 178) : un échec n'écrit rien. Hors
+      // périmètre, ou équipement d'une autre sous-catégorie → 42501.
       await supabase
-        .from('categories')
-        .update({ specifications: serializeChamps(champs) })
-        .eq('id', id)
-        .select('id')
-        .single()
+        .rpc('propager_gabarit_sous_categorie', {
+          p_categorie_id: id,
+          p_specifications: serializeChamps(champs),
+          p_equipements: fusions.map((f) => ({
+            id: f.id,
+            specifications: f.payload,
+          })),
+        })
         .throwOnError()
-      await Promise.all(
-        fusions.map((f) =>
-          supabase
-            .from('equipements')
-            .update({ specifications: f.payload })
-            .eq('id', f.id)
-            .select('id')
-            .single()
-            .throwOnError(),
-        ),
-      )
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: categoriesQueries.all() })
       void qc.invalidateQueries({ queryKey: equipementsQueries.all() })
     },
     onError: () => {
-      // Une propagation a pu n'aboutir que PARTIELLEMENT (suppression concurrente
-      // d'un équipement, RLS…) → resynchroniser le cache sur la vérité de la base.
+      // Rien n'a été écrit (transaction annulée), mais l'échec peut venir d'un
+      // équipement supprimé entre-temps → resynchroniser le cache sur la base.
       void qc.invalidateQueries({ queryKey: categoriesQueries.all() })
       void qc.invalidateQueries({ queryKey: equipementsQueries.all() })
     },

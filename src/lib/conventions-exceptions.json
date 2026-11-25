@@ -49,12 +49,6 @@
   },
   {
     "regle": "mutation-multi-ecritures",
-    "fichier": "src/features/equipements/mutations.ts",
-    "occurrences": 1,
-    "motif": "à brancher : la RPC transactionnelle propager_gabarit_sous_categorie (migration 178, dans schema_complete.sql) remplace les deux écritures, mais la prod ne l’a pas encore — useUpdateParcSousCategorieChamps y passera au déploiement de 178"
-  },
-  {
-    "regle": "mutation-multi-ecritures",
     "fichier": "src/features/miniatures/mutations.ts",
     "occurrences": 2,
     "motif": "une seule écriture en table ; l’appel suivant (RPC supprimer_blob_orphelin) ne fait que nettoyer le fichier Storage, volontairement non bloquant (antérieur au 25/11/2026)"

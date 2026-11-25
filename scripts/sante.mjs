@@ -148,7 +148,7 @@ const CONTROLES = [
       if (!f.length) return OK('aucun fichier concerné')
       return depuis(
         lancer(
-          `npx eslint --max-warnings=0 ${f.map((x) => `"${x}"`).join(' ')}`,
+          `npx eslint --max-warnings=0 --no-warn-ignored ${f.map((x) => `"${x}"`).join(' ')}`,
         ),
         /problem|error|warning/i,
       )

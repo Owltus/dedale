@@ -4894,6 +4894,14 @@ export type Database = {
         Args: { p_base: string; p_jours: number }
         Returns: string
       }
+      propager_gabarit_sous_categorie: {
+        Args: {
+          p_categorie_id: string
+          p_equipements?: Json
+          p_specifications: Json
+        }
+        Returns: undefined
+      }
       rafraichir_snapshots_ot_ouverts: {
         Args: { p_gamme_id: string }
         Returns: undefined
