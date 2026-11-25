@@ -42,7 +42,7 @@ export const OUTILS_ECRITURE_DI: Outil[] = [
     },
     annotations: ECRITURE,
     schema: z.object({ local_id: uuid, constat, equipement_ids: equipements.default([]), date_constat: date.optional(), appliquer, code }).strict(),
-    run: async (a: { local_id: string; constat: string; equipement_ids: string[]; date_constat?: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { local_id: string; constat: string; equipement_ids: string[]; date_constat?: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_creer_demande', {
         p_local_id: a.local_id, p_constat: a.constat, p_equipement_ids: a.equipement_ids,
         p_date_constat: a.date_constat ?? null, p_appliquer: a.appliquer, p_code: a.code ?? null,
@@ -68,7 +68,7 @@ export const OUTILS_ECRITURE_DI: Outil[] = [
     },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({ demande_id: uuid, constat: constat.optional(), local_id: uuid.optional(), equipement_ids: equipements.optional(), appliquer, code }).strict(),
-    run: async (a: { demande_id: string; constat?: string; local_id?: string; equipement_ids?: string[]; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { demande_id: string; constat?: string; local_id?: string; equipement_ids?: string[]; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_modifier_demande', {
         p_di_id: a.demande_id, p_constat: a.constat ?? null, p_local_id: a.local_id ?? null,
         p_equipement_ids: a.equipement_ids ?? null, p_appliquer: a.appliquer, p_code: a.code ?? null,
@@ -81,7 +81,7 @@ export const OUTILS_ECRITURE_DI: Outil[] = [
     inputSchema: { type: 'object', additionalProperties: false, required: ['demande_id'], properties: { demande_id: { type: 'string' }, ...PROPRIETES_CONFIRMATION } },
     annotations: ECRITURE,
     schema: z.object({ demande_id: uuid, appliquer, code }).strict(),
-    run: async (a: { demande_id: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { demande_id: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_prendre_en_charge_demande', { p_di_id: a.demande_id, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_DI),
   },
   {
@@ -103,7 +103,7 @@ export const OUTILS_ECRITURE_DI: Outil[] = [
     },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({ demande_id: uuid, note: z.string().trim().min(5).max(2000).optional(), date: date.optional(), appliquer, code }).strict(),
-    run: async (a: { demande_id: string; note?: string; date?: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { demande_id: string; note?: string; date?: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_cloturer_demande', {
         p_di_id: a.demande_id, p_note: a.note ?? null, p_date: a.date ?? null, p_appliquer: a.appliquer, p_code: a.code ?? null,
       }, a.appliquer, APRES_DI),
@@ -123,7 +123,7 @@ export const OUTILS_ECRITURE_DI: Outil[] = [
     },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({ demande_id: uuid, motif: z.string().trim().min(10).max(1000), appliquer, code }).strict(),
-    run: async (a: { demande_id: string; motif: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { demande_id: string; motif: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_rouvrir_demande', { p_di_id: a.demande_id, p_motif: a.motif, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_DI),
   },
 ]

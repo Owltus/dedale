@@ -229,7 +229,10 @@ const CONTROLES = [
       if (!present('deno'))
         return NON('Deno absent du PATH (prérequis, cf. README)')
       const cwd = path.join(racine, 'supabase', 'functions')
-      const lint = lancer('deno lint --compact', { cwd })
+      const lint = lancer(
+        'deno lint --compact --rules-exclude=no-import-prefix',
+        { cwd },
+      )
       const check = lancer(
         'deno check --quiet --no-lock --node-modules-dir=none */index.ts',
         { cwd },

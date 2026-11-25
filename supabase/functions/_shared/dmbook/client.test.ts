@@ -72,11 +72,11 @@ Deno.test('édition : texte brut exact (retours à la ligne, entités) + champs 
 /** Faux serveur : chemin → [statut HTTP, page]. */
 const faux = (routes: Record<string, [number, string]>) => {
   const vus: string[] = []
-  const f = (async (url: string | URL | Request, init?: RequestInit) => {
+  const f = ((url: string | URL | Request, init?: RequestInit) => {
     const u = new URL(String(url))
     vus.push(`${init?.method ?? 'GET'} ${u.pathname}`)
     const [statut, html] = routes[u.pathname] ?? [500, 'panne']
-    return new Response(html, { status: statut })
+    return Promise.resolve(new Response(html, { status: statut }))
   }) as typeof fetch
   return { f, vus }
 }

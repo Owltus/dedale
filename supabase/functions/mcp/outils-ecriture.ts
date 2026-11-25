@@ -65,7 +65,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({ ot_id: uuid, saisies: z.array(saisie).min(1).max(200), appliquer, code }).strict(),
-    run: async (a: { ot_id: string; saisies: z.infer<typeof saisie>[]; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { ot_id: string; saisies: z.infer<typeof saisie>[]; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_saisir_operations', { p_ot_id: a.ot_id, p_saisies: a.saisies, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
   {
@@ -78,7 +78,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     },
     annotations: ECRITURE,
     schema: z.object({ ot_id: uuid, date, appliquer, code }).strict(),
-    run: async (a: { ot_id: string; date: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { ot_id: string; date: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_replanifier_ot', { p_ot_id: a.ot_id, p_date: a.date, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
   {
@@ -91,7 +91,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({ ot_id: uuid, motif, appliquer, code }).strict(),
-    run: async (a: { ot_id: string; motif: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { ot_id: string; motif: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_rouvrir_ot', { p_ot_id: a.ot_id, p_motif: a.motif, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
   {
@@ -101,7 +101,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     inputSchema: { type: 'object', additionalProperties: false, required: ['ot_id'], properties: { ot_id: { type: 'string' }, ...PROPRIETES_CONFIRMATION } },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({ ot_id: uuid, appliquer, code }).strict(),
-    run: async (a: { ot_id: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { ot_id: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_cloturer_ot', { p_ot_id: a.ot_id, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
   {
@@ -114,7 +114,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({ ot_id: uuid, motif, appliquer, code }).strict(),
-    run: async (a: { ot_id: string; motif: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { ot_id: string; motif: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_annuler_ot', { p_ot_id: a.ot_id, p_motif: a.motif, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
   {
@@ -124,7 +124,7 @@ export const OUTILS_ECRITURE: Outil[] = [
     inputSchema: { type: 'object', additionalProperties: false, required: ['ot_id'], properties: { ot_id: { type: 'string' }, ...PROPRIETES_CONFIRMATION } },
     annotations: ECRITURE,
     schema: z.object({ ot_id: uuid, appliquer, code }).strict(),
-    run: async (a: { ot_id: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { ot_id: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_reactiver_ot', { p_ot_id: a.ot_id, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_OT),
   },
 ]

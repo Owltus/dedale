@@ -111,7 +111,7 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
       fiche, fiche_id: uuid, titre: z.string().trim().min(3).max(200).optional(), description: z.string().max(5000).optional(),
       local_id: uuid.optional(), equipement_id: uuid.optional(), sans_equipement: z.boolean().optional(), appliquer, code,
     }).strict(),
-    run: async (a: { fiche: string; fiche_id: string; titre?: string; description?: string; local_id?: string; equipement_id?: string; sans_equipement?: boolean; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { fiche: string; fiche_id: string; titre?: string; description?: string; local_id?: string; equipement_id?: string; sans_equipement?: boolean; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_modifier_fiche', {
         p_type: a.fiche, p_id: a.fiche_id, p_titre: a.titre ?? null, p_description: a.description ?? null,
         p_local_id: a.local_id ?? null, p_equipement_id: a.equipement_id ?? null, p_sans_equipement: a.sans_equipement ?? null,
@@ -131,7 +131,7 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
     },
     annotations: ECRITURE,
     schema: z.object({ fiche, fiche_id: uuid, taches: z.array(tacheNouvelle).min(1).max(100), appliquer, code }).strict(),
-    run: async (a: { fiche: string; fiche_id: string; taches: unknown[]; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { fiche: string; fiche_id: string; taches: unknown[]; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_ajouter_taches', { p_type: a.fiche, p_id: a.fiche_id, p_taches: a.taches, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_FICHE),
   },
   {
@@ -176,7 +176,7 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
       }).strict()).min(1).max(100),
       appliquer, code,
     }).strict(),
-    run: async (a: { fiche: string; fiche_id: string; saisies: unknown[]; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { fiche: string; fiche_id: string; saisies: unknown[]; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_avancer_taches', { p_type: a.fiche, p_id: a.fiche_id, p_saisies: a.saisies, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_FICHE),
   },
   {
@@ -186,7 +186,7 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
     inputSchema: { type: 'object', additionalProperties: false, required: ['fiche', 'fiche_id'], properties: { fiche: PROPRIETE_FICHE, fiche_id: PROPRIETE_ID, ...PROPRIETES_CONFIRMATION } },
     annotations: ECRITURE,
     schema: z.object({ fiche, fiche_id: uuid, appliquer, code }).strict(),
-    run: async (a: { fiche: string; fiche_id: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { fiche: string; fiche_id: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_prendre_en_charge_fiche', { p_type: a.fiche, p_id: a.fiche_id, p_appliquer: a.appliquer, p_code: a.code ?? null }, a.appliquer, APRES_FICHE),
   },
   {
@@ -209,7 +209,7 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
     },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({ fiche, fiche_id: uuid, compte_rendu: z.string().trim().min(5).max(5000).optional(), date: date.optional(), appliquer, code }).strict(),
-    run: async (a: { fiche: string; fiche_id: string; compte_rendu?: string; date?: string; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { fiche: string; fiche_id: string; compte_rendu?: string; date?: string; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_cloturer_fiche', {
         p_type: a.fiche, p_id: a.fiche_id, p_compte_rendu: a.compte_rendu ?? null, p_date: a.date ?? null,
         p_appliquer: a.appliquer, p_code: a.code ?? null,
@@ -235,7 +235,7 @@ export const OUTILS_ECRITURE_FICHES: Outil[] = [
     },
     annotations: ECRITURE_SENSIBLE,
     schema: z.object({ fiche, fiche_id: uuid, motif: z.string().trim().min(10).max(1000), taches_a_reprendre: z.array(uuid).max(100).optional(), appliquer, code }).strict(),
-    run: async (a: { fiche: string; fiche_id: string; motif: string; taches_a_reprendre?: string[]; appliquer: boolean; code?: string }, ctx) =>
+    run: (a: { fiche: string; fiche_id: string; motif: string; taches_a_reprendre?: string[]; appliquer: boolean; code?: string }, ctx) =>
       geste(ctx, 'claude_rouvrir_fiche', {
         p_type: a.fiche, p_id: a.fiche_id, p_motif: a.motif, p_taches_a_reprendre: a.taches_a_reprendre ?? null,
         p_appliquer: a.appliquer, p_code: a.code ?? null,

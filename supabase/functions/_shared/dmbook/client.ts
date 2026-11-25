@@ -81,9 +81,18 @@ class PotDeCookies {
 
 const parser = new DOMParser()
 const doc = (html: string) => parser.parseFromString(html, 'text/html')
-// deno-lint-ignore no-explicit-any
-type El = any
-const txt = (e: El) => ((e?.textContent as string | undefined) ?? '').replace(/\s+/g, ' ').trim()
+/** Nœud HTML tel que ce client le lit (sous-ensemble structurel du DOM de linkedom). */
+type El = {
+  nodeType: number
+  tagName: string
+  textContent: string | null
+  innerHTML: string
+  childNodes: Iterable<El>
+  getAttribute(nom: string): string | null
+  querySelector(selecteur: string): El | null
+  querySelectorAll(selecteur: string): Iterable<El>
+}
+const txt = (e: El | null | undefined) => ((e?.textContent as string | undefined) ?? '').replace(/\s+/g, ' ').trim()
 const lettres = (s: string) => s.toLowerCase().replace(/[^a-zà-ÿ]/g, '')
 /** Décode les entités HTML d'un texte brut (« &amp; » → « & »), sans interpréter de balise. */
 const decoder = (brut: string) => (doc(`<p>${brut.replace(/</g, '&lt;')}</p>`).querySelector('p')?.textContent as string) ?? brut

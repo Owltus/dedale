@@ -54,17 +54,26 @@ export async function chargerLocaux(sb: SupabaseClient, site: string): Promise<L
   return new Locaux(l.map((x): Local => ({ id: x.id, nom: x.nom, niveau: x.niveaux.nom })))
 }
 
+/** Ligne lue par `chargerDi` (select `id, statut_di_id, constat, di_localisations(local_id, locaux(nom))`). */
+type DiLue = {
+  id: string
+  statut_di_id: number
+  constat: string
+  di_localisations: { local_id: string; locaux: { nom: string } }[] | null
+}
+
 async function chargerDi(sb: SupabaseClient, ids: string[], attente: Map<string, string[]>): Promise<Map<string, DiActuelle>> {
   const res = new Map<string, DiActuelle>()
   for (let i = 0; i < ids.length; i += 100) {
     const { data, error } = await sb.from('demandes_intervention')
       .select('id, statut_di_id, constat, di_localisations(local_id, locaux(nom))').in('id', ids.slice(i, i + 100))
     if (error) throw new Error(error.message)
-    // deno-lint-ignore no-explicit-any
-    for (const d of data as any[])
+    // Client non typé par le schéma : sans les relations, l'inférence du select croit `locaux`
+    // en tableau alors que la FK (un lieu par liaison) le renvoie en objet → passage par `unknown`.
+    for (const d of data as unknown as DiLue[])
       res.set(d.id, {
         id: d.id, statut: d.statut_di_id, constat: d.constat,
-        lieux: (d.di_localisations ?? []).map((x: { local_id: string; locaux: { nom: string } }) => ({ id: x.local_id, nom: x.locaux.nom })),
+        lieux: (d.di_localisations ?? []).map((x) => ({ id: x.local_id, nom: x.locaux.nom })),
         enAttente: attente.get(d.id) ?? [],
       })
   }

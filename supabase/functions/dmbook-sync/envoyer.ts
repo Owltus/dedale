@@ -85,17 +85,25 @@ export type RapportEnvoi = {
 }
 
 type Di = { id: string; constat: string; statut: number; chambres: string[] }
+/** Ligne lue par `chargerDi` (select `id, constat, statut_di_id, di_localisations(locaux(nom))`). */
+type DiLue = {
+  id: string
+  constat: string
+  statut_di_id: number
+  di_localisations: { locaux: { nom: string } | null }[] | null
+}
 
 async function chargerDi(sb: SupabaseClient, id: string): Promise<Di | null> {
   const { data, error } = await sb.from('demandes_intervention')
     .select('id, constat, statut_di_id, di_localisations(locaux(nom))').eq('id', id).maybeSingle()
   if (error) throw new Error(error.message)
   if (!data) return null
-  // deno-lint-ignore no-explicit-any
-  const d = data as any
+  // Client non typé par le schéma : sans les relations, l'inférence du select croit `locaux`
+  // en tableau alors que la FK (un lieu par liaison) le renvoie en objet → passage par `unknown`.
+  const d = data as unknown as DiLue
   const chambres = (d.di_localisations ?? [])
-    .map((x: { locaux: { nom: string } | null }) => x.locaux ? chambreDuNom(x.locaux.nom) : null)
-    .filter((c: string | null): c is string => !!c)
+    .map((x) => x.locaux ? chambreDuNom(x.locaux.nom) : null)
+    .filter((c): c is string => !!c)
     .sort()
   return { id: d.id, constat: d.constat, statut: d.statut_di_id, chambres }
 }
