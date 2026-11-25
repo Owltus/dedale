@@ -109,7 +109,6 @@ export function OrdresTravailListe({
       natureFilter === FILTRE_TOUS ? null : (natureFilter as NatureGamme),
       rechercheServeur,
     ),
-    enabled: statutsTermines.length > 0,
     placeholderData: keepPreviousData,
   })
   const ouvertsFiltres = useMemo(() => {

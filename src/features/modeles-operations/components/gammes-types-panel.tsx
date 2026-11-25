@@ -55,10 +55,9 @@ export function GammesTypesPanel() {
 
   // Gammes liées au modèle à supprimer : on anticipe le RESTRICT FK plutôt que de
   // heurter un mur d'erreur. La requête n'est active que pendant la confirmation.
-  const liensQuery = useQuery({
-    ...modelesOperationsQueries.liens(toDelete?.id ?? ''),
-    enabled: toDelete !== null,
-  })
+  const liensQuery = useQuery(
+    modelesOperationsQueries.liens(toDelete?.id ?? null),
+  )
   const liens = liensQuery.data ?? []
   const hasLiens = liens.length > 0
 

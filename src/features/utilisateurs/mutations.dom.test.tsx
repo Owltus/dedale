@@ -13,7 +13,7 @@ import {
   useAnonymizeUser,
   useAssignSite,
   useChangerAccesClaude,
-  useCreerCompte,
+  useCreateCompte,
   useSetUserPassword,
   useToggleActif,
   useUnassignSite,
@@ -82,11 +82,11 @@ const compte = {
   password_confirm: ' mot de passe à espaces ',
 }
 
-describe('useCreerCompte (Edge Function invite_user)', () => {
+describe('useCreateCompte (Edge Function invite_user)', () => {
   it('appelle invite_user : e-mail normalisé, nom nettoyé, mot de passe INTACT, sans écrire en base, puis invalidation', async () => {
     enr.courant = nouvelEnregistreur()
     invoke.mockReset().mockResolvedValue({ data: { ok: true }, error: null })
-    const { invalidations } = await jouer(() => useCreerCompte(), compte)
+    const { invalidations } = await jouer(() => useCreateCompte(), compte)
     expect(invoke).toHaveBeenCalledTimes(1)
     expect(invoke).toHaveBeenCalledWith('invite_user', {
       body: {
@@ -111,7 +111,7 @@ describe('useCreerCompte (Edge Function invite_user)', () => {
       error: new Error('Edge Function returned a non-2xx status code'),
     })
     const { result, invalidations } = await jouer(
-      () => useCreerCompte(),
+      () => useCreateCompte(),
       compte,
       'echec',
     )
@@ -128,7 +128,7 @@ describe('useCreerCompte (Edge Function invite_user)', () => {
       .mockReset()
       .mockResolvedValue({ data: { error: 'Rôle non autorisé' }, error: null })
     const { result, invalidations } = await jouer(
-      () => useCreerCompte(),
+      () => useCreateCompte(),
       compte,
       'echec',
     )
@@ -144,7 +144,7 @@ describe('useCreerCompte (Edge Function invite_user)', () => {
       }),
     })
     invoke.mockReset().mockResolvedValue({ data: null, error: erreur })
-    const { result } = await jouer(() => useCreerCompte(), compte, 'echec')
+    const { result } = await jouer(() => useCreateCompte(), compte, 'echec')
     expect((result.current.error as Error).message).toBe('Accès refusé')
   })
 })

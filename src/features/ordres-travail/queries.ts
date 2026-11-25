@@ -66,27 +66,31 @@ export const ordresTravailQueries = {
         recherche,
       ] as const,
       initialPageParam: 0,
-      queryFn: async ({ pageParam, signal }) => {
-        let q = supabase
-          .from('ordres_travail')
-          .select(COLONNES_LISTE)
-          .eq('site_id', siteId)
-          .in('statut', [...statuts])
-        if (nature) q = q.eq('nature_gamme', nature)
-        const motif = motifRechercheServeur(recherche)
-        if (motif)
-          q = q.or(
-            `nom_gamme.imatch.${motif},nom_equipement.imatch.${motif},nom_prestataire.imatch.${motif}`,
-          )
-        const { data } = await q
-          .order('date_cloture', { ascending: false, nullsFirst: false })
-          .order('date_prevue', { ascending: true })
-          .order('id', { ascending: true })
-          .range(pageParam, pageParam + OT_PAR_PAGE - 1)
-          .abortSignal(signal)
-          .throwOnError()
-        return { ots: data, decalage: pageParam }
-      },
+      // Aucun statut terminé retenu par le filtre → rien à lire.
+      queryFn:
+        statuts.length === 0
+          ? skipToken
+          : async ({ pageParam, signal }) => {
+              let q = supabase
+                .from('ordres_travail')
+                .select(COLONNES_LISTE)
+                .eq('site_id', siteId)
+                .in('statut', [...statuts])
+              if (nature) q = q.eq('nature_gamme', nature)
+              const motif = motifRechercheServeur(recherche)
+              if (motif)
+                q = q.or(
+                  `nom_gamme.imatch.${motif},nom_equipement.imatch.${motif},nom_prestataire.imatch.${motif}`,
+                )
+              const { data } = await q
+                .order('date_cloture', { ascending: false, nullsFirst: false })
+                .order('date_prevue', { ascending: true })
+                .order('id', { ascending: true })
+                .range(pageParam, pageParam + OT_PAR_PAGE - 1)
+                .abortSignal(signal)
+                .throwOnError()
+              return { ots: data, decalage: pageParam }
+            },
       getNextPageParam: (derniere) =>
         derniere.ots.length < OT_PAR_PAGE
           ? undefined
@@ -125,24 +129,26 @@ export const ordresTravailQueries = {
         siteId,
         [...gammeIds].sort().join(','),
       ] as const,
-      enabled: siteId !== null && gammeIds.length > 0,
       // Paginé : au palier catégorie, l'historique de toutes les gammes réunies
       // peut dépasser le plafond de 1 000 lignes (cf. pagination.ts).
-      queryFn: ({ signal }) =>
-        toutesLesLignes((debut, fin) =>
-          supabase
-            .from('ordres_travail')
-            .select(
-              'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, description_gamme, date_prevue, date_cloture, gamme_id, miniature_id',
-            )
-            .eq('site_id', siteId!)
-            .in('gamme_id', gammeIds)
-            .order('date_prevue', { ascending: false })
-            .order('id', { ascending: true })
-            .range(debut, fin)
-            .abortSignal(signal)
-            .throwOnError(),
-        ),
+      queryFn:
+        siteId === null || gammeIds.length === 0
+          ? skipToken
+          : ({ signal }) =>
+              toutesLesLignes((debut, fin) =>
+                supabase
+                  .from('ordres_travail')
+                  .select(
+                    'id, statut, origine, tolerance_jours, nom_gamme, nom_prestataire, nom_equipement, description_gamme, date_prevue, date_cloture, gamme_id, miniature_id',
+                  )
+                  .eq('site_id', siteId)
+                  .in('gamme_id', gammeIds)
+                  .order('date_prevue', { ascending: false })
+                  .order('id', { ascending: true })
+                  .range(debut, fin)
+                  .abortSignal(signal)
+                  .throwOnError(),
+              ),
     }),
 
   /**
@@ -326,43 +332,50 @@ export const ordresTravailQueries = {
         gammeId,
         currentDatePrevue,
       ] as const,
-      enabled: gammeId !== null && currentDatePrevue !== null && aCorreler,
-      queryFn: async ({ signal }): Promise<IndexPrecedents> => {
-        const parProvenance: Record<string, number> = {}
-        const parNom: Record<string, number> = {}
-        const { data } = await supabase
-          .from('operations_execution')
-          .select(
-            'source_type, source_id, nom, equipement_id, valeur_mesuree, ordres_travail!inner(gamme_id, date_prevue)',
-          )
-          .eq('ordres_travail.gamme_id', gammeId!)
-          // STRICTEMENT antérieurs : uniquement les OT planifiés AVANT le courant →
-          // le 1er relevé d'un compteur n'a pas de « précédent » (rien à afficher).
-          .lt('ordres_travail.date_prevue', currentDatePrevue!)
-          .neq('ordre_travail_id', otId)
-          .eq('statut', 'terminee')
-          .not('valeur_mesuree', 'is', null)
-          // date_execution est NULLABLE (OT historiques importés : un relevé peut
-          // avoir une valeur sans date). On NE les exclut PAS — NULLS LAST pour que le
-          // 1er par source (boucle) soit le relevé daté le plus récent quand il existe.
-          // created_at départage deux relevés du même jour (date à midi UTC = égale).
-          .order('date_execution', { ascending: false, nullsFirst: false })
-          .order('created_at', { ascending: false })
-          .abortSignal(signal)
-          .throwOnError()
-        for (const r of data) {
-          // `valeur_mesuree` est non nulle par construction (filtre `.not(… is null)`
-          // ci-dessus), et le type l'exprime — pas de garde redondante ici.
-          // Liste triée par date DESC → le 1er rencontré par clé est le plus récent.
-          const provenance = cleProvenance(r)
-          if (provenance !== null && !(provenance in parProvenance)) {
-            parProvenance[provenance] = r.valeur_mesuree
-          }
-          const nom = cleNom(gammeId, r)
-          if (nom !== null && !(nom in parNom)) parNom[nom] = r.valeur_mesuree
-        }
-        return { parProvenance, parNom }
-      },
+      // Sans gamme ni date prévue, pas de « précédent » ; sans compteur à corréler, rien à lire.
+      queryFn:
+        gammeId === null || currentDatePrevue === null || !aCorreler
+          ? skipToken
+          : async ({ signal }): Promise<IndexPrecedents> => {
+              const parProvenance: Record<string, number> = {}
+              const parNom: Record<string, number> = {}
+              const { data } = await supabase
+                .from('operations_execution')
+                .select(
+                  'source_type, source_id, nom, equipement_id, valeur_mesuree, ordres_travail!inner(gamme_id, date_prevue)',
+                )
+                .eq('ordres_travail.gamme_id', gammeId)
+                // STRICTEMENT antérieurs : uniquement les OT planifiés AVANT le courant →
+                // le 1er relevé d'un compteur n'a pas de « précédent » (rien à afficher).
+                .lt('ordres_travail.date_prevue', currentDatePrevue)
+                .neq('ordre_travail_id', otId)
+                .eq('statut', 'terminee')
+                .not('valeur_mesuree', 'is', null)
+                // date_execution est NULLABLE (OT historiques importés : un relevé peut
+                // avoir une valeur sans date). On NE les exclut PAS — NULLS LAST pour que le
+                // 1er par source (boucle) soit le relevé daté le plus récent quand il existe.
+                // created_at départage deux relevés du même jour (date à midi UTC = égale).
+                .order('date_execution', {
+                  ascending: false,
+                  nullsFirst: false,
+                })
+                .order('created_at', { ascending: false })
+                .abortSignal(signal)
+                .throwOnError()
+              for (const r of data) {
+                // `valeur_mesuree` est non nulle par construction (filtre `.not(… is null)`
+                // ci-dessus), et le type l'exprime — pas de garde redondante ici.
+                // Liste triée par date DESC → le 1er rencontré par clé est le plus récent.
+                const provenance = cleProvenance(r)
+                if (provenance !== null && !(provenance in parProvenance)) {
+                  parProvenance[provenance] = r.valeur_mesuree
+                }
+                const nom = cleNom(gammeId, r)
+                if (nom !== null && !(nom in parNom))
+                  parNom[nom] = r.valeur_mesuree
+              }
+              return { parProvenance, parNom }
+            },
     }),
 }
 

@@ -48,7 +48,7 @@ function initialValues(document: DocumentMeta | null): DocumentEditValues {
  * partout où il apparaît). AUTO-SUFFISANTE — porte ses mutations
  * (`useUpdateDocument` + `useReplaceDocumentFile`) et le référentiel des
  * types ; se monte sans câblage depuis n'importe quelle liste via
- * `DocumentsListe` (`canEdit`).
+ * `ListeDocuments` (`canEdit`).
  */
 export function DocumentEditDialog({
   open,

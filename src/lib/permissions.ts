@@ -6,6 +6,8 @@
  * 5 rôles : admin · manager · technicien · lecteur · demandeur.
  */
 
+import { STATUT_DI_OUVERT } from '@/lib/statuts-di'
+
 export type Role = string | null | undefined
 
 /** Codes de rôle applicatifs (stables, cf. table public.roles). */
@@ -139,7 +141,7 @@ export function canEditDemande(
     return (
       !!userId &&
       demande.created_by === userId &&
-      demande.statut_di_id === 1 /* STATUT_DI_OUVERT (demandes/etat) */
+      demande.statut_di_id === STATUT_DI_OUVERT
     )
   return false
 }
@@ -163,7 +165,7 @@ export function canDeleteDemande(
     return (
       !!userId &&
       demande.created_by === userId &&
-      demande.statut_di_id === 1 /* STATUT_DI_OUVERT (demandes/etat) */
+      demande.statut_di_id === STATUT_DI_OUVERT
     )
   return false
 }

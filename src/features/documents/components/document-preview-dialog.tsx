@@ -25,10 +25,7 @@ export function DocumentPreviewDialog({
     data: url,
     isError,
     refetch,
-  } = useQuery({
-    ...documentsQueries.signedUrl(doc?.storage_path ?? ''),
-    enabled: doc !== null,
-  })
+  } = useQuery(documentsQueries.signedUrl(doc?.storage_path ?? null))
 
   return (
     <DialogShell

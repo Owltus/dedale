@@ -5,7 +5,7 @@ import { FileText, X } from 'lucide-react'
 import { devisSchema } from '../schemas'
 import type { DevisFormValues } from '../schemas'
 import type { Devis } from '../queries'
-import { useCreerDevis, useModifierDevis } from '../mutations'
+import { useCreateDevis, useUpdateDevis } from '../mutations'
 import { MIME_PDF, validerFichier } from '@/features/documents/upload'
 import { useUploadAndAttach } from '@/features/documents/mutations'
 import { useAuth } from '@/auth'
@@ -56,8 +56,8 @@ export function DevisDialog({
   const { session } = useAuth()
   const { activeSiteId } = useSiteContext()
   const upload = useUploadAndAttach()
-  const creer = useCreerDevis()
-  const modifier = useModifierDevis()
+  const creer = useCreateDevis()
+  const modifier = useUpdateDevis()
   const [piece, setPiece] = useState<PieceDevis | null>(pieceInitiale)
   const [erreurFichier, setErreurFichier] = useState<string | null>(null)
   const form = useForm<DevisFormValues>({

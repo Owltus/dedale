@@ -12,12 +12,12 @@ import { investissementsQueries } from './queries'
 import {
   useChangeStatutCapex,
   useCreateInvestissement,
-  useCreerDevis,
+  useCreateDevis,
   useDeleteInvestissement,
-  useModifierDateValidation,
-  useModifierDevis,
+  useUpdateDateValidation,
+  useUpdateDevis,
   useRetenirDevis,
-  useSupprimerDevis,
+  useDeleteDevis,
   useUpdateInvestissement,
 } from './mutations'
 
@@ -300,7 +300,7 @@ describe('useDeleteInvestissement', () => {
   })
 })
 
-describe('useModifierDateValidation', () => {
+describe('useUpdateDateValidation', () => {
   it.each([
     ['prevalidation', { date_prevalidation: '2026-10-01' }],
     ['validation', { date_validation: '2026-10-01' }],
@@ -308,7 +308,7 @@ describe('useModifierDateValidation', () => {
     'niveau %s : n’écrit QUE la date de ce niveau',
     async (niveau, attendu) => {
       enr.courant = nouvelEnregistreur({ reponses: [{ id: PROJET }] })
-      const { invalidations } = await jouer(() => useModifierDateValidation(), {
+      const { invalidations } = await jouer(() => useUpdateDateValidation(), {
         id: PROJET,
         niveau,
         date: '2026-10-01',
@@ -323,7 +323,7 @@ describe('useModifierDateValidation', () => {
   it('échec : rien d’invalidé', async () => {
     enr.courant = nouvelEnregistreur({ echecA: 1, erreur: REFUS })
     const { invalidations } = await jouer(
-      () => useModifierDateValidation(),
+      () => useUpdateDateValidation(),
       { id: PROJET, niveau: 'validation' as const, date: '2026-10-01' },
       'echec',
     )
@@ -331,10 +331,10 @@ describe('useModifierDateValidation', () => {
   })
 })
 
-describe('useCreerDevis', () => {
+describe('useCreateDevis', () => {
   it('INSERT sur investissements_devis : fournisseur trim, objet vide → null, montant « 1234,5 » → 1234.5', async () => {
     enr.courant = nouvelEnregistreur({ reponses: [{ id: DEVIS }] })
-    const { invalidations } = await jouer(() => useCreerDevis(), {
+    const { invalidations } = await jouer(() => useCreateDevis(), {
       projetId: PROJET,
       values: devisValeurs,
       documentId: DOC,
@@ -357,7 +357,7 @@ describe('useCreerDevis', () => {
 
   it('montant vide : envoyé à 0 (le schéma le refuse en amont)', async () => {
     enr.courant = nouvelEnregistreur({ reponses: [{ id: DEVIS }] })
-    await jouer(() => useCreerDevis(), {
+    await jouer(() => useCreateDevis(), {
       projetId: PROJET,
       values: { ...devisValeurs, montant_ht: '  ' },
       documentId: null,
@@ -371,7 +371,7 @@ describe('useCreerDevis', () => {
   it('refus 42501 : erreur remontée, rien d’invalidé', async () => {
     enr.courant = nouvelEnregistreur({ echecA: 1, erreur: REFUS })
     const { result, invalidations } = await jouer(
-      () => useCreerDevis(),
+      () => useCreateDevis(),
       { projetId: PROJET, values: devisValeurs, documentId: null },
       'echec',
     )
@@ -380,10 +380,10 @@ describe('useCreerDevis', () => {
   })
 })
 
-describe('useModifierDevis', () => {
+describe('useUpdateDevis', () => {
   it('documentId absent : le PDF n’est pas touché', async () => {
     enr.courant = nouvelEnregistreur({ reponses: [{ id: DEVIS }] })
-    const { invalidations } = await jouer(() => useModifierDevis(), {
+    const { invalidations } = await jouer(() => useUpdateDevis(), {
       id: DEVIS,
       values: devisValeurs,
     })
@@ -398,7 +398,7 @@ describe('useModifierDevis', () => {
 
   it('documentId null : le PDF est détaché explicitement', async () => {
     enr.courant = nouvelEnregistreur({ reponses: [{ id: DEVIS }] })
-    await jouer(() => useModifierDevis(), {
+    await jouer(() => useUpdateDevis(), {
       id: DEVIS,
       values: devisValeurs,
       documentId: null,
@@ -409,7 +409,7 @@ describe('useModifierDevis', () => {
   it('échec : rien d’invalidé', async () => {
     enr.courant = nouvelEnregistreur({ echecA: 1, erreur: REFUS })
     const { invalidations } = await jouer(
-      () => useModifierDevis(),
+      () => useUpdateDevis(),
       { id: DEVIS, values: devisValeurs },
       'echec',
     )
@@ -443,10 +443,10 @@ describe('useRetenirDevis', () => {
   })
 })
 
-describe('useSupprimerDevis', () => {
+describe('useDeleteDevis', () => {
   it('DELETE ciblé sur le devis (le PDF reste), puis invalidation', async () => {
     enr.courant = nouvelEnregistreur({ reponses: [{ id: DEVIS }] })
-    const { invalidations } = await jouer(() => useSupprimerDevis(), DEVIS)
+    const { invalidations } = await jouer(() => useDeleteDevis(), DEVIS)
     expect(sequence(enr.courant)).toEqual(['from:investissements_devis delete'])
     expect(appels(0)).toContainEqual(['eq', 'id', DEVIS])
     expect(invalidations).toHaveBeenCalledTimes(1)
@@ -455,7 +455,7 @@ describe('useSupprimerDevis', () => {
   it('échec : rien d’invalidé', async () => {
     enr.courant = nouvelEnregistreur({ echecA: 1, erreur: REFUS })
     const { invalidations } = await jouer(
-      () => useSupprimerDevis(),
+      () => useDeleteDevis(),
       DEVIS,
       'echec',
     )

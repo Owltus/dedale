@@ -8,7 +8,7 @@ import {
   emptyCreerCompte,
 } from '../schemas'
 import type { CreerCompteFormValues, RoleCode } from '../schemas'
-import { useCreerCompte } from '../mutations'
+import { useCreateCompte } from '../mutations'
 import { sitesQueries } from '@/features/sites/queries'
 import { useSubmitDialog } from '@/hooks/use-submit-dialog'
 import { Form } from '@/components/ui/form'
@@ -42,7 +42,7 @@ export function CreerCompteDialog({
   onOpenChange,
   callerRole,
 }: CreerCompteDialogProps) {
-  const creer = useCreerCompte()
+  const creer = useCreateCompte()
   // Sites que l'appelant peut rattacher (admin = tous, sinon ses sites).
   const { data: sites = [] } = useQuery(sitesQueries.mine())
   const rolesCreables = CASCADE[callerRole]

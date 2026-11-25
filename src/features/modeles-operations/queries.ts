@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
 
@@ -39,24 +39,27 @@ export const modelesOperationsQueries = {
    * y compris les gammes hors périmètre masquées par la RLS et absentes de cette
    * liste — avant de supprimer : aucun blocage FK résiduel à gérer côté UI.
    */
-  liens: (modeleId: string) =>
+  liens: (modeleId: string | null) =>
     queryOptions({
       queryKey: [...modelesOperationsQueries.all(), 'liens', modeleId] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('gamme_modeles')
-          .select('gamme_id, gammes(nom)')
-          .eq('modele_operation_id', modeleId)
-          .abortSignal(signal)
-          .throwOnError()
-        return data.map(
-          (row): GammeLieeAModele => ({
-            gammeId: row.gamme_id,
-            // `gamme_id` est une FK NOT NULL → la gamme jointe existe toujours.
-            nom: row.gammes.nom,
-          }),
-        )
-      },
+      queryFn:
+        modeleId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('gamme_modeles')
+                .select('gamme_id, gammes(nom)')
+                .eq('modele_operation_id', modeleId)
+                .abortSignal(signal)
+                .throwOnError()
+              return data.map(
+                (row): GammeLieeAModele => ({
+                  gammeId: row.gamme_id,
+                  // `gamme_id` est une FK NOT NULL → la gamme jointe existe toujours.
+                  nom: row.gammes.nom,
+                }),
+              )
+            },
       staleTime: 30_000,
     }),
 
@@ -90,17 +93,19 @@ export const modelesOperationsQueries = {
         'items-multi',
         [...modeleIds].sort().join(','),
       ] as const,
-      enabled: modeleIds.length > 0,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('modeles_operations_items')
-          .select('modele_operation_id, nom')
-          .in('modele_operation_id', modeleIds)
-          .order('ordre')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        modeleIds.length === 0
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('modeles_operations_items')
+                .select('modele_operation_id, nom')
+                .in('modele_operation_id', modeleIds)
+                .order('ordre')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /**

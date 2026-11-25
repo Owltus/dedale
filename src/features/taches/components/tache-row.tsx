@@ -10,7 +10,7 @@ import {
 } from '../statut-zone'
 import { documentsQueries } from '@/features/documents/queries'
 import type { LiaisonAvecTache } from '@/features/documents/queries'
-import { DocumentsListe } from '@/features/documents/components/documents-liste'
+import { ListeDocuments } from '@/features/documents/components/liste-documents'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { SelectDropdown } from '@/components/ui/select-dropdown'
 import { DateField } from '@/components/ui/date-field'
@@ -204,7 +204,7 @@ export function TacheRow({
 
       {docs.length > 0 && (
         <div className="border-t px-3 py-2">
-          <DocumentsListe
+          <ListeDocuments
             docs={docs}
             draggable={!readOnly}
             compact

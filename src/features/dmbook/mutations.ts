@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { invokeFunction } from '@/lib/edge'
+import { dmbookQueries } from './queries'
 
 interface Reponse {
   etat: string
@@ -22,7 +23,9 @@ export interface ReglageDmbook {
 export function useConnexionDmbook() {
   const queryClient = useQueryClient()
   const relire = () =>
-    queryClient.invalidateQueries({ queryKey: ['dmbook', 'connexions'] })
+    queryClient.invalidateQueries({
+      queryKey: dmbookQueries.connexions().queryKey,
+    })
   const enregistrer = useMutation({
     mutationFn: (r: ReglageDmbook) =>
       invokeFunction<Reponse>('dmbook-connexion', {

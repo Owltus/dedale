@@ -32,17 +32,13 @@ import { ConnexionsClaudeCard } from '@/features/connecteur/components/connexion
 
 export function Profil() {
   const { session } = useAuth()
-  const userId = session?.user.id ?? ''
+  const userId = session?.user.id ?? null
   const email = session?.user.email ?? ''
 
-  const { data: me, isPending } = useQuery({
-    ...utilisateursQueries.me(userId),
-    enabled: userId !== '',
-  })
-  const { data: telephone = '', isPending: telPending } = useQuery({
-    ...utilisateursQueries.telephone(userId),
-    enabled: userId !== '',
-  })
+  const { data: me, isPending } = useQuery(utilisateursQueries.me(userId))
+  const { data: telephone = '', isPending: telPending } = useQuery(
+    utilisateursQueries.telephone(userId),
+  )
 
   return (
     // `bodyMaxWidth` centre le CORPS sans emporter l'en-tête : enveloppés
@@ -71,8 +67,8 @@ export function Profil() {
                 <EmailBlock currentEmail={email} />
                 <div className="h-px bg-border" />
                 <ProfilForm
-                  key={userId}
-                  userId={userId}
+                  key={me.id}
+                  userId={me.id}
                   initialNom={me.nom_complet}
                   initialTelephone={telephone}
                   role={me.roles.code}

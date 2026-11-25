@@ -3,10 +3,16 @@ import {
   type StatusTone,
 } from '@/components/common/status-badge'
 
+import {
+  STATUT_DI_CLOTURE,
+  STATUT_DI_EN_COURS,
+  STATUT_DI_OUVERT,
+} from '@/lib/statuts-di'
+
 // Référentiel statuts_di (migration 052) : 1 Ouvert, 2 En cours, 3 Clôturé.
-export const STATUT_DI_OUVERT = 1
-export const STATUT_DI_EN_COURS = 2
-export const STATUT_DI_CLOTURE = 3
+// Les codes vivent dans `lib/statuts-di.ts` (importable par `lib/permissions`) ;
+// ce fichier reste le point d'entrée de la feature et les ré-exporte.
+export { STATUT_DI_CLOTURE, STATUT_DI_EN_COURS, STATUT_DI_OUVERT }
 
 const LABELS: Record<number, string> = {
   [STATUT_DI_OUVERT]: 'Ouvert',
@@ -30,9 +36,9 @@ export const STATUTS_DI_TERMINAUX = [STATUT_DI_CLOTURE] as const
  * Consommé par la pastille réutilisable `StatusBadge`.
  */
 const TONES: Record<number, StatusTone> = {
-  2: 'warning', // En cours
-  3: 'success', // Clôturé (état clos)
-  // 1 (Ouvert / à traiter) → repli neutral
+  [STATUT_DI_EN_COURS]: 'warning',
+  [STATUT_DI_CLOTURE]: 'success', // état clos
+  // STATUT_DI_OUVERT (à traiter) → repli neutral
 }
 export function statutTone(statutId: number): StatusTone {
   return statusToneById(statutId, TONES)
