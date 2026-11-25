@@ -312,33 +312,31 @@ describe('useSlugResolved — pièges de résolution', () => {
     expect(renavigate).not.toHaveBeenCalled()
   })
 
-  // BUG CANDIDAT Martin : attendu = « les segments d'un même ensemble de frères
-  // sont tous distincts » (oracle déjà posé dans src/lib/slug.test.ts) ; observé =
+  // RÉGRESSION (Martin) : attendu = « les segments d'un même ensemble de frères
+  // sont tous distincts » (oracle déjà posé dans src/lib/slug.test.ts) ; observé
+  // avant correction (discriminant allongé au besoin, cf. `segOfUnique`) =
   // deux homonymes dont les ids partagent leurs 8 PREMIERS caractères reçoivent le
   // MÊME segment `~<id court>`, et la résolution (`find`) renvoie toujours le 1er
   // → le 2e devient injoignable. Probabilité réelle faible (uuid v4) mais la
   // garantie d'unicité annoncée est fausse.
-  it.fails(
-    'résout le bon frère quand deux ids partagent leur préfixe court',
-    () => {
-      const a: Entite = {
-        id: 'abcdef01-1111-2222-3333-444444444444',
-        nom: 'Pompe',
-      }
-      const b: Entite = {
-        id: 'abcdef01-9999-8888-7777-666666666666',
-        nom: 'Pompe',
-      }
-      const fratrie = [a, b]
-      const segOf = (e: Entite) => segOfUnique(e, fratrie)
+  it('résout le bon frère quand deux ids partagent leur préfixe court', () => {
+    const a: Entite = {
+      id: 'abcdef01-1111-2222-3333-444444444444',
+      nom: 'Pompe',
+    }
+    const b: Entite = {
+      id: 'abcdef01-9999-8888-7777-666666666666',
+      nom: 'Pompe',
+    }
+    const fratrie = [a, b]
+    const segOf = (e: Entite) => segOfUnique(e, fratrie)
 
-      const { result } = renderHook(() =>
-        useSlugResolved(fratrie, segOf(b), segOf, vi.fn()),
-      )
-      // O1 : le segment de `b` doit résoudre `b`.
-      expect(result.current).toBe(b)
-    },
-  )
+    const { result } = renderHook(() =>
+      useSlugResolved(fratrie, segOf(b), segOf, vi.fn()),
+    )
+    // O1 : le segment de `b` doit résoudre `b`.
+    expect(result.current).toBe(b)
+  })
 
   it('reste sur null (sans navigation) tant que la liste est vide (chargement)', () => {
     const renavigate = vi.fn<(s: string) => void>()
