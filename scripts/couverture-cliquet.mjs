@@ -10,8 +10,10 @@
 //   node scripts/couverture-cliquet.mjs --relever  réécrit le plancher (après
 //                                                  une hausse, à committer)
 //
-// Tolérance : 0,5 point (le comptage v8 bouge légèrement d'une exécution à
-// l'autre). Un module nouveau entre au plancher à sa première mesure.
+// Tolérance : 0,5 point OU 3 lignes/branches du module, la plus large des deux
+// (le comptage v8 d'un test DOM asynchrone peut bouger d'une ligne selon la
+// charge de la machine ; sur un module de 300 lignes, 1 ligne = 0,34 point).
+// Un module nouveau entre au plancher à sa première mesure.
 // =============================================================================
 import fs from 'node:fs'
 import path from 'node:path'
@@ -24,7 +26,8 @@ const RESUME = path.join(
   'coverage-summary.json',
 )
 const PLANCHER = path.join(racine, 'couverture-plancher.json')
-const TOLERANCE = 0.5
+const TOLERANCE_POINTS = 0.5
+const TOLERANCE_UNITES = 3
 
 if (!fs.existsSync(RESUME)) {
   console.error('Aucune mesure : lancer d’abord `npm run test:couverture`.')
@@ -90,10 +93,14 @@ const hausses = []
 for (const [m, v] of Object.entries(actuel)) {
   const p = plancher[m]
   if (!p) continue
+  const totaux = { lignes: mesure[m].lt, branches: mesure[m].bt }
   for (const k of ['lignes', 'branches']) {
-    if (v[k] < p[k] - TOLERANCE)
-      reculs.push(`${m} : ${k} ${p[k]} % → ${v[k]} %`)
-    else if (v[k] > p[k] + TOLERANCE)
+    const tol = Math.max(
+      TOLERANCE_POINTS,
+      totaux[k] ? (100 * TOLERANCE_UNITES) / totaux[k] : 0,
+    )
+    if (v[k] < p[k] - tol) reculs.push(`${m} : ${k} ${p[k]} % → ${v[k]} %`)
+    else if (v[k] > p[k] + tol)
       hausses.push(`${m} : ${k} ${p[k]} % → ${v[k]} %`)
   }
 }

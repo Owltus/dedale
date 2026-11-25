@@ -2,8 +2,8 @@
   "_note": "Plancher de couverture par module (% lignes, % branches). Généré par scripts/couverture-cliquet.mjs --relever ; ne se baisse jamais à la main sans décision du PO.",
   "modules": {
     "(racine)": {
-      "lignes": 0,
-      "branches": 0
+      "lignes": 66.7,
+      "branches": 66.7
     },
     "components": {
       "lignes": 0,
@@ -18,7 +18,7 @@
       "branches": 0
     },
     "components/ui": {
-      "lignes": 32.5,
+      "lignes": 34.6,
       "branches": 18.5
     },
     "features/bibliotheque": {
@@ -62,8 +62,8 @@
       "branches": 16.2
     },
     "features/investissements": {
-      "lignes": 21.4,
-      "branches": 22.4
+      "lignes": 29.4,
+      "branches": 26.3
     },
     "features/localisations": {
       "lignes": 42.4,
@@ -110,28 +110,28 @@
       "branches": 0
     },
     "features/taches": {
-      "lignes": 26.5,
-      "branches": 21.8
+      "lignes": 28,
+      "branches": 22.9
     },
     "features/travaux": {
       "lignes": 10.8,
       "branches": 5.5
     },
     "features/utilisateurs": {
-      "lignes": 10.7,
-      "branches": 5.5
+      "lignes": 26.3,
+      "branches": 8.2
     },
     "hooks": {
       "lignes": 87.8,
       "branches": 78
     },
     "lib": {
-      "lignes": 84.1,
-      "branches": 86
+      "lignes": 87.5,
+      "branches": 90.5
     },
     "routes": {
-      "lignes": 0,
-      "branches": 0
+      "lignes": 25.2,
+      "branches": 14.7
     },
     "routes/_app": {
       "lignes": 0,
