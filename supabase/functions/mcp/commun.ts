@@ -41,6 +41,78 @@ export function dateFr(iso: string | null | undefined): string | null {
   return `${String(j).padStart(2, '0')}/${String(m).padStart(2, '0')}/${a} (S${semaine})`
 }
 
+// ─── Lecture : aides partagées (outils.ts, outils-parc.ts) ───────────────────
+
+export const LECTURE = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+export const OT_OUVERTS = ['planifie', 'en_cours', 'reouvert']
+export const STATUT_OT: Record<string, string> = {
+  planifie: 'À faire',
+  en_cours: 'En cours',
+  cloture: 'Clôturé',
+  annule: 'Annulé',
+  reouvert: 'Rouvert',
+}
+
+export const site = z.string().min(1).max(120).optional()
+export const limite = (max: number, defaut: number) => z.number().int().min(1).max(max).default(defaut)
+export const page = z.number().int().min(1).max(1000).default(1)
+
+/** Motif de recherche sûr pour ilike / or() (162). Tout ce qui n'est ni
+ *  lettre, ni chiffre, ni tiret devient un joker « % » : « R+2 » → « R%2 »,
+ *  « salle d’eau » → « salle%d%eau ». Les mots sont cherchés dans l'ordre, au
+ *  singulier approché (« joints douches » trouve « joint de douche »).
+ *  Virgules, points et parenthèses disparaissent : pas d'injection de filtre. */
+export function nettoyer(texte: string | undefined): string | undefined {
+  const mots = (texte ?? '')
+    .split(/\s+/)
+    .map((m) => m.replace(/[^\p{L}\p{N}-]+/gu, '%').replace(/^%+|%+$/g, ''))
+    .filter(Boolean)
+    .map((m) => (m.length > 3 && /s$/i.test(m) ? m.slice(0, -1) : m))
+  const t = mots.join('%').replace(/%+/g, '%').slice(0, 80)
+  return t.length ? t : undefined
+}
+
+export function jourIso(d: Date) {
+  return d.toISOString().slice(0, 10)
+}
+
+export function ajouterJours(iso: string, jours: number) {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + jours)
+  return jourIso(d)
+}
+
+export function enRetard(ot: { statut: string; date_prevue: string; tolerance_jours: number | null }) {
+  return OT_OUVERTS.includes(ot.statut) && ajouterJours(ot.date_prevue, ot.tolerance_jours ?? 0) < jourIso(new Date())
+}
+
+export async function mesSites(ctx: Contexte) {
+  const { data, error } = await ctx.supabase.rpc('get_my_sites').select('id, nom')
+  if (error) throw error
+  return (data ?? []) as { id: string; nom: string }[]
+}
+
+/** Résout le paramètre `site` (nom ou identifiant) parmi les sites de la
+ *  personne ; sans paramètre : tous ses sites. */
+export async function sitesCibles(ctx: Contexte, demande: string | undefined) {
+  const sites = await mesSites(ctx)
+  if (!demande) return sites
+  const d = demande.toLowerCase()
+  const trouves = sites.filter((s) => s.id === demande || s.nom.toLowerCase().includes(d))
+  if (!trouves.length) {
+    throw new ErreurOutil(
+      `Aucun de tes sites ne correspond à « ${demande} ». Tes sites : ${
+        sites.map((s) => s.nom).join(', ') || 'aucun'
+      }.`,
+    )
+  }
+  return trouves
+}
+
+export function nomSite(sites: { id: string; nom: string }[], id: string | null) {
+  return sites.find((s) => s.id === id)?.nom ?? null
+}
+
 // ─── Écriture : aperçu puis code (158, 159) ──────────────────────────────────
 
 export const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }

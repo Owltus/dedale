@@ -9,9 +9,13 @@
 // PLATEFORME est desactivee exprès, pour tester ce que le CODE de la fonction
 // controle lui-meme. C est le pire cas realiste — un reglage de deploiement
 // different ne doit pas suffire a ouvrir la porte.
+//
+// En fin de course : la sonde du connecteur Claude (fonction mcp, lectures du
+// parc avec un jeton de connecteur), voir connecteur-mcp.mjs.
 // =============================================================================
 import { readFileSync } from 'node:fs'
 import { API, FN, ANON } from './cible.mjs'
+import { sonderConnecteur } from './connecteur-mcp.mjs'
 
 const d = JSON.parse(
   readFileSync(new URL('./seed-data.json', import.meta.url), 'utf8'),
@@ -343,6 +347,8 @@ async function main() {
         `${fonction} / ${titre} : attendu ${attendu}, obtenu ${r.statut} ${r.msg}`,
       )
   }
+  // Connecteur Claude (fonction mcp) : lectures du parc, jeton de connecteur.
+  findings.push(...(await sonderConnecteur()))
   console.log(`\n=== ${findings.length} ecart(s) ===`)
   for (const f of findings) console.log('  ' + f)
 }

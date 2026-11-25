@@ -94,6 +94,12 @@ node stockage.mjs          # un site peut-il télécharger le document d'un autr
   voit par un lien temporaire `supabase-local/supabase/functions` →
   `supabase/functions`, retiré ensuite. Fichier d'environnement **vide** imposé
   (`--env-file`) : aucun `.env` de la machine, donc aucun secret Dmbook réel.
+  En fin de course, `connecteur-mcp.mjs` joue Claude sur la fonction `mcp` : application
+  OAuth de confiance déclarée, jeton du compte rejoué avec `client_id` (secret HS256 de
+  la pile LOCALE), terrain `connecteur-lecture.semis.sql` ; il vérifie les outils du
+  parc (flottes, bibliothèque, équipements, lieux, fiche d'un lieu) par rôle et par site,
+  la garde d'entrée (`fiche_local` refusée, `claude_fiche_lieu` permise) et qu'aucun
+  identifiant n'est montré. Tout est retiré ensuite.
 
 ## Lire les résultats
 

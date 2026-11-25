@@ -10,6 +10,10 @@
   - 160 (16/11) : le lieu montré par Claude commence par le site ;
   - 161 (17/11) : sept gestes communs aux travaux et aux événements ;
   - 162 (17/11) : correctifs de l'audit de sécurité du connecteur ;
+  - 185 (25/11) : lecture seule — `claude_fiche_lieu`, enveloppe de
+    `fiche_local` et des `*_du_lieu` (183), plutôt qu'élargir la garde ;
+    outils `bibliotheque`, `flottes`, `fiche_lieu`, `lieux` et `equipements`
+    enrichis ;
   - fonction `mcp` : outils d'écriture.
 
 ## Contexte

@@ -4280,6 +4280,10 @@ export type Database = {
         }
         Returns: Json
       }
+      claude_fiche_lieu: {
+        Args: { p_limite?: number; p_local_id: string }
+        Returns: Json
+      }
       claude_modifier_demande: {
         Args: {
           p_appliquer?: boolean

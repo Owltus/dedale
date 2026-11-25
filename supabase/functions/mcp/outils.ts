@@ -8,84 +8,33 @@
 //   - textes de recherche nettoyés avant d'entrer dans un filtre PostgREST.
 
 import { z } from 'npm:zod@3.23.8'
-import { type Contexte, date, dateFr, ErreurOutil, type Outil, type Resultat } from './commun.ts'
+import {
+  ajouterJours,
+  type Contexte,
+  date,
+  dateFr,
+  enRetard,
+  ErreurOutil,
+  jourIso,
+  LECTURE,
+  limite,
+  mesSites,
+  nettoyer,
+  nomSite,
+  OT_OUVERTS,
+  type Outil,
+  page,
+  type Resultat,
+  site,
+  sitesCibles,
+  STATUT_OT,
+} from './commun.ts'
+import { OUTILS_PARC } from './outils-parc.ts'
 import { OUTILS_ECRITURE } from './outils-ecriture.ts'
 import { OUTILS_ECRITURE_DI } from './outils-ecriture-di.ts'
 import { OUTILS_ECRITURE_FICHES } from './outils-ecriture-fiches.ts'
 
 export type { Contexte }
-
-// ─── Aides ──────────────────────────────────────────────────────────────────
-
-const LECTURE = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
-const OT_OUVERTS = ['planifie', 'en_cours', 'reouvert']
-const STATUT_OT: Record<string, string> = {
-  planifie: 'À faire',
-  en_cours: 'En cours',
-  cloture: 'Clôturé',
-  annule: 'Annulé',
-  reouvert: 'Rouvert',
-}
-
-const site = z.string().min(1).max(120).optional()
-const limite = (max: number, defaut: number) => z.number().int().min(1).max(max).default(defaut)
-const page = z.number().int().min(1).max(1000).default(1)
-
-/** Motif de recherche sûr pour ilike / or() (162). Tout ce qui n'est ni
- *  lettre, ni chiffre, ni tiret devient un joker « % » : « R+2 » → « R%2 »,
- *  « salle d’eau » → « salle%d%eau ». Les mots sont cherchés dans l'ordre, au
- *  singulier approché (« joints douches » trouve « joint de douche »).
- *  Virgules, points et parenthèses disparaissent : pas d'injection de filtre. */
-function nettoyer(texte: string | undefined): string | undefined {
-  const mots = (texte ?? '')
-    .split(/\s+/)
-    .map((m) => m.replace(/[^\p{L}\p{N}-]+/gu, '%').replace(/^%+|%+$/g, ''))
-    .filter(Boolean)
-    .map((m) => (m.length > 3 && /s$/i.test(m) ? m.slice(0, -1) : m))
-  const t = mots.join('%').replace(/%+/g, '%').slice(0, 80)
-  return t.length ? t : undefined
-}
-
-function jourIso(d: Date) {
-  return d.toISOString().slice(0, 10)
-}
-
-function ajouterJours(iso: string, jours: number) {
-  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + jours)
-  return jourIso(d)
-}
-
-function enRetard(ot: { statut: string; date_prevue: string; tolerance_jours: number | null }) {
-  return OT_OUVERTS.includes(ot.statut) && ajouterJours(ot.date_prevue, ot.tolerance_jours ?? 0) < jourIso(new Date())
-}
-
-async function mesSites(ctx: Contexte) {
-  const { data, error } = await ctx.supabase.rpc('get_my_sites').select('id, nom')
-  if (error) throw error
-  return (data ?? []) as { id: string; nom: string }[]
-}
-
-/** Résout le paramètre `site` (nom ou identifiant) parmi les sites de la
- *  personne ; sans paramètre : tous ses sites. */
-async function sitesCibles(ctx: Contexte, demande: string | undefined) {
-  const sites = await mesSites(ctx)
-  if (!demande) return sites
-  const d = demande.toLowerCase()
-  const trouves = sites.filter((s) => s.id === demande || s.nom.toLowerCase().includes(d))
-  if (!trouves.length) {
-    throw new ErreurOutil(
-      `Aucun de tes sites ne correspond à « ${demande} ». Tes sites : ${
-        sites.map((s) => s.nom).join(', ') || 'aucun'
-      }.`,
-    )
-  }
-  return trouves
-}
-
-function nomSite(sites: { id: string; nom: string }[], id: string | null) {
-  return sites.find((s) => s.id === id)?.nom ?? null
-}
 
 // ─── Les outils ─────────────────────────────────────────────────────────────
 
@@ -541,69 +490,6 @@ const OUTILS_INTERNES: Outil[] = [
     },
   },
   {
-    name: 'lieux',
-    title: 'Lieux (locaux) et leurs équipements',
-    description:
-      'Trouve un local par son nom (ex. « 214 », « Circulation », « Accueil »), avec son niveau, son bâtiment et les équipements qui s’y trouvent (identifiants compris). ' +
-      'Sert à cibler une demande d’intervention : un nom présent sur plusieurs niveaux est ambigu, faire préciser le niveau.',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['recherche'],
-      properties: {
-        recherche: { type: 'string', description: 'Tout ou partie du nom du local' },
-        niveau: { type: 'string', description: 'Tout ou partie du nom du niveau (ex. « R+2 », « RDC »)' },
-        site: { type: 'string' },
-        limite: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
-      },
-    },
-    annotations: LECTURE,
-    schema: z.object({
-      recherche: z.string().min(1).max(120),
-      niveau: z.string().max(60).optional(),
-      site,
-      limite: limite(50, 20),
-    }).strict(),
-    run: async (a: { recherche: string; niveau?: string; site?: string; limite: number }, ctx) => {
-      const sites = await sitesCibles(ctx, a.site)
-      const texte = nettoyer(a.recherche)
-      if (!texte) throw new ErreurOutil('Recherche vide.')
-      let q = ctx.supabase.from('locaux')
-        .select(
-          'id, nom, niveaux!inner(nom, ordre, batiments!inner(nom, site_id)), equipements(id, code_inventaire, categories(nom))',
-        )
-        .in('niveaux.batiments.site_id', sites.map((s) => s.id))
-        .ilike('nom', `%${texte}%`)
-        .order('nom').limit(a.limite)
-      const niveau = nettoyer(a.niveau)
-      if (niveau) q = q.ilike('niveaux.nom', `%${niveau}%`)
-      const { data, error } = await q
-      if (error) throw error
-      type Ligne = {
-        id: string
-        nom: string
-        niveaux: { nom: string; batiments: { nom: string; site_id: string } }
-        equipements: { id: string; code_inventaire: string | null; categories: { nom: string } | null }[]
-      }
-      const lignes = data as unknown as Ligne[]
-      return {
-        nombre: lignes.length,
-        lieux: lignes.map((l) => ({
-          local_id: l.id,
-          local: l.nom,
-          niveau: l.niveaux.nom,
-          batiment: l.niveaux.batiments.nom,
-          site: nomSite(sites, l.niveaux.batiments.site_id),
-          equipements: l.equipements.map((e) => ({
-            id: e.id,
-            famille: e.categories?.nom ?? null,
-            code: e.code_inventaire,
-          })),
-        })),
-      }
-    },
-  },
-  {
     name: 'problemes_courants',
     title: 'Problèmes courants du site',
     description:
@@ -736,50 +622,6 @@ const OUTILS_INTERNES: Outil[] = [
     },
   },
   {
-    name: 'equipements',
-    title: 'Équipements',
-    description: 'Recherche d’équipements par famille, code d’inventaire ou localisation, avec leurs caractéristiques.',
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['recherche'],
-      properties: {
-        recherche: { type: 'string' },
-        site: { type: 'string' },
-        limite: { type: 'integer', minimum: 1, maximum: 100, default: 30 },
-      },
-    },
-    annotations: LECTURE,
-    schema: z.object({ recherche: z.string().min(1).max(120), site, limite: limite(100, 30) }).strict(),
-    run: async (a: { recherche: string; site?: string; limite: number }, ctx) => {
-      const sites = await sitesCibles(ctx, a.site)
-      const texte = nettoyer(a.recherche)
-      if (!texte) throw new ErreurOutil('Recherche vide.')
-      const { data, error } = await ctx.supabase.from('v_equipements_complet')
-        .select(
-          'id, local_id, categorie_nom, code_inventaire, localisation_complete, site_id, date_mise_en_service, date_fin_garantie, specifications',
-        )
-        .in('site_id', sites.map((s) => s.id))
-        .or(`categorie_nom.ilike.*${texte}*,code_inventaire.ilike.*${texte}*,localisation_complete.ilike.*${texte}*`)
-        .order('localisation_complete').limit(a.limite)
-      if (error) throw error
-      return {
-        nombre: data.length,
-        equipements: data.map((e) => ({
-          id: e.id,
-          local_id: e.local_id,
-          famille: e.categorie_nom,
-          code: e.code_inventaire,
-          localisation: e.localisation_complete,
-          mise_en_service: dateFr(e.date_mise_en_service),
-          fin_garantie: dateFr(e.date_fin_garantie),
-          caracteristiques: e.specifications,
-          site: nomSite(sites, e.site_id),
-        })),
-      }
-    },
-  },
-  {
     name: 'contrats',
     title: 'Contrats',
     description:
@@ -892,6 +734,7 @@ const OUTILS_INTERNES: Outil[] = [
 
 const TOUS_LES_OUTILS: Outil[] = [
   ...OUTILS_INTERNES,
+  ...OUTILS_PARC,
   ...OUTILS_ECRITURE,
   ...OUTILS_ECRITURE_DI,
   ...OUTILS_ECRITURE_FICHES,

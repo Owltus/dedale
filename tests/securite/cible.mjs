@@ -83,6 +83,13 @@ export const SERVICE = statut.SERVICE_ROLE_KEY
  */
 export const DB = statut.DB_URL
 
+/**
+ * Secret de signature HS256 de la pile LOCALE. Il ne sert qu'à la sonde du
+ * connecteur (connecteur-mcp.mjs) : rejouer le jeton d'un compte de test en y
+ * ajoutant le claim `client_id`, comme le ferait le serveur OAuth pour Claude.
+ */
+export const JWT_SECRET = statut.JWT_SECRET
+
 /** Garde-fou : on refuse de démarrer si la cible n'est pas locale. */
 if (
   !/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/.test(API) ||

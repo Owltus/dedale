@@ -19506,3 +19506,156 @@ GRANT  EXECUTE ON FUNCTION public.annuler_deploiement(uuid, boolean) TO authenti
 
 -- 6. instancier_equipement remplacée -------------------------------------------
 DROP FUNCTION IF EXISTS public.instancier_equipement(uuid, uuid, text, uuid);
+
+-- =============================================================================
+-- 185 — Connecteur Claude : lire la fiche d'un lieu
+-- =============================================================================
+-- Symptôme corrigé : via le connecteur, Claude ne peut pas lire la fiche d'un
+-- lieu (étape 6 du plan fiche-lieu-et-deploiement-equipements). fiche_local et
+-- les cinq lectures *_du_lieu (183) sont des RPC (POST) : la garde d'entrée
+-- (garde_connecteur, 157) les refuse au connecteur, qui n'a que la lecture GET,
+-- current_role, get_my_sites et les RPC claude_*.
+--
+-- Cause : les liens au lieu sont indirects (unions, voir 183) ; une lecture GET
+-- ne les reconstitue pas.
+--
+-- Correctif : UNE enveloppe de lecture, claude_fiche_lieu(p_local_id,
+-- p_limite DEFAULT 10) → jsonb, SQL, STABLE, SECURITY INVOKER, search_path
+-- vide. Elle appelle fiche_local et les *_du_lieu EXISTANTES (aucune règle
+-- recopiée) et rend, pour le lieu :
+--   - lieu : l'en-tête de fiche_local sans aucun identifiant ni chemin de
+--     fichier (image_path retiré) ;
+--   - compteurs : ceux de fiche_local, tels quels (NULL = onglet non visible
+--     pour le rôle) ;
+--   - equipements : ceux du lieu (sous-catégorie, catégorie, code,
+--     caractéristiques, clés des valeurs principale/secondaire/tertiaire) ;
+--   - ot, demandes, travaux, evenements, plans_maintenance : les éléments
+--     OUVERTS de chaque onglet (même tri que l'appli), par leurs noms ;
+--   - documents : les noms des documents du lieu et de ses équipements.
+-- Chaque liste est bornée à p_limite, lui-même borné à [1, 50]. Une liste est
+-- NULL quand son compteur l'est (onglet non visible pour le rôle) : jamais un
+-- « [] » trompeur.
+-- Choix : une enveloppe claude_* plutôt qu'élargir garde_connecteur — la garde
+-- reste une liste blanche par préfixe, rien n'est ouvert au connecteur qu'une
+-- lecture taillée pour lui (aucun uuid, aucun chemin de stockage).
+-- Ne fait PAS : aucune écriture, aucune policy, aucun déclencheur ; ne touche
+-- ni fiche_local ni les *_du_lieu.
+--
+-- Innocuité : fonction nouvelle ; SECURITY INVOKER = mêmes droits que la
+-- lecture directe des tables (RLS de la personne, verrou « Accès Claude » 153
+-- compris). EXECUTE retiré à PUBLIC et anon, accordé à authenticated.
+--
+-- Vérification après application :
+--     SELECT p.prosecdef, p.provolatile, has_function_privilege('anon', p.oid, 'EXECUTE') AS anon
+--     FROM pg_proc p WHERE p.oid = 'public.claude_fiche_lieu(uuid,integer)'::regprocedure;
+--     -- attendu : prosecdef = false, provolatile = 's', anon = false
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.claude_fiche_lieu(p_local_id uuid, p_limite integer DEFAULT 10)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path TO ''
+AS $$
+    WITH
+    f AS (SELECT public.fiche_local(p_local_id) AS j),
+    lim AS (SELECT greatest(1, least(coalesce(p_limite, 10), 50)) AS n),
+    -- Onglet visible pour le rôle : compteur non NULL (fiche_local, 183).
+    vis AS (
+        SELECT jsonb_typeof(f.j -> 'compteurs' -> 'ot') <> 'null'         AS ot,
+               jsonb_typeof(f.j -> 'compteurs' -> 'travaux') <> 'null'    AS travaux,
+               jsonb_typeof(f.j -> 'compteurs' -> 'evenements') <> 'null' AS evenements,
+               jsonb_typeof(f.j -> 'compteurs' -> 'gammes') <> 'null'     AS gammes,
+               jsonb_typeof(f.j -> 'compteurs' -> 'documents') <> 'null'  AS documents
+        FROM f
+    )
+    SELECT CASE WHEN f.j IS NULL THEN NULL ELSE jsonb_build_object(
+        'lieu', (f.j -> 'local') - ARRAY['id', 'site_id', 'batiment_id', 'niveau_id',
+                                         'type_local_id', 'image_path', 'created_at', 'updated_at'],
+        'compteurs', f.j -> 'compteurs',
+        'equipements', (
+            SELECT coalesce(jsonb_agg(jsonb_build_object(
+                       'sous_categorie',    q.sous_categorie,
+                       'categorie',         q.categorie,
+                       'code',              q.code_inventaire,
+                       'specifications',    q.specifications,
+                       'valeur_principale', q.valeur_principale,
+                       'valeur_secondaire', q.valeur_secondaire,
+                       'valeur_tertiaire',  q.valeur_tertiaire)
+                   ORDER BY q.rang), '[]'::jsonb)
+            FROM (SELECT c.nom AS sous_categorie, p.nom AS categorie, e.code_inventaire,
+                         e.specifications, c.valeur_principale, c.valeur_secondaire,
+                         c.valeur_tertiaire,
+                         row_number() OVER (ORDER BY c.nom, e.code_inventaire, e.created_at, e.id) AS rang
+                  FROM public.equipements e
+                  LEFT JOIN public.categories c ON c.id = e.categorie_id
+                  LEFT JOIN public.categories p ON p.id = c.parent_id
+                  WHERE e.local_id = p_local_id
+                  ORDER BY rang
+                  LIMIT (SELECT n FROM lim)) q),
+        'ot', CASE WHEN v.ot THEN (
+            SELECT coalesce(jsonb_agg(jsonb_build_object(
+                       'gamme',           o.nom_gamme,
+                       'equipement',      o.nom_equipement,
+                       'statut',          o.statut,
+                       'origine',         o.origine,
+                       'date_prevue',     o.date_prevue,
+                       'tolerance_jours', o.tolerance_jours)
+                   ORDER BY o.ordinality), '[]'::jsonb)
+            FROM public.ot_du_lieu(p_local_id, true, (SELECT n FROM lim), 0) WITH ORDINALITY AS o) END,
+        'demandes', (
+            SELECT coalesce(jsonb_agg(jsonb_build_object(
+                       'constat',      d.constat,
+                       'statut',       (SELECT s.nom FROM public.statuts_di s WHERE s.id = d.statut_di_id),
+                       'date_constat', d.date_constat)
+                   ORDER BY d.ordinality), '[]'::jsonb)
+            FROM public.di_du_lieu(p_local_id, true, (SELECT n FROM lim), 0) WITH ORDINALITY AS d),
+        'travaux', CASE WHEN v.travaux THEN (
+            SELECT coalesce(jsonb_agg(jsonb_build_object(
+                       'titre',        t.titre,
+                       'statut',       (SELECT s.nom FROM public.statuts_travaux s WHERE s.id = t.statut_travaux_id),
+                       'date_demande', t.date_demande,
+                       'verrouille',   t.verrouille)
+                   ORDER BY t.ordinality), '[]'::jsonb)
+            FROM public.travaux_du_lieu(p_local_id, true, (SELECT n FROM lim), 0) WITH ORDINALITY AS t) END,
+        'evenements', CASE WHEN v.evenements THEN (
+            SELECT coalesce(jsonb_agg(jsonb_build_object(
+                       'titre',      x.titre,
+                       'statut',     (SELECT s.nom FROM public.statuts_evenements s WHERE s.id = x.statut_evenement_id),
+                       'date',       x.date_evenement,
+                       'verrouille', x.verrouille)
+                   ORDER BY x.ordinality), '[]'::jsonb)
+            FROM public.evenements_du_lieu(p_local_id, true, (SELECT n FROM lim), 0) WITH ORDINALITY AS x) END,
+        'plans_maintenance', CASE WHEN v.gammes THEN (
+            SELECT coalesce(jsonb_agg(jsonb_build_object(
+                       'gamme',       g.nom,
+                       'nature',      g.nature,
+                       'periodicite', (SELECT pe.libelle FROM public.periodicites pe WHERE pe.id = g.periodicite_id))
+                   ORDER BY g.ordinality), '[]'::jsonb)
+            FROM public.gammes_du_lieu(p_local_id, true, (SELECT n FROM lim), 0) WITH ORDINALITY AS g) END,
+        'documents', CASE WHEN v.documents THEN (
+            SELECT coalesce(jsonb_agg(jsonb_build_object(
+                       'nom',      doc.nom_original,
+                       'type',     (SELECT td.nom FROM public.types_documents td WHERE td.id = doc.type_document_id),
+                       'ajoute_le', doc.uploaded_at)
+                   ORDER BY doc.uploaded_at DESC, doc.id), '[]'::jsonb)
+            FROM (SELECT d0.* FROM public.documents d0
+                  WHERE d0.id IN (
+                        SELECT dl.document_id FROM public.documents_locaux dl
+                        WHERE dl.local_id = p_local_id
+                        UNION
+                        SELECT de.document_id FROM public.documents_equipements de
+                        JOIN public.equipements e ON e.id = de.equipement_id
+                        WHERE e.local_id = p_local_id)
+                  ORDER BY d0.uploaded_at DESC, d0.id
+                  LIMIT (SELECT n FROM lim)) doc) END
+    ) END
+    FROM f CROSS JOIN vis v;
+$$;
+
+COMMENT ON FUNCTION public.claude_fiche_lieu(uuid, integer) IS
+  'Connecteur Claude (185) : fiche d''un lieu en LECTURE — en-tête de fiche_local sans identifiant ni chemin de fichier, compteurs, équipements, et les éléments ouverts de chaque onglet (OT, DI, travaux, événements, plans de maintenance) plus les documents, par leurs noms. Appelle fiche_local et les *_du_lieu (183). Listes bornées à p_limite ∈ [1, 50] ; liste NULL = onglet non visible pour le rôle. NULL entier = lieu invisible. SECURITY INVOKER (RLS de l''appelant).';
+
+REVOKE ALL ON FUNCTION public.claude_fiche_lieu(uuid, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.claude_fiche_lieu(uuid, integer) TO authenticated;
