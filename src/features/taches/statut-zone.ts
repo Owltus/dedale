@@ -22,27 +22,10 @@ export const LIBELLES_STATUT_ZONE: Record<StatutZone, string> = {
   non_applicable: 'Non applicable',
 }
 
-/** Variante de `Badge` cohérente pour un statut de zone. */
-export function variantStatutZone(
-  statut: StatutZone,
-): 'default' | 'secondary' | 'outline' | 'destructive' {
-  switch (statut) {
-    case 'realise':
-      return 'default'
-    case 'non_realise':
-      return 'destructive'
-    case 'en_cours':
-    case 'non_applicable':
-      return 'secondary'
-    default: // en_attente
-      return 'outline'
-  }
-}
-
 /**
  * Tonalité sémantique (`StatusTone`, `common/status-badge.tsx`) d'un statut de
- * zone — pastille discrète (fond teinté 10 %) plutôt que le badge plein de
- * `variantStatutZone`, pour une ligne de tâche compacte (093, refonte UI).
+ * zone — pastille discrète (fond teinté 10 %), pour une ligne de tâche
+ * compacte (093, refonte UI).
  */
 export function toneStatutZone(
   statut: StatutZone,

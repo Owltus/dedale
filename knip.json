@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "src/routes/**/*.tsx",
+    "scripts/*.mjs",
+    "tests/securite/*.mjs",
+    ".claude/hooks/*.mjs",
+    "vitest.stryker.config.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "scripts/*.mjs", "tests/**/*.mjs"],
+  "ignore": [
+    "src/routeTree.gen.ts",
+    "src/lib/database.types.ts",
+    "supabase/**",
+    ".claude/skills/**",
+    ".impeccable/**"
+  ],
+  "ignoreDependencies": ["tailwindcss", "tw-animate-css", "shadcn"],
+  "ignoreExportsUsedInFile": true
+}

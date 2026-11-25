@@ -1,9 +1,6 @@
 import type { Control, FieldPath, FieldValues } from 'react-hook-form'
 import { SelectField } from './select-field'
 
-/** Périmètre d'une entité de bibliothèque : commun à l'entreprise ou propre au site. */
-export type Portee = 'entreprise' | 'site'
-
 interface PorteeFieldProps<T extends FieldValues> {
   control: Control<T, unknown, FieldValues>
   name: FieldPath<T>

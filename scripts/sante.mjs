@@ -294,10 +294,7 @@ const CONTROLES = [
     run() {
       if (!existe('knip.json'))
         return NON('knip pas encore configuré (étape 7)')
-      return depuis(
-        lancer('npx knip --no-progress --reporter compact'),
-        /Unused|Unlisted|\(\d+\)/,
-      )
+      return depuis(lancer('npx knip --no-progress'), /Unused|Unlisted|\(\d+\)/)
     },
   },
   {
