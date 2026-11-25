@@ -83,4 +83,4 @@ Deux pièges de lecture :
 - `grep` sur l'ancien chemin : plus aucun importeur, et le fichier n'existe plus.
 - La brique est dans le catalogue avec son nombre réel de consommateurs, **mesuré** par la commande ci-dessus.
 - Rendu contrôlé sur **deux** consommateurs différents, mobile inclus.
-- `npm run verify`.
+- `npm run sante` sans ÉCHEC.

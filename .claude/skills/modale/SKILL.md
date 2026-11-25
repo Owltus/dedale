@@ -114,4 +114,4 @@ Quand la modale doit être atteignable par URL (deep-link depuis une autre secti
 - Saisir, annuler, rouvrir : les champs doivent être revenus à l'état enregistré.
 - Soumettre avec un champ requis vide : le message vient de `FormMessage`, pas d'un toast.
 - Provoquer une erreur backend : elle s'affiche en toast traduit, et **la modale reste ouverte**.
-- `npm run verify`.
+- `npm run sante` sans ÉCHEC.

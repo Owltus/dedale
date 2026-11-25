@@ -97,6 +97,8 @@ C'est la seule source versionnée : une migration non répercutée y crée une d
 
 La dérive n'est plus invisible : `npm run test` compare les tables, les colonnes et les contraintes CHECK **nommées** de `schema_complete.sql` à l'instantané de la production (`src/lib/concordance-sql.test.ts`). Une migration non répercutée y devient rouge.
 
+Ce test lit le texte **sans l'exécuter**. Après chaque resynchronisation : **`npm run base:monter`** (puis `base:demonter`), qui rejoue le fichier en un passage avec `ON_ERROR_STOP`. Vu le 25/11/2026 : 10 délimiteurs `$$` étaient tronqués en `$` (probable remplacement JS où `$$` vaut `$`), invisibles pour la concordance. Ne jamais fusionner du SQL contenant `$$` par `String.replace` sans fonction de remplacement.
+
 ### 6. Répercuter côté front
 
 - `npm run gen:types` (après `npx supabase login`).

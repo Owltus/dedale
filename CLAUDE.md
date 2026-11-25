@@ -9,6 +9,9 @@ Le front ne fait que **présenter et consommer** l'API. **Règle d'or : le front
 - `npm run dev` — dev sur **http://localhost:5181** (port fixe). Raccourci : `dev.bat`.
 - `npm run build` — build de prod. `npm run typecheck` — `tsc -b`. `npm run lint` — ESLint. `npm run format` — Prettier.
 - `npm run gen:types` — régénère les types Supabase (après `npx supabase login`, à relancer après chaque migration backend).
+- `npm run test` (Vitest) · `npm run deno:verifier` (lint + types + tests des Edge Functions, **Deno requis**) · `npm run test:couverture`.
+- `npm run sante` / `sante:rapide` / `sante:complet` — bilan de santé (voir « Garde-fous automatiques »).
+- `npm run base:monter` / `base:tester` / `base:demonter` — **base locale jetable** (Docker) depuis `schema_complete.sql`, comptes de test, sondes RLS (`tests/securite/`) et tests d'intégration (`tests/integration/`). Jamais la prod. Prérequis et détails : `README.md`.
 
 ## Stack
 
@@ -72,7 +75,10 @@ Le **catalogue des briques réutilisables** (~70 documentées, avec leur nombre 
 ## Garde-fous automatiques
 
 - **Hook** `.claude/hooks/check.mjs` (PostToolUse) : après chaque édition `.ts`/`.tsx`, **formate le fichier édité** (Prettier) puis lance le type-check. Le formatage est non bloquant ; seule une erreur de types remonte.
-- **Gate** : `npm run verify` = typecheck + lint + format + tests (Vitest **et** Deno des Edge Functions). C'est la seule commande à lancer en fin de chantier (avec `npm run build`). Un commit ne part que si elle est verte.
+- **Gate** : `npm run verify` = typecheck + lint + format + tests (Vitest **et** Deno des Edge Functions : lint, types, tests). Un commit ne part que si elle est verte.
+- **Bilan de santé** (ADR 0017) : `npm run sante` donne OK / ÉCHEC / NON VÉRIFIÉ par point (verify, build, concordance du schéma, code mort knip, vulnérabilités, secrets, conventions). Fin de chantier : `npm run sante` ; avant une mise en prod : `npm run sante:complet` (clone propre, tests ×2, couverture, base locale).
+- **Hooks git** (`.githooks/`, posés par `npm install`) : avant commit → `sante:rapide` ; avant poussée → `sante`. **CI** `.github/workflows/sante.yml` à chaque poussée. Ne jamais contourner (`--no-verify`) sans le dire au PO.
+- **Cliquet** : les conventions sont contrôlées par ESLint et `src/lib/conventions.test.ts` ; les écarts anciens sont gelés dans `src/lib/conventions-exceptions.json` (avec motif), la couverture dans `couverture-plancher.json`. Un nouvel écart est rouge ; corriger un écart = retirer son exception dans le même commit ; ajouter une exception = motif métier obligatoire. Un nouveau dossier de `scripts/`, `tests/` ou `supabase/functions/` doit être cité ici ou dans le README.
 - **Allow-list** `.claude/settings.json` : npm/git (hors push)/tsc/eslint/prettier sans confirmation. Tout ce qui n'y figure pas — dont `git push` et les suppressions de fichiers — demande une confirmation ; il n'y a pas de liste `deny` explicite.
 
 ## Repères & pièges
@@ -81,3 +87,5 @@ Le **catalogue des briques réutilisables** (~70 documentées, avec leur nombre 
 - Dépôt : `github.com/Owltus/dedale` (public, `main`).
 - Port **5181** (5180 = autre projet de l'utilisateur). `contexte/`, `dev.bat`, `.claude/settings.local.json` gitignorés. `.env.local` jamais commité.
 - Compte créé en SQL à la main → mettre les colonnes de tokens NULL d'`auth.users` à `''` (sinon login 500 GoTrue).
+- **Edge Functions** (`supabase/functions/`, Deno) : `invite_user`, `set_user_password`, `update_user_email` (comptes), `mcp` (connecteur Claude, ADR 0015), `dmbook-connexion` + `dmbook-sync` (synchro Dmbook, ADR 0016, pg_cron toutes les 5 min). Secrets côté Supabase, documentés dans `supabase/functions/.env.example` (`DMBOOK_ECRITURE`, `DMBOOK_SYNC_REEL` : changer leur valeur = décision du PO). Déployer une fonction = mise en prod (skill `deployer`).
+- **Tests de mutation** : `npx stryker run` (`stryker.config.json`), hors gate car long.

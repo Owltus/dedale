@@ -16,7 +16,7 @@ description: Crée OU refond une page/écran de l'app Dédale (route TanStack Ro
 3. Dérouler la recette : [`references/patrons-de-page.md`](./references/patrons-de-page.md).
 
 Typage via `Database['public']['Tables']['xxx']['Row']`.
-À la fin **toujours** : `npm run verify` (typecheck + lint + format + tests) puis `npm run build`.
+À la fin **toujours** : `npm run sante` (verify + build + conventions à cliquet + code mort + concordance du schéma). Un nouvel écart de convention se corrige ; une exception (`src/lib/conventions-exceptions.json`) exige un motif métier.
 
 ## Skills voisins
 
@@ -68,6 +68,6 @@ Quel que soit le patron, une page de Dédale respecte ces huit points. Ils sont 
 
 ## Après
 
-- `npm run verify` et `npm run build` au vert.
+- `npm run sante` sans ÉCHEC.
 - **Mettre à jour [`references/catalogue-composants.md`](./references/catalogue-composants.md)** : toute brique créée y entre, et la colonne « Usages » des briques touchées est corrigée. Une brique absente du catalogue sera recréée en double par le chantier suivant.
 - Nouvelle décision d'architecture tranchée → un ADR dans `docs/decisions/` (+ son entrée dans l'index du `README.md`).
