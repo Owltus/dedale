@@ -27,22 +27,25 @@ export const travauxQueries = {
     }),
 
   /** Tâches d'un travail : libellé (identité), lieu facultatif, statut (090). */
-  taches: (travauxId: string) =>
+  taches: (travauxId: string | null) =>
     queryOptions({
       queryKey: [...travauxQueries.all(), 'taches', travauxId] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('travaux_taches')
-          .select(
-            'id, libelle, statut, ordre, local_id, equipement_id, commentaire, date_tache, created_at, locaux(id, nom), equipements(id)',
-          )
-          .eq('travaux_id', travauxId)
-          .order('ordre')
-          .order('created_at')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        travauxId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('travaux_taches')
+                .select(
+                  'id, libelle, statut, ordre, local_id, equipement_id, commentaire, date_tache, created_at, locaux(id, nom), equipements(id)',
+                )
+                .eq('travaux_id', travauxId)
+                .order('ordre')
+                .order('created_at')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /**

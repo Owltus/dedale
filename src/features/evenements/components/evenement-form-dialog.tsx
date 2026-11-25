@@ -46,10 +46,9 @@ export function EvenementFormDialog({
   const update = useUpdateEvenement()
   // En édition, les lieux DÉJÀ enregistrés préremplissent le tableau — pas de
   // requête en création (rien à charger, le tableau démarre vide).
-  const { data: lieuxExistants } = useQuery({
-    ...evenementsQueries.lieux(evenement?.id ?? ''),
-    enabled: isEdit,
-  })
+  const { data: lieuxExistants } = useQuery(
+    evenementsQueries.lieux(evenement?.id ?? null),
+  )
 
   // `taches` est un état REACT LOCAL, hors react-hook-form : le pont habituel
   // `useWatch`/`setValue` (cf. `TachesMultiplesField`, utilisé tel quel côté

@@ -18307,3 +18307,84 @@ COMMENT ON FUNCTION public.enregistrer_travaux(jsonb, jsonb, uuid, uuid) IS
   'Crée (p_id absent : sur p_site_id) ou modifie des travaux et applique le diff de tâches calculé par le front, en UNE transaction (175, 176).';
 COMMENT ON FUNCTION public.enregistrer_evenement(jsonb, jsonb, uuid, uuid) IS
   'Crée (p_id absent : sur p_site_id) ou modifie un événement et applique le diff de tâches calculé par le front, en UNE transaction (175, 176).';
+
+
+-- =============================================================================
+-- 178 — Propager le gabarit d'une sous-catégorie de parc en une transaction
+-- =============================================================================
+-- Symptôme corrigé : en modifiant les caractéristiques d'une sous-catégorie de
+-- parc SPÉCIFIQUE, un échec en cours de route (équipement supprimé entre-temps,
+-- refus RLS, CHECK de taille sur un seul équipement, coupure réseau) laissait
+-- le gabarit enregistré sur la catégorie mais propagé à une PARTIE seulement
+-- de ses équipements — le front ne pouvait que relire le cache après coup.
+--
+-- Cause : `useUpdateParcSousCategorieChamps`
+-- (src/features/equipements/mutations.ts) enchaîne deux écritures PostgREST
+-- indépendantes : UPDATE categories.specifications, puis N UPDATE
+-- equipements.specifications en parallèle (Promise.all). Aucune transaction ne
+-- les relie.
+--
+-- Correctif : RPC `propager_gabarit_sous_categorie(p_categorie_id,
+-- p_specifications, p_equipements)` qui pose le gabarit ET les valeurs
+-- fusionnées des équipements en UNE transaction. La FUSION reste calculée par
+-- le front (parseChamps / serializeChamps, lecture legacy comprise) : la RPC
+-- reçoit les payloads déjà prêts `[{ "id": uuid, "specifications": jsonb }]`,
+-- elle ne réimplémente aucune règle de champs. Garde-fous :
+--   - sous-catégorie invisible ou non modifiable (RLS) → 42501, rien d'écrit ;
+--   - un équipement absent, hors périmètre ou n'appartenant PAS à cette
+--     sous-catégorie → 42501, tout est annulé (le front exigeait déjà une ligne
+--     par équipement via `.single()`) ;
+--   - le CHECK de taille de `equipements.specifications` (23514) annule tout.
+-- Ne fait PAS : le front n'est pas encore branché dessus (déploiement d'abord).
+--
+-- Innocuité : fonction nouvelle, aucun appelant tant que le front n'y passe
+-- pas. SECURITY INVOKER : RLS et déclencheurs de `categories` / `equipements`
+-- s'appliquent exactement comme aux deux écritures actuelles. Fermée à anon.
+--
+-- Vérification après application :
+--     SELECT pg_get_function_identity_arguments(oid), prosecdef
+--     FROM pg_proc WHERE proname = 'propager_gabarit_sous_categorie';
+--     -- p_categorie_id uuid, p_specifications jsonb, p_equipements jsonb | f
+--     SELECT has_function_privilege('anon',
+--       'public.propager_gabarit_sous_categorie(uuid, jsonb, jsonb)', 'EXECUTE');
+--     -- f
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.propager_gabarit_sous_categorie(
+    p_categorie_id uuid,
+    p_specifications jsonb,
+    p_equipements jsonb DEFAULT NULL)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY INVOKER
+ SET search_path TO ''
+AS $function$
+DECLARE
+    v_attendus integer := coalesce(jsonb_array_length(p_equipements), 0);
+    v_ecrits integer;
+BEGIN
+    UPDATE public.categories SET specifications = p_specifications
+    WHERE id = p_categorie_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Sous-catégorie hors de votre périmètre'
+            USING ERRCODE = '42501';
+    END IF;
+
+    IF v_attendus > 0 THEN
+        UPDATE public.equipements e SET specifications = x.specifications
+        FROM jsonb_to_recordset(p_equipements) AS x(id uuid, specifications jsonb)
+        WHERE e.id = x.id AND e.categorie_id = p_categorie_id;
+        GET DIAGNOSTICS v_ecrits = ROW_COUNT;
+        IF v_ecrits <> v_attendus THEN
+            RAISE EXCEPTION 'Équipement hors de votre périmètre ou d''une autre sous-catégorie'
+                USING ERRCODE = '42501';
+        END IF;
+    END IF;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.propager_gabarit_sous_categorie(uuid, jsonb, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.propager_gabarit_sous_categorie(uuid, jsonb, jsonb) TO authenticated;
+
+COMMENT ON FUNCTION public.propager_gabarit_sous_categorie(uuid, jsonb, jsonb) IS
+  'Pose le gabarit (specifications) d''une sous-catégorie de parc et les valeurs fusionnées par le front de SES équipements, en UNE transaction (178). Hors périmètre ou équipement étranger → 42501, rien d''écrit.';

@@ -28,10 +28,10 @@ import {
 } from '@/features/investissements/etat'
 import {
   useChangeStatutCapex,
-  useModifierDateValidation,
+  useUpdateDateValidation,
   useRetenirDevis,
   type NiveauAccord,
-  useSupprimerDevis,
+  useDeleteDevis,
 } from '@/features/investissements/mutations'
 import { formatEuros } from '@/features/investissements/format'
 import { InvestissementFormDialog } from './investissement-form-dialog'
@@ -91,14 +91,14 @@ export function InvestissementDetail({
   const [refus, setRefus] = useState<1 | 2 | null>(null)
   // Fenêtre de correction de la date d'un accord (150) : lequel, ou aucune.
   const [dateAccord, setDateAccord] = useState<NiveauAccord | null>(null)
-  const modifierDateValidation = useModifierDateValidation()
+  const modifierDateValidation = useUpdateDateValidation()
   const { data: typesDocs = [] } = useQuery(typesDocumentsQueries.list())
   const devisTypeId = typesDocs.find((t) => t.nom === 'Devis')?.id
   const { data: statuts = [] } = useQuery(statutsCapexQueries.list())
   const { data: decisions = [] } = useQuery(decisionsCapexQueries.list(inv.id))
   const change = useChangeStatutCapex()
   const retenir = useRetenirDevis()
-  const supprimerDevis = useSupprimerDevis()
+  const supprimerDevis = useDeleteDevis()
   // Fenêtres des DEVIS (147) : ici, une seule fois — le schéma (et donc la
   // colonne des devis) est rendu deux fois.
   const [fenetreDevis, setFenetreDevis] = useState<{

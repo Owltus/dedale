@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
 
@@ -16,14 +16,16 @@ export const modelesEquipementsQueries = {
    * ce qui en dépose une copie sur le site. Même règle, au même endroit, que
    * les modèles de DI proposés à la création d'une demande.
    */
-  list: (siteId: string | null) =>
-    queryOptions({
-      // Réutilise le fetch de `pool()` (même `queryKey`, un seul aller-retour
-      // partagé) puis restreint côté client. La RLS reste l'arbitre réel.
-      ...modelesEquipementsQueries.pool(),
-      enabled: siteId !== null,
+  list: (siteId: string | null) => {
+    // Réutilise le fetch de `pool()` (même `queryKey`, un seul aller-retour
+    // partagé) puis restreint côté client. La RLS reste l'arbitre réel.
+    const pool = modelesEquipementsQueries.pool()
+    return queryOptions({
+      ...pool,
+      queryFn: siteId === null ? skipToken : pool.queryFn,
       select: (rows) => rows.filter((m) => m.est_actif && m.site_id === siteId),
-    }),
+    })
+  },
 
   /**
    * Catalogue COMPLET (actifs + masqués) SANS filtre de site : le périmètre est

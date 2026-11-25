@@ -18,7 +18,7 @@ import * as perm from '@/lib/permissions'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { DocumentsListe } from './documents-liste'
+import { ListeDocuments } from './liste-documents'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
 import { Button } from '@/components/ui/button'
 import type { DocumentMeta } from '@/features/documents/format'
@@ -218,7 +218,7 @@ export function DocumentsTab({
         }
       >
         {(list) => (
-          <DocumentsListe
+          <ListeDocuments
             docs={list}
             draggable={draggable}
             canEdit={canManage}

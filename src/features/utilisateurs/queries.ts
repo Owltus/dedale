@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { referentielQueryOptions } from '@/lib/referentiel'
 import { invokeFunction } from '@/lib/edge'
@@ -28,32 +28,38 @@ export const utilisateursQueries = {
   all: () => ['utilisateurs'] as const,
 
   /** Profil de l'utilisateur connecté (RLS users_self_select, tous rôles). */
-  me: (userId: string) =>
+  me: (userId: string | null) =>
     queryOptions({
       queryKey: [...utilisateursQueries.all(), 'me', userId] as const,
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('users')
-          .select('id, nom_complet, roles(code)')
-          .eq('id', userId)
-          .maybeSingle()
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        userId === null
+          ? skipToken
+          : async () => {
+              const { data } = await supabase
+                .from('users')
+                .select('id, nom_complet, roles(code)')
+                .eq('id', userId)
+                .maybeSingle()
+                .throwOnError()
+              return data
+            },
     }),
 
   /** Téléphone d'un utilisateur (protégé RGPD : lecture via RPC dédiée). */
-  telephone: (userId: string) =>
+  telephone: (userId: string | null) =>
     queryOptions({
       queryKey: [...utilisateursQueries.all(), 'telephone', userId] as const,
-      queryFn: async () => {
-        const { data } = await supabase
-          .rpc('get_user_telephone', { p_user_id: userId })
-          .throwOnError()
-        // Le type généré est `string`, mais la RPC peut renvoyer NULL à
-        // l'exécution → `||` normalise NULL comme la chaîne vide.
-        return data || ''
-      },
+      queryFn:
+        userId === null
+          ? skipToken
+          : async () => {
+              const { data } = await supabase
+                .rpc('get_user_telephone', { p_user_id: userId })
+                .throwOnError()
+              // Le type généré est `string`, mais la RPC peut renvoyer NULL à
+              // l'exécution → `||` normalise NULL comme la chaîne vide.
+              return data || ''
+            },
     }),
 
   /** Sites attribués à un utilisateur (RLS : admin = tous, manager = ses sites). */

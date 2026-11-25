@@ -84,8 +84,10 @@ export const activiteQueries = {
         siteId,
         ids,
       ] as const,
-      enabled: siteId !== null && ids.length > 0,
-      queryFn: ({ signal }) => lieuxDesDemandes(ids, signal),
+      queryFn:
+        siteId === null || ids.length === 0
+          ? skipToken
+          : ({ signal }) => lieuxDesDemandes(ids, signal),
     }),
 
   travaux: (siteId: string) =>

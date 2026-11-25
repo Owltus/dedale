@@ -59,11 +59,9 @@ function useAccountInfo() {
   const { data: role } = useCurrentRole()
 
   const email = session?.user.email ?? ''
-  const userId = session?.user.id ?? ''
-  const { data: me } = useQuery({
-    ...utilisateursQueries.me(userId),
-    enabled: userId !== '',
-  })
+  const { data: me } = useQuery(
+    utilisateursQueries.me(session?.user.id ?? null),
+  )
   const name = (me?.nom_complet ?? '').trim()
   // Texte principal : le nom du compte (repli sur l'e-mail le temps du chargement).
   const displayName = name || email

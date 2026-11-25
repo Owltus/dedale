@@ -18,7 +18,7 @@ type UserUpdate = Database['public']['Tables']['users']['Update']
  * `lib/supabase.ts` expose un client UNIQUE et partagé, et un `signUp` y
  * remplacerait la session de la personne connectée par celle du compte créé.
  */
-export function useCreerCompte() {
+export function useCreateCompte() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (values: CreerCompteFormValues): Promise<void> => {

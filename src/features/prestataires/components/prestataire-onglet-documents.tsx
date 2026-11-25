@@ -6,7 +6,7 @@ import { ONGLET_ETAT_VIDE } from '@/components/common/detail-tabs-shell'
 import { EmptyState } from '@/components/common/empty-state'
 import { QueryState } from '@/components/common/query-state'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
-import { DocumentsListe } from '@/features/documents/components/documents-liste'
+import { ListeDocuments } from '@/features/documents/components/liste-documents'
 
 /**
  * Onglet Documents — documents rattachés aux ORDRES DE TRAVAIL du prestataire (sur
@@ -32,7 +32,7 @@ export function OtDocumentsPanel({
   return (
     <QueryState
       query={query}
-      // `size="sm"` : `DocumentsListe` rend des `DocumentRow`, dont le défaut
+      // `size="sm"` : `ListeDocuments` rend des `DocumentRow`, dont le défaut
       // est `sm` (h-14). Le défaut du squelette est `md` (h-20) → 24 px d'écart.
       pending={<ListRowSkeletons size="sm" count={4} />}
       empty={
@@ -48,7 +48,7 @@ export function OtDocumentsPanel({
         // Liste documents mutualisée (DocumentRow + Télécharger/Supprimer + aperçu
         // + confirmation impact-aware). Pas de détache : ces documents sont
         // rattachés aux OT du prestataire, pas au prestataire lui-même.
-        <DocumentsListe
+        <ListeDocuments
           docs={list}
           canEdit={canDelete}
           canDelete={canDelete}

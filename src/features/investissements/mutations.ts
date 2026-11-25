@@ -188,7 +188,7 @@ export function useDeleteInvestissement() {
 /** Les deux niveaux d'accord d'un projet (150). */
 export type NiveauAccord = 'prevalidation' | 'validation'
 
-export function useModifierDateValidation() {
+export function useUpdateDateValidation() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
@@ -237,7 +237,7 @@ function devisPayload(v: DevisFormValues) {
 }
 
 /** Ajoute un devis à un projet (147), avec son PDF s'il y en a un. */
-export function useCreerDevis() {
+export function useCreateDevis() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
@@ -266,7 +266,7 @@ export function useCreerDevis() {
 }
 
 /** Modifie un devis ; `documentId` absent = PDF inchangé. */
-export function useModifierDevis() {
+export function useUpdateDevis() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
@@ -313,7 +313,7 @@ export function useRetenirDevis() {
 }
 
 /** Supprime un devis ; son PDF reste dans les documents du projet. */
-export function useSupprimerDevis() {
+export function useDeleteDevis() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {

@@ -36,22 +36,25 @@ export const evenementsQueries = {
    * Tâches d'un événement : libellé (identité), lieu facultatif, statut
    * d'avancement (088, miroir `travaux_taches` ; généralisées 090).
    */
-  lieux: (evenementId: string) =>
+  lieux: (evenementId: string | null) =>
     queryOptions({
       queryKey: [...evenementsQueries.all(), 'lieux', evenementId] as const,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('evenements_lieux')
-          .select(
-            'id, libelle, ordre, statut, local_id, equipement_id, commentaire, date_tache, created_at, locaux(id, nom), equipements(id)',
-          )
-          .eq('evenement_id', evenementId)
-          .order('ordre')
-          .order('created_at')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        evenementId === null
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('evenements_lieux')
+                .select(
+                  'id, libelle, ordre, statut, local_id, equipement_id, commentaire, date_tache, created_at, locaux(id, nom), equipements(id)',
+                )
+                .eq('evenement_id', evenementId)
+                .order('ordre')
+                .order('created_at')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /**

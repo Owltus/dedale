@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import { DocumentPreviewDialog } from '@/features/documents/components/document-preview-dialog'
-import { DocumentsListe } from './documents-liste'
+import { ListeDocuments } from './liste-documents'
 import { DialogShell } from '@/components/common/dialog-shell'
 import type { DocumentMeta } from '@/features/documents/format'
 
@@ -77,7 +77,7 @@ export function DocumentIndicator({
         description="Clique sur un document pour l'afficher."
         size="md"
       >
-        <DocumentsListe docs={documents} />
+        <ListeDocuments docs={documents} />
       </DialogShell>
     </>
   )

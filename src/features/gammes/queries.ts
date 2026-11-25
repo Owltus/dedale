@@ -203,17 +203,19 @@ export const gammesQueries = {
         'operations-multi',
         [...gammeIds].sort().join(','),
       ] as const,
-      enabled: gammeIds.length > 0,
-      queryFn: async ({ signal }) => {
-        const { data } = await supabase
-          .from('operations')
-          .select('gamme_id, nom')
-          .in('gamme_id', gammeIds)
-          .order('ordre')
-          .abortSignal(signal)
-          .throwOnError()
-        return data
-      },
+      queryFn:
+        gammeIds.length === 0
+          ? skipToken
+          : async ({ signal }) => {
+              const { data } = await supabase
+                .from('operations')
+                .select('gamme_id, nom')
+                .in('gamme_id', gammeIds)
+                .order('ordre')
+                .abortSignal(signal)
+                .throwOnError()
+              return data
+            },
     }),
 
   /**

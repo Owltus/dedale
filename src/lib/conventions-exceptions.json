@@ -1,11 +1,5 @@
 [
   {
-    "regle": "cle-litterale",
-    "fichier": "src/features/dmbook/mutations.ts",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
     "regle": "cycle-features",
     "fichier": "src/features/equipements ⇄ src/features/gammes",
     "occurrences": 1,
@@ -30,26 +24,14 @@
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
   {
-    "regle": "ecran-sans-page-container",
-    "fichier": "src/features/documents/components/documents-liste.tsx",
-    "occurrences": 1,
-    "motif": "pas un écran de route : brique de liste de documents montée dans les onglets des fiches, le suffixe -liste prête à confusion ; à renommer (chantier séparé)"
-  },
-  {
     "regle": "enabled-skiptoken",
     "fichier": "src/components/common/slug-detail-route.tsx",
     "occurrences": 2,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "brique générique : bascule entre la lecture de la LISTE et la lecture directe par identifiant court ; les deux options viennent de l’appelant (qui porte déjà son skipToken) — aucun paramètre ne manque, `enabled` choisit laquelle part"
   },
   {
     "regle": "enabled-skiptoken",
-    "fichier": "src/components/layout/user-menu.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/dashboard/activite-queries.ts",
+    "fichier": "src/features/connecteur/queries.ts",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
@@ -57,97 +39,31 @@
     "regle": "enabled-skiptoken",
     "fichier": "src/features/dmbook/components/bandeau-dmbook.tsx",
     "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/documents/components/document-preview-dialog.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "lecture conditionnée au RÔLE (ROLES_DMBOOK : admin, manager, technicien), pas à un paramètre absent : la RPC dmbook_connexions_public n’en prend aucun"
   },
   {
     "regle": "enabled-skiptoken",
     "fichier": "src/features/documents/components/upload-document-dialog.tsx",
     "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/evenements/components/evenement-form-dialog.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "piloté par l’UI : l’onglet « Documents existants » n’existe que si l’appelant fournit onAttachExisting ; siteId est toujours présent"
   },
   {
     "regle": "enabled-skiptoken",
     "fichier": "src/features/gammes/components/gamme-detail.tsx",
     "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/gammes/queries.ts",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "piloté par la gamme : les équipements liés ne servent qu’au message des gammes répétées par équipement (repeter_par_equipement) ; gammeId est toujours présent"
   },
   {
     "regle": "enabled-skiptoken",
     "fichier": "src/features/gammes/use-gamme-badges.ts",
     "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/modeles-equipements/queries.ts",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/modeles-operations/components/gammes-types-panel.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/modeles-operations/queries.ts",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/ordres-travail/components/ordres-travail-liste.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/ordres-travail/queries.ts",
-    "occurrences": 2,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "économie de lecture : les OT ouverts du site (cache partagé avec la page OT) ne sont lus que s’il y a des gammes à badger ; aucun paramètre de la requête ne manque"
   },
   {
     "regle": "enabled-skiptoken",
     "fichier": "src/features/planning/components/planning-page.tsx",
     "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/travaux/components/travaux-form-dialog.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/features/utilisateurs/components/profil.tsx",
-    "occurrences": 2,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "enabled-skiptoken",
-    "fichier": "src/routes/_app/demandes/$demande.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "piloté par l’UI : la fenêtre du mode Focus n’est lue que quand l’utilisateur l’active ; tous les paramètres sont présents"
   },
   {
     "regle": "enabled-skiptoken",
@@ -157,7 +73,7 @@
   },
   {
     "regle": "enabled-skiptoken",
-    "fichier": "src/features/connecteur/queries.ts",
+    "fichier": "src/routes/_app/demandes/$demande.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
@@ -165,25 +81,13 @@
     "regle": "mutation-multi-ecritures",
     "fichier": "src/features/equipements/mutations.ts",
     "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
+    "motif": "à brancher : la RPC transactionnelle propager_gabarit_sous_categorie (migration 178, dans schema_complete.sql) remplace les deux écritures, mais la prod ne l’a pas encore — useUpdateParcSousCategorieChamps y passera au déploiement de 178"
   },
   {
     "regle": "mutation-multi-ecritures",
     "fichier": "src/features/miniatures/mutations.ts",
     "occurrences": 2,
     "motif": "une seule écriture en table ; l’appel suivant (RPC supprimer_blob_orphelin) ne fait que nettoyer le fichier Storage, volontairement non bloquant (antérieur au 25/11/2026)"
-  },
-  {
-    "regle": "nommage-hooks-crud",
-    "fichier": "src/features/investissements/mutations.ts",
-    "occurrences": 4,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "nommage-hooks-crud",
-    "fichier": "src/features/utilisateurs/mutations.ts",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
   },
   {
     "regle": "route-mince",
@@ -196,18 +100,6 @@
     "fichier": "src/routes/_app/demandes/$demande.tsx",
     "occurrences": 2,
     "motif": "lit l’aperçu du tableau de bord (activiteQueries, feature dashboard) : déplacé dans features/demandes, l’écran créerait le cycle demandes ⇄ dashboard ; à rendre mince quand la clé d’aperçu des DI vivra dans demandes/queries"
-  },
-  {
-    "regle": "statut-nombre",
-    "fichier": "src/features/demandes/components/di-detail.tsx",
-    "occurrences": 3,
-    "motif": "antérieur au 25/11/2026, à corriger (chantier séparé)"
-  },
-  {
-    "regle": "statut-nombre",
-    "fichier": "src/lib/permissions.ts",
-    "occurrences": 2,
-    "motif": "lib/ ne peut pas importer features/demandes/etat (règle de dépendances) : constante STATUT_DI_OUVERT à exposer depuis lib/ (chantier séparé, antérieur au 25/11/2026)"
   },
   {
     "regle": "use-memo-callback",
@@ -445,6 +337,12 @@
   },
   {
     "regle": "use-memo-callback",
+    "fichier": "src/features/investissements/components/investissement-ecran.tsx",
+    "occurrences": 1,
+    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
+  },
+  {
+    "regle": "use-memo-callback",
     "fichier": "src/features/investissements/components/survol-case.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
@@ -583,6 +481,12 @@
   },
   {
     "regle": "use-memo-callback",
+    "fichier": "src/features/prestataires/components/prestataire-ecran.tsx",
+    "occurrences": 1,
+    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
+  },
+  {
+    "regle": "use-memo-callback",
     "fichier": "src/features/prestataires/components/prestataire-onglet-gammes.tsx",
     "occurrences": 2,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
@@ -602,6 +506,12 @@
   {
     "regle": "use-memo-callback",
     "fichier": "src/features/sites/site-context.tsx",
+    "occurrences": 1,
+    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
+  },
+  {
+    "regle": "use-memo-callback",
+    "fichier": "src/features/utilisateurs/components/utilisateur-ecran.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   },
@@ -649,18 +559,6 @@
   },
   {
     "regle": "use-memo-callback",
-    "fichier": "src/features/investissements/components/investissement-ecran.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/prestataires/components/prestataire-ecran.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
     "fichier": "src/routes/_app/releves/$releve.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
@@ -668,12 +566,6 @@
   {
     "regle": "use-memo-callback",
     "fichier": "src/routes/_app/travaux/$travaux.tsx",
-    "occurrences": 1,
-    "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
-  },
-  {
-    "regle": "use-memo-callback",
-    "fichier": "src/features/utilisateurs/components/utilisateur-ecran.tsx",
     "occurrences": 1,
     "motif": "antérieur au 25/11/2026 : écrit avant l’activation de React Compiler, les existants restent (docs/conventions/donnees.md → Mémoïsation) ; le compte ne peut que baisser"
   }

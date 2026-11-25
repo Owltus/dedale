@@ -18,7 +18,12 @@ import {
   useCloturerDemande,
 } from '../mutations'
 import { DiEditDialog } from './di-edit-dialog'
-import { statutLabel, statutTone } from '../etat'
+import {
+  STATUT_DI_CLOTURE,
+  STATUT_DI_OUVERT,
+  statutLabel,
+  statutTone,
+} from '../etat'
 import { diTitre } from '../schemas'
 import { utilisateursQueries } from '@/features/utilisateurs/queries'
 import { nomAfficheTexte } from '@/features/equipements/format'
@@ -89,7 +94,7 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
   })
 
   const statut = demande.statut_di_id
-  const isCloture = statut === 3
+  const isCloture = statut === STATUT_DI_CLOTURE
   const canEdit = perm.canEditDemande(role, demande, session?.user.id)
   const canDelete = perm.canDeleteDemande(role, demande, session?.user.id)
   const hasActions = canEdit || canResolve || canDelete
@@ -143,7 +148,7 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
                 />
               )}
               {/* Prendre en charge : Ouvert → En cours. */}
-              {canResolve && statut === 1 && (
+              {canResolve && statut === STATUT_DI_OUVERT && (
                 <TooltipIconButton
                   icon={<Wrench />}
                   label="Prendre en charge"
@@ -163,7 +168,7 @@ export function DiDetail({ demande, canResolve }: DiDetailProps) {
                 />
               )}
               {/* Rouvrir : depuis En cours ou Clôturé → Ouvert. */}
-              {canResolve && statut !== 1 && (
+              {canResolve && statut !== STATUT_DI_OUVERT && (
                 <TooltipIconButton
                   icon={<RotateCcw />}
                   label="Rouvrir la demande"

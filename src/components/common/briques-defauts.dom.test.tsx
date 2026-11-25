@@ -6,7 +6,7 @@ import type { DocumentMeta } from '@/features/documents/format'
 import { PageHeader } from './page-header'
 import { ScopeSelect } from './scope-select'
 import { Tabs } from './tabs'
-import { DocumentsListe } from '@/features/documents/components/documents-liste'
+import { ListeDocuments } from '@/features/documents/components/liste-documents'
 import { MotifDialog } from './motif-dialog'
 import { TooltipIconButton } from './tooltip-icon-button'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -82,9 +82,9 @@ describe('Tabs', () => {
   })
 })
 
-describe('DocumentsListe', () => {
+describe('ListeDocuments', () => {
   it('clic sur une ligne : ouvre l’aperçu interne', async () => {
-    render(<DocumentsListe docs={[DOC]} />)
+    render(<ListeDocuments docs={[DOC]} />)
     expect(screen.queryByRole('dialog')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'rapport.pdf' }))
     expect(screen.getByRole('dialog')).toHaveTextContent('Aperçu rapport.pdf')

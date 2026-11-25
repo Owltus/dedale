@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, skipToken } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { toutesLesLignes } from '@/lib/pagination'
 import { referentielQueryOptions } from '@/lib/referentiel'
@@ -201,10 +201,11 @@ export const documentsQueries = {
    * URL signée temporaire d'un document (aperçu/téléchargement). Expire au bout
    * de 10 min ; `staleTime` < expiration → réémission automatique à la réouverture.
    */
-  signedUrl: (storagePath: string) =>
+  signedUrl: (storagePath: string | null) =>
     queryOptions({
       queryKey: [...documentsQueries.all(), 'signed-url', storagePath] as const,
-      queryFn: () => getSignedUrl(storagePath, 600),
+      queryFn:
+        storagePath === null ? skipToken : () => getSignedUrl(storagePath, 600),
       staleTime: 9 * 60_000,
     }),
 }

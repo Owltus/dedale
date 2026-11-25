@@ -61,10 +61,9 @@ export function TravauxFormDialog({
   const create = useCreateTravaux()
   const update = useUpdateTravaux()
   // En édition, les zones DÉJÀ enregistrées préremplissent le tableau.
-  const { data: tachesExistantes } = useQuery({
-    ...travauxQueries.taches(travaux?.id ?? ''),
-    enabled: isEdit,
-  })
+  const { data: tachesExistantes } = useQuery(
+    travauxQueries.taches(travaux?.id ?? null),
+  )
 
   // `taches` est un état REACT LOCAL, hors react-hook-form — même patron que
   // côté Événements (`EvenementFormDialog`) : le pont `useWatch`/`setValue`

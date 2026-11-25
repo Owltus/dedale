@@ -18,7 +18,7 @@ import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 const DEFAULT_DELETE_WARNING =
   'Suppression définitive : le document est retiré de TOUTES les fiches où il est rattaché et effacé du stockage.'
 
-interface DocumentsListeProps {
+interface ListeDocumentsProps {
   /** Documents à lister (déjà chargés / filtrés par l'hôte). */
   docs: DocumentMeta[]
   /**
@@ -103,7 +103,7 @@ function DraggableDocumentRow({
  * fournit que les données, les droits et les mutations. Source commune de la
  * bibliothèque documentaire et des onglets « Documents » des fiches.
  */
-export function DocumentsListe({
+export function ListeDocuments({
   docs,
   canEdit = false,
   canDelete = false,
@@ -116,7 +116,7 @@ export function DocumentsListe({
   className,
   draggable = false,
   compact = false,
-}: DocumentsListeProps) {
+}: ListeDocumentsProps) {
   const download = useDocumentDownload()
   const [toPreview, setToPreview] = useState<DocumentMeta | null>(null)
   const edition = useEntityDialog<DocumentMeta>()
