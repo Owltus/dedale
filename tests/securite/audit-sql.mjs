@@ -53,7 +53,6 @@ const REGLES = {
   idempotence:
     'écriture non rejouable (CREATE sans OR REPLACE / DROP IF EXISTS)',
   'deleted-at': 'colonne deleted_at (doctrine hard-delete)',
-  'fk-sans-regle': 'clé étrangère sans ON DELETE explicite (NO ACTION)',
   'anon-execute': 'fonction exécutable par anon',
   'fonction-dupliquee':
     'fonction déclarée plusieurs fois (surcharge ou schéma)',
@@ -250,11 +249,11 @@ function auditCatalogue() {
     WHERE table_schema = 'public' AND column_name = 'deleted_at'`))
     constater('deleted-at', t)
 
-  for (const [t, c] of requete(`
-    SELECT con.conrelid::regclass::text, con.conname FROM pg_constraint con
-    JOIN pg_namespace n ON n.oid = con.connamespace
-    WHERE n.nspname = 'public' AND con.contype = 'f' AND con.confdeltype = 'a'`))
-    constater('fk-sans-regle', `${t}.${c}`)
+  // Pas de règle « FK sans ON DELETE explicite » : NO ACTION (le défaut) EST le
+  // « bloquer » de la doctrine, et c'est la forme à garder. RESTRICT se contrôle
+  // immédiatement, y compris au milieu d'une cascade (supprimer un site qui
+  // efface ses lieux ET leurs événements échouerait) ; NO ACTION se contrôle en
+  // fin d'instruction et laisse passer la cascade. Décision du 25/11/2026.
 
   for (const [nom, n] of requete(`
     SELECT p.proname, count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace

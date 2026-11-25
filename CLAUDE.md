@@ -52,7 +52,7 @@ Le **catalogue des briques réutilisables** (~70 documentées, avec leur nombre 
 1. **Single-tenant** : pas de notion de « client ». Tout appartient à l'unique entreprise.
 2. **Sécurité = rôle + sites** (RLS). 5 rôles : `admin` · `manager` · `technicien` · `lecteur` · `demandeur`. On raisonne « mes sites », **jamais** d'assignation nominative.
 3. **RLS = résultat vide, pas erreur** en lecture (→ `.maybeSingle()` si l'absence est normale). Un INSERT/UPDATE hors scope renvoie une **erreur** (`42501`) à catcher.
-4. **Hard-delete** : la colonne `deleted_at` **n'existe plus** (migrations 034-036). Ne jamais filtrer dessus. Les garde-fous sont les FK : `RESTRICT` (conteneur non vide → suppression bloquée, à présenter via `blocked`/`blockedReason`) ou `CASCADE` (liaisons retirées — le dire dans le `warning` de la modale).
+4. **Hard-delete** : la colonne `deleted_at` **n'existe plus** (migrations 034-036). Ne jamais filtrer dessus. Les garde-fous sont les FK : « bloquer » (`NO ACTION`, le défaut, ou `RESTRICT` — préférer `NO ACTION`, qui laisse passer une suppression en cascade alors que `RESTRICT` la casse ; conteneur non vide → suppression bloquée, à présenter via `blocked`/`blockedReason`) ou `CASCADE` (liaisons retirées — le dire dans le `warning` de la modale).
 5. **Machines à états** : une transition interdite renvoie une **erreur** → catcher et afficher proprement.
 6. **Upload document = 3 étapes** : Storage → insert `documents` (avec `site_id`) → insert table de liaison.
 7. **Helpers/RPC en `public.`** (jamais `auth.xxx()` sauf `auth.uid()`). RPC : `current_role`, `get_my_sites`, `copier_gamme`, `instancier_equipement`, `reouvrir_ot`…

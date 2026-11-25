@@ -18514,3 +18514,30 @@ COMMENT ON POLICY di_demandeur_delete ON public.demandes_intervention IS
     'Demandeur : supprime SA DI encore Ouverte, sur un site de son périmètre (050, 180).';
 COMMENT ON POLICY documents_demandeur_select ON public.documents IS
     'Demandeur : lit les documents qu''il a déposés, sur les sites de son périmètre (180).';
+
+-- =============================================================================
+-- 181 — Retirer à anon l'EXECUTE de generate_identifiant_equipement()
+-- =============================================================================
+-- Symptôme corrigé : aucun visible. Trouvé le 25/11/2026 en vérifiant la prod
+-- après 179 : anon (et PUBLIC) peut exécuter generate_identifiant_equipement(),
+-- alors que la base locale montée depuis schema_complete.sql ne le montrait pas
+-- (divergence prod / schéma versionné, invisible de l'audit local).
+--
+-- Cause : droit par défaut de PostgreSQL (EXECUTE à PUBLIC) jamais retiré.
+--
+-- Correctif : REVOKE FROM PUBLIC, anon ; authenticated (DEFAULT de
+-- equipements.code_inventaire, inséré par les rôles métier) et service_role
+-- gardent l'EXECUTE.
+--
+-- Innocuité : anon ne peut insérer aucun équipement (RLS) ; aucune donnée
+-- modifiée ; création d'équipement inchangée pour les rôles connectés.
+--
+-- Vérification après application :
+--     SELECT has_function_privilege('anon', 'public.generate_identifiant_equipement()', 'EXECUTE');
+--     -- attendu : false
+--     SELECT has_function_privilege('authenticated', 'public.generate_identifiant_equipement()', 'EXECUTE');
+--     -- attendu : true
+-- =============================================================================
+
+REVOKE EXECUTE ON FUNCTION public.generate_identifiant_equipement() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.generate_identifiant_equipement() TO authenticated, service_role;
