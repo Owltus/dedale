@@ -36,9 +36,7 @@ import { PageHeader } from '@/components/common/page-header'
 import { EmptyState } from '@/components/common/empty-state'
 import { ListPageBody } from '@/components/common/list-page-body'
 import { QueryState } from '@/components/common/query-state'
-import { ListRow } from '@/components/common/list-row'
 import type { RowAction } from '@/components/common/row-actions'
-import { RowMediaIcon } from '@/components/common/row-media-icon'
 import { ListRowSkeletons } from '@/components/common/list-row-skeletons'
 import {
   matchStatutFilter,
@@ -46,11 +44,14 @@ import {
   FILTRE_TOUS,
 } from '@/components/common/list-filter-bar'
 import { TooltipIconButton } from '@/components/common/tooltip-icon-button'
-import { DocumentIndicator } from '@/features/documents/components/document-indicator'
 import type { DocumentMeta } from '@/features/documents/format'
 import { ConfirmDeleteDialog } from '@/components/common/confirm-delete-dialog'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { StatusBadge, statusLabelById } from '@/components/common/status-badge'
+import { statusLabelById } from '@/components/common/status-badge'
+import {
+  FicheRow,
+  lieuPrincipalTexte,
+} from '@/features/taches/components/fiche-row'
 import { Button } from '@/components/ui/button'
 import type { Database } from '@/lib/database.types'
 import { normaliserRecherche } from '@/lib/recherche'
@@ -221,86 +222,26 @@ export function EvenementsListe({
                     separatorBefore: true,
                   })
                 }
-                const docs = documentsParEvenement.get(ev.id) ?? []
-                // Lieu principal (098) en préfixe du sous-titre — même patron
-                // que la liste des Demandes d'intervention.
-                const lieuTexte = [
-                  ev.locaux?.nom,
-                  ev.equipements &&
-                    (ev.equipements.categories?.nom ?? 'Équipement'),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')
+                const lieuTexte = lieuPrincipalTexte(ev)
                 const texteHabituel = ev.description?.trim()
                   ? ev.description
                   : `Survenu le ${formatDate(ev.date_evenement)}`
                 return (
-                  <ListRow
+                  <FicheRow
                     key={ev.id}
+                    icon={OctagonAlert}
                     tone={statutEvenementTone(ev.statut_evenement_id)}
-                    media={<RowMediaIcon icon={OctagonAlert} />}
-                    title={ev.titre}
-                    subtitle={
+                    titre={ev.titre}
+                    sousTitre={
                       lieuTexte
                         ? `${lieuTexte} · ${texteHabituel}`
                         : texteHabituel
                     }
+                    statutLabel={statutLabel}
+                    // Clôturé → date de clôture, sinon date de survenue.
+                    date={dateAffichee(ev)}
+                    documents={documentsParEvenement.get(ev.id) ?? []}
                     onClick={() => ouvrir(ev, sibs)}
-                    mobileBadge={
-                      docs.length > 0 ? (
-                        <DocumentIndicator
-                          documents={docs}
-                          entiteNom={ev.titre}
-                          size="sm"
-                        />
-                      ) : undefined
-                    }
-                    // UN SEUL bloc à droite : icône documents (brique commune,
-                    // patron OT — rattachés au niveau fiche OU à une tâche,
-                    // tous confondus) COLLÉE à la colonne statut/date, dans le
-                    // MÊME slot `meta` plutôt qu'un `badges` séparé — sinon les
-                    // deux se retrouvent à deux `gap` d'écart (retour
-                    // utilisateur : l'icône paraissait très éloignée). `meta`
-                    // (contrairement à `badges`/`mobileBadge`) n'est PAS relevé
-                    // au-dessus de l'overlay de clic de `ListRow` — sans son
-                    // propre `relative z-10`, l'icône restait donc SOUS
-                    // l'overlay : le clic ouvrait la fiche au lieu du document
-                    // (retour utilisateur : la modale ne s'ouvrait plus). La
-                    // Statut au-dessus, date en dessous. PAS de largeur fixe
-                    // (`w-32`) sur cette colonne dès qu'une icône la précède :
-                    // un statut court (« Ouvert ») laissait alors un vide
-                    // invisible entre l'icône et le badge, à l'intérieur même
-                    // de la colonne (retour utilisateur : « très grande
-                    // distance » — ce n'était pas le `gap`, déjà réduit).
-                    meta={
-                      <div className="flex items-center gap-2">
-                        {docs.length > 0 && (
-                          <div className="relative z-10">
-                            <DocumentIndicator
-                              documents={docs}
-                              entiteNom={ev.titre}
-                              size="sm"
-                            />
-                          </div>
-                        )}
-                        <div className="flex flex-col items-end gap-1">
-                          <StatusBadge
-                            tone={statutEvenementTone(ev.statut_evenement_id)}
-                          >
-                            {statutLabel}
-                          </StatusBadge>
-                          {/* La date SUIT le statut affiché juste au-dessus :
-                              clôturé → date de clôture, sinon date de survenue.
-                              Sans cela, un événement clos affichait la date à
-                              laquelle il était arrivé, et le badge démentait la
-                              date. */}
-                          <span className="text-xs text-muted-foreground tabular-nums">
-                            {formatDate(dateAffichee(ev))}
-                          </span>
-                        </div>
-                      </div>
-                    }
-                    mobileMeta={`${statutLabel} · ${formatDate(dateAffichee(ev))}`}
                     menuActions={rowActions.length ? rowActions : undefined}
                   />
                 )

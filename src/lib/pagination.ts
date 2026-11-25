@@ -48,3 +48,19 @@ export async function toutesLesLignes<T>(
     }
   }
 }
+
+/** Taille d'une page d'onglet de fiche (lectures « par lieu », 183 : plafond 200). */
+export const LIGNES_PAR_ONGLET = 50
+
+/**
+ * `getNextPageParam` d'une lecture paginée par décalage : la page suivante
+ * commence après les lignes déjà lues ; une page incomplète est la dernière.
+ */
+export function decalageSuivant<T>(
+  derniere: readonly T[],
+  toutes: readonly (readonly T[])[],
+): number | undefined {
+  return derniere.length < LIGNES_PAR_ONGLET
+    ? undefined
+    : toutes.length * LIGNES_PAR_ONGLET
+}

@@ -9,6 +9,11 @@ export interface SubTabItem<T extends string = string> {
   label: ReactNode
   /** Icône optionnelle rendue avant le libellé (ex. `<Package className="size-4" />`). */
   icon?: ReactNode
+  /**
+   * Compteur optionnel, en pastille après le libellé (ex. nombre d'éléments non
+   * terminés de l'onglet). Absent → pas de pastille ; `0` s'affiche.
+   */
+  count?: number
 }
 
 /**
@@ -113,6 +118,11 @@ export function SubTabs<T extends string>({
           >
             {tab.icon}
             {tab.label}
+            {tab.count !== undefined && (
+              <span className="rounded-full bg-primary/10 px-1.5 text-xs text-primary tabular-nums">
+                {tab.count.toLocaleString('fr-FR')}
+              </span>
+            )}
           </button>
         )
       })}
