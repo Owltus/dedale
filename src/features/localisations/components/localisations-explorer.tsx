@@ -23,8 +23,9 @@ import { useCurrentRole } from '@/hooks/use-current-role'
 import { useLocalisationsDrill } from '../use-localisations-drill'
 import { useEntityDialog } from '@/hooks/use-entity-dialog'
 import { useConfirmDelete } from '@/hooks/use-confirm-delete'
+import { LieuFiche } from './lieu-fiche'
+import { caracteristiquesLocal, surfaceLocal } from '../lieu-format'
 import { segOfUnique } from '@/lib/slug'
-import { formatChampValeur, parseChamps } from '@/lib/champs'
 import { listStack } from '@/lib/responsive'
 import * as perm from '@/lib/permissions'
 import type { PageHeaderCrumb } from '@/components/common/page-header'
@@ -50,23 +51,7 @@ type Local = Database['public']['Tables']['locaux']['Row']
  */
 function sousTitreLocal(l: Local, typeNom: string | null): string | undefined {
   return (
-    [
-      typeNom,
-      l.surface_m2 === null ? null : `${String(l.surface_m2)} m²`,
-      l.hauteur_m === null ? null : `${String(l.hauteur_m)} m`,
-      l.capacite_personnes === null
-        ? null
-        : `${String(l.capacite_personnes)} pers.`,
-      l.chauffe_climatise ? 'Chauffé/climatisé' : null,
-      l.accessible_pmr ? 'PMR' : null,
-      // Caractéristiques du type (112) : seules celles qui portent une valeur,
-      // pour ne pas allonger la ligne inutilement.
-      ...parseChamps(l.specifications)
-        .filter(
-          (c) => c.valeur !== null && c.valeur !== undefined && c.valeur !== '',
-        )
-        .map((c) => `${c.cle} : ${formatChampValeur(c, c.valeur ?? null)}`),
-    ]
+    [typeNom, surfaceLocal(l), ...caracteristiquesLocal(l)]
       .filter(Boolean)
       .join(' · ') || undefined
   )
@@ -85,10 +70,11 @@ const SUPPRESSION_SUCCES: Record<Suppression['kind'], string> = {
 
 /**
  * Explorateur des Localisations d'un site : navigation par CHEMIN d'URL
- * (`/localisations/<bâtiment>/<niveau>`), même patron qu'Équipements/Bibliothèque
- * (fil d'Ariane, lignes `ListRow`, boutons icône) mais sur l'arbre hétérogène
- * bâtiment → niveau → local. Racine : bâtiments ; dans un bâtiment : ses niveaux ;
- * dans un niveau : ses locaux (feuilles).
+ * (`/localisations/<bâtiment>/<niveau>/<lieu>`), même patron
+ * qu'Équipements/Bibliothèque (fil d'Ariane, lignes `ListRow`, boutons icône)
+ * mais sur l'arbre hétérogène bâtiment → niveau → local. Racine : bâtiments ;
+ * dans un bâtiment : ses niveaux ; dans un niveau : ses locaux ; un local
+ * ouvert : sa fiche (`LieuFiche`).
  */
 export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   const { data: role } = useCurrentRole()
@@ -113,6 +99,13 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
   })()
 
   const locauxQuery = useQuery(localisationsQueries.locaux(niveau?.id ?? null))
+  const locaux = locauxQuery.data ?? []
+  // 3ᵉ palier : le LIEU ouvert, résolu parmi TOUS les locaux du niveau (mêmes
+  // frères que `useLienLieu` en génération → adresse symétrique).
+  const lieu = (() => {
+    if (segs[2] === undefined || !niveau) return null
+    return locaux.find((l) => segOfUnique(l, locaux) === segs[2]) ?? null
+  })()
   const { data: types = [] } = useQuery(localisationsQueries.typesLocaux())
   const typeLabel = (id: number | null) =>
     id === null ? null : (types.find((t) => t.id === id)?.libelle ?? null)
@@ -192,6 +185,14 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
     if (!batiment) return
     goTo([segOfUnique(batiment, batiments), segOfUnique(n, niveaux)])
   }
+  function goToLieu(l: Local) {
+    if (!batiment || !niveau) return
+    goTo([
+      segOfUnique(batiment, batiments),
+      segOfUnique(niveau, niveaux),
+      segOfUnique(l, locaux),
+    ])
+  }
 
   // Enfants BLOQUANTS de la cible (FK RESTRICT) comptés EN AMONT, à l'ouverture
   // de la confirmation, pour expliquer précisément le refus (nombre + noms) au
@@ -249,20 +250,31 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
     onClick: () => goTo([]),
   }
   const ancetres: PageHeaderCrumb[] =
-    niveau && batiment
-      ? [racine, { label: batiment.nom, onClick: () => goToBatiment(batiment) }]
-      : batiment
-        ? [racine]
-        : []
+    lieu && niveau && batiment
+      ? [
+          racine,
+          { label: batiment.nom, onClick: () => goToBatiment(batiment) },
+          { label: niveau.nom, onClick: () => goToNiveau(niveau) },
+        ]
+      : niveau && batiment
+        ? [
+            racine,
+            { label: batiment.nom, onClick: () => goToBatiment(batiment) },
+          ]
+        : batiment
+          ? [racine]
+          : []
 
   const header = (
     <DrillPageHeader
       titreRacine="Localisations"
       ancetres={ancetres}
-      titre={niveau?.nom ?? batiment?.nom}
+      titre={lieu?.nom ?? niveau?.nom ?? batiment?.nom}
       description={sectionDescription}
       action={
-        canEdit ? (
+        // Fiche d'un lieu : pas d'action de création (le lieu est une feuille) ;
+        // ses actions viendront avec ses onglets.
+        canEdit && !lieu ? (
           <>
             {niveau && batiment
               ? newBtn('Nouveau local', locDialog.openCreate)
@@ -389,6 +401,7 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
                 }
                 title={l.nom}
                 subtitle={sousTitreLocal(l, typeLabel(l.type_local_id))}
+                onClick={() => goToLieu(l)}
                 menuActions={rowActions(
                   () => locDialog.openEdit(l),
                   () => suppression.demander({ kind: 'local', item: l }),
@@ -490,6 +503,21 @@ export function LocalisationsExplorer({ siteId }: { siteId: string }) {
           </div>
         )}
       </QueryState>
+    )
+  }
+
+  // FICHE D'UN LIEU : `LieuFiche` pose sa propre coquille (carte d'en-tête puis
+  // onglets), comme la fiche équipement → pas de `ScrollBody`, juste l'en-tête
+  // fixe. Le `key` remet la fiche à zéro d'un lieu à l'autre.
+  if (lieu) {
+    return (
+      <>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <FillHeader>{header}</FillHeader>
+          <LieuFiche key={lieu.id} localId={lieu.id} />
+        </div>
+        {dialogs}
+      </>
     )
   }
 
